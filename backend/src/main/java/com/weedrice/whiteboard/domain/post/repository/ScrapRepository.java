@@ -115,5 +115,14 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
 
     List<Scrap> findByUserAndPostIn(User user, List<Post> posts);
 
+    @Query("""
+            SELECT s.post.postId
+            FROM Scrap s
+            WHERE s.user.userId = :userId
+              AND s.post.postId IN :postIds
+            """)
+    List<Long> findPostIdsByUserIdAndPostIdIn(@Param("userId") Long userId,
+            @Param("postIds") Collection<Long> postIds);
+
     long deleteByUser_UserIdAndPost_PostId(Long userId, Long postId);
 }

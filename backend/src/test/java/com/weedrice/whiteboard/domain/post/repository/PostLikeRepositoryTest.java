@@ -13,6 +13,8 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
@@ -83,5 +85,15 @@ class PostLikeRepositoryTest {
         assertThat(postLikeRepository.existsById(new com.weedrice.whiteboard.domain.post.entity.PostLikeId(
                 likedUser.getUserId(),
                 post.getPostId()))).isFalse();
+    }
+
+    @Test
+    @DisplayName("findPostIdsByUserIdAndPostIdIn returns only liked post IDs")
+    void findPostIdsByUserIdAndPostIdIn_success() {
+        List<Long> postIds = postLikeRepository.findPostIdsByUserIdAndPostIdIn(
+                likedUser.getUserId(),
+                List.of(post.getPostId(), -1L));
+
+        assertThat(postIds).containsExactly(post.getPostId());
     }
 }

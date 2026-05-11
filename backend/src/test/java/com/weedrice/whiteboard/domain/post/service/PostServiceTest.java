@@ -750,9 +750,12 @@ class PostServiceTest {
 
         when(fileService.getFirstImageFileIdsForPosts(anyList())).thenReturn(Map.of(1L, 10L));
 
-        when(postLikeRepository.findByUserAndPostIn(user, List.of(post))).thenReturn(Collections.emptyList());
-        when(scrapRepository.findByUserAndPostIn(user, List.of(post))).thenReturn(Collections.emptyList());
-        when(boardSubscriptionRepository.findByUserAndBoardIn(eq(user), anyList())).thenReturn(Collections.emptyList());
+        when(postLikeRepository.findPostIdsByUserIdAndPostIdIn(eq(1L), anyCollection()))
+                .thenReturn(Collections.emptyList());
+        when(scrapRepository.findPostIdsByUserIdAndPostIdIn(eq(1L), anyCollection()))
+                .thenReturn(Collections.emptyList());
+        when(boardSubscriptionRepository.findBoardUrlsByUserIdAndBoardIdIn(eq(1L), anyCollection()))
+                .thenReturn(Collections.emptyList());
 
         List<PostSummary> result = postService.getTrendingPosts(PageRequest.of(0, 10), 1L);
 
@@ -768,9 +771,12 @@ class PostServiceTest {
                 .thenReturn(List.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(fileService.getFirstImageFileIdsForPosts(anyList())).thenReturn(Collections.emptyMap());
-        when(postLikeRepository.findByUserAndPostIn(user, List.of(post))).thenReturn(Collections.emptyList());
-        when(scrapRepository.findByUserAndPostIn(user, List.of(post))).thenReturn(Collections.emptyList());
-        when(boardSubscriptionRepository.findByUserAndBoardIn(eq(user), anyList())).thenReturn(Collections.emptyList());
+        when(postLikeRepository.findPostIdsByUserIdAndPostIdIn(eq(1L), anyCollection()))
+                .thenReturn(Collections.emptyList());
+        when(scrapRepository.findPostIdsByUserIdAndPostIdIn(eq(1L), anyCollection()))
+                .thenReturn(Collections.emptyList());
+        when(boardSubscriptionRepository.findBoardUrlsByUserIdAndBoardIdIn(eq(1L), anyCollection()))
+                .thenReturn(Collections.emptyList());
 
         LocalDateTime before = LocalDateTime.now();
         postService.getTrendingPosts(PageRequest.of(0, 10), 1L, "7d");
@@ -791,9 +797,12 @@ class PostServiceTest {
                 .thenReturn(List.of(post));
         when(postRepository.countTrendingPosts(any(LocalDateTime.class), anyList())).thenReturn(20L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(postLikeRepository.findByUserAndPostIn(user, List.of(post))).thenReturn(Collections.emptyList());
-        when(scrapRepository.findByUserAndPostIn(user, List.of(post))).thenReturn(Collections.emptyList());
-        when(boardSubscriptionRepository.findByUserAndBoardIn(eq(user), anyList())).thenReturn(Collections.emptyList());
+        when(postLikeRepository.findPostIdsByUserIdAndPostIdIn(eq(1L), anyCollection()))
+                .thenReturn(Collections.emptyList());
+        when(scrapRepository.findPostIdsByUserIdAndPostIdIn(eq(1L), anyCollection()))
+                .thenReturn(Collections.emptyList());
+        when(boardSubscriptionRepository.findBoardUrlsByUserIdAndBoardIdIn(eq(1L), anyCollection()))
+                .thenReturn(Collections.emptyList());
 
         Page<PostSummary> result = postService.getTrendingPostsPage(PageRequest.of(0, 1), 1L, "24h");
 
@@ -2317,9 +2326,12 @@ class PostServiceTest {
                 .thenReturn(new PageImpl<>(List.of(post)));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(fileService.getFirstImageFileIdsForPosts(anyList())).thenReturn(Map.of(1L, 20L));
-        when(postLikeRepository.findByUserAndPostIn(user, List.of(post))).thenReturn(Collections.emptyList());
-        when(scrapRepository.findByUserAndPostIn(user, List.of(post))).thenReturn(Collections.emptyList());
-        when(boardSubscriptionRepository.findByUserAndBoardIn(eq(user), anyList())).thenReturn(Collections.emptyList());
+        when(postLikeRepository.findPostIdsByUserIdAndPostIdIn(eq(1L), anyCollection()))
+                .thenReturn(Collections.emptyList());
+        when(scrapRepository.findPostIdsByUserIdAndPostIdIn(eq(1L), anyCollection()))
+                .thenReturn(Collections.emptyList());
+        when(boardSubscriptionRepository.findBoardUrlsByUserIdAndBoardIdIn(eq(1L), anyCollection()))
+                .thenReturn(Collections.emptyList());
 
         List<PostSummary> result = postService.getLatestPostsByBoard(1L, 5, 1L);
 
@@ -2374,9 +2386,12 @@ class PostServiceTest {
         when(postRepository.findByPostIdIn(List.of(1L))).thenReturn(List.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(fileService.getFirstImageFileIdsForPosts(anyList())).thenReturn(Map.of(1L, 20L));
-        when(postLikeRepository.findByUserAndPostIn(user, List.of(post))).thenReturn(Collections.emptyList());
-        when(scrapRepository.findByUserAndPostIn(user, List.of(post))).thenReturn(Collections.emptyList());
-        when(boardSubscriptionRepository.findByUserAndBoardIn(eq(user), anyList())).thenReturn(Collections.emptyList());
+        when(postLikeRepository.findPostIdsByUserIdAndPostIdIn(eq(1L), anyCollection()))
+                .thenReturn(Collections.emptyList());
+        when(scrapRepository.findPostIdsByUserIdAndPostIdIn(eq(1L), anyCollection()))
+                .thenReturn(Collections.emptyList());
+        when(boardSubscriptionRepository.findBoardUrlsByUserIdAndBoardIdIn(eq(1L), anyCollection()))
+                .thenReturn(Collections.emptyList());
 
         Map<Long, List<PostSummary>> result = postService.getLatestPostsByBoards(List.of(1L), 5, 1L, Set.of(1L));
 
@@ -3047,7 +3062,7 @@ class PostServiceTest {
                 .thenReturn(List.of(adminPost, privatePost));
         when(adminRepository.findByUserAndBoard_BoardIdInAndIsActive(user, List.of(10L, 20L), true))
                 .thenReturn(List.of(admin));
-        stubSummaryInteractions(user, List.of(adminPost));
+        stubSummaryInteractions(user);
 
         Map<Long, PostSummary> summaries = postService.getPostSummariesByIds(List.of(100L, 200L), 1L);
 
@@ -3088,7 +3103,7 @@ class PostServiceTest {
         when(userRepository.findById(3L)).thenReturn(Optional.of(superAdmin));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(3L)).thenReturn(Collections.emptyList());
         when(postRepository.findByPostIdInAndIsDeletedFalse(List.of(100L))).thenReturn(List.of(privatePost));
-        stubSummaryInteractions(superAdmin, List.of(privatePost));
+        stubSummaryInteractions(superAdmin);
 
         Map<Long, PostSummary> summaries = postService.getPostSummariesByIds(List.of(100L), 3L);
 
@@ -3113,7 +3128,7 @@ class PostServiceTest {
         Map<Long, PostSummary> summaries = postService.getPostSummariesByIds(List.of(100L), 1L);
 
         assertThat(summaries).isEmpty();
-        verify(postLikeRepository, never()).findByUserAndPostIn(any(), any());
+        verify(postLikeRepository, never()).findPostIdsByUserIdAndPostIdIn(any(), any());
         verify(adminRepository, never()).findByUserAndBoard_BoardIdInAndIsActive(
                 any(User.class), anyCollection(), anyBoolean());
         verify(adminRepository, never()).existsByUserAndBoardAndIsActive(
@@ -3130,7 +3145,7 @@ class PostServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(postRepository.findByPostIdInAndIsDeletedFalse(List.of(100L))).thenReturn(List.of(publicPost));
-        stubSummaryInteractions(user, List.of(publicPost));
+        stubSummaryInteractions(user);
 
         Map<Long, PostSummary> summaries = postService.getPostSummariesByIds(List.of(100L), 1L);
 
@@ -3174,10 +3189,12 @@ class PostServiceTest {
         return createdPost;
     }
 
-    private void stubSummaryInteractions(User viewer, List<Post> posts) {
-        when(postLikeRepository.findByUserAndPostIn(viewer, posts)).thenReturn(Collections.emptyList());
-        when(scrapRepository.findByUserAndPostIn(viewer, posts)).thenReturn(Collections.emptyList());
-        when(boardSubscriptionRepository.findByUserAndBoardIn(eq(viewer), anyList()))
+    private void stubSummaryInteractions(User viewer) {
+        when(postLikeRepository.findPostIdsByUserIdAndPostIdIn(eq(viewer.getUserId()), anyCollection()))
+                .thenReturn(Collections.emptyList());
+        when(scrapRepository.findPostIdsByUserIdAndPostIdIn(eq(viewer.getUserId()), anyCollection()))
+                .thenReturn(Collections.emptyList());
+        when(boardSubscriptionRepository.findBoardUrlsByUserIdAndBoardIdIn(eq(viewer.getUserId()), anyCollection()))
                 .thenReturn(Collections.emptyList());
     }
 }

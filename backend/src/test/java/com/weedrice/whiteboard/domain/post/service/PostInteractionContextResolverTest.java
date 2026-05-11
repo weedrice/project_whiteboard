@@ -1,11 +1,8 @@
 package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.board.entity.Board;
-import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
-import com.weedrice.whiteboard.domain.post.entity.PostLike;
-import com.weedrice.whiteboard.domain.post.entity.Scrap;
 import com.weedrice.whiteboard.domain.post.repository.PostLikeRepository;
 import com.weedrice.whiteboard.domain.post.repository.ScrapRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -22,6 +19,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -76,12 +74,12 @@ class PostInteractionContextResolverTest {
     @DisplayName("로그인 사용자의 상호작용 컨텍스트를 한번에 조합한다")
     void resolve_success() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(postLikeRepository.findByUserAndPostIn(user, List.of(post)))
-                .thenReturn(List.of(PostLike.builder().user(user).post(post).build()));
-        when(scrapRepository.findByUserAndPostIn(user, List.of(post)))
-                .thenReturn(List.of(Scrap.builder().user(user).post(post).build()));
-        when(boardSubscriptionRepository.findByUserAndBoardIn(user, List.of(post.getBoard())))
-                .thenReturn(List.of(BoardSubscription.builder().user(user).board(post.getBoard()).build()));
+        when(postLikeRepository.findPostIdsByUserIdAndPostIdIn(1L, Set.of(100L)))
+                .thenReturn(List.of(100L));
+        when(scrapRepository.findPostIdsByUserIdAndPostIdIn(1L, Set.of(100L)))
+                .thenReturn(List.of(100L));
+        when(boardSubscriptionRepository.findBoardUrlsByUserIdAndBoardIdIn(1L, Set.of(10L)))
+                .thenReturn(List.of("free"));
 
         PostUserInteractionContext context = resolver.resolve(List.of(post), 1L);
 

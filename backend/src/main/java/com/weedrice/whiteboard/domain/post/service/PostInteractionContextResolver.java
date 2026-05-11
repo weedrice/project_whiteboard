@@ -1,11 +1,9 @@
 package com.weedrice.whiteboard.domain.post.service;
 
-import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostLikeRepository;
 import com.weedrice.whiteboard.domain.post.repository.ScrapRepository;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -30,22 +28,25 @@ public class PostInteractionContextResolver {
             return PostUserInteractionContext.empty();
         }
 
-        User user = userRepository.findById(currentUserId)
+        userRepository.findById(currentUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         if (posts.isEmpty()) {
             return PostUserInteractionContext.empty();
         }
 
-        List<Board> boards = posts.stream().map(Post::getBoard).distinct().collect(Collectors.toList());
-        Set<Long> likedPostIds = postLikeRepository.findByUserAndPostIn(user, posts).stream()
-                .map(like -> like.getPost().getPostId())
+        Set<Long> postIds = posts.stream()
+                .map(Post::getPostId)
                 .collect(Collectors.toSet());
-        Set<Long> scrappedPostIds = scrapRepository.findByUserAndPostIn(user, posts).stream()
-                .map(scrap -> scrap.getPost().getPostId())
+        Set<Long> boardIds = posts.stream()
+                .map(post -> post.getBoard().getBoardId())
                 .collect(Collectors.toSet());
-        Set<String> subscribedBoardUrls = boardSubscriptionRepository.findByUserAndBoardIn(user, boards).stream()
-                .map(subscription -> subscription.getBoard().getBoardUrl())
+        Set<Long> likedPostIds = postLikeRepository.findPostIdsByUserIdAndPostIdIn(currentUserId, postIds).stream()
+                .collect(Collectors.toSet());
+        Set<Long> scrappedPostIds = scrapRepository.findPostIdsByUserIdAndPostIdIn(currentUserId, postIds).stream()
+                .collect(Collectors.toSet());
+        Set<String> subscribedBoardUrls = boardSubscriptionRepository
+                .findBoardUrlsByUserIdAndBoardIdIn(currentUserId, boardIds).stream()
                 .collect(Collectors.toSet());
 
         return new PostUserInteractionContext(likedPostIds, scrappedPostIds, subscribedBoardUrls);

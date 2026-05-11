@@ -38,6 +38,7 @@ class ScrapRepositoryTest {
     private ScrapRepository scrapRepository;
 
     private User scrapper;
+    private Post scrappedPost;
 
     @BeforeEach
     void setUp() {
@@ -63,7 +64,7 @@ class ScrapRepositoryTest {
                 .build();
         entityManager.persist(board);
 
-        Post post = Post.builder()
+        scrappedPost = Post.builder()
                 .board(board)
                 .user(author)
                 .title("스크랩 대상")
@@ -73,11 +74,11 @@ class ScrapRepositoryTest {
                 .isSpoiler(false)
                 .isSecret(false)
                 .build();
-        entityManager.persist(post);
+        entityManager.persist(scrappedPost);
 
         entityManager.persist(Scrap.builder()
                 .user(scrapper)
-                .post(post)
+                .post(scrappedPost)
                 .remark("remark")
                 .build());
         entityManager.flush();
@@ -106,7 +107,17 @@ class ScrapRepositoryTest {
     }
 
     @Test
-    @DisplayName("스크랩 목록은 접근할 수 없는 게시글 메타데이터를 제외한다")
+    @DisplayName("findPostIdsByUserIdAndPostIdIn returns only scrapped post IDs")
+    void findPostIdsByUserIdAndPostIdIn_success() {
+        List<Long> postIds = scrapRepository.findPostIdsByUserIdAndPostIdIn(
+                scrapper.getUserId(),
+                List.of(scrappedPost.getPostId(), -1L));
+
+        assertThat(postIds).containsExactly(scrappedPost.getPostId());
+    }
+
+    @Test
+    @DisplayName("findPageByUserWithPostDetails filters invisible posts")
     void findPageByUserWithPostDetails_filtersInvisiblePosts() {
         User blockedAuthor = persistUser("blocked-author", "blocked-author@test.com", "차단작성자");
         Board blockedBoard = persistBoard("blocked-board", blockedAuthor, true);

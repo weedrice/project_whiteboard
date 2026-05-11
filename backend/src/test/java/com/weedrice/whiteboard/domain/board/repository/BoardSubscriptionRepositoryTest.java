@@ -113,6 +113,16 @@ class BoardSubscriptionRepositoryTest {
                 .containsExactly("hidden", "inactive");
     }
 
+    @Test
+    @DisplayName("findBoardUrlsByUserIdAndBoardIdIn returns only subscribed board URLs")
+    void findBoardUrlsByUserIdAndBoardIdIn_success() {
+        List<String> boardUrls = boardSubscriptionRepository.findBoardUrlsByUserIdAndBoardIdIn(
+                viewer.getUserId(),
+                List.of(publicBoard.getBoardId(), inactiveBoard.getBoardId(), -1L));
+
+        assertThat(boardUrls).containsExactlyInAnyOrder("public", "inactive");
+    }
+
     private User persistUser(String loginId, String email, String displayName) {
         User user = User.builder()
                 .loginId(loginId)

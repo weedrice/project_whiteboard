@@ -149,6 +149,15 @@ public interface BoardSubscriptionRepository extends JpaRepository<BoardSubscrip
     @EntityGraph(attributePaths = "board")
     List<BoardSubscription> findByUserAndBoardIn(User user, List<Board> boards);
 
+    @Query("""
+            SELECT bs.board.boardUrl
+            FROM BoardSubscription bs
+            WHERE bs.user.userId = :userId
+              AND bs.board.boardId IN :boardIds
+            """)
+    List<String> findBoardUrlsByUserIdAndBoardIdIn(@Param("userId") Long userId,
+            @Param("boardIds") Collection<Long> boardIds);
+
     @org.springframework.data.jpa.repository.Query("""
             SELECT bs.board.boardId AS boardId, COUNT(bs) AS subscriberCount
             FROM BoardSubscription bs
