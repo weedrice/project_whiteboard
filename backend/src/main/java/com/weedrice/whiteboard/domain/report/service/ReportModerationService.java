@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.report.service;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
+import com.weedrice.whiteboard.domain.report.constant.ReportConstraints;
 import com.weedrice.whiteboard.domain.report.dto.MyReportResponse;
 import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.entity.Report;
@@ -24,7 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 class ReportModerationService {
-    private static final int MAX_REMARK_LENGTH = 255;
     private static final int DEFAULT_REPORT_PAGE_SIZE = 20;
     private static final Sort DEFAULT_REPORT_SORT = Sort.by(
             Sort.Order.desc("createdAt"),
@@ -108,7 +108,7 @@ class ReportModerationService {
             return null;
         }
         String normalizedRemark = remark.strip();
-        if (normalizedRemark.length() > MAX_REMARK_LENGTH) {
+        if (normalizedRemark.length() > ReportConstraints.MAX_REMARK_LENGTH) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
         return normalizedRemark;

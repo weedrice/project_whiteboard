@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.report.service;
 
+import com.weedrice.whiteboard.domain.report.constant.ReportConstraints;
 import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
@@ -143,6 +144,55 @@ class ReportCommandServiceTest {
     }
 
     @Test
+    @DisplayName("createReport trims contents before save")
+    void createReport_trimsContentsBeforeSave() {
+        User reporter = User.builder().build();
+        ReflectionTestUtils.setField(reporter, "userId", 1L);
+        Report savedReport = Report.builder()
+                .reporter(reporter)
+                .targetType("POST")
+                .targetId(2L)
+                .reasonType("SPAM")
+                .contents("details")
+                .build();
+        ReflectionTestUtils.setField(savedReport, "reportId", 14L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
+        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "POST", 2L))
+                .thenReturn(Optional.empty());
+        when(reportRepository.saveAndFlush(any(Report.class))).thenReturn(savedReport);
+
+        reportCommandService.createReport(1L, "POST", 2L, "SPAM", null, "  details  ");
+
+        ArgumentCaptor<Report> captor = ArgumentCaptor.forClass(Report.class);
+        verify(reportRepository).saveAndFlush(captor.capture());
+        assertThat(captor.getValue().getContents()).isEqualTo("details");
+    }
+
+    @Test
+    @DisplayName("createReport stores blank contents as null")
+    void createReport_blankContents_storesNull() {
+        User reporter = User.builder().build();
+        ReflectionTestUtils.setField(reporter, "userId", 1L);
+        Report savedReport = Report.builder()
+                .reporter(reporter)
+                .targetType("POST")
+                .targetId(2L)
+                .reasonType("SPAM")
+                .build();
+        ReflectionTestUtils.setField(savedReport, "reportId", 15L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
+        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "POST", 2L))
+                .thenReturn(Optional.empty());
+        when(reportRepository.saveAndFlush(any(Report.class))).thenReturn(savedReport);
+
+        reportCommandService.createReport(1L, "POST", 2L, "SPAM", null, "   ");
+
+        ArgumentCaptor<Report> captor = ArgumentCaptor.forClass(Report.class);
+        verify(reportRepository).saveAndFlush(captor.capture());
+        assertThat(captor.getValue().getContents()).isNull();
+    }
+
+    @Test
     @DisplayName("createReport rejects overlong remark")
     void createReport_overlongRemark_throwsValidationError() {
         User reporter = User.builder().build();
@@ -151,6 +201,37 @@ class ReportCommandServiceTest {
 
         assertThatThrownBy(() -> reportCommandService.createReport(
                 1L, "POST", 2L, "SPAM", "a".repeat(256), null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+        verify(reportRepository, never()).saveAndFlush(any(Report.class));
+    }
+
+    @Test
+    @DisplayName("createReport rejects overlong contents")
+    void createReport_overlongContents_throwsValidationError() {
+        User reporter = User.builder().build();
+        ReflectionTestUtils.setField(reporter, "userId", 1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
+
+        assertThatThrownBy(() -> reportCommandService.createReport(
+                1L, "POST", 2L, "SPAM", null, "a".repeat(ReportConstraints.MAX_CONTENTS_LENGTH + 1)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+        verify(reportRepository, never()).saveAndFlush(any(Report.class));
+    }
+
+    @Test
+    @DisplayName("createReport rejects contents whose raw length exceeds the controller limit")
+    void createReport_overlongRawContents_throwsValidationError() {
+        User reporter = User.builder().build();
+        ReflectionTestUtils.setField(reporter, "userId", 1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
+
+        String paddedContents = " " + "a".repeat(ReportConstraints.MAX_CONTENTS_LENGTH) + " ";
+        assertThatThrownBy(() -> reportCommandService.createReport(
+                1L, "POST", 2L, "SPAM", null, paddedContents))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
 

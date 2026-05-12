@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.report.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.weedrice.whiteboard.domain.report.constant.ReportConstraints;
 import com.weedrice.whiteboard.domain.report.dto.MyReportResponse;
 import com.weedrice.whiteboard.domain.report.dto.ReportCreateRequest;
 import com.weedrice.whiteboard.domain.report.entity.ReportReasonType;
@@ -299,6 +300,82 @@ class ReportControllerTest {
                         .with(user(customUserDetails))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+
+        verify(reportService, never()).createReport(anyLong(), anyString(), anyLong(), anyString(), any(), any());
+    }
+
+    @Test
+    @DisplayName("createReport rejects overlong contents")
+    void createReport_rejectsOverlongContents() throws Exception {
+        ReportCreateRequest request = new ReportCreateRequest();
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "targetType", ReportTargetType.POST);
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "targetId", 1L);
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "reasonType", ReportReasonType.SPAM);
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                request,
+                "contents",
+                "a".repeat(ReportConstraints.MAX_CONTENTS_LENGTH + 1));
+
+        mockMvc.perform(post("/api/v1/reports")
+                        .with(user(customUserDetails))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+
+        verify(reportService, never()).createReport(anyLong(), anyString(), anyLong(), anyString(), any(), any());
+    }
+
+    @Test
+    @DisplayName("reportUser rejects overlong reason")
+    void reportUser_rejectsOverlongReason() throws Exception {
+        mockMvc.perform(post("/api/v1/reports/users")
+                        .with(user(customUserDetails))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "targetUserId": 11,
+                                  "reason": "%s"
+                                }
+                                """.formatted("a".repeat(ReportConstraints.MAX_CONTENTS_LENGTH + 1))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+
+        verify(reportService, never()).createReport(anyLong(), anyString(), anyLong(), anyString(), any(), any());
+    }
+
+    @Test
+    @DisplayName("reportPost rejects overlong reason")
+    void reportPost_rejectsOverlongReason() throws Exception {
+        mockMvc.perform(post("/api/v1/reports/posts")
+                        .with(user(customUserDetails))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "targetPostId": 10,
+                                  "reason": "%s"
+                                }
+                                """.formatted("a".repeat(ReportConstraints.MAX_CONTENTS_LENGTH + 1))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+
+        verify(reportService, never()).createReport(anyLong(), anyString(), anyLong(), anyString(), any(), any());
+    }
+
+    @Test
+    @DisplayName("reportComment rejects overlong reason")
+    void reportComment_rejectsOverlongReason() throws Exception {
+        mockMvc.perform(post("/api/v1/reports/comments")
+                        .with(user(customUserDetails))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "targetCommentId": 12,
+                                  "reason": "%s"
+                                }
+                                """.formatted("a".repeat(ReportConstraints.MAX_CONTENTS_LENGTH + 1))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
 

@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.report.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.weedrice.whiteboard.domain.report.constant.ReportConstraints;
 import com.weedrice.whiteboard.domain.report.entity.ReportStatus;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
@@ -13,7 +14,7 @@ import lombok.NoArgsConstructor;
 public class ReportProcessRequest {
     @NotNull
     private ReportStatus status;
-    @Size(max = 255)
+    @Size(max = ReportConstraints.MAX_REMARK_LENGTH)
     private String remark;
 
     @JsonIgnore

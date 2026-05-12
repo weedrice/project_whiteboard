@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.report.service;
 
+import com.weedrice.whiteboard.domain.report.constant.ReportConstraints;
 import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.entity.ReportReasonType;
 import com.weedrice.whiteboard.domain.report.entity.ReportTargetType;
@@ -20,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 class ReportCommandService {
 
     private static final String REPORT_DUPLICATE_CONSTRAINT = "uk_reports_user_target";
-    private static final int MAX_REMARK_LENGTH = 255;
 
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
@@ -36,6 +36,7 @@ class ReportCommandService {
         String normalizedTargetType = normalizeTargetType(targetType);
         String normalizedReasonType = normalizeReasonType(reasonType);
         String normalizedRemark = normalizeRemark(remark);
+        String normalizedContents = normalizeContents(contents);
 
         reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, normalizedTargetType, targetId)
                 .ifPresent(report -> {
@@ -50,7 +51,7 @@ class ReportCommandService {
                 .targetId(targetId)
                 .reasonType(normalizedReasonType)
                 .remark(normalizedRemark)
-                .contents(contents)
+                .contents(normalizedContents)
                 .build();
         try {
             return reportRepository.saveAndFlush(report).getReportId();
@@ -86,10 +87,24 @@ class ReportCommandService {
             return null;
         }
         String normalizedRemark = remark.strip();
-        if (normalizedRemark.length() > MAX_REMARK_LENGTH) {
+        if (normalizedRemark.length() > ReportConstraints.MAX_REMARK_LENGTH) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
         return normalizedRemark;
+    }
+
+    private String normalizeContents(String contents) {
+        if (contents == null) {
+            return null;
+        }
+        if (contents.length() > ReportConstraints.MAX_CONTENTS_LENGTH) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+        String normalizedContents = contents.strip();
+        if (normalizedContents.isBlank()) {
+            return null;
+        }
+        return normalizedContents;
     }
 
     private boolean isDuplicateReportConflict(DataIntegrityViolationException exception) {
