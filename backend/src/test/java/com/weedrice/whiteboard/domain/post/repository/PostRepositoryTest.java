@@ -437,6 +437,7 @@ class PostRepositoryTest {
     @DisplayName("관리자 문의 목록은 삭제된 게시글을 제외한다")
     void findByBoardAndIsDeletedFalse_excludesDeletedPosts() {
         Board inquiryBoard = persistBoard("Admin Inquiry Board", "inquiry", false);
+        Agent agent = persistAgent("Admin Inquiry Agent");
         BoardCategory inquiryCategory = BoardCategory.builder()
                 .name("Inquiry")
                 .board(inquiryBoard)
@@ -446,6 +447,7 @@ class PostRepositoryTest {
                 .title("Active Inquiry")
                 .contents("Active Contents")
                 .user(user)
+                .agent(agent)
                 .board(inquiryBoard)
                 .category(inquiryCategory)
                 .build();
@@ -471,6 +473,12 @@ class PostRepositoryTest {
                 .doesNotContain("Deleted Inquiry");
         assertThat(posts.getTotalElements()).isEqualTo(1);
         assertThat(posts.getTotalPages()).isEqualTo(1);
+        Post loadedPost = posts.getContent().get(0);
+        PersistenceUnitUtil persistenceUnitUtil = entityManagerFactory.getPersistenceUnitUtil();
+        assertThat(persistenceUnitUtil.isLoaded(loadedPost, "user")).isTrue();
+        assertThat(persistenceUnitUtil.isLoaded(loadedPost, "agent")).isTrue();
+        assertThat(persistenceUnitUtil.isLoaded(loadedPost, "board")).isTrue();
+        assertThat(persistenceUnitUtil.isLoaded(loadedPost, "category")).isTrue();
     }
 
     @Test

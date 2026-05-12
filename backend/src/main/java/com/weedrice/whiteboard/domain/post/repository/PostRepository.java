@@ -128,7 +128,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 @Param("inquiryBoardUrl") String inquiryBoardUrl);
         @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
         List<Post> findByBoard_BoardIdAndIsNoticeAndIsDeletedOrderByCreatedAtDesc(Long boardId, Boolean isNotice, Boolean isDeleted);
-        @EntityGraph(attributePaths = {"user", "board", "category"})
+        @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
         Page<Post> findByBoard_BoardIdAndIsDeletedFalse(Long boardId, Pageable pageable);
         @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
         List<Post> findByPostIdIn(Collection<Long> postIds);
