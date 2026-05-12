@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.ad.entity.Ad;
 import com.weedrice.whiteboard.domain.ad.entity.AdClickLog;
 import com.weedrice.whiteboard.domain.ad.repository.AdClickLogRepository;
 import com.weedrice.whiteboard.domain.ad.repository.AdRepository;
+import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -155,6 +156,65 @@ class AdServiceTest {
         verify(adClickLogRepository).save(clickLogCaptor.capture());
         assertThat(clickLogCaptor.getValue().getClickedAt()).isEqualTo(FIXED_NOW);
         assertThat(clickLogCaptor.getValue().getIpAddress()).isEqualTo("203.0.113.10");
+        assertThat(clickLogCaptor.getValue().getUser()).isNull();
+        assertThat(clickLogCaptor.getValue().getAnonymousReason())
+                .isEqualTo(AdClickLog.ANONYMOUS_REASON_ANONYMOUS_REQUEST);
+    }
+
+    @Test
+    @DisplayName("click 기록은 활성 인증 사용자를 로그에 연결한다")
+    void recordAdClick_activeUser_linksUser() {
+        Ad ad = buildActiveAd("HEADER", FIXED_NOW.plusDays(1));
+        User user = buildActiveUser();
+        when(adRepository.findActiveById(1L, FIXED_NOW)).thenReturn(Optional.of(ad));
+        when(adRepository.incrementClickCountForActive(1L, FIXED_NOW)).thenReturn(1);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        String targetUrl = adService.recordAdClick(1L, 1L, "127.0.0.1");
+
+        assertThat(targetUrl).isEqualTo("https://example.com");
+        ArgumentCaptor<AdClickLog> clickLogCaptor = ArgumentCaptor.forClass(AdClickLog.class);
+        verify(adClickLogRepository).save(clickLogCaptor.capture());
+        assertThat(clickLogCaptor.getValue().getUser()).isSameAs(user);
+        assertThat(clickLogCaptor.getValue().getAnonymousReason()).isNull();
+    }
+
+    @Test
+    @DisplayName("click 기록은 전달된 사용자 ID를 찾지 못하면 익명화 사유를 남긴다")
+    void recordAdClick_missingUser_recordsAnonymousReason() {
+        Ad ad = buildActiveAd("HEADER", FIXED_NOW.plusDays(1));
+        when(adRepository.findActiveById(1L, FIXED_NOW)).thenReturn(Optional.of(ad));
+        when(adRepository.incrementClickCountForActive(1L, FIXED_NOW)).thenReturn(1);
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
+
+        String targetUrl = adService.recordAdClick(1L, 99L, "127.0.0.1");
+
+        assertThat(targetUrl).isEqualTo("https://example.com");
+        ArgumentCaptor<AdClickLog> clickLogCaptor = ArgumentCaptor.forClass(AdClickLog.class);
+        verify(adClickLogRepository).save(clickLogCaptor.capture());
+        assertThat(clickLogCaptor.getValue().getUser()).isNull();
+        assertThat(clickLogCaptor.getValue().getAnonymousReason())
+                .isEqualTo(AdClickLog.ANONYMOUS_REASON_USER_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("click 기록은 비활성 사용자를 익명화하고 사유를 남긴다")
+    void recordAdClick_inactiveUser_recordsAnonymousReason() {
+        Ad ad = buildActiveAd("HEADER", FIXED_NOW.plusDays(1));
+        User user = buildActiveUser();
+        user.suspend();
+        when(adRepository.findActiveById(1L, FIXED_NOW)).thenReturn(Optional.of(ad));
+        when(adRepository.incrementClickCountForActive(1L, FIXED_NOW)).thenReturn(1);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        String targetUrl = adService.recordAdClick(1L, 1L, "127.0.0.1");
+
+        assertThat(targetUrl).isEqualTo("https://example.com");
+        ArgumentCaptor<AdClickLog> clickLogCaptor = ArgumentCaptor.forClass(AdClickLog.class);
+        verify(adClickLogRepository).save(clickLogCaptor.capture());
+        assertThat(clickLogCaptor.getValue().getUser()).isNull();
+        assertThat(clickLogCaptor.getValue().getAnonymousReason())
+                .isEqualTo(AdClickLog.ANONYMOUS_REASON_USER_NOT_ACTIVE);
     }
 
     @Test
@@ -206,6 +266,15 @@ class AdServiceTest {
                 .targetUrl("https://example.com")
                 .startDate(FIXED_NOW.minusDays(1))
                 .endDate(endDate)
+                .build();
+    }
+
+    private User buildActiveUser() {
+        return User.builder()
+                .loginId("user")
+                .password("password")
+                .email("user@test.com")
+                .displayName("User")
                 .build();
     }
 

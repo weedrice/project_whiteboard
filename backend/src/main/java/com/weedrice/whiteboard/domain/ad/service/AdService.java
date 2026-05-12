@@ -73,19 +73,31 @@ public class AdService {
             throw new BusinessException(ErrorCode.AD_NOT_FOUND);
         }
 
-        User user = null;
-        if (userId != null) {
-            user = userRepository.findById(userId).orElse(null);
-        }
+        AdClickUserResolution userResolution = resolveClickUser(userId);
 
         AdClickLog clickLog = AdClickLog.builder()
                 .ad(ad)
-                .user(user)
+                .user(userResolution.user())
                 .ipAddress(ClientMetadataNormalizer.normalizeIpAddress(ipAddress))
+                .anonymousReason(userResolution.anonymousReason())
                 .clickedAt(now)
                 .build();
         adClickLogRepository.save(clickLog);
 
         return ad.getTargetUrl();
+    }
+
+    private AdClickUserResolution resolveClickUser(Long userId) {
+        if (userId == null) {
+            return new AdClickUserResolution(null, AdClickLog.ANONYMOUS_REASON_ANONYMOUS_REQUEST);
+        }
+        return userRepository.findById(userId)
+                .map(user -> user.isActiveAccount()
+                        ? new AdClickUserResolution(user, null)
+                        : new AdClickUserResolution(null, AdClickLog.ANONYMOUS_REASON_USER_NOT_ACTIVE))
+                .orElseGet(() -> new AdClickUserResolution(null, AdClickLog.ANONYMOUS_REASON_USER_NOT_FOUND));
+    }
+
+    private record AdClickUserResolution(User user, String anonymousReason) {
     }
 }

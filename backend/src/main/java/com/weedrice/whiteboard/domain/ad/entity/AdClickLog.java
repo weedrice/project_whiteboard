@@ -19,6 +19,9 @@ import java.util.Objects;
         @Index(name = "idx_ad_click_logs_user", columnList = "user_id")
 })
 public class AdClickLog extends BaseTimeEntity {
+    public static final String ANONYMOUS_REASON_ANONYMOUS_REQUEST = "ANONYMOUS_REQUEST";
+    public static final String ANONYMOUS_REASON_USER_NOT_FOUND = "USER_NOT_FOUND";
+    public static final String ANONYMOUS_REASON_USER_NOT_ACTIVE = "USER_NOT_ACTIVE";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -39,11 +42,15 @@ public class AdClickLog extends BaseTimeEntity {
     @Column(name = "ip_address", length = 45)
     private String ipAddress;
 
+    @Column(name = "anonymous_reason", length = 40)
+    private String anonymousReason;
+
     @Builder
-    public AdClickLog(Ad ad, User user, String ipAddress, LocalDateTime clickedAt) {
+    public AdClickLog(Ad ad, User user, String ipAddress, String anonymousReason, LocalDateTime clickedAt) {
         this.ad = ad;
         this.user = user;
         this.ipAddress = ipAddress;
+        this.anonymousReason = anonymousReason;
         this.clickedAt = Objects.requireNonNull(clickedAt, "clickedAt must not be null");
     }
 }
