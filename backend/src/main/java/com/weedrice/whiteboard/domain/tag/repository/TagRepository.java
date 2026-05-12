@@ -1,11 +1,14 @@
 package com.weedrice.whiteboard.domain.tag.repository;
 
 import com.weedrice.whiteboard.domain.tag.entity.Tag;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -14,6 +17,10 @@ public interface TagRepository extends JpaRepository<Tag, Long> {
     Optional<Tag> findByTagName(String tagName);
 
     List<Tag> findByTagNameIn(Collection<String> tagNames);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT t FROM Tag t WHERE t.tagName IN :tagNames ORDER BY t.tagName ASC")
+    List<Tag> findByTagNameInForUpdate(@Param("tagNames") Collection<String> tagNames);
 
     List<Tag> findTop10ByPostCountGreaterThanOrderByPostCountDesc(Integer postCount);
 
@@ -40,4 +47,17 @@ public interface TagRepository extends JpaRepository<Tag, Long> {
             WHERE t.tagId IN :tagIds
             """)
     int decrementPostCountIn(@Param("tagIds") Collection<Long> tagIds);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            DELETE FROM Tag t
+            WHERE t.postCount = 0
+              AND t.createdAt < :cutoff
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM PostTag pt
+                  WHERE pt.tag = t
+              )
+            """)
+    int deleteOrphanTagsCreatedBefore(@Param("cutoff") LocalDateTime cutoff);
 }

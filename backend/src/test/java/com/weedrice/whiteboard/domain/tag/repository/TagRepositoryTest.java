@@ -1,6 +1,10 @@
 package com.weedrice.whiteboard.domain.tag.repository;
 
+import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.tag.entity.PostTag;
 import com.weedrice.whiteboard.domain.tag.entity.Tag;
+import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.config.QuerydslConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -10,6 +14,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -108,5 +113,83 @@ class TagRepositoryTest {
                 .get()
                 .extracting(Tag::getPostCount)
                 .isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("24시간 초과 고아 태그를 삭제한다")
+    void deleteOrphanTagsCreatedBefore_deletesOldZeroCountOrphans() {
+        Tag orphanTag = new Tag("old-orphan-tag");
+        entityManager.persist(orphanTag);
+        entityManager.flush();
+        LocalDateTime cutoff = LocalDateTime.of(2026, 5, 11, 3, 0);
+        setTagCreatedAt(orphanTag, cutoff.minusHours(1));
+
+        int deleted = tagRepository.deleteOrphanTagsCreatedBefore(cutoff);
+        entityManager.flush();
+
+        assertThat(deleted).isEqualTo(1);
+        assertThat(tagRepository.findById(orphanTag.getTagId())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("연결된 태그와 사용 중인 태그와 최신 태그는 삭제하지 않는다")
+    void deleteOrphanTagsCreatedBefore_keepsNonOrphans() {
+        User user = User.builder()
+                .loginId("tag-clean-user")
+                .email("tag-clean@test.com")
+                .password("password")
+                .displayName("Tag Clean User")
+                .build();
+        entityManager.persist(user);
+        Board board = Board.builder()
+                .boardName("Tag Clean Board")
+                .boardUrl("tag-clean-board")
+                .creator(user)
+                .build();
+        entityManager.persist(board);
+        Post post = Post.builder()
+                .title("Tag clean post")
+                .contents("contents")
+                .user(user)
+                .board(board)
+                .build();
+        entityManager.persist(post);
+
+        Tag linkedTag = new Tag("linked-tag");
+        Tag countedTag = new Tag("counted-tag");
+        countedTag.incrementPostCount();
+        Tag recentTag = new Tag("recent-tag");
+        Tag boundaryTag = new Tag("boundary-tag");
+        entityManager.persist(linkedTag);
+        entityManager.persist(countedTag);
+        entityManager.persist(recentTag);
+        entityManager.persist(boundaryTag);
+        entityManager.persist(PostTag.builder().post(post).tag(linkedTag).build());
+        entityManager.flush();
+
+        LocalDateTime cutoff = LocalDateTime.of(2026, 5, 11, 3, 0);
+        setTagCreatedAt(linkedTag, cutoff.minusHours(1));
+        setTagCreatedAt(countedTag, cutoff.minusHours(1));
+        setTagCreatedAt(recentTag, cutoff.plusMinutes(1));
+        setTagCreatedAt(boundaryTag, cutoff);
+
+        int deleted = tagRepository.deleteOrphanTagsCreatedBefore(cutoff);
+        entityManager.flush();
+
+        assertThat(deleted).isZero();
+        assertThat(tagRepository.findById(linkedTag.getTagId())).isPresent();
+        assertThat(tagRepository.findById(countedTag.getTagId())).isPresent();
+        assertThat(tagRepository.findById(recentTag.getTagId())).isPresent();
+        assertThat(tagRepository.findById(boundaryTag.getTagId())).isPresent();
+    }
+
+    private void setTagCreatedAt(Tag tag, LocalDateTime createdAt) {
+        entityManager.getEntityManager()
+                .createNativeQuery("UPDATE tags SET created_at = ?, modified_at = ? WHERE tag_id = ?")
+                .setParameter(1, createdAt)
+                .setParameter(2, createdAt)
+                .setParameter(3, tag.getTagId())
+                .executeUpdate();
+        entityManager.clear();
     }
 }

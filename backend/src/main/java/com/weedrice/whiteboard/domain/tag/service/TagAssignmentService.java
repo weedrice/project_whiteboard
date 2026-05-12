@@ -71,7 +71,7 @@ public class TagAssignmentService {
             return List.of();
         }
 
-        Map<String, Tag> tagsByName = tagRepository.findByTagNameIn(tagNamesToAdd).stream()
+        Map<String, Tag> tagsByName = tagRepository.findByTagNameInForUpdate(tagNamesToAdd).stream()
                 .collect(Collectors.toMap(Tag::getTagName, Function.identity()));
         return tagNamesToAdd.stream()
                 .map(tagName -> addPostTag(post, tagName, tagsByName))
