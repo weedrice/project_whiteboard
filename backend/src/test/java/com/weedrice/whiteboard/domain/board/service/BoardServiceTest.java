@@ -50,6 +50,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -1612,6 +1613,34 @@ class BoardServiceTest {
     }
 
     @Test
+    @DisplayName("내 구독 목록은 요청 정렬을 무시하고 고정 정렬을 사용한다")
+    void getMySubscriptions_ignoresRequestedSortForFixedOrder() {
+        BoardSubscription subscription = BoardSubscription.builder()
+                .user(user)
+                .board(board)
+                .role("MEMBER")
+                .sortOrder(1)
+                .build();
+        PageRequest requestedPageable = PageRequest.of(0, 10, Sort.by(Sort.Order.desc("boardName")));
+        PageRequest fixedPageable = PageRequest.of(0, 10);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardSubscriptionRepository.findVisibleByUserOrderBySortOrderAsc(
+                user, false, fixedPageable))
+                .thenReturn(new PageImpl<>(List.of(subscription), fixedPageable, 1));
+        when(boardSubscriptionRepository.findByUserAndBoardIn(user, List.of(board))).thenReturn(List.of(subscription));
+
+        var result = boardService.getMySubscriptions(1L, requestedPageable);
+
+        assertThat(result.getPageable().getSort().isUnsorted()).isTrue();
+        verify(boardSubscriptionRepository).findVisibleByUserOrderBySortOrderAsc(user, false, fixedPageable);
+        verify(boardSubscriptionRepository, never()).findVisibleByUserOrderBySortOrderAsc(
+                user,
+                false,
+                requestedPageable);
+    }
+
+    @Test
     @DisplayName("구독 순서 변경은 전체 목록이 일치할 때만 1..N으로 재기록한다")
     void updateSubscriptionOrder_rewritesAllSortOrders() {
         Board secondBoard = Board.builder()
@@ -2120,6 +2149,45 @@ class BoardServiceTest {
         assertThat(result.getTotalElements()).isEqualTo(1);
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getBoardUrl()).isEqualTo("test-board");
+    }
+
+    @Test
+    @DisplayName("숨겨진 구독 포함 목록은 요청 정렬을 무시하고 고정 정렬을 사용한다")
+    void getMySubscriptions_includeUnavailableIgnoresRequestedSortForFixedOrder() {
+        User hiddenBoardCreator = User.builder()
+                .loginId("hidden-owner")
+                .password("password")
+                .email("hidden@test.com")
+                .displayName("Hidden Owner")
+                .build();
+        ReflectionTestUtils.setField(hiddenBoardCreator, "userId", 99L);
+
+        Board hiddenBoard = Board.builder()
+                .boardName("Hidden Board")
+                .boardUrl("hidden-board")
+                .creator(hiddenBoardCreator)
+                .isPublic(false)
+                .build();
+        ReflectionTestUtils.setField(hiddenBoard, "boardId", 3L);
+
+        BoardSubscription hiddenSubscription = BoardSubscription.builder()
+                .user(user)
+                .board(hiddenBoard)
+                .role("MEMBER")
+                .sortOrder(1)
+                .build();
+        PageRequest requestedPageable = PageRequest.of(0, 10, Sort.by(Sort.Order.desc("boardName")));
+        PageRequest fixedPageable = PageRequest.of(0, 10);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardSubscriptionRepository.findByUserOrderBySortOrderAsc(user, fixedPageable))
+                .thenReturn(new PageImpl<>(List.of(hiddenSubscription), fixedPageable, 1));
+
+        var result = boardService.getMySubscriptions(1L, requestedPageable, true);
+
+        assertThat(result.getPageable().getSort().isUnsorted()).isTrue();
+        verify(boardSubscriptionRepository).findByUserOrderBySortOrderAsc(user, fixedPageable);
+        verify(boardSubscriptionRepository, never()).findByUserOrderBySortOrderAsc(user, requestedPageable);
     }
 
     @Test

@@ -155,8 +155,11 @@ class BoardQueryService {
         }
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        Pageable fixedOrderPageable = fixedSubscriptionOrderPageable(pageable);
         if (includeUnavailable) {
-            Page<BoardSubscription> subscriptions = boardSubscriptionRepository.findByUserOrderBySortOrderAsc(user, pageable);
+            Page<BoardSubscription> subscriptions = boardSubscriptionRepository.findByUserOrderBySortOrderAsc(
+                    user,
+                    fixedOrderPageable);
             Set<Long> activeAdminBoardIds = resolveActiveAdminBoardIds(user, subscriptions.getContent());
             List<Board> readableBoards = subscriptions.getContent().stream()
                     .map(BoardSubscription::getBoard)
@@ -168,17 +171,27 @@ class BoardQueryService {
             List<BoardListResponse> responses = subscriptions.getContent().stream()
                     .map(subscription -> toSubscriptionResponse(subscription, readableResponsesByBoardId))
                     .toList();
-            return new PageImpl<>(responses, pageable, subscriptions.getTotalElements());
+            return new PageImpl<>(responses, fixedOrderPageable, subscriptions.getTotalElements());
         }
         Page<BoardSubscription> visibleSubscriptions = boardSubscriptionRepository.findVisibleByUserOrderBySortOrderAsc(
                 user,
                 user.isUsableSuperAdmin(),
-                pageable);
+                fixedOrderPageable);
         List<Board> visibleBoards = visibleSubscriptions.getContent().stream()
                 .map(BoardSubscription::getBoard)
                 .toList();
         List<BoardListResponse> responses = boardResponseAssembler.assembleListAll(visibleBoards, user);
-        return new PageImpl<>(responses, pageable, visibleSubscriptions.getTotalElements());
+        return new PageImpl<>(responses, fixedOrderPageable, visibleSubscriptions.getTotalElements());
+    }
+
+    private Pageable fixedSubscriptionOrderPageable(Pageable pageable) {
+        if (pageable == null) {
+            return PageRequest.of(0, 20);
+        }
+        if (pageable.isUnpaged()) {
+            return Pageable.unpaged();
+        }
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
     }
 
     private Set<Long> resolveActiveAdminBoardIds(User user, List<BoardSubscription> subscriptions) {
