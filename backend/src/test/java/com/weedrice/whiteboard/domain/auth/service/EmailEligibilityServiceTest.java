@@ -40,6 +40,13 @@ class EmailEligibilityServiceTest {
     }
 
     @Test
+    void validateSignupEmail_lowercasesEmailBeforeLookup() {
+        emailEligibilityService.validateSignupEmail(" Old@Example.COM ");
+
+        verify(userRepository).findByEmail("old@example.com");
+    }
+
+    @Test
     void validateSignupEmail_rejectsTooLongEmailBeforeRepositoryLookup() {
         assertThatThrownBy(() -> emailEligibilityService.validateSignupEmail("a".repeat(101)))
                 .isInstanceOf(BusinessException.class)

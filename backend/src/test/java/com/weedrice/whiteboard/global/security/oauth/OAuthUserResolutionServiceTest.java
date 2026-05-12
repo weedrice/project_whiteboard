@@ -130,6 +130,51 @@ class OAuthUserResolutionServiceTest {
     }
 
     @Test
+    @DisplayName("이메일 자동 연결은 provider 이메일을 정규화해 조회한다")
+    void resolveUser_normalizesProviderEmailBeforeLookup() {
+        OAuthAttributes mixedCaseAttributes = OAuthAttributes.of(
+                "google",
+                "sub",
+                Map.of(
+                        "sub", "provider-user-id",
+                        "email", " OAuth@Example.COM ",
+                        "email_verified", true,
+                        "name", "OAuth User",
+                        "picture", "https://example.com/p.png"));
+        when(socialAccountRepository.findByProviderAndProviderId("google", "provider-user-id"))
+                .thenReturn(Optional.empty());
+        when(userRepository.findByEmail("oauth@example.com")).thenReturn(Optional.of(user));
+
+        Optional<User> resolvedUser = oauthUserResolutionService.resolveUser("google", mixedCaseAttributes);
+
+        assertThat(resolvedUser).contains(user);
+        verify(userRepository).findByEmail("oauth@example.com");
+        verify(socialAccountLinkService).linkSocialAccount(user, "google", "provider-user-id");
+    }
+
+    @Test
+    @DisplayName("canonical form으로 조회할 수 없는 provider 이메일은 자동 연결을 건너뛴다")
+    void resolveUser_skipsProviderEmailWhenCanonicalizationFails() {
+        OAuthAttributes longEmailAttributes = OAuthAttributes.of(
+                "google",
+                "sub",
+                Map.of(
+                        "sub", "provider-user-id",
+                        "email", "a".repeat(101) + "@example.com",
+                        "email_verified", true,
+                        "name", "OAuth User",
+                        "picture", "https://example.com/p.png"));
+        when(socialAccountRepository.findByProviderAndProviderId("google", "provider-user-id"))
+                .thenReturn(Optional.empty());
+
+        Optional<User> resolvedUser = oauthUserResolutionService.resolveUser("google", longEmailAttributes);
+
+        assertThat(resolvedUser).isEmpty();
+        verify(userRepository, never()).findByEmail(any());
+        verify(socialAccountLinkService, never()).linkSocialAccount(any(), any(), any());
+    }
+
+    @Test
     @DisplayName("email auto-link is skipped when provider email is not verified")
     void resolveUser_unverifiedProviderEmail_skipsEmailLink() {
         OAuthAttributes unverifiedAttributes = OAuthAttributes.of(

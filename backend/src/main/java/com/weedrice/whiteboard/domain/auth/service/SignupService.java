@@ -47,12 +47,13 @@ public class SignupService {
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
-        emailEligibilityService.validateSignupEmail(request.getEmail());
+        String normalizedEmail = AuthEmailNormalizer.normalize(request.getEmail());
+        emailEligibilityService.validateSignupEmail(normalizedEmail);
 
-        var reregisterableUser = userRepository.findByEmail(request.getEmail())
+        var reregisterableUser = userRepository.findByEmail(normalizedEmail)
                 .filter(existingUser -> "DELETED".equals(existingUser.getStatus()));
         if (reregisterableUser.isPresent()) {
-            return reregister(reregisterableUser.get(), request);
+            return reregister(reregisterableUser.get(), request, normalizedEmail);
         }
 
         if (userRepository.existsByLoginId(request.getLoginId())) {
@@ -60,7 +61,7 @@ public class SignupService {
         }
 
         verificationCodeService.consumeVerificationTicket(
-                request.getEmail(),
+                normalizedEmail,
                 VerificationPurpose.SIGNUP,
                 request.getVerificationTicket());
 
@@ -68,11 +69,11 @@ public class SignupService {
         User user = User.builder()
                 .loginId(request.getLoginId())
                 .password(passwordHash)
-                .email(request.getEmail())
+                .email(normalizedEmail)
                 .displayName(request.getDisplayName())
                 .build();
         user.verifyEmail();
-        User savedUser = saveSignupUser(user, request);
+        User savedUser = saveSignupUser(user, request, normalizedEmail);
         passwordHistoryPolicy.record(savedUser, passwordHash);
 
         UserSettings userSettings = UserSettings.builder()
@@ -106,12 +107,17 @@ public class SignupService {
 
     @Transactional
     public SignupResponse reregister(User existingUser, SignupRequest request) {
+        String normalizedEmail = AuthEmailNormalizer.normalize(request.getEmail());
+        return reregister(existingUser, request, normalizedEmail);
+    }
+
+    private SignupResponse reregister(User existingUser, SignupRequest request, String normalizedEmail) {
         if (!Objects.equals(existingUser.getLoginId(), request.getLoginId())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
         verificationCodeService.consumeVerificationTicket(
-                request.getEmail(),
+                normalizedEmail,
                 VerificationPurpose.SIGNUP,
                 request.getVerificationTicket());
 
@@ -122,6 +128,7 @@ public class SignupService {
         existingUser.activate();
         existingUser.updatePassword(passwordHash);
         existingUser.updateDisplayName(request.getDisplayName());
+        existingUser.updateEmail(normalizedEmail);
         existingUser.verifyEmail();
         userRepository.save(existingUser);
         passwordHistoryPolicy.record(existingUser, passwordHash);
@@ -137,7 +144,8 @@ public class SignupService {
     }
 
     public ReregisterCheckResponse checkEmailForReregister(String email) {
-        return userRepository.findByEmail(email)
+        String normalizedEmail = AuthEmailNormalizer.normalize(email);
+        return userRepository.findByEmail(normalizedEmail)
                 .filter(user -> "DELETED".equals(user.getStatus()))
                 .map(user -> ReregisterCheckResponse.builder()
                         .canReregister(true)
@@ -148,9 +156,13 @@ public class SignupService {
 
     @Transactional
     public FindIdResponse findLoginId(String email, String verificationTicket) {
-        verificationCodeService.validateVerificationTicket(email, VerificationPurpose.FIND_ID, verificationTicket);
+        String normalizedEmail = AuthEmailNormalizer.normalize(email);
+        verificationCodeService.validateVerificationTicket(
+                normalizedEmail,
+                VerificationPurpose.FIND_ID,
+                verificationTicket);
 
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         if (User.STATUS_DELETED.equals(user.getStatus()) || user.getDeletedAt() != null) {
             throw new BusinessException(ErrorCode.USER_DELETED);
@@ -158,21 +170,25 @@ public class SignupService {
         if (!user.isActiveAccount()) {
             throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
         }
-        verificationCodeService.consumeValidatedVerificationTicket(email, VerificationPurpose.FIND_ID, verificationTicket);
+        verificationCodeService.consumeValidatedVerificationTicket(
+                normalizedEmail,
+                VerificationPurpose.FIND_ID,
+                verificationTicket);
         return new FindIdResponse(user.getLoginId());
     }
 
-    private User saveSignupUser(User user, SignupRequest request) {
+    private User saveSignupUser(User user, SignupRequest request, String normalizedEmail) {
         try {
             return userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException ex) {
             entityManager.clear();
-            throw resolveSignupConflict(request, ex);
+            throw resolveSignupConflict(request, normalizedEmail, ex);
         }
     }
 
-    private RuntimeException resolveSignupConflict(SignupRequest request, DataIntegrityViolationException ex) {
-        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+    private RuntimeException resolveSignupConflict(SignupRequest request, String normalizedEmail,
+            DataIntegrityViolationException ex) {
+        if (userRepository.findByEmail(normalizedEmail).isPresent()) {
             return new BusinessException(ErrorCode.DUPLICATE_EMAIL);
         }
         if (userRepository.existsByLoginId(request.getLoginId())) {

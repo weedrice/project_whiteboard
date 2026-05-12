@@ -75,14 +75,15 @@ public class PasswordResetService {
             String rawToken,
             ErrorCode notFoundErrorCode,
             boolean includeLoginId) {
+        String normalizedEmail = AuthEmailNormalizer.normalize(email);
         return Objects.requireNonNull(transactionTemplate.execute(status -> {
             verificationCodeService.validateVerificationTicket(
-                    email,
+                    normalizedEmail,
                     VerificationPurpose.PASSWORD_RESET,
                     verificationTicket);
-            User user = getUsablePasswordResetUser(email, notFoundErrorCode);
+            User user = getUsablePasswordResetUser(normalizedEmail, notFoundErrorCode);
             verificationCodeService.consumeValidatedVerificationTicket(
-                    email,
+                    normalizedEmail,
                     VerificationPurpose.PASSWORD_RESET,
                     verificationTicket);
             Long tokenId = passwordResetTokenOrchestrationService
@@ -139,16 +140,17 @@ public class PasswordResetService {
 
     @Transactional
     public void resetPasswordByCode(String email, String verificationTicket, String newPassword) {
+        String normalizedEmail = AuthEmailNormalizer.normalize(email);
         verificationCodeService.validateVerificationTicket(
-                email,
+                normalizedEmail,
                 VerificationPurpose.PASSWORD_RESET,
                 verificationTicket);
 
-        User user = getUsablePasswordResetUser(email, ErrorCode.USER_NOT_FOUND);
+        User user = getUsablePasswordResetUser(normalizedEmail, ErrorCode.USER_NOT_FOUND);
 
         passwordHistoryPolicy.validateNotRecentlyUsed(user, newPassword);
         verificationCodeService.consumeValidatedVerificationTicket(
-                email,
+                normalizedEmail,
                 VerificationPurpose.PASSWORD_RESET,
                 verificationTicket);
         applyPasswordResetAfterValidation(user, newPassword);

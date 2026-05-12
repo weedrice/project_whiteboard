@@ -127,6 +127,29 @@ class UserSecurityServiceTest {
     }
 
     @Test
+    @DisplayName("verifyAndChangeEmail normalizes email before validation, save, and ticket consumption")
+    void verifyAndChangeEmail_normalizesEmail() {
+        User user = User.builder().email("current@example.com").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.saveAndFlush(user)).thenReturn(user);
+
+        userSecurityService.verifyAndChangeEmail(1L, " Next@Example.COM ", "123456");
+
+        assertThat(user.getEmail()).isEqualTo("next@example.com");
+        verify(emailEligibilityService).validateChangeEmail("next@example.com", user);
+        verify(verificationCodeService).validateVerificationTicket(
+                "next@example.com",
+                VerificationPurpose.CHANGE_EMAIL,
+                "123456");
+        verify(verificationCodeService).consumeValidatedVerificationTicket(
+                "next@example.com",
+                VerificationPurpose.CHANGE_EMAIL,
+                "123456");
+    }
+
+    @Test
     @DisplayName("verifyAndChangeEmail maps flush conflicts to duplicate email")
     void verifyAndChangeEmail_duplicateEmailOnFlush() {
         User user = User.builder().email("current@example.com").build();

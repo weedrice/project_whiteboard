@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
+import com.weedrice.whiteboard.domain.auth.service.AuthEmailNormalizer;
 import com.weedrice.whiteboard.domain.auth.service.EmailEligibilityService;
 import com.weedrice.whiteboard.domain.auth.service.RefreshTokenLifecycleService;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
@@ -48,18 +49,20 @@ public class UserSecurityService {
     @Transactional
     public void verifyAndChangeEmail(Long userId, String email, String verificationTicket) {
         User user = userWritableResolver.resolve(userId);
+        String normalizedEmail = AuthEmailNormalizer.normalize(email);
+        String normalizedCurrentEmail = AuthEmailNormalizer.normalize(user.getEmail());
 
-        if (!user.getEmail().equals(email)) {
-            emailEligibilityService.validateChangeEmail(email, user);
+        if (!normalizedCurrentEmail.equals(normalizedEmail)) {
+            emailEligibilityService.validateChangeEmail(normalizedEmail, user);
         }
 
         verificationCodeService.validateVerificationTicket(
-                email,
+                normalizedEmail,
                 VerificationPurpose.CHANGE_EMAIL,
                 verificationTicket);
 
-        if (!user.getEmail().equals(email)) {
-            user.updateEmail(email);
+        if (!user.getEmail().equals(normalizedEmail)) {
+            user.updateEmail(normalizedEmail);
         }
         user.verifyEmail();
 
@@ -67,7 +70,7 @@ public class UserSecurityService {
             userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException ex) {
             entityManager.clear();
-            if (userRepository.findByEmail(email)
+            if (userRepository.findByEmail(normalizedEmail)
                     .filter(other -> !other.getUserId().equals(user.getUserId()))
                     .isPresent()) {
                 throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
@@ -75,7 +78,7 @@ public class UserSecurityService {
             throw ex;
         }
         verificationCodeService.consumeValidatedVerificationTicket(
-                email,
+                normalizedEmail,
                 VerificationPurpose.CHANGE_EMAIL,
                 verificationTicket);
     }

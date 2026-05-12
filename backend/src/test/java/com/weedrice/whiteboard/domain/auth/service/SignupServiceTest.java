@@ -31,6 +31,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
@@ -258,6 +259,43 @@ class SignupServiceTest {
                 VerificationPurpose.SIGNUP,
                 request.getVerificationTicket());
         inOrder.verify(socialAccountLinkService).linkSocialAccount(eq(savedUser), eq("google"), eq("google-user-1"));
+    }
+
+    @Test
+    @DisplayName("회원가입은 이메일을 정규화해 조회, 티켓 소비, 저장에 사용한다")
+    void signup_normalizesEmailBeforeLookupTicketConsumptionAndSave() {
+        SignupRequest request = SignupRequest.builder()
+                .loginId("testuser")
+                .password("password123")
+                .email(" Test@Example.COM ")
+                .displayName("Test User")
+                .verificationTicket("ticket-1")
+                .build();
+        User savedUser = User.builder()
+                .loginId("testuser")
+                .password("encoded-password")
+                .email("test@example.com")
+                .displayName("Test User")
+                .build();
+        ReflectionTestUtils.setField(savedUser, "userId", 10L);
+
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.empty());
+        when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
+        when(passwordHistoryPolicy.encode(request.getPassword())).thenReturn("encoded-password");
+        when(userRepository.saveAndFlush(any(User.class))).thenReturn(savedUser);
+        when(userSettingsRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(globalConfigService.getConfig("POINT_SIGNUP_BONUS")).thenReturn("0");
+
+        SignupResponse response = signupService.signup(request);
+
+        assertThat(response.getEmail()).isEqualTo("test@example.com");
+        verify(emailEligibilityService).validateSignupEmail("test@example.com");
+        verify(userRepository).findByEmail("test@example.com");
+        verify(verificationCodeService).consumeVerificationTicket(
+                "test@example.com",
+                VerificationPurpose.SIGNUP,
+                "ticket-1");
+        verify(userRepository).saveAndFlush(argThat(user -> "test@example.com".equals(user.getEmail())));
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.global.security.oauth;
 
+import com.weedrice.whiteboard.domain.auth.service.AuthEmailNormalizer;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.SocialAccount;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -44,7 +45,11 @@ public class OAuthUserResolutionService {
             return Optional.empty();
         }
 
-        Optional<User> userOptional = userRepository.findByEmail(email);
+        String normalizedEmail = normalizeProviderEmailOrNull(email);
+        if (normalizedEmail == null) {
+            return Optional.empty();
+        }
+        Optional<User> userOptional = userRepository.findByEmail(normalizedEmail);
         if (userOptional.isEmpty()) {
             return Optional.empty();
         }
@@ -54,6 +59,17 @@ public class OAuthUserResolutionService {
         sanctionService.validateNotBanned(user);
         socialAccountLinkService.linkSocialAccount(user, registrationId, providerId);
         return Optional.of(user);
+    }
+
+    private String normalizeProviderEmailOrNull(String email) {
+        try {
+            return AuthEmailNormalizer.normalize(email);
+        } catch (BusinessException ex) {
+            if (ex.getErrorCode() == ErrorCode.VALIDATION_ERROR) {
+                return null;
+            }
+            throw ex;
+        }
     }
 
     private void validateActiveAccount(User user) {

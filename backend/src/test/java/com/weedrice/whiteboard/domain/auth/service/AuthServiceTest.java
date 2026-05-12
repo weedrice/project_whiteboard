@@ -699,6 +699,26 @@ class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("로그인 ID 찾기는 이메일을 정규화해 티켓과 사용자 조회에 사용한다")
+    void findLoginId_normalizesEmail() {
+        String verificationTicket = "ticket-1";
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+
+        var response = authService.findLoginId(" Test@Example.COM ", verificationTicket);
+
+        assertThat(response.getLoginId()).isEqualTo("testuser");
+        verify(verificationCodeService).validateVerificationTicket(
+                "test@example.com",
+                VerificationPurpose.FIND_ID,
+                verificationTicket);
+        verify(userRepository).findByEmail("test@example.com");
+        verify(verificationCodeService).consumeValidatedVerificationTicket(
+                "test@example.com",
+                VerificationPurpose.FIND_ID,
+                verificationTicket);
+    }
+
+    @Test
     @DisplayName("로그인 ID 찾기는 비활성 계정이면 ticket을 소비하지 않는다")
     void findLoginId_inactiveUser_rejectsBeforeTicketConsumption() {
         String email = "test@example.com";
@@ -758,6 +778,26 @@ class AuthServiceTest {
                 VerificationPurpose.PASSWORD_RESET,
                 verificationTicket);
         verify(verificationCodeService, never()).consumeValidatedVerificationTicket(anyString(), any(), anyString());
+    }
+
+    @Test
+    @DisplayName("비밀번호 재설정 링크는 이메일을 정규화해 티켓과 사용자 조회에 사용한다")
+    void sendPasswordResetLinkByEmail_normalizesEmail() {
+        String verificationTicket = "ticket-1";
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+
+        authService.sendPasswordResetLinkByEmail(" Test@Example.COM ", verificationTicket);
+
+        verify(verificationCodeService).validateVerificationTicket(
+                "test@example.com",
+                VerificationPurpose.PASSWORD_RESET,
+                verificationTicket);
+        verify(userRepository).findByEmail("test@example.com");
+        verify(verificationCodeService).consumeValidatedVerificationTicket(
+                "test@example.com",
+                VerificationPurpose.PASSWORD_RESET,
+                verificationTicket);
+        verify(emailService).sendEmail(anyString(), anyString(), anyString());
     }
 
     @Test
@@ -831,7 +871,8 @@ class AuthServiceTest {
         String newPassword = "newPassword123!";
 
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
-        when(passwordHistoryRepository.findTop4ByUserOrderByCreatedAtDescHistoryIdDesc(user)).thenReturn(Collections.emptyList());
+        when(passwordHistoryRepository.findTop4ByUserOrderByCreatedAtDescHistoryIdDesc(user))
+                .thenReturn(Collections.emptyList());
         when(passwordEncoder.matches(newPassword, "encodedPassword")).thenReturn(false);
         when(passwordEncoder.encode(newPassword)).thenReturn("encodedNewPassword");
 
@@ -894,6 +935,31 @@ class AuthServiceTest {
                 VerificationPurpose.PASSWORD_RESET,
                 verificationTicket);
         verify(verificationCodeService, never()).consumeValidatedVerificationTicket(anyString(), any(), anyString());
+    }
+
+    @Test
+    @DisplayName("인증 코드 비밀번호 재설정은 이메일을 정규화해 티켓과 사용자 조회에 사용한다")
+    void resetPasswordByCode_normalizesEmail() {
+        String verificationTicket = "ticket-1";
+        String newPassword = "newPassword123!";
+
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+        when(passwordHistoryRepository.findTop4ByUserOrderByCreatedAtDescHistoryIdDesc(user)).thenReturn(Collections.emptyList());
+        when(passwordEncoder.matches(newPassword, "encodedPassword")).thenReturn(false);
+        when(passwordEncoder.encode(newPassword)).thenReturn("encodedNewPassword");
+
+        authService.resetPasswordByCode(" Test@Example.COM ", verificationTicket, newPassword);
+
+        verify(verificationCodeService).validateVerificationTicket(
+                "test@example.com",
+                VerificationPurpose.PASSWORD_RESET,
+                verificationTicket);
+        verify(userRepository).findByEmail("test@example.com");
+        verify(verificationCodeService).consumeValidatedVerificationTicket(
+                "test@example.com",
+                VerificationPurpose.PASSWORD_RESET,
+                verificationTicket);
+        verify(userRepository).save(user);
     }
 
     @Test
