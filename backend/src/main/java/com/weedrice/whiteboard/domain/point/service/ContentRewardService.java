@@ -36,7 +36,7 @@ public class ContentRewardService {
     public void rollbackCreateReward(User user, Long relatedId, ContentRewardPolicy policy) {
         int rewardedAmount = getCreateRewardAmount(user, relatedId, policy);
         if (rewardedAmount > 0) {
-            pointService.forceSubtractPoint(
+            pointService.reverseRewardPoint(
                     user.getUserId(),
                     rewardedAmount,
                     policy.getDeleteDescription(),

@@ -205,6 +205,41 @@ class PointServiceTest {
     }
 
     @Test
+    @DisplayName("보상 회수는 REWARD_REVERSAL 이력으로 기록하고 음수 잔액을 허용한다")
+    void reverseRewardPoint_recordsRewardReversalAndAllowsNegativeBalance() {
+        Long userId = 1L;
+        userPoint.addPoint(50);
+        when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
+        when(userPointRepository.findByUserId(userId)).thenReturn(Optional.of(userPoint));
+
+        pointService.reverseRewardPoint(userId, 100, "Post delete", 10L, "POST");
+
+        org.mockito.ArgumentCaptor<PointHistory> historyCaptor = org.mockito.ArgumentCaptor.forClass(PointHistory.class);
+        verify(pointHistoryRepository).save(historyCaptor.capture());
+        assertThat(userPoint.getCurrentPoint()).isEqualTo(-50);
+        assertThat(historyCaptor.getValue().getType()).isEqualTo("REWARD_REVERSAL");
+        assertThat(historyCaptor.getValue().getAmount()).isEqualTo(-100);
+        assertThat(historyCaptor.getValue().getBalanceAfter()).isEqualTo(-50);
+        assertThat(historyCaptor.getValue().getRelatedId()).isEqualTo(10L);
+        assertThat(historyCaptor.getValue().getRelatedType()).isEqualTo("POST");
+    }
+
+    @Test
+    @DisplayName("보상 회수는 0 이하 금액을 거절한다")
+    void reverseRewardPoint_rejectsNonPositiveAmount() {
+        for (int amount : invalidAmounts()) {
+            assertThatThrownBy(() -> pointService.reverseRewardPoint(1L, amount, "Invalid Reversal", null, null))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        verify(userRepository, never()).findByIdForUpdate(any());
+        verify(userPointRepository, never()).save(any());
+        verify(pointHistoryRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("구매 포인트 차감은 SPEND 이력으로 기록된다")
     void spendPoint_success() {
         Long userId = 1L;
@@ -384,6 +419,31 @@ class PointServiceTest {
 
         assertThat(response).isNotNull();
         verify(pointHistoryRepository).findByUserAndTypeOrderByCreatedAtDescHistoryIdDesc(user, "SPEND", pageable);
+    }
+
+    @Test
+    @DisplayName("포인트 내역 조회는 보상 회수 타입을 허용한다")
+    void getPointHistories_allowsRewardReversalType() {
+        Long userId = 1L;
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+        org.springframework.data.domain.Page<PointHistory> historyPage = new org.springframework.data.domain.PageImpl<>(
+                java.util.Collections.emptyList(), pageable, 0);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(pointHistoryRepository.findByUserAndTypeOrderByCreatedAtDescHistoryIdDesc(
+                user,
+                "REWARD_REVERSAL",
+                pageable))
+                .thenReturn(historyPage);
+
+        com.weedrice.whiteboard.domain.point.dto.PointHistoryResponse response =
+                pointService.getPointHistories(userId, " reward_reversal ", pageable);
+
+        assertThat(response).isNotNull();
+        verify(pointHistoryRepository).findByUserAndTypeOrderByCreatedAtDescHistoryIdDesc(
+                user,
+                "REWARD_REVERSAL",
+                pageable);
     }
 
     @Test

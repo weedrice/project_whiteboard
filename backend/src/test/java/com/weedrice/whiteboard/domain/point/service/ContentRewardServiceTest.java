@@ -99,7 +99,7 @@ class ContentRewardServiceTest {
 
         contentRewardService.rollbackCreateReward(user, 10L, ContentRewardPolicy.COMMENT);
 
-        verify(pointService).forceSubtractPoint(1L, 25, "댓글 삭제", 10L, "COMMENT");
+        verify(pointService).reverseRewardPoint(1L, 25, "댓글 삭제", 10L, "COMMENT");
     }
 
     @Test
@@ -117,6 +117,6 @@ class ContentRewardServiceTest {
 
         contentRewardService.rollbackCreateReward(user, 100L, ContentRewardPolicy.POST);
 
-        verify(pointService, never()).forceSubtractPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+        verify(pointService, never()).reverseRewardPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
     }
 }

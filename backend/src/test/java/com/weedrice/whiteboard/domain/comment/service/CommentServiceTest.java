@@ -1270,7 +1270,7 @@ class CommentServiceTest {
 
         assertThat(comment.getIsDeleted()).isTrue();
         verify(postRepository).decrementCommentCount(1L);
-        verify(pointService).forceSubtractPoint(1L, 10, "댓글 삭제", 10L, "COMMENT");
+        verify(pointService).reverseRewardPoint(1L, 10, "댓글 삭제", 10L, "COMMENT");
     }
 
     @Test
@@ -1337,7 +1337,7 @@ class CommentServiceTest {
 
         commentService.deleteComment(1L, 10L);
 
-        verify(pointService).forceSubtractPoint(1L, 15, "댓글 삭제", 10L, "COMMENT");
+        verify(pointService).reverseRewardPoint(1L, 15, "댓글 삭제", 10L, "COMMENT");
     }
 
     @Test
@@ -1367,7 +1367,7 @@ class CommentServiceTest {
 
         verify(postRepository).decrementCommentCount(1L);
         verify(pointService, never())
-                .forceSubtractPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+                .reverseRewardPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
     }
 
     @Test

@@ -1003,7 +1003,7 @@ class PostServiceTest {
         assertThat(post.getIsDeleted()).isTrue();
         verify(tagAssignmentService).clearTags(post);
         verify(fileService).markPostContentFilesDeletionPending(1L);
-        verify(pointService).forceSubtractPoint(eq(1L), eq(50), anyString(), eq(1L), eq("POST"));
+        verify(pointService).reverseRewardPoint(eq(1L), eq(50), anyString(), eq(1L), eq("POST"));
         verify(globalConfigService, never()).getConfig("POINT_POST_CREATE_REWARD");
     }
 
@@ -1020,7 +1020,7 @@ class PostServiceTest {
 
         assertThat(post.getIsDeleted()).isTrue();
         verify(tagAssignmentService).clearTags(post);
-        verify(pointService, never()).forceSubtractPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+        verify(pointService, never()).reverseRewardPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
     }
 
     @Test

@@ -29,10 +29,12 @@ public class PointService {
 
         private static final String HISTORY_TYPE_EARN = "EARN";
         private static final String HISTORY_TYPE_PENALTY = "PENALTY";
+        private static final String HISTORY_TYPE_REWARD_REVERSAL = "REWARD_REVERSAL";
         private static final String HISTORY_TYPE_SPEND = "SPEND";
         private static final Set<String> HISTORY_TYPES = Set.of(
                         HISTORY_TYPE_EARN,
                         HISTORY_TYPE_PENALTY,
+                        HISTORY_TYPE_REWARD_REVERSAL,
                         HISTORY_TYPE_SPEND);
 
         private final UserPointRepository userPointRepository;
@@ -83,6 +85,14 @@ public class PointService {
                         String relatedType) {
                 validatePositiveAmount(amount);
                 changePoint(userId, -amount, HISTORY_TYPE_PENALTY, description, relatedId, relatedType, true, false);
+        }
+
+        @Transactional
+        public void reverseRewardPoint(@NonNull Long userId, int amount, String description, Long relatedId,
+                        String relatedType) {
+                validatePositiveAmount(amount);
+                changePoint(userId, -amount, HISTORY_TYPE_REWARD_REVERSAL, description, relatedId, relatedType, true,
+                                false);
         }
 
         @Transactional
