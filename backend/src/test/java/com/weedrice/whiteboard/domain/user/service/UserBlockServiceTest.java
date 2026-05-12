@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -17,6 +18,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
@@ -25,6 +28,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -162,13 +166,32 @@ class UserBlockServiceTest {
         Page<UserBlock> page = new PageImpl<>(List.of(userBlock));
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(blocker));
-        when(userBlockRepository.findPageByUserWithTarget(any(), any())).thenReturn(page);
+        when(userBlockRepository.findPageByUserWithTarget(eq(blocker), any())).thenReturn(page);
 
         Page<BlockedUserResponse> response = userBlockService.getBlockedUsers(1L, PageRequest.of(0, 10));
 
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getContent().getFirst().getDisplayName()).isEqualTo("Blocked");
         verify(userBlockRepository).findPageByUserWithTarget(blocker, PageRequest.of(0, 10));
+    }
+
+    @Test
+    @DisplayName("차단 목록 조회는 페이지 크기를 제한하고 정렬 조건을 제거한다")
+    void getBlockedUsers_normalizesPageableSort() {
+        User blocker = User.builder().build();
+        Page<UserBlock> page = new PageImpl<>(List.of(), PageRequest.of(1, 100), 0);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(blocker));
+        when(userBlockRepository.findPageByUserWithTarget(any(), any())).thenReturn(page);
+
+        userBlockService.getBlockedUsers(1L, PageRequest.of(1, 500, Sort.by("target.loginId").ascending()));
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(userBlockRepository).findPageByUserWithTarget(eq(blocker), pageableCaptor.capture());
+        Pageable safePageable = pageableCaptor.getValue();
+        assertThat(safePageable.getPageNumber()).isEqualTo(1);
+        assertThat(safePageable.getPageSize()).isEqualTo(100);
+        assertThat(safePageable.getSort().isUnsorted()).isTrue();
     }
 
     @Test

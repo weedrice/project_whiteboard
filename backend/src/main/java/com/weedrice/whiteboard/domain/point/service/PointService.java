@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ public class PointService {
         private static final String HISTORY_TYPE_PENALTY = "PENALTY";
         private static final String HISTORY_TYPE_REWARD_REVERSAL = "REWARD_REVERSAL";
         private static final String HISTORY_TYPE_SPEND = "SPEND";
+        private static final int DEFAULT_HISTORY_PAGE_SIZE = 20;
         private static final Set<String> HISTORY_TYPES = Set.of(
                         HISTORY_TYPE_EARN,
                         HISTORY_TYPE_PENALTY,
@@ -51,18 +53,20 @@ public class PointService {
                                                 .build());
         }
 
-        public PointHistoryResponse getPointHistories(@NonNull Long userId, String type, @NonNull Pageable pageable) {
+        public PointHistoryResponse getPointHistories(@NonNull Long userId, String type, Pageable pageable) {
                 String normalizedType = normalizeHistoryType(type);
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                Pageable safePageable = normalizeHistoryPageable(pageable);
                 Page<PointHistory> historyPage;
                 if (normalizedType != null) {
                         historyPage = pointHistoryRepository.findByUserAndTypeOrderByCreatedAtDescHistoryIdDesc(
                                         user,
                                         normalizedType,
-                                        pageable);
+                                        safePageable);
                 } else {
-                        historyPage = pointHistoryRepository.findByUserOrderByCreatedAtDescHistoryIdDesc(user, pageable);
+                        historyPage = pointHistoryRepository.findByUserOrderByCreatedAtDescHistoryIdDesc(user,
+                                        safePageable);
                 }
                 return PointHistoryResponse.from(historyPage);
         }
@@ -179,6 +183,13 @@ public class PointService {
                 if (balanceAfter > Integer.MAX_VALUE || balanceAfter < Integer.MIN_VALUE) {
                         throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
                 }
+        }
+
+        private Pageable normalizeHistoryPageable(Pageable pageable) {
+                if (pageable == null || pageable.isUnpaged()) {
+                        return PageRequestUtils.of(0, DEFAULT_HISTORY_PAGE_SIZE);
+                }
+                return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize());
         }
 
         private String normalizeHistoryType(String type) {

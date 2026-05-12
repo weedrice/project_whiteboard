@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.point.service;
 
+import com.weedrice.whiteboard.domain.point.dto.PointHistoryResponse;
 import com.weedrice.whiteboard.domain.point.entity.PointHistory;
 import com.weedrice.whiteboard.domain.point.entity.UserPoint;
 import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -22,6 +24,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
@@ -371,6 +374,34 @@ class PointServiceTest {
         // then
         assertThat(response).isNotNull();
         verify(userRepository).findById(userId);
+    }
+
+    @Test
+    @DisplayName("포인트 내역 조회는 페이지 크기를 제한하고 정렬 조건을 제거한다")
+    void getPointHistories_normalizesPageableSort() {
+        Long userId = 1L;
+        org.springframework.data.domain.Pageable requestedPageable = org.springframework.data.domain.PageRequest.of(
+                2,
+                500,
+                org.springframework.data.domain.Sort.by("amount").ascending());
+        org.springframework.data.domain.Page<PointHistory> historyPage = new org.springframework.data.domain.PageImpl<>(
+                java.util.Collections.emptyList(),
+                org.springframework.data.domain.PageRequest.of(2, 100),
+                0);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(pointHistoryRepository.findByUserOrderByCreatedAtDescHistoryIdDesc(eq(user), any())).thenReturn(historyPage);
+
+        PointHistoryResponse response = pointService.getPointHistories(userId, null, requestedPageable);
+
+        ArgumentCaptor<org.springframework.data.domain.Pageable> pageableCaptor =
+                ArgumentCaptor.forClass(org.springframework.data.domain.Pageable.class);
+        assertThat(response).isNotNull();
+        verify(pointHistoryRepository).findByUserOrderByCreatedAtDescHistoryIdDesc(eq(user), pageableCaptor.capture());
+        org.springframework.data.domain.Pageable safePageable = pageableCaptor.getValue();
+        assertThat(safePageable.getPageNumber()).isEqualTo(2);
+        assertThat(safePageable.getPageSize()).isEqualTo(100);
+        assertThat(safePageable.getSort().isUnsorted()).isTrue();
     }
 
     @Test

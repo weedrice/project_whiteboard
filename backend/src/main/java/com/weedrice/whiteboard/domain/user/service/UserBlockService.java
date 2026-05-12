@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserBlock;
 import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,8 @@ import java.util.Set;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserBlockService {
+
+    private static final int DEFAULT_BLOCK_PAGE_SIZE = 20;
 
     private final UserRepository userRepository;
     private final UserBlockRepository userBlockRepository;
@@ -71,7 +74,8 @@ public class UserBlockService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        Page<UserBlock> blocks = userBlockRepository.findPageByUserWithTarget(user, pageable);
+        Pageable safePageable = normalizeBlockPageable(pageable);
+        Page<UserBlock> blocks = userBlockRepository.findPageByUserWithTarget(user, safePageable);
 
         return blocks.map(block -> new BlockedUserResponse(
                 block.getTarget().getUserId(),
@@ -108,6 +112,13 @@ public class UserBlockService {
         Set<Long> blockedUserIds = new LinkedHashSet<>(
                 userBlockRepository.findBlockedUserIdsEitherDirectionByUserId(userId));
         return List.copyOf(blockedUserIds);
+    }
+
+    private Pageable normalizeBlockPageable(Pageable pageable) {
+        if (pageable == null || pageable.isUnpaged()) {
+            return PageRequestUtils.of(0, DEFAULT_BLOCK_PAGE_SIZE);
+        }
+        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize());
     }
 
     private void validateUserExists(Long userId) {
