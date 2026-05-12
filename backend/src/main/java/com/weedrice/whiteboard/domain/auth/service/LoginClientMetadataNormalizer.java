@@ -3,7 +3,9 @@ package com.weedrice.whiteboard.domain.auth.service;
 final class LoginClientMetadataNormalizer {
 
     static final String UNKNOWN_IP_ADDRESS = "unknown";
+    static final String UNKNOWN_LOGIN_ID = "unknown";
 
+    private static final int MAX_LOGIN_ID_LENGTH = 30;
     private static final int MAX_IP_ADDRESS_LENGTH = 45;
     private static final int MAX_USER_AGENT_LENGTH = 500;
     private static final int MAX_DEVICE_INFO_LENGTH = 255;
@@ -16,6 +18,13 @@ final class LoginClientMetadataNormalizer {
             return UNKNOWN_IP_ADDRESS;
         }
         return truncate(ipAddress.trim(), MAX_IP_ADDRESS_LENGTH);
+    }
+
+    static String normalizeLoginId(String loginId) {
+        if (loginId == null || loginId.isBlank()) {
+            return UNKNOWN_LOGIN_ID;
+        }
+        return truncate(loginId.trim(), MAX_LOGIN_ID_LENGTH);
     }
 
     static String normalizeUserAgent(String userAgent) {

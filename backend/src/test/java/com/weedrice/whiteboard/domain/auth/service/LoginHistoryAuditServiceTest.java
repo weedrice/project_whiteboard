@@ -52,4 +52,27 @@ class LoginHistoryAuditServiceTest {
                         && Boolean.FALSE.equals(history.getIsSuccess())
                         && "AUTHENTICATION_FAILED".equals(history.getFailureReason())));
     }
+
+    @Test
+    void recordFailure_trimsAndTruncatesLoginId() {
+        LoginHistoryAuditService service = new LoginHistoryAuditService(loginHistoryRepository, entityManager);
+        String loginId = "  " + "a".repeat(40) + "  ";
+
+        service.recordFailure(loginId, "127.0.0.1", "agent", "AUTHENTICATION_FAILED");
+
+        verify(loginHistoryRepository).save(argThat(history ->
+                "a".repeat(30).equals(history.getLoginId())
+                        && Boolean.FALSE.equals(history.getIsSuccess())));
+    }
+
+    @Test
+    void recordFailure_defaultsBlankLoginId() {
+        LoginHistoryAuditService service = new LoginHistoryAuditService(loginHistoryRepository, entityManager);
+
+        service.recordFailure("  ", "127.0.0.1", "agent", "AUTHENTICATION_FAILED");
+
+        verify(loginHistoryRepository).save(argThat(history ->
+                LoginClientMetadataNormalizer.UNKNOWN_LOGIN_ID.equals(history.getLoginId())
+                        && Boolean.FALSE.equals(history.getIsSuccess())));
+    }
 }

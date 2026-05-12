@@ -21,7 +21,7 @@ public class LoginHistoryAuditService {
         User user = entityManager.getReference(User.class, userId);
         loginHistoryRepository.save(LoginHistory.success(
                 user,
-                loginId,
+                LoginClientMetadataNormalizer.normalizeLoginId(loginId),
                 LoginClientMetadataNormalizer.normalizeIpAddress(ipAddress),
                 LoginClientMetadataNormalizer.normalizeUserAgent(userAgent)));
     }
@@ -29,7 +29,7 @@ public class LoginHistoryAuditService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordFailure(String loginId, String ipAddress, String userAgent, String failureReason) {
         loginHistoryRepository.save(LoginHistory.failure(
-                loginId,
+                LoginClientMetadataNormalizer.normalizeLoginId(loginId),
                 LoginClientMetadataNormalizer.normalizeIpAddress(ipAddress),
                 LoginClientMetadataNormalizer.normalizeUserAgent(userAgent),
                 failureReason));
