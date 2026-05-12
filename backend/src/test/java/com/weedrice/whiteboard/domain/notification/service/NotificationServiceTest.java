@@ -45,6 +45,7 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, OutputCaptureExtension.class})
 class NotificationServiceTest {
+    private static final int MAX_NOTIFICATION_CONTENT_LENGTH = 255;
 
     @Mock
     private NotificationRepository notificationRepository;
@@ -97,6 +98,50 @@ class NotificationServiceTest {
         notificationService.handleNotificationEvent(event);
 
         verify(notificationRepository).save(any(Notification.class));
+    }
+
+    @Test
+    @DisplayName("Notification content is trimmed before save")
+    void handleNotificationEvent_trimsContentBeforeSave() {
+        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, "POST", 1L, "  Test Notification  ");
+        when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        notificationService.handleNotificationEvent(event);
+
+        ArgumentCaptor<Notification> notificationCaptor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository).save(notificationCaptor.capture());
+        assertThat(notificationCaptor.getValue().getContent()).isEqualTo("Test Notification");
+    }
+
+    @Test
+    @DisplayName("Notification content is truncated to max length before save")
+    void handleNotificationEvent_truncatesOverlongContentBeforeSave() {
+        String content = "a".repeat(MAX_NOTIFICATION_CONTENT_LENGTH + 45);
+        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, "POST", 1L, content);
+        when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        notificationService.handleNotificationEvent(event);
+
+        ArgumentCaptor<Notification> notificationCaptor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository).save(notificationCaptor.capture());
+        assertThat(notificationCaptor.getValue().getContent()).hasSize(MAX_NOTIFICATION_CONTENT_LENGTH);
+    }
+
+    @Test
+    @DisplayName("Notification content truncation preserves supplementary characters")
+    void handleNotificationEvent_truncatesByCodePointBeforeSave() {
+        String supplementaryCharacter = new String(Character.toChars(0x1F600));
+        String content = "a".repeat(MAX_NOTIFICATION_CONTENT_LENGTH - 1) + supplementaryCharacter + "b";
+        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, "POST", 1L, content);
+        when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        notificationService.handleNotificationEvent(event);
+
+        ArgumentCaptor<Notification> notificationCaptor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository).save(notificationCaptor.capture());
+        String savedContent = notificationCaptor.getValue().getContent();
+        assertThat(savedContent.codePointCount(0, savedContent.length())).isEqualTo(MAX_NOTIFICATION_CONTENT_LENGTH);
+        assertThat(savedContent).endsWith(supplementaryCharacter);
     }
 
     @Test
@@ -159,6 +204,8 @@ class NotificationServiceTest {
                 user, actor, NotificationType.LIKE, " ", 1L, "Test Notification"));
         notificationService.handleNotificationEvent(new NotificationEvent(
                 user, actor, NotificationType.LIKE, "POST", 1L, ""));
+        notificationService.handleNotificationEvent(new NotificationEvent(
+                user, actor, NotificationType.LIKE, "POST", 1L, "   "));
 
         verifyNoInteractions(userNotificationSettingsRepository);
         verify(notificationRepository, never()).save(any(Notification.class));

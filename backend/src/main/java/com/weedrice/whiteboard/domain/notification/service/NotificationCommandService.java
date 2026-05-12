@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 class NotificationCommandService {
+    private static final int MAX_CONTENT_LENGTH = 255;
 
     private final NotificationRepository notificationRepository;
     private final NotificationPreferenceService preferenceService;
@@ -23,6 +24,10 @@ class NotificationCommandService {
         if (!hasRequiredPayload(event)) {
             return null;
         }
+        String content = normalizeContent(event.getContent());
+        if (content == null) {
+            return null;
+        }
         if (preferenceService.isSelfNotification(event) || !preferenceService.isNotificationEnabled(event)) {
             return null;
         }
@@ -34,7 +39,7 @@ class NotificationCommandService {
                 .notificationType(event.getNotificationType())
                 .sourceType(event.getSourceType())
                 .sourceId(event.getSourceId())
-                .content(event.getContent())
+                .content(content)
                 .build());
     }
 
@@ -43,12 +48,26 @@ class NotificationCommandService {
                 && event.getUserToNotify() != null
                 && event.getUserToNotify().getUserId() != null
                 && event.getNotificationType() != null
-                && hasText(event.getSourceType())
-                && hasText(event.getContent());
+                && hasText(event.getSourceType());
     }
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private String normalizeContent(String content) {
+        if (content == null) {
+            return null;
+        }
+        String normalizedContent = content.strip();
+        if (normalizedContent.isBlank()) {
+            return null;
+        }
+        if (normalizedContent.codePointCount(0, normalizedContent.length()) > MAX_CONTENT_LENGTH) {
+            int endIndex = normalizedContent.offsetByCodePoints(0, MAX_CONTENT_LENGTH);
+            return normalizedContent.substring(0, endIndex);
+        }
+        return normalizedContent;
     }
 
     void readNotification(Long userId, Long notificationId) {
