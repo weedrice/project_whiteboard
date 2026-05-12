@@ -14,7 +14,9 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -245,6 +247,60 @@ class FileRepositoryTest {
     }
 
     @Test
+    @DisplayName("relatedId별 첫 활성 이미지 파일 ID를 최솟값으로 조회한다")
+    void findFirstImageFileIdsByRelatedIds_returnsMinimumActiveImageFileIdPerRelatedId() {
+        File laterImageForFirstPost = persistRelatedFile(
+                "later-image.jpg",
+                "image/png",
+                1L,
+                "POST_CONTENT",
+                FileStorageStatus.ACTIVE);
+        File pendingImageForSecondPost = persistRelatedFile(
+                "pending-image.jpg",
+                "image/jpeg",
+                2L,
+                "POST_CONTENT",
+                FileStorageStatus.PENDING_DELETE);
+        File activeImageForSecondPost = persistRelatedFile(
+                "active-image.webp",
+                "image/webp",
+                2L,
+                "POST_CONTENT",
+                FileStorageStatus.ACTIVE);
+        File nonImageFile = persistRelatedFile(
+                "document.txt",
+                "text/plain",
+                3L,
+                "POST_CONTENT",
+                FileStorageStatus.ACTIVE);
+        File otherTypeImage = persistRelatedFile(
+                "profile.jpg",
+                "image/jpeg",
+                4L,
+                "USER_PROFILE",
+                FileStorageStatus.ACTIVE);
+        entityManager.flush();
+        entityManager.clear();
+
+        List<FileRepository.FirstImageFileIdProjection> projections =
+                fileRepository.findFirstImageFileIdsByRelatedIdsAndRelatedTypeAndMimeTypeStartingWithAndStorageStatus(
+                        List.of(1L, 2L, 3L, 4L),
+                        "POST_CONTENT",
+                        "image/",
+                        FileStorageStatus.ACTIVE);
+
+        Map<Long, Long> fileIdsByRelatedId = new LinkedHashMap<>();
+        projections.forEach(projection -> fileIdsByRelatedId.put(projection.getRelatedId(), projection.getFileId()));
+        assertThat(fileIdsByRelatedId)
+                .containsEntry(1L, file.getFileId())
+                .containsEntry(2L, activeImageForSecondPost.getFileId())
+                .doesNotContainEntry(1L, laterImageForFirstPost.getFileId())
+                .doesNotContainEntry(2L, pendingImageForSecondPost.getFileId())
+                .doesNotContainEntry(3L, nonImageFile.getFileId())
+                .doesNotContainEntry(4L, otherTypeImage.getFileId());
+    }
+
+    @Test
     @DisplayName("삭제 후보 조회는 pending delete와 stale deleting만 반환한다")
     void findPendingDeletionCandidates_returnsPendingAndStaleDeleting() {
         LocalDateTime staleBefore = LocalDateTime.now().minusMinutes(30);
@@ -378,6 +434,26 @@ class FileRepositoryTest {
                 .build();
         entityManager.persist(temporaryFile);
         return temporaryFile;
+    }
+
+    private File persistRelatedFile(
+            String originalName,
+            String mimeType,
+            Long relatedId,
+            String relatedType,
+            FileStorageStatus storageStatus) {
+        File relatedFile = File.builder()
+                .originalName(originalName)
+                .filePath("path/to/" + originalName)
+                .fileSize(512L)
+                .mimeType(mimeType)
+                .uploader(uploader)
+                .relatedId(relatedId)
+                .relatedType(relatedType)
+                .storageStatus(storageStatus)
+                .build();
+        entityManager.persist(relatedFile);
+        return relatedFile;
     }
 
     private void setCreatedAt(File target, LocalDateTime createdAt) {

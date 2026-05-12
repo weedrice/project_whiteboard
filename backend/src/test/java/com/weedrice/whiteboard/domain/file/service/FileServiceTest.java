@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.file.dto.FileUploadResponse;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository;
+import com.weedrice.whiteboard.domain.file.repository.FileRepository.FirstImageFileIdProjection;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
@@ -31,6 +32,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -744,6 +746,47 @@ class FileServiceTest {
         List<Long> fileIds = fileService.getRetryableFailedDeletionFileIds(10);
 
         assertThat(fileIds).containsExactly(11L);
+    }
+
+    @Test
+    @DisplayName("첫 이미지 파일 ID 목록 조회는 projection 쿼리를 사용한다")
+    void getFirstImageFileIdsByRelatedIds_usesProjectionQuery() {
+        List<Long> relatedIds = List.of(2L, 1L);
+        when(fileRepository.findFirstImageFileIdsByRelatedIdsAndRelatedTypeAndMimeTypeStartingWithAndStorageStatus(
+                relatedIds,
+                FileService.RELATED_TYPE_POST_CONTENT,
+                "image/",
+                FileStorageStatus.ACTIVE))
+                .thenReturn(List.of(
+                        firstImageFileIdProjection(1L, 10L),
+                        firstImageFileIdProjection(2L, 20L)));
+
+        Map<Long, Long> firstImageFileIds = fileService.getFirstImageFileIdsByRelatedIds(
+                relatedIds,
+                FileService.RELATED_TYPE_POST_CONTENT);
+
+        assertThat(firstImageFileIds).containsExactly(
+                Map.entry(1L, 10L),
+                Map.entry(2L, 20L));
+        verify(fileRepository).findFirstImageFileIdsByRelatedIdsAndRelatedTypeAndMimeTypeStartingWithAndStorageStatus(
+                relatedIds,
+                FileService.RELATED_TYPE_POST_CONTENT,
+                "image/",
+                FileStorageStatus.ACTIVE);
+    }
+
+    private FirstImageFileIdProjection firstImageFileIdProjection(Long relatedId, Long fileId) {
+        return new FirstImageFileIdProjection() {
+            @Override
+            public Long getRelatedId() {
+                return relatedId;
+            }
+
+            @Override
+            public Long getFileId() {
+                return fileId;
+            }
+        };
     }
 
 }

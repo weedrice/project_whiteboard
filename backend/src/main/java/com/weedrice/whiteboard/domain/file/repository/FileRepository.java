@@ -21,6 +21,12 @@ public interface FileRepository extends JpaRepository<File, Long> {
         LocalDateTime getCreatedAt();
     }
 
+    interface FirstImageFileIdProjection {
+        Long getRelatedId();
+
+        Long getFileId();
+    }
+
     @Query("""
             SELECT f
             FROM File f
@@ -180,7 +186,8 @@ public interface FileRepository extends JpaRepository<File, Long> {
     }
 
     @Query("""
-            SELECT f
+            SELECT f.relatedId AS relatedId,
+                   MIN(f.fileId) AS fileId
             FROM File f
             WHERE f.relatedId IN :relatedIds
               AND f.relatedType = :relatedType
@@ -188,9 +195,10 @@ public interface FileRepository extends JpaRepository<File, Long> {
               AND (f.storageStatus = :storageStatus
                    OR (:storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
                        AND f.storageStatus IS NULL))
-            ORDER BY f.relatedId ASC, f.fileId ASC
+            GROUP BY f.relatedId
+            ORDER BY f.relatedId ASC
             """)
-    List<File> findByRelatedIdInAndRelatedTypeAndMimeTypeStartingWithAndStorageStatusOrderByRelatedIdAscFileIdAsc(
+    List<FirstImageFileIdProjection> findFirstImageFileIdsByRelatedIdsAndRelatedTypeAndMimeTypeStartingWithAndStorageStatus(
             @Param("relatedIds") List<Long> relatedIds,
             @Param("relatedType") String relatedType,
             @Param("mimeTypePrefix") String mimeTypePrefix,

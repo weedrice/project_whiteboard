@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.file.dto.FileUploadResponse;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository;
+import com.weedrice.whiteboard.domain.file.repository.FileRepository.FirstImageFileIdProjection;
 import com.weedrice.whiteboard.domain.file.support.FileUrlResolver;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -403,10 +404,10 @@ public class FileService {
         }
 
         Map<Long, Long> firstImageFileIds = new LinkedHashMap<>();
-        for (File file : fileRepository
-                .findByRelatedIdInAndRelatedTypeAndMimeTypeStartingWithAndStorageStatusOrderByRelatedIdAscFileIdAsc(
+        for (FirstImageFileIdProjection fileIdProjection : fileRepository
+                .findFirstImageFileIdsByRelatedIdsAndRelatedTypeAndMimeTypeStartingWithAndStorageStatus(
                         relatedIds, relatedType, "image/", FileStorageStatus.ACTIVE)) {
-            firstImageFileIds.putIfAbsent(file.getRelatedId(), file.getFileId());
+            firstImageFileIds.put(fileIdProjection.getRelatedId(), fileIdProjection.getFileId());
         }
         return firstImageFileIds;
     }
