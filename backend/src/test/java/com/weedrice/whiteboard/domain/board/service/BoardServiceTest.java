@@ -57,7 +57,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Collections;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -1623,10 +1622,7 @@ class BoardServiceTest {
                 .build();
 
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(boardSubscriptionRepository.findReorderableByUserAndBoardUrlIn(
-                user,
-                new LinkedHashSet<>(List.of("second-board", "test-board")),
-                false))
+        when(boardSubscriptionRepository.findReorderableByUser(user, false))
                 .thenReturn(List.of(firstSubscription, secondSubscription));
         when(boardSubscriptionRepository.findMaxSortOrder(user)).thenReturn(2);
 
@@ -1651,10 +1647,7 @@ class BoardServiceTest {
                 .build();
 
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(boardSubscriptionRepository.findReorderableByUserAndBoardUrlIn(
-                user,
-                new LinkedHashSet<>(List.of("test-board", "missing-board")),
-                false))
+        when(boardSubscriptionRepository.findReorderableByUser(user, false))
                 .thenReturn(List.of(subscription));
 
         BusinessException exception = assertThrows(BusinessException.class,
@@ -1688,10 +1681,7 @@ class BoardServiceTest {
                 .build();
 
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(boardSubscriptionRepository.findReorderableByUserAndBoardUrlIn(
-                user,
-                new LinkedHashSet<>(List.of("second-board", "test-board")),
-                false))
+        when(boardSubscriptionRepository.findReorderableByUser(user, false))
                 .thenReturn(List.of(activeSubscription, anotherActiveSubscription));
         when(boardSubscriptionRepository.findMaxSortOrder(user)).thenReturn(2);
 
@@ -1730,10 +1720,7 @@ class BoardServiceTest {
         List<List<Integer>> sortOrderSnapshots = new ArrayList<>();
 
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(boardSubscriptionRepository.findReorderableByUserAndBoardUrlIn(
-                user,
-                new LinkedHashSet<>(List.of("second-board", "test-board")),
-                false))
+        when(boardSubscriptionRepository.findReorderableByUser(user, false))
                 .thenReturn(List.of(firstSubscription, secondSubscription));
         when(boardSubscriptionRepository.findMaxSortOrder(user)).thenReturn(2);
         when(boardSubscriptionRepository.saveAll(any()))
@@ -1774,10 +1761,7 @@ class BoardServiceTest {
                 .build();
 
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(boardSubscriptionRepository.findReorderableByUserAndBoardUrlIn(
-                user,
-                new LinkedHashSet<>(List.of("second-board", "test-board")),
-                false))
+        when(boardSubscriptionRepository.findReorderableByUser(user, false))
                 .thenReturn(List.of(firstSubscription, secondSubscription));
         when(boardSubscriptionRepository.findMaxSortOrder(user)).thenReturn(2);
         doThrow(new DataIntegrityViolationException("duplicate"))
@@ -2022,10 +2006,7 @@ class BoardServiceTest {
                 .build();
 
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(boardSubscriptionRepository.findReorderableByUserAndBoardUrlIn(
-                user,
-                new LinkedHashSet<>(List.of("test-board")),
-                false))
+        when(boardSubscriptionRepository.findReorderableByUser(user, false))
                 .thenReturn(List.of(visibleSubscription));
         when(boardSubscriptionRepository.findMaxSortOrder(user)).thenReturn(1);
 
@@ -2040,8 +2021,8 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("구독 순서 변경은 요청된 접근 가능 구독만 부분적으로 재정렬할 수 있다")
-    void updateSubscriptionOrder_reordersRequestedSubsetOnly() {
+    @DisplayName("구독 순서 변경은 접근 가능 구독 일부만 요청하면 거부한다")
+    void updateSubscriptionOrder_rejectsRequestedSubset() {
         Board secondBoard = Board.builder()
                 .boardName("Second Board")
                 .boardUrl("second-board")
@@ -2076,22 +2057,17 @@ class BoardServiceTest {
                 .build();
 
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(boardSubscriptionRepository.findReorderableByUserAndBoardUrlIn(
-                user,
-                new LinkedHashSet<>(List.of("third-board", "second-board")),
-                false))
-                .thenReturn(List.of(secondSubscription, thirdSubscription));
-        when(boardSubscriptionRepository.findMaxSortOrder(user)).thenReturn(3);
+        when(boardSubscriptionRepository.findReorderableByUser(user, false))
+                .thenReturn(List.of(firstSubscription, secondSubscription, thirdSubscription));
 
-        boardService.updateSubscriptionOrder(1L, List.of("third-board", "second-board"));
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.updateSubscriptionOrder(1L, List.of("third-board", "second-board")));
 
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
         assertThat(firstSubscription.getSortOrder()).isEqualTo(1);
-        assertThat(secondSubscription.getSortOrder()).isEqualTo(3);
-        assertThat(thirdSubscription.getSortOrder()).isEqualTo(2);
-        InOrder inOrder = inOrder(boardSubscriptionRepository);
-        inOrder.verify(boardSubscriptionRepository).saveAll(List.of(secondSubscription, thirdSubscription));
-        inOrder.verify(boardSubscriptionRepository).flush();
-        inOrder.verify(boardSubscriptionRepository).saveAll(List.of(secondSubscription, thirdSubscription));
+        assertThat(secondSubscription.getSortOrder()).isEqualTo(2);
+        assertThat(thirdSubscription.getSortOrder()).isEqualTo(3);
+        verify(boardSubscriptionRepository, never()).saveAll(any());
     }
 
     @Test

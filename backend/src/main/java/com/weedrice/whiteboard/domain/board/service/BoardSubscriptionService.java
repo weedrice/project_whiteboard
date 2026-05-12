@@ -14,7 +14,6 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -89,16 +88,15 @@ class BoardSubscriptionService {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
-        List<BoardSubscription> subscriptions = boardSubscriptionRepository.findReorderableByUserAndBoardUrlIn(
+        List<BoardSubscription> subscriptions = boardSubscriptionRepository.findReorderableByUser(
                 user,
-                requestedBoardUrls,
                 user.isUsableSuperAdmin());
 
         Set<String> currentBoardUrls = subscriptions.stream()
                 .map(sub -> sub.getBoard().getBoardUrl())
                 .collect(Collectors.toSet());
         if (currentBoardUrls.size() != subscriptions.size()
-                || !currentBoardUrls.equals(new HashSet<>(requestedBoardUrls))) {
+                || !currentBoardUrls.equals(requestedBoardUrls)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 

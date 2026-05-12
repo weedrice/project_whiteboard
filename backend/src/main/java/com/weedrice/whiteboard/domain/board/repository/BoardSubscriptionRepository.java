@@ -71,7 +71,6 @@ public interface BoardSubscriptionRepository extends JpaRepository<BoardSubscrip
             JOIN bs.board b
             WHERE bs.user = :user
               AND b.isActive = true
-              AND b.boardUrl IN :boardUrls
               AND (
                     :isSuperAdmin = true
                     OR EXISTS (
@@ -85,8 +84,7 @@ public interface BoardSubscriptionRepository extends JpaRepository<BoardSubscrip
                   )
             ORDER BY bs.sortOrder ASC, bs.createdAt ASC, bs.board.boardId ASC
             """)
-    List<BoardSubscription> findReorderableByUserAndBoardUrlIn(@Param("user") User user,
-            @Param("boardUrls") Collection<String> boardUrls,
+    List<BoardSubscription> findReorderableByUser(@Param("user") User user,
             @Param("isSuperAdmin") boolean isSuperAdmin);
 
     @EntityGraph(attributePaths = {"board", "board.creator"})

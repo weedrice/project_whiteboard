@@ -102,6 +102,7 @@ const accessibleBoards = ref<SubscriptionBoardListItem[]>([])
 const unavailableBoards = ref<SubscriptionBoardListItem[]>([])
 const loading = ref(false)
 const isMobile = ref(typeof window !== 'undefined' && window.innerWidth < 640)
+const subscriptionsPageSize = 100
 const hasSubscriptions = computed(() =>
   accessibleBoards.value.length > 0 || unavailableBoards.value.length > 0
 )
@@ -110,13 +111,41 @@ function updateIsMobile() {
   isMobile.value = window.innerWidth < 640
 }
 
+function canReorderSubscription(board: SubscriptionBoardListItem) {
+    return board.subscriptionAccessible !== false && board.isActive !== false
+}
+
+async function fetchAllSubscriptions() {
+    const boards: SubscriptionBoardListItem[] = []
+    let page = 0
+    let totalPages = 1
+
+    while (page < totalPages) {
+        const { data } = await userApi.getMySubscriptions({
+            page,
+            size: subscriptionsPageSize,
+            includeUnavailable: true
+        })
+
+        if (!data.success) {
+            return null
+        }
+
+        boards.push(...data.data.content)
+        totalPages = data.data.totalPages
+        page += 1
+    }
+
+    return boards
+}
+
 async function fetchSubscriptions() {
     loading.value = true
     try {
-        const { data } = await userApi.getMySubscriptions({ page: 0, size: 100, includeUnavailable: true })
-        if (data.success) {
-            accessibleBoards.value = data.data.content.filter(board => board.subscriptionAccessible !== false)
-            unavailableBoards.value = data.data.content.filter(board => board.subscriptionAccessible === false)
+        const boards = await fetchAllSubscriptions()
+        if (boards !== null) {
+            accessibleBoards.value = boards.filter(canReorderSubscription)
+            unavailableBoards.value = boards.filter(board => !canReorderSubscription(board))
         }
     } catch (error) {
         handleSilentError(error, 'Failed to load subscriptions')
