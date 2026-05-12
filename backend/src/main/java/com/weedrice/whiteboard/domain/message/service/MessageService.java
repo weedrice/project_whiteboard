@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.message.service;
 
+import com.weedrice.whiteboard.domain.message.constant.MessageConstraints;
 import com.weedrice.whiteboard.domain.message.dto.MessageResponse;
 import com.weedrice.whiteboard.domain.message.entity.Message;
 import com.weedrice.whiteboard.domain.message.repository.MessageRepository;
@@ -46,6 +47,9 @@ public class MessageService {
     public Message sendMessage(Long senderId, Long receiverId, String content) {
         String sanitizedContent = InputSanitizer.stripHtml(content);
         if (sanitizedContent == null || sanitizedContent.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        if (sanitizedContent.length() > MessageConstraints.MAX_CONTENT_LENGTH) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         User sender = userRepository.findById(senderId)

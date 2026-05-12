@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.message.dto;
 
+import com.weedrice.whiteboard.domain.message.constant.MessageConstraints;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -13,6 +14,6 @@ public class MessageCreateRequest {
     private Long receiverId;
 
     @NotBlank
-    @Size(max = 5000)
+    @Size(max = MessageConstraints.MAX_CONTENT_LENGTH)
     private String content;
 }

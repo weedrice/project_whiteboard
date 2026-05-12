@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.message.service;
 
+import com.weedrice.whiteboard.domain.message.constant.MessageConstraints;
 import com.weedrice.whiteboard.domain.message.dto.MessageResponse;
 import com.weedrice.whiteboard.domain.message.entity.Message;
 import com.weedrice.whiteboard.domain.message.repository.MessageRepository;
@@ -116,6 +117,35 @@ class MessageServiceTest {
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
         verify(messageRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("message content longer than max after sanitizing is rejected before save")
+    void sendMessage_contentOverMaxAfterSanitizing_invalidInput() {
+        String content = "<p>" + "a".repeat(MessageConstraints.MAX_CONTENT_LENGTH + 1) + "</p>";
+
+        assertThatThrownBy(() -> messageService.sendMessage(1L, 2L, content))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(userRepository, never()).findById(any());
+        verify(messageRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("message content exactly max length after sanitizing can be saved")
+    void sendMessage_contentAtMaxAfterSanitizing_success() {
+        String content = "<p>" + "a".repeat(MessageConstraints.MAX_CONTENT_LENGTH) + "</p>";
+        when(userRepository.findById(1L)).thenReturn(Optional.of(sender));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
+        when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(false);
+        when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Message result = messageService.sendMessage(1L, 2L, content);
+
+        assertThat(result.getContent()).hasSize(MessageConstraints.MAX_CONTENT_LENGTH);
+        verify(messageRepository).save(any(Message.class));
     }
 
     @Test
