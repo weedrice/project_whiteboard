@@ -27,34 +27,21 @@ public class PasswordResetTokenOrchestrationService {
     private final TokenHashService tokenHashService;
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void sendPasswordResetEmail(User user, String recipientEmail, String rawToken, String subject, String body) {
-        String hashedToken = tokenHashService.hashSha256(rawToken);
-        LocalDateTime expiryDate = LocalDateTime.now().plusHours(1);
-
-        mailDeliveryOrchestrationService.send(new AuthMailDeliveryOrchestrationService.MailDeliveryCommand(
-                recipientEmail,
-                subject,
-                body,
-                () -> createPendingPasswordResetToken(user, hashedToken, expiryDate),
-                tokenId -> updateDeliveryStatus(tokenId, false),
-                tokenId -> promotePendingToken(tokenId, user),
-                (tokenId, e) -> markCurrentTokenSentAfterPromotionFailure(tokenId, user, e)));
-    }
-
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void sendPreparedPasswordResetEmail(
             User user,
             String recipientEmail,
             Long tokenId,
             String subject,
             String body) {
-        mailDeliveryOrchestrationService.sendPrepared(new AuthMailDeliveryOrchestrationService.PreparedMailDeliveryCommand(
-                recipientEmail,
-                subject,
-                body,
-                id -> updateDeliveryStatus(id, false),
-                id -> promotePendingToken(id, user),
-                (id, e) -> markCurrentTokenSentAfterPromotionFailure(id, user, e)), tokenId);
+        mailDeliveryOrchestrationService.sendPrepared(
+                new AuthMailDeliveryOrchestrationService.PreparedMailDeliveryCommand(
+                        recipientEmail,
+                        subject,
+                        body,
+                        id -> updateDeliveryStatus(id, false),
+                        id -> promotePendingToken(id, user),
+                        (id, e) -> markCurrentTokenSentAfterPromotionFailure(id, user, e)),
+                tokenId);
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -71,25 +58,6 @@ public class PasswordResetTokenOrchestrationService {
 
     public Optional<PasswordResetToken> findLatestSentCompatibleToken(User user) {
         return passwordResetTokenRepository.findLatestSentByUser(user);
-    }
-
-    @Transactional
-    public void markTokenUsed(PasswordResetToken passwordResetToken) {
-        passwordResetToken.useToken();
-        passwordResetTokenRepository.save(passwordResetToken);
-    }
-
-    private Long createPendingPasswordResetToken(User user, String hashedToken, LocalDateTime expiryDate) {
-        final Long[] tokenIdHolder = new Long[1];
-        transactionTemplate.executeWithoutResult(status -> {
-            PasswordResetToken passwordResetToken = PasswordResetToken.builder()
-                    .token(hashedToken)
-                    .user(user)
-                    .expiryDate(expiryDate)
-                    .build();
-            tokenIdHolder[0] = passwordResetTokenRepository.save(passwordResetToken).getTokenId();
-        });
-        return tokenIdHolder[0];
     }
 
     private void updateDeliveryStatus(Long tokenId, boolean sent) {
@@ -118,7 +86,10 @@ public class PasswordResetTokenOrchestrationService {
         markTokenSentAfterInvalidatingPrevious(user, tokenId);
     }
 
-    private void markCurrentTokenSentAfterPromotionFailure(Long tokenId, User user, RuntimeException promotionException) {
+    private void markCurrentTokenSentAfterPromotionFailure(
+            Long tokenId,
+            User user,
+            RuntimeException promotionException) {
         log.error("Password reset token promotion failed after email delivery: tokenId={} userId={}",
                 tokenId, user.getUserId(), promotionException);
         try {
@@ -131,14 +102,17 @@ public class PasswordResetTokenOrchestrationService {
 
     private void markTokenSentAfterInvalidatingPrevious(User user, Long tokenId) {
         transactionTemplate.executeWithoutResult(status -> {
+            PasswordResetToken passwordResetToken = passwordResetTokenRepository.findByIdForUpdate(tokenId)
+                    .orElse(null);
+            if (passwordResetToken == null) {
+                return;
+            }
+            // Token rows are locked before the user to match resetPasswordWithToken and avoid lock cycles.
+            invalidatePreviousSentTokens(user, tokenId);
             userRepository.findByIdForUpdate(user.getUserId())
                     .orElseThrow(() -> new IllegalStateException("Password reset user not found"));
-            invalidatePreviousSentTokens(user, tokenId);
-            passwordResetTokenRepository.findById(tokenId)
-                    .ifPresent(passwordResetToken -> {
-                        passwordResetToken.markSent();
-                        passwordResetTokenRepository.save(passwordResetToken);
-                    });
+            passwordResetToken.markSent();
+            passwordResetTokenRepository.save(passwordResetToken);
         });
     }
 

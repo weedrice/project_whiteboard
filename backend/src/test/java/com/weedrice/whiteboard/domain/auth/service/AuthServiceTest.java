@@ -172,6 +172,8 @@ class AuthServiceTest {
 
         when(passwordResetTokenRepository.findById(any())).thenAnswer(invocation ->
                 Optional.ofNullable(passwordResetTokens.get(invocation.getArgument(0))));
+        when(passwordResetTokenRepository.findByIdForUpdate(any())).thenAnswer(invocation ->
+                Optional.ofNullable(passwordResetTokens.get(invocation.getArgument(0))));
         when(userRepository.findByIdForUpdate(user.getUserId())).thenReturn(Optional.of(user));
         when(passwordResetTokenRepository.findLatestSentByUser(any(User.class))).thenAnswer(invocation ->
                 passwordResetTokens.values().stream()
@@ -201,10 +203,6 @@ class AuthServiceTest {
                     });
             return invalidatedCount[0];
         }).when(passwordResetTokenRepository).invalidatePreviousSentUnusedTokens(any(User.class), nullable(Long.class));
-        when(passwordResetTokenRepository.findByToken(anyString())).thenAnswer(invocation ->
-                passwordResetTokens.values().stream()
-                        .filter(passwordResetToken -> invocation.getArgument(0).equals(passwordResetToken.getToken()))
-                        .findFirst());
         when(passwordResetTokenRepository.findByTokenForUpdate(anyString())).thenAnswer(invocation ->
                 passwordResetTokens.values().stream()
                         .filter(passwordResetToken -> invocation.getArgument(0).equals(passwordResetToken.getToken()))

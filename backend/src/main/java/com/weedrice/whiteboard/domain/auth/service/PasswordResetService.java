@@ -108,13 +108,11 @@ public class PasswordResetService {
     @Transactional
     public void resetPasswordWithToken(String rawToken, String newPassword) {
         String hashedToken = tokenHashService.hashSha256(rawToken);
-        PasswordResetToken tokenSnapshot = passwordResetTokenRepository.findByToken(hashedToken)
-                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_PASSWORD_RESET_TOKEN));
-        User user = userRepository.findByIdForUpdate(tokenSnapshot.getUser().getUserId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        validateUsablePasswordResetUser(user);
         PasswordResetToken passwordResetToken = passwordResetTokenRepository.findByTokenForUpdate(hashedToken)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_PASSWORD_RESET_TOKEN));
+        User user = userRepository.findByIdForUpdate(passwordResetToken.getUser().getUserId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        validateUsablePasswordResetUser(user);
 
         if (!passwordResetToken.isSent()) {
             throw new BusinessException(ErrorCode.INVALID_PASSWORD_RESET_TOKEN);

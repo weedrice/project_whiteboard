@@ -15,16 +15,21 @@ import java.util.List;
 import java.util.Optional;
 
 public interface PasswordResetTokenRepository extends JpaRepository<PasswordResetToken, Long> {
-    Optional<PasswordResetToken> findByToken(String token);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT token
+            FROM PasswordResetToken token
+            WHERE token.token = :token
+            """)
+    Optional<PasswordResetToken> findByTokenForUpdate(@Param("token") String token);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT token
             FROM PasswordResetToken token
-            JOIN FETCH token.user
-            WHERE token.token = :token
+            WHERE token.tokenId = :tokenId
             """)
-    Optional<PasswordResetToken> findByTokenForUpdate(@Param("token") String token);
+    Optional<PasswordResetToken> findByIdForUpdate(@Param("tokenId") Long tokenId);
 
     default Optional<PasswordResetToken> findLatestSentByUser(User user) {
         return findSentByUserOrderByCreatedAtDesc(user, PageRequest.of(0, 1))
