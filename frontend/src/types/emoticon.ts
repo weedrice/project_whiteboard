@@ -37,7 +37,7 @@ export interface EmoticonSearchParams {
     size?: number
     keyword?: string
     searchType?: 'ALL' | 'NAME' | 'CREATOR' | 'TAG'
-    sortBy?: 'latest' | 'popular'
+    sortBy?: 'latest' | 'oldest' | 'popular'
 }
 
 export interface EmoticonPurchaseStatus {

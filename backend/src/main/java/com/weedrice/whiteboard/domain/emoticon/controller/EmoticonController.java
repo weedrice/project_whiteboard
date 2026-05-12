@@ -28,7 +28,7 @@ public class EmoticonController {
 
     /**
      * 이모티콘 목록 조회
-     * @param sortBy "latest" (등록순 오름차순) 또는 "popular" (판매순)
+     * @param sortBy "latest" (최신순), "oldest" (오래된순), "popular" (판매순)
      */
     @GetMapping
     public ApiResponse<PageResponse<EmoticonMasterDto>> getEmoticons(
@@ -219,6 +219,12 @@ public class EmoticonController {
     }
 
     private String normalizeSortBy(String sortBy) {
-        return "popular".equalsIgnoreCase(sortBy) ? "popular" : "latest";
+        if ("popular".equalsIgnoreCase(sortBy)) {
+            return "popular";
+        }
+        if ("oldest".equalsIgnoreCase(sortBy)) {
+            return "oldest";
+        }
+        return "latest";
     }
 }

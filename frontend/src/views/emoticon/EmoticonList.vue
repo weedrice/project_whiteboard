@@ -23,7 +23,7 @@ useHead({
 
 // 상태
 const popularPeriod = ref<'daily' | 'weekly' | 'monthly'>('daily')
-const sortBy = ref<'latest' | 'popular'>('latest')
+const sortBy = ref<'latest' | 'oldest' | 'popular'>('latest')
 const currentPage = ref(0)
 const pageSize = 20
 const searchKeyword = ref('')
@@ -70,7 +70,7 @@ const goToPage = (page: number) => {
 }
 
 // 정렬 변경
-const changeSortBy = (newSort: 'latest' | 'popular') => {
+const changeSortBy = (newSort: NonNullable<EmoticonSearchParams['sortBy']>) => {
   sortBy.value = newSort
   currentPage.value = 0
 }
@@ -103,6 +103,12 @@ const periodLabels = {
   weekly: '주간',
   monthly: '월간'
 }
+
+const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; label: string }> = [
+  { value: 'latest', label: '최신순' },
+  { value: 'oldest', label: '오래된순' },
+  { value: 'popular', label: '판매순' }
+]
 </script>
 
 <template>
@@ -190,32 +196,23 @@ const periodLabels = {
 
     <!-- 전체 노비콘 섹션 -->
     <section>
-      <div class="flex items-center justify-between mb-4">
+      <div class="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
           전체 노비콘 <span class="text-sm font-normal text-gray-500">({{ totalElements.toLocaleString() }}개)</span>
         </h2>
-        <div class="flex gap-2">
+        <div class="flex flex-wrap gap-2">
           <button
-            @click="changeSortBy('latest')"
+            v-for="option in sortOptions"
+            :key="option.value"
+            @click="changeSortBy(option.value)"
             :class="[
               'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
-              sortBy === 'latest'
+              sortBy === option.value
                 ? 'bg-indigo-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
             ]"
           >
-            등록순
-          </button>
-          <button
-            @click="changeSortBy('popular')"
-            :class="[
-              'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
-              sortBy === 'popular'
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-            ]"
-          >
-            판매순
+            {{ option.label }}
           </button>
         </div>
       </div>

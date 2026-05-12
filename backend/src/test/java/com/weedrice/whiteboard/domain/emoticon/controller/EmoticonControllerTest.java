@@ -148,6 +148,22 @@ class EmoticonControllerTest {
         }
 
         @Test
+        @DisplayName("이모티콘 목록 조회 성공 - oldest 정렬")
+        void getEmoticons_oldest() throws Exception {
+            Page<EmoticonMasterDto> page = new PageImpl<>(List.of(EmoticonMasterDto.builder().emoticonId(1L).build()), PageRequest.of(0, 20), 1);
+            when(emoticonService.getActiveEmoticons(any(), eq("oldest"))).thenReturn(page);
+
+            mockMvc.perform(get("/api/v1/emoticons")
+                            .param("sortBy", "oldest")
+                            .with(csrf()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.content").isArray());
+
+            verify(emoticonService).getActiveEmoticons(any(), eq("oldest"));
+        }
+
+        @Test
         @DisplayName("이모티콘 목록 page/size를 정규화하고 sort 파라미터를 무시한다")
         void getEmoticons_normalizesPageableAndIgnoresClientSort() throws Exception {
             Page<EmoticonMasterDto> page = new PageImpl<>(
@@ -279,6 +295,26 @@ class EmoticonControllerTest {
             assertThat(pageable.getPageNumber()).isEqualTo(1);
             assertThat(pageable.getPageSize()).isEqualTo(50);
             assertThat(pageable.getSort().isUnsorted()).isTrue();
+        }
+
+        @Test
+        @DisplayName("통합 검색 oldest 정렬을 정규화한다")
+        void searchAll_normalizesOldestSortBy() throws Exception {
+            Page<EmoticonMasterDto> page = new PageImpl<>(
+                    List.of(EmoticonMasterDto.builder().emoticonId(1L).build()),
+                    PageRequest.of(0, 20),
+                    1);
+            when(emoticonService.searchAll(anyString(), anyString(), any(), eq("oldest"))).thenReturn(page);
+
+            mockMvc.perform(get("/api/v1/emoticons/search/all")
+                            .param("keyword", "test")
+                            .param("searchType", "NAME")
+                            .param("sortBy", "OLDEST")
+                            .with(csrf()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
+
+            verify(emoticonService).searchAll(eq("test"), eq("NAME"), any(), eq("oldest"));
         }
 
         @Test

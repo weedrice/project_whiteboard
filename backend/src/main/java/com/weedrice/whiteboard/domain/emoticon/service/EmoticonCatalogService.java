@@ -26,6 +26,8 @@ class EmoticonCatalogService {
     private static final String SEARCH_TYPE_CREATOR = "CREATOR";
     private static final String SEARCH_TYPE_TAG = "TAG";
     private static final String SEARCH_TYPE_ALL = "ALL";
+    private static final String SORT_BY_POPULAR = "popular";
+    private static final String SORT_BY_OLDEST = "oldest";
     private static final Set<String> SEARCH_TYPES = Set.of(
             SEARCH_TYPE_NAME,
             SEARCH_TYPE_CREATOR,
@@ -75,10 +77,12 @@ class EmoticonCatalogService {
 
     Page<EmoticonMasterDto> getActiveEmoticons(Pageable pageable, String sortBy) {
         Page<EmoticonMaster> result;
-        if ("popular".equalsIgnoreCase(sortBy)) {
+        if (isPopularSort(sortBy)) {
             result = emoticonMasterRepository.findAllActiveOrderByPurchaseCount(pageable);
-        } else {
+        } else if (isOldestSort(sortBy)) {
             result = emoticonMasterRepository.findAllActiveOrderByCreatedAtAsc(pageable);
+        } else {
+            result = emoticonMasterRepository.findAllActive(pageable);
         }
         return toSummaryPage(result);
     }
@@ -111,33 +115,72 @@ class EmoticonCatalogService {
 
         String trimmedKeyword = keyword.trim();
         Page<EmoticonMaster> result;
-        boolean isPopular = "popular".equalsIgnoreCase(sortBy);
 
         switch (normalizedSearchType) {
             case SEARCH_TYPE_NAME:
-                result = isPopular
-                        ? emoticonMasterRepository.searchByNameOrderByPurchase(trimmedKeyword, pageable)
-                        : emoticonMasterRepository.searchByName(trimmedKeyword, pageable);
+                result = searchByName(trimmedKeyword, pageable, sortBy);
                 break;
             case SEARCH_TYPE_CREATOR:
-                result = isPopular
-                        ? emoticonMasterRepository.searchByCreatorOrderByPurchase(trimmedKeyword, pageable)
-                        : emoticonMasterRepository.searchByCreator(trimmedKeyword, pageable);
+                result = searchByCreator(trimmedKeyword, pageable, sortBy);
                 break;
             case SEARCH_TYPE_TAG:
-                result = isPopular
-                        ? emoticonMasterRepository.searchByTagOrderByPurchase(trimmedKeyword, pageable)
-                        : emoticonMasterRepository.findByTag(trimmedKeyword, pageable);
+                result = searchByTag(trimmedKeyword, pageable, sortBy);
                 break;
             case SEARCH_TYPE_ALL:
-                result = isPopular
-                        ? emoticonMasterRepository.searchByKeywordAllOrderByPurchase(trimmedKeyword, pageable)
-                        : emoticonMasterRepository.searchByKeywordAll(trimmedKeyword, pageable);
+                result = searchByKeywordAll(trimmedKeyword, pageable, sortBy);
                 break;
             default:
                 throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         return toSummaryPage(result);
+    }
+
+    private Page<EmoticonMaster> searchByName(String keyword, Pageable pageable, String sortBy) {
+        if (isPopularSort(sortBy)) {
+            return emoticonMasterRepository.searchByNameOrderByPurchase(keyword, pageable);
+        }
+        if (isOldestSort(sortBy)) {
+            return emoticonMasterRepository.searchByNameOrderByCreatedAtAsc(keyword, pageable);
+        }
+        return emoticonMasterRepository.searchByNameOrderByCreatedAtDesc(keyword, pageable);
+    }
+
+    private Page<EmoticonMaster> searchByCreator(String keyword, Pageable pageable, String sortBy) {
+        if (isPopularSort(sortBy)) {
+            return emoticonMasterRepository.searchByCreatorOrderByPurchase(keyword, pageable);
+        }
+        if (isOldestSort(sortBy)) {
+            return emoticonMasterRepository.searchByCreatorOrderByCreatedAtAsc(keyword, pageable);
+        }
+        return emoticonMasterRepository.searchByCreatorOrderByCreatedAtDesc(keyword, pageable);
+    }
+
+    private Page<EmoticonMaster> searchByTag(String keyword, Pageable pageable, String sortBy) {
+        if (isPopularSort(sortBy)) {
+            return emoticonMasterRepository.searchByTagOrderByPurchase(keyword, pageable);
+        }
+        if (isOldestSort(sortBy)) {
+            return emoticonMasterRepository.searchByTagOrderByCreatedAtAsc(keyword, pageable);
+        }
+        return emoticonMasterRepository.findByTag(keyword, pageable);
+    }
+
+    private Page<EmoticonMaster> searchByKeywordAll(String keyword, Pageable pageable, String sortBy) {
+        if (isPopularSort(sortBy)) {
+            return emoticonMasterRepository.searchByKeywordAllOrderByPurchase(keyword, pageable);
+        }
+        if (isOldestSort(sortBy)) {
+            return emoticonMasterRepository.searchByKeywordAllOrderByCreatedAtAsc(keyword, pageable);
+        }
+        return emoticonMasterRepository.searchByKeywordAllOrderByCreatedAtDesc(keyword, pageable);
+    }
+
+    private boolean isPopularSort(String sortBy) {
+        return SORT_BY_POPULAR.equalsIgnoreCase(sortBy);
+    }
+
+    private boolean isOldestSort(String sortBy) {
+        return SORT_BY_OLDEST.equalsIgnoreCase(sortBy);
     }
 
     private String normalizeSearchType(String searchType) {

@@ -133,12 +133,24 @@ class EmoticonServiceTest {
         @DisplayName("활성 이모티콘 목록 조회 - latest 정렬")
         void getActiveEmoticons_latest() {
             Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
-            when(emoticonMasterRepository.findAllActiveOrderByCreatedAtAsc(any(Pageable.class))).thenReturn(page);
+            when(emoticonMasterRepository.findAllActive(any(Pageable.class))).thenReturn(page);
 
             Page<EmoticonMasterDto> result = emoticonService.getActiveEmoticons(PageRequest.of(0, 20), "latest");
 
             assertThat(result.getContent()).hasSize(1);
             assertThat(result.getContent().get(0).getName()).isEqualTo("테스트 이모티콘");
+            verify(emoticonMasterRepository).findAllActive(any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("활성 이모티콘 목록 조회 - oldest 정렬")
+        void getActiveEmoticons_oldest() {
+            Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
+            when(emoticonMasterRepository.findAllActiveOrderByCreatedAtAsc(any(Pageable.class))).thenReturn(page);
+
+            Page<EmoticonMasterDto> result = emoticonService.getActiveEmoticons(PageRequest.of(0, 20), "oldest");
+
+            assertThat(result.getContent()).hasSize(1);
             verify(emoticonMasterRepository).findAllActiveOrderByCreatedAtAsc(any(Pageable.class));
         }
 
@@ -273,36 +285,36 @@ class EmoticonServiceTest {
         @DisplayName("키워드 없으면 전체 목록 반환 (latest)")
         void searchAll_emptyKeyword_returnsActiveLatest() {
             Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
-            when(emoticonMasterRepository.findAllActiveOrderByCreatedAtAsc(any(Pageable.class))).thenReturn(page);
+            when(emoticonMasterRepository.findAllActive(any(Pageable.class))).thenReturn(page);
 
             Page<EmoticonMasterDto> result = emoticonService.searchAll(null, "ALL", PageRequest.of(0, 20), "latest");
 
             assertThat(result.getContent()).hasSize(1);
-            verify(emoticonMasterRepository).findAllActiveOrderByCreatedAtAsc(any(Pageable.class));
+            verify(emoticonMasterRepository).findAllActive(any(Pageable.class));
         }
 
         @Test
         @DisplayName("searchType NAME으로 검색")
         void searchAll_byName() {
             Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
-            when(emoticonMasterRepository.searchByName(eq("테스트"), any(Pageable.class))).thenReturn(page);
+            when(emoticonMasterRepository.searchByNameOrderByCreatedAtDesc(eq("테스트"), any(Pageable.class))).thenReturn(page);
 
             Page<EmoticonMasterDto> result = emoticonService.searchAll("테스트", "NAME", PageRequest.of(0, 20), "latest");
 
             assertThat(result.getContent()).hasSize(1);
-            verify(emoticonMasterRepository).searchByName(eq("테스트"), any(Pageable.class));
+            verify(emoticonMasterRepository).searchByNameOrderByCreatedAtDesc(eq("테스트"), any(Pageable.class));
         }
 
         @Test
         @DisplayName("searchType CREATOR로 검색")
         void searchAll_byCreator() {
             Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
-            when(emoticonMasterRepository.searchByCreator(eq("테스트"), any(Pageable.class))).thenReturn(page);
+            when(emoticonMasterRepository.searchByCreatorOrderByCreatedAtDesc(eq("테스트"), any(Pageable.class))).thenReturn(page);
 
             Page<EmoticonMasterDto> result = emoticonService.searchAll("테스트", "CREATOR", PageRequest.of(0, 20), "latest");
 
             assertThat(result.getContent()).hasSize(1);
-            verify(emoticonMasterRepository).searchByCreator(eq("테스트"), any(Pageable.class));
+            verify(emoticonMasterRepository).searchByCreatorOrderByCreatedAtDesc(eq("테스트"), any(Pageable.class));
         }
 
         @Test
@@ -321,26 +333,74 @@ class EmoticonServiceTest {
         @DisplayName("searchType ALL로 검색")
         void searchAll_byAll() {
             Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
-            when(emoticonMasterRepository.searchByKeywordAll(eq("키워드"), any(Pageable.class))).thenReturn(page);
+            when(emoticonMasterRepository.searchByKeywordAllOrderByCreatedAtDesc(eq("키워드"), any(Pageable.class))).thenReturn(page);
 
             Page<EmoticonMasterDto> result = emoticonService.searchAll("키워드", "ALL", PageRequest.of(0, 20), "latest");
 
             assertThat(result.getContent()).hasSize(1);
-            verify(emoticonMasterRepository).searchByKeywordAll(eq("키워드"), any(Pageable.class));
+            verify(emoticonMasterRepository).searchByKeywordAllOrderByCreatedAtDesc(eq("키워드"), any(Pageable.class));
         }
 
         @Test
         @DisplayName("키워드 빈 문자열이면 전체 목록 반환")
         void searchAll_emptyStringKeyword() {
             Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
-            when(emoticonMasterRepository.findAllActiveOrderByCreatedAtAsc(any(Pageable.class))).thenReturn(page);
+            when(emoticonMasterRepository.findAllActive(any(Pageable.class))).thenReturn(page);
 
             Page<EmoticonMasterDto> result = emoticonService.searchAll("", "ALL", PageRequest.of(0, 20), "latest");
             Page<EmoticonMasterDto> resultTrimmed = emoticonService.searchAll("   ", "ALL", PageRequest.of(0, 20), "latest");
 
             assertThat(result.getContent()).hasSize(1);
             assertThat(resultTrimmed.getContent()).hasSize(1);
-            verify(emoticonMasterRepository, times(2)).findAllActiveOrderByCreatedAtAsc(any(Pageable.class));
+            verify(emoticonMasterRepository, times(2)).findAllActive(any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("searchType NAME + oldest 정렬")
+        void searchAll_byNameOldest() {
+            Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
+            when(emoticonMasterRepository.searchByNameOrderByCreatedAtAsc(eq("테스트"), any(Pageable.class))).thenReturn(page);
+
+            Page<EmoticonMasterDto> result = emoticonService.searchAll("테스트", "NAME", PageRequest.of(0, 20), "oldest");
+
+            assertThat(result.getContent()).hasSize(1);
+            verify(emoticonMasterRepository).searchByNameOrderByCreatedAtAsc(eq("테스트"), any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("searchType CREATOR + oldest 정렬")
+        void searchAll_byCreatorOldest() {
+            Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
+            when(emoticonMasterRepository.searchByCreatorOrderByCreatedAtAsc(eq("테스트"), any(Pageable.class))).thenReturn(page);
+
+            Page<EmoticonMasterDto> result = emoticonService.searchAll("테스트", "CREATOR", PageRequest.of(0, 20), "oldest");
+
+            assertThat(result.getContent()).hasSize(1);
+            verify(emoticonMasterRepository).searchByCreatorOrderByCreatedAtAsc(eq("테스트"), any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("searchType TAG + oldest 정렬")
+        void searchAll_byTagOldest() {
+            Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
+            when(emoticonMasterRepository.searchByTagOrderByCreatedAtAsc(eq("웃음"), any(Pageable.class))).thenReturn(page);
+
+            Page<EmoticonMasterDto> result = emoticonService.searchAll("웃음", "TAG", PageRequest.of(0, 20), "oldest");
+
+            assertThat(result.getContent()).hasSize(1);
+            verify(emoticonMasterRepository).searchByTagOrderByCreatedAtAsc(eq("웃음"), any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("searchType ALL + oldest 정렬")
+        void searchAll_byAllOldest() {
+            Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
+            when(emoticonMasterRepository.searchByKeywordAllOrderByCreatedAtAsc(eq("키워드"), any(Pageable.class))).thenReturn(page);
+
+            Page<EmoticonMasterDto> result = emoticonService.searchAll("키워드", "ALL", PageRequest.of(0, 20), "oldest");
+
+            assertThat(result.getContent()).hasSize(1);
+            verify(emoticonMasterRepository).searchByKeywordAllOrderByCreatedAtAsc(eq("키워드"), any(Pageable.class));
         }
 
         @Test
@@ -395,12 +455,12 @@ class EmoticonServiceTest {
         @DisplayName("null searchType defaults to ALL")
         void searchAll_nullSearchType_defaultsToAll() {
             Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
-            when(emoticonMasterRepository.searchByKeywordAll(eq("q"), any(Pageable.class))).thenReturn(page);
+            when(emoticonMasterRepository.searchByKeywordAllOrderByCreatedAtDesc(eq("q"), any(Pageable.class))).thenReturn(page);
 
             Page<EmoticonMasterDto> result = emoticonService.searchAll("q", null, PageRequest.of(0, 20), "latest");
 
             assertThat(result.getContent()).hasSize(1);
-            verify(emoticonMasterRepository).searchByKeywordAll(eq("q"), any(Pageable.class));
+            verify(emoticonMasterRepository).searchByKeywordAllOrderByCreatedAtDesc(eq("q"), any(Pageable.class));
         }
 
         @Test
@@ -423,12 +483,12 @@ class EmoticonServiceTest {
         @DisplayName("searchType is trimmed and normalized")
         void searchAll_searchTypeTrimmedAndNormalized() {
             Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
-            when(emoticonMasterRepository.searchByName(eq("q"), any(Pageable.class))).thenReturn(page);
+            when(emoticonMasterRepository.searchByNameOrderByCreatedAtDesc(eq("q"), any(Pageable.class))).thenReturn(page);
 
             Page<EmoticonMasterDto> result = emoticonService.searchAll("q", " name ", PageRequest.of(0, 20), "latest");
 
             assertThat(result.getContent()).hasSize(1);
-            verify(emoticonMasterRepository).searchByName(eq("q"), any(Pageable.class));
+            verify(emoticonMasterRepository).searchByNameOrderByCreatedAtDesc(eq("q"), any(Pageable.class));
         }
     }
 
