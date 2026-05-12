@@ -31,7 +31,7 @@ public class UserSecurityService {
 
     @Transactional
     public void updatePassword(Long userId, String currentPassword, String newPassword) {
-        User user = userWritableResolver.resolve(userId);
+        User user = userWritableResolver.resolveForUpdate(userId);
 
         if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
             throw new BusinessException(ErrorCode.INVALID_CURRENT_PASSWORD);

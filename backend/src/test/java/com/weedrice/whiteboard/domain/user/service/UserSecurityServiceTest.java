@@ -70,7 +70,7 @@ class UserSecurityServiceTest {
     void updatePassword_success() {
         User user = User.builder().password("encodedOld").build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("old", "encodedOld")).thenReturn(true);
         when(passwordEncoder.matches("new", "encodedOld")).thenReturn(false);
         when(passwordHistoryRepository.findTop4ByUserOrderByCreatedAtDescHistoryIdDesc(user)).thenReturn(Collections.emptyList());
@@ -89,7 +89,7 @@ class UserSecurityServiceTest {
         User user = User.builder().password("encodedOld").build();
         PasswordHistory history = PasswordHistory.builder().passwordHash("encodedRecent").build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("old", "encodedOld")).thenReturn(true);
         when(passwordEncoder.matches("new", "encodedOld")).thenReturn(false);
         when(passwordHistoryRepository.findTop4ByUserOrderByCreatedAtDescHistoryIdDesc(user)).thenReturn(List.of(history));
