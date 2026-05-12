@@ -94,7 +94,7 @@ class SanctionServiceTest {
     void createSanction_success() {
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
         when(moderationActorResolver.resolveActiveAdmin(1L)).thenReturn(admin);
-        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+        when(userRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(targetUser));
         when(postRepository.findById(100L)).thenReturn(Optional.of(Post.builder()
                 .user(targetUser)
                 .title("Post")
@@ -114,6 +114,7 @@ class SanctionServiceTest {
         Long sanctionId = sanctionService.createSanction(1L, 2L, "BAN", "Test", null, 100L, "post");
 
         assertThat(sanctionId).isEqualTo(1L);
+        verify(userRepository).findByIdForUpdate(2L);
         verify(userLifecycleService).suspendUser(targetUser);
         verify(sanctionRepository).save(argThat(sanction ->
                 Long.valueOf(100L).equals(sanction.getContentId())
@@ -125,7 +126,7 @@ class SanctionServiceTest {
     void createSanction_temporaryBan_keepsUserStatusActive() {
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
         when(moderationActorResolver.resolveActiveAdmin(1L)).thenReturn(admin);
-        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+        when(userRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(targetUser));
 
         Sanction savedSanction = Sanction.builder()
                 .targetUser(targetUser)
@@ -149,7 +150,7 @@ class SanctionServiceTest {
     void createSanction_permanentBanRejectsDeletedUser() {
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
         targetUser.delete();
-        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+        when(userRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(targetUser));
 
         assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "BAN", "Deleted user", null, null, null))
                 .isInstanceOf(BusinessException.class)
@@ -163,7 +164,7 @@ class SanctionServiceTest {
     @DisplayName("create sanction normalizes type to uppercase")
     void createSanction_normalizesTypeToUpperCase() {
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
-        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+        when(userRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(targetUser));
 
         Sanction savedSanction = Sanction.builder()
                 .targetUser(targetUser)
@@ -185,7 +186,7 @@ class SanctionServiceTest {
     @DisplayName("create sanction trims remark before save")
     void createSanction_trimsRemarkBeforeSave() {
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
-        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+        when(userRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(targetUser));
 
         Sanction savedSanction = Sanction.builder()
                 .targetUser(targetUser)
@@ -287,7 +288,7 @@ class SanctionServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
-        verify(userRepository, never()).findById(null);
+        verify(userRepository, never()).findByIdForUpdate(any());
         verify(sanctionRepository, never()).save(any(Sanction.class));
     }
 
@@ -295,7 +296,7 @@ class SanctionServiceTest {
     @DisplayName("reject sanction when post target is missing")
     void createSanction_rejectsMissingPostTarget() {
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
-        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+        when(userRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(targetUser));
         when(postRepository.findById(100L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "WARNING", "Invalid", null, 100L, "POST"))
@@ -316,7 +317,7 @@ class SanctionServiceTest {
                 .contents("Content")
                 .build();
         post.deletePost();
-        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+        when(userRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(targetUser));
         when(postRepository.findById(100L)).thenReturn(Optional.of(post));
 
         assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "WARNING", "Invalid", null, 100L, "POST"))
@@ -338,7 +339,7 @@ class SanctionServiceTest {
                 .title("Post")
                 .contents("Content")
                 .build();
-        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+        when(userRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(targetUser));
         when(postRepository.findById(100L)).thenReturn(Optional.of(post));
 
         assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "WARNING", "Invalid", null, 100L, "POST"))
@@ -353,7 +354,7 @@ class SanctionServiceTest {
     @DisplayName("reject sanction when comment target is missing or deleted")
     void createSanction_rejectsMissingCommentTarget() {
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
-        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+        when(userRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(targetUser));
         when(commentRepository.findNonDeletedByIdWithRelations(100L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "WARNING", "Invalid", null, 100L, "COMMENT"))
@@ -380,7 +381,7 @@ class SanctionServiceTest {
                 .depth(0)
                 .content("Comment")
                 .build();
-        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+        when(userRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(targetUser));
         when(commentRepository.findNonDeletedByIdWithRelations(100L)).thenReturn(Optional.of(comment));
 
         assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "WARNING", "Invalid", null, 100L, "COMMENT"))
@@ -398,7 +399,7 @@ class SanctionServiceTest {
         User inactiveUser = User.builder().build();
         ReflectionTestUtils.setField(inactiveUser, "userId", 3L);
         inactiveUser.suspend();
-        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+        when(userRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(targetUser));
         when(userRepository.findById(3L)).thenReturn(Optional.of(inactiveUser));
 
         assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "WARNING", "Invalid", null, 3L, "USER"))

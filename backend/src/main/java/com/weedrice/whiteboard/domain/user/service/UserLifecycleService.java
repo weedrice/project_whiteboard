@@ -23,7 +23,7 @@ public class UserLifecycleService {
 
     @Transactional
     public void updateAdminManagedStatus(Long userId, String status) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         if ("SUSPENDED".equals(status)) {

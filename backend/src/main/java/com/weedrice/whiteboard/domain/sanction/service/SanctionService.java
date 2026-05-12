@@ -180,7 +180,7 @@ public class SanctionService {
         if (targetUserId == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        User targetUser = userRepository.findById(targetUserId)
+        User targetUser = userRepository.findByIdForUpdate(targetUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         if (!targetUser.isActiveAccount()) {
             throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);

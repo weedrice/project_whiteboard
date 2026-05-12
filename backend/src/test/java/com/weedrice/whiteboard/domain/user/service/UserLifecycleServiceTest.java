@@ -38,11 +38,12 @@ class UserLifecycleServiceTest {
     @DisplayName("suspend revokes refresh tokens and suspends agents")
     void updateAdminManagedStatus_suspendRevokesSessionsAndAgents() {
         User user = User.builder().build();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
 
         userLifecycleService.updateAdminManagedStatus(1L, "SUSPENDED");
 
         assertThat(user.getStatus()).isEqualTo("SUSPENDED");
+        verify(userRepository).findByIdForUpdate(1L);
         verify(refreshTokenLifecycleService).revokeActiveRefreshTokens(user);
         verify(agentLifecycleService).suspendAllForUser(user);
     }
@@ -52,13 +53,14 @@ class UserLifecycleServiceTest {
     void updateAdminManagedStatus_activateDoesNotRestoreAgents() {
         User user = User.builder().build();
         user.suspend();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(sanctionRepository.existsActiveBan(org.mockito.ArgumentMatchers.eq(user), any(java.time.LocalDateTime.class)))
                 .thenReturn(false);
 
         userLifecycleService.updateAdminManagedStatus(1L, "ACTIVE");
 
         assertThat(user.getStatus()).isEqualTo("ACTIVE");
+        verify(userRepository).findByIdForUpdate(1L);
         verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(user);
         verify(agentLifecycleService, never()).suspendAllForUser(user);
     }
@@ -68,7 +70,7 @@ class UserLifecycleServiceTest {
     void updateAdminManagedStatus_activeBlockedByBan() {
         User user = User.builder().build();
         user.suspend();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(sanctionRepository.existsActiveBan(org.mockito.ArgumentMatchers.eq(user), any(java.time.LocalDateTime.class)))
                 .thenReturn(true);
 
@@ -83,7 +85,7 @@ class UserLifecycleServiceTest {
     void updateAdminManagedStatus_deletedUserCannotBeActivated() {
         User user = User.builder().build();
         user.delete();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> userLifecycleService.updateAdminManagedStatus(1L, "ACTIVE"))
                 .isInstanceOf(BusinessException.class)
@@ -96,7 +98,7 @@ class UserLifecycleServiceTest {
     void updateAdminManagedStatus_deletedUserCannotBeSuspended() {
         User user = User.builder().build();
         user.delete();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> userLifecycleService.updateAdminManagedStatus(1L, "SUSPENDED"))
                 .isInstanceOf(BusinessException.class)
@@ -108,7 +110,7 @@ class UserLifecycleServiceTest {
     @DisplayName("invalid status is rejected")
     void updateAdminManagedStatus_invalid() {
         User user = User.builder().build();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> userLifecycleService.updateAdminManagedStatus(1L, "INVALID"))
                 .isInstanceOf(BusinessException.class)
