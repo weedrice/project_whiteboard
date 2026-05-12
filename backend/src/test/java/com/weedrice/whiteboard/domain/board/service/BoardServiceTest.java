@@ -957,6 +957,19 @@ class BoardServiceTest {
     }
 
     @Test
+    @DisplayName("category update rejects null sortOrder before persistence")
+    void updateCategory_nullSortOrder_throwsValidationError() {
+        CategoryRequest request = categoryRequest("General", null, "USER");
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.updateCategory(10L, request));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
+        verify(boardCategoryRepository, never()).findBoardIdByCategoryId(anyLong());
+        verify(boardCategoryRepository, never()).saveAndFlush(any(BoardCategory.class));
+    }
+
+    @Test
     @DisplayName("비활성 카테고리 수정은 활성 이름 중복 검증을 건너뛴다")
     void updateCategory_inactiveCategory_skipsActiveNameDuplicateCheck() {
         CategoryRequest request = categoryRequest("General", 1, "USER");

@@ -57,6 +57,9 @@ class BoardCategoryService {
         if (categoryId == null) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Category ID cannot be null");
         }
+        if (request.getSortOrder() == null) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Category sortOrder cannot be null");
+        }
         BoardCategory category = findCategoryForUpdate(categoryId);
 
         SecurityUtils.validateBoardAdminPermission(category.getBoard());
