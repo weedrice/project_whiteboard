@@ -20,6 +20,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -36,6 +37,10 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class FeedServiceTest {
+
+    private static final Sort FEED_LIST_SORT = Sort.by(
+            Sort.Order.desc("createdAt"),
+            Sort.Order.desc("feedId"));
 
     @InjectMocks
     private FeedService feedService;
@@ -60,7 +65,7 @@ class FeedServiceTest {
     void getUserFeeds_hydratesPostsInPageOrder() {
         Long userId = 1L;
         User user = User.builder().build();
-        Pageable pageable = PageRequest.of(0, 10);
+        Pageable pageable = feedPageable(0, 10);
 
         UserFeed firstFeed = createFeed(1L, user, "SUBSCRIPTION_POST", "POST", 101L, "BOARD_SUBSCRIPTION", 10L,
                 LocalDateTime.now());
@@ -93,7 +98,7 @@ class FeedServiceTest {
     void getUserFeeds_excludesPostFeedWhenSummaryMissing() {
         Long userId = 1L;
         User user = User.builder().build();
-        Pageable pageable = PageRequest.of(0, 10);
+        Pageable pageable = feedPageable(0, 10);
 
         UserFeed staleFeed = createFeed(1L, user, "SUBSCRIPTION_POST", "POST", 101L, "BOARD_SUBSCRIPTION", 10L,
                 LocalDateTime.now());
@@ -122,8 +127,8 @@ class FeedServiceTest {
     void getUserFeeds_refillsCurrentPageFromNextPhysicalPage() {
         Long userId = 1L;
         User user = User.builder().build();
-        Pageable pageable = PageRequest.of(0, 2);
-        Pageable nextPageable = PageRequest.of(1, 2);
+        Pageable pageable = feedPageable(0, 2);
+        Pageable nextPageable = feedPageable(1, 2);
 
         UserFeed staleFeed = createFeed(1L, user, "SUBSCRIPTION_POST", "POST", 101L, "BOARD_SUBSCRIPTION", 10L,
                 LocalDateTime.now());
@@ -158,7 +163,7 @@ class FeedServiceTest {
     void getUserFeeds_refillStopsAtAdditionalPageLookupLimit() {
         Long userId = 1L;
         User user = User.builder().build();
-        Pageable pageable = PageRequest.of(0, 1);
+        Pageable pageable = feedPageable(0, 1);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of());
@@ -172,7 +177,7 @@ class FeedServiceTest {
                     "BOARD_SUBSCRIPTION",
                     10L,
                     LocalDateTime.now().minusMinutes(page));
-            Pageable currentPageable = PageRequest.of(page, 1);
+            Pageable currentPageable = feedPageable(page, 1);
             when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, List.of(), currentPageable))
                     .thenReturn(new PageImpl<>(List.of(staleFeed), currentPageable, 10));
             when(postService.getPostSummariesByIds(List.of(100L + page), userId)).thenReturn(Map.of());
@@ -186,7 +191,7 @@ class FeedServiceTest {
         verify(userFeedRepository, never()).findVisibleByTargetUserOrderByCreatedAtDesc(
                 user,
                 List.of(),
-                PageRequest.of(6, 1));
+                feedPageable(6, 1));
     }
 
     @Test
@@ -194,7 +199,7 @@ class FeedServiceTest {
     void getUserFeeds_keepsUnsupportedTypePostNull() {
         Long userId = 1L;
         User user = User.builder().build();
-        Pageable pageable = PageRequest.of(0, 10);
+        Pageable pageable = feedPageable(0, 10);
 
         UserFeed feed = createFeed(1L, user, "BOARD_NOTICE", "NOTICE", 100L, "BOARD", 1L, LocalDateTime.now());
         Page<UserFeed> feedPage = new PageImpl<>(List.of(feed), pageable, 1);
@@ -214,7 +219,7 @@ class FeedServiceTest {
     void getUserFeeds_usesEitherDirectionBlockedUserIdsForVisibleFeedPage() {
         Long userId = 1L;
         User user = User.builder().build();
-        Pageable pageable = PageRequest.of(0, 10);
+        Pageable pageable = feedPageable(0, 10);
 
         UserFeed validFeed = createFeed(2L, user, "SUBSCRIPTION_POST", "POST", 101L,
                 "BOARD_SUBSCRIPTION", 10L, LocalDateTime.now().minusMinutes(1));
@@ -246,7 +251,7 @@ class FeedServiceTest {
     void getUserFeeds_allInvisiblePostFeedsReturnEmptyVisibleMetadata() {
         Long userId = 1L;
         User user = User.builder().build();
-        Pageable pageable = PageRequest.of(0, 1);
+        Pageable pageable = feedPageable(0, 1);
         Page<UserFeed> feedPage = new PageImpl<>(List.of(), pageable, 0);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
@@ -270,7 +275,7 @@ class FeedServiceTest {
     @DisplayName("Feed user not found returns USER_NOT_FOUND")
     void getUserFeeds_userNotFound() {
         Long userId = 1L;
-        Pageable pageable = PageRequest.of(0, 10);
+        Pageable pageable = feedPageable(0, 10);
 
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
@@ -285,6 +290,30 @@ class FeedServiceTest {
         feedService.generateFeeds();
 
         verify(feedGenerationService).generateFeeds();
+    }
+
+    @Test
+    @DisplayName("Feed pageable sort is fixed to latest order")
+    void getUserFeeds_normalizesPageableSort() {
+        Long userId = 1L;
+        User user = User.builder().build();
+        Pageable requestedPageable = PageRequest.of(2, 1000, Sort.by(Sort.Order.asc("feedType")));
+        Pageable normalizedPageable = feedPageable(2, 100);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of());
+        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, List.of(), normalizedPageable))
+                .thenReturn(Page.empty(normalizedPageable));
+
+        FeedResponse response = feedService.getUserFeeds(userId, requestedPageable);
+
+        assertThat(response.getPage()).isEqualTo(2);
+        assertThat(response.getSize()).isEqualTo(100);
+        verify(userFeedRepository).findVisibleByTargetUserOrderByCreatedAtDesc(user, List.of(), normalizedPageable);
+    }
+
+    private Pageable feedPageable(int page, int size) {
+        return PageRequest.of(page, size, FEED_LIST_SORT);
     }
 
     private UserFeed createFeed(Long feedId, User user, String feedType, String contentType, Long contentId,

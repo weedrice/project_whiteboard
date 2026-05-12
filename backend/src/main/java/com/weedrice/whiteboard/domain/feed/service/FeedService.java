@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +35,10 @@ import java.util.Set;
 public class FeedService {
 
     private static final int MAX_REFILL_PAGE_LOOKAHEAD = 5;
+    private static final int DEFAULT_FEED_PAGE_SIZE = 20;
+    private static final Sort FEED_LIST_SORT = Sort.by(
+            Sort.Order.desc("createdAt"),
+            Sort.Order.desc("feedId"));
 
     private final UserFeedRepository userFeedRepository;
     private final UserRepository userRepository;
@@ -43,8 +49,12 @@ public class FeedService {
     public FeedResponse getUserFeeds(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        Pageable normalizedPageable = normalizeFeedPageable(pageable);
         List<Long> blockedUserIds = userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId);
-        Page<UserFeed> feedPage = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, blockedUserIds, pageable);
+        Page<UserFeed> feedPage = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
+                user,
+                blockedUserIds,
+                normalizedPageable);
         ResolvedFeedPage resolvedFeedPage = resolveFeedPage(user, blockedUserIds, userId, feedPage);
         return FeedResponse.from(
                 resolvedFeedPage.page(),
@@ -55,6 +65,13 @@ public class FeedService {
     @Transactional
     public void generateFeeds() {
         feedGenerationService.generateFeeds();
+    }
+
+    private Pageable normalizeFeedPageable(Pageable pageable) {
+        if (pageable == null || pageable.isUnpaged()) {
+            return PageRequestUtils.of(0, DEFAULT_FEED_PAGE_SIZE, FEED_LIST_SORT);
+        }
+        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), FEED_LIST_SORT);
     }
 
     private Map<Long, PostSummary> resolvePostSummaries(Page<UserFeed> feedPage, Long userId) {

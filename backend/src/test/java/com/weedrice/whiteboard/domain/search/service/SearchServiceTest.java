@@ -705,7 +705,9 @@ class SearchServiceTest {
     @DisplayName("최근 검색어 조회 - pageable 정규화")
     void getRecentSearches_normalizesPageable() {
         Long userId = 1L;
-        Pageable requestedPageable = PageRequest.of(3, 1000, Sort.by("unknown"));
+        Pageable requestedPageable = PageRequest.of(3, 1000, Sort.by(
+                Sort.Order.asc("searchedAt"),
+                Sort.Order.asc("logId")));
         Pageable normalizedPageable = PageRequest.of(3, 100, Sort.by(
                 Sort.Order.desc("searchedAt"),
                 Sort.Order.desc("logId")));
