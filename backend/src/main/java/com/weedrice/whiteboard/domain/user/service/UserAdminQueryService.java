@@ -17,12 +17,14 @@ import com.weedrice.whiteboard.domain.user.dto.UserAdminSearchCondition;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -54,6 +56,17 @@ public class UserAdminQueryService {
             User.STATUS_ACTIVE,
             User.STATUS_SUSPENDED,
             User.STATUS_DELETED);
+    private static final int DEFAULT_ADMIN_USER_PAGE_SIZE = 20;
+    private static final Sort DEFAULT_ADMIN_USER_SORT = Sort.by(Sort.Order.desc("userId"));
+    private static final Set<String> ALLOWED_ADMIN_USER_SORTS = Set.of(
+            "userId",
+            "createdAt",
+            "lastLoginAt",
+            "loginId",
+            "displayName",
+            "status",
+            "isEmailVerified",
+            "isSuperAdmin");
 
     private final UserRepository userRepository;
     private final PostRepository postRepository;
@@ -94,7 +107,12 @@ public class UserAdminQueryService {
                 .minActivityCount(minActivityCount)
                 .build();
 
-        Page<User> users = userRepository.searchUsersForAdmin(keyword, condition, pageable);
+        Pageable safePageable = PageRequestUtils.of(
+                pageable,
+                DEFAULT_ADMIN_USER_PAGE_SIZE,
+                DEFAULT_ADMIN_USER_SORT,
+                ALLOWED_ADMIN_USER_SORTS);
+        Page<User> users = userRepository.searchUsersForAdmin(keyword, condition, safePageable);
         Map<Long, String> rolesByUserId = resolveRolesForAdmin(users.getContent());
         List<UserAdminResponse> list = users.getContent().stream()
                 .map(user -> UserAdminResponse.from(
@@ -103,7 +121,7 @@ public class UserAdminQueryService {
                                 ? Role.SUPER_ADMIN
                                 : rolesByUserId.getOrDefault(user.getUserId(), Role.USER)))
                 .toList();
-        return new PageImpl<>(list, pageable, users.getTotalElements());
+        return new PageImpl<>(list, safePageable, users.getTotalElements());
     }
 
     private String normalizeStatus(String status) {

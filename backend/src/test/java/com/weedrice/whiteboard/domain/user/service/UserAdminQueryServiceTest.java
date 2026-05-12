@@ -30,6 +30,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
@@ -123,6 +125,67 @@ class UserAdminQueryServiceTest {
         verify(userRepository).searchUsersForAdmin(isNull(), conditionCaptor.capture(), any());
         assertThat(conditionCaptor.getValue().getStatus()).isEqualTo("ACTIVE");
         assertThat(conditionCaptor.getValue().getRole()).isEqualTo("MODERATOR");
+    }
+
+    @Test
+    @DisplayName("searchUsersForAdmin caps page size and drops unsupported sort")
+    void searchUsersForAdmin_normalizesPageSizeAndSort() {
+        when(userRepository.searchUsersForAdmin(isNull(), any(), any()))
+                .thenAnswer(invocation -> new PageImpl<>(List.of(), invocation.getArgument(2), 0));
+
+        Pageable requestedPageable = PageRequest.of(
+                2,
+                1000,
+                Sort.by(
+                        Sort.Order.asc("createdAt"),
+                        Sort.Order.desc("unsupported")));
+        Page<UserAdminResponse> response = userAdminQueryService.searchUsersForAdmin(
+                null, null, null, null, null, null,
+                null, null, null, null, null, requestedPageable);
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(userRepository).searchUsersForAdmin(isNull(), any(), pageableCaptor.capture());
+        Pageable safePageable = pageableCaptor.getValue();
+        assertThat(safePageable.getPageNumber()).isEqualTo(2);
+        assertThat(safePageable.getPageSize()).isEqualTo(100);
+        assertThat(safePageable.getSort()).containsExactly(Sort.Order.asc("createdAt"));
+        assertThat(response.getPageable()).isEqualTo(safePageable);
+    }
+
+    @Test
+    @DisplayName("searchUsersForAdmin uses default sort when requested sort is unsupported")
+    void searchUsersForAdmin_usesDefaultSortWhenSortUnsupported() {
+        when(userRepository.searchUsersForAdmin(isNull(), any(), any()))
+                .thenAnswer(invocation -> new PageImpl<>(List.of(), invocation.getArgument(2), 0));
+
+        Page<UserAdminResponse> response = userAdminQueryService.searchUsersForAdmin(
+                null, null, null, null, null, null,
+                null, null, null, null, null, PageRequest.of(0, 20, Sort.by("unsupported")));
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(userRepository).searchUsersForAdmin(isNull(), any(), pageableCaptor.capture());
+        Pageable safePageable = pageableCaptor.getValue();
+        assertThat(safePageable.getSort()).containsExactly(Sort.Order.desc("userId"));
+        assertThat(response.getPageable()).isEqualTo(safePageable);
+    }
+
+    @Test
+    @DisplayName("searchUsersForAdmin uses default pageable when pageable is unpaged")
+    void searchUsersForAdmin_usesDefaultPageableWhenUnpaged() {
+        when(userRepository.searchUsersForAdmin(isNull(), any(), any()))
+                .thenAnswer(invocation -> new PageImpl<>(List.of(), invocation.getArgument(2), 0));
+
+        Page<UserAdminResponse> response = userAdminQueryService.searchUsersForAdmin(
+                null, null, null, null, null, null,
+                null, null, null, null, null, Pageable.unpaged());
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(userRepository).searchUsersForAdmin(isNull(), any(), pageableCaptor.capture());
+        Pageable safePageable = pageableCaptor.getValue();
+        assertThat(safePageable.getPageNumber()).isZero();
+        assertThat(safePageable.getPageSize()).isEqualTo(20);
+        assertThat(safePageable.getSort()).containsExactly(Sort.Order.desc("userId"));
+        assertThat(response.getPageable()).isEqualTo(safePageable);
     }
 
     @Test
