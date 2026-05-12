@@ -15,12 +15,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.dao.DataIntegrityViolationException;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -309,6 +312,38 @@ class IpBlockServiceTest {
     }
 
     @Test
+    @DisplayName("IP 차단 목록은 페이지 요청이 없으면 기본 페이지 요청을 적용한다")
+    void getBlockedIps_usesDefaultPageableWhenUnpaged() {
+        when(ipBlockRepository.findActiveBlocks(any(LocalDateTime.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+        ipBlockService.getBlockedIps(Pageable.unpaged());
+
+        Pageable pageable = captureBlockedIpsPageable();
+        assertThat(pageable.getPageNumber()).isZero();
+        assertThat(pageable.getPageSize()).isEqualTo(20);
+        assertThat(pageable.getSort().getOrderFor("startDate")).isNotNull();
+        assertThat(pageable.getSort().getOrderFor("startDate").isDescending()).isTrue();
+    }
+
+    @Test
+    @DisplayName("IP 차단 목록은 크기를 제한하고 허용되지 않은 정렬을 제거한다")
+    void getBlockedIps_limitsSizeAndFiltersUnsupportedSort() {
+        when(ipBlockRepository.findActiveBlocks(any(LocalDateTime.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(1, 100), 0));
+
+        ipBlockService.getBlockedIps(PageRequest.of(1, 250,
+                Sort.by(Sort.Order.asc("reason"), Sort.Order.desc("ipAddress"))));
+
+        Pageable pageable = captureBlockedIpsPageable();
+        assertThat(pageable.getPageNumber()).isEqualTo(1);
+        assertThat(pageable.getPageSize()).isEqualTo(100);
+        assertThat(pageable.getSort().getOrderFor("ipAddress")).isNotNull();
+        assertThat(pageable.getSort().getOrderFor("ipAddress").isDescending()).isTrue();
+        assertThat(pageable.getSort().getOrderFor("reason")).isNull();
+    }
+
+    @Test
     @DisplayName("IP 차단 여부는 활성 차단만 기준으로 판단한다")
     void isIpBlocked_checksOnlyActiveBlock() {
         when(ipBlockRepository.findActiveByIpAddress(eq("127.0.0.1"), any(LocalDateTime.class)))
@@ -323,5 +358,11 @@ class IpBlockServiceTest {
 
         assertThat(ipBlockService.isIpBlocked(" 127.0.0.1 ")).isFalse();
         assertThat(ipBlockService.isIpBlocked("127.0.0.1")).isTrue();
+    }
+
+    private Pageable captureBlockedIpsPageable() {
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(ipBlockRepository).findActiveBlocks(any(LocalDateTime.class), pageableCaptor.capture());
+        return pageableCaptor.getValue();
     }
 }
