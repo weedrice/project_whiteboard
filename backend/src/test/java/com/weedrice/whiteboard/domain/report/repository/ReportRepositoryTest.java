@@ -2,19 +2,19 @@ package com.weedrice.whiteboard.domain.report.repository;
 
 import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.global.config.QuerydslConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
-
-import com.weedrice.whiteboard.global.config.QuerydslConfig;
-import org.springframework.context.annotation.Import;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -53,17 +53,47 @@ class ReportRepositoryTest {
     }
 
     @Test
-    @DisplayName("신고 조회 - reporter, targetType, targetId로 조회")
-    void findByReporterAndTargetTypeAndTargetId_success() {
-        // when
-        Optional<Report> found = reportRepository.findByReporterAndTargetTypeAndTargetId(
-                reporter, "POST", 1L);
+    @DisplayName("PENDING 신고 중복 여부를 조회한다")
+    void existsByReporterAndTargetTypeAndTargetIdAndStatus_pending() {
+        boolean exists = reportRepository.existsByReporterAndTargetTypeAndTargetIdAndStatus(
+                reporter, "POST", 1L, Report.STATUS_PENDING);
 
-        // then
-        assertThat(found).isPresent();
-        assertThat(found.get().getReporter()).isEqualTo(reporter);
-        assertThat(found.get().getTargetType()).isEqualTo("POST");
-        assertThat(found.get().getTargetId()).isEqualTo(1L);
+        assertThat(exists).isTrue();
+    }
+
+    @Test
+    @DisplayName("종료된 신고는 PENDING 중복 조회에 포함하지 않는다")
+    void existsByReporterAndTargetTypeAndTargetIdAndStatus_terminalReport() {
+        ReflectionTestUtils.setField(report, "status", Report.STATUS_RESOLVED);
+        entityManager.flush();
+
+        boolean resolvedExists = reportRepository.existsByReporterAndTargetTypeAndTargetIdAndStatus(
+                reporter, "POST", 1L, Report.STATUS_PENDING);
+        ReflectionTestUtils.setField(report, "status", Report.STATUS_REJECTED);
+        entityManager.flush();
+        boolean rejectedExists = reportRepository.existsByReporterAndTargetTypeAndTargetIdAndStatus(
+                reporter, "POST", 1L, Report.STATUS_PENDING);
+
+        assertThat(resolvedExists).isFalse();
+        assertThat(rejectedExists).isFalse();
+    }
+
+    @Test
+    @DisplayName("종료된 신고와 같은 대상의 새 신고를 저장할 수 있다")
+    void save_allowsDuplicateTargetAfterTerminalReport() {
+        ReflectionTestUtils.setField(report, "status", Report.STATUS_RESOLVED);
+        Report newReport = Report.builder()
+                .reporter(reporter)
+                .targetType("POST")
+                .targetId(1L)
+                .reasonType("SPAM")
+                .remark("Retry report")
+                .build();
+
+        entityManager.persist(newReport);
+        entityManager.flush();
+
+        assertThat(newReport.getReportId()).isNotNull();
     }
 
     @Test

@@ -14,7 +14,8 @@ import org.springframework.data.repository.query.Param;
 import java.util.Optional;
 
 public interface ReportRepository extends JpaRepository<Report, Long>, ReportRepositoryCustom {
-    Optional<Report> findByReporterAndTargetTypeAndTargetId(User reporter, String targetType, Long targetId);
+    boolean existsByReporterAndTargetTypeAndTargetIdAndStatus(User reporter, String targetType, Long targetId,
+            String status);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT r FROM Report r WHERE r.reportId = :reportId")

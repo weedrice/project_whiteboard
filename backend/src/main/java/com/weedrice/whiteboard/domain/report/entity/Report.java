@@ -15,7 +15,6 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -26,9 +25,7 @@ import java.util.Set;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
-@Table(name = "reports", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_reports_user_target", columnNames = {"reporter_id", "target_type", "target_id"})
-}, indexes = {
+@Table(name = "reports", indexes = {
         @Index(name = "idx_reports_status", columnList = "status, created_at DESC"),
         @Index(name = "idx_reports_reporter", columnList = "reporter_id"),
         @Index(name = "idx_reports_target", columnList = "target_type, target_id")

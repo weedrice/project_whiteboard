@@ -56,8 +56,6 @@ class ReportCommandServiceTest {
                 .build();
         ReflectionTestUtils.setField(report, "reportId", 10L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
-        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "POST", 2L))
-                .thenReturn(Optional.empty());
         when(reportRepository.saveAndFlush(any(Report.class))).thenReturn(report);
 
         Long reportId = reportCommandService.createReport(1L, "POST", 2L, "SPAM", null, "contents");
@@ -80,14 +78,13 @@ class ReportCommandServiceTest {
                 .build();
         ReflectionTestUtils.setField(savedReport, "reportId", 11L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
-        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "POST", 2L))
-                .thenReturn(Optional.empty());
         when(reportRepository.saveAndFlush(any(Report.class))).thenReturn(savedReport);
 
         Long reportId = reportCommandService.createReport(1L, "post", 2L, "SPAM", null, null);
 
         ArgumentCaptor<Report> captor = ArgumentCaptor.forClass(Report.class);
-        verify(reportRepository).findByReporterAndTargetTypeAndTargetId(reporter, "POST", 2L);
+        verify(reportRepository).existsByReporterAndTargetTypeAndTargetIdAndStatus(
+                reporter, "POST", 2L, Report.STATUS_PENDING);
         verify(reportRepository).saveAndFlush(captor.capture());
         assertThat(reportId).isEqualTo(11L);
         assertThat(captor.getValue().getTargetType()).isEqualTo("POST");
@@ -106,8 +103,6 @@ class ReportCommandServiceTest {
                 .build();
         ReflectionTestUtils.setField(savedReport, "reportId", 12L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
-        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "POST", 2L))
-                .thenReturn(Optional.empty());
         when(reportRepository.saveAndFlush(any(Report.class))).thenReturn(savedReport);
 
         Long reportId = reportCommandService.createReport(1L, "POST", 2L, "abuse", null, null);
@@ -132,8 +127,6 @@ class ReportCommandServiceTest {
                 .build();
         ReflectionTestUtils.setField(savedReport, "reportId", 13L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
-        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "POST", 2L))
-                .thenReturn(Optional.empty());
         when(reportRepository.saveAndFlush(any(Report.class))).thenReturn(savedReport);
 
         reportCommandService.createReport(1L, "POST", 2L, "SPAM", "  details  ", null);
@@ -157,8 +150,6 @@ class ReportCommandServiceTest {
                 .build();
         ReflectionTestUtils.setField(savedReport, "reportId", 14L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
-        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "POST", 2L))
-                .thenReturn(Optional.empty());
         when(reportRepository.saveAndFlush(any(Report.class))).thenReturn(savedReport);
 
         reportCommandService.createReport(1L, "POST", 2L, "SPAM", null, "  details  ");
@@ -181,8 +172,6 @@ class ReportCommandServiceTest {
                 .build();
         ReflectionTestUtils.setField(savedReport, "reportId", 15L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
-        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "POST", 2L))
-                .thenReturn(Optional.empty());
         when(reportRepository.saveAndFlush(any(Report.class))).thenReturn(savedReport);
 
         reportCommandService.createReport(1L, "POST", 2L, "SPAM", null, "   ");
@@ -251,8 +240,6 @@ class ReportCommandServiceTest {
                 .build();
         ReflectionTestUtils.setField(savedReport, "reportId", 13L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
-        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "POST", 2L))
-                .thenReturn(Optional.empty());
         when(reportRepository.saveAndFlush(any(Report.class))).thenReturn(savedReport);
 
         Long reportId = reportCommandService.createReport(1L, "POST", 2L, " ", null, null);
@@ -281,15 +268,27 @@ class ReportCommandServiceTest {
     void createReport_duplicateConflict_throwsAlreadyReported() {
         User reporter = User.builder().build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
-        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "POST", 2L))
-                .thenReturn(Optional.empty());
+        when(reportRepository.saveAndFlush(any(Report.class)))
+                .thenThrow(new DataIntegrityViolationException("constraint [uq_reports_pending_user_target]"));
+
+        assertThatThrownBy(() -> reportCommandService.createReport(1L, "POST", 2L, "SPAM", null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ALREADY_REPORTED);
+        verify(reportRepository).existsByReporterAndTargetTypeAndTargetIdAndStatus(
+                reporter, "POST", 2L, Report.STATUS_PENDING);
+    }
+
+    @Test
+    @DisplayName("createReport maps legacy duplicate constraint to already reported")
+    void createReport_legacyDuplicateConflict_throwsAlreadyReported() {
+        User reporter = User.builder().build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
         when(reportRepository.saveAndFlush(any(Report.class)))
                 .thenThrow(new DataIntegrityViolationException("constraint [uk_reports_user_target]"));
 
         assertThatThrownBy(() -> reportCommandService.createReport(1L, "POST", 2L, "SPAM", null, null))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ALREADY_REPORTED);
-        verify(reportRepository).findByReporterAndTargetTypeAndTargetId(reporter, "POST", 2L);
     }
 
     @Test
@@ -297,8 +296,6 @@ class ReportCommandServiceTest {
     void createReport_unrelatedDataIntegrityViolation_rethrowsOriginalException() {
         User reporter = User.builder().build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
-        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "POST", 2L))
-                .thenReturn(Optional.empty());
         when(reportRepository.saveAndFlush(any(Report.class)))
                 .thenThrow(new DataIntegrityViolationException("constraint [ck_reports_reason_type]"));
 
@@ -323,8 +320,6 @@ class ReportCommandServiceTest {
     void createReport_unreadablePost_throwsPostNotFound() {
         User reporter = User.builder().build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
-        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "POST", 2L))
-                .thenReturn(Optional.empty());
         doThrow(new BusinessException(ErrorCode.POST_NOT_FOUND))
                 .when(reportTargetValidator).validate("POST", 2L, reporter);
 
@@ -340,8 +335,6 @@ class ReportCommandServiceTest {
         User reporter = User.builder().build();
         ReflectionTestUtils.setField(reporter, "userId", 1L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
-        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "POST", 10L))
-                .thenReturn(Optional.empty());
         doThrow(new BusinessException(ErrorCode.INVALID_TARGET))
                 .when(reportTargetValidator).validate("POST", 10L, reporter);
 
@@ -358,8 +351,6 @@ class ReportCommandServiceTest {
         User reporter = User.builder().build();
         ReflectionTestUtils.setField(reporter, "userId", 1L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
-        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "COMMENT", 10L))
-                .thenReturn(Optional.empty());
         doThrow(new BusinessException(ErrorCode.INVALID_TARGET))
                 .when(reportTargetValidator).validate("COMMENT", 10L, reporter);
 
@@ -375,15 +366,9 @@ class ReportCommandServiceTest {
     void createReport_duplicateUserSelfReport_throwsAlreadyReported() {
         User reporter = User.builder().build();
         ReflectionTestUtils.setField(reporter, "userId", 1L);
-        Report existingReport = Report.builder()
-                .reporter(reporter)
-                .targetType("USER")
-                .targetId(1L)
-                .reasonType("ETC")
-                .build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
-        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "USER", 1L))
-                .thenReturn(Optional.of(existingReport));
+        when(reportRepository.existsByReporterAndTargetTypeAndTargetIdAndStatus(
+                reporter, "USER", 1L, Report.STATUS_PENDING)).thenReturn(true);
 
         assertThatThrownBy(() -> reportCommandService.createReport(1L, "USER", 1L, "ETC", null, null))
                 .isInstanceOf(BusinessException.class)
@@ -397,15 +382,9 @@ class ReportCommandServiceTest {
     void createReport_duplicatePostReport_throwsAlreadyReported() {
         User reporter = User.builder().build();
         ReflectionTestUtils.setField(reporter, "userId", 1L);
-        Report existingReport = Report.builder()
-                .reporter(reporter)
-                .targetType("POST")
-                .targetId(10L)
-                .reasonType("ETC")
-                .build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
-        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "POST", 10L))
-                .thenReturn(Optional.of(existingReport));
+        when(reportRepository.existsByReporterAndTargetTypeAndTargetIdAndStatus(
+                reporter, "POST", 10L, Report.STATUS_PENDING)).thenReturn(true);
 
         assertThatThrownBy(() -> reportCommandService.createReport(1L, "POST", 10L, "ETC", null, null))
                 .isInstanceOf(BusinessException.class)
@@ -419,15 +398,9 @@ class ReportCommandServiceTest {
     void createReport_duplicateCommentReport_throwsAlreadyReported() {
         User reporter = User.builder().build();
         ReflectionTestUtils.setField(reporter, "userId", 1L);
-        Report existingReport = Report.builder()
-                .reporter(reporter)
-                .targetType("COMMENT")
-                .targetId(10L)
-                .reasonType("ETC")
-                .build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
-        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "COMMENT", 10L))
-                .thenReturn(Optional.of(existingReport));
+        when(reportRepository.existsByReporterAndTargetTypeAndTargetIdAndStatus(
+                reporter, "COMMENT", 10L, Report.STATUS_PENDING)).thenReturn(true);
 
         assertThatThrownBy(() -> reportCommandService.createReport(1L, "COMMENT", 10L, "ETC", null, null))
                 .isInstanceOf(BusinessException.class)
@@ -441,8 +414,6 @@ class ReportCommandServiceTest {
     void createReport_unreadableComment_throwsCommentNotFound() {
         User reporter = User.builder().build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
-        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "COMMENT", 2L))
-                .thenReturn(Optional.empty());
         doThrow(new BusinessException(ErrorCode.COMMENT_NOT_FOUND))
                 .when(reportTargetValidator).validate("COMMENT", 2L, reporter);
 
@@ -457,8 +428,6 @@ class ReportCommandServiceTest {
     void createReport_commentOnUnreadablePost_throwsPostNotFound() {
         User reporter = User.builder().build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
-        when(reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, "COMMENT", 2L))
-                .thenReturn(Optional.empty());
         doThrow(new BusinessException(ErrorCode.POST_NOT_FOUND))
                 .when(reportTargetValidator).validate("COMMENT", 2L, reporter);
 

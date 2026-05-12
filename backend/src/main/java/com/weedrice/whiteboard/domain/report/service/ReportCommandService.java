@@ -20,7 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 class ReportCommandService {
 
-    private static final String REPORT_DUPLICATE_CONSTRAINT = "uk_reports_user_target";
+    private static final String PENDING_REPORT_DUPLICATE_INDEX = "uq_reports_pending_user_target";
+    private static final String LEGACY_REPORT_DUPLICATE_CONSTRAINT = "uk_reports_user_target";
 
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
@@ -38,10 +39,10 @@ class ReportCommandService {
         String normalizedRemark = normalizeRemark(remark);
         String normalizedContents = normalizeContents(contents);
 
-        reportRepository.findByReporterAndTargetTypeAndTargetId(reporter, normalizedTargetType, targetId)
-                .ifPresent(report -> {
-                    throw new BusinessException(ErrorCode.ALREADY_REPORTED);
-                });
+        if (reportRepository.existsByReporterAndTargetTypeAndTargetIdAndStatus(
+                reporter, normalizedTargetType, targetId, Report.STATUS_PENDING)) {
+            throw new BusinessException(ErrorCode.ALREADY_REPORTED);
+        }
 
         reportTargetValidator.validate(normalizedTargetType, targetId, reporter);
 
@@ -111,7 +112,8 @@ class ReportCommandService {
         Throwable current = exception;
         while (current != null) {
             String message = current.getMessage();
-            if (message != null && message.contains(REPORT_DUPLICATE_CONSTRAINT)) {
+            if (message != null && (message.contains(PENDING_REPORT_DUPLICATE_INDEX)
+                    || message.contains(LEGACY_REPORT_DUPLICATE_CONSTRAINT))) {
                 return true;
             }
             current = current.getCause();
