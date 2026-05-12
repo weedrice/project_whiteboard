@@ -367,15 +367,35 @@ class ShopServiceTest {
                 .build();
         ReflectionTestUtils.setField(purchaseHistory, "purchaseId", 10L);
         Pageable pageable = PageRequest.of(0, 20);
+        Pageable expectedPageable = PageRequest.of(0, 20, Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("purchaseId")));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(purchaseHistoryRepository.findByUserOrderByCreatedAtDescPurchaseIdDesc(user, pageable))
-                .thenReturn(new PageImpl<>(List.of(purchaseHistory), pageable, 1));
+        when(purchaseHistoryRepository.findByUserOrderByCreatedAtDescPurchaseIdDesc(user, expectedPageable))
+                .thenReturn(new PageImpl<>(List.of(purchaseHistory), expectedPageable, 1));
 
         PurchaseHistoryResponse response = shopService.getPurchaseHistories(1L, pageable);
 
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getContent().get(0).getItem().getImageUrl())
                 .isEqualTo("https://example.com/emoticon.png");
+    }
+
+    @Test
+    @DisplayName("Purchase histories limit page size and sort fields")
+    void getPurchaseHistories_normalizesPageable() {
+        Pageable requested = PageRequest.of(2, 250, Sort.by(Sort.Order.asc("itemName")));
+        Pageable expectedPageable = PageRequest.of(2, 100, Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("purchaseId")));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(purchaseHistoryRepository.findByUserOrderByCreatedAtDescPurchaseIdDesc(user, expectedPageable))
+                .thenReturn(new PageImpl<>(List.of(), expectedPageable, 0));
+
+        PurchaseHistoryResponse response = shopService.getPurchaseHistories(1L, requested);
+
+        assertThat(response.getContent()).isEmpty();
+        verify(purchaseHistoryRepository).findByUserOrderByCreatedAtDescPurchaseIdDesc(user, expectedPageable);
     }
 
     @Test

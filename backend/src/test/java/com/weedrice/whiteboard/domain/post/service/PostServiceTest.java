@@ -2457,6 +2457,13 @@ class PostServiceTest {
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getThumbnailUrl()).isEqualTo("/api/v1/files/20");
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(postRepository).findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), anyList(), any(Boolean.class), any(),
+                pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(5);
+        assertThat(pageableCaptor.getValue().getSort()).isEqualTo(Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("postId")));
     }
 
     @Test
@@ -2495,6 +2502,34 @@ class PostServiceTest {
         assertThatThrownBy(() -> postService.getLatestPostsByBoard(1L, 5, 99L))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("Latest posts by board clamps large limit")
+    void getLatestPostsByBoard_clampsLargeLimit() {
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+        when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), isNull(), eq(false), isNull(),
+                any(Pageable.class)))
+                .thenReturn(Page.empty());
+
+        List<PostSummary> result = postService.getLatestPostsByBoard(1L, 250, null);
+
+        assertThat(result).isEmpty();
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(postRepository).findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), isNull(), eq(false), isNull(),
+                pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(100);
+    }
+
+    @Test
+    @DisplayName("Latest posts by board rejects non-positive limit")
+    void getLatestPostsByBoard_nonPositiveLimit_throwsValidationError() {
+        assertThatThrownBy(() -> postService.getLatestPostsByBoard(1L, 0, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+        verify(boardRepository, never()).findById(anyLong());
+        verify(postRepository, never()).findByBoardIdAndCategoryId(any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test

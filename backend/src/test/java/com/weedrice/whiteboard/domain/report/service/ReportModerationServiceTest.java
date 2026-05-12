@@ -138,14 +138,17 @@ class ReportModerationServiceTest {
     @DisplayName("getMyReports loads reporter and assembles responses")
     void getMyReports_usesAssembler() {
         PageRequest pageable = PageRequest.of(0, 20);
-        Page<Report> reportPage = new PageImpl<>(List.of(report), pageable, 1);
+        PageRequest safePageable = PageRequest.of(0, 20, Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("reportId")));
+        Page<Report> reportPage = new PageImpl<>(List.of(report), safePageable, 1);
         Page<MyReportResponse> responsePage = new PageImpl<>(
                 List.of(MyReportResponse.builder().reportId(7L).targetType("POST").build()),
-                pageable,
+                safePageable,
                 1);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
-        when(reportRepository.findByReporterOrderByCreatedAtDesc(reporter, pageable)).thenReturn(reportPage);
+        when(reportRepository.findByReporterOrderByCreatedAtDesc(reporter, safePageable)).thenReturn(reportPage);
         when(reportReadAssembler.toMyReportResponsePage(reportPage)).thenReturn(responsePage);
 
         Page<MyReportResponse> result = reportModerationService.getMyReports(1L, pageable);
@@ -153,6 +156,26 @@ class ReportModerationServiceTest {
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getReportId()).isEqualTo(7L);
         verify(reportReadAssembler).toMyReportResponsePage(reportPage);
+    }
+
+    @Test
+    @DisplayName("getMyReports limits page size and uses report sort")
+    void getMyReports_normalizesPageable() {
+        PageRequest requested = PageRequest.of(2, 250, Sort.by(Sort.Order.asc("targetId")));
+        PageRequest safePageable = PageRequest.of(2, 100, Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("reportId")));
+        Page<Report> reportPage = Page.empty(safePageable);
+        Page<MyReportResponse> responsePage = Page.empty(safePageable);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
+        when(reportRepository.findByReporterOrderByCreatedAtDesc(reporter, safePageable)).thenReturn(reportPage);
+        when(reportReadAssembler.toMyReportResponsePage(reportPage)).thenReturn(responsePage);
+
+        Page<MyReportResponse> result = reportModerationService.getMyReports(1L, requested);
+
+        assertThat(result).isSameAs(responsePage);
+        verify(reportRepository).findByReporterOrderByCreatedAtDesc(reporter, safePageable);
     }
 
     @Test

@@ -485,7 +485,7 @@ public class PostService {
     }
 
     public List<PostSummary> getLatestPostsByBoard(Long boardId, int limit, Long currentUserId) {
-        Pageable pageable = PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Pageable pageable = PageRequestUtils.of(0, limit, DEFAULT_BOARD_POST_SORT);
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         PostReadContext context = postReadContextResolver.resolveForBoards(currentUserId, List.of(board));

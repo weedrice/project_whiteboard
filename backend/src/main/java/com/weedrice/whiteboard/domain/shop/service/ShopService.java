@@ -32,6 +32,10 @@ public class ShopService {
     private static final int DEFAULT_SHOP_ITEM_PAGE_SIZE = 20;
     private static final Sort DEFAULT_SHOP_ITEM_SORT = Sort.by(Sort.Order.asc("itemId"));
     private static final Set<String> ALLOWED_SHOP_ITEM_SORT_PROPERTIES = Set.of("itemId");
+    private static final int DEFAULT_PURCHASE_HISTORY_PAGE_SIZE = 20;
+    private static final Sort DEFAULT_PURCHASE_HISTORY_SORT = Sort.by(
+            Sort.Order.desc("createdAt"),
+            Sort.Order.desc("purchaseId"));
 
     private final ShopItemRepository shopItemRepository;
     private final PurchaseHistoryRepository purchaseHistoryRepository;
@@ -99,8 +103,9 @@ public class ShopService {
     public PurchaseHistoryResponse getPurchaseHistories(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        Pageable effectivePageable = normalizePurchaseHistoryPageable(pageable);
         return PurchaseHistoryResponse.from(
-                purchaseHistoryRepository.findByUserOrderByCreatedAtDescPurchaseIdDesc(user, pageable));
+                purchaseHistoryRepository.findByUserOrderByCreatedAtDescPurchaseIdDesc(user, effectivePageable));
     }
 
     private ShopItemResponse emptyShopItems(Pageable pageable) {
@@ -113,5 +118,12 @@ public class ShopService {
                 DEFAULT_SHOP_ITEM_PAGE_SIZE,
                 DEFAULT_SHOP_ITEM_SORT,
                 ALLOWED_SHOP_ITEM_SORT_PROPERTIES);
+    }
+
+    private Pageable normalizePurchaseHistoryPageable(Pageable pageable) {
+        if (pageable == null || pageable.isUnpaged()) {
+            return PageRequestUtils.of(0, DEFAULT_PURCHASE_HISTORY_PAGE_SIZE, DEFAULT_PURCHASE_HISTORY_SORT);
+        }
+        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), DEFAULT_PURCHASE_HISTORY_SORT);
     }
 }

@@ -53,8 +53,9 @@ class ReportModerationService {
     public Page<MyReportResponse> getMyReports(Long userId, Pageable pageable) {
         User reporter = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        Pageable safePageable = normalizeReportPageable(pageable);
         return reportReadAssembler.toMyReportResponsePage(
-                reportRepository.findByReporterOrderByCreatedAtDesc(reporter, pageable));
+                reportRepository.findByReporterOrderByCreatedAtDesc(reporter, safePageable));
     }
 
     @Transactional
