@@ -15,6 +15,8 @@ import java.time.LocalDateTime;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class VerificationCode extends BaseTimeEntity {
+    public static final int LEGACY_PLAIN_CODE_LENGTH = 6;
+    public static final int CODE_HASH_LENGTH = 64;
     public static final String DELIVERY_STATUS_PENDING = "PENDING";
     public static final String DELIVERY_STATUS_SENT = "SENT";
     public static final String DELIVERY_STATUS_FAILED = "FAILED";
@@ -31,7 +33,7 @@ public class VerificationCode extends BaseTimeEntity {
     @Column(name = "purpose", nullable = false, length = 30)
     private VerificationPurpose purpose;
 
-    @Column(name = "code", nullable = false, length = 6)
+    @Column(name = "code", nullable = false, length = CODE_HASH_LENGTH)
     private String code;
 
     @Column(name = "expiry_date", nullable = false)

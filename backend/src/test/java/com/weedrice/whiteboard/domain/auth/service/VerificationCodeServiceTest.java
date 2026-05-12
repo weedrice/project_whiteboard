@@ -27,6 +27,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -43,6 +45,9 @@ import static org.mockito.Mockito.when;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class VerificationCodeServiceTest {
 
+    private static final Pattern VERIFICATION_CODE_BODY_PATTERN = Pattern.compile(
+            "<h3>(\\d{%d})</h3>".formatted(VerificationCode.LEGACY_PLAIN_CODE_LENGTH));
+
     @Mock
     private VerificationCodeRepository verificationCodeRepository;
     @Mock
@@ -53,6 +58,7 @@ class VerificationCodeServiceTest {
     private TransactionTemplate transactionTemplate;
 
     private VerificationCodeService verificationCodeService;
+    private final TokenHashService tokenHashService = new TokenHashService();
 
     private final AtomicLong idSequence = new AtomicLong(1L);
     private final Map<Long, VerificationCode> verificationCodes = new HashMap<>();
@@ -116,6 +122,7 @@ class VerificationCodeServiceTest {
                 userRepository,
                 new EmailEligibilityService(userRepository),
                 new AuthMailDeliveryOrchestrationService(emailService),
+                tokenHashService,
                 transactionTemplate);
     }
 
@@ -137,8 +144,10 @@ class VerificationCodeServiceTest {
         assertThat(subjectCaptor.getValue()).isEqualTo("[NoviIs] 이메일 인증 코드");
         assertThat(bodyCaptor.getValue())
                 .contains("<h1>이메일 인증 코드</h1>")
-                .contains("아래 인증 코드를 입력하여 이메일 인증을 완료해 주세요.")
-                .contains("<h3>" + verificationCode.getCode() + "</h3>");
+                .contains("아래 인증 코드를 입력하여 이메일 인증을 완료해 주세요.");
+        String rawCode = extractVerificationCode(bodyCaptor.getValue());
+        assertThat(verificationCode.getCode()).hasSize(VerificationCode.CODE_HASH_LENGTH);
+        assertThat(verificationCode.getCode()).isEqualTo(tokenHashService.hashSha256(rawCode));
     }
 
     @Test
@@ -372,6 +381,21 @@ class VerificationCodeServiceTest {
     }
 
     @Test
+    @DisplayName("전환 전 원문 인증 코드는 만료 전까지 검증할 수 있다")
+    void verifyCode_acceptsLegacyPlainCodeDuringTransition() {
+        VerificationCode sentCode = createLegacySentCode(1L, "test@example.com", VerificationPurpose.FIND_ID, "123456");
+        verificationCodes.put(1L, sentCode);
+
+        VerifyCodeResponse response = verificationCodeService.verifyCode(
+                "test@example.com",
+                "123456",
+                VerificationPurpose.FIND_ID);
+
+        assertThat(response.isVerified()).isTrue();
+        assertThat(sentCode.getVerificationTicket()).isEqualTo(response.getVerificationTicket());
+    }
+
+    @Test
     @DisplayName("같은 코드로 재검증해도 새로운 ticket을 재발급하지 않는다")
     void verifyCode_reusesActiveTicket() {
         VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.FIND_ID, "123456");
@@ -559,15 +583,37 @@ class VerificationCodeServiceTest {
             String email,
             VerificationPurpose purpose,
             String code) {
+        return createStoredCode(verificationId, email, purpose, tokenHashService.hashSha256(code));
+    }
+
+    private VerificationCode createLegacySentCode(
+            Long verificationId,
+            String email,
+            VerificationPurpose purpose,
+            String code) {
+        return createStoredCode(verificationId, email, purpose, code);
+    }
+
+    private VerificationCode createStoredCode(
+            Long verificationId,
+            String email,
+            VerificationPurpose purpose,
+            String storedCode) {
         VerificationCode sentCode = VerificationCode.builder()
                 .email(email)
                 .purpose(purpose)
-                .code(code)
+                .code(storedCode)
                 .expiryDate(LocalDateTime.now().plusMinutes(5))
                 .build();
         ReflectionTestUtils.setField(sentCode, "verificationId", verificationId);
         ReflectionTestUtils.setField(sentCode, "createdAt", LocalDateTime.now().minusMinutes(1));
         sentCode.markSent();
         return sentCode;
+    }
+
+    private String extractVerificationCode(String body) {
+        Matcher matcher = VERIFICATION_CODE_BODY_PATTERN.matcher(body);
+        assertThat(matcher.find()).isTrue();
+        return matcher.group(1);
     }
 }

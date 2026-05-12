@@ -43,7 +43,7 @@ class AuthEntityTest {
         VerificationCode code = VerificationCode.builder()
                 .email("test@test.com")
                 .purpose(VerificationPurpose.SIGNUP)
-                .code("123456")
+                .code("a".repeat(VerificationCode.CODE_HASH_LENGTH))
                 .expiryDate(future)
                 .build();
 

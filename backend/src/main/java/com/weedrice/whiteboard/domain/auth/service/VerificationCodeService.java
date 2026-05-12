@@ -36,6 +36,7 @@ public class VerificationCodeService {
     private final UserRepository userRepository;
     private final EmailEligibilityService emailEligibilityService;
     private final AuthMailDeliveryOrchestrationService mailDeliveryOrchestrationService;
+    private final TokenHashService tokenHashService;
     private final TransactionTemplate transactionTemplate;
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -75,7 +76,7 @@ public class VerificationCodeService {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, EXPIRED_CODE_MESSAGE);
         }
 
-        if (!verificationCode.getCode().equals(code)) {
+        if (!matchesVerificationCode(verificationCode.getCode(), code)) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, INVALID_CODE_MESSAGE);
         }
 
@@ -181,7 +182,7 @@ public class VerificationCodeService {
             VerificationCode verificationCode = VerificationCode.builder()
                     .email(email)
                     .purpose(purpose)
-                    .code(code)
+                    .code(hashVerificationCode(code))
                     .expiryDate(expiryDate)
                     .build();
             verificationIdHolder[0] = verificationCodeRepository.save(verificationCode).getVerificationId();
@@ -235,7 +236,7 @@ public class VerificationCodeService {
             VerificationCode replacement = VerificationCode.builder()
                     .email(email)
                     .purpose(purpose)
-                    .code(code)
+                    .code(hashVerificationCode(code))
                     .expiryDate(expiryDate)
                     .build();
             replacement.markSent();
@@ -275,6 +276,25 @@ public class VerificationCodeService {
             String email,
             VerificationPurpose purpose) {
         return verificationCodeRepository.findLatestSentByEmailAndPurposeForUpdate(email, purpose.name());
+    }
+
+    private boolean matchesVerificationCode(String storedCode, String rawCode) {
+        if (storedCode == null || rawCode == null) {
+            return false;
+        }
+        if (isLegacyPlainCode(storedCode)) {
+            return storedCode.equals(rawCode);
+        }
+        return storedCode.equals(hashVerificationCode(rawCode));
+    }
+
+    private boolean isLegacyPlainCode(String code) {
+        return code.length() == VerificationCode.LEGACY_PLAIN_CODE_LENGTH
+                && code.chars().allMatch(Character::isDigit);
+    }
+
+    private String hashVerificationCode(String code) {
+        return tokenHashService.hashSha256(code);
     }
 
     private String generateRandomCode() {

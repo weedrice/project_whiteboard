@@ -58,6 +58,17 @@ class VerificationCodeRepositoryTest {
     }
 
     @Test
+    void save_allowsSha256LengthCode() {
+        String hashedCode = "a".repeat(VerificationCode.CODE_HASH_LENGTH);
+
+        VerificationCode saved = persistCode("hash@example.com", VerificationPurpose.SIGNUP, hashedCode);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(find(saved).getCode()).isEqualTo(hashedCode);
+    }
+
+    @Test
     void invalidateActiveTickets_invalidatesOnlyMatchingActiveTickets() {
         LocalDateTime now = LocalDateTime.now();
         VerificationCode active = persistCode("user@example.com", VerificationPurpose.SIGNUP, "111111");
