@@ -42,7 +42,8 @@ public class GlobalExceptionHandler {
             ErrorCode.EXPIRED_REFRESH_TOKEN
     );
     private static final Set<ErrorCode> SUPPRESSED_ERROR_LOG_BUSINESS_CODES = EnumSet.of(
-            ErrorCode.BOARD_NOT_FOUND
+            ErrorCode.BOARD_NOT_FOUND,
+            ErrorCode.RATE_LIMIT_EXCEEDED
     );
 
     private final MessageSource messageSource;

@@ -40,6 +40,32 @@ public interface VerificationCodeRepository extends JpaRepository<VerificationCo
             @Param("email") String email,
             @Param("purpose") String purpose);
 
+    @Query(value = """
+            SELECT created_at
+            FROM verification_codes
+            WHERE email = :email
+              AND purpose = :purpose
+              AND (delivery_status IN ('PENDING', 'SENT', 'FAILED') OR delivery_status IS NULL)
+            ORDER BY created_at DESC, verification_id DESC
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<LocalDateTime> findLatestDeliveryAttemptCreatedAt(
+            @Param("email") String email,
+            @Param("purpose") String purpose);
+
+    @Query(value = """
+            SELECT COUNT(*)
+            FROM verification_codes
+            WHERE email = :email
+              AND purpose = :purpose
+              AND created_at >= :createdAtFrom
+              AND (delivery_status IN ('PENDING', 'SENT', 'FAILED') OR delivery_status IS NULL)
+            """, nativeQuery = true)
+    long countDeliveryAttemptsSince(
+            @Param("email") String email,
+            @Param("purpose") String purpose,
+            @Param("createdAtFrom") LocalDateTime createdAtFrom);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<VerificationCode> findByEmailAndPurposeAndVerificationTicket(
             String email,

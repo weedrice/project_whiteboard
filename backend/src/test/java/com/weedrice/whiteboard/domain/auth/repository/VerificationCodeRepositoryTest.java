@@ -128,6 +128,59 @@ class VerificationCodeRepositoryTest {
         assertThat(find(second).getVerificationTicket()).isNull();
     }
 
+    @Test
+    void findLatestDeliveryAttemptCreatedAt_includesPendingFailedAndLegacyNullStatuses() {
+        LocalDateTime baseTime = LocalDateTime.of(2026, 5, 11, 12, 0);
+        VerificationCode sent = persistCode("attempt@example.com", VerificationPurpose.SIGNUP, "111111");
+        VerificationCode pending = persistPendingCode("attempt@example.com", VerificationPurpose.SIGNUP, "222222");
+        VerificationCode failed = persistPendingCode("attempt@example.com", VerificationPurpose.SIGNUP, "333333");
+        failed.markFailed();
+        VerificationCode legacyNull = persistCode("attempt@example.com", VerificationPurpose.SIGNUP, "444444");
+        entityManager.flush();
+        updateCreatedAt(sent, baseTime.minusMinutes(20));
+        updateCreatedAt(pending, baseTime.minusMinutes(5));
+        updateCreatedAt(failed, baseTime.minusMinutes(15));
+        updateCreatedAt(legacyNull, baseTime.minusMinutes(10));
+        updateDeliveryStatus(legacyNull, null);
+        entityManager.clear();
+
+        LocalDateTime latestAttemptAt = verificationCodeRepository
+                .findLatestDeliveryAttemptCreatedAt("attempt@example.com", VerificationPurpose.SIGNUP.name())
+                .orElseThrow();
+
+        assertThat(latestAttemptAt).isEqualTo(baseTime.minusMinutes(5));
+    }
+
+    @Test
+    void countDeliveryAttemptsSince_countsOnlyMatchingEmailPurposeAndRecentAttempts() {
+        LocalDateTime baseTime = LocalDateTime.of(2026, 5, 11, 12, 0);
+        VerificationCode sent = persistCode("limit@example.com", VerificationPurpose.SIGNUP, "111111");
+        VerificationCode pending = persistPendingCode("limit@example.com", VerificationPurpose.SIGNUP, "222222");
+        VerificationCode failed = persistPendingCode("limit@example.com", VerificationPurpose.SIGNUP, "333333");
+        failed.markFailed();
+        VerificationCode legacyNull = persistCode("limit@example.com", VerificationPurpose.SIGNUP, "444444");
+        VerificationCode old = persistCode("limit@example.com", VerificationPurpose.SIGNUP, "555555");
+        VerificationCode otherPurpose = persistCode("limit@example.com", VerificationPurpose.PASSWORD_RESET, "666666");
+        VerificationCode otherEmail = persistCode("other@example.com", VerificationPurpose.SIGNUP, "777777");
+        entityManager.flush();
+        updateCreatedAt(sent, baseTime.minusMinutes(10));
+        updateCreatedAt(pending, baseTime.minusMinutes(20));
+        updateCreatedAt(failed, baseTime.minusMinutes(30));
+        updateCreatedAt(legacyNull, baseTime.minusMinutes(40));
+        updateDeliveryStatus(legacyNull, null);
+        updateCreatedAt(old, baseTime.minusHours(2));
+        updateCreatedAt(otherPurpose, baseTime.minusMinutes(10));
+        updateCreatedAt(otherEmail, baseTime.minusMinutes(10));
+        entityManager.clear();
+
+        long attemptCount = verificationCodeRepository.countDeliveryAttemptsSince(
+                "limit@example.com",
+                VerificationPurpose.SIGNUP.name(),
+                baseTime.minusHours(1));
+
+        assertThat(attemptCount).isEqualTo(4);
+    }
+
     private VerificationCode persistCode(String email, VerificationPurpose purpose, String code) {
         VerificationCode verificationCode = VerificationCode.builder()
                 .email(email)
@@ -140,6 +193,17 @@ class VerificationCodeRepositoryTest {
         return verificationCode;
     }
 
+    private VerificationCode persistPendingCode(String email, VerificationPurpose purpose, String code) {
+        VerificationCode verificationCode = VerificationCode.builder()
+                .email(email)
+                .purpose(purpose)
+                .code(code)
+                .expiryDate(LocalDateTime.now().plusMinutes(5))
+                .build();
+        entityManager.persist(verificationCode);
+        return verificationCode;
+    }
+
     private VerificationCode find(VerificationCode verificationCode) {
         return verificationCodeRepository.findById(verificationCode.getVerificationId()).orElseThrow();
     }
@@ -148,6 +212,21 @@ class VerificationCodeRepositoryTest {
         entityManager.getEntityManager()
                 .createNativeQuery("UPDATE verification_codes SET created_at = :createdAt WHERE verification_id = :verificationId")
                 .setParameter("createdAt", createdAt)
+                .setParameter("verificationId", verificationCode.getVerificationId())
+                .executeUpdate();
+    }
+
+    private void updateDeliveryStatus(VerificationCode verificationCode, String deliveryStatus) {
+        if (deliveryStatus == null) {
+            entityManager.getEntityManager()
+                    .createNativeQuery("UPDATE verification_codes SET delivery_status = NULL WHERE verification_id = :verificationId")
+                    .setParameter("verificationId", verificationCode.getVerificationId())
+                    .executeUpdate();
+            return;
+        }
+        entityManager.getEntityManager()
+                .createNativeQuery("UPDATE verification_codes SET delivery_status = :deliveryStatus WHERE verification_id = :verificationId")
+                .setParameter("deliveryStatus", deliveryStatus)
                 .setParameter("verificationId", verificationCode.getVerificationId())
                 .executeUpdate();
     }

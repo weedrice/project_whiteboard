@@ -96,6 +96,22 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("RATE_LIMIT_EXCEEDED 는 에러 로그를 저장하지 않음")
+    void handleBusinessException_rateLimitExceeded_doesNotSaveErrorLog() {
+        BusinessException ex = new BusinessException(ErrorCode.RATE_LIMIT_EXCEEDED);
+        when(messageSource.getMessage(eq(ErrorCode.RATE_LIMIT_EXCEEDED.getMessage()), isNull(), any(Locale.class)))
+                .thenReturn(ErrorCode.RATE_LIMIT_EXCEEDED.getMessage());
+
+        ResponseEntity<ApiResponse<Void>> response = globalExceptionHandler.handleBusinessException(ex, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getError().getCode()).isEqualTo(ErrorCode.RATE_LIMIT_EXCEEDED.getCode());
+        verify(errorLogService, never()).saveErrorLog(anyString(), anyString(), anyInt(), anyString(),
+                anyString(), anyString(), any(), anyString(), anyString(), any());
+    }
+
+    @Test
     @DisplayName("refresh token 예외는 세션 만료 메시지로 응답하고 에러 로그 저장을 생략한다")
     void handleBusinessException_refreshTokenError_masksResponseMessage() {
         BusinessException ex = new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN);

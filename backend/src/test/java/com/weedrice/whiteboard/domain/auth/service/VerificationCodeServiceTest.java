@@ -93,6 +93,15 @@ class VerificationCodeServiceTest {
                 .thenAnswer(invocation -> findLatestSentCode(
                         invocation.getArgument(0),
                         invocation.getArgument(1)));
+        when(verificationCodeRepository.findLatestDeliveryAttemptCreatedAt(anyString(), anyString()))
+                .thenAnswer(invocation -> findLatestDeliveryAttemptCreatedAt(
+                        invocation.getArgument(0),
+                        invocation.getArgument(1)));
+        when(verificationCodeRepository.countDeliveryAttemptsSince(anyString(), anyString(), any(LocalDateTime.class)))
+                .thenAnswer(invocation -> countDeliveryAttemptsSince(
+                        invocation.getArgument(0),
+                        invocation.getArgument(1),
+                        invocation.getArgument(2)));
         when(verificationCodeRepository.findByEmailAndPurposeAndVerificationTicket(anyString(), any(), anyString()))
                 .thenAnswer(invocation -> verificationCodes.values().stream()
                         .filter(code -> invocation.getArgument(0).equals(code.getEmail()))
@@ -148,6 +157,80 @@ class VerificationCodeServiceTest {
         String rawCode = extractVerificationCode(bodyCaptor.getValue());
         assertThat(verificationCode.getCode()).hasSize(VerificationCode.CODE_HASH_LENGTH);
         assertThat(verificationCode.getCode()).isEqualTo(tokenHashService.hashSha256(rawCode));
+    }
+
+    @Test
+    @DisplayName("인증 코드 발송은 같은 이메일과 목적의 60초 이내 재시도를 제한한다")
+    void sendVerificationCode_rejectsCooldownAttempt() {
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.empty());
+        VerificationCode recentAttempt = createAttemptCode(
+                100L,
+                "test@example.com",
+                VerificationPurpose.SIGNUP,
+                VerificationCode.DELIVERY_STATUS_SENT,
+                LocalDateTime.now().minusSeconds(30));
+        verificationCodes.put(100L, recentAttempt);
+
+        assertThatThrownBy(() -> verificationCodeService.sendVerificationCode(
+                "test@example.com",
+                VerificationPurpose.SIGNUP,
+                null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.RATE_LIMIT_EXCEEDED);
+
+        assertThat(verificationCodes).hasSize(1);
+        verify(verificationCodeRepository, never()).save(any(VerificationCode.class));
+        verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("인증 코드 발송은 같은 이메일과 목적의 시간당 5회 초과를 제한한다")
+    void sendVerificationCode_rejectsHourlyAttemptLimit() {
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.empty());
+        LocalDateTime now = LocalDateTime.now();
+        verificationCodes.put(100L, createAttemptCode(
+                100L,
+                "test@example.com",
+                VerificationPurpose.SIGNUP,
+                VerificationCode.DELIVERY_STATUS_SENT,
+                now.minusMinutes(10)));
+        verificationCodes.put(101L, createAttemptCode(
+                101L,
+                "test@example.com",
+                VerificationPurpose.SIGNUP,
+                VerificationCode.DELIVERY_STATUS_FAILED,
+                now.minusMinutes(20)));
+        verificationCodes.put(102L, createAttemptCode(
+                102L,
+                "test@example.com",
+                VerificationPurpose.SIGNUP,
+                VerificationCode.DELIVERY_STATUS_PENDING,
+                now.minusMinutes(30)));
+        verificationCodes.put(103L, createAttemptCode(
+                103L,
+                "test@example.com",
+                VerificationPurpose.SIGNUP,
+                null,
+                now.minusMinutes(40)));
+        verificationCodes.put(104L, createAttemptCode(
+                104L,
+                "test@example.com",
+                VerificationPurpose.SIGNUP,
+                VerificationCode.DELIVERY_STATUS_SENT,
+                now.minusMinutes(50)));
+
+        assertThatThrownBy(() -> verificationCodeService.sendVerificationCode(
+                "test@example.com",
+                VerificationPurpose.SIGNUP,
+                null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.RATE_LIMIT_EXCEEDED);
+
+        assertThat(verificationCodes).hasSize(5);
+        verify(verificationCodeRepository, never()).save(any(VerificationCode.class));
+        verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
     }
 
     @Test
@@ -578,6 +661,37 @@ class VerificationCodeServiceTest {
                 .findFirst();
     }
 
+    private Optional<LocalDateTime> findLatestDeliveryAttemptCreatedAt(String email, String purposeName) {
+        return verificationCodes.values().stream()
+                .filter(code -> email.equals(code.getEmail()))
+                .filter(code -> purposeName.equals(code.getPurpose().name()))
+                .filter(this::isDeliveryAttempt)
+                .max((left, right) -> {
+                    int createdAtCompare = left.getCreatedAt().compareTo(right.getCreatedAt());
+                    if (createdAtCompare != 0) {
+                        return createdAtCompare;
+                    }
+                    return Long.compare(left.getVerificationId(), right.getVerificationId());
+                })
+                .map(VerificationCode::getCreatedAt);
+    }
+
+    private long countDeliveryAttemptsSince(String email, String purposeName, LocalDateTime createdAtFrom) {
+        return verificationCodes.values().stream()
+                .filter(code -> email.equals(code.getEmail()))
+                .filter(code -> purposeName.equals(code.getPurpose().name()))
+                .filter(this::isDeliveryAttempt)
+                .filter(code -> !code.getCreatedAt().isBefore(createdAtFrom))
+                .count();
+    }
+
+    private boolean isDeliveryAttempt(VerificationCode code) {
+        return code.getDeliveryStatus() == null
+                || VerificationCode.DELIVERY_STATUS_PENDING.equals(code.getDeliveryStatus())
+                || VerificationCode.DELIVERY_STATUS_SENT.equals(code.getDeliveryStatus())
+                || VerificationCode.DELIVERY_STATUS_FAILED.equals(code.getDeliveryStatus());
+    }
+
     private VerificationCode createSentCode(
             Long verificationId,
             String email,
@@ -609,6 +723,24 @@ class VerificationCodeServiceTest {
         ReflectionTestUtils.setField(sentCode, "createdAt", LocalDateTime.now().minusMinutes(1));
         sentCode.markSent();
         return sentCode;
+    }
+
+    private VerificationCode createAttemptCode(
+            Long verificationId,
+            String email,
+            VerificationPurpose purpose,
+            String deliveryStatus,
+            LocalDateTime createdAt) {
+        VerificationCode verificationCode = VerificationCode.builder()
+                .email(email)
+                .purpose(purpose)
+                .code(tokenHashService.hashSha256("123456"))
+                .expiryDate(LocalDateTime.now().plusMinutes(5))
+                .build();
+        ReflectionTestUtils.setField(verificationCode, "verificationId", verificationId);
+        ReflectionTestUtils.setField(verificationCode, "createdAt", createdAt);
+        ReflectionTestUtils.setField(verificationCode, "deliveryStatus", deliveryStatus);
+        return verificationCode;
     }
 
     private String extractVerificationCode(String body) {

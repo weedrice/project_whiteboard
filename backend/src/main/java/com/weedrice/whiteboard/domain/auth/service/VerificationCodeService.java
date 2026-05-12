@@ -15,8 +15,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.locks.ReentrantLock;
 
 @Service
 @RequiredArgsConstructor
@@ -31,6 +33,10 @@ public class VerificationCodeService {
     private static final String USED_CODE_MESSAGE = "이미 사용된 인증 코드입니다.";
     private static final String VERIFICATION_CODE_NOT_FOUND_MESSAGE =
             "인증 코드를 찾을 수 없습니다. 이메일을 변경했다면 다시 인증 코드를 발송해 주세요.";
+    private static final int RESEND_COOLDOWN_SECONDS = 60;
+    private static final int SEND_ATTEMPT_WINDOW_HOURS = 1;
+    private static final int MAX_SEND_ATTEMPTS_PER_WINDOW = 5;
+    private static final int VERIFICATION_SEND_LOCK_STRIPES = 64;
 
     private final VerificationCodeRepository verificationCodeRepository;
     private final UserRepository userRepository;
@@ -38,6 +44,7 @@ public class VerificationCodeService {
     private final AuthMailDeliveryOrchestrationService mailDeliveryOrchestrationService;
     private final TokenHashService tokenHashService;
     private final TransactionTemplate transactionTemplate;
+    private final ReentrantLock[] verificationSendLocks = createVerificationSendLocks();
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void sendVerificationCode(String email, VerificationPurpose purpose, Long currentUserId) {
@@ -177,8 +184,23 @@ public class VerificationCodeService {
             VerificationPurpose purpose,
             String code,
             LocalDateTime expiryDate) {
+        ReentrantLock sendLock = getVerificationSendLock(email, purpose);
+        sendLock.lock();
+        try {
+            return createPendingVerificationCodeWithLock(email, purpose, code, expiryDate);
+        } finally {
+            sendLock.unlock();
+        }
+    }
+
+    private Long createPendingVerificationCodeWithLock(
+            String email,
+            VerificationPurpose purpose,
+            String code,
+            LocalDateTime expiryDate) {
         final Long[] verificationIdHolder = new Long[1];
         transactionTemplate.executeWithoutResult(status -> {
+            validateVerificationSendRateLimit(email, purpose, LocalDateTime.now());
             VerificationCode verificationCode = VerificationCode.builder()
                     .email(email)
                     .purpose(purpose)
@@ -188,6 +210,41 @@ public class VerificationCodeService {
             verificationIdHolder[0] = verificationCodeRepository.save(verificationCode).getVerificationId();
         });
         return verificationIdHolder[0];
+    }
+
+    private static ReentrantLock[] createVerificationSendLocks() {
+        ReentrantLock[] locks = new ReentrantLock[VERIFICATION_SEND_LOCK_STRIPES];
+        for (int i = 0; i < locks.length; i++) {
+            locks[i] = new ReentrantLock();
+        }
+        return locks;
+    }
+
+    private ReentrantLock getVerificationSendLock(String email, VerificationPurpose purpose) {
+        int lockIndex = Math.floorMod(Objects.hash(email, purpose), verificationSendLocks.length);
+        return verificationSendLocks[lockIndex];
+    }
+
+    private void validateVerificationSendRateLimit(
+            String email,
+            VerificationPurpose purpose,
+            LocalDateTime now) {
+        String purposeName = purpose.name();
+        LocalDateTime cooldownThreshold = now.minusSeconds(RESEND_COOLDOWN_SECONDS);
+        verificationCodeRepository.findLatestDeliveryAttemptCreatedAt(email, purposeName)
+                .filter(latestAttemptAt -> latestAttemptAt.isAfter(cooldownThreshold))
+                .ifPresent(latestAttemptAt -> {
+                    throw new BusinessException(ErrorCode.RATE_LIMIT_EXCEEDED);
+                });
+
+        LocalDateTime windowStart = now.minusHours(SEND_ATTEMPT_WINDOW_HOURS);
+        long recentAttemptCount = verificationCodeRepository.countDeliveryAttemptsSince(
+                email,
+                purposeName,
+                windowStart);
+        if (recentAttemptCount >= MAX_SEND_ATTEMPTS_PER_WINDOW) {
+            throw new BusinessException(ErrorCode.RATE_LIMIT_EXCEEDED);
+        }
     }
 
     private void updateDeliveryStatus(Long verificationId, boolean sent) {
