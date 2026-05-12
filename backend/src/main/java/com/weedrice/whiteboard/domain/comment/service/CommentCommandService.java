@@ -31,6 +31,7 @@ import java.util.Objects;
 public class CommentCommandService {
 
     private static final int MAX_COMMENT_CONTENT_LENGTH = 1000;
+    private static final int MAX_COMMENT_DEPTH = 5;
 
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
@@ -94,6 +95,9 @@ public class CommentCommandService {
                 throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
             }
 
+            if (parentComment.getDepth() >= MAX_COMMENT_DEPTH) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            }
             depth = parentComment.getDepth() + 1;
         }
 

@@ -288,6 +288,58 @@ class CommentServiceTest {
     }
 
     @Test
+    @DisplayName("create comment with parent depth four creates depth five")
+    void createComment_parentDepthFour_createsDepthFive() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
+
+        Comment parent = Comment.builder().depth(4).user(user).post(post).build();
+        ReflectionTestUtils.setField(parent, "commentId", 5L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(commentRepository.findById(5L)).thenReturn(Optional.of(parent));
+        when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> {
+            Comment saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "commentId", 10L);
+            return saved;
+        });
+
+        Comment result = commentService.createComment(1L, 1L, 5L, "content");
+
+        assertThat(result.getDepth()).isEqualTo(5);
+        verify(commentClosureRepository).createClosures(10L, 5L);
+    }
+
+    @Test
+    @DisplayName("create comment rejects replies beyond depth five")
+    void createComment_parentDepthFive_throwsInvalidInput() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
+
+        Comment parent = Comment.builder().depth(5).user(user).post(post).build();
+        ReflectionTestUtils.setField(parent, "commentId", 5L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(commentRepository.findById(5L)).thenReturn(Optional.of(parent));
+
+        assertThatThrownBy(() -> commentService.createComment(1L, 1L, 5L, "content"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(commentRepository, never()).save(any(Comment.class));
+    }
+
+    @Test
     @DisplayName("reject parent comment from another post")
     void createComment_parentFromAnotherPost_rejected() {
         User user = User.builder().build();
@@ -512,6 +564,48 @@ class CommentServiceTest {
                 CommentCreateContext.agentRoot(agent, post)))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+
+        verify(commentRepository, never()).save(any(Comment.class));
+    }
+
+    @Test
+    @DisplayName("agent context reply rejects replies beyond depth five")
+    void createCommentAsAgent_withContext_parentDepthFive_throwsInvalidInput() {
+        User actorUser = User.builder().displayName("user-owner").build();
+        ReflectionTestUtils.setField(actorUser, "userId", 2L);
+
+        Agent agent = Agent.builder()
+                .user(actorUser)
+                .agentTokenHash("hash")
+                .name("agent-writer")
+                .description("desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(agent, "agentId", 99L);
+
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(actorUser).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
+
+        Comment parent = Comment.builder()
+                .user(actorUser)
+                .post(post)
+                .content("parent")
+                .depth(5)
+                .build();
+        ReflectionTestUtils.setField(parent, "commentId", 5L);
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(actorUser));
+
+        assertThatThrownBy(() -> commentService.createCommentAsAgent(
+                2L,
+                99L,
+                1L,
+                5L,
+                "content",
+                CommentCreateContext.agentReply(agent, parent)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
 
         verify(commentRepository, never()).save(any(Comment.class));
     }
