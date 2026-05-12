@@ -67,6 +67,23 @@ class ShopEntitlementStartupValidatorTest {
         verify(shopEntitlementCapabilityRegistry).validateConfiguration(item);
     }
 
+    @Test
+    @DisplayName("Fails startup when active supported items duplicate entitlement target")
+    void validateActiveItems_duplicateActiveEntitlement() {
+        ShopItem firstItem = shopItem(1L, "EMOTICON", 10L);
+        ShopItem secondItem = shopItem(2L, "EMOTICON", 10L);
+        when(shopItemRepository.findByIsActive(true)).thenReturn(List.of(firstItem, secondItem));
+        when(shopEntitlementCapabilityRegistry.supports(firstItem)).thenReturn(true);
+        when(shopEntitlementCapabilityRegistry.supports(secondItem)).thenReturn(true);
+
+        assertThatThrownBy(() -> validator.validateActiveItems())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("duplicate-active-entitlement")
+                .hasMessageContaining("itemType=EMOTICON")
+                .hasMessageContaining("targetId=10")
+                .hasMessageContaining("itemIds=[1, 2]");
+    }
+
     private ShopItem shopItem(Long itemId, String itemType, Long targetId) {
         ShopItem item = ShopItem.builder()
                 .itemName("Shop item")
