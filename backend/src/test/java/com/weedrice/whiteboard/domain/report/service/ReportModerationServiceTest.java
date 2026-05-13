@@ -148,7 +148,8 @@ class ReportModerationServiceTest {
                 1);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
-        when(reportRepository.findByReporterOrderByCreatedAtDesc(reporter, safePageable)).thenReturn(reportPage);
+        when(reportRepository.findByReporterOrderByCreatedAtDescReportIdDesc(reporter, safePageable))
+                .thenReturn(reportPage);
         when(reportReadAssembler.toMyReportResponsePage(reportPage)).thenReturn(responsePage);
 
         Page<MyReportResponse> result = reportModerationService.getMyReports(1L, pageable);
@@ -169,13 +170,14 @@ class ReportModerationServiceTest {
         Page<MyReportResponse> responsePage = Page.empty(safePageable);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
-        when(reportRepository.findByReporterOrderByCreatedAtDesc(reporter, safePageable)).thenReturn(reportPage);
+        when(reportRepository.findByReporterOrderByCreatedAtDescReportIdDesc(reporter, safePageable))
+                .thenReturn(reportPage);
         when(reportReadAssembler.toMyReportResponsePage(reportPage)).thenReturn(responsePage);
 
         Page<MyReportResponse> result = reportModerationService.getMyReports(1L, requested);
 
         assertThat(result).isSameAs(responsePage);
-        verify(reportRepository).findByReporterOrderByCreatedAtDesc(reporter, safePageable);
+        verify(reportRepository).findByReporterOrderByCreatedAtDescReportIdDesc(reporter, safePageable);
     }
 
     @Test

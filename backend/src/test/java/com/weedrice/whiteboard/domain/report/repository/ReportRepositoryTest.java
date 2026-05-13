@@ -14,6 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -131,16 +132,36 @@ class ReportRepositoryTest {
 
     @Test
     @DisplayName("신고자별 신고 목록 조회")
-    void findByReporterOrderByCreatedAtDesc_success() {
-        // given
-        PageRequest pageRequest = PageRequest.of(0, 10);
+    void findByReporterOrderByCreatedAtDescReportIdDesc_ordersByReportIdWhenCreatedAtTies() {
+        Report second = Report.builder()
+                .reporter(reporter)
+                .targetType("POST")
+                .targetId(2L)
+                .reasonType("SPAM")
+                .remark("Second report")
+                .build();
+        entityManager.persist(second);
+        LocalDateTime sameCreatedAt = LocalDateTime.now().minusMinutes(1);
+        entityManager.flush();
+        updateCreatedAt(report, sameCreatedAt);
+        updateCreatedAt(second, sameCreatedAt);
+        entityManager.clear();
 
-        // when
-        Page<Report> reports = reportRepository.findByReporterOrderByCreatedAtDesc(reporter, pageRequest);
+        Page<Report> reports = reportRepository.findByReporterOrderByCreatedAtDescReportIdDesc(
+                reporter,
+                PageRequest.of(0, 10));
 
-        // then
-        assertThat(reports.getContent()).isNotEmpty();
-        assertThat(reports.getContent().get(0).getReporter()).isEqualTo(reporter);
+        assertThat(reports.getContent())
+                .extracting(Report::getReportId)
+                .containsExactly(second.getReportId(), report.getReportId());
+    }
+
+    private void updateCreatedAt(Report report, LocalDateTime createdAt) {
+        entityManager.getEntityManager()
+                .createNativeQuery("UPDATE reports SET created_at = :createdAt WHERE report_id = :reportId")
+                .setParameter("createdAt", createdAt)
+                .setParameter("reportId", report.getReportId())
+                .executeUpdate();
     }
 
     @Test

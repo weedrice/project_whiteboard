@@ -33,7 +33,7 @@ public interface ReportRepository extends JpaRepository<Report, Long>, ReportRep
     Page<Report> findByTargetTypeAndStatusOrderByCreatedAtDesc(String targetType, String status, Pageable pageable);
 
     @EntityGraph(attributePaths = {"reporter", "admin"})
-    Page<Report> findByReporterOrderByCreatedAtDesc(User reporter, Pageable pageable);
+    Page<Report> findByReporterOrderByCreatedAtDescReportIdDesc(User reporter, Pageable pageable);
 
     long countByTargetTypeAndTargetId(String targetType, Long targetId);
 
