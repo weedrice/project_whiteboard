@@ -18,6 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -33,6 +34,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -318,7 +320,7 @@ class UserSettingsServiceTest {
         UserNotificationSettings likeSetting = new UserNotificationSettings(1L, NotificationType.LIKE, true);
         UserNotificationSettings replySetting = new UserNotificationSettings(1L, NotificationType.REPLY, false);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(userNotificationSettingsRepository.findByUserIdOrderByModifiedAtDescCreatedAtDesc(1L))
                 .thenReturn(List.of(likeSetting, replySetting));
         when(userNotificationSettingsRepository.saveAll(org.mockito.ArgumentMatchers.<Iterable<UserNotificationSettings>>any()))
@@ -358,6 +360,10 @@ class UserSettingsServiceTest {
                     && saved.stream().anyMatch(setting ->
                             setting.getNotificationType() == NotificationType.REPLY && setting.getIsEnabled());
         }));
+        InOrder inOrder = inOrder(userRepository, sanctionService, userNotificationSettingsRepository);
+        inOrder.verify(userRepository).findByIdForUpdate(1L);
+        inOrder.verify(sanctionService).validateNotBanned(user);
+        inOrder.verify(userNotificationSettingsRepository).findByUserIdOrderByModifiedAtDescCreatedAtDesc(1L);
     }
 
     @Test
@@ -368,7 +374,7 @@ class UserSettingsServiceTest {
         UserNotificationSettings likeSetting = new UserNotificationSettings(1L, NotificationType.LIKE, false);
         UserNotificationSettings replySetting = new UserNotificationSettings(1L, NotificationType.REPLY, true);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(userNotificationSettingsRepository.findByUserIdOrderByModifiedAtDescCreatedAtDesc(1L))
                 .thenReturn(List.of(likeSetting, replySetting));
 
@@ -387,13 +393,14 @@ class UserSettingsServiceTest {
                 .extracting(NotificationSettingResponse::isEnabled)
                 .isEqualTo(true);
         verify(userNotificationSettingsRepository, never()).saveAll(any());
+        verify(userRepository).findByIdForUpdate(1L);
     }
 
     @Test
     @DisplayName("Bulk notification settings update fails for duplicate types")
     void updateNotificationSettings_duplicateType_throwsInvalidInput() {
         User user = User.builder().build();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> userSettingsService.updateNotificationSettings(1L, List.of(
                 new UpdateNotificationSettingItem("like", true),
@@ -401,6 +408,8 @@ class UserSettingsServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(userNotificationSettingsRepository, never()).findByUserIdOrderByModifiedAtDescCreatedAtDesc(any());
     }
 
     @Test
@@ -411,6 +420,7 @@ class UserSettingsServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
+        verify(userRepository, never()).findByIdForUpdate(any());
         verify(userNotificationSettingsRepository, never()).saveAll(any());
     }
 
@@ -422,6 +432,7 @@ class UserSettingsServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
+        verify(userRepository, never()).findByIdForUpdate(any());
         verify(userNotificationSettingsRepository, never()).saveAll(any());
     }
 
@@ -429,7 +440,7 @@ class UserSettingsServiceTest {
     @DisplayName("Bulk notification settings update fails when user is sanctioned")
     void updateNotificationSettings_bannedUser() {
         User user = User.builder().build();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
 
         assertThatThrownBy(() -> userSettingsService.updateNotificationSettings(1L, List.of(

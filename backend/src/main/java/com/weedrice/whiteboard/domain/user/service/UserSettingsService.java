@@ -95,7 +95,7 @@ public class UserSettingsService {
         public List<NotificationSettingResponse> updateNotificationSettings(Long userId,
                         List<UpdateNotificationSettingItem> requests) {
                 validateNotificationSettingRequests(requests);
-                validateUserCanWrite(userId);
+                userWritableResolver.resolveForUpdate(userId);
                 List<NormalizedNotificationSettingRequest> normalizedRequests = normalizeNotificationSettingRequests(requests);
                 validateNoDuplicateNotificationTypes(normalizedRequests);
 
