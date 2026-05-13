@@ -22,6 +22,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -768,12 +769,25 @@ class EmoticonServiceTest {
         @Test
         @DisplayName("이모티콘 삭제 성공")
         void deleteEmoticon_success() {
+            ReflectionTestUtils.setField(emoticonMaster, "thumbnailUrl", "/api/v1/files/10");
+            EmoticonImage image = EmoticonImage.builder()
+                    .emoticonMaster(emoticonMaster)
+                    .imageUrl("/api/v1/files/20")
+                    .sortOrder(0)
+                    .build();
+            ReflectionTestUtils.setField(image, "imageId", 20L);
+            ReflectionTestUtils.setField(emoticonMaster, "images", new java.util.ArrayList<>(List.of(image)));
             givenWritableUser();
-            when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
 
             emoticonService.deleteEmoticon(1L, 1L);
 
-            verify(emoticonMasterRepository).delete(emoticonMaster);
+            verify(emoticonMasterRepository).findByIdForUpdate(1L);
+            InOrder inOrder = inOrder(emoticonMasterRepository, fileService);
+            inOrder.verify(emoticonMasterRepository).delete(emoticonMaster);
+            inOrder.verify(emoticonMasterRepository).flush();
+            inOrder.verify(fileService).deleteFileWithStorageIfAssociated(10L, 1L, "EMOTICON_THUMBNAIL");
+            inOrder.verify(fileService).deleteFileWithStorageIfAssociated(20L, 1L, "EMOTICON_IMAGE");
         }
 
         @Test
@@ -781,7 +795,7 @@ class EmoticonServiceTest {
         void deleteEmoticon_withPurchaseHistory_blocksHardDelete() {
             ReflectionTestUtils.setField(emoticonMaster, "thumbnailUrl", "/api/v1/files/10");
             givenWritableUser();
-            when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
             when(emoticonPurchaseRepository.existsByEmoticon_EmoticonId(1L)).thenReturn(true);
 
             assertThatThrownBy(() -> emoticonService.deleteEmoticon(1L, 1L))
@@ -796,8 +810,9 @@ class EmoticonServiceTest {
         @Test
         @DisplayName("이모티콘 삭제 - 삭제 중 구매 이력 FK 충돌이 발생하면 비즈니스 예외로 전환한다")
         void deleteEmoticon_purchaseRaceConstraintViolation_throwsBusinessException() {
+            ReflectionTestUtils.setField(emoticonMaster, "thumbnailUrl", "/api/v1/files/10");
             givenWritableUser();
-            when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
             doThrow(new DataIntegrityViolationException("fk")).when(emoticonMasterRepository).flush();
 
             assertThatThrownBy(() -> emoticonService.deleteEmoticon(1L, 1L))
@@ -807,12 +822,13 @@ class EmoticonServiceTest {
 
             verify(emoticonMasterRepository).delete(emoticonMaster);
             verify(emoticonMasterRepository).flush();
+            verify(fileService, never()).deleteFileWithStorageIfAssociated(anyLong(), anyLong(), anyString());
         }
 
         @Test
         @DisplayName("이모티콘 삭제 - 제재 소유자는 USER_NOT_ACTIVE")
         void deleteEmoticon_bannedOwner() {
-            when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
             when(userWritableResolver.resolve(1L))
                     .thenThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE));
 
@@ -828,7 +844,7 @@ class EmoticonServiceTest {
         @Test
         @DisplayName("이모티콘 삭제 - 소유자가 아니면 FORBIDDEN")
         void deleteEmoticon_forbidden() {
-            when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
 
             assertThatThrownBy(() -> emoticonService.deleteEmoticon(2L, 1L))
                     .isInstanceOf(BusinessException.class)
@@ -841,7 +857,7 @@ class EmoticonServiceTest {
         @Test
         @DisplayName("이모티콘 삭제 - 존재하지 않으면 EMOTICON_NOT_FOUND")
         void deleteEmoticon_notFound() {
-            when(emoticonMasterRepository.findByIdWithImages(999L)).thenReturn(Optional.empty());
+            when(emoticonMasterRepository.findByIdForUpdate(999L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> emoticonService.deleteEmoticon(1L, 999L))
                     .isInstanceOf(BusinessException.class)

@@ -141,7 +141,7 @@ class EmoticonCommandService {
     }
 
     void deleteEmoticon(Long userId, Long emoticonId) {
-        EmoticonMaster master = emoticonMasterRepository.findByIdWithImages(emoticonId)
+        EmoticonMaster master = emoticonMasterRepository.findByIdForUpdate(emoticonId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
 
         validateWritableOwner(master, userId);
@@ -150,19 +150,25 @@ class EmoticonCommandService {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "구매 이력이 있는 이모티콘은 삭제할 수 없습니다.");
         }
 
-        attachmentHelper.deleteAssociatedFile(master.getThumbnailUrl(), master.getEmoticonId(), emoticonThumbnailType);
-
-        if (master.getImages() != null) {
-            for (EmoticonImage image : master.getImages()) {
-                attachmentHelper.deleteAssociatedFile(image.getImageUrl(), master.getEmoticonId(), emoticonImageType);
-            }
-        }
+        Long masterId = master.getEmoticonId();
+        String thumbnailUrl = master.getThumbnailUrl();
+        List<String> imageUrls = master.getImages() == null
+                ? List.of()
+                : master.getImages().stream()
+                        .map(EmoticonImage::getImageUrl)
+                        .toList();
 
         try {
             emoticonMasterRepository.delete(master);
             emoticonMasterRepository.flush();
         } catch (DataIntegrityViolationException e) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "구매 이력이 있는 이모티콘은 삭제할 수 없습니다.");
+        }
+
+        attachmentHelper.deleteAssociatedFile(thumbnailUrl, masterId, emoticonThumbnailType);
+
+        for (String imageUrl : imageUrls) {
+            attachmentHelper.deleteAssociatedFile(imageUrl, masterId, emoticonImageType);
         }
     }
 
