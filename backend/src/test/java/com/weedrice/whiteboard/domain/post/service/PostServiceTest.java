@@ -326,6 +326,26 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("게시글 생성은 null 본문을 빈 문자열로 저장한다")
+    void createPost_nullContents_storesEmptyString() {
+        PostCreateRequest request = new PostCreateRequest(null, "New Post", null, Collections.emptyList(),
+                false, false, false, false, null);
+
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+        when(postRepository.save(any(Post.class))).thenAnswer(invocation -> {
+            Post saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "postId", 100L);
+            return saved;
+        });
+
+        Post created = postService.createPost(1L, "free", request);
+
+        assertThat(created.getContents()).isEmpty();
+    }
+
+    @Test
     @DisplayName("게시글 작성 보상 설정이 잘못되면 기본값으로 지급한다")
     void createPost_invalidRewardConfig_usesDefaultReward() {
         PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(),
@@ -906,6 +926,21 @@ class PostServiceTest {
         assertThat(updated.getContents()).contains("<p>Safe</p>");
         assertThat(updated.getContents()).doesNotContain("onmouseover");
         assertThat(updated.getContents()).doesNotContain("javascript:");
+    }
+
+    @Test
+    @DisplayName("게시글 수정은 null 본문을 빈 문자열로 저장한다")
+    void updatePost_nullContents_storesEmptyString() {
+        PostUpdateRequest request = new PostUpdateRequest(null, "Updated Title", null,
+                Collections.emptyList(), false, false, false, null);
+
+        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        Post updated = postService.updatePost(1L, 1L, request);
+
+        assertThat(updated.getContents()).isEmpty();
+        verify(postVersionRepository).save(any(PostVersion.class));
     }
 
     @Test
