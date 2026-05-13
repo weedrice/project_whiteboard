@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -16,6 +17,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.util.Collections;
 
@@ -70,11 +72,30 @@ class LogServiceTest {
     void getLogs_success() {
         Pageable pageable = PageRequest.of(0, 10);
         Page<Log> page = new PageImpl<>(Collections.emptyList());
-        when(logRepository.findAll(pageable)).thenReturn(page);
+        when(logRepository.findAll(any(Pageable.class))).thenReturn(page);
 
         Page<Log> result = logService.getLogs(pageable);
 
         assertThat(result).isEqualTo(page);
         securityUtilsMockedStatic.verify(SecurityUtils::validateSuperAdminPermission);
+    }
+
+    @Test
+    @DisplayName("로그 조회는 안정 정렬을 적용한다")
+    void getLogs_appliesStableSort() {
+        Pageable pageable = PageRequest.of(1, 10);
+        Page<Log> page = new PageImpl<>(Collections.emptyList());
+        when(logRepository.findAll(any(Pageable.class))).thenReturn(page);
+
+        Page<Log> result = logService.getLogs(pageable);
+
+        assertThat(result).isEqualTo(page);
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(logRepository).findAll(pageableCaptor.capture());
+        Pageable safePageable = pageableCaptor.getValue();
+        assertThat(safePageable.getPageNumber()).isEqualTo(1);
+        assertThat(safePageable.getPageSize()).isEqualTo(10);
+        assertThat(safePageable.getSort())
+                .containsExactly(Sort.Order.desc("createdAt"), Sort.Order.desc("logId"));
     }
 }

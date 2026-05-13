@@ -1,11 +1,13 @@
 package com.weedrice.whiteboard.global.log.service;
 
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.log.entity.Log;
 import com.weedrice.whiteboard.global.log.repository.LogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +17,10 @@ import static org.springframework.transaction.annotation.Propagation.REQUIRES_NE
 @Service
 @RequiredArgsConstructor
 public class LogService {
+    private static final int DEFAULT_LOG_PAGE_SIZE = 20;
+    private static final Sort LOG_LIST_SORT = Sort.by(
+            Sort.Order.desc("createdAt"),
+            Sort.Order.desc("logId"));
 
     private final LogRepository logRepository;
 
@@ -39,6 +45,13 @@ public class LogService {
     @Transactional(readOnly = true)
     public Page<Log> getLogs(Pageable pageable) {
         SecurityUtils.validateSuperAdminPermission();
-        return logRepository.findAll(pageable);
+        return logRepository.findAll(applyStableSort(pageable));
+    }
+
+    private Pageable applyStableSort(Pageable pageable) {
+        if (pageable == null || pageable.isUnpaged()) {
+            return PageRequestUtils.of(0, DEFAULT_LOG_PAGE_SIZE, LOG_LIST_SORT);
+        }
+        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), LOG_LIST_SORT);
     }
 }

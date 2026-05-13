@@ -17,13 +17,17 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class LogController {
 
+    private static final Sort LOG_LIST_SORT = Sort.by(
+            Sort.Order.desc("createdAt"),
+            Sort.Order.desc("logId"));
+
     private final LogService logService;
 
     @GetMapping
     public ApiResponse<LogResponse> getLogs(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        Pageable pageable = PageRequestUtils.of(page, size, Sort.by("createdAt").descending());
+        Pageable pageable = PageRequestUtils.of(page, size, LOG_LIST_SORT);
         return ApiResponse.success(LogResponse.from(logService.getLogs(pageable)));
     }
 }
