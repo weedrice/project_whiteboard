@@ -124,7 +124,8 @@ class AuthServiceTest {
                         userRepository,
                         new AuthMailDeliveryOrchestrationService(emailService),
                         transactionTemplate,
-                        tokenHashService);
+                        tokenHashService,
+                        verificationCodeService);
         PasswordHistoryPolicy passwordHistoryPolicy =
                 new PasswordHistoryPolicy(passwordHistoryRepository, passwordEncoder);
         PasswordResetService passwordResetService = new PasswordResetService(

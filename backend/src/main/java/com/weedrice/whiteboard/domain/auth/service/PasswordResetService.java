@@ -46,6 +46,8 @@ public class PasswordResetService {
                 false);
         passwordResetTokenOrchestrationService.sendPreparedPasswordResetEmail(
                 command.user(),
+                command.verificationEmail(),
+                command.verificationTicket(),
                 command.recipientEmail(),
                 command.tokenId(),
                 command.subject(),
@@ -63,6 +65,8 @@ public class PasswordResetService {
                 true);
         passwordResetTokenOrchestrationService.sendPreparedPasswordResetEmail(
                 command.user(),
+                command.verificationEmail(),
+                command.verificationTicket(),
                 command.recipientEmail(),
                 command.tokenId(),
                 command.subject(),
@@ -82,15 +86,18 @@ public class PasswordResetService {
                     VerificationPurpose.PASSWORD_RESET,
                     verificationTicket);
             User user = getUsablePasswordResetUser(normalizedEmail, notFoundErrorCode);
-            verificationCodeService.consumeValidatedVerificationTicket(
-                    normalizedEmail,
-                    VerificationPurpose.PASSWORD_RESET,
-                    verificationTicket);
             Long tokenId = passwordResetTokenOrchestrationService
                     .createPendingPasswordResetTokenForCurrentTransaction(user, rawToken);
             String subject = "[noviIs] Password reset link";
             String body = buildPasswordResetBody(user, rawToken, includeLoginId);
-            return new PasswordResetMailCommand(user, user.getEmail(), tokenId, subject, body);
+            return new PasswordResetMailCommand(
+                    user,
+                    normalizedEmail,
+                    verificationTicket,
+                    user.getEmail(),
+                    tokenId,
+                    subject,
+                    body);
         }));
     }
 
@@ -189,6 +196,8 @@ public class PasswordResetService {
 
     private record PasswordResetMailCommand(
             User user,
+            String verificationEmail,
+            String verificationTicket,
             String recipientEmail,
             Long tokenId,
             String subject,

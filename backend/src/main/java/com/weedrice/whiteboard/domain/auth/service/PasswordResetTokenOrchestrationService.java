@@ -1,9 +1,11 @@
 package com.weedrice.whiteboard.domain.auth.service;
 
 import com.weedrice.whiteboard.domain.auth.entity.PasswordResetToken;
+import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
 import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,10 +27,13 @@ public class PasswordResetTokenOrchestrationService {
     private final AuthMailDeliveryOrchestrationService mailDeliveryOrchestrationService;
     private final TransactionTemplate transactionTemplate;
     private final TokenHashService tokenHashService;
+    private final VerificationCodeService verificationCodeService;
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void sendPreparedPasswordResetEmail(
             User user,
+            String verificationEmail,
+            String verificationTicket,
             String recipientEmail,
             Long tokenId,
             String subject,
@@ -39,8 +44,9 @@ public class PasswordResetTokenOrchestrationService {
                         subject,
                         body,
                         id -> updateDeliveryStatus(id, false),
-                        id -> promotePendingToken(id, user),
-                        (id, e) -> markCurrentTokenSentAfterPromotionFailure(id, user, e)),
+                        id -> promotePendingToken(id, user, verificationEmail, verificationTicket),
+                        (id, e) -> markCurrentTokenSentAfterPromotionFailure(
+                                id, user, verificationEmail, verificationTicket, e)),
                 tokenId);
     }
 
@@ -72,35 +78,46 @@ public class PasswordResetTokenOrchestrationService {
                 }));
     }
 
-    private void promotePendingToken(Long tokenId, User user) {
+    private void promotePendingToken(Long tokenId, User user, String verificationEmail, String verificationTicket) {
         try {
-            markTokenSentAfterInvalidatingPrevious(user, tokenId);
+            markTokenSentAfterInvalidatingPrevious(user, tokenId, verificationEmail, verificationTicket);
         } catch (RuntimeException e) {
-            retryPromotePendingToken(tokenId, user, e);
+            retryPromotePendingToken(tokenId, user, verificationEmail, verificationTicket, e);
         }
     }
 
-    private void retryPromotePendingToken(Long tokenId, User user, RuntimeException originalException) {
+    private void retryPromotePendingToken(
+            Long tokenId,
+            User user,
+            String verificationEmail,
+            String verificationTicket,
+            RuntimeException originalException) {
         log.warn("Retrying password reset token promotion for tokenId={} userId={}",
                 tokenId, user.getUserId(), originalException);
-        markTokenSentAfterInvalidatingPrevious(user, tokenId);
+        markTokenSentAfterInvalidatingPrevious(user, tokenId, verificationEmail, verificationTicket);
     }
 
     private void markCurrentTokenSentAfterPromotionFailure(
             Long tokenId,
             User user,
+            String verificationEmail,
+            String verificationTicket,
             RuntimeException promotionException) {
         log.error("Password reset token promotion failed after email delivery: tokenId={} userId={}",
                 tokenId, user.getUserId(), promotionException);
         try {
-            updateDeliveryStatus(tokenId, true);
+            markCurrentTokenSent(tokenId, verificationEmail, verificationTicket);
         } catch (RuntimeException statusUpdateException) {
             promotionException.addSuppressed(statusUpdateException);
             throw promotionException;
         }
     }
 
-    private void markTokenSentAfterInvalidatingPrevious(User user, Long tokenId) {
+    private void markTokenSentAfterInvalidatingPrevious(
+            User user,
+            Long tokenId,
+            String verificationEmail,
+            String verificationTicket) {
         transactionTemplate.executeWithoutResult(status -> {
             PasswordResetToken passwordResetToken = passwordResetTokenRepository.findByIdForUpdate(tokenId)
                     .orElse(null);
@@ -111,9 +128,38 @@ public class PasswordResetTokenOrchestrationService {
             invalidatePreviousSentTokens(user, tokenId);
             userRepository.findByIdForUpdate(user.getUserId())
                     .orElseThrow(() -> new IllegalStateException("Password reset user not found"));
+            consumePasswordResetVerificationTicket(verificationEmail, verificationTicket);
             passwordResetToken.markSent();
             passwordResetTokenRepository.save(passwordResetToken);
         });
+    }
+
+    private void markCurrentTokenSent(Long tokenId, String verificationEmail, String verificationTicket) {
+        transactionTemplate.executeWithoutResult(status -> passwordResetTokenRepository.findById(tokenId)
+                .ifPresent(passwordResetToken -> {
+                    consumePasswordResetVerificationTicketIfAvailable(verificationEmail, verificationTicket, tokenId);
+                    passwordResetToken.markSent();
+                    passwordResetTokenRepository.save(passwordResetToken);
+                }));
+    }
+
+    private void consumePasswordResetVerificationTicket(String verificationEmail, String verificationTicket) {
+        verificationCodeService.consumeValidatedVerificationTicket(
+                verificationEmail,
+                VerificationPurpose.PASSWORD_RESET,
+                verificationTicket);
+    }
+
+    private void consumePasswordResetVerificationTicketIfAvailable(
+            String verificationEmail,
+            String verificationTicket,
+            Long tokenId) {
+        try {
+            consumePasswordResetVerificationTicket(verificationEmail, verificationTicket);
+        } catch (BusinessException e) {
+            log.warn("Password reset ticket was already unavailable during delivery recovery: tokenId={} errorCode={}",
+                    tokenId, e.getErrorCode());
+        }
     }
 
     private void invalidatePreviousSentTokens(User user, Long excludeTokenId) {
