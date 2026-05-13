@@ -53,6 +53,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -65,6 +67,8 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class CommentServiceTest {
+
+    private static final List<Long> NO_BLOCKED_USER_IDS = List.of(-1L);
 
     private CommentService commentService;
     private BoardAccessPolicy boardAccessPolicy;
@@ -641,7 +645,7 @@ class CommentServiceTest {
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
-        when(commentRepository.findParentsWithChildrenOrNotDeleted(anyLong(), any()))
+        when(commentRepository.findParentsWithChildrenOrNotDeleted(anyLong(), anyBoolean(), anyCollection(), any()))
                 .thenReturn(new PageImpl<>(List.of(comment)));
 
         Page<CommentResponse> result = commentService.getComments(100L, 1L, PageRequest.of(0, 10));
@@ -694,7 +698,7 @@ class CommentServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
         Pageable pageable = commentReadPageable(0, 10);
-        when(commentRepository.findRepliesWithRelations(9L, false, pageable))
+        when(commentRepository.findRepliesWithRelations(9L, false, false, List.of(2L), pageable))
                 .thenReturn(new PageImpl<>(List.of(reply), pageable, 1));
 
         var result = commentService.getReplies(9L, 1L, PageRequest.of(0, 10));
@@ -737,9 +741,9 @@ class CommentServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
         Pageable pageable = commentReadPageable(0, 10);
-        when(commentRepository.findParentsWithChildrenOrNotDeleted(100L, pageable))
+        when(commentRepository.findParentsWithChildrenOrNotDeleted(100L, true, NO_BLOCKED_USER_IDS, pageable))
                 .thenReturn(new PageImpl<>(List.of(parent), pageable, 1));
-        when(commentRepository.countVisibleRepliesByParentIds(List.of(10L)))
+        when(commentRepository.countVisibleRepliesByParentIds(List.of(10L), true, NO_BLOCKED_USER_IDS))
                 .thenReturn(List.of(replyCountProjection(10L, 3L)));
 
         Page<CommentResponse> result = commentService.getComments(100L, 1L, PageRequest.of(0, 10));
@@ -775,12 +779,12 @@ class CommentServiceTest {
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
-        when(commentRepository.findParentsWithChildrenOrNotDeleted(100L, normalized))
+        when(commentRepository.findParentsWithChildrenOrNotDeleted(100L, true, NO_BLOCKED_USER_IDS, normalized))
                 .thenReturn(Page.empty(normalized));
 
         commentService.getComments(100L, 1L, requested);
 
-        verify(commentRepository).findParentsWithChildrenOrNotDeleted(100L, normalized);
+        verify(commentRepository).findParentsWithChildrenOrNotDeleted(100L, true, NO_BLOCKED_USER_IDS, normalized);
     }
 
     @Test
@@ -797,7 +801,7 @@ class CommentServiceTest {
                 user,
                 false,
                 true,
-                List.of(-1L),
+                NO_BLOCKED_USER_IDS,
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
                 normalized))
                 .thenReturn(Page.empty(normalized));
@@ -808,7 +812,7 @@ class CommentServiceTest {
                 user,
                 false,
                 true,
-                List.of(-1L),
+                NO_BLOCKED_USER_IDS,
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
                 normalized);
     }
@@ -852,9 +856,9 @@ class CommentServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
         Pageable pageable = commentReadPageable(0, 10);
-        when(commentRepository.findRepliesWithRelations(9L, false, pageable))
+        when(commentRepository.findRepliesWithRelations(9L, false, true, NO_BLOCKED_USER_IDS, pageable))
                 .thenReturn(new PageImpl<>(List.of(reply), pageable, 1));
-        when(commentRepository.countVisibleRepliesByParentIds(List.of(10L)))
+        when(commentRepository.countVisibleRepliesByParentIds(List.of(10L), true, NO_BLOCKED_USER_IDS))
                 .thenReturn(List.of(replyCountProjection(10L, 1L)));
 
         var result = commentService.getReplies(9L, 1L, PageRequest.of(0, 10));
@@ -895,13 +899,70 @@ class CommentServiceTest {
 
         Pageable pageable = commentReadPageable(0, 10);
         when(commentRepository.findByIdWithRelations(9L)).thenReturn(Optional.of(parent));
-        when(commentRepository.findRepliesWithRelations(9L, false, pageable)).thenReturn(Page.empty(pageable));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
+        when(commentRepository.findRepliesWithRelations(9L, false, true, NO_BLOCKED_USER_IDS, pageable))
+                .thenReturn(Page.empty(pageable));
+        when(commentRepository.countVisibleRepliesByParentIds(List.of(9L), true, NO_BLOCKED_USER_IDS))
+                .thenReturn(List.of());
 
         assertThatThrownBy(() -> commentService.getReplies(9L, 1L, PageRequest.of(0, 10)))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
 
-        verify(commentRepository).findRepliesWithRelations(9L, false, pageable);
+        verify(commentRepository).findRepliesWithRelations(9L, false, true, NO_BLOCKED_USER_IDS, pageable);
+    }
+
+    @Test
+    @DisplayName("deleted parent comment with only blocked replies is hidden from direct replies lookup")
+    void getReplies_deletedParentWithOnlyBlockedReplies_notFound() {
+        User blockedAuthor = User.builder().displayName("Blocked").build();
+        ReflectionTestUtils.setField(blockedAuthor, "userId", 2L);
+
+        User viewer = User.builder().displayName("Viewer").build();
+        ReflectionTestUtils.setField(viewer, "userId", 1L);
+
+        Board board = Board.builder().boardUrl("free").creator(viewer).build();
+        ReflectionTestUtils.setField(board, "isActive", true);
+        ReflectionTestUtils.setField(board, "isPublic", true);
+
+        Post post = Post.builder().board(board).title("Title").user(viewer).build();
+        ReflectionTestUtils.setField(post, "postId", 100L);
+
+        Comment parent = Comment.builder()
+                .user(viewer)
+                .post(post)
+                .content("Parent")
+                .depth(0)
+                .build();
+        ReflectionTestUtils.setField(parent, "commentId", 9L);
+        ReflectionTestUtils.setField(parent, "isDeleted", true);
+
+        Comment blockedReply = Comment.builder()
+                .user(blockedAuthor)
+                .post(post)
+                .parent(parent)
+                .content("Blocked Reply")
+                .depth(1)
+                .build();
+        ReflectionTestUtils.setField(blockedReply, "commentId", 10L);
+        ReflectionTestUtils.setField(blockedReply, "createdAt", LocalDateTime.now());
+
+        Pageable pageable = commentReadPageable(0, 10);
+        when(commentRepository.findByIdWithRelations(9L)).thenReturn(Optional.of(parent));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
+        when(commentRepository.findRepliesWithRelations(9L, false, false, List.of(2L), pageable))
+                .thenReturn(new PageImpl<>(List.of(blockedReply), pageable, 1));
+        when(commentRepository.countVisibleRepliesByParentIds(List.of(9L), false, List.of(2L)))
+                .thenReturn(List.of());
+
+        assertThatThrownBy(() -> commentService.getReplies(9L, 1L, PageRequest.of(0, 10)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
+
+        verify(commentRepository).findRepliesWithRelations(9L, false, false, List.of(2L), pageable);
+        verify(commentRepository).countVisibleRepliesByParentIds(List.of(9L), false, List.of(2L));
     }
 
     @Test
@@ -943,8 +1004,10 @@ class CommentServiceTest {
         when(commentRepository.findByIdWithRelations(9L)).thenReturn(Optional.of(parent));
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
-        when(commentRepository.findRepliesWithRelations(9L, false, pageable))
+        when(commentRepository.findRepliesWithRelations(9L, false, true, NO_BLOCKED_USER_IDS, pageable))
                 .thenReturn(new PageImpl<>(List.of(reply), pageable, 1));
+        when(commentRepository.countVisibleRepliesByParentIds(List.of(9L), true, NO_BLOCKED_USER_IDS))
+                .thenReturn(List.of(replyCountProjection(9L, 1L)));
 
         var result = commentService.getReplies(9L, 1L, PageRequest.of(0, 10));
 

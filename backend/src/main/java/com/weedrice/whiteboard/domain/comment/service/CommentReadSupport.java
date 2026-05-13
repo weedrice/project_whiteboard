@@ -17,7 +17,7 @@ public class CommentReadSupport {
 
     private final CommentRepository commentRepository;
 
-    public Map<Long, Long> loadVisibleReplyCounts(List<Comment> comments) {
+    public Map<Long, Long> loadVisibleReplyCounts(List<Comment> comments, Set<Long> blockedUserIds) {
         List<Long> commentIds = comments.stream()
                 .map(Comment::getCommentId)
                 .toList();
@@ -25,7 +25,11 @@ public class CommentReadSupport {
             return Collections.emptyMap();
         }
 
-        List<CommentRepository.ReplyCountProjection> replyCounts = commentRepository.countVisibleRepliesByParentIds(commentIds);
+        BlockedUserIdsParameter blockedUserIdsParameter = BlockedUserIdsParameter.from(blockedUserIds);
+        List<CommentRepository.ReplyCountProjection> replyCounts = commentRepository.countVisibleRepliesByParentIds(
+                commentIds,
+                blockedUserIdsParameter.empty(),
+                blockedUserIdsParameter.ids());
         if (replyCounts == null || replyCounts.isEmpty()) {
             return Collections.emptyMap();
         }

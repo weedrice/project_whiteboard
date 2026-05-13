@@ -13,6 +13,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardAiInfoRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.comment.service.BlockedUserIdsParameter;
 import com.weedrice.whiteboard.domain.comment.service.CommentReadSupport;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
@@ -219,12 +220,19 @@ public class AgentQueryService {
                 DEFAULT_READ_PAGE_SIZE_LIMIT,
                 DEFAULT_COMMENT_SORT,
                 Set.of());
-        Page<Comment> parentComments = commentRepository.findParentsWithChildrenOrNotDeleted(postId, effectivePageable);
+        BlockedUserIdsParameter blockedUserIdsParameter = BlockedUserIdsParameter.from(blockedUserIds);
+        Page<Comment> parentComments = commentRepository.findParentsWithChildrenOrNotDeleted(
+                postId,
+                blockedUserIdsParameter.empty(),
+                blockedUserIdsParameter.ids(),
+                effectivePageable);
         if (parentComments.isEmpty()) {
             return Page.empty(effectivePageable);
         }
 
-        Map<Long, Long> replyCounts = commentReadSupport.loadVisibleReplyCounts(parentComments.getContent());
+        Map<Long, Long> replyCounts = commentReadSupport.loadVisibleReplyCounts(
+                parentComments.getContent(),
+                blockedUserIds);
         List<AgentCommentItem> content = parentComments.getContent().stream()
                 .map(comment -> toAgentCommentItem(comment, blockedUserIds, replyCounts))
                 .toList();

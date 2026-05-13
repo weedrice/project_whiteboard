@@ -42,6 +42,8 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                                         WHERE cc.ancestor = c
                                           AND cc.depth > 0
                                           AND descendant.isDeleted = false
+                                          AND (:blockedUserIdsEmpty = true
+                                               OR descendant.user.userId NOT IN (:blockedUserIds))
                                 )
                           )
                         ORDER BY c.createdAt ASC
@@ -59,11 +61,16 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                                         WHERE cc.ancestor = c
                                           AND cc.depth > 0
                                           AND descendant.isDeleted = false
+                                          AND (:blockedUserIdsEmpty = true
+                                               OR descendant.user.userId NOT IN (:blockedUserIds))
                                 )
                           )
                         """)
         Page<Comment> findParentsWithChildrenOrNotDeleted(
-                        @org.springframework.data.repository.query.Param("postId") Long postId, Pageable pageable);
+                        @org.springframework.data.repository.query.Param("postId") Long postId,
+                        @org.springframework.data.repository.query.Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
+                        @org.springframework.data.repository.query.Param("blockedUserIds") Collection<Long> blockedUserIds,
+                        Pageable pageable);
 
         Page<Comment> findByPost_PostIdAndParentIsNullAndIsDeletedOrderByCreatedAtAsc(Long postId, Boolean isDeleted,
                         Pageable pageable);
@@ -90,6 +97,8 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                                                         WHERE cc.ancestor = c
                                                           AND cc.depth > 0
                                                           AND descendant.isDeleted = false
+                                                          AND (:blockedUserIdsEmpty = true
+                                                               OR descendant.user.userId NOT IN (:blockedUserIds))
                                                 )
                                         )
                                 )
@@ -112,13 +121,18 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                                                         WHERE cc.ancestor = c
                                                           AND cc.depth > 0
                                                           AND descendant.isDeleted = false
+                                                          AND (:blockedUserIdsEmpty = true
+                                                               OR descendant.user.userId NOT IN (:blockedUserIds))
                                                 )
                                         )
                                 )
                           )
                         """)
-        Page<Comment> findRepliesWithRelations(@org.springframework.data.repository.query.Param("parentId") Long parentId,
+        Page<Comment> findRepliesWithRelations(
+                        @org.springframework.data.repository.query.Param("parentId") Long parentId,
                         @org.springframework.data.repository.query.Param("isDeleted") Boolean isDeleted,
+                        @org.springframework.data.repository.query.Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
+                        @org.springframework.data.repository.query.Param("blockedUserIds") Collection<Long> blockedUserIds,
                         Pageable pageable);
 
         List<Comment> findByParent_CommentIdInAndIsDeletedOrderByCreatedAtAsc(List<Long> parentIds, Boolean isDeleted);
@@ -300,7 +314,11 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                         FROM Comment c
                         WHERE c.parent.commentId IN :parentIds
                           AND (
-                                c.isDeleted = false
+                                (
+                                        c.isDeleted = false
+                                        AND (:blockedUserIdsEmpty = true
+                                             OR c.user.userId NOT IN (:blockedUserIds))
+                                )
                                 OR EXISTS (
                                         SELECT 1
                                         FROM CommentClosure cc
@@ -308,12 +326,16 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                                         WHERE cc.ancestor = c
                                           AND cc.depth > 0
                                           AND descendant.isDeleted = false
+                                          AND (:blockedUserIdsEmpty = true
+                                               OR descendant.user.userId NOT IN (:blockedUserIds))
                                 )
                           )
                         GROUP BY c.parent.commentId
                         """)
         List<ReplyCountProjection> countVisibleRepliesByParentIds(
-                        @org.springframework.data.repository.query.Param("parentIds") Collection<Long> parentIds);
+                        @org.springframework.data.repository.query.Param("parentIds") Collection<Long> parentIds,
+                        @org.springframework.data.repository.query.Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
+                        @org.springframework.data.repository.query.Param("blockedUserIds") Collection<Long> blockedUserIds);
 
         @Query("""
                         SELECT DISTINCT c.post.postId

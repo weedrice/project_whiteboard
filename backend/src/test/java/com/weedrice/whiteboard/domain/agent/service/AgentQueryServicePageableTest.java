@@ -43,6 +43,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class AgentQueryServicePageableTest {
 
+    private static final List<Long> NO_BLOCKED_USER_IDS = List.of(-1L);
+
     @Mock private BoardRepository boardRepository;
     @Mock private BoardAiInfoRepository boardAiInfoRepository;
     @Mock private AdminRepository adminRepository;
@@ -172,8 +174,8 @@ class AgentQueryServicePageableTest {
         when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(agent);
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
-        when(commentRepository.findParentsWithChildrenOrNotDeleted(eq(100L), any()))
-                .thenAnswer(invocation -> Page.empty(invocation.getArgument(1)));
+        when(commentRepository.findParentsWithChildrenOrNotDeleted(eq(100L), eq(true), eq(NO_BLOCKED_USER_IDS), any()))
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(3)));
 
         Page<AgentCommentItem> response = agentQueryService.getPostComments(
                 7L,
@@ -181,7 +183,11 @@ class AgentQueryServicePageableTest {
                 PageRequest.of(4, 100, Sort.by(Sort.Direction.DESC, "likeCount")));
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        verify(commentRepository).findParentsWithChildrenOrNotDeleted(eq(100L), pageableCaptor.capture());
+        verify(commentRepository).findParentsWithChildrenOrNotDeleted(
+                eq(100L),
+                eq(true),
+                eq(NO_BLOCKED_USER_IDS),
+                pageableCaptor.capture());
         Pageable pageable = pageableCaptor.getValue();
         assertThat(pageable.getPageNumber()).isEqualTo(4);
         assertThat(pageable.getPageSize()).isEqualTo(20);

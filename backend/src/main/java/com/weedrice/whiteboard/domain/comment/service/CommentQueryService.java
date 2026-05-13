@@ -31,7 +31,6 @@ import java.util.Set;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class CommentQueryService {
-    private static final Long EMPTY_BLOCKED_USER_ID_SENTINEL = -1L;
     private static final int DEFAULT_MY_COMMENT_PAGE_SIZE = 20;
     private static final Sort DEFAULT_MY_COMMENT_SORT = Sort.by(Sort.Order.desc("createdAt"));
 
@@ -49,12 +48,19 @@ public class CommentQueryService {
         CommentReadContext context = resolveReadContext(currentUserId);
         commentPostAccessService.validateReadable(post, context);
 
-        Page<Comment> parentComments = commentRepository.findParentsWithChildrenOrNotDeleted(postId, pageable);
+        BlockedUserIdsParameter blockedUserIdsParameter = BlockedUserIdsParameter.from(context.blockedUserIds());
+        Page<Comment> parentComments = commentRepository.findParentsWithChildrenOrNotDeleted(
+                postId,
+                blockedUserIdsParameter.empty(),
+                blockedUserIdsParameter.ids(),
+                pageable);
         if (parentComments.isEmpty()) {
             return new PageImpl<>(Collections.emptyList(), pageable, parentComments.getTotalElements());
         }
 
-        Map<Long, Long> replyCounts = commentReadSupport.loadVisibleReplyCounts(parentComments.getContent());
+        Map<Long, Long> replyCounts = commentReadSupport.loadVisibleReplyCounts(
+                parentComments.getContent(),
+                context.blockedUserIds());
         List<CommentResponse> responseContent = parentComments.getContent().stream()
                 .map(comment -> toMaskedCommentResponse(comment, context.blockedUserIds(), replyCounts))
                 .toList();
@@ -65,15 +71,24 @@ public class CommentQueryService {
     public CommentListResponse getReplies(Long parentId, Long currentUserId, Pageable pageable) {
         Comment parentComment = commentRepository.findByIdWithRelations(parentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
-        Page<Comment> replies = commentRepository.findRepliesWithRelations(parentId, false, pageable);
-        if (Boolean.TRUE.equals(parentComment.getIsDeleted()) && replies.getTotalElements() == 0) {
-            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
-        }
-
         CommentReadContext context = resolveReadContext(currentUserId);
         commentPostAccessService.validateReadable(parentComment.getPost(), context);
 
-        Map<Long, Long> replyCounts = commentReadSupport.loadVisibleReplyCounts(replies.getContent());
+        BlockedUserIdsParameter blockedUserIdsParameter = BlockedUserIdsParameter.from(context.blockedUserIds());
+        Page<Comment> replies = commentRepository.findRepliesWithRelations(
+                parentId,
+                false,
+                blockedUserIdsParameter.empty(),
+                blockedUserIdsParameter.ids(),
+                pageable);
+        if (commentReadSupport.isDeleted(parentComment)
+                && !hasVisibleReply(parentComment, context.blockedUserIds())) {
+            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
+        }
+
+        Map<Long, Long> replyCounts = commentReadSupport.loadVisibleReplyCounts(
+                replies.getContent(),
+                context.blockedUserIds());
         List<CommentResponse> maskedReplies = replies.getContent().stream()
                 .map(comment -> toMaskedCommentResponse(comment, context.blockedUserIds(), replyCounts))
                 .toList();
@@ -103,17 +118,20 @@ public class CommentQueryService {
         Pageable safePageable = normalizeMyCommentPageable(pageable);
         CommentReadContext context = commentPostAccessService.resolveReadContext(user);
         Set<Long> blockedUserIds = context.blockedUserIds();
-        List<Long> blockedUserIdParams = blockedUserIds.isEmpty()
-                ? List.of(EMPTY_BLOCKED_USER_ID_SENTINEL)
-                : List.copyOf(blockedUserIds);
+        BlockedUserIdsParameter blockedUserIdsParameter = BlockedUserIdsParameter.from(blockedUserIds);
         return commentRepository.findVisibleMyComments(
                 user,
                 user.isUsableSuperAdmin(),
-                blockedUserIds.isEmpty(),
-                blockedUserIdParams,
+                blockedUserIdsParameter.empty(),
+                blockedUserIdsParameter.ids(),
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
                 safePageable)
                 .map(MyCommentResponse::from);
+    }
+
+    private boolean hasVisibleReply(Comment parentComment, Set<Long> blockedUserIds) {
+        return commentReadSupport.loadVisibleReplyCounts(List.of(parentComment), blockedUserIds)
+                .getOrDefault(parentComment.getCommentId(), 0L) > 0;
     }
 
     private Pageable normalizeMyCommentPageable(Pageable pageable) {

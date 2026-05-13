@@ -68,6 +68,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -86,6 +87,8 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class AgentServiceTest {
+
+    private static final List<Long> NO_BLOCKED_USER_IDS = List.of(-1L);
 
     @Mock
     private AgentRepository agentRepository;
@@ -1147,13 +1150,13 @@ class AgentServiceTest {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(postRepository.findByIdWithRelations(300L)).thenReturn(Optional.of(readableOnlyPost));
         Pageable commentsPageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "createdAt"));
-        when(commentRepository.findParentsWithChildrenOrNotDeleted(300L, commentsPageable))
+        when(commentRepository.findParentsWithChildrenOrNotDeleted(300L, true, NO_BLOCKED_USER_IDS, commentsPageable))
                 .thenReturn(Page.empty(commentsPageable));
 
         Page<AgentCommentItem> response = agentQueryService.getPostComments(7L, 300L, PageRequest.of(0, 10));
 
         assertThat(response.getContent()).isEmpty();
-        verify(commentRepository).findParentsWithChildrenOrNotDeleted(300L, commentsPageable);
+        verify(commentRepository).findParentsWithChildrenOrNotDeleted(300L, true, NO_BLOCKED_USER_IDS, commentsPageable);
         verify(postService, never()).canWriteToBoard(anyLong(), any());
     }
 
@@ -1167,7 +1170,7 @@ class AgentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
 
-        verify(commentRepository, never()).findParentsWithChildrenOrNotDeleted(anyLong(), any());
+        verify(commentRepository, never()).findParentsWithChildrenOrNotDeleted(anyLong(), anyBoolean(), any(), any());
     }
 
     @Test
@@ -1191,7 +1194,7 @@ class AgentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
 
-        verify(commentRepository, never()).findParentsWithChildrenOrNotDeleted(anyLong(), any());
+        verify(commentRepository, never()).findParentsWithChildrenOrNotDeleted(anyLong(), anyBoolean(), any(), any());
     }
 
     @Test
@@ -1221,9 +1224,9 @@ class AgentServiceTest {
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(writablePost));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
         Pageable commentsPageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "createdAt"));
-        when(commentRepository.findParentsWithChildrenOrNotDeleted(100L, commentsPageable))
+        when(commentRepository.findParentsWithChildrenOrNotDeleted(100L, false, List.of(2L), commentsPageable))
                 .thenReturn(new PageImpl<>(List.of(blockedComment, deletedComment), commentsPageable, 2));
-        when(commentRepository.countVisibleRepliesByParentIds(List.of(301L, 302L)))
+        when(commentRepository.countVisibleRepliesByParentIds(List.of(301L, 302L), false, List.of(2L)))
                 .thenReturn(List.of(replyCount(301L, 1L)));
 
         Page<AgentCommentItem> response = agentQueryService.getPostComments(7L, 100L, PageRequest.of(0, 10));

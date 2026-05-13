@@ -33,6 +33,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Import(QuerydslConfig.class)
 class CommentRepositoryTest {
 
+    private static final List<Long> NO_BLOCKED_USER_IDS = List.of(-1L);
+
     @Autowired
     private TestEntityManager entityManager;
 
@@ -391,7 +393,7 @@ class CommentRepositoryTest {
                 user,
                 false,
                 true,
-                List.of(-1L),
+                NO_BLOCKED_USER_IDS,
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
                 PageRequest.of(0, 10));
 
@@ -442,7 +444,7 @@ class CommentRepositoryTest {
                 user,
                 false,
                 true,
-                List.of(-1L),
+                NO_BLOCKED_USER_IDS,
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
                 PageRequest.of(0, 10));
 
@@ -596,13 +598,20 @@ class CommentRepositoryTest {
 
         Page<Comment> parents = commentRepository.findParentsWithChildrenOrNotDeleted(
                 post.getPostId(),
+                true,
+                NO_BLOCKED_USER_IDS,
                 PageRequest.of(0, 10));
         Page<Comment> replies = commentRepository.findRepliesWithRelations(
                 comment.getCommentId(),
                 false,
+                true,
+                NO_BLOCKED_USER_IDS,
                 PageRequest.of(0, 10));
         List<CommentRepository.ReplyCountProjection> replyCounts =
-                commentRepository.countVisibleRepliesByParentIds(List.of(comment.getCommentId(), deletedChild.getCommentId()));
+                commentRepository.countVisibleRepliesByParentIds(
+                        List.of(comment.getCommentId(), deletedChild.getCommentId()),
+                        true,
+                        NO_BLOCKED_USER_IDS);
 
         assertThat(parents.getContent())
                 .extracting(Comment::getCommentId)
@@ -616,5 +625,117 @@ class CommentRepositoryTest {
                 .contains(
                         org.assertj.core.groups.Tuple.tuple(comment.getCommentId(), 1L),
                         org.assertj.core.groups.Tuple.tuple(deletedChild.getCommentId(), 1L));
+    }
+
+    @Test
+    @DisplayName("direct blocked replies stay listed while metadata and deleted chain visibility exclude blocked authors")
+    void visibleQueries_excludeBlockedAuthorsFromReplyMetadataAndDeletedChainVisibility() {
+        User blockedAuthor = persistUser("blocked-reply-author", "blocked-reply-author@test.com", "Blocked Reply");
+
+        Comment blockedReply = Comment.builder()
+                .content("Blocked Reply")
+                .user(blockedAuthor)
+                .post(post)
+                .parent(comment)
+                .depth(1)
+                .build();
+        entityManager.persist(blockedReply);
+        entityManager.persist(CommentClosure.builder()
+                .ancestor(blockedReply)
+                .descendant(blockedReply)
+                .depth(0)
+                .build());
+        entityManager.persist(CommentClosure.builder()
+                .ancestor(comment)
+                .descendant(blockedReply)
+                .depth(1)
+                .build());
+
+        Comment visibleReply = Comment.builder()
+                .content("Visible Reply")
+                .user(user)
+                .post(post)
+                .parent(comment)
+                .depth(1)
+                .build();
+        entityManager.persist(visibleReply);
+        entityManager.persist(CommentClosure.builder()
+                .ancestor(visibleReply)
+                .descendant(visibleReply)
+                .depth(0)
+                .build());
+        entityManager.persist(CommentClosure.builder()
+                .ancestor(comment)
+                .descendant(visibleReply)
+                .depth(1)
+                .build());
+
+        Comment deletedChild = Comment.builder()
+                .content("Deleted Child")
+                .user(user)
+                .post(post)
+                .parent(comment)
+                .depth(1)
+                .build();
+        deletedChild.deleteComment();
+        entityManager.persist(deletedChild);
+        entityManager.persist(CommentClosure.builder()
+                .ancestor(deletedChild)
+                .descendant(deletedChild)
+                .depth(0)
+                .build());
+        entityManager.persist(CommentClosure.builder()
+                .ancestor(comment)
+                .descendant(deletedChild)
+                .depth(1)
+                .build());
+
+        Comment blockedGrandchild = Comment.builder()
+                .content("Blocked Grandchild")
+                .user(blockedAuthor)
+                .post(post)
+                .parent(deletedChild)
+                .depth(2)
+                .build();
+        entityManager.persist(blockedGrandchild);
+        entityManager.persist(CommentClosure.builder()
+                .ancestor(blockedGrandchild)
+                .descendant(blockedGrandchild)
+                .depth(0)
+                .build());
+        entityManager.persist(CommentClosure.builder()
+                .ancestor(deletedChild)
+                .descendant(blockedGrandchild)
+                .depth(1)
+                .build());
+        entityManager.persist(CommentClosure.builder()
+                .ancestor(comment)
+                .descendant(blockedGrandchild)
+                .depth(2)
+                .build());
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Comment> replies = commentRepository.findRepliesWithRelations(
+                comment.getCommentId(),
+                false,
+                false,
+                List.of(blockedAuthor.getUserId()),
+                PageRequest.of(0, 10));
+        List<CommentRepository.ReplyCountProjection> replyCounts =
+                commentRepository.countVisibleRepliesByParentIds(
+                        List.of(comment.getCommentId(), deletedChild.getCommentId()),
+                        false,
+                        List.of(blockedAuthor.getUserId()));
+
+        assertThat(replies.getContent())
+                .extracting(Comment::getCommentId)
+                .contains(blockedReply.getCommentId(), visibleReply.getCommentId())
+                .doesNotContain(deletedChild.getCommentId());
+        assertThat(replyCounts)
+                .extracting(CommentRepository.ReplyCountProjection::getParentId,
+                        CommentRepository.ReplyCountProjection::getReplyCount)
+                .contains(org.assertj.core.groups.Tuple.tuple(comment.getCommentId(), 1L))
+                .doesNotContain(org.assertj.core.groups.Tuple.tuple(deletedChild.getCommentId(), 1L));
     }
 }
