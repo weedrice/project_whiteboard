@@ -28,7 +28,7 @@ public class ErrorLogRepositoryCustomImpl implements ErrorLogRepositoryCustom {
                 .where(predicate)
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
-                .orderBy(errorLog.createdAt.desc())
+                .orderBy(errorLog.createdAt.desc(), errorLog.errorLogId.desc())
                 .fetch();
 
         long total = queryFactory

@@ -128,6 +128,11 @@ class ErrorLogControllerTest {
                 .andExpect(jsonPath("$.data.content[0].httpStatus").value(500))
                 .andExpect(jsonPath("$.data.totalElements").value(1))
                 .andExpect(jsonPath("$.data.totalPages").value(1));
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(errorLogService).getErrorLogs(any(ErrorLogSearchRequest.class), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getSort())
+                .containsExactly(Sort.Order.desc("createdAt"), Sort.Order.desc("errorLogId"));
     }
 
     @Test

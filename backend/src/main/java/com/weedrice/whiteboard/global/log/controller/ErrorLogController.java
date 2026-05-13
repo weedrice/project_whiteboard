@@ -23,6 +23,10 @@ import com.weedrice.whiteboard.domain.user.entity.Role;
 @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
 public class ErrorLogController {
 
+    private static final Sort ERROR_LOG_LIST_SORT = Sort.by(
+            Sort.Order.desc("createdAt"),
+            Sort.Order.desc("errorLogId"));
+
     private final ErrorLogService errorLogService;
 
     /**
@@ -33,7 +37,7 @@ public class ErrorLogController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             ErrorLogSearchRequest searchRequest) {
-        Pageable pageable = PageRequestUtils.of(page, size, Sort.by("createdAt").descending());
+        Pageable pageable = PageRequestUtils.of(page, size, ERROR_LOG_LIST_SORT);
         return ApiResponse.success(ErrorLogResponse.from(errorLogService.getErrorLogs(searchRequest, pageable)));
     }
 
