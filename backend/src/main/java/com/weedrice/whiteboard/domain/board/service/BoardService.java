@@ -108,18 +108,18 @@ public class BoardService {
     }
 
     @Transactional
-    public CategoryResponse createCategory(String boardUrl, CategoryRequest request) {
-        return categoryService.createCategory(boardUrl, request);
+    public CategoryResponse createCategory(String boardUrl, CategoryRequest request, UserDetails userDetails) {
+        return categoryService.createCategory(boardUrl, request, userDetails);
     }
 
     @Transactional
-    public CategoryResponse updateCategory(Long categoryId, CategoryRequest request) {
-        return categoryService.updateCategory(categoryId, request);
+    public CategoryResponse updateCategory(Long categoryId, CategoryRequest request, UserDetails userDetails) {
+        return categoryService.updateCategory(categoryId, request, userDetails);
     }
 
     @Transactional
-    public void deleteCategory(Long categoryId) {
-        categoryService.deleteCategory(categoryId);
+    public void deleteCategory(Long categoryId, UserDetails userDetails) {
+        categoryService.deleteCategory(categoryId, userDetails);
     }
 
     @Transactional

@@ -105,7 +105,7 @@ class GlobalConfigControllerTest {
 
         // SecurityUtils 초기화 (static 필드 설정)
         com.weedrice.whiteboard.global.common.util.SecurityUtils securityUtils = 
-            new com.weedrice.whiteboard.global.common.util.SecurityUtils(userRepository, adminRepository);
+            new com.weedrice.whiteboard.global.common.util.SecurityUtils(userRepository);
         securityUtils.init();
 
         when(ipBlockInterceptor.preHandle(any(), any(), any())).thenReturn(true);

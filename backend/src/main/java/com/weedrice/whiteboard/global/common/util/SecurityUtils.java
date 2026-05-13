@@ -1,7 +1,5 @@
 package com.weedrice.whiteboard.global.common.util;
 
-import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
-import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -19,15 +17,12 @@ import org.springframework.stereotype.Component;
 public class SecurityUtils {
 
     private final UserRepository userRepository;
-    private final AdminRepository adminRepository;
 
     private static UserRepository staticUserRepository;
-    private static AdminRepository staticAdminRepository;
 
     @PostConstruct
     public void init() {
         staticUserRepository = this.userRepository;
-        staticAdminRepository = this.adminRepository;
     }
 
     public static Long getCurrentUserId() {
@@ -54,19 +49,6 @@ public class SecurityUtils {
 
         return authentication.getAuthorities().stream()
                 .anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals(Role.ROLE_SUPER_ADMIN));
-    }
-
-    public static void validateBoardAdminPermission(Board board) {
-        Long currentUserId = getCurrentUserId();
-        User currentUser = staticUserRepository.findById(currentUserId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-        boolean usableSuperAdmin = currentUser.isUsableSuperAdmin();
-        boolean isBoardAdmin = staticAdminRepository.findByUserAndBoardAndIsActive(currentUser, board, true).isPresent();
-
-        if (!usableSuperAdmin && !isBoardAdmin) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
     }
 
     public static void validateSuperAdminPermission() {

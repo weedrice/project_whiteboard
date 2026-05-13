@@ -39,6 +39,12 @@ public class BoardAccessPolicy {
         return adminRepository.existsByUserAndBoardAndIsActive(user, board, true);
     }
 
+    public void validateBoardAdmin(Board board, User user) {
+        if (!hasBoardAdminAccess(board, user)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+    }
+
     public boolean hasBoardAdminAccess(Board board, User user, Set<Long> activeAdminBoardIds) {
         if (board == null || user == null) {
             return false;

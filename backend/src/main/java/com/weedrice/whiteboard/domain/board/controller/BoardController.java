@@ -134,20 +134,23 @@ public class BoardController {
     @PostMapping("/{boardUrl}/categories")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<CategoryResponse> createCategory(@PathVariable String boardUrl,
-            @Valid @RequestBody CategoryRequest request) {
+            @Valid @RequestBody CategoryRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
         validateBlockedInquiryBoardPath(boardUrl);
-        return ApiResponse.success(boardService.createCategory(boardUrl, request));
+        return ApiResponse.success(boardService.createCategory(boardUrl, request, userDetails));
     }
 
     @PutMapping("/categories/{categoryId}")
     public ApiResponse<CategoryResponse> updateCategory(@PathVariable Long categoryId,
-            @Valid @RequestBody CategoryRequest request) {
-        return ApiResponse.success(boardService.updateCategory(categoryId, request));
+            @Valid @RequestBody CategoryRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ApiResponse.success(boardService.updateCategory(categoryId, request, userDetails));
     }
 
     @DeleteMapping("/categories/{categoryId}")
-    public ApiResponse<Void> deleteCategory(@PathVariable Long categoryId) {
-        boardService.deleteCategory(categoryId);
+    public ApiResponse<Void> deleteCategory(@PathVariable Long categoryId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        boardService.deleteCategory(categoryId, userDetails);
         return ApiResponse.success(null);
     }
 

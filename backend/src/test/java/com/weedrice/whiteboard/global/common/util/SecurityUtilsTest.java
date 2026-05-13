@@ -1,8 +1,5 @@
 package com.weedrice.whiteboard.global.common.util;
 
-import com.weedrice.whiteboard.domain.admin.entity.Admin;
-import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
-import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -29,7 +26,6 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -38,9 +34,6 @@ class SecurityUtilsTest {
 
     @Mock
     private UserRepository userRepository;
-
-    @Mock
-    private AdminRepository adminRepository;
 
     @InjectMocks
     private SecurityUtils securityUtils;
@@ -132,73 +125,6 @@ class SecurityUtilsTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
     }
 
-    @Test
-    @DisplayName("validateBoardAdminPermission accepts usable super admin")
-    void validateBoardAdminPermission_superAdmin() {
-        setupSecurityContext(1L);
-        User user = activeSuperAdmin(1L);
-        Board board = boardWithCreator(2L);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-
-        SecurityUtils.validateBoardAdminPermission(board);
-    }
-
-    @Test
-    @DisplayName("validateBoardAdminPermission rejects suspended super admin without board admin role")
-    void validateBoardAdminPermission_rejectsSuspendedSuperAdmin() {
-        setupSecurityContext(1L);
-        User user = activeSuperAdmin(1L);
-        user.suspend();
-        Board board = boardWithCreator(2L);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(adminRepository.findByUserAndBoardAndIsActive(eq(user), eq(board), eq(true))).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> SecurityUtils.validateBoardAdminPermission(board))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
-    }
-
-    @Test
-    @DisplayName("validateBoardAdminPermission rejects creator without active board admin role")
-    void validateBoardAdminPermission_rejectsCreatorWithoutActiveBoardAdminRole() {
-        setupSecurityContext(1L);
-        User user = activeUser(1L);
-        Board board = Board.builder().creator(user).build();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(adminRepository.findByUserAndBoardAndIsActive(eq(user), eq(board), eq(true))).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> SecurityUtils.validateBoardAdminPermission(board))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
-    }
-
-    @Test
-    @DisplayName("validateBoardAdminPermission accepts board admin")
-    void validateBoardAdminPermission_boardAdmin() {
-        setupSecurityContext(1L);
-        User user = activeUser(1L);
-        Board board = boardWithCreator(2L);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(adminRepository.findByUserAndBoardAndIsActive(eq(user), eq(board), eq(true)))
-                .thenReturn(Optional.of(Admin.builder().build()));
-
-        SecurityUtils.validateBoardAdminPermission(board);
-    }
-
-    @Test
-    @DisplayName("validateBoardAdminPermission rejects unrelated user")
-    void validateBoardAdminPermission_forbidden() {
-        setupSecurityContext(1L);
-        User user = activeUser(1L);
-        Board board = boardWithCreator(2L);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(adminRepository.findByUserAndBoardAndIsActive(eq(user), eq(board), eq(true))).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> SecurityUtils.validateBoardAdminPermission(board))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
-    }
-
     private void setupSecurityContext(Long userId) {
         CustomUserDetails userDetails = new CustomUserDetails(userId, "user", "pw", Collections.emptyList());
         Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null);
@@ -224,8 +150,4 @@ class SecurityUtilsTest {
         return user;
     }
 
-    private Board boardWithCreator(Long creatorId) {
-        User creator = activeUser(creatorId);
-        return Board.builder().creator(creator).build();
-    }
 }

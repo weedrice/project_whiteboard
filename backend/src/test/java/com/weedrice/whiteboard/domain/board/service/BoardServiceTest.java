@@ -34,7 +34,6 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
-import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
@@ -152,19 +151,23 @@ class BoardServiceTest {
                 globalConfigService,
                 fileService,
                 adminEligibleUserService,
-                boardManagerAssignmentService);
+                boardManagerAssignmentService,
+                boardAccessPolicy);
         BoardSubscriptionService subscriptionService = new BoardSubscriptionService(
                 boardRepository,
                 boardSubscriptionRepository,
                 new UserWritableResolver(userRepository, sanctionService),
                 boardAccessPolicy);
-        BoardCategoryService categoryService = new BoardCategoryService(boardRepository, boardCategoryRepository);
+        BoardCategoryService categoryService = new BoardCategoryService(
+                boardRepository,
+                boardCategoryRepository,
+                userRepository,
+                boardAccessPolicy);
         boardService = new BoardService(
                 queryService,
                 provisioningService,
                 subscriptionService,
                 categoryService);
-        new SecurityUtils(userRepository, adminRepository).init();
 
         lenient().when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(anyLong(), any()))
                 .thenReturn(Collections.emptyList());
@@ -215,6 +218,8 @@ class BoardServiceTest {
                         .board(board)
                         .role("BOARD_ADMIN")
                         .build()));
+        lenient().when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true))
+                .thenReturn(true);
     }
 
     @Test
@@ -415,9 +420,9 @@ class BoardServiceTest {
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
         when(adminEligibleUserService.getActiveUserByLoginId("nextmanager")).thenReturn(nextManager);
 
-        authenticateUser();
+        UserDetails currentUserDetails = authenticateUser();
         try {
-            boardService.transferBoardManager("test-board", "nextmanager", null);
+            boardService.transferBoardManager("test-board", "nextmanager", currentUserDetails);
         } finally {
             SecurityContextHolder.clearContext();
         }
@@ -439,19 +444,14 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(otherUser, "userId", 99L);
 
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
-        when(userRepository.findById(99L)).thenReturn(Optional.of(otherUser));
-        when(adminRepository.findByUserAndBoardAndIsActive(otherUser, board, true)).thenReturn(Optional.empty());
-        CustomUserDetails principal = new CustomUserDetails(99L, otherUser.getLoginId(), "password", Collections.emptyList());
-        SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+        when(userRepository.findByLoginId(otherUser.getLoginId())).thenReturn(Optional.of(otherUser));
+        when(adminRepository.existsByUserAndBoardAndIsActive(otherUser, board, true)).thenReturn(false);
+        UserDetails currentUserDetails = mock(UserDetails.class);
+        when(currentUserDetails.getUsername()).thenReturn(otherUser.getLoginId());
 
         BusinessException exception;
-        try {
-            exception = assertThrows(BusinessException.class,
-                    () -> boardService.transferBoardManager("test-board", "nextmanager", null));
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
+        exception = assertThrows(BusinessException.class,
+                () -> boardService.transferBoardManager("test-board", "nextmanager", currentUserDetails));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN);
         verify(boardRepository).findByBoardUrlForUpdate("test-board");
@@ -682,7 +682,6 @@ class BoardServiceTest {
 
         when(userDetails.getUsername()).thenReturn(user.getLoginId());
         when(userRepository.findByLoginId(user.getLoginId())).thenReturn(Optional.of(user));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
 
         CustomUserDetails principal = new CustomUserDetails(1L, user.getLoginId(), "password", Collections.emptyList());
@@ -744,7 +743,6 @@ class BoardServiceTest {
 
         when(userDetails.getUsername()).thenReturn(user.getLoginId());
         when(userRepository.findByLoginId(user.getLoginId())).thenReturn(Optional.of(user));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
 
         CustomUserDetails principal = new CustomUserDetails(1L, user.getLoginId(), "password", Collections.emptyList());
@@ -854,9 +852,9 @@ class BoardServiceTest {
         when(boardCategoryRepository.saveAndFlush(any(BoardCategory.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        authenticateUser();
+        UserDetails currentUserDetails = authenticateUser();
         try {
-            boardService.createCategory("test-board", request);
+            boardService.createCategory("test-board", request, currentUserDetails);
         } finally {
             SecurityContextHolder.clearContext();
         }
@@ -887,10 +885,10 @@ class BoardServiceTest {
         when(boardCategoryRepository.saveAndFlush(any(BoardCategory.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        authenticateUser();
+        UserDetails currentUserDetails = authenticateUser();
         CategoryResponse response;
         try {
-            response = boardService.createCategory("test-board", request);
+            response = boardService.createCategory("test-board", request, currentUserDetails);
         } finally {
             SecurityContextHolder.clearContext();
         }
@@ -911,11 +909,11 @@ class BoardServiceTest {
         when(boardCategoryRepository.existsByBoard_BoardIdAndNameAndIsActive(1L, "General", true))
                 .thenReturn(true);
 
-        authenticateUser();
+        UserDetails currentUserDetails = authenticateUser();
         BusinessException exception;
         try {
             exception = assertThrows(BusinessException.class,
-                    () -> boardService.createCategory("test-board", request));
+                    () -> boardService.createCategory("test-board", request, currentUserDetails));
         } finally {
             SecurityContextHolder.clearContext();
         }
@@ -944,11 +942,11 @@ class BoardServiceTest {
                 10L))
                 .thenReturn(true);
 
-        authenticateUser();
+        UserDetails currentUserDetails = authenticateUser();
         BusinessException exception;
         try {
             exception = assertThrows(BusinessException.class,
-                    () -> boardService.updateCategory(10L, request));
+                    () -> boardService.updateCategory(10L, request, currentUserDetails));
         } finally {
             SecurityContextHolder.clearContext();
         }
@@ -963,7 +961,7 @@ class BoardServiceTest {
         CategoryRequest request = categoryRequest("General", null, "USER");
 
         BusinessException exception = assertThrows(BusinessException.class,
-                () -> boardService.updateCategory(10L, request));
+                () -> boardService.updateCategory(10L, request, mock(UserDetails.class)));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
         verify(boardCategoryRepository, never()).findBoardIdByCategoryId(anyLong());
@@ -986,9 +984,9 @@ class BoardServiceTest {
         when(boardCategoryRepository.findById(10L)).thenReturn(Optional.of(category));
         when(boardCategoryRepository.saveAndFlush(category)).thenReturn(category);
 
-        authenticateUser();
+        UserDetails currentUserDetails = authenticateUser();
         try {
-            boardService.updateCategory(10L, request);
+            boardService.updateCategory(10L, request, currentUserDetails);
         } finally {
             SecurityContextHolder.clearContext();
         }
@@ -1016,11 +1014,11 @@ class BoardServiceTest {
         stubCategoryBoardLock(10L);
         when(boardCategoryRepository.findById(10L)).thenReturn(Optional.of(category));
 
-        authenticateUser();
+        UserDetails currentUserDetails = authenticateUser();
         BusinessException exception;
         try {
             exception = assertThrows(BusinessException.class,
-                    () -> boardService.updateCategory(10L, request));
+                    () -> boardService.updateCategory(10L, request, currentUserDetails));
         } finally {
             SecurityContextHolder.clearContext();
         }
@@ -1058,10 +1056,10 @@ class BoardServiceTest {
                 .thenReturn(List.of(previousDefault, category));
         when(boardCategoryRepository.saveAndFlush(category)).thenReturn(category);
 
-        authenticateUser();
+        UserDetails currentUserDetails = authenticateUser();
         CategoryResponse response;
         try {
-            response = boardService.updateCategory(10L, request);
+            response = boardService.updateCategory(10L, request, currentUserDetails);
         } finally {
             SecurityContextHolder.clearContext();
         }
@@ -1094,11 +1092,11 @@ class BoardServiceTest {
                 1L, "Default", true, 10L))
                 .thenReturn(false);
 
-        authenticateUser();
+        UserDetails currentUserDetails = authenticateUser();
         BusinessException exception;
         try {
             exception = assertThrows(BusinessException.class,
-                    () -> boardService.updateCategory(10L, request));
+                    () -> boardService.updateCategory(10L, request, currentUserDetails));
         } finally {
             SecurityContextHolder.clearContext();
         }
@@ -1120,11 +1118,11 @@ class BoardServiceTest {
         stubCategoryBoardLock(10L);
         when(boardCategoryRepository.findById(10L)).thenReturn(Optional.of(category));
 
-        authenticateUser();
+        UserDetails currentUserDetails = authenticateUser();
         BusinessException exception;
         try {
             exception = assertThrows(BusinessException.class,
-                    () -> boardService.deleteCategory(10L));
+                    () -> boardService.deleteCategory(10L, currentUserDetails));
         } finally {
             SecurityContextHolder.clearContext();
         }
@@ -2309,11 +2307,13 @@ class BoardServiceTest {
         verify(adminRepository, never()).existsByUserAndBoardAndIsActive(eq(user), any(Board.class), eq(true));
     }
 
-    private void authenticateUser() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+    private UserDetails authenticateUser() {
+        UserDetails userDetails = mock(UserDetails.class);
+        lenient().when(userDetails.getUsername()).thenReturn(user.getLoginId());
         CustomUserDetails principal = new CustomUserDetails(1L, user.getLoginId(), "password", Collections.emptyList());
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+        return userDetails;
     }
 
     private CategoryRequest categoryRequest(String name, Integer sortOrder, String minWriteRole) {

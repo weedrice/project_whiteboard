@@ -4,6 +4,8 @@ import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,6 +17,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -44,6 +47,65 @@ class BoardAccessPolicyTest {
         assertThat(boardAccessPolicy.getInquiryBoardUrl()).isEqualTo(BoardPolicyConstants.INQUIRY_BOARD_URL);
         assertThat(boardAccessPolicy.isInquiryBoardUrl("free")).isFalse();
         assertThat(boardAccessPolicy.isInquiryBoardUrl(null)).isFalse();
+    }
+
+    @Test
+    @DisplayName("Board admin validation accepts usable super admin")
+    void validateBoardAdmin_acceptsUsableSuperAdmin() {
+        User superAdmin = user(3L, "super-admin");
+        superAdmin.grantSuperAdminRole();
+        Board board = board("hidden", false, false);
+
+        boardAccessPolicy.validateBoardAdmin(board, superAdmin);
+
+        verifyNoInteractions(adminRepository);
+    }
+
+    @Test
+    @DisplayName("Board admin validation rejects suspended super admin without active board admin role")
+    void validateBoardAdmin_rejectsSuspendedSuperAdminWithoutBoardAdminRole() {
+        User superAdmin = user(3L, "super-admin");
+        superAdmin.grantSuperAdminRole();
+        superAdmin.suspend();
+        Board board = board("hidden", false, false);
+        when(adminRepository.existsByUserAndBoardAndIsActive(superAdmin, board, true)).thenReturn(false);
+
+        assertThatThrownBy(() -> boardAccessPolicy.validateBoardAdmin(board, superAdmin))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("Board admin validation rejects creator without active board admin role")
+    void validateBoardAdmin_rejectsCreatorWithoutActiveBoardAdminRole() {
+        Board board = board("hidden", false, false);
+        when(adminRepository.existsByUserAndBoardAndIsActive(creator, board, true)).thenReturn(false);
+
+        assertThatThrownBy(() -> boardAccessPolicy.validateBoardAdmin(board, creator))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("Board admin validation accepts active board admin")
+    void validateBoardAdmin_acceptsActiveBoardAdmin() {
+        Board board = board("hidden", false, false);
+        when(adminRepository.existsByUserAndBoardAndIsActive(manager, board, true)).thenReturn(true);
+
+        boardAccessPolicy.validateBoardAdmin(board, manager);
+
+        verify(adminRepository).existsByUserAndBoardAndIsActive(manager, board, true);
+    }
+
+    @Test
+    @DisplayName("Board admin validation rejects unrelated user")
+    void validateBoardAdmin_rejectsUnrelatedUser() {
+        Board board = board("hidden", false, false);
+        when(adminRepository.existsByUserAndBoardAndIsActive(manager, board, true)).thenReturn(false);
+
+        assertThatThrownBy(() -> boardAccessPolicy.validateBoardAdmin(board, manager))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
     }
 
     @Test

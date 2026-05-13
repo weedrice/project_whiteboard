@@ -16,9 +16,9 @@ import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
-import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -55,6 +55,7 @@ class BoardProvisioningService {
     private final FileService fileService;
     private final AdminEligibleUserService adminEligibleUserService;
     private final BoardManagerAssignmentService boardManagerAssignmentService;
+    private final BoardAccessPolicy boardAccessPolicy;
 
     BoardProvisioningService(BoardRepository boardRepository,
                              BoardAiInfoRepository boardAiInfoRepository,
@@ -64,7 +65,8 @@ class BoardProvisioningService {
                              GlobalConfigService globalConfigService,
                              FileService fileService,
                              AdminEligibleUserService adminEligibleUserService,
-                             BoardManagerAssignmentService boardManagerAssignmentService) {
+                             BoardManagerAssignmentService boardManagerAssignmentService,
+                             BoardAccessPolicy boardAccessPolicy) {
         this.boardRepository = boardRepository;
         this.boardAiInfoRepository = boardAiInfoRepository;
         this.boardCategoryRepository = boardCategoryRepository;
@@ -74,6 +76,7 @@ class BoardProvisioningService {
         this.fileService = fileService;
         this.adminEligibleUserService = adminEligibleUserService;
         this.boardManagerAssignmentService = boardManagerAssignmentService;
+        this.boardAccessPolicy = boardAccessPolicy;
     }
 
     void ensureInquiryBoard(UserDetails userDetails, String requestedBoardUrl) {
@@ -164,7 +167,7 @@ class BoardProvisioningService {
         String previousIconUrl = board.getIconUrl();
         String iconUrl = normalizeIconUrl(request.getIconUrl());
 
-        SecurityUtils.validateBoardAdminPermission(board);
+        boardAccessPolicy.validateBoardAdmin(board, currentUser);
 
         if (!board.getBoardName().equals(request.getBoardName())
                 && boardRepository.existsByBoardName(request.getBoardName())) {
@@ -212,7 +215,8 @@ class BoardProvisioningService {
         Board board = boardRepository.findByBoardUrlForUpdate(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
-        SecurityUtils.validateBoardAdminPermission(board);
+        User currentUser = getCurrentUser(userDetails);
+        boardAccessPolicy.validateBoardAdmin(board, currentUser);
 
         User nextManager = adminEligibleUserService.getActiveUserByLoginId(loginId);
         boardManagerAssignmentService.assignBoardManager(board, nextManager);
@@ -222,7 +226,8 @@ class BoardProvisioningService {
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
-        SecurityUtils.validateBoardAdminPermission(board);
+        User currentUser = getCurrentUser(userDetails);
+        boardAccessPolicy.validateBoardAdmin(board, currentUser);
 
         board.deactivate();
     }
@@ -230,6 +235,10 @@ class BoardProvisioningService {
     private User getCurrentUserOrNull(UserDetails userDetails) {
         if (userDetails == null) {
             return null;
+        }
+        if (userDetails instanceof CustomUserDetails customUserDetails) {
+            return userRepository.findById(customUserDetails.getUserId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         }
         return userRepository.findByLoginId(userDetails.getUsername())
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
