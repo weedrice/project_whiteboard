@@ -22,6 +22,10 @@ import java.util.stream.Collectors;
 public class CommonCodeService {
 
     private static final int MAX_DESCRIPTION_LENGTH = 255;
+    private static final int MAX_TYPE_CODE_LENGTH = 50;
+    private static final int MAX_TYPE_NAME_LENGTH = 100;
+    private static final int MAX_CODE_VALUE_LENGTH = 100;
+    private static final int MAX_CODE_NAME_LENGTH = 100;
 
     private final CommonCodeRepository commonCodeRepository;
     private final CommonCodeDetailRepository commonCodeDetailRepository;
@@ -30,14 +34,18 @@ public class CommonCodeService {
 
     @Transactional
     public CommonCodeResponse createCommonCode(CommonCodeRequest request) {
-        if (commonCodeRepository.existsById(request.getTypeCode())) {
+        String typeCode = normalizeRequired(request.getTypeCode(), MAX_TYPE_CODE_LENGTH);
+        String typeName = normalizeRequired(request.getTypeName(), MAX_TYPE_NAME_LENGTH);
+        String description = normalizeDescription(request.getDescription());
+
+        if (commonCodeRepository.existsById(typeCode)) {
             throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
         }
 
         CommonCode commonCode = CommonCode.builder()
-                .typeCode(request.getTypeCode())
-                .typeName(request.getTypeName())
-                .description(normalizeDescription(request.getDescription()))
+                .typeCode(typeCode)
+                .typeName(typeName)
+                .description(description)
                 .build();
 
         try {
@@ -54,18 +62,34 @@ public class CommonCodeService {
     }
 
     public CommonCodeResponse getCommonCode(String typeCode) {
-        CommonCode commonCode = commonCodeRepository.findById(typeCode)
+        String normalizedTypeCode = normalizeRequired(typeCode, MAX_TYPE_CODE_LENGTH);
+        CommonCode commonCode = commonCodeRepository.findById(normalizedTypeCode)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         return CommonCodeResponse.from(commonCode);
     }
 
     @Transactional
     public CommonCodeResponse updateCommonCode(String typeCode, CommonCodeRequest request) {
-        CommonCode commonCode = commonCodeRepository.findById(typeCode)
+        String normalizedTypeCode = normalizeRequired(typeCode, MAX_TYPE_CODE_LENGTH);
+        String typeName = normalizeRequired(request.getTypeName(), MAX_TYPE_NAME_LENGTH);
+        String description = normalizeDescription(request.getDescription());
+
+        CommonCode commonCode = commonCodeRepository.findById(normalizedTypeCode)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-        
-        commonCode.update(request.getTypeName(), normalizeDescription(request.getDescription()));
+
+        commonCode.update(typeName, description);
         return CommonCodeResponse.from(commonCode);
+    }
+
+    private String normalizeRequired(String value, int maxLength) {
+        if (value == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        String normalized = value.trim();
+        if (normalized.isBlank() || normalized.length() > maxLength) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return normalized;
     }
 
     private String normalizeDescription(String description) {
@@ -83,28 +107,33 @@ public class CommonCodeService {
 
     @Transactional
     public CommonCodeDetailResponse createCommonCodeDetail(String typeCode, CommonCodeDetailRequest request) {
-        CommonCode commonCode = commonCodeRepository.findById(typeCode)
+        String normalizedTypeCode = normalizeRequired(typeCode, MAX_TYPE_CODE_LENGTH);
+        String codeValue = normalizeRequired(request.getCodeValue(), MAX_CODE_VALUE_LENGTH);
+        String codeName = normalizeRequired(request.getCodeName(), MAX_CODE_NAME_LENGTH);
+        Integer sortOrder = normalizeSortOrder(request.getSortOrder());
+
+        CommonCode commonCode = commonCodeRepository.findById(normalizedTypeCode)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
         var existingDetail = commonCodeDetailRepository
-                .findByCommonCode_TypeCodeAndCodeValue(typeCode, request.getCodeValue());
+                .findByCommonCode_TypeCodeAndCodeValue(normalizedTypeCode, codeValue);
         if (existingDetail.isPresent()) {
             CommonCodeDetail detail = existingDetail.get();
             if (Boolean.TRUE.equals(detail.getIsActive())) {
                 throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
             }
             detail.update(
-                    request.getCodeName(),
-                    request.getSortOrder() != null ? request.getSortOrder() : 0,
+                    codeName,
+                    sortOrder,
                     request.getIsActive() != null ? request.getIsActive() : true);
             return CommonCodeDetailResponse.from(detail);
         }
 
         CommonCodeDetail detail = CommonCodeDetail.builder()
                 .commonCode(commonCode)
-                .codeValue(request.getCodeValue())
-                .codeName(request.getCodeName())
-                .sortOrder(request.getSortOrder())
+                .codeValue(codeValue)
+                .codeName(codeName)
+                .sortOrder(sortOrder)
                 .isActive(request.getIsActive())
                 .build();
 
@@ -116,10 +145,12 @@ public class CommonCodeService {
     }
 
     public List<CommonCodeDetailResponse> getCommonCodeDetails(String typeCode) {
-        if (!commonCodeRepository.existsById(typeCode)) {
+        String normalizedTypeCode = normalizeRequired(typeCode, MAX_TYPE_CODE_LENGTH);
+        if (!commonCodeRepository.existsById(normalizedTypeCode)) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
-        return commonCodeDetailRepository.findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAsc(typeCode, true).stream()
+        return commonCodeDetailRepository.findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAsc(
+                        normalizedTypeCode, true).stream()
                 .map(CommonCodeDetailResponse::from)
                 .collect(Collectors.toList());
     }
@@ -129,13 +160,21 @@ public class CommonCodeService {
         CommonCodeDetail detail = commonCodeDetailRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
-        if (!Objects.equals(detail.getCodeValue(), request.getCodeValue())) {
+        String codeValue = normalizeRequired(request.getCodeValue(), MAX_CODE_VALUE_LENGTH);
+        String codeName = normalizeRequired(request.getCodeName(), MAX_CODE_NAME_LENGTH);
+        Integer sortOrder = normalizeSortOrder(request.getSortOrder());
+
+        if (!Objects.equals(detail.getCodeValue(), codeValue)) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
 
         Boolean isActive = request.getIsActive() != null ? request.getIsActive() : detail.getIsActive();
-        detail.update(request.getCodeName(), request.getSortOrder(), isActive);
+        detail.update(codeName, sortOrder, isActive);
         return CommonCodeDetailResponse.from(detail);
+    }
+
+    private Integer normalizeSortOrder(Integer sortOrder) {
+        return sortOrder != null ? sortOrder : 0;
     }
     
     @Transactional

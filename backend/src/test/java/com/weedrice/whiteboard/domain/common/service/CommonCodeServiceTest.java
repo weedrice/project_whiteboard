@@ -101,14 +101,43 @@ class CommonCodeServiceTest {
     }
 
     @Test
+    @DisplayName("공통 코드 생성은 타입 코드와 타입 이름을 trim 해서 저장한다")
+    void createCommonCode_trimsRequiredFields() {
+        CommonCodeRequest request = new CommonCodeRequest();
+        ReflectionTestUtils.setField(request, "typeCode", "  NEW_TYPE  ");
+        ReflectionTestUtils.setField(request, "typeName", "  New Type  ");
+
+        when(commonCodeRepository.existsById("NEW_TYPE")).thenReturn(false);
+        when(commonCodeRepository.saveAndFlush(any(CommonCode.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CommonCodeResponse response = commonCodeService.createCommonCode(request);
+
+        assertThat(response.getTypeCode()).isEqualTo("NEW_TYPE");
+        assertThat(response.getTypeName()).isEqualTo("New Type");
+        verify(commonCodeRepository).existsById("NEW_TYPE");
+    }
+
+    @Test
+    @DisplayName("공통 코드 생성은 blank 타입 이름을 거부한다")
+    void createCommonCode_blankTypeName_invalidInput() {
+        CommonCodeRequest request = new CommonCodeRequest();
+        ReflectionTestUtils.setField(request, "typeCode", "NEW_TYPE");
+        ReflectionTestUtils.setField(request, "typeName", "   ");
+
+        assertThatThrownBy(() -> commonCodeService.createCommonCode(request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+        verify(commonCodeRepository, never()).saveAndFlush(any(CommonCode.class));
+    }
+
+    @Test
     @DisplayName("공통 코드 생성은 설명이 255자를 초과하면 거부한다")
     void createCommonCode_descriptionTooLong_invalidInput() {
         CommonCodeRequest request = new CommonCodeRequest();
         ReflectionTestUtils.setField(request, "typeCode", "NEW_TYPE");
         ReflectionTestUtils.setField(request, "typeName", "New Type");
         ReflectionTestUtils.setField(request, "description", "a".repeat(256));
-
-        when(commonCodeRepository.existsById("NEW_TYPE")).thenReturn(false);
 
         assertThatThrownBy(() -> commonCodeService.createCommonCode(request))
                 .isInstanceOf(BusinessException.class)
@@ -221,13 +250,12 @@ class CommonCodeServiceTest {
         ReflectionTestUtils.setField(request, "typeName", "Updated Type");
         ReflectionTestUtils.setField(request, "description", "a".repeat(256));
 
-        when(commonCodeRepository.findById("TEST_TYPE")).thenReturn(Optional.of(commonCode));
-
         assertThatThrownBy(() -> commonCodeService.updateCommonCode("TEST_TYPE", request))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
         assertThat(commonCode.getDescription()).isEqualTo("Test Description");
+        verify(commonCodeRepository, never()).findById(anyString());
     }
 
     @Test
@@ -254,6 +282,28 @@ class CommonCodeServiceTest {
         // then
         assertThat(response).isNotNull();
         verify(commonCodeDetailRepository).saveAndFlush(any(CommonCodeDetail.class));
+    }
+
+    @Test
+    @DisplayName("공통 코드 상세 생성 서비스 직접 호출은 값을 trim 하고 null sortOrder를 0으로 저장한다")
+    void createCommonCodeDetail_serviceCall_trimsValuesAndDefaultsNullSortOrder() {
+        CommonCodeDetailRequest request = new CommonCodeDetailRequest();
+        ReflectionTestUtils.setField(request, "codeValue", "  NEW_VALUE  ");
+        ReflectionTestUtils.setField(request, "codeName", "  New Value  ");
+
+        when(commonCodeRepository.findById("TEST_TYPE")).thenReturn(Optional.of(commonCode));
+        when(commonCodeDetailRepository.findByCommonCode_TypeCodeAndCodeValue("TEST_TYPE", "NEW_VALUE"))
+                .thenReturn(Optional.empty());
+        when(commonCodeDetailRepository.saveAndFlush(any(CommonCodeDetail.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        CommonCodeDetailResponse response = commonCodeService.createCommonCodeDetail(" TEST_TYPE ", request);
+
+        assertThat(response.getCodeValue()).isEqualTo("NEW_VALUE");
+        assertThat(response.getCodeName()).isEqualTo("New Value");
+        assertThat(response.getSortOrder()).isZero();
+        verify(commonCodeRepository).findById("TEST_TYPE");
+        verify(commonCodeDetailRepository).findByCommonCode_TypeCodeAndCodeValue("TEST_TYPE", "NEW_VALUE");
     }
 
     @Test
@@ -379,6 +429,23 @@ class CommonCodeServiceTest {
         assertThat(response.getIsActive()).isTrue();
         assertThat(commonCodeDetail.getIsActive()).isTrue();
         verify(commonCodeDetailRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("공통 코드 상세 수정 서비스 직접 호출은 값을 trim 하고 null sortOrder를 0으로 저장한다")
+    void updateCommonCodeDetail_serviceCall_trimsValuesAndDefaultsNullSortOrder() {
+        CommonCodeDetailRequest request = new CommonCodeDetailRequest();
+        ReflectionTestUtils.setField(request, "codeValue", "  TEST_VALUE  ");
+        ReflectionTestUtils.setField(request, "codeName", "  Updated Value  ");
+
+        when(commonCodeDetailRepository.findById(1L)).thenReturn(Optional.of(commonCodeDetail));
+
+        CommonCodeDetailResponse response = commonCodeService.updateCommonCodeDetail(1L, request);
+
+        assertThat(response.getCodeName()).isEqualTo("Updated Value");
+        assertThat(response.getSortOrder()).isZero();
+        assertThat(commonCodeDetail.getCodeName()).isEqualTo("Updated Value");
+        assertThat(commonCodeDetail.getSortOrder()).isZero();
     }
 
     @Test
