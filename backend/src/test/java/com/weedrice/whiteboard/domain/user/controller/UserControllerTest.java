@@ -374,6 +374,49 @@ class UserControllerTest {
         }
 
         @Nested
+        @DisplayName("공개 프로필 API")
+        class UserProfileTests {
+
+                @Test
+                @DisplayName("인증 사용자의 공개 프로필 조회는 viewer id를 전달한다")
+                void getUserProfile_authenticatedViewer_passesViewerId() {
+                        UserProfileResponse profile = UserProfileResponse.builder()
+                                        .userId(2L)
+                                        .displayName("Target")
+                                        .postCount(3L)
+                                        .commentCount(4L)
+                                        .build();
+                        given(userProfileService.getUserProfile(2L, 1L)).willReturn(profile);
+
+                        ResponseEntity<ApiResponse<UserProfileResponse>> response =
+                                        userController.getUserProfile(2L, customUserDetails);
+
+                        assertThat(response.getStatusCode().value()).isEqualTo(200);
+                        assertThat(response.getBody().isSuccess()).isTrue();
+                        assertThat(response.getBody().getData().getUserId()).isEqualTo(2L);
+                        verify(userProfileService).getUserProfile(2L, 1L);
+                }
+
+                @Test
+                @DisplayName("익명 공개 프로필 조회는 null viewer id를 전달한다")
+                void getUserProfile_anonymousViewer_passesNullViewerId() {
+                        UserProfileResponse profile = UserProfileResponse.builder()
+                                        .userId(2L)
+                                        .displayName("Target")
+                                        .build();
+                        given(userProfileService.getUserProfile(2L, null)).willReturn(profile);
+
+                        ResponseEntity<ApiResponse<UserProfileResponse>> response =
+                                        userController.getUserProfile(2L, null);
+
+                        assertThat(response.getStatusCode().value()).isEqualTo(200);
+                        assertThat(response.getBody().isSuccess()).isTrue();
+                        assertThat(response.getBody().getData().getUserId()).isEqualTo(2L);
+                        verify(userProfileService).getUserProfile(2L, null);
+                }
+        }
+
+        @Nested
         @DisplayName("Agent API")
         class AgentTests {
 

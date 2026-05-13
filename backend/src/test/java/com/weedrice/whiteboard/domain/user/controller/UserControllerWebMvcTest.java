@@ -135,9 +135,9 @@ class UserControllerWebMvcTest {
     }
 
     @Test
-    @DisplayName("Public user profile response excludes private fields")
-    void getUserProfile_returnsOnlyPublicFields() throws Exception {
-        when(userProfileService.getUserProfile(1L)).thenReturn(UserProfileResponse.builder()
+    @DisplayName("Public user profile response excludes private fields and passes viewer id")
+    void getUserProfile_returnsOnlyPublicFieldsAndPassesViewerId() throws Exception {
+        when(userProfileService.getUserProfile(1L, 1L)).thenReturn(UserProfileResponse.builder()
                 .userId(1L)
                 .displayName("tester")
                 .profileImageUrl("/files/1")
@@ -158,6 +158,8 @@ class UserControllerWebMvcTest {
                 .andExpect(jsonPath("$.data.commentCount").value(7))
                 .andExpect(jsonPath("$.data.loginId").doesNotExist())
                 .andExpect(jsonPath("$.data.lastLoginAt").doesNotExist());
+
+        verify(userProfileService).getUserProfile(1L, 1L);
     }
 
     @Test

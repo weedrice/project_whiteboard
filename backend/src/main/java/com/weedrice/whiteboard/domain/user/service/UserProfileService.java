@@ -11,6 +11,7 @@ import com.weedrice.whiteboard.domain.user.dto.UserProfileResponse;
 import com.weedrice.whiteboard.domain.user.entity.DisplayNameHistory;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.DisplayNameHistoryRepository;
+import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -26,12 +27,14 @@ public class UserProfileService {
 
     private static final int DISPLAY_NAME_MIN_LENGTH = 2;
     private static final int DISPLAY_NAME_MAX_LENGTH = 50;
+    private static final String BLOCKED_PUBLIC_PROFILE_DISPLAY_NAME = "차단된 사용자";
 
     private final UserRepository userRepository;
     private final CurrentUserSummaryAssembler currentUserSummaryAssembler;
     private final CommentRepository commentRepository;
     private final DisplayNameHistoryRepository displayNameHistoryRepository;
     private final PostRepository postRepository;
+    private final UserBlockRepository userBlockRepository;
     private final FileService fileService;
     private final AgentLifecycleService agentLifecycleService;
     private final PasswordEncoder passwordEncoder;
@@ -67,8 +70,16 @@ public class UserProfileService {
     }
 
     public UserProfileResponse getUserProfile(Long userId) {
+        return getUserProfile(userId, null);
+    }
+
+    public UserProfileResponse getUserProfile(Long userId, Long viewerUserId) {
         User user = userRepository.findByUserIdAndStatusAndDeletedAtIsNull(userId, "ACTIVE")
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        if (isRestrictedProfile(user.getUserId(), viewerUserId)) {
+            return restrictedProfile(user.getUserId());
+        }
 
         long postCount = postRepository.countPublicProfilePostsByUser(user);
         long commentCount = commentRepository.countPublicProfileCommentsByUser(user);
@@ -80,6 +91,23 @@ public class UserProfileService {
                 .createdAt(user.getCreatedAt())
                 .postCount(postCount)
                 .commentCount(commentCount)
+                .build();
+    }
+
+    private boolean isRestrictedProfile(Long targetUserId, Long viewerUserId) {
+        return viewerUserId != null
+                && !viewerUserId.equals(targetUserId)
+                && userBlockRepository.existsEitherDirection(viewerUserId, targetUserId);
+    }
+
+    private UserProfileResponse restrictedProfile(Long targetUserId) {
+        return UserProfileResponse.builder()
+                .userId(targetUserId)
+                .displayName(BLOCKED_PUBLIC_PROFILE_DISPLAY_NAME)
+                .profileImageUrl(null)
+                .createdAt(null)
+                .postCount(0)
+                .commentCount(0)
                 .build();
     }
 

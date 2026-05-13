@@ -54,8 +54,11 @@ public class UserController {
         private final MessageSource messageSource;
 
         @GetMapping("/{userId}")
-        public ResponseEntity<ApiResponse<UserProfileResponse>> getUserProfile(@PathVariable Long userId) {
-                return ResponseEntity.ok(ApiResponse.success(userProfileService.getUserProfile(userId)));
+        public ResponseEntity<ApiResponse<UserProfileResponse>> getUserProfile(
+                        @PathVariable Long userId,
+                        @AuthenticationPrincipal CustomUserDetails userDetails) {
+                Long viewerUserId = userDetails != null ? userDetails.getUserId() : null;
+                return ResponseEntity.ok(ApiResponse.success(userProfileService.getUserProfile(userId, viewerUserId)));
         }
 
         @GetMapping("/me")

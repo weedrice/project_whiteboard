@@ -15,6 +15,7 @@ import com.weedrice.whiteboard.domain.user.entity.DisplayNameHistory;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.repository.DisplayNameHistoryRepository;
+import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -48,6 +49,7 @@ class UserProfileServiceTest {
     private UserProfileService userProfileService;
 
     @Mock private UserRepository userRepository;
+    @Mock private UserBlockRepository userBlockRepository;
     @Mock private UserSettingsRepository userSettingsRepository;
     @Mock private CommentRepository commentRepository;
     @Mock private DisplayNameHistoryRepository displayNameHistoryRepository;
@@ -71,6 +73,7 @@ class UserProfileServiceTest {
                 commentRepository,
                 displayNameHistoryRepository,
                 postRepository,
+                userBlockRepository,
                 fileService,
                 agentLifecycleService,
                 passwordEncoder,
@@ -161,6 +164,7 @@ class UserProfileServiceTest {
         assertThat(response.getCommentCount()).isEqualTo(7L);
         verify(postRepository).countPublicProfilePostsByUser(user);
         verify(commentRepository).countPublicProfileCommentsByUser(user);
+        verify(userBlockRepository, never()).existsEitherDirection(any(), any());
         verify(postRepository, never()).countByUserAndIsDeleted(user, false);
         verify(commentRepository, never()).countByUserAndIsDeleted(user, false);
     }
@@ -174,6 +178,7 @@ class UserProfileServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
+        verify(userBlockRepository, never()).existsEitherDirection(any(), any());
     }
 
     @Test
@@ -301,5 +306,68 @@ class UserProfileServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+    }
+
+    @Test
+    @DisplayName("viewer와 공개 프로필 대상이 차단 관계가 아니면 공개 카운트를 반환한다")
+    void getUserProfile_authenticatedViewerWithoutBlock_returnsPublicProfile() {
+        User user = User.builder().loginId("target").displayName("target").build();
+        ReflectionTestUtils.setField(user, "userId", 2L);
+
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(2L, "ACTIVE")).thenReturn(Optional.of(user));
+        when(userBlockRepository.existsEitherDirection(1L, 2L)).thenReturn(false);
+        when(postRepository.countPublicProfilePostsByUser(user)).thenReturn(3L);
+        when(commentRepository.countPublicProfileCommentsByUser(user)).thenReturn(4L);
+
+        UserProfileResponse response = userProfileService.getUserProfile(2L, 1L);
+
+        assertThat(response.getUserId()).isEqualTo(2L);
+        assertThat(response.getDisplayName()).isEqualTo("target");
+        assertThat(response.getPostCount()).isEqualTo(3L);
+        assertThat(response.getCommentCount()).isEqualTo(4L);
+        verify(userBlockRepository).existsEitherDirection(1L, 2L);
+        verify(postRepository).countPublicProfilePostsByUser(user);
+        verify(commentRepository).countPublicProfileCommentsByUser(user);
+    }
+
+    @Test
+    @DisplayName("viewer와 공개 프로필 대상이 차단 관계이면 제한 응답을 반환한다")
+    void getUserProfile_blockedRelationship_returnsRestrictedProfile() {
+        User user = User.builder().loginId("target").displayName("target").build();
+        ReflectionTestUtils.setField(user, "userId", 2L);
+
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(2L, "ACTIVE")).thenReturn(Optional.of(user));
+        when(userBlockRepository.existsEitherDirection(1L, 2L)).thenReturn(true);
+
+        UserProfileResponse response = userProfileService.getUserProfile(2L, 1L);
+
+        assertThat(response.getUserId()).isEqualTo(2L);
+        assertThat(response.getDisplayName()).isEqualTo("차단된 사용자");
+        assertThat(response.getProfileImageUrl()).isNull();
+        assertThat(response.getCreatedAt()).isNull();
+        assertThat(response.getPostCount()).isZero();
+        assertThat(response.getCommentCount()).isZero();
+        verify(userBlockRepository).existsEitherDirection(1L, 2L);
+        verify(postRepository, never()).countPublicProfilePostsByUser(any());
+        verify(commentRepository, never()).countPublicProfileCommentsByUser(any());
+    }
+
+    @Test
+    @DisplayName("자기 프로필 조회는 차단 관계 조회 없이 공개 카운트를 반환한다")
+    void getUserProfile_selfViewer_skipsBlockLookup() {
+        User user = User.builder().loginId("test").displayName("tester").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(1L, "ACTIVE")).thenReturn(Optional.of(user));
+        when(postRepository.countPublicProfilePostsByUser(user)).thenReturn(5L);
+        when(commentRepository.countPublicProfileCommentsByUser(user)).thenReturn(7L);
+
+        UserProfileResponse response = userProfileService.getUserProfile(1L, 1L);
+
+        assertThat(response.getUserId()).isEqualTo(1L);
+        assertThat(response.getDisplayName()).isEqualTo("tester");
+        assertThat(response.getPostCount()).isEqualTo(5L);
+        assertThat(response.getCommentCount()).isEqualTo(7L);
+        verify(userBlockRepository, never()).existsEitherDirection(any(), any());
     }
 }
