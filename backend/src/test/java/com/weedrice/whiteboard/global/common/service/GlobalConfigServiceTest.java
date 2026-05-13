@@ -248,6 +248,37 @@ class GlobalConfigServiceTest {
     }
 
     @Test
+    @DisplayName("createConfig rejects invalid key value and description before repository access")
+    void createConfig_invalidText_rejectsBeforeRepositoryAccess() {
+        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
+            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
+
+            assertThatThrownBy(() -> globalConfigService.createConfig(null, "value", "desc"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+            assertThatThrownBy(() -> globalConfigService.createConfig("   ", "value", "desc"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+            assertThatThrownBy(() -> globalConfigService.createConfig("k".repeat(101), "value", "desc"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+            assertThatThrownBy(() -> globalConfigService.createConfig("key", "   ", "desc"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+            assertThatThrownBy(() -> globalConfigService.createConfig("key", "v".repeat(256), "desc"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+            assertThatThrownBy(() -> globalConfigService.createConfig("key", "value", "d".repeat(256)))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+            verify(globalConfigRepository, never()).existsById(any());
+            verify(globalConfigRepository, never()).saveAndFlush(any());
+            verify(cacheManager, never()).getCache("globalConfig");
+        }
+    }
+
+    @Test
     @DisplayName("createConfig rejects duplicate found before save")
     void createConfig_duplicate() {
         try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
@@ -343,6 +374,36 @@ class GlobalConfigServiceTest {
                 TransactionSynchronizationManager.setActualTransactionActive(false);
                 TransactionSynchronizationManager.clearSynchronization();
             }
+        }
+    }
+
+    @Test
+    @DisplayName("updateConfig rejects invalid key value and description before repository access")
+    void updateConfig_invalidText_rejectsBeforeRepositoryAccess() {
+        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
+            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
+
+            assertThatThrownBy(() -> globalConfigService.updateConfig(null, "value", "desc"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+            assertThatThrownBy(() -> globalConfigService.updateConfig("   ", "value", "desc"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+            assertThatThrownBy(() -> globalConfigService.updateConfig("k".repeat(101), "value", "desc"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+            assertThatThrownBy(() -> globalConfigService.updateConfig("key", null, "desc"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+            assertThatThrownBy(() -> globalConfigService.updateConfig("key", "v".repeat(256), "desc"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+            assertThatThrownBy(() -> globalConfigService.updateConfig("key", "value", "d".repeat(256)))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+            verify(globalConfigRepository, never()).findById(anyString());
+            verify(globalConfigRepository, never()).save(any());
         }
     }
 

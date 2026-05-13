@@ -27,6 +27,9 @@ public class GlobalConfigService {
 
     private static final String GLOBAL_CONFIG_CACHE = "globalConfig";
     private static final String POINT_CONFIG_PREFIX = "POINT_";
+    private static final int MAX_CONFIG_KEY_LENGTH = 100;
+    private static final int MAX_CONFIG_VALUE_LENGTH = 255;
+    private static final int MAX_CONFIG_DESCRIPTION_LENGTH = 255;
 
     private final GlobalConfigRepository globalConfigRepository;
     private final CacheManager cacheManager;
@@ -73,6 +76,7 @@ public class GlobalConfigService {
     @Transactional
     public GlobalConfigResponse createConfig(String key, String value, String description) {
         SecurityUtils.validateSuperAdminPermission();
+        validateConfigInput(key, value, description);
         validateConfigValue(key, value);
         if (globalConfigRepository.existsById(key)) {
             throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
@@ -90,6 +94,7 @@ public class GlobalConfigService {
     @Transactional
     public GlobalConfigResponse updateConfig(String key, String value, String description) {
         SecurityUtils.validateSuperAdminPermission();
+        validateConfigInput(key, value, description);
         validateConfigValue(key, value);
         GlobalConfig config = globalConfigRepository.findById(key)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
@@ -153,6 +158,20 @@ public class GlobalConfigService {
                 }
             }
         });
+    }
+
+    private void validateConfigInput(String key, String value, String description) {
+        validateRequiredText(key, MAX_CONFIG_KEY_LENGTH);
+        validateRequiredText(value, MAX_CONFIG_VALUE_LENGTH);
+        if (description != null && description.length() > MAX_CONFIG_DESCRIPTION_LENGTH) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+    }
+
+    private void validateRequiredText(String value, int maxLength) {
+        if (value == null || value.trim().isEmpty() || value.length() > maxLength) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
     }
 
     private void validateConfigValue(String key, String value) {
