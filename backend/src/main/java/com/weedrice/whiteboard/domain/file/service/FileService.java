@@ -27,6 +27,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
@@ -52,6 +53,7 @@ public class FileService {
     private static final int DELETE_CLAIM_STALE_MINUTES = 30;
     private static final int TEMPORARY_FILE_CLEANUP_BATCH_SIZE = 500;
     private static final int MAX_ORIGINAL_FILENAME_LENGTH = 255;
+    private static final int IMAGE_SIGNATURE_READ_BYTES = 12;
 
     private final FileRepository fileRepository;
     private final UserRepository userRepository;
@@ -477,8 +479,8 @@ public class FileService {
     }
 
     private String detectImageMimeType(MultipartFile multipartFile) {
-        try {
-            byte[] data = multipartFile.getBytes();
+        try (InputStream inputStream = multipartFile.getInputStream()) {
+            byte[] data = inputStream.readNBytes(IMAGE_SIGNATURE_READ_BYTES);
             if (isJpeg(data)) {
                 return "image/jpeg";
             }

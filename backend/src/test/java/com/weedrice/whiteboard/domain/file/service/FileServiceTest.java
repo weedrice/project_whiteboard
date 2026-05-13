@@ -28,6 +28,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -40,6 +42,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -133,6 +136,45 @@ class FileServiceTest {
 
         assertThat(uploadedFile.getMimeType()).isEqualTo("image/jpeg");
         verify(fileStorageService).storeFile(multipartFile, "image/jpeg");
+    }
+
+    @Test
+    @DisplayName("이미지 MIME 판별은 헤더 스트림만 읽는다")
+    void uploadFile_detectsImageMimeTypeFromHeaderStream() throws Exception {
+        Long uploaderId = 1L;
+        User uploader = User.builder().build();
+        byte[] pngHeader = new byte[] {
+                (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+                0x00, 0x00, 0x00, 0x00, 0x49, 0x48, 0x44, 0x52
+        };
+        MultipartFile multipartFile = mock(MultipartFile.class);
+        File file = File.builder()
+                .filePath("storedFileName.png")
+                .originalName("test.png")
+                .fileSize(10L)
+                .mimeType("image/png")
+                .uploader(uploader)
+                .build();
+
+        when(multipartFile.isEmpty()).thenReturn(false);
+        when(multipartFile.getSize()).thenReturn(10L);
+        when(multipartFile.getContentType()).thenReturn("image/png");
+        when(multipartFile.getOriginalFilename()).thenReturn("test.png");
+        when(multipartFile.getInputStream()).thenReturn(new HeaderLimitedInputStream(pngHeader, 12));
+        when(userWritableResolver.resolve(uploaderId)).thenReturn(uploader);
+        when(fileStorageService.storeFile(multipartFile, "image/png")).thenReturn("storedFileName.png");
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionCallback<File> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        });
+        when(fileRepository.save(any(File.class))).thenReturn(file);
+
+        FileUploadResponse uploadedFile = fileService.uploadFile(uploaderId, multipartFile);
+
+        assertThat(uploadedFile.getMimeType()).isEqualTo("image/png");
+        verify(multipartFile).getInputStream();
+        verify(multipartFile, never()).getBytes();
+        verify(fileStorageService).storeFile(multipartFile, "image/png");
     }
 
     @Test
@@ -787,6 +829,29 @@ class FileServiceTest {
                 return fileId;
             }
         };
+    }
+
+    private static class HeaderLimitedInputStream extends InputStream {
+
+        private final byte[] data;
+        private final int maxReadableBytes;
+        private int position;
+
+        private HeaderLimitedInputStream(byte[] data, int maxReadableBytes) {
+            this.data = data;
+            this.maxReadableBytes = maxReadableBytes;
+        }
+
+        @Override
+        public int read() throws IOException {
+            if (position >= data.length) {
+                return -1;
+            }
+            if (position >= maxReadableBytes) {
+                throw new IOException("Read more than header bytes");
+            }
+            return data[position++] & 0xFF;
+        }
     }
 
 }
