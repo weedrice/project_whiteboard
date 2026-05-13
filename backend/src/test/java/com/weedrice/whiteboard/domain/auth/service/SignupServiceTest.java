@@ -33,6 +33,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
@@ -262,6 +263,59 @@ class SignupServiceTest {
     }
 
     @Test
+    @DisplayName("회원가입 시 provider와 providerId가 모두 없으면 소셜 계정 링크를 건너뛴다")
+    void signup_skipsSocialAccountLinkWhenBothProviderFieldsAreNull() {
+        SignupRequest request = SignupRequest.builder()
+                .loginId("testuser")
+                .password("password123")
+                .email("test@example.com")
+                .displayName("Test User")
+                .verificationTicket("ticket-1")
+                .build();
+        stubSuccessfulSignup(request);
+
+        signupService.signup(request);
+
+        verify(socialAccountLinkService, never()).linkSocialAccount(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("회원가입 시 provider만 있으면 소셜 계정 링크 서비스가 검증한다")
+    void signup_delegatesSocialAccountLinkWhenOnlyProviderExists() {
+        SignupRequest request = SignupRequest.builder()
+                .loginId("testuser")
+                .password("password123")
+                .email("test@example.com")
+                .displayName("Test User")
+                .verificationTicket("ticket-1")
+                .provider("google")
+                .build();
+        User savedUser = stubSuccessfulSignup(request);
+
+        signupService.signup(request);
+
+        verify(socialAccountLinkService).linkSocialAccount(eq(savedUser), eq("google"), isNull());
+    }
+
+    @Test
+    @DisplayName("회원가입 시 providerId만 있으면 소셜 계정 링크 서비스가 검증한다")
+    void signup_delegatesSocialAccountLinkWhenOnlyProviderIdExists() {
+        SignupRequest request = SignupRequest.builder()
+                .loginId("testuser")
+                .password("password123")
+                .email("test@example.com")
+                .displayName("Test User")
+                .verificationTicket("ticket-1")
+                .providerId("google-user-1")
+                .build();
+        User savedUser = stubSuccessfulSignup(request);
+
+        signupService.signup(request);
+
+        verify(socialAccountLinkService).linkSocialAccount(eq(savedUser), isNull(), eq("google-user-1"));
+    }
+
+    @Test
     @DisplayName("회원가입은 이메일을 정규화해 조회, 티켓 소비, 저장에 사용한다")
     void signup_normalizesEmailBeforeLookupTicketConsumptionAndSave() {
         SignupRequest request = SignupRequest.builder()
@@ -361,5 +415,23 @@ class SignupServiceTest {
                 anyString(),
                 anyLong(),
                 anyString());
+    }
+
+    private User stubSuccessfulSignup(SignupRequest request) {
+        User savedUser = User.builder()
+                .loginId(request.getLoginId())
+                .password("encoded-password")
+                .email(request.getEmail())
+                .displayName(request.getDisplayName())
+                .build();
+        ReflectionTestUtils.setField(savedUser, "userId", 10L);
+
+        when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty());
+        when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
+        when(passwordHistoryPolicy.encode(request.getPassword())).thenReturn("encoded-password");
+        when(userRepository.saveAndFlush(any(User.class))).thenReturn(savedUser);
+        when(userSettingsRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(globalConfigService.getConfig("POINT_SIGNUP_BONUS")).thenReturn("0");
+        return savedUser;
     }
 }

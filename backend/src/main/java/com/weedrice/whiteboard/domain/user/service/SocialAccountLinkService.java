@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 @Service
@@ -16,54 +18,53 @@ import java.util.Objects;
 @Transactional(readOnly = true)
 public class SocialAccountLinkService {
 
+    private static final int MAX_PROVIDER_LENGTH = 255;
+    private static final int MAX_PROVIDER_ID_LENGTH = 255;
+
     private final SocialAccountRepository socialAccountRepository;
 
     @Transactional
     public SocialAccount linkSocialAccount(User user, String provider, String providerId) {
-        SocialAccount existingByProvider = socialAccountRepository.findByProviderAndProviderId(provider, providerId)
-                .orElse(null);
+        String normalizedProvider = normalizeProvider(provider);
+        String normalizedProviderId = normalizeProviderId(providerId);
+
+        SocialAccount existingByProvider = resolveExistingByProvider(
+                user,
+                normalizedProvider,
+                normalizedProviderId);
         if (existingByProvider != null) {
-            if (hasSameUser(existingByProvider, user)) {
-                return existingByProvider;
-            }
-            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
+            return existingByProvider;
         }
 
-        SocialAccount existingByUserProvider = socialAccountRepository.findByUserAndProvider(user, provider)
-                .orElse(null);
+        SocialAccount existingByUserProvider = resolveExistingByUserProvider(
+                user,
+                normalizedProvider,
+                normalizedProviderId);
         if (existingByUserProvider != null) {
-            if (Objects.equals(existingByUserProvider.getProviderId(), providerId)) {
-                return existingByUserProvider;
-            }
-            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
+            return existingByUserProvider;
         }
 
-        int inserted = socialAccountRepository.insertSocialAccountIfAbsent(user.getUserId(), provider, providerId);
+        int inserted = socialAccountRepository.insertSocialAccountIfAbsent(
+                user.getUserId(),
+                normalizedProvider,
+                normalizedProviderId);
         if (inserted == 0) {
-            return resolveDuplicateLink(user, provider, providerId);
+            return resolveDuplicateLink(user, normalizedProvider, normalizedProviderId);
         }
 
-        return socialAccountRepository.findByProviderAndProviderId(provider, providerId)
+        return socialAccountRepository.findByProviderAndProviderId(normalizedProvider, normalizedProviderId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DUPLICATE_RESOURCE));
     }
 
     private SocialAccount resolveDuplicateLink(User user, String provider, String providerId) {
-        SocialAccount existingByProvider = socialAccountRepository.findByProviderAndProviderId(provider, providerId)
-                .orElse(null);
+        SocialAccount existingByProvider = resolveExistingByProvider(user, provider, providerId);
         if (existingByProvider != null) {
-            if (hasSameUser(existingByProvider, user)) {
-                return existingByProvider;
-            }
-            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
+            return existingByProvider;
         }
 
-        SocialAccount existingByUserProvider = socialAccountRepository.findByUserAndProvider(user, provider)
-                .orElse(null);
+        SocialAccount existingByUserProvider = resolveExistingByUserProvider(user, provider, providerId);
         if (existingByUserProvider != null) {
-            if (Objects.equals(existingByUserProvider.getProviderId(), providerId)) {
-                return existingByUserProvider;
-            }
-            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
+            return existingByUserProvider;
         }
 
         throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
@@ -71,5 +72,55 @@ public class SocialAccountLinkService {
 
     private boolean hasSameUser(SocialAccount socialAccount, User user) {
         return Objects.equals(socialAccount.getUser().getUserId(), user.getUserId());
+    }
+
+    private SocialAccount resolveExistingByProvider(User user, String provider, String providerId) {
+        List<SocialAccount> existingAccounts = socialAccountRepository.findAllByNormalizedProviderAndProviderId(
+                provider,
+                providerId);
+        for (SocialAccount existingAccount : existingAccounts) {
+            if (hasSameUser(existingAccount, user)) {
+                return existingAccount;
+            }
+        }
+        if (!existingAccounts.isEmpty()) {
+            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
+        }
+        return null;
+    }
+
+    private SocialAccount resolveExistingByUserProvider(User user, String provider, String providerId) {
+        List<SocialAccount> existingAccounts = socialAccountRepository.findAllByUserAndNormalizedProvider(
+                user,
+                provider);
+        for (SocialAccount existingAccount : existingAccounts) {
+            if (Objects.equals(existingAccount.getProviderId().trim(), providerId)) {
+                return existingAccount;
+            }
+        }
+        if (!existingAccounts.isEmpty()) {
+            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
+        }
+        return null;
+    }
+
+    private String normalizeProvider(String provider) {
+        String normalizedProvider = normalizeRequiredValue(provider, MAX_PROVIDER_LENGTH);
+        return normalizedProvider.toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeProviderId(String providerId) {
+        return normalizeRequiredValue(providerId, MAX_PROVIDER_ID_LENGTH);
+    }
+
+    private String normalizeRequiredValue(String value, int maxLength) {
+        if (value == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        String trimmedValue = value.trim();
+        if (trimmedValue.isBlank() || trimmedValue.length() > maxLength) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return trimmedValue;
     }
 }

@@ -198,7 +198,7 @@ public class SignupService {
     }
 
     private void saveSocialAccountIfPresent(User user, SignupRequest request) {
-        if (request.getProvider() == null || request.getProviderId() == null) {
+        if (request.getProvider() == null && request.getProviderId() == null) {
             return;
         }
 

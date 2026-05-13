@@ -7,11 +7,33 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface SocialAccountRepository extends JpaRepository<SocialAccount, Long> {
     Optional<SocialAccount> findByProviderAndProviderId(String provider, String providerId);
-    Optional<SocialAccount> findByUserAndProvider(User user, String provider);
+
+    @Query("""
+            SELECT socialAccount
+            FROM SocialAccount socialAccount
+            WHERE LOWER(TRIM(socialAccount.provider)) = :provider
+              AND TRIM(socialAccount.providerId) = :providerId
+            ORDER BY socialAccount.id ASC
+            """)
+    List<SocialAccount> findAllByNormalizedProviderAndProviderId(
+            @Param("provider") String provider,
+            @Param("providerId") String providerId);
+
+    @Query("""
+            SELECT socialAccount
+            FROM SocialAccount socialAccount
+            WHERE socialAccount.user = :user
+              AND LOWER(TRIM(socialAccount.provider)) = :provider
+            ORDER BY socialAccount.id ASC
+            """)
+    List<SocialAccount> findAllByUserAndNormalizedProvider(
+            @Param("user") User user,
+            @Param("provider") String provider);
 
     @Modifying
     @Query(value = """

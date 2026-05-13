@@ -14,6 +14,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -22,6 +23,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -56,6 +58,36 @@ class SocialAccountLinkServiceTest {
     }
 
     @Test
+    @DisplayName("Provider is lower-cased and both identifiers are trimmed before linking")
+    void linkSocialAccount_normalizesProviderAndProviderIdBeforeRepositoryAccess() {
+        SocialAccount savedLink = SocialAccount.builder()
+                .user(user)
+                .provider("google")
+                .providerId("Google-User-1")
+                .build();
+
+        when(socialAccountRepository.findAllByNormalizedProviderAndProviderId("google", "Google-User-1"))
+                .thenReturn(List.of());
+        when(socialAccountRepository.findAllByUserAndNormalizedProvider(user, "google"))
+                .thenReturn(List.of());
+        when(socialAccountRepository.insertSocialAccountIfAbsent(1L, "google", "Google-User-1"))
+                .thenReturn(1);
+        when(socialAccountRepository.findByProviderAndProviderId("google", "Google-User-1"))
+                .thenReturn(Optional.of(savedLink));
+
+        SocialAccount linkedAccount = socialAccountLinkService.linkSocialAccount(
+                user,
+                " GoOgLe ",
+                " Google-User-1 ");
+
+        assertThat(linkedAccount).isSameAs(savedLink);
+        verify(socialAccountRepository).findAllByNormalizedProviderAndProviderId("google", "Google-User-1");
+        verify(socialAccountRepository).findAllByUserAndNormalizedProvider(user, "google");
+        verify(socialAccountRepository).insertSocialAccountIfAbsent(1L, "google", "Google-User-1");
+        verify(socialAccountRepository).findByProviderAndProviderId("google", "Google-User-1");
+    }
+
+    @Test
     @DisplayName("Same user's existing provider link is reused")
     void linkSocialAccount_reusesExistingProviderLink() {
         SocialAccount existingLink = SocialAccount.builder()
@@ -64,8 +96,8 @@ class SocialAccountLinkServiceTest {
                 .providerId("google-user-1")
                 .build();
 
-        when(socialAccountRepository.findByProviderAndProviderId("google", "google-user-1"))
-                .thenReturn(Optional.of(existingLink));
+        when(socialAccountRepository.findAllByNormalizedProviderAndProviderId("google", "google-user-1"))
+                .thenReturn(List.of(existingLink));
 
         SocialAccount linkedAccount = socialAccountLinkService.linkSocialAccount(user, "google", "google-user-1");
 
@@ -82,8 +114,8 @@ class SocialAccountLinkServiceTest {
                 .providerId("google-user-1")
                 .build();
 
-        when(socialAccountRepository.findByProviderAndProviderId("google", "google-user-1"))
-                .thenReturn(Optional.of(existingLink));
+        when(socialAccountRepository.findAllByNormalizedProviderAndProviderId("google", "google-user-1"))
+                .thenReturn(List.of(existingLink));
 
         assertThatThrownBy(() -> socialAccountLinkService.linkSocialAccount(user, "google", "google-user-1"))
                 .isInstanceOf(BusinessException.class)
@@ -99,10 +131,10 @@ class SocialAccountLinkServiceTest {
                 .providerId("google-user-1")
                 .build();
 
-        when(socialAccountRepository.findByProviderAndProviderId("google", "google-user-2"))
-                .thenReturn(Optional.empty());
-        when(socialAccountRepository.findByUserAndProvider(user, "google"))
-                .thenReturn(Optional.of(existingLink));
+        when(socialAccountRepository.findAllByNormalizedProviderAndProviderId("google", "google-user-2"))
+                .thenReturn(List.of());
+        when(socialAccountRepository.findAllByUserAndNormalizedProvider(user, "google"))
+                .thenReturn(List.of(existingLink));
 
         assertThatThrownBy(() -> socialAccountLinkService.linkSocialAccount(user, "google", "google-user-2"))
                 .isInstanceOf(BusinessException.class)
@@ -118,12 +150,14 @@ class SocialAccountLinkServiceTest {
                 .providerId("google-user-1")
                 .build();
 
-        when(socialAccountRepository.findByProviderAndProviderId("google", "google-user-1"))
-                .thenReturn(Optional.empty(), Optional.of(savedLink));
-        when(socialAccountRepository.findByUserAndProvider(user, "google"))
-                .thenReturn(Optional.empty());
+        when(socialAccountRepository.findAllByNormalizedProviderAndProviderId("google", "google-user-1"))
+                .thenReturn(List.of());
+        when(socialAccountRepository.findAllByUserAndNormalizedProvider(user, "google"))
+                .thenReturn(List.of());
         when(socialAccountRepository.insertSocialAccountIfAbsent(1L, "google", "google-user-1"))
                 .thenReturn(1);
+        when(socialAccountRepository.findByProviderAndProviderId("google", "google-user-1"))
+                .thenReturn(Optional.of(savedLink));
 
         SocialAccount linkedAccount = socialAccountLinkService.linkSocialAccount(user, "google", "google-user-1");
 
@@ -140,10 +174,10 @@ class SocialAccountLinkServiceTest {
                 .providerId("google-user-1")
                 .build();
 
-        when(socialAccountRepository.findByProviderAndProviderId("google", "google-user-1"))
-                .thenReturn(Optional.empty(), Optional.of(existingLink));
-        when(socialAccountRepository.findByUserAndProvider(user, "google"))
-                .thenReturn(Optional.empty());
+        when(socialAccountRepository.findAllByNormalizedProviderAndProviderId("google", "google-user-1"))
+                .thenReturn(List.of(), List.of(existingLink));
+        when(socialAccountRepository.findAllByUserAndNormalizedProvider(user, "google"))
+                .thenReturn(List.of());
         when(socialAccountRepository.insertSocialAccountIfAbsent(1L, "google", "google-user-1"))
                 .thenReturn(0);
 
@@ -151,5 +185,49 @@ class SocialAccountLinkServiceTest {
 
         assertThat(linkedAccount).isSameAs(existingLink);
         verify(socialAccountRepository).insertSocialAccountIfAbsent(1L, "google", "google-user-1");
+    }
+
+    @Test
+    @DisplayName("Legacy provider casing and spaces are resolved before inserting a new link")
+    void linkSocialAccount_reusesLegacyNormalizedProviderLink() {
+        SocialAccount existingLink = SocialAccount.builder()
+                .user(user)
+                .provider(" Google ")
+                .providerId(" google-user-1 ")
+                .build();
+
+        when(socialAccountRepository.findAllByNormalizedProviderAndProviderId("google", "google-user-1"))
+                .thenReturn(List.of(existingLink));
+
+        SocialAccount linkedAccount = socialAccountLinkService.linkSocialAccount(user, "google", "google-user-1");
+
+        assertThat(linkedAccount).isSameAs(existingLink);
+        verify(socialAccountRepository, never()).insertSocialAccountIfAbsent(anyLong(), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("Invalid provider is rejected before repository access")
+    void linkSocialAccount_rejectsInvalidProviderBeforeRepositoryAccess() {
+        assertInvalidInput(null, "google-user-1");
+        assertInvalidInput(" ", "google-user-1");
+        assertInvalidInput("g".repeat(256), "google-user-1");
+
+        verifyNoInteractions(socialAccountRepository);
+    }
+
+    @Test
+    @DisplayName("Invalid provider id is rejected before repository access")
+    void linkSocialAccount_rejectsInvalidProviderIdBeforeRepositoryAccess() {
+        assertInvalidInput("google", null);
+        assertInvalidInput("google", " ");
+        assertInvalidInput("google", "u".repeat(256));
+
+        verifyNoInteractions(socialAccountRepository);
+    }
+
+    private void assertInvalidInput(String provider, String providerId) {
+        assertThatThrownBy(() -> socialAccountLinkService.linkSocialAccount(user, provider, providerId))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
     }
 }
