@@ -168,6 +168,50 @@ class CommentServiceTest {
     }
 
     @Test
+    @DisplayName("comment on agent-authored post notifies agent owner")
+    void createComment_agentPost_notifiesAgentOwner() {
+        User actor = User.builder().displayName("Actor").build();
+        ReflectionTestUtils.setField(actor, "userId", 2L);
+        User agentOwner = User.builder().displayName("Agent Owner").build();
+        ReflectionTestUtils.setField(agentOwner, "userId", 3L);
+        User legacyAuthor = User.builder().displayName("Legacy Author").build();
+        ReflectionTestUtils.setField(legacyAuthor, "userId", 4L);
+
+        Agent targetAgent = Agent.builder()
+                .user(agentOwner)
+                .agentTokenHash("hash")
+                .name("target-agent")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(targetAgent, "agentId", 77L);
+
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().user(legacyAuthor).agent(targetAgent).board(board).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(actor));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(postRepository.incrementCommentCount(1L)).thenReturn(1);
+        when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> {
+            Comment saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "commentId", 10L);
+            return saved;
+        });
+        when(globalConfigService.getConfig(anyString())).thenReturn("10");
+
+        commentService.createComment(2L, 1L, null, "content");
+
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        NotificationEvent notificationEvent = (NotificationEvent) eventCaptor.getValue();
+        assertThat(notificationEvent.getUserToNotify()).isSameAs(agentOwner);
+        assertThat(notificationEvent.getActor()).isSameAs(actor);
+        assertThat(notificationEvent.getActorAgent()).isNull();
+        assertThat(notificationEvent.getSourceType()).isEqualTo("POST");
+        assertThat(notificationEvent.getSourceId()).isEqualTo(1L);
+    }
+
+    @Test
     @DisplayName("HTML만 남는 댓글 본문은 INVALID_INPUT_VALUE로 거부한다")
     void createComment_htmlOnlyContent_throwsInvalidInput() {
         User user = User.builder().build();
@@ -289,6 +333,59 @@ class CommentServiceTest {
         assertThat(result.getDepth()).isEqualTo(1);
         verify(postRepository).incrementCommentCount(1L);
         verify(commentClosureRepository).createClosures(10L, 5L);
+    }
+
+    @Test
+    @DisplayName("reply to agent-authored comment notifies agent owner")
+    void createComment_agentParentComment_notifiesAgentOwner() {
+        User actor = User.builder().displayName("Actor").build();
+        ReflectionTestUtils.setField(actor, "userId", 2L);
+        User agentOwner = User.builder().displayName("Agent Owner").build();
+        ReflectionTestUtils.setField(agentOwner, "userId", 3L);
+        User legacyAuthor = User.builder().displayName("Legacy Author").build();
+        ReflectionTestUtils.setField(legacyAuthor, "userId", 4L);
+
+        Agent targetAgent = Agent.builder()
+                .user(agentOwner)
+                .agentTokenHash("hash")
+                .name("target-agent")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(targetAgent, "agentId", 77L);
+
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(legacyAuthor).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
+
+        Comment parent = Comment.builder()
+                .depth(0)
+                .user(legacyAuthor)
+                .agent(targetAgent)
+                .post(post)
+                .build();
+        ReflectionTestUtils.setField(parent, "commentId", 5L);
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(actor));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(postRepository.incrementCommentCount(1L)).thenReturn(1);
+        when(commentRepository.findById(5L)).thenReturn(Optional.of(parent));
+        when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> {
+            Comment saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "commentId", 10L);
+            return saved;
+        });
+        when(globalConfigService.getConfig(anyString())).thenReturn("10");
+
+        commentService.createComment(2L, 1L, 5L, "content");
+
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        NotificationEvent notificationEvent = (NotificationEvent) eventCaptor.getValue();
+        assertThat(notificationEvent.getUserToNotify()).isSameAs(agentOwner);
+        assertThat(notificationEvent.getActor()).isSameAs(actor);
+        assertThat(notificationEvent.getActorAgent()).isNull();
+        assertThat(notificationEvent.getSourceType()).isEqualTo("COMMENT");
+        assertThat(notificationEvent.getSourceId()).isEqualTo(5L);
     }
 
     @Test
@@ -1083,6 +1180,51 @@ class CommentServiceTest {
 
         verify(commentLikeRepository).saveAndFlush(any());
         verify(commentRepository).incrementLikeCount(10L);
+    }
+
+    @Test
+    @DisplayName("like on agent-authored comment notifies agent owner")
+    void likeComment_agentComment_notifiesAgentOwner() {
+        User actor = User.builder().displayName("Actor").build();
+        ReflectionTestUtils.setField(actor, "userId", 2L);
+        User agentOwner = User.builder().displayName("Agent Owner").build();
+        ReflectionTestUtils.setField(agentOwner, "userId", 3L);
+        User legacyAuthor = User.builder().displayName("Legacy Author").build();
+        ReflectionTestUtils.setField(legacyAuthor, "userId", 4L);
+
+        Agent targetAgent = Agent.builder()
+                .user(agentOwner)
+                .agentTokenHash("hash")
+                .name("target-agent")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(targetAgent, "agentId", 77L);
+
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(legacyAuthor).build();
+        Comment comment = Comment.builder()
+                .user(legacyAuthor)
+                .agent(targetAgent)
+                .post(post)
+                .build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(actor));
+        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(commentLikeRepository.saveAndFlush(any(CommentLike.class)))
+                .thenReturn(CommentLike.builder().user(actor).comment(comment).build());
+        when(commentRepository.incrementLikeCount(10L)).thenReturn(1);
+
+        commentService.likeComment(2L, 10L);
+
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        NotificationEvent notificationEvent = (NotificationEvent) eventCaptor.getValue();
+        assertThat(notificationEvent.getUserToNotify()).isSameAs(agentOwner);
+        assertThat(notificationEvent.getActor()).isSameAs(actor);
+        assertThat(notificationEvent.getActorAgent()).isNull();
+        assertThat(notificationEvent.getSourceType()).isEqualTo("COMMENT");
+        assertThat(notificationEvent.getSourceId()).isEqualTo(10L);
     }
 
     @Test

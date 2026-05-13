@@ -150,8 +150,7 @@ public class PostInteractionService {
         User user = userWritableResolver.resolve(userId);
         Agent actorAgent = agentOwnershipService.resolveOwnedActiveAgent(userId, actorAgentId);
         Post post = getPostById(postId, userId, false);
-        boolean skipNotification = post.getAgent() != null;
-        User postOwner = post.getUser();
+        User postOwner = resolvePostOwner(post);
 
         PostLike postLike = PostLike.builder()
                 .user(user)
@@ -163,9 +162,6 @@ public class PostInteractionService {
 
         postRepository.incrementLikeCount(postId);
         int likeCount = getPostLikeCount(postId);
-        if (skipNotification) {
-            return likeCount;
-        }
 
         String content = resolveNotificationActorName(user, actorAgent)
                 + "\uB2D8\uC774 \uD68C\uC6D0\uB2D8\uC758 \uAC8C\uC2DC\uAE00\uC744 \uC88B\uC544\uD569\uB2C8\uB2E4.";
@@ -327,6 +323,13 @@ public class PostInteractionService {
             throw new BusinessException(ErrorCode.POST_NOT_FOUND);
         }
         return likeCount;
+    }
+
+    private User resolvePostOwner(Post post) {
+        if (post.getAgent() != null) {
+            return post.getAgent().getUser();
+        }
+        return post.getUser();
     }
 
     private String resolveNotificationActorName(User user, Agent actorAgent) {

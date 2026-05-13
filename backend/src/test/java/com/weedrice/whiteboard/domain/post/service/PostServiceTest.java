@@ -1178,6 +1178,49 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("like on agent-authored post notifies agent owner")
+    void likePost_agentPost_notifiesAgentOwner() {
+        User actorUser = User.builder().displayName("actor").build();
+        ReflectionTestUtils.setField(actorUser, "userId", 1L);
+
+        User agentOwner = User.builder().displayName("agent-owner").build();
+        ReflectionTestUtils.setField(agentOwner, "userId", 3L);
+
+        User legacyAuthor = User.builder().displayName("legacy-author").build();
+        ReflectionTestUtils.setField(legacyAuthor, "userId", 4L);
+
+        Agent targetAgent = Agent.builder()
+                .user(agentOwner)
+                .agentTokenHash("hash")
+                .name("target-agent")
+                .description("desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(targetAgent, "agentId", 20L);
+        ReflectionTestUtils.setField(post, "user", legacyAuthor);
+        ReflectionTestUtils.setField(post, "agent", targetAgent);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(actorUser));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
+        when(postLikeRepository.saveAndFlush(any(PostLike.class)))
+                .thenReturn(PostLike.builder().user(actorUser).post(post).build());
+        when(postRepository.incrementLikeCount(1L)).thenReturn(1);
+        when(postRepository.findLikeCountByPostId(1L)).thenReturn(1);
+
+        postService.likePost(1L, 1L);
+
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        NotificationEvent notificationEvent = (NotificationEvent) eventCaptor.getValue();
+        assertThat(notificationEvent.getUserToNotify()).isSameAs(agentOwner);
+        assertThat(notificationEvent.getActor()).isSameAs(actorUser);
+        assertThat(notificationEvent.getActorAgent()).isNull();
+        assertThat(notificationEvent.getSourceType()).isEqualTo("POST");
+        assertThat(notificationEvent.getSourceId()).isEqualTo(1L);
+    }
+
+    @Test
     @DisplayName("활성 BAN 사용자는 게시글 좋아요를 취소할 수 없다")
     void unlikePost_bannedUser_forbidden() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
