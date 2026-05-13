@@ -79,19 +79,30 @@ public class VerificationCodeService {
         String normalizedEmail = AuthEmailNormalizer.normalize(email);
         VerificationCode verificationCode = getLatestSentVerificationCodeForUpdate(normalizedEmail, purpose);
 
+        boolean codeMatches = matchesVerificationCode(verificationCode.getCode(), code);
+
+        if (Boolean.TRUE.equals(verificationCode.getIsVerified())) {
+            if (verificationCode.hasActiveVerificationTicket()) {
+                if (!codeMatches) {
+                    throw new BusinessException(ErrorCode.VALIDATION_ERROR, INVALID_CODE_MESSAGE);
+                }
+                return buildVerifyCodeResponse(normalizedEmail, purpose, verificationCode.getVerificationTicket());
+            }
+            if (verificationCode.isExpired()) {
+                throw new BusinessException(ErrorCode.VALIDATION_ERROR, EXPIRED_CODE_MESSAGE);
+            }
+            if (!codeMatches) {
+                throw new BusinessException(ErrorCode.VALIDATION_ERROR, INVALID_CODE_MESSAGE);
+            }
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, USED_CODE_MESSAGE);
+        }
+
         if (verificationCode.isExpired()) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, EXPIRED_CODE_MESSAGE);
         }
 
-        if (!matchesVerificationCode(verificationCode.getCode(), code)) {
+        if (!codeMatches) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, INVALID_CODE_MESSAGE);
-        }
-
-        if (Boolean.TRUE.equals(verificationCode.getIsVerified())) {
-            if (verificationCode.hasActiveVerificationTicket()) {
-                return buildVerifyCodeResponse(normalizedEmail, purpose, verificationCode.getVerificationTicket());
-            }
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, USED_CODE_MESSAGE);
         }
 
         String verificationTicket = UUID.randomUUID().toString();
