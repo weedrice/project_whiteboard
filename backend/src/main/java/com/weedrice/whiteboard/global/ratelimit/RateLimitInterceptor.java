@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.global.ratelimit;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import io.github.bucket4j.Bucket;
@@ -31,7 +32,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
     private final RateLimitConfig rateLimitConfig;
     private final ObjectMapper objectMapper;
     private final MessageSource messageSource;
-    private final RateLimitProperties rateLimitProperties;
+    private final ClientIpResolver clientIpResolver;
 
     // Bounded IP bucket cache to prevent unbounded memory usage.
     private final Map<String, Bucket> ipBuckets = Caffeine.newBuilder()
@@ -50,20 +51,21 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        Bucket bucket = resolveBucket(request, path);
+        String clientIp = clientIpResolver.resolve(request);
+        Bucket bucket = resolveBucket(path, clientIp);
         if (!bucket.tryConsume(1)) {
-            log.warn("Rate limit exceeded for path: {}, IP: {}", path, getClientIp(request));
+            log.warn("Rate limit exceeded for path: {}, IP: {}", path, clientIp);
             sendRateLimitError(request, response);
             return false;
         }
         return true;
     }
 
-    private Bucket resolveBucket(HttpServletRequest request, String path) {
+    private Bucket resolveBucket(String path, String clientIp) {
         if (path.startsWith("/api/v1/auth/")
                 && !"/api/v1/auth/refresh".equals(path)
                 && !"/api/v1/auth/logout".equals(path)) {
-            String authIpKey = "auth:" + getClientIp(request);
+            String authIpKey = "auth:" + clientIp;
             return ipBuckets.computeIfAbsent(authIpKey, k -> rateLimitConfig.createAuthBucket());
         }
 
@@ -74,7 +76,6 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             return userBuckets.computeIfAbsent("user:" + userId, k -> rateLimitConfig.createUserBucket());
         }
 
-        String clientIp = getClientIp(request);
         return ipBuckets.computeIfAbsent("api:" + clientIp, k -> rateLimitConfig.createApiBucket());
     }
 
@@ -83,30 +84,6 @@ public class RateLimitInterceptor implements HandlerInterceptor {
                 || path.startsWith("/swagger-ui")
                 || path.startsWith("/api-docs")
                 || path.startsWith("/uploads/");
-    }
-
-    private String getClientIp(HttpServletRequest request) {
-        if (!rateLimitProperties.isTrustProxyHeaders()) {
-            return request.getRemoteAddr();
-        }
-
-        String xForwardedFor = request.getHeader("X-Forwarded-For");
-        if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
-            String[] ips = xForwardedFor.split(",");
-            for (String ip : ips) {
-                String candidate = ip == null ? null : ip.trim();
-                if (candidate != null && !candidate.isEmpty() && !"unknown".equalsIgnoreCase(candidate)) {
-                    return candidate;
-                }
-            }
-        }
-
-        String xRealIp = request.getHeader("X-Real-IP");
-        if (xRealIp != null && !xRealIp.isEmpty()) {
-            return xRealIp;
-        }
-
-        return request.getRemoteAddr();
     }
 
     private void sendRateLimitError(HttpServletRequest request, HttpServletResponse response) throws IOException {

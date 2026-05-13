@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.admin.interceptor;
 
 import com.weedrice.whiteboard.domain.admin.service.IpBlockService;
+import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
@@ -26,13 +27,17 @@ class IpBlockInterceptorTest {
     @Mock
     private IpBlockService ipBlockService;
 
+    @Mock
+    private ClientIpResolver clientIpResolver;
+
     @Test
     @DisplayName("차단되지 않은 IP 접근 허용")
     void preHandle_allowed() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
-        
-        when(ipBlockService.isIpBlocked(anyString())).thenReturn(false);
+
+        when(clientIpResolver.resolve(request)).thenReturn("127.0.0.1");
+        when(ipBlockService.isIpBlocked("127.0.0.1")).thenReturn(false);
 
         boolean result = ipBlockInterceptor.preHandle(request, response, new Object());
         assertThat(result).isTrue();
@@ -43,7 +48,8 @@ class IpBlockInterceptorTest {
     void preHandle_blocked() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
-        
+
+        when(clientIpResolver.resolve(request)).thenReturn("127.0.0.1");
         when(ipBlockService.isIpBlocked(anyString())).thenReturn(true);
 
         assertThatThrownBy(() -> ipBlockInterceptor.preHandle(request, response, new Object()))

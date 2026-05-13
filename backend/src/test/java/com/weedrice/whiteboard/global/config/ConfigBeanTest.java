@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.global.config;
 
 import com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor;
+import com.weedrice.whiteboard.global.common.util.ClientIpProperties;
 import com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor;
 import com.weedrice.whiteboard.global.ratelimit.RateLimitConfig;
 import com.weedrice.whiteboard.global.security.RefererCheckInterceptor;
@@ -34,7 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
     "app.frontend-url=http://localhost:5173"
 },
     classes = {
-        S3Config.class, WebConfig.class, AsyncConfig.class,
+        S3Config.class, WebConfig.class, AsyncConfig.class, ClientIpConfig.class,
         CacheConfig.class, MessageConfig.class, RateLimitConfig.class,
         OpenApiConfig.class
     },
@@ -45,6 +46,9 @@ class ConfigBeanTest {
 
     @Autowired
     private ApplicationContext applicationContext;
+
+    @Autowired
+    private ClientIpProperties clientIpProperties;
 
     @MockBean
     private IpBlockInterceptor ipBlockInterceptor;
@@ -67,6 +71,14 @@ class ConfigBeanTest {
     void webMvcConfigurerBeanExists() {
         WebMvcConfigurer webMvcConfigurer = applicationContext.getBean(WebMvcConfigurer.class);
         assertThat(webMvcConfigurer).isNotNull();
+    }
+
+    @Test
+    @DisplayName("ClientIpProperties 빈 등록 확인")
+    void clientIpPropertiesBeanExists() {
+        assertThat(clientIpProperties).isNotNull();
+        assertThat(clientIpProperties.isTrustProxyHeaders()).isFalse();
+        assertThat(clientIpProperties.getTrustedProxies()).isEmpty();
     }
 
     @Test
