@@ -4,7 +4,6 @@ import com.weedrice.whiteboard.domain.comment.dto.CommentCreateRequest;
 import com.weedrice.whiteboard.domain.comment.dto.CommentListResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentUpdateRequest;
-import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
@@ -64,9 +63,9 @@ public class CommentController {
             @PathVariable Long postId,
             @Valid @RequestBody CommentCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Comment comment = commentService.createComment(userDetails.getUserId(), postId, request.getParentId(),
+        Long commentId = commentService.createComment(userDetails.getUserId(), postId, request.getParentId(),
                 request.getContent());
-        return ApiResponse.success(comment.getCommentId());
+        return ApiResponse.success(commentId);
     }
 
     @PutMapping("/comments/{commentId}")
@@ -74,8 +73,8 @@ public class CommentController {
             @PathVariable Long commentId,
             @Valid @RequestBody CommentUpdateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Comment comment = commentService.updateComment(userDetails.getUserId(), commentId, request.getContent());
-        return ApiResponse.success(comment.getCommentId());
+        Long updatedCommentId = commentService.updateComment(userDetails.getUserId(), commentId, request.getContent());
+        return ApiResponse.success(updatedCommentId);
     }
 
     @DeleteMapping("/comments/{commentId}")

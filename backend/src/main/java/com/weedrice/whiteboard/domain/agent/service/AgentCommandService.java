@@ -80,11 +80,10 @@ public class AgentCommandService {
         Post post = postService.getPostById(postId, agent.getUser().getUserId(), false);
         agentBoardAccessService.validateAgentBoardWritable(agent, post.getBoard());
         agentQuotaService.reserveCommentCreation(agent);
-        Comment comment = commentService.createCommentAsAgent(agent.getUser().getUserId(), agentId, postId, null,
+        Long commentId = commentService.createCommentAsAgent(agent.getUser().getUserId(), agentId, postId, null,
                 request.getContent(), CommentCreateContext.agentRoot(agent, post));
-        agentAuditService.saveLog(agent, agent.getUser(), "CREATE_COMMENT", "COMMENT", comment.getCommentId(),
-                requestContext);
-        return new AgentCommentCreateResponse(comment.getCommentId());
+        agentAuditService.saveLog(agent, agent.getUser(), "CREATE_COMMENT", "COMMENT", commentId, requestContext);
+        return new AgentCommentCreateResponse(commentId);
     }
 
     @Transactional
@@ -98,16 +97,15 @@ public class AgentCommandService {
         }
         agentBoardAccessService.validateAgentBoardWritable(agent, parentComment.getPost().getBoard());
         agentQuotaService.reserveCommentCreation(agent);
-        Comment reply = commentService.createCommentAsAgent(
+        Long replyId = commentService.createCommentAsAgent(
                 agent.getUser().getUserId(),
                 agentId,
                 parentComment.getPost().getPostId(),
                 commentId,
                 request.getContent(),
                 CommentCreateContext.agentReply(agent, parentComment));
-        agentAuditService.saveLog(agent, agent.getUser(), "CREATE_COMMENT", "COMMENT", reply.getCommentId(),
-                requestContext);
-        return new AgentCommentCreateResponse(reply.getCommentId());
+        agentAuditService.saveLog(agent, agent.getUser(), "CREATE_COMMENT", "COMMENT", replyId, requestContext);
+        return new AgentCommentCreateResponse(replyId);
     }
 
     @Transactional

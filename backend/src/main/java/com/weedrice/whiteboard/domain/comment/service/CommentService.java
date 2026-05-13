@@ -3,7 +3,6 @@ package com.weedrice.whiteboard.domain.comment.service;
 import com.weedrice.whiteboard.domain.comment.dto.CommentListResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse;
-import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -37,24 +36,24 @@ public class CommentService {
         return commentQueryService.getMyComments(userId, pageable);
     }
 
-    public Comment createComment(Long userId, Long postId, Long parentId, String content) {
+    public Long createComment(Long userId, Long postId, Long parentId, String content) {
         return commentCommandService.createComment(userId, postId, parentId, content);
     }
 
-    public Comment createCommentAsAgent(Long userId, Long agentId, Long postId, Long parentId, String content) {
+    public Long createCommentAsAgent(Long userId, Long agentId, Long postId, Long parentId, String content) {
         return commentCommandService.createCommentAsAgent(userId, agentId, postId, parentId, content);
     }
 
-    public Comment createCommentAsAgent(Long userId, Long agentId, Long postId, Long parentId, String content,
+    public Long createCommentAsAgent(Long userId, Long agentId, Long postId, Long parentId, String content,
             CommentCreateContext context) {
         return commentCommandService.createCommentAsAgent(userId, agentId, postId, parentId, content, context);
     }
 
-    public Comment createComment(Long userId, Long agentId, Long postId, Long parentId, String content) {
+    public Long createComment(Long userId, Long agentId, Long postId, Long parentId, String content) {
         return commentCommandService.createComment(userId, agentId, postId, parentId, content);
     }
 
-    public Comment updateComment(Long userId, Long commentId, String content) {
+    public Long updateComment(Long userId, Long commentId, String content) {
         return commentCommandService.updateComment(userId, commentId, content);
     }
 

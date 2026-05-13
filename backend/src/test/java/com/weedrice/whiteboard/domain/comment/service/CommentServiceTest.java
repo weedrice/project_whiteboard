@@ -158,10 +158,12 @@ class CommentServiceTest {
         });
         when(globalConfigService.getConfig(anyString())).thenReturn("10");
 
-        Comment result = commentService.createComment(1L, 1L, null, "content");
+        Long result = commentService.createComment(1L, 1L, null, "content");
 
-        assertThat(result).isNotNull();
-        assertThat(result.getDepth()).isZero();
+        assertThat(result).isEqualTo(10L);
+        ArgumentCaptor<Comment> commentCaptor = ArgumentCaptor.forClass(Comment.class);
+        verify(commentRepository).save(commentCaptor.capture());
+        assertThat(commentCaptor.getValue().getDepth()).isZero();
         verify(commentClosureRepository).createSelfClosure(10L);
         verify(postRepository).incrementCommentCount(1L);
         verify(pointService).addPointIfAbsent(eq(1L), eq(10), anyString(), eq(10L), eq("COMMENT"));
@@ -328,9 +330,12 @@ class CommentServiceTest {
         });
         when(globalConfigService.getConfig(anyString())).thenReturn("10");
 
-        Comment result = commentService.createComment(1L, 1L, 5L, "content");
+        Long result = commentService.createComment(1L, 1L, 5L, "content");
 
-        assertThat(result.getDepth()).isEqualTo(1);
+        assertThat(result).isEqualTo(10L);
+        ArgumentCaptor<Comment> commentCaptor = ArgumentCaptor.forClass(Comment.class);
+        verify(commentRepository).save(commentCaptor.capture());
+        assertThat(commentCaptor.getValue().getDepth()).isEqualTo(1);
         verify(postRepository).incrementCommentCount(1L);
         verify(commentClosureRepository).createClosures(10L, 5L);
     }
@@ -410,9 +415,12 @@ class CommentServiceTest {
             return saved;
         });
 
-        Comment result = commentService.createComment(1L, 1L, 5L, "content");
+        Long result = commentService.createComment(1L, 1L, 5L, "content");
 
-        assertThat(result.getDepth()).isEqualTo(5);
+        assertThat(result).isEqualTo(10L);
+        ArgumentCaptor<Comment> commentCaptor = ArgumentCaptor.forClass(Comment.class);
+        verify(commentRepository).save(commentCaptor.capture());
+        assertThat(commentCaptor.getValue().getDepth()).isEqualTo(5);
         verify(commentClosureRepository).createClosures(10L, 5L);
     }
 

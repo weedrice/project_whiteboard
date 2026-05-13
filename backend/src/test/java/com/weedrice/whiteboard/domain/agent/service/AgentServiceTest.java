@@ -1462,16 +1462,13 @@ class AgentServiceTest {
         AgentCommentCreateRequest request = new AgentCommentCreateRequest();
         ReflectionTestUtils.setField(request, "content", "b".repeat(25));
 
-        Comment comment = Comment.builder().post(writablePost).user(user).content("reply").build();
-        ReflectionTestUtils.setField(comment, "commentId", 300L);
-
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
         when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("COMMENT")))
                 .thenReturn(Optional.of(quota("COMMENT", 99L)));
         when(commentService.createCommentAsAgent(eq(1L), eq(7L), eq(100L), isNull(), eq("b".repeat(25)),
-                any(CommentCreateContext.class))).thenReturn(comment);
+                any(CommentCreateContext.class))).thenReturn(300L);
 
         var response = agentCommandService.createComment(7L, 100L, request, null);
 
@@ -1498,16 +1495,13 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(parentComment, "commentId", 500L);
         ReflectionTestUtils.setField(parentComment, "isDeleted", false);
 
-        Comment reply = Comment.builder().post(writablePost).user(user).content("reply").build();
-        ReflectionTestUtils.setField(reply, "commentId", 501L);
-
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
         when(commentRepository.findByIdWithRelations(500L)).thenReturn(Optional.of(parentComment));
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("COMMENT")))
                 .thenReturn(Optional.of(quota("COMMENT", 99L)));
         when(commentService.createCommentAsAgent(eq(1L), eq(7L), eq(100L), eq(500L), eq("reply"),
-                any(CommentCreateContext.class))).thenReturn(reply);
+                any(CommentCreateContext.class))).thenReturn(501L);
 
         var response = agentCommandService.createReply(7L, 500L, request, null);
 

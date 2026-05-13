@@ -5,7 +5,6 @@ import com.weedrice.whiteboard.domain.comment.dto.CommentCreateRequest;
 import com.weedrice.whiteboard.domain.comment.dto.CommentListResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentUpdateRequest;
-import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
@@ -235,10 +234,7 @@ class CommentControllerTest {
         Long postId = 1L;
         CommentCreateRequest request = new CommentCreateRequest();
         org.springframework.test.util.ReflectionTestUtils.setField(request, "content", "Test comment");
-        Comment comment = Comment.builder().build();
-        org.springframework.test.util.ReflectionTestUtils.setField(comment, "commentId", 1L);
-
-        when(commentService.createComment(any(), eq(postId), isNull(), eq("Test comment"))).thenReturn(comment);
+        when(commentService.createComment(any(), eq(postId), isNull(), eq("Test comment"))).thenReturn(1L);
 
         // when & then
         mockMvc.perform(post("/api/v1/posts/{postId}/comments", postId)
@@ -256,10 +252,7 @@ class CommentControllerTest {
         Long commentId = 1L;
         CommentUpdateRequest request = new CommentUpdateRequest();
         org.springframework.test.util.ReflectionTestUtils.setField(request, "content", "Updated comment");
-        Comment comment = Comment.builder().build();
-        org.springframework.test.util.ReflectionTestUtils.setField(comment, "commentId", commentId);
-
-        when(commentService.updateComment(any(), eq(commentId), eq("Updated comment"))).thenReturn(comment);
+        when(commentService.updateComment(any(), eq(commentId), eq("Updated comment"))).thenReturn(commentId);
 
         // when & then
         mockMvc.perform(put("/api/v1/comments/{commentId}", commentId)

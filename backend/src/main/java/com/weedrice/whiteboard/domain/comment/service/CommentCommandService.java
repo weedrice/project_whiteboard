@@ -47,27 +47,27 @@ public class CommentCommandService {
     private final ReactionWriter reactionWriter;
 
     @Transactional
-    public Comment createComment(Long userId, Long postId, Long parentId, String content) {
+    public Long createComment(Long userId, Long postId, Long parentId, String content) {
         return createComment(userId, null, postId, parentId, content);
     }
 
     @Transactional
-    public Comment createCommentAsAgent(Long userId, Long agentId, Long postId, Long parentId, String content) {
+    public Long createCommentAsAgent(Long userId, Long agentId, Long postId, Long parentId, String content) {
         return createComment(userId, agentId, postId, parentId, content, null);
     }
 
     @Transactional
-    public Comment createCommentAsAgent(Long userId, Long agentId, Long postId, Long parentId, String content,
+    public Long createCommentAsAgent(Long userId, Long agentId, Long postId, Long parentId, String content,
             CommentCreateContext context) {
         return createComment(userId, agentId, postId, parentId, content, context);
     }
 
     @Transactional
-    public Comment createComment(Long userId, Long agentId, Long postId, Long parentId, String content) {
+    public Long createComment(Long userId, Long agentId, Long postId, Long parentId, String content) {
         return createComment(userId, agentId, postId, parentId, content, null);
     }
 
-    private Comment createComment(Long userId, Long agentId, Long postId, Long parentId, String content,
+    private Long createComment(Long userId, Long agentId, Long postId, Long parentId, String content,
             CommentCreateContext context) {
         User user = userWritableResolver.resolve(userId);
         sanctionService.validateNotMuted(user);
@@ -129,7 +129,7 @@ public class CommentCommandService {
             commentNotificationService.publishCreateNotification(user, agent, post, postId);
         }
 
-        return savedComment;
+        return savedComment.getCommentId();
     }
 
     private Agent resolveAgent(Long userId, Long agentId, CommentCreateContext context) {
@@ -158,7 +158,7 @@ public class CommentCommandService {
     }
 
     @Transactional
-    public Comment updateComment(Long userId, Long commentId, String content) {
+    public Long updateComment(Long userId, Long commentId, String content) {
         Comment comment = commentRepository.findByIdWithRelationsForUpdate(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
         User user = userWritableResolver.resolve(userId);
@@ -178,7 +178,7 @@ public class CommentCommandService {
         comment.updateContent(sanitizedContent);
 
         saveCommentVersion(comment, user, "MODIFY", originalContent);
-        return comment;
+        return comment.getCommentId();
     }
 
     @Transactional
