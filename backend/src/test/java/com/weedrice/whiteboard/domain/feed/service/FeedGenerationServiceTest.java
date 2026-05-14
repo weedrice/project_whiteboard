@@ -57,11 +57,12 @@ class FeedGenerationServiceTest {
     @Test
     @DisplayName("게시글 발행 후 구독자 피드를 bulk insert 한다")
     void generatePostFeeds_bulkInsertsSubscriberFeeds() {
-        when(postRepository.findByIdForUpdate(100L)).thenReturn(java.util.Optional.of(post));
+        when(postRepository.findActiveByIdAndBoardIdForUpdate(100L, 10L))
+                .thenReturn(java.util.Optional.of(post));
 
         feedGenerationService.generatePostFeeds(board, 100L);
 
-        verify(postRepository).findByIdForUpdate(100L);
+        verify(postRepository).findActiveByIdAndBoardIdForUpdate(100L, 10L);
         verify(userFeedRepository).insertSubscriptionPostFeeds(
                 10L,
                 FeedGenerationService.FEED_TYPE_SUBSCRIPTION_POST,
@@ -74,7 +75,8 @@ class FeedGenerationServiceTest {
     @Test
     @DisplayName("게시글을 찾지 못하면 구독자 피드를 생성하지 않는다")
     void generatePostFeeds_postNotFoundDoesNotInsertFeeds() {
-        when(postRepository.findByIdForUpdate(100L)).thenReturn(java.util.Optional.empty());
+        when(postRepository.findActiveByIdAndBoardIdForUpdate(100L, 10L))
+                .thenReturn(java.util.Optional.empty());
 
         assertThatThrownBy(() -> feedGenerationService.generatePostFeeds(board, 100L))
                 .isInstanceOf(BusinessException.class)

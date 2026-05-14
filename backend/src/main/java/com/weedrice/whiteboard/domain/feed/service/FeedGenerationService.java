@@ -27,7 +27,7 @@ public class FeedGenerationService {
 
     @Transactional
     public void generatePostFeeds(Board board, Long postId) {
-        postRepository.findByIdForUpdate(postId)
+        postRepository.findActiveByIdAndBoardIdForUpdate(postId, board.getBoardId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
         userFeedRepository.insertSubscriptionPostFeeds(

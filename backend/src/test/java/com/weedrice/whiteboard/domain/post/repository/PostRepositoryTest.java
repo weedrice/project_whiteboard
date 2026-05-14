@@ -1211,6 +1211,54 @@ class PostRepositoryTest {
                 .containsExactlyInAnyOrder("user", "agent", "board", "category");
     }
 
+    @Test
+    @DisplayName("findActiveByIdAndBoardIdForUpdate는 게시글, 게시판, 삭제 상태를 함께 검증한다")
+    void findActiveByIdAndBoardIdForUpdate_filtersByBoardAndDeletedState() {
+        Board otherBoard = Board.builder()
+                .boardName("Other Board")
+                .boardUrl("other-board")
+                .creator(user)
+                .build();
+        entityManager.persist(otherBoard);
+
+        Post deletedPost = Post.builder()
+                .title("Deleted Post")
+                .contents("Deleted Contents")
+                .user(user)
+                .board(board)
+                .category(category)
+                .build();
+        deletedPost.deletePost();
+        entityManager.persist(deletedPost);
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<Post> active = postRepository.findActiveByIdAndBoardIdForUpdate(
+                post.getPostId(),
+                board.getBoardId());
+        Optional<Post> boardMismatch = postRepository.findActiveByIdAndBoardIdForUpdate(
+                post.getPostId(),
+                otherBoard.getBoardId());
+        Optional<Post> deleted = postRepository.findActiveByIdAndBoardIdForUpdate(
+                deletedPost.getPostId(),
+                board.getBoardId());
+
+        assertThat(active).isPresent();
+        assertThat(boardMismatch).isEmpty();
+        assertThat(deleted).isEmpty();
+    }
+
+    @Test
+    @DisplayName("findActiveByIdAndBoardIdForUpdate는 비관적 쓰기 잠금을 선언한다")
+    void findActiveByIdAndBoardIdForUpdate_declaresPessimisticWriteLock() throws NoSuchMethodException {
+        var method = PostRepository.class.getMethod("findActiveByIdAndBoardIdForUpdate", Long.class, Long.class);
+
+        Lock lock = method.getAnnotation(Lock.class);
+
+        assertThat(lock).isNotNull();
+        assertThat(lock.value()).isEqualTo(LockModeType.PESSIMISTIC_WRITE);
+    }
+
     private void updateCreatedAt(Post targetPost, LocalDateTime createdAt) {
         entityManager.getEntityManager()
                 .createNativeQuery("UPDATE posts SET created_at = :createdAt WHERE post_id = :postId")

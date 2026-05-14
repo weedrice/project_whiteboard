@@ -139,6 +139,18 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
         @Query("SELECT p FROM Post p WHERE p.postId = :postId")
         Optional<Post> findByIdForUpdate(@Param("postId") Long postId);
 
+        @Lock(LockModeType.PESSIMISTIC_WRITE)
+        @Query("""
+                SELECT p
+                FROM Post p
+                WHERE p.postId = :postId
+                  AND p.board.boardId = :boardId
+                  AND p.isDeleted = false
+                """)
+        Optional<Post> findActiveByIdAndBoardIdForUpdate(
+                @Param("postId") Long postId,
+                @Param("boardId") Long boardId);
+
         @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
         @Lock(LockModeType.PESSIMISTIC_WRITE)
         @Query("SELECT p FROM Post p WHERE p.postId = :postId")
