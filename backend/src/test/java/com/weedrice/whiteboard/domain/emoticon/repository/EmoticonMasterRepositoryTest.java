@@ -149,4 +149,18 @@ class EmoticonMasterRepositoryTest {
         assertThat(query).isNotNull();
         assertThat(query.value()).contains("ORDER BY created_at ASC");
     }
+
+    @Test
+    @DisplayName("latest tag search declares explicit count query")
+    void findByTag_declaresCountQuery() throws NoSuchMethodException {
+        var method = EmoticonMasterRepository.class.getMethod("findByTag", String.class, Pageable.class);
+
+        Query query = method.getAnnotation(Query.class);
+
+        assertThat(query).isNotNull();
+        assertThat(query.value()).contains(":tag = ANY(tags)");
+        assertThat(query.countQuery())
+                .contains("SELECT COUNT(*) FROM emoticon_masters")
+                .contains(":tag = ANY(tags)");
+    }
 }

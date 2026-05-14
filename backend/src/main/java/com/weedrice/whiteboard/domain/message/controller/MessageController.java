@@ -27,8 +27,7 @@ public class MessageController {
                         @Valid @RequestBody MessageCreateRequest request,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 return ApiResponse.success(messageService
-                                .sendMessage(userDetails.getUserId(), request.getReceiverId(), request.getContent())
-                                .getMessageId());
+                                .sendMessage(userDetails.getUserId(), request.getReceiverId(), request.getContent()));
         }
 
         @GetMapping("/received")

@@ -188,7 +188,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                                           AND a.isActive = true
                                 )
                           )
-                        ORDER BY c.createdAt DESC
+                        ORDER BY c.createdAt DESC, c.commentId DESC
                         """, countQuery = """
                         SELECT COUNT(DISTINCT c)
                         FROM Comment c

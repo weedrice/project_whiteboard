@@ -931,7 +931,9 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(user, "userId", 1L);
 
         Pageable requested = PageRequest.of(2, 250, Sort.by(Sort.Order.asc("likeCount")));
-        Pageable normalized = PageRequest.of(2, 100, Sort.by(Sort.Order.desc("createdAt")));
+        Pageable normalized = PageRequest.of(2, 100, Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("commentId")));
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(commentRepository.findVisibleMyComments(

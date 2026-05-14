@@ -32,7 +32,9 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class CommentQueryService {
     private static final int DEFAULT_MY_COMMENT_PAGE_SIZE = 20;
-    private static final Sort DEFAULT_MY_COMMENT_SORT = Sort.by(Sort.Order.desc("createdAt"));
+    private static final Sort DEFAULT_MY_COMMENT_SORT = Sort.by(
+            Sort.Order.desc("createdAt"),
+            Sort.Order.desc("commentId"));
 
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;

@@ -40,7 +40,9 @@ public interface EmoticonMasterRepository extends JpaRepository<EmoticonMaster, 
     Page<EmoticonMaster> findByCreatorId(@Param("creatorId") Long creatorId, Pageable pageable);
 
     // 태그로 검색 (PostgreSQL 배열 함수 사용)
-    @Query(value = "SELECT * FROM emoticon_masters WHERE is_active = 'Y' AND :tag = ANY(tags) ORDER BY created_at DESC", nativeQuery = true)
+    @Query(value = "SELECT * FROM emoticon_masters WHERE is_active = 'Y' AND :tag = ANY(tags) ORDER BY created_at DESC",
+            countQuery = "SELECT COUNT(*) FROM emoticon_masters WHERE is_active = 'Y' AND :tag = ANY(tags)",
+            nativeQuery = true)
     Page<EmoticonMaster> findByTag(@Param("tag") String tag, Pageable pageable);
 
     // 이름으로 검색

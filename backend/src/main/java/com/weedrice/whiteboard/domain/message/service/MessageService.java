@@ -44,7 +44,7 @@ public class MessageService {
     private final SanctionService sanctionService;
 
     @Transactional
-    public Message sendMessage(Long senderId, Long receiverId, String content) {
+    public Long sendMessage(Long senderId, Long receiverId, String content) {
         String sanitizedContent = InputSanitizer.stripHtml(content);
         if (sanitizedContent == null || sanitizedContent.isBlank()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
@@ -71,7 +71,7 @@ public class MessageService {
                 .receiver(receiver)
                 .content(sanitizedContent)
                 .build();
-        return messageRepository.save(message);
+        return messageRepository.save(message).getMessageId();
     }
 
     public MessageResponse getReceivedMessages(Long userId, Pageable pageable) {

@@ -3,7 +3,6 @@ package com.weedrice.whiteboard.domain.message.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.message.dto.MessageCreateRequest;
 import com.weedrice.whiteboard.domain.message.dto.MessageResponse;
-import com.weedrice.whiteboard.domain.message.entity.Message;
 import com.weedrice.whiteboard.domain.message.service.MessageService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -104,9 +103,7 @@ class MessageControllerTest {
         ReflectionTestUtils.setField(request, "receiverId", 2L);
         ReflectionTestUtils.setField(request, "content", "Test message");
 
-        Message message = Message.builder().build();
-        ReflectionTestUtils.setField(message, "messageId", 1L);
-        when(messageService.sendMessage(eq(1L), eq(2L), eq("Test message"))).thenReturn(message);
+        when(messageService.sendMessage(eq(1L), eq(2L), eq("Test message"))).thenReturn(1L);
 
         mockMvc.perform(post("/api/v1/messages")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -114,7 +111,8 @@ class MessageControllerTest {
                         .with(user(customUserDetails))
                         .with(csrf()))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").value(1));
     }
 
     @Test

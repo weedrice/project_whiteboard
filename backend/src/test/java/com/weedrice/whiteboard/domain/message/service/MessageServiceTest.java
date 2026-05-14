@@ -83,13 +83,20 @@ class MessageServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(sender));
         when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
         when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(false);
-        when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> {
+            Message savedMessage = invocation.getArgument(0);
+            ReflectionTestUtils.setField(savedMessage, "messageId", 1L);
+            return savedMessage;
+        });
 
-        Message result = messageService.sendMessage(1L, 2L, "Hello!");
+        Long result = messageService.sendMessage(1L, 2L, "Hello!");
 
-        assertThat(result.getContent()).isEqualTo("Hello!");
-        assertThat(result.getSender()).isEqualTo(sender);
-        assertThat(result.getReceiver()).isEqualTo(receiver);
+        assertThat(result).isEqualTo(1L);
+        ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
+        verify(messageRepository).save(messageCaptor.capture());
+        assertThat(messageCaptor.getValue().getContent()).isEqualTo("Hello!");
+        assertThat(messageCaptor.getValue().getSender()).isEqualTo(sender);
+        assertThat(messageCaptor.getValue().getReceiver()).isEqualTo(receiver);
         verify(sanctionService).validateNotBanned(sender);
         verify(sanctionService).validateNotMuted(sender);
         verify(userBlockService).isEitherDirectionBlocked(1L, 2L);
@@ -101,11 +108,18 @@ class MessageServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(sender));
         when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
         when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(false);
-        when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> {
+            Message savedMessage = invocation.getArgument(0);
+            ReflectionTestUtils.setField(savedMessage, "messageId", 1L);
+            return savedMessage;
+        });
 
-        Message result = messageService.sendMessage(1L, 2L, "<b>Hello</b><script>alert(1)</script>");
+        Long result = messageService.sendMessage(1L, 2L, "<b>Hello</b><script>alert(1)</script>");
 
-        assertThat(result.getContent()).isEqualTo("Helloalert(1)");
+        assertThat(result).isEqualTo(1L);
+        ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
+        verify(messageRepository).save(messageCaptor.capture());
+        assertThat(messageCaptor.getValue().getContent()).isEqualTo("Helloalert(1)");
     }
 
     @Test
@@ -140,12 +154,18 @@ class MessageServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(sender));
         when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
         when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(false);
-        when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> {
+            Message savedMessage = invocation.getArgument(0);
+            ReflectionTestUtils.setField(savedMessage, "messageId", 1L);
+            return savedMessage;
+        });
 
-        Message result = messageService.sendMessage(1L, 2L, content);
+        Long result = messageService.sendMessage(1L, 2L, content);
 
-        assertThat(result.getContent()).hasSize(MessageConstraints.MAX_CONTENT_LENGTH);
-        verify(messageRepository).save(any(Message.class));
+        assertThat(result).isEqualTo(1L);
+        ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
+        verify(messageRepository).save(messageCaptor.capture());
+        assertThat(messageCaptor.getValue().getContent()).hasSize(MessageConstraints.MAX_CONTENT_LENGTH);
     }
 
     @Test

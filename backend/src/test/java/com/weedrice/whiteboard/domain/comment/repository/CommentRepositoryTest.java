@@ -21,9 +21,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -564,6 +566,24 @@ class CommentRepositoryTest {
         assertThat(result.getContent())
                 .extracting(comment -> comment.getPost().getTitle())
                 .contains("Managed Private Post");
+    }
+
+    @Test
+    @DisplayName("내 댓글 목록은 생성일과 댓글 ID 역순으로 안정 정렬한다")
+    void findVisibleMyComments_declaresStableOrdering() throws NoSuchMethodException {
+        var method = CommentRepository.class.getMethod(
+                "findVisibleMyComments",
+                User.class,
+                boolean.class,
+                boolean.class,
+                Collection.class,
+                String.class,
+                org.springframework.data.domain.Pageable.class);
+
+        Query query = method.getAnnotation(Query.class);
+
+        assertThat(query).isNotNull();
+        assertThat(query.value()).contains("ORDER BY c.createdAt DESC, c.commentId DESC");
     }
 
     @Test
