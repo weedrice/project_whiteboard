@@ -14,10 +14,9 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentStatusResponse;
 import com.weedrice.whiteboard.domain.agent.service.AgentCommandService;
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
 import com.weedrice.whiteboard.domain.agent.service.AgentQueryService;
-import com.weedrice.whiteboard.domain.agent.service.AgentRequestContext;
+import com.weedrice.whiteboard.domain.agent.service.AgentRequestContextResolver;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
-import com.weedrice.whiteboard.global.common.util.ClientUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.AgentPrincipal;
@@ -44,6 +43,7 @@ public class AgentController {
     private final AgentLifecycleService agentLifecycleService;
     private final AgentQueryService agentQueryService;
     private final AgentCommandService agentCommandService;
+    private final AgentRequestContextResolver agentRequestContextResolver;
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
@@ -103,7 +103,8 @@ public class AgentController {
             @Valid @RequestBody AgentPostCreateRequest request,
             HttpServletRequest httpServletRequest) {
         return ApiResponse.success(
-                agentCommandService.createPost(resolveAgentId(agentPrincipal), request, toRequestContext(httpServletRequest)));
+                agentCommandService.createPost(resolveAgentId(agentPrincipal), request,
+                        agentRequestContextResolver.resolve(httpServletRequest)));
     }
 
     @PostMapping("/posts/{postId}/comments")
@@ -115,7 +116,7 @@ public class AgentController {
             HttpServletRequest httpServletRequest) {
         return ApiResponse.success(
                 agentCommandService.createComment(resolveAgentId(agentPrincipal), postId, request,
-                        toRequestContext(httpServletRequest)));
+                        agentRequestContextResolver.resolve(httpServletRequest)));
     }
 
     @PostMapping("/comments/{commentId}/replies")
@@ -127,7 +128,7 @@ public class AgentController {
             HttpServletRequest httpServletRequest) {
         return ApiResponse.success(
                 agentCommandService.createReply(resolveAgentId(agentPrincipal), commentId, request,
-                        toRequestContext(httpServletRequest)));
+                        agentRequestContextResolver.resolve(httpServletRequest)));
     }
 
     @PostMapping("/posts/{postId}/like")
@@ -137,7 +138,8 @@ public class AgentController {
             @PathVariable Long postId,
             HttpServletRequest httpServletRequest) {
         return ApiResponse.success(
-                agentCommandService.likePost(resolveAgentId(agentPrincipal), postId, toRequestContext(httpServletRequest)));
+                agentCommandService.likePost(resolveAgentId(agentPrincipal), postId,
+                        agentRequestContextResolver.resolve(httpServletRequest)));
     }
 
     private Long resolveAgentId(AgentPrincipal agentPrincipal) {
@@ -147,10 +149,4 @@ public class AgentController {
         return agentPrincipal.getAgentId();
     }
 
-    private AgentRequestContext toRequestContext(HttpServletRequest request) {
-        if (request == null) {
-            return AgentRequestContext.empty();
-        }
-        return new AgentRequestContext(ClientUtils.getIp(request), request.getRequestURI());
-    }
 }

@@ -3,6 +3,8 @@ package com.weedrice.whiteboard.domain.user.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.agent.dto.AgentResponse;
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
+import com.weedrice.whiteboard.domain.agent.service.AgentRequestContext;
+import com.weedrice.whiteboard.domain.agent.service.AgentRequestContextResolver;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.post.service.PostService;
@@ -90,6 +92,9 @@ class UserControllerWebMvcTest {
     private AgentLifecycleService agentLifecycleService;
 
     @MockitoBean
+    private AgentRequestContextResolver agentRequestContextResolver;
+
+    @MockitoBean
     private org.springframework.context.MessageSource messageSource;
 
     @MockitoBean
@@ -124,6 +129,7 @@ class UserControllerWebMvcTest {
         when(refererCheckInterceptor.preHandle(any(), any(), any())).thenReturn(true);
         when(rateLimitInterceptor.preHandle(any(), any(), any())).thenReturn(true);
         when(messageSource.getMessage(anyString(), any(), any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(agentRequestContextResolver.resolve(any())).thenReturn(AgentRequestContext.empty());
 
         doAnswer(invocation -> {
             HttpServletRequest request = invocation.getArgument(0);

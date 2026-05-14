@@ -4,6 +4,8 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentClaimRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentResponse;
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
+import com.weedrice.whiteboard.domain.agent.service.AgentRequestContext;
+import com.weedrice.whiteboard.domain.agent.service.AgentRequestContextResolver;
 import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
 import com.weedrice.whiteboard.domain.board.dto.SubscriptionBoardResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
@@ -52,6 +54,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.same;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -80,6 +83,9 @@ class UserControllerTest {
 
         @Mock
         private AgentLifecycleService agentLifecycleService;
+
+        @Mock
+        private AgentRequestContextResolver agentRequestContextResolver;
 
         @Mock
         private org.springframework.context.MessageSource messageSource;
@@ -441,8 +447,11 @@ class UserControllerTest {
                                         .createdAt(LocalDateTime.now())
                                         .claimedAt(LocalDateTime.now())
                                         .build();
+                        AgentRequestContext context = AgentRequestContext.empty();
 
-                        given(agentLifecycleService.claim(eq(1L), any(AgentClaimRequest.class), any()))
+                        given(agentRequestContextResolver.resolve(nullable(jakarta.servlet.http.HttpServletRequest.class)))
+                                        .willReturn(context);
+                        given(agentLifecycleService.claim(eq(1L), any(AgentClaimRequest.class), same(context)))
                                         .willReturn(agentResponse);
 
                         ApiResponse<AgentResponse> response = userController.claimAgent(request, customUserDetails, null);
@@ -450,7 +459,7 @@ class UserControllerTest {
                         assertThat(response.isSuccess()).isTrue();
                         assertThat(response.getData().getAgentId()).isEqualTo(10L);
                         assertThat(response.getData().getStatus()).isEqualTo("ACTIVE");
-                        verify(agentLifecycleService).claim(eq(1L), any(AgentClaimRequest.class), any());
+                        verify(agentLifecycleService).claim(eq(1L), any(AgentClaimRequest.class), same(context));
                 }
 
                 @Test
@@ -491,8 +500,11 @@ class UserControllerTest {
                                         .status("SUSPENDED")
                                         .createdAt(LocalDateTime.now())
                                         .build();
+                        AgentRequestContext context = AgentRequestContext.empty();
 
-                        given(agentLifecycleService.suspendMyAgent(eq(1L), eq(10L), any()))
+                        given(agentRequestContextResolver.resolve(nullable(jakarta.servlet.http.HttpServletRequest.class)))
+                                        .willReturn(context);
+                        given(agentLifecycleService.suspendMyAgent(eq(1L), eq(10L), same(context)))
                                         .willReturn(agentResponse);
 
                         ApiResponse<AgentResponse> response = userController.suspendMyAgent(10L, customUserDetails, null);
@@ -511,27 +523,34 @@ class UserControllerTest {
                                         .status("ACTIVE")
                                         .createdAt(LocalDateTime.now())
                                         .build();
+                        AgentRequestContext context = AgentRequestContext.empty();
 
-                        given(agentLifecycleService.activateMyAgent(eq(1L), eq(10L), any()))
+                        given(agentRequestContextResolver.resolve(nullable(jakarta.servlet.http.HttpServletRequest.class)))
+                                        .willReturn(context);
+                        given(agentLifecycleService.activateMyAgent(eq(1L), eq(10L), same(context)))
                                         .willReturn(agentResponse);
 
                         ApiResponse<AgentResponse> response = userController.activateMyAgent(10L, customUserDetails, null);
 
                         assertThat(response.isSuccess()).isTrue();
                         assertThat(response.getData().getStatus()).isEqualTo("ACTIVE");
-                        verify(agentLifecycleService).activateMyAgent(eq(1L), eq(10L), any());
+                        verify(agentLifecycleService).activateMyAgent(eq(1L), eq(10L), same(context));
                 }
 
                 @Test
                 @DisplayName("??Agent ??젣 API ?깃났")
                 void deleteMyAgent_success() {
-                        doNothing().when(agentLifecycleService).deleteMyAgent(eq(1L), eq(10L), any());
+                        AgentRequestContext context = AgentRequestContext.empty();
+
+                        given(agentRequestContextResolver.resolve(nullable(jakarta.servlet.http.HttpServletRequest.class)))
+                                        .willReturn(context);
+                        doNothing().when(agentLifecycleService).deleteMyAgent(eq(1L), eq(10L), same(context));
 
                         ApiResponse<Void> response = userController.deleteMyAgent(10L, customUserDetails, null);
 
                         assertThat(response.isSuccess()).isTrue();
                         assertThat(response.getData()).isNull();
-                        verify(agentLifecycleService).deleteMyAgent(eq(1L), eq(10L), any());
+                        verify(agentLifecycleService).deleteMyAgent(eq(1L), eq(10L), same(context));
                 }
         }
 }
