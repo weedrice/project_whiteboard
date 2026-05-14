@@ -72,6 +72,18 @@ public interface VerificationCodeRepository extends JpaRepository<VerificationCo
             VerificationPurpose purpose,
             String verificationTicket);
 
+    @Query("""
+            SELECT vc
+            FROM VerificationCode vc
+            WHERE vc.email = :email
+              AND vc.purpose = :purpose
+              AND vc.verificationTicket = :verificationTicket
+            """)
+    Optional<VerificationCode> findByEmailAndPurposeAndVerificationTicketWithoutLock(
+            @Param("email") String email,
+            @Param("purpose") VerificationPurpose purpose,
+            @Param("verificationTicket") String verificationTicket);
+
     @Modifying(flushAutomatically = true)
     @Query("""
             UPDATE VerificationCode vc

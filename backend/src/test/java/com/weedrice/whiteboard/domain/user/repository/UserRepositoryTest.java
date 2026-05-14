@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.domain.user.dto.UserAdminSearchCondition;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.config.QuerydslConfig;
+import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,8 +23,10 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.lang.reflect.Method;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -589,6 +592,26 @@ class UserRepositoryTest {
         List<User> result = userRepository.findUsableSuperAdminsForUpdate();
 
         assertThat(result).extracting(User::getLoginId).containsExactly("usable-super-lock");
+    }
+
+    @Test
+    void findByIdForUpdate_declaresWriteLock() throws NoSuchMethodException {
+        Method method = UserRepository.class.getMethod("findByIdForUpdate", Long.class);
+
+        Lock lock = method.getAnnotation(Lock.class);
+
+        assertThat(lock).isNotNull();
+        assertThat(lock.value()).isEqualTo(LockModeType.PESSIMISTIC_WRITE);
+    }
+
+    @Test
+    void findByEmailForUpdate_declaresWriteLock() throws NoSuchMethodException {
+        Method method = UserRepository.class.getMethod("findByEmailForUpdate", String.class);
+
+        Lock lock = method.getAnnotation(Lock.class);
+
+        assertThat(lock).isNotNull();
+        assertThat(lock.value()).isEqualTo(LockModeType.PESSIMISTIC_WRITE);
     }
 
     private void assertSameOrderedUsers(Page<User> actual, Page<User> expected) {

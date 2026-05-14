@@ -40,6 +40,9 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
     boolean existsByEmail(String email);
     boolean existsByEmailAndIsEmailVerifiedTrue(String email);
     Optional<User> findByEmail(String email);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM User u WHERE u.email = :email")
+    Optional<User> findByEmailForUpdate(@Param("email") String email);
     long countByLastLoginAtAfter(LocalDateTime lastLoginAt);
     long countByStatusAndDeletedAtIsNullAndCreatedAtAfter(String status, LocalDateTime createdAt);
     Page<User> findByDisplayNameContainingIgnoreCaseAndStatus(String displayName, String status, Pageable pageable);

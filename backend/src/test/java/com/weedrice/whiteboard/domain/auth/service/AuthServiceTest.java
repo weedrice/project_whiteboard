@@ -176,6 +176,7 @@ class AuthServiceTest {
         when(passwordResetTokenRepository.findByIdForUpdate(any())).thenAnswer(invocation ->
                 Optional.ofNullable(passwordResetTokens.get(invocation.getArgument(0))));
         when(userRepository.findByIdForUpdate(user.getUserId())).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailForUpdate(user.getEmail())).thenReturn(Optional.of(user));
         when(passwordResetTokenRepository.findLatestSentByUser(any(User.class))).thenAnswer(invocation ->
                 passwordResetTokens.values().stream()
                         .filter(passwordResetToken -> passwordResetToken.getUser().equals(invocation.getArgument(0)))
@@ -839,19 +840,26 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("resetPasswordByCode는 verificationTicket을 먼저 소비한다")
+    @DisplayName("resetPasswordByCode는 티켓 검증 후 사용자를 잠그고 비밀번호를 변경한다")
     void resetPasswordByCode_success() {
         String email = "test@example.com";
         String verificationTicket = "ticket-1";
         String newPassword = "newPassword123!";
 
-        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailForUpdate(email)).thenReturn(Optional.of(user));
         when(passwordHistoryRepository.findTop4ByUserOrderByCreatedAtDescHistoryIdDesc(user)).thenReturn(Collections.emptyList());
         when(passwordEncoder.matches(newPassword, "encodedPassword")).thenReturn(false);
         when(passwordEncoder.encode(newPassword)).thenReturn("encodedNewPassword");
 
         authService.resetPasswordByCode(email, verificationTicket, newPassword);
 
+        var inOrder = inOrder(verificationCodeService, userRepository, passwordHistoryRepository);
+        inOrder.verify(verificationCodeService).validateVerificationTicket(
+                email,
+                VerificationPurpose.PASSWORD_RESET,
+                verificationTicket);
+        inOrder.verify(userRepository).findByEmailForUpdate(email);
+        inOrder.verify(passwordHistoryRepository).findTop4ByUserOrderByCreatedAtDescHistoryIdDesc(user);
         verify(verificationCodeService).validateVerificationTicket(
                 email,
                 VerificationPurpose.PASSWORD_RESET,
@@ -871,7 +879,7 @@ class AuthServiceTest {
         String verificationTicket = "ticket-1";
         String newPassword = "newPassword123!";
 
-        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailForUpdate(email)).thenReturn(Optional.of(user));
         when(passwordHistoryRepository.findTop4ByUserOrderByCreatedAtDescHistoryIdDesc(user))
                 .thenReturn(Collections.emptyList());
         when(passwordEncoder.matches(newPassword, "encodedPassword")).thenReturn(false);
@@ -921,7 +929,7 @@ class AuthServiceTest {
                 .passwordHash("recentHash")
                 .build();
 
-        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailForUpdate(email)).thenReturn(Optional.of(user));
         when(passwordHistoryRepository.findTop4ByUserOrderByCreatedAtDescHistoryIdDesc(user)).thenReturn(List.of(recentHistory));
         when(passwordEncoder.matches(newPassword, "encodedPassword")).thenReturn(false);
         when(passwordEncoder.matches(newPassword, "recentHash")).thenReturn(true);
@@ -931,6 +939,7 @@ class AuthServiceTest {
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PASSWORD_RECENTLY_USED);
         verify(userRepository, never()).save(any());
+        verify(userRepository).findByEmailForUpdate(email);
         verify(verificationCodeService).validateVerificationTicket(
                 email,
                 VerificationPurpose.PASSWORD_RESET,
@@ -944,7 +953,7 @@ class AuthServiceTest {
         String verificationTicket = "ticket-1";
         String newPassword = "newPassword123!";
 
-        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailForUpdate("test@example.com")).thenReturn(Optional.of(user));
         when(passwordHistoryRepository.findTop4ByUserOrderByCreatedAtDescHistoryIdDesc(user)).thenReturn(Collections.emptyList());
         when(passwordEncoder.matches(newPassword, "encodedPassword")).thenReturn(false);
         when(passwordEncoder.encode(newPassword)).thenReturn("encodedNewPassword");
@@ -955,12 +964,29 @@ class AuthServiceTest {
                 "test@example.com",
                 VerificationPurpose.PASSWORD_RESET,
                 verificationTicket);
-        verify(userRepository).findByEmail("test@example.com");
+        verify(userRepository).findByEmailForUpdate("test@example.com");
         verify(verificationCodeService).consumeValidatedVerificationTicket(
                 "test@example.com",
                 VerificationPurpose.PASSWORD_RESET,
                 verificationTicket);
         verify(userRepository).save(user);
+    }
+
+    @Test
+    @DisplayName("resetPasswordByCode rejects when email is not found by locked lookup")
+    void resetPasswordByCode_emailNotFoundForUpdate() {
+        String email = "test@example.com";
+        String verificationTicket = "ticket-1";
+
+        when(userRepository.findByEmailForUpdate(email)).thenReturn(Optional.empty());
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> authService.resetPasswordByCode(email, verificationTicket, "newPassword123!"));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND);
+        verify(passwordHistoryRepository, never()).findTop4ByUserOrderByCreatedAtDescHistoryIdDesc(any(User.class));
+        verify(verificationCodeService, never()).consumeValidatedVerificationTicket(anyString(), any(), anyString());
+        verify(userRepository, never()).save(any());
     }
 
     @Test

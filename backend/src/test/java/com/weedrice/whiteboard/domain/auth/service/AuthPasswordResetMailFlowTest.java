@@ -119,6 +119,7 @@ class AuthPasswordResetMailFlowTest {
         when(passwordResetTokenRepository.findByIdForUpdate(any())).thenAnswer(invocation ->
                 Optional.ofNullable(passwordResetTokens.get(invocation.getArgument(0))));
         when(userRepository.findByIdForUpdate(user.getUserId())).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailForUpdate(user.getEmail())).thenReturn(Optional.of(user));
         when(passwordResetTokenRepository.findLatestSentByUser(user)).thenAnswer(invocation ->
                 passwordResetTokens.values().stream()
                         .filter(passwordResetToken -> passwordResetToken.getUser().equals(user))
@@ -266,7 +267,7 @@ class AuthPasswordResetMailFlowTest {
     @DisplayName("resetPasswordByCode rejects suspended users before consuming ticket")
     void resetPasswordByCode_suspendedUser_rejectsBeforeTicketConsumption() {
         ReflectionTestUtils.setField(user, "status", User.STATUS_SUSPENDED);
-        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailForUpdate("test@example.com")).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> passwordResetService.resetPasswordByCode(
                 "test@example.com",
@@ -280,6 +281,7 @@ class AuthPasswordResetMailFlowTest {
                 "test@example.com",
                 VerificationPurpose.PASSWORD_RESET,
                 "ticket-suspended");
+        verify(userRepository).findByEmailForUpdate("test@example.com");
         verify(passwordHistoryRepository, never()).save(any());
         verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(user);
     }

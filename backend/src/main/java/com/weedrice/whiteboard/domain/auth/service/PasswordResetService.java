@@ -153,7 +153,7 @@ public class PasswordResetService {
                 VerificationPurpose.PASSWORD_RESET,
                 verificationTicket);
 
-        User user = getUsablePasswordResetUser(normalizedEmail, ErrorCode.USER_NOT_FOUND);
+        User user = getUsablePasswordResetUserForUpdate(normalizedEmail, ErrorCode.USER_NOT_FOUND);
 
         passwordHistoryPolicy.validateNotRecentlyUsed(user, newPassword);
         verificationCodeService.consumeValidatedVerificationTicket(
@@ -183,6 +183,13 @@ public class PasswordResetService {
                 .orElseThrow(() -> new BusinessException(notFoundErrorCode));
         validateUsablePasswordResetUser(user);
         return user;
+    }
+
+    private User getUsablePasswordResetUserForUpdate(String email, ErrorCode notFoundErrorCode) {
+        User lockedUser = userRepository.findByEmailForUpdate(email)
+                .orElseThrow(() -> new BusinessException(notFoundErrorCode));
+        validateUsablePasswordResetUser(lockedUser);
+        return lockedUser;
     }
 
     private void validateUsablePasswordResetUser(User user) {

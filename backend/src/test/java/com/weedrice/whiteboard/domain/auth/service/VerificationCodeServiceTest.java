@@ -108,6 +108,13 @@ class VerificationCodeServiceTest {
                         .filter(code -> invocation.getArgument(1) == code.getPurpose())
                         .filter(code -> invocation.getArgument(2).equals(code.getVerificationTicket()))
                         .findFirst());
+        when(verificationCodeRepository.findByEmailAndPurposeAndVerificationTicketWithoutLock(
+                anyString(), any(), anyString()))
+                .thenAnswer(invocation -> verificationCodes.values().stream()
+                        .filter(code -> invocation.getArgument(0).equals(code.getEmail()))
+                        .filter(code -> invocation.getArgument(1) == code.getPurpose())
+                        .filter(code -> invocation.getArgument(2).equals(code.getVerificationTicket()))
+                        .findFirst());
         when(verificationCodeRepository.invalidateActiveTickets(anyString(), any(), any(), any()))
                 .thenAnswer(invocation -> {
                     String email = invocation.getArgument(0);
@@ -636,6 +643,14 @@ class VerificationCodeServiceTest {
 
         assertThat(sentCode.getIsTicketConsumed()).isFalse();
         assertThat(sentCode.getVerificationTicket()).isEqualTo("ticket-1");
+        verify(verificationCodeRepository).findByEmailAndPurposeAndVerificationTicketWithoutLock(
+                "test@example.com",
+                VerificationPurpose.PASSWORD_RESET,
+                "ticket-1");
+        verify(verificationCodeRepository, never()).findByEmailAndPurposeAndVerificationTicket(
+                "test@example.com",
+                VerificationPurpose.PASSWORD_RESET,
+                "ticket-1");
     }
 
     @Test

@@ -122,7 +122,7 @@ public class VerificationCodeService {
     @Transactional(propagation = Propagation.MANDATORY)
     public void validateVerificationTicket(String email, VerificationPurpose purpose, String verificationTicket) {
         String normalizedEmail = AuthEmailNormalizer.normalize(email);
-        getValidVerificationTicket(normalizedEmail, purpose, verificationTicket);
+        getValidVerificationTicketWithoutLock(normalizedEmail, purpose, verificationTicket);
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -145,12 +145,41 @@ public class VerificationCodeService {
         return verificationCode;
     }
 
+    private VerificationCode getValidVerificationTicketWithoutLock(
+            String email,
+            VerificationPurpose purpose,
+            String verificationTicket) {
+        VerificationCode verificationCode = getConsumableVerificationTicketWithoutLock(email, purpose, verificationTicket);
+
+        if (verificationCode.isVerificationTicketExpired()) {
+            throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
+        }
+
+        return verificationCode;
+    }
+
     private VerificationCode getConsumableVerificationTicket(
             String email,
             VerificationPurpose purpose,
             String verificationTicket) {
         VerificationCode verificationCode = verificationCodeRepository
                 .findByEmailAndPurposeAndVerificationTicket(email, purpose, verificationTicket)
+                .orElseThrow(() -> new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED));
+
+        if (!Boolean.TRUE.equals(verificationCode.getIsVerified())
+                || Boolean.TRUE.equals(verificationCode.getIsTicketConsumed())) {
+            throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
+        }
+
+        return verificationCode;
+    }
+
+    private VerificationCode getConsumableVerificationTicketWithoutLock(
+            String email,
+            VerificationPurpose purpose,
+            String verificationTicket) {
+        VerificationCode verificationCode = verificationCodeRepository
+                .findByEmailAndPurposeAndVerificationTicketWithoutLock(email, purpose, verificationTicket)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED));
 
         if (!Boolean.TRUE.equals(verificationCode.getIsVerified())

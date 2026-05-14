@@ -3,12 +3,15 @@ package com.weedrice.whiteboard.domain.auth.repository;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationCode;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
 import com.weedrice.whiteboard.global.config.QuerydslConfig;
+import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.jpa.repository.Lock;
 
+import java.lang.reflect.Method;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -179,6 +182,31 @@ class VerificationCodeRepositoryTest {
                 baseTime.minusHours(1));
 
         assertThat(attemptCount).isEqualTo(4);
+    }
+
+    @Test
+    void findByEmailAndPurposeAndVerificationTicket_declaresWriteLock() throws NoSuchMethodException {
+        Method method = VerificationCodeRepository.class.getMethod(
+                "findByEmailAndPurposeAndVerificationTicket",
+                String.class,
+                VerificationPurpose.class,
+                String.class);
+
+        Lock lock = method.getAnnotation(Lock.class);
+
+        assertThat(lock).isNotNull();
+        assertThat(lock.value()).isEqualTo(LockModeType.PESSIMISTIC_WRITE);
+    }
+
+    @Test
+    void findByEmailAndPurposeAndVerificationTicketWithoutLock_declaresNoLock() throws NoSuchMethodException {
+        Method method = VerificationCodeRepository.class.getMethod(
+                "findByEmailAndPurposeAndVerificationTicketWithoutLock",
+                String.class,
+                VerificationPurpose.class,
+                String.class);
+
+        assertThat(method.getAnnotation(Lock.class)).isNull();
     }
 
     private VerificationCode persistCode(String email, VerificationPurpose purpose, String code) {
