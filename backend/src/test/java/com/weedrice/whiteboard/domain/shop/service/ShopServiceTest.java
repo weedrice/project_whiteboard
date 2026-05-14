@@ -17,6 +17,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.InOrder;
 import org.mockito.Mock;
@@ -218,6 +219,74 @@ class ShopServiceTest {
                     eq("SHOP_ITEM"));
             inOrder.verify(shopEntitlementCapabilityRegistry).grant(preparedPurchase);
             inOrder.verify(purchaseHistoryRepository).save(any(PurchaseHistory.class));
+        }
+
+        @Test
+        @DisplayName("Free items grant entitlement and save purchase history without spending points")
+        void purchaseItem_freeItem_skipsPointSpending() {
+            ShopItem freeEmoticonItem = ShopItem.builder()
+                    .itemName("Free emoticon")
+                    .description("Free shop item")
+                    .price(0)
+                    .itemType("EMOTICON")
+                    .targetId(11L)
+                    .imageUrl("https://example.com/free-emoticon.png")
+                    .build();
+            ReflectionTestUtils.setField(freeEmoticonItem, "itemId", 4L);
+            ReflectionTestUtils.setField(freeEmoticonItem, "isActive", true);
+            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(shopItemRepository.findById(4L)).thenReturn(Optional.of(freeEmoticonItem));
+            when(shopEntitlementCapabilityRegistry.supports(freeEmoticonItem)).thenReturn(true);
+            when(shopEntitlementCapabilityRegistry.preparePurchase(1L, freeEmoticonItem)).thenReturn(preparedPurchase);
+
+            PurchaseHistory savedPurchaseHistory = PurchaseHistory.builder()
+                    .user(user)
+                    .item(freeEmoticonItem)
+                    .purchasedPrice(0)
+                    .build();
+            ReflectionTestUtils.setField(savedPurchaseHistory, "purchaseId", 4L);
+            when(purchaseHistoryRepository.save(any(PurchaseHistory.class))).thenReturn(savedPurchaseHistory);
+
+            Long purchaseId = shopService.purchaseItem(1L, 4L);
+
+            assertThat(purchaseId).isEqualTo(4L);
+            verify(pointService, never()).spendPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+            InOrder inOrder = inOrder(sanctionService, shopEntitlementCapabilityRegistry, purchaseHistoryRepository);
+            inOrder.verify(sanctionService).validateNotBanned(user);
+            inOrder.verify(shopEntitlementCapabilityRegistry).validateConfiguration(freeEmoticonItem);
+            inOrder.verify(shopEntitlementCapabilityRegistry).preparePurchase(1L, freeEmoticonItem);
+            inOrder.verify(shopEntitlementCapabilityRegistry).grant(preparedPurchase);
+            ArgumentCaptor<PurchaseHistory> historyCaptor = ArgumentCaptor.forClass(PurchaseHistory.class);
+            inOrder.verify(purchaseHistoryRepository).save(historyCaptor.capture());
+            assertThat(historyCaptor.getValue().getPurchasedPrice()).isZero();
+            assertThat(historyCaptor.getValue().getItem()).isSameAs(freeEmoticonItem);
+        }
+
+        @Test
+        @DisplayName("Rejects negative price items before preparing entitlement")
+        void purchaseItem_negativePrice_throwsInvalidInput() {
+            ShopItem negativePriceItem = ShopItem.builder()
+                    .itemName("Invalid item")
+                    .description("Invalid shop item")
+                    .price(-1)
+                    .itemType("EMOTICON")
+                    .targetId(12L)
+                    .build();
+            ReflectionTestUtils.setField(negativePriceItem, "itemId", 5L);
+            ReflectionTestUtils.setField(negativePriceItem, "isActive", true);
+            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(shopItemRepository.findById(5L)).thenReturn(Optional.of(negativePriceItem));
+            when(shopEntitlementCapabilityRegistry.supports(negativePriceItem)).thenReturn(true);
+
+            assertThatThrownBy(() -> shopService.purchaseItem(1L, 5L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+            verify(shopEntitlementCapabilityRegistry, never()).preparePurchase(anyLong(), any());
+            verify(pointService, never()).spendPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+            verify(shopEntitlementCapabilityRegistry, never()).grant(any());
+            verify(purchaseHistoryRepository, never()).save(any());
         }
 
         @Test

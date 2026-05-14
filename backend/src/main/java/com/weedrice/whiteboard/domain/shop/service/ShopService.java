@@ -87,9 +87,20 @@ public class ShopService {
             throw new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE);
         }
 
+        if (item.getPrice() < 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
         ShopEntitlementCapabilityRegistry.PreparedPurchase preparedPurchase =
                 shopEntitlementCapabilityRegistry.preparePurchase(userId, item);
-        pointService.spendPoint(userId, item.getPrice(), "Shop item purchase: " + item.getItemName(), item.getItemId(), "SHOP_ITEM");
+        if (item.getPrice() > 0) {
+            pointService.spendPoint(
+                    userId,
+                    item.getPrice(),
+                    "Shop item purchase: " + item.getItemName(),
+                    item.getItemId(),
+                    "SHOP_ITEM");
+        }
         shopEntitlementCapabilityRegistry.grant(preparedPurchase);
 
         PurchaseHistory purchaseHistory = PurchaseHistory.builder()
