@@ -107,9 +107,9 @@ public class FeedGenerationJobService {
             Board board = boardRepository.findById(job.getBoardId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
             feedGenerationService.generatePostFeeds(board, job.getPostId());
-            int completed = feedGenerationJobRepository.markCompleted(job.getJobId(), now());
+            int completed = feedGenerationJobRepository.markCompleted(job.getJobId(), claimedAt, now());
             if (completed != 1) {
-                log.warn("Skipped completing feed generation job because it was already completed: jobId={}",
+                log.warn("Skipped completing feed generation job because processing lease changed: jobId={}",
                         job.getJobId());
             }
         } catch (Exception ex) {

@@ -73,6 +73,7 @@ class FeedGenerationJobRepositoryTest {
 
         int updated = feedGenerationJobRepository.markCompleted(
                 job.getJobId(),
+                claimedAt,
                 completedAt);
 
         entityManager.flush();
@@ -86,7 +87,29 @@ class FeedGenerationJobRepositoryTest {
     }
 
     @Test
-    void markCompleted_completesRequeuedJobAfterExpiredLeaseSuccess() {
+    void markCompleted_skipsProcessingJobWithDifferentLease() {
+        LocalDateTime claimedAt = LocalDateTime.of(2026, 5, 11, 16, 30);
+        FeedGenerationJob job = persistProcessingJob(100L, 10L, claimedAt, 0);
+        LocalDateTime staleClaimedAt = LocalDateTime.of(2026, 5, 11, 16, 20);
+        LocalDateTime completedAt = LocalDateTime.of(2026, 5, 11, 16, 31);
+
+        int updated = feedGenerationJobRepository.markCompleted(
+                job.getJobId(),
+                staleClaimedAt,
+                completedAt);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        FeedGenerationJob processing = entityManager.find(FeedGenerationJob.class, job.getJobId());
+        assertThat(updated).isZero();
+        assertThat(processing.getStatus()).isEqualTo(FeedGenerationJob.STATUS_PROCESSING);
+        assertThat(processing.getProcessingStartedAt()).isEqualTo(claimedAt);
+        assertThat(processing.getCompletedAt()).isNull();
+    }
+
+    @Test
+    void markCompleted_skipsRequeuedJobAfterExpiredLease() {
         LocalDateTime claimedAt = LocalDateTime.of(2026, 5, 11, 16, 30);
         FeedGenerationJob job = persistProcessingJob(100L, 10L, claimedAt, 1);
         int recovered = feedGenerationJobRepository.recoverStaleProcessingJobs(
@@ -97,18 +120,18 @@ class FeedGenerationJobRepositoryTest {
         entityManager.clear();
 
         LocalDateTime completedAt = LocalDateTime.of(2026, 5, 11, 16, 36);
-        int completedCount = feedGenerationJobRepository.markCompleted(job.getJobId(), completedAt);
+        int completedCount = feedGenerationJobRepository.markCompleted(job.getJobId(), claimedAt, completedAt);
 
         entityManager.flush();
         entityManager.clear();
 
-        FeedGenerationJob completed = entityManager.find(FeedGenerationJob.class, job.getJobId());
+        FeedGenerationJob recoveredJob = entityManager.find(FeedGenerationJob.class, job.getJobId());
         assertThat(recovered).isEqualTo(1);
-        assertThat(completedCount).isEqualTo(1);
-        assertThat(completed.getStatus()).isEqualTo(FeedGenerationJob.STATUS_COMPLETED);
-        assertThat(completed.getProcessingStartedAt()).isNull();
-        assertThat(completed.getCompletedAt()).isEqualTo(completedAt);
-        assertThat(completed.getRetryCount()).isEqualTo(2);
+        assertThat(completedCount).isZero();
+        assertThat(recoveredJob.getStatus()).isEqualTo(FeedGenerationJob.STATUS_PENDING);
+        assertThat(recoveredJob.getProcessingStartedAt()).isNull();
+        assertThat(recoveredJob.getCompletedAt()).isNull();
+        assertThat(recoveredJob.getRetryCount()).isEqualTo(2);
     }
 
     @Test

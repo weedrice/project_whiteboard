@@ -67,10 +67,12 @@ public interface FeedGenerationJobRepository extends JpaRepository<FeedGeneratio
                 j.completedAt = :completedAt,
                 j.lastErrorMessage = null
             where j.jobId = :jobId
-              and j.status <> 'COMPLETED'
+              and j.status = 'PROCESSING'
+              and j.processingStartedAt = :expectedProcessingStartedAt
             """)
     int markCompleted(
             @Param("jobId") Long jobId,
+            @Param("expectedProcessingStartedAt") LocalDateTime expectedProcessingStartedAt,
             @Param("completedAt") LocalDateTime completedAt);
 
     @Modifying
