@@ -597,12 +597,27 @@ class EmoticonServiceTest {
                 ReflectionTestUtils.setField(m, "emoticonId", 10L);
                 return m;
             });
+            when(fileService.associateFilesWithEntity(
+                    eq(List.of(11L, 12L)),
+                    eq(1L),
+                    eq(10L),
+                    eq("EMOTICON_IMAGE")))
+                    .thenReturn(List.of("/api/v1/files/11", "/api/v1/files/12"));
 
             EmoticonMasterDto result = emoticonService.createEmoticon(1L, request);
 
             assertThat(result).isNotNull();
             assertThat(result.getName()).isEqualTo("새 이모티콘");
+            assertThat(result.getImages()).extracting("imageUrl")
+                    .containsExactly("/api/v1/files/11", "/api/v1/files/12");
+            assertThat(result.getImages()).extracting("sortOrder")
+                    .containsExactly(0, 1);
             verify(emoticonMasterRepository).save(any(EmoticonMaster.class));
+            verify(fileService).associateFilesWithEntity(
+                    eq(List.of(11L, 12L)),
+                    eq(1L),
+                    eq(10L),
+                    eq("EMOTICON_IMAGE"));
         }
 
         @Test
@@ -647,6 +662,7 @@ class EmoticonServiceTest {
             verify(userWritableResolver, never()).resolve(anyLong());
             verify(emoticonMasterRepository, never()).save(any(EmoticonMaster.class));
             verify(fileService, never()).associateFileWithEntity(any(), any(), any(), any());
+            verify(fileService, never()).associateFilesWithEntity(any(), any(), any(), any());
         }
 
         @Test

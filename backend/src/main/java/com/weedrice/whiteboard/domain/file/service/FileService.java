@@ -217,6 +217,31 @@ public class FileService {
     }
 
     @Transactional
+    public List<String> associateFilesWithEntity(List<Long> fileIds, Long ownerUserId, Long relatedId,
+            String relatedType) {
+        if (fileIds != null && fileIds.stream().anyMatch(Objects::isNull)) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+        Set<Long> orderedFileIds = normalizeFileIds(fileIds);
+        if (orderedFileIds.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, File> filesById = loadActiveFilesById(orderedFileIds);
+        for (Long fileId : fileIds) {
+            File file = filesById.get(fileId);
+            if (file == null) {
+                throw new BusinessException(ErrorCode.NOT_FOUND);
+            }
+            validateAndAssociateLoadedFile(file, ownerUserId, relatedId, relatedType);
+        }
+
+        return orderedFileIds.stream()
+                .map(FileUrlResolver::resolve)
+                .toList();
+    }
+
+    @Transactional
     public void syncDraftFiles(List<Long> fileIds, Long ownerUserId, Long draftId) {
         Set<Long> requestedFileIds = normalizeFileIds(fileIds);
         List<File> existingDraftFiles = fileRepository.findByRelatedIdAndRelatedTypeAndStorageStatus(
@@ -366,6 +391,24 @@ public class FileService {
             return;
         }
         throw new BusinessException(ErrorCode.FILE_ALREADY_ASSOCIATED);
+    }
+
+    private void validateAndAssociateLoadedFile(File file, Long ownerUserId, Long relatedId, String relatedType) {
+        if (file.getUploader() == null || !ownerUserId.equals(file.getUploader().getUserId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+        if (file.isAssociatedWith(relatedId, relatedType)) {
+            return;
+        }
+        if (!file.isUnassociated()) {
+            throw new BusinessException(ErrorCode.FILE_ALREADY_ASSOCIATED);
+        }
+        int updated = fileRepository.associateIfUnassociated(file.getFileId(), ownerUserId, relatedId, relatedType);
+        if (updated == 1) {
+            file.updateRelatedInfo(relatedId, relatedType);
+            return;
+        }
+        handleFailedBatchAssociation(file, ownerUserId, relatedId, relatedType);
     }
 
     private Map<Long, File> loadActiveFilesById(Set<Long> fileIds) {
