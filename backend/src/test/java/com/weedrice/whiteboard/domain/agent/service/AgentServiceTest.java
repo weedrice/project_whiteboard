@@ -1211,7 +1211,7 @@ class AgentServiceTest {
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(postRepository.findByIdWithRelations(300L)).thenReturn(Optional.of(readableOnlyPost));
-        Pageable commentsPageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "createdAt"));
+        Pageable commentsPageable = agentCommentReadPageable(0, 10);
         when(commentRepository.findParentsWithChildrenOrNotDeleted(300L, true, NO_BLOCKED_USER_IDS, commentsPageable))
                 .thenReturn(Page.empty(commentsPageable));
 
@@ -1285,7 +1285,7 @@ class AgentServiceTest {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(writablePost));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
-        Pageable commentsPageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "createdAt"));
+        Pageable commentsPageable = agentCommentReadPageable(0, 10);
         when(commentRepository.findParentsWithChildrenOrNotDeleted(100L, false, List.of(2L), commentsPageable))
                 .thenReturn(new PageImpl<>(List.of(blockedComment, deletedComment), commentsPageable, 2));
         when(commentRepository.countVisibleRepliesByParentIds(List.of(301L, 302L), false, List.of(2L)))
@@ -1613,6 +1613,10 @@ class AgentServiceTest {
         AgentRegisterRequest request = new AgentRegisterRequest();
         ReflectionTestUtils.setField(request, "description", description);
         return request;
+    }
+
+    private Pageable agentCommentReadPageable(int page, int size) {
+        return PageRequest.of(page, size, Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("commentId")));
     }
 
     private Board readableOnlyAgentEnabledBoard(Long boardId) {

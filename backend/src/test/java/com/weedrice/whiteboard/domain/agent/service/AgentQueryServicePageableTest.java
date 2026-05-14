@@ -170,7 +170,7 @@ class AgentQueryServicePageableTest {
     }
 
     @Test
-    void getPostComments_limitsSizeAndForcesCreatedAtAsc() {
+    void getPostComments_limitsSizeAndForcesCreatedAtAscCommentIdAsc() {
         when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(agent);
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
@@ -191,7 +191,7 @@ class AgentQueryServicePageableTest {
         Pageable pageable = pageableCaptor.getValue();
         assertThat(pageable.getPageNumber()).isEqualTo(4);
         assertThat(pageable.getPageSize()).isEqualTo(20);
-        assertThat(pageable.getSort()).isEqualTo(Sort.by(Sort.Direction.ASC, "createdAt"));
+        assertThat(pageable.getSort()).isEqualTo(Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("commentId")));
         assertThat(response.getPageable()).isEqualTo(pageable);
     }
 }

@@ -1808,6 +1808,6 @@ class CommentServiceTest {
     }
 
     private Pageable commentReadPageable(int page, int size) {
-        return PageRequest.of(page, size, Sort.by(Sort.Order.asc("createdAt")));
+        return PageRequest.of(page, size, Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("commentId")));
     }
 }

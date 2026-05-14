@@ -113,6 +113,85 @@ class CommentRepositoryTest {
     }
 
     @Test
+    @DisplayName("부모 댓글 조회는 같은 생성 시각에서 commentId 오름차순으로 안정 정렬한다")
+    void findParentsWithChildrenOrNotDeleted_ordersSameCreatedAtByCommentIdAsc() {
+        Comment laterIdComment = Comment.builder()
+                .content("Later Id Comment")
+                .user(user)
+                .post(post)
+                .depth(0)
+                .build();
+        entityManager.persist(laterIdComment);
+        entityManager.persist(CommentClosure.builder()
+                .ancestor(laterIdComment)
+                .descendant(laterIdComment)
+                .depth(0)
+                .build());
+        entityManager.flush();
+
+        LocalDateTime sameCreatedAt = LocalDateTime.of(2026, 5, 14, 10, 0);
+        updateCreatedAt(comment, sameCreatedAt);
+        updateCreatedAt(laterIdComment, sameCreatedAt);
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Comment> comments = commentRepository.findParentsWithChildrenOrNotDeleted(
+                post.getPostId(),
+                true,
+                NO_BLOCKED_USER_IDS,
+                PageRequest.of(0, 10));
+
+        assertThat(comments.getContent())
+                .extracting(Comment::getCommentId)
+                .containsSubsequence(comment.getCommentId(), laterIdComment.getCommentId());
+    }
+
+    @Test
+    @DisplayName("replies with same createdAt are ordered by commentId ascending")
+    void findRepliesWithRelations_ordersSameCreatedAtByCommentIdAsc() {
+        Comment firstReply = persistReply(comment, "First Reply", 1);
+        Comment secondReply = persistReply(comment, "Second Reply", 1);
+        entityManager.flush();
+
+        LocalDateTime sameCreatedAt = LocalDateTime.of(2026, 5, 14, 10, 0);
+        updateCreatedAt(firstReply, sameCreatedAt);
+        updateCreatedAt(secondReply, sameCreatedAt);
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Comment> replies = commentRepository.findRepliesWithRelations(
+                comment.getCommentId(),
+                false,
+                true,
+                NO_BLOCKED_USER_IDS,
+                PageRequest.of(0, 10));
+
+        assertThat(replies.getContent())
+                .extracting(Comment::getCommentId)
+                .containsSubsequence(firstReply.getCommentId(), secondReply.getCommentId());
+    }
+
+    @Test
+    @DisplayName("descendants with same createdAt are ordered by commentId ascending")
+    void findAllDescendants_ordersSameCreatedAtByCommentIdAsc() {
+        Comment firstReply = persistReply(comment, "First Reply", 1);
+        Comment secondReply = persistReply(comment, "Second Reply", 1);
+        entityManager.flush();
+
+        LocalDateTime sameCreatedAt = LocalDateTime.of(2026, 5, 14, 10, 0);
+        updateCreatedAt(firstReply, sameCreatedAt);
+        updateCreatedAt(secondReply, sameCreatedAt);
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Comment> descendants = commentRepository.findAllDescendants(List.of(comment.getCommentId()));
+
+        assertThat(descendants)
+                .extracting(Comment::getCommentId)
+                .containsSubsequence(firstReply.getCommentId(), secondReply.getCommentId());
+    }
+
+    @Test
     @DisplayName("에이전트 일일 댓글 수는 삭제 댓글을 제외한다")
     void countByAgentAndCreatedAtBetweenAndIsDeletedFalse_excludesDeletedComments() {
         Agent agent = persistAgent("comment-count-agent");
@@ -601,6 +680,28 @@ class CommentRepositoryTest {
                 .setParameter("createdAt", createdAt)
                 .setParameter("commentId", targetComment.getCommentId())
                 .executeUpdate();
+    }
+
+    private Comment persistReply(Comment parent, String content, int depth) {
+        Comment reply = Comment.builder()
+                .content(content)
+                .user(user)
+                .post(post)
+                .parent(parent)
+                .depth(depth)
+                .build();
+        entityManager.persist(reply);
+        entityManager.persist(CommentClosure.builder()
+                .ancestor(reply)
+                .descendant(reply)
+                .depth(0)
+                .build());
+        entityManager.persist(CommentClosure.builder()
+                .ancestor(parent)
+                .descendant(reply)
+                .depth(depth)
+                .build());
+        return reply;
     }
 
     @Test

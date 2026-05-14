@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class CommentController {
 
-    private static final Sort COMMENT_READ_SORT = Sort.by(Sort.Order.asc("createdAt"));
+    private static final Sort COMMENT_READ_SORT = Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("commentId"));
 
     private final CommentService commentService;
 

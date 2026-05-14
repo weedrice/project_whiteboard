@@ -15,7 +15,7 @@ import org.springframework.stereotype.Service;
 public class CommentService {
 
     private static final int DEFAULT_COMMENT_PAGE_SIZE = 20;
-    private static final Sort COMMENT_READ_SORT = Sort.by(Sort.Order.asc("createdAt"));
+    private static final Sort COMMENT_READ_SORT = Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("commentId"));
 
     private final CommentQueryService commentQueryService;
     private final CommentCommandService commentCommandService;
