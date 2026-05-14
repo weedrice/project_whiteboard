@@ -163,4 +163,24 @@ class EmoticonMasterRepositoryTest {
                 .contains("SELECT COUNT(*) FROM emoticon_masters")
                 .contains(":tag = ANY(tags)");
     }
+
+    @Test
+    @DisplayName("purchased emoticon list includes only purchase rows")
+    void findPurchasedEmoticons_declaresPurchaseOnlyCondition() throws NoSuchMethodException {
+        var method = EmoticonMasterRepository.class.getMethod("findPurchasedEmoticons", Long.class, Pageable.class);
+
+        Query query = method.getAnnotation(Query.class);
+
+        assertThat(query).isNotNull();
+        assertThat(query.value())
+                .contains("JOIN emoticon_purchases")
+                .doesNotContain("LEFT JOIN emoticon_purchases")
+                .contains("ep.purchase_id IS NOT NULL")
+                .doesNotContain("em.creator_id = :userId");
+        assertThat(query.countQuery())
+                .contains("JOIN emoticon_purchases")
+                .doesNotContain("LEFT JOIN emoticon_purchases")
+                .contains("ep.purchase_id IS NOT NULL")
+                .doesNotContain("em.creator_id = :userId");
+    }
 }

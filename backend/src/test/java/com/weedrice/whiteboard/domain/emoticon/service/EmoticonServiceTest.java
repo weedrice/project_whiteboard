@@ -1115,12 +1115,12 @@ class EmoticonServiceTest {
         @DisplayName("구매한 이모티콘 목록 조회")
         void getPurchasedEmoticons_success() {
             Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
-            when(emoticonMasterRepository.findUsableEmoticons(eq(1L), any(Pageable.class))).thenReturn(page);
+            when(emoticonMasterRepository.findPurchasedEmoticons(eq(1L), any(Pageable.class))).thenReturn(page);
 
             Page<EmoticonMasterDto> result = emoticonService.getPurchasedEmoticons(1L, PageRequest.of(0, 20));
 
             assertThat(result.getContent()).hasSize(1);
-            verify(emoticonMasterRepository).findUsableEmoticons(eq(1L), any(Pageable.class));
+            verify(emoticonMasterRepository).findPurchasedEmoticons(eq(1L), any(Pageable.class));
         }
 
         @Test

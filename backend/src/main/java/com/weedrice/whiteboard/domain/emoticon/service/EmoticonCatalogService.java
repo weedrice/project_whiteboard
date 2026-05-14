@@ -195,7 +195,7 @@ class EmoticonCatalogService {
     }
 
     Page<EmoticonMasterDto> getPurchasedEmoticons(Long userId, Pageable pageable) {
-        return toSummaryPage(emoticonMasterRepository.findUsableEmoticons(userId, pageable));
+        return toSummaryPage(emoticonMasterRepository.findPurchasedEmoticons(userId, pageable));
     }
 
     boolean hasPurchased(Long userId, Long emoticonId) {

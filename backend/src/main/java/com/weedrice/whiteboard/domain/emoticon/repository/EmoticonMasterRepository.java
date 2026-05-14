@@ -250,21 +250,20 @@ public interface EmoticonMasterRepository extends JpaRepository<EmoticonMaster, 
             nativeQuery = true)
     Page<EmoticonMaster> searchByTagOrderByPurchase(@Param("tag") String tag, Pageable pageable);
 
-    // 사용자가 사용 가능한 이모티콘 목록 (구매한 것 + 내가 등록한 것)
-    // 숨김 처리된 노비콘도 구매자/등록자는 계속 사용 가능
+    // 사용자가 구매한 이모티콘 목록
     @Query(value = """
             SELECT DISTINCT em.* FROM emoticon_masters em
-            LEFT JOIN emoticon_purchases ep ON em.emoticon_id = ep.emoticon_id AND ep.user_id = :userId
-            WHERE (ep.purchase_id IS NOT NULL OR em.creator_id = :userId)
+            JOIN emoticon_purchases ep ON em.emoticon_id = ep.emoticon_id AND ep.user_id = :userId
+            WHERE ep.purchase_id IS NOT NULL
             ORDER BY em.created_at DESC
             """,
             countQuery = """
             SELECT COUNT(DISTINCT em.emoticon_id) FROM emoticon_masters em
-            LEFT JOIN emoticon_purchases ep ON em.emoticon_id = ep.emoticon_id AND ep.user_id = :userId
-            WHERE (ep.purchase_id IS NOT NULL OR em.creator_id = :userId)
+            JOIN emoticon_purchases ep ON em.emoticon_id = ep.emoticon_id AND ep.user_id = :userId
+            WHERE ep.purchase_id IS NOT NULL
             """,
             nativeQuery = true)
-    Page<EmoticonMaster> findUsableEmoticons(@Param("userId") Long userId, Pageable pageable);
+    Page<EmoticonMaster> findPurchasedEmoticons(@Param("userId") Long userId, Pageable pageable);
 
     // 사용자가 해당 이모티콘을 사용할 수 있는지 확인 (구매했거나 본인이 등록한 경우)
     @Query("""
