@@ -7,24 +7,74 @@ import com.weedrice.whiteboard.domain.auth.dto.ReregisterCheckResponse;
 import com.weedrice.whiteboard.domain.auth.dto.SignupRequest;
 import com.weedrice.whiteboard.domain.auth.dto.SignupResponse;
 import com.weedrice.whiteboard.domain.auth.dto.TokenResponse;
+import com.weedrice.whiteboard.domain.auth.service.LoginAccountEligibilityService.LoginAccountEligibility;
+import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
+    private static final String FAILURE_REASON_AUTHENTICATION_FAILED = "AUTHENTICATION_FAILED";
+
     private final SignupService signupService;
     private final SessionTokenService sessionTokenService;
     private final PasswordResetService passwordResetService;
+    private final UserRepository userRepository;
+    private final LoginAccountEligibilityService loginAccountEligibilityService;
+    private final LoginClientMetadataResolver loginClientMetadataResolver;
+    private final LoginAuthenticator loginAuthenticator;
+    private final LoginAuditRecorder loginAuditRecorder;
+    private final LoginUserInfoAssembler loginUserInfoAssembler;
 
     public SignupResponse signup(SignupRequest request) {
         return signupService.signup(request);
     }
 
+    @Transactional
     public LoginResult login(LoginRequest request, HttpServletRequest httpServletRequest) {
-        return sessionTokenService.login(request, httpServletRequest);
+        LoginClientMetadata metadata = loginClientMetadataResolver.resolve(httpServletRequest);
+        Authentication authentication;
+        try {
+            authentication = loginAuthenticator.authenticate(request);
+        } catch (AuthenticationException exception) {
+            loginAuditRecorder.recordFailure(request, metadata, resolveAuthenticationFailureReason(exception));
+            throw exception;
+        }
+
+        User user = loadAuthenticatedUser(request, metadata, authentication);
+        LoginAccountEligibility eligibility = loginAccountEligibilityService.evaluate(user);
+        if (!eligibility.isLoginAllowed()) {
+            loginAuditRecorder.recordFailure(request, metadata, eligibility.failureReason());
+            throw new BusinessException(ErrorCode.LOGIN_FAILED);
+        }
+
+        TokenResponse issuedTokens = sessionTokenService.issueTokens(
+                authentication,
+                user,
+                metadata.ipAddress(),
+                metadata.userAgent());
+
+        loginAuditRecorder.recordSuccess(request, user, metadata);
+        user.updateLastLogin();
+
+        return LoginResult.builder()
+                .accessToken(issuedTokens.getAccessToken())
+                .refreshToken(issuedTokens.getRefreshToken())
+                .expiresIn(issuedTokens.getExpiresIn())
+                .user(loginUserInfoAssembler.assemble(user))
+                .build();
     }
 
     public void logout(String token) {
@@ -57,5 +107,36 @@ public class AuthService {
 
     public void resetPasswordByCode(String email, String verificationTicket, String newPassword) {
         passwordResetService.resetPasswordByCode(email, verificationTicket, newPassword);
+    }
+
+    private User loadAuthenticatedUser(
+            LoginRequest request,
+            LoginClientMetadata metadata,
+            Authentication authentication) {
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        Long userId = userDetails.getUserId();
+        if (userId == null) {
+            loginAuditRecorder.recordFailure(request, metadata,
+                    LoginAccountEligibilityService.FAILURE_REASON_USER_NOT_FOUND);
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        }
+
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            loginAuditRecorder.recordFailure(request, metadata,
+                    LoginAccountEligibilityService.FAILURE_REASON_USER_NOT_FOUND);
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        }
+        return user;
+    }
+
+    private String resolveAuthenticationFailureReason(AuthenticationException exception) {
+        if (exception instanceof DisabledException) {
+            return LoginAccountEligibilityService.FAILURE_REASON_USER_NOT_ACTIVE;
+        }
+        if (exception instanceof LockedException) {
+            return LoginAccountEligibilityService.FAILURE_REASON_USER_BANNED;
+        }
+        return FAILURE_REASON_AUTHENTICATION_FAILED;
     }
 }

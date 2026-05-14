@@ -115,9 +115,7 @@ class AuthServiceTest {
         CurrentUserSummaryAssembler currentUserSummaryAssembler =
                 new CurrentUserSummaryAssembler(userPointRepository, userSettingsRepository);
         SessionTokenService sessionTokenService = new SessionTokenService(
-                userRepository, currentUserSummaryAssembler, jwtTokenProvider, authenticationManagerBuilder,
-                refreshTokenRepository, sanctionService, tokenHashService,
-                loginHistoryAuditService, loginAccountEligibilityService);
+                userRepository, jwtTokenProvider, refreshTokenRepository, sanctionService, tokenHashService);
         PasswordResetTokenOrchestrationService passwordResetTokenOrchestrationService =
                 new PasswordResetTokenOrchestrationService(
                         passwordResetTokenRepository,
@@ -136,7 +134,16 @@ class AuthServiceTest {
                 userRepository, pointService, userSettingsRepository,
                 socialAccountLinkService, verificationCodeService, emailEligibilityService, globalConfigService,
                 entityManager, refreshTokenLifecycleService, userPrivilegeCleanupService, passwordHistoryPolicy);
-        authService = new AuthService(signupService, sessionTokenService, passwordResetService);
+        authService = new AuthService(
+                signupService,
+                sessionTokenService,
+                passwordResetService,
+                userRepository,
+                loginAccountEligibilityService,
+                new LoginClientMetadataResolver(),
+                new LoginAuthenticator(authenticationManagerBuilder),
+                new LoginAuditRecorder(loginHistoryAuditService),
+                new LoginUserInfoAssembler(currentUserSummaryAssembler));
 
         user = User.builder()
                 .loginId("testuser")

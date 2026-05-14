@@ -1,17 +1,12 @@
 package com.weedrice.whiteboard.domain.auth.service;
 
-import com.weedrice.whiteboard.domain.auth.dto.LoginRequest;
-import com.weedrice.whiteboard.domain.auth.dto.LoginResponse;
-import com.weedrice.whiteboard.domain.auth.dto.LoginResult;
 import com.weedrice.whiteboard.domain.auth.dto.TokenResponse;
 import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
-import com.weedrice.whiteboard.domain.auth.service.LoginAccountEligibilityService.LoginAccountEligibility;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.domain.user.service.CurrentUserSummaryAssembler;
 import com.weedrice.whiteboard.global.common.util.ClientUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -19,13 +14,8 @@ import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.JwtTokenProvider;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.authentication.DisabledException;
-import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Service;
@@ -40,81 +30,14 @@ import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 @Transactional(readOnly = true)
 public class SessionTokenService {
 
-    private static final String FAILURE_REASON_AUTHENTICATION_FAILED = "AUTHENTICATION_FAILED";
-
     private final UserRepository userRepository;
-    private final CurrentUserSummaryAssembler currentUserSummaryAssembler;
     private final JwtTokenProvider jwtTokenProvider;
-    private final AuthenticationManagerBuilder authenticationManagerBuilder;
     private final RefreshTokenRepository refreshTokenRepository;
     private final SanctionService sanctionService;
     private final TokenHashService tokenHashService;
-    private final LoginHistoryAuditService loginHistoryAuditService;
-    private final LoginAccountEligibilityService loginAccountEligibilityService;
-
-    @Transactional
-    public LoginResult login(LoginRequest request, HttpServletRequest httpServletRequest) {
-        String ipAddress = resolveIpAddress(httpServletRequest);
-        String userAgent = resolveUserAgent(httpServletRequest);
-        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
-                request.getLoginId(), request.getPassword());
-
-        Authentication authentication;
-        try {
-            authentication = authenticationManagerBuilder.getObject()
-                    .authenticate(authenticationToken);
-        } catch (AuthenticationException exception) {
-            recordLoginFailure(request, ipAddress, userAgent, resolveAuthenticationFailureReason(exception));
-            throw exception;
-        }
-        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-
-        Long userId = userDetails.getUserId();
-        if (userId == null) {
-            recordLoginFailure(request, ipAddress, userAgent,
-                    LoginAccountEligibilityService.FAILURE_REASON_USER_NOT_FOUND);
-            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
-        }
-        User user = userRepository.findById(userId)
-                .orElse(null);
-        if (user == null) {
-            recordLoginFailure(request, ipAddress, userAgent,
-                    LoginAccountEligibilityService.FAILURE_REASON_USER_NOT_FOUND);
-            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
-        }
-
-        LoginAccountEligibility eligibility = loginAccountEligibilityService.evaluate(user);
-        if (!eligibility.isLoginAllowed()) {
-            recordLoginFailure(request, ipAddress, userAgent, eligibility.failureReason());
-            throw new BusinessException(ErrorCode.LOGIN_FAILED);
-        }
-
-        TokenResponse issuedTokens = issueTokens(authentication, user, ipAddress, userAgent);
-
-        recordLoginSuccess(request, user, ipAddress, userAgent);
-        user.updateLastLogin();
-        CurrentUserSummaryAssembler.CurrentUserSummary userSummary = currentUserSummaryAssembler.assemble(user);
-
-        return LoginResult.builder()
-                .accessToken(issuedTokens.getAccessToken())
-                .refreshToken(issuedTokens.getRefreshToken())
-                .expiresIn(issuedTokens.getExpiresIn())
-                .user(LoginResponse.UserInfo.builder()
-                        .userId(userSummary.userId())
-                        .loginId(userSummary.loginId())
-                        .displayName(userSummary.displayName())
-                        .profileImageUrl(userSummary.profileImageUrl())
-                        .isEmailVerified(Boolean.TRUE.equals(userSummary.isEmailVerified()))
-                        .role(userSummary.role())
-                        .theme(userSummary.theme())
-                        .points(userSummary.points())
-                        .build())
-                .build();
-    }
 
     @Transactional
     public TokenResponse issueTokens(Authentication authentication, User user, HttpServletRequest httpServletRequest) {
@@ -206,7 +129,8 @@ public class SessionTokenService {
         refreshTokenRepository.save(issuedRefreshToken);
     }
 
-    private TokenResponse issueTokens(Authentication authentication, User user, String ipAddress, String userAgent) {
+    @Transactional
+    public TokenResponse issueTokens(Authentication authentication, User user, String ipAddress, String userAgent) {
         String accessToken = jwtTokenProvider.createAccessToken(authentication);
         String refreshToken = jwtTokenProvider.createRefreshToken(authentication);
 
@@ -217,44 +141,6 @@ public class SessionTokenService {
                 .refreshToken(refreshToken)
                 .expiresIn(jwtTokenProvider.getAccessTokenValidityInMilliseconds())
                 .build();
-    }
-
-    private void recordLoginSuccess(LoginRequest request, User user, String ipAddress, String userAgent) {
-        try {
-            loginHistoryAuditService.recordSuccess(user.getUserId(), request.getLoginId(), ipAddress, userAgent);
-        } catch (RuntimeException exception) {
-            log.warn("Failed to record login success history", exception);
-        }
-    }
-
-    private void recordLoginFailure(
-            LoginRequest request,
-            String ipAddress,
-            String userAgent,
-            String failureReason) {
-        try {
-            loginHistoryAuditService.recordFailure(request.getLoginId(), ipAddress, userAgent, failureReason);
-        } catch (RuntimeException exception) {
-            log.warn("Failed to record login failure history", exception);
-        }
-    }
-
-    private String resolveAuthenticationFailureReason(AuthenticationException exception) {
-        if (exception instanceof DisabledException) {
-            return LoginAccountEligibilityService.FAILURE_REASON_USER_NOT_ACTIVE;
-        }
-        if (exception instanceof LockedException) {
-            return LoginAccountEligibilityService.FAILURE_REASON_USER_BANNED;
-        }
-        return FAILURE_REASON_AUTHENTICATION_FAILED;
-    }
-
-    private String resolveIpAddress(HttpServletRequest httpServletRequest) {
-        return httpServletRequest != null ? ClientUtils.getIp(httpServletRequest) : null;
-    }
-
-    private String resolveUserAgent(HttpServletRequest httpServletRequest) {
-        return httpServletRequest != null ? httpServletRequest.getHeader("User-Agent") : null;
     }
 
     private record RefreshTokenRenewalContext(RefreshToken refreshToken, User user) {
