@@ -20,6 +20,7 @@ import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -107,13 +108,14 @@ public class PostDraftService {
 
     private DraftPost resolveDraftPost(User user, PostDraftRequest request, Board board,
                                        BoardCategory category, Post originalPost) {
+        String sanitizedContents = sanitizeDraftContents(request.getContents());
         if (request.getDraftId() == null) {
             return DraftPost.builder()
                     .user(user)
                     .board(board)
                     .category(category)
                     .title(request.getTitle())
-                    .contents(request.getContents())
+                    .contents(sanitizedContents)
                     .tags(request.getTags())
                     .isNotice(request.isNotice())
                     .isNsfw(request.isNsfw())
@@ -135,7 +137,7 @@ public class PostDraftService {
                 board,
                 category,
                 request.getTitle(),
-                request.getContents(),
+                sanitizedContents,
                 request.getTags(),
                 request.isNotice(),
                 request.isNsfw(),
@@ -144,6 +146,10 @@ public class PostDraftService {
                 request.getFileIds(),
                 originalPost);
         return draftPost;
+    }
+
+    private String sanitizeDraftContents(String contents) {
+        return Objects.toString(InputSanitizer.sanitizePostHtml(contents), "");
     }
 
     private BoardCategory findActiveCategory(Board board, Long categoryId) {

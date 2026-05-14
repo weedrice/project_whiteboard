@@ -721,6 +721,24 @@ class PostControllerTest {
         }
 
         @Test
+        @DisplayName("임시글 본문이 길이 제한을 넘으면 저장하지 않는다")
+        void saveDraft_rejectsTooLongContents() throws Exception {
+            PostDraftRequest request = PostDraftRequest.builder()
+                    .boardUrl("free")
+                    .title("Title")
+                    .contents("a".repeat(100001))
+                    .build();
+            clearInvocations(postService);
+
+            mockMvc.perform(post("/api/v1/drafts").with(user(customUserDetails))
+                    .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false));
+
+            verify(postService, never()).saveDraftPost(anyLong(), any());
+        }
+
+        @Test
         @DisplayName("임시저장 삭제")
         void deleteDraft_success() throws Exception {
             doNothing().when(postService).deleteDraftPost(anyLong(), eq(1L));

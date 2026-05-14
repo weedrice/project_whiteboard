@@ -1508,6 +1508,30 @@ class PostServiceTest {
         DraftResponse draft = postService.saveDraftPost(1L, request);
 
         assertThat(draft.getTitle()).isEqualTo("Draft Title");
+        assertThat(draft.getContents()).isEqualTo("Draft Content");
+        verify(fileService).syncDraftFiles(Collections.emptyList(), 1L, 10L);
+    }
+
+    @Test
+    @DisplayName("임시글 저장은 게시글 본문 정책으로 HTML을 정규화한다")
+    void saveDraftPost_sanitizesContents() {
+        PostDraftRequest request = new PostDraftRequest(
+                null,
+                "free",
+                "Draft Title",
+                "<p style=\"color:red; background-image:url(javascript:alert(1))\">Draft</p><script>alert(1)</script>",
+                null);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(draftPostRepository.saveAndFlush(any(DraftPost.class))).thenAnswer(i -> {
+            DraftPost draftPost = i.getArgument(0);
+            ReflectionTestUtils.setField(draftPost, "draftId", 10L);
+            return draftPost;
+        });
+
+        DraftResponse draft = postService.saveDraftPost(1L, request);
+
+        assertThat(draft.getContents()).isEqualTo("<p style=\"color: red\">Draft</p>");
         verify(fileService).syncDraftFiles(Collections.emptyList(), 1L, 10L);
     }
 
@@ -1582,6 +1606,30 @@ class PostServiceTest {
         DraftResponse draft = postService.saveDraftPost(1L, request);
 
         assertThat(draft.getTitle()).isEqualTo("New Title");
+        assertThat(draft.getContents()).isEqualTo("New Content");
+        verify(fileService).syncDraftFiles(Collections.emptyList(), 1L, 10L);
+    }
+
+    @Test
+    @DisplayName("임시글 수정도 게시글 본문 정책으로 HTML을 정규화한다")
+    void saveDraftPost_updateSanitizesContents() {
+        DraftPost existingDraft = DraftPost.builder().user(user).board(board).title("Old").build();
+        ReflectionTestUtils.setField(existingDraft, "draftId", 10L);
+        PostDraftRequest request = new PostDraftRequest(
+                10L,
+                "free",
+                "New Title",
+                "<iframe src=\"https://evil.example/embed/1\"></iframe><strong>Safe</strong>",
+                null);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
+        when(draftPostRepository.saveAndFlush(any(DraftPost.class))).thenAnswer(i -> i.getArgument(0));
+
+        DraftResponse draft = postService.saveDraftPost(1L, request);
+
+        assertThat(draft.getContents()).isEqualTo("<strong>Safe</strong>");
         verify(fileService).syncDraftFiles(Collections.emptyList(), 1L, 10L);
     }
 
