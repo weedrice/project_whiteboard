@@ -77,13 +77,11 @@ public class CommentCommandService {
             validatePostReadable(post, user);
         }
 
-        Comment parentComment = context != null ? context.parentComment() : null;
+        Comment parentComment = null;
         int depth = 0;
         if (parentId != null) {
-            if (parentComment == null) {
-                parentComment = commentRepository.findById(parentId)
-                        .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
-            }
+            parentComment = commentRepository.findByIdWithRelationsForUpdate(parentId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
 
             if (!Objects.equals(parentComment.getCommentId(), parentId)) {
                 throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
@@ -113,7 +111,7 @@ public class CommentCommandService {
                 .build();
 
         Comment savedComment = commentRepository.save(comment);
-        postRepository.incrementCommentCount(post.getPostId());
+        incrementPostCommentCount(post.getPostId());
         saveCommentVersion(savedComment, user, "CREATE", null);
 
         if (parentId != null) {
@@ -198,10 +196,22 @@ public class CommentCommandService {
 
         String originalContent = comment.getContent();
         comment.deleteComment();
-        postRepository.decrementCommentCount(comment.getPost().getPostId());
+        decrementPostCommentCount(comment.getPost().getPostId());
 
         saveCommentVersion(comment, user, "DELETE", originalContent);
         contentRewardService.rollbackCreateReward(user, commentId, ContentRewardPolicy.COMMENT);
+    }
+
+    private void incrementPostCommentCount(Long postId) {
+        if (postRepository.incrementCommentCount(postId) == 0) {
+            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+        }
+    }
+
+    private void decrementPostCommentCount(Long postId) {
+        if (postRepository.decrementCommentCount(postId) == 0) {
+            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+        }
     }
 
     @Transactional

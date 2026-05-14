@@ -1496,7 +1496,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(parentComment, "isDeleted", false);
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
-        when(commentRepository.findByIdWithRelations(500L)).thenReturn(Optional.of(parentComment));
+        when(commentRepository.findByIdWithRelationsForUpdate(500L)).thenReturn(Optional.of(parentComment));
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("COMMENT")))
                 .thenReturn(Optional.of(quota("COMMENT", 99L)));

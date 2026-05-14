@@ -234,6 +234,35 @@ class CommentServiceTest {
     }
 
     @Test
+    @DisplayName("댓글 생성은 게시글 댓글 수 갱신 실패 시 롤백한다")
+    void createComment_commentCountUpdateFails_throwsPostNotFound() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> {
+            Comment saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "commentId", 10L);
+            return saved;
+        });
+        when(postRepository.incrementCommentCount(1L)).thenReturn(0);
+
+        assertThatThrownBy(() -> commentService.createComment(1L, 1L, null, "content"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+
+        verify(commentVersionRepository, never()).save(any());
+        verify(commentClosureRepository, never()).createSelfClosure(anyLong());
+        verify(pointService, never()).addPointIfAbsent(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
     @DisplayName("서비스 진입점은 1000자를 초과하는 댓글 본문을 거부한다")
     void createComment_tooLongContent_throwsInvalidInput() {
         User user = User.builder().build();
@@ -322,7 +351,7 @@ class CommentServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(postRepository.incrementCommentCount(1L)).thenReturn(1);
-        when(commentRepository.findById(5L)).thenReturn(Optional.of(parent));
+        when(commentRepository.findByIdWithRelationsForUpdate(5L)).thenReturn(Optional.of(parent));
         when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> {
             Comment saved = invocation.getArgument(0);
             ReflectionTestUtils.setField(saved, "commentId", 10L);
@@ -373,7 +402,7 @@ class CommentServiceTest {
         when(userRepository.findById(2L)).thenReturn(Optional.of(actor));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(postRepository.incrementCommentCount(1L)).thenReturn(1);
-        when(commentRepository.findById(5L)).thenReturn(Optional.of(parent));
+        when(commentRepository.findByIdWithRelationsForUpdate(5L)).thenReturn(Optional.of(parent));
         when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> {
             Comment saved = invocation.getArgument(0);
             ReflectionTestUtils.setField(saved, "commentId", 10L);
@@ -408,7 +437,8 @@ class CommentServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(commentRepository.findById(5L)).thenReturn(Optional.of(parent));
+        when(postRepository.incrementCommentCount(1L)).thenReturn(1);
+        when(commentRepository.findByIdWithRelationsForUpdate(5L)).thenReturn(Optional.of(parent));
         when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> {
             Comment saved = invocation.getArgument(0);
             ReflectionTestUtils.setField(saved, "commentId", 10L);
@@ -439,7 +469,7 @@ class CommentServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(commentRepository.findById(5L)).thenReturn(Optional.of(parent));
+        when(commentRepository.findByIdWithRelationsForUpdate(5L)).thenReturn(Optional.of(parent));
 
         assertThatThrownBy(() -> commentService.createComment(1L, 1L, 5L, "content"))
                 .isInstanceOf(BusinessException.class)
@@ -466,7 +496,7 @@ class CommentServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(commentRepository.findById(5L)).thenReturn(Optional.of(parent));
+        when(commentRepository.findByIdWithRelationsForUpdate(5L)).thenReturn(Optional.of(parent));
 
         assertThatThrownBy(() -> commentService.createComment(1L, 1L, 5L, "content"))
                 .isInstanceOf(BusinessException.class)
@@ -557,7 +587,8 @@ class CommentServiceTest {
         when(userRepository.findById(2L)).thenReturn(Optional.of(actorUser));
         when(agentOwnershipService.resolveOwnedActiveAgent(2L, 99L)).thenReturn(agent);
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
-        when(commentRepository.findById(5L)).thenReturn(Optional.of(parent));
+        when(postRepository.incrementCommentCount(1L)).thenReturn(1);
+        when(commentRepository.findByIdWithRelationsForUpdate(5L)).thenReturn(Optional.of(parent));
         when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> {
             Comment saved = invocation.getArgument(0);
             ReflectionTestUtils.setField(saved, "commentId", 10L);
@@ -705,6 +736,7 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(parent, "commentId", 5L);
 
         when(userRepository.findById(2L)).thenReturn(Optional.of(actorUser));
+        when(commentRepository.findByIdWithRelationsForUpdate(5L)).thenReturn(Optional.of(parent));
 
         assertThatThrownBy(() -> commentService.createCommentAsAgent(
                 2L,
@@ -1673,6 +1705,32 @@ class CommentServiceTest {
         commentService.deleteComment(1L, 10L);
 
         verify(postRepository).decrementCommentCount(1L);
+        verify(pointService, never())
+                .reverseRewardPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+    }
+
+    @Test
+    @DisplayName("댓글 삭제는 게시글 댓글 수 갱신 실패 시 롤백한다")
+    void deleteComment_commentCountUpdateFails_throwsPostNotFound() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
+
+        Comment comment = Comment.builder().user(user).post(post).content("Content").build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
+
+        when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.decrementCommentCount(1L)).thenReturn(0);
+
+        assertThatThrownBy(() -> commentService.deleteComment(1L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+
+        verify(commentVersionRepository, never()).save(any());
         verify(pointService, never())
                 .reverseRewardPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
     }

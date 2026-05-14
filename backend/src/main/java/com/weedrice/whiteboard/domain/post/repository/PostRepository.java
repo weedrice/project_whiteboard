@@ -191,7 +191,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
         Integer findViewCountByPostId(@Param("postId") Long postId);
 
         @Modifying(flushAutomatically = true)
-        @Query("UPDATE Post p SET p.commentCount = p.commentCount + 1 WHERE p.postId = :postId")
+        @Query("UPDATE Post p SET p.commentCount = p.commentCount + 1 WHERE p.postId = :postId AND p.isDeleted = false")
         int incrementCommentCount(Long postId);
 
         @Modifying(flushAutomatically = true)
@@ -199,6 +199,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 UPDATE Post p
                 SET p.commentCount = CASE WHEN p.commentCount > 0 THEN p.commentCount - 1 ELSE 0 END
                 WHERE p.postId = :postId
+                  AND p.isDeleted = false
                 """)
         int decrementCommentCount(Long postId);
 

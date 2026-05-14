@@ -90,7 +90,7 @@ public class AgentCommandService {
     public AgentCommentCreateResponse createReply(Long agentId, Long commentId, AgentCommentCreateRequest request,
             AgentRequestContext requestContext) {
         Agent agent = agentOwnershipService.resolveActiveAgentForUpdate(agentId);
-        Comment parentComment = commentRepository.findByIdWithRelations(commentId)
+        Comment parentComment = commentRepository.findByIdWithRelationsForUpdate(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
         if (parentComment.getIsDeleted()) {
             throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);

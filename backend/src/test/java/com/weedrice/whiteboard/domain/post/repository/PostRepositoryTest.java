@@ -1082,6 +1082,46 @@ class PostRepositoryTest {
     }
 
     @Test
+    @DisplayName("댓글 수 증가는 삭제되지 않은 게시글만 갱신한다")
+    void incrementCommentCount_updatesOnlyActivePost() {
+        Long activePostId = post.getPostId();
+        Post deletedPost = persistPost("Deleted Comment Count Post");
+        deletedPost.deletePost();
+        Long deletedPostId = deletedPost.getPostId();
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(postRepository.incrementCommentCount(activePostId)).isEqualTo(1);
+        assertThat(postRepository.incrementCommentCount(deletedPostId)).isZero();
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(postRepository.findById(activePostId).orElseThrow().getCommentCount()).isEqualTo(1);
+        assertThat(postRepository.findById(deletedPostId).orElseThrow().getCommentCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("댓글 수 감소는 삭제되지 않은 게시글만 갱신한다")
+    void decrementCommentCount_updatesOnlyActivePost() {
+        post.incrementCommentCount();
+        Long activePostId = post.getPostId();
+        Post deletedPost = persistPost("Deleted Comment Count Post");
+        deletedPost.incrementCommentCount();
+        deletedPost.deletePost();
+        Long deletedPostId = deletedPost.getPostId();
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(postRepository.decrementCommentCount(activePostId)).isEqualTo(1);
+        assertThat(postRepository.decrementCommentCount(deletedPostId)).isZero();
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(postRepository.findById(activePostId).orElseThrow().getCommentCount()).isZero();
+        assertThat(postRepository.findById(deletedPostId).orElseThrow().getCommentCount()).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("findByIdWithRelationsForUpdate는 비관적 쓰기 잠금을 선언한다")
     void findByIdWithRelationsForUpdate_declaresPessimisticWriteLock() throws NoSuchMethodException {
         var method = PostRepository.class.getMethod("findByIdWithRelationsForUpdate", Long.class);
