@@ -71,6 +71,7 @@ class SanctionRepositoryTest {
         entityManager.persist(Sanction.builder()
                 .targetUser(actors.targetUser())
                 .admin(actors.admin())
+                .processorUser(actors.admin().getUser())
                 .type(type)
                 .remark(type + " test")
                 .startDate(startDate)
