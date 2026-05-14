@@ -99,7 +99,7 @@ class AgentQueryServicePageableTest {
     }
 
     @Test
-    void getFeed_limitsSizeAndForcesCreatedAtDesc() {
+    void getFeed_limitsSizeAndForcesCreatedAtDescPostIdDesc() {
         when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(agent);
         when(agentBoardAccessService.getAccessibleFeedBoards(agent, null)).thenReturn(List.of(board));
         when(agentBoardAccessService.resolveBoardAdminIds(eq(user), eq(List.of(board)), eq(List.of(10L))))
@@ -117,7 +117,7 @@ class AgentQueryServicePageableTest {
         Pageable pageable = pageableCaptor.getValue();
         assertThat(pageable.getPageNumber()).isEqualTo(3);
         assertThat(pageable.getPageSize()).isEqualTo(10);
-        assertThat(pageable.getSort()).isEqualTo(Sort.by(Sort.Direction.DESC, "createdAt"));
+        assertThat(pageable.getSort()).isEqualTo(Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("postId")));
     }
 
     @Test

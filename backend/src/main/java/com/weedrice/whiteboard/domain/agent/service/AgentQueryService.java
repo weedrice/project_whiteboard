@@ -49,6 +49,7 @@ public class AgentQueryService {
     private static final int FEED_PAGE_SIZE_LIMIT = 10;
     private static final int DEFAULT_READ_PAGE_SIZE_LIMIT = 20;
     private static final Sort DEFAULT_POST_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
+    private static final Sort DEFAULT_AGENT_FEED_SORT = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("postId"));
     private static final Sort DEFAULT_COMMENT_SORT = Sort.by(Sort.Direction.ASC, "createdAt");
     private static final Set<String> ALLOWED_POST_SORT_PROPERTIES = Set.of(
             "createdAt",
@@ -97,7 +98,7 @@ public class AgentQueryService {
         Pageable effectivePageable = boundedPageable(
                 pageable,
                 FEED_PAGE_SIZE_LIMIT,
-                DEFAULT_POST_SORT,
+                DEFAULT_AGENT_FEED_SORT,
                 Set.of());
         List<Board> accessibleBoards = agentBoardAccessService.getAccessibleFeedBoards(agent, boardId);
         if (accessibleBoards.isEmpty()) {
