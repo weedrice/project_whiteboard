@@ -56,7 +56,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -1270,19 +1269,9 @@ class BoardServiceTest {
     @DisplayName("인기 게시판 목록 조회 성공")
     void getTopBoards_success() {
         // given
-        when(boardRepository.findTopPublicBoardIdsByPostCount(anyString(), any())).thenReturn(Collections.singletonList(1L));
+        when(boardRepository.findTopPublicBoardPostCounts(anyString(), any()))
+                .thenReturn(List.of(topBoardPostCount(1L, 37L)));
         when(boardRepository.findByBoardIdIn(List.of(1L))).thenReturn(Collections.singletonList(board));
-        when(postRepository.countPublicVisiblePostsByBoardIds(Set.of(1L))).thenReturn(List.of(new PostRepository.BoardPostCountProjection() {
-            @Override
-            public Long getBoardId() {
-                return 1L;
-            }
-
-            @Override
-            public Long getPostCount() {
-                return 37L;
-            }
-        }));
 
         // when
         List<BoardListResponse> boards = boardService.getTopBoards(null);
@@ -1290,25 +1279,28 @@ class BoardServiceTest {
         // then
         assertThat(boards).hasSize(1);
         assertThat(boards.get(0).getPostCount()).isEqualTo(37L);
-        verify(boardRepository).findTopPublicBoardIdsByPostCount(anyString(), any());
+        verify(boardRepository).findTopPublicBoardPostCounts(anyString(), any());
         verify(boardRepository).findByBoardIdIn(List.of(1L));
+        verify(postRepository, never()).countPublicVisiblePostsByBoardIds(any());
+        verify(postRepository, never()).countActiveByBoardIds(any());
     }
 
     @Test
     @DisplayName("일반 로그인 사용자는 공개 인기 게시판 전용 쿼리를 사용한다")
     void getTopBoards_authenticatedUsesPublicQueryWhenUserHasNoElevatedAccess() {
         when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(false);
-        when(boardRepository.findTopPublicBoardIdsByPostCount(anyString(), any())).thenReturn(Collections.singletonList(1L));
+        when(boardRepository.findTopPublicBoardPostCounts(anyString(), any()))
+                .thenReturn(List.of(topBoardPostCount(1L, 11L)));
         when(boardRepository.findByBoardIdIn(List.of(1L))).thenReturn(Collections.singletonList(board));
 
         List<BoardListResponse> boards = boardService.getTopBoards(1L);
 
         assertThat(boards).extracting(BoardListResponse::getBoardUrl).containsExactly("test-board");
         verify(adminRepository).existsByUserAndIsActive(user, true);
-        verify(boardRepository).findTopPublicBoardIdsByPostCount(anyString(), any());
+        verify(boardRepository).findTopPublicBoardPostCounts(anyString(), any());
         verify(boardRepository).findByBoardIdIn(List.of(1L));
         verify(boardRepository, never()).findTopBoardIdsByPostCount(any());
-        verify(boardRepository, never()).findTopReadableBoardIdsByPostCount(any(), anyBoolean(), anyString(), any());
+        verify(boardRepository, never()).findTopReadableBoardPostCounts(any(), anyBoolean(), anyString(), any());
     }
 
     @Test
@@ -1316,15 +1308,16 @@ class BoardServiceTest {
     void getTopBoards_userIdUsesPublicQueryWhenUserHasNoElevatedAccess() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(false);
-        when(boardRepository.findTopPublicBoardIdsByPostCount(anyString(), any())).thenReturn(Collections.singletonList(1L));
+        when(boardRepository.findTopPublicBoardPostCounts(anyString(), any()))
+                .thenReturn(List.of(topBoardPostCount(1L, 11L)));
         when(boardRepository.findByBoardIdIn(List.of(1L))).thenReturn(Collections.singletonList(board));
 
         List<BoardListResponse> boards = boardService.getTopBoardsByUserId(1L);
 
         assertThat(boards).extracting(BoardListResponse::getBoardUrl).containsExactly("test-board");
         verify(userRepository).findById(1L);
-        verify(boardRepository).findTopPublicBoardIdsByPostCount(anyString(), any());
-        verify(boardRepository, never()).findTopReadableBoardIdsByPostCount(any(), anyBoolean(), anyString(), any());
+        verify(boardRepository).findTopPublicBoardPostCounts(anyString(), any());
+        verify(boardRepository, never()).findTopReadableBoardPostCounts(any(), anyBoolean(), anyString(), any());
     }
 
     @Test
@@ -1332,13 +1325,13 @@ class BoardServiceTest {
     void getTopBoardsByUserId_usesRequestedLimitForPublicQuery() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(false);
-        when(boardRepository.findTopPublicBoardIdsByPostCount(anyString(), any())).thenReturn(List.of());
+        when(boardRepository.findTopPublicBoardPostCounts(anyString(), any())).thenReturn(List.of());
 
         List<BoardListResponse> boards = boardService.getTopBoardsByUserId(1L, 6);
 
         assertThat(boards).isEmpty();
-        verify(boardRepository).findTopPublicBoardIdsByPostCount(anyString(), eq(PageRequest.of(0, 6)));
-        verify(boardRepository, never()).findTopReadableBoardIdsByPostCount(any(), anyBoolean(), anyString(), any());
+        verify(boardRepository).findTopPublicBoardPostCounts(anyString(), eq(PageRequest.of(0, 6)));
+        verify(boardRepository, never()).findTopReadableBoardPostCounts(any(), anyBoolean(), anyString(), any());
     }
 
     @Test
@@ -1350,8 +1343,8 @@ class BoardServiceTest {
                 () -> boardService.getTopBoardsByUserId(99L));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND);
-        verify(boardRepository, never()).findTopPublicBoardIdsByPostCount(anyString(), any());
-        verify(boardRepository, never()).findTopReadableBoardIdsByPostCount(any(), anyBoolean(), anyString(), any());
+        verify(boardRepository, never()).findTopPublicBoardPostCounts(anyString(), any());
+        verify(boardRepository, never()).findTopReadableBoardPostCounts(any(), anyBoolean(), anyString(), any());
     }
 
     @Test
@@ -1368,15 +1361,19 @@ class BoardServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(true);
-        when(boardRepository.findTopReadableBoardIdsByPostCount(eq(user), eq(false), anyString(), any())).thenReturn(List.of(2L));
+        when(boardRepository.findTopReadableBoardPostCounts(eq(user), eq(false), anyString(), any()))
+                .thenReturn(List.of(topBoardPostCount(2L, 5L)));
         when(boardRepository.findByBoardIdIn(List.of(2L))).thenReturn(List.of(privateBoard));
 
         List<BoardListResponse> boards = boardService.getTopBoardsByUserId(1L);
 
         assertThat(boards).extracting(BoardListResponse::getBoardUrl).containsExactly("private-board");
+        assertThat(boards).extracting(BoardListResponse::getPostCount).containsExactly(5L);
         verify(userRepository).findById(1L);
-        verify(boardRepository).findTopReadableBoardIdsByPostCount(eq(user), eq(false), anyString(), any());
-        verify(boardRepository, never()).findTopPublicBoardIdsByPostCount(anyString(), any());
+        verify(boardRepository).findTopReadableBoardPostCounts(eq(user), eq(false), anyString(), any());
+        verify(boardRepository, never()).findTopPublicBoardPostCounts(anyString(), any());
+        verify(postRepository, never()).countPublicVisiblePostsByBoardIds(any());
+        verify(postRepository, never()).countActiveByBoardIds(any());
     }
 
     @Test
@@ -1384,18 +1381,18 @@ class BoardServiceTest {
     void getTopBoardsByUserId_usesRequestedLimitForReadableQuery() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(true);
-        when(boardRepository.findTopReadableBoardIdsByPostCount(eq(user), eq(false), anyString(), any()))
+        when(boardRepository.findTopReadableBoardPostCounts(eq(user), eq(false), anyString(), any()))
                 .thenReturn(List.of());
 
         List<BoardListResponse> boards = boardService.getTopBoardsByUserId(1L, 6);
 
         assertThat(boards).isEmpty();
-        verify(boardRepository).findTopReadableBoardIdsByPostCount(
+        verify(boardRepository).findTopReadableBoardPostCounts(
                 eq(user),
                 eq(false),
                 anyString(),
                 eq(PageRequest.of(0, 6)));
-        verify(boardRepository, never()).findTopPublicBoardIdsByPostCount(anyString(), any());
+        verify(boardRepository, never()).findTopPublicBoardPostCounts(anyString(), any());
     }
 
     @Test
@@ -1411,16 +1408,20 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(privateBoard, "isActive", true);
 
         when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(true);
-        when(boardRepository.findTopReadableBoardIdsByPostCount(eq(user), eq(false), anyString(), any())).thenReturn(List.of(2L));
+        when(boardRepository.findTopReadableBoardPostCounts(eq(user), eq(false), anyString(), any()))
+                .thenReturn(List.of(topBoardPostCount(2L, 5L)));
         when(boardRepository.findByBoardIdIn(List.of(2L))).thenReturn(List.of(privateBoard));
 
         List<BoardListResponse> boards = boardService.getTopBoards(1L);
 
         assertThat(boards).extracting(BoardListResponse::getBoardUrl).containsExactly("private-board");
+        assertThat(boards).extracting(BoardListResponse::getPostCount).containsExactly(5L);
         verify(adminRepository).existsByUserAndIsActive(user, true);
-        verify(boardRepository).findTopReadableBoardIdsByPostCount(eq(user), eq(false), anyString(), any());
-        verify(boardRepository, never()).findTopPublicBoardIdsByPostCount(anyString(), any());
+        verify(boardRepository).findTopReadableBoardPostCounts(eq(user), eq(false), anyString(), any());
+        verify(boardRepository, never()).findTopPublicBoardPostCounts(anyString(), any());
         verify(boardRepository, never()).findTopBoardIdsByPostCount(any());
+        verify(postRepository, never()).countPublicVisiblePostsByBoardIds(any());
+        verify(postRepository, never()).countActiveByBoardIds(any());
     }
 
     @Test
@@ -1436,13 +1437,15 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(privateBoard, "isActive", true);
         user.grantSuperAdminRole();
 
-        when(boardRepository.findTopReadableBoardIdsByPostCount(eq(user), eq(true), anyString(), any())).thenReturn(List.of(2L));
+        when(boardRepository.findTopReadableBoardPostCounts(eq(user), eq(true), anyString(), any()))
+                .thenReturn(List.of(topBoardPostCount(2L, 8L)));
         when(boardRepository.findByBoardIdIn(List.of(2L))).thenReturn(List.of(privateBoard));
 
         List<BoardListResponse> boards = boardService.getTopBoards(1L);
 
         assertThat(boards).extracting(BoardListResponse::getBoardUrl).containsExactly("private-board");
-        verify(boardRepository).findTopReadableBoardIdsByPostCount(eq(user), eq(true), anyString(), any());
+        assertThat(boards).extracting(BoardListResponse::getPostCount).containsExactly(8L);
+        verify(boardRepository).findTopReadableBoardPostCounts(eq(user), eq(true), anyString(), any());
         verify(boardRepository).findByBoardIdIn(List.of(2L));
     }
 
@@ -2318,6 +2321,20 @@ class BoardServiceTest {
     private void stubCategoryBoardLock(Long categoryId) {
         when(boardCategoryRepository.findBoardIdByCategoryId(categoryId)).thenReturn(Optional.of(1L));
         when(boardRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(board));
+    }
+
+    private BoardRepository.TopBoardPostCountProjection topBoardPostCount(Long boardId, Long postCount) {
+        return new BoardRepository.TopBoardPostCountProjection() {
+            @Override
+            public Long getBoardId() {
+                return boardId;
+            }
+
+            @Override
+            public Long getPostCount() {
+                return postCount;
+            }
+        };
     }
 
     private BoardUpdateRequest createBoardUpdateRequest(String boardName, String boardUrl, String iconUrl) {

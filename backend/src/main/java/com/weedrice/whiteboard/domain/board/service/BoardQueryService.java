@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.board.repository.BoardRepository.TopBoardPostCountProjection;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.service.PostService;
@@ -24,6 +25,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -82,20 +84,33 @@ class BoardQueryService {
 
     private List<BoardListResponse> getTopBoardsForUser(User currentUser, int limit) {
         if (currentUser == null || !boardAccessPolicy.hasElevatedBoardVisibility(currentUser)) {
-            List<Long> boardIds = boardRepository.findTopPublicBoardIdsByPostCount(
+            List<TopBoardPostCountProjection> topBoardCounts = boardRepository.findTopPublicBoardPostCounts(
                     boardAccessPolicy.getInquiryBoardUrl(),
                     PageRequest.of(0, limit));
-            List<Board> boards = findBoardsByIdsInOrder(boardIds);
-            return boardResponseAssembler.assembleListAll(boards, currentUser);
+            return assembleTopBoards(topBoardCounts, currentUser);
         }
 
-        List<Long> boardIds = boardRepository.findTopReadableBoardIdsByPostCount(
+        List<TopBoardPostCountProjection> topBoardCounts = boardRepository.findTopReadableBoardPostCounts(
                 currentUser,
                 currentUser.isUsableSuperAdmin(),
                 boardAccessPolicy.getInquiryBoardUrl(),
                 PageRequest.of(0, limit));
+        return assembleTopBoards(topBoardCounts, currentUser);
+    }
+
+    private List<BoardListResponse> assembleTopBoards(List<TopBoardPostCountProjection> topBoardCounts,
+                                                      User currentUser) {
+        List<Long> boardIds = topBoardCounts.stream()
+                .map(TopBoardPostCountProjection::getBoardId)
+                .toList();
         List<Board> boards = findBoardsByIdsInOrder(boardIds);
-        return boardResponseAssembler.assembleListAll(boards, currentUser);
+        Map<Long, Long> postCounts = topBoardCounts.stream()
+                .collect(Collectors.toMap(
+                        TopBoardPostCountProjection::getBoardId,
+                        TopBoardPostCountProjection::getPostCount,
+                        (existing, ignored) -> existing,
+                        LinkedHashMap::new));
+        return boardResponseAssembler.assembleListAll(boards, currentUser, postCounts);
     }
 
     List<AdminBoardResponse> getAllBoards(Long userId) {

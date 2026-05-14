@@ -160,15 +160,20 @@ class BoardRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        var boardIds = boardRepository.findTopPublicBoardIdsByPostCount(
+        var topBoardCounts = boardRepository.findTopPublicBoardPostCounts(
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
                 PageRequest.of(0, 10));
+        var boardIds = topBoardCounts.stream()
+                .map(BoardRepository.TopBoardPostCountProjection::getBoardId)
+                .toList();
         var boards = boardRepository.findByBoardIdIn(boardIds);
 
         assertThat(boardIds).containsExactly(
                 visibleTop.getBoardId(),
                 visibleTieFirst.getBoardId(),
                 visibleTieSecond.getBoardId());
+        assertThat(topBoardCounts).extracting(BoardRepository.TopBoardPostCountProjection::getPostCount)
+                .containsExactly(4L, 2L, 2L);
         assertThat(boards).extracting(Board::getBoardName)
                 .containsExactlyInAnyOrder("Visible Top", "Visible Tie First", "Visible Tie Second");
         assertThat(boardIds).doesNotContain(secretOnlyBoard.getBoardId());
@@ -260,7 +265,7 @@ class BoardRepositoryTest {
 
     @Test
     @DisplayName("Readable top boards filter visibility before limit and keep order")
-    void findTopReadableBoardIdsByPostCount_filtersVisibilityBeforeLimit() {
+    void findTopReadableBoardPostCounts_filtersVisibilityBeforeLimit() {
         User reader = persistUser("top-reader");
         Board publicBoard = persistBoard("Readable Public", "readable-public", 20, true, true);
         Board secretOnlyPublicBoard = persistBoard("Readable Secret Only Public", "readable-secret-only-public", 5,
@@ -284,13 +289,18 @@ class BoardRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        var boardIds = boardRepository.findTopReadableBoardIdsByPostCount(
+        var topBoardCounts = boardRepository.findTopReadableBoardPostCounts(
                 reader,
                 false,
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
                 PageRequest.of(0, 10));
+        var boardIds = topBoardCounts.stream()
+                .map(BoardRepository.TopBoardPostCountProjection::getBoardId)
+                .toList();
 
         assertThat(boardIds).containsExactly(adminPrivateBoard.getBoardId(), publicBoard.getBoardId());
+        assertThat(topBoardCounts).extracting(BoardRepository.TopBoardPostCountProjection::getPostCount)
+                .containsExactly(5L, 2L);
         assertThat(boardIds).doesNotContain(secretOnlyPublicBoard.getBoardId());
     }
 
