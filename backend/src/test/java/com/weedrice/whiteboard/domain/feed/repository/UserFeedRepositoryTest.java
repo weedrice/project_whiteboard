@@ -16,6 +16,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.Query;
 
 import java.lang.reflect.Method;
@@ -157,6 +158,25 @@ class UserFeedRepositoryTest {
         assertThat(result.getContent())
                 .extracting(UserFeed::getFeedId)
                 .containsSubsequence(second.getFeedId(), first.getFeedId());
+    }
+
+    @Test
+    void findVisibleSliceByTargetUserOrderByCreatedAtDesc_trimsOverFetchedContentAndSetsHasNext() {
+        UserFeed first = persistFeed(viewer, "NOTICE", 10L);
+        UserFeed second = persistFeed(viewer, "NOTICE", 20L);
+        entityManager.flush();
+        updateCreatedAt(first, LocalDateTime.now().minusMinutes(1));
+        updateCreatedAt(second, LocalDateTime.now().minusMinutes(2));
+        entityManager.clear();
+
+        Slice<UserFeed> result = userFeedRepository.findVisibleSliceByTargetUserOrderByCreatedAtDesc(
+                vf(viewer),
+                PageRequest.of(0, 1));
+
+        assertThat(result.getContent())
+                .extracting(UserFeed::getFeedId)
+                .containsExactly(first.getFeedId());
+        assertThat(result.hasNext()).isTrue();
     }
 
     @Test

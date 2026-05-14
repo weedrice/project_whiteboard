@@ -22,6 +22,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.SliceImpl;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -96,6 +97,7 @@ class FeedServiceTest {
         assertThat(response.getContent().get(0).getPost()).isEqualTo(firstPost);
         assertThat(response.getContent().get(1).getContentId()).isEqualTo(202L);
         assertThat(response.getContent().get(1).getPost()).isEqualTo(secondPost);
+        verify(userFeedRepository, never()).findVisibleSliceByTargetUserOrderByCreatedAtDesc(vf(user), pageable);
     }
 
     @Test
@@ -142,14 +144,15 @@ class FeedServiceTest {
         UserFeed refillFeed = createFeed(3L, user, "SUBSCRIPTION_POST", "POST", 303L, "BOARD_SUBSCRIPTION", 10L,
                 LocalDateTime.now().minusMinutes(2));
         Page<UserFeed> feedPage = new PageImpl<>(List.of(staleFeed, validFeed), pageable, 3);
-        Page<UserFeed> refillPage = new PageImpl<>(List.of(refillFeed), nextPageable, 3);
+        SliceImpl<UserFeed> refillPage = new SliceImpl<>(List.of(refillFeed), nextPageable, false);
         PostSummary validPost = PostSummary.builder().postId(202L).title("valid").build();
         PostSummary refillPost = PostSummary.builder().postId(303L).title("refill").build();
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of());
         when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(user), pageable)).thenReturn(feedPage);
-        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(user), nextPageable)).thenReturn(refillPage);
+        when(userFeedRepository.findVisibleSliceByTargetUserOrderByCreatedAtDesc(vf(user), nextPageable))
+                .thenReturn(refillPage);
         when(postService.getPostSummariesByIds(List.of(101L, 202L), userId)).thenReturn(Map.of(202L, validPost));
         when(postService.getPostSummariesByIds(List.of(303L), userId)).thenReturn(Map.of(303L, refillPost));
 
@@ -161,6 +164,7 @@ class FeedServiceTest {
         assertThat(response.getTotalElements()).isEqualTo(2);
         assertThat(response.getTotalPages()).isEqualTo(1);
         assertThat(response.isHasNext()).isFalse();
+        verify(userFeedRepository, never()).findVisibleByTargetUserOrderByCreatedAtDesc(vf(user), nextPageable);
     }
 
     @Test
@@ -183,8 +187,13 @@ class FeedServiceTest {
                     10L,
                     LocalDateTime.now().minusMinutes(page));
             Pageable currentPageable = feedPageable(page, 1);
-            when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(user), currentPageable))
-                    .thenReturn(new PageImpl<>(List.of(staleFeed), currentPageable, 10));
+            if (page == 0) {
+                when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(user), currentPageable))
+                        .thenReturn(new PageImpl<>(List.of(staleFeed), currentPageable, 10));
+            } else {
+                when(userFeedRepository.findVisibleSliceByTargetUserOrderByCreatedAtDesc(vf(user), currentPageable))
+                        .thenReturn(new SliceImpl<>(List.of(staleFeed), currentPageable, true));
+            }
             when(postService.getPostSummariesByIds(List.of(100L + page), userId)).thenReturn(Map.of());
         }
 
@@ -193,7 +202,7 @@ class FeedServiceTest {
         assertThat(response.getContent()).isEmpty();
         assertThat(response.getTotalElements()).isEqualTo(4);
         assertThat(response.isHasNext()).isTrue();
-        verify(userFeedRepository, never()).findVisibleByTargetUserOrderByCreatedAtDesc(
+        verify(userFeedRepository, never()).findVisibleSliceByTargetUserOrderByCreatedAtDesc(
                 vf(user),
                 feedPageable(6, 1));
     }

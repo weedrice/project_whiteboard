@@ -19,6 +19,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -77,7 +78,7 @@ public class FeedService {
         return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), FEED_LIST_SORT);
     }
 
-    private Map<Long, PostSummary> resolvePostSummaries(Page<UserFeed> feedPage, Long userId) {
+    private Map<Long, PostSummary> resolvePostSummaries(Slice<UserFeed> feedPage, Long userId) {
         List<Long> postIds = feedPage.getContent().stream()
                 .filter(feed -> FeedGenerationService.CONTENT_TYPE_POST.equals(feed.getContentType()))
                 .map(UserFeed::getContentId)
@@ -95,8 +96,8 @@ public class FeedService {
         return UserFeedVisibilityCondition.of(user, blockedUserIds, activeAdminBoardIds);
     }
 
-    private void logUnresolvedPostFeeds(Page<UserFeed> feedPage, Map<Long, PostSummary> postSummariesById,
-                                        Long userId) {
+    private void logUnresolvedPostFeeds(Slice<UserFeed> feedPage, Map<Long, PostSummary> postSummariesById,
+                                         Long userId) {
         long unresolvedPostFeedCount = feedPage.getContent().stream()
                 .filter(feed -> FeedGenerationService.CONTENT_TYPE_POST.equals(feed.getContentType()))
                 .filter(feed -> !postSummariesById.containsKey(feed.getContentId()))
@@ -116,7 +117,7 @@ public class FeedService {
         Set<Long> seenFeedIds = new HashSet<>();
         int droppedCount = 0;
 
-        Page<UserFeed> currentPage = firstFeedPage;
+        Slice<UserFeed> currentPage = firstFeedPage;
         int additionalPageCount = 0;
         while (true) {
             Map<Long, PostSummary> currentSummariesById = resolvePostSummaries(currentPage, userId);
@@ -136,7 +137,7 @@ public class FeedService {
             }
 
             additionalPageCount++;
-            currentPage = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
+            currentPage = userFeedRepository.findVisibleSliceByTargetUserOrderByCreatedAtDesc(
                     visibilityCondition,
                     PageRequest.of(
                             pageable.getPageNumber() + additionalPageCount,
@@ -152,15 +153,15 @@ public class FeedService {
         return new ResolvedFeedPage(responsePage, responseFeeds, postSummariesById);
     }
 
-    private boolean shouldRefill(Pageable pageable, int requestedSize, int responseFeedCount, Page<UserFeed> currentPage,
-                                 int additionalPageCount) {
+    private boolean shouldRefill(Pageable pageable, int requestedSize, int responseFeedCount, Slice<UserFeed> currentPage,
+                                  int additionalPageCount) {
         return pageable.isPaged()
                 && responseFeedCount < requestedSize
                 && currentPage.hasNext()
                 && additionalPageCount < MAX_REFILL_PAGE_LOOKAHEAD;
     }
 
-    private FeedFilterResult excludeUnresolvedPostFeeds(Page<UserFeed> feedPage,
+    private FeedFilterResult excludeUnresolvedPostFeeds(Slice<UserFeed> feedPage,
                                                         Map<Long, PostSummary> postSummariesById,
                                                         Set<Long> seenFeedIds,
                                                         int remainingCount) {
