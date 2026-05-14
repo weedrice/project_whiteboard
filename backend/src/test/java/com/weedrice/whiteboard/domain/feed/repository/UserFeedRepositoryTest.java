@@ -61,8 +61,7 @@ class UserFeedRepositoryTest {
         entityManager.clear();
 
         Page<UserFeed> result = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
-                viewer,
-                List.of(author.getUserId()),
+                vf(viewer, List.of(author.getUserId()), List.of()),
                 PageRequest.of(0, 10));
 
         assertThat(result.getTotalElements()).isEqualTo(1);
@@ -81,8 +80,7 @@ class UserFeedRepositoryTest {
         entityManager.clear();
 
         Page<UserFeed> result = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
-                viewer,
-                List.of(),
+                vf(viewer),
                 PageRequest.of(0, 10));
 
         assertThat(result.getTotalElements()).isEqualTo(1);
@@ -90,8 +88,24 @@ class UserFeedRepositoryTest {
     }
 
     @Test
-    void findVisibleByTargetUserOrderByCreatedAtDesc_allowsPrivateBoardForActiveAdmin() {
+    void findVisibleByTargetUserOrderByCreatedAtDesc_allowsPrivateBoardForPrecomputedAdminBoardId() {
         Board privateBoard = persistBoard("private-board", author, true, false);
+        Post privatePost = persistPost(privateBoard, author, false);
+        persistFeed(viewer, "POST", privatePost.getPostId());
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<UserFeed> result = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
+                vf(viewer, List.of(), List.of(privateBoard.getBoardId())),
+                PageRequest.of(0, 10));
+
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(result.getContent().getFirst().getContentId()).isEqualTo(privatePost.getPostId());
+    }
+
+    @Test
+    void findVisibleByTargetUserOrderByCreatedAtDesc_usesPrecomputedAdminBoardIdsOnly() {
+        Board privateBoard = persistBoard("private-board-hidden", author, true, false);
         entityManager.persist(Admin.builder()
                 .user(viewer)
                 .board(privateBoard)
@@ -103,8 +117,23 @@ class UserFeedRepositoryTest {
         entityManager.clear();
 
         Page<UserFeed> result = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
-                viewer,
-                List.of(),
+                vf(viewer),
+                PageRequest.of(0, 10));
+
+        assertThat(result.getTotalElements()).isZero();
+    }
+
+    @Test
+    void findVisibleByTargetUserOrderByCreatedAtDesc_allowsPrivateBoardForSuperAdmin() {
+        viewer.grantSuperAdminRole();
+        Board privateBoard = persistBoard("private-board-super-admin", author, true, false);
+        Post privatePost = persistPost(privateBoard, author, false);
+        persistFeed(viewer, "POST", privatePost.getPostId());
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<UserFeed> result = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
+                vf(viewer),
                 PageRequest.of(0, 10));
 
         assertThat(result.getTotalElements()).isEqualTo(1);
@@ -122,8 +151,7 @@ class UserFeedRepositoryTest {
         entityManager.clear();
 
         Page<UserFeed> result = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
-                viewer,
-                List.of(),
+                vf(viewer),
                 PageRequest.of(0, 10));
 
         assertThat(result.getContent())
@@ -280,5 +308,13 @@ class UserFeedRepositoryTest {
                 .setParameter("createdAt", createdAt)
                 .setParameter("feedId", feed.getFeedId())
                 .executeUpdate();
+    }
+
+    private UserFeedVisibilityCondition vf(User targetUser) {
+        return vf(targetUser, List.of(), List.of());
+    }
+
+    private UserFeedVisibilityCondition vf(User targetUser, List<Long> blockedUserIds, List<Long> activeAdminBoardIds) {
+        return UserFeedVisibilityCondition.of(targetUser, blockedUserIds, activeAdminBoardIds);
     }
 }

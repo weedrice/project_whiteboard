@@ -1,8 +1,10 @@
 package com.weedrice.whiteboard.domain.feed.service;
 
+import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.feed.dto.FeedResponse;
 import com.weedrice.whiteboard.domain.feed.entity.UserFeed;
 import com.weedrice.whiteboard.domain.feed.repository.UserFeedRepository;
+import com.weedrice.whiteboard.domain.feed.repository.UserFeedVisibilityCondition;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -60,6 +62,9 @@ class FeedServiceTest {
     @Mock
     private UserBlockService userBlockService;
 
+    @Mock
+    private AdminRepository adminRepository;
+
     @Test
     @DisplayName("POST feeds hydrate post summaries in page order")
     void getUserFeeds_hydratesPostsInPageOrder() {
@@ -81,7 +86,7 @@ class FeedServiceTest {
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of());
-        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, List.of(), pageable)).thenReturn(feedPage);
+        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(user), pageable)).thenReturn(feedPage);
         when(postService.getPostSummariesByIds(List.of(101L, 202L), userId)).thenReturn(postSummaries);
 
         FeedResponse response = feedService.getUserFeeds(userId, pageable);
@@ -109,7 +114,7 @@ class FeedServiceTest {
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of());
-        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, List.of(), pageable)).thenReturn(feedPage);
+        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(user), pageable)).thenReturn(feedPage);
         when(postService.getPostSummariesByIds(List.of(101L, 202L), userId)).thenReturn(Map.of(202L, validPost));
 
         FeedResponse response = feedService.getUserFeeds(userId, pageable);
@@ -143,8 +148,8 @@ class FeedServiceTest {
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of());
-        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, List.of(), pageable)).thenReturn(feedPage);
-        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, List.of(), nextPageable)).thenReturn(refillPage);
+        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(user), pageable)).thenReturn(feedPage);
+        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(user), nextPageable)).thenReturn(refillPage);
         when(postService.getPostSummariesByIds(List.of(101L, 202L), userId)).thenReturn(Map.of(202L, validPost));
         when(postService.getPostSummariesByIds(List.of(303L), userId)).thenReturn(Map.of(303L, refillPost));
 
@@ -178,7 +183,7 @@ class FeedServiceTest {
                     10L,
                     LocalDateTime.now().minusMinutes(page));
             Pageable currentPageable = feedPageable(page, 1);
-            when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, List.of(), currentPageable))
+            when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(user), currentPageable))
                     .thenReturn(new PageImpl<>(List.of(staleFeed), currentPageable, 10));
             when(postService.getPostSummariesByIds(List.of(100L + page), userId)).thenReturn(Map.of());
         }
@@ -189,8 +194,7 @@ class FeedServiceTest {
         assertThat(response.getTotalElements()).isEqualTo(4);
         assertThat(response.isHasNext()).isTrue();
         verify(userFeedRepository, never()).findVisibleByTargetUserOrderByCreatedAtDesc(
-                user,
-                List.of(),
+                vf(user),
                 feedPageable(6, 1));
     }
 
@@ -206,7 +210,7 @@ class FeedServiceTest {
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of());
-        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, List.of(), pageable)).thenReturn(feedPage);
+        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(user), pageable)).thenReturn(feedPage);
 
         FeedResponse response = feedService.getUserFeeds(userId, pageable);
 
@@ -228,7 +232,8 @@ class FeedServiceTest {
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of(99L));
-        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, List.of(99L), pageable)).thenReturn(feedPage);
+        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(user, List.of(99L)), pageable))
+                .thenReturn(feedPage);
         when(postService.getPostSummariesByIds(List.of(101L), userId)).thenReturn(Map.of(101L, validPost));
 
         FeedResponse response = feedService.getUserFeeds(userId, pageable);
@@ -243,7 +248,7 @@ class FeedServiceTest {
         assertThat(response.isHasNext()).isFalse();
         assertThat(response.isHasPrevious()).isFalse();
         verify(userFeedRepository, never()).deleteAllInBatch(org.mockito.ArgumentMatchers.anyList());
-        verify(userFeedRepository).findVisibleByTargetUserOrderByCreatedAtDesc(user, List.of(99L), pageable);
+        verify(userFeedRepository).findVisibleByTargetUserOrderByCreatedAtDesc(vf(user, List.of(99L)), pageable);
     }
 
     @Test
@@ -256,7 +261,7 @@ class FeedServiceTest {
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of());
-        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, List.of(), pageable)).thenReturn(feedPage);
+        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(user), pageable)).thenReturn(feedPage);
 
         FeedResponse response = feedService.getUserFeeds(userId, pageable);
 
@@ -269,6 +274,44 @@ class FeedServiceTest {
         assertThat(response.isHasPrevious()).isFalse();
         verify(userFeedRepository, never()).deleteAllInBatch(org.mockito.ArgumentMatchers.anyList());
         verify(postService, never()).getPostSummariesByIds(org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.anyLong());
+    }
+
+    @Test
+    @DisplayName("active admin board ids are resolved once and passed to feed repository")
+    void getUserFeeds_passesActiveAdminBoardIdsToRepository() {
+        Long userId = 1L;
+        User user = User.builder().build();
+        Pageable pageable = feedPageable(0, 10);
+        UserFeedVisibilityCondition visibilityCondition = vf(user, List.of(), List.of(10L, 20L));
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of());
+        when(adminRepository.findActiveBoardIdsByUser(user)).thenReturn(List.of(10L, 20L));
+        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(visibilityCondition, pageable))
+                .thenReturn(Page.empty(pageable));
+
+        feedService.getUserFeeds(userId, pageable);
+
+        verify(adminRepository).findActiveBoardIdsByUser(user);
+        verify(userFeedRepository).findVisibleByTargetUserOrderByCreatedAtDesc(visibilityCondition, pageable);
+    }
+
+    @Test
+    @DisplayName("super admin feed visibility skips active admin board lookup")
+    void getUserFeeds_superAdminSkipsActiveAdminBoardLookup() {
+        Long userId = 1L;
+        User user = User.builder().build();
+        user.grantSuperAdminRole();
+        Pageable pageable = feedPageable(0, 10);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of());
+        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(user), pageable))
+                .thenReturn(Page.empty(pageable));
+
+        feedService.getUserFeeds(userId, pageable);
+
+        verify(adminRepository, never()).findActiveBoardIdsByUser(user);
     }
 
     @Test
@@ -302,14 +345,26 @@ class FeedServiceTest {
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of());
-        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(user, List.of(), normalizedPageable))
+        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(user), normalizedPageable))
                 .thenReturn(Page.empty(normalizedPageable));
 
         FeedResponse response = feedService.getUserFeeds(userId, requestedPageable);
 
         assertThat(response.getPage()).isEqualTo(2);
         assertThat(response.getSize()).isEqualTo(100);
-        verify(userFeedRepository).findVisibleByTargetUserOrderByCreatedAtDesc(user, List.of(), normalizedPageable);
+        verify(userFeedRepository).findVisibleByTargetUserOrderByCreatedAtDesc(vf(user), normalizedPageable);
+    }
+
+    private UserFeedVisibilityCondition vf(User user) {
+        return vf(user, List.of());
+    }
+
+    private UserFeedVisibilityCondition vf(User user, List<Long> blockedUserIds) {
+        return vf(user, blockedUserIds, List.of());
+    }
+
+    private UserFeedVisibilityCondition vf(User user, List<Long> blockedUserIds, List<Long> activeAdminBoardIds) {
+        return UserFeedVisibilityCondition.of(user, blockedUserIds, activeAdminBoardIds);
     }
 
     private Pageable feedPageable(int page, int size) {

@@ -1,8 +1,10 @@
 package com.weedrice.whiteboard.domain.feed.service;
 
+import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.feed.dto.FeedResponse;
 import com.weedrice.whiteboard.domain.feed.entity.UserFeed;
 import com.weedrice.whiteboard.domain.feed.repository.UserFeedRepository;
+import com.weedrice.whiteboard.domain.feed.repository.UserFeedVisibilityCondition;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -45,17 +47,18 @@ public class FeedService {
     private final PostService postService;
     private final FeedGenerationService feedGenerationService;
     private final UserBlockService userBlockService;
+    private final AdminRepository adminRepository;
 
     public FeedResponse getUserFeeds(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         Pageable normalizedPageable = normalizeFeedPageable(pageable);
         List<Long> blockedUserIds = userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId);
+        UserFeedVisibilityCondition visibilityCondition = resolveVisibilityCondition(user, blockedUserIds);
         Page<UserFeed> feedPage = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
-                user,
-                blockedUserIds,
+                visibilityCondition,
                 normalizedPageable);
-        ResolvedFeedPage resolvedFeedPage = resolveFeedPage(user, blockedUserIds, userId, feedPage);
+        ResolvedFeedPage resolvedFeedPage = resolveFeedPage(visibilityCondition, userId, feedPage);
         return FeedResponse.from(
                 resolvedFeedPage.page(),
                 resolvedFeedPage.feeds(),
@@ -85,6 +88,13 @@ public class FeedService {
         return postService.getPostSummariesByIds(postIds, userId);
     }
 
+    private UserFeedVisibilityCondition resolveVisibilityCondition(User user, List<Long> blockedUserIds) {
+        List<Long> activeAdminBoardIds = user.isUsableSuperAdmin()
+                ? List.of()
+                : adminRepository.findActiveBoardIdsByUser(user);
+        return UserFeedVisibilityCondition.of(user, blockedUserIds, activeAdminBoardIds);
+    }
+
     private void logUnresolvedPostFeeds(Page<UserFeed> feedPage, Map<Long, PostSummary> postSummariesById,
                                         Long userId) {
         long unresolvedPostFeedCount = feedPage.getContent().stream()
@@ -97,7 +107,7 @@ public class FeedService {
         }
     }
 
-    private ResolvedFeedPage resolveFeedPage(User user, List<Long> blockedUserIds, Long userId,
+    private ResolvedFeedPage resolveFeedPage(UserFeedVisibilityCondition visibilityCondition, Long userId,
                                              Page<UserFeed> firstFeedPage) {
         Pageable pageable = firstFeedPage.getPageable();
         int requestedSize = pageable.isPaged() ? pageable.getPageSize() : firstFeedPage.getNumberOfElements();
@@ -127,8 +137,7 @@ public class FeedService {
 
             additionalPageCount++;
             currentPage = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
-                    user,
-                    blockedUserIds,
+                    visibilityCondition,
                     PageRequest.of(
                             pageable.getPageNumber() + additionalPageCount,
                             pageable.getPageSize(),

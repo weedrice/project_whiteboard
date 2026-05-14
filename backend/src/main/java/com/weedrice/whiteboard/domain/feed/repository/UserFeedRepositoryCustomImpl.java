@@ -2,7 +2,6 @@ package com.weedrice.whiteboard.domain.feed.repository;
 
 import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.feed.entity.UserFeed;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
 import lombok.RequiredArgsConstructor;
@@ -11,7 +10,6 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
-import java.util.Collection;
 import java.util.List;
 
 @Repository
@@ -24,28 +22,27 @@ public class UserFeedRepositoryCustomImpl implements UserFeedRepositoryCustom {
 
     @Override
     public Page<UserFeed> findVisibleByTargetUserOrderByCreatedAtDesc(
-            User targetUser,
-            Collection<Long> blockedUserIds,
+            UserFeedVisibilityCondition visibilityCondition,
             Pageable pageable) {
-        String fromClause = buildVisibleFeedFromClause(blockedUserIds);
+        String fromClause = buildVisibleFeedFromClause(visibilityCondition);
         TypedQuery<UserFeed> contentQuery = entityManager.createQuery(
                 "SELECT uf " + fromClause + " ORDER BY uf.createdAt DESC, uf.feedId DESC",
                 UserFeed.class);
-        bindParameters(contentQuery, targetUser, blockedUserIds);
+        bindParameters(contentQuery, visibilityCondition);
         if (pageable.isPaged()) {
             contentQuery.setFirstResult((int) pageable.getOffset());
             contentQuery.setMaxResults(pageable.getPageSize());
         }
 
         TypedQuery<Long> countQuery = entityManager.createQuery("SELECT COUNT(uf) " + fromClause, Long.class);
-        bindParameters(countQuery, targetUser, blockedUserIds);
+        bindParameters(countQuery, visibilityCondition);
 
         List<UserFeed> content = contentQuery.getResultList();
         Long total = countQuery.getSingleResult();
         return new PageImpl<>(content, pageable, total != null ? total : 0L);
     }
 
-    private String buildVisibleFeedFromClause(Collection<Long> blockedUserIds) {
+    private String buildVisibleFeedFromClause(UserFeedVisibilityCondition visibilityCondition) {
         StringBuilder query = new StringBuilder("""
                 FROM UserFeed uf
                 LEFT JOIN Post p ON uf.contentType = :postContentType AND p.postId = uf.contentId
@@ -57,7 +54,7 @@ public class UserFeedRepositoryCustomImpl implements UserFeedRepositoryCustom {
                               p.postId IS NOT NULL
                               AND p.isDeleted = false
                 """);
-        if (blockedUserIds != null && !blockedUserIds.isEmpty()) {
+        if (visibilityCondition.hasBlockedUserIds()) {
             query.append("\n              AND p.user.userId NOT IN :blockedUserIds");
         }
         query.append("""
@@ -66,13 +63,9 @@ public class UserFeedRepositoryCustomImpl implements UserFeedRepositoryCustom {
                                     b.isActive = true
                                     OR p.user = :targetUser
                                     OR :isSuperAdmin = true
-                                    OR EXISTS (
-                                        SELECT 1
-                                        FROM Admin admin
-                                        WHERE admin.board = b
-                                          AND admin.user = :targetUser
-                                          AND admin.isActive = true
-                                    )
+                """);
+        appendAdminBoardAccess(query, visibilityCondition);
+        query.append("""
                               )
                               AND (
                                     b.isPublic = true
@@ -81,25 +74,17 @@ public class UserFeedRepositoryCustomImpl implements UserFeedRepositoryCustom {
                                         AND p.user = :targetUser
                                     )
                                     OR :isSuperAdmin = true
-                                    OR EXISTS (
-                                        SELECT 1
-                                        FROM Admin admin
-                                        WHERE admin.board = b
-                                          AND admin.user = :targetUser
-                                          AND admin.isActive = true
-                                    )
+                """);
+        appendAdminBoardAccess(query, visibilityCondition);
+        query.append("""
                               )
                               AND (
                                     p.isSecret = false
                                     OR p.user = :targetUser
                                     OR :isSuperAdmin = true
-                                    OR EXISTS (
-                                        SELECT 1
-                                        FROM Admin admin
-                                        WHERE admin.board = b
-                                          AND admin.user = :targetUser
-                                          AND admin.isActive = true
-                                    )
+                """);
+        appendAdminBoardAccess(query, visibilityCondition);
+        query.append("""
                               )
                         )
                   )
@@ -107,13 +92,22 @@ public class UserFeedRepositoryCustomImpl implements UserFeedRepositoryCustom {
         return query.toString();
     }
 
-    private void bindParameters(TypedQuery<?> query, User targetUser, Collection<Long> blockedUserIds) {
-        query.setParameter("targetUser", targetUser);
+    private void appendAdminBoardAccess(StringBuilder query, UserFeedVisibilityCondition visibilityCondition) {
+        if (visibilityCondition.hasActiveAdminBoardIds()) {
+            query.append("\n                                    OR b.boardId IN :activeAdminBoardIds");
+        }
+    }
+
+    private void bindParameters(TypedQuery<?> query, UserFeedVisibilityCondition visibilityCondition) {
+        query.setParameter("targetUser", visibilityCondition.targetUser());
         query.setParameter("postContentType", CONTENT_TYPE_POST);
         query.setParameter("inquiryBoardUrl", BoardPolicyConstants.INQUIRY_BOARD_URL);
-        query.setParameter("isSuperAdmin", targetUser.isUsableSuperAdmin());
-        if (blockedUserIds != null && !blockedUserIds.isEmpty()) {
-            query.setParameter("blockedUserIds", blockedUserIds);
+        query.setParameter("isSuperAdmin", visibilityCondition.superAdmin());
+        if (visibilityCondition.hasBlockedUserIds()) {
+            query.setParameter("blockedUserIds", visibilityCondition.blockedUserIds());
+        }
+        if (visibilityCondition.hasActiveAdminBoardIds()) {
+            query.setParameter("activeAdminBoardIds", visibilityCondition.activeAdminBoardIds());
         }
     }
 }
