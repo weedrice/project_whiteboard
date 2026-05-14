@@ -33,20 +33,15 @@ public class HomeLandingService {
     private final BoardRepository boardRepository;
     private final CommentRepository commentRepository;
     private final UserRepository userRepository;
-    private final HomeLandingCurationPolicy curationPolicy;
     private final Clock clock;
 
     public HomeLandingResponse getLanding(Long userId, String period) {
         List<PostSummary> curatedPosts = getCuratedPosts(userId, period);
         List<BoardListResponse> boards = getBoards(userId);
         HomeLandingResponse.Stats stats = getStats();
-        HomeLandingCurationPolicy.HomeLandingSections sections = curationPolicy.curate(curatedPosts);
 
         return HomeLandingResponse.builder()
-                .featuredPost(sections.featuredPost())
-                .editorPicks(sections.editorPicks())
-                .trendingPosts(sections.trendingPosts())
-                .liveActivity(sections.liveActivity())
+                .posts(curatedPosts)
                 .boards(boards)
                 .stats(stats)
                 .build();

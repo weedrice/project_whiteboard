@@ -186,10 +186,7 @@ export interface HomeLandingStats {
 }
 
 export interface HomeLandingResponse {
-    featuredPost: PostSummary | null
-    editorPicks: PostSummary[]
-    trendingPosts: PostSummary[]
-    liveActivity: PostSummary[]
+    posts: PostSummary[]
     boards: BoardListItem[]
     stats: HomeLandingStats
 }

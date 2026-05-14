@@ -71,13 +71,12 @@ class HomeLandingServiceTest {
                 boardRepository,
                 commentRepository,
                 userRepository,
-                new HomeLandingCurationPolicy(),
                 clock);
     }
 
     @Test
-    @DisplayName("Landing response is split into featured, picks, trending, and live sections")
-    void getLanding_slicesCuratedSections() {
+    @DisplayName("Landing response returns layout independent source posts")
+    void getLanding_returnsCuratedPosts() {
         List<PostSummary> curatedPosts = List.of(
                 post(1L, "featured"),
                 post(2L, "pick-1"),
@@ -104,10 +103,7 @@ class HomeLandingServiceTest {
 
         HomeLandingResponse response = homeLandingService.getLanding(1L, "24h");
 
-        assertThat(response.getFeaturedPost().getPostId()).isEqualTo(1L);
-        assertThat(response.getEditorPicks()).extracting(PostSummary::getPostId).containsExactly(2L, 3L, 4L);
-        assertThat(response.getTrendingPosts()).extracting(PostSummary::getPostId).containsExactly(5L, 6L);
-        assertThat(response.getLiveActivity()).extracting(PostSummary::getPostId)
+        assertThat(response.getPosts()).extracting(PostSummary::getPostId)
                 .containsExactly(1L, 2L, 3L, 4L, 5L, 6L);
         assertThat(response.getStats().getBoardCount()).isEqualTo(11L);
         assertThat(response.getStats().getPostCount()).isEqualTo(8421L);

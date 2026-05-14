@@ -10,10 +10,7 @@ import java.util.List;
 @Getter
 @Builder
 public class HomeLandingResponse {
-    private PostSummary featuredPost;
-    private List<PostSummary> editorPicks;
-    private List<PostSummary> trendingPosts;
-    private List<PostSummary> liveActivity;
+    private List<PostSummary> posts;
     private List<BoardListResponse> boards;
     private Stats stats;
 
