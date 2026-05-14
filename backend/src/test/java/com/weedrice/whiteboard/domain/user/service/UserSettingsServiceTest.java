@@ -105,6 +105,7 @@ class UserSettingsServiceTest {
     @DisplayName("Settings update succeeds")
     void updateSettings_success() {
         User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
         UserSettings settings = new UserSettings(user);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -117,61 +118,54 @@ class UserSettingsServiceTest {
         assertThat(response.getLanguage()).isEqualTo("en");
         assertThat(response.getTimezone()).isEqualTo("UTC");
         assertThat(response.isHideNsfw()).isTrue();
+        verify(userRepository).findById(1L);
     }
 
     @Test
     @DisplayName("Settings update rejects unsupported theme")
     void updateSettings_invalidTheme() {
-        User user = User.builder().build();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-
         assertThatThrownBy(() -> userSettingsService.updateSettings(1L, "SYSTEM", null, null, null))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
+        verify(userRepository, never()).findById(any());
         verify(userSettingsRepository, never()).save(any());
     }
 
     @Test
     @DisplayName("Settings update rejects unsupported language")
     void updateSettings_invalidLanguage() {
-        User user = User.builder().build();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-
         assertThatThrownBy(() -> userSettingsService.updateSettings(1L, null, "fr", null, null))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
+        verify(userRepository, never()).findById(any());
         verify(userSettingsRepository, never()).save(any());
     }
 
     @Test
     @DisplayName("Settings update rejects invalid timezone")
     void updateSettings_invalidTimezone() {
-        User user = User.builder().build();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-
         assertThatThrownBy(() -> userSettingsService.updateSettings(1L, null, null, "Not/AZone", null))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
+        verify(userRepository, never()).findById(any());
         verify(userSettingsRepository, never()).save(any());
     }
 
     @Test
     @DisplayName("Settings update rejects blank timezone")
     void updateSettings_blankTimezone() {
-        User user = User.builder().build();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-
         assertThatThrownBy(() -> userSettingsService.updateSettings(1L, null, null, "   ", null))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
+        verify(userRepository, never()).findById(any());
         verify(userSettingsRepository, never()).save(any());
     }
 
@@ -280,7 +274,7 @@ class UserSettingsServiceTest {
     void updateSettings_userNotFound() {
         when(userRepository.findById(1L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> userSettingsService.updateSettings(1L, "ko", "light", "Asia/Seoul", true))
+        assertThatThrownBy(() -> userSettingsService.updateSettings(1L, "LIGHT", "ko", "Asia/Seoul", true))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
@@ -293,7 +287,7 @@ class UserSettingsServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
 
-        assertThatThrownBy(() -> userSettingsService.updateSettings(1L, "ko", "light", "Asia/Seoul", true))
+        assertThatThrownBy(() -> userSettingsService.updateSettings(1L, "LIGHT", "ko", "Asia/Seoul", true))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_ACTIVE);

@@ -170,19 +170,7 @@ public class MessageService {
     }
 
     private void deleteLoadedMessage(Long userId, Message message) {
-        boolean selfMessage = message.getSender().getUserId().equals(userId)
-                && message.getReceiver().getUserId().equals(userId);
-
-        if (selfMessage) {
-            message.deleteBySender();
-            message.deleteByReceiver();
-        } else if (message.getSender().getUserId().equals(userId)) {
-            message.deleteBySender();
-        } else if (message.getReceiver().getUserId().equals(userId)) {
-            message.deleteByReceiver();
-        } else {
-            throw new BusinessException(ErrorCode.NOT_FOUND);
-        }
+        resolveDeleteDirection(userId, message).delete(message);
     }
 
     private void deleteIfFullyDeleted(Message message) {
@@ -193,6 +181,46 @@ public class MessageService {
 
     private boolean isFullyDeleted(Message message) {
         return message.getIsDeletedBySender() && message.getIsDeletedByReceiver();
+    }
+
+    private MessageDeleteDirection resolveDeleteDirection(Long userId, Message message) {
+        boolean sender = message.getSender().getUserId().equals(userId);
+        boolean receiver = message.getReceiver().getUserId().equals(userId);
+
+        if (sender && receiver) {
+            return MessageDeleteDirection.BOTH;
+        }
+        if (sender) {
+            return MessageDeleteDirection.SENDER;
+        }
+        if (receiver) {
+            return MessageDeleteDirection.RECEIVER;
+        }
+        throw new BusinessException(ErrorCode.NOT_FOUND);
+    }
+
+    private enum MessageDeleteDirection {
+        SENDER {
+            @Override
+            void delete(Message message) {
+                message.deleteBySender();
+            }
+        },
+        RECEIVER {
+            @Override
+            void delete(Message message) {
+                message.deleteByReceiver();
+            }
+        },
+        BOTH {
+            @Override
+            void delete(Message message) {
+                message.deleteBySender();
+                message.deleteByReceiver();
+            }
+        };
+
+        abstract void delete(Message message);
     }
 
     private Map<Long, Message> findDeletableMessagesByIdsInChunks(Long userId, List<Long> messageIds) {

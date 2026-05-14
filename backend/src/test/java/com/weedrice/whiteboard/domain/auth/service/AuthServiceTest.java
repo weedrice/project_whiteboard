@@ -626,12 +626,13 @@ class AuthServiceTest {
                 .deviceInfo("browser")
                 .expiresAt(LocalDateTime.now().plusDays(7))
                 .build();
+        String oldRefreshTokenHash = new TokenHashService().hashSha256("old-refresh-token");
         String expectedRefreshTokenHash = new TokenHashService().hashSha256("new-refresh-token");
 
         when(jwtTokenProvider.validateToken("old-refresh-token")).thenReturn(true);
-        when(refreshTokenRepository.findUserIdByTokenHash(anyString())).thenReturn(Optional.of(1L));
+        when(refreshTokenRepository.findUserIdByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(1L));
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(refreshTokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(storedRefreshToken));
+        when(refreshTokenRepository.findByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(storedRefreshToken));
         when(sanctionService.isUserBanned(user)).thenReturn(false);
         when(jwtTokenProvider.createAccessToken(any(Authentication.class))).thenReturn("new-access-token");
         when(jwtTokenProvider.createRefreshToken(any(Authentication.class))).thenReturn("new-refresh-token");
@@ -663,11 +664,12 @@ class AuthServiceTest {
                 .deviceInfo("browser")
                 .expiresAt(LocalDateTime.now().plusDays(7))
                 .build();
+        String oldRefreshTokenHash = new TokenHashService().hashSha256("old-refresh-token");
 
         when(jwtTokenProvider.validateToken("old-refresh-token")).thenReturn(true);
-        when(refreshTokenRepository.findUserIdByTokenHash(anyString())).thenReturn(Optional.of(1L));
+        when(refreshTokenRepository.findUserIdByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(1L));
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(refreshTokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(refreshToken));
+        when(refreshTokenRepository.findByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(refreshToken));
         when(sanctionService.isUserBanned(user)).thenReturn(true);
 
         BusinessException exception = assertThrows(BusinessException.class,

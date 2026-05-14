@@ -144,13 +144,9 @@ public class SessionTokenService {
         }
 
         String oldRefreshTokenHash = tokenHashService.hashSha256(oldRefreshToken);
-        Long userId = refreshTokenRepository.findUserIdByTokenHash(oldRefreshTokenHash)
-                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
-        userRepository.findByIdForUpdate(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-        RefreshToken refreshToken = refreshTokenRepository.findByTokenHash(oldRefreshTokenHash)
-                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
+        RefreshTokenRenewalContext renewalContext = loadRefreshTokenRenewalContext(oldRefreshTokenHash);
+        RefreshToken refreshToken = renewalContext.refreshToken();
+        User user = renewalContext.user();
 
         if (!refreshToken.isValid()) {
             throw new BusinessException(ErrorCode.EXPIRED_REFRESH_TOKEN);
@@ -159,7 +155,6 @@ public class SessionTokenService {
         refreshToken.revoke();
         refreshTokenRepository.save(refreshToken);
 
-        User user = refreshToken.getUser();
         if (!"ACTIVE".equals(user.getStatus()) || sanctionService.isUserBanned(user)) {
             throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
         }
@@ -168,6 +163,16 @@ public class SessionTokenService {
 
         Authentication authentication = createRefreshAuthentication(user);
         return issueTokens(authentication, user, refreshToken.getIpAddress(), refreshToken.getDeviceInfo());
+    }
+
+    private RefreshTokenRenewalContext loadRefreshTokenRenewalContext(String refreshTokenHash) {
+        Long userId = refreshTokenRepository.findUserIdByTokenHash(refreshTokenHash)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        RefreshToken refreshToken = refreshTokenRepository.findByTokenHash(refreshTokenHash)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
+        return new RefreshTokenRenewalContext(refreshToken, user);
     }
 
     private Authentication createRefreshAuthentication(User user) {
@@ -250,5 +255,8 @@ public class SessionTokenService {
 
     private String resolveUserAgent(HttpServletRequest httpServletRequest) {
         return httpServletRequest != null ? httpServletRequest.getHeader("User-Agent") : null;
+    }
+
+    private record RefreshTokenRenewalContext(RefreshToken refreshToken, User user) {
     }
 }

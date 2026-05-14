@@ -58,12 +58,15 @@ public class UserSettingsService {
         @Transactional
         public UserSettingsResponse updateSettings(Long userId, String theme, String language, String timezone,
                         Boolean hideNsfw) {
-                validateUserCanWrite(userId);
+                String normalizedTheme = normalizeTheme(theme);
+                String normalizedLanguage = normalizeLanguage(language);
+                String normalizedTimezone = normalizeTimezone(timezone);
+                User user = validateUserCanWrite(userId);
                 UserSettings settings = updateSettingsEntity(
-                                userId,
-                                normalizeTheme(theme),
-                                normalizeLanguage(language),
-                                normalizeTimezone(timezone),
+                                user,
+                                normalizedTheme,
+                                normalizedLanguage,
+                                normalizedTimezone,
                                 hideNsfw);
                 return new UserSettingsResponse(settings.getTheme(), settings.getLanguage(), settings.getTimezone(),
                                 settings.getHideNsfw());
@@ -74,7 +77,11 @@ public class UserSettingsService {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-                return userSettingsRepository.findById(userId)
+                return getOrCreateSettingsEntity(user);
+        }
+
+        private UserSettings getOrCreateSettingsEntity(User user) {
+                return userSettingsRepository.findById(user.getUserId())
                                 .orElseGet(() -> createSettingsEntity(user));
         }
 
@@ -82,6 +89,13 @@ public class UserSettingsService {
         public UserSettings updateSettingsEntity(Long userId, String theme, String language, String timezone,
                         Boolean hideNsfw) {
                 UserSettings settings = getOrCreateSettingsEntity(userId);
+                settings.updateSettings(theme, language, timezone, hideNsfw);
+                return userSettingsRepository.save(settings);
+        }
+
+        private UserSettings updateSettingsEntity(User user, String theme, String language, String timezone,
+                        Boolean hideNsfw) {
+                UserSettings settings = getOrCreateSettingsEntity(user);
                 settings.updateSettings(theme, language, timezone, hideNsfw);
                 return userSettingsRepository.save(settings);
         }
@@ -134,8 +148,8 @@ public class UserSettingsService {
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         }
 
-        private void validateUserCanWrite(Long userId) {
-                userWritableResolver.resolve(userId);
+        private User validateUserCanWrite(Long userId) {
+                return userWritableResolver.resolve(userId);
         }
 
         private UserSettingsResponse toResponse(UserSettings settings) {
