@@ -46,7 +46,7 @@ public class CommentRepositoryCustomImpl implements CommentRepositoryCustom {
                 )
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
-                .orderBy(comment.createdAt.desc())
+                .orderBy(comment.createdAt.desc(), comment.commentId.desc())
                 .fetch();
 
         Long total = queryFactory

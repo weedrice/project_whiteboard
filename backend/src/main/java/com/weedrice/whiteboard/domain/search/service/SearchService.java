@@ -27,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +41,9 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class SearchService {
     private static final int SEARCH_PREVIEW_LIMIT = 5;
+    private static final Sort COMMENT_PREVIEW_SORT = Sort.by(
+            Sort.Order.desc("createdAt"),
+            Sort.Order.desc("commentId"));
 
     private final SearchStatisticRepository searchStatisticRepository;
     private final SearchStatisticCommandService searchStatisticCommandService;
@@ -75,6 +79,7 @@ public class SearchService {
     public IntegratedSearchResponse integratedSearch(String keyword, Long currentUserId) {
         String canonicalKeyword = SearchRequestNormalizer.canonicalizeKeyword(keyword);
         Pageable previewPageable = PageRequest.of(0, SEARCH_PREVIEW_LIMIT);
+        Pageable commentPreviewPageable = PageRequest.of(0, SEARCH_PREVIEW_LIMIT, COMMENT_PREVIEW_SORT);
 
         List<Long> blockedUserIds = null;
         if (currentUserId != null) {
@@ -86,7 +91,7 @@ public class SearchService {
         Page<PostSummary> posts = postSummaryAssembler.assembleSearchPage(postPage);
 
         Page<CommentResponse> comments = commentRepository
-                .searchCommentsByKeyword(canonicalKeyword, blockedUserIds, currentUserId, previewPageable)
+                .searchCommentsByKeyword(canonicalKeyword, blockedUserIds, currentUserId, commentPreviewPageable)
                 .map(CommentResponse::from);
 
         Page<UserSummary> users = userRepository.searchUsersVisibleTo(canonicalKeyword, blockedUserIds, previewPageable)

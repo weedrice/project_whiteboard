@@ -478,6 +478,33 @@ class CommentRepositoryTest {
     }
 
     @Test
+    @DisplayName("searchCommentsByKeyword orders same createdAt comments by commentId descending")
+    void searchCommentsByKeyword_ordersSameCreatedAtByCommentIdDescending() {
+        Post visiblePost = persistPost("Visible Search Post", board, false, false, user);
+        Comment firstComment = commentFor(visiblePost, "needle first", user);
+        Comment secondComment = commentFor(visiblePost, "needle second", user);
+        entityManager.persist(firstComment);
+        entityManager.persist(secondComment);
+        entityManager.flush();
+
+        LocalDateTime sameCreatedAt = LocalDateTime.of(2026, 5, 14, 9, 0);
+        updateCreatedAt(firstComment, sameCreatedAt);
+        updateCreatedAt(secondComment, sameCreatedAt);
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Comment> result = commentRepository.searchCommentsByKeyword(
+                "needle",
+                NO_BLOCKED_USER_IDS,
+                user.getUserId(),
+                PageRequest.of(0, 10));
+
+        assertThat(result.getContent())
+                .extracting(Comment::getCommentId)
+                .containsExactly(secondComment.getCommentId(), firstComment.getCommentId());
+    }
+
+    @Test
     @DisplayName("내 댓글 목록은 읽을 수 없는 게시글의 댓글을 제외하고 페이징 집계를 맞춘다")
     void findVisibleMyComments_filtersUnreadablePostsAndMatchesTotal() {
         User author = persistUser("author", "author@test.com", "Author");

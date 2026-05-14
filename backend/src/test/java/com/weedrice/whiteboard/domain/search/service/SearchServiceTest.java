@@ -203,6 +203,34 @@ class SearchServiceTest {
     }
 
     @Test
+    @DisplayName("integrated search requests comment preview with stable descending sort")
+    void integratedSearch_usesStableCommentPreviewSort() {
+        String keyword = "test";
+        Pageable previewPageable = PageRequest.of(0, 5);
+
+        when(postRepository.searchPostsByKeyword(eq(keyword), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(Page.empty(previewPageable));
+        when(commentRepository.searchCommentsByKeyword(eq(keyword), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(Page.empty(previewPageable));
+        when(userRepository.searchUsersVisibleTo(eq(keyword), isNull(), any(Pageable.class)))
+                .thenReturn(Page.empty(previewPageable));
+        when(boardRepository.findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
+                eq(keyword), any(Pageable.class)))
+                .thenReturn(Collections.emptyList());
+
+        searchService.integratedSearch(keyword, null);
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(commentRepository).searchCommentsByKeyword(eq(keyword), isNull(), isNull(), pageableCaptor.capture());
+        Pageable commentPageable = pageableCaptor.getValue();
+        assertThat(commentPageable.getPageNumber()).isZero();
+        assertThat(commentPageable.getPageSize()).isEqualTo(5);
+        assertThat(commentPageable.getSort()).containsExactly(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("commentId"));
+    }
+
+    @Test
     @DisplayName("통합 검색은 서비스 진입점에서도 키워드를 trim 한다")
     void integratedSearch_trimsKeywordBeforeRepositoryCall() {
         String keyword = "test";
