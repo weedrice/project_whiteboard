@@ -9,6 +9,8 @@ import com.weedrice.whiteboard.domain.emoticon.service.EmoticonService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -94,8 +96,9 @@ public class EmoticonController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
+        CustomUserDetails authenticatedUser = requireAuthenticated(userDetails);
         return ApiResponse.success(new PageResponse<>(
-                emoticonService.getMyEmoticons(userDetails.getUserId(), pageable(page, size))));
+                emoticonService.getMyEmoticons(authenticatedUser.getUserId(), pageable(page, size))));
     }
 
     /**
@@ -195,8 +198,9 @@ public class EmoticonController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
+        CustomUserDetails authenticatedUser = requireAuthenticated(userDetails);
         return ApiResponse.success(new PageResponse<>(
-                emoticonService.getPurchasedEmoticons(userDetails.getUserId(), pageable(page, size))));
+                emoticonService.getPurchasedEmoticons(authenticatedUser.getUserId(), pageable(page, size))));
     }
 
     /**
@@ -212,6 +216,13 @@ public class EmoticonController {
 
     private Pageable pageable(int page, int size) {
         return PageRequestUtils.of(page, size);
+    }
+
+    private CustomUserDetails requireAuthenticated(CustomUserDetails userDetails) {
+        if (userDetails == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        return userDetails;
     }
 
     private String normalizeSortBy(String sortBy) {

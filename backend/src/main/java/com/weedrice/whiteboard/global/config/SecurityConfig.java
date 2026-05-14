@@ -88,6 +88,10 @@ public class SecurityConfig {
                                                                 "/actuator/health")
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.GET,
+                                                                "/api/v1/emoticons/my",
+                                                                "/api/v1/emoticons/purchased")
+                                                .authenticated()
+                                                .requestMatchers(HttpMethod.GET,
                                                                 "/files/**",
                                                                 "/api/v1/files/**",
                                                                 "/api/v1/home/**",

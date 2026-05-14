@@ -33,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -377,11 +378,14 @@ class EmoticonControllerTest {
         }
 
         @Test
-        @DisplayName("인증 없이 내 이모티콘 조회 시 401 또는 5xx (permitAll 테스트 설정에서는 NPE로 5xx)")
+        @DisplayName("인증 없이 내 이모티콘 목록 조회 시 401")
         void getMyEmoticons_unauthorized() throws Exception {
             mockMvc.perform(get("/api/v1/emoticons/my")
                             .with(csrf()))
-                    .andExpect(status().is5xxServerError());
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.success").value(false));
+
+            verify(emoticonService, never()).getMyEmoticons(anyLong(), any());
         }
 
         @Test
@@ -503,6 +507,17 @@ class EmoticonControllerTest {
                     .andExpect(jsonPath("$.success").value(true));
 
             verify(emoticonService).getPurchasedEmoticons(eq(1L), any());
+        }
+
+        @Test
+        @DisplayName("인증 없이 구매 이모티콘 목록 조회 시 401")
+        void getPurchasedEmoticons_unauthorized() throws Exception {
+            mockMvc.perform(get("/api/v1/emoticons/purchased")
+                            .with(csrf()))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.success").value(false));
+
+            verify(emoticonService, never()).getPurchasedEmoticons(anyLong(), any());
         }
 
         @Test

@@ -119,6 +119,16 @@ class SecurityConfigAuthorizationTest {
     }
 
     @Test
+    @DisplayName("personal emoticon list APIs require authentication")
+    void personalEmoticonListApis_requireAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/emoticons/my"))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/api/v1/emoticons/purchased"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     @DisplayName("public search and user profile GET endpoints remain public")
     void publicGetEndpoints_remainPublic() throws Exception {
         mockMvc.perform(get("/api/v1/search").param("q", "test"))
@@ -134,6 +144,12 @@ class SecurityConfigAuthorizationTest {
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/v1/common-codes/POST_STATUS/details"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/emoticons/1"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/emoticons/1/purchased"))
                 .andExpect(status().isOk());
     }
 
@@ -154,6 +170,12 @@ class SecurityConfigAuthorizationTest {
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/v1/search/recent").with(user(userDetails)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/emoticons/my").with(user(userDetails)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/emoticons/purchased").with(user(userDetails)))
                 .andExpect(status().isOk());
     }
 
@@ -204,6 +226,26 @@ class SecurityConfigAuthorizationTest {
         @GetMapping("/common-codes/{typeCode}/details")
         String commonCodeDetails(@PathVariable String typeCode) {
             return "details-" + typeCode;
+        }
+
+        @GetMapping("/emoticons/my")
+        String myEmoticons() {
+            return "my-emoticons";
+        }
+
+        @GetMapping("/emoticons/purchased")
+        String purchasedEmoticons() {
+            return "purchased-emoticons";
+        }
+
+        @GetMapping("/emoticons/{emoticonId}")
+        String emoticonDetail(@PathVariable Long emoticonId) {
+            return "emoticon-" + emoticonId;
+        }
+
+        @GetMapping("/emoticons/{emoticonId}/purchased")
+        String emoticonPurchaseStatus(@PathVariable Long emoticonId) {
+            return "emoticon-purchased-" + emoticonId;
         }
 
         @PostMapping("/ads/{adId}/impression")
