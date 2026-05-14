@@ -1328,6 +1328,20 @@ class BoardServiceTest {
     }
 
     @Test
+    @DisplayName("userId 기반 인기 게시판 조회는 요청 limit을 공개 게시판 쿼리에 전달한다")
+    void getTopBoardsByUserId_usesRequestedLimitForPublicQuery() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(false);
+        when(boardRepository.findTopPublicBoardIdsByPostCount(anyString(), any())).thenReturn(List.of());
+
+        List<BoardListResponse> boards = boardService.getTopBoardsByUserId(1L, 6);
+
+        assertThat(boards).isEmpty();
+        verify(boardRepository).findTopPublicBoardIdsByPostCount(anyString(), eq(PageRequest.of(0, 6)));
+        verify(boardRepository, never()).findTopReadableBoardIdsByPostCount(any(), anyBoolean(), anyString(), any());
+    }
+
+    @Test
     @DisplayName("userId 기반 인기 게시판 조회는 없는 사용자면 USER_NOT_FOUND를 반환한다")
     void getTopBoards_userIdNotFound() {
         when(userRepository.findById(99L)).thenReturn(Optional.empty());
@@ -1362,6 +1376,25 @@ class BoardServiceTest {
         assertThat(boards).extracting(BoardListResponse::getBoardUrl).containsExactly("private-board");
         verify(userRepository).findById(1L);
         verify(boardRepository).findTopReadableBoardIdsByPostCount(eq(user), eq(false), anyString(), any());
+        verify(boardRepository, never()).findTopPublicBoardIdsByPostCount(anyString(), any());
+    }
+
+    @Test
+    @DisplayName("userId 기반 인기 게시판 조회는 요청 limit을 readable 게시판 쿼리에 전달한다")
+    void getTopBoardsByUserId_usesRequestedLimitForReadableQuery() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(true);
+        when(boardRepository.findTopReadableBoardIdsByPostCount(eq(user), eq(false), anyString(), any()))
+                .thenReturn(List.of());
+
+        List<BoardListResponse> boards = boardService.getTopBoardsByUserId(1L, 6);
+
+        assertThat(boards).isEmpty();
+        verify(boardRepository).findTopReadableBoardIdsByPostCount(
+                eq(user),
+                eq(false),
+                anyString(),
+                eq(PageRequest.of(0, 6)));
         verify(boardRepository, never()).findTopPublicBoardIdsByPostCount(anyString(), any());
     }
 

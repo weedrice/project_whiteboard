@@ -72,15 +72,19 @@ class BoardQueryService {
     }
 
     List<BoardListResponse> getTopBoardsByUserId(Long userId) {
-        User currentUser = getCurrentUserByIdOrNull(userId);
-        return getTopBoardsForUser(currentUser);
+        return getTopBoardsByUserId(userId, TOP_BOARD_LIMIT);
     }
 
-    private List<BoardListResponse> getTopBoardsForUser(User currentUser) {
+    List<BoardListResponse> getTopBoardsByUserId(Long userId, int limit) {
+        User currentUser = getCurrentUserByIdOrNull(userId);
+        return getTopBoardsForUser(currentUser, limit);
+    }
+
+    private List<BoardListResponse> getTopBoardsForUser(User currentUser, int limit) {
         if (currentUser == null || !boardAccessPolicy.hasElevatedBoardVisibility(currentUser)) {
             List<Long> boardIds = boardRepository.findTopPublicBoardIdsByPostCount(
                     boardAccessPolicy.getInquiryBoardUrl(),
-                    PageRequest.of(0, TOP_BOARD_LIMIT));
+                    PageRequest.of(0, limit));
             List<Board> boards = findBoardsByIdsInOrder(boardIds);
             return boardResponseAssembler.assembleListAll(boards, currentUser);
         }
@@ -89,7 +93,7 @@ class BoardQueryService {
                 currentUser,
                 currentUser.isUsableSuperAdmin(),
                 boardAccessPolicy.getInquiryBoardUrl(),
-                PageRequest.of(0, TOP_BOARD_LIMIT));
+                PageRequest.of(0, limit));
         List<Board> boards = findBoardsByIdsInOrder(boardIds);
         return boardResponseAssembler.assembleListAll(boards, currentUser);
     }

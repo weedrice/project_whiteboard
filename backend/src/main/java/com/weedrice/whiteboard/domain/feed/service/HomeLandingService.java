@@ -25,6 +25,8 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class HomeLandingService {
 
+    private static final int LANDING_BOARD_LIMIT = 6;
+
     private final PostService postService;
     private final BoardService boardService;
     private final PostRepository postRepository;
@@ -104,8 +106,6 @@ public class HomeLandingService {
     }
 
     private List<BoardListResponse> getBoards(Long userId) {
-        return boardService.getTopBoardsByUserId(userId).stream()
-                .limit(6)
-                .toList();
+        return boardService.getTopBoardsByUserId(userId, LANDING_BOARD_LIMIT);
     }
 }
