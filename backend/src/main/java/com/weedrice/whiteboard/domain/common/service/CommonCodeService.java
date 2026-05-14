@@ -149,7 +149,7 @@ public class CommonCodeService {
         if (!commonCodeRepository.existsById(normalizedTypeCode)) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
-        return commonCodeDetailRepository.findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAsc(
+        return commonCodeDetailRepository.findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAscCodeValueAsc(
                         normalizedTypeCode, true).stream()
                 .map(CommonCodeDetailResponse::from)
                 .collect(Collectors.toList());

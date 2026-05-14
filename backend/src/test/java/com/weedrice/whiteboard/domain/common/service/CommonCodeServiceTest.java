@@ -354,7 +354,8 @@ class CommonCodeServiceTest {
     void getCommonCodeDetails_success() {
         // given
         when(commonCodeRepository.existsById("TEST_TYPE")).thenReturn(true);
-        when(commonCodeDetailRepository.findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAsc("TEST_TYPE", true))
+        when(commonCodeDetailRepository
+                .findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAscCodeValueAsc("TEST_TYPE", true))
                 .thenReturn(Arrays.asList(commonCodeDetail));
 
         // when
@@ -369,7 +370,8 @@ class CommonCodeServiceTest {
     @DisplayName("공통 코드가 있으면 상세 코드가 없어도 빈 목록을 반환한다")
     void getCommonCodeDetails_existingTypeWithoutDetails_returnsEmptyList() {
         when(commonCodeRepository.existsById("EMPTY_TYPE")).thenReturn(true);
-        when(commonCodeDetailRepository.findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAsc("EMPTY_TYPE", true))
+        when(commonCodeDetailRepository
+                .findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAscCodeValueAsc("EMPTY_TYPE", true))
                 .thenReturn(List.of());
 
         List<CommonCodeDetailResponse> responses = commonCodeService.getCommonCodeDetails("EMPTY_TYPE");
@@ -377,7 +379,7 @@ class CommonCodeServiceTest {
         assertThat(responses).isEmpty();
         verify(commonCodeRepository).existsById("EMPTY_TYPE");
         verify(commonCodeDetailRepository)
-                .findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAsc("EMPTY_TYPE", true);
+                .findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAscCodeValueAsc("EMPTY_TYPE", true);
     }
 
     @Test
@@ -391,7 +393,7 @@ class CommonCodeServiceTest {
 
         verify(commonCodeRepository).existsById("MISSING_TYPE");
         verify(commonCodeDetailRepository, never())
-                .findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAsc(anyString(), any());
+                .findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAscCodeValueAsc(anyString(), any());
     }
 
     @Test
