@@ -13,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
 
@@ -24,15 +25,18 @@ public class BoardService {
     private final BoardProvisioningService provisioningService;
     private final BoardSubscriptionService subscriptionService;
     private final BoardCategoryService categoryService;
+    private final TransactionTemplate transactionTemplate;
 
     public BoardService(BoardQueryService queryService,
                         BoardProvisioningService provisioningService,
                         BoardSubscriptionService subscriptionService,
-                        BoardCategoryService categoryService) {
+                        BoardCategoryService categoryService,
+                        TransactionTemplate transactionTemplate) {
         this.queryService = queryService;
         this.provisioningService = provisioningService;
         this.subscriptionService = subscriptionService;
         this.categoryService = categoryService;
+        this.transactionTemplate = transactionTemplate;
     }
 
     public List<BoardListResponse> getActiveBoards(Long userId) {
@@ -91,14 +95,31 @@ public class BoardService {
         return provisioningService.createBoard(creatorId, request);
     }
 
+    public BoardDetailResponse createBoardDetail(Long creatorId, BoardCreateRequest request) {
+        Board board = transactionTemplate.execute(status -> provisioningService.createBoard(creatorId, request));
+        return queryService.getBoardDetails(board.getBoardUrl(), creatorId);
+    }
+
     @Transactional
     public Board updateBoard(String boardUrl, BoardUpdateRequest request, Long userId) {
         return provisioningService.updateBoard(boardUrl, request, userId);
     }
 
+    public BoardDetailResponse updateBoardDetail(String boardUrl, BoardUpdateRequest request, Long userId) {
+        Board updatedBoard = transactionTemplate.execute(
+                status -> provisioningService.updateBoard(boardUrl, request, userId));
+        return queryService.getBoardDetails(updatedBoard.getBoardUrl(), userId);
+    }
+
     @Transactional
     public void transferBoardManager(String boardUrl, String loginId, Long userId) {
         provisioningService.transferBoardManager(boardUrl, loginId, userId);
+    }
+
+    public BoardDetailResponse transferBoardManagerDetail(String boardUrl, String loginId, Long userId) {
+        transactionTemplate.executeWithoutResult(
+                status -> provisioningService.transferBoardManager(boardUrl, loginId, userId));
+        return queryService.getBoardDetails(boardUrl, userId);
     }
 
     @Transactional

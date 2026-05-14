@@ -166,8 +166,7 @@ class BoardControllerTest {
     void createBoard_returnsSuccess() throws Exception {
         BoardCreateRequest request = new BoardCreateRequest("New Board", "newboard", "Description", "icon.png", true);
 
-        when(boardService.createBoard(eq(1L), any())).thenReturn(board);
-        when(boardService.getBoardDetails(eq("free"), eq(1L)))
+        when(boardService.createBoardDetail(eq(1L), any()))
                 .thenReturn(boardDetailResponse("Admin", 1L, false));
 
         mockMvc.perform(post("/api/v1/boards")
@@ -186,8 +185,7 @@ class BoardControllerTest {
         BoardUpdateRequest request = new BoardUpdateRequest();
         ReflectionTestUtils.setField(request, "boardName", "Updated Board");
 
-        when(boardService.updateBoard(eq(boardUrl), any(BoardUpdateRequest.class), eq(1L))).thenReturn(board);
-        when(boardService.getBoardDetails(eq(boardUrl), eq(1L)))
+        when(boardService.updateBoardDetail(eq(boardUrl), any(BoardUpdateRequest.class), eq(1L)))
                 .thenReturn(boardDetailResponse("Admin", 1L, false));
 
         mockMvc.perform(put("/api/v1/boards/{boardUrl}", boardUrl)
@@ -209,7 +207,7 @@ class BoardControllerTest {
                         .with(csrf()))
                 .andExpect(status().isBadRequest());
 
-        verify(boardService, never()).updateBoard(any(), any(), any());
+        verify(boardService, never()).updateBoardDetail(any(), any(), any());
     }
 
     @Test
@@ -229,7 +227,7 @@ class BoardControllerTest {
                         .with(csrf()))
                 .andExpect(status().isBadRequest());
 
-        verify(boardService, never()).createBoard(any(), any());
+        verify(boardService, never()).createBoardDetail(any(), any());
     }
 
     @Test
@@ -247,7 +245,7 @@ class BoardControllerTest {
                         .with(csrf()))
                 .andExpect(status().isBadRequest());
 
-        verify(boardService, never()).updateBoard(any(), any(), any());
+        verify(boardService, never()).updateBoardDetail(any(), any(), any());
     }
 
     @Test
@@ -257,9 +255,8 @@ class BoardControllerTest {
         BoardManagerTransferRequest request = new BoardManagerTransferRequest();
         ReflectionTestUtils.setField(request, "loginId", "nextmanager");
 
-        doNothing().when(boardService).transferBoardManager(eq(boardUrl), eq("nextmanager"), eq(1L));
-        when(boardService.getBoardDetails(eq(boardUrl), eq(1L)))
-                .thenReturn(boardDetailResponse("Next Manager", 2L, true));
+        when(boardService.transferBoardManagerDetail(eq(boardUrl), eq("nextmanager"), eq(1L)))
+                .thenReturn(boardDetailResponse("Next Manager", 2L, false));
 
         mockMvc.perform(put("/api/v1/boards/{boardUrl}/manager", boardUrl)
                         .contentType(MediaType.APPLICATION_JSON)

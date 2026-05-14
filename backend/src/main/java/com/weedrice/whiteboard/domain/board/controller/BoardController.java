@@ -9,7 +9,6 @@ import com.weedrice.whiteboard.domain.board.dto.BoardSubscriptionOrderRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
-import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
@@ -68,8 +67,7 @@ public class BoardController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<BoardDetailResponse> createBoard(@Valid @RequestBody BoardCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Board board = boardService.createBoard(userDetails.getUserId(), request);
-        return ApiResponse.success(boardService.getBoardDetails(board.getBoardUrl(), userIdOrNull(userDetails)));
+        return ApiResponse.success(boardService.createBoardDetail(userDetails.getUserId(), request));
     }
 
     @PostMapping("/inquiry/ensure")
@@ -85,8 +83,7 @@ public class BoardController {
             @Valid @RequestBody BoardUpdateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         validateBlockedInquiryBoardPath(boardUrl);
-        Board updatedBoard = boardService.updateBoard(boardUrl, request, userIdOrNull(userDetails));
-        return ApiResponse.success(boardService.getBoardDetails(updatedBoard.getBoardUrl(), userIdOrNull(userDetails)));
+        return ApiResponse.success(boardService.updateBoardDetail(boardUrl, request, userIdOrNull(userDetails)));
     }
 
     @PutMapping("/{boardUrl}/manager")
@@ -94,8 +91,10 @@ public class BoardController {
             @Valid @RequestBody BoardManagerTransferRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         validateBlockedInquiryBoardPath(boardUrl);
-        boardService.transferBoardManager(boardUrl, request.getLoginId(), userIdOrNull(userDetails));
-        return ApiResponse.success(boardService.getBoardDetails(boardUrl, userIdOrNull(userDetails)));
+        return ApiResponse.success(boardService.transferBoardManagerDetail(
+                boardUrl,
+                request.getLoginId(),
+                userIdOrNull(userDetails)));
     }
 
     @DeleteMapping("/{boardUrl}")

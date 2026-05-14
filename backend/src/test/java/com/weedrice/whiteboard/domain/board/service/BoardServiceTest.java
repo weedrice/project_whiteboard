@@ -50,6 +50,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -109,6 +110,8 @@ class BoardServiceTest {
     private BoardManagerAssignmentService boardManagerAssignmentService;
     @Mock
     private SanctionService sanctionService;
+    @Mock
+    private TransactionTemplate transactionTemplate;
     private BoardResponseReadService boardResponseReadService;
     private BoardResponseAssembler boardResponseAssembler;
 
@@ -163,7 +166,18 @@ class BoardServiceTest {
                 queryService,
                 provisioningService,
                 subscriptionService,
-                categoryService);
+                categoryService,
+                transactionTemplate);
+
+        lenient().doAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionCallback<?> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        }).when(transactionTemplate).execute(any());
+        lenient().doAnswer(invocation -> {
+            java.util.function.Consumer<?> consumer = invocation.getArgument(0);
+            consumer.accept(null);
+            return null;
+        }).when(transactionTemplate).executeWithoutResult(any());
 
         lenient().when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(anyLong(), any()))
                 .thenReturn(Collections.emptyList());
@@ -416,6 +430,30 @@ class BoardServiceTest {
     }
 
     @Test
+    @DisplayName("게시판 관리자 이관 상세 응답은 이관 후 상세 조회 결과를 반환한다")
+    void transferBoardManagerDetail_returnsDetailAfterTransfer() {
+        User nextManager = User.builder()
+                .loginId("nextmanager")
+                .password("password")
+                .email("next@test.com")
+                .displayName("Next Manager")
+                .build();
+        ReflectionTestUtils.setField(nextManager, "userId", 2L);
+
+        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
+        when(adminEligibleUserService.getActiveUserByLoginId("nextmanager")).thenReturn(nextManager);
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+
+        BoardDetailResponse response = boardService.transferBoardManagerDetail("test-board", "nextmanager", 1L);
+
+        assertThat(response.getBoardUrl()).isEqualTo("test-board");
+        verify(boardManagerAssignmentService).assignBoardManager(board, nextManager);
+        InOrder inOrder = inOrder(boardRepository);
+        inOrder.verify(boardRepository).findByBoardUrlForUpdate("test-board");
+        inOrder.verify(boardRepository).findByBoardUrl("test-board");
+    }
+
+    @Test
     @DisplayName("게시판 관리자 이관은 권한이 없으면 대상 사용자 조회와 배정을 하지 않는다")
     void transferBoardManager_forbiddenSkipsManagerAssignment() {
         User otherUser = User.builder()
@@ -490,6 +528,29 @@ class BoardServiceTest {
         inOrder.verify(boardManagerAssignmentService).assignBoardManager(board, user);
         assertThat(categoryCaptor.getValue().getName()).isEqualTo("일반");
         assertThat(categoryCaptor.getValue().isDefaultCategory()).isTrue();
+    }
+
+    @Test
+    @DisplayName("게시판 생성 상세 응답은 저장 후 상세 조회 결과를 반환한다")
+    void createBoardDetail_returnsDetailAfterCreate() {
+        Long creatorId = 1L;
+        BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
+
+        when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
+        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
+        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
+        when(globalConfigService.getConfig(anyString())).thenReturn("500");
+        when(boardRepository.saveAndFlush(any(Board.class))).thenReturn(board);
+        when(boardCategoryRepository.save(any(BoardCategory.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(boardRepository.findMaxSortOrder()).thenReturn(0);
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+
+        BoardDetailResponse response = boardService.createBoardDetail(creatorId, request);
+
+        assertThat(response.getBoardUrl()).isEqualTo("test-board");
+        InOrder inOrder = inOrder(boardRepository);
+        inOrder.verify(boardRepository).saveAndFlush(any(Board.class));
+        inOrder.verify(boardRepository).findByBoardUrl("test-board");
     }
 
     @Test
@@ -644,6 +705,26 @@ class BoardServiceTest {
         assertThat(createdBoard.getIsPublic()).isFalse();
         assertThat(createdBoard.isAgentEnabled()).isFalse();
         verify(boardAiInfoRepository, never()).save(any(BoardAiInfo.class));
+    }
+
+    @Test
+    @DisplayName("게시판 수정 상세 응답은 변경된 URL로 상세 조회한다")
+    void updateBoardDetail_returnsDetailForUpdatedUrl() {
+        BoardUpdateRequest request = createBoardUpdateRequest("Updated Board", "updated-board", null);
+
+        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
+        when(boardRepository.existsByBoardName("Updated Board")).thenReturn(false);
+        when(boardRepository.existsByBoardUrl("updated-board")).thenReturn(false);
+        when(boardRepository.saveAndFlush(board)).thenReturn(board);
+        when(boardRepository.findByBoardUrl("updated-board")).thenReturn(Optional.of(board));
+
+        BoardDetailResponse response = boardService.updateBoardDetail("test-board", request, 1L);
+
+        assertThat(response.getBoardUrl()).isEqualTo("updated-board");
+        InOrder inOrder = inOrder(boardRepository);
+        inOrder.verify(boardRepository).findByBoardUrlForUpdate("test-board");
+        inOrder.verify(boardRepository).saveAndFlush(board);
+        inOrder.verify(boardRepository).findByBoardUrl("updated-board");
     }
 
     @Test
