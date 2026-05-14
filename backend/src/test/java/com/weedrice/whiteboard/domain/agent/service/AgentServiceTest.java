@@ -414,10 +414,74 @@ class AgentServiceTest {
     }
 
     @Test
+    void register_trimsDescriptionBeforeSave() {
+        AgentRegisterRequest request = agentRegisterRequest("  desc  ");
+
+        agentLifecycleService.register(request);
+
+        verify(agentRepository).save(argThat(savedAgent -> "desc".equals(savedAgent.getDescription())));
+    }
+
+    @Test
+    void register_rejectsNullDescriptionBeforeSave() {
+        AgentRegisterRequest request = agentRegisterRequest(null);
+
+        assertThatThrownBy(() -> agentLifecycleService.register(request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(agentRepository, never()).save(any());
+    }
+
+    @Test
+    void register_rejectsBlankDescriptionBeforeSave() {
+        AgentRegisterRequest request = agentRegisterRequest("   ");
+
+        assertThatThrownBy(() -> agentLifecycleService.register(request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(agentRepository, never()).save(any());
+    }
+
+    @Test
+    void register_rejectsHtmlDescriptionBeforeSave() {
+        AgentRegisterRequest request = agentRegisterRequest("<script>alert(1)</script>");
+
+        assertThatThrownBy(() -> agentLifecycleService.register(request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(agentRepository, never()).save(any());
+    }
+
+    @Test
+    void register_rejectsTooLongDescriptionBeforeSave() {
+        AgentRegisterRequest request = agentRegisterRequest("a".repeat(AgentRegisterRequest.DESCRIPTION_MAX_LENGTH + 1));
+
+        assertThatThrownBy(() -> agentLifecycleService.register(request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(agentRepository, never()).save(any());
+    }
+
+    @Test
+    void register_rejectsRawTooLongDescriptionBeforeSave() {
+        AgentRegisterRequest request = agentRegisterRequest(
+                " " + "a".repeat(AgentRegisterRequest.DESCRIPTION_MAX_LENGTH) + " ");
+
+        assertThatThrownBy(() -> agentLifecycleService.register(request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(agentRepository, never()).save(any());
+    }
+
+    @Test
     void register_generatesRandomKoreanNicknameWhenNameIsBlank() {
         AgentLifecycleService spyService = spy(agentLifecycleService);
-        AgentRegisterRequest request = new AgentRegisterRequest();
-        ReflectionTestUtils.setField(request, "description", "desc");
+        AgentRegisterRequest request = agentRegisterRequest("desc");
 
         doReturn("푸른 고래").when(spyService).generateBaseAgentNickname();
         when(agentRepository.existsByNameAndIsDeletedFalse("푸른 고래")).thenReturn(false);
@@ -446,8 +510,7 @@ class AgentServiceTest {
     @Test
     void register_appendsSuffixWhenGeneratedNicknameAlreadyExists() {
         AgentLifecycleService spyService = spy(agentLifecycleService);
-        AgentRegisterRequest request = new AgentRegisterRequest();
-        ReflectionTestUtils.setField(request, "description", "desc");
+        AgentRegisterRequest request = agentRegisterRequest("desc");
 
         doReturn("푸른 고래").when(spyService).generateBaseAgentNickname();
         when(agentRepository.existsByNameAndIsDeletedFalse("푸른 고래")).thenReturn(true);
@@ -463,8 +526,7 @@ class AgentServiceTest {
     @Test
     void register_ignoresRequestedNameAndAlwaysGeneratesNickname() {
         AgentLifecycleService spyService = spy(agentLifecycleService);
-        AgentRegisterRequest request = new AgentRegisterRequest();
-        ReflectionTestUtils.setField(request, "description", "desc");
+        AgentRegisterRequest request = agentRegisterRequest("desc");
 
         doReturn("푸른 고래").when(spyService).generateBaseAgentNickname();
         when(agentRepository.existsByNameAndIsDeletedFalse("푸른 고래")).thenReturn(false);
@@ -1545,6 +1607,12 @@ class AgentServiceTest {
                 .build();
         ReflectionTestUtils.setField(category, "categoryId", board.getBoardId() + 1000);
         return category;
+    }
+
+    private AgentRegisterRequest agentRegisterRequest(String description) {
+        AgentRegisterRequest request = new AgentRegisterRequest();
+        ReflectionTestUtils.setField(request, "description", description);
+        return request;
     }
 
     private Board readableOnlyAgentEnabledBoard(Long boardId) {

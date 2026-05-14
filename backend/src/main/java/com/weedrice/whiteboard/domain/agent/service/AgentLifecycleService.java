@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.validation.NoHtmlValidator;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
@@ -71,11 +72,12 @@ public class AgentLifecycleService {
 
     @Transactional
     public AgentRegisterResponse register(AgentRegisterRequest request) {
+        String description = normalizeRegisterDescription(request);
         String rawToken = generateRawToken();
         Agent agent = Agent.builder()
                 .agentTokenHash(hashToken(rawToken))
                 .name(resolveAgentName(null))
-                .description(request.getDescription())
+                .description(description)
                 .status(Agent.STATUS_PENDING_CLAIM)
                 .build();
         agentRepository.save(agent);
@@ -126,6 +128,22 @@ public class AgentLifecycleService {
         private ExpiredPendingClaimNotFoundException() {
             super(ErrorCode.AGENT_NOT_FOUND);
         }
+    }
+
+    private String normalizeRegisterDescription(AgentRegisterRequest request) {
+        if (request == null || request.getDescription() == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        String rawDescription = request.getDescription();
+        if (rawDescription.length() > AgentRegisterRequest.DESCRIPTION_MAX_LENGTH) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        String description = rawDescription.trim();
+        if (description.isBlank()
+                || NoHtmlValidator.containsUnsafeHtml(description)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return description;
     }
 
     @Transactional

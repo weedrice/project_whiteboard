@@ -43,24 +43,43 @@ public class NoHtmlValidator implements ConstraintValidator<NoHtml, String> {
         }
 
         // 스크립트 태그 검사
-        if (SCRIPT_PATTERN.matcher(value).find()) {
+        if (containsScriptTag(value)) {
             context.disableDefaultConstraintViolation();
             context.buildConstraintViolationWithTemplate("스크립트 태그는 허용되지 않습니다").addConstraintViolation();
             return false;
         }
 
         // 이벤트 핸들러 검사
-        if (EVENT_HANDLER_PATTERN.matcher(value).find()) {
+        if (containsEventHandler(value)) {
             context.disableDefaultConstraintViolation();
             context.buildConstraintViolationWithTemplate("이벤트 핸들러는 허용되지 않습니다").addConstraintViolation();
             return false;
         }
 
         // HTML 태그 검사
-        if (HTML_TAG_PATTERN.matcher(value).find()) {
+        if (containsHtmlTag(value)) {
             return false;
         }
 
         return true;
+    }
+
+    public static boolean containsUnsafeHtml(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        return containsScriptTag(value) || containsEventHandler(value) || containsHtmlTag(value);
+    }
+
+    private static boolean containsScriptTag(String value) {
+        return SCRIPT_PATTERN.matcher(value).find();
+    }
+
+    private static boolean containsEventHandler(String value) {
+        return EVENT_HANDLER_PATTERN.matcher(value).find();
+    }
+
+    private static boolean containsHtmlTag(String value) {
+        return HTML_TAG_PATTERN.matcher(value).find();
     }
 }

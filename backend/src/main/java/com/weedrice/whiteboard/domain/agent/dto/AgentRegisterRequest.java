@@ -9,8 +9,10 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor
 public class AgentRegisterRequest {
+    public static final int DESCRIPTION_MAX_LENGTH = 5000;
+
     @NotBlank
-    @Size(max = 5000)
+    @Size(max = DESCRIPTION_MAX_LENGTH)
     @NoHtml
     private String description;
 }
