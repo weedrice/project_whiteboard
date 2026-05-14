@@ -17,40 +17,33 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface EmoticonMasterRepository extends JpaRepository<EmoticonMaster, Long> {
+public interface EmoticonMasterRepository extends JpaRepository<EmoticonMaster, Long>, EmoticonMasterSearchRepository {
 
-    // 활성화된 이모티콘 목록 조회
     @EntityGraph(attributePaths = "creator")
     @Query("SELECT e FROM EmoticonMaster e WHERE e.isActive = 'Y' ORDER BY e.createdAt DESC")
     Page<EmoticonMaster> findAllActive(Pageable pageable);
 
-    // 활성화된 이모티콘 목록 조회 (등록순 - 오름차순)
     @EntityGraph(attributePaths = "creator")
     @Query("SELECT e FROM EmoticonMaster e WHERE e.isActive = 'Y' ORDER BY e.createdAt ASC")
     Page<EmoticonMaster> findAllActiveOrderByCreatedAtAsc(Pageable pageable);
 
-    // 활성화된 이모티콘 목록 조회 (판매순)
     @EntityGraph(attributePaths = "creator")
     @Query("SELECT e FROM EmoticonMaster e WHERE e.isActive = 'Y' ORDER BY e.purchaseCount DESC, e.createdAt DESC")
     Page<EmoticonMaster> findAllActiveOrderByPurchaseCount(Pageable pageable);
 
-    // 특정 사용자의 이모티콘 목록 조회
     @EntityGraph(attributePaths = "creator")
     @Query("SELECT e FROM EmoticonMaster e WHERE e.creator.userId = :creatorId ORDER BY e.createdAt DESC")
     Page<EmoticonMaster> findByCreatorId(@Param("creatorId") Long creatorId, Pageable pageable);
 
-    // 태그로 검색 (PostgreSQL 배열 함수 사용)
     @Query(value = "SELECT * FROM emoticon_masters WHERE is_active = 'Y' AND :tag = ANY(tags) ORDER BY created_at DESC",
             countQuery = "SELECT COUNT(*) FROM emoticon_masters WHERE is_active = 'Y' AND :tag = ANY(tags)",
             nativeQuery = true)
     Page<EmoticonMaster> findByTag(@Param("tag") String tag, Pageable pageable);
 
-    // 이름으로 검색
     @EntityGraph(attributePaths = "creator")
     @Query("SELECT e FROM EmoticonMaster e WHERE e.isActive = 'Y' AND LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) ORDER BY e.createdAt DESC")
     Page<EmoticonMaster> findByKeyword(@Param("keyword") String keyword, Pageable pageable);
 
-    // 이모티콘 상세 조회 (이미지 포함)
     @Query("SELECT e FROM EmoticonMaster e LEFT JOIN FETCH e.images LEFT JOIN FETCH e.creator WHERE e.emoticonId = :emoticonId")
     Optional<EmoticonMaster> findByIdWithImages(@Param("emoticonId") Long emoticonId);
 
@@ -85,7 +78,6 @@ public interface EmoticonMasterRepository extends JpaRepository<EmoticonMaster, 
             """)
     int incrementPurchaseCount(@Param("emoticonId") Long emoticonId);
 
-    // 인기 이모티콘 조회 (특정 기간 내 구매 횟수 기준) - 상위 5개
     @Query(value = """
             SELECT em.* FROM emoticon_masters em
             LEFT JOIN (
@@ -100,157 +92,6 @@ public interface EmoticonMasterRepository extends JpaRepository<EmoticonMaster, 
             """, nativeQuery = true)
     List<EmoticonMaster> findPopularEmoticons(@Param("startDate") LocalDateTime startDate, @Param("limit") int limit);
 
-    // Integrated search - oldest first
-    @Query(value = """
-            SELECT DISTINCT em.* FROM emoticon_masters em
-            LEFT JOIN users u ON em.creator_id = u.user_id
-            WHERE em.is_active = 'Y'
-            AND (
-                LOWER(em.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                OR LOWER(u.display_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                OR :keyword = ANY(em.tags)
-            )
-            ORDER BY em.created_at ASC
-            """,
-            countQuery = """
-            SELECT COUNT(DISTINCT em.emoticon_id) FROM emoticon_masters em
-            LEFT JOIN users u ON em.creator_id = u.user_id
-            WHERE em.is_active = 'Y'
-            AND (
-                LOWER(em.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                OR LOWER(u.display_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                OR :keyword = ANY(em.tags)
-            )
-            """,
-            nativeQuery = true)
-    Page<EmoticonMaster> searchByKeywordAllOrderByCreatedAtAsc(@Param("keyword") String keyword, Pageable pageable);
-
-    // 통합 검색 (태그, 등록자명, 이모티콘 이름) - 최신순
-    @Query(value = """
-            SELECT DISTINCT em.* FROM emoticon_masters em
-            LEFT JOIN users u ON em.creator_id = u.user_id
-            WHERE em.is_active = 'Y'
-            AND (
-                LOWER(em.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                OR LOWER(u.display_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                OR :keyword = ANY(em.tags)
-            )
-            ORDER BY em.created_at DESC
-            """,
-            countQuery = """
-            SELECT COUNT(DISTINCT em.emoticon_id) FROM emoticon_masters em
-            LEFT JOIN users u ON em.creator_id = u.user_id
-            WHERE em.is_active = 'Y'
-            AND (
-                LOWER(em.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                OR LOWER(u.display_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                OR :keyword = ANY(em.tags)
-            )
-            """,
-            nativeQuery = true)
-    Page<EmoticonMaster> searchByKeywordAllOrderByCreatedAtDesc(@Param("keyword") String keyword, Pageable pageable);
-
-    // 통합 검색 (태그, 등록자명, 이모티콘 이름) - 판매순
-    @Query(value = """
-            SELECT DISTINCT em.* FROM emoticon_masters em
-            LEFT JOIN users u ON em.creator_id = u.user_id
-            WHERE em.is_active = 'Y'
-            AND (
-                LOWER(em.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                OR LOWER(u.display_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                OR :keyword = ANY(em.tags)
-            )
-            ORDER BY em.purchase_count DESC, em.created_at DESC
-            """,
-            countQuery = """
-            SELECT COUNT(DISTINCT em.emoticon_id) FROM emoticon_masters em
-            LEFT JOIN users u ON em.creator_id = u.user_id
-            WHERE em.is_active = 'Y'
-            AND (
-                LOWER(em.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                OR LOWER(u.display_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                OR :keyword = ANY(em.tags)
-            )
-            """,
-            nativeQuery = true)
-    Page<EmoticonMaster> searchByKeywordAllOrderByPurchase(@Param("keyword") String keyword, Pageable pageable);
-
-    // 이름으로 검색 - 오래된순
-    @Query(value = "SELECT * FROM emoticon_masters WHERE is_active = 'Y' AND LOWER(name) LIKE LOWER(CONCAT('%', :keyword, '%')) ORDER BY created_at ASC",
-            countQuery = "SELECT COUNT(*) FROM emoticon_masters WHERE is_active = 'Y' AND LOWER(name) LIKE LOWER(CONCAT('%', :keyword, '%'))",
-            nativeQuery = true)
-    Page<EmoticonMaster> searchByNameOrderByCreatedAtAsc(@Param("keyword") String keyword, Pageable pageable);
-
-    // Name search - latest first
-    @Query(value = "SELECT * FROM emoticon_masters WHERE is_active = 'Y' AND LOWER(name) LIKE LOWER(CONCAT('%', :keyword, '%')) ORDER BY created_at DESC",
-            countQuery = "SELECT COUNT(*) FROM emoticon_masters WHERE is_active = 'Y' AND LOWER(name) LIKE LOWER(CONCAT('%', :keyword, '%'))",
-            nativeQuery = true)
-    Page<EmoticonMaster> searchByNameOrderByCreatedAtDesc(@Param("keyword") String keyword, Pageable pageable);
-
-    // Name search - popular first
-    @Query(value = "SELECT * FROM emoticon_masters WHERE is_active = 'Y' AND LOWER(name) LIKE LOWER(CONCAT('%', :keyword, '%')) ORDER BY purchase_count DESC, created_at DESC",
-            countQuery = "SELECT COUNT(*) FROM emoticon_masters WHERE is_active = 'Y' AND LOWER(name) LIKE LOWER(CONCAT('%', :keyword, '%'))",
-            nativeQuery = true)
-    Page<EmoticonMaster> searchByNameOrderByPurchase(@Param("keyword") String keyword, Pageable pageable);
-
-    // Creator search - oldest first
-    @Query(value = """
-            SELECT em.* FROM emoticon_masters em
-            JOIN users u ON em.creator_id = u.user_id
-            WHERE em.is_active = 'Y' AND LOWER(u.display_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-            ORDER BY em.created_at ASC
-            """,
-            countQuery = """
-            SELECT COUNT(*) FROM emoticon_masters em
-            JOIN users u ON em.creator_id = u.user_id
-            WHERE em.is_active = 'Y' AND LOWER(u.display_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-            """,
-            nativeQuery = true)
-    Page<EmoticonMaster> searchByCreatorOrderByCreatedAtAsc(@Param("keyword") String keyword, Pageable pageable);
-
-    // 등록자명으로 검색 - 최신순
-    @Query(value = """
-            SELECT em.* FROM emoticon_masters em
-            JOIN users u ON em.creator_id = u.user_id
-            WHERE em.is_active = 'Y' AND LOWER(u.display_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-            ORDER BY em.created_at DESC
-            """,
-            countQuery = """
-            SELECT COUNT(*) FROM emoticon_masters em
-            JOIN users u ON em.creator_id = u.user_id
-            WHERE em.is_active = 'Y' AND LOWER(u.display_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-            """,
-            nativeQuery = true)
-    Page<EmoticonMaster> searchByCreatorOrderByCreatedAtDesc(@Param("keyword") String keyword, Pageable pageable);
-
-    // 등록자명으로 검색 - 판매순
-    @Query(value = """
-            SELECT em.* FROM emoticon_masters em
-            JOIN users u ON em.creator_id = u.user_id
-            WHERE em.is_active = 'Y' AND LOWER(u.display_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-            ORDER BY em.purchase_count DESC, em.created_at DESC
-            """,
-            countQuery = """
-            SELECT COUNT(*) FROM emoticon_masters em
-            JOIN users u ON em.creator_id = u.user_id
-            WHERE em.is_active = 'Y' AND LOWER(u.display_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-            """,
-            nativeQuery = true)
-    Page<EmoticonMaster> searchByCreatorOrderByPurchase(@Param("keyword") String keyword, Pageable pageable);
-
-    // 태그로 검색 - 오래된순
-    @Query(value = "SELECT * FROM emoticon_masters WHERE is_active = 'Y' AND :tag = ANY(tags) ORDER BY created_at ASC",
-            countQuery = "SELECT COUNT(*) FROM emoticon_masters WHERE is_active = 'Y' AND :tag = ANY(tags)",
-            nativeQuery = true)
-    Page<EmoticonMaster> searchByTagOrderByCreatedAtAsc(@Param("tag") String tag, Pageable pageable);
-
-    // Tag search - popular first
-    @Query(value = "SELECT * FROM emoticon_masters WHERE is_active = 'Y' AND :tag = ANY(tags) ORDER BY purchase_count DESC, created_at DESC",
-            countQuery = "SELECT COUNT(*) FROM emoticon_masters WHERE is_active = 'Y' AND :tag = ANY(tags)",
-            nativeQuery = true)
-    Page<EmoticonMaster> searchByTagOrderByPurchase(@Param("tag") String tag, Pageable pageable);
-
-    // 사용자가 구매한 이모티콘 목록
     @Query(value = """
             SELECT DISTINCT em.* FROM emoticon_masters em
             JOIN emoticon_purchases ep ON em.emoticon_id = ep.emoticon_id AND ep.user_id = :userId
@@ -265,7 +106,6 @@ public interface EmoticonMasterRepository extends JpaRepository<EmoticonMaster, 
             nativeQuery = true)
     Page<EmoticonMaster> findPurchasedEmoticons(@Param("userId") Long userId, Pageable pageable);
 
-    // 사용자가 해당 이모티콘을 사용할 수 있는지 확인 (구매했거나 본인이 등록한 경우)
     @Query("""
             SELECT CASE WHEN COUNT(e) > 0 THEN true ELSE false END
             FROM EmoticonMaster e
