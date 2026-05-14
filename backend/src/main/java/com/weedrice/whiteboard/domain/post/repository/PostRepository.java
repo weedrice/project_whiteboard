@@ -165,7 +165,12 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
         long countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(LocalDateTime start, LocalDateTime end);
 
         @Modifying(flushAutomatically = true)
-        @Query("UPDATE Post p SET p.likeCount = p.likeCount + 1 WHERE p.postId = :postId")
+        @Query("""
+                UPDATE Post p
+                SET p.likeCount = p.likeCount + 1
+                WHERE p.postId = :postId
+                  AND p.isDeleted = false
+                """)
         int incrementLikeCount(Long postId);
 
         @Modifying(flushAutomatically = true)
@@ -173,10 +178,11 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 UPDATE Post p
                 SET p.likeCount = CASE WHEN p.likeCount > 0 THEN p.likeCount - 1 ELSE 0 END
                 WHERE p.postId = :postId
+                  AND p.isDeleted = false
                 """)
         int decrementLikeCount(Long postId);
 
-        @Query("SELECT p.likeCount FROM Post p WHERE p.postId = :postId")
+        @Query("SELECT p.likeCount FROM Post p WHERE p.postId = :postId AND p.isDeleted = false")
         Integer findLikeCountByPostId(Long postId);
 
         @Modifying(flushAutomatically = true)

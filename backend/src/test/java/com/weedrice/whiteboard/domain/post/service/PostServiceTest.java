@@ -1120,6 +1120,22 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("게시글 좋아요는 카운터 갱신 실패 시 POST_NOT_FOUND를 반환한다")
+    void likePost_likeCountUpdateFails_throwsPostNotFound() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
+        when(postRepository.incrementLikeCount(1L)).thenReturn(0);
+
+        assertThatThrownBy(() -> postService.likePost(1L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+
+        verify(eventPublisher, never()).publishEvent(any());
+        verify(postRepository, never()).findLikeCountByPostId(anyLong());
+    }
+
+    @Test
     @DisplayName("agent actor가 현재 사용자 소유가 아니면 게시글 좋아요를 거부한다")
     void likePost_withForeignAgent_forbidden() {
         User otherUser = User.builder().loginId("other").build();
@@ -1175,6 +1191,22 @@ class PostServiceTest {
 
         verify(postRepository).findByIdWithRelations(1L);
         verify(postRepository, never()).decrementLikeCount(anyLong());
+    }
+
+    @Test
+    @DisplayName("게시글 좋아요 취소는 카운터 갱신 실패 시 POST_NOT_FOUND를 반환한다")
+    void unlikePost_likeCountUpdateFails_throwsPostNotFound() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
+        when(postLikeRepository.deleteByUserIdAndPostId(1L, 1L)).thenReturn(1);
+        when(postRepository.decrementLikeCount(1L)).thenReturn(0);
+
+        assertThatThrownBy(() -> postService.unlikePost(1L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+
+        verify(postRepository, never()).findLikeCountByPostId(anyLong());
     }
 
     @Test

@@ -1122,6 +1122,61 @@ class PostRepositoryTest {
     }
 
     @Test
+    @DisplayName("좋아요 수 증가는 삭제되지 않은 게시글만 갱신한다")
+    void incrementLikeCount_updatesOnlyActivePost() {
+        Long activePostId = post.getPostId();
+        Post deletedPost = persistPost("Deleted Like Count Post");
+        deletedPost.deletePost();
+        Long deletedPostId = deletedPost.getPostId();
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(postRepository.incrementLikeCount(activePostId)).isEqualTo(1);
+        assertThat(postRepository.incrementLikeCount(deletedPostId)).isZero();
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(postRepository.findById(activePostId).orElseThrow().getLikeCount()).isEqualTo(1);
+        assertThat(postRepository.findById(deletedPostId).orElseThrow().getLikeCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("좋아요 수 감소는 삭제되지 않은 게시글만 갱신한다")
+    void decrementLikeCount_updatesOnlyActivePost() {
+        post.incrementLikeCount();
+        Long activePostId = post.getPostId();
+        Post deletedPost = persistPost("Deleted Like Count Post");
+        deletedPost.incrementLikeCount();
+        deletedPost.deletePost();
+        Long deletedPostId = deletedPost.getPostId();
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(postRepository.decrementLikeCount(activePostId)).isEqualTo(1);
+        assertThat(postRepository.decrementLikeCount(deletedPostId)).isZero();
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(postRepository.findById(activePostId).orElseThrow().getLikeCount()).isZero();
+        assertThat(postRepository.findById(deletedPostId).orElseThrow().getLikeCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("좋아요 수 조회는 삭제 게시글을 제외한다")
+    void findLikeCountByPostId_excludesDeletedPost() {
+        Long activePostId = post.getPostId();
+        Post deletedPost = persistPost("Deleted Like Count Post");
+        deletedPost.incrementLikeCount();
+        deletedPost.deletePost();
+        Long deletedPostId = deletedPost.getPostId();
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(postRepository.findLikeCountByPostId(activePostId)).isZero();
+        assertThat(postRepository.findLikeCountByPostId(deletedPostId)).isNull();
+    }
+
+    @Test
     @DisplayName("findByIdWithRelationsForUpdate는 비관적 쓰기 잠금을 선언한다")
     void findByIdWithRelationsForUpdate_declaresPessimisticWriteLock() throws NoSuchMethodException {
         var method = PostRepository.class.getMethod("findByIdWithRelationsForUpdate", Long.class);

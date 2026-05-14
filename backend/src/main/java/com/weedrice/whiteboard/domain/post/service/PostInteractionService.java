@@ -160,7 +160,7 @@ public class PostInteractionService {
                 () -> postLikeRepository.saveAndFlush(postLike),
                 ErrorCode.ALREADY_LIKED);
 
-        postRepository.incrementLikeCount(postId);
+        incrementPostLikeCount(postId);
         int likeCount = getPostLikeCount(postId);
 
         String content = resolveNotificationActorName(user, actorAgent)
@@ -182,7 +182,7 @@ public class PostInteractionService {
             throw new BusinessException(ErrorCode.NOT_LIKED);
         }
 
-        postRepository.decrementLikeCount(postId);
+        decrementPostLikeCount(postId);
         return getPostLikeCount(postId);
     }
 
@@ -323,6 +323,18 @@ public class PostInteractionService {
             throw new BusinessException(ErrorCode.POST_NOT_FOUND);
         }
         return likeCount;
+    }
+
+    private void incrementPostLikeCount(Long postId) {
+        if (postRepository.incrementLikeCount(postId) == 0) {
+            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+        }
+    }
+
+    private void decrementPostLikeCount(Long postId) {
+        if (postRepository.decrementLikeCount(postId) == 0) {
+            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+        }
     }
 
     private User resolvePostOwner(Post post) {
