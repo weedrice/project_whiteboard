@@ -24,7 +24,6 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -110,7 +109,7 @@ class BoardControllerTest {
     @Test
     @DisplayName("게시판 목록 조회 성공")
     void getBoards_returnsSuccess() throws Exception {
-        when(boardService.getActiveBoards(any())).thenReturn(List.of(boardListResponse("Admin")));
+        when(boardService.getActiveBoards(eq(1L))).thenReturn(List.of(boardListResponse("Admin")));
 
         mockMvc.perform(get("/api/v1/boards")
                         .with(user(customUserDetails))
@@ -124,7 +123,7 @@ class BoardControllerTest {
     @DisplayName("게시판 상세 조회 성공")
     void getBoardDetails_returnsSuccess() throws Exception {
         String boardUrl = "free";
-        when(boardService.getBoardDetails(eq(boardUrl), any()))
+        when(boardService.getBoardDetails(eq(boardUrl), eq(1L)))
                 .thenReturn(boardDetailResponse("Admin", 1L, false));
 
         mockMvc.perform(get("/api/v1/boards/{boardUrl}", boardUrl)
@@ -137,7 +136,7 @@ class BoardControllerTest {
     @Test
     @DisplayName("인기 게시판 목록 조회 성공")
     void getTopBoards_returnsSuccess() throws Exception {
-        when(boardService.getTopBoards(any(UserDetails.class))).thenReturn(List.of(boardListResponse("Admin")));
+        when(boardService.getTopBoards(eq(1L))).thenReturn(List.of(boardListResponse("Admin")));
 
         mockMvc.perform(get("/api/v1/boards/top")
                         .with(user(customUserDetails))
@@ -168,7 +167,7 @@ class BoardControllerTest {
         BoardCreateRequest request = new BoardCreateRequest("New Board", "newboard", "Description", "icon.png", true);
 
         when(boardService.createBoard(eq(1L), any())).thenReturn(board);
-        when(boardService.getBoardDetails(eq("free"), any()))
+        when(boardService.getBoardDetails(eq("free"), eq(1L)))
                 .thenReturn(boardDetailResponse("Admin", 1L, false));
 
         mockMvc.perform(post("/api/v1/boards")
@@ -187,8 +186,8 @@ class BoardControllerTest {
         BoardUpdateRequest request = new BoardUpdateRequest();
         ReflectionTestUtils.setField(request, "boardName", "Updated Board");
 
-        when(boardService.updateBoard(eq(boardUrl), any(BoardUpdateRequest.class), any())).thenReturn(board);
-        when(boardService.getBoardDetails(eq(boardUrl), any()))
+        when(boardService.updateBoard(eq(boardUrl), any(BoardUpdateRequest.class), eq(1L))).thenReturn(board);
+        when(boardService.getBoardDetails(eq(boardUrl), eq(1L)))
                 .thenReturn(boardDetailResponse("Admin", 1L, false));
 
         mockMvc.perform(put("/api/v1/boards/{boardUrl}", boardUrl)
@@ -258,8 +257,8 @@ class BoardControllerTest {
         BoardManagerTransferRequest request = new BoardManagerTransferRequest();
         ReflectionTestUtils.setField(request, "loginId", "nextmanager");
 
-        doNothing().when(boardService).transferBoardManager(eq(boardUrl), eq("nextmanager"), any());
-        when(boardService.getBoardDetails(eq(boardUrl), any()))
+        doNothing().when(boardService).transferBoardManager(eq(boardUrl), eq("nextmanager"), eq(1L));
+        when(boardService.getBoardDetails(eq(boardUrl), eq(1L)))
                 .thenReturn(boardDetailResponse("Next Manager", 2L, true));
 
         mockMvc.perform(put("/api/v1/boards/{boardUrl}/manager", boardUrl)

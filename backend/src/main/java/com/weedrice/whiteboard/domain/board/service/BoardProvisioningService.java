@@ -18,10 +18,8 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
@@ -79,8 +77,8 @@ class BoardProvisioningService {
         this.boardAccessPolicy = boardAccessPolicy;
     }
 
-    void ensureInquiryBoard(UserDetails userDetails, String requestedBoardUrl) {
-        User currentUser = getCurrentUserOrNull(userDetails);
+    void ensureInquiryBoard(Long userId, String requestedBoardUrl) {
+        User currentUser = getCurrentUserOrNull(userId);
         String inquiryBoardUrl = normalizeInquiryBoardUrl(requestedBoardUrl);
 
         Board board = boardRepository.findByBoardUrlForUpdate(inquiryBoardUrl)
@@ -160,10 +158,10 @@ class BoardProvisioningService {
         return new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
     }
 
-    Board updateBoard(String boardUrl, BoardUpdateRequest request, UserDetails userDetails) {
+    Board updateBoard(String boardUrl, BoardUpdateRequest request, Long userId) {
         Board board = boardRepository.findByBoardUrlForUpdate(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        User currentUser = getCurrentUser(userDetails);
+        User currentUser = getCurrentUser(userId);
         String previousIconUrl = board.getIconUrl();
         String iconUrl = normalizeIconUrl(request.getIconUrl());
 
@@ -211,41 +209,37 @@ class BoardProvisioningService {
         return requestedAgentUseYn;
     }
 
-    void transferBoardManager(String boardUrl, String loginId, UserDetails userDetails) {
+    void transferBoardManager(String boardUrl, String loginId, Long userId) {
         Board board = boardRepository.findByBoardUrlForUpdate(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
-        User currentUser = getCurrentUser(userDetails);
+        User currentUser = getCurrentUser(userId);
         boardAccessPolicy.validateBoardAdmin(board, currentUser);
 
         User nextManager = adminEligibleUserService.getActiveUserByLoginId(loginId);
         boardManagerAssignmentService.assignBoardManager(board, nextManager);
     }
 
-    void deleteBoard(String boardUrl, UserDetails userDetails) {
+    void deleteBoard(String boardUrl, Long userId) {
         Board board = boardRepository.findByBoardUrlForUpdate(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
-        User currentUser = getCurrentUser(userDetails);
+        User currentUser = getCurrentUser(userId);
         boardAccessPolicy.validateBoardAdmin(board, currentUser);
 
         board.deactivate();
     }
 
-    private User getCurrentUserOrNull(UserDetails userDetails) {
-        if (userDetails == null) {
+    private User getCurrentUserOrNull(Long userId) {
+        if (userId == null) {
             return null;
         }
-        if (userDetails instanceof CustomUserDetails customUserDetails) {
-            return userRepository.findById(customUserDetails.getUserId())
-                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        }
-        return userRepository.findByLoginId(userDetails.getUsername())
+        return userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 
-    private User getCurrentUser(UserDetails userDetails) {
-        User user = getCurrentUserOrNull(userDetails);
+    private User getCurrentUser(Long userId) {
+        User user = getCurrentUserOrNull(userId);
         if (user == null) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }

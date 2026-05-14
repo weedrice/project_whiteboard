@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.admin.service.AdminEligibleUserService;
 import com.weedrice.whiteboard.domain.admin.service.BoardManagerAssignmentService;
+import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.board.dto.AdminBoardResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardDetailResponse;
@@ -11,9 +12,8 @@ import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
-import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
-import com.weedrice.whiteboard.domain.board.entity.BoardAiInfo;
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.entity.BoardAiInfo;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscriptionId;
@@ -28,15 +28,14 @@ import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostLatestReadService;
 import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
-import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -50,13 +49,10 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.util.Collections;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -204,6 +200,7 @@ class BoardServiceTest {
                 .build();
         ReflectionTestUtils.setField(user, "userId", 1L);
         lenient().when(userRepository.findByLoginId(anyString())).thenReturn(Optional.of(user));
+        lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         board = Board.builder()
                 .boardName("Test Board")
@@ -244,11 +241,9 @@ class BoardServiceTest {
     @DisplayName("super admin은 전체 게시판 목록을 조회할 수 있다")
     void getAllBoards_superAdmin_success() {
         user.grantSuperAdminRole();
-        UserDetails userDetails = mock(UserDetails.class);
-        when(userDetails.getUsername()).thenReturn(user.getLoginId());
         when(boardRepository.findAllByOrderBySortOrderAscBoardIdAsc()).thenReturn(List.of(board));
 
-        List<AdminBoardResponse> responses = boardService.getAllBoards(userDetails);
+        List<AdminBoardResponse> responses = boardService.getAllBoards(1L);
 
         assertThat(responses).hasSize(1);
         assertThat(responses.get(0).getBoardId()).isEqualTo(1L);
@@ -258,11 +253,8 @@ class BoardServiceTest {
     @Test
     @DisplayName("일반 사용자는 전체 게시판 목록을 조회할 수 없다")
     void getAllBoards_normalUser_forbidden() {
-        UserDetails userDetails = mock(UserDetails.class);
-        when(userDetails.getUsername()).thenReturn(user.getLoginId());
-
         BusinessException exception = assertThrows(BusinessException.class,
-                () -> boardService.getAllBoards(userDetails));
+                () -> boardService.getAllBoards(1L));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN);
         verify(boardRepository, never()).findAllByOrderBySortOrderAscBoardIdAsc();
@@ -283,11 +275,9 @@ class BoardServiceTest {
     void getAllBoards_inactiveSuperAdmin_forbidden() {
         user.grantSuperAdminRole();
         user.suspend();
-        UserDetails userDetails = mock(UserDetails.class);
-        when(userDetails.getUsername()).thenReturn(user.getLoginId());
 
         BusinessException exception = assertThrows(BusinessException.class,
-                () -> boardService.getAllBoards(userDetails));
+                () -> boardService.getAllBoards(1L));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN);
         verify(boardRepository, never()).findAllByOrderBySortOrderAscBoardIdAsc();
@@ -296,12 +286,10 @@ class BoardServiceTest {
     @Test
     @DisplayName("없는 사용자의 전체 게시판 목록 조회는 USER_NOT_FOUND를 반환한다")
     void getAllBoards_missingUser_userNotFound() {
-        UserDetails userDetails = mock(UserDetails.class);
-        when(userDetails.getUsername()).thenReturn("missing");
-        when(userRepository.findByLoginId("missing")).thenReturn(Optional.empty());
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
 
         BusinessException exception = assertThrows(BusinessException.class,
-                () -> boardService.getAllBoards(userDetails));
+                () -> boardService.getAllBoards(99L));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND);
         verify(boardRepository, never()).findAllByOrderBySortOrderAscBoardIdAsc();
@@ -420,12 +408,7 @@ class BoardServiceTest {
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
         when(adminEligibleUserService.getActiveUserByLoginId("nextmanager")).thenReturn(nextManager);
 
-        UserDetails currentUserDetails = authenticateUser();
-        try {
-            boardService.transferBoardManager("test-board", "nextmanager", currentUserDetails);
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
+        boardService.transferBoardManager("test-board", "nextmanager", 1L);
 
         verify(boardRepository).findByBoardUrlForUpdate("test-board");
         verify(boardRepository, never()).findByBoardUrl("test-board");
@@ -444,14 +427,12 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(otherUser, "userId", 99L);
 
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
-        when(userRepository.findByLoginId(otherUser.getLoginId())).thenReturn(Optional.of(otherUser));
+        when(userRepository.findById(99L)).thenReturn(Optional.of(otherUser));
         when(adminRepository.existsByUserAndBoardAndIsActive(otherUser, board, true)).thenReturn(false);
-        UserDetails currentUserDetails = mock(UserDetails.class);
-        when(currentUserDetails.getUsername()).thenReturn(otherUser.getLoginId());
 
         BusinessException exception;
         exception = assertThrows(BusinessException.class,
-                () -> boardService.transferBoardManager("test-board", "nextmanager", currentUserDetails));
+                () -> boardService.transferBoardManager("test-board", "nextmanager", 99L));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN);
         verify(boardRepository).findByBoardUrlForUpdate("test-board");
@@ -668,7 +649,6 @@ class BoardServiceTest {
     @Test
     @DisplayName("Private board update disables agent use")
     void updateBoard_privateBoardDisablesAgentUse() {
-        UserDetails userDetails = mock(UserDetails.class);
         BoardUpdateRequest request = new BoardUpdateRequest();
         ReflectionTestUtils.setField(request, "boardName", "Private Board");
         ReflectionTestUtils.setField(request, "description", "Updated Description");
@@ -680,19 +660,10 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(request, "agentUseYn", true);
         ReflectionTestUtils.setField(board, "agentUseYn", true);
 
-        when(userDetails.getUsername()).thenReturn(user.getLoginId());
-        when(userRepository.findByLoginId(user.getLoginId())).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
 
-        CustomUserDetails principal = new CustomUserDetails(1L, user.getLoginId(), "password", Collections.emptyList());
-        SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
         Board updatedBoard;
-        try {
-            updatedBoard = boardService.updateBoard("test-board", request, userDetails);
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
+        updatedBoard = boardService.updateBoard("test-board", request, 1L);
 
         assertThat(updatedBoard.getIsPublic()).isFalse();
         assertThat(updatedBoard.isAgentEnabled()).isFalse();
@@ -704,7 +675,6 @@ class BoardServiceTest {
     @Test
     @DisplayName("게시판 수정 시 sortOrder를 생략하면 기존 정렬값을 유지한다")
     void updateBoard_omittedSortOrderKeepsExistingValue() {
-        UserDetails userDetails = mock(UserDetails.class);
         BoardUpdateRequest request = new BoardUpdateRequest();
         ReflectionTestUtils.setField(request, "boardName", "Updated Board");
         ReflectionTestUtils.setField(request, "description", "Updated Description");
@@ -714,16 +684,10 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(request, "isPublic", true);
         ReflectionTestUtils.setField(board, "sortOrder", 7);
 
-        when(userDetails.getUsername()).thenReturn(user.getLoginId());
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
 
-        authenticateUser();
         Board updatedBoard;
-        try {
-            updatedBoard = boardService.updateBoard("test-board", request, userDetails);
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
+        updatedBoard = boardService.updateBoard("test-board", request, 1L);
 
         assertThat(updatedBoard.getSortOrder()).isEqualTo(7);
     }
@@ -731,7 +695,6 @@ class BoardServiceTest {
     @Test
     @DisplayName("Board update applies uploaded icon replacement")
     void updateBoard_replacesBoardIcon() {
-        UserDetails userDetails = mock(UserDetails.class);
         BoardUpdateRequest request = new BoardUpdateRequest();
         ReflectionTestUtils.setField(request, "boardName", "Updated Board");
         ReflectionTestUtils.setField(request, "description", "Updated Description");
@@ -743,19 +706,10 @@ class BoardServiceTest {
 
         ReflectionTestUtils.setField(board, "iconUrl", "/api/v1/files/77");
 
-        when(userDetails.getUsername()).thenReturn(user.getLoginId());
-        when(userRepository.findByLoginId(user.getLoginId())).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
 
-        CustomUserDetails principal = new CustomUserDetails(1L, user.getLoginId(), "password", Collections.emptyList());
-        SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
         Board updatedBoard;
-        try {
-            updatedBoard = boardService.updateBoard("test-board", request, userDetails);
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
+        updatedBoard = boardService.updateBoard("test-board", request, 1L);
 
         assertThat(updatedBoard.getIconUrl()).isEqualTo("/api/v1/files/88");
         verify(fileService).replaceBoardIcon(88L, 1L, 1L);
@@ -765,22 +719,15 @@ class BoardServiceTest {
     @Test
     @DisplayName("게시판 수정 실패 - 저장 시 board_name 충돌이면 DUPLICATE_BOARD_NAME")
     void updateBoard_duplicateBoardNameDuringFlush() {
-        UserDetails userDetails = mock(UserDetails.class);
         BoardUpdateRequest request = createBoardUpdateRequest("Updated Board", "test-board", "/api/v1/files/88");
 
-        when(userDetails.getUsername()).thenReturn(user.getLoginId());
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
         when(boardRepository.saveAndFlush(board))
                 .thenThrow(new DataIntegrityViolationException("duplicate key board_name"));
 
-        authenticateUser();
         BusinessException exception;
-        try {
-            exception = assertThrows(BusinessException.class,
-                    () -> boardService.updateBoard("test-board", request, userDetails));
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
+        exception = assertThrows(BusinessException.class,
+                    () -> boardService.updateBoard("test-board", request, 1L));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_BOARD_NAME);
         verify(fileService, never()).replaceBoardIcon(anyLong(), anyLong(), anyLong());
@@ -791,10 +738,8 @@ class BoardServiceTest {
     @Test
     @DisplayName("게시판 수정 실패 - 저장 시 board_url 충돌이면 DUPLICATE_BOARD_URL")
     void updateBoard_duplicateBoardUrlDuringFlush() {
-        UserDetails userDetails = mock(UserDetails.class);
         BoardUpdateRequest request = createBoardUpdateRequest("Test Board", "updated-board", "/api/v1/files/88");
 
-        when(userDetails.getUsername()).thenReturn(user.getLoginId());
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
         when(boardRepository.existsByBoardUrl("updated-board")).thenReturn(false);
         when(boardRepository.saveAndFlush(board))
@@ -803,14 +748,9 @@ class BoardServiceTest {
                         new ConstraintViolationException("duplicate", new java.sql.SQLException("duplicate"),
                                 "uk_boards_board_url")));
 
-        authenticateUser();
         BusinessException exception;
-        try {
-            exception = assertThrows(BusinessException.class,
-                    () -> boardService.updateBoard("test-board", request, userDetails));
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
+        exception = assertThrows(BusinessException.class,
+                    () -> boardService.updateBoard("test-board", request, 1L));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_BOARD_URL);
         verify(fileService, never()).replaceBoardIcon(anyLong(), anyLong(), anyLong());
@@ -821,22 +761,15 @@ class BoardServiceTest {
     @Test
     @DisplayName("게시판 수정 실패 - 제약 메시지를 식별할 수 없으면 DUPLICATE_RESOURCE")
     void updateBoard_duplicateFallbackDuringFlush() {
-        UserDetails userDetails = mock(UserDetails.class);
         BoardUpdateRequest request = createBoardUpdateRequest("Updated Board", "test-board", "/api/v1/files/88");
 
-        when(userDetails.getUsername()).thenReturn(user.getLoginId());
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
         when(boardRepository.saveAndFlush(board))
                 .thenThrow(new DataIntegrityViolationException("duplicate key"));
 
-        authenticateUser();
         BusinessException exception;
-        try {
-            exception = assertThrows(BusinessException.class,
-                    () -> boardService.updateBoard("test-board", request, userDetails));
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
+        exception = assertThrows(BusinessException.class,
+                    () -> boardService.updateBoard("test-board", request, 1L));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
         verify(fileService, never()).replaceBoardIcon(anyLong(), anyLong(), anyLong());
@@ -847,14 +780,9 @@ class BoardServiceTest {
     @Test
     @DisplayName("게시판 삭제는 잠금 조회한 게시판을 비활성화한다")
     void deleteBoard_usesLockedBoardLookup() {
-        UserDetails currentUserDetails = authenticateUser();
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
 
-        try {
-            boardService.deleteBoard("test-board", currentUserDetails);
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
+        boardService.deleteBoard("test-board", 1L);
 
         assertThat(board.getIsActive()).isFalse();
         verify(boardRepository).findByBoardUrlForUpdate("test-board");
@@ -871,12 +799,7 @@ class BoardServiceTest {
         when(boardCategoryRepository.saveAndFlush(any(BoardCategory.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        UserDetails currentUserDetails = authenticateUser();
-        try {
-            boardService.createCategory("test-board", request, currentUserDetails);
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
+        boardService.createCategory("test-board", request, 1L);
 
         ArgumentCaptor<BoardCategory> categoryCaptor = ArgumentCaptor.forClass(BoardCategory.class);
         verify(boardRepository).findByBoardUrlForUpdate("test-board");
@@ -904,13 +827,8 @@ class BoardServiceTest {
         when(boardCategoryRepository.saveAndFlush(any(BoardCategory.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        UserDetails currentUserDetails = authenticateUser();
         CategoryResponse response;
-        try {
-            response = boardService.createCategory("test-board", request, currentUserDetails);
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
+        response = boardService.createCategory("test-board", request, 1L);
 
         ArgumentCaptor<BoardCategory> categoryCaptor = ArgumentCaptor.forClass(BoardCategory.class);
         verify(boardRepository).findByBoardUrlForUpdate("test-board");
@@ -928,14 +846,9 @@ class BoardServiceTest {
         when(boardCategoryRepository.existsByBoard_BoardIdAndNameAndIsActive(1L, "General", true))
                 .thenReturn(true);
 
-        UserDetails currentUserDetails = authenticateUser();
         BusinessException exception;
-        try {
-            exception = assertThrows(BusinessException.class,
-                    () -> boardService.createCategory("test-board", request, currentUserDetails));
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
+        exception = assertThrows(BusinessException.class,
+                    () -> boardService.createCategory("test-board", request, 1L));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
         verify(boardCategoryRepository, never()).saveAndFlush(any(BoardCategory.class));
@@ -961,14 +874,9 @@ class BoardServiceTest {
                 10L))
                 .thenReturn(true);
 
-        UserDetails currentUserDetails = authenticateUser();
         BusinessException exception;
-        try {
-            exception = assertThrows(BusinessException.class,
-                    () -> boardService.updateCategory(10L, request, currentUserDetails));
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
+        exception = assertThrows(BusinessException.class,
+                    () -> boardService.updateCategory(10L, request, 1L));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
         verify(boardCategoryRepository, never()).saveAndFlush(any(BoardCategory.class));
@@ -980,7 +888,7 @@ class BoardServiceTest {
         CategoryRequest request = categoryRequest("General", null, "USER");
 
         BusinessException exception = assertThrows(BusinessException.class,
-                () -> boardService.updateCategory(10L, request, mock(UserDetails.class)));
+                () -> boardService.updateCategory(10L, request, null));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
         verify(boardCategoryRepository, never()).findBoardIdByCategoryId(anyLong());
@@ -1003,12 +911,7 @@ class BoardServiceTest {
         when(boardCategoryRepository.findById(10L)).thenReturn(Optional.of(category));
         when(boardCategoryRepository.saveAndFlush(category)).thenReturn(category);
 
-        UserDetails currentUserDetails = authenticateUser();
-        try {
-            boardService.updateCategory(10L, request, currentUserDetails);
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
+        boardService.updateCategory(10L, request, 1L);
 
         verify(boardCategoryRepository, never()).existsByBoard_BoardIdAndNameAndIsActiveAndCategoryIdNot(
                 anyLong(),
@@ -1033,14 +936,9 @@ class BoardServiceTest {
         stubCategoryBoardLock(10L);
         when(boardCategoryRepository.findById(10L)).thenReturn(Optional.of(category));
 
-        UserDetails currentUserDetails = authenticateUser();
         BusinessException exception;
-        try {
-            exception = assertThrows(BusinessException.class,
-                    () -> boardService.updateCategory(10L, request, currentUserDetails));
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
+        exception = assertThrows(BusinessException.class,
+                    () -> boardService.updateCategory(10L, request, 1L));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
         verify(boardCategoryRepository, never()).findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(anyLong(), any());
@@ -1075,13 +973,8 @@ class BoardServiceTest {
                 .thenReturn(List.of(previousDefault, category));
         when(boardCategoryRepository.saveAndFlush(category)).thenReturn(category);
 
-        UserDetails currentUserDetails = authenticateUser();
         CategoryResponse response;
-        try {
-            response = boardService.updateCategory(10L, request, currentUserDetails);
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
+        response = boardService.updateCategory(10L, request, 1L);
 
         InOrder lockOrder = inOrder(boardCategoryRepository, boardRepository);
         lockOrder.verify(boardCategoryRepository).findBoardIdByCategoryId(10L);
@@ -1111,14 +1004,9 @@ class BoardServiceTest {
                 1L, "Default", true, 10L))
                 .thenReturn(false);
 
-        UserDetails currentUserDetails = authenticateUser();
         BusinessException exception;
-        try {
-            exception = assertThrows(BusinessException.class,
-                    () -> boardService.updateCategory(10L, request, currentUserDetails));
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
+        exception = assertThrows(BusinessException.class,
+                    () -> boardService.updateCategory(10L, request, 1L));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
         verify(boardCategoryRepository, never()).saveAndFlush(any(BoardCategory.class));
@@ -1137,14 +1025,9 @@ class BoardServiceTest {
         stubCategoryBoardLock(10L);
         when(boardCategoryRepository.findById(10L)).thenReturn(Optional.of(category));
 
-        UserDetails currentUserDetails = authenticateUser();
         BusinessException exception;
-        try {
-            exception = assertThrows(BusinessException.class,
-                    () -> boardService.deleteCategory(10L, currentUserDetails));
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
+        exception = assertThrows(BusinessException.class,
+                    () -> boardService.deleteCategory(10L, 1L));
 
         InOrder lockOrder = inOrder(boardCategoryRepository, boardRepository);
         lockOrder.verify(boardCategoryRepository).findBoardIdByCategoryId(10L);
@@ -1321,7 +1204,7 @@ class BoardServiceTest {
         }));
 
         // when
-        List<BoardListResponse> boards = boardService.getTopBoards((UserDetails) null);
+        List<BoardListResponse> boards = boardService.getTopBoards(null);
 
         // then
         assertThat(boards).hasSize(1);
@@ -1333,13 +1216,11 @@ class BoardServiceTest {
     @Test
     @DisplayName("일반 로그인 사용자는 공개 인기 게시판 전용 쿼리를 사용한다")
     void getTopBoards_authenticatedUsesPublicQueryWhenUserHasNoElevatedAccess() {
-        UserDetails userDetails = mock(UserDetails.class);
-        when(userDetails.getUsername()).thenReturn(user.getLoginId());
         when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(false);
         when(boardRepository.findTopPublicBoardIdsByPostCount(anyString(), any())).thenReturn(Collections.singletonList(1L));
         when(boardRepository.findByBoardIdIn(List.of(1L))).thenReturn(Collections.singletonList(board));
 
-        List<BoardListResponse> boards = boardService.getTopBoards(userDetails);
+        List<BoardListResponse> boards = boardService.getTopBoards(1L);
 
         assertThat(boards).extracting(BoardListResponse::getBoardUrl).containsExactly("test-board");
         verify(adminRepository).existsByUserAndIsActive(user, true);
@@ -1415,13 +1296,11 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(privateBoard, "boardId", 2L);
         ReflectionTestUtils.setField(privateBoard, "isActive", true);
 
-        UserDetails userDetails = mock(UserDetails.class);
-        when(userDetails.getUsername()).thenReturn(user.getLoginId());
         when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(true);
         when(boardRepository.findTopReadableBoardIdsByPostCount(eq(user), eq(false), anyString(), any())).thenReturn(List.of(2L));
         when(boardRepository.findByBoardIdIn(List.of(2L))).thenReturn(List.of(privateBoard));
 
-        List<BoardListResponse> boards = boardService.getTopBoards(userDetails);
+        List<BoardListResponse> boards = boardService.getTopBoards(1L);
 
         assertThat(boards).extracting(BoardListResponse::getBoardUrl).containsExactly("private-board");
         verify(adminRepository).existsByUserAndIsActive(user, true);
@@ -1443,12 +1322,10 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(privateBoard, "isActive", true);
         user.grantSuperAdminRole();
 
-        UserDetails userDetails = mock(UserDetails.class);
-        when(userDetails.getUsername()).thenReturn(user.getLoginId());
         when(boardRepository.findTopReadableBoardIdsByPostCount(eq(user), eq(true), anyString(), any())).thenReturn(List.of(2L));
         when(boardRepository.findByBoardIdIn(List.of(2L))).thenReturn(List.of(privateBoard));
 
-        List<BoardListResponse> boards = boardService.getTopBoards(userDetails);
+        List<BoardListResponse> boards = boardService.getTopBoards(1L);
 
         assertThat(boards).extracting(BoardListResponse::getBoardUrl).containsExactly("private-board");
         verify(boardRepository).findTopReadableBoardIdsByPostCount(eq(user), eq(true), anyString(), any());
@@ -1835,7 +1712,6 @@ class BoardServiceTest {
     @Test
     @DisplayName("문의 게시판 생성 시 탈퇴한 super admin을 creator 후보에서 제외한다")
     void ensureInquiryBoard_usesActiveSuperAdminCreator() {
-        UserDetails userDetails = mock(UserDetails.class);
         User activeSuperAdmin = User.builder()
                 .loginId("super-admin")
                 .password("password")
@@ -1853,8 +1729,6 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(deletedSuperAdmin, "userId", 1L);
         deletedSuperAdmin.grantSuperAdminRole();
         deletedSuperAdmin.delete();
-        when(userDetails.getUsername()).thenReturn(user.getLoginId());
-        when(userRepository.findByLoginId(user.getLoginId())).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrlForUpdate("inquiry")).thenReturn(Optional.empty());
         when(userRepository.findUsableSuperAdmins()).thenReturn(List.of(activeSuperAdmin));
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
@@ -1867,7 +1741,7 @@ class BoardServiceTest {
         when(boardCategoryRepository.saveAndFlush(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        boardService.ensureInquiryBoard(userDetails, "custom-inquiry-url");
+        boardService.ensureInquiryBoard(1L, "custom-inquiry-url");
 
         ArgumentCaptor<Board> boardCaptor = ArgumentCaptor.forClass(Board.class);
         ArgumentCaptor<BoardCategory> categoryCaptor = ArgumentCaptor.forClass(BoardCategory.class);
@@ -1889,7 +1763,6 @@ class BoardServiceTest {
     @Test
     @DisplayName("문의 게시판 보정은 공개 설정과 중복 기본 카테고리 및 관리자 행을 정리한다")
     void ensureInquiryBoard_normalizesExistingBoardState() {
-        UserDetails userDetails = mock(UserDetails.class);
         User superAdmin = User.builder()
                 .loginId("super-admin")
                 .password("password")
@@ -1915,14 +1788,12 @@ class BoardServiceTest {
                 .build();
         ReflectionTestUtils.setField(duplicateCategory, "categoryId", 11L);
 
-        when(userDetails.getUsername()).thenReturn(user.getLoginId());
-        when(userRepository.findByLoginId(user.getLoginId())).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrlForUpdate("inquiry")).thenReturn(Optional.of(board));
         when(userRepository.findUsableSuperAdmins()).thenReturn(List.of(superAdmin));
         when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true))
                 .thenReturn(List.of(defaultCategory, duplicateCategory));
 
-        boardService.ensureInquiryBoard(userDetails, "custom-inquiry-url");
+        boardService.ensureInquiryBoard(1L, "custom-inquiry-url");
 
         assertThat(board.getIsPublic()).isFalse();
         assertThat(board.isAgentEnabled()).isFalse();
@@ -1936,7 +1807,6 @@ class BoardServiceTest {
     @Test
     @DisplayName("문의 게시판 보정은 기존 활성 관리자를 먼저 비활성화한 뒤 목표 관리자를 재활성화한다")
     void ensureInquiryBoard_reactivatesCanonicalManagerAfterDeactivatingWrongManager() {
-        UserDetails userDetails = mock(UserDetails.class);
         User superAdmin = User.builder()
                 .loginId("super-admin")
                 .password("password")
@@ -1946,8 +1816,6 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(superAdmin, "userId", 2L);
         superAdmin.grantSuperAdminRole();
 
-        when(userDetails.getUsername()).thenReturn(user.getLoginId());
-        when(userRepository.findByLoginId(user.getLoginId())).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrlForUpdate("inquiry")).thenReturn(Optional.of(board));
         when(userRepository.findUsableSuperAdmins()).thenReturn(List.of(superAdmin));
         when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true))
@@ -1955,7 +1823,7 @@ class BoardServiceTest {
         when(boardCategoryRepository.saveAndFlush(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        boardService.ensureInquiryBoard(userDetails, "custom-inquiry-url");
+        boardService.ensureInquiryBoard(1L, "custom-inquiry-url");
 
         verify(boardManagerAssignmentService).assignBoardManager(board, superAdmin);
     }
@@ -1963,7 +1831,6 @@ class BoardServiceTest {
     @Test
     @DisplayName("문의 게시판 생성 중 URL 중복 예외가 나면 잠금을 다시 잡아 기존 보드를 재사용한다")
     void ensureInquiryBoard_reusesBoardAfterDuplicateCreateConflict() {
-        UserDetails userDetails = mock(UserDetails.class);
         User superAdmin = User.builder()
                 .loginId("super-admin")
                 .password("password")
@@ -1973,8 +1840,6 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(superAdmin, "userId", 2L);
         superAdmin.grantSuperAdminRole();
 
-        when(userDetails.getUsername()).thenReturn(user.getLoginId());
-        when(userRepository.findByLoginId(user.getLoginId())).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrlForUpdate("inquiry"))
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(board));
@@ -1988,7 +1853,7 @@ class BoardServiceTest {
         when(boardCategoryRepository.saveAndFlush(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        boardService.ensureInquiryBoard(userDetails, "custom-inquiry-url");
+        boardService.ensureInquiryBoard(1L, "custom-inquiry-url");
 
         verify(boardRepository).saveAndFlush(any(Board.class));
         verify(boardRepository, org.mockito.Mockito.times(2)).findByBoardUrlForUpdate("inquiry");
@@ -1999,7 +1864,6 @@ class BoardServiceTest {
     @Test
     @DisplayName("문의 게시판 생성 중 이름 중복 예외가 나도 기존 보드를 다시 잠가 재사용한다")
     void ensureInquiryBoard_reusesBoardAfterDuplicateNameConflict() {
-        UserDetails userDetails = mock(UserDetails.class);
         User superAdmin = User.builder()
                 .loginId("super-admin")
                 .password("password")
@@ -2009,8 +1873,6 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(superAdmin, "userId", 2L);
         superAdmin.grantSuperAdminRole();
 
-        when(userDetails.getUsername()).thenReturn(user.getLoginId());
-        when(userRepository.findByLoginId(user.getLoginId())).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrlForUpdate("inquiry"))
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(board));
@@ -2024,7 +1886,7 @@ class BoardServiceTest {
         when(boardCategoryRepository.saveAndFlush(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        boardService.ensureInquiryBoard(userDetails, "custom-inquiry-url");
+        boardService.ensureInquiryBoard(1L, "custom-inquiry-url");
 
         verify(boardRepository).saveAndFlush(any(Board.class));
         verify(boardRepository, org.mockito.Mockito.times(2)).findByBoardUrlForUpdate("inquiry");
@@ -2324,15 +2186,6 @@ class BoardServiceTest {
                 argThat(boardIds -> boardIds.containsAll(List.of(3L, 4L, 5L)) && boardIds.size() == 3),
                 eq(true));
         verify(adminRepository, never()).existsByUserAndBoardAndIsActive(eq(user), any(Board.class), eq(true));
-    }
-
-    private UserDetails authenticateUser() {
-        UserDetails userDetails = mock(UserDetails.class);
-        lenient().when(userDetails.getUsername()).thenReturn(user.getLoginId());
-        CustomUserDetails principal = new CustomUserDetails(1L, user.getLoginId(), "password", Collections.emptyList());
-        SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
-        return userDetails;
     }
 
     private CategoryRequest categoryRequest(String name, Integer sortOrder, String minWriteRole) {

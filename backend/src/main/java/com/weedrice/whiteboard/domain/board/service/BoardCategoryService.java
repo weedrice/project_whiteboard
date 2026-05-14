@@ -10,10 +10,8 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -38,11 +36,11 @@ class BoardCategoryService {
         this.boardAccessPolicy = boardAccessPolicy;
     }
 
-    CategoryResponse createCategory(String boardUrl, CategoryRequest request, UserDetails userDetails) {
+    CategoryResponse createCategory(String boardUrl, CategoryRequest request, Long userId) {
         boolean requestedDefault = Boolean.TRUE.equals(request.getIsDefault());
         Board board = findBoardForCategoryCreate(boardUrl);
 
-        User currentUser = getCurrentUser(userDetails);
+        User currentUser = getCurrentUser(userId);
         boardAccessPolicy.validateBoardAdmin(board, currentUser);
         String normalizedName = normalizeCategoryName(request.getName());
         validateDuplicateActiveName(board.getBoardId(), normalizedName);
@@ -64,7 +62,7 @@ class BoardCategoryService {
         }
     }
 
-    CategoryResponse updateCategory(Long categoryId, CategoryRequest request, UserDetails userDetails) {
+    CategoryResponse updateCategory(Long categoryId, CategoryRequest request, Long userId) {
         if (categoryId == null) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Category ID cannot be null");
         }
@@ -73,7 +71,7 @@ class BoardCategoryService {
         }
         BoardCategory category = findCategoryForUpdate(categoryId);
 
-        User currentUser = getCurrentUser(userDetails);
+        User currentUser = getCurrentUser(userId);
         boardAccessPolicy.validateBoardAdmin(category.getBoard(), currentUser);
         String normalizedName = normalizeCategoryName(request.getName());
         if (Boolean.TRUE.equals(category.getIsActive())) {
@@ -98,10 +96,10 @@ class BoardCategoryService {
         }
     }
 
-    void deleteCategory(Long categoryId, UserDetails userDetails) {
+    void deleteCategory(Long categoryId, Long userId) {
         BoardCategory category = findCategoryForUpdate(categoryId);
 
-        User currentUser = getCurrentUser(userDetails);
+        User currentUser = getCurrentUser(userId);
         boardAccessPolicy.validateBoardAdmin(category.getBoard(), currentUser);
         if (category.isDefaultCategory()) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Default category cannot be deleted");
@@ -110,15 +108,11 @@ class BoardCategoryService {
         category.deactivate();
     }
 
-    private User getCurrentUser(UserDetails userDetails) {
-        if (userDetails == null) {
+    private User getCurrentUser(Long userId) {
+        if (userId == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
-        if (userDetails instanceof CustomUserDetails customUserDetails) {
-            return userRepository.findById(customUserDetails.getUserId())
-                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        }
-        return userRepository.findByLoginId(userDetails.getUsername())
+        return userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 

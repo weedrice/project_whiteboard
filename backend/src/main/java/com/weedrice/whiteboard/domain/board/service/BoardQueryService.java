@@ -21,7 +21,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -63,18 +62,13 @@ class BoardQueryService {
         this.postService = postService;
     }
 
-    List<BoardListResponse> getActiveBoards(UserDetails userDetails) {
-        User currentUser = getCurrentUserOrNull(userDetails);
+    List<BoardListResponse> getActiveBoards(Long userId) {
+        User currentUser = getCurrentUserByIdOrNull(userId);
         List<Board> boards = boardRepository.findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc(
                 currentUser,
                 currentUser != null && currentUser.isUsableSuperAdmin(),
                 boardAccessPolicy.getInquiryBoardUrl());
         return boardResponseAssembler.assembleListAll(boards, currentUser);
-    }
-
-    List<BoardListResponse> getTopBoards(UserDetails userDetails) {
-        User currentUser = getCurrentUserOrNull(userDetails);
-        return getTopBoardsForUser(currentUser);
     }
 
     List<BoardListResponse> getTopBoardsByUserId(Long userId) {
@@ -100,8 +94,8 @@ class BoardQueryService {
         return boardResponseAssembler.assembleListAll(boards, currentUser);
     }
 
-    List<AdminBoardResponse> getAllBoards(UserDetails userDetails) {
-        User currentUser = getCurrentUserOrNull(userDetails);
+    List<AdminBoardResponse> getAllBoards(Long userId) {
+        User currentUser = getCurrentUserByIdOrNull(userId);
         if (currentUser == null || !currentUser.isUsableSuperAdmin()) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
@@ -109,19 +103,19 @@ class BoardQueryService {
         return boardResponseAssembler.assembleAdminAll(boards);
     }
 
-    BoardDetailResponse getBoardDetails(String boardUrl, UserDetails userDetails) {
+    BoardDetailResponse getBoardDetails(String boardUrl, Long userId) {
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        User currentUser = getCurrentUserOrNull(userDetails);
+        User currentUser = getCurrentUserByIdOrNull(userId);
         boardAccessPolicy.validateReadable(board, currentUser);
 
         return boardResponseAssembler.assembleDetail(board, currentUser);
     }
 
-    List<CategoryResponse> getActiveCategories(String boardUrl, UserDetails userDetails) {
+    List<CategoryResponse> getActiveCategories(String boardUrl, Long userId) {
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        User currentUser = getCurrentUserOrNull(userDetails);
+        User currentUser = getCurrentUserByIdOrNull(userId);
         boardAccessPolicy.validateReadable(board, currentUser);
         return boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true)
                 .stream()
@@ -223,14 +217,6 @@ class BoardQueryService {
             return readableResponse;
         }
         return BoardListResponse.unavailableSubscription(board);
-    }
-
-    private User getCurrentUserOrNull(UserDetails userDetails) {
-        if (userDetails == null) {
-            return null;
-        }
-        return userRepository.findByLoginId(userDetails.getUsername())
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 
     private User getCurrentUserByIdOrNull(Long userId) {
