@@ -132,9 +132,13 @@ class OperationalPrivilegeRevocationGuardTest {
     @Test
     @DisplayName("일괄 권한 정리도 게시판별 남는 활성 매니저를 요구한다")
     void validateOperationalPrivilegesCanBeRevoked_batchLastBoardAdmin_validationError() {
-        when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
-        when(adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true))
-                .thenReturn(List.of(boardAdmin));
+        when(boardRepository.findByBoardIdInForUpdate(List.of(10L))).thenReturn(List.of(board));
+        when(adminRepository.countActiveAdminsByBoardIdsExcludingAdminIds(
+                List.of(10L),
+                Role.BOARD_ADMIN,
+                true,
+                List.of(100L)))
+                .thenReturn(List.of());
 
         assertThatThrownBy(() -> guard.validateOperationalPrivilegesCanBeRevoked(user, List.of(boardAdmin)))
                 .isInstanceOf(BusinessException.class)
@@ -144,19 +148,34 @@ class OperationalPrivilegeRevocationGuardTest {
     @Test
     @DisplayName("일괄 권한 정리에서 다른 활성 매니저가 남으면 통과한다")
     void validateOperationalPrivilegesCanBeRevoked_batchOtherBoardAdminExists_success() {
-        User other = User.builder().loginId("other").build();
-        Admin otherBoardAdmin = Admin.builder()
-                .user(other)
-                .board(board)
-                .role(Role.BOARD_ADMIN)
-                .build();
-        ReflectionTestUtils.setField(otherBoardAdmin, "adminId", 101L);
-        when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
-        when(adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true))
-                .thenReturn(List.of(boardAdmin, otherBoardAdmin));
+        when(boardRepository.findByBoardIdInForUpdate(List.of(10L))).thenReturn(List.of(board));
+        when(adminRepository.countActiveAdminsByBoardIdsExcludingAdminIds(
+                List.of(10L),
+                Role.BOARD_ADMIN,
+                true,
+                List.of(100L)))
+                .thenReturn(List.of(boardAdminCount(10L, 1L)));
 
         guard.validateOperationalPrivilegesCanBeRevoked(user, List.of(boardAdmin));
 
-        verify(adminRepository).findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true);
+        verify(adminRepository).countActiveAdminsByBoardIdsExcludingAdminIds(
+                List.of(10L),
+                Role.BOARD_ADMIN,
+                true,
+                List.of(100L));
+    }
+
+    private AdminRepository.BoardAdminCountProjection boardAdminCount(Long boardId, long adminCount) {
+        return new AdminRepository.BoardAdminCountProjection() {
+            @Override
+            public Long getBoardId() {
+                return boardId;
+            }
+
+            @Override
+            public long getAdminCount() {
+                return adminCount;
+            }
+        };
     }
 }

@@ -27,6 +27,22 @@ public interface AdminRepository extends JpaRepository<Admin, Long> {
     long countByBoardAndRoleAndIsActiveAndAdminIdNot(Board board, String role, Boolean isActive, Long adminId);
     Optional<Admin> findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(Board board, String role, Boolean isActive);
     List<Admin> findByBoardAndRoleAndIsActive(Board board, String role, Boolean isActive);
+
+    @Query("""
+            SELECT admin.board.boardId AS boardId,
+                   COUNT(admin) AS adminCount
+            FROM Admin admin
+            WHERE admin.board.boardId IN :boardIds
+              AND admin.role = :role
+              AND admin.isActive = :isActive
+              AND admin.adminId NOT IN :excludedAdminIds
+            GROUP BY admin.board.boardId
+            """)
+    List<BoardAdminCountProjection> countActiveAdminsByBoardIdsExcludingAdminIds(
+            @Param("boardIds") Collection<Long> boardIds,
+            @Param("role") String role,
+            @Param("isActive") Boolean isActive,
+            @Param("excludedAdminIds") Collection<Long> excludedAdminIds);
     Optional<Admin> findByUserAndBoardAndRole(User user, Board board, String role);
     Optional<Admin> findFirstByUserAndIsActiveOrderByAdminIdAsc(User user, Boolean isActive);
     @EntityGraph(attributePaths = "user")
@@ -40,6 +56,7 @@ public interface AdminRepository extends JpaRepository<Admin, Long> {
     List<Long> findActiveBoardIdsByUser(@Param("user") User user);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<Admin> findAllByUserAndIsActiveOrderByAdminIdAsc(User user, Boolean isActive);
+    @EntityGraph(attributePaths = "board")
     List<Admin> findByUserAndIsActiveOrderByAdminIdAsc(User user, Boolean isActive);
     @EntityGraph(attributePaths = {"user", "board"})
     List<Admin> findByBoard_BoardIdInAndRoleAndIsActiveOrderByBoard_BoardIdAscAdminIdDesc(
@@ -53,4 +70,9 @@ public interface AdminRepository extends JpaRepository<Admin, Long> {
     boolean existsByUser(User user);
     void deleteByBoard(Board board);
     boolean existsByUserAndBoardAndIsActive(User userId, Board boardId, Boolean isActive);
+
+    interface BoardAdminCountProjection {
+        Long getBoardId();
+        long getAdminCount();
+    }
 }

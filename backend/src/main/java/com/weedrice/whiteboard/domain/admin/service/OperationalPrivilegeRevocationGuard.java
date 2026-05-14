@@ -14,8 +14,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -72,21 +72,32 @@ public class OperationalPrivilegeRevocationGuard {
                 .distinct()
                 .sorted()
                 .toList();
+        List<Long> targetAdminIds = boardAdmins.stream()
+                .map(Admin::getAdminId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (boardIds.isEmpty() || targetAdminIds.isEmpty()) {
+            return;
+        }
+
+        List<Board> lockedBoards = boardRepository.findByBoardIdInForUpdate(boardIds);
+        if (lockedBoards.size() != boardIds.size()) {
+            throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
+        }
+
+        Map<Long, Long> remainingAdminCounts = adminRepository.countActiveAdminsByBoardIdsExcludingAdminIds(
+                        boardIds,
+                        Role.BOARD_ADMIN,
+                        true,
+                        targetAdminIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        AdminRepository.BoardAdminCountProjection::getBoardId,
+                        AdminRepository.BoardAdminCountProjection::getAdminCount));
 
         for (Long boardId : boardIds) {
-            Board board = boardRepository.findByIdForUpdate(boardId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-            Set<Long> targetAdminIds = boardAdmins.stream()
-                    .filter(admin -> admin.getBoard() != null)
-                    .filter(admin -> boardId.equals(admin.getBoard().getBoardId()))
-                    .map(Admin::getAdminId)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toSet());
-            boolean hasRemainingBoardAdmin = adminRepository
-                    .findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true)
-                    .stream()
-                    .anyMatch(admin -> !targetAdminIds.contains(admin.getAdminId()));
-            if (!hasRemainingBoardAdmin) {
+            if (remainingAdminCounts.getOrDefault(boardId, 0L) == 0) {
                 throw new BusinessException(ErrorCode.VALIDATION_ERROR, "At least one active board manager is required");
             }
         }
