@@ -17,7 +17,9 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,12 +39,14 @@ class ScrapRepositoryTest {
     @Autowired
     private ScrapRepository scrapRepository;
 
+    private User author;
     private User scrapper;
+    private Board board;
     private Post scrappedPost;
 
     @BeforeEach
     void setUp() {
-        User author = User.builder()
+        author = User.builder()
                 .loginId("author")
                 .email("author@test.com")
                 .password("password")
@@ -57,7 +61,7 @@ class ScrapRepositoryTest {
         entityManager.persist(author);
         entityManager.persist(scrapper);
 
-        Board board = Board.builder()
+        board = Board.builder()
                 .boardName("free")
                 .boardUrl("free")
                 .creator(author)
@@ -114,6 +118,40 @@ class ScrapRepositoryTest {
                 List.of(scrappedPost.getPostId(), -1L));
 
         assertThat(postIds).containsExactly(scrappedPost.getPostId());
+    }
+
+    @Test
+    @DisplayName("같은 스크랩 시각의 목록은 postId 내림차순으로 조회된다")
+    void findPageByUserWithPostDetails_ordersByCreatedAtAndPostIdDesc() {
+        User managedAuthor = entityManager.find(User.class, author.getUserId());
+        User managedScrapper = entityManager.find(User.class, scrapper.getUserId());
+        Board managedBoard = entityManager.find(Board.class, board.getBoardId());
+        Post newerPost = persistPost(managedBoard, managedAuthor, "newer-post-id", false);
+        entityManager.persist(Scrap.builder()
+                .user(managedScrapper)
+                .post(newerPost)
+                .remark("newer")
+                .build());
+        entityManager.flush();
+
+        LocalDateTime sameCreatedAt = LocalDateTime.of(2030, 1, 1, 0, 0);
+        updateScrapCreatedAt(managedScrapper.getUserId(), scrappedPost.getPostId(), sameCreatedAt);
+        updateScrapCreatedAt(managedScrapper.getUserId(), newerPost.getPostId(), sameCreatedAt);
+        entityManager.clear();
+
+        Page<Scrap> result = scrapRepository.findPageByUserWithPostDetails(
+                scrapper,
+                false,
+                true,
+                NO_BLOCKED_USER_IDS,
+                BoardPolicyConstants.INQUIRY_BOARD_URL,
+                PageRequest.of(0, 10, Sort.by(
+                        Sort.Order.desc("createdAt"),
+                        Sort.Order.desc("post.postId"))));
+
+        assertThat(result.getContent())
+                .extracting(scrap -> scrap.getPost().getPostId())
+                .containsExactly(newerPost.getPostId(), scrappedPost.getPostId());
     }
 
     @Test
@@ -225,5 +263,19 @@ class ScrapRepositoryTest {
                 .build();
         entityManager.persist(post);
         return post;
+    }
+
+    private void updateScrapCreatedAt(Long userId, Long postId, LocalDateTime createdAt) {
+        entityManager.getEntityManager()
+                .createNativeQuery("""
+                        UPDATE scraps
+                        SET created_at = :createdAt
+                        WHERE user_id = :userId
+                          AND post_id = :postId
+                        """)
+                .setParameter("createdAt", createdAt)
+                .setParameter("userId", userId)
+                .setParameter("postId", postId)
+                .executeUpdate();
     }
 }

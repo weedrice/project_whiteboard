@@ -59,7 +59,7 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
                           AND a.isActive = true
                     )
                   )
-            ORDER BY s.createdAt DESC
+            ORDER BY s.createdAt DESC, p.postId DESC
             """, countQuery = """
             SELECT COUNT(s)
             FROM Scrap s

@@ -1465,7 +1465,7 @@ class PostServiceTest {
                 any(Pageable.class)))
                 .thenAnswer(invocation -> Page.empty(invocation.getArgument(5)));
 
-        postService.getMyScraps(1L, PageRequest.of(2, 1000, Sort.by("unknown")));
+        postService.getMyScraps(1L, PageRequest.of(2, 1000, Sort.by(Sort.Order.asc("createdAt"))));
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         verify(scrapRepository).findPageByUserWithPostDetails(
@@ -1478,7 +1478,9 @@ class PostServiceTest {
         Pageable pageable = pageableCaptor.getValue();
         assertThat(pageable.getPageNumber()).isEqualTo(2);
         assertThat(pageable.getPageSize()).isEqualTo(100);
-        assertThat(pageable.getSort()).isEqualTo(Sort.by(Sort.Order.desc("createdAt")));
+        assertThat(pageable.getSort()).isEqualTo(Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("post.postId")));
     }
 
     // --- Drafts ---

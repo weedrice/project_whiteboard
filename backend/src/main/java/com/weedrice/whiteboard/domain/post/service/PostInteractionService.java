@@ -52,8 +52,9 @@ public class PostInteractionService {
 
     private static final long MAX_VIEW_DURATION_MS = 86_400_000L;
     private static final int DEFAULT_SCRAP_PAGE_SIZE = 20;
-    private static final Sort DEFAULT_SCRAP_SORT = Sort.by(Sort.Order.desc("createdAt"));
-    private static final Set<String> ALLOWED_SCRAP_SORTS = Set.of("createdAt");
+    private static final Sort DEFAULT_SCRAP_SORT = Sort.by(
+            Sort.Order.desc("createdAt"),
+            Sort.Order.desc("post.postId"));
 
     private final PostRepository postRepository;
     private final PostLikeRepository postLikeRepository;
@@ -215,11 +216,7 @@ public class PostInteractionService {
     public ScrapListResponse getMyScraps(@NonNull Long userId, @NonNull Pageable pageable) {
         PostReadContext context = postReadContextResolver.resolveForExistingUser(userId);
         User user = context.viewer();
-        Pageable safePageable = PageRequestUtils.of(
-                pageable,
-                DEFAULT_SCRAP_PAGE_SIZE,
-                DEFAULT_SCRAP_SORT,
-                ALLOWED_SCRAP_SORTS);
+        Pageable safePageable = normalizeScrapPageable(pageable);
         Set<Long> blockedUserIds = context.blockedUserIdSet();
         List<Long> blockedUserIdParams = blockedUserIds.isEmpty()
                 ? List.of(-1L)
@@ -299,6 +296,13 @@ public class PostInteractionService {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         return normalizedRemark;
+    }
+
+    private Pageable normalizeScrapPageable(Pageable pageable) {
+        if (pageable == null || pageable.isUnpaged()) {
+            return PageRequestUtils.of(0, DEFAULT_SCRAP_PAGE_SIZE, DEFAULT_SCRAP_SORT);
+        }
+        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), DEFAULT_SCRAP_SORT);
     }
 
     private Post getReadablePost(@NonNull Long postId, PostReadContext context) {
