@@ -2443,7 +2443,7 @@ class PostServiceTest {
         when(draftPostRepository.findPageByUserWithBoard(eq(user), any(Pageable.class)))
                 .thenAnswer(invocation -> Page.empty(invocation.getArgument(1)));
 
-        postService.getDraftPosts(1L, PageRequest.of(1, 1000, Sort.by("unknown")));
+        postService.getDraftPosts(1L, PageRequest.of(1, 1000, Sort.by(Sort.Order.asc("createdAt"))));
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         verify(draftPostRepository).findPageByUserWithBoard(eq(user), pageableCaptor.capture());

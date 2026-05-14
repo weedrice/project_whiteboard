@@ -29,7 +29,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
-import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -39,7 +38,6 @@ public class PostDraftService {
     private static final Sort DEFAULT_DRAFT_SORT = Sort.by(
             Sort.Order.desc("modifiedAt"),
             Sort.Order.desc("draftId"));
-    private static final Set<String> ALLOWED_DRAFT_SORTS = Set.of("modifiedAt", "createdAt", "draftId");
 
     private final UserRepository userRepository;
     private final BoardRepository boardRepository;
@@ -55,11 +53,7 @@ public class PostDraftService {
     public DraftListResponse getDraftPosts(@NonNull Long userId, @NonNull Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Pageable safePageable = PageRequestUtils.of(
-                pageable,
-                DEFAULT_DRAFT_PAGE_SIZE,
-                DEFAULT_DRAFT_SORT,
-                ALLOWED_DRAFT_SORTS);
+        Pageable safePageable = normalizeDraftPageable(pageable);
         Page<DraftPost> draftPage = draftPostRepository.findPageByUserWithBoard(user, safePageable);
         return DraftListResponse.from(draftPage);
     }
@@ -158,6 +152,13 @@ public class PostDraftService {
         }
         return boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(categoryId, board.getBoardId(), true)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+    }
+
+    private Pageable normalizeDraftPageable(Pageable pageable) {
+        if (pageable == null || pageable.isUnpaged()) {
+            return PageRequestUtils.of(0, DEFAULT_DRAFT_PAGE_SIZE, DEFAULT_DRAFT_SORT);
+        }
+        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), DEFAULT_DRAFT_SORT);
     }
 
     private void validateOriginalPostForDraft(Post originalPost, User user, Board board, BoardCategory category) {

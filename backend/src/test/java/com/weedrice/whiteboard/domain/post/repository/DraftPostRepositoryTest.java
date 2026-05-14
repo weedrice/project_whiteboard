@@ -16,6 +16,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
+import java.time.LocalDateTime;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
@@ -32,6 +34,7 @@ class DraftPostRepositoryTest {
     private DraftPostRepository draftPostRepository;
 
     private User user;
+    private Board board;
 
     @BeforeEach
     void setUp() {
@@ -43,7 +46,7 @@ class DraftPostRepositoryTest {
                 .build();
         entityManager.persist(user);
 
-        Board board = Board.builder()
+        board = Board.builder()
                 .boardName("draft-board")
                 .boardUrl("draft-board")
                 .creator(user)
@@ -70,5 +73,44 @@ class DraftPostRepositoryTest {
         DraftPost draftPost = result.getContent().getFirst();
         assertThat(persistenceUnitUtil.isLoaded(draftPost, "board")).isTrue();
         assertThat(draftPost.getBoard().getBoardName()).isEqualTo("draft-board");
+    }
+
+    @Test
+    @DisplayName("같은 수정 시각의 임시글은 draftId 내림차순으로 조회된다")
+    void findPageByUserWithBoard_ordersByModifiedAtAndDraftIdDesc() {
+        DraftPost olderDraftId = DraftPost.builder()
+                .user(user)
+                .board(board)
+                .title("older-id")
+                .contents("contents")
+                .build();
+        DraftPost newerDraftId = DraftPost.builder()
+                .user(user)
+                .board(board)
+                .title("newer-id")
+                .contents("contents")
+                .build();
+        entityManager.persist(olderDraftId);
+        entityManager.persist(newerDraftId);
+        entityManager.flush();
+
+        LocalDateTime sameModifiedAt = LocalDateTime.of(2030, 1, 1, 0, 0);
+        updateDraftModifiedAt(olderDraftId.getDraftId(), sameModifiedAt);
+        updateDraftModifiedAt(newerDraftId.getDraftId(), sameModifiedAt);
+        entityManager.clear();
+
+        Page<DraftPost> result = draftPostRepository.findPageByUserWithBoard(user, PageRequest.of(0, 10));
+
+        assertThat(result.getContent())
+                .extracting(DraftPost::getDraftId)
+                .containsSubsequence(newerDraftId.getDraftId(), olderDraftId.getDraftId());
+    }
+
+    private void updateDraftModifiedAt(Long draftId, LocalDateTime modifiedAt) {
+        entityManager.getEntityManager()
+                .createNativeQuery("UPDATE draft_posts SET modified_at = :modifiedAt WHERE draft_id = :draftId")
+                .setParameter("modifiedAt", modifiedAt)
+                .setParameter("draftId", draftId)
+                .executeUpdate();
     }
 }

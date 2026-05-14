@@ -20,7 +20,7 @@ public interface DraftPostRepository extends JpaRepository<DraftPost, Long> {
             SELECT d
             FROM DraftPost d
             WHERE d.user = :user
-            ORDER BY d.modifiedAt DESC
+            ORDER BY d.modifiedAt DESC, d.draftId DESC
             """, countQuery = """
             SELECT COUNT(d)
             FROM DraftPost d
