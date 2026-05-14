@@ -18,8 +18,10 @@ interface BoardPostParams {
     searchType?: string
 }
 
-const isVisibleSubscriptionBoard = (board: SubscriptionBoardListItem): board is BoardListItem =>
-    board.subscriptionAccessible !== false && board.boardName !== null
+const isVisibleSubscriptionBoard = (
+    board: SubscriptionBoardListItem
+): board is SubscriptionBoardListItem & BoardListItem =>
+    board.accessState === 'ACCESSIBLE'
 
 export function useBoard() {
     const queryClient = useQueryClient()

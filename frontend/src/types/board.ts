@@ -16,6 +16,9 @@ export interface BoardListItem {
     subscriptionAccessible: boolean
 }
 
+export type SubscriptionAccessState = 'ACCESSIBLE' | 'INACCESSIBLE'
+export type SubscriptionInaccessibleReason = 'INACTIVE' | 'PRIVATE' | 'RESTRICTED'
+
 export interface SubscriptionBoardListItem {
     boardId: number
     boardName: string | null
@@ -30,6 +33,8 @@ export interface SubscriptionBoardListItem {
     isActive: boolean
     isPublic: boolean
     subscriptionAccessible: boolean
+    accessState: SubscriptionAccessState
+    inaccessibleReason?: SubscriptionInaccessibleReason | null
 }
 
 export interface BoardDetail extends BoardListItem {

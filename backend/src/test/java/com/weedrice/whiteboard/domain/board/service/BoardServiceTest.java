@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
+import com.weedrice.whiteboard.domain.board.dto.SubscriptionBoardResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardAiInfo;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
@@ -1621,6 +1622,10 @@ class BoardServiceTest {
         assertThat(result.getTotalElements()).isEqualTo(1);
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).isSubscribed()).isTrue();
+        assertThat(result.getContent().get(0).isSubscriptionAccessible()).isTrue();
+        assertThat(result.getContent().get(0).getAccessState())
+                .isEqualTo(SubscriptionBoardResponse.AccessState.ACCESSIBLE);
+        assertThat(result.getContent().get(0).getInaccessibleReason()).isNull();
     }
 
     @Test
@@ -2145,6 +2150,8 @@ class BoardServiceTest {
         assertThat(result.getTotalElements()).isEqualTo(1);
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getBoardUrl()).isEqualTo("test-board");
+        assertThat(result.getContent().get(0).getAccessState())
+                .isEqualTo(SubscriptionBoardResponse.AccessState.ACCESSIBLE);
     }
 
     @Test
@@ -2222,6 +2229,10 @@ class BoardServiceTest {
         assertThat(result.getContent().get(0).getBoardName()).isNull();
         assertThat(result.getContent().get(0).getDescription()).isNull();
         assertThat(result.getContent().get(0).isSubscriptionAccessible()).isFalse();
+        assertThat(result.getContent().get(0).getAccessState())
+                .isEqualTo(SubscriptionBoardResponse.AccessState.INACCESSIBLE);
+        assertThat(result.getContent().get(0).getInaccessibleReason())
+                .isEqualTo(SubscriptionBoardResponse.InaccessibleReason.PRIVATE);
         assertThat(result.getContent().get(0).getBoardUrl()).isEqualTo("hidden-board");
     }
 
@@ -2294,10 +2305,20 @@ class BoardServiceTest {
         assertThat(result.getContent()).hasSize(3);
         assertThat(result.getContent().get(0).getBoardName()).isEqualTo("Admin Hidden");
         assertThat(result.getContent().get(0).isSubscriptionAccessible()).isTrue();
+        assertThat(result.getContent().get(0).getAccessState())
+                .isEqualTo(SubscriptionBoardResponse.AccessState.ACCESSIBLE);
+        assertThat(result.getContent().get(0).getInaccessibleReason()).isNull();
         assertThat(result.getContent().get(1).getBoardName()).isEqualTo("Admin Inactive");
         assertThat(result.getContent().get(1).isSubscriptionAccessible()).isTrue();
+        assertThat(result.getContent().get(1).getAccessState())
+                .isEqualTo(SubscriptionBoardResponse.AccessState.ACCESSIBLE);
+        assertThat(result.getContent().get(1).getInaccessibleReason()).isNull();
         assertThat(result.getContent().get(2).getBoardName()).isNull();
         assertThat(result.getContent().get(2).isSubscriptionAccessible()).isFalse();
+        assertThat(result.getContent().get(2).getAccessState())
+                .isEqualTo(SubscriptionBoardResponse.AccessState.INACCESSIBLE);
+        assertThat(result.getContent().get(2).getInaccessibleReason())
+                .isEqualTo(SubscriptionBoardResponse.InaccessibleReason.PRIVATE);
         verify(adminRepository).findByUserAndBoard_BoardIdInAndIsActive(
                 eq(user),
                 argThat(boardIds -> boardIds.containsAll(List.of(3L, 4L, 5L)) && boardIds.size() == 3),

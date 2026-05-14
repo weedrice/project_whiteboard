@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.board.dto.AdminBoardResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardDetailResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
+import com.weedrice.whiteboard.domain.board.dto.SubscriptionBoardResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
@@ -158,11 +159,11 @@ class BoardQueryService {
                 .toList();
     }
 
-    Page<BoardListResponse> getMySubscriptions(Long userId, Pageable pageable) {
+    Page<SubscriptionBoardResponse> getMySubscriptions(Long userId, Pageable pageable) {
         return getMySubscriptions(userId, pageable, false);
     }
 
-    Page<BoardListResponse> getMySubscriptions(Long userId, Pageable pageable, boolean includeUnavailable) {
+    Page<SubscriptionBoardResponse> getMySubscriptions(Long userId, Pageable pageable, boolean includeUnavailable) {
         if (userId == null) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
@@ -181,7 +182,7 @@ class BoardQueryService {
             Map<Long, BoardListResponse> readableResponsesByBoardId = boardResponseAssembler.assembleListAll(readableBoards, user)
                     .stream()
                     .collect(Collectors.toMap(BoardListResponse::getBoardId, Function.identity()));
-            List<BoardListResponse> responses = subscriptions.getContent().stream()
+            List<SubscriptionBoardResponse> responses = subscriptions.getContent().stream()
                     .map(subscription -> toSubscriptionResponse(subscription, readableResponsesByBoardId))
                     .toList();
             return new PageImpl<>(responses, fixedOrderPageable, subscriptions.getTotalElements());
@@ -193,7 +194,10 @@ class BoardQueryService {
         List<Board> visibleBoards = visibleSubscriptions.getContent().stream()
                 .map(BoardSubscription::getBoard)
                 .toList();
-        List<BoardListResponse> responses = boardResponseAssembler.assembleListAll(visibleBoards, user);
+        List<SubscriptionBoardResponse> responses = boardResponseAssembler.assembleListAll(visibleBoards, user)
+                .stream()
+                .map(SubscriptionBoardResponse::accessible)
+                .toList();
         return new PageImpl<>(responses, fixedOrderPageable, visibleSubscriptions.getTotalElements());
     }
 
@@ -228,14 +232,14 @@ class BoardQueryService {
         return Boolean.TRUE.equals(board.getIsActive()) && Boolean.TRUE.equals(board.getIsPublic());
     }
 
-    private BoardListResponse toSubscriptionResponse(BoardSubscription subscription,
+    private SubscriptionBoardResponse toSubscriptionResponse(BoardSubscription subscription,
             Map<Long, BoardListResponse> readableResponsesByBoardId) {
         Board board = subscription.getBoard();
         BoardListResponse readableResponse = readableResponsesByBoardId.get(board.getBoardId());
         if (readableResponse != null) {
-            return readableResponse;
+            return SubscriptionBoardResponse.accessible(readableResponse);
         }
-        return BoardListResponse.unavailableSubscription(board);
+        return SubscriptionBoardResponse.inaccessible(board);
     }
 
     private User getCurrentUserByIdOrNull(Long userId) {

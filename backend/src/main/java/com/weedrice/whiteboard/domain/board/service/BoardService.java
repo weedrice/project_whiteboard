@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
+import com.weedrice.whiteboard.domain.board.dto.SubscriptionBoardResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import org.springframework.data.domain.Page;
@@ -86,11 +87,11 @@ public class BoardService {
         subscriptionService.unsubscribeBoard(userId, boardUrl);
     }
 
-    public Page<BoardListResponse> getMySubscriptions(Long userId, Pageable pageable) {
+    public Page<SubscriptionBoardResponse> getMySubscriptions(Long userId, Pageable pageable) {
         return queryService.getMySubscriptions(userId, pageable);
     }
 
-    public Page<BoardListResponse> getMySubscriptions(Long userId, Pageable pageable, boolean includeUnavailable) {
+    public Page<SubscriptionBoardResponse> getMySubscriptions(Long userId, Pageable pageable, boolean includeUnavailable) {
         return queryService.getMySubscriptions(userId, pageable, includeUnavailable);
     }
 

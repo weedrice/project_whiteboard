@@ -97,7 +97,19 @@ describe('useBoard', () => {
 
     it('fetches subscribed boards and supports enabled variations', async () => {
         vi.mocked(userApi.getMySubscriptions).mockResolvedValue({
-            data: { data: { content: [{ boardId: 11 }] } },
+            data: {
+                data: {
+                    content: [
+                        { boardId: 11, boardName: 'General', accessState: 'ACCESSIBLE' },
+                        {
+                            boardId: 12,
+                            boardName: null,
+                            accessState: 'INACCESSIBLE',
+                            inaccessibleReason: 'PRIVATE',
+                        },
+                    ],
+                },
+            },
         } as never)
 
         const { useSubscribedBoards } = useBoard()
@@ -112,7 +124,7 @@ describe('useBoard', () => {
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
         const result = await (options.queryFn as () => Promise<unknown>)()
         expect(userApi.getMySubscriptions).toHaveBeenCalledWith({ size: 5 })
-        expect(result).toEqual([{ boardId: 11 }])
+        expect(result).toEqual([{ boardId: 11, boardName: 'General', accessState: 'ACCESSIBLE' }])
 
         useSubscribedBoards(3, ref(false))
         options = mocks.queryOptions.at(-1)!

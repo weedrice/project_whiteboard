@@ -86,21 +86,4 @@ public class BoardListResponse {
         this.isPublic = isPublic;
         this.subscriptionAccessible = subscriptionAccessible;
     }
-
-    public static BoardListResponse unavailableSubscription(Board board) {
-        return new BoardListResponse(
-                board.getBoardId(),
-                null,
-                board.getBoardUrl(),
-                null,
-                null,
-                board.getSortOrder(),
-                0L,
-                0L,
-                null,
-                true,
-                board.getIsActive(),
-                board.getIsPublic(),
-                false);
-    }
 }

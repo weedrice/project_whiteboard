@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentResponse;
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
 import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
+import com.weedrice.whiteboard.domain.board.dto.SubscriptionBoardResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse;
@@ -252,18 +253,24 @@ class UserControllerTest {
 
                         BoardListResponse boardResponse = new BoardListResponse(
                                         board, 100L, 0L, "Admin User", true);
-                        Page<BoardListResponse> boardPage = new PageImpl<>(List.of(boardResponse), pageable, 1);
+                        SubscriptionBoardResponse subscriptionResponse = SubscriptionBoardResponse.accessible(boardResponse);
+                        Page<SubscriptionBoardResponse> boardPage = new PageImpl<>(
+                                        List.of(subscriptionResponse),
+                                        pageable,
+                                        1);
 
                         given(boardService.getMySubscriptions(1L, pageable, false)).willReturn(boardPage);
 
                         // when
-                        ApiResponse<PageResponse<BoardListResponse>> response = userController
+                        ApiResponse<PageResponse<SubscriptionBoardResponse>> response = userController
                                         .getMySubscriptions(customUserDetails, false, 0, 10, Sort.unsorted());
 
                         // then
                         assertThat(response.isSuccess()).isTrue();
                         assertThat(response.getData().getContent()).hasSize(1);
                         assertThat(response.getData().getContent().get(0).getBoardName()).isEqualTo("Test Board");
+                        assertThat(response.getData().getContent().get(0).getAccessState())
+                                        .isEqualTo(SubscriptionBoardResponse.AccessState.ACCESSIBLE);
                 }
 
                 @Test
