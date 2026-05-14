@@ -55,6 +55,11 @@ public class PostInteractionService {
     private static final Sort DEFAULT_SCRAP_SORT = Sort.by(
             Sort.Order.desc("createdAt"),
             Sort.Order.desc("post.postId"));
+    private static final int DEFAULT_RECENTLY_VIEWED_PAGE_SIZE = 20;
+    // Native query pageable sorting is appended as SQL, so use column names here.
+    private static final Sort DEFAULT_RECENTLY_VIEWED_SORT = Sort.by(
+            Sort.Order.desc("modified_at"),
+            Sort.Order.desc("post_id"));
 
     private final PostRepository postRepository;
     private final PostLikeRepository postLikeRepository;
@@ -234,6 +239,7 @@ public class PostInteractionService {
     public Page<PostSummary> getRecentlyViewedPosts(@NonNull Long userId, @NonNull Pageable pageable) {
         PostReadContext context = postReadContextResolver.resolveForExistingUser(userId);
         User user = context.viewer();
+        Pageable safePageable = normalizeRecentlyViewedPageable(pageable);
         Set<Long> blockedUserIds = context.blockedUserIdSet();
         List<Long> blockedUserIdParams = blockedUserIds.isEmpty()
                 ? List.of(-1L)
@@ -244,10 +250,10 @@ public class PostInteractionService {
                 blockedUserIds.isEmpty(),
                 blockedUserIdParams,
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
-                pageable);
+                safePageable);
 
         if (visiblePostIdsPage.isEmpty()) {
-            return Page.empty(pageable);
+            return Page.empty(safePageable);
         }
 
         Map<Long, Post> postsById = postRepository.findByPostIdInAndIsDeletedFalse(visiblePostIdsPage.getContent())
@@ -259,7 +265,7 @@ public class PostInteractionService {
                 .toList();
         List<PostSummary> orderedSummaries = postSummaryAssembler.assembleLatestPosts(orderedPosts, userId);
 
-        return new PageImpl<>(orderedSummaries, pageable, visiblePostIdsPage.getTotalElements());
+        return new PageImpl<>(orderedSummaries, safePageable, visiblePostIdsPage.getTotalElements());
     }
 
     private long resolveDurationMs(ViewHistoryRequest request) {
@@ -303,6 +309,13 @@ public class PostInteractionService {
             return PageRequestUtils.of(0, DEFAULT_SCRAP_PAGE_SIZE, DEFAULT_SCRAP_SORT);
         }
         return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), DEFAULT_SCRAP_SORT);
+    }
+
+    private Pageable normalizeRecentlyViewedPageable(Pageable pageable) {
+        if (pageable == null || pageable.isUnpaged()) {
+            return PageRequestUtils.of(0, DEFAULT_RECENTLY_VIEWED_PAGE_SIZE, DEFAULT_RECENTLY_VIEWED_SORT);
+        }
+        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), DEFAULT_RECENTLY_VIEWED_SORT);
     }
 
     private Post getReadablePost(@NonNull Long postId, PostReadContext context) {

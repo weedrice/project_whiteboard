@@ -1992,6 +1992,40 @@ class PostServiceTest {
                 any(Pageable.class));
     }
 
+    @Test
+    @DisplayName("최근 본 게시글 조회 - pageable 정규화")
+    void getRecentlyViewedPosts_normalizesPageable() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(viewHistoryRepository.findVisiblePostIdsByUserIdOrderByModifiedAtDesc(
+                eq(1L),
+                eq(false),
+                eq(true),
+                eq(List.of(-1L)),
+                eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                any(Pageable.class)))
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(5)));
+
+        Page<PostSummary> result = postService.getRecentlyViewedPosts(
+                1L,
+                PageRequest.of(2, 1000, Sort.by(Sort.Order.asc("createdAt"))));
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(viewHistoryRepository).findVisiblePostIdsByUserIdOrderByModifiedAtDesc(
+                eq(1L),
+                eq(false),
+                eq(true),
+                eq(List.of(-1L)),
+                eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                pageableCaptor.capture());
+        Pageable pageable = pageableCaptor.getValue();
+        assertThat(pageable.getPageNumber()).isEqualTo(2);
+        assertThat(pageable.getPageSize()).isEqualTo(100);
+        assertThat(pageable.getSort()).isEqualTo(Sort.by(
+                Sort.Order.desc("modified_at"),
+                Sort.Order.desc("post_id")));
+        assertThat(result.getPageable()).isEqualTo(pageable);
+    }
+
     // --- Misc ---
 
     @Test

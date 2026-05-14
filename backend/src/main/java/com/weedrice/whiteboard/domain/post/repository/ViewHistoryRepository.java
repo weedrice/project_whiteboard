@@ -100,7 +100,7 @@ public interface ViewHistoryRepository extends JpaRepository<ViewHistory, Long> 
                           AND a.is_active = 'Y'
                     )
                   )
-            ORDER BY vh.modified_at DESC
+            ORDER BY vh.modified_at DESC, vh.post_id DESC
             """, countQuery = """
             SELECT COUNT(*)
             FROM view_histories vh
