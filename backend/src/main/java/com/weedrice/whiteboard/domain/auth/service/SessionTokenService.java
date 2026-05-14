@@ -19,7 +19,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -38,6 +40,7 @@ public class SessionTokenService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final SanctionService sanctionService;
     private final TokenHashService tokenHashService;
+    private final TransactionTemplate transactionTemplate;
 
     @Transactional
     public TokenResponse issueTokens(Authentication authentication, User user, HttpServletRequest httpServletRequest) {
@@ -60,12 +63,20 @@ public class SessionTokenService {
                 });
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public TokenResponse refresh(String oldRefreshToken) {
         if (!jwtTokenProvider.validateToken(oldRefreshToken)) {
             throw new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 
+        RefreshTokenRefreshOutcome outcome = transactionTemplate.execute(ignored -> refreshInTransaction(oldRefreshToken));
+        if (outcome.errorCode() != null) {
+            throw new BusinessException(outcome.errorCode());
+        }
+        return outcome.tokenResponse();
+    }
+
+    private RefreshTokenRefreshOutcome refreshInTransaction(String oldRefreshToken) {
         String oldRefreshTokenHash = tokenHashService.hashSha256(oldRefreshToken);
         RefreshTokenRenewalContext renewalContext = loadRefreshTokenRenewalContext(oldRefreshTokenHash);
         RefreshToken refreshToken = renewalContext.refreshToken();
@@ -79,13 +90,14 @@ public class SessionTokenService {
         refreshTokenRepository.save(refreshToken);
 
         if (!"ACTIVE".equals(user.getStatus()) || sanctionService.isUserBanned(user)) {
-            throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
+            return RefreshTokenRefreshOutcome.failure(ErrorCode.USER_NOT_ACTIVE);
         }
 
         user.updateLastLogin();
 
         Authentication authentication = createRefreshAuthentication(user);
-        return issueTokens(authentication, user, refreshToken.getIpAddress(), refreshToken.getDeviceInfo());
+        return RefreshTokenRefreshOutcome.success(
+                issueTokens(authentication, user, refreshToken.getIpAddress(), refreshToken.getDeviceInfo()));
     }
 
     private RefreshTokenRenewalContext loadRefreshTokenRenewalContext(String refreshTokenHash) {
@@ -144,5 +156,15 @@ public class SessionTokenService {
     }
 
     private record RefreshTokenRenewalContext(RefreshToken refreshToken, User user) {
+    }
+
+    private record RefreshTokenRefreshOutcome(TokenResponse tokenResponse, ErrorCode errorCode) {
+        private static RefreshTokenRefreshOutcome success(TokenResponse tokenResponse) {
+            return new RefreshTokenRefreshOutcome(tokenResponse, null);
+        }
+
+        private static RefreshTokenRefreshOutcome failure(ErrorCode errorCode) {
+            return new RefreshTokenRefreshOutcome(null, errorCode);
+        }
     }
 }

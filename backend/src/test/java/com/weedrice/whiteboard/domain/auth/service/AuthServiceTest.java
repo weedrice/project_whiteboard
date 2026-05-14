@@ -115,7 +115,8 @@ class AuthServiceTest {
         CurrentUserSummaryAssembler currentUserSummaryAssembler =
                 new CurrentUserSummaryAssembler(userPointRepository, userSettingsRepository);
         SessionTokenService sessionTokenService = new SessionTokenService(
-                userRepository, jwtTokenProvider, refreshTokenRepository, sanctionService, tokenHashService);
+                userRepository, jwtTokenProvider, refreshTokenRepository, sanctionService, tokenHashService,
+                transactionTemplate);
         PasswordResetTokenOrchestrationService passwordResetTokenOrchestrationService =
                 new PasswordResetTokenOrchestrationService(
                         passwordResetTokenRepository,
@@ -683,6 +684,34 @@ class AuthServiceTest {
                 () -> authService.refresh("old-refresh-token"));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+        assertThat(refreshToken.getIsRevoked()).isTrue();
+        verify(refreshTokenRepository).save(refreshToken);
+        verify(jwtTokenProvider, never()).createAccessToken(any());
+    }
+
+    @Test
+    @DisplayName("refresh fails and revokes token when user is inactive")
+    void refresh_fail_whenUserIsInactive_revokesToken() {
+        user.suspend();
+        RefreshToken refreshToken = RefreshToken.builder()
+                .user(user)
+                .tokenHash("hashed-old-token")
+                .ipAddress("127.0.0.1")
+                .deviceInfo("browser")
+                .expiresAt(LocalDateTime.now().plusDays(7))
+                .build();
+        String oldRefreshTokenHash = new TokenHashService().hashSha256("old-refresh-token");
+
+        when(jwtTokenProvider.validateToken("old-refresh-token")).thenReturn(true);
+        when(refreshTokenRepository.findUserIdByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(1L));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(refreshTokenRepository.findByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(refreshToken));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> authService.refresh("old-refresh-token"));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+        assertThat(refreshToken.getIsRevoked()).isTrue();
         verify(refreshTokenRepository).save(refreshToken);
         verify(jwtTokenProvider, never()).createAccessToken(any());
     }
