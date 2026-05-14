@@ -1315,6 +1315,28 @@ class CommentServiceTest {
     }
 
     @Test
+    @DisplayName("댓글 좋아요는 카운터 갱신 실패 시 COMMENT_NOT_FOUND를 반환한다")
+    void likeComment_likeCountUpdateFails_throwsCommentNotFound() {
+        User user = User.builder().displayName("User").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(user).build();
+        Comment comment = Comment.builder().user(user).post(post).build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(commentRepository.incrementLikeCount(10L)).thenReturn(0);
+
+        assertThatThrownBy(() -> commentService.likeComment(1L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
+
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
     @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 ?볤? 醫뗭븘?????녿떎")
     void likeComment_bannedUser_forbidden() {
         User user = User.builder().displayName("User").build();
@@ -1372,6 +1394,26 @@ class CommentServiceTest {
 
         verify(commentRepository).findById(10L);
         verify(commentRepository, never()).decrementLikeCount(anyLong());
+    }
+
+    @Test
+    @DisplayName("댓글 좋아요 취소는 카운터 갱신 실패 시 COMMENT_NOT_FOUND를 반환한다")
+    void unlikeComment_likeCountUpdateFails_throwsCommentNotFound() {
+        User user = User.builder().displayName("User").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(user).build();
+        Comment comment = Comment.builder().user(user).post(post).build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(commentLikeRepository.deleteByUserIdAndCommentId(1L, 10L)).thenReturn(1);
+        when(commentRepository.decrementLikeCount(10L)).thenReturn(0);
+
+        assertThatThrownBy(() -> commentService.unlikeComment(1L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
     }
 
     @Test

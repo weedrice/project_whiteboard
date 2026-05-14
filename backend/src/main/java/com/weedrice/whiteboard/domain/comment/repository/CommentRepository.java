@@ -348,7 +348,12 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                         @org.springframework.data.repository.query.Param("postIds") List<Long> postIds);
 
         @Modifying(flushAutomatically = true)
-        @Query("UPDATE Comment c SET c.likeCount = c.likeCount + 1 WHERE c.commentId = :commentId")
+        @Query("""
+                UPDATE Comment c
+                SET c.likeCount = c.likeCount + 1
+                WHERE c.commentId = :commentId
+                  AND c.isDeleted = false
+                """)
         int incrementLikeCount(Long commentId);
 
         @Modifying(flushAutomatically = true)
@@ -356,6 +361,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                 UPDATE Comment c
                 SET c.likeCount = CASE WHEN c.likeCount > 0 THEN c.likeCount - 1 ELSE 0 END
                 WHERE c.commentId = :commentId
+                  AND c.isDeleted = false
                 """)
         int decrementLikeCount(Long commentId);
 }

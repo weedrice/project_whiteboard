@@ -232,7 +232,7 @@ public class CommentCommandService {
         reactionWriter.insertOrThrowDuplicate(
                 () -> commentLikeRepository.saveAndFlush(commentLike),
                 ErrorCode.ALREADY_LIKED);
-        commentRepository.incrementLikeCount(commentId);
+        incrementCommentLikeCount(commentId);
         commentNotificationService.publishLikeNotification(user, comment, commentId);
     }
 
@@ -252,7 +252,19 @@ public class CommentCommandService {
             throw new BusinessException(ErrorCode.NOT_LIKED);
         }
 
-        commentRepository.decrementLikeCount(commentId);
+        decrementCommentLikeCount(commentId);
+    }
+
+    private void incrementCommentLikeCount(Long commentId) {
+        if (commentRepository.incrementLikeCount(commentId) == 0) {
+            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
+        }
+    }
+
+    private void decrementCommentLikeCount(Long commentId) {
+        if (commentRepository.decrementLikeCount(commentId) == 0) {
+            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
+        }
     }
 
     private String sanitizeCommentContent(String content) {

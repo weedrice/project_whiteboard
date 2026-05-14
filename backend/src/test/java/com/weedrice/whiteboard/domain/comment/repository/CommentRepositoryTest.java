@@ -469,6 +469,62 @@ class CommentRepositoryTest {
                 .containsExactlyInAnyOrder("user", "agent", "post", "post.board");
     }
 
+    @Test
+    @DisplayName("댓글 좋아요 수 증가는 삭제되지 않은 댓글만 갱신한다")
+    void incrementLikeCount_updatesOnlyActiveComment() {
+        Long activeCommentId = comment.getCommentId();
+        Comment deletedComment = commentFor(post, "Deleted Comment");
+        entityManager.persist(deletedComment);
+        deletedComment.deleteComment();
+        Long deletedCommentId = deletedComment.getCommentId();
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(commentRepository.incrementLikeCount(activeCommentId)).isEqualTo(1);
+        assertThat(commentRepository.incrementLikeCount(deletedCommentId)).isZero();
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(commentRepository.findById(activeCommentId).orElseThrow().getLikeCount()).isEqualTo(1);
+        assertThat(commentRepository.findById(deletedCommentId).orElseThrow().getLikeCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("댓글 좋아요 수 감소는 삭제되지 않은 댓글만 갱신한다")
+    void decrementLikeCount_updatesOnlyActiveComment() {
+        comment.incrementLikeCount();
+        Long activeCommentId = comment.getCommentId();
+        Comment deletedComment = commentFor(post, "Deleted Comment");
+        deletedComment.incrementLikeCount();
+        entityManager.persist(deletedComment);
+        deletedComment.deleteComment();
+        Long deletedCommentId = deletedComment.getCommentId();
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(commentRepository.decrementLikeCount(activeCommentId)).isEqualTo(1);
+        assertThat(commentRepository.decrementLikeCount(deletedCommentId)).isZero();
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(commentRepository.findById(activeCommentId).orElseThrow().getLikeCount()).isZero();
+        assertThat(commentRepository.findById(deletedCommentId).orElseThrow().getLikeCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("댓글 좋아요 수 감소는 활성 댓글의 0 카운트를 유지한다")
+    void decrementLikeCount_keepsActiveCommentLikeCountAtZero() {
+        Long commentId = comment.getCommentId();
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(commentRepository.decrementLikeCount(commentId)).isEqualTo(1);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(commentRepository.findById(commentId).orElseThrow().getLikeCount()).isZero();
+    }
+
     private Comment commentFor(Post post, String content) {
         return commentFor(post, content, user);
     }
