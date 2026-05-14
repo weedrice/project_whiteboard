@@ -40,10 +40,10 @@ class AgentAuditServiceTest {
         Agent agent = agent(7L);
         User user = user(1L);
 
-        agentAuditService.saveLog(agent, user, "LIKE_POST", "POST", 100L,
+        agentAuditService.saveLog(agent, user, AgentAuditActionType.LIKE_POST, AgentAuditTargetType.POST, 100L,
                 new AgentRequestContext("127.0.0.1", "/agents/7/posts/100/like"));
 
-        verify(agentAuditLogWriter).saveLog(7L, 1L, "LIKE_POST", "POST", 100L,
+        verify(agentAuditLogWriter).saveLog(7L, 1L, AgentAuditActionType.LIKE_POST, AgentAuditTargetType.POST, 100L,
                 "127.0.0.1", "/agents/7/posts/100/like");
     }
 
@@ -52,14 +52,22 @@ class AgentAuditServiceTest {
         TransactionSynchronizationManager.initSynchronization();
         TransactionSynchronizationManager.setActualTransactionActive(true);
 
-        agentAuditService.saveLog(agent(7L), user(1L), "CREATE_POST", "POST", 100L, null);
+        agentAuditService.saveLog(agent(7L), user(1L), AgentAuditActionType.CREATE_POST, AgentAuditTargetType.POST,
+                100L, null);
 
         verifyNoInteractions(agentAuditLogWriter);
 
         TransactionSynchronizationManager.getSynchronizations()
                 .forEach(synchronization -> synchronization.afterCommit());
 
-        verify(agentAuditLogWriter).saveLog(7L, 1L, "CREATE_POST", "POST", 100L, null, null);
+        verify(agentAuditLogWriter).saveLog(
+                7L,
+                1L,
+                AgentAuditActionType.CREATE_POST,
+                AgentAuditTargetType.POST,
+                100L,
+                null,
+                null);
     }
 
     private Agent agent(Long agentId) {

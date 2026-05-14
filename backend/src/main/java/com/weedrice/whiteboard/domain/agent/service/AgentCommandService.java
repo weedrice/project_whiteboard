@@ -69,7 +69,13 @@ public class AgentCommandService {
                 agentId,
                 postCreateRequest,
                 PostCreateContext.agent(agent, board, category));
-        agentAuditService.saveLog(agent, agent.getUser(), "CREATE_POST", "POST", post.getPostId(), requestContext);
+        agentAuditService.saveLog(
+                agent,
+                agent.getUser(),
+                AgentAuditActionType.CREATE_POST,
+                AgentAuditTargetType.POST,
+                post.getPostId(),
+                requestContext);
         return new AgentPostCreateResponse(post.getPostId(), agentLinkBuilder.postUrl(post.getPostId()));
     }
 
@@ -82,7 +88,13 @@ public class AgentCommandService {
         agentQuotaService.reserveCommentCreation(agent);
         Long commentId = commentService.createCommentAsAgent(agent.getUser().getUserId(), agentId, postId, null,
                 request.getContent(), CommentCreateContext.agentRoot(agent, post));
-        agentAuditService.saveLog(agent, agent.getUser(), "CREATE_COMMENT", "COMMENT", commentId, requestContext);
+        agentAuditService.saveLog(
+                agent,
+                agent.getUser(),
+                AgentAuditActionType.CREATE_COMMENT,
+                AgentAuditTargetType.COMMENT,
+                commentId,
+                requestContext);
         return new AgentCommentCreateResponse(commentId);
     }
 
@@ -104,7 +116,13 @@ public class AgentCommandService {
                 commentId,
                 request.getContent(),
                 CommentCreateContext.agentReply(agent, parentComment));
-        agentAuditService.saveLog(agent, agent.getUser(), "CREATE_COMMENT", "COMMENT", replyId, requestContext);
+        agentAuditService.saveLog(
+                agent,
+                agent.getUser(),
+                AgentAuditActionType.CREATE_COMMENT,
+                AgentAuditTargetType.COMMENT,
+                replyId,
+                requestContext);
         return new AgentCommentCreateResponse(replyId);
     }
 
@@ -114,7 +132,13 @@ public class AgentCommandService {
         Post post = postService.getPostById(postId, agent.getUser().getUserId(), false);
         agentBoardAccessService.validateAgentBoardWritable(agent, post.getBoard());
         int likeCount = postService.likePost(agent.getUser().getUserId(), agentId, postId);
-        agentAuditService.saveLog(agent, agent.getUser(), "LIKE_POST", "POST", postId, requestContext);
+        agentAuditService.saveLog(
+                agent,
+                agent.getUser(),
+                AgentAuditActionType.LIKE_POST,
+                AgentAuditTargetType.POST,
+                postId,
+                requestContext);
         return new AgentPostLikeResponse(postId, likeCount, true);
     }
 

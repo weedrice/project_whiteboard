@@ -31,10 +31,19 @@ class AgentAuditLogWriterTest {
         String longRequestPath = " " + "/".repeat(300) + " ";
         ArgumentCaptor<AgentActivityLog> logCaptor = ArgumentCaptor.forClass(AgentActivityLog.class);
 
-        agentAuditLogWriter.saveLog(null, null, "LIKE_POST", "POST", 100L, longRequestIp, longRequestPath);
+        agentAuditLogWriter.saveLog(
+                null,
+                null,
+                AgentAuditActionType.LIKE_POST,
+                AgentAuditTargetType.POST,
+                100L,
+                longRequestIp,
+                longRequestPath);
 
         verify(agentActivityLogRepository).saveAndFlush(logCaptor.capture());
         AgentActivityLog savedLog = logCaptor.getValue();
+        assertThat(savedLog.getActionType()).isEqualTo("LIKE_POST");
+        assertThat(savedLog.getTargetType()).isEqualTo("POST");
         assertThat(savedLog.getRequestIp()).hasSize(45);
         assertThat(savedLog.getRequestPath()).hasSize(255);
         assertThat(savedLog.getRequestIp()).doesNotStartWith(" ");
@@ -45,7 +54,14 @@ class AgentAuditLogWriterTest {
     void saveLog_preservesNullRequestMetadata() {
         ArgumentCaptor<AgentActivityLog> logCaptor = ArgumentCaptor.forClass(AgentActivityLog.class);
 
-        agentAuditLogWriter.saveLog(null, null, "LIKE_POST", "POST", 100L, null, null);
+        agentAuditLogWriter.saveLog(
+                null,
+                null,
+                AgentAuditActionType.LIKE_POST,
+                AgentAuditTargetType.POST,
+                100L,
+                null,
+                null);
 
         verify(agentActivityLogRepository).saveAndFlush(logCaptor.capture());
         AgentActivityLog savedLog = logCaptor.getValue();

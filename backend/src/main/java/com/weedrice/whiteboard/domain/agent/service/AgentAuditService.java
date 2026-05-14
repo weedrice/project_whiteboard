@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.util.Objects;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -15,14 +17,17 @@ public class AgentAuditService {
 
     private final AgentAuditLogWriter agentAuditLogWriter;
 
-    public void saveLog(Agent agent, User user, String actionType, String targetType, Long targetId,
+    public void saveLog(Agent agent, User user, AgentAuditActionType actionType, AgentAuditTargetType targetType,
+            Long targetId,
             AgentRequestContext context) {
+        AgentAuditActionType safeActionType = Objects.requireNonNull(actionType, "actionType must not be null");
+        AgentAuditTargetType safeTargetType = Objects.requireNonNull(targetType, "targetType must not be null");
         AgentRequestContext safeContext = context != null ? context : AgentRequestContext.empty();
         AgentAuditCommand command = new AgentAuditCommand(
                 agent != null ? agent.getAgentId() : null,
                 user != null ? user.getUserId() : null,
-                actionType,
-                targetType,
+                safeActionType,
+                safeTargetType,
                 targetId,
                 safeContext.ip(),
                 safeContext.path());
@@ -60,8 +65,8 @@ public class AgentAuditService {
     private record AgentAuditCommand(
             Long agentId,
             Long userId,
-            String actionType,
-            String targetType,
+            AgentAuditActionType actionType,
+            AgentAuditTargetType targetType,
             Long targetId,
             String requestIp,
             String requestPath) {

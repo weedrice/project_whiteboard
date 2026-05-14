@@ -546,7 +546,13 @@ class AgentServiceTest {
         assertThat(response.getStatus()).isEqualTo(Agent.STATUS_SUSPENDED);
         assertThat(agent.getName()).isEqualTo("agent");
         assertThat(agent.getDescription()).isEqualTo("desc");
-        verify(agentAuditService).saveLog(agent, user, "SUSPEND", "AGENT", 7L, null);
+        verify(agentAuditService).saveLog(
+                agent,
+                user,
+                AgentAuditActionType.SUSPEND,
+                AgentAuditTargetType.AGENT,
+                7L,
+                null);
         verify(agentRepository).findByAgentIdForUpdate(7L);
         verify(userRepository).findByIdForUpdate(1L);
         verify(agentRepository, never()).findByAgentIdAndIsDeletedFalse(anyLong());
@@ -579,7 +585,13 @@ class AgentServiceTest {
 
         assertThat(response.getStatus()).isEqualTo(Agent.STATUS_ACTIVE);
         assertThat(agent.isActive()).isTrue();
-        verify(agentAuditService).saveLog(agent, user, "REACTIVATE", "AGENT", 7L, null);
+        verify(agentAuditService).saveLog(
+                agent,
+                user,
+                AgentAuditActionType.REACTIVATE,
+                AgentAuditTargetType.AGENT,
+                7L,
+                null);
         InOrder inOrder = inOrder(userRepository, agentRepository);
         inOrder.verify(userRepository).findByIdForUpdate(1L);
         inOrder.verify(agentRepository).findByAgentIdForUpdate(7L);
@@ -593,7 +605,7 @@ class AgentServiceTest {
         AgentResponse response = agentLifecycleService.activateMyAgent(1L, 7L, null);
 
         assertThat(response.getStatus()).isEqualTo(Agent.STATUS_ACTIVE);
-        verify(agentAuditService, never()).saveLog(any(), any(), anyString(), anyString(), any(), any());
+        verify(agentAuditService, never()).saveLog(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -665,7 +677,13 @@ class AgentServiceTest {
         agentLifecycleService.deleteMyAgent(1L, 7L, null);
 
         assertThat(agent.getIsDeleted()).isTrue();
-        verify(agentAuditService).saveLog(agent, user, "DELETE", "AGENT", 7L, null);
+        verify(agentAuditService).saveLog(
+                agent,
+                user,
+                AgentAuditActionType.DELETE,
+                AgentAuditTargetType.AGENT,
+                7L,
+                null);
         verify(agentRepository).findByAgentIdForUpdate(7L);
         verify(userRepository).findByIdForUpdate(1L);
         verify(agentRepository, never()).findByAgentIdAndIsDeletedFalse(anyLong());
@@ -782,8 +800,22 @@ class AgentServiceTest {
         assertThat(response.getStatus()).isEqualTo(Agent.STATUS_ACTIVE);
         assertThat(previousAgent.getIsDeleted()).isTrue();
         assertThat(pendingAgent.getUser()).isEqualTo(user);
-        verify(agentAuditLogWriter).saveLog(3L, 1L, "DELETE", "AGENT", 3L, null, null);
-        verify(agentAuditLogWriter).saveLog(9L, 1L, "CLAIM", "AGENT", 9L, null, null);
+        verify(agentAuditLogWriter).saveLog(
+                3L,
+                1L,
+                AgentAuditActionType.DELETE,
+                AgentAuditTargetType.AGENT,
+                3L,
+                null,
+                null);
+        verify(agentAuditLogWriter).saveLog(
+                9L,
+                1L,
+                AgentAuditActionType.CLAIM,
+                AgentAuditTargetType.AGENT,
+                9L,
+                null,
+                null);
         InOrder inOrder = inOrder(userRepository, agentRepository);
         inOrder.verify(userRepository).findByIdForUpdate(1L);
         inOrder.verify(agentRepository).findByAgentTokenHashAndIsDeletedFalseForUpdate(any());
@@ -1363,7 +1395,7 @@ class AgentServiceTest {
 
         verify(postService).canWriteToBoard(1L, writableBoard);
         verify(postService, never()).likePost(anyLong(), anyLong(), anyLong());
-        verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), anyString(), anyString(), anyLong(),
+        verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(),
                 any(), any());
     }
 
@@ -1545,7 +1577,13 @@ class AgentServiceTest {
         inOrder.verify(agentDailyQuotaRepository).findForUpdate(eq(7L), any(LocalDate.class), eq("COMMENT"));
         inOrder.verify(commentService).createCommentAsAgent(eq(1L), eq(7L), eq(100L), isNull(), eq("b".repeat(25)),
                 any(CommentCreateContext.class));
-        inOrder.verify(agentAuditService).saveLog(agent, user, "CREATE_COMMENT", "COMMENT", 300L, null);
+        inOrder.verify(agentAuditService).saveLog(
+                agent,
+                user,
+                AgentAuditActionType.CREATE_COMMENT,
+                AgentAuditTargetType.COMMENT,
+                300L,
+                null);
     }
 
     @Test
@@ -1578,7 +1616,13 @@ class AgentServiceTest {
         inOrder.verify(agentDailyQuotaRepository).findForUpdate(eq(7L), any(LocalDate.class), eq("COMMENT"));
         inOrder.verify(commentService).createCommentAsAgent(eq(1L), eq(7L), eq(100L), eq(500L), eq("reply"),
                 any(CommentCreateContext.class));
-        inOrder.verify(agentAuditService).saveLog(agent, user, "CREATE_COMMENT", "COMMENT", 501L, null);
+        inOrder.verify(agentAuditService).saveLog(
+                agent,
+                user,
+                AgentAuditActionType.CREATE_COMMENT,
+                AgentAuditTargetType.COMMENT,
+                501L,
+                null);
     }
 
     @Test
@@ -1593,7 +1637,12 @@ class AgentServiceTest {
         assertThat(response.getPostId()).isEqualTo(100L);
         assertThat(response.getLikeCount()).isEqualTo(3);
         assertThat(response.isLiked()).isTrue();
-        verify(agentAuditLogWriter).saveLog(eq(7L), eq(1L), eq("LIKE_POST"), eq("POST"), eq(100L),
+        verify(agentAuditLogWriter).saveLog(
+                eq(7L),
+                eq(1L),
+                eq(AgentAuditActionType.LIKE_POST),
+                eq(AgentAuditTargetType.POST),
+                eq(100L),
                 isNull(), isNull());
     }
 

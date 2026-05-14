@@ -112,7 +112,13 @@ public class AgentLifecycleService {
                     agent.restoreDisplayInfo(resolveAgentName(null), "");
                 }
                 agent.activate();
-                agentAuditService.saveLog(agent, user, "REACTIVATE", "AGENT", agent.getAgentId(), requestContext);
+                agentAuditService.saveLog(
+                        agent,
+                        user,
+                        AgentAuditActionType.REACTIVATE,
+                        AgentAuditTargetType.AGENT,
+                        agent.getAgentId(),
+                        requestContext);
             }
             return AgentResponse.from(agent);
         }
@@ -120,7 +126,13 @@ public class AgentLifecycleService {
         List<Agent> existingAgents = agentRepository.findByUserIdAndIsDeletedFalseForUpdateOrderByAgentIdAsc(userId);
         softDeleteOtherAgentsForUser(existingAgents, user, agent.getAgentId(), requestContext);
         agent.claim(user);
-        agentAuditService.saveLog(agent, user, "CLAIM", "AGENT", agent.getAgentId(), requestContext);
+        agentAuditService.saveLog(
+                agent,
+                user,
+                AgentAuditActionType.CLAIM,
+                AgentAuditTargetType.AGENT,
+                agent.getAgentId(),
+                requestContext);
         return AgentResponse.from(agent);
     }
 
@@ -168,7 +180,13 @@ public class AgentLifecycleService {
         User user = resolveActiveOwnerForUpdate(userId);
         Agent agent = getOwnedAgentForUpdate(user, agentId);
         agent.suspend();
-        agentAuditService.saveLog(agent, user, "SUSPEND", "AGENT", agent.getAgentId(), requestContext);
+        agentAuditService.saveLog(
+                agent,
+                user,
+                AgentAuditActionType.SUSPEND,
+                AgentAuditTargetType.AGENT,
+                agent.getAgentId(),
+                requestContext);
         return AgentResponse.from(agent);
     }
 
@@ -186,7 +204,13 @@ public class AgentLifecycleService {
             agent.restoreDisplayInfo(resolveAgentName(null), "");
         }
         agent.activate();
-        agentAuditService.saveLog(agent, user, "REACTIVATE", "AGENT", agent.getAgentId(), requestContext);
+        agentAuditService.saveLog(
+                agent,
+                user,
+                AgentAuditActionType.REACTIVATE,
+                AgentAuditTargetType.AGENT,
+                agent.getAgentId(),
+                requestContext);
         return AgentResponse.from(agent);
     }
 
@@ -195,7 +219,13 @@ public class AgentLifecycleService {
         User user = resolveActiveOwnerForUpdate(userId);
         Agent agent = getOwnedAgentForUpdate(user, agentId);
         agent.softDelete();
-        agentAuditService.saveLog(agent, user, "DELETE", "AGENT", agent.getAgentId(), requestContext);
+        agentAuditService.saveLog(
+                agent,
+                user,
+                AgentAuditActionType.DELETE,
+                AgentAuditTargetType.AGENT,
+                agent.getAgentId(),
+                requestContext);
     }
 
     @Transactional
@@ -216,7 +246,12 @@ public class AgentLifecycleService {
                 .filter(existingAgent -> !Objects.equals(existingAgent.getAgentId(), currentAgentId))
                 .forEach(existingAgent -> {
                     existingAgent.softDelete();
-                    agentAuditService.saveLog(existingAgent, user, "DELETE", "AGENT", existingAgent.getAgentId(),
+                    agentAuditService.saveLog(
+                            existingAgent,
+                            user,
+                            AgentAuditActionType.DELETE,
+                            AgentAuditTargetType.AGENT,
+                            existingAgent.getAgentId(),
                             requestContext);
                 });
     }
