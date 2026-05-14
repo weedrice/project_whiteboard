@@ -36,7 +36,7 @@ class ReportCommandService {
         sanctionService.validateNotBanned(reporter);
         String normalizedTargetType = normalizeTargetType(targetType);
         String normalizedReasonType = normalizeReasonType(reasonType);
-        String normalizedRemark = normalizeRemark(remark);
+        String normalizedRemark = ReportRemarkNormalizer.normalize(remark);
         String normalizedContents = normalizeContents(contents);
 
         if (reportRepository.existsByReporterAndTargetTypeAndTargetIdAndStatus(
@@ -81,17 +81,6 @@ class ReportCommandService {
         } catch (IllegalArgumentException ex) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
-    }
-
-    private String normalizeRemark(String remark) {
-        if (remark == null) {
-            return null;
-        }
-        String normalizedRemark = remark.strip();
-        if (normalizedRemark.length() > ReportConstraints.MAX_REMARK_LENGTH) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
-        }
-        return normalizedRemark;
     }
 
     private String normalizeContents(String contents) {
