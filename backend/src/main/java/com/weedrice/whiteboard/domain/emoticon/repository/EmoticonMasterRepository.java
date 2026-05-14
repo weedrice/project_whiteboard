@@ -100,7 +100,7 @@ public interface EmoticonMasterRepository extends JpaRepository<EmoticonMaster, 
             """, nativeQuery = true)
     List<EmoticonMaster> findPopularEmoticons(@Param("startDate") LocalDateTime startDate, @Param("limit") int limit);
 
-    // 통합 검색 (태그, 등록자명, 이모티콘 이름) - 오래된순
+    // Integrated search - oldest first
     @Query(value = """
             SELECT DISTINCT em.* FROM emoticon_masters em
             LEFT JOIN users u ON em.creator_id = u.user_id
@@ -161,7 +161,7 @@ public interface EmoticonMasterRepository extends JpaRepository<EmoticonMaster, 
                 OR :keyword = ANY(em.tags)
             )
             ORDER BY em.purchase_count DESC, em.created_at DESC
-            """, 
+            """,
             countQuery = """
             SELECT COUNT(DISTINCT em.emoticon_id) FROM emoticon_masters em
             LEFT JOIN users u ON em.creator_id = u.user_id
@@ -181,19 +181,19 @@ public interface EmoticonMasterRepository extends JpaRepository<EmoticonMaster, 
             nativeQuery = true)
     Page<EmoticonMaster> searchByNameOrderByCreatedAtAsc(@Param("keyword") String keyword, Pageable pageable);
 
-    // 이름으로 검색 - 최신순
+    // Name search - latest first
     @Query(value = "SELECT * FROM emoticon_masters WHERE is_active = 'Y' AND LOWER(name) LIKE LOWER(CONCAT('%', :keyword, '%')) ORDER BY created_at DESC",
             countQuery = "SELECT COUNT(*) FROM emoticon_masters WHERE is_active = 'Y' AND LOWER(name) LIKE LOWER(CONCAT('%', :keyword, '%'))",
             nativeQuery = true)
     Page<EmoticonMaster> searchByNameOrderByCreatedAtDesc(@Param("keyword") String keyword, Pageable pageable);
 
-    // 이름으로 검색 - 판매순
+    // Name search - popular first
     @Query(value = "SELECT * FROM emoticon_masters WHERE is_active = 'Y' AND LOWER(name) LIKE LOWER(CONCAT('%', :keyword, '%')) ORDER BY purchase_count DESC, created_at DESC",
             countQuery = "SELECT COUNT(*) FROM emoticon_masters WHERE is_active = 'Y' AND LOWER(name) LIKE LOWER(CONCAT('%', :keyword, '%'))",
             nativeQuery = true)
     Page<EmoticonMaster> searchByNameOrderByPurchase(@Param("keyword") String keyword, Pageable pageable);
 
-    // 등록자명으로 검색 - 오래된순
+    // Creator search - oldest first
     @Query(value = """
             SELECT em.* FROM emoticon_masters em
             JOIN users u ON em.creator_id = u.user_id
@@ -244,7 +244,7 @@ public interface EmoticonMasterRepository extends JpaRepository<EmoticonMaster, 
             nativeQuery = true)
     Page<EmoticonMaster> searchByTagOrderByCreatedAtAsc(@Param("tag") String tag, Pageable pageable);
 
-    // 태그로 검색 - 판매순
+    // Tag search - popular first
     @Query(value = "SELECT * FROM emoticon_masters WHERE is_active = 'Y' AND :tag = ANY(tags) ORDER BY purchase_count DESC, created_at DESC",
             countQuery = "SELECT COUNT(*) FROM emoticon_masters WHERE is_active = 'Y' AND :tag = ANY(tags)",
             nativeQuery = true)
