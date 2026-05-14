@@ -200,6 +200,15 @@ class PostServiceTest {
                 postRepository,
                 userBlockService,
                 postSummaryAssembler);
+        PostListReadService postListReadService = new PostListReadService(
+                postRepository,
+                boardRepository,
+                userRepository,
+                postReadContextResolver,
+                postSummaryAssembler,
+                boardAccessPolicy,
+                postLatestReadService,
+                searchRecordEventPublisher);
         ContentRewardService contentRewardService = new ContentRewardService(
                 pointService,
                 pointHistoryRepository,
@@ -230,20 +239,16 @@ class PostServiceTest {
                 postAccessPolicy,
                 boardAccessPolicy);
         postService = new PostService(
-                postRepository,
                 boardRepository,
                 userRepository,
-                postReadContextResolver,
-                postSummaryAssembler,
                 postDetailReadService,
                 postDraftService,
                 postInteractionService,
+                postListReadService,
                 boardAccessPolicy,
                 postAuthorCommandPolicy,
                 postCommandService,
-                postLatestReadService,
-                postFacadeReadService,
-                searchRecordEventPublisher);
+                postFacadeReadService);
 
         // GlobalConfigService 기본 mock 설정 - lenient()로 설정하여 일부 테스트에서 사용되지 않아도 허용
         lenient().when(globalConfigService.getConfig(anyString())).thenReturn("50");
