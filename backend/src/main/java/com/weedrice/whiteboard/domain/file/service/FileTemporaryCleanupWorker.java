@@ -27,6 +27,11 @@ public class FileTemporaryCleanupWorker {
     private final EmoticonMasterRepository emoticonMasterRepository;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public int requestPendingUploadDeletion(LocalDateTime cutoffCreatedAt, LocalDateTime deleteRequestedAt) {
+        return fileRepository.requestDeletionForStalePendingUploads(cutoffCreatedAt, deleteRequestedAt);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public CleanupBatchResult requestDeletionBatch(
             LocalDateTime cutoffCreatedAt,
             LocalDateTime lastCreatedAt,

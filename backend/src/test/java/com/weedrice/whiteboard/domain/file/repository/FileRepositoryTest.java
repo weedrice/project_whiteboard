@@ -444,6 +444,61 @@ class FileRepositoryTest {
         assertThat(untouchedAssociatedFile.getStorageStatus()).isEqualTo(FileStorageStatus.ACTIVE);
     }
 
+    @Test
+    @DisplayName("오래된 pending upload 임시 파일만 삭제 대기 상태로 갱신한다")
+    void requestDeletionForStalePendingUploads_updatesOnlyStaleUnassociatedPendingUploads() {
+        LocalDateTime oldCreatedAt = LocalDateTime.of(2026, 5, 1, 10, 0);
+        LocalDateTime freshCreatedAt = LocalDateTime.of(2026, 5, 2, 10, 0);
+        LocalDateTime cutoffCreatedAt = LocalDateTime.of(2026, 5, 2, 0, 0);
+        LocalDateTime deleteRequestedAt = LocalDateTime.of(2026, 5, 3, 10, 0);
+        File stalePendingUpload = persistRelatedFile(
+                "stale-pending.jpg",
+                "image/jpeg",
+                null,
+                null,
+                FileStorageStatus.PENDING_UPLOAD);
+        File freshPendingUpload = persistRelatedFile(
+                "fresh-pending.jpg",
+                "image/jpeg",
+                null,
+                null,
+                FileStorageStatus.PENDING_UPLOAD);
+        File associatedPendingUpload = persistRelatedFile(
+                "associated-pending.jpg",
+                "image/jpeg",
+                1L,
+                "POST_CONTENT",
+                FileStorageStatus.PENDING_UPLOAD);
+        File activeTemporaryFile = persistRelatedFile(
+                "active-temporary.jpg",
+                "image/jpeg",
+                null,
+                null,
+                FileStorageStatus.ACTIVE);
+        entityManager.flush();
+        setCreatedAt(stalePendingUpload, oldCreatedAt);
+        setCreatedAt(freshPendingUpload, freshCreatedAt);
+        setCreatedAt(associatedPendingUpload, oldCreatedAt);
+        setCreatedAt(activeTemporaryFile, oldCreatedAt);
+        entityManager.flush();
+        entityManager.clear();
+
+        int updated = fileRepository.requestDeletionForStalePendingUploads(cutoffCreatedAt, deleteRequestedAt);
+
+        entityManager.clear();
+        File updatedStale = entityManager.find(File.class, stalePendingUpload.getFileId());
+        File untouchedFresh = entityManager.find(File.class, freshPendingUpload.getFileId());
+        File untouchedAssociated = entityManager.find(File.class, associatedPendingUpload.getFileId());
+        File untouchedActive = entityManager.find(File.class, activeTemporaryFile.getFileId());
+
+        assertThat(updated).isEqualTo(1);
+        assertThat(updatedStale.getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_DELETE);
+        assertThat(updatedStale.getDeleteRequestedAt()).isEqualTo(deleteRequestedAt);
+        assertThat(untouchedFresh.getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_UPLOAD);
+        assertThat(untouchedAssociated.getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_UPLOAD);
+        assertThat(untouchedActive.getStorageStatus()).isEqualTo(FileStorageStatus.ACTIVE);
+    }
+
     private File persistTemporaryFile(String originalName) {
         File temporaryFile = File.builder()
                 .originalName(originalName)

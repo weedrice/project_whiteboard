@@ -58,6 +58,33 @@ class FileTemporaryCleanupWorkerTest {
     }
 
     @Test
+    @DisplayName("pending upload 정리 요청은 새 트랜잭션에서 실행한다")
+    void requestPendingUploadDeletion_usesRequiresNewTransaction() throws Exception {
+        Method method = FileTemporaryCleanupWorker.class.getDeclaredMethod(
+                "requestPendingUploadDeletion",
+                LocalDateTime.class,
+                LocalDateTime.class);
+
+        Transactional transactional = method.getAnnotation(Transactional.class);
+
+        assertThat(transactional).isNotNull();
+        assertThat(transactional.propagation()).isEqualTo(Propagation.REQUIRES_NEW);
+    }
+
+    @Test
+    @DisplayName("pending upload 정리 요청을 repository에 위임한다")
+    void requestPendingUploadDeletion_delegatesToRepository() {
+        LocalDateTime cutoff = LocalDateTime.of(2026, 5, 7, 10, 0);
+        LocalDateTime deleteRequestedAt = LocalDateTime.of(2026, 5, 8, 10, 0);
+        when(fileRepository.requestDeletionForStalePendingUploads(cutoff, deleteRequestedAt)).thenReturn(3);
+
+        int requestedCount = worker.requestPendingUploadDeletion(cutoff, deleteRequestedAt);
+
+        assertThat(requestedCount).isEqualTo(3);
+        verify(fileRepository).requestDeletionForStalePendingUploads(cutoff, deleteRequestedAt);
+    }
+
+    @Test
     @DisplayName("임시 파일 정리 배치는 이모티콘 참조 파일을 제외하고 삭제 요청한다")
     void requestDeletionBatch_excludesEmoticonReferencedFiles() {
         LocalDateTime cutoff = LocalDateTime.of(2026, 5, 7, 10, 0);

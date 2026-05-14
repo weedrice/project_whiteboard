@@ -43,6 +43,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -85,29 +87,16 @@ class FileServiceTest {
         User uploader = User.builder().build();
         byte[] jpegHeader = new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xD9};
         MultipartFile multipartFile = new MockMultipartFile("file", "test.jpg", "image/jpeg", jpegHeader);
-        File file = File.builder()
-                .filePath("storedFileName.jpg")
-                .originalName("test.jpg")
-                .fileSize(10L)
-                .mimeType("image/jpeg")
-                .uploader(uploader)
-                .build();
-
         when(userWritableResolver.resolve(uploaderId)).thenReturn(uploader);
-        when(fileStorageService.storeFile(multipartFile, "image/jpeg")).thenReturn("storedFileName.jpg");
-        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
-            org.springframework.transaction.support.TransactionCallback<File> callback = invocation.getArgument(0);
-            return callback.doInTransaction(null);
-        });
-        when(fileRepository.save(any(File.class))).thenReturn(file);
+        stubSuccessfulUpload(multipartFile, "test.jpg", "image/jpeg", "storedFileName.jpg");
 
         FileUploadResponse uploadedFile = fileService.uploadFile(uploaderId, multipartFile);
 
         assertThat(uploadedFile.getOriginalName()).isEqualTo("test.jpg");
         assertThat(uploadedFile.getStoredName()).isEqualTo("storedFileName.jpg");
-        assertThat(uploadedFile.getFileUrl()).isEqualTo("/api/v1/files/" + file.getFileId());
+        assertThat(uploadedFile.getFileUrl()).isEqualTo("/api/v1/files/10");
         assertThat(uploadedFile.getMimeType()).isEqualTo("image/jpeg");
-        verify(fileStorageService).storeFile(multipartFile, "image/jpeg");
+        verify(fileStorageService).storeFileAs(multipartFile, "image/jpeg", "storedFileName.jpg");
     }
 
     @Test
@@ -117,26 +106,13 @@ class FileServiceTest {
         User uploader = User.builder().build();
         byte[] jpegHeader = new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xD9};
         MultipartFile multipartFile = new MockMultipartFile("file", "test.jpg", "image/jpg", jpegHeader);
-        File file = File.builder()
-                .filePath("storedFileName.jpg")
-                .originalName("test.jpg")
-                .fileSize(4L)
-                .mimeType("image/jpeg")
-                .uploader(uploader)
-                .build();
-
         when(userWritableResolver.resolve(uploaderId)).thenReturn(uploader);
-        when(fileStorageService.storeFile(multipartFile, "image/jpeg")).thenReturn("storedFileName.jpg");
-        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
-            org.springframework.transaction.support.TransactionCallback<File> callback = invocation.getArgument(0);
-            return callback.doInTransaction(null);
-        });
-        when(fileRepository.save(any(File.class))).thenReturn(file);
+        stubSuccessfulUpload(multipartFile, "test.jpg", "image/jpeg", "storedFileName.jpg");
 
         FileUploadResponse uploadedFile = fileService.uploadFile(uploaderId, multipartFile);
 
         assertThat(uploadedFile.getMimeType()).isEqualTo("image/jpeg");
-        verify(fileStorageService).storeFile(multipartFile, "image/jpeg");
+        verify(fileStorageService).storeFileAs(multipartFile, "image/jpeg", "storedFileName.jpg");
     }
 
     @Test
@@ -149,33 +125,20 @@ class FileServiceTest {
                 0x00, 0x00, 0x00, 0x00, 0x49, 0x48, 0x44, 0x52
         };
         MultipartFile multipartFile = mock(MultipartFile.class);
-        File file = File.builder()
-                .filePath("storedFileName.png")
-                .originalName("test.png")
-                .fileSize(10L)
-                .mimeType("image/png")
-                .uploader(uploader)
-                .build();
-
         when(multipartFile.isEmpty()).thenReturn(false);
         when(multipartFile.getSize()).thenReturn(10L);
         when(multipartFile.getContentType()).thenReturn("image/png");
         when(multipartFile.getOriginalFilename()).thenReturn("test.png");
         when(multipartFile.getInputStream()).thenReturn(new HeaderLimitedInputStream(pngHeader, 12));
         when(userWritableResolver.resolve(uploaderId)).thenReturn(uploader);
-        when(fileStorageService.storeFile(multipartFile, "image/png")).thenReturn("storedFileName.png");
-        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
-            org.springframework.transaction.support.TransactionCallback<File> callback = invocation.getArgument(0);
-            return callback.doInTransaction(null);
-        });
-        when(fileRepository.save(any(File.class))).thenReturn(file);
+        stubSuccessfulUpload(multipartFile, "test.png", "image/png", "storedFileName.png");
 
         FileUploadResponse uploadedFile = fileService.uploadFile(uploaderId, multipartFile);
 
         assertThat(uploadedFile.getMimeType()).isEqualTo("image/png");
         verify(multipartFile).getInputStream();
         verify(multipartFile, never()).getBytes();
-        verify(fileStorageService).storeFile(multipartFile, "image/png");
+        verify(fileStorageService).storeFileAs(multipartFile, "image/png", "storedFileName.png");
     }
 
     @Test
@@ -190,7 +153,7 @@ class FileServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_FILE_TYPE);
 
         verify(userWritableResolver, never()).resolve(any());
-        verify(fileStorageService, never()).storeFile(any(), any());
+        verify(fileStorageService, never()).storeFileAs(any(), any(), any());
     }
 
     @Test
@@ -206,7 +169,7 @@ class FileServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
 
         verify(userWritableResolver, never()).resolve(any());
-        verify(fileStorageService, never()).storeFile(any(), any());
+        verify(fileStorageService, never()).storeFileAs(any(), any(), any());
         verify(transactionTemplate, never()).execute(any());
     }
 
@@ -222,7 +185,7 @@ class FileServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
 
         verify(userWritableResolver, never()).resolve(any());
-        verify(fileStorageService, never()).storeFile(any(), any());
+        verify(fileStorageService, never()).storeFileAs(any(), any(), any());
         verify(transactionTemplate, never()).execute(any());
     }
 
@@ -236,17 +199,12 @@ class FileServiceTest {
         MultipartFile multipartFile = new MockMultipartFile("file", maxLengthFilename, "image/jpeg", jpegHeader);
 
         when(userWritableResolver.resolve(uploaderId)).thenReturn(uploader);
-        when(fileStorageService.storeFile(multipartFile, "image/jpeg")).thenReturn("storedFileName.jpg");
-        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
-            org.springframework.transaction.support.TransactionCallback<File> callback = invocation.getArgument(0);
-            return callback.doInTransaction(null);
-        });
-        when(fileRepository.save(any(File.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        stubSuccessfulUpload(multipartFile, maxLengthFilename, "image/jpeg", "storedFileName.jpg");
 
         FileUploadResponse uploadedFile = fileService.uploadFile(uploaderId, multipartFile);
 
         assertThat(uploadedFile.getOriginalName()).isEqualTo(maxLengthFilename);
-        verify(fileStorageService).storeFile(multipartFile, "image/jpeg");
+        verify(fileStorageService).storeFileAs(multipartFile, "image/jpeg", "storedFileName.jpg");
     }
 
     @Test
@@ -258,18 +216,93 @@ class FileServiceTest {
         MultipartFile multipartFile = new MockMultipartFile("file", "../avatar.jpg", "image/jpeg", jpegHeader);
 
         when(userWritableResolver.resolve(uploaderId)).thenReturn(uploader);
-        when(fileStorageService.storeFile(multipartFile, "image/jpeg")).thenReturn("storedFileName.jpg");
-        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
-            org.springframework.transaction.support.TransactionCallback<File> callback = invocation.getArgument(0);
-            return callback.doInTransaction(null);
-        });
-        when(fileRepository.save(any(File.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        stubSuccessfulUpload(multipartFile, "avatar.jpg", "image/jpeg", "storedFileName.jpg");
 
         fileService.uploadFile(uploaderId, multipartFile);
 
         ArgumentCaptor<File> fileCaptor = ArgumentCaptor.forClass(File.class);
         verify(fileRepository).save(fileCaptor.capture());
         assertThat(fileCaptor.getValue().getOriginalName()).isEqualTo("avatar.jpg");
+    }
+
+    @Test
+    @DisplayName("스토리지 저장 실패 시 생성된 업로드 후보를 삭제 대기 상태로 둔다")
+    void uploadFile_storageFailureMarksPendingUploadForDeletion() {
+        Long uploaderId = 1L;
+        User uploader = User.builder().build();
+        byte[] jpegHeader = new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xD9};
+        MultipartFile multipartFile = new MockMultipartFile("file", "test.jpg", "image/jpeg", jpegHeader);
+        File[] savedFile = new File[1];
+
+        when(userWritableResolver.resolve(uploaderId)).thenReturn(uploader);
+        when(fileStorageService.generateStoredFileName("test.jpg")).thenReturn("storedFileName.jpg");
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionCallback<File> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        });
+        doAnswer(invocation -> {
+            java.util.function.Consumer<org.springframework.transaction.TransactionStatus> callback =
+                    invocation.getArgument(0);
+            callback.accept(null);
+            return null;
+        }).when(transactionTemplate).executeWithoutResult(any());
+        when(fileRepository.save(any(File.class))).thenAnswer(invocation -> {
+            File file = invocation.getArgument(0);
+            ReflectionTestUtils.setField(file, "fileId", 10L);
+            savedFile[0] = file;
+            return file;
+        });
+        when(fileRepository.findByIdForUpdate(10L)).thenAnswer(invocation -> Optional.of(savedFile[0]));
+        doThrow(new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR))
+                .when(fileStorageService)
+                .storeFileAs(multipartFile, "image/jpeg", "storedFileName.jpg");
+
+        assertThatThrownBy(() -> fileService.uploadFile(uploaderId, multipartFile))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INTERNAL_SERVER_ERROR);
+
+        assertThat(savedFile[0].getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_DELETE);
+        assertThat(savedFile[0].getDeleteRequestedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("업로드 후보가 삭제 대기 상태로 바뀌면 완료 처리하지 않는다")
+    void uploadFile_doesNotCompletePendingUploadAlreadyClaimedForDeletion() {
+        Long uploaderId = 1L;
+        User uploader = User.builder().build();
+        byte[] jpegHeader = new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xD9};
+        MultipartFile multipartFile = new MockMultipartFile("file", "test.jpg", "image/jpeg", jpegHeader);
+        File[] savedFile = new File[1];
+
+        when(userWritableResolver.resolve(uploaderId)).thenReturn(uploader);
+        when(fileStorageService.generateStoredFileName("test.jpg")).thenReturn("storedFileName.jpg");
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionCallback<File> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        });
+        doAnswer(invocation -> {
+            java.util.function.Consumer<org.springframework.transaction.TransactionStatus> callback =
+                    invocation.getArgument(0);
+            callback.accept(null);
+            return null;
+        }).when(transactionTemplate).executeWithoutResult(any());
+        when(fileRepository.save(any(File.class))).thenAnswer(invocation -> {
+            File file = invocation.getArgument(0);
+            ReflectionTestUtils.setField(file, "fileId", 10L);
+            savedFile[0] = file;
+            return file;
+        });
+        when(fileRepository.findByIdForUpdate(10L)).thenAnswer(invocation -> Optional.of(savedFile[0]));
+        doAnswer(invocation -> {
+            savedFile[0].markDeletionPending();
+            return null;
+        }).when(fileStorageService).storeFileAs(multipartFile, "image/jpeg", "storedFileName.jpg");
+
+        assertThatThrownBy(() -> fileService.uploadFile(uploaderId, multipartFile))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FILE_UPLOAD_ERROR);
+
+        assertThat(savedFile[0].getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_DELETE);
     }
 
     @Test
@@ -286,7 +319,7 @@ class FileServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
 
-        verify(fileStorageService, never()).storeFile(any(), any());
+        verify(fileStorageService, never()).storeFileAs(any(), any(), any());
         verify(transactionTemplate, never()).execute(any());
         verify(fileRepository, never()).save(any());
     }
@@ -302,7 +335,7 @@ class FileServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_FILE_TYPE);
         verify(userWritableResolver, never()).resolve(any());
-        verify(fileStorageService, never()).storeFile(any(), any());
+        verify(fileStorageService, never()).storeFileAs(any(), any(), any());
     }
 
     @Test
@@ -889,6 +922,26 @@ class FileServiceTest {
                 return fileId;
             }
         };
+    }
+
+    private void stubSuccessfulUpload(
+            MultipartFile multipartFile,
+            String originalFilename,
+            String mimeType,
+            String storedFileName) {
+        File[] savedFile = new File[1];
+        when(fileStorageService.generateStoredFileName(originalFilename)).thenReturn(storedFileName);
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionCallback<File> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        });
+        when(fileRepository.save(any(File.class))).thenAnswer(invocation -> {
+            File file = invocation.getArgument(0);
+            ReflectionTestUtils.setField(file, "fileId", 10L);
+            savedFile[0] = file;
+            return file;
+        });
+        when(fileRepository.findByIdForUpdate(10L)).thenAnswer(invocation -> Optional.of(savedFile[0]));
     }
 
     private static class HeaderLimitedInputStream extends InputStream {

@@ -103,24 +103,61 @@ public class FileService {
         }
 
         User uploader = userWritableResolver.resolve(uploaderId);
-        String storedFileName = fileStorageService.storeFile(multipartFile, detectedMimeType);
-
+        String storedFileName = fileStorageService.generateStoredFileName(originalFilename);
+        File pendingUploadFile = createPendingUploadRecord(
+                storedFileName,
+                originalFilename,
+                multipartFile.getSize(),
+                detectedMimeType,
+                uploader);
         try {
-            return transactionTemplate.execute(status -> {
-                File file = File.builder()
-                        .filePath(storedFileName)
-                        .originalName(originalFilename)
-                        .fileSize(multipartFile.getSize())
-                        .mimeType(detectedMimeType)
-                        .uploader(uploader)
-                        .build();
-
-                return fileRepository.save(file);
-            });
+            fileStorageService.storeFileAs(multipartFile, detectedMimeType, storedFileName);
+            return completePendingUpload(pendingUploadFile.getFileId());
         } catch (Exception e) {
-            fileStorageService.deleteFile(storedFileName);
+            try {
+                requestPendingUploadDeletion(pendingUploadFile.getFileId());
+            } catch (Exception cleanupException) {
+                e.addSuppressed(cleanupException);
+            }
             throw e;
         }
+    }
+
+    private File createPendingUploadRecord(
+            String storedFileName,
+            String originalFilename,
+            Long fileSize,
+            String mimeType,
+            User uploader) {
+        return transactionTemplate.execute(status -> {
+            File file = File.builder()
+                    .filePath(storedFileName)
+                    .originalName(originalFilename)
+                    .fileSize(fileSize)
+                    .mimeType(mimeType)
+                    .uploader(uploader)
+                    .storageStatus(FileStorageStatus.PENDING_UPLOAD)
+                    .build();
+
+            return fileRepository.save(file);
+        });
+    }
+
+    private File completePendingUpload(Long fileId) {
+        return transactionTemplate.execute(status -> {
+            File file = fileRepository.findByIdForUpdate(fileId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+            if (file.getStorageStatus() != FileStorageStatus.PENDING_UPLOAD) {
+                throw new BusinessException(ErrorCode.FILE_UPLOAD_ERROR);
+            }
+            file.markUploadCompleted();
+            return file;
+        });
+    }
+
+    private void requestPendingUploadDeletion(Long fileId) {
+        transactionTemplate.executeWithoutResult(status -> fileRepository.findByIdForUpdate(fileId)
+                .ifPresent(File::markDeletionPending));
     }
 
     private String normalizeOriginalFilename(String originalFilename) {
@@ -392,6 +429,7 @@ public class FileService {
     public void cleanUpTemporaryFiles() {
         LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusHours(24);
         LocalDateTime deleteRequestedAt = LocalDateTime.now();
+        fileTemporaryCleanupWorker.requestPendingUploadDeletion(twentyFourHoursAgo, deleteRequestedAt);
         LocalDateTime lastCreatedAt = null;
         Long lastFileId = null;
         do {

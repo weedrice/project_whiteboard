@@ -28,13 +28,20 @@ public class FileStorageService {
     private String bucket;
 
     public String storeFile(MultipartFile file, String validatedMimeType) {
-        String originalFileName = file.getOriginalFilename();
+        String fileName = generateStoredFileName(file.getOriginalFilename());
+        storeFileAs(file, validatedMimeType, fileName);
+        return fileName;
+    }
+
+    public String generateStoredFileName(String originalFileName) {
         String fileExtension = "";
         if (originalFileName != null && originalFileName.contains(".")) {
             fileExtension = originalFileName.substring(originalFileName.lastIndexOf("."));
         }
-        String fileName = UUID.randomUUID() + fileExtension;
+        return UUID.randomUUID() + fileExtension;
+    }
 
+    public void storeFileAs(MultipartFile file, String validatedMimeType, String fileName) {
         try {
             PutObjectRequest putOb = PutObjectRequest.builder()
                     .bucket(bucket)
@@ -44,8 +51,6 @@ public class FileStorageService {
 
             RequestBody requestBody = RequestBody.fromInputStream(file.getInputStream(), file.getSize());
             s3Client.putObject(putOb, requestBody);
-
-            return fileName;
         } catch (IOException ex) {
             throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "S3 file upload failed: " + ex.getMessage());
         } catch (Exception ex) {
