@@ -64,7 +64,7 @@ public class AgentCommandService {
                 false,
                 false,
                 null);
-        Post post = postService.createPostAsAgent(
+        Long postId = postService.createPostAsAgent(
                 agent.getUser().getUserId(),
                 agentId,
                 postCreateRequest,
@@ -74,9 +74,9 @@ public class AgentCommandService {
                 agent.getUser(),
                 AgentAuditActionType.CREATE_POST,
                 AgentAuditTargetType.POST,
-                post.getPostId(),
+                postId,
                 requestContext);
-        return new AgentPostCreateResponse(post.getPostId(), agentLinkBuilder.postUrl(post.getPostId()));
+        return new AgentPostCreateResponse(postId, agentLinkBuilder.postUrl(postId));
     }
 
     @Transactional

@@ -119,17 +119,17 @@ public class PostService {
     }
 
     @Transactional
-    public Post createPost(@NonNull Long userId, String boardUrl, PostCreateRequest request) {
+    public Long createPost(@NonNull Long userId, String boardUrl, PostCreateRequest request) {
         return postCommandService.createPost(userId, boardUrl, request);
     }
 
     @Transactional
-    public Post createPostAsAgent(@NonNull Long userId, @NonNull Long agentId, String boardUrl, PostCreateRequest request) {
+    public Long createPostAsAgent(@NonNull Long userId, @NonNull Long agentId, String boardUrl, PostCreateRequest request) {
         return postCommandService.createPostAsAgent(userId, agentId, boardUrl, request);
     }
 
     @Transactional
-    public Post createPostAsAgent(@NonNull Long userId, @NonNull Long agentId, PostCreateRequest request,
+    public Long createPostAsAgent(@NonNull Long userId, @NonNull Long agentId, PostCreateRequest request,
             PostCreateContext context) {
         return postCommandService.createPostAsAgent(userId, agentId, request, context);
     }
@@ -357,17 +357,17 @@ public class PostService {
     }
 
     @Transactional
-    public Post createPost(@NonNull Long userId, @NonNull Long boardId, PostCreateRequest request) {
+    public Long createPost(@NonNull Long userId, @NonNull Long boardId, PostCreateRequest request) {
         return postCommandService.createPost(userId, boardId, request);
     }
 
     @Transactional
-    public Post createPost(@NonNull Long userId, Long agentId, @NonNull Long boardId, PostCreateRequest request) {
+    public Long createPost(@NonNull Long userId, Long agentId, @NonNull Long boardId, PostCreateRequest request) {
         return postCommandService.createPost(userId, agentId, boardId, request);
     }
 
     @Transactional
-    public Post updatePost(@NonNull Long userId, @NonNull Long postId, PostUpdateRequest request) {
+    public Long updatePost(@NonNull Long userId, @NonNull Long postId, PostUpdateRequest request) {
         return postCommandService.updatePost(userId, postId, request);
     }
 
@@ -414,7 +414,7 @@ public class PostService {
     }
 
     @Transactional
-    public DraftPost saveDraftPost(@NonNull Long userId, PostDraftRequest request) {
+    public DraftResponse saveDraftPost(@NonNull Long userId, PostDraftRequest request) {
         return postDraftService.saveDraftPost(userId, request);
     }
 

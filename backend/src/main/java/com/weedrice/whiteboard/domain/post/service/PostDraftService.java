@@ -67,7 +67,7 @@ public class PostDraftService {
     }
 
     @Transactional
-    public DraftPost saveDraftPost(@NonNull Long userId, PostDraftRequest request) {
+    public DraftResponse saveDraftPost(@NonNull Long userId, PostDraftRequest request) {
         User user = userWritableResolver.resolve(userId);
         sanctionService.validateNotMuted(user);
         Board board = boardRepository.findByBoardUrl(request.getBoardUrl())
@@ -91,9 +91,9 @@ public class PostDraftService {
         }
 
         DraftPost draftPost = resolveDraftPost(user, request, board, category, originalPost);
-        DraftPost savedDraftPost = draftPostRepository.save(draftPost);
+        DraftPost savedDraftPost = draftPostRepository.saveAndFlush(draftPost);
         fileService.syncDraftFiles(request.getFileIds(), userId, savedDraftPost.getDraftId());
-        return savedDraftPost;
+        return DraftResponse.from(savedDraftPost);
     }
 
     @Transactional

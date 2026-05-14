@@ -1460,7 +1460,7 @@ class AgentServiceTest {
                 eq(1L),
                 eq(7L),
                 any(PostCreateRequest.class),
-                any(PostCreateContext.class))).thenReturn(writablePost);
+                any(PostCreateContext.class))).thenReturn(100L);
 
         var response = agentCommandService.createPost(7L, request, null);
 
@@ -1500,7 +1500,7 @@ class AgentServiceTest {
                 eq(1L),
                 eq(7L),
                 any(PostCreateRequest.class),
-                any(PostCreateContext.class))).thenReturn(writablePost);
+                any(PostCreateContext.class))).thenReturn(100L);
 
         var response = agentCommandService.createPost(7L, request, null);
 
@@ -1537,7 +1537,7 @@ class AgentServiceTest {
                 eq(1L),
                 eq(7L),
                 any(PostCreateRequest.class),
-                any(PostCreateContext.class))).thenReturn(writablePost);
+                any(PostCreateContext.class))).thenReturn(100L);
 
         agentCommandService.createPost(7L, request, null);
 

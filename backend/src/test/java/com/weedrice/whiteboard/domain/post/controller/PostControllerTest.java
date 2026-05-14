@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.post.dto.*;
-import com.weedrice.whiteboard.domain.post.entity.DraftPost;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.Scrap;
 import com.weedrice.whiteboard.domain.post.service.PostService;
@@ -424,7 +423,7 @@ class PostControllerTest {
         void createPost_success() throws Exception {
             String boardUrl = "free";
             PostCreateRequest request = new PostCreateRequest(null, "Title", "Content", List.of("tag"), false, false, false, false, null);
-            when(postService.createPost(anyLong(), eq(boardUrl), any())).thenReturn(post);
+            when(postService.createPost(anyLong(), eq(boardUrl), any())).thenReturn(1L);
 
             mockMvc.perform(post("/api/v1/boards/{boardUrl}/posts", boardUrl)
                     .with(user(customUserDetails))
@@ -482,7 +481,7 @@ class PostControllerTest {
         void updatePost_success() throws Exception {
             Long postId = 1L;
             PostUpdateRequest request = new PostUpdateRequest(null, "Title", "Content", List.of("tag"), false, false, false, null);
-            when(postService.updatePost(anyLong(), eq(postId), any())).thenReturn(post);
+            when(postService.updatePost(anyLong(), eq(postId), any())).thenReturn(postId);
 
             mockMvc.perform(put("/api/v1/posts/{postId}", postId)
                     .with(user(customUserDetails))
@@ -678,23 +677,25 @@ class PostControllerTest {
                     .originalPostId(1L)
                     .updatedAt(LocalDateTime.of(2025, 1, 2, 3, 4))
                     .build();
-            DraftPost draft = DraftPost.builder()
-                    .user(user)
-                    .board(board)
-                    .category(category)
+            DraftResponse response = DraftResponse.builder()
+                    .draftId(1L)
+                    .boardId(1L)
+                    .boardUrl("free")
+                    .boardName("Test Board")
                     .title("Title")
                     .contents("Content")
+                    .categoryId(1L)
                     .tags(List.of("tag-a", "tag-b"))
                     .isNotice(true)
                     .isNsfw(false)
                     .isSpoiler(true)
                     .isSecret(false)
                     .fileIds(List.of(10L, 11L))
-                    .originalPost(post)
+                    .originalPostId(1L)
+                    .updatedAt(LocalDateTime.of(2025, 1, 2, 3, 4))
+                    .modifiedAt(LocalDateTime.of(2025, 1, 2, 3, 4))
                     .build();
-            ReflectionTestUtils.setField(draft, "draftId", 1L);
-            ReflectionTestUtils.setField(draft, "modifiedAt", LocalDateTime.of(2025, 1, 2, 3, 4));
-            when(postService.saveDraftPost(anyLong(), any())).thenReturn(draft);
+            when(postService.saveDraftPost(anyLong(), any())).thenReturn(response);
 
             mockMvc.perform(post("/api/v1/drafts").with(user(customUserDetails))
                     .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(request)))

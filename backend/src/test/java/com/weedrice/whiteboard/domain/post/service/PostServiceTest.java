@@ -290,11 +290,12 @@ class PostServiceTest {
             return p;
         });
 
-        Post created = postService.createPost(1L, "free", request);
+        Long createdId = postService.createPost(1L, "free", request);
 
-        assertThat(created).isNotNull();
-        assertThat(created.getTitle()).isEqualTo("New Post");
-        verify(tagAssignmentService).assignTags(created, request.getTags());
+        assertThat(createdId).isEqualTo(100L);
+        ArgumentCaptor<Post> postCaptor = ArgumentCaptor.forClass(Post.class);
+        verify(tagAssignmentService).assignTags(postCaptor.capture(), eq(request.getTags()));
+        assertThat(postCaptor.getValue().getTitle()).isEqualTo("New Post");
         verify(fileService).attachFilesToPost(List.of(1L, 2L), 1L, 100L);
         verify(pointService).addPointIfAbsent(eq(1L), eq(50), anyString(), eq(100L), eq("POST"));
     }
@@ -316,13 +317,15 @@ class PostServiceTest {
             return saved;
         });
 
-        Post created = postService.createPost(1L, "free", request);
+        postService.createPost(1L, "free", request);
 
-        assertThat(created.getContents()).contains("<p>Safe</p>");
-        assertThat(created.getContents()).contains("src=\"/api/v1/files/1\"");
-        assertThat(created.getContents()).doesNotContain("onclick");
-        assertThat(created.getContents()).doesNotContain("javascript:");
-        assertThat(created.getContents()).doesNotContain("<script");
+        ArgumentCaptor<Post> postCaptor = ArgumentCaptor.forClass(Post.class);
+        verify(postRepository).save(postCaptor.capture());
+        assertThat(postCaptor.getValue().getContents()).contains("<p>Safe</p>");
+        assertThat(postCaptor.getValue().getContents()).contains("src=\"/api/v1/files/1\"");
+        assertThat(postCaptor.getValue().getContents()).doesNotContain("onclick");
+        assertThat(postCaptor.getValue().getContents()).doesNotContain("javascript:");
+        assertThat(postCaptor.getValue().getContents()).doesNotContain("<script");
     }
 
     @Test
@@ -340,9 +343,11 @@ class PostServiceTest {
             return saved;
         });
 
-        Post created = postService.createPost(1L, "free", request);
+        postService.createPost(1L, "free", request);
 
-        assertThat(created.getContents()).isEmpty();
+        ArgumentCaptor<Post> postCaptor = ArgumentCaptor.forClass(Post.class);
+        verify(postRepository).save(postCaptor.capture());
+        assertThat(postCaptor.getValue().getContents()).isEmpty();
     }
 
     @Test
@@ -475,9 +480,11 @@ class PostServiceTest {
                 .thenReturn(Optional.of(category));
         when(postRepository.save(any(Post.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        Post created = postService.createPost(1L, 1L, request);
+        postService.createPost(1L, 1L, request);
 
-        assertThat(created.getCategory()).isEqualTo(category);
+        ArgumentCaptor<Post> postCaptor = ArgumentCaptor.forClass(Post.class);
+        verify(postRepository).save(postCaptor.capture());
+        assertThat(postCaptor.getValue().getCategory()).isEqualTo(category);
         verify(boardCategoryRepository, never()).findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(1L, true);
     }
 
@@ -902,9 +909,10 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
-        Post updated = postService.updatePost(1L, 1L, request);
+        Long updatedId = postService.updatePost(1L, 1L, request);
 
-        assertThat(updated.getTitle()).isEqualTo("Updated Title");
+        assertThat(updatedId).isEqualTo(1L);
+        assertThat(post.getTitle()).isEqualTo("Updated Title");
         verify(tagAssignmentService).assignTags(post, request.getTags());
         verify(fileService).syncPostFiles(List.of(5L), 1L, 1L);
         verify(postVersionRepository).save(any(PostVersion.class));
@@ -920,12 +928,12 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
-        Post updated = postService.updatePost(1L, 1L, request);
+        postService.updatePost(1L, 1L, request);
 
-        assertThat(updated.getContents()).contains("<h2>Title</h2>");
-        assertThat(updated.getContents()).contains("<p>Safe</p>");
-        assertThat(updated.getContents()).doesNotContain("onmouseover");
-        assertThat(updated.getContents()).doesNotContain("javascript:");
+        assertThat(post.getContents()).contains("<h2>Title</h2>");
+        assertThat(post.getContents()).contains("<p>Safe</p>");
+        assertThat(post.getContents()).doesNotContain("onmouseover");
+        assertThat(post.getContents()).doesNotContain("javascript:");
     }
 
     @Test
@@ -937,9 +945,9 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
-        Post updated = postService.updatePost(1L, 1L, request);
+        postService.updatePost(1L, 1L, request);
 
-        assertThat(updated.getContents()).isEmpty();
+        assertThat(post.getContents()).isEmpty();
         verify(postVersionRepository).save(any(PostVersion.class));
     }
 
@@ -1491,13 +1499,13 @@ class PostServiceTest {
         PostDraftRequest request = new PostDraftRequest(null, "free", "Draft Title", "Draft Content", null);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(draftPostRepository.save(any(DraftPost.class))).thenAnswer(i -> {
+        when(draftPostRepository.saveAndFlush(any(DraftPost.class))).thenAnswer(i -> {
             DraftPost draftPost = i.getArgument(0);
             ReflectionTestUtils.setField(draftPost, "draftId", 10L);
             return draftPost;
         });
 
-        DraftPost draft = postService.saveDraftPost(1L, request);
+        DraftResponse draft = postService.saveDraftPost(1L, request);
 
         assertThat(draft.getTitle()).isEqualTo("Draft Title");
         verify(fileService).syncDraftFiles(Collections.emptyList(), 1L, 10L);
@@ -1527,21 +1535,21 @@ class PostServiceTest {
         when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(1L, 1L, true))
                 .thenReturn(Optional.of(category));
         when(postRepository.findById(77L)).thenReturn(Optional.of(originalPost));
-        when(draftPostRepository.save(any(DraftPost.class))).thenAnswer(i -> {
+        when(draftPostRepository.saveAndFlush(any(DraftPost.class))).thenAnswer(i -> {
             DraftPost draftPost = i.getArgument(0);
             ReflectionTestUtils.setField(draftPost, "draftId", 22L);
             return draftPost;
         });
 
-        DraftPost draft = postService.saveDraftPost(1L, request);
+        DraftResponse draft = postService.saveDraftPost(1L, request);
 
-        assertThat(draft.getCategory()).isEqualTo(category);
+        assertThat(draft.getCategoryId()).isEqualTo(1L);
         assertThat(draft.getTags()).containsExactly("tag-a", "tag-b");
         assertThat(draft.isNsfw()).isTrue();
         assertThat(draft.isSpoiler()).isTrue();
         assertThat(draft.isSecret()).isTrue();
         assertThat(draft.getFileIds()).containsExactly(11L, 12L);
-        assertThat(draft.getOriginalPost()).isEqualTo(originalPost);
+        assertThat(draft.getOriginalPostId()).isEqualTo(77L);
         verify(fileService).syncDraftFiles(List.of(11L, 12L), 1L, 22L);
     }
 
@@ -1556,7 +1564,7 @@ class PostServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
 
-        verify(draftPostRepository, never()).save(any(DraftPost.class));
+        verify(draftPostRepository, never()).saveAndFlush(any(DraftPost.class));
     }
 
     @Test
@@ -1569,9 +1577,9 @@ class PostServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
-        when(draftPostRepository.save(any(DraftPost.class))).thenAnswer(i -> i.getArgument(0));
+        when(draftPostRepository.saveAndFlush(any(DraftPost.class))).thenAnswer(i -> i.getArgument(0));
 
-        DraftPost draft = postService.saveDraftPost(1L, request);
+        DraftResponse draft = postService.saveDraftPost(1L, request);
 
         assertThat(draft.getTitle()).isEqualTo("New Title");
         verify(fileService).syncDraftFiles(Collections.emptyList(), 1L, 10L);
@@ -1608,7 +1616,7 @@ class PostServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
 
-        verify(draftPostRepository, never()).save(any(DraftPost.class));
+        verify(draftPostRepository, never()).saveAndFlush(any(DraftPost.class));
         verify(fileService, never()).syncDraftFiles(any(), anyLong(), anyLong());
     }
 
@@ -1642,7 +1650,7 @@ class PostServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
 
-        verify(draftPostRepository, never()).save(any(DraftPost.class));
+        verify(draftPostRepository, never()).saveAndFlush(any(DraftPost.class));
         verify(fileService, never()).syncDraftFiles(any(), anyLong(), anyLong());
     }
 
@@ -1674,7 +1682,7 @@ class PostServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
 
-        verify(draftPostRepository, never()).save(any(DraftPost.class));
+        verify(draftPostRepository, never()).saveAndFlush(any(DraftPost.class));
         verify(fileService, never()).syncDraftFiles(any(), anyLong(), anyLong());
     }
 
@@ -1710,7 +1718,7 @@ class PostServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
 
-        verify(draftPostRepository, never()).save(any(DraftPost.class));
+        verify(draftPostRepository, never()).saveAndFlush(any(DraftPost.class));
         verify(fileService, never()).syncDraftFiles(any(), anyLong(), anyLong());
     }
 
@@ -1754,7 +1762,7 @@ class PostServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
 
-        verify(draftPostRepository, never()).save(any(DraftPost.class));
+        verify(draftPostRepository, never()).saveAndFlush(any(DraftPost.class));
     }
 
     @Test
@@ -1773,7 +1781,7 @@ class PostServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
 
-        verify(draftPostRepository, never()).save(any(DraftPost.class));
+        verify(draftPostRepository, never()).saveAndFlush(any(DraftPost.class));
     }
 
     @Test
@@ -1799,7 +1807,7 @@ class PostServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
 
-        verify(draftPostRepository, never()).save(any(DraftPost.class));
+        verify(draftPostRepository, never()).saveAndFlush(any(DraftPost.class));
         verify(fileService, never()).syncDraftFiles(any(), anyLong(), anyLong());
     }
 
@@ -1830,7 +1838,7 @@ class PostServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
 
-        verify(draftPostRepository, never()).save(any(DraftPost.class));
+        verify(draftPostRepository, never()).saveAndFlush(any(DraftPost.class));
         verify(fileService, never()).syncDraftFiles(any(), anyLong(), anyLong());
     }
 
@@ -1852,20 +1860,21 @@ class PostServiceTest {
                 .board(board)
                 .minWriteRole("USER")
                 .build();
+        ReflectionTestUtils.setField(selectedCategory, "categoryId", 2L);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(2L, 1L, true))
                 .thenReturn(Optional.of(selectedCategory));
-        when(draftPostRepository.save(any(DraftPost.class))).thenAnswer(i -> {
+        when(draftPostRepository.saveAndFlush(any(DraftPost.class))).thenAnswer(i -> {
             DraftPost draftPost = i.getArgument(0);
             ReflectionTestUtils.setField(draftPost, "draftId", 23L);
             return draftPost;
         });
 
-        DraftPost draft = postService.saveDraftPost(1L, request);
+        DraftResponse draft = postService.saveDraftPost(1L, request);
 
-        assertThat(draft.getCategory()).isEqualTo(selectedCategory);
+        assertThat(draft.getCategoryId()).isEqualTo(2L);
         verify(boardCategoryRepository, never()).findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(anyLong(), anyBoolean());
         verify(fileService).syncDraftFiles(Collections.emptyList(), 1L, 23L);
     }
@@ -2885,10 +2894,10 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
-        Post updated = postService.updatePost(1L, 1L, request);
+        postService.updatePost(1L, 1L, request);
 
-        assertThat(updated.getCategory()).isEqualTo(category);
-        assertThat(updated.getTitle()).isEqualTo("Updated Title");
+        assertThat(post.getCategory()).isEqualTo(category);
+        assertThat(post.getTitle()).isEqualTo("Updated Title");
         verify(boardCategoryRepository, never()).findByCategoryIdAndBoard_BoardIdAndIsActive(anyLong(), anyLong(), anyBoolean());
     }
 
@@ -3229,9 +3238,9 @@ class PostServiceTest {
         when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(1L, 1L, true))
                 .thenReturn(Optional.of(category));
         when(postRepository.findById(1L)).thenReturn(Optional.of(post));
-        when(draftPostRepository.save(any(DraftPost.class))).thenAnswer(i -> i.getArgument(0));
+        when(draftPostRepository.saveAndFlush(any(DraftPost.class))).thenAnswer(i -> i.getArgument(0));
 
-        DraftPost draft = postService.saveDraftPost(1L, request);
+        postService.saveDraftPost(1L, request);
 
         verify(postRepository).findById(1L);
     }

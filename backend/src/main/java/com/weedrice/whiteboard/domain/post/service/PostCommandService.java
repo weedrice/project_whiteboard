@@ -53,34 +53,34 @@ public class PostCommandService {
     private final PostAuthorCommandPolicy postAuthorCommandPolicy;
 
     @Transactional
-    public Post createPost(@NonNull Long userId, String boardUrl, PostCreateRequest request) {
+    public Long createPost(@NonNull Long userId, String boardUrl, PostCreateRequest request) {
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        return createPost(userId, null, board.getBoardId(), request);
+        return createPost(userId, null, board.getBoardId(), request, null).getPostId();
     }
 
     @Transactional
-    public Post createPostAsAgent(@NonNull Long userId, @NonNull Long agentId, String boardUrl,
+    public Long createPostAsAgent(@NonNull Long userId, @NonNull Long agentId, String boardUrl,
             PostCreateRequest request) {
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        return createPost(userId, agentId, board.getBoardId(), request);
+        return createPost(userId, agentId, board.getBoardId(), request, null).getPostId();
     }
 
     @Transactional
-    public Post createPostAsAgent(@NonNull Long userId, @NonNull Long agentId, PostCreateRequest request,
+    public Long createPostAsAgent(@NonNull Long userId, @NonNull Long agentId, PostCreateRequest request,
             PostCreateContext context) {
-        return createPost(userId, agentId, null, request, context);
+        return createPost(userId, agentId, null, request, context).getPostId();
     }
 
     @Transactional
-    public Post createPost(@NonNull Long userId, @NonNull Long boardId, PostCreateRequest request) {
-        return createPost(userId, null, boardId, request);
+    public Long createPost(@NonNull Long userId, @NonNull Long boardId, PostCreateRequest request) {
+        return createPost(userId, null, boardId, request, null).getPostId();
     }
 
     @Transactional
-    public Post createPost(@NonNull Long userId, Long agentId, @NonNull Long boardId, PostCreateRequest request) {
-        return createPost(userId, agentId, boardId, request, null);
+    public Long createPost(@NonNull Long userId, Long agentId, @NonNull Long boardId, PostCreateRequest request) {
+        return createPost(userId, agentId, boardId, request, null).getPostId();
     }
 
     private Post createPost(@NonNull Long userId, Long agentId, Long boardId, PostCreateRequest request,
@@ -201,7 +201,7 @@ public class PostCommandService {
     }
 
     @Transactional
-    public Post updatePost(@NonNull Long userId, @NonNull Long postId, PostUpdateRequest request) {
+    public Long updatePost(@NonNull Long userId, @NonNull Long postId, PostUpdateRequest request) {
         Post post = postRepository.findByIdWithRelationsForUpdate(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
         User modifier = userWritableResolver.resolve(userId);
@@ -227,7 +227,7 @@ public class PostCommandService {
 
         savePostVersion(post, modifier, "MODIFY", originalTitle, originalContents);
 
-        return post;
+        return post.getPostId();
     }
 
     @Transactional

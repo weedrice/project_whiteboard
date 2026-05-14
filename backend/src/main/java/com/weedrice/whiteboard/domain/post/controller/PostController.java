@@ -1,7 +1,6 @@
 package com.weedrice.whiteboard.domain.post.controller;
 
 import com.weedrice.whiteboard.domain.post.dto.*;
-import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
@@ -96,8 +95,7 @@ public class PostController {
             @PathVariable String boardUrl,
             @Valid @RequestBody PostCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Post post = postService.createPost(userDetails.getUserId(), boardUrl, request);
-        return ApiResponse.success(post.getPostId());
+        return ApiResponse.success(postService.createPost(userDetails.getUserId(), boardUrl, request));
     }
 
     @PutMapping("/posts/{postId}")
@@ -105,8 +103,7 @@ public class PostController {
             @PathVariable Long postId,
             @Valid @RequestBody PostUpdateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Post post = postService.updatePost(userDetails.getUserId(), postId, request);
-        return ApiResponse.success(post.getPostId());
+        return ApiResponse.success(postService.updatePost(userDetails.getUserId(), postId, request));
     }
 
     @DeleteMapping("/posts/{postId}")
@@ -172,7 +169,7 @@ public class PostController {
     public ApiResponse<DraftResponse> saveDraft(
             @Valid @RequestBody PostDraftRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(DraftResponse.from(postService.saveDraftPost(userDetails.getUserId(), request)));
+        return ApiResponse.success(postService.saveDraftPost(userDetails.getUserId(), request));
     }
 
     @DeleteMapping("/drafts/{draftId}")
