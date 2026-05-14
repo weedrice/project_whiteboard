@@ -149,7 +149,9 @@ class UserAdminQueryServiceTest {
         Pageable safePageable = pageableCaptor.getValue();
         assertThat(safePageable.getPageNumber()).isEqualTo(2);
         assertThat(safePageable.getPageSize()).isEqualTo(100);
-        assertThat(safePageable.getSort()).containsExactly(Sort.Order.asc("createdAt"));
+        assertThat(safePageable.getSort()).containsExactly(
+                Sort.Order.asc("createdAt"),
+                Sort.Order.desc("userId"));
         assertThat(response.getPageable()).isEqualTo(safePageable);
     }
 

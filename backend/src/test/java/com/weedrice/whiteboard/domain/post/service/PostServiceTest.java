@@ -786,6 +786,7 @@ class PostServiceTest {
                 pageableCaptor.capture());
         assertThat(pageableCaptor.getValue().getSort()).isEqualTo(Sort.by(
                 Sort.Order.desc("likeCount"),
+                Sort.Order.desc("createdAt"),
                 Sort.Order.desc("postId")));
     }
 
