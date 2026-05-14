@@ -13,7 +13,6 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
@@ -33,7 +32,6 @@ public class AuthService {
     private final PasswordResetService passwordResetService;
     private final UserRepository userRepository;
     private final LoginAccountEligibilityService loginAccountEligibilityService;
-    private final LoginClientMetadataResolver loginClientMetadataResolver;
     private final LoginAuthenticator loginAuthenticator;
     private final LoginAuditRecorder loginAuditRecorder;
     private final LoginUserInfoAssembler loginUserInfoAssembler;
@@ -43,30 +41,30 @@ public class AuthService {
     }
 
     @Transactional
-    public LoginResult login(LoginRequest request, HttpServletRequest httpServletRequest) {
-        LoginClientMetadata metadata = loginClientMetadataResolver.resolve(httpServletRequest);
+    public LoginResult login(LoginRequest request, LoginClientMetadata metadata) {
+        LoginClientMetadata resolvedMetadata = metadata != null ? metadata : LoginClientMetadata.empty();
         Authentication authentication;
         try {
             authentication = loginAuthenticator.authenticate(request);
         } catch (AuthenticationException exception) {
-            loginAuditRecorder.recordFailure(request, metadata, resolveAuthenticationFailureReason(exception));
+            loginAuditRecorder.recordFailure(request, resolvedMetadata, resolveAuthenticationFailureReason(exception));
             throw exception;
         }
 
-        User user = loadAuthenticatedUser(request, metadata, authentication);
+        User user = loadAuthenticatedUser(request, resolvedMetadata, authentication);
         LoginAccountEligibility eligibility = loginAccountEligibilityService.evaluate(user);
         if (!eligibility.isLoginAllowed()) {
-            loginAuditRecorder.recordFailure(request, metadata, eligibility.failureReason());
+            loginAuditRecorder.recordFailure(request, resolvedMetadata, eligibility.failureReason());
             throw new BusinessException(ErrorCode.LOGIN_FAILED);
         }
 
         TokenResponse issuedTokens = sessionTokenService.issueTokens(
                 authentication,
                 user,
-                metadata.ipAddress(),
-                metadata.userAgent());
+                resolvedMetadata.ipAddress(),
+                resolvedMetadata.userAgent());
 
-        loginAuditRecorder.recordSuccess(request, user, metadata);
+        loginAuditRecorder.recordSuccess(request, user, resolvedMetadata);
         user.updateLastLogin();
 
         return LoginResult.builder()

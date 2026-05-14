@@ -8,6 +8,8 @@ import com.weedrice.whiteboard.domain.auth.dto.SignupResponse;
 import com.weedrice.whiteboard.domain.auth.dto.TokenResponse;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
 import com.weedrice.whiteboard.domain.auth.service.AuthService;
+import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadata;
+import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadataResolver;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -34,6 +36,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.same;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -65,6 +68,9 @@ class AuthControllerTest {
 
     @MockBean
     private VerificationCodeService verificationCodeService;
+
+    @MockBean
+    private LoginClientMetadataResolver loginClientMetadataResolver;
 
     @MockBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -135,7 +141,9 @@ class AuthControllerTest {
                 .expiresIn(1800L)
                 .user(null)
                 .build();
-        when(authService.login(any(), any())).thenReturn(result);
+        LoginClientMetadata metadata = new LoginClientMetadata("127.0.0.1", "test-agent");
+        when(loginClientMetadataResolver.resolve(any())).thenReturn(metadata);
+        when(authService.login(any(), same(metadata))).thenReturn(result);
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

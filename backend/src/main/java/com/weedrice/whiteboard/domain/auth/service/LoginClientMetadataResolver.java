@@ -9,7 +9,7 @@ public class LoginClientMetadataResolver {
 
     public LoginClientMetadata resolve(HttpServletRequest httpServletRequest) {
         if (httpServletRequest == null) {
-            return new LoginClientMetadata(null, null);
+            return LoginClientMetadata.empty();
         }
         return new LoginClientMetadata(
                 ClientUtils.getIp(httpServletRequest),
