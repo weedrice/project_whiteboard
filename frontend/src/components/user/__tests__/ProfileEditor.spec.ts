@@ -3,10 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ProfileEditor from '../ProfileEditor.vue'
 
 const mocks = vi.hoisted(() => ({
-  agentsData: { value: { agents: [] as Array<Record<string, unknown>> } },
-  isAgentsLoading: { value: false },
-  isAgentsFetching: { value: false },
-  isClaiming: { value: false },
+  agentsData: { value: { agents: [] as Array<Record<string, unknown>> }, __v_isRef: true },
+  isAgentsLoading: { value: false, __v_isRef: true },
+  isAgentsFetching: { value: false, __v_isRef: true },
+  isClaiming: { value: false, __v_isRef: true },
   claimAgent: vi.fn(),
   suspendMyAgent: vi.fn(),
   activateMyAgent: vi.fn(),
@@ -111,13 +111,23 @@ vi.mock('@/utils/logger', () => ({
 }))
 
 const baseButtonStub = {
-  props: ['disabled', 'loading', 'type', 'variant'],
+  props: {
+    disabled: Boolean,
+    loading: Boolean,
+    type: String,
+    variant: String,
+  },
   emits: ['click'],
   template: '<button :type="type || \'button\'" :disabled="disabled || loading" @click="$emit(\'click\', $event)"><slot /></button>',
 }
 
 const baseInputStub = {
-  props: ['modelValue', 'disabled', 'error', 'placeholder'],
+  props: {
+    modelValue: String,
+    disabled: Boolean,
+    error: String,
+    placeholder: String,
+  },
   emits: ['update:modelValue'],
   template: `
     <div>
@@ -171,8 +181,7 @@ describe('ProfileEditor', () => {
     mocks.confirm.mockResolvedValue(true)
   })
 
-  it('reactivates a suspended agent without requiring email verification', async () => {
-    mocks.user.isEmailVerified = false
+  it('shows the agent code registration field when the current agent is suspended', () => {
     mocks.agentsData.value = {
       agents: [
         {
@@ -187,16 +196,35 @@ describe('ProfileEditor', () => {
 
     const wrapper = mountProfileEditor()
 
-    expect(wrapper.text()).toContain('Agent Seven')
-    expect(wrapper.text()).not.toContain('user.profile.agentRegister')
+    const input = wrapper.find('input[placeholder="user.profile.agentPlaceholder"]')
+    const registerButton = findButtonByText(wrapper, 'user.profile.agentRegister')
 
-    await findButtonByText(wrapper, '활성화').trigger('click')
-    await flushPromises()
+    expect(input.exists()).toBe(true)
+    expect(input.attributes('disabled')).toBeUndefined()
+    expect(wrapper.text()).not.toContain('Agent Seven')
+    expect(wrapper.text()).not.toContain('활성화')
+    expect(registerButton.exists()).toBe(true)
+  })
 
-    expect(mocks.confirm).toHaveBeenCalled()
-    expect(mocks.activateMyAgent).toHaveBeenCalledWith(7)
-    expect(mocks.addToast).toHaveBeenCalledWith('에이전트를 활성화했습니다.', 'success')
-    expect(wrapper.emitted('refreshed')).toBeTruthy()
+  it('requires email verification for agent claiming even when a suspended agent exists', () => {
+    mocks.user.isEmailVerified = false
+    mocks.agentsData.value = {
+      agents: [
+        {
+          agentId: 7,
+          name: 'Agent Seven',
+          description: '',
+          status: 'SUSPENDED',
+          createdAt: '2026-04-22T10:00:00',
+        },
+      ],
+    }
+
+    const wrapper = mountProfileEditor()
+    const registerButton = findButtonByText(wrapper, 'user.profile.agentRegister')
+
+    expect(wrapper.text()).toContain('user.profile.agentEmailVerificationRequired')
+    expect(registerButton.attributes('disabled')).toBeDefined()
   })
 
   it('keeps agent claiming disabled while the agent list is loading', () => {

@@ -54,39 +54,13 @@
       </div>
 
       <p
-        v-if="!isEmailVerified && !activeAgent && !suspendedAgent"
+        v-if="!isEmailVerified && !activeAgent"
         class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300"
       >
         {{ $t('user.profile.agentEmailVerificationRequired') }}
       </p>
 
-      <div
-        v-if="!activeAgent && suspendedAgent"
-        class="flex flex-col gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-3 dark:border-gray-700 dark:bg-gray-900/40 sm:flex-row sm:items-center sm:justify-between"
-      >
-        <div class="min-w-0">
-          <p class="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-            {{ suspendedAgent.name }}
-          </p>
-          <span
-            class="mt-1 inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
-            :class="getAgentStatusClass(suspendedAgent.status)"
-          >
-            {{ getAgentStatusLabel(suspendedAgent.status) }}
-          </span>
-        </div>
-        <BaseButton
-          type="button"
-          variant="secondary"
-          class="w-full sm:w-auto h-10 min-h-[40px]"
-          :loading="processingAgentId === suspendedAgent.agentId && processingAction === 'activate'"
-          @click="handleActivateAgent(suspendedAgent.agentId)"
-        >
-          활성화
-        </BaseButton>
-      </div>
-
-      <div v-if="activeAgent || !suspendedAgent" class="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div class="flex-1">
           <BaseInput
             v-model="agentToken"
@@ -193,7 +167,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useUser } from '@/composables/useUser'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
-import type { UserAgent, UserUpdatePayload } from '@/api/user'
+import type { UserUpdatePayload } from '@/api/user'
 import { extractErrorMessage, extractValidationErrors, getFieldError } from '@/utils/errorHandler'
 import { getOptimizedProfileImageUrl } from '@/utils/image'
 import logger from '@/utils/logger'
@@ -208,13 +182,12 @@ const toastStore = useToastStore()
 const router = useRouter()
 const { t } = useI18n()
 const { confirm } = useConfirm()
-const { useDeleteAccount, useMyAgents, useClaimAgent, useSuspendMyAgent, useActivateMyAgent, useUpdateMyProfile } = useUser()
+const { useDeleteAccount, useMyAgents, useClaimAgent, useSuspendMyAgent, useUpdateMyProfile } = useUser()
 const { mutateAsync: updateProfileMutateAsync } = useUpdateMyProfile()
 const { mutateAsync: deleteAccount, isPending: isDeleting } = useDeleteAccount()
 const { data: agentsData, isLoading: isAgentsLoading, isFetching: isAgentsFetching } = useMyAgents()
 const { mutateAsync: claimAgent, isPending: isClaiming } = useClaimAgent()
 const { mutateAsync: suspendMyAgent } = useSuspendMyAgent()
-const { mutateAsync: activateMyAgent } = useActivateMyAgent()
 
 const loading = ref(false)
 const errors = reactive<Record<string, string>>({})
@@ -225,11 +198,10 @@ const profileImageError = ref(false)
 const agentToken = ref('')
 const agentError = ref('')
 const processingAgentId = ref<number | null>(null)
-const processingAction = ref<'suspend' | 'activate' | null>(null)
+const processingAction = ref<'suspend' | null>(null)
 
 const agents = computed(() => agentsData.value?.agents ?? [])
 const activeAgent = computed(() => agents.value.find((agent) => agent.status === 'ACTIVE') ?? null)
-const suspendedAgent = computed(() => agents.value.find((agent) => agent.status === 'SUSPENDED') ?? null)
 const isAgentListPending = computed(() => isAgentsLoading.value || isAgentsFetching.value)
 const isEmailVerified = computed(() => {
   const value: unknown = authStore.user?.isEmailVerified
@@ -266,22 +238,6 @@ watch(previewImage, (_newUrl, oldUrl) => {
 onUnmounted(() => {
   revokeObjectUrlIfNeeded(previewImage.value)
 })
-
-const getAgentStatusLabel = (status: UserAgent['status']) => {
-  if (status === 'ACTIVE') return '활성'
-  if (status === 'SUSPENDED') return '미등록'
-  return '대기'
-}
-
-const getAgentStatusClass = (status: UserAgent['status']) => {
-  if (status === 'ACTIVE') {
-    return 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
-  }
-  if (status === 'SUSPENDED') {
-    return 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
-  }
-  return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-}
 
 const handleFileChange = async (event: Event) => {
   const target = event.target as HTMLInputElement
@@ -449,32 +405,6 @@ const handleSuspendAgent = async (agentId: number) => {
     emit('refreshed')
   } catch (error: unknown) {
     toastStore.addToast(extractErrorMessage(error as AxiosError) || '에이전트 비활성화에 실패했습니다.', 'error')
-  } finally {
-    processingAgentId.value = null
-    processingAction.value = null
-  }
-}
-
-const handleActivateAgent = async (agentId: number) => {
-  const isConfirmed = await confirm(
-    '에이전트 코드를 활성화하시겠습니까?',
-    '에이전트 코드 활성화',
-    '활성화',
-    t('common.cancel')
-  )
-
-  if (!isConfirmed) {
-    return
-  }
-
-  processingAgentId.value = agentId
-  processingAction.value = 'activate'
-  try {
-    await activateMyAgent(agentId)
-    toastStore.addToast('에이전트를 활성화했습니다.', 'success')
-    emit('refreshed')
-  } catch (error: unknown) {
-    toastStore.addToast(extractErrorMessage(error as AxiosError) || '에이전트 활성화에 실패했습니다.', 'error')
   } finally {
     processingAgentId.value = null
     processingAction.value = null
