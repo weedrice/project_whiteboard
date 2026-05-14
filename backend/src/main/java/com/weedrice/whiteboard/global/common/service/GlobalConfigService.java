@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 
@@ -34,15 +35,18 @@ public class GlobalConfigService {
     private final GlobalConfigRepository globalConfigRepository;
     private final CacheManager cacheManager;
 
-    @Cacheable(value = GLOBAL_CONFIG_CACHE, key = "#key")
+    @Cacheable(value = GLOBAL_CONFIG_CACHE,
+            key = "T(com.weedrice.whiteboard.global.common.service.GlobalConfigService).normalizeConfigKey(#key)")
     public String getConfig(String key) {
-        return globalConfigRepository.findById(key)
+        String normalizedKey = normalizeConfigKey(key);
+        return globalConfigRepository.findById(normalizedKey)
                 .map(GlobalConfig::getConfigValue)
                 .orElse(null);
     }
 
     public String getConfigOrThrow(String key) {
-        return globalConfigRepository.findById(key)
+        String normalizedKey = normalizeConfigKey(key);
+        return globalConfigRepository.findById(normalizedKey)
                 .map(GlobalConfig::getConfigValue)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
     }
@@ -76,15 +80,15 @@ public class GlobalConfigService {
     @Transactional
     public GlobalConfigResponse createConfig(String key, String value, String description) {
         SecurityUtils.validateSuperAdminPermission();
-        validateConfigInput(key, value, description);
-        validateConfigValue(key, value);
-        if (globalConfigRepository.existsById(key)) {
+        NormalizedConfigInput input = normalizeConfigInput(key, value, description);
+        validateConfigValue(input.key(), input.value());
+        if (globalConfigRepository.existsById(input.key())) {
             throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
         }
-        GlobalConfig config = new GlobalConfig(key, value, description);
+        GlobalConfig config = new GlobalConfig(input.key(), input.value(), input.description());
         try {
             GlobalConfig savedConfig = globalConfigRepository.saveAndFlush(config);
-            putConfigCacheAfterCommit(key, savedConfig.getConfigValue());
+            putConfigCacheAfterCommit(input.key(), savedConfig.getConfigValue());
             return GlobalConfigResponse.from(savedConfig);
         } catch (DataIntegrityViolationException e) {
             throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
@@ -94,29 +98,30 @@ public class GlobalConfigService {
     @Transactional
     public GlobalConfigResponse updateConfig(String key, String value, String description) {
         SecurityUtils.validateSuperAdminPermission();
-        validateConfigInput(key, value, description);
-        validateConfigValue(key, value);
-        GlobalConfig config = globalConfigRepository.findById(key)
+        NormalizedConfigInput input = normalizeConfigInput(key, value, description);
+        validateConfigValue(input.key(), input.value());
+        GlobalConfig config = globalConfigRepository.findById(input.key())
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
-        config.setConfigValue(value);
+        config.setConfigValue(input.value());
         if (description != null) {
-            config.setDescription(description);
+            config.setDescription(input.description());
         }
 
         GlobalConfig savedConfig = globalConfigRepository.save(config);
-        putConfigCacheAfterCommit(key, savedConfig.getConfigValue());
+        putConfigCacheAfterCommit(input.key(), savedConfig.getConfigValue());
         return GlobalConfigResponse.from(savedConfig);
     }
 
     @Transactional
     public void deleteConfig(String key) {
         SecurityUtils.validateSuperAdminPermission();
-        if (!globalConfigRepository.existsById(key)) {
+        String normalizedKey = normalizeRequiredText(key, MAX_CONFIG_KEY_LENGTH);
+        if (!globalConfigRepository.existsById(normalizedKey)) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
-        globalConfigRepository.deleteById(key);
-        evictConfigCacheAfterCommit(key);
+        globalConfigRepository.deleteById(normalizedKey);
+        evictConfigCacheAfterCommit(normalizedKey);
     }
 
     private void putConfigCache(String key, String value) {
@@ -160,18 +165,35 @@ public class GlobalConfigService {
         });
     }
 
-    private void validateConfigInput(String key, String value, String description) {
-        validateRequiredText(key, MAX_CONFIG_KEY_LENGTH);
-        validateRequiredText(value, MAX_CONFIG_VALUE_LENGTH);
-        if (description != null && description.length() > MAX_CONFIG_DESCRIPTION_LENGTH) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
+    public static String normalizeConfigKey(String key) {
+        return normalizeNullableText(key);
     }
 
-    private void validateRequiredText(String value, int maxLength) {
-        if (value == null || value.trim().isEmpty() || value.length() > maxLength) {
+    private NormalizedConfigInput normalizeConfigInput(String key, String value, String description) {
+        return new NormalizedConfigInput(
+                normalizeRequiredText(key, MAX_CONFIG_KEY_LENGTH),
+                normalizeRequiredText(value, MAX_CONFIG_VALUE_LENGTH),
+                normalizeOptionalText(description, MAX_CONFIG_DESCRIPTION_LENGTH));
+    }
+
+    private static String normalizeRequiredText(String value, int maxLength) {
+        String normalizedValue = normalizeNullableText(value);
+        if (!StringUtils.hasText(normalizedValue) || normalizedValue.length() > maxLength) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
+        return normalizedValue;
+    }
+
+    private static String normalizeOptionalText(String value, int maxLength) {
+        String normalizedValue = normalizeNullableText(value);
+        if (normalizedValue != null && normalizedValue.length() > maxLength) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return normalizedValue;
+    }
+
+    private static String normalizeNullableText(String value) {
+        return value == null ? null : value.trim();
     }
 
     private void validateConfigValue(String key, String value) {
@@ -185,5 +207,8 @@ public class GlobalConfigService {
         } catch (NullPointerException | NumberFormatException ex) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
+    }
+
+    private record NormalizedConfigInput(String key, String value, String description) {
     }
 }

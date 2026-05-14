@@ -4,6 +4,8 @@ import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
 import com.weedrice.whiteboard.domain.post.repository.ViewHistoryRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,7 +31,7 @@ public class ViewHistoryCommandService {
         }
         int touchedCount = viewHistoryRepository.touchModifiedAt(user.getUserId(), post.getPostId());
         if (touchedCount == 0) {
-            throw new IllegalStateException("View history must exist after insert.");
+            throw viewHistoryUnavailable();
         }
     }
 
@@ -42,12 +44,16 @@ public class ViewHistoryCommandService {
     private ViewHistory insertAndLoad(User user, Post post) {
         viewHistoryRepository.insertIgnore(user.getUserId(), post.getPostId());
         return viewHistoryRepository.findByUserAndPost(user, post)
-                .orElseThrow(() -> new IllegalStateException("View history must exist after insert."));
+                .orElseThrow(this::viewHistoryUnavailable);
     }
 
     private ViewHistory insertAndLoadForUpdate(User user, Post post) {
         viewHistoryRepository.insertIgnore(user.getUserId(), post.getPostId());
         return viewHistoryRepository.findByUserAndPostForUpdate(user.getUserId(), post.getPostId())
-                .orElseThrow(() -> new IllegalStateException("View history must exist after insert."));
+                .orElseThrow(this::viewHistoryUnavailable);
+    }
+
+    private BusinessException viewHistoryUnavailable() {
+        return new BusinessException(ErrorCode.POST_NOT_FOUND);
     }
 }

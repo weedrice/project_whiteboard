@@ -94,6 +94,19 @@ class ClientIpResolverTest {
     }
 
     @Test
+    @DisplayName("trusted proxy comparison uses canonical IP")
+    void resolve_trustedProxyComparisonUsesCanonicalIp() {
+        ClientIpProperties properties = trustedProxyProperties("2001:db8::10");
+        ClientIpResolver resolver = new ClientIpResolver(properties);
+        MockHttpServletRequest request = request("2001:DB8:0:0:0:0:0:10");
+        request.addHeader("X-Forwarded-For", "010.000.000.001");
+
+        String clientIp = resolver.resolve(request);
+
+        assertThat(clientIp).isEqualTo("10.0.0.1");
+    }
+
+    @Test
     @DisplayName("신뢰 프록시 요청에서 X-Forwarded-For가 없으면 X-Real-IP를 사용한다")
     void resolve_usesXRealIpWhenForwardedForMissing() {
         ClientIpProperties properties = trustedProxyProperties("10.0.0.10");

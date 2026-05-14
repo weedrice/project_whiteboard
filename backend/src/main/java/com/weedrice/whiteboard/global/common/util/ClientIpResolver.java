@@ -5,10 +5,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
-import java.net.Inet6Address;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.List;
+import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -34,13 +32,14 @@ public class ClientIpResolver {
     }
 
     private boolean isTrustedProxy(String remoteAddr) {
-        if (!StringUtils.hasText(remoteAddr)) {
+        String normalizedRemoteAddr = IpAddressCanonicalizer.canonicalize(remoteAddr).orElse(null);
+        if (!StringUtils.hasText(normalizedRemoteAddr)) {
             return false;
         }
         return clientIpProperties.getTrustedProxies().stream()
-                .filter(StringUtils::hasText)
-                .map(String::trim)
-                .anyMatch(remoteAddr.trim()::equals);
+                .map(IpAddressCanonicalizer::canonicalize)
+                .flatMap(Optional::stream)
+                .anyMatch(normalizedRemoteAddr::equals);
     }
 
     private String resolveForwardedIp(HttpServletRequest request, String fallbackIp) {
@@ -60,51 +59,14 @@ public class ClientIpResolver {
 
         String[] candidates = headerValue.split(",");
         for (String candidate : candidates) {
-            String normalizedCandidate = candidate == null ? null : candidate.trim();
-            if (StringUtils.hasText(normalizedCandidate)
-                    && !"unknown".equalsIgnoreCase(normalizedCandidate)
-                    && isIpLiteral(normalizedCandidate)) {
-                return normalizedCandidate;
+            if (candidate != null && "unknown".equalsIgnoreCase(candidate.trim())) {
+                continue;
+            }
+            Optional<String> normalizedCandidate = IpAddressCanonicalizer.canonicalize(candidate);
+            if (normalizedCandidate.isPresent()) {
+                return normalizedCandidate.get();
             }
         }
         return null;
-    }
-
-    private boolean isIpLiteral(String value) {
-        return isIpv4Literal(value) || isIpv6Literal(value);
-    }
-
-    private boolean isIpv4Literal(String value) {
-        String[] parts = value.split("\\.", -1);
-        if (parts.length != 4) {
-            return false;
-        }
-
-        for (String part : parts) {
-            if (part.isEmpty() || !part.chars().allMatch(Character::isDigit)) {
-                return false;
-            }
-            int parsedPart;
-            try {
-                parsedPart = Integer.parseInt(part);
-            } catch (NumberFormatException ex) {
-                return false;
-            }
-            if (parsedPart < 0 || parsedPart > 255) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private boolean isIpv6Literal(String value) {
-        if (!value.contains(":") || value.contains("%")) {
-            return false;
-        }
-        try {
-            return InetAddress.getByName(value) instanceof Inet6Address;
-        } catch (UnknownHostException ex) {
-            return false;
-        }
     }
 }

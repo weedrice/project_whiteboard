@@ -57,6 +57,17 @@ class GlobalConfigServiceTest {
     }
 
     @Test
+    @DisplayName("getConfig trims key before lookup")
+    void getConfig_trimsKeyBeforeLookup() {
+        GlobalConfig config = new GlobalConfig("key", "value", "desc");
+        when(globalConfigRepository.findById("key")).thenReturn(Optional.of(config));
+
+        String value = globalConfigService.getConfig(" key ");
+
+        assertThat(value).isEqualTo("value");
+    }
+
+    @Test
     @DisplayName("getConfig returns null for missing config")
     void getConfig_missing_returnsNull() {
         when(globalConfigRepository.findById("key")).thenReturn(Optional.empty());
@@ -159,6 +170,25 @@ class GlobalConfigServiceTest {
     }
 
     @Test
+    @DisplayName("createConfig trims key value and description consistently")
+    void createConfig_trimsInputBeforeRepositoryAndCacheAccess() {
+        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
+            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
+            when(globalConfigRepository.existsById("key")).thenReturn(false);
+            when(globalConfigRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+            when(cacheManager.getCache("globalConfig")).thenReturn(cache);
+
+            GlobalConfigResponse created = globalConfigService.createConfig(" key ", " value ", " desc ");
+
+            assertThat(created.getKey()).isEqualTo("key");
+            assertThat(created.getValue()).isEqualTo("value");
+            assertThat(created.getDescription()).isEqualTo("desc");
+            verify(globalConfigRepository).existsById("key");
+            verify(cache).put("key", "value");
+        }
+    }
+
+    @Test
     @DisplayName("createConfig refreshes cache after transaction commit when synchronization is active")
     void createConfig_activeTransactionSynchronization_refreshesCacheAfterCommit() {
         try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
@@ -238,6 +268,9 @@ class GlobalConfigServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
             assertThatThrownBy(() -> globalConfigService.createConfig("POINT_POST_CREATE_REWARD", "-1", "desc"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+            assertThatThrownBy(() -> globalConfigService.createConfig(" POINT_SIGNUP_BONUS ", "invalid", "desc"))
                     .isInstanceOf(BusinessException.class)
                     .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
 
@@ -320,6 +353,25 @@ class GlobalConfigServiceTest {
             GlobalConfigResponse updated = globalConfigService.updateConfig("key", "new", "new");
 
             assertThat(updated.getValue()).isEqualTo("new");
+        }
+    }
+
+    @Test
+    @DisplayName("updateConfig trims key value and description consistently")
+    void updateConfig_trimsInputBeforeRepositoryAndCacheAccess() {
+        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
+            GlobalConfig config = new GlobalConfig("key", "old", "old");
+            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
+            when(globalConfigRepository.findById("key")).thenReturn(Optional.of(config));
+            when(globalConfigRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+            when(cacheManager.getCache("globalConfig")).thenReturn(cache);
+
+            GlobalConfigResponse updated = globalConfigService.updateConfig(" key ", " new ", " desc ");
+
+            assertThat(updated.getValue()).isEqualTo("new");
+            assertThat(updated.getDescription()).isEqualTo("desc");
+            verify(globalConfigRepository).findById("key");
+            verify(cache).put("key", "new");
         }
     }
 

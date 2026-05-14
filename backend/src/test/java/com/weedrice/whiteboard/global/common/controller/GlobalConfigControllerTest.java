@@ -136,6 +136,20 @@ class GlobalConfigControllerTest {
     }
 
     @Test
+    @DisplayName("GET /configs/{key} response uses normalized key")
+    void getConfig_normalizesResponseKey() throws Exception {
+        when(globalConfigService.getConfigOrThrow(" key ")).thenReturn("value");
+
+        mockMvc.perform(get("/api/v1/configs/{key}", " key ")
+                .with(user(adminUser))
+                .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.key").value("key"))
+                .andExpect(jsonPath("$.data.value").value("value"));
+    }
+
+    @Test
     @DisplayName("단건 설정 조회는 없는 key에 404를 반환한다")
     void getConfig_missing_returnsNotFound() throws Exception {
         when(globalConfigService.getConfigOrThrow("missing"))

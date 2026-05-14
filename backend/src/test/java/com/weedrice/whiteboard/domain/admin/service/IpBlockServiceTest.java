@@ -113,14 +113,15 @@ class IpBlockServiceTest {
     @Test
     @DisplayName("IPv6 리터럴도 차단 주소로 허용한다")
     void blockIp_acceptsIpv6Literal() {
-        String ipAddress = "2001:db8::1";
+        String ipAddress = "2001:DB8:0:0:0:0:0:1";
+        String normalizedIpAddress = "2001:db8::1";
 
-        when(ipBlockRepository.findByIdForUpdate(ipAddress)).thenReturn(Optional.empty());
+        when(ipBlockRepository.findByIdForUpdate(normalizedIpAddress)).thenReturn(Optional.empty());
         when(ipBlockRepository.saveAndFlush(any(IpBlock.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         IpBlockResponse response = ipBlockService.blockIp(1L, ipAddress, "test", null);
 
-        assertThat(response.getIpAddress()).isEqualTo(ipAddress);
+        assertThat(response.getIpAddress()).isEqualTo(normalizedIpAddress);
         verify(ipBlockRepository).saveAndFlush(any(IpBlock.class));
     }
 
