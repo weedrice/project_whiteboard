@@ -104,8 +104,8 @@ class FileRepositoryTest {
     }
 
     @Test
-    @DisplayName("임시 파일이나 draft 파일만 조건부로 연결한다")
-    void associateIfUnassociatedOrDraft_updatesOnlyAllowedFiles() {
+    @DisplayName("임시 파일이나 원본 초안 파일만 조건부로 연결한다")
+    void associateIfUnassociatedOrSourceDraft_updatesOnlyAllowedFiles() {
         File temporaryFile = File.builder()
                 .originalName("temporary.jpg")
                 .filePath("path/to/temporary.jpg")
@@ -124,27 +124,47 @@ class FileRepositoryTest {
                 .relatedType("DRAFT_POST")
                 .build();
         entityManager.persist(draftFile);
+        File otherDraftFile = File.builder()
+                .originalName("other-draft.jpg")
+                .filePath("path/to/other-draft.jpg")
+                .fileSize(512L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .relatedId(98L)
+                .relatedType("DRAFT_POST")
+                .build();
+        entityManager.persist(otherDraftFile);
         entityManager.flush();
         entityManager.clear();
 
-        int temporaryUpdated = fileRepository.associateIfUnassociatedOrDraft(
+        int temporaryUpdated = fileRepository.associateIfUnassociatedOrSourceDraft(
                 temporaryFile.getFileId(), uploader.getUserId(), 100L, "POST_CONTENT", "DRAFT_POST",
+                99L,
                 LocalDateTime.now());
-        int draftUpdated = fileRepository.associateIfUnassociatedOrDraft(
+        int draftUpdated = fileRepository.associateIfUnassociatedOrSourceDraft(
                 draftFile.getFileId(), uploader.getUserId(), 100L, "POST_CONTENT", "DRAFT_POST",
+                99L,
                 LocalDateTime.now());
-        int alreadyAssociatedUpdated = fileRepository.associateIfUnassociatedOrDraft(
+        int otherDraftUpdated = fileRepository.associateIfUnassociatedOrSourceDraft(
+                otherDraftFile.getFileId(), uploader.getUserId(), 100L, "POST_CONTENT", "DRAFT_POST",
+                99L,
+                LocalDateTime.now());
+        int alreadyAssociatedUpdated = fileRepository.associateIfUnassociatedOrSourceDraft(
                 file.getFileId(), uploader.getUserId(), 100L, "POST_CONTENT", "DRAFT_POST",
+                99L,
                 LocalDateTime.now());
 
         assertThat(temporaryUpdated).isEqualTo(1);
         assertThat(draftUpdated).isEqualTo(1);
+        assertThat(otherDraftUpdated).isZero();
         assertThat(alreadyAssociatedUpdated).isZero();
         entityManager.clear();
         File updatedTemporaryFile = entityManager.find(File.class, temporaryFile.getFileId());
         File updatedDraftFile = entityManager.find(File.class, draftFile.getFileId());
+        File unchangedOtherDraftFile = entityManager.find(File.class, otherDraftFile.getFileId());
         assertThat(updatedTemporaryFile.isAssociatedWith(100L, "POST_CONTENT")).isTrue();
         assertThat(updatedDraftFile.isAssociatedWith(100L, "POST_CONTENT")).isTrue();
+        assertThat(unchangedOtherDraftFile.isAssociatedWith(98L, "DRAFT_POST")).isTrue();
     }
 
     @Test

@@ -309,14 +309,17 @@ public interface FileRepository extends JpaRepository<File, Long> {
                    OR f.storageStatus IS NULL)
               AND (
                     (f.relatedId IS NULL AND f.relatedType IS NULL)
-                    OR f.relatedType = :draftRelatedType
+                    OR (:sourceDraftId IS NOT NULL
+                        AND f.relatedType = :draftRelatedType
+                        AND f.relatedId = :sourceDraftId)
               )
             """)
-    int associateIfUnassociatedOrDraft(@Param("fileId") Long fileId,
+    int associateIfUnassociatedOrSourceDraft(@Param("fileId") Long fileId,
             @Param("ownerUserId") Long ownerUserId,
             @Param("relatedId") Long relatedId,
             @Param("relatedType") String relatedType,
             @Param("draftRelatedType") String draftRelatedType,
+            @Param("sourceDraftId") Long sourceDraftId,
             @Param("modifiedAt") LocalDateTime modifiedAt);
 
     @Modifying(flushAutomatically = true)

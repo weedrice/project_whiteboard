@@ -296,8 +296,28 @@ class PostServiceTest {
         ArgumentCaptor<Post> postCaptor = ArgumentCaptor.forClass(Post.class);
         verify(tagAssignmentService).assignTags(postCaptor.capture(), eq(request.getTags()));
         assertThat(postCaptor.getValue().getTitle()).isEqualTo("New Post");
-        verify(fileService).attachFilesToPost(List.of(1L, 2L), 1L, 100L);
+        verify(fileService).attachFilesToPost(List.of(1L, 2L), 1L, 100L, null);
         verify(pointService).addPointIfAbsent(eq(1L), eq(50), anyString(), eq(100L), eq("POST"));
+    }
+
+    @Test
+    @DisplayName("게시글 생성은 초안 파일 승격을 위해 draftId를 파일 서비스에 전달한다")
+    void createPost_withDraftId_passesDraftIdToFileService() {
+        PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(),
+                false, false, false, false, 55L, List.of(1L));
+
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+        when(postRepository.save(any(Post.class))).thenAnswer(invocation -> {
+            Post p = invocation.getArgument(0);
+            ReflectionTestUtils.setField(p, "postId", 100L);
+            return p;
+        });
+
+        postService.createPost(1L, "free", request);
+
+        verify(fileService).attachFilesToPost(List.of(1L), 1L, 100L, 55L);
     }
 
     @Test
@@ -914,8 +934,22 @@ class PostServiceTest {
         assertThat(updatedId).isEqualTo(1L);
         assertThat(post.getTitle()).isEqualTo("Updated Title");
         verify(tagAssignmentService).assignTags(post, request.getTags());
-        verify(fileService).syncPostFiles(List.of(5L), 1L, 1L);
+        verify(fileService).syncPostFiles(List.of(5L), 1L, 1L, null);
         verify(postVersionRepository).save(any(PostVersion.class));
+    }
+
+    @Test
+    @DisplayName("게시글 수정은 초안 파일 승격을 위해 draftId를 파일 서비스에 전달한다")
+    void updatePost_withDraftId_passesDraftIdToFileService() {
+        PostUpdateRequest request = new PostUpdateRequest(null, "Updated Title", "Updated Contents",
+                Collections.emptyList(), false, false, false, 55L, List.of(5L));
+
+        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        postService.updatePost(1L, 1L, request);
+
+        verify(fileService).syncPostFiles(List.of(5L), 1L, 1L, 55L);
     }
 
     @Test
@@ -976,7 +1010,7 @@ class PostServiceTest {
 
         postService.updatePost(1L, 1L, request);
 
-        verify(fileService).syncPostFiles(List.of(), 1L, 1L);
+        verify(fileService).syncPostFiles(List.of(), 1L, 1L, null);
     }
 
     @Test

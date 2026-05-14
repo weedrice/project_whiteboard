@@ -193,16 +193,31 @@ public class FileService {
             }
         }
 
-        associateOrMoveOwnedFiles(requestedFileIds, ownerUserId, draftId, RELATED_TYPE_DRAFT_POST);
+        associateOrMoveOwnedFiles(requestedFileIds, ownerUserId, draftId, RELATED_TYPE_DRAFT_POST, draftId);
     }
 
     @Transactional
     public void attachFilesToPost(List<Long> fileIds, Long ownerUserId, Long postId) {
-        associateOrMoveOwnedFiles(normalizeFileIds(fileIds), ownerUserId, postId, RELATED_TYPE_POST_CONTENT);
+        attachFilesToPost(fileIds, ownerUserId, postId, null);
+    }
+
+    @Transactional
+    public void attachFilesToPost(List<Long> fileIds, Long ownerUserId, Long postId, Long sourceDraftId) {
+        associateOrMoveOwnedFiles(
+                normalizeFileIds(fileIds),
+                ownerUserId,
+                postId,
+                RELATED_TYPE_POST_CONTENT,
+                sourceDraftId);
     }
 
     @Transactional
     public void syncPostFiles(List<Long> fileIds, Long ownerUserId, Long postId) {
+        syncPostFiles(fileIds, ownerUserId, postId, null);
+    }
+
+    @Transactional
+    public void syncPostFiles(List<Long> fileIds, Long ownerUserId, Long postId, Long sourceDraftId) {
         Set<Long> requestedFileIds = normalizeFileIds(fileIds);
         List<File> existingPostFiles = fileRepository.findActiveByRelatedIdAndRelatedTypeForUpdate(
                 postId,
@@ -214,7 +229,7 @@ public class FileService {
             }
         }
 
-        associateOrMoveOwnedFiles(requestedFileIds, ownerUserId, postId, RELATED_TYPE_POST_CONTENT);
+        associateOrMoveOwnedFiles(requestedFileIds, ownerUserId, postId, RELATED_TYPE_POST_CONTENT, sourceDraftId);
     }
 
     @Transactional
@@ -247,7 +262,8 @@ public class FileService {
                 .toList());
     }
 
-    private void associateOrMoveOwnedFiles(Set<Long> fileIds, Long ownerUserId, Long relatedId, String relatedType) {
+    private void associateOrMoveOwnedFiles(Set<Long> fileIds, Long ownerUserId, Long relatedId, String relatedType,
+            Long sourceDraftId) {
         if (fileIds.isEmpty()) {
             return;
         }
@@ -267,19 +283,20 @@ public class FileService {
             if (file.isAssociatedWith(relatedId, relatedType)) {
                 continue;
             }
-            if (file.isUnassociated() || RELATED_TYPE_DRAFT_POST.equals(file.getRelatedType())) {
+            if (file.isUnassociated() || isSourceDraftFile(file, sourceDraftId)) {
                 continue;
             }
             throw new BusinessException(ErrorCode.FILE_ALREADY_ASSOCIATED);
         }
         for (File file : filesById.values()) {
             if (!file.isAssociatedWith(relatedId, relatedType)) {
-                int updated = fileRepository.associateIfUnassociatedOrDraft(
+                int updated = fileRepository.associateIfUnassociatedOrSourceDraft(
                         file.getFileId(),
                         ownerUserId,
                         relatedId,
                         relatedType,
                         RELATED_TYPE_DRAFT_POST,
+                        sourceDraftId,
                         LocalDateTime.now());
                 if (updated != 1) {
                     handleFailedBatchAssociation(file, ownerUserId, relatedId, relatedType);
@@ -288,6 +305,12 @@ public class FileService {
                 file.updateRelatedInfo(relatedId, relatedType);
             }
         }
+    }
+
+    private boolean isSourceDraftFile(File file, Long sourceDraftId) {
+        return sourceDraftId != null
+                && RELATED_TYPE_DRAFT_POST.equals(file.getRelatedType())
+                && sourceDraftId.equals(file.getRelatedId());
     }
 
     private void handleFailedBatchAssociation(File file, Long ownerUserId, Long relatedId, String relatedType) {

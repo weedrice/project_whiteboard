@@ -38,5 +38,12 @@ public class PostUpdateRequest {
     @JsonProperty("isSecret")
     private boolean isSecret;
 
+    private Long draftId;
+
     private List<Long> fileIds;
+
+    public PostUpdateRequest(Long categoryId, String title, String contents, List<String> tags,
+            boolean isNsfw, boolean isSpoiler, boolean isSecret, List<Long> fileIds) {
+        this(categoryId, title, contents, tags, isNsfw, isSpoiler, isSecret, null, fileIds);
+    }
 }

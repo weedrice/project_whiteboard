@@ -19,6 +19,7 @@ export interface PostCreateData {
     isSpoiler?: boolean
     isSecret?: boolean
     tags?: string[]
+    draftId?: number
     fileIds?: number[]
 }
 
@@ -31,6 +32,7 @@ export interface PostUpdateData {
     isSpoiler?: boolean
     isSecret?: boolean
     tags?: string[]
+    draftId?: number
     fileIds?: number[]
 }
 

@@ -127,7 +127,7 @@ public class PostCommandService {
         savePostVersion(savedPost, user, "CREATE", null, null);
 
         if (request.getFileIds() != null && !request.getFileIds().isEmpty()) {
-            fileService.attachFilesToPost(request.getFileIds(), userId, savedPost.getPostId());
+            fileService.attachFilesToPost(request.getFileIds(), userId, savedPost.getPostId(), request.getDraftId());
         }
 
         contentRewardService.rewardCreate(userId, savedPost.getPostId(), ContentRewardPolicy.POST);
@@ -222,7 +222,7 @@ public class PostCommandService {
         tagAssignmentService.assignTags(post, request.getTags());
 
         if (request.getFileIds() != null) {
-            fileService.syncPostFiles(request.getFileIds(), userId, post.getPostId());
+            fileService.syncPostFiles(request.getFileIds(), userId, post.getPostId(), request.getDraftId());
         }
 
         savePostVersion(post, modifier, "MODIFY", originalTitle, originalContents);

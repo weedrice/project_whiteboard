@@ -96,6 +96,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const restoreSource = ref<'idle' | 'local' | 'server'>('idle')
     const hasRestoredDraft = ref(false)
     let autosaveTimer: ReturnType<typeof setTimeout> | null = null
+    let savePromise: Promise<DraftPost | null> | null = null
 
     const clearAutosaveTimer = () => {
         if (autosaveTimer) {
@@ -120,8 +121,9 @@ export function usePostDraft(options: UsePostDraftOptions) {
         Storage.set(options.storageKey.value, snapshot)
     }
 
-    const saveNow = async () => {
+    const persistNow = async () => {
         if (!options.enabled.value) return null
+        clearAutosaveTimer()
         const payload = options.buildPayload()
         const hasMeaningfulContent = Boolean(
             payload.title?.trim()
@@ -160,6 +162,16 @@ export function usePostDraft(options: UsePostDraftOptions) {
             updatedAt: updatedAt.value ?? undefined,
         })
         return savedDraft
+    }
+
+    const saveNow = async () => {
+        if (savePromise) {
+            return savePromise
+        }
+        savePromise = persistNow().finally(() => {
+            savePromise = null
+        })
+        return savePromise
     }
 
     const scheduleAutosave = () => {

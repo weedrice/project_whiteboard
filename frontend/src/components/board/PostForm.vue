@@ -333,6 +333,7 @@ const {
   lastSavedAt,
   isSavingDraft,
   restoreSource,
+  draftId,
 } = usePostDraft({
   enabled: draftEnabled,
   storageKey: draftStorageKey,
@@ -543,7 +544,7 @@ function navigateAfterCreate(newPostId: string | number, payload: ReturnType<typ
   router.push(`/board/${boardUrl.value}/post/${newPostId}`)
 }
 
-function handleSubmit() {
+async function handleSubmit() {
   if (!form.value.title) {
     toastStore.addToast(t('board.writePost.validation'), 'error')
     return
@@ -553,7 +554,23 @@ function handleSubmit() {
     return
   }
 
-  const payload = buildPayload()
+  let currentDraftId = draftId.value ?? undefined
+  if (draftEnabled.value) {
+    try {
+      const savedDraft = await saveDraftNow()
+      if (savedDraft?.draftId != null) {
+        currentDraftId = savedDraft.draftId
+      }
+    } catch (error) {
+      logger.error('Failed to save draft before submit:', error)
+      toastStore.addToast(t('common.error.unknown'), 'error')
+      return
+    }
+  }
+  const payload = {
+    ...buildPayload(),
+    ...(currentDraftId !== undefined && { draftId: currentDraftId }),
+  }
 
   if (props.mode === 'create') {
     createPost({ boardUrl: boardUrl.value, data: payload }, {

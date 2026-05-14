@@ -41,6 +41,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -486,29 +487,57 @@ class FileServiceTest {
         ReflectionTestUtils.setField(draftFile, "fileId", 11L);
         when(fileRepository.findByFileIdInAndStorageStatus(List.of(10L, 11L), FileStorageStatus.ACTIVE))
                 .thenReturn(List.of(draftFile, imageFile));
-        when(fileRepository.associateIfUnassociatedOrDraft(
+        when(fileRepository.associateIfUnassociatedOrSourceDraft(
                 eq(10L),
                 eq(1L),
                 eq(100L),
                 eq(FileService.RELATED_TYPE_POST_CONTENT),
                 eq(FileService.RELATED_TYPE_DRAFT_POST),
+                eq(99L),
                 any(LocalDateTime.class)))
                 .thenReturn(1);
-        when(fileRepository.associateIfUnassociatedOrDraft(
+        when(fileRepository.associateIfUnassociatedOrSourceDraft(
                 eq(11L),
                 eq(1L),
                 eq(100L),
                 eq(FileService.RELATED_TYPE_POST_CONTENT),
                 eq(FileService.RELATED_TYPE_DRAFT_POST),
+                eq(99L),
                 any(LocalDateTime.class)))
                 .thenReturn(1);
 
-        fileService.attachFilesToPost(Arrays.asList(10L, 11L, 10L, null), 1L, 100L);
+        fileService.attachFilesToPost(Arrays.asList(10L, 11L, 10L, null), 1L, 100L, 99L);
 
         assertThat(imageFile.isAssociatedWith(100L, FileService.RELATED_TYPE_POST_CONTENT)).isTrue();
         assertThat(draftFile.isAssociatedWith(100L, FileService.RELATED_TYPE_POST_CONTENT)).isTrue();
         verify(fileRepository).findByFileIdInAndStorageStatus(List.of(10L, 11L), FileStorageStatus.ACTIVE);
         verify(fileRepository, never()).findByFileIdAndStorageStatus(any(), any());
+    }
+
+    @Test
+    @DisplayName("게시글 첨부 파일은 다른 초안에 묶인 파일을 거부한다")
+    void attachFilesToPost_rejectsOtherDraftFile() {
+        User uploader = User.builder().build();
+        ReflectionTestUtils.setField(uploader, "userId", 1L);
+        File draftFile = File.builder()
+                .filePath("draft.jpg")
+                .originalName("draft.jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .relatedId(99L)
+                .relatedType(FileService.RELATED_TYPE_DRAFT_POST)
+                .build();
+        ReflectionTestUtils.setField(draftFile, "fileId", 11L);
+        when(fileRepository.findByFileIdInAndStorageStatus(List.of(11L), FileStorageStatus.ACTIVE))
+                .thenReturn(List.of(draftFile));
+
+        assertThatThrownBy(() -> fileService.attachFilesToPost(List.of(11L), 1L, 100L, 77L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FILE_ALREADY_ASSOCIATED);
+
+        verify(fileRepository, never()).associateIfUnassociatedOrSourceDraft(
+                any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -526,12 +555,13 @@ class FileServiceTest {
         ReflectionTestUtils.setField(file, "fileId", 10L);
         when(fileRepository.findByFileIdInAndStorageStatus(List.of(10L), FileStorageStatus.ACTIVE))
                 .thenReturn(List.of(file));
-        when(fileRepository.associateIfUnassociatedOrDraft(
+        when(fileRepository.associateIfUnassociatedOrSourceDraft(
                 eq(10L),
                 eq(1L),
                 eq(100L),
                 eq(FileService.RELATED_TYPE_POST_CONTENT),
                 eq(FileService.RELATED_TYPE_DRAFT_POST),
+                isNull(),
                 any(LocalDateTime.class)))
                 .thenAnswer(invocation -> {
                     file.updateRelatedInfo(200L, FileService.RELATED_TYPE_POST_CONTENT);
@@ -564,6 +594,36 @@ class FileServiceTest {
         assertThatThrownBy(() -> fileService.attachFilesToPost(List.of(10L, 11L), 1L, 100L))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("초안 파일 동기화는 다른 초안에 묶인 파일을 거부한다")
+    void syncDraftFiles_rejectsOtherDraftFile() {
+        User uploader = User.builder().build();
+        ReflectionTestUtils.setField(uploader, "userId", 1L);
+        File otherDraftFile = File.builder()
+                .filePath("other-draft.jpg")
+                .originalName("other-draft.jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .relatedId(99L)
+                .relatedType(FileService.RELATED_TYPE_DRAFT_POST)
+                .build();
+        ReflectionTestUtils.setField(otherDraftFile, "fileId", 11L);
+        when(fileRepository.findByRelatedIdAndRelatedTypeAndStorageStatus(
+                77L,
+                FileService.RELATED_TYPE_DRAFT_POST,
+                FileStorageStatus.ACTIVE)).thenReturn(List.of());
+        when(fileRepository.findByFileIdInAndStorageStatus(List.of(11L), FileStorageStatus.ACTIVE))
+                .thenReturn(List.of(otherDraftFile));
+
+        assertThatThrownBy(() -> fileService.syncDraftFiles(List.of(11L), 1L, 77L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FILE_ALREADY_ASSOCIATED);
+
+        verify(fileRepository, never()).associateIfUnassociatedOrSourceDraft(
+                any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test

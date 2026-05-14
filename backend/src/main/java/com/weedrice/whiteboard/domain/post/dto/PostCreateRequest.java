@@ -41,5 +41,12 @@ public class PostCreateRequest {
     @JsonProperty("isSecret")
     private boolean isSecret = false;
 
+    private Long draftId;
+
     private List<Long> fileIds;
+
+    public PostCreateRequest(Long categoryId, String title, String contents, List<String> tags,
+            boolean isNotice, boolean isNsfw, boolean isSpoiler, boolean isSecret, List<Long> fileIds) {
+        this(categoryId, title, contents, tags, isNotice, isNsfw, isSpoiler, isSecret, null, fileIds);
+    }
 }

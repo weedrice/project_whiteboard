@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick, ref } from 'vue'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import type { EmoticonImage } from '@/types/emoticon'
 import PostForm from '../PostForm.vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -496,6 +496,25 @@ describe('PostForm', () => {
         expect(mockPush).toHaveBeenCalledWith('/board/free/post/99')
     })
 
+    it('saves the draft before create submit and includes draft id', async () => {
+        vi.mocked(useAuthStore).mockReturnValue({
+            isAuthenticated: true,
+            user: { userId: 1, role: 'USER' },
+        } as any)
+        categoriesRef.value = [{ categoryId: 12, name: 'General', minWriteRole: 'USER' }]
+        const wrapper = mountPostForm('create')
+
+        await wrapper.get('#title').setValue('Created title')
+        await wrapper.get('#category').setValue('12')
+        await wrapper.get('[data-testid=\"editor-input\"]').setValue('Created body')
+
+        await wrapper.get('form').trigger('submit')
+        await flushPromises()
+
+        const [variables] = mockCreateMutate.mock.calls.at(-1) as [any]
+        expect(variables.data.draftId).toBe(91)
+    })
+
     it('normalizes local editor preview images before submit', async () => {
         categoriesRef.value = [{ categoryId: 12, name: 'General', minWriteRole: 'USER' }]
         const wrapper = mountPostForm('create')
@@ -614,6 +633,32 @@ describe('PostForm', () => {
 
         options.onSuccess()
         expect(mockPush).toHaveBeenCalledWith('/board/free/post/77')
+    })
+
+    it('saves the draft before update submit and includes draft id', async () => {
+        vi.mocked(useAuthStore).mockReturnValue({
+            isAuthenticated: true,
+            user: { userId: 1, role: 'USER' },
+        } as any)
+        routeState.params.postId = '77'
+        postRef.value = {
+            postId: 77,
+            title: 'Before title',
+            contents: 'Before body',
+            category: { categoryId: 5 },
+            tags: ['before'],
+            isNsfw: false,
+            isSpoiler: false,
+        }
+        const wrapper = mountPostForm('edit')
+        await nextTick()
+
+        await wrapper.get('#title').setValue('After title')
+        await wrapper.get('form').trigger('submit')
+        await flushPromises()
+
+        const [variables] = mockUpdateMutate.mock.calls.at(-1) as [any]
+        expect(variables.data.draftId).toBe(91)
     })
 
     it('preserves existing edit image file ids from post content', async () => {
