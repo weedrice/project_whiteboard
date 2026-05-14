@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.report.service;
 
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.report.dto.MyReportResponse;
@@ -20,9 +21,12 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -59,7 +63,7 @@ class ReportReadAssemblerTest {
         ReflectionTestUtils.setField(report, "reportId", 2L);
 
         Page<Report> page = new PageImpl<>(List.of(report), PageRequest.of(0, 10), 1);
-        when(userRepository.findAllById(List.of(30L))).thenReturn(List.of(targetUser));
+        when(userRepository.findAllById(argThat(ids -> containsExactlyIds(ids, 30L)))).thenReturn(List.of(targetUser));
 
         Page<ReportResponse> result = reportReadAssembler.toAdminResponsePage(page);
 
@@ -96,7 +100,7 @@ class ReportReadAssemblerTest {
         ReflectionTestUtils.setField(commentReport, "reportId", 4L);
 
         Post post = Post.builder()
-                .board(com.weedrice.whiteboard.domain.board.entity.Board.builder().creator(reporter).build())
+                .board(Board.builder().creator(reporter).build())
                 .user(postAuthor)
                 .title("Reported Post")
                 .contents("contents")
@@ -122,13 +126,17 @@ class ReportReadAssemblerTest {
     }
 
     @Test
-    @DisplayName("toMyReportResponsePage populates user display name only for user target")
-    void toMyReportResponsePage_populatesUserDisplayNameOnlyForUserTarget() {
+    @DisplayName("toMyReportResponsePage populates target author display names")
+    void toMyReportResponsePage_populatesTargetAuthorDisplayNames() {
         User reporter = User.builder().displayName("Reporter").build();
         ReflectionTestUtils.setField(reporter, "userId", 1L);
 
         User targetUser = User.builder().displayName("Target User").build();
         ReflectionTestUtils.setField(targetUser, "userId", 30L);
+        User postAuthor = User.builder().displayName("Post Author").build();
+        ReflectionTestUtils.setField(postAuthor, "userId", 44L);
+        User commentAuthor = User.builder().displayName("Comment Author").build();
+        ReflectionTestUtils.setField(commentAuthor, "userId", 55L);
 
         Report userReport = Report.builder()
                 .reporter(reporter)
@@ -142,16 +150,51 @@ class ReportReadAssemblerTest {
                 .targetId(40L)
                 .reasonType("SPAM")
                 .build();
+        Report commentReport = Report.builder()
+                .reporter(reporter)
+                .targetType("COMMENT")
+                .targetId(50L)
+                .reasonType("ABUSE")
+                .build();
         ReflectionTestUtils.setField(userReport, "reportId", 5L);
         ReflectionTestUtils.setField(postReport, "reportId", 6L);
+        ReflectionTestUtils.setField(commentReport, "reportId", 7L);
 
-        Page<Report> page = new PageImpl<>(List.of(userReport, postReport), PageRequest.of(0, 10), 2);
-        when(userRepository.findAllById(List.of(30L))).thenReturn(List.of(targetUser));
+        Post post = Post.builder()
+                .board(Board.builder().creator(reporter).build())
+                .user(postAuthor)
+                .title("Reported Post")
+                .contents("contents")
+                .build();
+        ReflectionTestUtils.setField(post, "postId", 40L);
+
+        Comment comment = Comment.builder()
+                .post(post)
+                .user(commentAuthor)
+                .content("comment")
+                .build();
+        ReflectionTestUtils.setField(comment, "commentId", 50L);
+
+        Page<Report> page = new PageImpl<>(List.of(userReport, postReport, commentReport), PageRequest.of(0, 10), 3);
+        when(postRepository.findByPostIdIn(List.of(40L))).thenReturn(List.of(post));
+        when(commentRepository.findByCommentIdIn(List.of(50L))).thenReturn(List.of(comment));
+        when(userRepository.findAllById(argThat(ids -> containsExactlyIds(ids, 30L, 44L, 55L))))
+                .thenReturn(List.of(targetUser, postAuthor, commentAuthor));
 
         Page<MyReportResponse> result = reportReadAssembler.toMyReportResponsePage(page);
 
-        assertThat(result.getContent()).hasSize(2);
+        assertThat(result.getContent()).hasSize(3);
         assertThat(result.getContent().get(0).getTargetDisplayName()).isEqualTo("Target User");
-        assertThat(result.getContent().get(1).getTargetDisplayName()).isNull();
+        assertThat(result.getContent().get(1).getTargetDisplayName()).isEqualTo("Post Author");
+        assertThat(result.getContent().get(2).getTargetDisplayName()).isEqualTo("Comment Author");
+    }
+
+    private boolean containsExactlyIds(Iterable<Long> actualIds, Long... expectedIds) {
+        if (actualIds == null) {
+            return false;
+        }
+        Set<Long> actual = new HashSet<>();
+        actualIds.forEach(actual::add);
+        return actual.equals(Set.of(expectedIds));
     }
 }

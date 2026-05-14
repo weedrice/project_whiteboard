@@ -16,8 +16,10 @@ import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Component
 @RequiredArgsConstructor
@@ -28,17 +30,17 @@ class ReportReadAssembler {
     private final CommentRepository commentRepository;
 
     public Page<ReportResponse> toAdminResponsePage(Page<Report> reports) {
-        ReportTargetMetadata targetMetadata = loadTargetMetadata(reports.getContent());
+        ReportTargetMetadata targetMetadata = loadTargetMetadata(reports.getContent(), false);
         return reports.map(report -> toAdminResponse(report, targetMetadata));
     }
 
     public Page<MyReportResponse> toMyReportResponsePage(Page<Report> reports) {
-        ReportTargetMetadata targetMetadata = loadTargetMetadata(reports.getContent());
+        ReportTargetMetadata targetMetadata = loadTargetMetadata(reports.getContent(), true);
         return reports.map(report -> toMyReportResponse(report, targetMetadata));
     }
 
     public ReportResponse toAdminResponse(Report report) {
-        return toAdminResponse(report, loadTargetMetadata(List.of(report)));
+        return toAdminResponse(report, loadTargetMetadata(List.of(report), false));
     }
 
     private ReportResponse toAdminResponse(Report report, ReportTargetMetadata targetMetadata) {
@@ -68,14 +70,10 @@ class ReportReadAssembler {
     }
 
     private MyReportResponse toMyReportResponse(Report report, ReportTargetMetadata targetMetadata) {
-        User targetUser = isUserTarget(report)
-                ? targetMetadata.userTargets().get(report.getTargetId())
-                : null;
-
         return MyReportResponse.builder()
                 .reportId(report.getReportId())
                 .targetType(report.getTargetType())
-                .targetDisplayName(targetUser != null ? targetUser.getDisplayName() : null)
+                .targetDisplayName(resolveTargetDisplayName(report, targetMetadata))
                 .reasonType(report.getReasonType())
                 .status(report.getStatus())
                 .contents(report.getContents())
@@ -84,7 +82,7 @@ class ReportReadAssembler {
                 .build();
     }
 
-    private ReportTargetMetadata loadTargetMetadata(List<Report> reports) {
+    private ReportTargetMetadata loadTargetMetadata(List<Report> reports, boolean includeContentAuthorUsers) {
         List<Long> userTargetIds = reports.stream()
                 .filter(this::isUserTarget)
                 .map(Report::getTargetId)
@@ -101,11 +99,6 @@ class ReportReadAssembler {
                 .distinct()
                 .toList();
 
-        Map<Long, User> userTargets = userTargetIds.isEmpty()
-                ? Map.of()
-                : userRepository.findAllById(userTargetIds).stream()
-                        .collect(Collectors.toMap(User::getUserId, Function.identity()));
-
         Map<Long, Long> postTargetUserIds = postTargetIds.isEmpty()
                 ? Map.of()
                 : postRepository.findByPostIdIn(postTargetIds).stream()
@@ -115,6 +108,18 @@ class ReportReadAssembler {
                 ? Map.of()
                 : commentRepository.findByCommentIdIn(commentTargetIds).stream()
                         .collect(Collectors.toMap(Comment::getCommentId, comment -> comment.getUser().getUserId()));
+
+        Stream<Long> contentAuthorUserIds = Stream.concat(
+                postTargetUserIds.values().stream(),
+                commentTargetUserIds.values().stream());
+        Set<Long> targetUserIds = includeContentAuthorUsers
+                ? Stream.concat(userTargetIds.stream(), contentAuthorUserIds)
+                        .collect(Collectors.toSet())
+                : Set.copyOf(userTargetIds);
+        Map<Long, User> userTargets = targetUserIds.isEmpty()
+                ? Map.of()
+                : userRepository.findAllById(targetUserIds).stream()
+                        .collect(Collectors.toMap(User::getUserId, Function.identity()));
 
         return new ReportTargetMetadata(userTargets, postTargetUserIds, commentTargetUserIds);
     }
@@ -131,6 +136,15 @@ class ReportReadAssembler {
             return targetMetadata.commentTargetUserIds().get(report.getTargetId());
         }
         return null;
+    }
+
+    private String resolveTargetDisplayName(Report report, ReportTargetMetadata targetMetadata) {
+        Long targetUserId = resolveTargetUserId(report, targetMetadata);
+        if (targetUserId == null) {
+            return null;
+        }
+        User targetUser = targetMetadata.userTargets().get(targetUserId);
+        return targetUser != null ? targetUser.getDisplayName() : null;
     }
 
     private boolean isUserTarget(Report report) {
