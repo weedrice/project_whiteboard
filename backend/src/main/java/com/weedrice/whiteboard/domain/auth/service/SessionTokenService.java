@@ -7,12 +7,10 @@ import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.global.common.util.ClientUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.JwtTokenProvider;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -41,13 +39,6 @@ public class SessionTokenService {
     private final SanctionService sanctionService;
     private final TokenHashService tokenHashService;
     private final TransactionTemplate transactionTemplate;
-
-    @Transactional
-    public TokenResponse issueTokens(Authentication authentication, User user, HttpServletRequest httpServletRequest) {
-        String ipAddress = ClientUtils.getIp(httpServletRequest);
-        String userAgent = httpServletRequest != null ? httpServletRequest.getHeader("User-Agent") : null;
-        return issueTokens(authentication, user, ipAddress, userAgent);
-    }
 
     @Transactional
     public void logout(String token) {
