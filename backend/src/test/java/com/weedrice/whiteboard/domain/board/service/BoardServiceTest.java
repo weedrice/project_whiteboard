@@ -682,7 +682,7 @@ class BoardServiceTest {
 
         when(userDetails.getUsername()).thenReturn(user.getLoginId());
         when(userRepository.findByLoginId(user.getLoginId())).thenReturn(Optional.of(user));
-        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
 
         CustomUserDetails principal = new CustomUserDetails(1L, user.getLoginId(), "password", Collections.emptyList());
         SecurityContextHolder.getContext().setAuthentication(
@@ -696,6 +696,8 @@ class BoardServiceTest {
 
         assertThat(updatedBoard.getIsPublic()).isFalse();
         assertThat(updatedBoard.isAgentEnabled()).isFalse();
+        verify(boardRepository).findByBoardUrlForUpdate("test-board");
+        verify(boardRepository, never()).findByBoardUrl("test-board");
         verify(boardAiInfoRepository, never()).save(any(BoardAiInfo.class));
     }
 
@@ -713,7 +715,7 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(board, "sortOrder", 7);
 
         when(userDetails.getUsername()).thenReturn(user.getLoginId());
-        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
 
         authenticateUser();
         Board updatedBoard;
@@ -743,7 +745,7 @@ class BoardServiceTest {
 
         when(userDetails.getUsername()).thenReturn(user.getLoginId());
         when(userRepository.findByLoginId(user.getLoginId())).thenReturn(Optional.of(user));
-        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
 
         CustomUserDetails principal = new CustomUserDetails(1L, user.getLoginId(), "password", Collections.emptyList());
         SecurityContextHolder.getContext().setAuthentication(
@@ -767,7 +769,7 @@ class BoardServiceTest {
         BoardUpdateRequest request = createBoardUpdateRequest("Updated Board", "test-board", "/api/v1/files/88");
 
         when(userDetails.getUsername()).thenReturn(user.getLoginId());
-        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
         when(boardRepository.saveAndFlush(board))
                 .thenThrow(new DataIntegrityViolationException("duplicate key board_name"));
 
@@ -793,7 +795,7 @@ class BoardServiceTest {
         BoardUpdateRequest request = createBoardUpdateRequest("Test Board", "updated-board", "/api/v1/files/88");
 
         when(userDetails.getUsername()).thenReturn(user.getLoginId());
-        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
         when(boardRepository.existsByBoardUrl("updated-board")).thenReturn(false);
         when(boardRepository.saveAndFlush(board))
                 .thenThrow(new DataIntegrityViolationException(
@@ -823,7 +825,7 @@ class BoardServiceTest {
         BoardUpdateRequest request = createBoardUpdateRequest("Updated Board", "test-board", "/api/v1/files/88");
 
         when(userDetails.getUsername()).thenReturn(user.getLoginId());
-        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
         when(boardRepository.saveAndFlush(board))
                 .thenThrow(new DataIntegrityViolationException("duplicate key"));
 
@@ -840,6 +842,23 @@ class BoardServiceTest {
         verify(fileService, never()).replaceBoardIcon(anyLong(), anyLong(), anyLong());
         verify(fileService, never()).deleteFileWithStorageIfAssociated(anyLong(), anyLong(), anyString());
         verify(boardAiInfoRepository, never()).save(any(BoardAiInfo.class));
+    }
+
+    @Test
+    @DisplayName("게시판 삭제는 잠금 조회한 게시판을 비활성화한다")
+    void deleteBoard_usesLockedBoardLookup() {
+        UserDetails currentUserDetails = authenticateUser();
+        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
+
+        try {
+            boardService.deleteBoard("test-board", currentUserDetails);
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        assertThat(board.getIsActive()).isFalse();
+        verify(boardRepository).findByBoardUrlForUpdate("test-board");
+        verify(boardRepository, never()).findByBoardUrl("test-board");
     }
 
     @Test

@@ -161,7 +161,7 @@ class BoardProvisioningService {
     }
 
     Board updateBoard(String boardUrl, BoardUpdateRequest request, UserDetails userDetails) {
-        Board board = boardRepository.findByBoardUrl(boardUrl)
+        Board board = boardRepository.findByBoardUrlForUpdate(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         User currentUser = getCurrentUser(userDetails);
         String previousIconUrl = board.getIconUrl();
@@ -223,7 +223,7 @@ class BoardProvisioningService {
     }
 
     void deleteBoard(String boardUrl, UserDetails userDetails) {
-        Board board = boardRepository.findByBoardUrl(boardUrl)
+        Board board = boardRepository.findByBoardUrlForUpdate(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
         User currentUser = getCurrentUser(userDetails);
