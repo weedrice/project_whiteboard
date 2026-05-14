@@ -114,6 +114,7 @@ class MessageQueueRepositoryTest {
         assertThat(updated).isEqualTo(1);
         assertThat(recorded.getSendAttemptId()).isEqualTo("attempt-1");
         assertThat(recorded.getSendAttemptStartedAt()).isEqualTo(attemptStartedAt);
+        assertThat(recorded.getDeliveryUncertainAt()).isEqualTo(attemptStartedAt);
     }
 
     @Test
@@ -140,10 +141,12 @@ class MessageQueueRepositoryTest {
     }
 
     @Test
-    @DisplayName("recoverStaleProcessingMessages requeues send attempt rows without delivery marker")
-    void recoverStaleProcessingMessages_requeuesSendAttemptRowsWithoutDeliveryMarker() {
+    @DisplayName("recoverStaleProcessingMessages quarantines legacy send attempt rows without delivery marker")
+    void recoverStaleProcessingMessages_quarantinesLegacySendAttemptRowsWithoutDeliveryMarker() {
         MessageQueue message = persistMessageQueue();
-        LocalDateTime attemptStartedAt = LocalDateTime.now().minusMinutes(10);
+        LocalDateTime attemptStartedAt = LocalDateTime.of(2026, 4, 22, 13, 30);
+        LocalDateTime staleBefore = attemptStartedAt.plusMinutes(5);
+        LocalDateTime recoveredAt = LocalDateTime.of(2026, 4, 22, 13, 35);
         ReflectionTestUtils.setField(message, "status", "PROCESSING");
         ReflectionTestUtils.setField(message, "processingStartedAt", attemptStartedAt);
         ReflectionTestUtils.setField(message, "sendAttemptId", "attempt-1");
@@ -151,19 +154,21 @@ class MessageQueueRepositoryTest {
         entityManager.persistAndFlush(message);
 
         int updated = messageQueueRepository.recoverStaleProcessingMessages(
-                LocalDateTime.now().minusMinutes(5),
+                staleBefore,
                 MessageQueuePolicy.MAX_RETRY_COUNT,
-                LocalDateTime.now());
+                recoveredAt);
 
         entityManager.flush();
         entityManager.clear();
 
         MessageQueue recovered = entityManager.find(MessageQueue.class, message.getQueueId());
         assertThat(updated).isEqualTo(1);
-        assertThat(recovered.getStatus()).isEqualTo(MessageQueue.STATUS_PENDING);
-        assertThat(recovered.getRetryCount()).isEqualTo(1);
+        assertThat(recovered.getStatus()).isEqualTo(MessageQueue.STATUS_DELIVERED_UNCONFIRMED);
+        assertThat(recovered.getRetryCount()).isZero();
         assertThat(recovered.getProcessingStartedAt()).isNull();
-        assertThat(recovered.getSendAttemptId()).isNull();
+        assertThat(recovered.getSendAttemptId()).isEqualTo("attempt-1");
+        assertThat(recovered.getSendAttemptStartedAt()).isEqualTo(attemptStartedAt);
+        assertThat(recovered.getDeliveryUncertainAt()).isEqualTo(recoveredAt);
     }
 
     @Test

@@ -25,11 +25,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -173,6 +175,37 @@ class MqueueServiceTest {
         verify(emailService).sendEmail("user@test.com", "[noviIs] Notification", "<p>Hello</p>");
         verify(messageQueueRepository).markDeliveredUnconfirmedIfCurrent(eq(1L), any(), any());
         assertThat(transactionCalls.get()).isEqualTo(4);
+    }
+
+    @Test
+    @DisplayName("sendEmail retries unconfirmed marker after sent result persistence failure")
+    void sendEmail_sentResultAndUnconfirmedMarkerPersistenceFail_retriesAndPropagates() {
+        LocalDateTime leaseStartedAt = LocalDateTime.now();
+        User user = User.builder().email("user@test.com").build();
+        MessageQueue message = processingMessage(user, leaseStartedAt);
+        when(messageQueueRepository.findByIdWithTargetUser(1L)).thenReturn(Optional.of(message));
+        mockLeaseRenewal(1L, leaseStartedAt, message);
+        mockSendAttemptRecording(1L);
+        when(messageQueueRepository.markDeliveredUnconfirmedIfCurrent(eq(1L), any(), any()))
+                .thenReturn(0);
+        AtomicInteger transactionCalls = new AtomicInteger();
+        doAnswer(invocation -> {
+            if (transactionCalls.incrementAndGet() <= 3) {
+                throw new RuntimeException("persist failed");
+            }
+            Consumer<Object> consumer = invocation.getArgument(0);
+            consumer.accept(null);
+            return null;
+        }).when(transactionTemplate).executeWithoutResult(any());
+
+        assertThatThrownBy(() -> mqueueService.sendEmail(1L, leaseStartedAt))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Failed to mark delivery unconfirmed for current lease");
+
+        verify(emailService).sendEmail("user@test.com", "[noviIs] Notification", "<p>Hello</p>");
+        verify(messageQueueRepository, times(3))
+                .markDeliveredUnconfirmedIfCurrent(eq(1L), any(), any());
+        assertThat(transactionCalls.get()).isEqualTo(6);
     }
 
     @Test

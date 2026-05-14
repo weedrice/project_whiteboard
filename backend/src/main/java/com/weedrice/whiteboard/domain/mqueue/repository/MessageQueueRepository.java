@@ -66,7 +66,7 @@ public interface MessageQueueRepository extends JpaRepository<MessageQueue, Long
             update MessageQueue m
             set m.sendAttemptId = :sendAttemptId,
                 m.sendAttemptStartedAt = :sendAttemptStartedAt,
-                m.deliveryUncertainAt = null
+                m.deliveryUncertainAt = :sendAttemptStartedAt
             where m.queueId = :queueId
               and m.status = 'PROCESSING'
               and m.processingStartedAt = :expectedProcessingStartedAt
@@ -81,27 +81,27 @@ public interface MessageQueueRepository extends JpaRepository<MessageQueue, Long
     @Transactional
     @Query("""
             update MessageQueue m
-            set m.retryCount = case when m.deliveryUncertainAt is null then m.retryCount + 1 else m.retryCount end,
+            set m.retryCount = case when m.sendAttemptId is null then m.retryCount + 1 else m.retryCount end,
                 m.status = case
-                    when m.deliveryUncertainAt is not null then 'DELIVERED_UNCONFIRMED'
+                    when m.sendAttemptId is not null then 'DELIVERED_UNCONFIRMED'
                     when (m.retryCount + 1) >= :maxRetryCount then 'FAILED'
                     else 'PENDING'
                 end,
                 m.processingStartedAt = null,
                 m.sendAttemptId = case
-                    when m.deliveryUncertainAt is null then null
+                    when m.sendAttemptId is null then null
                     else m.sendAttemptId
                 end,
                 m.sendAttemptStartedAt = case
-                    when m.deliveryUncertainAt is null then null
+                    when m.sendAttemptId is null then null
                     else m.sendAttemptStartedAt
                 end,
                 m.sendAttemptConfirmedAt = case
-                    when m.deliveryUncertainAt is null then null
+                    when m.sendAttemptId is null then null
                     else m.sendAttemptConfirmedAt
                 end,
                 m.deliveryUncertainAt = case
-                    when m.deliveryUncertainAt is not null then :recoveredAt
+                    when m.sendAttemptId is not null then :recoveredAt
                     else m.deliveryUncertainAt
                 end
             where m.status = 'PROCESSING'
