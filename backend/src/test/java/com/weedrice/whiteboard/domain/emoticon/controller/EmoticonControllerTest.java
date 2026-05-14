@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.emoticon.controller;
 
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonMasterDto;
+import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonPurchaseStatusResponse;
 import com.weedrice.whiteboard.domain.emoticon.service.EmoticonService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -30,7 +31,6 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
@@ -508,8 +508,10 @@ class EmoticonControllerTest {
         @Test
         @DisplayName("구매 여부 확인 - 인증 시 purchased true")
         void hasPurchased_authenticatedTrue() throws Exception {
-            when(emoticonService.hasPurchased(1L, 1L)).thenReturn(true);
-            when(emoticonService.getEmoticonPrice(1L)).thenReturn(100);
+            when(emoticonService.getPurchaseStatus(1L, 1L)).thenReturn(EmoticonPurchaseStatusResponse.builder()
+                    .purchased(true)
+                    .price(100)
+                    .build());
 
             mockMvc.perform(get("/api/v1/emoticons/{emoticonId}/purchased", 1L)
                             .with(user(customUserDetails))
@@ -519,15 +521,16 @@ class EmoticonControllerTest {
                     .andExpect(jsonPath("$.data.purchased").value(true))
                     .andExpect(jsonPath("$.data.price").value(100));
 
-            verify(emoticonService, atLeastOnce()).hasPurchased(1L, 1L);
-            verify(emoticonService, atLeastOnce()).getEmoticonPrice(1L);
+            verify(emoticonService).getPurchaseStatus(1L, 1L);
         }
 
         @Test
         @DisplayName("구매 여부 확인 - 인증 시 hasPurchased false이면 purchased false")
         void hasPurchased_authenticatedFalse() throws Exception {
-            when(emoticonService.hasPurchased(1L, 1L)).thenReturn(false);
-            when(emoticonService.getEmoticonPrice(1L)).thenReturn(100);
+            when(emoticonService.getPurchaseStatus(1L, 1L)).thenReturn(EmoticonPurchaseStatusResponse.builder()
+                    .purchased(false)
+                    .price(100)
+                    .build());
 
             mockMvc.perform(get("/api/v1/emoticons/{emoticonId}/purchased", 1L)
                             .with(user(customUserDetails))
@@ -537,14 +540,16 @@ class EmoticonControllerTest {
                     .andExpect(jsonPath("$.data.purchased").value(false))
                     .andExpect(jsonPath("$.data.price").value(100));
 
-            verify(emoticonService, atLeastOnce()).hasPurchased(1L, 1L);
-            verify(emoticonService, atLeastOnce()).getEmoticonPrice(1L);
+            verify(emoticonService).getPurchaseStatus(1L, 1L);
         }
 
         @Test
         @DisplayName("구매 여부 확인 - 비인증 시 purchased false, price 반환")
         void hasPurchased_anonymous() throws Exception {
-            when(emoticonService.getEmoticonPrice(1L)).thenReturn(100);
+            when(emoticonService.getPurchaseStatus(null, 1L)).thenReturn(EmoticonPurchaseStatusResponse.builder()
+                    .purchased(false)
+                    .price(100)
+                    .build());
 
             mockMvc.perform(get("/api/v1/emoticons/{emoticonId}/purchased", 1L)
                             .with(csrf()))
@@ -553,7 +558,7 @@ class EmoticonControllerTest {
                     .andExpect(jsonPath("$.data.purchased").value(false))
                     .andExpect(jsonPath("$.data.price").value(100));
 
-            verify(emoticonService, atLeastOnce()).getEmoticonPrice(1L);
+            verify(emoticonService).getPurchaseStatus(null, 1L);
         }
     }
 }

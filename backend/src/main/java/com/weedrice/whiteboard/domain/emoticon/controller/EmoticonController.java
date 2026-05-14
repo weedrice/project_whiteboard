@@ -206,12 +206,8 @@ public class EmoticonController {
     public ApiResponse<EmoticonPurchaseStatusResponse> hasPurchased(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long emoticonId) {
-        boolean purchased = userDetails != null && 
-                emoticonService.hasPurchased(userDetails.getUserId(), emoticonId);
-        return ApiResponse.success(EmoticonPurchaseStatusResponse.builder()
-                .purchased(purchased)
-                .price(emoticonService.getEmoticonPrice(emoticonId))
-                .build());
+        Long userId = userDetails != null ? userDetails.getUserId() : null;
+        return ApiResponse.success(emoticonService.getPurchaseStatus(userId, emoticonId));
     }
 
     private Pageable pageable(int page, int size) {

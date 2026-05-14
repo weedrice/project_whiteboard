@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.emoticon.service;
 
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonCreateRequest;
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonMasterDto;
+import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonPurchaseStatusResponse;
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonUpdateRequest;
 import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonImage;
 import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonMaster;
@@ -1141,6 +1142,35 @@ class EmoticonServiceTest {
             boolean result = emoticonService.hasPurchased(1L, 1L);
 
             assertThat(result).isFalse();
+        }
+
+        @Test
+        @DisplayName("구매 상태 조회는 구매 여부와 가격을 함께 반환한다")
+        void getPurchaseStatus_authenticated() {
+            when(emoticonMasterRepository.canUseEmoticon(1L, 1L)).thenReturn(true);
+            when(shopItemRepository.findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 1L))
+                    .thenReturn(List.of(emoticonShopItem));
+
+            EmoticonPurchaseStatusResponse result = emoticonService.getPurchaseStatus(1L, 1L);
+
+            assertThat(result.isPurchased()).isTrue();
+            assertThat(result.getPrice()).isEqualTo(250);
+            verify(emoticonMasterRepository).canUseEmoticon(1L, 1L);
+            verify(shopItemRepository).findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 1L);
+        }
+
+        @Test
+        @DisplayName("비인증 구매 상태 조회는 가격만 조회하고 purchased false를 반환한다")
+        void getPurchaseStatus_anonymous() {
+            when(shopItemRepository.findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 1L))
+                    .thenReturn(List.of(emoticonShopItem));
+
+            EmoticonPurchaseStatusResponse result = emoticonService.getPurchaseStatus(null, 1L);
+
+            assertThat(result.isPurchased()).isFalse();
+            assertThat(result.getPrice()).isEqualTo(250);
+            verify(emoticonMasterRepository, never()).canUseEmoticon(anyLong(), anyLong());
+            verify(shopItemRepository).findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 1L);
         }
 
     }

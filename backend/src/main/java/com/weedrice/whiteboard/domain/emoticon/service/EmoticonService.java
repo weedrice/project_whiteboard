@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.emoticon.service;
 
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonCreateRequest;
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonMasterDto;
+import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonPurchaseStatusResponse;
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonUpdateRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -103,5 +104,13 @@ public class EmoticonService {
 
     public int getEmoticonPrice(Long emoticonId) {
         return purchaseService.getEmoticonPrice(emoticonId);
+    }
+
+    public EmoticonPurchaseStatusResponse getPurchaseStatus(Long userId, Long emoticonId) {
+        boolean purchased = userId != null && catalogService.hasPurchased(userId, emoticonId);
+        return EmoticonPurchaseStatusResponse.builder()
+                .purchased(purchased)
+                .price(purchaseService.getEmoticonPrice(emoticonId))
+                .build();
     }
 }
