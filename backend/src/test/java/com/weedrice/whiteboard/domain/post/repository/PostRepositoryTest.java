@@ -113,6 +113,26 @@ class PostRepositoryTest {
     }
 
     @Test
+    @DisplayName("관리자 사용자 게시글 목록은 같은 생성 시각에서 postId 내림차순으로 정렬한다")
+    void findByUserOrderByCreatedAtDescPostIdDesc_ordersSameCreatedAtByPostIdDesc() {
+        Post firstPost = persistPost("First same time post");
+        Post secondPost = persistPost("Second same time post");
+        entityManager.flush();
+
+        LocalDateTime sameCreatedAt = LocalDateTime.of(2026, 5, 12, 10, 0);
+        updateCreatedAt(firstPost, sameCreatedAt);
+        updateCreatedAt(secondPost, sameCreatedAt);
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Post> result = postRepository.findByUserOrderByCreatedAtDescPostIdDesc(user, PageRequest.of(0, 10));
+
+        assertThat(result.getContent())
+                .extracting(Post::getPostId)
+                .containsSubsequence(secondPost.getPostId(), firstPost.getPostId());
+    }
+
+    @Test
     @DisplayName("사용자별 게시글 개수 조회 성공")
     void countByUser_success() {
         // when

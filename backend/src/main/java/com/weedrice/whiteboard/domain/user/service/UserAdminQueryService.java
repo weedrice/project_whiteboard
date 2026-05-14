@@ -57,6 +57,7 @@ public class UserAdminQueryService {
             User.STATUS_SUSPENDED,
             User.STATUS_DELETED);
     private static final int DEFAULT_ADMIN_USER_PAGE_SIZE = 20;
+    private static final int DEFAULT_ADMIN_USER_DETAIL_PAGE_SIZE = 20;
     private static final Sort DEFAULT_ADMIN_USER_SORT = Sort.by(Sort.Order.desc("userId"));
     private static final Set<String> ALLOWED_ADMIN_USER_SORTS = Set.of(
             "userId",
@@ -167,19 +168,22 @@ public class UserAdminQueryService {
 
     public Page<AdminUserPostResponse> getUserPostsForAdmin(Long userId, Pageable pageable) {
         User user = getUserOrThrow(userId);
-        return postRepository.findByUserOrderByCreatedAtDesc(user, pageable)
+        Pageable safePageable = normalizeDetailPageable(pageable);
+        return postRepository.findByUserOrderByCreatedAtDescPostIdDesc(user, safePageable)
                 .map(AdminUserPostResponse::from);
     }
 
     public Page<AdminUserCommentResponse> getUserCommentsForAdmin(Long userId, Pageable pageable) {
         User user = getUserOrThrow(userId);
-        return commentRepository.findByUserOrderByCreatedAtDesc(user, pageable)
+        Pageable safePageable = normalizeDetailPageable(pageable);
+        return commentRepository.findByUserOrderByCreatedAtDescCommentIdDesc(user, safePageable)
                 .map(AdminUserCommentResponse::from);
     }
 
     public Page<AdminUserSubscriptionResponse> getUserSubscriptionsForAdmin(Long userId, Pageable pageable) {
         User user = getUserOrThrow(userId);
-        Page<BoardSubscription> subscriptions = boardSubscriptionRepository.findByUserOrderBySortOrderAsc(user, pageable);
+        Pageable safePageable = normalizeDetailPageable(pageable);
+        Page<BoardSubscription> subscriptions = boardSubscriptionRepository.findByUserOrderBySortOrderAsc(user, safePageable);
         Set<Long> activeAdminBoardIds = resolveActiveAdminBoardIds(user);
 
         return subscriptions
@@ -234,6 +238,13 @@ public class UserAdminQueryService {
         }
         return adminRepository.findActiveBoardIdsByUser(user).stream()
                 .collect(Collectors.toSet());
+    }
+
+    private Pageable normalizeDetailPageable(Pageable pageable) {
+        if (pageable == null || pageable.isUnpaged()) {
+            return PageRequestUtils.of(0, DEFAULT_ADMIN_USER_DETAIL_PAGE_SIZE, Sort.unsorted());
+        }
+        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.unsorted());
     }
 
     private LocalDateTime toStartOfDay(LocalDate date) {

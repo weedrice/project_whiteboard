@@ -42,6 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -313,7 +314,7 @@ class UserAdminQueryServiceTest {
         ReflectionTestUtils.setField(post, "isDeleted", true);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(postRepository.findByUserOrderByCreatedAtDesc(user, PageRequest.of(0, 10)))
+        when(postRepository.findByUserOrderByCreatedAtDescPostIdDesc(user, PageRequest.of(0, 10)))
                 .thenReturn(new PageImpl<>(List.of(post), PageRequest.of(0, 10), 1));
 
         Page<AdminUserPostResponse> response = userAdminQueryService.getUserPostsForAdmin(1L, PageRequest.of(0, 10));
@@ -365,7 +366,7 @@ class UserAdminQueryServiceTest {
         ReflectionTestUtils.setField(comment, "isDeleted", true);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(commentRepository.findByUserOrderByCreatedAtDesc(user, PageRequest.of(0, 10)))
+        when(commentRepository.findByUserOrderByCreatedAtDescCommentIdDesc(user, PageRequest.of(0, 10)))
                 .thenReturn(new PageImpl<>(List.of(comment), PageRequest.of(0, 10), 1));
 
         Page<AdminUserCommentResponse> response = userAdminQueryService.getUserCommentsForAdmin(1L, PageRequest.of(0, 10));
@@ -451,6 +452,68 @@ class UserAdminQueryServiceTest {
         verify(adminRepository).findActiveBoardIdsByUser(user);
         verify(boardAccessPolicy).canReadBoard(board, user, Set.of(14L));
         verify(boardAccessPolicy).canReadBoard(adminBoard, user, Set.of(14L));
+    }
+
+    @Test
+    @DisplayName("getUserPostsForAdmin caps page size and ignores client sort")
+    void getUserPostsForAdmin_normalizesPageable() {
+        User user = User.builder().loginId("writer").email("writer@test.com").password("pw").displayName("writer").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByUserOrderByCreatedAtDescPostIdDesc(eq(user), any()))
+                .thenAnswer(invocation -> new PageImpl<>(List.of(), invocation.getArgument(1), 0));
+
+        userAdminQueryService.getUserPostsForAdmin(
+                1L,
+                PageRequest.of(3, 1000, Sort.by(Sort.Order.asc("title"))));
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(postRepository).findByUserOrderByCreatedAtDescPostIdDesc(eq(user), pageableCaptor.capture());
+        Pageable safePageable = pageableCaptor.getValue();
+        assertThat(safePageable.getPageNumber()).isEqualTo(3);
+        assertThat(safePageable.getPageSize()).isEqualTo(100);
+        assertThat(safePageable.getSort().isUnsorted()).isTrue();
+    }
+
+    @Test
+    @DisplayName("getUserCommentsForAdmin uses default pageable when pageable is unpaged")
+    void getUserCommentsForAdmin_normalizesUnpagedPageable() {
+        User user = User.builder().loginId("writer").email("writer@test.com").password("pw").displayName("writer").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(commentRepository.findByUserOrderByCreatedAtDescCommentIdDesc(eq(user), any()))
+                .thenAnswer(invocation -> new PageImpl<>(List.of(), invocation.getArgument(1), 0));
+
+        userAdminQueryService.getUserCommentsForAdmin(1L, Pageable.unpaged());
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(commentRepository).findByUserOrderByCreatedAtDescCommentIdDesc(eq(user), pageableCaptor.capture());
+        Pageable safePageable = pageableCaptor.getValue();
+        assertThat(safePageable.getPageNumber()).isZero();
+        assertThat(safePageable.getPageSize()).isEqualTo(20);
+        assertThat(safePageable.getSort().isUnsorted()).isTrue();
+    }
+
+    @Test
+    @DisplayName("getUserSubscriptionsForAdmin ignores client sort")
+    void getUserSubscriptionsForAdmin_normalizesPageableSort() {
+        User user = User.builder().loginId("writer").email("writer@test.com").password("pw").displayName("writer").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardSubscriptionRepository.findByUserOrderBySortOrderAsc(eq(user), any()))
+                .thenAnswer(invocation -> new PageImpl<>(List.of(), invocation.getArgument(1), 0));
+        when(adminRepository.findActiveBoardIdsByUser(user)).thenReturn(List.of());
+
+        userAdminQueryService.getUserSubscriptionsForAdmin(
+                1L,
+                PageRequest.of(2, 50, Sort.by(Sort.Order.desc("createdAt"))));
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(boardSubscriptionRepository).findByUserOrderBySortOrderAsc(eq(user), pageableCaptor.capture());
+        Pageable safePageable = pageableCaptor.getValue();
+        assertThat(safePageable.getPageNumber()).isEqualTo(2);
+        assertThat(safePageable.getPageSize()).isEqualTo(50);
+        assertThat(safePageable.getSort().isUnsorted()).isTrue();
     }
 
     private Admin admin(User user, String role, Long adminId) {

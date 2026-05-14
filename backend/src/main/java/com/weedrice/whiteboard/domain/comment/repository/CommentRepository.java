@@ -303,7 +303,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                         @org.springframework.data.repository.query.Param("agentId") Long agentId);
 
         @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"agent", "parent", "post", "post.board"})
-        Page<Comment> findByUserOrderByCreatedAtDesc(User user, Pageable pageable);
+        Page<Comment> findByUserOrderByCreatedAtDescCommentIdDesc(User user, Pageable pageable);
 
         @org.springframework.data.jpa.repository.Query("SELECT DISTINCT c FROM Comment c JOIN FETCH c.user LEFT JOIN FETCH c.agent JOIN FETCH c.post p JOIN FETCH p.board JOIN CommentClosure cc ON c.commentId = cc.id.descendantId WHERE cc.id.ancestorId IN :ancestorIds AND cc.depth > 0 AND (c.isDeleted = false OR (c.isDeleted = true AND EXISTS (SELECT r FROM Comment r WHERE r.parent = c AND r.isDeleted = false))) ORDER BY c.createdAt ASC, c.commentId ASC")
         List<Comment> findAllDescendants(

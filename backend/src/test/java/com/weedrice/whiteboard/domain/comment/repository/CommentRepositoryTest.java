@@ -113,6 +113,40 @@ class CommentRepositoryTest {
     }
 
     @Test
+    @DisplayName("관리자 사용자 댓글 목록은 같은 생성 시각에서 commentId 내림차순으로 정렬한다")
+    void findByUserOrderByCreatedAtDescCommentIdDesc_ordersSameCreatedAtByCommentIdDesc() {
+        Comment firstComment = Comment.builder()
+                .content("First same time comment")
+                .user(user)
+                .post(post)
+                .depth(0)
+                .build();
+        Comment secondComment = Comment.builder()
+                .content("Second same time comment")
+                .user(user)
+                .post(post)
+                .depth(0)
+                .build();
+        entityManager.persist(firstComment);
+        entityManager.persist(secondComment);
+        entityManager.flush();
+
+        LocalDateTime sameCreatedAt = LocalDateTime.of(2026, 5, 12, 10, 0);
+        updateCreatedAt(firstComment, sameCreatedAt);
+        updateCreatedAt(secondComment, sameCreatedAt);
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Comment> result = commentRepository.findByUserOrderByCreatedAtDescCommentIdDesc(
+                user,
+                PageRequest.of(0, 10));
+
+        assertThat(result.getContent())
+                .extracting(Comment::getCommentId)
+                .containsSubsequence(secondComment.getCommentId(), firstComment.getCommentId());
+    }
+
+    @Test
     @DisplayName("부모 댓글 조회는 같은 생성 시각에서 commentId 오름차순으로 안정 정렬한다")
     void findParentsWithChildrenOrNotDeleted_ordersSameCreatedAtByCommentIdAsc() {
         Comment laterIdComment = Comment.builder()
