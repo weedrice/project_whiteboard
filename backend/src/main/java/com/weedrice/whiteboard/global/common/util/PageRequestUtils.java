@@ -6,6 +6,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -63,6 +64,15 @@ public final class PageRequestUtils {
         List<Sort.Order> allowedOrders = sort.stream()
                 .filter(order -> allowedSortProperties.contains(order.getProperty()))
                 .toList();
-        return allowedOrders.isEmpty() ? fallbackSort : Sort.by(allowedOrders);
+        if (allowedOrders.isEmpty()) {
+            return fallbackSort;
+        }
+
+        List<Sort.Order> normalizedOrders = new ArrayList<>(allowedOrders);
+        fallbackSort.stream()
+                .filter(order -> normalizedOrders.stream()
+                        .noneMatch(normalizedOrder -> normalizedOrder.getProperty().equals(order.getProperty())))
+                .forEach(normalizedOrders::add);
+        return Sort.by(normalizedOrders);
     }
 }

@@ -327,11 +327,14 @@ class SearchServiceTest {
     @DisplayName("게시글 검색은 createdAt 내림차순 정렬일 때 rowNum을 역순으로 부여한다")
     void searchPosts_assignsDescendingRowNumbers() {
         Pageable pageable = PageRequest.of(1, 2, Sort.by(Sort.Order.desc("createdAt")));
+        Pageable normalizedPageable = PageRequest.of(1, 2, Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("postId")));
         var firstPost = post(11L, "first", LocalDateTime.of(2026, 4, 20, 10, 0));
         var secondPost = post(10L, "second", LocalDateTime.of(2026, 4, 20, 9, 0));
 
-        when(postRepository.searchPosts(anyString(), any(), any(), any(), anyBoolean(), any(), eq(pageable)))
-                .thenReturn(new PageImpl<>(List.of(firstPost, secondPost), pageable, 5));
+        when(postRepository.searchPosts(anyString(), any(), any(), any(), anyBoolean(), any(), eq(normalizedPageable)))
+                .thenReturn(new PageImpl<>(List.of(firstPost, secondPost), normalizedPageable, 5));
         when(fileService.getFirstImageFileIdsForPosts(List.of(11L, 10L)))
                 .thenReturn(Collections.emptyMap());
 
@@ -345,11 +348,14 @@ class SearchServiceTest {
     @DisplayName("게시글 검색은 createdAt 오름차순 정렬일 때 rowNum을 정순으로 부여한다")
     void searchPosts_assignsAscendingRowNumbersForCreatedAtSort() {
         Pageable pageable = PageRequest.of(1, 2, Sort.by(Sort.Order.asc("createdAt")));
+        Pageable normalizedPageable = PageRequest.of(1, 2, Sort.by(
+                Sort.Order.asc("createdAt"),
+                Sort.Order.desc("postId")));
         var firstPost = post(10L, "first", LocalDateTime.of(2026, 4, 20, 9, 0));
         var secondPost = post(11L, "second", LocalDateTime.of(2026, 4, 20, 10, 0));
 
-        when(postRepository.searchPosts(anyString(), any(), any(), any(), anyBoolean(), any(), eq(pageable)))
-                .thenReturn(new PageImpl<>(List.of(firstPost, secondPost), pageable, 5));
+        when(postRepository.searchPosts(anyString(), any(), any(), any(), anyBoolean(), any(), eq(normalizedPageable)))
+                .thenReturn(new PageImpl<>(List.of(firstPost, secondPost), normalizedPageable, 5));
         when(fileService.getFirstImageFileIdsForPosts(List.of(10L, 11L)))
                 .thenReturn(Collections.emptyMap());
 
@@ -363,11 +369,14 @@ class SearchServiceTest {
     @DisplayName("게시글 검색은 postId 오름차순 정렬일 때 rowNum을 정순으로 부여한다")
     void searchPosts_assignsAscendingRowNumbersForPostIdSort() {
         Pageable pageable = PageRequest.of(0, 2, Sort.by(Sort.Order.asc("postId")));
+        Pageable normalizedPageable = PageRequest.of(0, 2, Sort.by(
+                Sort.Order.asc("postId"),
+                Sort.Order.desc("createdAt")));
         var firstPost = post(10L, "first", LocalDateTime.of(2026, 4, 20, 9, 0));
         var secondPost = post(11L, "second", LocalDateTime.of(2026, 4, 20, 10, 0));
 
-        when(postRepository.searchPosts(anyString(), any(), any(), any(), anyBoolean(), any(), eq(pageable)))
-                .thenReturn(new PageImpl<>(List.of(firstPost, secondPost), pageable, 5));
+        when(postRepository.searchPosts(anyString(), any(), any(), any(), anyBoolean(), any(), eq(normalizedPageable)))
+                .thenReturn(new PageImpl<>(List.of(firstPost, secondPost), normalizedPageable, 5));
         when(fileService.getFirstImageFileIdsForPosts(List.of(10L, 11L)))
                 .thenReturn(Collections.emptyMap());
 
@@ -381,7 +390,9 @@ class SearchServiceTest {
     @DisplayName("게시글 검색은 createdAt 오름차순이 포함된 다중 정렬에서도 rowNum을 정순으로 부여한다")
     void searchPosts_assignsAscendingRowNumbersWhenCreatedAtAscendingAppearsInMultiSort() {
         Pageable pageable = PageRequest.of(0, 2, Sort.by(Sort.Order.desc("title"), Sort.Order.asc("createdAt")));
-        Pageable normalizedPageable = PageRequest.of(0, 2, Sort.by(Sort.Order.asc("createdAt")));
+        Pageable normalizedPageable = PageRequest.of(0, 2, Sort.by(
+                Sort.Order.asc("createdAt"),
+                Sort.Order.desc("postId")));
         var firstPost = post(10L, "zeta", LocalDateTime.of(2026, 4, 20, 9, 0));
         var secondPost = post(11L, "alpha", LocalDateTime.of(2026, 4, 20, 10, 0));
 

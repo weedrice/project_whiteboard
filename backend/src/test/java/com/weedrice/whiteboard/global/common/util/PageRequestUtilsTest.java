@@ -65,6 +65,43 @@ class PageRequestUtilsTest {
     }
 
     @Test
+    @DisplayName("허용된 요청 정렬 뒤에 누락된 기본 보조 정렬을 추가한다")
+    void of_appendsMissingDefaultTieBreakerSort() {
+        Sort sort = Sort.by(Sort.Order.asc("createdAt"));
+        Sort defaultSort = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("postId"));
+
+        Pageable pageable = PageRequestUtils.of(0, 20, sort, defaultSort, Set.of("createdAt", "postId"));
+
+        assertThat(pageable.getSort()).isEqualTo(Sort.by(
+                Sort.Order.asc("createdAt"),
+                Sort.Order.desc("postId")));
+    }
+
+    @Test
+    @DisplayName("요청에 이미 포함된 기본 정렬 속성은 중복 추가하지 않는다")
+    void of_doesNotDuplicateRequestedDefaultSortProperties() {
+        Sort sort = Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("postId"));
+        Sort defaultSort = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("postId"));
+
+        Pageable pageable = PageRequestUtils.of(0, 20, sort, defaultSort, Set.of("createdAt", "postId"));
+
+        assertThat(pageable.getSort()).isEqualTo(sort);
+    }
+
+    @Test
+    @DisplayName("허용 목록에 없어도 서버 기본 보조 정렬은 보존한다")
+    void of_preservesServerDefaultTieBreakerOutsideAllowedSortProperties() {
+        Sort sort = Sort.by(Sort.Order.asc("createdAt"));
+        Sort defaultSort = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("notificationId"));
+
+        Pageable pageable = PageRequestUtils.of(0, 20, sort, defaultSort, Set.of("createdAt"));
+
+        assertThat(pageable.getSort()).isEqualTo(Sort.by(
+                Sort.Order.asc("createdAt"),
+                Sort.Order.desc("notificationId")));
+    }
+
+    @Test
     @DisplayName("허용된 정렬 필드가 없으면 기본 정렬을 사용한다")
     void of_usesDefaultSortWhenNoAllowedSortRemains() {
         Sort defaultSort = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("postId"));
