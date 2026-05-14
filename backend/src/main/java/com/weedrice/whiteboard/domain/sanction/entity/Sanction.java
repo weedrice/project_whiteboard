@@ -30,8 +30,12 @@ public class Sanction extends BaseTimeEntity {
     private User targetUser;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "admin_id", nullable = false)
+    @JoinColumn(name = "admin_id")
     private Admin admin;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "processor_user_id", nullable = false)
+    private User processorUser;
 
     @Column(name = "type", length = 50, nullable = false)
     private String type; // WARNING, MUTE, BAN
@@ -52,9 +56,11 @@ public class Sanction extends BaseTimeEntity {
     private String contentType;
 
     @Builder
-    public Sanction(User targetUser, Admin admin, String type, String remark, LocalDateTime startDate, LocalDateTime endDate, Long contentId, String contentType) {
+    public Sanction(User targetUser, Admin admin, User processorUser, String type, String remark,
+                    LocalDateTime startDate, LocalDateTime endDate, Long contentId, String contentType) {
         this.targetUser = targetUser;
         this.admin = admin;
+        this.processorUser = processorUser;
         this.type = type;
         this.remark = remark;
         this.startDate = startDate;

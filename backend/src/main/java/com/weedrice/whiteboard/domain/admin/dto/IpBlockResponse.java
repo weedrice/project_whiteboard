@@ -25,10 +25,7 @@ public class IpBlockResponse {
     }
 
     public static IpBlockResponse from(IpBlock ipBlock) {
-        AdminInfo adminInfo = AdminInfo.builder()
-                .adminId(ipBlock.getAdmin().getAdminId())
-                .displayName(ipBlock.getAdmin().getUser().getDisplayName())
-                .build();
+        AdminInfo adminInfo = buildAdminInfo(ipBlock);
 
         return IpBlockResponse.builder()
                 .ipAddress(ipBlock.getIpAddress())
@@ -37,6 +34,22 @@ public class IpBlockResponse {
                 .endDate(ipBlock.getEndDate())
                 .admin(adminInfo)
                 .build();
+    }
+
+    private static AdminInfo buildAdminInfo(IpBlock ipBlock) {
+        if (ipBlock.getAdmin() != null) {
+            return AdminInfo.builder()
+                    .adminId(ipBlock.getAdmin().getAdminId())
+                    .displayName(ipBlock.getAdmin().getUser().getDisplayName())
+                    .build();
+        }
+        if (ipBlock.getProcessorUser() != null) {
+            return AdminInfo.builder()
+                    .adminId(ipBlock.getProcessorUser().getUserId())
+                    .displayName(ipBlock.getProcessorUser().getDisplayName())
+                    .build();
+        }
+        return null;
     }
 
     public static List<IpBlockResponse> from(List<IpBlock> ipBlocks) {

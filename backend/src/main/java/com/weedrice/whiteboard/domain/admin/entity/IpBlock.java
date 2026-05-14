@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.admin.entity;
 
+import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -20,8 +21,12 @@ public class IpBlock extends BaseTimeEntity {
     private String ipAddress;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "admin_id", nullable = false)
+    @JoinColumn(name = "admin_id")
     private Admin admin;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "processor_user_id", nullable = false)
+    private User processorUser;
 
     @Column(name = "reason", length = 255)
     private String reason;
@@ -33,16 +38,20 @@ public class IpBlock extends BaseTimeEntity {
     private LocalDateTime endDate;
 
     @Builder
-    public IpBlock(String ipAddress, Admin admin, String reason, LocalDateTime startDate, LocalDateTime endDate) {
+    public IpBlock(String ipAddress, Admin admin, User processorUser, String reason,
+                   LocalDateTime startDate, LocalDateTime endDate) {
         this.ipAddress = ipAddress;
         this.admin = admin;
+        this.processorUser = processorUser;
         this.reason = reason;
         this.startDate = startDate;
         this.endDate = endDate;
     }
 
-    public void reactivate(Admin admin, String reason, LocalDateTime startDate, LocalDateTime endDate) {
+    public void reactivate(Admin admin, User processorUser, String reason,
+                           LocalDateTime startDate, LocalDateTime endDate) {
         this.admin = admin;
+        this.processorUser = processorUser;
         this.reason = reason;
         this.startDate = startDate;
         this.endDate = endDate;

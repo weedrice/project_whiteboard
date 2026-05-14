@@ -1,6 +1,5 @@
 package com.weedrice.whiteboard.domain.report.service;
 
-import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
 import com.weedrice.whiteboard.domain.report.constant.ReportConstraints;
 import com.weedrice.whiteboard.domain.report.dto.MyReportResponse;
@@ -12,6 +11,7 @@ import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
+import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -60,15 +60,19 @@ class ReportModerationService {
 
     @Transactional
     public ReportResponse processReport(Long adminUserId, Long reportId, String status, String remark) {
+        SecurityUtils.validateSuperAdminPermission();
         String normalizedStatus = normalizeTerminalStatus(status);
         String normalizedRemark = normalizeRemark(remark);
         Report report = reportRepository.findByIdForUpdate(reportId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-        User adminUser = userRepository.findById(adminUserId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Admin admin = moderationActorResolver.findActiveAdmin(adminUser).orElse(null);
+        ModerationActorResolver.ModerationActor moderationActor =
+                moderationActorResolver.resolveModerationActor(adminUserId);
 
-        report.processReport(admin, adminUserId, normalizedStatus, normalizedRemark);
+        report.processReport(
+                moderationActor.admin(),
+                moderationActor.user().getUserId(),
+                normalizedStatus,
+                normalizedRemark);
         reportRepository.save(report);
         return reportReadAssembler.toAdminResponse(report);
     }

@@ -20,6 +20,7 @@ public class UserLifecycleService {
     private final SanctionRepository sanctionRepository;
     private final RefreshTokenLifecycleService refreshTokenLifecycleService;
     private final AgentLifecycleService agentLifecycleService;
+    private final UserPrivilegeCleanupService userPrivilegeCleanupService;
 
     @Transactional
     public void updateAdminManagedStatus(Long userId, String status) {
@@ -51,6 +52,7 @@ public class UserLifecycleService {
         if ("DELETED".equals(user.getStatus())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
+        userPrivilegeCleanupService.removeOperationalPrivileges(user);
         user.suspend();
         refreshTokenLifecycleService.revokeActiveRefreshTokens(user);
         agentLifecycleService.suspendAllForUser(user);

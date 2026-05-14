@@ -28,7 +28,7 @@ public interface IpBlockRepository extends JpaRepository<IpBlock, String> {
             """)
     Optional<IpBlock> findActiveByIpAddress(@Param("ipAddress") String ipAddress, @Param("now") LocalDateTime now);
 
-    @EntityGraph(attributePaths = {"admin", "admin.user"})
+    @EntityGraph(attributePaths = {"admin", "admin.user", "processorUser"})
     @Query(value = """
             select ipBlock
             from IpBlock ipBlock

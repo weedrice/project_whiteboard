@@ -8,14 +8,17 @@ import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -28,6 +31,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -50,6 +54,7 @@ class ReportModerationServiceTest {
     private User adminUser;
     private Admin admin;
     private Report report;
+    private MockedStatic<SecurityUtils> mockedSecurityUtils;
 
     @BeforeEach
     void setUp() {
@@ -58,6 +63,7 @@ class ReportModerationServiceTest {
 
         adminUser = User.builder().displayName("Admin").build();
         ReflectionTestUtils.setField(adminUser, "userId", 2L);
+        adminUser.grantSuperAdminRole();
 
         admin = Admin.builder().user(adminUser).build();
         ReflectionTestUtils.setField(admin, "adminId", 5L);
@@ -69,6 +75,14 @@ class ReportModerationServiceTest {
                 .reasonType("SPAM")
                 .build();
         ReflectionTestUtils.setField(report, "reportId", 7L);
+
+        mockedSecurityUtils = mockStatic(SecurityUtils.class);
+        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
+    }
+
+    @AfterEach
+    void tearDown() {
+        mockedSecurityUtils.close();
     }
 
     @Test
@@ -203,8 +217,8 @@ class ReportModerationServiceTest {
                 .build();
 
         when(reportRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(report));
-        when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
-        when(moderationActorResolver.findActiveAdmin(adminUser)).thenReturn(Optional.of(admin));
+        when(moderationActorResolver.resolveModerationActor(2L))
+                .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, admin));
         when(reportReadAssembler.toAdminResponse(report)).thenReturn(response);
 
         ReportResponse result = reportModerationService.processReport(2L, 7L, Report.STATUS_RESOLVED, "done");
@@ -226,8 +240,8 @@ class ReportModerationServiceTest {
                 .build();
 
         when(reportRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(report));
-        when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
-        when(moderationActorResolver.findActiveAdmin(adminUser)).thenReturn(Optional.of(admin));
+        when(moderationActorResolver.resolveModerationActor(2L))
+                .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, admin));
         when(reportReadAssembler.toAdminResponse(report)).thenReturn(response);
 
         ReportResponse result = reportModerationService.processReport(2L, 7L, "resolved", "done");
@@ -245,8 +259,8 @@ class ReportModerationServiceTest {
                 .build();
 
         when(reportRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(report));
-        when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
-        when(moderationActorResolver.findActiveAdmin(adminUser)).thenReturn(Optional.of(admin));
+        when(moderationActorResolver.resolveModerationActor(2L))
+                .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, admin));
         when(reportReadAssembler.toAdminResponse(report)).thenReturn(response);
 
         reportModerationService.processReport(2L, 7L, Report.STATUS_RESOLVED, "  done  ");
@@ -273,8 +287,8 @@ class ReportModerationServiceTest {
                 .build();
 
         when(reportRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(report));
-        when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
-        when(moderationActorResolver.findActiveAdmin(adminUser)).thenReturn(Optional.empty());
+        when(moderationActorResolver.resolveModerationActor(2L))
+                .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, null));
         when(reportReadAssembler.toAdminResponse(report)).thenReturn(response);
 
         ReportResponse result = reportModerationService.processReport(2L, 7L, Report.STATUS_RESOLVED, "done");
@@ -289,8 +303,8 @@ class ReportModerationServiceTest {
     void processReport_alreadyProcessed_throwsConflict() {
         ReflectionTestUtils.setField(report, "status", Report.STATUS_RESOLVED);
         when(reportRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(report));
-        when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
-        when(moderationActorResolver.findActiveAdmin(adminUser)).thenReturn(Optional.of(admin));
+        when(moderationActorResolver.resolveModerationActor(2L))
+                .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, admin));
 
         assertThatThrownBy(() -> reportModerationService.processReport(2L, 7L, Report.STATUS_REJECTED, "retry"))
                 .isInstanceOf(BusinessException.class)

@@ -25,7 +25,7 @@ public class SanctionResponse {
                 .sanctionId(sanction.getSanctionId())
                 .targetUserId(sanction.getTargetUser().getUserId())
                 .targetUserDisplayName(sanction.getTargetUser().getDisplayName())
-                .adminId(sanction.getAdmin() != null ? sanction.getAdmin().getAdminId() : null)
+                .adminId(resolveAdminId(sanction))
                 .type(sanction.getType())
                 .remark(sanction.getRemark())
                 .startDate(sanction.getStartDate())
@@ -33,5 +33,12 @@ public class SanctionResponse {
                 .contentId(sanction.getContentId())
                 .contentType(sanction.getContentType())
                 .build();
+    }
+
+    private static Long resolveAdminId(Sanction sanction) {
+        if (sanction.getAdmin() != null) {
+            return sanction.getAdmin().getAdminId();
+        }
+        return sanction.getProcessorUser() != null ? sanction.getProcessorUser().getUserId() : null;
     }
 }

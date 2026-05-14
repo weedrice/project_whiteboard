@@ -19,6 +19,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -33,6 +34,7 @@ class UserLifecycleServiceTest {
     @Mock private SanctionRepository sanctionRepository;
     @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
     @Mock private AgentLifecycleService agentLifecycleService;
+    @Mock private UserPrivilegeCleanupService userPrivilegeCleanupService;
 
     @Test
     @DisplayName("suspend revokes refresh tokens and suspends agents")
@@ -44,8 +46,27 @@ class UserLifecycleServiceTest {
 
         assertThat(user.getStatus()).isEqualTo("SUSPENDED");
         verify(userRepository).findByIdForUpdate(1L);
+        verify(userPrivilegeCleanupService).removeOperationalPrivileges(user);
         verify(refreshTokenLifecycleService).revokeActiveRefreshTokens(user);
         verify(agentLifecycleService).suspendAllForUser(user);
+    }
+
+    @Test
+    @DisplayName("suspend does not revoke sessions or agents when operational privilege guard rejects")
+    void updateAdminManagedStatus_suspendGuardRejectedDoesNotMutate() {
+        User user = User.builder().build();
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.FORBIDDEN))
+                .when(userPrivilegeCleanupService).removeOperationalPrivileges(user);
+
+        assertThatThrownBy(() -> userLifecycleService.updateAdminManagedStatus(1L, "SUSPENDED"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.FORBIDDEN);
+
+        assertThat(user.getStatus()).isEqualTo("ACTIVE");
+        verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(user);
+        verify(agentLifecycleService, never()).suspendAllForUser(user);
     }
 
     @Test

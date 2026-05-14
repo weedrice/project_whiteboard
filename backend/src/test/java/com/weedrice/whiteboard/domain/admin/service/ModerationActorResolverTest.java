@@ -118,6 +118,30 @@ class ModerationActorResolverTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
     }
 
+    @Test
+    @DisplayName("슈퍼 관리자는 활성 관리자 행 없이 moderation actor로 해석된다")
+    void resolveModerationActor_withoutAdmin_success() {
+        adminUser.grantSuperAdminRole();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
+        when(adminRepository.findAllByUserAndIsActiveOrderByAdminIdAsc(adminUser, true))
+                .thenReturn(List.of());
+
+        ModerationActorResolver.ModerationActor actor = moderationActorResolver.resolveModerationActor(1L);
+
+        assertThat(actor.user()).isEqualTo(adminUser);
+        assertThat(actor.admin()).isNull();
+    }
+
+    @Test
+    @DisplayName("사용 가능한 슈퍼 관리자가 아니면 moderation actor 해석을 거부한다")
+    void resolveModerationActor_notUsableSuperAdmin_forbidden() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
+
+        assertThatThrownBy(() -> moderationActorResolver.resolveModerationActor(1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+    }
+
     private Admin admin(String role, Long adminId) {
         Admin targetAdmin = Admin.builder()
                 .user(adminUser)

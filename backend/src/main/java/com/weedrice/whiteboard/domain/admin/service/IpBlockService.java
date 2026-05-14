@@ -1,7 +1,6 @@
 package com.weedrice.whiteboard.domain.admin.service;
 
 import com.weedrice.whiteboard.domain.admin.dto.IpBlockResponse;
-import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.entity.IpBlock;
 import com.weedrice.whiteboard.domain.admin.repository.IpBlockRepository;
 import com.weedrice.whiteboard.domain.user.entity.Role;
@@ -44,7 +43,8 @@ public class IpBlockService {
     @Transactional
     public IpBlockResponse blockIp(Long adminUserId, String ipAddress, String reason, LocalDateTime endDate) {
         LocalDateTime now = LocalDateTime.now();
-        Admin admin = moderationActorResolver.resolveActiveAdmin(adminUserId);
+        ModerationActorResolver.ModerationActor moderationActor =
+                moderationActorResolver.resolveModerationActor(adminUserId);
         String normalizedIpAddress = normalizeIpAddress(ipAddress);
 
         if (endDate != null && !endDate.isAfter(now)) {
@@ -59,12 +59,13 @@ public class IpBlockService {
                     if (existingIpBlock.isActiveAt(now)) {
                         throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
                     }
-                    existingIpBlock.reactivate(admin, reason, now, endDate);
+                    existingIpBlock.reactivate(moderationActor.admin(), moderationActor.user(), reason, now, endDate);
                     return existingIpBlock;
                 })
                 .orElseGet(() -> IpBlock.builder()
                         .ipAddress(normalizedIpAddress)
-                        .admin(admin)
+                        .admin(moderationActor.admin())
+                        .processorUser(moderationActor.user())
                         .reason(reason)
                         .startDate(now)
                         .endDate(endDate)

@@ -1,6 +1,5 @@
 package com.weedrice.whiteboard.domain.sanction.service;
 
-import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
@@ -73,7 +72,8 @@ public class SanctionService {
         String normalizedRemark = normalizeRemark(remark);
         validateEndDate(endDate);
 
-        Admin admin = moderationActorResolver.resolveActiveAdmin(adminUserId);
+        ModerationActorResolver.ModerationActor moderationActor =
+                moderationActorResolver.resolveModerationActor(adminUserId);
 
         User targetUser = findSanctionTargetUser(targetUserId);
         validateSanctionContentTarget(contentId, normalizedContentType, targetUser);
@@ -84,7 +84,8 @@ public class SanctionService {
 
         Sanction sanction = Sanction.builder()
                 .targetUser(targetUser)
-                .admin(admin)
+                .admin(moderationActor.admin())
+                .processorUser(moderationActor.user())
                 .type(normalizedType)
                 .remark(normalizedRemark)
                 .startDate(LocalDateTime.now())

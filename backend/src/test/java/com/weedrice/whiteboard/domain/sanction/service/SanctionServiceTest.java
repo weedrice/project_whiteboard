@@ -68,6 +68,7 @@ class SanctionServiceTest {
     void setUp() {
         adminUser = User.builder().build();
         ReflectionTestUtils.setField(adminUser, "userId", 1L);
+        adminUser.grantSuperAdminRole();
 
         targetUser = User.builder().build();
         ReflectionTestUtils.setField(targetUser, "userId", 2L);
@@ -76,7 +77,8 @@ class SanctionServiceTest {
         ReflectionTestUtils.setField(admin, "adminId", 10L);
 
         mockedSecurityUtils = mockStatic(SecurityUtils.class);
-        lenient().when(moderationActorResolver.resolveActiveAdmin(1L)).thenReturn(admin);
+        lenient().when(moderationActorResolver.resolveModerationActor(1L))
+                .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, admin));
     }
 
     @AfterEach
@@ -93,7 +95,8 @@ class SanctionServiceTest {
     @DisplayName("create sanction succeeds")
     void createSanction_success() {
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
-        when(moderationActorResolver.resolveActiveAdmin(1L)).thenReturn(admin);
+        when(moderationActorResolver.resolveModerationActor(1L))
+                .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, admin));
         when(userRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(targetUser));
         when(postRepository.findById(100L)).thenReturn(Optional.of(Post.builder()
                 .user(targetUser)
@@ -125,7 +128,8 @@ class SanctionServiceTest {
     @DisplayName("temporary ban keeps user status active")
     void createSanction_temporaryBan_keepsUserStatusActive() {
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
-        when(moderationActorResolver.resolveActiveAdmin(1L)).thenReturn(admin);
+        when(moderationActorResolver.resolveModerationActor(1L))
+                .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, admin));
         when(userRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(targetUser));
 
         Sanction savedSanction = Sanction.builder()
@@ -411,16 +415,27 @@ class SanctionServiceTest {
     }
 
     @Test
-    @DisplayName("create sanction without admin throws forbidden")
-    void createSanction_withoutAdmin_throwsForbidden() {
+    @DisplayName("create sanction without admin row records processor user")
+    void createSanction_withoutAdmin_recordsProcessorUser() {
         mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
-        when(moderationActorResolver.resolveActiveAdmin(1L))
-                .thenThrow(new BusinessException(ErrorCode.FORBIDDEN));
+        when(moderationActorResolver.resolveModerationActor(1L))
+                .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, null));
+        when(userRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(targetUser));
+        Sanction savedSanction = Sanction.builder()
+                .targetUser(targetUser)
+                .processorUser(adminUser)
+                .type("BAN")
+                .remark("Test")
+                .startDate(LocalDateTime.now())
+                .build();
+        ReflectionTestUtils.setField(savedSanction, "sanctionId", 10L);
+        when(sanctionRepository.save(any(Sanction.class))).thenReturn(savedSanction);
 
-        assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "BAN", "Test", null, null, null))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.FORBIDDEN);
+        Long sanctionId = sanctionService.createSanction(1L, 2L, "BAN", "Test", null, null, null);
+
+        assertThat(sanctionId).isEqualTo(10L);
+        verify(sanctionRepository).save(argThat(sanction ->
+                sanction.getAdmin() == null && sanction.getProcessorUser().equals(adminUser)));
     }
 
     @Test

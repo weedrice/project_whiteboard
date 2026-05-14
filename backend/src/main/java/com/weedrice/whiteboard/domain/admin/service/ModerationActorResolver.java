@@ -36,9 +36,23 @@ public class ModerationActorResolver {
         return AdminRolePriority.selectHighestPriority(activeAdmins);
     }
 
+    public ModerationActor resolveModerationActor(Long adminUserId) {
+        User adminUser = userRepository.findById(adminUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        if (!adminUser.isUsableSuperAdmin()) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+
+        return new ModerationActor(adminUser, findActiveAdmin(adminUser).orElse(null));
+    }
+
     public Admin resolveActiveAdmin(Long adminUserId) {
         return findActiveAdmin(adminUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.FORBIDDEN));
+    }
+
+    public record ModerationActor(User user, Admin admin) {
     }
 
 }

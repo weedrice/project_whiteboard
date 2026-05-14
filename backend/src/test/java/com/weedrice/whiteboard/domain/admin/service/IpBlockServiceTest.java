@@ -33,6 +33,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -87,7 +88,8 @@ class IpBlockServiceTest {
                 .build();
         ReflectionTestUtils.setField(admin, "adminId", 11L);
 
-        lenient().when(moderationActorResolver.resolveActiveAdmin(1L)).thenReturn(admin);
+        lenient().when(moderationActorResolver.resolveModerationActor(1L))
+                .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, admin));
     }
 
     @Test
@@ -96,7 +98,8 @@ class IpBlockServiceTest {
         String ipAddress = " 127.0.0.1 ";
         String normalizedIpAddress = "127.0.0.1";
 
-        when(moderationActorResolver.resolveActiveAdmin(1L)).thenReturn(admin);
+        when(moderationActorResolver.resolveModerationActor(1L))
+                .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, admin));
         when(ipBlockRepository.findByIdForUpdate(normalizedIpAddress)).thenReturn(Optional.empty());
         when(ipBlockRepository.saveAndFlush(any(IpBlock.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -122,11 +125,28 @@ class IpBlockServiceTest {
     }
 
     @Test
+    @DisplayName("Admin row가 없는 슈퍼 관리자도 처리자로 기록해 IP를 차단한다")
+    void blockIp_withoutAdminRow_recordsProcessorUser() {
+        String ipAddress = "127.0.0.1";
+        when(moderationActorResolver.resolveModerationActor(1L))
+                .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, null));
+        when(ipBlockRepository.findByIdForUpdate(ipAddress)).thenReturn(Optional.empty());
+        when(ipBlockRepository.saveAndFlush(any(IpBlock.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        IpBlockResponse response = ipBlockService.blockIp(1L, ipAddress, "test", null);
+
+        assertThat(response.getAdmin().getAdminId()).isEqualTo(adminUser.getUserId());
+        assertThat(response.getAdmin().getDisplayName()).isEqualTo(adminUser.getDisplayName());
+        verify(ipBlockRepository).saveAndFlush(argThat(ipBlock ->
+                ipBlock.getAdmin() == null && ipBlock.getProcessorUser().equals(adminUser)));
+    }
+
+    @Test
     @DisplayName("활성 관리자가 없으면 FORBIDDEN을 반환한다")
     void blockIp_forbiddenWhenNoActiveAdmin() {
         String ipAddress = "127.0.0.1";
 
-        when(moderationActorResolver.resolveActiveAdmin(1L))
+        when(moderationActorResolver.resolveModerationActor(1L))
                 .thenThrow(new BusinessException(ErrorCode.FORBIDDEN));
 
         assertThatThrownBy(() -> ipBlockService.blockIp(1L, ipAddress, "test", null))
@@ -141,7 +161,7 @@ class IpBlockServiceTest {
     void blockIp_checksForbiddenBeforeDuplicate() {
         String ipAddress = "127.0.0.1";
 
-        when(moderationActorResolver.resolveActiveAdmin(1L))
+        when(moderationActorResolver.resolveModerationActor(1L))
                 .thenThrow(new BusinessException(ErrorCode.FORBIDDEN));
 
         assertThatThrownBy(() -> ipBlockService.blockIp(1L, ipAddress, "test", LocalDateTime.now().plusDays(1)))
