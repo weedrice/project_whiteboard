@@ -35,6 +35,21 @@ class EmoticonShopEntitlementHandler implements ShopEntitlementHandler {
     }
 
     @Override
+    public boolean supportsValidatedPurchasePreparation() {
+        return true;
+    }
+
+    @Override
+    public PurchasePreparation prepareValidatedPurchase(Long userId, ShopItem item, Runnable afterConfigurationValidation) {
+        return new EmoticonPurchasePreparation(
+                emoticonEntitlementGrantService.prepareConfiguredGrant(
+                        userId,
+                        item.getTargetId(),
+                        afterConfigurationValidation),
+                item.getPrice());
+    }
+
+    @Override
     public void grant(PurchasePreparation preparation) {
         EmoticonPurchasePreparation emoticonPreparation = (EmoticonPurchasePreparation) preparation;
         emoticonEntitlementGrantService.grant(

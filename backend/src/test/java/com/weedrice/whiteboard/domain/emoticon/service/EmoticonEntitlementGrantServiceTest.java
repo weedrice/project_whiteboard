@@ -150,6 +150,60 @@ class EmoticonEntitlementGrantServiceTest {
     }
 
     @Nested
+    @DisplayName("prepare configured grant")
+    class PrepareConfiguredGrant {
+
+        @Test
+        @DisplayName("Loads configured emoticon once with images")
+        void prepareConfiguredGrant_success() {
+            when(userRepository.findById(1L)).thenReturn(Optional.of(buyer));
+            when(emoticonMasterRepository.findByIdWithImages(10L)).thenReturn(Optional.of(emoticon));
+            when(emoticonPurchaseRepository.existsByUser_UserIdAndEmoticon_EmoticonId(1L, 10L)).thenReturn(false);
+            boolean[] priceValidated = {false};
+
+            EmoticonEntitlementGrantService.EmoticonGrantContext context =
+                    grantService.prepareConfiguredGrant(1L, 10L, () -> priceValidated[0] = true);
+
+            assertThat(context.user()).isSameAs(buyer);
+            assertThat(context.emoticon()).isSameAs(emoticon);
+            assertThat(priceValidated[0]).isTrue();
+            verify(emoticonMasterRepository).findByIdWithImages(10L);
+            verify(emoticonMasterRepository, never()).findById(10L);
+        }
+
+        @Test
+        @DisplayName("Fails with configuration error when target is inactive")
+        void prepareConfiguredGrant_inactiveTarget() {
+            emoticon.deactivate();
+            when(emoticonMasterRepository.findByIdWithImages(10L)).thenReturn(Optional.of(emoticon));
+
+            assertThatThrownBy(() -> grantService.prepareConfiguredGrant(1L, 10L, () -> {
+            }))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("inactive-target");
+
+            verify(userRepository, never()).findById(any());
+            verify(emoticonPurchaseRepository, never()).existsByUser_UserIdAndEmoticon_EmoticonId(1L, 10L);
+        }
+
+        @Test
+        @DisplayName("Runs purchase validation after target configuration and before user duplicate checks")
+        void prepareConfiguredGrant_validationFailureStopsBeforeUserChecks() {
+            when(emoticonMasterRepository.findByIdWithImages(10L)).thenReturn(Optional.of(emoticon));
+
+            assertThatThrownBy(() -> grantService.prepareConfiguredGrant(1L, 10L, () -> {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            }))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+            verify(userRepository, never()).findById(any());
+            verify(emoticonPurchaseRepository, never()).existsByUser_UserIdAndEmoticon_EmoticonId(1L, 10L);
+        }
+    }
+
+    @Nested
     @DisplayName("grant")
     class Grant {
 

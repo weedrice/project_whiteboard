@@ -26,9 +26,7 @@ class EmoticonPurchaseService {
     }
 
     EmoticonMasterDto purchaseEmoticon(Long userId, Long emoticonId) {
-        ShopItem item = getActiveEmoticonShopItem(emoticonId);
-
-        shopService.purchaseItem(userId, item.getItemId());
+        shopService.purchaseActiveItemByTarget(userId, EMOTICON_ITEM_TYPE, emoticonId);
 
         return catalogService.getEmoticonDetail(emoticonId, userId);
     }

@@ -47,8 +47,8 @@ class ShopEntitlementCapabilityRegistryTest {
     }
 
     @Test
-    @DisplayName("Delegates validate, prepare, and grant to the matching handler")
-    void validatePrepareAndGrant_delegateToMatchingHandler() {
+    @DisplayName("Delegates validated preparation and grant to the matching handler")
+    void prepareValidatedPurchaseAndGrant_delegateToMatchingHandler() {
         TrackingHandler handler = new TrackingHandler(Set.of("EMOTICON"));
         ShopEntitlementCapabilityRegistry registry = new ShopEntitlementCapabilityRegistry(List.of(handler));
         ShopItem item = ShopItem.builder()
@@ -58,9 +58,10 @@ class ShopEntitlementCapabilityRegistryTest {
                 .targetId(1L)
                 .build();
 
-        registry.validateConfiguration(item);
+        assertThat(registry.supportsValidatedPurchasePreparation(item)).isFalse();
         ShopEntitlementCapabilityRegistry.PreparedPurchase preparedPurchase =
-                registry.preparePurchase(1L, item);
+                registry.prepareValidatedPurchase(1L, item, () -> {
+                });
         registry.grant(preparedPurchase);
 
         assertThat(handler.validatedItem).isSameAs(item);

@@ -43,6 +43,29 @@ class EmoticonEntitlementGrantService {
         return new EmoticonGrantContext(user, emoticon);
     }
 
+    EmoticonGrantContext prepareConfiguredGrant(Long userId, Long emoticonId, Runnable afterConfigurationValidation) {
+        if (emoticonId == null) {
+            throw new IllegalStateException("missing-targetId");
+        }
+
+        EmoticonMaster emoticon = emoticonMasterRepository.findByIdWithImages(emoticonId)
+                .orElseThrow(() -> new IllegalStateException("missing-target"));
+
+        if (!"Y".equals(emoticon.getIsActive())) {
+            throw new IllegalStateException("inactive-target");
+        }
+        afterConfigurationValidation.run();
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        validatePurchasable(userId, emoticon);
+        if (emoticonPurchaseRepository.existsByUser_UserIdAndEmoticon_EmoticonId(user.getUserId(), emoticonId)) {
+            throw new BusinessException(ErrorCode.EMOTICON_ALREADY_PURCHASED);
+        }
+
+        return new EmoticonGrantContext(user, emoticon);
+    }
+
     void validateTargetConfiguration(Long emoticonId) {
         if (emoticonId == null) {
             throw new IllegalStateException("missing-targetId");

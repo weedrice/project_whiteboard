@@ -222,6 +222,97 @@ class ShopServiceTest {
         }
 
         @Test
+        @DisplayName("Purchases an active item by type and target without itemId lookup")
+        void purchaseActiveItemByTarget_success() {
+            when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+            when(shopItemRepository.findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 10L))
+                    .thenReturn(List.of(emoticonItem));
+            when(shopEntitlementCapabilityRegistry.supports(emoticonItem)).thenReturn(true);
+            when(shopEntitlementCapabilityRegistry.supportsValidatedPurchasePreparation(emoticonItem)).thenReturn(true);
+            when(shopEntitlementCapabilityRegistry.prepareValidatedPurchase(eq(1L), eq(emoticonItem), any(Runnable.class)))
+                    .thenReturn(preparedPurchase);
+            PurchaseHistory savedPurchaseHistory = PurchaseHistory.builder()
+                    .user(user)
+                    .item(emoticonItem)
+                    .purchasedPrice(emoticonItem.getPrice())
+                    .build();
+            ReflectionTestUtils.setField(savedPurchaseHistory, "purchaseId", 1L);
+            when(purchaseHistoryRepository.save(any(PurchaseHistory.class))).thenReturn(savedPurchaseHistory);
+
+            Long purchaseId = shopService.purchaseActiveItemByTarget(1L, "EMOTICON", 10L);
+
+            assertThat(purchaseId).isEqualTo(1L);
+            verify(shopItemRepository, never()).findById(anyLong());
+            verify(shopItemRepository).findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 10L);
+            verify(shopEntitlementCapabilityRegistry, never()).validateConfiguration(any());
+            verify(shopEntitlementCapabilityRegistry, never()).preparePurchase(anyLong(), any());
+            verify(shopEntitlementCapabilityRegistry).grant(preparedPurchase);
+        }
+
+        @Test
+        @DisplayName("Rejects active target purchases when item configuration is not unique")
+        void purchaseActiveItemByTarget_nonUniqueItem_throwsItemNotAvailable() {
+            ShopItem duplicate = ShopItem.builder()
+                    .itemName("Duplicate")
+                    .price(100)
+                    .itemType("EMOTICON")
+                    .targetId(10L)
+                    .build();
+            when(shopItemRepository.findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 10L))
+                    .thenReturn(List.of(emoticonItem, duplicate));
+
+            assertThatThrownBy(() -> shopService.purchaseActiveItemByTarget(1L, "EMOTICON", 10L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE);
+
+            verify(userRepository, never()).findByIdForUpdate(anyLong());
+            verify(shopEntitlementCapabilityRegistry, never()).preparePurchase(anyLong(), any());
+            verify(shopEntitlementCapabilityRegistry, never()).prepareValidatedPurchase(anyLong(), any(), any());
+            verifyNoInteractions(sanctionService);
+            verifyNoInteractions(pointService);
+            verify(purchaseHistoryRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Rejects active target purchases when no active item exists before locking the user")
+        void purchaseActiveItemByTarget_missingItem_throwsItemNotAvailableBeforeUserLock() {
+            when(shopItemRepository.findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 10L))
+                    .thenReturn(List.of());
+
+            assertThatThrownBy(() -> shopService.purchaseActiveItemByTarget(1L, "EMOTICON", 10L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE);
+
+            verify(userRepository, never()).findByIdForUpdate(anyLong());
+            verifyNoInteractions(sanctionService);
+            verifyNoInteractions(pointService);
+            verify(purchaseHistoryRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Blocks banned users after resolving a unique active target item")
+        void purchaseActiveItemByTarget_bannedUser_throwsUserNotActive() {
+            when(shopItemRepository.findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 10L))
+                    .thenReturn(List.of(emoticonItem));
+            when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+            doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
+                    .when(sanctionService)
+                    .validateNotBanned(user);
+
+            assertThatThrownBy(() -> shopService.purchaseActiveItemByTarget(1L, "EMOTICON", 10L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+
+            verify(shopEntitlementCapabilityRegistry, never()).preparePurchase(anyLong(), any());
+            verify(shopEntitlementCapabilityRegistry, never()).prepareValidatedPurchase(anyLong(), any(), any());
+            verifyNoInteractions(pointService);
+            verify(purchaseHistoryRepository, never()).save(any());
+        }
+
+        @Test
         @DisplayName("Free items grant entitlement and save purchase history without spending points")
         void purchaseItem_freeItem_skipsPointSpending() {
             ShopItem freeEmoticonItem = ShopItem.builder()
@@ -290,6 +381,76 @@ class ShopServiceTest {
         }
 
         @Test
+        @DisplayName("Rejects negative price items after combined configuration validation")
+        void purchaseItem_combinedPreparationNegativePrice_throwsInvalidInput() {
+            ShopItem negativePriceItem = ShopItem.builder()
+                    .itemName("Invalid item")
+                    .description("Invalid shop item")
+                    .price(-1)
+                    .itemType("EMOTICON")
+                    .targetId(12L)
+                    .build();
+            ReflectionTestUtils.setField(negativePriceItem, "itemId", 5L);
+            ReflectionTestUtils.setField(negativePriceItem, "isActive", true);
+            when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+            when(shopItemRepository.findById(5L)).thenReturn(Optional.of(negativePriceItem));
+            when(shopEntitlementCapabilityRegistry.supports(negativePriceItem)).thenReturn(true);
+            when(shopEntitlementCapabilityRegistry.supportsValidatedPurchasePreparation(negativePriceItem))
+                    .thenReturn(true);
+            when(shopEntitlementCapabilityRegistry.prepareValidatedPurchase(
+                    eq(1L),
+                    eq(negativePriceItem),
+                    any(Runnable.class)))
+                    .thenAnswer(invocation -> {
+                        Runnable validatePrice = invocation.getArgument(2);
+                        validatePrice.run();
+                        return preparedPurchase;
+                    });
+
+            assertThatThrownBy(() -> shopService.purchaseItem(1L, 5L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+            verifyNoInteractions(pointService);
+            verify(shopEntitlementCapabilityRegistry, never()).grant(any());
+            verify(purchaseHistoryRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Prioritizes combined configuration failures over negative price")
+        void purchaseItem_combinedPreparationInvalidConfigurationBeforeNegativePrice() {
+            ShopItem invalidConfigurationItem = ShopItem.builder()
+                    .itemName("Invalid item")
+                    .description("Invalid shop item")
+                    .price(-1)
+                    .itemType("EMOTICON")
+                    .targetId(12L)
+                    .build();
+            ReflectionTestUtils.setField(invalidConfigurationItem, "itemId", 5L);
+            ReflectionTestUtils.setField(invalidConfigurationItem, "isActive", true);
+            when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+            when(shopItemRepository.findById(5L)).thenReturn(Optional.of(invalidConfigurationItem));
+            when(shopEntitlementCapabilityRegistry.supports(invalidConfigurationItem)).thenReturn(true);
+            when(shopEntitlementCapabilityRegistry.supportsValidatedPurchasePreparation(invalidConfigurationItem))
+                    .thenReturn(true);
+            when(shopEntitlementCapabilityRegistry.prepareValidatedPurchase(
+                    eq(1L),
+                    eq(invalidConfigurationItem),
+                    any(Runnable.class)))
+                    .thenThrow(new IllegalStateException("missing-target"));
+
+            assertThatThrownBy(() -> shopService.purchaseItem(1L, 5L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE);
+
+            verifyNoInteractions(pointService);
+            verify(shopEntitlementCapabilityRegistry, never()).grant(any());
+            verify(purchaseHistoryRepository, never()).save(any());
+        }
+
+        @Test
         @DisplayName("Blocks inactive items")
         void purchaseItem_inactiveItem() {
             ReflectionTestUtils.setField(emoticonItem, "isActive", false);
@@ -337,6 +498,7 @@ class ShopServiceTest {
                     .isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE);
 
             verifyNoInteractions(pointService);
+            verify(shopEntitlementCapabilityRegistry, never()).preparePurchase(anyLong(), any());
             verify(shopEntitlementCapabilityRegistry, never()).grant(any());
         }
 

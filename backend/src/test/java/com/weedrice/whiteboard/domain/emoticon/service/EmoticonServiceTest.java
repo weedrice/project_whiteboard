@@ -1109,26 +1109,22 @@ class EmoticonServiceTest {
         @Test
         @DisplayName("이모티콘 구매는 상점 구매 command로 위임하고 상세를 반환한다")
         void purchaseEmoticon_success() {
-            when(shopItemRepository.findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 1L))
-                    .thenReturn(List.of(emoticonShopItem));
             when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
 
             EmoticonMasterDto result = emoticonService.purchaseEmoticon(2L, 1L);
 
             assertThat(result).isNotNull();
             assertThat(result.getEmoticonId()).isEqualTo(1L);
-            verify(shopService).purchaseItem(2L, 10L);
+            verify(shopService).purchaseActiveItemByTarget(2L, "EMOTICON", 1L);
             verify(emoticonPurchaseRepository, never()).saveAndFlush(any());
         }
 
         @Test
         @DisplayName("이모티콘 구매 - 상점 구매 실패를 전파한다")
         void purchaseEmoticon_alreadyPurchased() {
-            when(shopItemRepository.findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 1L))
-                    .thenReturn(List.of(emoticonShopItem));
             doThrow(new BusinessException(ErrorCode.EMOTICON_ALREADY_PURCHASED))
                     .when(shopService)
-                    .purchaseItem(2L, 10L);
+                    .purchaseActiveItemByTarget(2L, "EMOTICON", 1L);
 
             assertThatThrownBy(() -> emoticonService.purchaseEmoticon(2L, 1L))
                     .isInstanceOf(BusinessException.class)
@@ -1140,34 +1136,29 @@ class EmoticonServiceTest {
         @Test
         @DisplayName("이모티콘 구매 - active 상점 상품이 없으면 ITEM_NOT_AVAILABLE")
         void purchaseEmoticon_missingShopItem() {
-            when(shopItemRepository.findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 1L))
-                    .thenReturn(List.of());
+            doThrow(new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE))
+                    .when(shopService)
+                    .purchaseActiveItemByTarget(2L, "EMOTICON", 1L);
 
             assertThatThrownBy(() -> emoticonService.purchaseEmoticon(2L, 1L))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE));
 
-            verify(shopService, never()).purchaseItem(anyLong(), anyLong());
+            verify(emoticonMasterRepository, never()).findByIdWithImages(anyLong());
         }
 
         @Test
         @DisplayName("이모티콘 구매 - active 상점 상품이 중복이면 ITEM_NOT_AVAILABLE")
         void purchaseEmoticon_duplicateShopItems() {
-            ShopItem duplicate = ShopItem.builder()
-                    .itemName("중복 상품")
-                    .price(300)
-                    .itemType("EMOTICON")
-                    .targetId(1L)
-                    .build();
-            ReflectionTestUtils.setField(duplicate, "itemId", 11L);
-            when(shopItemRepository.findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 1L))
-                    .thenReturn(List.of(emoticonShopItem, duplicate));
+            doThrow(new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE))
+                    .when(shopService)
+                    .purchaseActiveItemByTarget(2L, "EMOTICON", 1L);
 
             assertThatThrownBy(() -> emoticonService.purchaseEmoticon(2L, 1L))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE));
 
-            verify(shopService, never()).purchaseItem(anyLong(), anyLong());
+            verify(emoticonMasterRepository, never()).findByIdWithImages(anyLong());
         }
 
         @Test
