@@ -51,6 +51,15 @@ public class GlobalConfigService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
     }
 
+    public GlobalConfigResponse getConfigResponseOrThrow(String key) {
+        String normalizedKey = normalizeConfigKey(key);
+        String value = getConfigOrThrow(normalizedKey);
+        return GlobalConfigResponse.builder()
+                .key(normalizedKey)
+                .value(value)
+                .build();
+    }
+
     public static int parseIntConfigOrDefault(String value, int defaultValue, int minValue) {
         if (value == null) {
             return defaultValue;

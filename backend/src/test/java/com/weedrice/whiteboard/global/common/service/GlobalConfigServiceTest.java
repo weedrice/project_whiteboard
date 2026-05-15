@@ -99,6 +99,19 @@ class GlobalConfigServiceTest {
     }
 
     @Test
+    @DisplayName("getConfigResponseOrThrow returns normalized key and value")
+    void getConfigResponseOrThrow_success() {
+        GlobalConfig config = new GlobalConfig("key", "value", "desc");
+        when(globalConfigRepository.findById("key")).thenReturn(Optional.of(config));
+
+        GlobalConfigResponse response = globalConfigService.getConfigResponseOrThrow(" key ");
+
+        assertThat(response.getKey()).isEqualTo("key");
+        assertThat(response.getValue()).isEqualTo("value");
+        assertThat(response.getDescription()).isNull();
+    }
+
+    @Test
     @DisplayName("parseIntConfigOrDefault returns parsed integer")
     void parseIntConfigOrDefault_success() {
         int value = GlobalConfigService.parseIntConfigOrDefault(" 12 ", 10, 0);

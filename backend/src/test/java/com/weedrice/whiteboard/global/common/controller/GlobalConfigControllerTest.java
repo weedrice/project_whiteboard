@@ -124,7 +124,8 @@ class GlobalConfigControllerTest {
     @Test
     @DisplayName("설정 단건 조회")
     void getConfig_success() throws Exception {
-        when(globalConfigService.getConfigOrThrow("key")).thenReturn("value");
+        when(globalConfigService.getConfigResponseOrThrow("key"))
+                .thenReturn(configResponse("key", "value", null));
 
         mockMvc.perform(get("/api/v1/configs/{key}", "key")
                 .with(user(adminUser))
@@ -138,7 +139,8 @@ class GlobalConfigControllerTest {
     @Test
     @DisplayName("GET /configs/{key} response uses normalized key")
     void getConfig_normalizesResponseKey() throws Exception {
-        when(globalConfigService.getConfigOrThrow(" key ")).thenReturn("value");
+        when(globalConfigService.getConfigResponseOrThrow(" key "))
+                .thenReturn(configResponse("key", "value", null));
 
         mockMvc.perform(get("/api/v1/configs/{key}", " key ")
                 .with(user(adminUser))
@@ -152,7 +154,7 @@ class GlobalConfigControllerTest {
     @Test
     @DisplayName("단건 설정 조회는 없는 key에 404를 반환한다")
     void getConfig_missing_returnsNotFound() throws Exception {
-        when(globalConfigService.getConfigOrThrow("missing"))
+        when(globalConfigService.getConfigResponseOrThrow("missing"))
                 .thenThrow(new BusinessException(ErrorCode.NOT_FOUND));
 
         mockMvc.perform(get("/api/v1/configs/{key}", "missing")
