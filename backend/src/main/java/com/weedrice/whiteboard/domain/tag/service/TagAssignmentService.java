@@ -9,7 +9,6 @@ import com.weedrice.whiteboard.domain.tag.repository.TagRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,7 +27,6 @@ public class TagAssignmentService {
 
     private final TagRepository tagRepository;
     private final PostTagRepository postTagRepository;
-    private final TagCreationService tagCreationService;
 
     @Transactional
     public void assignTags(Post post, List<String> requestedTagNames) {
@@ -71,15 +69,38 @@ public class TagAssignmentService {
             return List.of();
         }
 
-        Map<String, Tag> tagsByName = tagRepository.findByTagNameInForUpdate(tagNamesToAdd).stream()
-                .collect(Collectors.toMap(Tag::getTagName, Function.identity()));
+        Map<String, Tag> tagsByName = loadTagsForAssignment(tagNamesToAdd);
         return tagNamesToAdd.stream()
-                .map(tagName -> addPostTag(post, tagName, tagsByName))
+                .map(tagName -> addPostTag(post, tagsByName.get(tagName)))
                 .toList();
     }
 
-    private Long addPostTag(Post post, String tagName, Map<String, Tag> tagsByName) {
-        Tag tag = tagsByName.computeIfAbsent(tagName, this::createTag);
+    private Map<String, Tag> loadTagsForAssignment(Set<String> tagNamesToAdd) {
+        Map<String, Tag> existingTagsByName = findTagsForUpdateByName(tagNamesToAdd);
+        Set<String> missingTagNames = tagNamesToAdd.stream()
+                .filter(tagName -> !existingTagsByName.containsKey(tagName))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        Map<String, Tag> tagsByName = existingTagsByName;
+        if (!missingTagNames.isEmpty()) {
+            missingTagNames.stream()
+                    .sorted()
+                    .forEach(tagRepository::insertIgnore);
+            tagsByName = findTagsForUpdateByName(tagNamesToAdd);
+        }
+
+        if (!tagsByName.keySet().containsAll(tagNamesToAdd)) {
+            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
+        }
+        return tagsByName;
+    }
+
+    private Map<String, Tag> findTagsForUpdateByName(Set<String> tagNames) {
+        return tagRepository.findByTagNameInForUpdate(tagNames).stream()
+                .collect(Collectors.toMap(Tag::getTagName, Function.identity()));
+    }
+
+    private Long addPostTag(Post post, Tag tag) {
         postTagRepository.save(PostTag.builder()
                 .post(post)
                 .tag(tag)
@@ -134,12 +155,4 @@ public class TagAssignmentService {
         return normalizedTagNames;
     }
 
-    private Tag createTag(String tagName) {
-        try {
-            return tagCreationService.create(tagName);
-        } catch (DataIntegrityViolationException ex) {
-            return tagRepository.findByTagName(tagName)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.DUPLICATE_RESOURCE));
-        }
-    }
 }
