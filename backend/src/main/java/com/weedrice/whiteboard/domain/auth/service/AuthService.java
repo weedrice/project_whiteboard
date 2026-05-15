@@ -61,8 +61,7 @@ public class AuthService {
         TokenResponse issuedTokens = sessionTokenService.issueTokens(
                 authentication,
                 user,
-                resolvedMetadata.ipAddress(),
-                resolvedMetadata.userAgent());
+                resolvedMetadata);
 
         loginAuditRecorder.recordSuccess(request, user, resolvedMetadata);
         user.updateLastLogin();

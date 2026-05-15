@@ -69,8 +69,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         TokenResponse issuedTokens = sessionTokenService.issueTokens(
                 authentication,
                 authenticatedUser,
-                metadata.ipAddress(),
-                metadata.userAgent());
+                metadata);
 
         // Keep refresh token in HttpOnly cookie; only pass short-lived access token to frontend.
         refreshTokenCookieWriter.writeRefreshTokenCookie(response, issuedTokens.getRefreshToken(), request);

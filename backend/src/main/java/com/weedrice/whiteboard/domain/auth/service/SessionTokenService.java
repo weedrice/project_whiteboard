@@ -89,7 +89,10 @@ public class SessionTokenService {
 
         Authentication authentication = createRefreshAuthentication(user);
         return RefreshTokenRefreshOutcome.success(
-                issueTokens(authentication, user, refreshToken.getIpAddress(), refreshToken.getDeviceInfo()));
+                issueTokens(
+                        authentication,
+                        user,
+                        new LoginClientMetadata(refreshToken.getIpAddress(), refreshToken.getDeviceInfo())));
     }
 
     private RefreshTokenRenewalContext loadRefreshTokenRenewalContext(String refreshTokenHash) {
@@ -139,11 +142,12 @@ public class SessionTokenService {
     }
 
     @Transactional
-    public TokenResponse issueTokens(Authentication authentication, User user, String ipAddress, String userAgent) {
+    public TokenResponse issueTokens(Authentication authentication, User user, LoginClientMetadata metadata) {
+        LoginClientMetadata resolvedMetadata = metadata != null ? metadata : LoginClientMetadata.empty();
         String accessToken = jwtTokenProvider.createAccessToken(authentication);
         String refreshToken = jwtTokenProvider.createRefreshToken(authentication);
 
-        persistRefreshToken(user, refreshToken, ipAddress, userAgent);
+        persistRefreshToken(user, refreshToken, resolvedMetadata.ipAddress(), resolvedMetadata.userAgent());
 
         return TokenResponse.builder()
                 .accessToken(accessToken)

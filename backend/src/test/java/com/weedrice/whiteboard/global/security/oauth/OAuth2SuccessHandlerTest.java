@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.global.security.oauth;
 
 import com.weedrice.whiteboard.domain.auth.dto.TokenResponse;
+import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadata;
 import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadataResolver;
 import com.weedrice.whiteboard.domain.auth.service.SessionTokenService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
@@ -83,7 +84,7 @@ class OAuth2SuccessHandlerTest {
         handler.onAuthenticationSuccess(request, response, authentication);
 
         assertThat(response.getRedirectedUrl()).isEqualTo("http://localhost:5173/auth/oauth/callback");
-        verify(sessionTokenService, never()).issueTokens(any(), any(), any(), any());
+        verify(sessionTokenService, never()).issueTokens(any(), any(), any());
     }
 
     @Test
@@ -105,7 +106,10 @@ class OAuth2SuccessHandlerTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(sanctionService.isUserBanned(user)).thenReturn(false);
-        when(sessionTokenService.issueTokens(authentication, user, "203.0.113.7", "OAuth Browser"))
+        when(sessionTokenService.issueTokens(
+                eq(authentication),
+                eq(user),
+                eq(new LoginClientMetadata("203.0.113.7", "OAuth Browser"))))
                 .thenReturn(TokenResponse.builder()
                         .accessToken("issued-access")
                         .refreshToken("issued-refresh")
@@ -128,7 +132,6 @@ class OAuth2SuccessHandlerTest {
         verify(sessionTokenService).issueTokens(
                 eq(authentication),
                 eq(user),
-                eq("203.0.113.7"),
-                eq("OAuth Browser"));
+                eq(new LoginClientMetadata("203.0.113.7", "OAuth Browser")));
     }
 }
