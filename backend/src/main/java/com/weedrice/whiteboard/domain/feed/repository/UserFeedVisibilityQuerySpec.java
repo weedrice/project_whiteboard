@@ -79,7 +79,7 @@ final class UserFeedVisibilityQuerySpec {
                               AND (
                                     b.isPublic = true
                                     OR (
-                                        LOWER(b.boardUrl) = :inquiryBoardUrl
+                                        LOWER(TRIM(b.boardUrl)) = :inquiryBoardUrl
                                         AND p.user = :targetUser
                                     )
                                     OR :isSuperAdmin = true

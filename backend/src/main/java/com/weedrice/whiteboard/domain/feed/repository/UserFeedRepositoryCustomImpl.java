@@ -7,11 +7,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Slice;
-import org.springframework.data.domain.SliceImpl;
 import org.springframework.stereotype.Repository;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Repository
@@ -37,25 +34,6 @@ public class UserFeedRepositoryCustomImpl implements UserFeedRepositoryCustom {
         List<UserFeed> content = contentQuery.getResultList();
         Long total = countQuery.getSingleResult();
         return new PageImpl<>(content, pageable, total != null ? total : 0L);
-    }
-
-    @Override
-    public Slice<UserFeed> findVisibleSliceByTargetUserOrderByCreatedAtDesc(
-            UserFeedVisibilityCondition visibilityCondition,
-            Pageable pageable) {
-        String fromClause = UserFeedVisibilityQuerySpec.buildFromClause(visibilityCondition);
-        TypedQuery<UserFeed> contentQuery = createVisibleFeedContentQuery(fromClause, visibilityCondition);
-        if (pageable.isPaged()) {
-            contentQuery.setFirstResult((int) pageable.getOffset());
-            contentQuery.setMaxResults(pageable.getPageSize() + 1);
-        }
-
-        List<UserFeed> content = contentQuery.getResultList();
-        boolean hasNext = pageable.isPaged() && content.size() > pageable.getPageSize();
-        List<UserFeed> sliceContent = hasNext
-                ? new ArrayList<>(content.subList(0, pageable.getPageSize()))
-                : content;
-        return new SliceImpl<>(sliceContent, pageable, hasNext);
     }
 
     private TypedQuery<UserFeed> createVisibleFeedContentQuery(String fromClause,
