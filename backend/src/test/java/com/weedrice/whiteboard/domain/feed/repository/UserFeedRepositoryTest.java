@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.feed.repository;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
+import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.feed.entity.UserFeed;
@@ -139,6 +140,58 @@ class UserFeedRepositoryTest {
 
         assertThat(result.getTotalElements()).isEqualTo(1);
         assertThat(result.getContent().getFirst().getContentId()).isEqualTo(privatePost.getPostId());
+    }
+
+    @Test
+    void findVisibleByTargetUserOrderByCreatedAtDesc_allowsInactiveBoardForAuthorOnly() {
+        Board inactiveBoard = persistBoard("inactive-author-board", author, false, true);
+        Post ownPost = persistPost(inactiveBoard, viewer, false);
+        Post otherPost = persistPost(inactiveBoard, author, false);
+        persistFeed(viewer, "POST", ownPost.getPostId());
+        persistFeed(viewer, "POST", otherPost.getPostId());
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<UserFeed> result = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
+                vf(viewer),
+                PageRequest.of(0, 10));
+
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(result.getContent().getFirst().getContentId()).isEqualTo(ownPost.getPostId());
+    }
+
+    @Test
+    void findVisibleByTargetUserOrderByCreatedAtDesc_allowsInactiveSecretPostForPrecomputedAdminBoardId() {
+        Board inactiveBoard = persistBoard("inactive-admin-board", author, false, true);
+        Post secretPost = persistPost(inactiveBoard, author, true);
+        persistFeed(viewer, "POST", secretPost.getPostId());
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<UserFeed> result = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
+                vf(viewer, List.of(), List.of(inactiveBoard.getBoardId())),
+                PageRequest.of(0, 10));
+
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(result.getContent().getFirst().getContentId()).isEqualTo(secretPost.getPostId());
+    }
+
+    @Test
+    void findVisibleByTargetUserOrderByCreatedAtDesc_allowsPrivateInquiryBoardForAuthorOnly() {
+        Board inquiryBoard = persistBoard(BoardPolicyConstants.INQUIRY_BOARD_URL, author, true, false);
+        Post ownInquiryPost = persistPost(inquiryBoard, viewer, false);
+        Post otherInquiryPost = persistPost(inquiryBoard, author, false);
+        persistFeed(viewer, "POST", ownInquiryPost.getPostId());
+        persistFeed(viewer, "POST", otherInquiryPost.getPostId());
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<UserFeed> result = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
+                vf(viewer),
+                PageRequest.of(0, 10));
+
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(result.getContent().getFirst().getContentId()).isEqualTo(ownInquiryPost.getPostId());
     }
 
     @Test

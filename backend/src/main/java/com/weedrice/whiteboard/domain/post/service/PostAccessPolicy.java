@@ -27,30 +27,67 @@ public class PostAccessPolicy {
     }
 
     void validateReadable(Post post, User viewer, boolean authorBlocked, Set<Long> activeAdminBoardIds) {
-        if (post == null || Boolean.TRUE.equals(post.getIsDeleted()) || authorBlocked) {
+        if (!isReadable(post, viewer, authorBlocked, activeAdminBoardIds)) {
             throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+        }
+    }
+
+    public boolean isReadable(Post post, User viewer) {
+        return isReadable(post, viewer, false);
+    }
+
+    public boolean isReadable(Post post, User viewer, boolean authorBlocked) {
+        return isReadable(post, viewer, authorBlocked, null);
+    }
+
+    boolean isReadable(Post post, User viewer, boolean authorBlocked, Set<Long> activeAdminBoardIds) {
+        if (post == null || Boolean.TRUE.equals(post.getIsDeleted()) || authorBlocked) {
+            return false;
         }
 
         Board board = post.getBoard();
+        if (board == null) {
+            return false;
+        }
         boolean isAuthor = viewer != null && Objects.equals(post.getUser().getUserId(), viewer.getUserId());
+        Boolean hasAdminAccess = null;
 
-        if (!Boolean.TRUE.equals(board.getIsActive())
-                && (viewer == null
-                || (!boardAccessPolicy.hasBoardAdminAccess(board, viewer, activeAdminBoardIds) && !isAuthor))) {
-            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+        if (!Boolean.TRUE.equals(board.getIsActive())) {
+            if (viewer == null) {
+                return false;
+            }
+            if (!isAuthor) {
+                hasAdminAccess = resolveAdminAccess(board, viewer, activeAdminBoardIds, hasAdminAccess);
+                if (!hasAdminAccess) {
+                    return false;
+                }
+            }
         }
 
         if (!Boolean.TRUE.equals(board.getIsPublic())) {
             boolean canReadInquiryAsAuthor = boardAccessPolicy.isInquiryBoard(board) && isAuthor;
-            if (!boardAccessPolicy.hasBoardAdminAccess(board, viewer, activeAdminBoardIds) && !canReadInquiryAsAuthor) {
-                throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+            if (!canReadInquiryAsAuthor) {
+                hasAdminAccess = resolveAdminAccess(board, viewer, activeAdminBoardIds, hasAdminAccess);
+            }
+            if (!canReadInquiryAsAuthor && !hasAdminAccess) {
+                return false;
             }
         }
 
         if (Boolean.TRUE.equals(post.getIsSecret())
-                && !boardAccessPolicy.hasBoardAdminAccess(board, viewer, activeAdminBoardIds)
                 && !isAuthor) {
-            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+            hasAdminAccess = resolveAdminAccess(board, viewer, activeAdminBoardIds, hasAdminAccess);
+            if (!hasAdminAccess) {
+                return false;
+            }
         }
+        return true;
+    }
+
+    private boolean resolveAdminAccess(Board board, User viewer, Set<Long> activeAdminBoardIds, Boolean resolvedAccess) {
+        if (resolvedAccess != null) {
+            return resolvedAccess;
+        }
+        return boardAccessPolicy.hasBoardAdminAccess(board, viewer, activeAdminBoardIds);
     }
 }
