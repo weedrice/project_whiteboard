@@ -29,26 +29,20 @@ class PostReadContextResolver {
     private final AdminRepository adminRepository;
 
     PostReadContext resolve(Long currentUserId) {
-        return resolve(currentUserId, false);
-    }
-
-    PostReadContext resolveForExistingUser(Long currentUserId) {
-        return resolve(currentUserId, true);
-    }
-
-    private PostReadContext resolve(Long currentUserId, boolean useExistingUserBlockLookup) {
         if (currentUserId == null) {
             return PostReadContext.anonymous();
         }
         User viewer = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        List<Long> blockedUserIds = useExistingUserBlockLookup
-                ? userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(currentUserId)
-                : userBlockService.getBlockedUserIdsEitherDirection(currentUserId);
+        List<Long> blockedUserIds = userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(currentUserId);
         Set<Long> blockedUserIdSet = blockedUserIds == null || blockedUserIds.isEmpty()
                 ? Collections.emptySet()
                 : new HashSet<>(blockedUserIds);
         return new PostReadContext(viewer, currentUserId, blockedUserIds, blockedUserIdSet, Collections.emptySet());
+    }
+
+    PostReadContext resolveForExistingUser(Long currentUserId) {
+        return resolve(currentUserId);
     }
 
     PostReadContext resolveForBoards(Long currentUserId, Collection<Board> boards) {

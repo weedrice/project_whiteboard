@@ -833,7 +833,7 @@ class PostServiceTest {
     @Test
     @DisplayName("인기 게시글 조회 - 로그인 사용자")
     void getTrendingPosts_loggedIn() {
-        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(postRepository.findTrendingPosts(any(LocalDateTime.class), anyList(), any(Pageable.class)))
                 .thenReturn(List.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -856,7 +856,7 @@ class PostServiceTest {
     @Test
     @DisplayName("인기 게시글 조회는 선택한 기간 기준으로 집계 시점을 계산한다")
     void getTrendingPosts_resolvesSelectedPeriod() {
-        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(postRepository.findTrendingPosts(any(LocalDateTime.class), anyList(), any(Pageable.class)))
                 .thenReturn(List.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -882,7 +882,7 @@ class PostServiceTest {
     @Test
     @DisplayName("인기 게시글 페이지 조회는 repository count로 정확한 total을 반환한다")
     void getTrendingPostsPage_usesExactRepositoryTotal() {
-        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(postRepository.findTrendingPosts(any(LocalDateTime.class), anyList(), anyLong(), anyInt()))
                 .thenReturn(List.of(post));
         when(postRepository.countTrendingPosts(any(LocalDateTime.class), anyList())).thenReturn(20L);
@@ -2753,7 +2753,7 @@ class PostServiceTest {
     @DisplayName("게시판 최신 게시글 조회 - 로그인 사용자")
     void getLatestPostsByBoard_loggedIn() {
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
-        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), anyList(), any(Boolean.class), any(),
                 any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(post)));
