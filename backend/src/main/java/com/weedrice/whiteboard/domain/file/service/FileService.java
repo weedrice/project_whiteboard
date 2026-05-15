@@ -190,15 +190,11 @@ public class FileService {
     public void associateFileWithEntity(Long fileId, Long ownerUserId, Long relatedId, String relatedType) {
         File file = fileRepository.findByFileIdAndStorageStatus(fileId, FileStorageStatus.ACTIVE)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-        if (file.getUploader() == null || !ownerUserId.equals(file.getUploader().getUserId())) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
+        validateOwnedFile(file, ownerUserId);
         if (file.isAssociatedWith(relatedId, relatedType)) {
             return;
         }
-        if (!file.isUnassociated()) {
-            throw new BusinessException(ErrorCode.FILE_ALREADY_ASSOCIATED);
-        }
+        validateAssociableFile(file);
         int updated = fileRepository.associateIfUnassociated(fileId, ownerUserId, relatedId, relatedType);
         if (updated == 1) {
             file.updateRelatedInfo(relatedId, relatedType);
@@ -206,11 +202,8 @@ public class FileService {
         }
 
         entityManager.refresh(file);
-        if (file.getStorageStatus() != null && file.getStorageStatus() != FileStorageStatus.ACTIVE) {
-            throw new BusinessException(ErrorCode.NOT_FOUND);
-        }
-        File current = file;
-        if (current.isAssociatedWith(relatedId, relatedType)) {
+        validateActiveFile(file);
+        if (file.isAssociatedWith(relatedId, relatedType)) {
             return;
         }
         throw new BusinessException(ErrorCode.FILE_ALREADY_ASSOCIATED);
@@ -337,15 +330,10 @@ public class FileService {
             }
         }
         for (File file : filesById.values()) {
-            if (file.getUploader() == null || !ownerUserId.equals(file.getUploader().getUserId())) {
-                throw new BusinessException(ErrorCode.FORBIDDEN);
-            }
+            validateOwnedFile(file, ownerUserId);
         }
         for (File file : filesById.values()) {
-            if (file.isAssociatedWith(relatedId, relatedType)) {
-                continue;
-            }
-            if (file.isUnassociated() || isSourceDraftFile(file, sourceDraftId)) {
+            if (canAssociateOrMove(file, relatedId, relatedType, sourceDraftId)) {
                 continue;
             }
             throw new BusinessException(ErrorCode.FILE_ALREADY_ASSOCIATED);
@@ -375,34 +363,50 @@ public class FileService {
                 && sourceDraftId.equals(file.getRelatedId());
     }
 
+    private boolean canAssociateOrMove(File file, Long relatedId, String relatedType, Long sourceDraftId) {
+        return file.isAssociatedWith(relatedId, relatedType)
+                || file.isUnassociated()
+                || isSourceDraftFile(file, sourceDraftId);
+    }
+
     private void handleFailedBatchAssociation(File file, Long ownerUserId, Long relatedId, String relatedType) {
         try {
             entityManager.refresh(file);
         } catch (EntityNotFoundException ex) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
-        if (file.getStorageStatus() != null && file.getStorageStatus() != FileStorageStatus.ACTIVE) {
-            throw new BusinessException(ErrorCode.NOT_FOUND);
-        }
-        if (file.getUploader() == null || !ownerUserId.equals(file.getUploader().getUserId())) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
+        validateActiveFile(file);
+        validateOwnedFile(file, ownerUserId);
         if (file.isAssociatedWith(relatedId, relatedType)) {
             return;
         }
         throw new BusinessException(ErrorCode.FILE_ALREADY_ASSOCIATED);
     }
 
-    private void validateAndAssociateLoadedFile(File file, Long ownerUserId, Long relatedId, String relatedType) {
+    private void validateOwnedFile(File file, Long ownerUserId) {
         if (file.getUploader() == null || !ownerUserId.equals(file.getUploader().getUserId())) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
-        if (file.isAssociatedWith(relatedId, relatedType)) {
-            return;
-        }
+    }
+
+    private void validateAssociableFile(File file) {
         if (!file.isUnassociated()) {
             throw new BusinessException(ErrorCode.FILE_ALREADY_ASSOCIATED);
         }
+    }
+
+    private void validateActiveFile(File file) {
+        if (file.getStorageStatus() != null && file.getStorageStatus() != FileStorageStatus.ACTIVE) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+    }
+
+    private void validateAndAssociateLoadedFile(File file, Long ownerUserId, Long relatedId, String relatedType) {
+        validateOwnedFile(file, ownerUserId);
+        if (file.isAssociatedWith(relatedId, relatedType)) {
+            return;
+        }
+        validateAssociableFile(file);
         int updated = fileRepository.associateIfUnassociated(file.getFileId(), ownerUserId, relatedId, relatedType);
         if (updated == 1) {
             file.updateRelatedInfo(relatedId, relatedType);
