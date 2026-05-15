@@ -9,7 +9,6 @@ import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -55,10 +54,6 @@ public class FileController {
         Long viewerUserId = userDetails != null ? userDetails.getUserId() : null;
         FileDownloadResponse download = fileDownloadService.downloadFile(fileId, viewerUserId);
 
-        return ResponseEntity.ok()
-                .contentType(download.contentType())
-                .header(HttpHeaders.CONTENT_DISPOSITION, download.contentDisposition().toString())
-                .header("X-Content-Type-Options", "nosniff")
-                .body(download.resource());
+        return FileDownloadResponseAssembler.toResponse(download);
     }
 }

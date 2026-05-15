@@ -14,8 +14,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.io.ByteArrayInputStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -32,55 +30,32 @@ class FileDownloadServiceTest {
     private FileDownloadService fileDownloadService;
 
     @Test
-    @DisplayName("다운로드 응답은 MIME이 없으면 기본 content type과 attachment를 사용한다")
-    void downloadFile_usesDefaultContentTypeAndAttachment() {
+    @DisplayName("다운로드 데이터는 원본 메타데이터와 스트림을 반환한다")
+    void downloadFile_returnsFileMetadataAndStream() {
         File file = file("document", null, "path/to/document");
+        ByteArrayInputStream inputStream = new ByteArrayInputStream("content".getBytes());
         when(fileAccessService.getFileForDownload(1L, null)).thenReturn(file);
-        when(fileStorageService.loadFile("path/to/document")).thenReturn(new ByteArrayInputStream("content".getBytes()));
+        when(fileStorageService.loadFile("path/to/document")).thenReturn(inputStream);
 
         FileDownloadResponse response = fileDownloadService.downloadFile(1L, null);
 
-        assertThat(response.contentType().toString()).isEqualTo("application/octet-stream");
-        assertThat(response.contentDisposition().getType()).isEqualTo("attachment");
+        assertThat(response.inputStream()).isSameAs(inputStream);
+        assertThat(response.originalName()).isEqualTo("document");
+        assertThat(response.mimeType()).isNull();
         verify(fileAccessService).getFileForDownload(1L, null);
     }
 
     @Test
-    @DisplayName("이미지 파일은 SVG가 아니면 inline으로 응답한다")
-    void downloadFile_servesImageInline() {
+    @DisplayName("인증 다운로드는 조회자 ID를 접근 검증에 전달한다")
+    void downloadFile_passesViewerUserIdToAccessService() {
         File file = file("image.png", "image/png", "path/to/image.png");
         when(fileAccessService.getFileForDownload(2L, 10L)).thenReturn(file);
         when(fileStorageService.loadFile("path/to/image.png")).thenReturn(new ByteArrayInputStream("content".getBytes()));
 
         FileDownloadResponse response = fileDownloadService.downloadFile(2L, 10L);
 
-        assertThat(response.contentType().toString()).isEqualTo("image/png");
-        assertThat(response.contentDisposition().getType()).isEqualTo("inline");
+        assertThat(response.mimeType()).isEqualTo("image/png");
         verify(fileAccessService).getFileForDownload(2L, 10L);
-    }
-
-    @Test
-    @DisplayName("SVG 파일은 attachment로 응답한다")
-    void downloadFile_servesSvgAsAttachment() {
-        File file = file("vector.svg", "image/svg+xml", "path/to/vector.svg");
-        when(fileAccessService.getFileForDownload(3L, null)).thenReturn(file);
-        when(fileStorageService.loadFile("path/to/vector.svg")).thenReturn(new ByteArrayInputStream("content".getBytes()));
-
-        FileDownloadResponse response = fileDownloadService.downloadFile(3L, null);
-
-        assertThat(response.contentDisposition().getType()).isEqualTo("attachment");
-    }
-
-    @Test
-    @DisplayName("Content-Disposition 파일명은 헤더 주입 문자를 제거한다")
-    void downloadFile_sanitizesFileName() {
-        File file = file("bad/name\r\n.txt", "text/plain", "path/to/file");
-        when(fileAccessService.getFileForDownload(eq(4L), isNull())).thenReturn(file);
-        when(fileStorageService.loadFile("path/to/file")).thenReturn(new ByteArrayInputStream("content".getBytes()));
-
-        FileDownloadResponse response = fileDownloadService.downloadFile(4L, null);
-
-        assertThat(response.contentDisposition().getFilename()).isEqualTo("bad_name_.txt");
     }
 
     private File file(String originalName, String mimeType, String filePath) {
