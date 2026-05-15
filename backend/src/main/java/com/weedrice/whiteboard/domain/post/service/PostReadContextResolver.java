@@ -65,8 +65,11 @@ class PostReadContextResolver {
     }
 
     PostReadContext resolveForExistingUserPosts(Long currentUserId, Collection<Post> posts) {
-        PostReadContext context = resolveForExistingUser(currentUserId);
-        if (context.viewer() == null || posts == null || posts.isEmpty()
+        return withAdminBoardIdsForPosts(resolveForExistingUser(currentUserId), posts);
+    }
+
+    PostReadContext withAdminBoardIdsForPosts(PostReadContext context, Collection<Post> posts) {
+        if (context == null || context.viewer() == null || posts == null || posts.isEmpty()
                 || context.viewer().isUsableSuperAdmin()) {
             return context;
         }

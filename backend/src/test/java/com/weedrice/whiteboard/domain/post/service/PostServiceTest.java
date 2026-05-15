@@ -229,13 +229,11 @@ class PostServiceTest {
                 postAuthorCommandPolicy);
         PostFacadeReadService postFacadeReadService = new PostFacadeReadService(
                 postRepository,
-                userRepository,
                 postVersionRepository,
                 tagAssignmentService,
                 postImageAttachmentReader,
                 postReadContextResolver,
                 postSummaryAssembler,
-                postInteractionService,
                 postAccessPolicy,
                 boardAccessPolicy);
         postService = new PostService(
@@ -2301,6 +2299,7 @@ class PostServiceTest {
         when(postVersionRepository.findByPost_PostIdOrderByCreatedAtDesc(1L)).thenReturn(Collections.emptyList());
         postService.getPostVersions(1L, 1L);
         verify(postVersionRepository).findByPost_PostIdOrderByCreatedAtDesc(1L);
+        verify(userRepository).findById(1L);
     }
 
     @Test
@@ -2318,6 +2317,49 @@ class PostServiceTest {
         assertThatThrownBy(() -> postService.getPostVersions(1L, 2L))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("getPostVersions succeeds for board admin")
+    void getPostVersions_boardAdmin() {
+        User adminUser = User.builder().loginId("admin").build();
+        ReflectionTestUtils.setField(adminUser, "userId", 2L);
+        ReflectionTestUtils.setField(adminUser, "isSuperAdmin", false);
+
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
+        when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
+        when(adminRepository.existsByUserAndBoardAndIsActive(adminUser, board, true)).thenReturn(true);
+        when(postVersionRepository.findByPost_PostIdOrderByCreatedAtDesc(1L)).thenReturn(Collections.emptyList());
+
+        postService.getPostVersions(1L, 2L);
+
+        verify(postVersionRepository).findByPost_PostIdOrderByCreatedAtDesc(1L);
+    }
+
+    @Test
+    @DisplayName("getPostVersions succeeds for board admin on secret post")
+    void getPostVersions_secretPostBoardAdmin() {
+        User adminUser = User.builder().loginId("admin").build();
+        ReflectionTestUtils.setField(adminUser, "userId", 2L);
+        ReflectionTestUtils.setField(adminUser, "isSuperAdmin", false);
+        Post secretPost = createPost(1L, board, user, true);
+
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(secretPost));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
+        when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
+        when(adminRepository.findByUserAndBoard_BoardIdInAndIsActive(adminUser, List.of(board.getBoardId()), true))
+                .thenReturn(List.of(Admin.builder()
+                        .user(adminUser)
+                        .board(board)
+                        .role("BOARD_ADMIN")
+                        .build()));
+        when(postVersionRepository.findByPost_PostIdOrderByCreatedAtDesc(1L)).thenReturn(Collections.emptyList());
+
+        postService.getPostVersions(1L, 2L);
+
+        verify(postVersionRepository).findByPost_PostIdOrderByCreatedAtDesc(1L);
+        verify(adminRepository, never()).existsByUserAndBoardAndIsActive(adminUser, board, true);
     }
 
     // --- PostResponse ---

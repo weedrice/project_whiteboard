@@ -9,8 +9,6 @@ import com.weedrice.whiteboard.domain.post.entity.PostVersion;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostVersionRepository;
 import com.weedrice.whiteboard.domain.tag.service.TagAssignmentService;
-import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -32,13 +30,11 @@ import java.util.stream.Collectors;
 public class PostFacadeReadService {
 
     private final PostRepository postRepository;
-    private final UserRepository userRepository;
     private final PostVersionRepository postVersionRepository;
     private final TagAssignmentService tagAssignmentService;
     private final PostImageAttachmentReader postImageAttachmentReader;
     private final PostReadContextResolver postReadContextResolver;
     private final PostSummaryAssembler postSummaryAssembler;
-    private final PostInteractionService postInteractionService;
     private final PostAccessPolicy postAccessPolicy;
     private final BoardAccessPolicy boardAccessPolicy;
 
@@ -55,12 +51,14 @@ public class PostFacadeReadService {
     }
 
     public List<PostVersionResponse> getPostVersions(@NonNull Long postId, @NonNull Long userId) {
-        User viewer = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        Post post = postInteractionService.getPostById(postId, userId, false);
+        PostReadContext context = postReadContextResolver.resolveForExistingUser(userId);
+        Post post = postRepository.findByIdWithRelations(postId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        context = postReadContextResolver.withAdminBoardIdsForPosts(context, List.of(post));
+        validateReadable(post, context);
 
         boolean isAuthor = post.getUser().getUserId().equals(userId);
-        if (!isAuthor && !boardAccessPolicy.hasBoardAdminAccess(post.getBoard(), viewer)) {
+        if (!isAuthor && !hasBoardAdminAccess(post, context)) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
@@ -80,6 +78,13 @@ public class PostFacadeReadService {
 
     public Set<Long> getPostIdsWithImages(List<Long> postIds) {
         return postImageAttachmentReader.getPostIdsWithImages(postIds);
+    }
+
+    private boolean hasBoardAdminAccess(Post post, PostReadContext context) {
+        if (boardAccessPolicy.hasBoardAdminAccess(post.getBoard(), context.viewer(), context.activeAdminBoardIds())) {
+            return true;
+        }
+        return boardAccessPolicy.hasBoardAdminAccess(post.getBoard(), context.viewer());
     }
 
     public Map<Long, PostSummary> getPostSummariesByIds(List<Long> postIds, Long currentUserId) {
@@ -108,13 +113,17 @@ public class PostFacadeReadService {
                         LinkedHashMap::new));
     }
 
+    private void validateReadable(Post post, PostReadContext context) {
+        postAccessPolicy.validateReadable(
+                post,
+                context.viewer(),
+                context.isAuthorBlocked(post),
+                context.activeAdminBoardIds());
+    }
+
     private boolean canReadPostSummary(Post post, PostReadContext context) {
         try {
-            postAccessPolicy.validateReadable(
-                    post,
-                    context.viewer(),
-                    context.isAuthorBlocked(post),
-                    context.activeAdminBoardIds());
+            validateReadable(post, context);
             return true;
         } catch (BusinessException ex) {
             if (ErrorCode.POST_NOT_FOUND.equals(ex.getErrorCode())) {
