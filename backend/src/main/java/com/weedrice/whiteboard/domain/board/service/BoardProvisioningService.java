@@ -23,8 +23,11 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 @Service
 class BoardProvisioningService {
@@ -362,24 +365,25 @@ class BoardProvisioningService {
     }
 
     private String resolveInquiryBoardName(String inquiryBoardUrl) {
-        String base = DEFAULT_INQUIRY_BOARD_NAME;
-        if (!boardRepository.existsByBoardName(base)) {
-            return base;
-        }
+        LinkedHashSet<String> candidates = buildInquiryBoardNameCandidates(inquiryBoardUrl);
+        Set<String> existingBoardNames = new HashSet<>(boardRepository.findExistingBoardNamesIn(candidates));
+        return candidates.stream()
+                .filter(candidate -> !existingBoardNames.contains(candidate))
+                .findFirst()
+                .orElseGet(() -> trimToMaxLength(DEFAULT_INQUIRY_BOARD_NAME + "-" + System.currentTimeMillis(), 100));
+    }
 
+    private LinkedHashSet<String> buildInquiryBoardNameCandidates(String inquiryBoardUrl) {
+        String base = DEFAULT_INQUIRY_BOARD_NAME;
         String candidate = trimToMaxLength(base + "-" + inquiryBoardUrl, 100);
-        if (!boardRepository.existsByBoardName(candidate)) {
-            return candidate;
-        }
+        LinkedHashSet<String> candidates = new LinkedHashSet<>();
+        candidates.add(base);
+        candidates.add(candidate);
 
         for (int i = 2; i <= 999; i++) {
-            String withSuffix = trimToMaxLength(candidate + "-" + i, 100);
-            if (!boardRepository.existsByBoardName(withSuffix)) {
-                return withSuffix;
-            }
+            candidates.add(trimToMaxLength(candidate + "-" + i, 100));
         }
-
-        return trimToMaxLength(base + "-" + System.currentTimeMillis(), 100);
+        return candidates;
     }
 
     private String trimToMaxLength(String value, int maxLength) {

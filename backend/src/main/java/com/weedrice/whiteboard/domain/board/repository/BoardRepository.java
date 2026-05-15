@@ -70,6 +70,13 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
 
     boolean existsByBoardName(String boardName);
 
+    @Query("""
+            SELECT b.boardName
+            FROM Board b
+            WHERE b.boardName IN :boardNames
+            """)
+    List<String> findExistingBoardNamesIn(@Param("boardNames") Collection<String> boardNames);
+
     boolean existsByBoardUrl(String boardUrl);
 
     @EntityGraph(attributePaths = "creator")

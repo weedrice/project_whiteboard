@@ -83,6 +83,18 @@ class BoardRepositoryTest {
     }
 
     @Test
+    @DisplayName("후보 이름 목록 중 이미 존재하는 게시판 이름만 조회한다")
+    void findExistingBoardNamesIn_returnsOnlyExistingNames() {
+        persistBoard("Inquiry", "inquiry-board", 10, true, true);
+        entityManager.flush();
+
+        List<String> existingNames = boardRepository.findExistingBoardNamesIn(
+                List.of("Test Board", "Inquiry", "Missing Board"));
+
+        assertThat(existingNames).containsExactlyInAnyOrder("Test Board", "Inquiry");
+    }
+
+    @Test
     @DisplayName("홈 랜딩 게시판 수는 문의 게시판을 제외한 공개 활성 게시판만 집계한다")
     void countPublicLandingVisibleBoards_countsOnlyPublicActiveNonInquiryBoards() {
         persistBoard("Landing Public Board", "landing-public-board", 10, true, true);

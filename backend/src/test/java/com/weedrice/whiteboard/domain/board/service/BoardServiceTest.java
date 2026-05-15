@@ -54,6 +54,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -1900,7 +1901,7 @@ class BoardServiceTest {
         when(boardRepository.findByBoardUrlForUpdate("inquiry")).thenReturn(Optional.empty());
         when(userRepository.findUsableSuperAdmins()).thenReturn(List.of(activeSuperAdmin));
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
-        when(boardRepository.existsByBoardName(anyString())).thenReturn(false);
+        when(boardRepository.findExistingBoardNamesIn(any())).thenReturn(Collections.emptyList());
         when(boardRepository.saveAndFlush(any(Board.class))).thenAnswer(invocation -> {
             Board savedBoard = invocation.getArgument(0);
             ReflectionTestUtils.setField(savedBoard, "boardId", 2L);
@@ -1926,6 +1927,43 @@ class BoardServiceTest {
         verify(userRepository, org.mockito.Mockito.atLeastOnce()).findUsableSuperAdmins();
         verify(boardManagerAssignmentService, org.mockito.Mockito.atLeastOnce())
                 .assignBoardManager(boardCaptor.getValue(), activeSuperAdmin);
+    }
+
+    @Test
+    @DisplayName("문의 게시판 이름 후보는 한 번 조회한 기존 이름을 제외하고 선택한다")
+    void ensureInquiryBoard_usesFirstAvailableNameFromSingleExistingNameLookup() {
+        User superAdmin = User.builder()
+                .loginId("super-admin")
+                .password("password")
+                .email("super@test.com")
+                .displayName("Super Admin")
+                .build();
+        ReflectionTestUtils.setField(superAdmin, "userId", 2L);
+        superAdmin.grantSuperAdminRole();
+        when(boardRepository.findByBoardUrlForUpdate("inquiry")).thenReturn(Optional.empty());
+        when(userRepository.findUsableSuperAdmins()).thenReturn(List.of(superAdmin));
+        when(boardRepository.findMaxSortOrder()).thenReturn(0);
+        when(boardRepository.findExistingBoardNamesIn(any()))
+                .thenReturn(List.of("문의", "문의-inquiry"));
+        when(boardRepository.saveAndFlush(any(Board.class))).thenAnswer(invocation -> {
+            Board savedBoard = invocation.getArgument(0);
+            ReflectionTestUtils.setField(savedBoard, "boardId", 2L);
+            return savedBoard;
+        });
+        when(boardCategoryRepository.saveAndFlush(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        boardService.ensureInquiryBoard(1L, "custom-inquiry-url");
+
+        ArgumentCaptor<Board> boardCaptor = ArgumentCaptor.forClass(Board.class);
+        verify(boardRepository).saveAndFlush(boardCaptor.capture());
+        assertThat(boardCaptor.getValue().getBoardName()).isEqualTo("문의-inquiry-2");
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Collection<String>> candidatesCaptor = ArgumentCaptor.forClass(Collection.class);
+        verify(boardRepository).findExistingBoardNamesIn(candidatesCaptor.capture());
+        assertThat(candidatesCaptor.getValue())
+                .startsWith("문의", "문의-inquiry", "문의-inquiry-2");
+        verify(boardRepository, never()).existsByBoardName(anyString());
     }
 
     @Test
@@ -2013,7 +2051,7 @@ class BoardServiceTest {
                 .thenReturn(Optional.of(board));
         when(userRepository.findUsableSuperAdmins()).thenReturn(List.of(superAdmin));
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
-        when(boardRepository.existsByBoardName(anyString())).thenReturn(false);
+        when(boardRepository.findExistingBoardNamesIn(any())).thenReturn(Collections.emptyList());
         when(boardRepository.saveAndFlush(any(Board.class)))
                 .thenThrow(new DataIntegrityViolationException("uk_boards_board_url"));
         when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true))
@@ -2046,7 +2084,7 @@ class BoardServiceTest {
                 .thenReturn(Optional.of(board));
         when(userRepository.findUsableSuperAdmins()).thenReturn(List.of(superAdmin));
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
-        when(boardRepository.existsByBoardName(anyString())).thenReturn(false);
+        when(boardRepository.findExistingBoardNamesIn(any())).thenReturn(Collections.emptyList());
         when(boardRepository.saveAndFlush(any(Board.class)))
                 .thenThrow(new DataIntegrityViolationException("uk_boards_board_name"));
         when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true))
