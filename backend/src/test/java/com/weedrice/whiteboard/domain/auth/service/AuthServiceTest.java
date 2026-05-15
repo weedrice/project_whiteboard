@@ -613,20 +613,21 @@ class AuthServiceTest {
     @Test
     @DisplayName("refresh rotates token with persisted client metadata")
     void refresh_success_reusesClientMetadata() {
+        String oldRefreshTokenHash = new TokenHashService().hashSha256("old-refresh-token");
+        String expectedRefreshTokenHash = new TokenHashService().hashSha256("new-refresh-token");
         RefreshToken storedRefreshToken = RefreshToken.builder()
                 .user(user)
-                .tokenHash("hashed-old-token")
+                .tokenHash(oldRefreshTokenHash)
                 .ipAddress("127.0.0.1")
                 .deviceInfo("browser")
                 .expiresAt(LocalDateTime.now().plusDays(7))
                 .build();
-        String oldRefreshTokenHash = new TokenHashService().hashSha256("old-refresh-token");
-        String expectedRefreshTokenHash = new TokenHashService().hashSha256("new-refresh-token");
 
         when(jwtTokenProvider.validateToken("old-refresh-token")).thenReturn(true);
-        when(refreshTokenRepository.findUserIdByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(1L));
+        when(refreshTokenRepository.findRenewalCandidateByTokenHash(oldRefreshTokenHash))
+                .thenReturn(Optional.of(renewalCandidate(10L, 1L)));
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(refreshTokenRepository.findByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(storedRefreshToken));
+        when(refreshTokenRepository.findByTokenIdForUpdate(10L)).thenReturn(Optional.of(storedRefreshToken));
         when(sanctionService.isUserBanned(user)).thenReturn(false);
         when(jwtTokenProvider.createAccessToken(any(Authentication.class))).thenReturn("new-access-token");
         when(jwtTokenProvider.createRefreshToken(any(Authentication.class))).thenReturn("new-refresh-token");
@@ -638,6 +639,10 @@ class AuthServiceTest {
         assertThat(response.getAccessToken()).isEqualTo("new-access-token");
         assertThat(response.getRefreshToken()).isEqualTo("new-refresh-token");
         assertThat(storedRefreshToken.getIsRevoked()).isTrue();
+        var lockOrder = inOrder(refreshTokenRepository, userRepository);
+        lockOrder.verify(refreshTokenRepository).findRenewalCandidateByTokenHash(oldRefreshTokenHash);
+        lockOrder.verify(userRepository).findByIdForUpdate(1L);
+        lockOrder.verify(refreshTokenRepository).findByTokenIdForUpdate(10L);
         verify(refreshTokenRepository).save(storedRefreshToken);
         verify(refreshTokenRepository).save(argThat(rotatedToken ->
                 rotatedToken != storedRefreshToken
@@ -651,19 +656,20 @@ class AuthServiceTest {
     @Test
     @DisplayName("refresh fails when user is banned")
     void refresh_fail_whenUserIsBanned() {
+        String oldRefreshTokenHash = new TokenHashService().hashSha256("old-refresh-token");
         RefreshToken refreshToken = RefreshToken.builder()
                 .user(user)
-                .tokenHash("hashed-old-token")
+                .tokenHash(oldRefreshTokenHash)
                 .ipAddress("127.0.0.1")
                 .deviceInfo("browser")
                 .expiresAt(LocalDateTime.now().plusDays(7))
                 .build();
-        String oldRefreshTokenHash = new TokenHashService().hashSha256("old-refresh-token");
 
         when(jwtTokenProvider.validateToken("old-refresh-token")).thenReturn(true);
-        when(refreshTokenRepository.findUserIdByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(1L));
+        when(refreshTokenRepository.findRenewalCandidateByTokenHash(oldRefreshTokenHash))
+                .thenReturn(Optional.of(renewalCandidate(10L, 1L)));
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(refreshTokenRepository.findByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(refreshToken));
+        when(refreshTokenRepository.findByTokenIdForUpdate(10L)).thenReturn(Optional.of(refreshToken));
         when(sanctionService.isUserBanned(user)).thenReturn(true);
 
         BusinessException exception = assertThrows(BusinessException.class,
@@ -679,19 +685,20 @@ class AuthServiceTest {
     @DisplayName("refresh fails and revokes token when user is inactive")
     void refresh_fail_whenUserIsInactive_revokesToken() {
         user.suspend();
+        String oldRefreshTokenHash = new TokenHashService().hashSha256("old-refresh-token");
         RefreshToken refreshToken = RefreshToken.builder()
                 .user(user)
-                .tokenHash("hashed-old-token")
+                .tokenHash(oldRefreshTokenHash)
                 .ipAddress("127.0.0.1")
                 .deviceInfo("browser")
                 .expiresAt(LocalDateTime.now().plusDays(7))
                 .build();
-        String oldRefreshTokenHash = new TokenHashService().hashSha256("old-refresh-token");
 
         when(jwtTokenProvider.validateToken("old-refresh-token")).thenReturn(true);
-        when(refreshTokenRepository.findUserIdByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(1L));
+        when(refreshTokenRepository.findRenewalCandidateByTokenHash(oldRefreshTokenHash))
+                .thenReturn(Optional.of(renewalCandidate(10L, 1L)));
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(refreshTokenRepository.findByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(refreshToken));
+        when(refreshTokenRepository.findByTokenIdForUpdate(10L)).thenReturn(Optional.of(refreshToken));
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> authService.refresh("old-refresh-token"));
@@ -699,6 +706,32 @@ class AuthServiceTest {
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_ACTIVE);
         assertThat(refreshToken.getIsRevoked()).isTrue();
         verify(refreshTokenRepository).save(refreshToken);
+        verify(jwtTokenProvider, never()).createAccessToken(any());
+    }
+
+    @Test
+    @DisplayName("refresh fails when locked token does not match renewal candidate hash")
+    void refresh_fail_whenLockedTokenHashDoesNotMatchCandidate() {
+        String oldRefreshTokenHash = new TokenHashService().hashSha256("old-refresh-token");
+        RefreshToken refreshToken = RefreshToken.builder()
+                .user(user)
+                .tokenHash("different-token-hash")
+                .ipAddress("127.0.0.1")
+                .deviceInfo("browser")
+                .expiresAt(LocalDateTime.now().plusDays(7))
+                .build();
+
+        when(jwtTokenProvider.validateToken("old-refresh-token")).thenReturn(true);
+        when(refreshTokenRepository.findRenewalCandidateByTokenHash(oldRefreshTokenHash))
+                .thenReturn(Optional.of(renewalCandidate(10L, 1L)));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(refreshTokenRepository.findByTokenIdForUpdate(10L)).thenReturn(Optional.of(refreshToken));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> authService.refresh("old-refresh-token"));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_REFRESH_TOKEN);
+        verify(refreshTokenRepository, never()).save(any());
         verify(jwtTokenProvider, never()).createAccessToken(any());
     }
 
@@ -1038,6 +1071,20 @@ class AuthServiceTest {
                 .displayName("Test User")
                 .verificationTicket("ticket-1")
                 .build();
+    }
+
+    private RefreshTokenRepository.RefreshTokenRenewalCandidate renewalCandidate(Long tokenId, Long userId) {
+        return new RefreshTokenRepository.RefreshTokenRenewalCandidate() {
+            @Override
+            public Long getTokenId() {
+                return tokenId;
+            }
+
+            @Override
+            public Long getUserId() {
+                return userId;
+            }
+        };
     }
 
     private LoginClientMetadata noMetadata() {

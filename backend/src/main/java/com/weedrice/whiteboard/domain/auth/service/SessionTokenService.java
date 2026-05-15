@@ -26,6 +26,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 @Service
@@ -92,12 +93,17 @@ public class SessionTokenService {
     }
 
     private RefreshTokenRenewalContext loadRefreshTokenRenewalContext(String refreshTokenHash) {
-        Long userId = refreshTokenRepository.findUserIdByTokenHash(refreshTokenHash)
+        RefreshTokenRepository.RefreshTokenRenewalCandidate candidate =
+                refreshTokenRepository.findRenewalCandidateByTokenHash(refreshTokenHash)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
-        User user = userRepository.findByIdForUpdate(userId)
+        User user = userRepository.findByIdForUpdate(candidate.getUserId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        RefreshToken refreshToken = refreshTokenRepository.findByTokenHash(refreshTokenHash)
+        RefreshToken refreshToken = refreshTokenRepository.findByTokenIdForUpdate(candidate.getTokenId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
+        if (!Objects.equals(refreshToken.getUser().getUserId(), user.getUserId())
+                || !Objects.equals(refreshToken.getTokenHash(), refreshTokenHash)) {
+            throw new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN);
+        }
         return new RefreshTokenRenewalContext(refreshToken, user);
     }
 
