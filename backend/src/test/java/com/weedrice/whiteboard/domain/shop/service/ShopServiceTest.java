@@ -35,7 +35,6 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -43,6 +42,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -187,7 +187,7 @@ class ShopServiceTest {
         @Test
         @DisplayName("Purchases a supported item and grants the entitlement")
         void purchaseItem_success() {
-            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
             when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
             when(shopEntitlementCapabilityRegistry.supports(emoticonItem)).thenReturn(true);
             when(shopEntitlementCapabilityRegistry.preparePurchase(1L, emoticonItem)).thenReturn(preparedPurchase);
@@ -211,8 +211,8 @@ class ShopServiceTest {
             inOrder.verify(sanctionService).validateNotBanned(user);
             inOrder.verify(shopEntitlementCapabilityRegistry).validateConfiguration(emoticonItem);
             inOrder.verify(shopEntitlementCapabilityRegistry).preparePurchase(1L, emoticonItem);
-            inOrder.verify(pointService).spendPoint(
-                    eq(1L),
+            inOrder.verify(pointService).spendPointForPrevalidatedUser(
+                    eq(user),
                     eq(100),
                     eq("Shop item purchase: Premium emoticon"),
                     eq(2L),
@@ -234,7 +234,7 @@ class ShopServiceTest {
                     .build();
             ReflectionTestUtils.setField(freeEmoticonItem, "itemId", 4L);
             ReflectionTestUtils.setField(freeEmoticonItem, "isActive", true);
-            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
             when(shopItemRepository.findById(4L)).thenReturn(Optional.of(freeEmoticonItem));
             when(shopEntitlementCapabilityRegistry.supports(freeEmoticonItem)).thenReturn(true);
             when(shopEntitlementCapabilityRegistry.preparePurchase(1L, freeEmoticonItem)).thenReturn(preparedPurchase);
@@ -250,7 +250,7 @@ class ShopServiceTest {
             Long purchaseId = shopService.purchaseItem(1L, 4L);
 
             assertThat(purchaseId).isEqualTo(4L);
-            verify(pointService, never()).spendPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+            verifyNoInteractions(pointService);
             InOrder inOrder = inOrder(sanctionService, shopEntitlementCapabilityRegistry, purchaseHistoryRepository);
             inOrder.verify(sanctionService).validateNotBanned(user);
             inOrder.verify(shopEntitlementCapabilityRegistry).validateConfiguration(freeEmoticonItem);
@@ -274,7 +274,7 @@ class ShopServiceTest {
                     .build();
             ReflectionTestUtils.setField(negativePriceItem, "itemId", 5L);
             ReflectionTestUtils.setField(negativePriceItem, "isActive", true);
-            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
             when(shopItemRepository.findById(5L)).thenReturn(Optional.of(negativePriceItem));
             when(shopEntitlementCapabilityRegistry.supports(negativePriceItem)).thenReturn(true);
 
@@ -284,7 +284,7 @@ class ShopServiceTest {
                     .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
             verify(shopEntitlementCapabilityRegistry, never()).preparePurchase(anyLong(), any());
-            verify(pointService, never()).spendPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+            verifyNoInteractions(pointService);
             verify(shopEntitlementCapabilityRegistry, never()).grant(any());
             verify(purchaseHistoryRepository, never()).save(any());
         }
@@ -293,7 +293,7 @@ class ShopServiceTest {
         @DisplayName("Blocks inactive items")
         void purchaseItem_inactiveItem() {
             ReflectionTestUtils.setField(emoticonItem, "isActive", false);
-            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
             when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
 
             assertThatThrownBy(() -> shopService.purchaseItem(1L, 2L))
@@ -301,14 +301,14 @@ class ShopServiceTest {
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE);
 
-            verify(pointService, never()).spendPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+            verifyNoInteractions(pointService);
             verify(purchaseHistoryRepository, never()).save(any());
         }
 
         @Test
         @DisplayName("Blocks unsupported items")
         void purchaseItem_unsupportedItem() {
-            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
             when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
             when(shopEntitlementCapabilityRegistry.supports(emoticonItem)).thenReturn(false);
 
@@ -317,14 +317,14 @@ class ShopServiceTest {
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE);
 
-            verify(pointService, never()).spendPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+            verifyNoInteractions(pointService);
             verify(purchaseHistoryRepository, never()).save(any());
         }
 
         @Test
         @DisplayName("Blocks misconfigured items")
         void purchaseItem_invalidConfiguration() {
-            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
             when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
             when(shopEntitlementCapabilityRegistry.supports(emoticonItem)).thenReturn(true);
             doThrow(new IllegalStateException("missing-target"))
@@ -336,14 +336,14 @@ class ShopServiceTest {
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE);
 
-            verify(pointService, never()).spendPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+            verifyNoInteractions(pointService);
             verify(shopEntitlementCapabilityRegistry, never()).grant(any());
         }
 
         @Test
         @DisplayName("Blocks preflight failures before spending points")
         void purchaseItem_preflightFailure_doesNotSpendPoints() {
-            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
             when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
             when(shopEntitlementCapabilityRegistry.supports(emoticonItem)).thenReturn(true);
             doThrow(new BusinessException(ErrorCode.EMOTICON_ALREADY_PURCHASED))
@@ -355,7 +355,7 @@ class ShopServiceTest {
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.EMOTICON_ALREADY_PURCHASED);
 
-            verify(pointService, never()).spendPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+            verifyNoInteractions(pointService);
             verify(shopEntitlementCapabilityRegistry, never()).grant(any());
             verify(purchaseHistoryRepository, never()).save(any());
         }
@@ -363,7 +363,7 @@ class ShopServiceTest {
         @Test
         @DisplayName("Propagates grant failure without saving purchase history")
         void purchaseItem_grantFailure() {
-            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
             when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
             when(shopEntitlementCapabilityRegistry.supports(emoticonItem)).thenReturn(true);
             when(shopEntitlementCapabilityRegistry.preparePurchase(1L, emoticonItem)).thenReturn(preparedPurchase);
@@ -376,8 +376,8 @@ class ShopServiceTest {
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.EMOTICON_ALREADY_PURCHASED);
 
-            verify(pointService).spendPoint(
-                    eq(1L),
+            verify(pointService).spendPointForPrevalidatedUser(
+                    eq(user),
                     eq(100),
                     eq("Shop item purchase: Premium emoticon"),
                     eq(2L),
@@ -388,7 +388,7 @@ class ShopServiceTest {
         @Test
         @DisplayName("Fails for a missing item")
         void purchaseItem_notFound() {
-            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
             when(shopItemRepository.findById(999L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> shopService.purchaseItem(1L, 999L))
@@ -400,7 +400,7 @@ class ShopServiceTest {
         @Test
         @DisplayName("Fails for a missing user")
         void purchaseItem_userNotFound() {
-            when(userRepository.findById(999L)).thenReturn(Optional.empty());
+            when(userRepository.findByIdForUpdate(999L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> shopService.purchaseItem(999L, 2L))
                     .isInstanceOf(BusinessException.class)
@@ -411,7 +411,7 @@ class ShopServiceTest {
         @Test
         @DisplayName("Blocks banned users")
         void purchaseItem_bannedUser() {
-            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
             doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
                     .when(sanctionService)
                     .validateNotBanned(user);
@@ -422,7 +422,7 @@ class ShopServiceTest {
                     .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
 
             verify(shopItemRepository, never()).findById(anyLong());
-            verify(pointService, never()).spendPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+            verifyNoInteractions(pointService);
         }
     }
 

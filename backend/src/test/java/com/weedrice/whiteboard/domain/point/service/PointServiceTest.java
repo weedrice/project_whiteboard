@@ -263,6 +263,25 @@ class PointServiceTest {
     }
 
     @Test
+    @DisplayName("사전 검증된 사용자 포인트 차감은 중복 잠금과 제재 검증을 건너뛴다")
+    void spendPointForPrevalidatedUser_success_skipsDuplicateValidation() {
+        userPoint.addPoint(300);
+        when(userPointRepository.findByUserId(1L)).thenReturn(Optional.of(userPoint));
+
+        pointService.spendPointForPrevalidatedUser(user, 120, "Test Spend", 10L, "SHOP_ITEM");
+
+        ArgumentCaptor<PointHistory> historyCaptor = ArgumentCaptor.forClass(PointHistory.class);
+        verify(pointHistoryRepository).save(historyCaptor.capture());
+        verify(userRepository, never()).findByIdForUpdate(any());
+        verify(sanctionService, never()).validateNotBanned(any(User.class));
+        assertThat(userPoint.getCurrentPoint()).isEqualTo(180);
+        assertThat(historyCaptor.getValue().getType()).isEqualTo("SPEND");
+        assertThat(historyCaptor.getValue().getAmount()).isEqualTo(-120);
+        assertThat(historyCaptor.getValue().getRelatedId()).isEqualTo(10L);
+        assertThat(historyCaptor.getValue().getRelatedType()).isEqualTo("SHOP_ITEM");
+    }
+
+    @Test
     @DisplayName("구매 포인트 차감은 0 이하 금액을 거절한다")
     void spendPoint_rejectsNonPositiveAmount() {
         for (int amount : invalidAmounts()) {
@@ -509,6 +528,39 @@ class PointServiceTest {
 
         verify(pointHistoryRepository, never()).findByUserAndTypeOrderByCreatedAtDescHistoryIdDesc(any(), any(), any());
         verify(pointHistoryRepository, never()).findByUserOrderByCreatedAtDescHistoryIdDesc(any(), any());
+    }
+
+    @Test
+    @DisplayName("사전 검증된 사용자 포인트 차감은 0 이하 금액을 저장소 접근 전에 거절한다")
+    void spendPointForPrevalidatedUser_rejectsNonPositiveAmount() {
+        for (int amount : invalidAmounts()) {
+            assertThatThrownBy(() -> pointService.spendPointForPrevalidatedUser(
+                    user, amount, "Invalid Spend", null, null))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        verify(userRepository, never()).findByIdForUpdate(any());
+        verify(userPointRepository, never()).save(any());
+        verify(pointHistoryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("사전 검증된 사용자 포인트 차감은 잔액 부족 검증을 유지한다")
+    void spendPointForPrevalidatedUser_insufficientPoints() {
+        userPoint.addPoint(50);
+        when(userPointRepository.findByUserId(1L)).thenReturn(Optional.of(userPoint));
+
+        assertThatThrownBy(() -> pointService.spendPointForPrevalidatedUser(
+                user, 120, "Test Spend", 10L, "SHOP_ITEM"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INSUFFICIENT_POINTS);
+
+        verify(userRepository, never()).findByIdForUpdate(any());
+        verify(sanctionService, never()).validateNotBanned(any(User.class));
+        verify(pointHistoryRepository, never()).save(any());
     }
 
     private int[] invalidAmounts() {

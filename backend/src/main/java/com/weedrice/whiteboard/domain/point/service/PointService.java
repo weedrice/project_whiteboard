@@ -17,6 +17,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Locale;
@@ -106,6 +107,14 @@ public class PointService {
                 changePoint(userId, -amount, HISTORY_TYPE_SPEND, description, relatedId, relatedType, false, true);
         }
 
+        @Transactional(propagation = Propagation.MANDATORY)
+        public void spendPointForPrevalidatedUser(@NonNull User user, int amount, String description, Long relatedId,
+                        String relatedType) {
+                validatePositiveAmount(amount);
+                changePoint(user, -amount, HISTORY_TYPE_SPEND, description, relatedId, relatedType, false, true, false,
+                                false);
+        }
+
         public int getCurrentBalance(@NonNull Long userId) {
                 ensureUserExists(userId);
                 return userPointRepository.findByUserId(userId)
@@ -124,7 +133,18 @@ public class PointService {
                         boolean skipExistingHistory) {
                 User user = userRepository.findByIdForUpdate(userId)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-                if (HISTORY_TYPE_SPEND.equals(historyType)) {
+                changePoint(user, delta, historyType, description, relatedId, relatedType, createIfMissing,
+                                validateSufficientBalance, skipExistingHistory, true);
+        }
+
+        private void changePoint(@NonNull User user, int delta, String historyType, String description, Long relatedId,
+                        String relatedType, boolean createIfMissing, boolean validateSufficientBalance,
+                        boolean skipExistingHistory, boolean validateSpendSanction) {
+                Long userId = user.getUserId();
+                if (userId == null) {
+                        throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+                }
+                if (validateSpendSanction && HISTORY_TYPE_SPEND.equals(historyType)) {
                         sanctionService.validateNotBanned(user);
                 }
                 if (skipExistingHistory && pointHistoryRepository.existsByUser_UserIdAndTypeAndRelatedTypeAndRelatedId(

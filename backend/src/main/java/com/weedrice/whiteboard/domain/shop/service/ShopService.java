@@ -71,7 +71,7 @@ public class ShopService {
 
     @Transactional
     public Long purchaseItem(Long userId, Long itemId) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         sanctionService.validateNotBanned(user);
         ShopItem item = shopItemRepository.findById(itemId)
@@ -94,8 +94,8 @@ public class ShopService {
         ShopEntitlementCapabilityRegistry.PreparedPurchase preparedPurchase =
                 shopEntitlementCapabilityRegistry.preparePurchase(userId, item);
         if (item.getPrice() > 0) {
-            pointService.spendPoint(
-                    userId,
+            pointService.spendPointForPrevalidatedUser(
+                    user,
                     item.getPrice(),
                     "Shop item purchase: " + item.getItemName(),
                     item.getItemId(),
