@@ -13,6 +13,8 @@ import java.util.List;
 @Getter
 @Builder(toBuilder = true)
 public class CommentResponse {
+    public static final String DELETED_CONTENT = "삭제된 댓글입니다.";
+
     private Long commentId;
     private Long parentId;
     private String content;
@@ -61,7 +63,7 @@ public class CommentResponse {
         return CommentResponse.builder()
                 .commentId(comment.getCommentId())
                 .parentId(comment.getParent() != null ? comment.getParent().getCommentId() : null)
-                .content(comment.getIsDeleted() ? "삭제된 댓글입니다." : comment.getContent())
+                .content(comment.getIsDeleted() ? DELETED_CONTENT : comment.getContent())
                 .author(authorInfo)
                 .depth(comment.getDepth())
                 .likeCount(comment.getLikeCount())

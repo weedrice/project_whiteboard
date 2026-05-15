@@ -25,6 +25,7 @@ import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.service.CommentCreateContext;
+import com.weedrice.whiteboard.domain.comment.service.CommentReadModelAssembler;
 import com.weedrice.whiteboard.domain.comment.service.CommentReadSupport;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
@@ -152,6 +153,7 @@ class AgentServiceTest {
                 postService));
         agentPostListItemAssembler = spy(new AgentPostListItemAssembler(commentRepository));
         commentReadSupport = new CommentReadSupport(commentRepository);
+        CommentReadModelAssembler commentReadModelAssembler = new CommentReadModelAssembler(commentReadSupport);
         agentQuotaService = new AgentQuotaService(agentDailyQuotaRepository);
         agentLifecycleService = new AgentLifecycleService(
                 agentRepository,
@@ -172,7 +174,8 @@ class AgentServiceTest {
                 agentOwnershipService,
                 agentBoardAccessService,
                 agentPostListItemAssembler,
-                commentReadSupport);
+                commentReadSupport,
+                commentReadModelAssembler);
         AgentLinkBuilder agentLinkBuilder = new AgentLinkBuilder();
         ReflectionTestUtils.setField(agentLinkBuilder, "frontendUrl", "https://noviis.kr");
         agentCommandService = new AgentCommandService(

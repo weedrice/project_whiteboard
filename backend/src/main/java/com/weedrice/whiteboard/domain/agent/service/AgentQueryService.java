@@ -14,6 +14,8 @@ import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.service.BlockedUserIdsParameter;
+import com.weedrice.whiteboard.domain.comment.service.CommentReadModel;
+import com.weedrice.whiteboard.domain.comment.service.CommentReadModelAssembler;
 import com.weedrice.whiteboard.domain.comment.service.CommentReadSupport;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
@@ -68,6 +70,7 @@ public class AgentQueryService {
     private final AgentBoardAccessService agentBoardAccessService;
     private final AgentPostListItemAssembler agentPostListItemAssembler;
     private final CommentReadSupport commentReadSupport;
+    private final CommentReadModelAssembler commentReadModelAssembler;
 
     public AgentStatusResponse getStatus(Long agentId) {
         Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
@@ -235,7 +238,7 @@ public class AgentQueryService {
                 parentComments.getContent(),
                 blockedUserIds);
         List<AgentCommentItem> content = parentComments.getContent().stream()
-                .map(comment -> toAgentCommentItem(comment, blockedUserIds, replyCounts))
+                .map(comment -> toAgentCommentItem(commentReadModelAssembler.from(comment, blockedUserIds, replyCounts)))
                 .toList();
         return new PageImpl<>(content, effectivePageable, parentComments.getTotalElements());
     }
@@ -287,37 +290,40 @@ public class AgentQueryService {
         agentBoardAccessService.validateAgentBoardReadable(agent, post.getBoard());
     }
 
-    private AgentCommentItem toAgentCommentItem(Comment comment, Set<Long> blockedUserIds, Map<Long, Long> replyCounts) {
-        String status = resolveCommentStatus(comment, blockedUserIds);
-        long replyCount = replyCounts.getOrDefault(comment.getCommentId(), 0L);
-
+    private AgentCommentItem toAgentCommentItem(CommentReadModel model) {
+        Comment comment = model.comment();
         return AgentCommentItem.builder()
                 .commentId(comment.getCommentId())
                 .parentId(comment.getParent() != null ? comment.getParent().getCommentId() : null)
                 .postId(comment.getPost().getPostId())
-                .content(AgentCommentItem.STATUS_ACTIVE.equals(status) ? comment.getContent() : null)
+                .content(model.status() == CommentReadModel.Status.ACTIVE ? comment.getContent() : null)
                 .depth(comment.getDepth())
                 .likeCount(comment.getLikeCount())
-                .replyCount(replyCount)
-                .hasReplies(replyCount > 0)
+                .replyCount(model.replyCount())
+                .hasReplies(model.hasReplies())
                 .createdAt(comment.getCreatedAt())
-                .status(status)
-                .author(AgentCommentItem.STATUS_ACTIVE.equals(status) ? AgentCommentItem.Author.builder()
-                        .userId(comment.getUser().getUserId())
-                        .agentId(comment.getAgent() != null ? comment.getAgent().getAgentId() : null)
-                        .authorType(comment.getAgent() != null ? "AGENT" : "USER")
-                        .displayName(comment.getAgent() != null ? comment.getAgent().getName() : comment.getUser().getDisplayName())
-                        .build() : null)
+                .status(toAgentCommentStatus(model.status()))
+                .author(toAgentCommentAuthor(model.author()))
                 .build();
     }
 
-    private String resolveCommentStatus(Comment comment, Set<Long> blockedUserIds) {
-        if (commentReadSupport.isDeleted(comment)) {
-            return AgentCommentItem.STATUS_DELETED;
+    private String toAgentCommentStatus(CommentReadModel.Status status) {
+        return switch (status) {
+            case ACTIVE -> AgentCommentItem.STATUS_ACTIVE;
+            case DELETED -> AgentCommentItem.STATUS_DELETED;
+            case BLOCKED_AUTHOR -> AgentCommentItem.STATUS_BLOCKED_AUTHOR;
+        };
+    }
+
+    private AgentCommentItem.Author toAgentCommentAuthor(CommentReadModel.Author author) {
+        if (author == null) {
+            return null;
         }
-        if (commentReadSupport.isBlockedAuthor(comment, blockedUserIds)) {
-            return AgentCommentItem.STATUS_BLOCKED_AUTHOR;
-        }
-        return AgentCommentItem.STATUS_ACTIVE;
+        return AgentCommentItem.Author.builder()
+                .userId(author.userId())
+                .agentId(author.agentId())
+                .authorType(author.authorType())
+                .displayName(author.displayName())
+                .build();
     }
 }

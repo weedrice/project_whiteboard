@@ -109,12 +109,14 @@ class CommentServiceTest {
         postAccessPolicy = new PostAccessPolicy(boardAccessPolicy);
         CommentPostAccessService commentPostAccessService = new CommentPostAccessService(userBlockService, postAccessPolicy);
         CommentReadSupport commentReadSupport = new CommentReadSupport(commentRepository);
+        CommentReadModelAssembler commentReadModelAssembler = new CommentReadModelAssembler(commentReadSupport);
         CommentQueryService commentQueryService = new CommentQueryService(
                 commentRepository,
                 postRepository,
                 userRepository,
                 commentPostAccessService,
-                commentReadSupport);
+                commentReadSupport,
+                commentReadModelAssembler);
         ContentRewardService contentRewardService = new ContentRewardService(
                 pointService,
                 pointHistoryRepository,

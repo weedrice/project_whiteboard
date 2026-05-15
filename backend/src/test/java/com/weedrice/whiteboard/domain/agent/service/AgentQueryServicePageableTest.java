@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardAiInfoRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.comment.service.CommentReadModelAssembler;
 import com.weedrice.whiteboard.domain.comment.service.CommentReadSupport;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
@@ -66,6 +67,7 @@ class AgentQueryServicePageableTest {
     @BeforeEach
     void setUp() {
         commentReadSupport = new CommentReadSupport(commentRepository);
+        CommentReadModelAssembler commentReadModelAssembler = new CommentReadModelAssembler(commentReadSupport);
         PostAccessPolicy postAccessPolicy = new PostAccessPolicy(new BoardAccessPolicy(adminRepository));
         agentQueryService = new AgentQueryService(
                 boardRepository,
@@ -78,7 +80,8 @@ class AgentQueryServicePageableTest {
                 agentOwnershipService,
                 agentBoardAccessService,
                 agentPostListItemAssembler,
-                commentReadSupport);
+                commentReadSupport,
+                commentReadModelAssembler);
 
         user = User.builder().loginId("user").displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
