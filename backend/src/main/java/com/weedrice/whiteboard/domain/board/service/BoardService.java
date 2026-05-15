@@ -10,6 +10,8 @@ import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
 import com.weedrice.whiteboard.domain.board.dto.SubscriptionBoardResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -27,17 +29,20 @@ public class BoardService {
     private final BoardSubscriptionService subscriptionService;
     private final BoardCategoryService categoryService;
     private final TransactionTemplate transactionTemplate;
+    private final BoardAccessPolicy boardAccessPolicy;
 
     public BoardService(BoardQueryService queryService,
                         BoardProvisioningService provisioningService,
                         BoardSubscriptionService subscriptionService,
                         BoardCategoryService categoryService,
-                        TransactionTemplate transactionTemplate) {
+                        TransactionTemplate transactionTemplate,
+                        BoardAccessPolicy boardAccessPolicy) {
         this.queryService = queryService;
         this.provisioningService = provisioningService;
         this.subscriptionService = subscriptionService;
         this.categoryService = categoryService;
         this.transactionTemplate = transactionTemplate;
+        this.boardAccessPolicy = boardAccessPolicy;
     }
 
     public List<BoardListResponse> getActiveBoards(Long userId) {
@@ -61,14 +66,17 @@ public class BoardService {
     }
 
     public BoardDetailResponse getBoardDetails(String boardUrl, Long userId) {
+        validatePublicBoardPath(boardUrl);
         return queryService.getBoardDetails(boardUrl, userId);
     }
 
     public List<CategoryResponse> getActiveCategories(String boardUrl, Long userId) {
+        validatePublicBoardPath(boardUrl);
         return queryService.getActiveCategories(boardUrl, userId);
     }
 
     public List<PostSummary> getNoticeSummaries(String boardUrl, Long currentUserId) {
+        validatePublicBoardPath(boardUrl);
         return queryService.getNoticeSummaries(boardUrl, currentUserId);
     }
 
@@ -79,11 +87,13 @@ public class BoardService {
 
     @Transactional
     public void subscribeBoard(Long userId, String boardUrl) {
+        validatePublicBoardPath(boardUrl);
         subscriptionService.subscribeBoard(userId, boardUrl);
     }
 
     @Transactional
     public void unsubscribeBoard(Long userId, String boardUrl) {
+        validatePublicBoardPath(boardUrl);
         subscriptionService.unsubscribeBoard(userId, boardUrl);
     }
 
@@ -107,10 +117,12 @@ public class BoardService {
 
     @Transactional
     public Board updateBoard(String boardUrl, BoardUpdateRequest request, Long userId) {
+        validatePublicBoardPath(boardUrl);
         return provisioningService.updateBoard(boardUrl, request, userId);
     }
 
     public BoardDetailResponse updateBoardDetail(String boardUrl, BoardUpdateRequest request, Long userId) {
+        validatePublicBoardPath(boardUrl);
         Board updatedBoard = transactionTemplate.execute(
                 status -> provisioningService.updateBoard(boardUrl, request, userId));
         return queryService.getBoardDetails(updatedBoard.getBoardUrl(), userId);
@@ -118,10 +130,12 @@ public class BoardService {
 
     @Transactional
     public void transferBoardManager(String boardUrl, String loginId, Long userId) {
+        validatePublicBoardPath(boardUrl);
         provisioningService.transferBoardManager(boardUrl, loginId, userId);
     }
 
     public BoardDetailResponse transferBoardManagerDetail(String boardUrl, String loginId, Long userId) {
+        validatePublicBoardPath(boardUrl);
         transactionTemplate.executeWithoutResult(
                 status -> provisioningService.transferBoardManager(boardUrl, loginId, userId));
         return queryService.getBoardDetails(boardUrl, userId);
@@ -129,11 +143,13 @@ public class BoardService {
 
     @Transactional
     public void deleteBoard(String boardUrl, Long userId) {
+        validatePublicBoardPath(boardUrl);
         provisioningService.deleteBoard(boardUrl, userId);
     }
 
     @Transactional
     public CategoryResponse createCategory(String boardUrl, CategoryRequest request, Long userId) {
+        validatePublicBoardPath(boardUrl);
         return categoryService.createCategory(boardUrl, request, userId);
     }
 
@@ -150,5 +166,11 @@ public class BoardService {
     @Transactional
     public void updateSubscriptionOrder(Long userId, List<String> boardUrls) {
         subscriptionService.updateSubscriptionOrder(userId, boardUrls);
+    }
+
+    private void validatePublicBoardPath(String boardUrl) {
+        if (boardAccessPolicy.isInquiryBoardUrl(boardUrl)) {
+            throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
+        }
     }
 }

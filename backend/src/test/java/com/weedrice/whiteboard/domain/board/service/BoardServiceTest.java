@@ -168,7 +168,8 @@ class BoardServiceTest {
                 provisioningService,
                 subscriptionService,
                 categoryService,
-                transactionTemplate);
+                transactionTemplate,
+                boardAccessPolicy);
 
         lenient().doAnswer(invocation -> {
             org.springframework.transaction.support.TransactionCallback<?> callback = invocation.getArgument(0);
@@ -1579,22 +1580,26 @@ class BoardServiceTest {
     @Test
     @DisplayName("문의 게시판 공지 요약 조회는 차단한다")
     void getNoticeSummaries_inquiryBoard_throwsBoardNotFound() {
-        Board inquiryBoard = Board.builder()
-                .boardName("Inquiry")
-                .boardUrl("inquiry")
-                .creator(user)
-                .isPublic(false)
-                .build();
-        ReflectionTestUtils.setField(inquiryBoard, "boardId", 4L);
-        ReflectionTestUtils.setField(inquiryBoard, "isActive", true);
-
-        when(boardRepository.findByBoardUrl("inquiry")).thenReturn(Optional.of(inquiryBoard));
-
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> boardService.getNoticeSummaries("inquiry", null));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BOARD_NOT_FOUND);
         verify(postService, never()).getNotices(anyLong(), any(), anyBoolean());
+    }
+
+    @Test
+    @DisplayName("Inquiry board URL based BoardService entrypoints are blocked")
+    void boardUrlServiceEntrypoints_rejectInquiryBoardUrl() {
+        assertInquiryBoardBlocked(() -> boardService.getBoardDetails("inquiry", null));
+        assertInquiryBoardBlocked(() -> boardService.getActiveCategories("inquiry", null));
+        assertInquiryBoardBlocked(() -> boardService.updateBoard("inquiry", null, 1L));
+        assertInquiryBoardBlocked(() -> boardService.updateBoardDetail("inquiry", null, 1L));
+        assertInquiryBoardBlocked(() -> boardService.transferBoardManager("inquiry", "next", 1L));
+        assertInquiryBoardBlocked(() -> boardService.transferBoardManagerDetail("inquiry", "next", 1L));
+        assertInquiryBoardBlocked(() -> boardService.deleteBoard("inquiry", 1L));
+        assertInquiryBoardBlocked(() -> boardService.subscribeBoard(1L, "inquiry"));
+        assertInquiryBoardBlocked(() -> boardService.unsubscribeBoard(1L, "inquiry"));
+        assertInquiryBoardBlocked(() -> boardService.createCategory("inquiry", null, 1L));
     }
 
     @Test
@@ -2432,6 +2437,11 @@ class BoardServiceTest {
         return new DataIntegrityViolationException(
                 "duplicate",
                 new ConstraintViolationException("duplicate", null, constraintName));
+    }
+
+    private void assertInquiryBoardBlocked(org.junit.jupiter.api.function.Executable executable) {
+        BusinessException exception = assertThrows(BusinessException.class, executable);
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BOARD_NOT_FOUND);
     }
 
     private BoardRepository.TopBoardPostCountProjection topBoardPostCount(Long boardId, Long postCount) {

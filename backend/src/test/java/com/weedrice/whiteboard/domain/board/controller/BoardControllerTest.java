@@ -7,9 +7,10 @@ import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardManagerTransferRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.entity.Board;
-import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
@@ -60,9 +61,6 @@ class BoardControllerTest {
 
     @MockBean
     private BoardService boardService;
-
-    @MockBean
-    private BoardAccessPolicy boardAccessPolicy;
 
     @MockBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -346,14 +344,15 @@ class BoardControllerTest {
     @Test
     @DisplayName("문의 게시판 URL 상세 조회는 404로 차단한다")
     void getBoardDetails_inquiryBoardUrlReturnsNotFound() throws Exception {
-        when(boardAccessPolicy.isInquiryBoardUrl("inquiry")).thenReturn(true);
+        when(boardService.getBoardDetails(eq("inquiry"), eq(1L)))
+                .thenThrow(new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
         mockMvc.perform(get("/api/v1/boards/{boardUrl}", "inquiry")
                         .with(user(customUserDetails))
                         .with(csrf()))
                 .andExpect(status().isNotFound());
 
-        verify(boardService, never()).getBoardDetails(any(), any());
+        verify(boardService).getBoardDetails(eq("inquiry"), eq(1L));
     }
 
     private BoardListResponse boardListResponse(String adminDisplayName) {
