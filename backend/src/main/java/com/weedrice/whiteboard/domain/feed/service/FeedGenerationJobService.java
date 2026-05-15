@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
@@ -31,7 +32,12 @@ public class FeedGenerationJobService {
     private final FeedGenerationService feedGenerationService;
     private final Clock clock;
 
-    @Transactional
+    @Transactional(readOnly = true)
+    public boolean existsPostPublishedJob(Long postId) {
+        return feedGenerationJobRepository.existsByPostId(postId);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void enqueuePostPublishedJob(Long postId, Long boardId) {
         if (feedGenerationJobRepository.existsByPostId(postId)) {
             return;
@@ -40,7 +46,7 @@ public class FeedGenerationJobService {
                 .postId(postId)
                 .boardId(boardId)
                 .build();
-        feedGenerationJobRepository.save(job);
+        feedGenerationJobRepository.saveAndFlush(job);
     }
 
     public void processPostPublishedJob(Long postId) {

@@ -7,9 +7,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class FeedGenerationEventListenerTest {
@@ -21,7 +24,7 @@ class FeedGenerationEventListenerTest {
     private FeedGenerationJobService feedGenerationJobService;
 
     @Test
-    @DisplayName("게시글 발행 이벤트는 피드 생성 작업을 저장한다")
+    @DisplayName("Post publish event enqueues feed generation job after commit")
     void enqueuePostPublished_savesFeedGenerationJob() {
         PostPublishedEvent event = new PostPublishedEvent(100L, 10L);
 
@@ -31,25 +34,56 @@ class FeedGenerationEventListenerTest {
     }
 
     @Test
-    @DisplayName("커밋 이후 게시글 발행 이벤트는 피드 생성 작업을 즉시 처리한다")
+    @DisplayName("Duplicate enqueue is swallowed")
+    void enqueuePostPublished_swallowsDuplicateEnqueue() {
+        PostPublishedEvent event = new PostPublishedEvent(100L, 10L);
+        doThrow(new DataIntegrityViolationException("duplicate feed generation job"))
+                .when(feedGenerationJobService)
+                .enqueuePostPublishedJob(100L, 10L);
+        when(feedGenerationJobService.existsPostPublishedJob(100L)).thenReturn(true);
+
+        feedGenerationEventListener.enqueuePostPublished(event);
+
+        verify(feedGenerationJobService).enqueuePostPublishedJob(100L, 10L);
+        verify(feedGenerationJobService).existsPostPublishedJob(100L);
+    }
+
+    @Test
+    @DisplayName("Post publish event processes feed generation job after commit")
     void handlePostPublished_processesFeedGenerationJob() {
         PostPublishedEvent event = new PostPublishedEvent(100L, 10L);
+        when(feedGenerationJobService.existsPostPublishedJob(100L)).thenReturn(true);
 
         feedGenerationEventListener.handlePostPublished(event);
 
+        verify(feedGenerationJobService).existsPostPublishedJob(100L);
         verify(feedGenerationJobService).processPostPublishedJob(100L);
     }
 
     @Test
-    @DisplayName("피드 생성 작업 즉시 처리 중 예외가 나도 후속 처리는 예외를 던지지 않는다")
+    @DisplayName("Post publish event skips immediate processing without enqueue job")
+    void handlePostPublished_skipsProcessingWithoutEnqueueJob() {
+        PostPublishedEvent event = new PostPublishedEvent(100L, 10L);
+        when(feedGenerationJobService.existsPostPublishedJob(100L)).thenReturn(false);
+
+        feedGenerationEventListener.handlePostPublished(event);
+
+        verify(feedGenerationJobService).existsPostPublishedJob(100L);
+        verify(feedGenerationJobService, never()).processPostPublishedJob(100L);
+    }
+
+    @Test
+    @DisplayName("Feed generation processing failure is swallowed")
     void handlePostPublished_swallowsGenerationFailure() {
         PostPublishedEvent event = new PostPublishedEvent(100L, 10L);
+        when(feedGenerationJobService.existsPostPublishedJob(100L)).thenReturn(true);
         doThrow(new IllegalStateException("feed failure"))
                 .when(feedGenerationJobService)
                 .processPostPublishedJob(100L);
 
         feedGenerationEventListener.handlePostPublished(event);
 
+        verify(feedGenerationJobService).existsPostPublishedJob(100L);
         verify(feedGenerationJobService).processPostPublishedJob(100L);
     }
 }
