@@ -126,13 +126,8 @@ public class AgentQueryService {
 
     public AgentBoardListResponse getBoards(Long agentId) {
         Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
-        List<Board> boards = boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true);
-        if (boards.isEmpty()) {
-            return new AgentBoardListResponse(List.of());
-        }
-        List<Board> agentEnabledBoards = boards.stream()
-                .filter(Board::isAgentEnabled)
-                .toList();
+        List<Board> agentEnabledBoards =
+                boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc();
         if (agentEnabledBoards.isEmpty()) {
             return new AgentBoardListResponse(List.of());
         }

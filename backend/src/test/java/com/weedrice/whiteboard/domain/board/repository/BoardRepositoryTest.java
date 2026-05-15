@@ -276,6 +276,25 @@ class BoardRepositoryTest {
     }
 
     @Test
+    @DisplayName("Agent board list query filters agent enabled boards and keeps stable order")
+    void findAgentEnabledPublicBoards_filtersAgentUseYnAndKeepsOrder() {
+        Board disabled = persistBoard("Agent Disabled", "agent-disabled", 0, true, true, false);
+        Board sameSortFirst = persistBoard("Agent Enabled First", "agent-enabled-first", 10, true, true, true);
+        Board privateEnabled = persistBoard("Private Agent Enabled", "private-agent-enabled", 20, true, false, true);
+        Board inactiveEnabled = persistBoard("Inactive Agent Enabled", "inactive-agent-enabled", 30, false, true, true);
+        Board sameSortSecond = persistBoard("Agent Enabled Second", "agent-enabled-second", 10, true, true, true);
+        entityManager.flush();
+        entityManager.clear();
+
+        var boards = boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc();
+
+        assertThat(boards).extracting(Board::getBoardId)
+                .containsExactly(sameSortFirst.getBoardId(), sameSortSecond.getBoardId());
+        assertThat(boards).extracting(Board::getBoardId)
+                .doesNotContain(disabled.getBoardId(), privateEnabled.getBoardId(), inactiveEnabled.getBoardId());
+    }
+
+    @Test
     @DisplayName("Readable top boards filter visibility before limit and keep order")
     void findTopReadableBoardPostCounts_filtersVisibilityBeforeLimit() {
         User reader = persistUser("top-reader");
@@ -321,13 +340,24 @@ class BoardRepositoryTest {
     }
 
     private Board persistBoard(String boardName, String boardUrl, int sortOrder, boolean isActive, boolean isPublic,
+            boolean agentUseYn) {
+        return persistBoard(boardName, boardUrl, sortOrder, isActive, isPublic, creator, agentUseYn);
+    }
+
+    private Board persistBoard(String boardName, String boardUrl, int sortOrder, boolean isActive, boolean isPublic,
             User boardCreator) {
+        return persistBoard(boardName, boardUrl, sortOrder, isActive, isPublic, boardCreator, false);
+    }
+
+    private Board persistBoard(String boardName, String boardUrl, int sortOrder, boolean isActive, boolean isPublic,
+            User boardCreator, boolean agentUseYn) {
         Board board = Board.builder()
                 .boardName(boardName)
                 .boardUrl(boardUrl)
                 .creator(boardCreator)
                 .sortOrder(sortOrder)
                 .isPublic(isPublic)
+                .agentUseYn(agentUseYn)
                 .build();
         if (!isActive) {
             board.deactivate();

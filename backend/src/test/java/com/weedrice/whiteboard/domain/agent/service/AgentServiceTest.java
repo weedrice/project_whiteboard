@@ -917,8 +917,8 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(boardAiInfo, "boardId", 10L);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
-                .thenReturn(List.of(writableBoard, blockedBoard));
+        when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
+                .thenReturn(List.of(writableBoard));
         when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
                 List.of(10L), true)).thenReturn(List.of(defaultCategory(writableBoard, Role.BOARD_ADMIN)));
         when(boardAiInfoRepository.findByBoard_BoardIdIn(List.of(10L))).thenReturn(List.of(boardAiInfo));
@@ -943,7 +943,7 @@ class AgentServiceTest {
         Board readableOnlyBoard = readableOnlyAgentEnabledBoard(30L);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
+        when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(writableBoard, readableOnlyBoard));
         when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
                 List.of(10L, 30L), true)).thenReturn(List.of(
@@ -974,7 +974,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(managedBoard, "agentUseYn", true);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
+        when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(managedBoard));
         when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
                 List.of(30L), true)).thenReturn(List.of(defaultCategory(managedBoard, Role.BOARD_ADMIN)));
@@ -1008,7 +1008,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(boardAiInfo, "boardId", 10L);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
+        when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(writableBoard, superAdminOnlyBoard));
         when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
                 List.of(10L, 40L), true)).thenReturn(List.of(
@@ -1039,7 +1039,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(superAdminOnlyBoard, "agentUseYn", true);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
+        when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(superAdminOnlyBoard));
         when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
                 List.of(40L), true)).thenReturn(List.of(defaultCategory(superAdminOnlyBoard, Role.SUPER_ADMIN)));
@@ -1055,8 +1055,8 @@ class AgentServiceTest {
     @Test
     void getBoards_returnsEmptyWithoutMetadataWhenNoAgentEnabledBoards() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
-                .thenReturn(List.of(blockedBoard));
+        when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
+                .thenReturn(List.of());
 
         AgentBoardListResponse response = agentQueryService.getBoards(7L);
 
