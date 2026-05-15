@@ -83,10 +83,7 @@ class NotificationServiceTest {
 
         NotificationPreferenceService preferenceService = new NotificationPreferenceService(userNotificationSettingsRepository);
         NotificationStreamService streamService = new NotificationStreamService(1_800_000L, 5);
-        NotificationCommandService commandService = new NotificationCommandService(
-                notificationRepository,
-                preferenceService);
-        notificationService = new NotificationService(notificationRepository, userRepository, commandService, streamService);
+        notificationService = createNotificationService(preferenceService, streamService);
     }
 
     @Test
@@ -219,10 +216,7 @@ class NotificationServiceTest {
 
         NotificationPreferenceService preferenceService = new NotificationPreferenceService(userNotificationSettingsRepository);
         NotificationStreamService streamService = new ThrowingNotificationStreamService();
-        NotificationCommandService commandService = new NotificationCommandService(
-                notificationRepository,
-                preferenceService);
-        NotificationService service = new NotificationService(notificationRepository, userRepository, commandService, streamService);
+        NotificationService service = createNotificationService(preferenceService, streamService);
 
         assertThatCode(() -> service.handleNotificationEvent(event)).doesNotThrowAnyException();
 
@@ -242,10 +236,7 @@ class NotificationServiceTest {
 
         NotificationPreferenceService preferenceService = new NotificationPreferenceService(userNotificationSettingsRepository);
         RecordingNotificationStreamService streamService = new RecordingNotificationStreamService();
-        NotificationCommandService commandService = new NotificationCommandService(
-                notificationRepository,
-                preferenceService);
-        NotificationService service = new NotificationService(notificationRepository, userRepository, commandService, streamService);
+        NotificationService service = createNotificationService(preferenceService, streamService);
 
         TransactionSynchronizationManager.initSynchronization();
         try {
@@ -394,6 +385,19 @@ class NotificationServiceTest {
         notificationService.readAllNotifications(userId);
 
         verify(notificationRepository).readAllByUserId(userId);
+    }
+
+    private NotificationService createNotificationService(NotificationPreferenceService preferenceService,
+                                                          NotificationStreamService streamService) {
+        NotificationCommandService commandService = new NotificationCommandService(
+                notificationRepository,
+                preferenceService);
+        NotificationEventHandler eventHandler = new NotificationEventHandler(commandService, streamService);
+        NotificationQueryService queryService = new NotificationQueryService(notificationRepository, userRepository);
+        NotificationReadCommandService readCommandService =
+                new NotificationReadCommandService(userRepository, commandService);
+        NotificationSseFacade sseFacade = new NotificationSseFacade(userRepository, streamService);
+        return new NotificationService(eventHandler, queryService, readCommandService, sseFacade);
     }
 
     private static class ThrowingNotificationStreamService extends NotificationStreamService {
