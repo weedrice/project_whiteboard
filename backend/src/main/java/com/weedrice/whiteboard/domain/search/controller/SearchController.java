@@ -47,10 +47,8 @@ public class SearchController {
             Sort sort,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        String keyword = SearchRequestNormalizer.canonicalizeKeyword(q);
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
-        Pageable pageable = SearchRequestNormalizer.normalizePostSearchPageable(page, size, sort);
-        Page<PostSummary> response = searchService.searchPosts(keyword, searchType, boardUrl, pageable, userId);
+        Page<PostSummary> response = searchService.searchPosts(q, searchType, boardUrl, page, size, sort, userId);
 
         return ApiResponse.success(new PageResponse<>(response));
     }

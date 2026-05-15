@@ -366,7 +366,7 @@ class SearchServiceTest {
         when(fileService.getFirstImageFileIdsForPosts(List.of(11L, 10L)))
                 .thenReturn(Collections.emptyMap());
 
-        Page<PostSummary> result = searchService.searchPosts(
+        Page<PostSummary> result = searchPostsWithPageable(
                 "test", null, null, pageable, null);
 
         assertThat(result.getContent()).extracting("rowNum").containsExactly(3L, 2L);
@@ -387,7 +387,7 @@ class SearchServiceTest {
         when(fileService.getFirstImageFileIdsForPosts(List.of(10L, 11L)))
                 .thenReturn(Collections.emptyMap());
 
-        Page<PostSummary> result = searchService.searchPosts(
+        Page<PostSummary> result = searchPostsWithPageable(
                 "test", null, null, pageable, null);
 
         assertThat(result.getContent()).extracting("rowNum").containsExactly(3L, 4L);
@@ -408,7 +408,7 @@ class SearchServiceTest {
         when(fileService.getFirstImageFileIdsForPosts(List.of(10L, 11L)))
                 .thenReturn(Collections.emptyMap());
 
-        Page<PostSummary> result = searchService.searchPosts(
+        Page<PostSummary> result = searchPostsWithPageable(
                 "test", null, null, pageable, null);
 
         assertThat(result.getContent()).extracting("rowNum").containsExactly(1L, 2L);
@@ -429,7 +429,7 @@ class SearchServiceTest {
         when(fileService.getFirstImageFileIdsForPosts(List.of(10L, 11L)))
                 .thenReturn(Collections.emptyMap());
 
-        Page<PostSummary> result = searchService.searchPosts(
+        Page<PostSummary> result = searchPostsWithPageable(
                 "test", null, null, pageable, null);
 
         assertThat(result.getContent()).extracting("rowNum").containsExactly(1L, 2L);
@@ -449,7 +449,7 @@ class SearchServiceTest {
         when(fileService.getFirstImageFileIdsForPosts(List.of(11L, 10L)))
                 .thenReturn(Collections.emptyMap());
 
-        Page<PostSummary> result = searchService.searchPosts(
+        Page<PostSummary> result = searchPostsWithPageable(
                 "test", null, null, pageable, null);
 
         assertThat(result.getContent()).extracting("rowNum").containsExactly(5L, 4L);
@@ -466,7 +466,7 @@ class SearchServiceTest {
         when(postRepository.searchPosts(anyString(), any(), any(), any(), anyBoolean(), any(), eq(normalizedPageable)))
                 .thenReturn(Page.empty(normalizedPageable));
 
-        searchService.searchPosts("test", null, null, pageable, null);
+        searchPostsWithPageable("test", null, null, pageable, null);
 
         verify(postRepository).searchPosts(
                 eq("test"),
@@ -479,6 +479,17 @@ class SearchServiceTest {
     }
 
     @Test
+    @DisplayName("게시글 검색은 서비스 계층에서 blank 검색어를 거부한다")
+    void searchPosts_rejectsBlankKeywordBeforeRepositoryCall() {
+        assertThatThrownBy(() -> searchPostsWithPageable("   ", null, null, PageRequest.of(0, 20), null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(postRepository, never()).searchPosts(any(), any(), any(), any(), anyBoolean(), any(), any());
+        verify(searchRecordEventPublisher, never()).publish(any(), anyString());
+    }
+
+    @Test
     @DisplayName("게시글 검색은 양방향 차단 사용자 목록을 전달한다")
     void searchPosts_authenticated_usesEitherDirectionBlockedUserFiltering() {
         Pageable pageable = PageRequest.of(0, 20);
@@ -488,7 +499,7 @@ class SearchServiceTest {
         when(postRepository.searchPosts(eq("test"), isNull(), isNull(), eq(blockedUserIds), eq(false), eq(1L),
                 any(Pageable.class))).thenReturn(Page.empty(pageable));
 
-        searchService.searchPosts("test", null, null, pageable, 1L);
+        searchPostsWithPageable("test", null, null, pageable, 1L);
 
         verify(userBlockService).getBlockedUserIdsEitherDirection(1L);
         verify(postRepository).searchPosts(eq("test"), isNull(), isNull(), eq(blockedUserIds), eq(false), eq(1L),
@@ -509,7 +520,7 @@ class SearchServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(adminRepository.existsByUserAndBoardAndIsActive(user, privateBoard, true)).thenReturn(false);
 
-        assertThatThrownBy(() -> searchService.searchPosts("test", null, "private", PageRequest.of(0, 20), 1L))
+        assertThatThrownBy(() -> searchPostsWithPageable("test", null, "private", PageRequest.of(0, 20), 1L))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
         verify(postRepository, never()).searchPosts(any(), any(), any(), any(), anyBoolean(), any(), any());
@@ -529,7 +540,7 @@ class SearchServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(adminRepository.existsByUserAndBoardAndIsActive(user, inactiveBoard, true)).thenReturn(false);
 
-        assertThatThrownBy(() -> searchService.searchPosts("test", null, "inactive", PageRequest.of(0, 20), 1L))
+        assertThatThrownBy(() -> searchPostsWithPageable("test", null, "inactive", PageRequest.of(0, 20), 1L))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
         verify(postRepository, never()).searchPosts(any(), any(), any(), any(), anyBoolean(), any(), any());
@@ -553,7 +564,7 @@ class SearchServiceTest {
         when(postRepository.searchPosts(eq("test"), isNull(), eq("private"), eq(Collections.emptyList()),
                 eq(true), eq(1L), any(Pageable.class))).thenReturn(Page.empty(pageable));
 
-        searchService.searchPosts("test", null, "private", pageable, 1L);
+        searchPostsWithPageable("test", null, "private", pageable, 1L);
 
         verify(postRepository).searchPosts(eq("test"), isNull(), eq("private"), eq(Collections.emptyList()),
                 eq(true), eq(1L), any(Pageable.class));
@@ -570,7 +581,7 @@ class SearchServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(adminRepository.existsByUserAndBoardAndIsActive(user, privateBoard, true)).thenReturn(false);
 
-        assertThatThrownBy(() -> searchService.searchPosts("test", null, "private", pageable, 1L))
+        assertThatThrownBy(() -> searchPostsWithPageable("test", null, "private", pageable, 1L))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
 
@@ -595,7 +606,7 @@ class SearchServiceTest {
         when(postRepository.searchPosts(eq("test"), isNull(), eq("private"), eq(Collections.emptyList()),
                 eq(true), eq(1L), any(Pageable.class))).thenReturn(Page.empty(pageable));
 
-        searchService.searchPosts("test", null, "private", pageable, 1L);
+        searchPostsWithPageable("test", null, "private", pageable, 1L);
 
         verify(adminRepository, never()).existsByUserAndBoardAndIsActive(any(), any(), anyBoolean());
         verify(postRepository).searchPosts(eq("test"), isNull(), eq("private"), eq(Collections.emptyList()),
@@ -821,6 +832,18 @@ class SearchServiceTest {
                 return count;
             }
         };
+    }
+
+    private Page<PostSummary> searchPostsWithPageable(String keyword, String searchType, String boardUrl,
+            Pageable pageable, Long currentUserId) {
+        return searchService.searchPosts(
+                keyword,
+                searchType,
+                boardUrl,
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                pageable.getSort(),
+                currentUserId);
     }
 
     private Board board(Long boardId, String boardName, String boardUrl) {

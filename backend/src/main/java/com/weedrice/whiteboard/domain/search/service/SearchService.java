@@ -110,10 +110,11 @@ public class SearchService {
         return response;
     }
 
-    public Page<PostSummary> searchPosts(String keyword, String searchType, String boardUrl, Pageable pageable,
+    public Page<PostSummary> searchPosts(String keyword, String searchType, String boardUrl, int page, int size,
+            Sort sort,
             Long currentUserId) {
         String canonicalKeyword = SearchRequestNormalizer.canonicalizeKeyword(keyword);
-        Pageable normalizedPageable = SearchRequestNormalizer.normalizePostSearchPageable(pageable);
+        Pageable normalizedPageable = SearchRequestNormalizer.normalizePostSearchPageable(page, size, sort);
         boolean includeSecret = false;
         if (boardUrl != null && !boardUrl.trim().isEmpty()) {
             Board board = boardRepository.findByBoardUrl(boardUrl)
