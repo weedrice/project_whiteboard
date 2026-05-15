@@ -155,7 +155,7 @@ public class PostInteractionService {
     public int likePost(@NonNull Long userId, Long actorAgentId, @NonNull Long postId) {
         User user = userWritableResolver.resolve(userId);
         Agent actorAgent = agentOwnershipService.resolveOwnedActiveAgent(userId, actorAgentId);
-        Post post = getPostById(postId, userId, false);
+        Post post = getReadablePost(postId, postReadContextResolver.resolveForResolvedUser(user));
         return likeResolvedPost(user, actorAgent, post);
     }
 

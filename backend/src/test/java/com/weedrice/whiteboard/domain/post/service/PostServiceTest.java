@@ -1180,6 +1180,7 @@ class PostServiceTest {
 
         verify(postLikeRepository).saveAndFlush(any(PostLike.class));
         verify(postRepository).incrementLikeCount(1L);
+        verify(userRepository).findById(1L);
         assertThat(likeCount).isEqualTo(1);
     }
 

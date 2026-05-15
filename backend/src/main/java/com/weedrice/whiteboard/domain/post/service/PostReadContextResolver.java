@@ -34,11 +34,17 @@ class PostReadContextResolver {
         }
         User viewer = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        return resolveForResolvedUser(viewer);
+    }
+
+    PostReadContext resolveForResolvedUser(User viewer) {
+        if (viewer == null || viewer.getUserId() == null) {
+            return PostReadContext.anonymous();
+        }
+        Long currentUserId = viewer.getUserId();
         List<Long> blockedUserIds = userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(currentUserId);
-        Set<Long> blockedUserIdSet = blockedUserIds == null || blockedUserIds.isEmpty()
-                ? Collections.emptySet()
-                : new HashSet<>(blockedUserIds);
-        return new PostReadContext(viewer, currentUserId, blockedUserIds, blockedUserIdSet, Collections.emptySet());
+        return new PostReadContext(viewer, currentUserId, blockedUserIds, toBlockedUserIdSet(blockedUserIds),
+                Collections.emptySet());
     }
 
     PostReadContext resolveForExistingUser(Long currentUserId) {
@@ -144,5 +150,12 @@ class PostReadContextResolver {
         return board != null
                 && (!Boolean.TRUE.equals(board.getIsActive())
                 || !Boolean.TRUE.equals(board.getIsPublic()));
+    }
+
+    private Set<Long> toBlockedUserIdSet(List<Long> blockedUserIds) {
+        if (blockedUserIds == null || blockedUserIds.isEmpty()) {
+            return Collections.emptySet();
+        }
+        return new HashSet<>(blockedUserIds);
     }
 }
