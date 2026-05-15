@@ -32,7 +32,6 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous;
@@ -138,8 +137,8 @@ class SearchControllerTest {
     }
 
     @Test
-    @DisplayName("통합 검색은 검색어를 정규화해 검색과 기록에 사용한다")
-    void integratedSearch_trimsKeywordBeforeSearch() throws Exception {
+    @DisplayName("통합 검색은 raw 검색어를 서비스에 위임한다")
+    void integratedSearch_delegatesRawKeywordToService() throws Exception {
         String rawQuery = " test ";
         String canonicalQuery = "test";
         org.springframework.data.domain.Page<PostSummary> emptyPostPage = new PageImpl<>(List.of());
@@ -150,7 +149,7 @@ class SearchControllerTest {
         IntegratedSearchResponse response = IntegratedSearchResponse.from(emptyPostPage, emptyCommentPage,
                 emptyUserPage, java.util.Collections.emptyList(), canonicalQuery);
 
-        when(searchService.integratedSearch(eq(canonicalQuery), isNull())).thenReturn(response);
+        when(searchService.integratedSearch(eq(rawQuery), isNull())).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/search")
                 .param("q", rawQuery)
@@ -158,12 +157,12 @@ class SearchControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
-        verify(searchService).integratedSearch(eq(canonicalQuery), isNull());
+        verify(searchService).integratedSearch(eq(rawQuery), isNull());
     }
 
     @Test
-    @DisplayName("integrated search caps keyword before service call")
-    void integratedSearch_truncatesKeywordBeforeSearch() throws Exception {
+    @DisplayName("통합 검색은 긴 raw 검색어를 서비스에 위임한다")
+    void integratedSearch_delegatesLongRawKeywordToService() throws Exception {
         String rawQuery = "A".repeat(MAX_KEYWORD_LENGTH + 10);
         String canonicalQuery = "A".repeat(MAX_KEYWORD_LENGTH);
         org.springframework.data.domain.Page<PostSummary> emptyPostPage = new PageImpl<>(List.of());
@@ -174,7 +173,7 @@ class SearchControllerTest {
         IntegratedSearchResponse response = IntegratedSearchResponse.from(emptyPostPage, emptyCommentPage,
                 emptyUserPage, java.util.Collections.emptyList(), canonicalQuery);
 
-        when(searchService.integratedSearch(eq(canonicalQuery), isNull())).thenReturn(response);
+        when(searchService.integratedSearch(eq(rawQuery), isNull())).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/search")
                         .param("q", rawQuery)
@@ -182,18 +181,21 @@ class SearchControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
-        verify(searchService).integratedSearch(eq(canonicalQuery), isNull());
+        verify(searchService).integratedSearch(eq(rawQuery), isNull());
     }
 
     @Test
     @DisplayName("통합 검색은 빈 검색어를 거부한다")
     void integratedSearch_rejectsBlankKeyword() throws Exception {
+        when(searchService.integratedSearch(eq("   "), isNull()))
+                .thenThrow(new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
+
         mockMvc.perform(get("/api/v1/search")
                 .param("q", "   ")
                 .with(anonymous()))
                 .andExpect(status().isBadRequest());
 
-        verify(searchService, never()).integratedSearch(anyString(), any());
+        verify(searchService).integratedSearch(eq("   "), isNull());
     }
 
     @Test
@@ -342,9 +344,9 @@ class SearchControllerTest {
     }
 
     @Test
-    @DisplayName("인기 검색어 기간은 대소문자와 공백을 정규화한다")
-    void getPopularKeywords_normalizesPeriod() throws Exception {
-        when(searchService.getPopularKeywords(eq("WEEKLY"), eq(10))).thenReturn(List.of());
+    @DisplayName("인기 검색어 기간은 raw 값으로 서비스에 위임한다")
+    void getPopularKeywords_delegatesRawPeriodToService() throws Exception {
+        when(searchService.getPopularKeywords(eq(" weekly "), eq(10))).thenReturn(List.of());
 
         mockMvc.perform(get("/api/v1/search/popular")
                 .param("period", " weekly ")
@@ -352,13 +354,13 @@ class SearchControllerTest {
                 .with(anonymous()))
                 .andExpect(status().isOk());
 
-        verify(searchService).getPopularKeywords("WEEKLY", 10);
+        verify(searchService).getPopularKeywords(" weekly ", 10);
     }
 
     @Test
-    @DisplayName("인기 검색어 제한은 최대 100으로 보정한다")
-    void getPopularKeywords_clampsLimit() throws Exception {
-        when(searchService.getPopularKeywords(eq("DAILY"), eq(100))).thenReturn(List.of());
+    @DisplayName("인기 검색어 제한은 raw 값으로 서비스에 위임한다")
+    void getPopularKeywords_delegatesRawLimitToService() throws Exception {
+        when(searchService.getPopularKeywords(eq("DAILY"), eq(101))).thenReturn(List.of());
 
         mockMvc.perform(get("/api/v1/search/popular")
                 .param("period", "DAILY")
@@ -366,29 +368,35 @@ class SearchControllerTest {
                 .with(anonymous()))
                 .andExpect(status().isOk());
 
-        verify(searchService).getPopularKeywords("DAILY", 100);
+        verify(searchService).getPopularKeywords("DAILY", 101);
     }
 
     @Test
     @DisplayName("인기 검색어 제한이 0 이하면 400을 반환한다")
     void getPopularKeywords_rejectsInvalidLimit() throws Exception {
+        when(searchService.getPopularKeywords(eq("DAILY"), eq(0)))
+                .thenThrow(new BusinessException(ErrorCode.VALIDATION_ERROR));
+
         mockMvc.perform(get("/api/v1/search/popular")
                 .param("limit", "0")
                 .with(anonymous()))
                 .andExpect(status().isBadRequest());
 
-        verify(searchService, never()).getPopularKeywords(anyString(), anyInt());
+        verify(searchService).getPopularKeywords("DAILY", 0);
     }
 
     @Test
     @DisplayName("인기 검색어 기간이 유효하지 않으면 400을 반환한다")
     void getPopularKeywords_rejectsInvalidPeriod() throws Exception {
+        when(searchService.getPopularKeywords(eq("YEARLY"), eq(10)))
+                .thenThrow(new BusinessException(ErrorCode.VALIDATION_ERROR));
+
         mockMvc.perform(get("/api/v1/search/popular")
                 .param("period", "YEARLY")
                 .with(anonymous()))
                 .andExpect(status().isBadRequest());
 
-        verify(searchService, never()).getPopularKeywords(anyString(), anyInt());
+        verify(searchService).getPopularKeywords("YEARLY", 10);
     }
 
     @Test
