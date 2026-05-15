@@ -22,6 +22,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardAiInfoRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
+import com.weedrice.whiteboard.domain.board.service.BoardCategoryWritePolicy;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.service.CommentCreateContext;
@@ -146,11 +147,13 @@ class AgentServiceTest {
     void setUp() {
         agentOwnershipService = spy(new AgentOwnershipService(agentRepository, sanctionService));
         agentAuditService = spy(new AgentAuditService(agentAuditLogWriter));
+        BoardAccessPolicy boardAccessPolicy = new BoardAccessPolicy(adminRepository);
         agentBoardAccessService = spy(new AgentBoardAccessService(
                 adminRepository,
                 boardRepository,
                 boardCategoryRepository,
-                postService));
+                postService,
+                new BoardCategoryWritePolicy(boardAccessPolicy)));
         agentPostListItemAssembler = spy(new AgentPostListItemAssembler(commentRepository));
         commentReadSupport = new CommentReadSupport(commentRepository);
         CommentReadModelAssembler commentReadModelAssembler = new CommentReadModelAssembler(commentReadSupport);

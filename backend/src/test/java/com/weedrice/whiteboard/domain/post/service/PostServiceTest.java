@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
+import com.weedrice.whiteboard.domain.board.service.BoardCategoryWritePolicy;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.entity.File;
@@ -157,7 +158,10 @@ class PostServiceTest {
                 adminRepository);
         postImageAttachmentReader = new PostImageAttachmentReader(fileService);
         ReactionWriter reactionWriter = new ReactionWriter();
-        postAuthorCommandPolicy = new PostAuthorCommandPolicy(boardAccessPolicy, boardCategoryRepository);
+        postAuthorCommandPolicy = new PostAuthorCommandPolicy(
+                boardAccessPolicy,
+                boardCategoryRepository,
+                new BoardCategoryWritePolicy(boardAccessPolicy));
         userWritableResolver = new UserWritableResolver(userRepository, sanctionService);
         viewHistoryCommandService = new ViewHistoryCommandService(viewHistoryRepository);
         postDetailReadService = new PostDetailReadService(

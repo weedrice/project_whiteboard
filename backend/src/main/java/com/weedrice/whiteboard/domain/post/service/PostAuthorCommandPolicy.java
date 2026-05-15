@@ -4,9 +4,9 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
+import com.weedrice.whiteboard.domain.board.service.BoardCategoryWritePolicy;
 import com.weedrice.whiteboard.domain.board.service.BoardDefaultCategoryResolver;
 import com.weedrice.whiteboard.domain.post.entity.Post;
-import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 public class PostAuthorCommandPolicy {
     private final BoardAccessPolicy boardAccessPolicy;
     private final BoardCategoryRepository boardCategoryRepository;
+    private final BoardCategoryWritePolicy boardCategoryWritePolicy;
 
     public void validateAuthorCommand(Post post, User user) {
         if (post.getIsDeleted()) {
@@ -54,22 +55,6 @@ public class PostAuthorCommandPolicy {
     }
 
     public void validateWriteRole(Board board, User user, String minRole) {
-        String normalizedMinRole = BoardCategory.resolveMinWriteRole(minRole);
-        switch (normalizedMinRole) {
-            case Role.USER:
-                return;
-            case Role.BOARD_ADMIN:
-                if (!boardAccessPolicy.hasBoardAdminAccess(board, user)) {
-                    throw new BusinessException(ErrorCode.FORBIDDEN);
-                }
-                return;
-            case Role.SUPER_ADMIN:
-                if (!Boolean.TRUE.equals(user.getIsSuperAdmin())) {
-                    throw new BusinessException(ErrorCode.FORBIDDEN);
-                }
-                return;
-            default:
-                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
+        boardCategoryWritePolicy.validateWriteRole(board, user, minRole);
     }
 }
