@@ -83,6 +83,8 @@ class SearchServiceTest {
     private BoardSubscriptionRepository boardSubscriptionRepository;
     @Mock
     private SearchRecordEventPublisher searchRecordEventPublisher;
+    @Mock
+    private SearchUserLookupPolicy searchUserLookupPolicy;
     private BoardAccessPolicy boardAccessPolicy;
 
     private SearchService searchService;
@@ -116,7 +118,8 @@ class SearchServiceTest {
                 userBlockService,
                 postSummaryAssembler,
                 boardAccessPolicy,
-                searchRecordEventPublisher);
+                searchRecordEventPublisher,
+                searchUserLookupPolicy);
     }
 
     @Test
@@ -517,7 +520,7 @@ class SearchServiceTest {
         ReflectionTestUtils.setField(privateBoard, "isPublic", false);
 
         when(boardRepository.findByBoardUrl("private")).thenReturn(Optional.of(privateBoard));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(searchUserLookupPolicy.resolveOptional(1L)).thenReturn(user);
         when(adminRepository.existsByUserAndBoardAndIsActive(user, privateBoard, true)).thenReturn(false);
 
         assertThatThrownBy(() -> searchPostsWithPageable("test", null, "private", PageRequest.of(0, 20), 1L))
@@ -537,7 +540,7 @@ class SearchServiceTest {
         ReflectionTestUtils.setField(inactiveBoard, "isActive", false);
 
         when(boardRepository.findByBoardUrl("inactive")).thenReturn(Optional.of(inactiveBoard));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(searchUserLookupPolicy.resolveOptional(1L)).thenReturn(user);
         when(adminRepository.existsByUserAndBoardAndIsActive(user, inactiveBoard, true)).thenReturn(false);
 
         assertThatThrownBy(() -> searchPostsWithPageable("test", null, "inactive", PageRequest.of(0, 20), 1L))
@@ -558,7 +561,7 @@ class SearchServiceTest {
         Pageable pageable = PageRequest.of(0, 20);
 
         when(boardRepository.findByBoardUrl("private")).thenReturn(Optional.of(privateBoard));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(searchUserLookupPolicy.resolveOptional(1L)).thenReturn(user);
         when(adminRepository.existsByUserAndBoardAndIsActive(user, privateBoard, true)).thenReturn(true);
         when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
         when(postRepository.searchPosts(eq("test"), isNull(), eq("private"), eq(Collections.emptyList()),
@@ -578,7 +581,7 @@ class SearchServiceTest {
         Pageable pageable = PageRequest.of(0, 20);
 
         when(boardRepository.findByBoardUrl("private")).thenReturn(Optional.of(privateBoard));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(searchUserLookupPolicy.resolveOptional(1L)).thenReturn(user);
         when(adminRepository.existsByUserAndBoardAndIsActive(user, privateBoard, true)).thenReturn(false);
 
         assertThatThrownBy(() -> searchPostsWithPageable("test", null, "private", pageable, 1L))
@@ -601,7 +604,7 @@ class SearchServiceTest {
         Pageable pageable = PageRequest.of(0, 20);
 
         when(boardRepository.findByBoardUrl("private")).thenReturn(Optional.of(privateBoard));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(searchUserLookupPolicy.resolveOptional(1L)).thenReturn(user);
         when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
         when(postRepository.searchPosts(eq("test"), isNull(), eq("private"), eq(Collections.emptyList()),
                 eq(true), eq(1L), any(Pageable.class))).thenReturn(Page.empty(pageable));
@@ -739,7 +742,7 @@ class SearchServiceTest {
                 .build();
         Page<SearchPersonalization> page = new PageImpl<>(List.of(personalization), normalizedPageable, 1);
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(searchUserLookupPolicy.resolveRequired(userId)).thenReturn(user);
         when(searchPersonalizationRepository.findByUserOrderBySearchedAtDesc(eq(user), eq(normalizedPageable)))
                 .thenReturn(page);
 
@@ -748,7 +751,7 @@ class SearchServiceTest {
 
         // then
         assertThat(response).isNotNull();
-        verify(userRepository).findById(userId);
+        verify(searchUserLookupPolicy).resolveRequired(userId);
     }
 
     @Test
@@ -762,7 +765,7 @@ class SearchServiceTest {
                 Sort.Order.desc("searchedAt"),
                 Sort.Order.desc("logId")));
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(searchUserLookupPolicy.resolveRequired(userId)).thenReturn(user);
         when(searchPersonalizationRepository.findByUserOrderBySearchedAtDesc(eq(user), eq(normalizedPageable)))
                 .thenReturn(Page.empty(normalizedPageable));
 
@@ -778,7 +781,6 @@ class SearchServiceTest {
         Long userId = 1L;
         Long logId = 1L;
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(searchPersonalizationRepository.deleteByLogIdAndUserId(logId, userId)).thenReturn(1);
 
         // when
@@ -795,7 +797,6 @@ class SearchServiceTest {
         Long userId = 1L;
         Long logId = 99L;
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(searchPersonalizationRepository.deleteByLogIdAndUserId(logId, userId)).thenReturn(0);
 
         assertThatThrownBy(() -> searchService.deleteRecentSearch(userId, logId))
@@ -811,7 +812,7 @@ class SearchServiceTest {
     void deleteAllRecentSearches_success() {
         // given
         Long userId = 1L;
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(searchUserLookupPolicy.resolveRequired(userId)).thenReturn(user);
 
         // when
         searchService.deleteAllRecentSearches(userId);

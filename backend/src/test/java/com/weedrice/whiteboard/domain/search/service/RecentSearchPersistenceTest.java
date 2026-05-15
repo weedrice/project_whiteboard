@@ -19,7 +19,8 @@ import java.time.LocalDateTime;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
-@Import({QuerydslConfig.class, RecentSearchCommandService.class, RecentSearchWriteService.class})
+@Import({QuerydslConfig.class, RecentSearchCommandService.class, RecentSearchWriteService.class,
+        SearchUserLookupPolicy.class})
 class RecentSearchPersistenceTest {
 
     @Autowired
