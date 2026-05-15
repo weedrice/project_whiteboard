@@ -356,6 +356,27 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("게시글 생성은 서비스 경계에서 HTML 제목을 거부한다")
+    void createPost_htmlTitle_rejectedBeforeSideEffects() {
+        PostCreateRequest request = new PostCreateRequest(null, "<b>New Post</b>", "New Contents",
+                Collections.emptyList(), false, false, false, false, List.of(1L));
+
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+
+        assertThatThrownBy(() -> postService.createPost(1L, "free", request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+        verify(postRepository, never()).save(any(Post.class));
+        verify(tagAssignmentService, never()).assignTags(any(Post.class), anyList());
+        verify(fileService, never()).attachFilesToPost(anyList(), anyLong(), anyLong(), any());
+        verify(pointService, never()).addPointIfAbsent(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
     @DisplayName("게시글 생성은 null 본문을 빈 문자열로 저장한다")
     void createPost_nullContents_storesEmptyString() {
         PostCreateRequest request = new PostCreateRequest(null, "New Post", null, Collections.emptyList(),
@@ -976,6 +997,26 @@ class PostServiceTest {
         assertThat(post.getContents()).contains("<p>Safe</p>");
         assertThat(post.getContents()).doesNotContain("onmouseover");
         assertThat(post.getContents()).doesNotContain("javascript:");
+    }
+
+    @Test
+    @DisplayName("게시글 수정은 서비스 경계에서 HTML 제목을 거부한다")
+    void updatePost_htmlTitle_rejectedBeforeSideEffects() {
+        PostUpdateRequest request = new PostUpdateRequest(null, "<b>Updated Title</b>", "Updated Contents",
+                Collections.emptyList(), false, false, false, List.of(5L));
+
+        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> postService.updatePost(1L, 1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+        assertThat(post.getTitle()).isEqualTo("Test Post");
+        assertThat(post.getContents()).isEqualTo("Test Contents");
+        verify(tagAssignmentService, never()).assignTags(any(Post.class), anyList());
+        verify(fileService, never()).syncPostFiles(anyList(), anyLong(), anyLong(), any());
+        verify(postVersionRepository, never()).save(any(PostVersion.class));
     }
 
     @Test

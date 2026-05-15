@@ -1372,6 +1372,30 @@ class AgentServiceTest {
     }
 
     @Test
+    void createPost_htmlTitleRejectedBeforeQuotaReservation() {
+        AgentPostCreateRequest request = new AgentPostCreateRequest();
+        ReflectionTestUtils.setField(request, "boardUrl", "free");
+        ReflectionTestUtils.setField(request, "title", "<b>title</b>");
+        ReflectionTestUtils.setField(request, "content", "a".repeat(60));
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(boardRepository.findByBoardUrlForUpdate("free")).thenReturn(Optional.of(writableBoard));
+        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
+
+        assertThatThrownBy(() -> agentCommandService.createPost(7L, request, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+        verify(agentDailyQuotaRepository, never()).findForUpdate(anyLong(), any(LocalDate.class), anyString());
+        verify(agentDailyQuotaRepository, never()).saveAndFlush(any(AgentDailyQuota.class));
+        verify(postService, never()).createPostAsAgent(
+                anyLong(),
+                anyLong(),
+                any(PostCreateRequest.class),
+                any(PostCreateContext.class));
+    }
+
+    @Test
     void createComment_forbiddenWhenReadableBoardIsNotWritable() {
         AgentCommentCreateRequest request = new AgentCommentCreateRequest();
         ReflectionTestUtils.setField(request, "content", "b".repeat(25));

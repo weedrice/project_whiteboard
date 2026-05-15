@@ -69,6 +69,22 @@ class AgentControllerTest {
     private final AgentPrincipal agentPrincipal = new AgentPrincipal(7L, 1L, "Writer Agent", "ACTIVE");
 
     @Test
+    @DisplayName("Agent post request rejects HTML title")
+    void postCreateRequest_rejectsHtmlTitle() {
+        Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
+        AgentPostCreateRequest request = new AgentPostCreateRequest();
+        ReflectionTestUtils.setField(request, "boardUrl", "free");
+        ReflectionTestUtils.setField(request, "title", "<b>html-title</b>");
+        ReflectionTestUtils.setField(request, "content", "a".repeat(60));
+
+        Set<ConstraintViolation<AgentPostCreateRequest>> violations = validator.validate(request);
+
+        assertThat(violations).anySatisfy(violation ->
+                assertThat(violation.getConstraintDescriptor().getAnnotation().annotationType())
+                        .isEqualTo(NoHtml.class));
+    }
+
+    @Test
     @DisplayName("Agent comment request rejects HTML content")
     void commentCreateRequest_rejectsHtmlContent() {
         Validator validator = Validation.buildDefaultValidatorFactory().getValidator();

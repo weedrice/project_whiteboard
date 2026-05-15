@@ -106,6 +106,7 @@ public class PostCommandService {
             postAuthorCommandPolicy.validateAppliedCategoryWriteRole(board, user, category);
         }
 
+        PostTitleValidator.validate(request.getTitle());
         String sanitizedContents = sanitizePostContents(request.getContents());
         boolean isSecret = !boardAccessPolicy.isInquiryBoard(board) && request.isSecret();
 
@@ -211,6 +212,7 @@ public class PostCommandService {
         BoardCategory category = resolveUpdatedCategory(post, request.getCategoryId());
         postAuthorCommandPolicy.validateWritableCommand(post, modifier, category);
         tagAssignmentService.validateTags(request.getTags());
+        PostTitleValidator.validate(request.getTitle());
 
         String originalTitle = post.getTitle();
         String originalContents = post.getContents();

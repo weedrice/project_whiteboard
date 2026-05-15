@@ -18,6 +18,7 @@ import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.service.PostCreateContext;
 import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.post.service.PostTitleValidator;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.util.InputSanitizer;
@@ -53,6 +54,7 @@ public class AgentCommandService {
         agentBoardAccessService.validateAgentBoardReadable(agent, board);
         BoardCategory category = resolveCategory(board, request.getCategoryId());
         agentBoardAccessService.validateAgentBoardWritable(agent, board, category);
+        PostTitleValidator.validate(request.getTitle());
         agentQuotaService.reservePostCreation(agent);
         PostCreateRequest postCreateRequest = new PostCreateRequest(
                 request.getCategoryId(),
