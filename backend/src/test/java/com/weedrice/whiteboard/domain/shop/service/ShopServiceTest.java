@@ -438,7 +438,7 @@ class ShopServiceTest {
                     eq(1L),
                     eq(invalidConfigurationItem),
                     any(Runnable.class)))
-                    .thenThrow(new IllegalStateException("missing-target"));
+                    .thenThrow(new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE));
 
             assertThatThrownBy(() -> shopService.purchaseItem(1L, 5L))
                     .isInstanceOf(BusinessException.class)

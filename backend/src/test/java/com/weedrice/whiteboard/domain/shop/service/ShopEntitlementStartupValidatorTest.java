@@ -2,6 +2,8 @@ package com.weedrice.whiteboard.domain.shop.service;
 
 import com.weedrice.whiteboard.domain.shop.entity.ShopItem;
 import com.weedrice.whiteboard.domain.shop.repository.ShopItemRepository;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,6 +15,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -46,13 +49,13 @@ class ShopEntitlementStartupValidatorTest {
         ShopItem item = shopItem(1L, "EMOTICON", null);
         when(shopItemRepository.findByIsActive(true)).thenReturn(List.of(item));
         when(shopEntitlementCapabilityRegistry.supports(item)).thenReturn(true);
-        org.mockito.Mockito.doThrow(new IllegalStateException("missing-targetId"))
+        doThrow(new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE))
                 .when(shopEntitlementCapabilityRegistry)
                 .validateConfiguration(item);
 
         assertThatThrownBy(() -> validator.validateActiveItems())
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("missing-targetId");
+                .hasMessageContaining("ITEM_NOT_AVAILABLE");
     }
 
     @Test

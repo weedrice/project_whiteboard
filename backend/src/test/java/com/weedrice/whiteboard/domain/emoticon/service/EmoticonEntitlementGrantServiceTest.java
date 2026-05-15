@@ -88,8 +88,9 @@ class EmoticonEntitlementGrantServiceTest {
         @DisplayName("Fails when targetId is missing")
         void validateTargetConfiguration_missingTargetId() {
             assertThatThrownBy(() -> grantService.validateTargetConfiguration(null))
-                    .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("missing-targetId");
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE);
         }
 
         @Test
@@ -98,8 +99,9 @@ class EmoticonEntitlementGrantServiceTest {
             when(emoticonMasterRepository.findById(10L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> grantService.validateTargetConfiguration(10L))
-                    .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("missing-target");
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE);
         }
 
         @Test
@@ -109,8 +111,9 @@ class EmoticonEntitlementGrantServiceTest {
             when(emoticonMasterRepository.findById(10L)).thenReturn(Optional.of(emoticon));
 
             assertThatThrownBy(() -> grantService.validateTargetConfiguration(10L))
-                    .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("inactive-target");
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE);
         }
     }
 
@@ -179,8 +182,9 @@ class EmoticonEntitlementGrantServiceTest {
 
             assertThatThrownBy(() -> grantService.prepareConfiguredGrant(1L, 10L, () -> {
             }))
-                    .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("inactive-target");
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE);
 
             verify(userRepository, never()).findById(any());
             verify(emoticonPurchaseRepository, never()).existsByUser_UserIdAndEmoticon_EmoticonId(1L, 10L);
