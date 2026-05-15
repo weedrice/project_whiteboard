@@ -38,9 +38,6 @@ class BoardProvisioningService {
     private static final String LEGACY_BOARD_URL_CONSTRAINT = "boards_board_url_key";
     private static final String BOARD_NAME_COLUMN = "board_name";
     private static final String BOARD_URL_COLUMN = "board_url";
-    private static final String BOARD_CATEGORY_ACTIVE_CONSTRAINT = "uq_board_categories_active_name";
-    private static final String ORM_BOARD_CATEGORY_ACTIVE_CONSTRAINT = "uk_board_categories_board_name_active";
-    private static final String LEGACY_BOARD_CATEGORY_ACTIVE_CONSTRAINT = "board_categories_board_id_name_is_active_key";
     private static final String POINT_BOARD_CREATE_COST_CONFIG_KEY = "POINT_BOARD_CREATE_COST";
     private static final int DEFAULT_BOARD_CREATE_COST = 500;
 
@@ -341,7 +338,7 @@ class BoardProvisioningService {
                     .isDefault(true)
                     .build());
         } catch (DataIntegrityViolationException ex) {
-            if (!containsBoardCategoryConstraint(ex)) {
+            if (!BoardCategoryConstraintResolver.isActiveNameConstraint(ex)) {
                 throw ex;
             }
         }
@@ -395,14 +392,6 @@ class BoardProvisioningService {
 
     private boolean containsBoardUrlConstraint(Throwable throwable) {
         return containsConstraint(throwable, BOARD_URL_CONSTRAINT, LEGACY_BOARD_URL_CONSTRAINT, BOARD_URL_COLUMN);
-    }
-
-    private boolean containsBoardCategoryConstraint(Throwable throwable) {
-        return containsConstraint(
-                throwable,
-                BOARD_CATEGORY_ACTIVE_CONSTRAINT,
-                ORM_BOARD_CATEGORY_ACTIVE_CONSTRAINT,
-                LEGACY_BOARD_CATEGORY_ACTIVE_CONSTRAINT);
     }
 
     private boolean containsConstraint(Throwable throwable, String... candidates) {

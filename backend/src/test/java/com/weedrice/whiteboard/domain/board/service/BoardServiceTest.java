@@ -936,6 +936,23 @@ class BoardServiceTest {
     }
 
     @Test
+    @DisplayName("카테고리 생성 저장 중 활성 이름 제약 충돌은 중복 리소스로 매핑한다")
+    void createCategory_activeNameConstraintOnSave_throwsDuplicateResource() {
+        CategoryRequest request = categoryRequest("General", 1, "USER");
+        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
+        when(boardCategoryRepository.existsByBoard_BoardIdAndNameAndIsActive(1L, "General", true))
+                .thenReturn(false);
+        when(boardCategoryRepository.saveAndFlush(any(BoardCategory.class)))
+                .thenThrow(activeCategoryConstraintViolation("uq_board_categories_active_name"));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.createCategory("test-board", request, 1L));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
+        assertThat(exception.getMessage()).isEqualTo("Duplicate active board category");
+    }
+
+    @Test
     @DisplayName("카테고리 수정은 자기 자신을 제외하고 활성 이름 중복을 거부한다")
     void updateCategory_duplicateActiveName_throwsDuplicateResource() {
         CategoryRequest request = categoryRequest("General", 1, "USER");
@@ -961,6 +978,35 @@ class BoardServiceTest {
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
         verify(boardCategoryRepository, never()).saveAndFlush(any(BoardCategory.class));
+    }
+
+    @Test
+    @DisplayName("카테고리 수정 저장 중 활성 이름 제약 충돌은 중복 리소스로 매핑한다")
+    void updateCategory_activeNameConstraintOnSave_throwsDuplicateResource() {
+        CategoryRequest request = categoryRequest("General", 1, "USER");
+        BoardCategory category = BoardCategory.builder()
+                .board(board)
+                .name("News")
+                .sortOrder(1)
+                .minWriteRole("USER")
+                .build();
+        ReflectionTestUtils.setField(category, "categoryId", 10L);
+        stubCategoryBoardLock(10L);
+        when(boardCategoryRepository.findById(10L)).thenReturn(Optional.of(category));
+        when(boardCategoryRepository.existsByBoard_BoardIdAndNameAndIsActiveAndCategoryIdNot(
+                1L,
+                "General",
+                true,
+                10L))
+                .thenReturn(false);
+        when(boardCategoryRepository.saveAndFlush(category))
+                .thenThrow(activeCategoryConstraintViolation("uk_board_categories_board_name_active"));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.updateCategory(10L, request, 1L));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
+        assertThat(exception.getMessage()).isEqualTo("Duplicate active board category");
     }
 
     @Test
@@ -2342,6 +2388,12 @@ class BoardServiceTest {
     private void stubCategoryBoardLock(Long categoryId) {
         when(boardCategoryRepository.findBoardIdByCategoryId(categoryId)).thenReturn(Optional.of(1L));
         when(boardRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(board));
+    }
+
+    private DataIntegrityViolationException activeCategoryConstraintViolation(String constraintName) {
+        return new DataIntegrityViolationException(
+                "duplicate",
+                new ConstraintViolationException("duplicate", null, constraintName));
     }
 
     private BoardRepository.TopBoardPostCountProjection topBoardPostCount(Long boardId, Long postCount) {
