@@ -186,14 +186,14 @@ class CommonCodeServiceTest {
         // given
         CommonCode code1 = CommonCode.builder().typeCode("TYPE1").typeName("Type 1").build();
         CommonCode code2 = CommonCode.builder().typeCode("TYPE2").typeName("Type 2").build();
-        when(commonCodeRepository.findAll()).thenReturn(Arrays.asList(code1, code2));
+        when(commonCodeRepository.findAllByOrderByTypeCodeAsc()).thenReturn(Arrays.asList(code1, code2));
 
         // when
         List<CommonCodeResponse> responses = commonCodeService.getAllCommonCodes();
 
         // then
         assertThat(responses).hasSize(2);
-        verify(commonCodeRepository).findAll();
+        verify(commonCodeRepository).findAllByOrderByTypeCodeAsc();
     }
 
     @Test

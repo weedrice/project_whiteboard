@@ -56,7 +56,7 @@ public class CommonCodeService {
     }
 
     public List<CommonCodeResponse> getAllCommonCodes() {
-        return commonCodeRepository.findAll().stream()
+        return commonCodeRepository.findAllByOrderByTypeCodeAsc().stream()
                 .map(CommonCodeResponse::from)
                 .collect(Collectors.toList());
     }
