@@ -1208,6 +1208,30 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("resolved foreign agent is forbidden")
+    void likePost_withResolvedForeignAgent_forbidden() {
+        User otherUser = User.builder().loginId("other").build();
+        ReflectionTestUtils.setField(otherUser, "userId", 2L);
+
+        Agent foreignAgent = Agent.builder()
+                .user(otherUser)
+                .agentTokenHash("hash")
+                .name("foreign-agent")
+                .description("desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(foreignAgent, "agentId", 10L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> postService.likePost(1L, foreignAgent, post))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        verify(postLikeRepository, never()).saveAndFlush(any(PostLike.class));
+    }
+
+    @Test
     @DisplayName("좋아요 취소 성공")
     void unlikePost_success() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));

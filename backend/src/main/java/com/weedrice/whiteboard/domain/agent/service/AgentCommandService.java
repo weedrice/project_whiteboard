@@ -131,7 +131,7 @@ public class AgentCommandService {
         Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
         Post post = postService.getPostById(postId, agent.getUser().getUserId(), false);
         agentBoardAccessService.validateAgentBoardWritable(agent, post.getBoard());
-        int likeCount = postService.likePost(agent.getUser().getUserId(), agentId, postId);
+        int likeCount = postService.likePost(agent.getUser().getUserId(), agent, post);
         agentAuditService.saveLog(
                 agent,
                 agent.getUser(),

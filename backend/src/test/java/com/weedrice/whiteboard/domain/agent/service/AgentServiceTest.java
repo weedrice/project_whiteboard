@@ -1394,7 +1394,7 @@ class AgentServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
 
         verify(postService).canWriteToBoard(1L, writableBoard);
-        verify(postService, never()).likePost(anyLong(), anyLong(), anyLong());
+        verify(postService, never()).likePost(anyLong(), (Agent) any(), any(Post.class));
         verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(),
                 any(), any());
     }
@@ -1630,7 +1630,7 @@ class AgentServiceTest {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
-        when(postService.likePost(1L, 7L, 100L)).thenReturn(3);
+        when(postService.likePost(1L, agent, writablePost)).thenReturn(3);
 
         var response = agentCommandService.likePost(7L, 100L, null);
 

@@ -156,7 +156,19 @@ public class PostInteractionService {
         User user = userWritableResolver.resolve(userId);
         Agent actorAgent = agentOwnershipService.resolveOwnedActiveAgent(userId, actorAgentId);
         Post post = getPostById(postId, userId, false);
+        return likeResolvedPost(user, actorAgent, post);
+    }
+
+    @Transactional
+    int likePost(@NonNull Long userId, Agent actorAgent, @NonNull Post post) {
+        User user = userWritableResolver.resolve(userId);
+        validateResolvedActorAgent(userId, actorAgent);
+        return likeResolvedPost(user, actorAgent, post);
+    }
+
+    private int likeResolvedPost(User user, Agent actorAgent, Post post) {
         User postOwner = resolvePostOwner(post);
+        Long postId = post.getPostId();
 
         PostLike postLike = PostLike.builder()
                 .user(user)
@@ -176,6 +188,15 @@ public class PostInteractionService {
         eventPublisher.publishEvent(event);
 
         return likeCount;
+    }
+
+    private void validateResolvedActorAgent(Long userId, Agent actorAgent) {
+        if (actorAgent == null) {
+            return;
+        }
+        if (actorAgent.getUser() == null || !Objects.equals(actorAgent.getUser().getUserId(), userId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
     }
 
     @Transactional
