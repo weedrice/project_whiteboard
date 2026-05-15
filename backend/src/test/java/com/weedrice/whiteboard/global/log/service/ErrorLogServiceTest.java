@@ -278,6 +278,24 @@ class ErrorLogServiceTest {
     }
 
     @Test
+    @DisplayName("getErrorLogDetail returns detail response")
+    void getErrorLogDetail_success() {
+        Long errorLogId = 1L;
+        ErrorLog errorLog = ErrorLog.builder()
+                .errorCode("INTERNAL_SERVER_ERROR").errorType("NullPointerException")
+                .httpStatus(500).message("Error").requestUri("/test")
+                .requestMethod("GET").ipAddress("127.0.0.1")
+                .stackTrace("stack trace here").build();
+        when(errorLogRepository.findById(errorLogId)).thenReturn(Optional.of(errorLog));
+
+        ErrorLogResponse.ErrorLogDetail detail = errorLogService.getErrorLogDetail(errorLogId);
+
+        assertThat(detail.getErrorCode()).isEqualTo("INTERNAL_SERVER_ERROR");
+        assertThat(detail.getStackTrace()).isEqualTo("stack trace here");
+        securityUtilsMockedStatic.verify(SecurityUtils::validateSuperAdminPermission);
+    }
+
+    @Test
     @DisplayName("에러 로그 상세 조회 - 존재하지 않는 ID")
     void getErrorLog_notFound() {
         // given

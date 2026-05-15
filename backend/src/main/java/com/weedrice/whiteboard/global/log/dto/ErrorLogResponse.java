@@ -4,6 +4,8 @@ import lombok.Builder;
 import lombok.Getter;
 import org.springframework.data.domain.Page;
 
+import com.weedrice.whiteboard.global.log.entity.ErrorLog;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -57,6 +59,27 @@ public class ErrorLogResponse {
         private LocalDateTime resolvedAt;
         private String resolvedMemo;
         private LocalDateTime createdAt;
+
+        public static ErrorLogDetail from(ErrorLog errorLog) {
+            return ErrorLogDetail.builder()
+                    .errorLogId(errorLog.getErrorLogId())
+                    .errorCode(errorLog.getErrorCode())
+                    .errorType(errorLog.getErrorType())
+                    .httpStatus(errorLog.getHttpStatus())
+                    .message(errorLog.getMessage())
+                    .requestUri(errorLog.getRequestUri())
+                    .requestMethod(errorLog.getRequestMethod())
+                    .userId(errorLog.getUserId())
+                    .ipAddress(errorLog.getIpAddress())
+                    .userAgent(errorLog.getUserAgent())
+                    .stackTrace(errorLog.getStackTrace())
+                    .isResolved(errorLog.getIsResolved())
+                    .resolvedBy(errorLog.getResolvedBy())
+                    .resolvedAt(errorLog.getResolvedAt())
+                    .resolvedMemo(errorLog.getResolvedMemo())
+                    .createdAt(errorLog.getCreatedAt())
+                    .build();
+        }
     }
 
     public static ErrorLogResponse from(Page<ErrorLogSummary> errorLogPage) {

@@ -95,6 +95,11 @@ public class ErrorLogService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
     }
 
+    @Transactional(readOnly = true)
+    public ErrorLogResponse.ErrorLogDetail getErrorLogDetail(Long errorLogId) {
+        return ErrorLogResponse.ErrorLogDetail.from(getErrorLog(errorLogId));
+    }
+
     /**
      * 에러 로그 확인 처리 (관리자용)
      */

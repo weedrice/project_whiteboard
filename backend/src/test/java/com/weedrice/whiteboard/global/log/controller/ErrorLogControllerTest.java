@@ -6,7 +6,6 @@ import com.weedrice.whiteboard.global.log.dto.ErrorLogResolveRequest;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogResponse;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogSearchRequest;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogStatsResponse;
-import com.weedrice.whiteboard.global.log.entity.ErrorLog;
 import com.weedrice.whiteboard.global.log.service.ErrorLogService;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.servlet.FilterChain;
@@ -213,7 +212,8 @@ class ErrorLogControllerTest {
     @DisplayName("에러 로그 상세 조회 성공")
     void getErrorLog_returnsSuccess() throws Exception {
         // given
-        ErrorLog errorLog = ErrorLog.builder()
+        ErrorLogResponse.ErrorLogDetail errorLog = ErrorLogResponse.ErrorLogDetail.builder()
+                .errorLogId(1L)
                 .errorCode("INTERNAL_SERVER_ERROR")
                 .errorType("NullPointerException")
                 .httpStatus(500)
@@ -224,9 +224,9 @@ class ErrorLogControllerTest {
                 .ipAddress("192.168.1.1")
                 .userAgent("Mozilla/5.0")
                 .stackTrace("java.lang.NullPointerException\n\tat com.example.Test.method(Test.java:1)")
+                .isResolved("N")
                 .build();
-        org.springframework.test.util.ReflectionTestUtils.setField(errorLog, "errorLogId", 1L);
-        when(errorLogService.getErrorLog(1L)).thenReturn(errorLog);
+        when(errorLogService.getErrorLogDetail(1L)).thenReturn(errorLog);
 
         // when & then
         mockMvc.perform(get("/api/v1/admin/error-logs/1")
