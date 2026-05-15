@@ -22,9 +22,8 @@ public class UserPrivilegeCleanupService {
     public void removeOperationalPrivileges(User user) {
         Objects.requireNonNull(user, "user must not be null");
 
-        var activeAdmins = adminRepository.findByUserAndIsActiveOrderByAdminIdAsc(user, true);
-        privilegeRevocationGuard.validateOperationalPrivilegesCanBeRevoked(user, activeAdmins);
         var lockedActiveAdmins = adminRepository.findAllByUserAndIsActiveOrderByAdminIdAsc(user, true);
+        privilegeRevocationGuard.validateOperationalPrivilegesCanBeRevoked(user, lockedActiveAdmins);
 
         if (Boolean.TRUE.equals(user.getIsSuperAdmin())) {
             user.revokeSuperAdminRole();

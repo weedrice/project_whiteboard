@@ -19,6 +19,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -37,8 +38,6 @@ class UserPrivilegeCleanupServiceTest {
         user.grantSuperAdminRole();
         Admin firstAdmin = Admin.builder().user(user).role(Role.BOARD_ADMIN).build();
         Admin secondAdmin = Admin.builder().user(user).role(AdminRole.MODERATOR.name()).build();
-        when(adminRepository.findByUserAndIsActiveOrderByAdminIdAsc(user, true))
-                .thenReturn(List.of(firstAdmin, secondAdmin));
         when(adminRepository.findAllByUserAndIsActiveOrderByAdminIdAsc(user, true))
                 .thenReturn(List.of(firstAdmin, secondAdmin));
 
@@ -47,7 +46,7 @@ class UserPrivilegeCleanupServiceTest {
         assertThat(user.getIsSuperAdmin()).isFalse();
         assertThat(firstAdmin.getIsActive()).isFalse();
         assertThat(secondAdmin.getIsActive()).isFalse();
-        verify(adminRepository).findByUserAndIsActiveOrderByAdminIdAsc(user, true);
+        verify(adminRepository, never()).findByUserAndIsActiveOrderByAdminIdAsc(user, true);
         verify(adminRepository).findAllByUserAndIsActiveOrderByAdminIdAsc(user, true);
         verify(privilegeRevocationGuard).validateOperationalPrivilegesCanBeRevoked(
                 user, List.of(firstAdmin, secondAdmin));
@@ -59,7 +58,7 @@ class UserPrivilegeCleanupServiceTest {
         user.grantSuperAdminRole();
         Admin admin = Admin.builder().user(user).role(Role.BOARD_ADMIN).build();
         List<Admin> activeAdmins = List.of(admin);
-        when(adminRepository.findByUserAndIsActiveOrderByAdminIdAsc(user, true))
+        when(adminRepository.findAllByUserAndIsActiveOrderByAdminIdAsc(user, true))
                 .thenReturn(activeAdmins);
         doThrow(new BusinessException(ErrorCode.FORBIDDEN))
                 .when(privilegeRevocationGuard)
