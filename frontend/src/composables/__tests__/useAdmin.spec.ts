@@ -603,6 +603,17 @@ describe('useAdmin', () => {
             expect(query.placeholderData('prev-error-logs')).toBe('prev-error-logs')
         })
 
+        it('useErrorLog mutation returns detail payload', async () => {
+            const { useErrorLog } = useAdmin()
+            const detailResponse = { errorLogId: 1, stackTrace: 'stack trace' }
+            vi.mocked(adminApi.getErrorLog).mockResolvedValueOnce({ data: { data: detailResponse } } as any)
+
+            const mutation = useErrorLog()
+
+            await expect(mutation.mutateAsync(1)).resolves.toEqual(detailResponse)
+            expect(adminApi.getErrorLog).toHaveBeenCalledWith(1)
+        })
+
         it('useResolveErrorLog calls adminApi.resolveErrorLog with memo', async () => {
             const { useResolveErrorLog } = useAdmin()
             const mutation = useResolveErrorLog()

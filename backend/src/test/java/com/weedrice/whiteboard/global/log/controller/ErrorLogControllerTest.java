@@ -103,7 +103,7 @@ class ErrorLogControllerTest {
     @DisplayName("에러 로그 목록 조회 성공")
     void getErrorLogs_returnsSuccess() throws Exception {
         // given
-        ErrorLog errorLog = ErrorLog.builder()
+        ErrorLogResponse.ErrorLogSummary errorLog = ErrorLogResponse.ErrorLogSummary.builder()
                 .errorCode("INTERNAL_SERVER_ERROR")
                 .errorType("NullPointerException")
                 .httpStatus(500)
@@ -112,7 +112,7 @@ class ErrorLogControllerTest {
                 .requestMethod("GET")
                 .ipAddress("127.0.0.1")
                 .build();
-        Page<ErrorLog> page = new PageImpl<>(List.of(errorLog), PageRequest.of(0, 20), 1);
+        Page<ErrorLogResponse.ErrorLogSummary> page = new PageImpl<>(List.of(errorLog), PageRequest.of(0, 20), 1);
         when(errorLogService.getErrorLogs(any(ErrorLogSearchRequest.class), any(Pageable.class))).thenReturn(page);
 
         // when & then
@@ -126,6 +126,7 @@ class ErrorLogControllerTest {
                 .andExpect(jsonPath("$.data.content").isArray())
                 .andExpect(jsonPath("$.data.content[0].errorCode").value("INTERNAL_SERVER_ERROR"))
                 .andExpect(jsonPath("$.data.content[0].httpStatus").value(500))
+                .andExpect(jsonPath("$.data.content[0].stackTrace").doesNotHaveJsonPath())
                 .andExpect(jsonPath("$.data.totalElements").value(1))
                 .andExpect(jsonPath("$.data.totalPages").value(1));
 
@@ -138,7 +139,7 @@ class ErrorLogControllerTest {
     @Test
     @DisplayName("에러 로그 목록 조회는 공통 페이지 최대 크기를 적용한다")
     void getErrorLogs_clampsPageSize() throws Exception {
-        Page<ErrorLog> emptyPage = new PageImpl<>(Collections.emptyList());
+        Page<ErrorLogResponse.ErrorLogSummary> emptyPage = new PageImpl<>(Collections.emptyList());
         when(errorLogService.getErrorLogs(any(ErrorLogSearchRequest.class), any(Pageable.class))).thenReturn(emptyPage);
 
         mockMvc.perform(get("/api/v1/admin/error-logs")
@@ -167,7 +168,8 @@ class ErrorLogControllerTest {
     @DisplayName("에러 로그 목록 조회 - 빈 결과")
     void getErrorLogs_emptyResult() throws Exception {
         // given
-        Page<ErrorLog> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 20), 0);
+        Page<ErrorLogResponse.ErrorLogSummary> emptyPage =
+                new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 20), 0);
         when(errorLogService.getErrorLogs(any(ErrorLogSearchRequest.class), any(Pageable.class))).thenReturn(emptyPage);
 
         // when & then
@@ -185,7 +187,7 @@ class ErrorLogControllerTest {
     @DisplayName("에러 로그 목록 조회 - 필터 파라미터 전달")
     void getErrorLogs_withFilterParams() throws Exception {
         // given
-        Page<ErrorLog> emptyPage = new PageImpl<>(Collections.emptyList());
+        Page<ErrorLogResponse.ErrorLogSummary> emptyPage = new PageImpl<>(Collections.emptyList());
         when(errorLogService.getErrorLogs(any(ErrorLogSearchRequest.class), any(Pageable.class))).thenReturn(emptyPage);
 
         // when & then

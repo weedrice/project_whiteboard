@@ -1,9 +1,10 @@
 package com.weedrice.whiteboard.global.log.repository;
 
+import com.querydsl.core.Tuple;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogSearchRequest;
-import com.weedrice.whiteboard.global.log.entity.ErrorLog;
+import com.weedrice.whiteboard.global.log.dto.ErrorLogResponse;
 import com.weedrice.whiteboard.global.log.entity.QErrorLog;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -18,18 +19,53 @@ public class ErrorLogRepositoryCustomImpl implements ErrorLogRepositoryCustom {
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public Page<ErrorLog> searchErrorLogs(ErrorLogSearchRequest condition, Pageable pageable) {
+    public Page<ErrorLogResponse.ErrorLogSummary> searchErrorLogs(ErrorLogSearchRequest condition, Pageable pageable) {
         QErrorLog errorLog = QErrorLog.errorLog;
 
         BooleanExpression predicate = buildPredicate(errorLog, condition);
 
-        List<ErrorLog> content = queryFactory
-                .selectFrom(errorLog)
+        List<Tuple> rows = queryFactory
+                .select(
+                        errorLog.errorLogId,
+                        errorLog.errorCode,
+                        errorLog.errorType,
+                        errorLog.httpStatus,
+                        errorLog.message,
+                        errorLog.requestUri,
+                        errorLog.requestMethod,
+                        errorLog.userId,
+                        errorLog.ipAddress,
+                        errorLog.userAgent,
+                        errorLog.isResolved,
+                        errorLog.resolvedBy,
+                        errorLog.resolvedAt,
+                        errorLog.resolvedMemo,
+                        errorLog.createdAt)
+                .from(errorLog)
                 .where(predicate)
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .orderBy(errorLog.createdAt.desc(), errorLog.errorLogId.desc())
                 .fetch();
+        List<ErrorLogResponse.ErrorLogSummary> content = rows.stream()
+                .map(row -> ErrorLogResponse.ErrorLogSummary.builder()
+                        .errorLogId(row.get(errorLog.errorLogId))
+                        .errorCode(row.get(errorLog.errorCode))
+                        .errorType(row.get(errorLog.errorType))
+                        .httpStatus(row.get(errorLog.httpStatus))
+                        .message(row.get(errorLog.message))
+                        .requestUri(row.get(errorLog.requestUri))
+                        .requestMethod(row.get(errorLog.requestMethod))
+                        .userId(row.get(errorLog.userId))
+                        .ipAddress(row.get(errorLog.ipAddress))
+                        .userAgent(row.get(errorLog.userAgent))
+                        .isResolved(row.get(errorLog.isResolved))
+                        .resolvedBy(row.get(errorLog.resolvedBy))
+                        .resolvedAt(row.get(errorLog.resolvedAt))
+                        .resolvedMemo(row.get(errorLog.resolvedMemo))
+                        .createdAt(row.get(errorLog.createdAt))
+                        .build())
+                .toList();
 
         long total = queryFactory
                 .select(errorLog.count())

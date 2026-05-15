@@ -6,7 +6,8 @@ import type {
     PageResponse,
     User,
     Report,
-    ErrorLogItem,
+    ErrorLogDetail,
+    ErrorLogListItem,
     ErrorLogSearchParams,
     ErrorLogStats,
     AdminUserDetail,
@@ -390,9 +391,18 @@ export function useAdmin() {
             queryKey: ['admin', 'error-logs', params],
             queryFn: async () => {
                 const { data } = await adminApi.getErrorLogs(params.value)
-                return data.data as PageResponse<ErrorLogItem>
+                return data.data as PageResponse<ErrorLogListItem>
             },
             placeholderData: (previousData) => previousData
+        })
+    }
+
+    const useErrorLog = () => {
+        return useMutation({
+            mutationFn: async (errorLogId: number) => {
+                const { data } = await adminApi.getErrorLog(errorLogId)
+                return data.data as ErrorLogDetail
+            }
         })
     }
 
@@ -443,6 +453,7 @@ export function useAdmin() {
         useBoardManager,
         useUpdateBoardManager,
         useErrorLogs,
+        useErrorLog,
         useResolveErrorLog,
         useErrorLogStats
     }

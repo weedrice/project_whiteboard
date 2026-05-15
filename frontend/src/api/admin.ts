@@ -12,7 +12,8 @@ import type {
     BoardUpdateData,
     SanctionData,
     DashboardStats,
-    ErrorLogItem,
+    ErrorLogDetail,
+    ErrorLogListItem,
     ErrorLogSearchParams,
     ErrorLogStats,
     BoardAdminInfo,
@@ -192,10 +193,10 @@ export const adminApi = {
 
     // Error log management
     getErrorLogs(params: ErrorLogSearchParams) {
-        return api.get<ApiResponse<PageResponse<ErrorLogItem>>>('/admin/error-logs', { params })
+        return api.get<ApiResponse<PageResponse<ErrorLogListItem>>>('/admin/error-logs', { params })
     },
     getErrorLog(errorLogId: number) {
-        return api.get<ApiResponse<ErrorLogItem>>(`/admin/error-logs/${errorLogId}`)
+        return api.get<ApiResponse<ErrorLogDetail>>(`/admin/error-logs/${errorLogId}`)
     },
     resolveErrorLog(errorLogId: number, data?: { memo?: string }) {
         return api.put<ApiResponse<void>>(`/admin/error-logs/${errorLogId}/resolve`, data)

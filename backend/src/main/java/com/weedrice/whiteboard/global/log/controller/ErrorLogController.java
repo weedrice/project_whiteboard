@@ -45,9 +45,9 @@ public class ErrorLogController {
      * 에러 로그 상세 조회
      */
     @GetMapping("/{errorLogId}")
-    public ApiResponse<ErrorLogResponse.ErrorLogSummary> getErrorLog(@PathVariable Long errorLogId) {
+    public ApiResponse<ErrorLogResponse.ErrorLogDetail> getErrorLog(@PathVariable Long errorLogId) {
         var errorLog = errorLogService.getErrorLog(errorLogId);
-        return ApiResponse.success(ErrorLogResponse.ErrorLogSummary.builder()
+        return ApiResponse.success(ErrorLogResponse.ErrorLogDetail.builder()
                 .errorLogId(errorLog.getErrorLogId())
                 .errorCode(errorLog.getErrorCode())
                 .errorType(errorLog.getErrorType())
