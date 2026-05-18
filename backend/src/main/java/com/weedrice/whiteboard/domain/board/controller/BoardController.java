@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.board.dto.BoardSubscriptionOrderRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
+import com.weedrice.whiteboard.domain.board.service.BoardApplicationService;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.global.common.ApiResponse;
@@ -28,6 +29,7 @@ import java.util.List;
 public class BoardController {
 
     private final BoardService boardService;
+    private final BoardApplicationService boardApplicationService;
 
     @GetMapping
     public ApiResponse<List<BoardListResponse>> getBoards(@AuthenticationPrincipal CustomUserDetails userDetails) {
@@ -61,7 +63,7 @@ public class BoardController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<BoardDetailResponse> createBoard(@Valid @RequestBody BoardCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(boardService.createBoardDetail(userDetails.getUserId(), request));
+        return ApiResponse.success(boardApplicationService.createBoardDetail(userDetails.getUserId(), request));
     }
 
     @PostMapping("/inquiry/ensure")
@@ -76,14 +78,14 @@ public class BoardController {
     public ApiResponse<BoardDetailResponse> updateBoard(@PathVariable String boardUrl,
             @Valid @RequestBody BoardUpdateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(boardService.updateBoardDetail(boardUrl, request, userIdOrNull(userDetails)));
+        return ApiResponse.success(boardApplicationService.updateBoardDetail(boardUrl, request, userIdOrNull(userDetails)));
     }
 
     @PutMapping("/{boardUrl}/manager")
     public ApiResponse<BoardDetailResponse> transferBoardManager(@PathVariable String boardUrl,
             @Valid @RequestBody BoardManagerTransferRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(boardService.transferBoardManagerDetail(
+        return ApiResponse.success(boardApplicationService.transferBoardManagerDetail(
                 boardUrl,
                 request.getLoginId(),
                 userIdOrNull(userDetails)));

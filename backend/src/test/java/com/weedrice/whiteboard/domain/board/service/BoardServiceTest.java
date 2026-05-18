@@ -51,7 +51,6 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -111,12 +110,11 @@ class BoardServiceTest {
     private BoardManagerAssignmentService boardManagerAssignmentService;
     @Mock
     private SanctionService sanctionService;
-    @Mock
-    private TransactionTemplate transactionTemplate;
     private BoardResponseReadService boardResponseReadService;
     private BoardResponseAssembler boardResponseAssembler;
 
     private BoardService boardService;
+    private BoardApplicationService boardApplicationService;
     private BoardAccessPolicy boardAccessPolicy;
 
     private User user;
@@ -168,18 +166,8 @@ class BoardServiceTest {
                 provisioningService,
                 subscriptionService,
                 categoryService,
-                transactionTemplate,
                 boardAccessPolicy);
-
-        lenient().doAnswer(invocation -> {
-            org.springframework.transaction.support.TransactionCallback<?> callback = invocation.getArgument(0);
-            return callback.doInTransaction(null);
-        }).when(transactionTemplate).execute(any());
-        lenient().doAnswer(invocation -> {
-            java.util.function.Consumer<?> consumer = invocation.getArgument(0);
-            consumer.accept(null);
-            return null;
-        }).when(transactionTemplate).executeWithoutResult(any());
+        boardApplicationService = new BoardApplicationService(boardService, queryService);
 
         lenient().when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(anyLong(), any()))
                 .thenReturn(Collections.emptyList());
@@ -424,8 +412,9 @@ class BoardServiceTest {
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
         when(adminEligibleUserService.getActiveUserByLoginId("nextmanager")).thenReturn(nextManager);
 
-        boardService.transferBoardManager("test-board", "nextmanager", 1L);
+        BoardCommandResult result = boardService.transferBoardManager("test-board", "nextmanager", 1L);
 
+        assertThat(result.boardUrl()).isEqualTo("test-board");
         verify(boardRepository).findByBoardUrlForUpdate("test-board");
         verify(boardRepository, never()).findByBoardUrl("test-board");
         verify(boardManagerAssignmentService).assignBoardManager(board, nextManager);
@@ -446,7 +435,7 @@ class BoardServiceTest {
         when(adminEligibleUserService.getActiveUserByLoginId("nextmanager")).thenReturn(nextManager);
         when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
 
-        BoardDetailResponse response = boardService.transferBoardManagerDetail("test-board", "nextmanager", 1L);
+        BoardDetailResponse response = boardApplicationService.transferBoardManagerDetail("test-board", "nextmanager", 1L);
 
         assertThat(response.getBoardUrl()).isEqualTo("test-board");
         verify(boardManagerAssignmentService).assignBoardManager(board, nextManager);
@@ -513,10 +502,10 @@ class BoardServiceTest {
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
 
         // when
-        Board createdBoard = boardService.createBoard(creatorId, request);
+        BoardCommandResult result = boardService.createBoard(creatorId, request);
 
         // then
-        assertThat(createdBoard.getBoardName()).isEqualTo("Test Board");
+        assertThat(result.boardUrl()).isEqualTo("test-board");
         InOrder inOrder = inOrder(boardRepository, pointService, boardCategoryRepository, boardManagerAssignmentService);
         inOrder.verify(boardRepository).saveAndFlush(any(Board.class));
         inOrder.verify(pointService).spendPoint(
@@ -547,7 +536,7 @@ class BoardServiceTest {
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
         when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
 
-        BoardDetailResponse response = boardService.createBoardDetail(creatorId, request);
+        BoardDetailResponse response = boardApplicationService.createBoardDetail(creatorId, request);
 
         assertThat(response.getBoardUrl()).isEqualTo("test-board");
         InOrder inOrder = inOrder(boardRepository);
@@ -702,10 +691,11 @@ class BoardServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
 
-        Board createdBoard = boardService.createBoard(creatorId, request);
+        BoardCommandResult result = boardService.createBoard(creatorId, request);
 
-        assertThat(createdBoard.getIsPublic()).isFalse();
-        assertThat(createdBoard.isAgentEnabled()).isFalse();
+        assertThat(result.boardUrl()).isEqualTo("private-ai");
+        verify(boardRepository).saveAndFlush(argThat(savedBoard ->
+                Boolean.FALSE.equals(savedBoard.getIsPublic()) && !savedBoard.isAgentEnabled()));
         verify(boardAiInfoRepository, never()).save(any(BoardAiInfo.class));
     }
 
@@ -720,7 +710,7 @@ class BoardServiceTest {
         when(boardRepository.saveAndFlush(board)).thenReturn(board);
         when(boardRepository.findByBoardUrl("updated-board")).thenReturn(Optional.of(board));
 
-        BoardDetailResponse response = boardService.updateBoardDetail("test-board", request, 1L);
+        BoardDetailResponse response = boardApplicationService.updateBoardDetail("test-board", request, 1L);
 
         assertThat(response.getBoardUrl()).isEqualTo("updated-board");
         InOrder inOrder = inOrder(boardRepository);
@@ -745,11 +735,11 @@ class BoardServiceTest {
 
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
 
-        Board updatedBoard;
-        updatedBoard = boardService.updateBoard("test-board", request, 1L);
+        BoardCommandResult result = boardService.updateBoard("test-board", request, 1L);
 
-        assertThat(updatedBoard.getIsPublic()).isFalse();
-        assertThat(updatedBoard.isAgentEnabled()).isFalse();
+        assertThat(result.boardUrl()).isEqualTo("test-board");
+        assertThat(board.getIsPublic()).isFalse();
+        assertThat(board.isAgentEnabled()).isFalse();
         verify(boardRepository).findByBoardUrlForUpdate("test-board");
         verify(boardRepository, never()).findByBoardUrl("test-board");
         verify(boardAiInfoRepository, never()).save(any(BoardAiInfo.class));
@@ -769,10 +759,10 @@ class BoardServiceTest {
 
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
 
-        Board updatedBoard;
-        updatedBoard = boardService.updateBoard("test-board", request, 1L);
+        BoardCommandResult result = boardService.updateBoard("test-board", request, 1L);
 
-        assertThat(updatedBoard.getSortOrder()).isEqualTo(7);
+        assertThat(result.boardUrl()).isEqualTo("test-board");
+        assertThat(board.getSortOrder()).isEqualTo(7);
     }
 
     @Test
@@ -791,10 +781,10 @@ class BoardServiceTest {
 
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
 
-        Board updatedBoard;
-        updatedBoard = boardService.updateBoard("test-board", request, 1L);
+        BoardCommandResult result = boardService.updateBoard("test-board", request, 1L);
 
-        assertThat(updatedBoard.getIconUrl()).isEqualTo("/api/v1/files/88");
+        assertThat(result.boardUrl()).isEqualTo("test-board");
+        assertThat(board.getIconUrl()).isEqualTo("/api/v1/files/88");
         verify(fileService).replaceBoardIcon(88L, 1L, 1L);
         verify(fileService).deleteFileWithStorageIfAssociated(77L, 1L, FileService.RELATED_TYPE_BOARD_ICON);
     }
@@ -1593,9 +1583,9 @@ class BoardServiceTest {
         assertInquiryBoardBlocked(() -> boardService.getBoardDetails("inquiry", null));
         assertInquiryBoardBlocked(() -> boardService.getActiveCategories("inquiry", null));
         assertInquiryBoardBlocked(() -> boardService.updateBoard("inquiry", null, 1L));
-        assertInquiryBoardBlocked(() -> boardService.updateBoardDetail("inquiry", null, 1L));
+        assertInquiryBoardBlocked(() -> boardApplicationService.updateBoardDetail("inquiry", null, 1L));
         assertInquiryBoardBlocked(() -> boardService.transferBoardManager("inquiry", "next", 1L));
-        assertInquiryBoardBlocked(() -> boardService.transferBoardManagerDetail("inquiry", "next", 1L));
+        assertInquiryBoardBlocked(() -> boardApplicationService.transferBoardManagerDetail("inquiry", "next", 1L));
         assertInquiryBoardBlocked(() -> boardService.deleteBoard("inquiry", 1L));
         assertInquiryBoardBlocked(() -> boardService.subscribeBoard(1L, "inquiry"));
         assertInquiryBoardBlocked(() -> boardService.unsubscribeBoard(1L, "inquiry"));

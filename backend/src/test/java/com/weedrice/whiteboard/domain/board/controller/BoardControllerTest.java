@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardManagerTransferRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.service.BoardApplicationService;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -61,6 +62,9 @@ class BoardControllerTest {
 
     @MockBean
     private BoardService boardService;
+
+    @MockBean
+    private BoardApplicationService boardApplicationService;
 
     @MockBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -164,7 +168,7 @@ class BoardControllerTest {
     void createBoard_returnsSuccess() throws Exception {
         BoardCreateRequest request = new BoardCreateRequest("New Board", "newboard", "Description", "icon.png", true);
 
-        when(boardService.createBoardDetail(eq(1L), any()))
+        when(boardApplicationService.createBoardDetail(eq(1L), any()))
                 .thenReturn(boardDetailResponse("Admin", 1L, false));
 
         mockMvc.perform(post("/api/v1/boards")
@@ -183,7 +187,7 @@ class BoardControllerTest {
         BoardUpdateRequest request = new BoardUpdateRequest();
         ReflectionTestUtils.setField(request, "boardName", "Updated Board");
 
-        when(boardService.updateBoardDetail(eq(boardUrl), any(BoardUpdateRequest.class), eq(1L)))
+        when(boardApplicationService.updateBoardDetail(eq(boardUrl), any(BoardUpdateRequest.class), eq(1L)))
                 .thenReturn(boardDetailResponse("Admin", 1L, false));
 
         mockMvc.perform(put("/api/v1/boards/{boardUrl}", boardUrl)
@@ -205,7 +209,7 @@ class BoardControllerTest {
                         .with(csrf()))
                 .andExpect(status().isBadRequest());
 
-        verify(boardService, never()).updateBoardDetail(any(), any(), any());
+        verify(boardApplicationService, never()).updateBoardDetail(any(), any(), any());
     }
 
     @Test
@@ -225,7 +229,7 @@ class BoardControllerTest {
                         .with(csrf()))
                 .andExpect(status().isBadRequest());
 
-        verify(boardService, never()).createBoardDetail(any(), any());
+        verify(boardApplicationService, never()).createBoardDetail(any(), any());
     }
 
     @Test
@@ -243,7 +247,7 @@ class BoardControllerTest {
                         .with(csrf()))
                 .andExpect(status().isBadRequest());
 
-        verify(boardService, never()).updateBoardDetail(any(), any(), any());
+        verify(boardApplicationService, never()).updateBoardDetail(any(), any(), any());
     }
 
     @Test
@@ -253,7 +257,7 @@ class BoardControllerTest {
         BoardManagerTransferRequest request = new BoardManagerTransferRequest();
         ReflectionTestUtils.setField(request, "loginId", "nextmanager");
 
-        when(boardService.transferBoardManagerDetail(eq(boardUrl), eq("nextmanager"), eq(1L)))
+        when(boardApplicationService.transferBoardManagerDetail(eq(boardUrl), eq("nextmanager"), eq(1L)))
                 .thenReturn(boardDetailResponse("Next Manager", 2L, false));
 
         mockMvc.perform(put("/api/v1/boards/{boardUrl}/manager", boardUrl)
