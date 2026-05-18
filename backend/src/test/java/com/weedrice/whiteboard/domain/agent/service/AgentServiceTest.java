@@ -4,6 +4,8 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentBoardListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentClaimRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentItem;
+import com.weedrice.whiteboard.domain.agent.dto.AgentHomeResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentNextAction;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostActivityReadResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
@@ -181,6 +183,7 @@ class AgentServiceTest {
                 boardAiInfoRepository,
                 postRepository,
                 commentRepository,
+                agentPostActivityReadRepository,
                 sanctionRepository,
                 postService,
                 postAccessPolicy,
@@ -476,9 +479,10 @@ class AgentServiceTest {
         assertThat(response.getMyRecentPosts()).isEmpty();
         assertThat(response.getRecommendedBoards()).isEmpty();
         assertThat(response.getRecentFeed()).isEmpty();
-        assertThat(response.getWarnings()).contains(
-                "activity_on_my_posts is based on recent comments because unread notifications are not available yet.");
+        assertThat(response.getWarnings()).isEmpty();
         assertThat(response.getWhatToDoNext()).extracting("action").containsExactly("stop_activity");
+        assertThat(response.getWhatToDoNext().get(0).getPriority()).isEqualTo("critical");
+        assertThat(response.getWhatToDoNext().get(0).getRecommendedTool()).isEqualTo("get_agent_status");
     }
 
     @Test
@@ -498,9 +502,11 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(comment, "commentId", 301L);
         ReflectionTestUtils.setField(comment, "createdAt", LocalDateTime.now());
 
-        when(commentRepository.findRecentCommentsOnAgentPosts(eq(7L), any(Pageable.class)))
+        when(commentRepository.findRecentUnreadCommentsOnAgentPosts(eq(7L), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(comment), PageRequest.of(0, 20), 1));
-        when(commentRepository.countByPost_PostIdAndIsDeleted(100L, false)).thenReturn(2L);
+        when(commentRepository.countUnreadCommentsOnAgentPost(7L, 100L)).thenReturn(2L);
+        when(agentPostActivityReadRepository.findByAgent_AgentIdAndPost_PostIdIn(7L, List.of(100L)))
+                .thenReturn(List.of());
         when(postRepository.findByAgent_AgentIdAndIsDeleted(eq(7L), eq(false), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 5), 1));
         when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
@@ -528,6 +534,67 @@ class AgentServiceTest {
 
         assertThat(response.getWhatToDoNext()).extracting("action")
                 .containsExactly("review_replies", "review_feed", "consider_post");
+        AgentHomeResponse.ActivityOnMyPost activity = response.getActivityOnMyPosts().get(0);
+        assertThat(activity.getNewCommentCount()).isEqualTo(2L);
+        assertThat(activity.getLatestCommentPreview()).isEqualTo("recent reply");
+        assertThat(activity.getRecommendedTool()).isEqualTo("get_post_comments");
+        AgentNextAction reviewReplies = response.getWhatToDoNext().get(0);
+        assertThat(reviewReplies.getTargetType()).isEqualTo("post");
+        assertThat(reviewReplies.getTargetId()).isEqualTo(100L);
+        assertThat(reviewReplies.getRecommendedTool()).isEqualTo("get_post_comments");
+        assertThat(reviewReplies.getParams()).containsEntry("post_id", 100L);
+        assertThat(reviewReplies.isBlocked()).isFalse();
+    }
+
+    @Test
+    void getHome_marksConsiderPostBlockedWhenPostLimitExhausted() {
+        doReturn(agent).when(agentOwnershipService).resolveClaimedAgent(7L);
+        doReturn(agent).when(agentOwnershipService).resolveActiveAgent(7L);
+        when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(
+                eq(7L), any(LocalDate.class), eq(AgentQuotaService.ACTION_POST)))
+                .thenReturn(Optional.of(AgentDailyQuota.builder()
+                        .agent(agent)
+                        .quotaDate(LocalDate.now())
+                        .actionType(AgentQuotaService.ACTION_POST)
+                        .usedCount(AgentQuotaService.DAILY_AGENT_POST_LIMIT)
+                        .build()));
+        when(commentRepository.findRecentUnreadCommentsOnAgentPosts(eq(7L), any(Pageable.class)))
+                .thenReturn(Page.empty());
+        when(postRepository.findByAgent_AgentIdAndIsDeleted(eq(7L), eq(false), any(Pageable.class)))
+                .thenReturn(Page.empty());
+        when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
+                .thenReturn(List.of(writableBoard));
+        doReturn(Set.of(10L)).when(agentBoardAccessService)
+                .resolveWritableBoardIds(eq(agent), eq(List.of(writableBoard)), any());
+        when(postRepository.countActiveByBoardIds(List.of(10L))).thenReturn(List.of(new PostRepository.BoardPostCountProjection() {
+            @Override
+            public Long getBoardId() {
+                return 10L;
+            }
+
+            @Override
+            public Long getPostCount() {
+                return 1L;
+            }
+        }));
+        when(boardAiInfoRepository.findByBoard_BoardIdIn(List.of(10L))).thenReturn(List.of());
+        doReturn(List.of(writableBoard)).when(agentBoardAccessService).getAccessibleFeedBoards(agent, null);
+        doReturn(Set.of()).when(agentBoardAccessService).resolveBoardAdminIds(user, List.of(writableBoard), List.of(10L));
+        when(postRepository.findAgentFeedByBoardIds(eq(List.of(10L)), any(), any(), eq(1L), any()))
+                .thenReturn(Page.empty());
+
+        var response = agentQueryService.getHome(7L);
+
+        AgentNextAction considerPost = response.getWhatToDoNext().stream()
+                .filter(action -> "consider_post".equals(action.getAction()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(considerPost.isBlocked()).isTrue();
+        assertThat(considerPost.getBlockedReason()).isEqualTo("post_daily_limit_exceeded");
+        assertThat(considerPost.getRecommendedTool()).isEqualTo("create_post");
+        assertThat(considerPost.getTargetType()).isEqualTo("board");
+        assertThat(considerPost.getTargetId()).isEqualTo(10L);
+        assertThat(considerPost.getParams()).containsEntry("board_id", 10L);
     }
 
     @Test

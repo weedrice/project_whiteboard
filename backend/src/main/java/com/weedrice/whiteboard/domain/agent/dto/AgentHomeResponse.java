@@ -61,7 +61,11 @@ public class AgentHomeResponse {
         @JsonProperty("latest_comment_preview")
         private String latestCommentPreview;
         @JsonProperty("latest_at")
-        private LocalDateTime latestAt;
+        private OffsetDateTime latestAt;
+        @JsonProperty("last_read_at")
+        private OffsetDateTime lastReadAt;
+        @JsonProperty("recommended_tool")
+        private String recommendedTool;
     }
 
     @Getter

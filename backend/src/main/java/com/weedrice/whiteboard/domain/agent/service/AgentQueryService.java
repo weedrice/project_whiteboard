@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRestrictions;
 import com.weedrice.whiteboard.domain.agent.dto.AgentStatusResponse;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.agent.repository.AgentPostActivityReadRepository;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardAiInfo;
@@ -63,8 +64,6 @@ public class AgentQueryService {
     private static final int HOME_RECENT_POST_LIMIT = 5;
     private static final int HOME_RECOMMENDED_BOARD_LIMIT = 5;
     private static final int HOME_RECENT_FEED_LIMIT = 10;
-    private static final String ACTIVITY_WARNING =
-            "activity_on_my_posts is based on recent comments because unread notifications are not available yet.";
     private static final int DEFAULT_READ_PAGE_SIZE_LIMIT = 20;
     private static final Sort DEFAULT_POST_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
     private static final Sort DEFAULT_AGENT_FEED_SORT = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("postId"));
@@ -80,6 +79,7 @@ public class AgentQueryService {
     private final BoardAiInfoRepository boardAiInfoRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
+    private final AgentPostActivityReadRepository agentPostActivityReadRepository;
     private final SanctionRepository sanctionRepository;
     private final PostService postService;
     private final PostAccessPolicy postAccessPolicy;
@@ -147,11 +147,13 @@ public class AgentQueryService {
                 .recommendedBoards(recommendedBoards)
                 .recentFeed(recentFeed)
                 .whatToDoNext(resolveNextActions(
+                        agentId,
+                        policy.limits(),
                         policy.restrictions(),
                         activityOnMyPosts,
                         recentFeed,
                         recommendedBoards))
-                .warnings(List.of(ACTIVITY_WARNING))
+                .warnings(List.of())
                 .build();
     }
 
@@ -392,33 +394,52 @@ public class AgentQueryService {
     }
 
     private List<AgentHomeResponse.ActivityOnMyPost> getActivityOnMyPosts(Long agentId) {
-        Page<Comment> comments = commentRepository.findRecentCommentsOnAgentPosts(
+        Page<Comment> comments = commentRepository.findRecentUnreadCommentsOnAgentPosts(
                 agentId,
                 PageRequest.of(0, HOME_ACTIVITY_LIMIT * 4, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("commentId"))));
         if (comments.isEmpty()) {
             return List.of();
         }
 
-        Map<Long, AgentHomeResponse.ActivityOnMyPost> itemsByPostId = new LinkedHashMap<>();
+        Map<Long, Comment> latestUnreadCommentByPostId = new LinkedHashMap<>();
         for (Comment comment : comments.getContent()) {
             Post post = comment.getPost();
-            if (post == null || itemsByPostId.containsKey(post.getPostId())) {
+            if (post == null || latestUnreadCommentByPostId.containsKey(post.getPostId())) {
                 continue;
             }
-            itemsByPostId.put(post.getPostId(), AgentHomeResponse.ActivityOnMyPost.builder()
+            latestUnreadCommentByPostId.put(post.getPostId(), comment);
+            if (latestUnreadCommentByPostId.size() >= HOME_ACTIVITY_LIMIT) {
+                break;
+            }
+        }
+        if (latestUnreadCommentByPostId.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> postIds = new ArrayList<>(latestUnreadCommentByPostId.keySet());
+        Map<Long, LocalDateTime> lastReadAtByPostId = agentPostActivityReadRepository
+                .findByAgent_AgentIdAndPost_PostIdIn(agentId, postIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        read -> read.getPost().getPostId(),
+                        read -> read.getLastReadAt()));
+
+        List<AgentHomeResponse.ActivityOnMyPost> items = new ArrayList<>();
+        for (Comment comment : latestUnreadCommentByPostId.values()) {
+            Post post = comment.getPost();
+            items.add(AgentHomeResponse.ActivityOnMyPost.builder()
                     .postId(post.getPostId())
                     .title(post.getTitle())
                     .boardId(post.getBoard().getBoardId())
                     .boardName(post.getBoard().getBoardName())
-                    .newCommentCount(commentRepository.countByPost_PostIdAndIsDeleted(post.getPostId(), false))
+                    .newCommentCount(commentRepository.countUnreadCommentsOnAgentPost(agentId, post.getPostId()))
                     .latestCommentPreview(toPreview(comment.getContent()))
-                    .latestAt(comment.getCreatedAt())
+                    .latestAt(toOffsetDateTime(comment.getCreatedAt()))
+                    .lastReadAt(toOffsetDateTime(lastReadAtByPostId.get(post.getPostId())))
+                    .recommendedTool("get_post_comments")
                     .build());
-            if (itemsByPostId.size() >= HOME_ACTIVITY_LIMIT) {
-                break;
-            }
         }
-        return new ArrayList<>(itemsByPostId.values());
+        return items;
     }
 
     private List<AgentHomeResponse.MyRecentPost> getHomeMyRecentPosts(Long agentId) {
@@ -471,26 +492,42 @@ public class AgentQueryService {
     }
 
     private List<AgentNextAction> resolveNextActions(
+            Long agentId,
+            AgentLimits limits,
             AgentRestrictions restrictions,
             List<AgentHomeResponse.ActivityOnMyPost> activityOnMyPosts,
             List<AgentHomeResponse.RecentFeedItem> recentFeed,
             List<AgentHomeResponse.RecommendedBoard> recommendedBoards) {
         if (restrictions.isSuspended()) {
             return List.of(AgentNextAction.builder()
-                    .priority("high")
+                    .priority("critical")
                     .action("stop_activity")
                     .reason("Agent activity is suspended.")
-                    .targetId(null)
+                    .targetType("agent")
+                    .targetId(agentId)
+                    .recommendedTool("get_agent_status")
+                    .params(Map.of())
+                    .blocked(false)
+                    .blockedReason(null)
                     .build());
         }
 
         List<AgentNextAction> actions = new ArrayList<>();
         if (!activityOnMyPosts.isEmpty()) {
+            AgentHomeResponse.ActivityOnMyPost activity = activityOnMyPosts.get(0);
             actions.add(AgentNextAction.builder()
                     .priority("high")
                     .action("review_replies")
                     .reason("Your recent post has new comments.")
-                    .targetId(activityOnMyPosts.get(0).getPostId())
+                    .targetType("post")
+                    .targetId(activity.getPostId())
+                    .recommendedTool("get_post_comments")
+                    .params(Map.of(
+                            "post_id", activity.getPostId(),
+                            "page", 0,
+                            "size", 50))
+                    .blocked(false)
+                    .blockedReason(null)
                     .build());
         }
         if (restrictions.isCanComment() && !recentFeed.isEmpty()) {
@@ -498,23 +535,67 @@ public class AgentQueryService {
                     .priority("medium")
                     .action("review_feed")
                     .reason("You can comment on recent board discussions.")
+                    .targetType("feed")
                     .targetId(null)
+                    .recommendedTool("get_agent_feed")
+                    .params(Map.of(
+                            "page", 0,
+                            "size", HOME_RECENT_FEED_LIMIT))
+                    .blocked(false)
+                    .blockedReason(null)
+                    .build());
+        } else if (!recentFeed.isEmpty() && limits.getCommentsRemaining() == 0) {
+            AgentHomeResponse.RecentFeedItem feedItem = recentFeed.get(0);
+            actions.add(AgentNextAction.builder()
+                    .priority("medium")
+                    .action("consider_comment")
+                    .reason("You have recent feed items, but comment limit is exhausted.")
+                    .targetType("post")
+                    .targetId(feedItem.getPostId())
+                    .recommendedTool("create_comment")
+                    .params(Map.of("post_id", feedItem.getPostId()))
+                    .blocked(true)
+                    .blockedReason("comment_daily_limit_exceeded")
                     .build());
         }
         if (restrictions.isCanPost() && !recommendedBoards.isEmpty()) {
+            AgentHomeResponse.RecommendedBoard board = recommendedBoards.get(0);
             actions.add(AgentNextAction.builder()
                     .priority("medium")
                     .action("consider_post")
                     .reason("You can write a post on a recommended board.")
-                    .targetId(recommendedBoards.get(0).getBoardId())
+                    .targetType("board")
+                    .targetId(board.getBoardId())
+                    .recommendedTool("create_post")
+                    .params(Map.of("board_id", board.getBoardId()))
+                    .blocked(false)
+                    .blockedReason(null)
+                    .build());
+        } else if (!recommendedBoards.isEmpty() && limits.getPostsRemaining() == 0) {
+            AgentHomeResponse.RecommendedBoard board = recommendedBoards.get(0);
+            actions.add(AgentNextAction.builder()
+                    .priority("medium")
+                    .action("consider_post")
+                    .reason("You have a recommended board, but post limit is exhausted.")
+                    .targetType("board")
+                    .targetId(board.getBoardId())
+                    .recommendedTool("create_post")
+                    .params(Map.of("board_id", board.getBoardId()))
+                    .blocked(true)
+                    .blockedReason("post_daily_limit_exceeded")
                     .build());
         }
-        if (actions.isEmpty()) {
+        if (actions.isEmpty() || (!restrictions.isCanPost() && !restrictions.isCanComment())) {
             actions.add(AgentNextAction.builder()
                     .priority("low")
                     .action("wait_for_limit_reset")
                     .reason("All available actions are currently restricted.")
+                    .targetType("system")
                     .targetId(null)
+                    .recommendedTool("get_agent_home")
+                    .params(Map.of())
+                    .blocked(false)
+                    .blockedReason(null)
                     .build());
         }
         return actions;

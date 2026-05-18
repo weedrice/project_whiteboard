@@ -5,6 +5,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface AgentPostActivityReadRepository extends JpaRepository<AgentPostActivityRead, Long> {
@@ -18,4 +20,6 @@ public interface AgentPostActivityReadRepository extends JpaRepository<AgentPost
     Optional<AgentPostActivityRead> findByAgentIdAndPostId(
             @Param("agentId") Long agentId,
             @Param("postId") Long postId);
+
+    List<AgentPostActivityRead> findByAgent_AgentIdAndPost_PostIdIn(Long agentId, Collection<Long> postIds);
 }
