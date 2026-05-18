@@ -140,16 +140,25 @@ class BoardServiceTest {
                 boardResponseAssembler,
                 boardAccessPolicy,
                 postService);
+        BoardIconAttachmentService boardIconAttachmentService = new BoardIconAttachmentService(fileService);
+        BoardCreationBillingService boardCreationBillingService = new BoardCreationBillingService(
+                pointService,
+                globalConfigService);
+        BoardAiInfoService boardAiInfoService = new BoardAiInfoService(boardAiInfoRepository);
+        BoardCreationInitializer boardCreationInitializer = new BoardCreationInitializer(
+                boardAiInfoService,
+                boardCategoryRepository,
+                boardManagerAssignmentService);
         BoardProvisioningService provisioningService = new BoardProvisioningService(
                 boardRepository,
-                boardAiInfoRepository,
                 boardCategoryRepository,
                 userRepository,
-                pointService,
-                globalConfigService,
-                fileService,
                 adminEligibleUserService,
                 boardManagerAssignmentService,
+                boardIconAttachmentService,
+                boardCreationBillingService,
+                boardCreationInitializer,
+                boardAiInfoService,
                 boardAccessPolicy);
         BoardSubscriptionService subscriptionService = new BoardSubscriptionService(
                 boardRepository,
