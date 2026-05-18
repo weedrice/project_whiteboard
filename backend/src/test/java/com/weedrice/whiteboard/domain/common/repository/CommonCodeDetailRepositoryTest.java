@@ -24,7 +24,7 @@ class CommonCodeDetailRepositoryTest {
 
     @Test
     @DisplayName("active details are ordered by sortOrder then codeValue")
-    void findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAscCodeValueAsc_ordersBySortOrderAndCodeValue() {
+    void findByCommonCodeAndIsActiveOrderBySortOrderAscCodeValueAsc_ordersBySortOrderAndCodeValue() {
         CommonCode commonCode = CommonCode.builder()
                 .typeCode("TEST_TYPE")
                 .typeName("Test Type")
@@ -38,8 +38,9 @@ class CommonCodeDetailRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
+        CommonCode persistedCommonCode = entityManager.find(CommonCode.class, "TEST_TYPE");
         var result = commonCodeDetailRepository
-                .findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAscCodeValueAsc("TEST_TYPE", true);
+                .findByCommonCodeAndIsActiveOrderBySortOrderAscCodeValueAsc(persistedCommonCode, true);
 
         assertThat(result)
                 .extracting(CommonCodeDetail::getCodeValue)

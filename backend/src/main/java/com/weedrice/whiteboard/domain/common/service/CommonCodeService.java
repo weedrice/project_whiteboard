@@ -29,6 +29,7 @@ public class CommonCodeService {
 
     private final CommonCodeRepository commonCodeRepository;
     private final CommonCodeDetailRepository commonCodeDetailRepository;
+    private final CommonCodeReader commonCodeReader;
 
     // --- Common Code (Master) ---
 
@@ -146,11 +147,7 @@ public class CommonCodeService {
 
     public List<CommonCodeDetailResponse> getCommonCodeDetails(String typeCode) {
         String normalizedTypeCode = normalizeRequired(typeCode, MAX_TYPE_CODE_LENGTH);
-        if (!commonCodeRepository.existsById(normalizedTypeCode)) {
-            throw new BusinessException(ErrorCode.NOT_FOUND);
-        }
-        return commonCodeDetailRepository.findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAscCodeValueAsc(
-                        normalizedTypeCode, true).stream()
+        return commonCodeReader.findActiveDetails(normalizedTypeCode).stream()
                 .map(CommonCodeDetailResponse::from)
                 .collect(Collectors.toList());
     }
@@ -176,12 +173,12 @@ public class CommonCodeService {
     private Integer normalizeSortOrder(Integer sortOrder) {
         return sortOrder != null ? sortOrder : 0;
     }
-    
+
     @Transactional
     public void deleteCommonCodeDetail(Long id) {
         CommonCodeDetail detail = commonCodeDetailRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-        
+
         detail.deactivate();
     }
 }
