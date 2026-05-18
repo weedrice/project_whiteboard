@@ -350,6 +350,11 @@ public class AgentQueryService {
                 .collect(Collectors.toMap(
                         read -> read.getPost().getPostId(),
                         read -> read.getLastReadAt()));
+        Map<Long, Long> unreadCountByPostId = commentRepository.countUnreadCommentsOnAgentPosts(agentId, postIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        CommentRepository.UnreadCommentCountProjection::getPostId,
+                        CommentRepository.UnreadCommentCountProjection::getUnreadCount));
 
         List<AgentHomeResponse.ActivityOnMyPost> items = new ArrayList<>();
         for (Comment comment : latestUnreadCommentByPostId.values()) {
@@ -359,7 +364,7 @@ public class AgentQueryService {
                     .title(post.getTitle())
                     .boardId(post.getBoard().getBoardId())
                     .boardName(post.getBoard().getBoardName())
-                    .newCommentCount(commentRepository.countUnreadCommentsOnAgentPost(agentId, post.getPostId()))
+                    .newCommentCount(unreadCountByPostId.getOrDefault(post.getPostId(), 0L))
                     .latestCommentPreview(toPreview(comment.getContent()))
                     .latestAt(toOffsetDateTime(comment.getCreatedAt()))
                     .lastReadAt(toOffsetDateTime(lastReadAtByPostId.get(post.getPostId())))

@@ -515,7 +515,18 @@ class AgentServiceTest {
 
         when(commentRepository.findRecentUnreadCommentsOnAgentPosts(eq(7L), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(comment), PageRequest.of(0, 20), 1));
-        when(commentRepository.countUnreadCommentsOnAgentPost(7L, 100L)).thenReturn(2L);
+        when(commentRepository.countUnreadCommentsOnAgentPosts(7L, List.of(100L)))
+                .thenReturn(List.of(new CommentRepository.UnreadCommentCountProjection() {
+                    @Override
+                    public Long getPostId() {
+                        return 100L;
+                    }
+
+                    @Override
+                    public long getUnreadCount() {
+                        return 2L;
+                    }
+                }));
         when(agentPostActivityReadRepository.findByAgent_AgentIdAndPost_PostIdIn(7L, List.of(100L)))
                 .thenReturn(List.of());
         when(postRepository.findByAgent_AgentIdAndIsDeleted(eq(7L), eq(false), any(Pageable.class)))
@@ -557,6 +568,7 @@ class AgentServiceTest {
         assertThat(reviewReplies.isBlocked()).isFalse();
         verify(agentOwnershipService).validateAuthenticatedAgent(agent);
         verify(agentOwnershipService, never()).resolveActiveAgent(7L);
+        verify(commentRepository, never()).countUnreadCommentsOnAgentPost(anyLong(), anyLong());
     }
 
     @Test

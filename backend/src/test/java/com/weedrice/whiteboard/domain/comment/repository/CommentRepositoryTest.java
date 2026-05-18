@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.comment.repository;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.agent.entity.AgentPostActivityRead;
 import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.comment.entity.CommentClosure;
@@ -453,6 +454,77 @@ class CommentRepositoryTest {
     }
 
     @Test
+    @DisplayName("countUnreadCommentsOnAgentPosts groups unread counts by post")
+    void countUnreadCommentsOnAgentPosts_groupsUnreadCountsByPost() {
+        User commenter = persistUser("unread-commenter", "unread-commenter@test.com", "Unread Commenter");
+        Agent ownerAgent = persistAgent("unread-owner-agent");
+        Agent otherAgent = persistAgent("unread-other-agent");
+        Post firstPost = persistPost("Unread First Post", board, false, false, user, ownerAgent);
+        Post secondPost = persistPost("Unread Second Post", board, false, false, user, ownerAgent);
+        Post deletedPost = persistPost("Unread Deleted Post", board, false, true, user, ownerAgent);
+        Post otherAgentPost = persistPost("Unread Other Agent Post", board, false, false, user, otherAgent);
+
+        Comment readComment = commentFor(firstPost, "Already read", commenter);
+        Comment unreadFirstPostComment = commentFor(firstPost, "Unread first", commenter);
+        Comment unreadSecondPostComment = commentFor(secondPost, "Unread second", commenter);
+        Comment anotherUnreadSecondPostComment = commentFor(secondPost, "Another unread second", commenter);
+        Comment deletedComment = commentFor(firstPost, "Deleted unread", commenter);
+        deletedComment.deleteComment();
+        Comment ownerAgentComment = Comment.builder()
+                .post(firstPost)
+                .user(user)
+                .agent(ownerAgent)
+                .depth(0)
+                .content("Owner agent comment")
+                .build();
+        Comment deletedPostComment = commentFor(deletedPost, "Deleted post unread", commenter);
+        Comment otherAgentPostComment = commentFor(otherAgentPost, "Other agent post unread", commenter);
+        entityManager.persist(readComment);
+        entityManager.persist(unreadFirstPostComment);
+        entityManager.persist(unreadSecondPostComment);
+        entityManager.persist(anotherUnreadSecondPostComment);
+        entityManager.persist(deletedComment);
+        entityManager.persist(ownerAgentComment);
+        entityManager.persist(deletedPostComment);
+        entityManager.persist(otherAgentPostComment);
+        entityManager.flush();
+
+        LocalDateTime baseTime = LocalDateTime.now().plusMinutes(10);
+        updateCreatedAt(readComment, baseTime.plusMinutes(1));
+        updateCreatedAt(unreadFirstPostComment, baseTime.plusMinutes(3));
+        updateCreatedAt(unreadSecondPostComment, baseTime.plusMinutes(4));
+        updateCreatedAt(anotherUnreadSecondPostComment, baseTime.plusMinutes(5));
+        updateCreatedAt(deletedComment, baseTime.plusMinutes(6));
+        updateCreatedAt(ownerAgentComment, baseTime.plusMinutes(7));
+        updateCreatedAt(deletedPostComment, baseTime.plusMinutes(8));
+        updateCreatedAt(otherAgentPostComment, baseTime.plusMinutes(9));
+        entityManager.persist(AgentPostActivityRead.builder()
+                .agent(ownerAgent)
+                .post(firstPost)
+                .lastReadAt(baseTime.plusMinutes(2))
+                .build());
+        entityManager.flush();
+        entityManager.clear();
+
+        List<CommentRepository.UnreadCommentCountProjection> result =
+                commentRepository.countUnreadCommentsOnAgentPosts(
+                        ownerAgent.getAgentId(),
+                        List.of(
+                                firstPost.getPostId(),
+                                secondPost.getPostId(),
+                                deletedPost.getPostId(),
+                                otherAgentPost.getPostId()));
+
+        assertThat(result)
+                .extracting(
+                        CommentRepository.UnreadCommentCountProjection::getPostId,
+                        CommentRepository.UnreadCommentCountProjection::getUnreadCount)
+                .containsExactlyInAnyOrder(
+                        org.assertj.core.groups.Tuple.tuple(firstPost.getPostId(), 1L),
+                        org.assertj.core.groups.Tuple.tuple(secondPost.getPostId(), 2L));
+    }
+
+    @Test
     @DisplayName("댓글 검색은 차단한 댓글 작성자와 게시글 작성자를 모두 제외한다")
     void searchCommentsByKeyword_excludesBlockedCommentAndPostAuthors() {
         User blockedAuthor = persistUser("blocked-search-author", "blocked-search-author@test.com", "Blocked Author");
@@ -729,10 +801,16 @@ class CommentRepositoryTest {
     }
 
     private Post persistPost(String title, Board targetBoard, boolean isSecret, boolean isDeleted, User author) {
+        return persistPost(title, targetBoard, isSecret, isDeleted, author, null);
+    }
+
+    private Post persistPost(String title, Board targetBoard, boolean isSecret, boolean isDeleted, User author,
+            Agent agent) {
         Post targetPost = Post.builder()
                 .title(title)
                 .contents("Contents")
                 .user(author)
+                .agent(agent)
                 .board(targetBoard)
                 .isSecret(isSecret)
                 .build();
