@@ -114,6 +114,7 @@ describe('API Interceptors', () => {
     beforeEach(() => {
         vi.resetModules()
         vi.clearAllMocks()
+        mocks.mockFetchUser.mockResolvedValue(true)
         mocks.mockTranslate.mockImplementation((key: string) => key)
         localStorage.clear()
         history.pushState({}, '', '/')
@@ -139,7 +140,7 @@ describe('API Interceptors', () => {
             resolveAuthStore: () => ({
                 user: null,
                 accessToken: null,
-                fetchUser: async () => undefined,
+                fetchUser: async () => false,
             }),
         })
 
@@ -511,6 +512,7 @@ describe('API Interceptors', () => {
 
     it('refreshes token and retries original request on 401', async () => {
         const { responseRejected } = await loadApiModule({ user: { id: 10 }, accessToken: 'old-access' })
+        mocks.mockFetchUser.mockResolvedValueOnce(true)
         mocks.mockAxiosPost.mockResolvedValueOnce({
             data: {
                 success: true,
@@ -536,6 +538,34 @@ describe('API Interceptors', () => {
         expect(originalRequest.headers.Authorization).toBe('Bearer new-access')
         expect(mocks.mockApiRequest).toHaveBeenCalledWith(originalRequest)
         expect(result).toEqual({ data: { ok: true } })
+    })
+
+    it('rejects refresh when user hydration fails after refresh succeeds', async () => {
+        const { responseRejected } = await loadApiModule({ user: { id: 10 }, accessToken: 'old-access' })
+        mocks.mockFetchUser.mockResolvedValueOnce(false)
+        mocks.mockAxiosPost.mockResolvedValueOnce({
+            data: {
+                success: true,
+                data: {
+                    accessToken: 'new-access',
+                },
+            },
+        })
+
+        const originalRequest = { headers: {} } as any
+        const error = {
+            config: originalRequest,
+            response: { status: 401 },
+        } as any
+
+        await expect(responseRejected(error)).rejects.toMatchObject({
+            suppressGlobalErrorToast: true,
+            isAuthRefreshFailure: true,
+            isUserHydrationFailure: true,
+        })
+        expect(mocks.mockFetchUser).toHaveBeenCalledWith({ skipAuthRefresh: true })
+        expect(localStorage.getItem('accessToken')).toBe('new-access')
+        expect(mocks.mockApiRequest).not.toHaveBeenCalledWith(originalRequest)
     })
 
     it('refreshes and retries when auth store resolver is missing', async () => {

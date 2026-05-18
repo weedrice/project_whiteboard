@@ -154,7 +154,9 @@ describe('Auth Store', () => {
     describe('fetchUser', () => {
         it('does nothing if no token', async () => {
             store.accessToken = null
-            await store.fetchUser()
+            const result = await store.fetchUser()
+
+            expect(result).toBe(false)
             expect(authApi.getMe).not.toHaveBeenCalled()
         })
 
@@ -166,8 +168,9 @@ describe('Auth Store', () => {
                 data: { success: true, data: mockUser }
             } as any)
 
-            await store.fetchUser()
+            const result = await store.fetchUser()
 
+            expect(result).toBe(true)
             expect(store.user).toEqual(mockUser)
         })
 
@@ -179,14 +182,27 @@ describe('Auth Store', () => {
                 data: { success: true, data: mockUser }
             } as any)
 
-            await store.fetchUser({ headers: { 'x-test': '1' } })
+            const result = await store.fetchUser({ headers: { 'x-test': '1' } })
 
+            expect(result).toBe(true)
             expect(store.accessToken).toBe('stored-token')
             expect(authApi.getMe).toHaveBeenCalledWith({ headers: { 'x-test': '1' } })
             expect(store.user).toEqual(mockUser)
             expect(mockSetTheme).toHaveBeenCalledWith('DARK')
         })
 
+        it('returns false when getMe response is unsuccessful', async () => {
+            localStorage.setItem('accessToken', 'token')
+            store.accessToken = 'token'
+            vi.mocked(authApi.getMe).mockResolvedValue({
+                data: { success: false, data: null }
+            } as any)
+
+            const result = await store.fetchUser()
+
+            expect(result).toBe(false)
+            expect(store.user).toBeNull()
+        })
 
         it('handles sanctioned user', async () => {
             localStorage.setItem('accessToken', 'token')
@@ -205,9 +221,10 @@ describe('Auth Store', () => {
                 }
             }))
 
-            await store.fetchUser()
+            const result = await store.fetchUser()
 
             // Now uses toast instead of alert, and logout is called
+            expect(result).toBe(false)
             expect(store.accessToken).toBeNull() // Should have logged out
         })
 
@@ -216,10 +233,11 @@ describe('Auth Store', () => {
             store.accessToken = 'token'
             vi.mocked(authApi.getMe).mockRejectedValue(new Error('Invalid token'))
 
-            await store.fetchUser()
+            const result = await store.fetchUser()
 
             // fetchUser now only logs the error, interceptor handles logout
             // Token should remain as interceptor is mocked
+            expect(result).toBe(false)
             expect(store.accessToken).toBe('token')
             expect(logger.error).toHaveBeenCalledWith('Fetch user failed:', expect.any(Error))
         })

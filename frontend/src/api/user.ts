@@ -10,6 +10,8 @@ import type {
     Comment,
     SubscriptionBoardListItem,
     PublicUserProfile,
+    PointHistoryResponse,
+    UserPoint,
 } from '@/types'
 
 export interface UserProfile {
@@ -136,5 +138,11 @@ export const userApi = {
     },
     getMySubscriptions(params: SubscriptionParams) {
         return api.get<ApiResponse<PageResponse<SubscriptionBoardListItem>>>('/users/me/subscriptions', { params })
+    },
+    getMyPoint() {
+        return api.get<ApiResponse<UserPoint>>('/points/me')
+    },
+    getMyPointHistories(params: PaginationParams) {
+        return api.get<ApiResponse<PointHistoryResponse>>('/points/me/history', { params })
     }
 }

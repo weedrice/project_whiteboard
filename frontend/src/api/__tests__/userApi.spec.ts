@@ -83,6 +83,8 @@ describe('userApi', () => {
         userApi.getMyDrafts(params)
         userApi.getRecentlyViewedPosts(params)
         userApi.getMySubscriptions(params)
+        userApi.getMyPoint()
+        userApi.getMyPointHistories(params)
 
         expect(apiMock.post).toHaveBeenNthCalledWith(1, '/users/3/block')
         expect(apiMock.delete).toHaveBeenNthCalledWith(1, '/users/3/block')
@@ -93,5 +95,7 @@ describe('userApi', () => {
         expect(apiMock.get).toHaveBeenNthCalledWith(5, '/users/me/drafts', { params })
         expect(apiMock.get).toHaveBeenNthCalledWith(6, '/users/me/history/views', { params })
         expect(apiMock.get).toHaveBeenNthCalledWith(7, '/users/me/subscriptions', { params })
+        expect(apiMock.get).toHaveBeenNthCalledWith(8, '/points/me')
+        expect(apiMock.get).toHaveBeenNthCalledWith(9, '/points/me/history', { params })
     })
 })
