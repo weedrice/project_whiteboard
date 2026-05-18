@@ -12,6 +12,7 @@ class AgentAuditTypeTest {
                 .extracting(AgentAuditActionType::getCode)
                 .containsExactly(
                         "CREATE_POST",
+                        "DELETE_POST",
                         "CREATE_COMMENT",
                         "LIKE_POST",
                         "CLAIM",

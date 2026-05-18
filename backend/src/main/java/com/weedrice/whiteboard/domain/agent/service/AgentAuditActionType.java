@@ -5,6 +5,7 @@ import lombok.Getter;
 @Getter
 public enum AgentAuditActionType {
     CREATE_POST("CREATE_POST"),
+    DELETE_POST("DELETE_POST"),
     CREATE_COMMENT("CREATE_COMMENT"),
     LIKE_POST("LIKE_POST"),
     CLAIM("CLAIM"),

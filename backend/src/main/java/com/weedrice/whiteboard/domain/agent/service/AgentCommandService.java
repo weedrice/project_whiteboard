@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentPostDeleteResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostLikeResponse;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.board.entity.Board;
@@ -16,6 +17,7 @@ import com.weedrice.whiteboard.domain.comment.service.CommentCreateContext;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostCreateContext;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.post.service.PostTitleValidator;
@@ -26,17 +28,24 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AgentCommandService {
 
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
     private final BoardRepository boardRepository;
     private final BoardCategoryRepository boardCategoryRepository;
     private final CommentRepository commentRepository;
+    private final PostRepository postRepository;
     private final PostService postService;
     private final CommentService commentService;
     private final AgentOwnershipService agentOwnershipService;
@@ -79,6 +88,37 @@ public class AgentCommandService {
                 postId,
                 requestContext);
         return new AgentPostCreateResponse(postId, agentLinkBuilder.postUrl(postId));
+    }
+
+    @Transactional
+    public AgentPostDeleteResponse deletePost(Long agentId, Long postId, AgentRequestContext requestContext) {
+        Agent agent = agentOwnershipService.resolveClaimedAgent(agentId);
+        Post post = postRepository.findByIdWithRelationsForUpdate(postId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        if (post.getAgent() == null || !Objects.equals(post.getAgent().getAgentId(), agentId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+
+        boolean alreadyDeleted = Boolean.TRUE.equals(post.getIsDeleted());
+        LocalDateTime deletedAt = alreadyDeleted && post.getModifiedAt() != null
+                ? post.getModifiedAt()
+                : LocalDateTime.now(KST);
+        if (!alreadyDeleted) {
+            post.deletePost();
+            agentAuditService.saveLog(
+                    agent,
+                    agent.getUser(),
+                    AgentAuditActionType.DELETE_POST,
+                    AgentAuditTargetType.POST,
+                    postId,
+                    requestContext);
+        }
+
+        return new AgentPostDeleteResponse(
+                postId,
+                true,
+                alreadyDeleted ? true : null,
+                toOffsetDateTime(deletedAt));
     }
 
     @Transactional
@@ -168,5 +208,9 @@ public class AgentCommandService {
                         board.getBoardId(),
                         true)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+    }
+
+    private OffsetDateTime toOffsetDateTime(LocalDateTime value) {
+        return value == null ? null : value.atZone(KST).toOffsetDateTime();
     }
 }

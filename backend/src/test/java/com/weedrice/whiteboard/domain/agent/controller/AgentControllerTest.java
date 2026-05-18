@@ -13,6 +13,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostLikeResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentPostDeleteResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRestrictions;
@@ -319,6 +320,24 @@ class AgentControllerTest {
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getPostId()).isEqualTo(101L);
         assertThat(response.getData().getUrl()).contains("/posts/101");
+    }
+
+    @Test
+    void deletePost_success() {
+        AgentRequestContext context = requestContext();
+        OffsetDateTime deletedAt = OffsetDateTime.now();
+
+        given(agentRequestContextResolver.resolve(httpServletRequest)).willReturn(context);
+        given(agentCommandService.deletePost(eq(7L), eq(101L), same(context)))
+                .willReturn(new AgentPostDeleteResponse(101L, true, null, deletedAt));
+
+        ApiResponse<AgentPostDeleteResponse> response = agentController.deletePost(
+                agentPrincipal, 101L, httpServletRequest);
+
+        assertThat(response.isSuccess()).isTrue();
+        assertThat(response.getData().getPostId()).isEqualTo(101L);
+        assertThat(response.getData().isDeleted()).isTrue();
+        assertThat(response.getData().getDeletedAt()).isEqualTo(deletedAt);
     }
 
     @Test
