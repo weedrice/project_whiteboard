@@ -190,23 +190,7 @@ public class FileService {
     public void associateFileWithEntity(Long fileId, Long ownerUserId, Long relatedId, String relatedType) {
         File file = fileRepository.findByFileIdAndStorageStatus(fileId, FileStorageStatus.ACTIVE)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-        validateOwnedFile(file, ownerUserId);
-        if (file.isAssociatedWith(relatedId, relatedType)) {
-            return;
-        }
-        validateAssociableFile(file);
-        int updated = fileRepository.associateIfUnassociated(fileId, ownerUserId, relatedId, relatedType);
-        if (updated == 1) {
-            file.updateRelatedInfo(relatedId, relatedType);
-            return;
-        }
-
-        entityManager.refresh(file);
-        validateActiveFile(file);
-        if (file.isAssociatedWith(relatedId, relatedType)) {
-            return;
-        }
-        throw new BusinessException(ErrorCode.FILE_ALREADY_ASSOCIATED);
+        associateLoadedFileIfAllowed(file, ownerUserId, relatedId, relatedType);
     }
 
     @Transactional
@@ -226,7 +210,7 @@ public class FileService {
             if (file == null) {
                 throw new BusinessException(ErrorCode.NOT_FOUND);
             }
-            validateAndAssociateLoadedFile(file, ownerUserId, relatedId, relatedType);
+            associateLoadedFileIfAllowed(file, ownerUserId, relatedId, relatedType);
         }
 
         return orderedFileIds.stream()
@@ -401,7 +385,7 @@ public class FileService {
         }
     }
 
-    private void validateAndAssociateLoadedFile(File file, Long ownerUserId, Long relatedId, String relatedType) {
+    private void associateLoadedFileIfAllowed(File file, Long ownerUserId, Long relatedId, String relatedType) {
         validateOwnedFile(file, ownerUserId);
         if (file.isAssociatedWith(relatedId, relatedType)) {
             return;
