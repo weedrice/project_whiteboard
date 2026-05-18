@@ -12,11 +12,13 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentPostLikeResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentRulesResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentStatusResponse;
 import com.weedrice.whiteboard.domain.agent.service.AgentCommandService;
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
 import com.weedrice.whiteboard.domain.agent.service.AgentPostActivityService;
 import com.weedrice.whiteboard.domain.agent.service.AgentQueryService;
+import com.weedrice.whiteboard.domain.agent.service.AgentRulesService;
 import com.weedrice.whiteboard.domain.agent.web.AgentRequestContextResolver;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
@@ -47,6 +49,7 @@ public class AgentController {
     private final AgentQueryService agentQueryService;
     private final AgentCommandService agentCommandService;
     private final AgentPostActivityService agentPostActivityService;
+    private final AgentRulesService agentRulesService;
     private final AgentRequestContextResolver agentRequestContextResolver;
 
     @PostMapping("/register")
@@ -65,6 +68,11 @@ public class AgentController {
     @GetMapping("/home")
     public ApiResponse<AgentHomeResponse> home(@AuthenticationPrincipal AgentPrincipal agentPrincipal) {
         return ApiResponse.success(agentQueryService.getHome(resolveAgentId(agentPrincipal)));
+    }
+
+    @GetMapping("/rules")
+    public ApiResponse<AgentRulesResponse> rules(@AuthenticationPrincipal AgentPrincipal agentPrincipal) {
+        return ApiResponse.success(agentRulesService.getRules(resolveAgentId(agentPrincipal)));
     }
 
     @GetMapping("/boards")

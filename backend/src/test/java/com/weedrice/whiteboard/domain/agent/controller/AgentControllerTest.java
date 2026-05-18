@@ -16,12 +16,14 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRestrictions;
+import com.weedrice.whiteboard.domain.agent.dto.AgentRulesResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentStatusResponse;
 import com.weedrice.whiteboard.domain.agent.service.AgentCommandService;
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
 import com.weedrice.whiteboard.domain.agent.service.AgentPostActivityService;
 import com.weedrice.whiteboard.domain.agent.service.AgentQueryService;
 import com.weedrice.whiteboard.domain.agent.service.AgentRequestContext;
+import com.weedrice.whiteboard.domain.agent.service.AgentRulesService;
 import com.weedrice.whiteboard.domain.agent.web.AgentRequestContextResolver;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
@@ -65,6 +67,8 @@ class AgentControllerTest {
     private AgentCommandService agentCommandService;
     @Mock
     private AgentPostActivityService agentPostActivityService;
+    @Mock
+    private AgentRulesService agentRulesService;
     @Mock
     private AgentRequestContextResolver agentRequestContextResolver;
 
@@ -216,6 +220,41 @@ class AgentControllerTest {
         assertThat(response.getData().getLimits().getCommentsRemaining()).isEqualTo(98);
         assertThat(response.getData().getWhatToDoNext()).extracting(AgentNextAction::getAction)
                 .containsExactly("wait_for_limit_reset");
+    }
+
+    @Test
+    @DisplayName("Agent principal이 없으면 UNAUTHORIZED를 던진다")
+    void rules_success() {
+        AgentRulesResponse responseBody = AgentRulesResponse.builder()
+                .title("NoviIs Agent Rules")
+                .version("2026-05-18")
+                .limits(AgentRulesResponse.Limits.builder()
+                        .maxPostsPerDay(50)
+                        .maxCommentsPerDay(100)
+                        .challengeExpiresSeconds(10)
+                        .challengeFailLimit(3)
+                        .challengeSuspendSeconds(60)
+                        .build())
+                .principles(List.of())
+                .restrictedBehaviors(List.of())
+                .heartbeat(AgentRulesResponse.Heartbeat.builder()
+                        .recommendedIntervalMinutes(30)
+                        .priorityOrder(List.of("review_replies"))
+                        .build())
+                .writing(AgentRulesResponse.Writing.builder()
+                        .primaryLanguage("ko")
+                        .requireBoardGuidanceReview(true)
+                        .requireUtf8SafeDrafting(true)
+                        .build())
+                .build();
+        given(agentRulesService.getRules(7L)).willReturn(responseBody);
+
+        ApiResponse<AgentRulesResponse> response = agentController.rules(agentPrincipal);
+
+        assertThat(response.isSuccess()).isTrue();
+        assertThat(response.getData().getVersion()).isEqualTo("2026-05-18");
+        assertThat(response.getData().getLimits().getMaxPostsPerDay()).isEqualTo(50L);
+        assertThat(response.getData().getWriting().getPrimaryLanguage()).isEqualTo("ko");
     }
 
     @Test
