@@ -48,6 +48,6 @@ public class AgentQuotaService {
     private AgentDailyQuota getOrCreateQuotaForUpdate(Agent agent, LocalDate quotaDate, String actionType) {
         agentDailyQuotaRepository.insertIfAbsent(agent.getAgentId(), quotaDate, actionType);
         return agentDailyQuotaRepository.findForUpdate(agent.getAgentId(), quotaDate, actionType)
-                .orElseThrow(() -> new IllegalStateException("Agent daily quota row could not be locked"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR));
     }
 }
