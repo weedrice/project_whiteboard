@@ -85,7 +85,7 @@ public class PostListReadService {
 
     public List<PostSummary> getNoticeSummaries(String boardUrl, Long currentUserId) {
         List<Post> notices = getNotices(boardUrl, currentUserId);
-        return notices.stream().map(PostSummary::from).collect(Collectors.toList());
+        return toNoticeSummaries(notices);
     }
 
     public List<Post> getNotices(String boardUrl, Long currentUserId) {
@@ -121,6 +121,11 @@ public class PostListReadService {
         return getNotices(boardId, postReadContextResolver.resolveQueryParameters(currentUserId), includeSecret);
     }
 
+    public List<PostSummary> getNoticeSummaries(Long boardId, Long currentUserId, Boolean includeSecret) {
+        List<Post> notices = getNotices(boardId, currentUserId, includeSecret);
+        return toNoticeSummaries(notices);
+    }
+
     private List<Post> getNotices(Long boardId, PostReadContext context, Boolean includeSecret) {
         return postRepository.findNoticesByBoardId(
                 boardId,
@@ -129,6 +134,12 @@ public class PostListReadService {
                 context.blockedUserIds(),
                 includeSecret,
                 context.viewerUserId());
+    }
+
+    private List<PostSummary> toNoticeSummaries(List<Post> notices) {
+        return notices.stream()
+                .map(PostSummary::from)
+                .collect(Collectors.toList());
     }
 
     public Page<PostSummary> getPostsByTag(Long tagId, Long currentUserId, @NonNull Pageable pageable) {

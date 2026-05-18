@@ -153,10 +153,7 @@ class BoardQueryService {
         User currentUser = getCurrentUserByIdOrNull(currentUserId);
         boardAccessPolicy.validateReadable(board, currentUser);
         boolean includeSecret = boardAccessPolicy.canViewSecretPosts(board, currentUser);
-        return postService.getNotices(board.getBoardId(), currentUserId, includeSecret)
-                .stream()
-                .map(PostSummary::from)
-                .toList();
+        return postService.getNoticeSummaries(board.getBoardId(), currentUserId, includeSecret);
     }
 
     Page<SubscriptionBoardResponse> getMySubscriptions(Long userId, Pageable pageable) {

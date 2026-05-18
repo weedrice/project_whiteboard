@@ -24,7 +24,6 @@ import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
-import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostLatestReadService;
@@ -1515,23 +1514,19 @@ class BoardServiceTest {
     @Test
     @DisplayName("게시판 공지 요약 조회 성공")
     void getNoticeSummaries_success() {
-        Post notice = Post.builder()
-                .board(board)
-                .user(user)
+        PostSummary noticeSummary = PostSummary.builder()
+                .postId(10L)
                 .title("Notice")
-                .contents("Notice contents")
-                .isNotice(true)
                 .build();
-        ReflectionTestUtils.setField(notice, "postId", 10L);
 
         when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
-        when(postService.getNotices(1L, null, false)).thenReturn(List.of(notice));
+        when(postService.getNoticeSummaries(1L, null, false)).thenReturn(List.of(noticeSummary));
 
         List<PostSummary> summaries = boardService.getNoticeSummaries("test-board", null);
 
         assertThat(summaries).hasSize(1);
         assertThat(summaries.get(0).getTitle()).isEqualTo("Notice");
-        verify(postService).getNotices(1L, null, false);
+        verify(postService).getNoticeSummaries(1L, null, false);
     }
 
     @Test
@@ -1552,7 +1547,7 @@ class BoardServiceTest {
                 () -> boardService.getNoticeSummaries("private-board", null));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BOARD_NOT_FOUND);
-        verify(postService, never()).getNotices(anyLong(), any(), anyBoolean());
+        verify(postService, never()).getNoticeSummaries(anyLong(), any(), anyBoolean());
     }
 
     @Test
@@ -1573,7 +1568,7 @@ class BoardServiceTest {
                 () -> boardService.getNoticeSummaries("inactive-board", null));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BOARD_NOT_FOUND);
-        verify(postService, never()).getNotices(anyLong(), any(), anyBoolean());
+        verify(postService, never()).getNoticeSummaries(anyLong(), any(), anyBoolean());
     }
 
     @Test
@@ -1583,7 +1578,7 @@ class BoardServiceTest {
                 () -> boardService.getNoticeSummaries("inquiry", null));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BOARD_NOT_FOUND);
-        verify(postService, never()).getNotices(anyLong(), any(), anyBoolean());
+        verify(postService, never()).getNoticeSummaries(anyLong(), any(), anyBoolean());
     }
 
     @Test

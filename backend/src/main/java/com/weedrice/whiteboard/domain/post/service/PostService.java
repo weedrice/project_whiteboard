@@ -57,6 +57,10 @@ public class PostService {
         return postListReadService.getNoticeSummaries(boardUrl, currentUserId);
     }
 
+    public List<PostSummary> getNoticeSummaries(Long boardId, Long currentUserId, Boolean includeSecret) {
+        return postListReadService.getNoticeSummaries(boardId, currentUserId, includeSecret);
+    }
+
     public List<Post> getNotices(String boardUrl, Long currentUserId) {
         return postListReadService.getNotices(boardUrl, currentUserId);
     }

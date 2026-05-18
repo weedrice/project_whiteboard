@@ -3356,6 +3356,18 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("boardId 기반 공지사항 요약 조회")
+    void getNoticeSummariesByBoardId_success() {
+        when(postRepository.findNoticesByBoardId(eq(1L), eq(true), eq(false), isNull(), eq(false), isNull()))
+                .thenReturn(List.of(post));
+
+        List<PostSummary> summaries = postService.getNoticeSummaries(1L, null, false);
+
+        assertThat(summaries).hasSize(1);
+        assertThat(summaries.get(0).getTitle()).isEqualTo("Test Post");
+    }
+
+    @Test
     @DisplayName("관리자 문의글 목록은 페이지 크기 상한을 서비스에서 한 번 더 적용한다")
     void getInquiryPostsForAdmin_clampsPageSize() {
         ReflectionTestUtils.setField(board, "boardUrl", "inquiry");
