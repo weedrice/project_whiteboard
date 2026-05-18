@@ -112,7 +112,7 @@ class MessageRepositoryTest {
         entityManager.clear();
 
         Page<Message> messages = messageRepository.findReceivedMessagesExcludingBlocked(
-                receiver,
+                receiver.getUserId(),
                 false,
                 List.of(),
                 PageRequest.of(0, 10, Sort.by(Sort.Order.asc("createdAt"))));
@@ -134,7 +134,7 @@ class MessageRepositoryTest {
         entityManager.clear();
 
         Page<Message> messages = messageRepository.findSentMessagesExcludingBlocked(
-                sender,
+                sender.getUserId(),
                 false,
                 List.of(),
                 PageRequest.of(0, 10, Sort.by(Sort.Order.asc("createdAt"))));
@@ -156,7 +156,7 @@ class MessageRepositoryTest {
         entityManager.clear();
 
         Page<Message> messages = messageRepository.findReceivedMessagesExcludingBlocked(
-                receiver,
+                receiver.getUserId(),
                 false,
                 List.of(),
                 PageRequest.of(0, 10));

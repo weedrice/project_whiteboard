@@ -83,30 +83,29 @@ public class MessageService {
     }
 
     private MessageResponse getMessages(Long userId, Pageable pageable, MessageListDirection direction) {
-        User user = findUser(userId);
         Pageable safePageable = normalizeMessagePageable(pageable);
-        List<Long> blockedUserIds = getBlockedConversationUserIdsForExistingUser(userId);
-        Page<Message> messages = direction.findMessages(messageRepository, user, blockedUserIds, safePageable);
+        List<Long> blockedUserIds = getBlockedConversationUserIds(userId);
+        Page<Message> messages = direction.findMessages(messageRepository, userId, blockedUserIds, safePageable);
         return MessageResponse.from(messages, userId);
     }
 
     private enum MessageListDirection {
         RECEIVED {
             @Override
-            Page<Message> findMessages(MessageRepository messageRepository, User user, List<Long> blockedUserIds,
+            Page<Message> findMessages(MessageRepository messageRepository, Long userId, List<Long> blockedUserIds,
                     Pageable pageable) {
-                return messageRepository.findReceivedMessagesExcludingBlocked(user, false, blockedUserIds, pageable);
+                return messageRepository.findReceivedMessagesExcludingBlocked(userId, false, blockedUserIds, pageable);
             }
         },
         SENT {
             @Override
-            Page<Message> findMessages(MessageRepository messageRepository, User user, List<Long> blockedUserIds,
+            Page<Message> findMessages(MessageRepository messageRepository, Long userId, List<Long> blockedUserIds,
                     Pageable pageable) {
-                return messageRepository.findSentMessagesExcludingBlocked(user, false, blockedUserIds, pageable);
+                return messageRepository.findSentMessagesExcludingBlocked(userId, false, blockedUserIds, pageable);
             }
         };
 
-        abstract Page<Message> findMessages(MessageRepository messageRepository, User user, List<Long> blockedUserIds,
+        abstract Page<Message> findMessages(MessageRepository messageRepository, Long userId, List<Long> blockedUserIds,
                 Pageable pageable);
     }
 
@@ -251,10 +250,8 @@ public class MessageService {
     }
 
     public long getUnreadMessageCount(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        List<Long> blockedUserIds = getBlockedConversationUserIdsForExistingUser(userId);
-        return messageRepository.countUnreadMessagesExcludingBlocked(user, false, false, blockedUserIds);
+        List<Long> blockedUserIds = getBlockedConversationUserIds(userId);
+        return messageRepository.countUnreadMessagesExcludingBlocked(userId, false, false, blockedUserIds);
     }
 
     private Message getAccessibleMessage(Long userId, Long messageId) {
@@ -267,9 +264,8 @@ public class MessageService {
         return userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId);
     }
 
-    private User findUser(Long userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+    private List<Long> getBlockedConversationUserIds(Long userId) {
+        return userBlockService.getBlockedUserIdsEitherDirection(userId);
     }
 
     private Pageable normalizeMessagePageable(Pageable pageable) {

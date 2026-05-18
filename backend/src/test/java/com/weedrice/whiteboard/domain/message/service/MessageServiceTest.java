@@ -217,16 +217,15 @@ class MessageServiceTest {
         Pageable pageable = PageRequest.of(0, 10);
         Page<Message> messagePage = new PageImpl<>(List.of(message), pageable, 1);
 
-        when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
-        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
-        when(messageRepository.findReceivedMessagesExcludingBlocked(eq(receiver), eq(false), anyList(), any(Pageable.class)))
+        when(userBlockService.getBlockedUserIdsEitherDirection(2L)).thenReturn(Collections.emptyList());
+        when(messageRepository.findReceivedMessagesExcludingBlocked(eq(2L), eq(false), anyList(), any(Pageable.class)))
                 .thenReturn(messagePage);
 
         MessageResponse response = messageService.getReceivedMessages(2L, pageable);
 
         assertThat(response).isNotNull();
         assertThat(response.getContent().get(0).getContent()).isEqualTo("Test message");
-        verify(userRepository).findById(2L);
+        verify(userBlockService).getBlockedUserIdsEitherDirection(2L);
     }
 
     @Test
@@ -241,9 +240,8 @@ class MessageServiceTest {
         ReflectionTestUtils.setField(unsafeMessage, "messageId", 2L);
         Page<Message> messagePage = new PageImpl<>(List.of(unsafeMessage), pageable, 1);
 
-        when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
-        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
-        when(messageRepository.findReceivedMessagesExcludingBlocked(eq(receiver), eq(false), anyList(), any(Pageable.class)))
+        when(userBlockService.getBlockedUserIdsEitherDirection(2L)).thenReturn(Collections.emptyList());
+        when(messageRepository.findReceivedMessagesExcludingBlocked(eq(2L), eq(false), anyList(), any(Pageable.class)))
                 .thenReturn(messagePage);
 
         MessageResponse response = messageService.getReceivedMessages(2L, pageable);
@@ -257,15 +255,14 @@ class MessageServiceTest {
         Pageable pageable = PageRequest.of(0, 10);
         Page<Message> messagePage = new PageImpl<>(List.of(message), pageable, 1);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(sender));
-        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
-        when(messageRepository.findSentMessagesExcludingBlocked(eq(sender), eq(false), anyList(), any(Pageable.class)))
+        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
+        when(messageRepository.findSentMessagesExcludingBlocked(eq(1L), eq(false), anyList(), any(Pageable.class)))
                 .thenReturn(messagePage);
 
         MessageResponse response = messageService.getSentMessages(1L, pageable);
 
         assertThat(response).isNotNull();
-        verify(userRepository).findById(1L);
+        verify(userBlockService).getBlockedUserIdsEitherDirection(1L);
     }
 
     @Test
@@ -274,16 +271,15 @@ class MessageServiceTest {
         Pageable requestedPageable = PageRequest.of(0, 1000, Sort.by("messageId"));
         Page<Message> messagePage = new PageImpl<>(List.of(message), requestedPageable, 1);
 
-        when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
-        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
-        when(messageRepository.findReceivedMessagesExcludingBlocked(eq(receiver), eq(false), anyList(), any(Pageable.class)))
+        when(userBlockService.getBlockedUserIdsEitherDirection(2L)).thenReturn(Collections.emptyList());
+        when(messageRepository.findReceivedMessagesExcludingBlocked(eq(2L), eq(false), anyList(), any(Pageable.class)))
                 .thenReturn(messagePage);
 
         messageService.getReceivedMessages(2L, requestedPageable);
 
         ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
         verify(messageRepository).findReceivedMessagesExcludingBlocked(
-                eq(receiver),
+                eq(2L),
                 eq(false),
                 anyList(),
                 captor.capture());
@@ -299,16 +295,15 @@ class MessageServiceTest {
         Pageable requestedPageable = PageRequest.of(0, 10, Sort.by(Sort.Order.asc("createdAt")));
         Page<Message> messagePage = new PageImpl<>(List.of(message), requestedPageable, 1);
 
-        when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
-        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
-        when(messageRepository.findReceivedMessagesExcludingBlocked(eq(receiver), eq(false), anyList(), any(Pageable.class)))
+        when(userBlockService.getBlockedUserIdsEitherDirection(2L)).thenReturn(Collections.emptyList());
+        when(messageRepository.findReceivedMessagesExcludingBlocked(eq(2L), eq(false), anyList(), any(Pageable.class)))
                 .thenReturn(messagePage);
 
         messageService.getReceivedMessages(2L, requestedPageable);
 
         ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
         verify(messageRepository).findReceivedMessagesExcludingBlocked(
-                eq(receiver),
+                eq(2L),
                 eq(false),
                 anyList(),
                 captor.capture());
@@ -322,16 +317,15 @@ class MessageServiceTest {
         Pageable requestedPageable = PageRequest.of(0, 1000, Sort.by("messageId"));
         Page<Message> messagePage = new PageImpl<>(List.of(message), requestedPageable, 1);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(sender));
-        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
-        when(messageRepository.findSentMessagesExcludingBlocked(eq(sender), eq(false), anyList(), any(Pageable.class)))
+        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
+        when(messageRepository.findSentMessagesExcludingBlocked(eq(1L), eq(false), anyList(), any(Pageable.class)))
                 .thenReturn(messagePage);
 
         messageService.getSentMessages(1L, requestedPageable);
 
         ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
         verify(messageRepository).findSentMessagesExcludingBlocked(
-                eq(sender),
+                eq(1L),
                 eq(false),
                 anyList(),
                 captor.capture());
@@ -475,9 +469,8 @@ class MessageServiceTest {
     @Test
     @DisplayName("읽지 않은 메시지 개수를 조회한다")
     void getUnreadMessageCount_success() {
-        when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
-        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
-        when(messageRepository.countUnreadMessagesExcludingBlocked(eq(receiver), eq(false), eq(false), anyList()))
+        when(userBlockService.getBlockedUserIdsEitherDirection(2L)).thenReturn(Collections.emptyList());
+        when(messageRepository.countUnreadMessagesExcludingBlocked(eq(2L), eq(false), eq(false), anyList()))
                 .thenReturn(5L);
 
         long count = messageService.getUnreadMessageCount(2L);
@@ -644,15 +637,14 @@ class MessageServiceTest {
         Pageable pageable = PageRequest.of(0, 10);
         Page<Message> messagePage = new PageImpl<>(List.of(), pageable, 0);
 
-        when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
-        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(List.of(1L));
-        when(messageRepository.findReceivedMessagesExcludingBlocked(eq(receiver), eq(false), eq(List.of(1L)), any(Pageable.class)))
+        when(userBlockService.getBlockedUserIdsEitherDirection(2L)).thenReturn(List.of(1L));
+        when(messageRepository.findReceivedMessagesExcludingBlocked(eq(2L), eq(false), eq(List.of(1L)), any(Pageable.class)))
                 .thenReturn(messagePage);
 
         MessageResponse response = messageService.getReceivedMessages(2L, pageable);
 
         assertThat(response.getContent()).isEmpty();
-        verify(userBlockService).getBlockedUserIdsEitherDirectionForExistingUser(2L);
+        verify(userBlockService).getBlockedUserIdsEitherDirection(2L);
     }
 
     @Test
@@ -661,29 +653,27 @@ class MessageServiceTest {
         Pageable pageable = PageRequest.of(0, 10);
         Page<Message> messagePage = new PageImpl<>(List.of(), pageable, 0);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(sender));
-        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
-        when(messageRepository.findSentMessagesExcludingBlocked(eq(sender), eq(false), eq(List.of(2L)), any(Pageable.class)))
+        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(List.of(2L));
+        when(messageRepository.findSentMessagesExcludingBlocked(eq(1L), eq(false), eq(List.of(2L)), any(Pageable.class)))
                 .thenReturn(messagePage);
 
         MessageResponse response = messageService.getSentMessages(1L, pageable);
 
         assertThat(response.getContent()).isEmpty();
-        verify(userBlockService).getBlockedUserIdsEitherDirectionForExistingUser(1L);
+        verify(userBlockService).getBlockedUserIdsEitherDirection(1L);
     }
 
     @Test
     @DisplayName("양방향 차단된 사용자의 unread count는 제외된다")
     void getUnreadMessageCount_bidirectionalBlocked() {
-        when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
-        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(List.of(1L));
-        when(messageRepository.countUnreadMessagesExcludingBlocked(eq(receiver), eq(false), eq(false), eq(List.of(1L))))
+        when(userBlockService.getBlockedUserIdsEitherDirection(2L)).thenReturn(List.of(1L));
+        when(messageRepository.countUnreadMessagesExcludingBlocked(eq(2L), eq(false), eq(false), eq(List.of(1L))))
                 .thenReturn(0L);
 
         long count = messageService.getUnreadMessageCount(2L);
 
         assertThat(count).isZero();
-        verify(userBlockService).getBlockedUserIdsEitherDirectionForExistingUser(2L);
+        verify(userBlockService).getBlockedUserIdsEitherDirection(2L);
     }
 
     private Message messageWithId(Long messageId) {
