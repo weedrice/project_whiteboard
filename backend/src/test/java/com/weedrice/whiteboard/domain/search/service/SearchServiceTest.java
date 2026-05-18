@@ -563,12 +563,14 @@ class SearchServiceTest {
         when(boardRepository.findByBoardUrl("private")).thenReturn(Optional.of(privateBoard));
         when(searchUserLookupPolicy.resolveOptional(1L)).thenReturn(user);
         when(adminRepository.existsByUserAndBoardAndIsActive(user, privateBoard, true)).thenReturn(true);
-        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(postRepository.searchPosts(eq("test"), isNull(), eq("private"), eq(Collections.emptyList()),
                 eq(true), eq(1L), any(Pageable.class))).thenReturn(Page.empty(pageable));
 
         searchPostsWithPageable("test", null, "private", pageable, 1L);
 
+        verify(userBlockService).getBlockedUserIdsEitherDirectionForExistingUser(1L);
+        verify(userBlockService, never()).getBlockedUserIdsEitherDirection(1L);
         verify(postRepository).searchPosts(eq("test"), isNull(), eq("private"), eq(Collections.emptyList()),
                 eq(true), eq(1L), any(Pageable.class));
     }
@@ -605,12 +607,14 @@ class SearchServiceTest {
 
         when(boardRepository.findByBoardUrl("private")).thenReturn(Optional.of(privateBoard));
         when(searchUserLookupPolicy.resolveOptional(1L)).thenReturn(user);
-        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(postRepository.searchPosts(eq("test"), isNull(), eq("private"), eq(Collections.emptyList()),
                 eq(true), eq(1L), any(Pageable.class))).thenReturn(Page.empty(pageable));
 
         searchPostsWithPageable("test", null, "private", pageable, 1L);
 
+        verify(userBlockService).getBlockedUserIdsEitherDirectionForExistingUser(1L);
+        verify(userBlockService, never()).getBlockedUserIdsEitherDirection(1L);
         verify(adminRepository, never()).existsByUserAndBoardAndIsActive(any(), any(), anyBoolean());
         verify(postRepository).searchPosts(eq("test"), isNull(), eq("private"), eq(Collections.emptyList()),
                 eq(true), eq(1L), any(Pageable.class));
