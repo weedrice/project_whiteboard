@@ -21,6 +21,14 @@ interface UsePostDraftOptions {
 }
 
 const AUTOSAVE_DELAY_MS = 1500
+const DRAFT_OUTDATED_ERROR_CODE = 'P004'
+
+type ApiErrorPayload = {
+    code?: string
+    error?: {
+        code?: string
+    }
+}
 
 const toIsoTime = (value?: string | null): string | null => {
     if (!value) return null
@@ -49,6 +57,25 @@ const isMatchingDraft = (draft: DraftPostSummary, payload: PostDraftData) => {
     const draftOriginalPostId = draft.originalPostId ?? null
     const payloadOriginalPostId = payload.originalPostId ?? null
     return draftOriginalPostId === payloadOriginalPostId
+}
+
+const isMatchingLoadedDraft = (draft: DraftPost, payload: PostDraftData) => {
+    if (draft.boardUrl !== payload.boardUrl) return false
+    const draftOriginalPostId = draft.originalPostId ?? null
+    const payloadOriginalPostId = payload.originalPostId ?? null
+    return draftOriginalPostId === payloadOriginalPostId
+}
+
+const getDraftUpdatedAt = (draft: Pick<DraftPost, 'updatedAt' | 'modifiedAt'>): string | null => (
+    draft.updatedAt ?? draft.modifiedAt ?? null
+)
+
+const isDraftOutdatedError = (error: unknown): boolean => {
+    if (!isAxiosError(error) || error.response?.status !== 409) {
+        return false
+    }
+    const data = error.response.data as ApiErrorPayload | undefined
+    return data?.error?.code === DRAFT_OUTDATED_ERROR_CODE || data?.code === DRAFT_OUTDATED_ERROR_CODE
 }
 
 const findMatchingServerDraftId = async (payload: PostDraftData): Promise<number | null> => {
@@ -121,6 +148,50 @@ export function usePostDraft(options: UsePostDraftOptions) {
         Storage.set(options.storageKey.value, snapshot)
     }
 
+    const refreshCurrentDraftVersion = async (payload: PostDraftData): Promise<string | null> => {
+        const currentDraftId = draftId.value
+        if (currentDraftId == null) {
+            return null
+        }
+        const { data } = await postApi.getDraft(currentDraftId)
+        const latestDraft = data.data
+        if (!isMatchingLoadedDraft(latestDraft, payload)) {
+            return null
+        }
+        draftId.value = latestDraft.draftId
+        updatedAt.value = getDraftUpdatedAt(latestDraft)
+        writeLocalSnapshot()
+        return updatedAt.value
+    }
+
+    const savePayload = async (payload: PostDraftData, allowVersionRefresh = true) => {
+        try {
+            return await saveDraftMutation.mutateAsync({
+                ...payload,
+                draftId: draftId.value ?? undefined,
+                updatedAt: updatedAt.value ?? undefined,
+            })
+        } catch (error: unknown) {
+            if (!allowVersionRefresh || !isDraftOutdatedError(error)) {
+                throw error
+            }
+            let latestUpdatedAt: string | null = null
+            try {
+                latestUpdatedAt = await refreshCurrentDraftVersion(payload)
+            } catch (refreshError: unknown) {
+                logger.error('Failed to refresh outdated draft version:', refreshError)
+            }
+            if (!latestUpdatedAt) {
+                throw error
+            }
+            return await saveDraftMutation.mutateAsync({
+                ...payload,
+                draftId: draftId.value ?? undefined,
+                updatedAt: latestUpdatedAt,
+            })
+        }
+    }
+
     const persistNow = async () => {
         if (!options.enabled.value) return null
         clearAutosaveTimer()
@@ -147,14 +218,10 @@ export function usePostDraft(options: UsePostDraftOptions) {
         }
 
         writeLocalSnapshot()
-        const { data } = await saveDraftMutation.mutateAsync({
-            ...payload,
-            draftId: draftId.value ?? undefined,
-            updatedAt: updatedAt.value ?? undefined,
-        })
+        const { data } = await savePayload(payload)
         const savedDraft = data.data
         draftId.value = savedDraft.draftId
-        updatedAt.value = savedDraft.updatedAt ?? savedDraft.modifiedAt ?? new Date().toISOString()
+        updatedAt.value = getDraftUpdatedAt(savedDraft) ?? new Date().toISOString()
         lastSavedAt.value = updatedAt.value
         Storage.set(options.storageKey.value, {
             ...payload,

@@ -146,6 +146,88 @@ describe('usePostDraft', () => {
         }))
     })
 
+    it('refreshes an outdated draft version and retries the current save once', async () => {
+        const { composable, payloadRef } = mountComposable()
+
+        await composable.saveNow()
+
+        payloadRef.value = {
+            ...payloadRef.value,
+            title: 'Current editor title',
+        }
+        mocks.saveDraftMutateAsync.mockRejectedValueOnce({
+            isAxiosError: true,
+            response: {
+                status: 409,
+                data: {
+                    error: {
+                        code: 'P004',
+                    },
+                },
+            },
+        })
+        mocks.getDraft.mockResolvedValueOnce({
+            data: {
+                data: {
+                    draftId: 91,
+                    boardId: 1,
+                    boardUrl: 'free',
+                    boardName: 'Free',
+                    title: 'Server title',
+                    contents: 'Server body',
+                    tags: [],
+                    fileIds: [7],
+                    isNotice: false,
+                    isNsfw: false,
+                    isSpoiler: false,
+                    isSecret: false,
+                    updatedAt: '2025-01-02T00:00:00.000Z',
+                    modifiedAt: '2025-01-02T00:00:00.000Z',
+                },
+            },
+        })
+        mocks.saveDraftMutateAsync.mockResolvedValueOnce({
+            data: {
+                data: {
+                    draftId: 91,
+                    boardId: 1,
+                    boardUrl: 'free',
+                    boardName: 'Free',
+                    title: 'Current editor title',
+                    contents: 'Draft body',
+                    tags: [],
+                    fileIds: [7],
+                    isNotice: false,
+                    isNsfw: false,
+                    isSpoiler: false,
+                    isSecret: false,
+                    updatedAt: '2025-01-03T00:00:00.000Z',
+                    modifiedAt: '2025-01-03T00:00:00.000Z',
+                },
+            },
+        })
+
+        const savedDraft = await composable.saveNow()
+
+        expect(savedDraft?.updatedAt).toBe('2025-01-03T00:00:00.000Z')
+        expect(mocks.getDraft).toHaveBeenCalledWith(91)
+        expect(mocks.saveDraftMutateAsync).toHaveBeenNthCalledWith(2, expect.objectContaining({
+            draftId: 91,
+            title: 'Current editor title',
+            updatedAt: '2025-01-01T00:00:00.000Z',
+        }))
+        expect(mocks.saveDraftMutateAsync).toHaveBeenNthCalledWith(3, expect.objectContaining({
+            draftId: 91,
+            title: 'Current editor title',
+            updatedAt: '2025-01-02T00:00:00.000Z',
+        }))
+        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+            draftId: 91,
+            title: 'Current editor title',
+            updatedAt: '2025-01-03T00:00:00.000Z',
+        }))
+    })
+
     it('restores the newest server draft even when local storage has no draft id', async () => {
         const { composable, appliedDrafts, payloadRef } = mountComposable(ref({
             boardUrl: 'free',
@@ -284,8 +366,7 @@ describe('usePostDraft', () => {
             title: 'Autosave me',
         }
         composable.scheduleAutosave()
-        vi.advanceTimersByTime(1500)
-        await Promise.resolve()
+        await vi.advanceTimersByTimeAsync(1500)
 
         expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(1)
 
