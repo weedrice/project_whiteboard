@@ -248,7 +248,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import draggable from 'vuedraggable'
 import { GripVertical } from 'lucide-vue-next'
 import { useAdmin } from '@/composables/useAdmin'
-import api from '@/api'
+import { fileApi } from '@/api/file'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -480,15 +480,8 @@ async function handleFileUpload(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0]
   if (!file) return
 
-  const formData = new FormData()
-  formData.append('file', file)
-
   try {
-    const { data } = await api.post('/files/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    })
+    const { data } = await fileApi.uploadFile(file)
 
     if (data.success) {
       form.iconUrl = data.data.url
