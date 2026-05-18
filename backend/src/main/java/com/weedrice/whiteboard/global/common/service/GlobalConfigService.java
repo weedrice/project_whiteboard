@@ -29,7 +29,7 @@ public class GlobalConfigService {
     private static final String GLOBAL_CONFIG_CACHE = "globalConfig";
     private static final String POINT_CONFIG_PREFIX = "POINT_";
     private static final int MAX_CONFIG_KEY_LENGTH = 100;
-    private static final int MAX_CONFIG_VALUE_LENGTH = 255;
+    private static final int MAX_CONFIG_VALUE_LENGTH = 10_000;
     private static final int MAX_CONFIG_DESCRIPTION_LENGTH = 255;
 
     private final GlobalConfigRepository globalConfigRepository;

@@ -311,7 +311,7 @@ class GlobalConfigServiceTest {
             assertThatThrownBy(() -> globalConfigService.createConfig("key", "   ", "desc"))
                     .isInstanceOf(BusinessException.class)
                     .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-            assertThatThrownBy(() -> globalConfigService.createConfig("key", "v".repeat(256), "desc"))
+            assertThatThrownBy(() -> globalConfigService.createConfig("key", "v".repeat(10_001), "desc"))
                     .isInstanceOf(BusinessException.class)
                     .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
             assertThatThrownBy(() -> globalConfigService.createConfig("key", "value", "d".repeat(256)))
@@ -460,7 +460,7 @@ class GlobalConfigServiceTest {
             assertThatThrownBy(() -> globalConfigService.updateConfig("key", null, "desc"))
                     .isInstanceOf(BusinessException.class)
                     .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-            assertThatThrownBy(() -> globalConfigService.updateConfig("key", "v".repeat(256), "desc"))
+            assertThatThrownBy(() -> globalConfigService.updateConfig("key", "v".repeat(10_001), "desc"))
                     .isInstanceOf(BusinessException.class)
                     .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
             assertThatThrownBy(() -> globalConfigService.updateConfig("key", "value", "d".repeat(256)))

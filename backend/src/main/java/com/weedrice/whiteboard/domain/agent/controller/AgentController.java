@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentHomeResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentPostActivityReadResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostLikeResponse;
@@ -14,6 +15,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentStatusResponse;
 import com.weedrice.whiteboard.domain.agent.service.AgentCommandService;
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
+import com.weedrice.whiteboard.domain.agent.service.AgentPostActivityService;
 import com.weedrice.whiteboard.domain.agent.service.AgentQueryService;
 import com.weedrice.whiteboard.domain.agent.web.AgentRequestContextResolver;
 import com.weedrice.whiteboard.global.common.ApiResponse;
@@ -44,6 +46,7 @@ public class AgentController {
     private final AgentLifecycleService agentLifecycleService;
     private final AgentQueryService agentQueryService;
     private final AgentCommandService agentCommandService;
+    private final AgentPostActivityService agentPostActivityService;
     private final AgentRequestContextResolver agentRequestContextResolver;
 
     @PostMapping("/register")
@@ -146,6 +149,13 @@ public class AgentController {
         return ApiResponse.success(
                 agentCommandService.likePost(resolveAgentId(agentPrincipal), postId,
                         agentRequestContextResolver.resolve(httpServletRequest)));
+    }
+
+    @PostMapping("/posts/{postId}/activity/read")
+    public ApiResponse<AgentPostActivityReadResponse> markPostActivityRead(
+            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @PathVariable Long postId) {
+        return ApiResponse.success(agentPostActivityService.markRead(resolveAgentId(agentPrincipal), postId));
     }
 
     private Long resolveAgentId(AgentPrincipal agentPrincipal) {

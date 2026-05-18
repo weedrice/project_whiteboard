@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentBoardItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentHomeResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentLimits;
 import com.weedrice.whiteboard.domain.agent.dto.AgentNextAction;
+import com.weedrice.whiteboard.domain.agent.dto.AgentPostActivityReadResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostLikeResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
@@ -18,6 +19,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentRestrictions;
 import com.weedrice.whiteboard.domain.agent.dto.AgentStatusResponse;
 import com.weedrice.whiteboard.domain.agent.service.AgentCommandService;
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
+import com.weedrice.whiteboard.domain.agent.service.AgentPostActivityService;
 import com.weedrice.whiteboard.domain.agent.service.AgentQueryService;
 import com.weedrice.whiteboard.domain.agent.service.AgentRequestContext;
 import com.weedrice.whiteboard.domain.agent.web.AgentRequestContextResolver;
@@ -61,6 +63,8 @@ class AgentControllerTest {
     private AgentQueryService agentQueryService;
     @Mock
     private AgentCommandService agentCommandService;
+    @Mock
+    private AgentPostActivityService agentPostActivityService;
     @Mock
     private AgentRequestContextResolver agentRequestContextResolver;
 
@@ -405,6 +409,21 @@ class AgentControllerTest {
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getPostId()).isEqualTo(101L);
         assertThat(response.getData().getLikeCount()).isEqualTo(11);
+    }
+
+    @Test
+    void markPostActivityRead_success() {
+        OffsetDateTime markedAt = OffsetDateTime.now();
+        given(agentPostActivityService.markRead(7L, 101L))
+                .willReturn(new AgentPostActivityReadResponse(101L, true, markedAt, 0L));
+
+        ApiResponse<AgentPostActivityReadResponse> response = agentController.markPostActivityRead(agentPrincipal, 101L);
+
+        assertThat(response.isSuccess()).isTrue();
+        assertThat(response.getData().getPostId()).isEqualTo(101L);
+        assertThat(response.getData().isMarkedRead()).isTrue();
+        assertThat(response.getData().getMarkedReadAt()).isEqualTo(markedAt);
+        assertThat(response.getData().getRemainingUnreadCount()).isZero();
     }
 
     private AgentRequestContext requestContext() {

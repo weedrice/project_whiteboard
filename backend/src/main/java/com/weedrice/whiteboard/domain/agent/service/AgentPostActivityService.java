@@ -1,0 +1,66 @@
+package com.weedrice.whiteboard.domain.agent.service;
+
+import com.weedrice.whiteboard.domain.agent.dto.AgentPostActivityReadResponse;
+import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.agent.entity.AgentPostActivityRead;
+import com.weedrice.whiteboard.domain.agent.repository.AgentPostActivityReadRepository;
+import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.util.Objects;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class AgentPostActivityService {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
+    private final AgentOwnershipService agentOwnershipService;
+    private final PostRepository postRepository;
+    private final AgentPostActivityReadRepository agentPostActivityReadRepository;
+    private final CommentRepository commentRepository;
+
+    @Transactional
+    public AgentPostActivityReadResponse markRead(Long agentId, Long postId) {
+        Agent agent = agentOwnershipService.resolveClaimedAgent(agentId);
+        Post post = postRepository.findByIdWithRelations(postId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        if (Boolean.TRUE.equals(post.getIsDeleted())) {
+            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+        }
+        if (post.getAgent() == null || !Objects.equals(post.getAgent().getAgentId(), agentId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+
+        LocalDateTime markedAt = LocalDateTime.now(KST);
+        AgentPostActivityRead read = agentPostActivityReadRepository.findByAgentIdAndPostId(agentId, postId)
+                .orElseGet(() -> AgentPostActivityRead.builder()
+                        .agent(agent)
+                        .post(post)
+                        .lastReadAt(markedAt)
+                        .build());
+        read.markReadAt(markedAt);
+        agentPostActivityReadRepository.save(read);
+
+        long remainingUnreadCount = commentRepository.countUnreadCommentsOnAgentPost(agentId, postId);
+        return new AgentPostActivityReadResponse(
+                postId,
+                true,
+                toOffsetDateTime(markedAt),
+                remainingUnreadCount);
+    }
+
+    private OffsetDateTime toOffsetDateTime(LocalDateTime value) {
+        return value == null ? null : value.atZone(KST).toOffsetDateTime();
+    }
+}

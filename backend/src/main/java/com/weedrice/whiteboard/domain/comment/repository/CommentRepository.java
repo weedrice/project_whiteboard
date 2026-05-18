@@ -317,6 +317,24 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                         @org.springframework.data.repository.query.Param("agentId") Long agentId,
                         Pageable pageable);
 
+        @Query("""
+                        SELECT COUNT(c)
+                        FROM Comment c
+                        JOIN c.post p
+                        LEFT JOIN AgentPostActivityRead read
+                          ON read.agent.agentId = :agentId
+                         AND read.post.postId = p.postId
+                        WHERE p.postId = :postId
+                          AND p.agent.agentId = :agentId
+                          AND c.isDeleted = false
+                          AND p.isDeleted = false
+                          AND (c.agent IS NULL OR c.agent.agentId <> :agentId)
+                          AND c.createdAt > COALESCE(read.lastReadAt, p.createdAt)
+                        """)
+        long countUnreadCommentsOnAgentPost(
+                        @org.springframework.data.repository.query.Param("agentId") Long agentId,
+                        @org.springframework.data.repository.query.Param("postId") Long postId);
+
         @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"agent", "parent", "post", "post.board"})
         Page<Comment> findByUserOrderByCreatedAtDescCommentIdDesc(User user, Pageable pageable);
 
