@@ -15,6 +15,18 @@ function createPostFormStub(hasUnsavedChanges: boolean, leaveMessage?: string) {
       mode: {
         type: String,
         required: true
+      },
+      boardUrl: {
+        type: String,
+        default: ''
+      },
+      postId: {
+        type: String,
+        default: ''
+      },
+      onSubmitted: {
+        type: Function,
+        default: undefined
       }
     },
     setup(props, { expose }) {
@@ -28,7 +40,12 @@ function createPostFormStub(hasUnsavedChanges: boolean, leaveMessage?: string) {
         hasUnsavedChanges: () => boolean
         getLeaveConfirmMessage?: () => string
       })
-      return () => h('div', { 'data-testid': 'post-form', 'data-mode': props.mode })
+      return () => h('div', {
+        'data-testid': 'post-form',
+        'data-mode': props.mode,
+        'data-board-url': props.boardUrl,
+        'data-post-id': props.postId
+      })
     }
   })
 }
@@ -38,7 +55,7 @@ async function mountPostEdit(hasUnsavedChanges = false, leaveMessage?: string) {
     history: createMemoryHistory(),
     routes: [
       {
-        path: '/board/test/post/1/edit',
+        path: '/board/:boardUrl/post/:postId/edit',
         component: PostEdit
       },
       {
@@ -74,6 +91,8 @@ describe('PostEdit', () => {
 
     expect(form.exists()).toBe(true)
     expect(form.attributes('data-mode')).toBe('edit')
+    expect(form.attributes('data-board-url')).toBe('test')
+    expect(form.attributes('data-post-id')).toBe('1')
   })
 
   it('allows route leave when there are no unsaved changes', async () => {

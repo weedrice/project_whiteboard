@@ -1,23 +1,29 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { onBeforeRouteLeave } from 'vue-router'
+import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import PostForm from '@/components/board/PostForm.vue'
+import { usePostFormLeaveGuard } from '@/composables/usePostFormLeaveGuard'
 
 const postFormRef = ref<InstanceType<typeof PostForm> | null>(null)
+const route = useRoute()
+const router = useRouter()
+const boardUrl = computed(() => String(route.params.boardUrl ?? ''))
+const postId = computed(() => String(route.params.postId ?? ''))
+const leaveConfirmMessage = '페이지에서 나가시겠습니까? 변경사항이 저장되지 않을 수 있습니다.'
 
-onBeforeRouteLeave((_to, _from, next) => {
-  const form = postFormRef.value
-  if (form?.hasUnsavedChanges?.()) {
-    const message = form.getLeaveConfirmMessage?.() ?? '사이트에서 나가시겠습니까? 변경사항이 저장되지 않을 수 있습니다.'
-    if (!window.confirm(message)) {
-      next(false)
-      return
-    }
-  }
-  next()
-})
+usePostFormLeaveGuard(postFormRef, leaveConfirmMessage)
+
+function handleSubmitted(result: { boardUrl: string; postId?: string | number }) {
+  router.push(`/board/${result.boardUrl}/post/${result.postId ?? postId.value}`)
+}
 </script>
 
 <template>
-  <PostForm ref="postFormRef" mode="edit" />
+  <PostForm
+    ref="postFormRef"
+    mode="edit"
+    :board-url="boardUrl"
+    :post-id="postId"
+    :on-submitted="handleSubmitted"
+  />
 </template>

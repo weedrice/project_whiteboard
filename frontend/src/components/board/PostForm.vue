@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useBoard } from '@/composables/useBoard'
 import { usePost } from '@/composables/usePost'
 import { usePostDraft } from '@/composables/usePostDraft'
@@ -23,6 +23,8 @@ import logger from '@/utils/logger'
 const props = defineProps<{
   mode: 'create' | 'edit'
   boardUrl?: string
+  postId?: string | number
+  onSubmitted?: (result: PostFormSubmitResult) => void
   redirectOnCreate?: string
   goBackOnCreate?: boolean
   createTitleOverride?: string
@@ -34,6 +36,15 @@ const props = defineProps<{
   hideSecret?: boolean
   skipBoardLookup?: boolean
 }>()
+
+type PostFormSubmitResult = {
+  mode: 'create' | 'edit'
+  boardUrl: string
+  postId?: string | number
+  newPostId?: string | number
+  isSecret: boolean
+  isBoardAdmin: boolean
+}
 
 type CategoryOption = {
   categoryId: number
@@ -54,13 +65,12 @@ type FormState = {
 }
 
 const { t } = useI18n()
-const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
 
-const boardUrl = computed(() => props.boardUrl ?? (route.params.boardUrl as string))
-const postId = computed(() => route.params.postId as string)
+const boardUrl = computed(() => props.boardUrl ?? '')
+const postId = computed(() => props.postId ?? '')
 
 const { useBoardDetail, useBoardCategories } = useBoard()
 const {
@@ -521,6 +531,17 @@ function cleanupPublishedDraft() {
 }
 
 function navigateAfterCreate(newPostId: string | number, payload: ReturnType<typeof buildPayload>) {
+  if (props.onSubmitted) {
+    props.onSubmitted({
+      mode: 'create',
+      boardUrl: boardUrl.value,
+      newPostId,
+      isSecret: payload.isSecret,
+      isBoardAdmin: board.value?.isAdmin ?? false,
+    })
+    return
+  }
+
   if (props.goBackOnCreate) {
     if (typeof window !== 'undefined' && window.history.length > 1) {
       router.back()
@@ -593,6 +614,16 @@ async function handleSubmit() {
     onSuccess: () => {
       markCurrentSnapshotSaved()
       cleanupPublishedDraft()
+      if (props.onSubmitted) {
+        props.onSubmitted({
+          mode: 'edit',
+          boardUrl: boardUrl.value,
+          postId: postId.value,
+          isSecret: payload.isSecret,
+          isBoardAdmin: board.value?.isAdmin ?? false,
+        })
+        return
+      }
       router.push(`/board/${boardUrl.value}/post/${postId.value}`)
     },
     onError: (error) => {

@@ -15,6 +15,14 @@ function createPostFormStub(hasUnsavedChanges: boolean, leaveMessage?: string) {
       mode: {
         type: String,
         required: true
+      },
+      boardUrl: {
+        type: String,
+        default: ''
+      },
+      onSubmitted: {
+        type: Function,
+        default: undefined
       }
     },
     setup(props, { expose }) {
@@ -28,7 +36,11 @@ function createPostFormStub(hasUnsavedChanges: boolean, leaveMessage?: string) {
         hasUnsavedChanges: () => boolean
         getLeaveConfirmMessage?: () => string
       })
-      return () => h('div', { 'data-testid': 'post-form', 'data-mode': props.mode })
+      return () => h('div', {
+        'data-testid': 'post-form',
+        'data-mode': props.mode,
+        'data-board-url': props.boardUrl
+      })
     }
   })
 }
@@ -38,7 +50,7 @@ async function mountPostWrite(hasUnsavedChanges = false, leaveMessage?: string) 
     history: createMemoryHistory(),
     routes: [
       {
-        path: '/board/test/write',
+        path: '/board/:boardUrl/write',
         component: PostWrite
       },
       {
@@ -74,6 +86,7 @@ describe('PostWrite', () => {
 
     expect(form.exists()).toBe(true)
     expect(form.attributes('data-mode')).toBe('create')
+    expect(form.attributes('data-board-url')).toBe('test')
   })
 
   it('allows route leave when there are no unsaved changes', async () => {
