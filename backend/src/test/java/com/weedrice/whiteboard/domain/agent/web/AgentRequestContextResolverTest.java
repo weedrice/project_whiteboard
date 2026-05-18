@@ -1,5 +1,6 @@
-package com.weedrice.whiteboard.domain.agent.service;
+package com.weedrice.whiteboard.domain.agent.web;
 
+import com.weedrice.whiteboard.domain.agent.service.AgentRequestContext;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 

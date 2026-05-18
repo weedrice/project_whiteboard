@@ -1,5 +1,6 @@
-package com.weedrice.whiteboard.domain.agent.service;
+package com.weedrice.whiteboard.domain.agent.web;
 
+import com.weedrice.whiteboard.domain.agent.service.AgentRequestContext;
 import com.weedrice.whiteboard.global.common.util.ClientUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Component;
