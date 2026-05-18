@@ -52,6 +52,20 @@ class UserLifecycleServiceTest {
     }
 
     @Test
+    @DisplayName("admin-managed suspend passes current admin to privilege cleanup")
+    void updateAdminManagedStatus_suspendUsesActorAwarePrivilegeCleanup() {
+        User user = User.builder().build();
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+
+        userLifecycleService.updateAdminManagedStatus(9L, 1L, "SUSPENDED");
+
+        assertThat(user.getStatus()).isEqualTo("SUSPENDED");
+        verify(userPrivilegeCleanupService).removeOperationalPrivileges(user, 9L);
+        verify(refreshTokenLifecycleService).revokeActiveRefreshTokens(user);
+        verify(agentLifecycleService).suspendAllForUser(user);
+    }
+
+    @Test
     @DisplayName("suspend does not revoke sessions or agents when operational privilege guard rejects")
     void updateAdminManagedStatus_suspendGuardRejectedDoesNotMutate() {
         User user = User.builder().build();

@@ -11,11 +11,13 @@ import com.weedrice.whiteboard.domain.user.service.UserAdminCommandService;
 import com.weedrice.whiteboard.domain.user.service.UserAdminQueryService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
+import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -90,8 +92,9 @@ public class AdminUserController {
     @PutMapping("/{userId}/status")
     public ApiResponse<Void> updateUserStatus(
             @PathVariable Long userId,
-            @RequestBody UserStatusUpdateRequest request) {
-        userAdminCommandService.updateUserStatus(userId, request.getStatus());
+            @RequestBody UserStatusUpdateRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        userAdminCommandService.updateUserStatus(userDetails.getUserId(), userId, request.getStatus());
         return ApiResponse.success(null);
     }
 }

@@ -71,4 +71,20 @@ class UserPrivilegeCleanupServiceTest {
         assertThat(user.getIsSuperAdmin()).isTrue();
         assertThat(admin.getIsActive()).isTrue();
     }
+
+    @Test
+    void removeOperationalPrivilegesWithActor_usesActorAwareGuard() {
+        User user = User.builder().build();
+        user.grantSuperAdminRole();
+        Admin admin = Admin.builder().user(user).role(Role.BOARD_ADMIN).build();
+        List<Admin> activeAdmins = List.of(admin);
+        when(adminRepository.findAllByUserAndIsActiveOrderByAdminIdAsc(user, true))
+                .thenReturn(activeAdmins);
+
+        userPrivilegeCleanupService.removeOperationalPrivileges(user, 9L);
+
+        assertThat(user.getIsSuperAdmin()).isFalse();
+        assertThat(admin.getIsActive()).isFalse();
+        verify(privilegeRevocationGuard).validateOperationalPrivilegesCanBeRevokedBy(user, activeAdmins, 9L);
+    }
 }

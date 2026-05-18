@@ -273,7 +273,7 @@ class AdminUserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
-        verify(userAdminCommandService).updateUserStatus(1L, "ACTIVE");
+        verify(userAdminCommandService).updateUserStatus(1L, 1L, "ACTIVE");
     }
 
     @Test
@@ -282,7 +282,7 @@ class AdminUserControllerTest {
         UserStatusUpdateRequest request = new UserStatusUpdateRequest();
         ReflectionTestUtils.setField(request, "status", "ACTIVE");
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
-                .when(userAdminCommandService).updateUserStatus(1L, "ACTIVE");
+                .when(userAdminCommandService).updateUserStatus(1L, 1L, "ACTIVE");
 
         mockMvc.perform(put("/api/v1/admin/users/{userId}/status", 1L)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -300,7 +300,7 @@ class AdminUserControllerTest {
         UserStatusUpdateRequest request = new UserStatusUpdateRequest();
         ReflectionTestUtils.setField(request, "status", "SUSPENDED");
         doThrow(new BusinessException(ErrorCode.INVALID_INPUT_VALUE))
-                .when(userAdminCommandService).updateUserStatus(1L, "SUSPENDED");
+                .when(userAdminCommandService).updateUserStatus(1L, 1L, "SUSPENDED");
 
         mockMvc.perform(put("/api/v1/admin/users/{userId}/status", 1L)
                         .contentType(MediaType.APPLICATION_JSON)

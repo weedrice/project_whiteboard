@@ -21,8 +21,8 @@ class UserAdminCommandServiceTest {
     @Test
     @DisplayName("updateUserStatus delegates to lifecycle service")
     void updateUserStatus_delegatesToLifecycleService() {
-        userAdminCommandService.updateUserStatus(1L, "SUSPENDED");
+        userAdminCommandService.updateUserStatus(9L, 1L, "SUSPENDED");
 
-        verify(userLifecycleService).updateAdminManagedStatus(1L, "SUSPENDED");
+        verify(userLifecycleService).updateAdminManagedStatus(9L, 1L, "SUSPENDED");
     }
 }
