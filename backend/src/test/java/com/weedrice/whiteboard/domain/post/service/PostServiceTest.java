@@ -43,6 +43,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -221,6 +222,7 @@ class PostServiceTest {
                 postRepository,
                 boardRepository,
                 boardCategoryRepository,
+                draftPostRepository,
                 postVersionRepository,
                 tagAssignmentService,
                 eventPublisher,
@@ -312,6 +314,7 @@ class PostServiceTest {
     void createPost_withDraftId_passesDraftIdToFileService() {
         PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(),
                 false, false, false, false, 55L, List.of(1L));
+        DraftPost existingDraft = DraftPost.builder().user(user).board(board).title("Draft").build();
 
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -321,10 +324,39 @@ class PostServiceTest {
             ReflectionTestUtils.setField(p, "postId", 100L);
             return p;
         });
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(55L, user)).thenReturn(Optional.of(existingDraft));
 
         postService.createPost(1L, "free", request);
 
         verify(fileService).attachFilesToPost(List.of(1L), 1L, 100L, 55L);
+        InOrder inOrder = inOrder(fileService, draftPostRepository);
+        inOrder.verify(fileService).attachFilesToPost(List.of(1L), 1L, 100L, 55L);
+        inOrder.verify(fileService).markDraftFilesDeletionPending(55L);
+        inOrder.verify(draftPostRepository).delete(existingDraft);
+    }
+
+    @Test
+    @DisplayName("게시글 발행은 첨부 파일이 없어도 사용한 초안을 삭제한다")
+    void createPost_withDraftIdWithoutFiles_deletesDraft() {
+        PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(),
+                false, false, false, false, 55L, Collections.emptyList());
+        DraftPost existingDraft = DraftPost.builder().user(user).board(board).title("Draft").build();
+
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+        when(postRepository.save(any(Post.class))).thenAnswer(invocation -> {
+            Post p = invocation.getArgument(0);
+            ReflectionTestUtils.setField(p, "postId", 100L);
+            return p;
+        });
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(55L, user)).thenReturn(Optional.of(existingDraft));
+
+        postService.createPost(1L, "free", request);
+
+        verify(fileService, never()).attachFilesToPost(anyList(), anyLong(), anyLong(), any());
+        verify(fileService).markDraftFilesDeletionPending(55L);
+        verify(draftPostRepository).delete(existingDraft);
     }
 
     @Test
@@ -972,13 +1004,19 @@ class PostServiceTest {
     void updatePost_withDraftId_passesDraftIdToFileService() {
         PostUpdateRequest request = new PostUpdateRequest(null, "Updated Title", "Updated Contents",
                 Collections.emptyList(), false, false, false, 55L, List.of(5L));
+        DraftPost existingDraft = DraftPost.builder().user(user).board(board).title("Draft").build();
 
         when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(55L, user)).thenReturn(Optional.of(existingDraft));
 
         postService.updatePost(1L, 1L, request);
 
         verify(fileService).syncPostFiles(List.of(5L), 1L, 1L, 55L);
+        InOrder inOrder = inOrder(fileService, draftPostRepository);
+        inOrder.verify(fileService).syncPostFiles(List.of(5L), 1L, 1L, 55L);
+        inOrder.verify(fileService).markDraftFilesDeletionPending(55L);
+        inOrder.verify(draftPostRepository).delete(existingDraft);
     }
 
     @Test

@@ -329,6 +329,10 @@ export function usePostDraft(options: UsePostDraftOptions) {
             await deleteDraftMutation.mutateAsync(currentDraftId)
             clearRecovery()
         } catch (error: unknown) {
+            if (isAxiosError(error) && error.response?.status === 404) {
+                clearRecovery()
+                return
+            }
             logger.error('Failed to delete draft after publish:', error)
             throw error
         }

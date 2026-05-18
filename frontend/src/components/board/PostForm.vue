@@ -328,7 +328,7 @@ const {
   saveNow: saveDraftNow,
   scheduleAutosave,
   restoreDraft,
-  cleanupDraft,
+  clearRecovery,
   writeLocalSnapshot,
   lastSavedAt,
   isSavingDraft,
@@ -514,10 +514,7 @@ async function handleSaveDraft() {
 }
 
 function cleanupPublishedDraft() {
-  void cleanupDraft().catch((error) => {
-    logger.error('Failed to clean up published draft:', error)
-    toastStore.addToast(t('board.writePost.draftStatus.cleanupFailed'), 'error')
-  })
+  clearRecovery()
 }
 
 function navigateAfterCreate(newPostId: string | number, payload: ReturnType<typeof buildPayload>) {

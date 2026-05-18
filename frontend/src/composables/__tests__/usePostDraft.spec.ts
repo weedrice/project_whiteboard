@@ -390,6 +390,22 @@ describe('usePostDraft', () => {
         }))
     })
 
+    it('clears local recovery when the published draft was already deleted by the server', async () => {
+        const { composable } = mountComposable()
+
+        await composable.saveNow()
+        mocks.deleteDraftMutateAsync.mockRejectedValueOnce({
+            isAxiosError: true,
+            response: { status: 404 },
+        })
+
+        await composable.cleanupDraft()
+
+        expect(mocks.deleteDraftMutateAsync).toHaveBeenCalledWith(91)
+        expect(composable.draftId.value).toBeNull()
+        expect(Storage.get('noviis:test:draft')).toBeNull()
+    })
+
     it('deletes an existing server draft when all meaningful content is cleared', async () => {
         const { composable, payloadRef } = mountComposable()
 
