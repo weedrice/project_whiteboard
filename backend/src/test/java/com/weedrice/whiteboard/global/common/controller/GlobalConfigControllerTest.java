@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
@@ -54,37 +54,37 @@ class GlobalConfigControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockBean
+    @MockitoBean
     private GlobalConfigService globalConfigService;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor ipBlockInterceptor;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.RefererCheckInterceptor refererCheckInterceptor;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor rateLimitInterceptor;
 
-    @MockBean
+    @MockitoBean
     private org.springframework.data.jpa.mapping.JpaMetamodelMappingContext jpaMetamodelMappingContext;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.domain.user.repository.UserRepository userRepository;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.domain.admin.repository.AdminRepository adminRepository;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.oauth.CustomOAuth2UserService customOAuth2UserService;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.oauth.OAuth2SuccessHandler oAuth2SuccessHandler;
 
     private CustomUserDetails adminUser;
