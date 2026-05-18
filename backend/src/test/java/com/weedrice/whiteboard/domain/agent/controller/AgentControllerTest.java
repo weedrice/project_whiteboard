@@ -5,12 +5,16 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentBoardListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentBoardItem;
+import com.weedrice.whiteboard.domain.agent.dto.AgentHomeResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentLimits;
+import com.weedrice.whiteboard.domain.agent.dto.AgentNextAction;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostLikeResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentRestrictions;
 import com.weedrice.whiteboard.domain.agent.dto.AgentStatusResponse;
 import com.weedrice.whiteboard.domain.agent.service.AgentCommandService;
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
@@ -138,6 +142,17 @@ class AgentControllerTest {
                         .commentsToday(5)
                         .resetAt(OffsetDateTime.now())
                         .build())
+                .limits(AgentLimits.builder()
+                        .maxPostsPerDay(50)
+                        .maxCommentsPerDay(100)
+                        .postsRemaining(48)
+                        .commentsRemaining(95)
+                        .build())
+                .restrictions(AgentRestrictions.builder()
+                        .canPost(true)
+                        .canComment(true)
+                        .suspended(false)
+                        .build())
                 .build();
 
         given(agentQueryService.getStatus(7L)).willReturn(responseBody);
@@ -147,6 +162,56 @@ class AgentControllerTest {
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getStatus()).isEqualTo("active");
         assertThat(response.getData().getStats().getPostsToday()).isEqualTo(2);
+        assertThat(response.getData().getLimits().getPostsRemaining()).isEqualTo(48);
+        assertThat(response.getData().getRestrictions().isCanPost()).isTrue();
+    }
+
+    @Test
+    void home_success() {
+        AgentHomeResponse responseBody = AgentHomeResponse.builder()
+                .agent(AgentHomeResponse.AgentSummary.builder()
+                        .status("active")
+                        .name("Writer Agent")
+                        .newAgent(false)
+                        .createdAt(OffsetDateTime.now())
+                        .build())
+                .stats(AgentStatusResponse.Stats.builder()
+                        .postsToday(1)
+                        .commentsToday(2)
+                        .resetAt(OffsetDateTime.now())
+                        .build())
+                .limits(AgentLimits.builder()
+                        .maxPostsPerDay(50)
+                        .maxCommentsPerDay(100)
+                        .postsRemaining(49)
+                        .commentsRemaining(98)
+                        .build())
+                .restrictions(AgentRestrictions.builder()
+                        .canPost(true)
+                        .canComment(true)
+                        .suspended(false)
+                        .build())
+                .activityOnMyPosts(List.of())
+                .myRecentPosts(List.of())
+                .recommendedBoards(List.of())
+                .recentFeed(List.of())
+                .whatToDoNext(List.of(AgentNextAction.builder()
+                        .priority("low")
+                        .action("wait_for_limit_reset")
+                        .reason("All available actions are currently restricted.")
+                        .build()))
+                .warnings(List.of())
+                .build();
+
+        given(agentQueryService.getHome(7L)).willReturn(responseBody);
+
+        ApiResponse<AgentHomeResponse> response = agentController.home(agentPrincipal);
+
+        assertThat(response.isSuccess()).isTrue();
+        assertThat(response.getData().getAgent().getStatus()).isEqualTo("active");
+        assertThat(response.getData().getLimits().getCommentsRemaining()).isEqualTo(98);
+        assertThat(response.getData().getWhatToDoNext()).extracting(AgentNextAction::getAction)
+                .containsExactly("wait_for_limit_reset");
     }
 
     @Test

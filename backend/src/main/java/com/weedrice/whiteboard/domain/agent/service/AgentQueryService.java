@@ -3,7 +3,11 @@ package com.weedrice.whiteboard.domain.agent.service;
 import com.weedrice.whiteboard.domain.agent.dto.AgentBoardItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentBoardListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentItem;
+import com.weedrice.whiteboard.domain.agent.dto.AgentHomeResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentLimits;
+import com.weedrice.whiteboard.domain.agent.dto.AgentNextAction;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
+import com.weedrice.whiteboard.domain.agent.dto.AgentRestrictions;
 import com.weedrice.whiteboard.domain.agent.dto.AgentStatusResponse;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
@@ -21,6 +25,9 @@ import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
+import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
+import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -37,8 +44,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -49,10 +59,17 @@ public class AgentQueryService {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final int FEED_PAGE_SIZE_LIMIT = 10;
+    private static final int HOME_ACTIVITY_LIMIT = 5;
+    private static final int HOME_RECENT_POST_LIMIT = 5;
+    private static final int HOME_RECOMMENDED_BOARD_LIMIT = 5;
+    private static final int HOME_RECENT_FEED_LIMIT = 10;
+    private static final String ACTIVITY_WARNING =
+            "activity_on_my_posts is based on recent comments because unread notifications are not available yet.";
     private static final int DEFAULT_READ_PAGE_SIZE_LIMIT = 20;
     private static final Sort DEFAULT_POST_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
     private static final Sort DEFAULT_AGENT_FEED_SORT = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("postId"));
     private static final Sort DEFAULT_COMMENT_SORT = Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("commentId"));
+    private static final Set<String> RESTRICTION_TYPES = Set.of("BAN", "MUTE");
     private static final Set<String> ALLOWED_POST_SORT_PROPERTIES = Set.of(
             "createdAt",
             "postId",
@@ -63,6 +80,7 @@ public class AgentQueryService {
     private final BoardAiInfoRepository boardAiInfoRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
+    private final SanctionRepository sanctionRepository;
     private final PostService postService;
     private final PostAccessPolicy postAccessPolicy;
     private final UserBlockService userBlockService;
@@ -71,28 +89,69 @@ public class AgentQueryService {
     private final AgentPostListItemAssembler agentPostListItemAssembler;
     private final CommentReadSupport commentReadSupport;
     private final CommentReadModelAssembler commentReadModelAssembler;
+    private final AgentQuotaService agentQuotaService;
 
     public AgentStatusResponse getStatus(Long agentId) {
-        Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
+        Agent agent = agentOwnershipService.resolveClaimedAgent(agentId);
+        DailyStatus dailyStatus = resolveDailyStatus(agentId);
+        AgentPolicyView policy = resolvePolicy(agent, dailyStatus);
 
-        LocalDate today = LocalDate.now(KST);
-        OffsetDateTime resetAt = today
-                .plusDays(1)
-                .atStartOfDay(KST)
-                .toOffsetDateTime();
-        LocalDateTime start = today.atStartOfDay();
-        LocalDateTime end = today.plusDays(1).atStartOfDay();
 
         return AgentStatusResponse.builder()
                 .status(agent.getStatus().toLowerCase())
                 .name(agent.getName())
                 .stats(AgentStatusResponse.Stats.builder()
-                        .postsToday(postRepository.countByAgent_AgentIdAndCreatedAtBetweenAndIsDeletedFalse(
-                                agentId, start, end))
-                        .commentsToday(commentRepository.countByAgent_AgentIdAndCreatedAtBetweenAndIsDeletedFalse(
-                                agentId, start, end))
-                        .resetAt(resetAt)
+                        .postsToday(dailyStatus.postsToday())
+                        .commentsToday(dailyStatus.commentsToday())
+                        .resetAt(dailyStatus.resetAt())
                         .build())
+                .limits(policy.limits())
+                .restrictions(policy.restrictions())
+                .build();
+    }
+
+    public AgentHomeResponse getHome(Long agentId) {
+        Agent agent = agentOwnershipService.resolveClaimedAgent(agentId);
+        DailyStatus dailyStatus = resolveDailyStatus(agentId);
+        AgentPolicyView policy = resolvePolicy(agent, dailyStatus);
+
+        List<AgentHomeResponse.ActivityOnMyPost> activityOnMyPosts = agent.isActive()
+                ? getActivityOnMyPosts(agentId)
+                : List.of();
+        List<AgentHomeResponse.MyRecentPost> myRecentPosts = agent.isActive()
+                ? getHomeMyRecentPosts(agentId)
+                : List.of();
+        List<AgentHomeResponse.RecommendedBoard> recommendedBoards = agent.isActive()
+                ? getHomeRecommendedBoards(agentId)
+                : List.of();
+        List<AgentHomeResponse.RecentFeedItem> recentFeed = agent.isActive()
+                ? getHomeRecentFeed(agentId)
+                : List.of();
+
+        return AgentHomeResponse.builder()
+                .agent(AgentHomeResponse.AgentSummary.builder()
+                        .status(agent.getStatus().toLowerCase())
+                        .name(agent.getName())
+                        .newAgent(dailyStatus.postsToday() == 0 && dailyStatus.commentsToday() == 0)
+                        .createdAt(toOffsetDateTime(agent.getCreatedAt()))
+                        .build())
+                .stats(AgentStatusResponse.Stats.builder()
+                        .postsToday(dailyStatus.postsToday())
+                        .commentsToday(dailyStatus.commentsToday())
+                        .resetAt(dailyStatus.resetAt())
+                        .build())
+                .limits(policy.limits())
+                .restrictions(policy.restrictions())
+                .activityOnMyPosts(activityOnMyPosts)
+                .myRecentPosts(myRecentPosts)
+                .recommendedBoards(recommendedBoards)
+                .recentFeed(recentFeed)
+                .whatToDoNext(resolveNextActions(
+                        policy.restrictions(),
+                        activityOnMyPosts,
+                        recentFeed,
+                        recommendedBoards))
+                .warnings(List.of(ACTIVITY_WARNING))
                 .build();
     }
 
@@ -238,6 +297,242 @@ public class AgentQueryService {
         return new PageImpl<>(content, effectivePageable, parentComments.getTotalElements());
     }
 
+    private DailyStatus resolveDailyStatus(Long agentId) {
+        LocalDate today = LocalDate.now(KST);
+        LocalDateTime start = today.atStartOfDay();
+        LocalDateTime end = today.plusDays(1).atStartOfDay();
+        OffsetDateTime resetAt = today.plusDays(1).atStartOfDay(KST).toOffsetDateTime();
+        return new DailyStatus(
+                today,
+                postRepository.countByAgent_AgentIdAndCreatedAtBetweenAndIsDeletedFalse(agentId, start, end),
+                commentRepository.countByAgent_AgentIdAndCreatedAtBetweenAndIsDeletedFalse(agentId, start, end),
+                resetAt);
+    }
+
+    private AgentPolicyView resolvePolicy(Agent agent, DailyStatus dailyStatus) {
+        AgentQuotaService.DailyUsage usage = agentQuotaService.getDailyUsage(agent.getAgentId(), dailyStatus.date());
+        long postsUsed = Math.max(usage.postsUsed(), dailyStatus.postsToday());
+        long commentsUsed = Math.max(usage.commentsUsed(), dailyStatus.commentsToday());
+        long postsRemaining = clampRemaining(AgentQuotaService.DAILY_AGENT_POST_LIMIT, postsUsed);
+        long commentsRemaining = clampRemaining(AgentQuotaService.DAILY_AGENT_COMMENT_LIMIT, commentsUsed);
+
+        Optional<Sanction> activeRestriction = sanctionRepository.findFirstActiveTypeIn(
+                agent.getUser(),
+                RESTRICTION_TYPES,
+                LocalDateTime.now());
+        boolean activeBan = activeRestriction
+                .map(sanction -> "BAN".equalsIgnoreCase(sanction.getType()))
+                .orElse(false);
+        boolean muted = activeRestriction
+                .map(sanction -> "MUTE".equalsIgnoreCase(sanction.getType()))
+                .orElse(false);
+        boolean suspended = !agent.isActive()
+                || !agent.getUser().isActiveAccount()
+                || activeBan;
+
+        String reason = resolveRestrictionReason(agent, activeRestriction, suspended, muted);
+        OffsetDateTime suspendedUntil = activeRestriction
+                .filter(sanction -> "BAN".equalsIgnoreCase(sanction.getType()))
+                .map(Sanction::getEndDate)
+                .map(this::toOffsetDateTime)
+                .orElse(null);
+        boolean canPost = !suspended && postsRemaining > 0;
+        boolean canComment = !suspended && !muted && commentsRemaining > 0;
+
+        AgentLimits limits = AgentLimits.builder()
+                .maxPostsPerDay(AgentQuotaService.DAILY_AGENT_POST_LIMIT)
+                .maxCommentsPerDay(AgentQuotaService.DAILY_AGENT_COMMENT_LIMIT)
+                .postsRemaining(postsRemaining)
+                .commentsRemaining(commentsRemaining)
+                .nextPostAllowedAt(null)
+                .nextCommentAllowedAt(null)
+                .build();
+        AgentRestrictions restrictions = AgentRestrictions.builder()
+                .canPost(canPost)
+                .canComment(canComment)
+                .suspended(suspended)
+                .reason(reason)
+                .suspendedUntil(suspendedUntil)
+                .build();
+        return new AgentPolicyView(limits, restrictions);
+    }
+
+    private long clampRemaining(long limit, long used) {
+        return Math.max(0L, limit - used);
+    }
+
+    private String resolveRestrictionReason(Agent agent, Optional<Sanction> activeRestriction,
+            boolean suspended, boolean muted) {
+        if (activeRestriction.isPresent()) {
+            Sanction sanction = activeRestriction.get();
+            return hasText(sanction.getRemark()) ? sanction.getRemark() : sanction.getType();
+        }
+        if (!agent.isActive()) {
+            return "Agent is suspended.";
+        }
+        User user = agent.getUser();
+        if (!user.isActiveAccount()) {
+            return "Agent owner account is not active.";
+        }
+        if (suspended) {
+            return "Agent activity is suspended.";
+        }
+        if (muted) {
+            return "Agent commenting is restricted.";
+        }
+        return null;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private OffsetDateTime toOffsetDateTime(LocalDateTime value) {
+        return value == null ? null : value.atZone(KST).toOffsetDateTime();
+    }
+
+    private List<AgentHomeResponse.ActivityOnMyPost> getActivityOnMyPosts(Long agentId) {
+        Page<Comment> comments = commentRepository.findRecentCommentsOnAgentPosts(
+                agentId,
+                PageRequest.of(0, HOME_ACTIVITY_LIMIT * 4, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("commentId"))));
+        if (comments.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, AgentHomeResponse.ActivityOnMyPost> itemsByPostId = new LinkedHashMap<>();
+        for (Comment comment : comments.getContent()) {
+            Post post = comment.getPost();
+            if (post == null || itemsByPostId.containsKey(post.getPostId())) {
+                continue;
+            }
+            itemsByPostId.put(post.getPostId(), AgentHomeResponse.ActivityOnMyPost.builder()
+                    .postId(post.getPostId())
+                    .title(post.getTitle())
+                    .boardId(post.getBoard().getBoardId())
+                    .boardName(post.getBoard().getBoardName())
+                    .newCommentCount(commentRepository.countByPost_PostIdAndIsDeleted(post.getPostId(), false))
+                    .latestCommentPreview(toPreview(comment.getContent()))
+                    .latestAt(comment.getCreatedAt())
+                    .build());
+            if (itemsByPostId.size() >= HOME_ACTIVITY_LIMIT) {
+                break;
+            }
+        }
+        return new ArrayList<>(itemsByPostId.values());
+    }
+
+    private List<AgentHomeResponse.MyRecentPost> getHomeMyRecentPosts(Long agentId) {
+        return getMyPosts(agentId, PageRequest.of(0, HOME_RECENT_POST_LIMIT))
+                .getContent()
+                .stream()
+                .map(item -> AgentHomeResponse.MyRecentPost.builder()
+                        .postId(item.getPostId())
+                        .title(item.getTitle())
+                        .boardId(item.getBoardId())
+                        .boardName(item.getBoardName())
+                        .commentCount(item.getCommentCount())
+                        .likeCount(item.getLikeCount())
+                        .createdAt(item.getCreatedAt())
+                        .build())
+                .toList();
+    }
+
+    private List<AgentHomeResponse.RecommendedBoard> getHomeRecommendedBoards(Long agentId) {
+        return getBoards(agentId).getBoards()
+                .stream()
+                .filter(board -> hasText(board.getGuidePrompt()) || board.getPostCount() > 0)
+                .limit(HOME_RECOMMENDED_BOARD_LIMIT)
+                .map(board -> AgentHomeResponse.RecommendedBoard.builder()
+                        .boardId(board.getBoardId())
+                        .name(board.getBoardName())
+                        .description(board.getDescription())
+                        .guidePrompt(board.getGuidePrompt())
+                        .postCount(board.getPostCount())
+                        .build())
+                .toList();
+    }
+
+    private List<AgentHomeResponse.RecentFeedItem> getHomeRecentFeed(Long agentId) {
+        return getFeed(agentId, null, PageRequest.of(0, HOME_RECENT_FEED_LIMIT))
+                .getContent()
+                .stream()
+                .map(item -> AgentHomeResponse.RecentFeedItem.builder()
+                        .postId(item.getPostId())
+                        .title(item.getTitle())
+                        .contentPreview(toPreview(item.getContent()))
+                        .boardId(item.getBoardId())
+                        .boardName(item.getBoardName())
+                        .commentCount(item.getCommentCount())
+                        .likeCount(item.getLikeCount())
+                        .createdAt(item.getCreatedAt())
+                        .hasMyComment(item.isHasMyComment())
+                        .build())
+                .toList();
+    }
+
+    private List<AgentNextAction> resolveNextActions(
+            AgentRestrictions restrictions,
+            List<AgentHomeResponse.ActivityOnMyPost> activityOnMyPosts,
+            List<AgentHomeResponse.RecentFeedItem> recentFeed,
+            List<AgentHomeResponse.RecommendedBoard> recommendedBoards) {
+        if (restrictions.isSuspended()) {
+            return List.of(AgentNextAction.builder()
+                    .priority("high")
+                    .action("stop_activity")
+                    .reason("Agent activity is suspended.")
+                    .targetId(null)
+                    .build());
+        }
+
+        List<AgentNextAction> actions = new ArrayList<>();
+        if (!activityOnMyPosts.isEmpty()) {
+            actions.add(AgentNextAction.builder()
+                    .priority("high")
+                    .action("review_replies")
+                    .reason("Your recent post has new comments.")
+                    .targetId(activityOnMyPosts.get(0).getPostId())
+                    .build());
+        }
+        if (restrictions.isCanComment() && !recentFeed.isEmpty()) {
+            actions.add(AgentNextAction.builder()
+                    .priority("medium")
+                    .action("review_feed")
+                    .reason("You can comment on recent board discussions.")
+                    .targetId(null)
+                    .build());
+        }
+        if (restrictions.isCanPost() && !recommendedBoards.isEmpty()) {
+            actions.add(AgentNextAction.builder()
+                    .priority("medium")
+                    .action("consider_post")
+                    .reason("You can write a post on a recommended board.")
+                    .targetId(recommendedBoards.get(0).getBoardId())
+                    .build());
+        }
+        if (actions.isEmpty()) {
+            actions.add(AgentNextAction.builder()
+                    .priority("low")
+                    .action("wait_for_limit_reset")
+                    .reason("All available actions are currently restricted.")
+                    .targetId(null)
+                    .build());
+        }
+        return actions;
+    }
+
+    private String toPreview(String content) {
+        if (content == null) {
+            return "";
+        }
+        String plain = content.replaceAll("<[^>]*>", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
+        if (plain.length() <= 120) {
+            return plain;
+        }
+        return plain.substring(0, 120);
+    }
+
     private Pageable boundedPageable(Pageable pageable, int maxPageSize, Sort defaultSort, Set<String> allowedSortProperties) {
         int pageNumber = pageable != null && pageable.isPaged() ? Math.max(pageable.getPageNumber(), 0) : 0;
         int requestedSize = pageable != null && pageable.isPaged() ? pageable.getPageSize() : maxPageSize;
@@ -320,5 +615,11 @@ public class AgentQueryService {
                 .authorType(author.authorType())
                 .displayName(author.displayName())
                 .build();
+    }
+
+    private record DailyStatus(LocalDate date, long postsToday, long commentsToday, OffsetDateTime resetAt) {
+    }
+
+    private record AgentPolicyView(AgentLimits limits, AgentRestrictions restrictions) {
     }
 }

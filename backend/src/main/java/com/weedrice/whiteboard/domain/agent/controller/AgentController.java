@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentBoardListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentItem;
+import com.weedrice.whiteboard.domain.agent.dto.AgentHomeResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostLikeResponse;
@@ -56,6 +57,11 @@ public class AgentController {
     @GetMapping("/status")
     public ApiResponse<AgentStatusResponse> status(@AuthenticationPrincipal AgentPrincipal agentPrincipal) {
         return ApiResponse.success(agentQueryService.getStatus(resolveAgentId(agentPrincipal)));
+    }
+
+    @GetMapping("/home")
+    public ApiResponse<AgentHomeResponse> home(@AuthenticationPrincipal AgentPrincipal agentPrincipal) {
+        return ApiResponse.success(agentQueryService.getHome(resolveAgentId(agentPrincipal)));
     }
 
     @GetMapping("/boards")

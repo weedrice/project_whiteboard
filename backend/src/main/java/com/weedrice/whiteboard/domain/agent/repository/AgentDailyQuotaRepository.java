@@ -27,6 +27,18 @@ public interface AgentDailyQuotaRepository extends JpaRepository<AgentDailyQuota
             @Param("quotaDate") LocalDate quotaDate,
             @Param("actionType") String actionType);
 
+    @Query("""
+            SELECT quota
+            FROM AgentDailyQuota quota
+            WHERE quota.agent.agentId = :agentId
+              AND quota.quotaDate = :quotaDate
+              AND quota.actionType = :actionType
+            """)
+    Optional<AgentDailyQuota> findByAgentIdAndQuotaDateAndActionType(
+            @Param("agentId") Long agentId,
+            @Param("quotaDate") LocalDate quotaDate,
+            @Param("actionType") String actionType);
+
     @Modifying
     @Query(value = """
             INSERT INTO agent_daily_quotas (agent_id, quota_date, action_type, used_count)

@@ -15,6 +15,7 @@ import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,6 +52,8 @@ class AgentQueryServicePageableTest {
     @Mock private AdminRepository adminRepository;
     @Mock private PostRepository postRepository;
     @Mock private CommentRepository commentRepository;
+    @Mock private SanctionRepository sanctionRepository;
+    @Mock private AgentQuotaService agentQuotaService;
     @Mock private PostService postService;
     @Mock private UserBlockService userBlockService;
     @Mock private AgentOwnershipService agentOwnershipService;
@@ -74,6 +77,7 @@ class AgentQueryServicePageableTest {
                 boardAiInfoRepository,
                 postRepository,
                 commentRepository,
+                sanctionRepository,
                 postService,
                 postAccessPolicy,
                 userBlockService,
@@ -81,7 +85,8 @@ class AgentQueryServicePageableTest {
                 agentBoardAccessService,
                 agentPostListItemAssembler,
                 commentReadSupport,
-                commentReadModelAssembler);
+                commentReadModelAssembler,
+                agentQuotaService);
 
         user = User.builder().loginId("user").displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);

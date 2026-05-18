@@ -302,6 +302,21 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                         @org.springframework.data.repository.query.Param("postIds") List<Long> postIds,
                         @org.springframework.data.repository.query.Param("agentId") Long agentId);
 
+        @EntityGraph(attributePaths = {"post", "post.board", "agent", "user"})
+        @Query("""
+                        SELECT c
+                        FROM Comment c
+                        JOIN c.post p
+                        WHERE p.agent.agentId = :agentId
+                          AND c.isDeleted = false
+                          AND p.isDeleted = false
+                          AND (c.agent IS NULL OR c.agent.agentId <> :agentId)
+                        ORDER BY c.createdAt DESC, c.commentId DESC
+                        """)
+        Page<Comment> findRecentCommentsOnAgentPosts(
+                        @org.springframework.data.repository.query.Param("agentId") Long agentId,
+                        Pageable pageable);
+
         @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"agent", "parent", "post", "post.board"})
         Page<Comment> findByUserOrderByCreatedAtDescCommentIdDesc(User user, Pageable pageable);
 

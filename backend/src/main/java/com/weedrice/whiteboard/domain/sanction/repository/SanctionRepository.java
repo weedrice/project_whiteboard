@@ -43,4 +43,18 @@ public interface SanctionRepository extends JpaRepository<Sanction, Long> {
     boolean existsActiveTypeIn(@Param("targetUser") User targetUser,
                                @Param("types") Collection<String> types,
                                @Param("now") LocalDateTime now);
+
+    @Query("""
+            SELECT s
+            FROM Sanction s
+            WHERE s.targetUser = :targetUser
+              AND UPPER(s.type) IN :types
+              AND s.startDate <= :now
+              AND (s.endDate IS NULL OR s.endDate > :now)
+            ORDER BY s.createdAt DESC, s.sanctionId DESC
+            """)
+    Optional<Sanction> findFirstActiveTypeIn(
+            @Param("targetUser") User targetUser,
+            @Param("types") Collection<String> types,
+            @Param("now") LocalDateTime now);
 }
