@@ -74,14 +74,20 @@ class ReportReadAssemblerTest {
     }
 
     @Test
-    @DisplayName("toAdminResponsePage includes target author ids for post and comment")
-    void toAdminResponsePage_includesTargetAuthorIds() {
+    @DisplayName("toAdminResponsePage includes target author metadata for post and comment")
+    void toAdminResponsePage_includesTargetAuthorMetadata() {
         User reporter = User.builder().displayName("Reporter").build();
         ReflectionTestUtils.setField(reporter, "userId", 1L);
 
-        User postAuthor = User.builder().displayName("Post Author").build();
+        User postAuthor = User.builder()
+                .loginId("post-author")
+                .displayName("Post Author")
+                .build();
         ReflectionTestUtils.setField(postAuthor, "userId", 44L);
-        User commentAuthor = User.builder().displayName("Comment Author").build();
+        User commentAuthor = User.builder()
+                .loginId("comment-author")
+                .displayName("Comment Author")
+                .build();
         ReflectionTestUtils.setField(commentAuthor, "userId", 55L);
 
         Report postReport = Report.builder()
@@ -117,12 +123,15 @@ class ReportReadAssemblerTest {
         Page<Report> page = new PageImpl<>(List.of(postReport, commentReport), PageRequest.of(0, 10), 2);
         when(postRepository.findByPostIdIn(List.of(100L))).thenReturn(List.of(post));
         when(commentRepository.findByCommentIdIn(List.of(200L))).thenReturn(List.of(comment));
-
         Page<ReportResponse> result = reportReadAssembler.toAdminResponsePage(page);
 
         assertThat(result.getContent()).hasSize(2);
         assertThat(result.getContent().get(0).getTargetUserId()).isEqualTo(44L);
+        assertThat(result.getContent().get(0).getTargetDisplayName()).isEqualTo("Post Author");
+        assertThat(result.getContent().get(0).getTargetLoginId()).isEqualTo("post-author");
         assertThat(result.getContent().get(1).getTargetUserId()).isEqualTo(55L);
+        assertThat(result.getContent().get(1).getTargetDisplayName()).isEqualTo("Comment Author");
+        assertThat(result.getContent().get(1).getTargetLoginId()).isEqualTo("comment-author");
     }
 
     @Test
@@ -178,8 +187,8 @@ class ReportReadAssemblerTest {
         Page<Report> page = new PageImpl<>(List.of(userReport, postReport, commentReport), PageRequest.of(0, 10), 3);
         when(postRepository.findByPostIdIn(List.of(40L))).thenReturn(List.of(post));
         when(commentRepository.findByCommentIdIn(List.of(50L))).thenReturn(List.of(comment));
-        when(userRepository.findAllById(argThat(ids -> containsExactlyIds(ids, 30L, 44L, 55L))))
-                .thenReturn(List.of(targetUser, postAuthor, commentAuthor));
+        when(userRepository.findAllById(argThat(ids -> containsExactlyIds(ids, 30L))))
+                .thenReturn(List.of(targetUser));
 
         Page<MyReportResponse> result = reportReadAssembler.toMyReportResponsePage(page);
 
