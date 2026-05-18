@@ -56,17 +56,16 @@ public class PointService {
 
         public PointHistoryResponse getPointHistories(@NonNull Long userId, String type, Pageable pageable) {
                 String normalizedType = normalizeHistoryType(type);
-                User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                ensureUserExists(userId);
                 Pageable safePageable = normalizeHistoryPageable(pageable);
                 Page<PointHistory> historyPage;
                 if (normalizedType != null) {
-                        historyPage = pointHistoryRepository.findByUserAndTypeOrderByCreatedAtDescHistoryIdDesc(
-                                        user,
+                        historyPage = pointHistoryRepository.findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc(
+                                        userId,
                                         normalizedType,
                                         safePageable);
                 } else {
-                        historyPage = pointHistoryRepository.findByUserOrderByCreatedAtDescHistoryIdDesc(user,
+                        historyPage = pointHistoryRepository.findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(userId,
                                         safePageable);
                 }
                 return PointHistoryResponse.from(historyPage);

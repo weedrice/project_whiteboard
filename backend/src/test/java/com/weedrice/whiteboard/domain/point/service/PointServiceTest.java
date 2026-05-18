@@ -384,19 +384,37 @@ class PointServiceTest {
         org.springframework.data.domain.Page<com.weedrice.whiteboard.domain.point.entity.PointHistory> historyPage = new org.springframework.data.domain.PageImpl<>(
                 java.util.Collections.singletonList(history), pageable, 1);
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(pointHistoryRepository.findByUserOrderByCreatedAtDescHistoryIdDesc(user, pageable)).thenReturn(historyPage);
+        when(userRepository.existsById(userId)).thenReturn(true);
+        when(pointHistoryRepository.findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(userId, pageable))
+                .thenReturn(historyPage);
 
         // when
         com.weedrice.whiteboard.domain.point.dto.PointHistoryResponse response = pointService.getPointHistories(userId, null, pageable);
 
         // then
         assertThat(response).isNotNull();
-        verify(userRepository).findById(userId);
+        verify(userRepository).existsById(userId);
     }
 
     @Test
-    @DisplayName("포인트 내역 조회는 페이지 크기를 제한하고 정렬 조건을 제거한다")
+    @DisplayName("포인트 내역 조회는 존재하지 않는 사용자를 거절한다")
+    void getPointHistories_rejectsMissingUser() {
+        Long userId = 1L;
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+        when(userRepository.existsById(userId)).thenReturn(false);
+
+        assertThatThrownBy(() -> pointService.getPointHistories(userId, null, pageable))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+
+        verify(pointHistoryRepository, never()).findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(any(), any());
+        verify(pointHistoryRepository, never())
+                .findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("포인트 내역 조회의 페이지 크기와 정렬 조건을 정규화한다")
     void getPointHistories_normalizesPageableSort() {
         Long userId = 1L;
         org.springframework.data.domain.Pageable requestedPageable = org.springframework.data.domain.PageRequest.of(
@@ -408,15 +426,18 @@ class PointServiceTest {
                 org.springframework.data.domain.PageRequest.of(2, 100),
                 0);
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(pointHistoryRepository.findByUserOrderByCreatedAtDescHistoryIdDesc(eq(user), any())).thenReturn(historyPage);
+        when(userRepository.existsById(userId)).thenReturn(true);
+        when(pointHistoryRepository.findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(eq(userId), any()))
+                .thenReturn(historyPage);
 
         PointHistoryResponse response = pointService.getPointHistories(userId, null, requestedPageable);
 
         ArgumentCaptor<org.springframework.data.domain.Pageable> pageableCaptor =
                 ArgumentCaptor.forClass(org.springframework.data.domain.Pageable.class);
         assertThat(response).isNotNull();
-        verify(pointHistoryRepository).findByUserOrderByCreatedAtDescHistoryIdDesc(eq(user), pageableCaptor.capture());
+        verify(pointHistoryRepository).findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(
+                eq(userId),
+                pageableCaptor.capture());
         org.springframework.data.domain.Pageable safePageable = pageableCaptor.getValue();
         assertThat(safePageable.getPageNumber()).isEqualTo(2);
         assertThat(safePageable.getPageSize()).isEqualTo(100);
@@ -440,8 +461,8 @@ class PointServiceTest {
         org.springframework.data.domain.Page<com.weedrice.whiteboard.domain.point.entity.PointHistory> historyPage = new org.springframework.data.domain.PageImpl<>(
                 java.util.Collections.singletonList(history), pageable, 1);
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(pointHistoryRepository.findByUserAndTypeOrderByCreatedAtDescHistoryIdDesc(user, type, pageable))
+        when(userRepository.existsById(userId)).thenReturn(true);
+        when(pointHistoryRepository.findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc(userId, type, pageable))
                 .thenReturn(historyPage);
 
         // when
@@ -449,7 +470,7 @@ class PointServiceTest {
 
         // then
         assertThat(response).isNotNull();
-        verify(pointHistoryRepository).findByUserAndTypeOrderByCreatedAtDescHistoryIdDesc(user, type, pageable);
+        verify(pointHistoryRepository).findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc(userId, type, pageable);
     }
 
     @Test
@@ -460,15 +481,18 @@ class PointServiceTest {
         org.springframework.data.domain.Page<PointHistory> historyPage = new org.springframework.data.domain.PageImpl<>(
                 java.util.Collections.emptyList(), pageable, 0);
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(pointHistoryRepository.findByUserAndTypeOrderByCreatedAtDescHistoryIdDesc(user, "SPEND", pageable))
+        when(userRepository.existsById(userId)).thenReturn(true);
+        when(pointHistoryRepository.findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc(userId, "SPEND", pageable))
                 .thenReturn(historyPage);
 
         com.weedrice.whiteboard.domain.point.dto.PointHistoryResponse response =
                 pointService.getPointHistories(userId, " spend ", pageable);
 
         assertThat(response).isNotNull();
-        verify(pointHistoryRepository).findByUserAndTypeOrderByCreatedAtDescHistoryIdDesc(user, "SPEND", pageable);
+        verify(pointHistoryRepository).findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc(
+                userId,
+                "SPEND",
+                pageable);
     }
 
     @Test
@@ -479,9 +503,9 @@ class PointServiceTest {
         org.springframework.data.domain.Page<PointHistory> historyPage = new org.springframework.data.domain.PageImpl<>(
                 java.util.Collections.emptyList(), pageable, 0);
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(pointHistoryRepository.findByUserAndTypeOrderByCreatedAtDescHistoryIdDesc(
-                user,
+        when(userRepository.existsById(userId)).thenReturn(true);
+        when(pointHistoryRepository.findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc(
+                userId,
                 "REWARD_REVERSAL",
                 pageable))
                 .thenReturn(historyPage);
@@ -490,8 +514,8 @@ class PointServiceTest {
                 pointService.getPointHistories(userId, " reward_reversal ", pageable);
 
         assertThat(response).isNotNull();
-        verify(pointHistoryRepository).findByUserAndTypeOrderByCreatedAtDescHistoryIdDesc(
-                user,
+        verify(pointHistoryRepository).findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc(
+                userId,
                 "REWARD_REVERSAL",
                 pageable);
     }
@@ -504,15 +528,17 @@ class PointServiceTest {
         org.springframework.data.domain.Page<PointHistory> historyPage = new org.springframework.data.domain.PageImpl<>(
                 java.util.Collections.emptyList(), pageable, 0);
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(pointHistoryRepository.findByUserOrderByCreatedAtDescHistoryIdDesc(user, pageable)).thenReturn(historyPage);
+        when(userRepository.existsById(userId)).thenReturn(true);
+        when(pointHistoryRepository.findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(userId, pageable))
+                .thenReturn(historyPage);
 
         com.weedrice.whiteboard.domain.point.dto.PointHistoryResponse response =
                 pointService.getPointHistories(userId, "   ", pageable);
 
         assertThat(response).isNotNull();
-        verify(pointHistoryRepository).findByUserOrderByCreatedAtDescHistoryIdDesc(user, pageable);
-        verify(pointHistoryRepository, never()).findByUserAndTypeOrderByCreatedAtDescHistoryIdDesc(any(), any(), any());
+        verify(pointHistoryRepository).findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(userId, pageable);
+        verify(pointHistoryRepository, never())
+                .findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc(any(), any(), any());
     }
 
     @Test
@@ -526,8 +552,9 @@ class PointServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
-        verify(pointHistoryRepository, never()).findByUserAndTypeOrderByCreatedAtDescHistoryIdDesc(any(), any(), any());
-        verify(pointHistoryRepository, never()).findByUserOrderByCreatedAtDescHistoryIdDesc(any(), any());
+        verify(pointHistoryRepository, never())
+                .findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc(any(), any(), any());
+        verify(pointHistoryRepository, never()).findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(any(), any());
     }
 
     @Test

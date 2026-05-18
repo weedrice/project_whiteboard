@@ -42,7 +42,7 @@ class PointHistoryRepositoryTest {
 
     @Test
     @DisplayName("포인트 이력 전체 조회는 생성 시각이 같으면 historyId 내림차순으로 정렬한다")
-    void findByUserOrderByCreatedAtDescHistoryIdDesc_ordersByHistoryIdWhenCreatedAtTies() {
+    void findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc_ordersByHistoryIdWhenCreatedAtTies() {
         PointHistory first = persistHistory("EARN", 10, 10);
         PointHistory second = persistHistory("SPEND", -5, 5);
         LocalDateTime sameCreatedAt = LocalDateTime.now().minusMinutes(1);
@@ -51,8 +51,8 @@ class PointHistoryRepositoryTest {
         updateCreatedAt(second, sameCreatedAt);
         entityManager.clear();
 
-        Page<PointHistory> result = pointHistoryRepository.findByUserOrderByCreatedAtDescHistoryIdDesc(
-                user,
+        Page<PointHistory> result = pointHistoryRepository.findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(
+                user.getUserId(),
                 PageRequest.of(0, 10));
 
         assertThat(result.getContent())
@@ -62,7 +62,7 @@ class PointHistoryRepositoryTest {
 
     @Test
     @DisplayName("포인트 이력 타입별 조회는 생성 시각이 같으면 historyId 내림차순으로 정렬한다")
-    void findByUserAndTypeOrderByCreatedAtDescHistoryIdDesc_ordersByHistoryIdWhenCreatedAtTies() {
+    void findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc_ordersByHistoryIdWhenCreatedAtTies() {
         PointHistory first = persistHistory("EARN", 10, 10);
         PointHistory second = persistHistory("EARN", 20, 30);
         persistHistory("SPEND", -5, 25);
@@ -72,8 +72,8 @@ class PointHistoryRepositoryTest {
         updateCreatedAt(second, sameCreatedAt);
         entityManager.clear();
 
-        Page<PointHistory> result = pointHistoryRepository.findByUserAndTypeOrderByCreatedAtDescHistoryIdDesc(
-                user,
+        Page<PointHistory> result = pointHistoryRepository.findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc(
+                user.getUserId(),
                 "EARN",
                 PageRequest.of(0, 10));
 
