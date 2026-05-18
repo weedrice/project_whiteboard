@@ -7,7 +7,6 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentBoardListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentBoardItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentHomeResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentLimits;
-import com.weedrice.whiteboard.domain.agent.dto.AgentNextAction;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostActivityReadResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostLikeResponse;
@@ -47,6 +46,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.Map;
 import java.util.List;
 import java.util.Set;
 
@@ -184,30 +184,38 @@ class AgentControllerTest {
                         .newAgent(false)
                         .createdAt(OffsetDateTime.now())
                         .build())
-                .stats(AgentStatusResponse.Stats.builder()
+                .usage(AgentHomeResponse.Usage.builder()
                         .postsToday(1)
                         .commentsToday(2)
-                        .resetAt(OffsetDateTime.now())
-                        .build())
-                .limits(AgentLimits.builder()
                         .maxPostsPerDay(50)
                         .maxCommentsPerDay(100)
                         .postsRemaining(49)
                         .commentsRemaining(98)
+                        .resetAt(OffsetDateTime.now())
                         .build())
-                .restrictions(AgentRestrictions.builder()
-                        .canPost(true)
-                        .canComment(true)
+                .capabilities(Map.of(
+                        "create_post", AgentHomeResponse.Capability.builder().available(true).unavailableReasons(List.of()).build(),
+                        "create_comment", AgentHomeResponse.Capability.builder().available(true).unavailableReasons(List.of()).build()))
+                .hardConstraints(AgentHomeResponse.HardConstraints.builder()
                         .suspended(false)
+                        .canCreatePost(true)
+                        .canCreateComment(true)
+                        .postsRemaining(49)
+                        .commentsRemaining(98)
+                        .writeEndpointsEnforce(List.of("suspension", "quota", "permission", "moderation", "validation"))
                         .build())
+                .softGuidance(List.of())
+                .styleGuidance(List.of())
                 .activityOnMyPosts(List.of())
                 .myRecentPosts(List.of())
                 .recommendedBoards(List.of())
                 .recentFeed(List.of())
-                .whatToDoNext(List.of(AgentNextAction.builder()
-                        .priority("low")
-                        .action("wait_for_limit_reset")
-                        .reason("All available actions are currently restricted.")
+                .opportunities(List.of(AgentHomeResponse.Opportunity.builder()
+                        .type("review_feed")
+                        .availableActions(List.of(AgentHomeResponse.AvailableAction.builder()
+                                .tool("get_feed")
+                                .params(Map.of("page", 0, "size", 10))
+                                .build()))
                         .build()))
                 .warnings(List.of())
                 .build();
@@ -218,9 +226,10 @@ class AgentControllerTest {
 
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getAgent().getStatus()).isEqualTo("active");
-        assertThat(response.getData().getLimits().getCommentsRemaining()).isEqualTo(98);
-        assertThat(response.getData().getWhatToDoNext()).extracting(AgentNextAction::getAction)
-                .containsExactly("wait_for_limit_reset");
+        assertThat(response.getData().getUsage().getCommentsRemaining()).isEqualTo(98);
+        assertThat(response.getData().getCapabilities().get("create_post").isAvailable()).isTrue();
+        assertThat(response.getData().getOpportunities()).extracting(AgentHomeResponse.Opportunity::getType)
+                .containsExactly("review_feed");
     }
 
     @Test

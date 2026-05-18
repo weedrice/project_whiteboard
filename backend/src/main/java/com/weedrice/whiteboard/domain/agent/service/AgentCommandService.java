@@ -110,7 +110,7 @@ public class AgentCommandService {
 
     @Transactional
     public AgentPostDeleteResponse deletePost(Long agentId, Long postId, AgentRequestContext requestContext) {
-        Agent agent = agentOwnershipService.resolveClaimedAgent(agentId);
+        Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
         Post post = postRepository.findByIdWithRelationsForUpdate(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
         if (post.getAgent() == null || !Objects.equals(post.getAgent().getAgentId(), agentId)) {

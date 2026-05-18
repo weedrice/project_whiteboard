@@ -5,7 +5,6 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentClaimRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentHomeResponse;
-import com.weedrice.whiteboard.domain.agent.dto.AgentNextAction;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostActivityReadResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
@@ -478,27 +477,32 @@ class AgentServiceTest {
     }
 
     @Test
-    void getHome_returnsRequiredEmptyListsAndStopActionForSuspendedAgent() {
+    void getHome_returnsRequiredEmptyListsAndUnavailableWriteCapabilitiesForSuspendedAgent() {
         agent.suspend();
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
 
         var response = agentQueryService.getHome(7L);
 
         assertThat(response.getAgent().getStatus()).isEqualTo("suspended");
+        assertThat(response.getHardConstraints().isSuspended()).isTrue();
+        assertThat(response.getCapabilities().get("create_post").isAvailable()).isFalse();
+        assertThat(response.getCapabilities().get("create_comment").isAvailable()).isFalse();
+        assertThat(response.getCapabilities().get("create_reply").isAvailable()).isFalse();
+        assertThat(response.getCapabilities().get("like_post").isAvailable()).isFalse();
+        assertThat(response.getCapabilities().get("delete_post").isAvailable()).isFalse();
+        assertThat(response.getCapabilities().get("mark_post_activity_read").isAvailable()).isFalse();
         assertThat(response.getActivityOnMyPosts()).isEmpty();
         assertThat(response.getMyRecentPosts()).isEmpty();
         assertThat(response.getRecommendedBoards()).isEmpty();
         assertThat(response.getRecentFeed()).isEmpty();
-        assertThat(response.getWarnings()).isEmpty();
-        assertThat(response.getWhatToDoNext()).extracting("action").containsExactly("stop_activity");
-        assertThat(response.getWhatToDoNext().get(0).getPriority()).isEqualTo("critical");
-        assertThat(response.getWhatToDoNext().get(0).getRecommendedTool()).isEqualTo("get_agent_status");
+        assertThat(response.getOpportunities()).isEmpty();
+        assertThat(response.getWarnings()).containsExactly("agent_suspended");
         verify(agentOwnershipService, never()).validateAuthenticatedAgent(agent);
         verify(agentOwnershipService, never()).resolveActiveAgent(7L);
     }
 
     @Test
-    void getHome_ordersNextActionsByRepliesFeedAndPost() {
+    void getHome_returnsCapabilitiesAndOpportunitiesForActiveAgent() {
         doReturn(agent).when(agentOwnershipService).resolveClaimedAgent(7L);
         ReflectionTestUtils.setField(writablePost, "agent", agent);
         ReflectionTestUtils.setField(writablePost, "createdAt", LocalDateTime.now());
@@ -554,25 +558,29 @@ class AgentServiceTest {
 
         var response = agentQueryService.getHome(7L);
 
-        assertThat(response.getWhatToDoNext()).extracting("action")
-                .containsExactly("review_replies", "review_feed", "consider_post");
+        assertThat(response.getCapabilities().get("create_post").isAvailable()).isTrue();
+        assertThat(response.getCapabilities().get("create_comment").isAvailable()).isTrue();
+        assertThat(response.getOpportunities()).extracting(AgentHomeResponse.Opportunity::getType)
+                .contains("reply_to_activity", "review_feed", "explore_board", "create_post_candidate", "continue_own_thread");
         AgentHomeResponse.ActivityOnMyPost activity = response.getActivityOnMyPosts().get(0);
         assertThat(activity.getNewCommentCount()).isEqualTo(2L);
         assertThat(activity.getLatestCommentPreview()).isEqualTo("recent reply");
-        assertThat(activity.getRecommendedTool()).isEqualTo("get_post_comments");
-        AgentNextAction reviewReplies = response.getWhatToDoNext().get(0);
-        assertThat(reviewReplies.getTargetType()).isEqualTo("post");
-        assertThat(reviewReplies.getTargetId()).isEqualTo(100L);
-        assertThat(reviewReplies.getRecommendedTool()).isEqualTo("get_post_comments");
-        assertThat(reviewReplies.getParams()).containsEntry("post_id", 100L);
-        assertThat(reviewReplies.isBlocked()).isFalse();
+        AgentHomeResponse.Opportunity replyToActivity = response.getOpportunities().stream()
+                .filter(opportunity -> "reply_to_activity".equals(opportunity.getType()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(replyToActivity.getTargetType()).isEqualTo("post");
+        assertThat(replyToActivity.getTargetId()).isEqualTo(100L);
+        assertThat(replyToActivity.getAvailableActions()).extracting(AgentHomeResponse.AvailableAction::getTool)
+                .contains("get_post_comments");
+        assertThat(replyToActivity.getAvailableActions().get(0).getParams()).containsEntry("post_id", 100L);
         verify(agentOwnershipService).validateAuthenticatedAgent(agent);
         verify(agentOwnershipService, never()).resolveActiveAgent(7L);
         verify(commentRepository, never()).countUnreadCommentsOnAgentPost(anyLong(), anyLong());
     }
 
     @Test
-    void getHome_marksConsiderPostBlockedWhenPostLimitExhausted() {
+    void getHome_marksCreatePostCapabilityUnavailableWhenPostLimitExhausted() {
         doReturn(agent).when(agentOwnershipService).resolveClaimedAgent(7L);
         when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(
                 eq(7L), any(LocalDate.class), eq(AgentQuotaService.ACTION_POST)))
@@ -609,16 +617,21 @@ class AgentServiceTest {
 
         var response = agentQueryService.getHome(7L);
 
-        AgentNextAction considerPost = response.getWhatToDoNext().stream()
-                .filter(action -> "consider_post".equals(action.getAction()))
+        AgentHomeResponse.Capability createPost = response.getCapabilities().get("create_post");
+        assertThat(createPost.isAvailable()).isFalse();
+        assertThat(createPost.getUnavailableReasons()).contains("post_quota_exceeded");
+        assertThat(createPost.getPostsRemaining()).isZero();
+        assertThat(createPost.getNextPostAllowedAt()).isNotNull();
+        assertThat(response.getUsage().getPostsRemaining()).isZero();
+        assertThat(response.getUsage().getNextPostAllowedAt()).isNotNull();
+        assertThat(response.getOpportunities()).extracting(AgentHomeResponse.Opportunity::getType)
+                .contains("explore_board");
+        AgentHomeResponse.Opportunity exploreBoard = response.getOpportunities().stream()
+                .filter(opportunity -> "explore_board".equals(opportunity.getType()))
                 .findFirst()
                 .orElseThrow();
-        assertThat(considerPost.isBlocked()).isTrue();
-        assertThat(considerPost.getBlockedReason()).isEqualTo("post_daily_limit_exceeded");
-        assertThat(considerPost.getRecommendedTool()).isEqualTo("create_post");
-        assertThat(considerPost.getTargetType()).isEqualTo("board");
-        assertThat(considerPost.getTargetId()).isEqualTo(10L);
-        assertThat(considerPost.getParams()).containsEntry("board_id", 10L);
+        assertThat(exploreBoard.getAvailableActions()).extracting(AgentHomeResponse.AvailableAction::getTool)
+                .containsExactly("get_board_posts");
         verify(agentOwnershipService).validateAuthenticatedAgent(agent);
         verify(agentOwnershipService, never()).resolveActiveAgent(7L);
     }
@@ -1620,19 +1633,16 @@ class AgentServiceTest {
     }
 
     @Test
-    void markPostActivityRead_allowsSuspendedAgent() {
+    void markPostActivityRead_rejectsSuspendedAgent() {
         agent.suspend();
         ReflectionTestUtils.setField(writablePost, "agent", agent);
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(writablePost));
-        when(agentPostActivityReadRepository.findByAgentIdAndPostId(7L, 100L)).thenReturn(Optional.empty());
-        when(agentPostActivityReadRepository.save(any(AgentPostActivityRead.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-        when(commentRepository.countUnreadCommentsOnAgentPost(7L, 100L)).thenReturn(0L);
 
-        AgentPostActivityReadResponse response = agentPostActivityService.markRead(7L, 100L);
+        assertThatThrownBy(() -> agentPostActivityService.markRead(7L, 100L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
 
-        assertThat(response.isMarkedRead()).isTrue();
+        verify(agentPostActivityReadRepository, never()).save(any());
     }
 
     @Test
@@ -2166,17 +2176,18 @@ class AgentServiceTest {
     }
 
     @Test
-    void deletePost_suspendedAgentAllowed() {
+    void deletePost_rejectsSuspendedAgent() {
         ReflectionTestUtils.setField(agent, "status", Agent.STATUS_SUSPENDED);
         Post agentPost = agentPost(101L, agent, false);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(postRepository.findByIdWithRelationsForUpdate(101L)).thenReturn(Optional.of(agentPost));
 
-        var response = agentCommandService.deletePost(7L, 101L, null);
+        assertThatThrownBy(() -> agentCommandService.deletePost(7L, 101L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
 
-        assertThat(response.isDeleted()).isTrue();
-        assertThat(agentPost.getIsDeleted()).isTrue();
+        assertThat(agentPost.getIsDeleted()).isFalse();
+        verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(), any(), any());
     }
 
     @Test

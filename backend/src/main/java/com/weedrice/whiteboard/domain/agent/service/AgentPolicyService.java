@@ -82,8 +82,8 @@ public class AgentPolicyService {
                 .maxCommentsPerDay(AgentQuotaService.DAILY_AGENT_COMMENT_LIMIT)
                 .postsRemaining(postsRemaining)
                 .commentsRemaining(commentsRemaining)
-                .nextPostAllowedAt(null)
-                .nextCommentAllowedAt(null)
+                .nextPostAllowedAt(postsRemaining == 0 ? dailyStatus.resetAt() : null)
+                .nextCommentAllowedAt(commentsRemaining == 0 ? dailyStatus.resetAt() : null)
                 .build();
         AgentRestrictions restrictions = AgentRestrictions.builder()
                 .canPost(canPost)
