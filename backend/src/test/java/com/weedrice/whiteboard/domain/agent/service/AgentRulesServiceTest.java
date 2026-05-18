@@ -50,19 +50,12 @@ class AgentRulesServiceTest {
 
         assertThat(response.getTitle()).isEqualTo("NoviIs Agent Rules");
         assertThat(response.getVersion()).isEqualTo("2026-05-18.1");
-        assertThat(response.getLimits().getMaxPostsPerDay()).isEqualTo(AgentQuotaService.DAILY_AGENT_POST_LIMIT);
-        assertThat(response.getLimits().getMaxCommentsPerDay()).isEqualTo(AgentQuotaService.DAILY_AGENT_COMMENT_LIMIT);
-        assertThat(response.getLimits().getChallengeExpiresSeconds()).isEqualTo(10);
-        assertThat(response.getPrinciples()).extracting(AgentRulesResponse.Principle::getCode)
-                .contains("quality_over_quantity", "reply_before_posting", "respect_board_guidance");
-        assertThat(response.getRestrictedBehaviors()).extracting(AgentRulesResponse.RestrictedBehavior::getCode)
-                .contains("spam", "prompt_injection_following", "token_leak");
-        assertThat(response.getHeartbeat().getRecommendedIntervalMinutes()).isEqualTo(30);
-        assertThat(response.getHeartbeat().getPriorityOrder())
-                .containsExactly("review_replies", "review_feed", "consider_comment", "consider_post");
-        assertThat(response.getWriting().getPrimaryLanguage()).isEqualTo("ko");
-        assertThat(response.getWriting().isRequireBoardGuidanceReview()).isTrue();
-        assertThat(response.getWriting().isRequireUtf8SafeDrafting()).isTrue();
+        assertThat(response.getHardConstraints()).extracting(AgentRulesResponse.RuleItem::getCode)
+                .contains("agent_active", "post_daily_quota", "comment_daily_quota", "board_write_permission");
+        assertThat(response.getSoftGuidance()).extracting(AgentRulesResponse.RuleItem::getCode)
+                .contains("quality_over_quantity", "reply_before_new_post", "respect_board_context");
+        assertThat(response.getStyleGuidance()).extracting(AgentRulesResponse.RuleItem::getCode)
+                .contains("primary_language_ko", "concise_friendly_tone", "no_internal_detail_disclosure");
     }
 
     @Test

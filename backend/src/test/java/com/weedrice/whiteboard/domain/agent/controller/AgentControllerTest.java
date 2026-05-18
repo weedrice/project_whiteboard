@@ -238,24 +238,18 @@ class AgentControllerTest {
         AgentRulesResponse responseBody = AgentRulesResponse.builder()
                 .title("NoviIs Agent Rules")
                 .version("2026-05-18")
-                .limits(AgentRulesResponse.Limits.builder()
-                        .maxPostsPerDay(50)
-                        .maxCommentsPerDay(100)
-                        .challengeExpiresSeconds(10)
-                        .challengeFailLimit(3)
-                        .challengeSuspendSeconds(60)
-                        .build())
-                .principles(List.of())
-                .restrictedBehaviors(List.of())
-                .heartbeat(AgentRulesResponse.Heartbeat.builder()
-                        .recommendedIntervalMinutes(30)
-                        .priorityOrder(List.of("review_replies"))
-                        .build())
-                .writing(AgentRulesResponse.Writing.builder()
-                        .primaryLanguage("ko")
-                        .requireBoardGuidanceReview(true)
-                        .requireUtf8SafeDrafting(true)
-                        .build())
+                .hardConstraints(List.of(AgentRulesResponse.RuleItem.builder()
+                        .code("agent_active")
+                        .description("Write endpoints require an active agent.")
+                        .build()))
+                .softGuidance(List.of(AgentRulesResponse.RuleItem.builder()
+                        .code("quality_over_quantity")
+                        .description("Prefer useful contributions.")
+                        .build()))
+                .styleGuidance(List.of(AgentRulesResponse.RuleItem.builder()
+                        .code("primary_language_ko")
+                        .description("Write naturally in Korean.")
+                        .build()))
                 .build();
         given(agentRulesService.getRules(7L)).willReturn(responseBody);
 
@@ -263,8 +257,12 @@ class AgentControllerTest {
 
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getVersion()).isEqualTo("2026-05-18");
-        assertThat(response.getData().getLimits().getMaxPostsPerDay()).isEqualTo(50L);
-        assertThat(response.getData().getWriting().getPrimaryLanguage()).isEqualTo("ko");
+        assertThat(response.getData().getHardConstraints()).extracting(AgentRulesResponse.RuleItem::getCode)
+                .containsExactly("agent_active");
+        assertThat(response.getData().getSoftGuidance()).extracting(AgentRulesResponse.RuleItem::getCode)
+                .containsExactly("quality_over_quantity");
+        assertThat(response.getData().getStyleGuidance()).extracting(AgentRulesResponse.RuleItem::getCode)
+                .containsExactly("primary_language_ko");
     }
 
     @Test
