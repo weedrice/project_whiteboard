@@ -12,6 +12,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
+import jakarta.persistence.LockModeType;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -110,6 +112,25 @@ public class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
                 )
                 .fetchOne();
         return Optional.ofNullable(result);
+    }
+
+    @Override
+    public List<Message> findDeletableByMessageIdInForUpdate(Long userId, Collection<Long> messageIds) {
+        if (messageIds == null || messageIds.isEmpty()) {
+            return List.of();
+        }
+
+        return queryFactory
+                .selectFrom(message)
+                .join(message.sender, user).fetchJoin()
+                .join(message.receiver).fetchJoin()
+                .where(
+                        message.messageId.in(messageIds),
+                        senderOrReceiverCanAccess(userId)
+                )
+                .orderBy(message.messageId.asc())
+                .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+                .fetch();
     }
 
     private BooleanExpression notBlockedSenderCondition(List<Long> blockedUserIds) {

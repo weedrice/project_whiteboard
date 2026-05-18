@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -13,4 +14,5 @@ public interface MessageRepositoryCustom {
     Page<Message> findSentMessagesExcludingBlocked(User user, Boolean isDeleted, List<Long> blockedUserIds, Pageable pageable);
     long countUnreadMessagesExcludingBlocked(User user, Boolean isRead, Boolean isDeleted, List<Long> blockedUserIds);
     Optional<Message> findAccessibleMessage(Long userId, Long messageId, List<Long> blockedUserIds);
+    List<Message> findDeletableByMessageIdInForUpdate(Long userId, Collection<Long> messageIds);
 }
