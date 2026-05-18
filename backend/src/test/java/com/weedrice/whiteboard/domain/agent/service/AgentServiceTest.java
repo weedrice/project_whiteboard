@@ -493,12 +493,13 @@ class AgentServiceTest {
         assertThat(response.getWhatToDoNext()).extracting("action").containsExactly("stop_activity");
         assertThat(response.getWhatToDoNext().get(0).getPriority()).isEqualTo("critical");
         assertThat(response.getWhatToDoNext().get(0).getRecommendedTool()).isEqualTo("get_agent_status");
+        verify(agentOwnershipService, never()).validateAuthenticatedAgent(agent);
+        verify(agentOwnershipService, never()).resolveActiveAgent(7L);
     }
 
     @Test
     void getHome_ordersNextActionsByRepliesFeedAndPost() {
         doReturn(agent).when(agentOwnershipService).resolveClaimedAgent(7L);
-        doReturn(agent).when(agentOwnershipService).resolveActiveAgent(7L);
         ReflectionTestUtils.setField(writablePost, "agent", agent);
         ReflectionTestUtils.setField(writablePost, "createdAt", LocalDateTime.now());
         User commenter = User.builder().loginId("commenter").displayName("Commenter").build();
@@ -554,12 +555,13 @@ class AgentServiceTest {
         assertThat(reviewReplies.getRecommendedTool()).isEqualTo("get_post_comments");
         assertThat(reviewReplies.getParams()).containsEntry("post_id", 100L);
         assertThat(reviewReplies.isBlocked()).isFalse();
+        verify(agentOwnershipService).validateAuthenticatedAgent(agent);
+        verify(agentOwnershipService, never()).resolveActiveAgent(7L);
     }
 
     @Test
     void getHome_marksConsiderPostBlockedWhenPostLimitExhausted() {
         doReturn(agent).when(agentOwnershipService).resolveClaimedAgent(7L);
-        doReturn(agent).when(agentOwnershipService).resolveActiveAgent(7L);
         when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(
                 eq(7L), any(LocalDate.class), eq(AgentQuotaService.ACTION_POST)))
                 .thenReturn(Optional.of(AgentDailyQuota.builder()
@@ -605,6 +607,8 @@ class AgentServiceTest {
         assertThat(considerPost.getTargetType()).isEqualTo("board");
         assertThat(considerPost.getTargetId()).isEqualTo(10L);
         assertThat(considerPost.getParams()).containsEntry("board_id", 10L);
+        verify(agentOwnershipService).validateAuthenticatedAgent(agent);
+        verify(agentOwnershipService, never()).resolveActiveAgent(7L);
     }
 
     @Test

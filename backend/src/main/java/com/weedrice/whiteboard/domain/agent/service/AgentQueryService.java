@@ -109,18 +109,22 @@ public class AgentQueryService {
         Agent agent = agentOwnershipService.resolveClaimedAgent(agentId);
         AgentPolicySnapshot policy = agentPolicyService.resolve(agent);
         AgentDailyStatus dailyStatus = policy.dailyStatus();
+        boolean activeAgent = agent.isActive();
+        if (activeAgent) {
+            agentOwnershipService.validateAuthenticatedAgent(agent);
+        }
 
-        List<AgentHomeResponse.ActivityOnMyPost> activityOnMyPosts = agent.isActive()
+        List<AgentHomeResponse.ActivityOnMyPost> activityOnMyPosts = activeAgent
                 ? getActivityOnMyPosts(agentId)
                 : List.of();
-        List<AgentHomeResponse.MyRecentPost> myRecentPosts = agent.isActive()
-                ? getHomeMyRecentPosts(agentId)
+        List<AgentHomeResponse.MyRecentPost> myRecentPosts = activeAgent
+                ? getHomeMyRecentPosts(agent)
                 : List.of();
-        List<AgentHomeResponse.RecommendedBoard> recommendedBoards = agent.isActive()
-                ? getHomeRecommendedBoards(agentId)
+        List<AgentHomeResponse.RecommendedBoard> recommendedBoards = activeAgent
+                ? getHomeRecommendedBoards(agent)
                 : List.of();
-        List<AgentHomeResponse.RecentFeedItem> recentFeed = agent.isActive()
-                ? getHomeRecentFeed(agentId)
+        List<AgentHomeResponse.RecentFeedItem> recentFeed = activeAgent
+                ? getHomeRecentFeed(agent)
                 : List.of();
 
         return AgentHomeResponse.builder()
@@ -154,6 +158,11 @@ public class AgentQueryService {
 
     public Page<AgentPostListItem> getFeed(Long agentId, Long boardId, Pageable pageable) {
         Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
+        return getFeed(agent, boardId, pageable);
+    }
+
+    private Page<AgentPostListItem> getFeed(Agent agent, Long boardId, Pageable pageable) {
+        Long agentId = agent.getAgentId();
         Pageable effectivePageable = boundedPageable(
                 pageable,
                 FEED_PAGE_SIZE_LIMIT,
@@ -182,6 +191,10 @@ public class AgentQueryService {
 
     public AgentBoardListResponse getBoards(Long agentId) {
         Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
+        return getBoards(agent);
+    }
+
+    private AgentBoardListResponse getBoards(Agent agent) {
         List<Board> agentEnabledBoards =
                 boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc();
         if (agentEnabledBoards.isEmpty()) {
@@ -230,7 +243,12 @@ public class AgentQueryService {
     }
 
     public Page<AgentPostListItem> getMyPosts(Long agentId, Pageable pageable) {
-        agentOwnershipService.resolveActiveAgent(agentId);
+        Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
+        return getMyPosts(agent, pageable);
+    }
+
+    private Page<AgentPostListItem> getMyPosts(Agent agent, Pageable pageable) {
+        Long agentId = agent.getAgentId();
         Pageable effectivePageable = boundedPageable(
                 pageable,
                 DEFAULT_READ_PAGE_SIZE_LIMIT,
@@ -351,8 +369,8 @@ public class AgentQueryService {
         return items;
     }
 
-    private List<AgentHomeResponse.MyRecentPost> getHomeMyRecentPosts(Long agentId) {
-        return getMyPosts(agentId, PageRequest.of(0, HOME_RECENT_POST_LIMIT))
+    private List<AgentHomeResponse.MyRecentPost> getHomeMyRecentPosts(Agent agent) {
+        return getMyPosts(agent, PageRequest.of(0, HOME_RECENT_POST_LIMIT))
                 .getContent()
                 .stream()
                 .map(item -> AgentHomeResponse.MyRecentPost.builder()
@@ -367,8 +385,8 @@ public class AgentQueryService {
                 .toList();
     }
 
-    private List<AgentHomeResponse.RecommendedBoard> getHomeRecommendedBoards(Long agentId) {
-        return getBoards(agentId).getBoards()
+    private List<AgentHomeResponse.RecommendedBoard> getHomeRecommendedBoards(Agent agent) {
+        return getBoards(agent).getBoards()
                 .stream()
                 .filter(board -> hasText(board.getGuidePrompt()) || board.getPostCount() > 0)
                 .limit(HOME_RECOMMENDED_BOARD_LIMIT)
@@ -382,8 +400,8 @@ public class AgentQueryService {
                 .toList();
     }
 
-    private List<AgentHomeResponse.RecentFeedItem> getHomeRecentFeed(Long agentId) {
-        return getFeed(agentId, null, PageRequest.of(0, HOME_RECENT_FEED_LIMIT))
+    private List<AgentHomeResponse.RecentFeedItem> getHomeRecentFeed(Agent agent) {
+        return getFeed(agent, null, PageRequest.of(0, HOME_RECENT_FEED_LIMIT))
                 .getContent()
                 .stream()
                 .map(item -> AgentHomeResponse.RecentFeedItem.builder()
