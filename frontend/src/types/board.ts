@@ -63,6 +63,14 @@ export interface AdminBoard {
     guidePrompt?: string
 }
 
+export interface BoardManagerCandidate {
+    userId: number
+    loginId: string
+    displayName: string
+    profileImageUrl?: string | null
+    currentManager: boolean
+}
+
 export interface BoardSearchItem {
     boardId: number
     boardName: string

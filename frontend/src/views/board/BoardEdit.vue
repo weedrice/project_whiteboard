@@ -12,7 +12,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useFormSubmit } from '@/composables/useFormSubmit'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { useBoard } from '@/composables/useBoard'
-import type { BoardDetail, BoardUpdateData, User } from '@/types'
+import type { BoardDetail, BoardUpdateData } from '@/types'
 
 interface BoardData {
   boardName: string
@@ -122,7 +122,7 @@ function closeManagerModal() {
   isManagerModalOpen.value = false
 }
 
-async function confirmManagerSelection(users: User[]) {
+async function confirmManagerSelection(users: Array<{ loginId: string; displayName?: string }>) {
   if (users.length === 0) return
 
   const selectedUser = users[0]
@@ -204,6 +204,8 @@ onMounted(fetchBoard)
     <UserSelectModal
       :isOpen="isManagerModalOpen"
       selectionMode="single"
+      source="board-manager-candidates"
+      :boardUrl="boardUrl"
       @close="closeManagerModal"
       @confirm="confirmManagerSelection"
     />

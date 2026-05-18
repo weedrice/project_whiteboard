@@ -143,13 +143,14 @@ export function useAdmin() {
     }
 
     // --- User Management ---
-    const useUsers = (params: Ref<UserSearchParams>) => {
+    const useUsers = (params: Ref<UserSearchParams>, enabled?: Ref<boolean>) => {
         return useQuery({
             queryKey: ['admin', 'users', params],
             queryFn: async () => {
                 const { data } = await adminApi.getUsers(params.value)
                 return data.data as PageResponse<User>
             },
+            enabled,
             placeholderData: (previousData) => previousData
         })
     }

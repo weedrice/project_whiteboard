@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.board.service;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.dto.AdminBoardResponse;
+import com.weedrice.whiteboard.domain.board.dto.BoardManagerCandidateResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardDetailResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
@@ -15,6 +16,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardRepository.TopBoardP
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -28,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -196,6 +199,38 @@ class BoardQueryService {
                 .map(SubscriptionBoardResponse::accessible)
                 .toList();
         return new PageImpl<>(responses, fixedOrderPageable, visibleSubscriptions.getTotalElements());
+    }
+
+    Page<BoardManagerCandidateResponse> getBoardManagerCandidates(String boardUrl, Long currentUserId,
+            String keyword, Pageable pageable) {
+        Board board = boardRepository.findByBoardUrl(boardUrl)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        User currentUser = getCurrentUserByIdOrNull(currentUserId);
+        boardAccessPolicy.validateBoardAdmin(board, currentUser);
+
+        String keywordPattern = toKeywordPattern(keyword);
+        Page<BoardSubscription> candidates = keywordPattern == null
+                ? boardSubscriptionRepository.findManagerCandidatesByBoard(board, pageable)
+                : boardSubscriptionRepository.findManagerCandidatesByBoardAndKeyword(board, keywordPattern, pageable);
+        Long currentManagerUserId = adminRepository
+                .findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(board, Role.BOARD_ADMIN, true)
+                .map(Admin::getUser)
+                .map(User::getUserId)
+                .orElse(null);
+
+        return candidates.map(subscription -> {
+            User user = subscription.getUser();
+            return BoardManagerCandidateResponse.from(
+                    user,
+                    currentManagerUserId != null && currentManagerUserId.equals(user.getUserId()));
+        });
+    }
+
+    private String toKeywordPattern(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return null;
+        }
+        return "%" + keyword.trim().toLowerCase(Locale.ROOT) + "%";
     }
 
     private Pageable fixedSubscriptionOrderPageable(Pageable pageable) {

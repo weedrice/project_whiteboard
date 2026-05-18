@@ -130,6 +130,57 @@ public interface BoardSubscriptionRepository extends JpaRepository<BoardSubscrip
     @EntityGraph(attributePaths = "user")
     List<BoardSubscription> findAllByBoard(Board board);
 
+    @EntityGraph(attributePaths = "user")
+    @Query(value = """
+            SELECT bs
+            FROM BoardSubscription bs
+            JOIN bs.user u
+            WHERE bs.board = :board
+              AND u.status = 'ACTIVE'
+              AND u.deletedAt IS NULL
+            ORDER BY u.loginId ASC, u.userId ASC
+            """,
+            countQuery = """
+            SELECT COUNT(bs)
+            FROM BoardSubscription bs
+            JOIN bs.user u
+            WHERE bs.board = :board
+              AND u.status = 'ACTIVE'
+              AND u.deletedAt IS NULL
+            """)
+    Page<BoardSubscription> findManagerCandidatesByBoard(@Param("board") Board board,
+            Pageable pageable);
+
+    @EntityGraph(attributePaths = "user")
+    @Query(value = """
+            SELECT bs
+            FROM BoardSubscription bs
+            JOIN bs.user u
+            WHERE bs.board = :board
+              AND u.status = 'ACTIVE'
+              AND u.deletedAt IS NULL
+              AND (
+                    LOWER(u.loginId) LIKE :keywordPattern
+                    OR LOWER(u.displayName) LIKE :keywordPattern
+                  )
+            ORDER BY u.loginId ASC, u.userId ASC
+            """,
+            countQuery = """
+            SELECT COUNT(bs)
+            FROM BoardSubscription bs
+            JOIN bs.user u
+            WHERE bs.board = :board
+              AND u.status = 'ACTIVE'
+              AND u.deletedAt IS NULL
+              AND (
+                    LOWER(u.loginId) LIKE :keywordPattern
+                    OR LOWER(u.displayName) LIKE :keywordPattern
+                  )
+            """)
+    Page<BoardSubscription> findManagerCandidatesByBoardAndKeyword(@Param("board") Board board,
+            @Param("keywordPattern") String keywordPattern,
+            Pageable pageable);
+
     long countByBoard(Board board);
     long countByUser(User user);
 

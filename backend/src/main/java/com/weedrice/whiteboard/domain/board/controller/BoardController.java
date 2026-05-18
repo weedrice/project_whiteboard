@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.board.controller;
 
 import com.weedrice.whiteboard.domain.board.dto.AdminBoardResponse;
+import com.weedrice.whiteboard.domain.board.dto.BoardManagerCandidateResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardDetailResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardManagerTransferRequest;
@@ -13,6 +14,8 @@ import com.weedrice.whiteboard.domain.board.service.BoardApplicationService;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.dto.PageResponse;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -89,6 +92,20 @@ public class BoardController {
                 boardUrl,
                 request.getLoginId(),
                 userIdOrNull(userDetails)));
+    }
+
+    @GetMapping("/{boardUrl}/manager-candidates")
+    public ApiResponse<PageResponse<BoardManagerCandidateResponse>> getBoardManagerCandidates(
+            @PathVariable String boardUrl,
+            @RequestParam(required = false, name = "q") String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.success(new PageResponse<>(boardService.getBoardManagerCandidates(
+                boardUrl,
+                userIdOrNull(userDetails),
+                keyword,
+                PageRequestUtils.of(page, size))));
     }
 
     @DeleteMapping("/{boardUrl}")

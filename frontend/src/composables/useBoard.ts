@@ -4,7 +4,7 @@ import type { BoardCreateData, BoardUpdateData } from '@/types'
 import { userApi } from '@/api/user'
 import { searchApi } from '@/api/search'
 import { computed, type Ref } from 'vue'
-import type { BoardDetail, BoardListItem, PageResponse, PostSummary, SubscriptionBoardListItem } from '@/types'
+import type { BoardDetail, BoardListItem, BoardManagerCandidate, PageResponse, PostSummary, SubscriptionBoardListItem } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import type { AxiosRequestConfig } from 'axios'
 
@@ -16,6 +16,12 @@ interface BoardPostParams {
     sort?: string
     q?: string
     searchType?: string
+}
+
+interface BoardManagerCandidateParams {
+    page?: number
+    size?: number
+    q?: string
 }
 
 const isVisibleSubscriptionBoard = (
@@ -191,6 +197,22 @@ export function useBoard() {
         })
     }
 
+    const useBoardManagerCandidates = (
+        boardUrl: Ref<string>,
+        params: Ref<BoardManagerCandidateParams>,
+        enabled?: Ref<boolean>
+    ) => {
+        return useQuery({
+            queryKey: ['board', boardUrl, 'manager-candidates', params],
+            queryFn: async () => {
+                const { data } = await boardApi.getBoardManagerCandidates(boardUrl.value, params.value)
+                return data.data as PageResponse<BoardManagerCandidate>
+            },
+            enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
+            placeholderData: (previousData) => previousData
+        })
+    }
+
     // Delete board mutation
     const useDeleteBoard = () => {
         return useMutation({
@@ -216,6 +238,7 @@ export function useBoard() {
         useCreateBoard,
         useUpdateBoard,
         useTransferBoardManager,
+        useBoardManagerCandidates,
         useDeleteBoard
     }
 }

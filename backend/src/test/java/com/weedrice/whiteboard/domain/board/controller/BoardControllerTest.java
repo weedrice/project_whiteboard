@@ -4,12 +4,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardDetailResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
+import com.weedrice.whiteboard.domain.board.dto.BoardManagerCandidateResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardManagerTransferRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.service.BoardApplicationService;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
+import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
@@ -25,6 +27,8 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.http.MediaType;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
@@ -267,6 +271,36 @@ class BoardControllerTest {
                         .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    @DisplayName("게시판 관리자 후보 조회 성공")
+    void getBoardManagerCandidates_returnsSuccess() throws Exception {
+        String boardUrl = "free";
+        User candidateUser = User.builder()
+                .loginId("manager")
+                .password("password")
+                .email("manager@test.com")
+                .displayName("Manager")
+                .build();
+        ReflectionTestUtils.setField(candidateUser, "userId", 2L);
+        BoardManagerCandidateResponse candidate = BoardManagerCandidateResponse.from(candidateUser, true);
+
+        when(boardService.getBoardManagerCandidates(eq(boardUrl), eq(1L), eq("man"), any()))
+                .thenReturn(new PageImpl<>(List.of(candidate), PageRequest.of(0, 10), 1));
+
+        mockMvc.perform(get("/api/v1/boards/{boardUrl}/manager-candidates", boardUrl)
+                        .queryParam("q", "man")
+                        .queryParam("page", "0")
+                        .queryParam("size", "10")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content[0].loginId").value("manager"))
+                .andExpect(jsonPath("$.data.content[0].displayName").value("Manager"))
+                .andExpect(jsonPath("$.data.content[0].currentManager").value(true))
+                .andExpect(jsonPath("$.data.content[0].email").doesNotExist());
     }
 
     @Test

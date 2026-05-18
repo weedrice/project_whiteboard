@@ -38,7 +38,7 @@
                   {{ $t('common.loginId') }}
                 </th>
                 <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-300">{{ $t('common.displayName') }}</th>
-                <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-300">{{ $t('common.email') }}</th>
+                <th v-if="showEmailColumn" class="px-3 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-300">{{ $t('common.email') }}</th>
               </tr>
             </thead>
             <tbody v-if="isLoading" class="bg-white dark:bg-gray-900">
@@ -83,8 +83,18 @@
                 >
                   {{ user.loginId }}
                 </td>
-                <td class="px-3 py-1.5 text-sm text-gray-900 dark:text-white">{{ user.displayName }}</td>
-                <td class="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-300">{{ user.email }}</td>
+                <td class="px-3 py-1.5 text-sm text-gray-900 dark:text-white">
+                  <span class="inline-flex items-center gap-2">
+                    <span>{{ user.displayName }}</span>
+                    <span
+                      v-if="user.currentManager"
+                      class="rounded bg-indigo-50 px-1.5 py-0.5 text-[11px] font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-200"
+                    >
+                      current
+                    </span>
+                  </span>
+                </td>
+                <td v-if="showEmailColumn" class="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-300">{{ user.email }}</td>
               </tr>
             </tbody>
           </table>
@@ -107,57 +117,88 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import { useAdmin } from '@/composables/useAdmin'
-import type { User } from '@/types'
+import { useBoard } from '@/composables/useBoard'
 
 type SelectionMode = 'single' | 'multiple'
+type UserSelectSource = 'admin' | 'board-manager-candidates'
+
+interface SelectableUser {
+  userId: number
+  loginId: string
+  displayName: string
+  profileImageUrl?: string | null
+  email?: string
+  currentManager?: boolean
+}
 
 const props = withDefaults(defineProps<{
   isOpen: boolean
   title?: string
   selectionMode?: SelectionMode
+  source?: UserSelectSource
+  boardUrl?: string
   initialSelectedIds?: number[]
   excludeUserIds?: number[]
 }>(), {
   title: '사용자 선택',
   selectionMode: 'single',
+  source: 'admin',
+  boardUrl: '',
   initialSelectedIds: () => [],
   excludeUserIds: () => []
 })
 
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'confirm', users: User[]): void
+  (e: 'confirm', users: SelectableUser[]): void
 }>()
 
 const { useUsers } = useAdmin()
+const { useBoardManagerCandidates } = useBoard()
 
 const searchQuery = ref('')
-const selectedMap = ref<Record<number, User>>({})
+const selectedMap = ref<Record<number, SelectableUser>>({})
 
 const params = computed(() => ({
   page: 0,
   size: 10,
   q: searchQuery.value
 }))
+const boardUrlRef = computed(() => props.boardUrl)
+const isBoardCandidateSource = computed(() => props.source === 'board-manager-candidates')
+const isUsersQueryEnabled = computed(() => props.isOpen && props.source === 'admin')
+const isBoardCandidatesQueryEnabled = computed(() => props.isOpen && isBoardCandidateSource.value && !!props.boardUrl)
 
-const { data: usersData, isLoading } = useUsers(params)
+const { data: adminUsersData, isLoading: isAdminUsersLoading } = useUsers(params, isUsersQueryEnabled)
+const { data: boardCandidatesData, isLoading: isBoardCandidatesLoading } = useBoardManagerCandidates(
+  boardUrlRef,
+  params,
+  isBoardCandidatesQueryEnabled
+)
 const isMultiMode = computed(() => props.selectionMode === 'multiple')
-const columnCount = computed(() => (isMultiMode.value ? 4 : 3))
+const showEmailColumn = computed(() => !isBoardCandidateSource.value)
+const usersData = computed(() => (isBoardCandidateSource.value ? boardCandidatesData.value : adminUsersData.value))
+const isLoading = computed(() => (isBoardCandidateSource.value ? isBoardCandidatesLoading.value : isAdminUsersLoading.value))
+const columnCount = computed(() => {
+  let count = isMultiMode.value ? 3 : 2
+  if (showEmailColumn.value) count += 1
+  return count
+})
 
-const filteredUsers = computed<User[]>(() => {
+const filteredUsers = computed<SelectableUser[]>(() => {
   const list = usersData.value?.content || []
   if (!props.excludeUserIds.length) return list
   const excluded = new Set(props.excludeUserIds)
   return list.filter((user) => !excluded.has(user.userId))
 })
 
-const selectedUsers = computed<User[]>(() => Object.values(selectedMap.value))
+const selectedUsers = computed<SelectableUser[]>(() => Object.values(selectedMap.value))
 
 function isSelected(userId: number) {
   return !!selectedMap.value[userId]
 }
 
-function toggleSelection(user: User) {
+function toggleSelection(user: SelectableUser) {
   if (props.selectionMode === 'single') {
     selectedMap.value = { [user.userId]: user }
     return
@@ -198,7 +239,7 @@ watch(filteredUsers, (users) => {
     return
   }
 
-  const next: Record<number, User> = {}
+  const next: Record<number, SelectableUser> = {}
   matched.forEach((user) => {
     next[user.userId] = user
   })

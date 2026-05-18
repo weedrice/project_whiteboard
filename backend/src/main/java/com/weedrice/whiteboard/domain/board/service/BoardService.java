@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.board.service;
 
 import com.weedrice.whiteboard.domain.board.dto.AdminBoardResponse;
+import com.weedrice.whiteboard.domain.board.dto.BoardManagerCandidateResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardDetailResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
@@ -99,6 +100,12 @@ public class BoardService {
 
     public Page<SubscriptionBoardResponse> getMySubscriptions(Long userId, Pageable pageable, boolean includeUnavailable) {
         return queryService.getMySubscriptions(userId, pageable, includeUnavailable);
+    }
+
+    public Page<BoardManagerCandidateResponse> getBoardManagerCandidates(String boardUrl, Long userId,
+            String keyword, Pageable pageable) {
+        validatePublicBoardPath(boardUrl);
+        return queryService.getBoardManagerCandidates(boardUrl, userId, keyword, pageable);
     }
 
     @Transactional

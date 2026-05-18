@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.board.dto.AdminBoardResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardDetailResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
+import com.weedrice.whiteboard.domain.board.dto.BoardManagerCandidateResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
@@ -30,6 +31,7 @@ import com.weedrice.whiteboard.domain.post.service.PostLatestReadService;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
+import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
@@ -46,6 +48,7 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -151,6 +154,7 @@ class BoardServiceTest {
         BoardProvisioningService provisioningService = new BoardProvisioningService(
                 boardRepository,
                 boardCategoryRepository,
+                boardSubscriptionRepository,
                 userRepository,
                 adminEligibleUserService,
                 boardManagerAssignmentService,
@@ -308,6 +312,98 @@ class BoardServiceTest {
     }
 
     @Test
+    @DisplayName("게시판 관리자는 해당 게시판 구독자 후보를 조회할 수 있다")
+    void getBoardManagerCandidates_boardAdmin_success() {
+        User candidate = User.builder()
+                .loginId("candidate")
+                .password("password")
+                .email("candidate@test.com")
+                .displayName("Candidate")
+                .build();
+        ReflectionTestUtils.setField(candidate, "userId", 2L);
+        BoardSubscription subscription = BoardSubscription.builder()
+                .user(candidate)
+                .board(board)
+                .role("MEMBER")
+                .sortOrder(1)
+                .build();
+
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(boardSubscriptionRepository.findManagerCandidatesByBoardAndKeyword(eq(board), eq("%cand%"), any()))
+                .thenReturn(new PageImpl<>(List.of(subscription), PageRequest.of(0, 10), 1));
+        when(adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(board, Role.BOARD_ADMIN, true))
+                .thenReturn(Optional.of(Admin.builder()
+                        .user(candidate)
+                        .board(board)
+                        .role(Role.BOARD_ADMIN)
+                        .build()));
+
+        Page<BoardManagerCandidateResponse> result = boardService.getBoardManagerCandidates(
+                "test-board",
+                1L,
+                " cand ",
+                PageRequest.of(0, 10));
+
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        BoardManagerCandidateResponse response = result.getContent().get(0);
+        assertThat(response.getUserId()).isEqualTo(2L);
+        assertThat(response.getLoginId()).isEqualTo("candidate");
+        assertThat(response.isCurrentManager()).isTrue();
+    }
+
+    @Test
+    @DisplayName("슈퍼 관리자는 게시판 관리자 후보를 조회할 수 있다")
+    void getBoardManagerCandidates_superAdmin_success() {
+        User superUser = User.builder()
+                .loginId("super")
+                .password("password")
+                .email("super@test.com")
+                .displayName("Super")
+                .build();
+        ReflectionTestUtils.setField(superUser, "userId", 3L);
+        superUser.grantSuperAdminRole();
+
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(userRepository.findById(3L)).thenReturn(Optional.of(superUser));
+        when(boardSubscriptionRepository.findManagerCandidatesByBoard(eq(board), any()))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
+        when(adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(board, Role.BOARD_ADMIN, true))
+                .thenReturn(Optional.empty());
+
+        Page<BoardManagerCandidateResponse> result = boardService.getBoardManagerCandidates(
+                "test-board",
+                3L,
+                "",
+                PageRequest.of(0, 10));
+
+        assertThat(result.getTotalElements()).isZero();
+        verify(boardSubscriptionRepository).findManagerCandidatesByBoard(eq(board), any());
+    }
+
+    @Test
+    @DisplayName("게시판 관리자 권한이 없으면 후보 조회를 거부한다")
+    void getBoardManagerCandidates_forbidden() {
+        User otherUser = User.builder()
+                .loginId("other")
+                .password("password")
+                .email("other@test.com")
+                .displayName("Other")
+                .build();
+        ReflectionTestUtils.setField(otherUser, "userId", 99L);
+
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(userRepository.findById(99L)).thenReturn(Optional.of(otherUser));
+        when(adminRepository.existsByUserAndBoardAndIsActive(otherUser, board, true)).thenReturn(false);
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.getBoardManagerCandidates("test-board", 99L, null, PageRequest.of(0, 10)));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN);
+        verify(boardSubscriptionRepository, never()).findManagerCandidatesByBoard(any(), any());
+        verify(boardSubscriptionRepository, never()).findManagerCandidatesByBoardAndKeyword(any(), any(), any());
+    }
+
+    @Test
     @DisplayName("게시판 구독 성공")
     void subscribeBoard_success() {
         // given
@@ -419,6 +515,7 @@ class BoardServiceTest {
 
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
         when(adminEligibleUserService.getActiveUserByLoginId("nextmanager")).thenReturn(nextManager);
+        when(boardSubscriptionRepository.existsByUserAndBoard(nextManager, board)).thenReturn(true);
 
         BoardCommandResult result = boardService.transferBoardManager("test-board", "nextmanager", 1L);
 
@@ -441,6 +538,7 @@ class BoardServiceTest {
 
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
         when(adminEligibleUserService.getActiveUserByLoginId("nextmanager")).thenReturn(nextManager);
+        when(boardSubscriptionRepository.existsByUserAndBoard(nextManager, board)).thenReturn(true);
         when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
 
         BoardDetailResponse response = boardApplicationService.transferBoardManagerDetail("test-board", "nextmanager", 1L);
@@ -450,6 +548,28 @@ class BoardServiceTest {
         InOrder inOrder = inOrder(boardRepository);
         inOrder.verify(boardRepository).findByBoardUrlForUpdate("test-board");
         inOrder.verify(boardRepository).findByBoardUrl("test-board");
+    }
+
+    @Test
+    @DisplayName("게시판 관리자 이관 대상이 구독자가 아니면 FORBIDDEN을 반환한다")
+    void transferBoardManager_rejectsNonSubscriber() {
+        User nextManager = User.builder()
+                .loginId("nextmanager")
+                .password("password")
+                .email("next@test.com")
+                .displayName("Next Manager")
+                .build();
+        ReflectionTestUtils.setField(nextManager, "userId", 2L);
+
+        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
+        when(adminEligibleUserService.getActiveUserByLoginId("nextmanager")).thenReturn(nextManager);
+        when(boardSubscriptionRepository.existsByUserAndBoard(nextManager, board)).thenReturn(false);
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.transferBoardManager("test-board", "nextmanager", 1L));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN);
+        verify(boardManagerAssignmentService, never()).assignBoardManager(any(), any());
     }
 
     @Test

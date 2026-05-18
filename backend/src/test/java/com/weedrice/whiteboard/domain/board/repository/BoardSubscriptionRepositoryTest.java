@@ -123,6 +123,79 @@ class BoardSubscriptionRepositoryTest {
         assertThat(boardUrls).containsExactlyInAnyOrder("public", "inactive");
     }
 
+    @Test
+    @DisplayName("관리자 후보 조회는 해당 게시판의 활성 구독자만 반환한다")
+    void findManagerCandidatesByBoard_returnsOnlyActiveSubscribers() {
+        Board candidateBoard = persistBoard("Candidates", "candidates", owner, true, true);
+        User alpha = persistUser("alpha", "alpha@test.com", "Alpha");
+        User bravo = persistUser("bravo", "bravo@test.com", "Bravo");
+        User suspended = persistUser("charlie", "charlie@test.com", "Charlie");
+        User deleted = persistUser("delta", "delta@test.com", "Delta");
+        persistUser("echo", "echo@test.com", "Echo");
+
+        suspended.suspend();
+        deleted.delete();
+        persistSubscription(bravo, candidateBoard, 1);
+        persistSubscription(alpha, candidateBoard, 1);
+        persistSubscription(suspended, candidateBoard, 1);
+        persistSubscription(deleted, candidateBoard, 1);
+        entityManager.flush();
+        entityManager.clear();
+
+        Board board = entityManager.find(Board.class, candidateBoard.getBoardId());
+
+        Page<BoardSubscription> result = boardSubscriptionRepository.findManagerCandidatesByBoard(
+                board,
+                PageRequest.of(0, 10));
+
+        assertThat(result.getTotalElements()).isEqualTo(2);
+        assertThat(result.getContent())
+                .extracting(subscription -> subscription.getUser().getLoginId())
+                .containsExactly("alpha", "bravo");
+    }
+
+    @Test
+    @DisplayName("관리자 후보 조회는 loginId와 displayName 검색 및 pagination을 지원한다")
+    void findManagerCandidatesByBoard_supportsKeywordAndPagination() {
+        Board candidateBoard = persistBoard("Paged Candidates", "paged-candidates", owner, true, true);
+        User alpha = persistUser("alpha-page", "alpha-page@test.com", "First");
+        User beta = persistUser("beta-page", "beta-page@test.com", "Needle User");
+        User gamma = persistUser("gamma-page", "gamma-page@test.com", "Needle Admin");
+
+        persistSubscription(gamma, candidateBoard, 1);
+        persistSubscription(alpha, candidateBoard, 1);
+        persistSubscription(beta, candidateBoard, 1);
+        entityManager.flush();
+        entityManager.clear();
+
+        Board board = entityManager.find(Board.class, candidateBoard.getBoardId());
+
+        Page<BoardSubscription> loginSearch = boardSubscriptionRepository.findManagerCandidatesByBoardAndKeyword(
+                board,
+                "%alpha%",
+                PageRequest.of(0, 10));
+        Page<BoardSubscription> displayNameSearch = boardSubscriptionRepository.findManagerCandidatesByBoardAndKeyword(
+                board,
+                "%needle%",
+                PageRequest.of(0, 10));
+        Page<BoardSubscription> firstPage = boardSubscriptionRepository.findManagerCandidatesByBoard(
+                board,
+                PageRequest.of(0, 2));
+
+        assertThat(loginSearch.getContent())
+                .extracting(subscription -> subscription.getUser().getLoginId())
+                .containsExactly("alpha-page");
+        assertThat(displayNameSearch.getTotalElements()).isEqualTo(2);
+        assertThat(displayNameSearch.getContent())
+                .extracting(subscription -> subscription.getUser().getLoginId())
+                .containsExactly("beta-page", "gamma-page");
+        assertThat(firstPage.getTotalElements()).isEqualTo(3);
+        assertThat(firstPage.getContent())
+                .extracting(subscription -> subscription.getUser().getLoginId())
+                .containsExactly("alpha-page", "beta-page");
+        assertThat(firstPage.hasNext()).isTrue();
+    }
+
     private User persistUser(String loginId, String email, String displayName) {
         User user = User.builder()
                 .loginId(loginId)

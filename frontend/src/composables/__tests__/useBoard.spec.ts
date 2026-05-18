@@ -57,6 +57,7 @@ vi.mock('@/api/board', () => ({
         createBoard: vi.fn(),
         updateBoard: vi.fn(),
         updateBoardManager: vi.fn(),
+        getBoardManagerCandidates: vi.fn(),
         deleteBoard: vi.fn(),
     },
 }))
@@ -348,6 +349,34 @@ describe('useBoard', () => {
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'free'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards', 'subscriptions'] })
+    })
+
+    it('fetches board manager candidates with enabled guard', async () => {
+        vi.mocked(boardApi.getBoardManagerCandidates).mockResolvedValueOnce({
+            data: { data: { content: [{ userId: 1, loginId: 'manager', currentManager: true }] } },
+        } as never)
+
+        const { useBoardManagerCandidates } = useBoard()
+        const boardUrl = ref('free')
+        const params = ref({ page: 0, size: 10, q: 'manager' })
+        const enabled = ref(false)
+
+        useBoardManagerCandidates(boardUrl, params, enabled)
+        let options = mocks.queryOptions.at(-1)!
+        expect(options.queryKey).toEqual(['board', boardUrl, 'manager-candidates', params])
+        expect((options.enabled as ReturnType<typeof computed>).value).toBe(false)
+
+        enabled.value = true
+        expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
+        const result = await (options.queryFn as () => Promise<unknown>)()
+
+        expect(boardApi.getBoardManagerCandidates).toHaveBeenCalledWith('free', { page: 0, size: 10, q: 'manager' })
+        expect(result).toEqual({ content: [{ userId: 1, loginId: 'manager', currentManager: true }] })
+
+        boardUrl.value = ''
+        useBoardManagerCandidates(boardUrl, params, ref(true))
+        options = mocks.queryOptions.at(-1)!
+        expect((options.enabled as ReturnType<typeof computed>).value).toBe(false)
     })
 
     it('deletes board and invalidates board lists', async () => {

@@ -260,7 +260,7 @@ import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
-import type { AdminBoard, User } from '@/types'
+import type { AdminBoard } from '@/types'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -620,7 +620,7 @@ function closeManagerModal() {
   isManagerModalOpen.value = false
 }
 
-async function confirmManagerSelection(users: User[]) {
+async function confirmManagerSelection(users: Array<{ loginId: string; displayName?: string }>) {
   if (!selectedBoard.value || users.length === 0) return
 
   isAssigningManager.value = true

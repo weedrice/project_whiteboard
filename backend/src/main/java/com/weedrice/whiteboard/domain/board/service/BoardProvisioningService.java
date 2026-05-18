@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -38,6 +39,7 @@ class BoardProvisioningService {
 
     private final BoardRepository boardRepository;
     private final BoardCategoryRepository boardCategoryRepository;
+    private final BoardSubscriptionRepository boardSubscriptionRepository;
     private final UserRepository userRepository;
     private final AdminEligibleUserService adminEligibleUserService;
     private final BoardManagerAssignmentService boardManagerAssignmentService;
@@ -49,6 +51,7 @@ class BoardProvisioningService {
 
     BoardProvisioningService(BoardRepository boardRepository,
                              BoardCategoryRepository boardCategoryRepository,
+                             BoardSubscriptionRepository boardSubscriptionRepository,
                              UserRepository userRepository,
                              AdminEligibleUserService adminEligibleUserService,
                              BoardManagerAssignmentService boardManagerAssignmentService,
@@ -59,6 +62,7 @@ class BoardProvisioningService {
                              BoardAccessPolicy boardAccessPolicy) {
         this.boardRepository = boardRepository;
         this.boardCategoryRepository = boardCategoryRepository;
+        this.boardSubscriptionRepository = boardSubscriptionRepository;
         this.userRepository = userRepository;
         this.adminEligibleUserService = adminEligibleUserService;
         this.boardManagerAssignmentService = boardManagerAssignmentService;
@@ -191,6 +195,9 @@ class BoardProvisioningService {
         boardAccessPolicy.validateBoardAdmin(board, currentUser);
 
         User nextManager = adminEligibleUserService.getActiveUserByLoginId(loginId);
+        if (!boardSubscriptionRepository.existsByUserAndBoard(nextManager, board)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
         boardManagerAssignmentService.assignBoardManager(board, nextManager);
     }
 
