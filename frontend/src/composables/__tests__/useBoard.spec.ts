@@ -140,10 +140,10 @@ describe('useBoard', () => {
         const boardUrl = ref('free')
 
         useBoardDetail(boardUrl)
-        let options = mocks.queryOptions.at(-1)!
+        const options = mocks.queryOptions.at(-1)!
         expect(options.queryKey).toEqual(['board', boardUrl])
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
-        let result = await (options.queryFn as () => Promise<unknown>)()
+        const result = await (options.queryFn as () => Promise<unknown>)()
         expect(result).toEqual({ boardId: 2, boardUrl: 'free' })
         expect(boardApi.getBoard).toHaveBeenCalledWith('free', undefined)
     })
