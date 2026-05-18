@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { authApi } from '@/api/auth'
 import { Lock, User, Mail, Smile, ChevronLeft, CheckCircle } from 'lucide-vue-next'
@@ -9,6 +9,7 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { isEmpty, isValidEmail, isValidLoginId, isValidPassword, isValidDisplayName } from '@/utils/validation'
 import { extractErrorMessage } from '@/utils/errorHandler'
+import { useEmailVerificationState } from '@/composables/useEmailVerificationState'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -133,71 +134,18 @@ watch(() => form.value.displayName, () => {
   validateDisplayName()
 })
 
-const verification = reactive({
-  code: '',
-  verificationTicket: '',
-  isCodeSent: false,
-  isVerified: false,
-  loading: false,
-  timeLeft: 0,
-  resendCooldown: 0
-})
-
-let timerInterval: ReturnType<typeof setInterval> | null = null
-let resendInterval: ReturnType<typeof setInterval> | null = null
+const {
+  verification,
+  startTimer,
+  stopTimer,
+  startResendCooldown,
+  stopResendCooldown,
+  formatTime
+} = useEmailVerificationState()
 
 const error = ref('')
 const isLoading = ref(false)
 const isReregister = ref(false) // 탈퇴 계정 재가입 모드
-
-function startTimer() {
-  stopTimer()
-  verification.timeLeft = 300 // 5 minutes
-  timerInterval = setInterval(() => {
-    if (verification.timeLeft > 0) {
-      verification.timeLeft--
-    } else {
-      stopTimer()
-    }
-  }, 1000)
-}
-
-function stopTimer() {
-  if (timerInterval) {
-    clearInterval(timerInterval)
-    timerInterval = null
-  }
-}
-
-function startResendCooldown() {
-  stopResendCooldown()
-  verification.resendCooldown = 60 // 60초 쿨다운
-  resendInterval = setInterval(() => {
-    if (verification.resendCooldown > 0) {
-      verification.resendCooldown--
-    } else {
-      stopResendCooldown()
-    }
-  }, 1000)
-}
-
-function stopResendCooldown() {
-  if (resendInterval) {
-    clearInterval(resendInterval)
-    resendInterval = null
-  }
-}
-
-function formatTime(seconds: number): string {
-  const m = Math.floor(seconds / 60)
-  const s = seconds % 60
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-}
-
-onUnmounted(() => {
-  stopTimer()
-  stopResendCooldown()
-})
 
 async function sendVerificationCode() {
   const email = form.value.email.trim()
