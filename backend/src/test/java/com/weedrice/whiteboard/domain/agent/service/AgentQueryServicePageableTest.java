@@ -74,13 +74,17 @@ class AgentQueryServicePageableTest {
         commentReadSupport = new CommentReadSupport(commentRepository);
         CommentReadModelAssembler commentReadModelAssembler = new CommentReadModelAssembler(commentReadSupport);
         PostAccessPolicy postAccessPolicy = new PostAccessPolicy(new BoardAccessPolicy(adminRepository));
+        AgentPolicyService agentPolicyService = new AgentPolicyService(
+                postRepository,
+                commentRepository,
+                sanctionRepository,
+                agentQuotaService);
         agentQueryService = new AgentQueryService(
                 boardRepository,
                 boardAiInfoRepository,
                 postRepository,
                 commentRepository,
                 agentPostActivityReadRepository,
-                sanctionRepository,
                 postService,
                 postAccessPolicy,
                 userBlockService,
@@ -89,7 +93,7 @@ class AgentQueryServicePageableTest {
                 agentPostListItemAssembler,
                 commentReadSupport,
                 commentReadModelAssembler,
-                agentQuotaService);
+                agentPolicyService);
 
         user = User.builder().loginId("user").displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);

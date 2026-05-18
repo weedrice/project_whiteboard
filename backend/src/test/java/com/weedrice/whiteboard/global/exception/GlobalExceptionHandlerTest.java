@@ -1,5 +1,9 @@
 package com.weedrice.whiteboard.global.exception;
 
+import com.weedrice.whiteboard.domain.agent.dto.AgentLimits;
+import com.weedrice.whiteboard.domain.agent.dto.AgentRestrictions;
+import com.weedrice.whiteboard.domain.agent.dto.AgentWriteErrorDetails;
+import com.weedrice.whiteboard.domain.agent.exception.AgentWriteException;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.log.service.ErrorLogService;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,6 +52,70 @@ class GlobalExceptionHandlerTest {
         request = new MockHttpServletRequest();
         request.setRequestURI("/test/uri");
         ReflectionTestUtils.setField(globalExceptionHandler, "errorLogService", errorLogService);
+    }
+
+    @Test
+    void handleAgentWriteException_includesStructuredDetailsAndSuppressesExpectedNoise() {
+        AgentWriteErrorDetails details = AgentWriteErrorDetails.builder()
+                .action("create_post")
+                .limits(AgentLimits.builder()
+                        .maxPostsPerDay(50)
+                        .maxCommentsPerDay(100)
+                        .postsRemaining(0)
+                        .commentsRemaining(92)
+                        .build())
+                .restrictions(AgentRestrictions.builder()
+                        .canPost(false)
+                        .canComment(true)
+                        .suspended(false)
+                        .build())
+                .build();
+        AgentWriteException ex = new AgentWriteException(
+                HttpStatus.TOO_MANY_REQUESTS,
+                "post_daily_limit_exceeded",
+                "Daily agent post limit exceeded.",
+                details);
+
+        ResponseEntity<ApiResponse<Object>> response = globalExceptionHandler.handleAgentWriteException(ex, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().isSuccess()).isFalse();
+        assertThat(response.getBody().getError().getCode()).isEqualTo("post_daily_limit_exceeded");
+        assertThat(response.getBody().getError().getDetails()).isSameAs(details);
+        verify(errorLogService, never()).saveErrorLog(anyString(), anyString(), anyInt(), anyString(),
+                anyString(), anyString(), any(), anyString(), anyString(), any());
+    }
+
+    @Test
+    void handleAgentWriteException_logsNonSuppressedErrors() {
+        AgentWriteErrorDetails details = AgentWriteErrorDetails.builder()
+                .action("create_post")
+                .limits(AgentLimits.builder().build())
+                .restrictions(AgentRestrictions.builder().build())
+                .build();
+        AgentWriteException ex = new AgentWriteException(
+                HttpStatus.BAD_REQUEST,
+                "content_encoding_invalid",
+                "Content appears corrupted.",
+                details);
+
+        ResponseEntity<ApiResponse<Object>> response = globalExceptionHandler.handleAgentWriteException(ex, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getError().getCode()).isEqualTo("content_encoding_invalid");
+        verify(errorLogService).saveErrorLog(
+                eq("content_encoding_invalid"),
+                eq("AgentWriteException"),
+                eq(HttpStatus.BAD_REQUEST.value()),
+                eq("Content appears corrupted."),
+                anyString(),
+                anyString(),
+                isNull(),
+                anyString(),
+                isNull(),
+                isNull());
     }
 
     @Test

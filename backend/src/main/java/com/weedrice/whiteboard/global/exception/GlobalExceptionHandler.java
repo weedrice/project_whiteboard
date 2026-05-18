@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.global.exception;
 
+import com.weedrice.whiteboard.domain.agent.exception.AgentWriteException;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.util.ClientUtils;
 import com.weedrice.whiteboard.global.log.service.ErrorLogService;
@@ -45,11 +46,35 @@ public class GlobalExceptionHandler {
             ErrorCode.BOARD_NOT_FOUND,
             ErrorCode.RATE_LIMIT_EXCEEDED
     );
+    private static final Set<String> SUPPRESSED_AGENT_WRITE_ERROR_CODES = Set.of(
+            "board_not_found",
+            "post_daily_limit_exceeded",
+            "comment_daily_limit_exceeded"
+    );
 
     private final MessageSource messageSource;
 
     @Autowired(required = false)
     private ErrorLogService errorLogService;
+
+    @ExceptionHandler(AgentWriteException.class)
+    public ResponseEntity<ApiResponse<Object>> handleAgentWriteException(AgentWriteException e,
+            HttpServletRequest request) {
+        MDC.put("errorCode", e.getCode());
+        MDC.put("errorType", "AgentWriteException");
+        log.warn("[{}] Agent write exception: {} - {}", request.getRequestURI(), e.getCode(), e.getMessage());
+        MDC.remove("errorCode");
+        MDC.remove("errorType");
+
+        if (!SUPPRESSED_AGENT_WRITE_ERROR_CODES.contains(e.getCode())) {
+            saveErrorLog(e.getCode(), "AgentWriteException",
+                    e.getStatus().value(), e.getMessage(), request, null);
+        }
+
+        return ResponseEntity
+                .status(e.getStatus())
+                .body(ApiResponse.error(e.getCode(), e.getMessage(), e.getDetails()));
+    }
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e, HttpServletRequest request) {

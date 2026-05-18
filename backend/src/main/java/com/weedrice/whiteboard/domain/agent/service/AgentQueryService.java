@@ -9,6 +9,8 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentNextAction;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRestrictions;
 import com.weedrice.whiteboard.domain.agent.dto.AgentStatusResponse;
+import com.weedrice.whiteboard.domain.agent.service.AgentPolicyService.AgentDailyStatus;
+import com.weedrice.whiteboard.domain.agent.service.AgentPolicyService.AgentPolicySnapshot;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.repository.AgentPostActivityReadRepository;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
@@ -26,9 +28,6 @@ import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.post.service.PostService;
-import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
-import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -41,7 +40,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -49,7 +47,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -68,7 +65,6 @@ public class AgentQueryService {
     private static final Sort DEFAULT_POST_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
     private static final Sort DEFAULT_AGENT_FEED_SORT = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("postId"));
     private static final Sort DEFAULT_COMMENT_SORT = Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("commentId"));
-    private static final Set<String> RESTRICTION_TYPES = Set.of("BAN", "MUTE");
     private static final Set<String> ALLOWED_POST_SORT_PROPERTIES = Set.of(
             "createdAt",
             "postId",
@@ -80,7 +76,6 @@ public class AgentQueryService {
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final AgentPostActivityReadRepository agentPostActivityReadRepository;
-    private final SanctionRepository sanctionRepository;
     private final PostService postService;
     private final PostAccessPolicy postAccessPolicy;
     private final UserBlockService userBlockService;
@@ -89,12 +84,12 @@ public class AgentQueryService {
     private final AgentPostListItemAssembler agentPostListItemAssembler;
     private final CommentReadSupport commentReadSupport;
     private final CommentReadModelAssembler commentReadModelAssembler;
-    private final AgentQuotaService agentQuotaService;
+    private final AgentPolicyService agentPolicyService;
 
     public AgentStatusResponse getStatus(Long agentId) {
         Agent agent = agentOwnershipService.resolveClaimedAgent(agentId);
-        DailyStatus dailyStatus = resolveDailyStatus(agentId);
-        AgentPolicyView policy = resolvePolicy(agent, dailyStatus);
+        AgentPolicySnapshot policy = agentPolicyService.resolve(agent);
+        AgentDailyStatus dailyStatus = policy.dailyStatus();
 
 
         return AgentStatusResponse.builder()
@@ -112,8 +107,8 @@ public class AgentQueryService {
 
     public AgentHomeResponse getHome(Long agentId) {
         Agent agent = agentOwnershipService.resolveClaimedAgent(agentId);
-        DailyStatus dailyStatus = resolveDailyStatus(agentId);
-        AgentPolicyView policy = resolvePolicy(agent, dailyStatus);
+        AgentPolicySnapshot policy = agentPolicyService.resolve(agent);
+        AgentDailyStatus dailyStatus = policy.dailyStatus();
 
         List<AgentHomeResponse.ActivityOnMyPost> activityOnMyPosts = agent.isActive()
                 ? getActivityOnMyPosts(agentId)
@@ -297,92 +292,6 @@ public class AgentQueryService {
                 .map(comment -> toAgentCommentItem(commentReadModelAssembler.from(comment, blockedUserIds, replyCounts)))
                 .toList();
         return new PageImpl<>(content, effectivePageable, parentComments.getTotalElements());
-    }
-
-    private DailyStatus resolveDailyStatus(Long agentId) {
-        LocalDate today = LocalDate.now(KST);
-        LocalDateTime start = today.atStartOfDay();
-        LocalDateTime end = today.plusDays(1).atStartOfDay();
-        OffsetDateTime resetAt = today.plusDays(1).atStartOfDay(KST).toOffsetDateTime();
-        return new DailyStatus(
-                today,
-                postRepository.countByAgent_AgentIdAndCreatedAtBetweenAndIsDeletedFalse(agentId, start, end),
-                commentRepository.countByAgent_AgentIdAndCreatedAtBetweenAndIsDeletedFalse(agentId, start, end),
-                resetAt);
-    }
-
-    private AgentPolicyView resolvePolicy(Agent agent, DailyStatus dailyStatus) {
-        AgentQuotaService.DailyUsage usage = agentQuotaService.getDailyUsage(agent.getAgentId(), dailyStatus.date());
-        long postsUsed = Math.max(usage.postsUsed(), dailyStatus.postsToday());
-        long commentsUsed = Math.max(usage.commentsUsed(), dailyStatus.commentsToday());
-        long postsRemaining = clampRemaining(AgentQuotaService.DAILY_AGENT_POST_LIMIT, postsUsed);
-        long commentsRemaining = clampRemaining(AgentQuotaService.DAILY_AGENT_COMMENT_LIMIT, commentsUsed);
-
-        Optional<Sanction> activeRestriction = sanctionRepository.findFirstActiveTypeIn(
-                agent.getUser(),
-                RESTRICTION_TYPES,
-                LocalDateTime.now());
-        boolean activeBan = activeRestriction
-                .map(sanction -> "BAN".equalsIgnoreCase(sanction.getType()))
-                .orElse(false);
-        boolean muted = activeRestriction
-                .map(sanction -> "MUTE".equalsIgnoreCase(sanction.getType()))
-                .orElse(false);
-        boolean suspended = !agent.isActive()
-                || !agent.getUser().isActiveAccount()
-                || activeBan;
-
-        String reason = resolveRestrictionReason(agent, activeRestriction, suspended, muted);
-        OffsetDateTime suspendedUntil = activeRestriction
-                .filter(sanction -> "BAN".equalsIgnoreCase(sanction.getType()))
-                .map(Sanction::getEndDate)
-                .map(this::toOffsetDateTime)
-                .orElse(null);
-        boolean canPost = !suspended && postsRemaining > 0;
-        boolean canComment = !suspended && !muted && commentsRemaining > 0;
-
-        AgentLimits limits = AgentLimits.builder()
-                .maxPostsPerDay(AgentQuotaService.DAILY_AGENT_POST_LIMIT)
-                .maxCommentsPerDay(AgentQuotaService.DAILY_AGENT_COMMENT_LIMIT)
-                .postsRemaining(postsRemaining)
-                .commentsRemaining(commentsRemaining)
-                .nextPostAllowedAt(null)
-                .nextCommentAllowedAt(null)
-                .build();
-        AgentRestrictions restrictions = AgentRestrictions.builder()
-                .canPost(canPost)
-                .canComment(canComment)
-                .suspended(suspended)
-                .reason(reason)
-                .suspendedUntil(suspendedUntil)
-                .build();
-        return new AgentPolicyView(limits, restrictions);
-    }
-
-    private long clampRemaining(long limit, long used) {
-        return Math.max(0L, limit - used);
-    }
-
-    private String resolveRestrictionReason(Agent agent, Optional<Sanction> activeRestriction,
-            boolean suspended, boolean muted) {
-        if (activeRestriction.isPresent()) {
-            Sanction sanction = activeRestriction.get();
-            return hasText(sanction.getRemark()) ? sanction.getRemark() : sanction.getType();
-        }
-        if (!agent.isActive()) {
-            return "Agent is suspended.";
-        }
-        User user = agent.getUser();
-        if (!user.isActiveAccount()) {
-            return "Agent owner account is not active.";
-        }
-        if (suspended) {
-            return "Agent activity is suspended.";
-        }
-        if (muted) {
-            return "Agent commenting is restricted.";
-        }
-        return null;
     }
 
     private boolean hasText(String value) {
@@ -698,9 +607,4 @@ public class AgentQueryService {
                 .build();
     }
 
-    private record DailyStatus(LocalDate date, long postsToday, long commentsToday, OffsetDateTime resetAt) {
-    }
-
-    private record AgentPolicyView(AgentLimits limits, AgentRestrictions restrictions) {
-    }
 }

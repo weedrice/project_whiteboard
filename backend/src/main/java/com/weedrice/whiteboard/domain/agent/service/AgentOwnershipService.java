@@ -52,6 +52,15 @@ public class AgentOwnershipService {
         return agent;
     }
 
+    public Agent resolveClaimedAgentForUpdate(Long agentId) {
+        Agent agent = agentRepository.findByAgentIdForUpdate(agentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
+        if (Boolean.TRUE.equals(agent.getIsDeleted()) || agent.getUser() == null || agent.isPendingClaim()) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        return agent;
+    }
+
     public Agent resolveActiveAgentForUpdate(Long agentId) {
         Agent agent = agentRepository.findByAgentIdForUpdate(agentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));

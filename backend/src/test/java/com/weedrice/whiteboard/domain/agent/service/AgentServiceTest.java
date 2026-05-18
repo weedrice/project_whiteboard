@@ -15,6 +15,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentStatusResponse;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.entity.AgentDailyQuota;
 import com.weedrice.whiteboard.domain.agent.entity.AgentPostActivityRead;
+import com.weedrice.whiteboard.domain.agent.exception.AgentWriteException;
 import com.weedrice.whiteboard.domain.agent.repository.AgentDailyQuotaRepository;
 import com.weedrice.whiteboard.domain.agent.repository.AgentPostActivityReadRepository;
 import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
@@ -40,6 +41,7 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.post.service.PostCreateContext;
 import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
 import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionPolicyService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
@@ -76,6 +78,7 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -143,6 +146,7 @@ class AgentServiceTest {
     private CommentReadSupport commentReadSupport;
     private AgentLifecycleService agentLifecycleService;
     private AgentAuthService agentAuthService;
+    private AgentPolicyService agentPolicyService;
     private AgentQueryService agentQueryService;
     private AgentQuotaService agentQuotaService;
     private AgentCommandService agentCommandService;
@@ -178,13 +182,17 @@ class AgentServiceTest {
                 entityManager);
         agentAuthService = new AgentAuthService(agentRepository);
         PostAccessPolicy postAccessPolicy = new PostAccessPolicy(new BoardAccessPolicy(adminRepository));
+        agentPolicyService = new AgentPolicyService(
+                postRepository,
+                commentRepository,
+                sanctionRepository,
+                agentQuotaService);
         agentQueryService = new AgentQueryService(
                 boardRepository,
                 boardAiInfoRepository,
                 postRepository,
                 commentRepository,
                 agentPostActivityReadRepository,
-                sanctionRepository,
                 postService,
                 postAccessPolicy,
                 userBlockService,
@@ -193,7 +201,7 @@ class AgentServiceTest {
                 agentPostListItemAssembler,
                 commentReadSupport,
                 commentReadModelAssembler,
-                agentQuotaService);
+                agentPolicyService);
         AgentLinkBuilder agentLinkBuilder = new AgentLinkBuilder();
         ReflectionTestUtils.setField(agentLinkBuilder, "frontendUrl", "https://noviis.kr");
         agentCommandService = new AgentCommandService(
@@ -207,6 +215,7 @@ class AgentServiceTest {
                 agentBoardAccessService,
                 agentAuditService,
                 agentQuotaService,
+                agentPolicyService,
                 agentLinkBuilder);
         agentPostActivityService = new AgentPostActivityService(
                 agentOwnershipService,
@@ -1622,8 +1631,8 @@ class AgentServiceTest {
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(false);
 
         assertThatThrownBy(() -> agentCommandService.createPost(7L, request, null))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+                .isInstanceOf(AgentWriteException.class)
+                .hasFieldOrPropertyWithValue("code", "board_write_forbidden");
 
         verify(postService).canWriteToBoard(1L, writableBoard);
         verify(agentDailyQuotaRepository, never()).findForUpdate(anyLong(), any(LocalDate.class), anyString());
@@ -1646,8 +1655,8 @@ class AgentServiceTest {
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
 
         assertThatThrownBy(() -> agentCommandService.createPost(7L, request, null))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+                .isInstanceOf(AgentWriteException.class)
+                .hasFieldOrPropertyWithValue("code", "validation_failed");
 
         verify(agentDailyQuotaRepository, never()).findForUpdate(anyLong(), any(LocalDate.class), anyString());
         verify(agentDailyQuotaRepository, never()).saveAndFlush(any(AgentDailyQuota.class));
@@ -1668,8 +1677,8 @@ class AgentServiceTest {
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(false);
 
         assertThatThrownBy(() -> agentCommandService.createComment(7L, 100L, request, null))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+                .isInstanceOf(AgentWriteException.class)
+                .hasFieldOrPropertyWithValue("code", "board_write_forbidden");
 
         verify(postService).canWriteToBoard(1L, writableBoard);
         verify(agentDailyQuotaRepository, never()).findForUpdate(anyLong(), any(LocalDate.class), anyString());
@@ -1701,15 +1710,14 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(request, "content", "a".repeat(60));
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByBoardUrlForUpdate("free")).thenReturn(Optional.of(writableBoard));
-        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
-        when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("POST")))
+        when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(eq(7L), any(LocalDate.class), eq("POST")))
                 .thenReturn(Optional.of(quota("POST", 50L)));
 
         assertThatThrownBy(() -> agentCommandService.createPost(7L, request, null))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.RATE_LIMIT_EXCEEDED);
+                .isInstanceOf(AgentWriteException.class)
+                .hasFieldOrPropertyWithValue("code", "post_daily_limit_exceeded");
 
+        verify(boardRepository, never()).findByBoardUrlForUpdate(anyString());
         verify(postService, never()).createPostAsAgent(
                 anyLong(),
                 anyLong(),
@@ -1724,16 +1732,167 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(request, "content", "b".repeat(25));
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
-        when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
-        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
-        when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("COMMENT")))
+        when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(eq(7L), any(LocalDate.class), eq("COMMENT")))
                 .thenReturn(Optional.of(quota("COMMENT", 100L)));
+        when(sanctionRepository.existsActiveTypeIn(eq(user), any(), any(LocalDateTime.class))).thenReturn(false);
 
         assertThatThrownBy(() -> agentCommandService.createComment(7L, 100L, request, null))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.RATE_LIMIT_EXCEEDED);
+                .isInstanceOf(AgentWriteException.class)
+                .hasFieldOrPropertyWithValue("code", "comment_daily_limit_exceeded");
 
+        verify(postService, never()).getPostById(anyLong(), anyLong(), anyBoolean());
         verify(commentService, never()).createCommentAsAgent(anyLong(), anyLong(), eq(100L), isNull(), any(), any());
+    }
+
+    @Test
+    void createPost_missingBoard_returnsStructuredWriteError() {
+        AgentPostCreateRequest request = new AgentPostCreateRequest();
+        ReflectionTestUtils.setField(request, "boardUrl", "missing");
+        ReflectionTestUtils.setField(request, "title", "title");
+        ReflectionTestUtils.setField(request, "content", "a".repeat(60));
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(boardRepository.findByBoardUrlForUpdate("missing")).thenReturn(Optional.empty());
+
+        Throwable thrown = catchThrowable(() -> agentCommandService.createPost(7L, request, null));
+
+        assertThat(thrown).isInstanceOf(AgentWriteException.class);
+        AgentWriteException exception = (AgentWriteException) thrown;
+        assertThat(exception.getCode()).isEqualTo("board_not_found");
+        assertThat(exception.getDetails().getAction()).isEqualTo("create_post");
+        assertThat(exception.getDetails().getLimits()).isNotNull();
+        assertThat(exception.getDetails().getRestrictions()).isNotNull();
+    }
+
+    @Test
+    void createPost_suspendedAgent_returnsStructuredWriteErrorBeforeTargetLookup() {
+        ReflectionTestUtils.setField(agent, "status", Agent.STATUS_SUSPENDED);
+        AgentPostCreateRequest request = new AgentPostCreateRequest();
+        ReflectionTestUtils.setField(request, "boardUrl", "free");
+        ReflectionTestUtils.setField(request, "title", "title");
+        ReflectionTestUtils.setField(request, "content", "a".repeat(60));
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+
+        Throwable thrown = catchThrowable(() -> agentCommandService.createPost(7L, request, null));
+
+        assertThat(thrown).isInstanceOf(AgentWriteException.class);
+        AgentWriteException exception = (AgentWriteException) thrown;
+        assertThat(exception.getCode()).isEqualTo("agent_suspended");
+        assertThat(exception.getDetails().getAction()).isEqualTo("create_post");
+        assertThat(exception.getDetails().getRestrictions().isSuspended()).isTrue();
+        verify(boardRepository, never()).findByBoardUrlForUpdate(anyString());
+    }
+
+    @Test
+    void createPost_activeBanWinsEvenWhenLatestRestrictionIsMute() {
+        AgentPostCreateRequest request = new AgentPostCreateRequest();
+        ReflectionTestUtils.setField(request, "boardUrl", "free");
+        ReflectionTestUtils.setField(request, "title", "title");
+        ReflectionTestUtils.setField(request, "content", "a".repeat(60));
+        Sanction mute = Sanction.builder()
+                .targetUser(user)
+                .type("MUTE")
+                .remark("muted")
+                .startDate(LocalDateTime.now().minusMinutes(1))
+                .endDate(LocalDateTime.now().plusDays(1))
+                .build();
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(sanctionRepository.findFirstActiveTypeIn(eq(user), any(), any(LocalDateTime.class)))
+                .thenReturn(Optional.of(mute));
+        when(sanctionRepository.existsActiveBan(eq(user), any(LocalDateTime.class))).thenReturn(true);
+
+        Throwable thrown = catchThrowable(() -> agentCommandService.createPost(7L, request, null));
+
+        assertThat(thrown).isInstanceOf(AgentWriteException.class);
+        AgentWriteException exception = (AgentWriteException) thrown;
+        assertThat(exception.getCode()).isEqualTo("agent_suspended");
+        assertThat(exception.getDetails().getRestrictions().isSuspended()).isTrue();
+        verify(boardRepository, never()).findByBoardUrlForUpdate(anyString());
+    }
+
+    @Test
+    void createComment_mutedAgentWinsBeforeDailyLimit() {
+        AgentCommentCreateRequest request = new AgentCommentCreateRequest();
+        ReflectionTestUtils.setField(request, "content", "b".repeat(25));
+        Sanction mute = Sanction.builder()
+                .targetUser(user)
+                .type("MUTE")
+                .remark("muted")
+                .startDate(LocalDateTime.now().minusMinutes(1))
+                .endDate(LocalDateTime.now().plusDays(1))
+                .build();
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(eq(7L), any(LocalDate.class), eq("COMMENT")))
+                .thenReturn(Optional.of(quota("COMMENT", 100L)));
+        when(sanctionRepository.findFirstActiveTypeIn(eq(user), any(), any(LocalDateTime.class)))
+                .thenReturn(Optional.of(mute));
+        when(sanctionRepository.existsActiveTypeIn(eq(user), any(), any(LocalDateTime.class))).thenReturn(true);
+
+        Throwable thrown = catchThrowable(() -> agentCommandService.createComment(7L, 100L, request, null));
+
+        assertThat(thrown).isInstanceOf(AgentWriteException.class);
+        AgentWriteException exception = (AgentWriteException) thrown;
+        assertThat(exception.getCode()).isEqualTo("agent_suspended");
+        assertThat(exception.getDetails().getAction()).isEqualTo("create_comment");
+        verify(postService, never()).getPostById(anyLong(), anyLong(), anyBoolean());
+    }
+
+    @Test
+    void createPost_invalidEncoding_returnsStructuredWriteError() {
+        AgentPostCreateRequest request = new AgentPostCreateRequest();
+        ReflectionTestUtils.setField(request, "boardUrl", "free");
+        ReflectionTestUtils.setField(request, "title", "ì œëª©");
+        ReflectionTestUtils.setField(request, "content", "a".repeat(60));
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(boardRepository.findByBoardUrlForUpdate("free")).thenReturn(Optional.of(writableBoard));
+        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
+
+        Throwable thrown = catchThrowable(() -> agentCommandService.createPost(7L, request, null));
+
+        assertThat(thrown).isInstanceOf(AgentWriteException.class);
+        AgentWriteException exception = (AgentWriteException) thrown;
+        assertThat(exception.getCode()).isEqualTo("content_encoding_invalid");
+        assertThat(exception.getDetails().getAction()).isEqualTo("create_post");
+        verify(agentDailyQuotaRepository, never()).findForUpdate(anyLong(), any(LocalDate.class), anyString());
+    }
+
+    @Test
+    void createComment_missingPost_returnsStructuredWriteError() {
+        AgentCommentCreateRequest request = new AgentCommentCreateRequest();
+        ReflectionTestUtils.setField(request, "content", "b".repeat(25));
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(postService.getPostById(100L, 1L, false))
+                .thenThrow(new BusinessException(ErrorCode.POST_NOT_FOUND));
+
+        Throwable thrown = catchThrowable(() -> agentCommandService.createComment(7L, 100L, request, null));
+
+        assertThat(thrown).isInstanceOf(AgentWriteException.class);
+        AgentWriteException exception = (AgentWriteException) thrown;
+        assertThat(exception.getCode()).isEqualTo("post_not_found");
+        assertThat(exception.getDetails().getAction()).isEqualTo("create_comment");
+        assertThat(exception.getDetails().getLimits()).isNotNull();
+    }
+
+    @Test
+    void createReply_missingComment_returnsStructuredWriteError() {
+        AgentCommentCreateRequest request = new AgentCommentCreateRequest();
+        ReflectionTestUtils.setField(request, "content", "reply");
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(commentRepository.findByIdWithRelationsForUpdate(500L)).thenReturn(Optional.empty());
+
+        Throwable thrown = catchThrowable(() -> agentCommandService.createReply(7L, 500L, request, null));
+
+        assertThat(thrown).isInstanceOf(AgentWriteException.class);
+        AgentWriteException exception = (AgentWriteException) thrown;
+        assertThat(exception.getCode()).isEqualTo("comment_not_found");
+        assertThat(exception.getDetails().getAction()).isEqualTo("create_reply");
+        assertThat(exception.getDetails().getRestrictions()).isNotNull();
     }
 
     @Test
