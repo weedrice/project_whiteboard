@@ -43,6 +43,7 @@ interface ApiErrorResponse {
 interface SuppressibleApiError extends AxiosError {
     suppressGlobalErrorToast?: boolean
     isAuthRefreshFailure?: boolean
+    isUserHydrationFailure?: boolean
 }
 
 interface FailedRequest {
@@ -57,7 +58,7 @@ interface ToastStore {
 interface AuthStoreLike {
     user: unknown
     accessToken: string | null
-    fetchUser: (config?: AxiosRequestConfig) => Promise<void>
+    fetchUser: (config?: AxiosRequestConfig) => Promise<boolean>
 }
 
 interface ApiStoreResolvers {
@@ -278,7 +279,12 @@ api.interceptors.response.use(
                         authStore.accessToken = newAccessToken
 
                         // Pass skipAuthRefresh to prevent infinite loop if getMe fails
-                        await authStore.fetchUser({ skipAuthRefresh: true })
+                        const didFetchUser = await authStore.fetchUser({ skipAuthRefresh: true })
+                        if (!didFetchUser) {
+                            const hydrationError = new Error('User hydration failed after token refresh') as SuppressibleApiError
+                            hydrationError.isUserHydrationFailure = true
+                            throw hydrationError
+                        }
                     }
 
                     // Process queued requests
@@ -305,7 +311,7 @@ api.interceptors.response.use(
                 // Check if we are already on the login page to avoid infinite redirect loop
                 const isLoginPage = window.location.pathname === API_PATHS.LOGIN
 
-                if (refreshStatus === 401 || refreshStatus === 403 || !axiosRefreshError.response) {
+                if ((refreshStatus === 401 || refreshStatus === 403 || !axiosRefreshError.response) && !suppressibleRefreshError.isUserHydrationFailure) {
                     Storage.remove('accessToken')
                     Storage.remove('refreshToken')
 

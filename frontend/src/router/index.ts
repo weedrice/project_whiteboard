@@ -305,7 +305,16 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
     // Initialize auth state from local storage if needed
     if (!authStore.user && authStore.accessToken) {
         try {
-            await authStore.fetchUser()
+            const didFetchUser = await authStore.fetchUser()
+            if (to.meta.requiresAuth && (!didFetchUser || !authStore.user)) {
+                if (!authStore.isAuthenticated) {
+                    await authStore.logout()
+                    next({ name: 'login', query: { redirect: to.fullPath } })
+                } else {
+                    next({ name: 'error', query: { status: '503' } })
+                }
+                return
+            }
         } catch (error) {
             // Token might be invalid
             await authStore.logout()

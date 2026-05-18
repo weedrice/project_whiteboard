@@ -155,6 +155,37 @@ describe('Router Navigation Guards', () => {
         expect(router.currentRoute.value.query.redirect).toBe('/mypage')
     })
 
+    it('redirects to error when fetchUser resolves without restoring user but token remains for protected route', async () => {
+        mockAuthStore.accessToken = 'token'
+        mockAuthStore.user = null
+        mockAuthStore.isAuthenticated = true
+        mockAuthStore.fetchUser.mockResolvedValueOnce(false)
+
+        await router.push('/mypage')
+
+        expect(mockAuthStore.fetchUser).toHaveBeenCalled()
+        expect(mockAuthStore.logout).not.toHaveBeenCalled()
+        expect(router.currentRoute.value.name).toBe('error')
+        expect(router.currentRoute.value.query.status).toBe('503')
+    })
+
+    it('redirects to login when fetchUser clears auth for protected route', async () => {
+        mockAuthStore.accessToken = 'token'
+        mockAuthStore.user = null
+        mockAuthStore.isAuthenticated = true
+        mockAuthStore.fetchUser.mockImplementationOnce(async () => {
+            mockAuthStore.isAuthenticated = false
+            return false
+        })
+
+        await router.push('/mypage')
+
+        expect(mockAuthStore.fetchUser).toHaveBeenCalled()
+        expect(mockAuthStore.logout).toHaveBeenCalled()
+        expect(router.currentRoute.value.name).toBe('login')
+        expect(router.currentRoute.value.query.redirect).toBe('/mypage')
+    })
+
     it('logs out but keeps navigation for public route when fetchUser fails', async () => {
         mockAuthStore.accessToken = 'token'
         mockAuthStore.user = null
