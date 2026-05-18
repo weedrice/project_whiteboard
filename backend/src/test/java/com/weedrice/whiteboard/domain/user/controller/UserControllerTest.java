@@ -24,6 +24,7 @@ import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.domain.user.service.UserProfileService;
 import com.weedrice.whiteboard.domain.user.service.UserSecurityService;
 import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
+import com.weedrice.whiteboard.domain.user.web.UserActionResponseFactory;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
@@ -53,7 +54,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.same;
 import static org.mockito.Mockito.verify;
 
@@ -88,7 +88,7 @@ class UserControllerTest {
         private AgentRequestContextResolver agentRequestContextResolver;
 
         @Mock
-        private org.springframework.context.MessageSource messageSource;
+        private UserActionResponseFactory userActionResponseFactory;
 
         @InjectMocks
         private UserController userController;
@@ -121,21 +121,6 @@ class UserControllerTest {
                                 Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
 
                 pageable = PageRequest.of(0, 10);
-
-                // MessageSource 湲곕낯 mock ?ㅼ젙 (lenient濡??ㅼ젙?섏뿬 ?ъ슜?섏? ?딅뒗 ?뚯뒪?몄뿉?쒕룄 ?먮윭 諛쒖깮?섏? ?딅룄濡?
-                lenient().when(messageSource.getMessage(anyString(), any(), any())).thenAnswer(invocation -> {
-                        String code = invocation.getArgument(0);
-                        if ("success.user.passwordChanged".equals(code)) {
-                                return "鍮꾨?踰덊샇媛 蹂寃쎈릺?덉뒿?덈떎.";
-                        } else if ("success.user.accountDeleted".equals(code)) {
-                                return "?뚯썝 ?덊눜媛 ?꾨즺?섏뿀?듬땲??";
-                        } else if ("success.user.blocked".equals(code)) {
-                                return "李⑤떒?섏뿀?듬땲??";
-                        } else if ("success.user.unblocked".equals(code)) {
-                                return "李⑤떒???댁젣?섏뿀?듬땲??";
-                        }
-                        return code;
-                });
         }
 
         @Nested
@@ -188,6 +173,8 @@ class UserControllerTest {
                         // given
                         Long targetUserId = 2L;
                         doNothing().when(userBlockService).blockUser(1L, targetUserId);
+                        given(userActionResponseFactory.blocked())
+                                        .willReturn(messageResponse(HttpStatus.CREATED, "blocked"));
 
                         // when
                         ResponseEntity<ApiResponse<MessageResponse>> response = userController.blockUser(targetUserId,
@@ -196,8 +183,9 @@ class UserControllerTest {
                         // then
                         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
                         assertThat(response.getBody().isSuccess()).isTrue();
-                        assertThat(response.getBody().getData().getMessage()).isEqualTo("李⑤떒?섏뿀?듬땲??");
+                        assertThat(response.getBody().getData().getMessage()).isEqualTo("blocked");
                         verify(userBlockService).blockUser(1L, targetUserId);
+                        verify(userActionResponseFactory).blocked();
                 }
 
                 @Test
@@ -206,6 +194,8 @@ class UserControllerTest {
                         // given
                         Long targetUserId = 2L;
                         doNothing().when(userBlockService).unblockUser(1L, targetUserId);
+                        given(userActionResponseFactory.unblocked())
+                                        .willReturn(messageResponse(HttpStatus.OK, "unblocked"));
 
                         // when
                         ResponseEntity<ApiResponse<MessageResponse>> response = userController.unblockUser(targetUserId,
@@ -214,8 +204,9 @@ class UserControllerTest {
                         // then
                         assertThat(response.getStatusCode().value()).isEqualTo(200);
                         assertThat(response.getBody().isSuccess()).isTrue();
-                        assertThat(response.getBody().getData().getMessage()).isEqualTo("李⑤떒???댁젣?섏뿀?듬땲??");
+                        assertThat(response.getBody().getData().getMessage()).isEqualTo("unblocked");
                         verify(userBlockService).unblockUser(1L, targetUserId);
+                        verify(userActionResponseFactory).unblocked();
                 }
 
                 @Test
@@ -552,6 +543,53 @@ class UserControllerTest {
                         assertThat(response.getData()).isNull();
                         verify(agentLifecycleService).deleteMyAgent(eq(1L), eq(10L), same(context));
                 }
+        }
+
+        @Nested
+        @DisplayName("사용자 계정 command API")
+        class AccountCommandTests {
+
+                @Test
+                @DisplayName("비밀번호 변경 API 성공")
+                void updatePassword_success() {
+                        UpdatePasswordRequest request = new UpdatePasswordRequest();
+                        ReflectionTestUtils.setField(request, "currentPassword", "oldPassword");
+                        ReflectionTestUtils.setField(request, "newPassword", "newPassword1!");
+                        given(userActionResponseFactory.passwordChanged())
+                                        .willReturn(messageResponse(HttpStatus.OK, "password changed"));
+
+                        ResponseEntity<ApiResponse<MessageResponse>> response = userController.updatePassword(
+                                        request, customUserDetails);
+
+                        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+                        assertThat(response.getBody().isSuccess()).isTrue();
+                        assertThat(response.getBody().getData().getMessage()).isEqualTo("password changed");
+                        verify(userSecurityService).updatePassword(1L, "oldPassword", "newPassword1!");
+                        verify(userActionResponseFactory).passwordChanged();
+                }
+
+                @Test
+                @DisplayName("회원 탈퇴 API 성공")
+                void deleteAccount_success() {
+                        DeleteAccountRequest request = new DeleteAccountRequest();
+                        request.setPassword("password");
+                        given(userActionResponseFactory.accountDeleted())
+                                        .willReturn(messageResponse(HttpStatus.OK, "account deleted"));
+
+                        ResponseEntity<ApiResponse<MessageResponse>> response = userController.deleteAccount(
+                                        request, customUserDetails);
+
+                        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+                        assertThat(response.getBody().isSuccess()).isTrue();
+                        assertThat(response.getBody().getData().getMessage()).isEqualTo("account deleted");
+                        verify(userProfileService).deleteAccount(1L, "password");
+                        verify(userActionResponseFactory).accountDeleted();
+                }
+        }
+
+        private ResponseEntity<ApiResponse<MessageResponse>> messageResponse(HttpStatus status, String message) {
+                return ResponseEntity.status(status)
+                                .body(ApiResponse.success(new MessageResponse(message)));
         }
 }
 

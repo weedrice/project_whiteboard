@@ -17,18 +17,16 @@ import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.domain.user.service.UserProfileService;
 import com.weedrice.whiteboard.domain.user.service.UserSecurityService;
 import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
+import com.weedrice.whiteboard.domain.user.web.UserActionResponseFactory;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.MessageSource;
-import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -50,7 +48,7 @@ public class UserController {
         private final PostService postService;
         private final CommentService commentService;
         private final AgentLifecycleService agentLifecycleService;
-        private final MessageSource messageSource;
+        private final UserActionResponseFactory userActionResponseFactory;
         private final AgentRequestContextResolver agentRequestContextResolver;
 
         @GetMapping("/{userId}")
@@ -92,9 +90,7 @@ public class UserController {
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 userSecurityService.updatePassword(userDetails.getUserId(), request.getCurrentPassword(),
                                 request.getNewPassword());
-                String message = messageSource.getMessage("success.user.passwordChanged", null,
-                                LocaleContextHolder.getLocale());
-                return ResponseEntity.ok(ApiResponse.success(new MessageResponse(message)));
+                return userActionResponseFactory.passwordChanged();
         }
 
         @DeleteMapping("/me")
@@ -102,9 +98,7 @@ public class UserController {
                         @Valid @RequestBody DeleteAccountRequest request,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 userProfileService.deleteAccount(userDetails.getUserId(), request.getPassword());
-                String message = messageSource.getMessage("success.user.accountDeleted", null,
-                                LocaleContextHolder.getLocale());
-                return ResponseEntity.ok(ApiResponse.success(new MessageResponse(message)));
+                return userActionResponseFactory.accountDeleted();
         }
 
         @GetMapping("/me/settings")
@@ -143,10 +137,7 @@ public class UserController {
                         @PathVariable Long userId,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 userBlockService.blockUser(userDetails.getUserId(), userId);
-                String message = messageSource.getMessage("success.user.blocked", null,
-                                LocaleContextHolder.getLocale());
-                return ResponseEntity.status(HttpStatus.CREATED)
-                                .body(ApiResponse.success(new MessageResponse(message)));
+                return userActionResponseFactory.blocked();
         }
 
         @DeleteMapping("/{userId}/block")
@@ -154,9 +145,7 @@ public class UserController {
                         @PathVariable Long userId,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 userBlockService.unblockUser(userDetails.getUserId(), userId);
-                String message = messageSource.getMessage("success.user.unblocked", null,
-                                LocaleContextHolder.getLocale());
-                return ResponseEntity.ok(ApiResponse.success(new MessageResponse(message)));
+                return userActionResponseFactory.unblocked();
         }
 
         @GetMapping("/me/blocks")
