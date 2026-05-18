@@ -32,7 +32,7 @@ public class ModerationActorResolver {
         if (adminUser == null) {
             return Optional.empty();
         }
-        List<Admin> activeAdmins = adminRepository.findAllByUserAndIsActiveOrderByAdminIdAsc(adminUser, true);
+        List<Admin> activeAdmins = adminRepository.findByUserAndIsActiveOrderByAdminIdAsc(adminUser, true);
         return AdminRolePriority.selectHighestPriority(activeAdmins);
     }
 
