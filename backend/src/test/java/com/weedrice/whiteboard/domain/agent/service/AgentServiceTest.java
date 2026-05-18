@@ -200,6 +200,7 @@ class AgentServiceTest {
                 boardRepository,
                 boardCategoryRepository,
                 commentRepository,
+                postRepository,
                 postService,
                 commentService,
                 agentOwnershipService,
@@ -1918,6 +1919,92 @@ class AgentServiceTest {
     }
 
     @Test
+    void deletePost_success() {
+        Post agentPost = agentPost(101L, agent, false);
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(postRepository.findByIdWithRelationsForUpdate(101L)).thenReturn(Optional.of(agentPost));
+
+        var response = agentCommandService.deletePost(7L, 101L, null);
+
+        assertThat(response.getPostId()).isEqualTo(101L);
+        assertThat(response.isDeleted()).isTrue();
+        assertThat(response.getAlreadyDeleted()).isNull();
+        assertThat(agentPost.getIsDeleted()).isTrue();
+        verify(agentAuditLogWriter).saveLog(
+                eq(7L),
+                eq(1L),
+                eq(AgentAuditActionType.DELETE_POST),
+                eq(AgentAuditTargetType.POST),
+                eq(101L),
+                isNull(), isNull());
+    }
+
+    @Test
+    void deletePost_alreadyDeleted_isIdempotent() {
+        Post agentPost = agentPost(101L, agent, true);
+        ReflectionTestUtils.setField(agentPost, "modifiedAt", LocalDateTime.of(2026, 5, 18, 15, 30));
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(postRepository.findByIdWithRelationsForUpdate(101L)).thenReturn(Optional.of(agentPost));
+
+        var response = agentCommandService.deletePost(7L, 101L, null);
+
+        assertThat(response.getPostId()).isEqualTo(101L);
+        assertThat(response.isDeleted()).isTrue();
+        assertThat(response.getAlreadyDeleted()).isTrue();
+        assertThat(response.getDeletedAt()).isNotNull();
+        verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(), any(), any());
+    }
+
+    @Test
+    void deletePost_forbiddenWhenPostBelongsToAnotherAgent() {
+        Agent otherAgent = Agent.builder()
+                .user(user)
+                .agentTokenHash("other-hash")
+                .name("other")
+                .description("desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(otherAgent, "agentId", 8L);
+        Post otherAgentPost = agentPost(101L, otherAgent, false);
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(postRepository.findByIdWithRelationsForUpdate(101L)).thenReturn(Optional.of(otherAgentPost));
+
+        assertThatThrownBy(() -> agentCommandService.deletePost(7L, 101L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        assertThat(otherAgentPost.getIsDeleted()).isFalse();
+        verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(), any(), any());
+    }
+
+    @Test
+    void deletePost_missingPost_notFound() {
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(postRepository.findByIdWithRelationsForUpdate(404L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> agentCommandService.deletePost(7L, 404L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+    }
+
+    @Test
+    void deletePost_suspendedAgentAllowed() {
+        ReflectionTestUtils.setField(agent, "status", Agent.STATUS_SUSPENDED);
+        Post agentPost = agentPost(101L, agent, false);
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(postRepository.findByIdWithRelationsForUpdate(101L)).thenReturn(Optional.of(agentPost));
+
+        var response = agentCommandService.deletePost(7L, 101L, null);
+
+        assertThat(response.isDeleted()).isTrue();
+        assertThat(agentPost.getIsDeleted()).isTrue();
+    }
+
+    @Test
     void likePost_success() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
@@ -1973,6 +2060,19 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(board, "isPublic", true);
         ReflectionTestUtils.setField(board, "agentUseYn", true);
         return board;
+    }
+
+    private Post agentPost(Long postId, Agent ownerAgent, boolean deleted) {
+        Post post = Post.builder()
+                .board(writableBoard)
+                .user(user)
+                .agent(ownerAgent)
+                .title("agent post")
+                .contents("content")
+                .build();
+        ReflectionTestUtils.setField(post, "postId", postId);
+        ReflectionTestUtils.setField(post, "isDeleted", deleted);
+        return post;
     }
 
     private Admin activeAdmin(User adminUser, Board board) {

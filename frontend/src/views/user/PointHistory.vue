@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import axios from '@/api'
+import { userApi } from '@/api/user'
+import type { PointHistory } from '@/types'
 import { formatDate } from '@/utils/date'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
@@ -10,14 +11,7 @@ import EmptyState from '@/components/common/ui/EmptyState.vue'
 import { Coins } from 'lucide-vue-next'
 import logger from '@/utils/logger'
 
-interface PointHistoryItem {
-  id: number
-  amount: number
-  description: string
-  createdAt: string
-}
-
-const history = ref<PointHistoryItem[]>([])
+const history = ref<PointHistory[]>([])
 const loading = ref(false)
 const page = ref(0)
 const totalPages = ref(0)
@@ -26,11 +20,9 @@ const size = ref(15)
 const fetchHistory = async () => {
   loading.value = true
   try {
-    const { data } = await axios.get('/points/me/history', {
-      params: {
-        page: page.value,
-        size: size.value
-      }
+    const { data } = await userApi.getMyPointHistories({
+      page: page.value,
+      size: size.value
     })
     if (data.success) {
       history.value = data.data.content
@@ -82,7 +74,7 @@ onMounted(() => {
       </div>
       <EmptyState v-else-if="history.length === 0" :title="$t('user.pointsHistory.empty')" :icon="Coins" />
       <ul v-else role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
-        <li v-for="item in history" :key="item.id"
+        <li v-for="item in history" :key="item.historyId"
           class="px-3 py-2.5 sm:px-6 sm:py-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 flex items-center">
           <div class="flex flex-row items-center justify-between w-full gap-2 min-w-0">
             <div class="flex flex-col min-w-0 flex-1">

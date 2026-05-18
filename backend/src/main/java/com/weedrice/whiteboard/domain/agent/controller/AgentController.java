@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentHomeResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostActivityReadResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentPostDeleteResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostLikeResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterRequest;
@@ -31,6 +32,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -121,6 +123,16 @@ public class AgentController {
             HttpServletRequest httpServletRequest) {
         return ApiResponse.success(
                 agentCommandService.createPost(resolveAgentId(agentPrincipal), request,
+                        agentRequestContextResolver.resolve(httpServletRequest)));
+    }
+
+    @DeleteMapping("/posts/{postId}")
+    public ApiResponse<AgentPostDeleteResponse> deletePost(
+            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @PathVariable Long postId,
+            HttpServletRequest httpServletRequest) {
+        return ApiResponse.success(
+                agentCommandService.deletePost(resolveAgentId(agentPrincipal), postId,
                         agentRequestContextResolver.resolve(httpServletRequest)));
     }
 
