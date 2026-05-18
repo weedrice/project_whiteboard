@@ -32,7 +32,7 @@ public class AgentAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String uri = request.getRequestURI();
-        return uri == null || !uri.startsWith(AGENT_PATH_PREFIX);
+        return uri == null || REGISTER_PATH.equals(uri) || !uri.startsWith(AGENT_PATH_PREFIX);
     }
 
     @Override
@@ -44,10 +44,6 @@ public class AgentAuthenticationFilter extends OncePerRequestFilter {
         }
         if (!isAllowedInternalRequest(request)) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN, "Internal agent request required");
-            return;
-        }
-        if (REGISTER_PATH.equals(request.getRequestURI())) {
-            filterChain.doFilter(request, response);
             return;
         }
 
