@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useKeyboardStore, type DropdownItem } from '@/stores/keyboard'
 import { User, LogOut, CreditCard, FileText, Clock, AlertTriangle, PlusSquare, ChevronDown, Bell, LayoutDashboard, Mail, Star, Slash, Smile } from 'lucide-vue-next'
-import axios from '@/api'
+import { userApi } from '@/api/user'
 import logger from '@/utils/logger'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 
@@ -31,7 +31,7 @@ const toggleDropdown = () => {
 
 const fetchPoints = async () => {
   try {
-    const { data } = await axios.get('/points/me')
+    const { data } = await userApi.getMyPoint()
     if (data.success) {
       points.value = data.data.currentPoint
     }
