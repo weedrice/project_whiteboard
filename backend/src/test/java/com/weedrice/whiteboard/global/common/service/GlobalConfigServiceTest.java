@@ -3,7 +3,6 @@ package com.weedrice.whiteboard.global.common.service;
 import com.weedrice.whiteboard.global.common.dto.GlobalConfigResponse;
 import com.weedrice.whiteboard.global.common.entity.GlobalConfig;
 import com.weedrice.whiteboard.global.common.repository.GlobalConfigRepository;
-import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
@@ -11,8 +10,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
@@ -26,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -44,6 +42,9 @@ class GlobalConfigServiceTest {
 
     @Mock
     private Cache cache;
+
+    @Mock
+    private GlobalConfigAdminGuard adminGuard;
 
     @Test
     @DisplayName("getConfig returns config value")
@@ -109,6 +110,7 @@ class GlobalConfigServiceTest {
         assertThat(response.getKey()).isEqualTo("key");
         assertThat(response.getValue()).isEqualTo("value");
         assertThat(response.getDescription()).isNull();
+        verify(adminGuard).requireSuperAdmin();
     }
 
     @Test
@@ -138,17 +140,27 @@ class GlobalConfigServiceTest {
     @Test
     @DisplayName("getAllConfigs returns DTO list")
     void getAllConfigs_returnsResponses() {
-        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
-            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
-            when(globalConfigRepository.findAll()).thenReturn(List.of(new GlobalConfig("key", "value", "desc")));
+        when(globalConfigRepository.findAll()).thenReturn(List.of(new GlobalConfig("key", "value", "desc")));
 
-            var responses = globalConfigService.getAllConfigs();
+        var responses = globalConfigService.getAllConfigs();
 
-            assertThat(responses).hasSize(1);
-            assertThat(responses.getFirst().getKey()).isEqualTo("key");
-            assertThat(responses.getFirst().getValue()).isEqualTo("value");
-            assertThat(responses.getFirst().getDescription()).isEqualTo("desc");
-        }
+        assertThat(responses).hasSize(1);
+        assertThat(responses.getFirst().getKey()).isEqualTo("key");
+        assertThat(responses.getFirst().getValue()).isEqualTo("value");
+        assertThat(responses.getFirst().getDescription()).isEqualTo("desc");
+        verify(adminGuard).requireSuperAdmin();
+    }
+
+    @Test
+    @DisplayName("getAllConfigs stops before repository access when admin guard rejects")
+    void getAllConfigs_guardRejects_stopsBeforeRepositoryAccess() {
+        doThrow(new BusinessException(ErrorCode.FORBIDDEN))
+                .when(adminGuard).requireSuperAdmin();
+
+        assertThatThrownBy(() -> globalConfigService.getAllConfigs())
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+        verify(globalConfigRepository, never()).findAll();
     }
 
     @Test
@@ -162,331 +174,286 @@ class GlobalConfigServiceTest {
         assertThat(responses).hasSize(1);
         assertThat(responses.getFirst().getKey()).isEqualTo("POINT_SIGNUP_BONUS");
         assertThat(responses.getFirst().getValue()).isEqualTo("10");
+        verify(adminGuard, never()).requireSuperAdmin();
     }
 
     @Test
     @DisplayName("createConfig saves and refreshes cache")
     void createConfig_success() {
-        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
-            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
-            when(globalConfigRepository.existsById(anyString())).thenReturn(false);
-            when(globalConfigRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
-            when(cacheManager.getCache("globalConfig")).thenReturn(cache);
+        when(globalConfigRepository.existsById(anyString())).thenReturn(false);
+        when(globalConfigRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(cacheManager.getCache("globalConfig")).thenReturn(cache);
 
-            GlobalConfigResponse created = globalConfigService.createConfig("key", "value", "desc");
+        GlobalConfigResponse created = globalConfigService.createConfig("key", "value", "desc");
 
-            assertThat(created.getKey()).isEqualTo("key");
-            assertThat(created.getValue()).isEqualTo("value");
-            verify(globalConfigRepository).saveAndFlush(any(GlobalConfig.class));
-            verify(cache).put("key", "value");
-        }
+        assertThat(created.getKey()).isEqualTo("key");
+        assertThat(created.getValue()).isEqualTo("value");
+        verify(globalConfigRepository).saveAndFlush(any(GlobalConfig.class));
+        verify(cache).put("key", "value");
+        verify(adminGuard).requireSuperAdmin();
     }
 
     @Test
     @DisplayName("createConfig trims key value and description consistently")
     void createConfig_trimsInputBeforeRepositoryAndCacheAccess() {
-        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
-            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
-            when(globalConfigRepository.existsById("key")).thenReturn(false);
-            when(globalConfigRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
-            when(cacheManager.getCache("globalConfig")).thenReturn(cache);
+        when(globalConfigRepository.existsById("key")).thenReturn(false);
+        when(globalConfigRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(cacheManager.getCache("globalConfig")).thenReturn(cache);
 
-            GlobalConfigResponse created = globalConfigService.createConfig(" key ", " value ", " desc ");
+        GlobalConfigResponse created = globalConfigService.createConfig(" key ", " value ", " desc ");
 
-            assertThat(created.getKey()).isEqualTo("key");
-            assertThat(created.getValue()).isEqualTo("value");
-            assertThat(created.getDescription()).isEqualTo("desc");
-            verify(globalConfigRepository).existsById("key");
-            verify(cache).put("key", "value");
-        }
+        assertThat(created.getKey()).isEqualTo("key");
+        assertThat(created.getValue()).isEqualTo("value");
+        assertThat(created.getDescription()).isEqualTo("desc");
+        verify(globalConfigRepository).existsById("key");
+        verify(cache).put("key", "value");
     }
 
     @Test
     @DisplayName("createConfig refreshes cache after transaction commit when synchronization is active")
     void createConfig_activeTransactionSynchronization_refreshesCacheAfterCommit() {
-        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
-            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
-            when(globalConfigRepository.existsById(anyString())).thenReturn(false);
-            when(globalConfigRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
-            when(cacheManager.getCache("globalConfig")).thenReturn(cache);
+        when(globalConfigRepository.existsById(anyString())).thenReturn(false);
+        when(globalConfigRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(cacheManager.getCache("globalConfig")).thenReturn(cache);
 
-            TransactionSynchronizationManager.initSynchronization();
-            TransactionSynchronizationManager.setActualTransactionActive(true);
-            try {
-                GlobalConfigResponse created = globalConfigService.createConfig("key", "value", "desc");
+        TransactionSynchronizationManager.initSynchronization();
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            GlobalConfigResponse created = globalConfigService.createConfig("key", "value", "desc");
 
-                assertThat(created.getKey()).isEqualTo("key");
-                assertThat(created.getValue()).isEqualTo("value");
-                verify(cache, never()).put(any(), any());
+            assertThat(created.getKey()).isEqualTo("key");
+            assertThat(created.getValue()).isEqualTo("value");
+            verify(cache, never()).put(any(), any());
 
-                TransactionSynchronizationManager.getSynchronizations()
-                        .forEach(synchronization -> synchronization.afterCommit());
-                verify(cache).put("key", "value");
-            } finally {
-                TransactionSynchronizationManager.setActualTransactionActive(false);
-                TransactionSynchronizationManager.clearSynchronization();
-            }
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(synchronization -> synchronization.afterCommit());
+            verify(cache).put("key", "value");
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+            TransactionSynchronizationManager.clearSynchronization();
         }
     }
 
     @Test
     @DisplayName("createConfig ignores cache refresh failure after transaction commit")
     void createConfig_afterCommitCacheRefreshFails_doesNotThrow() {
-        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
-            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
-            when(globalConfigRepository.existsById(anyString())).thenReturn(false);
-            when(globalConfigRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
-            when(cacheManager.getCache("globalConfig")).thenReturn(cache);
+        when(globalConfigRepository.existsById(anyString())).thenReturn(false);
+        when(globalConfigRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(cacheManager.getCache("globalConfig")).thenReturn(cache);
 
-            TransactionSynchronizationManager.initSynchronization();
-            TransactionSynchronizationManager.setActualTransactionActive(true);
-            try {
-                GlobalConfigResponse created = globalConfigService.createConfig("key", "value", "desc");
-                when(cacheManager.getCache("globalConfig")).thenThrow(new IllegalStateException("cache down"));
+        TransactionSynchronizationManager.initSynchronization();
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            GlobalConfigResponse created = globalConfigService.createConfig("key", "value", "desc");
+            when(cacheManager.getCache("globalConfig")).thenThrow(new IllegalStateException("cache down"));
 
-                assertThat(created.getKey()).isEqualTo("key");
-                TransactionSynchronizationManager.getSynchronizations()
-                        .forEach(synchronization -> synchronization.afterCommit());
-            } finally {
-                TransactionSynchronizationManager.setActualTransactionActive(false);
-                TransactionSynchronizationManager.clearSynchronization();
-            }
+            assertThat(created.getKey()).isEqualTo("key");
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(synchronization -> synchronization.afterCommit());
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+            TransactionSynchronizationManager.clearSynchronization();
         }
     }
 
     @Test
     @DisplayName("createConfig accepts non-negative point config values")
     void createConfig_pointConfig_acceptsNonNegativeInteger() {
-        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
-            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
-            when(globalConfigRepository.existsById("POINT_SIGNUP_BONUS")).thenReturn(false);
-            when(globalConfigRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
-            when(cacheManager.getCache("globalConfig")).thenReturn(cache);
+        when(globalConfigRepository.existsById("POINT_SIGNUP_BONUS")).thenReturn(false);
+        when(globalConfigRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(cacheManager.getCache("globalConfig")).thenReturn(cache);
 
-            GlobalConfigResponse created = globalConfigService.createConfig("POINT_SIGNUP_BONUS", "0", "desc");
+        GlobalConfigResponse created = globalConfigService.createConfig("POINT_SIGNUP_BONUS", "0", "desc");
 
-            assertThat(created.getValue()).isEqualTo("0");
-            verify(globalConfigRepository).saveAndFlush(any(GlobalConfig.class));
-            verify(cache).put("POINT_SIGNUP_BONUS", "0");
-        }
+        assertThat(created.getValue()).isEqualTo("0");
+        verify(globalConfigRepository).saveAndFlush(any(GlobalConfig.class));
+        verify(cache).put("POINT_SIGNUP_BONUS", "0");
     }
 
     @Test
     @DisplayName("createConfig rejects invalid point config values")
     void createConfig_pointConfig_rejectsInvalidValue() {
-        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
-            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
+        assertThatThrownBy(() -> globalConfigService.createConfig("POINT_SIGNUP_BONUS", "invalid", "desc"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        assertThatThrownBy(() -> globalConfigService.createConfig("POINT_POST_CREATE_REWARD", "-1", "desc"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        assertThatThrownBy(() -> globalConfigService.createConfig(" POINT_SIGNUP_BONUS ", "invalid", "desc"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
 
-            assertThatThrownBy(() -> globalConfigService.createConfig("POINT_SIGNUP_BONUS", "invalid", "desc"))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-            assertThatThrownBy(() -> globalConfigService.createConfig("POINT_POST_CREATE_REWARD", "-1", "desc"))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-            assertThatThrownBy(() -> globalConfigService.createConfig(" POINT_SIGNUP_BONUS ", "invalid", "desc"))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-
-            verify(globalConfigRepository, never()).existsById(anyString());
-            verify(globalConfigRepository, never()).saveAndFlush(any());
-            verify(cacheManager, never()).getCache("globalConfig");
-        }
+        verify(globalConfigRepository, never()).existsById(anyString());
+        verify(globalConfigRepository, never()).saveAndFlush(any());
+        verify(cacheManager, never()).getCache("globalConfig");
     }
 
     @Test
     @DisplayName("createConfig rejects invalid key value and description before repository access")
     void createConfig_invalidText_rejectsBeforeRepositoryAccess() {
-        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
-            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
+        assertThatThrownBy(() -> globalConfigService.createConfig(null, "value", "desc"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        assertThatThrownBy(() -> globalConfigService.createConfig("   ", "value", "desc"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        assertThatThrownBy(() -> globalConfigService.createConfig("k".repeat(101), "value", "desc"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        assertThatThrownBy(() -> globalConfigService.createConfig("key", "   ", "desc"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        assertThatThrownBy(() -> globalConfigService.createConfig("key", "v".repeat(10_001), "desc"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        assertThatThrownBy(() -> globalConfigService.createConfig("key", "value", "d".repeat(256)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
 
-            assertThatThrownBy(() -> globalConfigService.createConfig(null, "value", "desc"))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-            assertThatThrownBy(() -> globalConfigService.createConfig("   ", "value", "desc"))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-            assertThatThrownBy(() -> globalConfigService.createConfig("k".repeat(101), "value", "desc"))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-            assertThatThrownBy(() -> globalConfigService.createConfig("key", "   ", "desc"))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-            assertThatThrownBy(() -> globalConfigService.createConfig("key", "v".repeat(10_001), "desc"))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-            assertThatThrownBy(() -> globalConfigService.createConfig("key", "value", "d".repeat(256)))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-
-            verify(globalConfigRepository, never()).existsById(any());
-            verify(globalConfigRepository, never()).saveAndFlush(any());
-            verify(cacheManager, never()).getCache("globalConfig");
-        }
+        verify(globalConfigRepository, never()).existsById(any());
+        verify(globalConfigRepository, never()).saveAndFlush(any());
+        verify(cacheManager, never()).getCache("globalConfig");
     }
 
     @Test
     @DisplayName("createConfig rejects duplicate found before save")
     void createConfig_duplicate() {
-        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
-            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
-            when(globalConfigRepository.existsById("key")).thenReturn(true);
+        when(globalConfigRepository.existsById("key")).thenReturn(true);
 
-            assertThatThrownBy(() -> globalConfigService.createConfig("key", "value", "desc"))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_RESOURCE);
-        }
+        assertThatThrownBy(() -> globalConfigService.createConfig("key", "value", "desc"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_RESOURCE);
     }
 
     @Test
     @DisplayName("createConfig maps database duplicate constraint")
     void createConfig_duplicateFromDatabaseConstraint() {
-        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
-            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
-            when(globalConfigRepository.existsById("key")).thenReturn(false);
-            when(globalConfigRepository.saveAndFlush(any(GlobalConfig.class)))
-                    .thenThrow(new DataIntegrityViolationException("duplicate key"));
+        when(globalConfigRepository.existsById("key")).thenReturn(false);
+        when(globalConfigRepository.saveAndFlush(any(GlobalConfig.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate key"));
 
-            assertThatThrownBy(() -> globalConfigService.createConfig("key", "value", "desc"))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_RESOURCE);
-            verify(cacheManager, never()).getCache("globalConfig");
-            verify(cache, never()).put(any(), any());
-        }
+        assertThatThrownBy(() -> globalConfigService.createConfig("key", "value", "desc"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_RESOURCE);
+        verify(cacheManager, never()).getCache("globalConfig");
+        verify(cache, never()).put(any(), any());
     }
 
     @Test
     @DisplayName("updateConfig updates value")
     void updateConfig_success() {
-        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
-            GlobalConfig config = new GlobalConfig("key", "old", "old");
-            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
-            when(globalConfigRepository.findById("key")).thenReturn(Optional.of(config));
-            when(globalConfigRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        GlobalConfig config = new GlobalConfig("key", "old", "old");
+        when(globalConfigRepository.findById("key")).thenReturn(Optional.of(config));
+        when(globalConfigRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-            GlobalConfigResponse updated = globalConfigService.updateConfig("key", "new", "new");
+        GlobalConfigResponse updated = globalConfigService.updateConfig("key", "new", "new");
 
-            assertThat(updated.getValue()).isEqualTo("new");
-        }
+        assertThat(updated.getValue()).isEqualTo("new");
+        verify(adminGuard).requireSuperAdmin();
     }
 
     @Test
     @DisplayName("updateConfig trims key value and description consistently")
     void updateConfig_trimsInputBeforeRepositoryAndCacheAccess() {
-        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
-            GlobalConfig config = new GlobalConfig("key", "old", "old");
-            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
-            when(globalConfigRepository.findById("key")).thenReturn(Optional.of(config));
-            when(globalConfigRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-            when(cacheManager.getCache("globalConfig")).thenReturn(cache);
+        GlobalConfig config = new GlobalConfig("key", "old", "old");
+        when(globalConfigRepository.findById("key")).thenReturn(Optional.of(config));
+        when(globalConfigRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(cacheManager.getCache("globalConfig")).thenReturn(cache);
 
-            GlobalConfigResponse updated = globalConfigService.updateConfig(" key ", " new ", " desc ");
+        GlobalConfigResponse updated = globalConfigService.updateConfig(" key ", " new ", " desc ");
 
-            assertThat(updated.getValue()).isEqualTo("new");
-            assertThat(updated.getDescription()).isEqualTo("desc");
-            verify(globalConfigRepository).findById("key");
-            verify(cache).put("key", "new");
-        }
+        assertThat(updated.getValue()).isEqualTo("new");
+        assertThat(updated.getDescription()).isEqualTo("desc");
+        verify(globalConfigRepository).findById("key");
+        verify(cache).put("key", "new");
     }
 
     @Test
     @DisplayName("updateConfig refreshes cache after transaction commit when synchronization is active")
     void updateConfig_activeTransactionSynchronization_refreshesCacheAfterCommit() {
-        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
-            GlobalConfig config = new GlobalConfig("key", "old", "old");
-            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
-            when(globalConfigRepository.findById("key")).thenReturn(Optional.of(config));
-            when(globalConfigRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-            when(cacheManager.getCache("globalConfig")).thenReturn(cache);
+        GlobalConfig config = new GlobalConfig("key", "old", "old");
+        when(globalConfigRepository.findById("key")).thenReturn(Optional.of(config));
+        when(globalConfigRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(cacheManager.getCache("globalConfig")).thenReturn(cache);
 
-            TransactionSynchronizationManager.initSynchronization();
-            TransactionSynchronizationManager.setActualTransactionActive(true);
-            try {
-                GlobalConfigResponse updated = globalConfigService.updateConfig("key", "new", "new");
+        TransactionSynchronizationManager.initSynchronization();
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            GlobalConfigResponse updated = globalConfigService.updateConfig("key", "new", "new");
 
-                assertThat(updated.getValue()).isEqualTo("new");
-                verify(cache, never()).put(any(), any());
+            assertThat(updated.getValue()).isEqualTo("new");
+            verify(cache, never()).put(any(), any());
 
-                TransactionSynchronizationManager.getSynchronizations()
-                        .forEach(synchronization -> synchronization.afterCommit());
-                verify(cache).put("key", "new");
-            } finally {
-                TransactionSynchronizationManager.setActualTransactionActive(false);
-                TransactionSynchronizationManager.clearSynchronization();
-            }
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(synchronization -> synchronization.afterCommit());
+            verify(cache).put("key", "new");
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+            TransactionSynchronizationManager.clearSynchronization();
         }
     }
 
     @Test
     @DisplayName("deleteConfig evicts cache after transaction commit when synchronization is active")
     void deleteConfig_activeTransactionSynchronization_evictsCacheAfterCommit() {
-        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
-            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
-            when(globalConfigRepository.existsById("key")).thenReturn(true);
-            when(cacheManager.getCache("globalConfig")).thenReturn(cache);
+        when(globalConfigRepository.existsById("key")).thenReturn(true);
+        when(cacheManager.getCache("globalConfig")).thenReturn(cache);
 
-            TransactionSynchronizationManager.initSynchronization();
-            TransactionSynchronizationManager.setActualTransactionActive(true);
-            try {
-                globalConfigService.deleteConfig("key");
+        TransactionSynchronizationManager.initSynchronization();
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            globalConfigService.deleteConfig("key");
 
-                verify(cache, never()).evict(any());
-                verify(globalConfigRepository).deleteById("key");
+            verify(cache, never()).evict(any());
+            verify(globalConfigRepository).deleteById("key");
+            verify(adminGuard).requireSuperAdmin();
 
-                TransactionSynchronizationManager.getSynchronizations()
-                        .forEach(synchronization -> synchronization.afterCommit());
-                verify(cache).evict("key");
-            } finally {
-                TransactionSynchronizationManager.setActualTransactionActive(false);
-                TransactionSynchronizationManager.clearSynchronization();
-            }
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(synchronization -> synchronization.afterCommit());
+            verify(cache).evict("key");
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+            TransactionSynchronizationManager.clearSynchronization();
         }
     }
 
     @Test
     @DisplayName("updateConfig rejects invalid key value and description before repository access")
     void updateConfig_invalidText_rejectsBeforeRepositoryAccess() {
-        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
-            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
+        assertThatThrownBy(() -> globalConfigService.updateConfig(null, "value", "desc"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        assertThatThrownBy(() -> globalConfigService.updateConfig("   ", "value", "desc"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        assertThatThrownBy(() -> globalConfigService.updateConfig("k".repeat(101), "value", "desc"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        assertThatThrownBy(() -> globalConfigService.updateConfig("key", null, "desc"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        assertThatThrownBy(() -> globalConfigService.updateConfig("key", "v".repeat(10_001), "desc"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        assertThatThrownBy(() -> globalConfigService.updateConfig("key", "value", "d".repeat(256)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
 
-            assertThatThrownBy(() -> globalConfigService.updateConfig(null, "value", "desc"))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-            assertThatThrownBy(() -> globalConfigService.updateConfig("   ", "value", "desc"))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-            assertThatThrownBy(() -> globalConfigService.updateConfig("k".repeat(101), "value", "desc"))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-            assertThatThrownBy(() -> globalConfigService.updateConfig("key", null, "desc"))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-            assertThatThrownBy(() -> globalConfigService.updateConfig("key", "v".repeat(10_001), "desc"))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-            assertThatThrownBy(() -> globalConfigService.updateConfig("key", "value", "d".repeat(256)))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-
-            verify(globalConfigRepository, never()).findById(anyString());
-            verify(globalConfigRepository, never()).save(any());
-        }
+        verify(globalConfigRepository, never()).findById(anyString());
+        verify(globalConfigRepository, never()).save(any());
     }
 
     @Test
     @DisplayName("updateConfig rejects invalid point config values")
     void updateConfig_pointConfig_rejectsInvalidValue() {
-        try (MockedStatic<SecurityUtils> utilities = Mockito.mockStatic(SecurityUtils.class)) {
-            utilities.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
+        assertThatThrownBy(() -> globalConfigService.updateConfig("POINT_BOARD_CREATE_COST", "invalid", "desc"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        assertThatThrownBy(() -> globalConfigService.updateConfig("POINT_BOARD_CREATE_COST", "-1", "desc"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
 
-            assertThatThrownBy(() -> globalConfigService.updateConfig("POINT_BOARD_CREATE_COST", "invalid", "desc"))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-            assertThatThrownBy(() -> globalConfigService.updateConfig("POINT_BOARD_CREATE_COST", "-1", "desc"))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-
-            verify(globalConfigRepository, never()).findById(anyString());
-            verify(globalConfigRepository, never()).save(any());
-        }
+        verify(globalConfigRepository, never()).findById(anyString());
+        verify(globalConfigRepository, never()).save(any());
     }
 }

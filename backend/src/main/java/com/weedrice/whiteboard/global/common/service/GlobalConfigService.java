@@ -3,7 +3,6 @@ package com.weedrice.whiteboard.global.common.service;
 import com.weedrice.whiteboard.global.common.dto.GlobalConfigResponse;
 import com.weedrice.whiteboard.global.common.entity.GlobalConfig;
 import com.weedrice.whiteboard.global.common.repository.GlobalConfigRepository;
-import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +33,7 @@ public class GlobalConfigService {
 
     private final GlobalConfigRepository globalConfigRepository;
     private final CacheManager cacheManager;
+    private final GlobalConfigAdminGuard adminGuard;
 
     @Cacheable(value = GLOBAL_CONFIG_CACHE,
             key = "T(com.weedrice.whiteboard.global.common.service.GlobalConfigService).normalizeConfigKey(#key)")
@@ -52,6 +52,7 @@ public class GlobalConfigService {
     }
 
     public GlobalConfigResponse getConfigResponseOrThrow(String key) {
+        adminGuard.requireSuperAdmin();
         String normalizedKey = normalizeConfigKey(key);
         String value = getConfigOrThrow(normalizedKey);
         return GlobalConfigResponse.builder()
@@ -73,7 +74,7 @@ public class GlobalConfigService {
     }
 
     public List<GlobalConfigResponse> getAllConfigs() {
-        SecurityUtils.validateSuperAdminPermission();
+        adminGuard.requireSuperAdmin();
         return globalConfigRepository.findAll().stream()
                 .map(GlobalConfigResponse::from)
                 .toList();
@@ -88,7 +89,7 @@ public class GlobalConfigService {
 
     @Transactional
     public GlobalConfigResponse createConfig(String key, String value, String description) {
-        SecurityUtils.validateSuperAdminPermission();
+        adminGuard.requireSuperAdmin();
         NormalizedConfigInput input = normalizeConfigInput(key, value, description);
         validateConfigValue(input.key(), input.value());
         if (globalConfigRepository.existsById(input.key())) {
@@ -106,7 +107,7 @@ public class GlobalConfigService {
 
     @Transactional
     public GlobalConfigResponse updateConfig(String key, String value, String description) {
-        SecurityUtils.validateSuperAdminPermission();
+        adminGuard.requireSuperAdmin();
         NormalizedConfigInput input = normalizeConfigInput(key, value, description);
         validateConfigValue(input.key(), input.value());
         GlobalConfig config = globalConfigRepository.findById(input.key())
@@ -124,7 +125,7 @@ public class GlobalConfigService {
 
     @Transactional
     public void deleteConfig(String key) {
-        SecurityUtils.validateSuperAdminPermission();
+        adminGuard.requireSuperAdmin();
         String normalizedKey = normalizeRequiredText(key, MAX_CONFIG_KEY_LENGTH);
         if (!globalConfigRepository.existsById(normalizedKey)) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
