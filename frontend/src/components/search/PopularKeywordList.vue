@@ -13,7 +13,7 @@
     <ul v-else class="space-y-2">
       <li v-for="(item, index) in keywords" :key="item.keyword" class="flex items-center justify-between">
         <router-link 
-          :to="{ name: 'search', query: { keyword: item.keyword } }"
+          :to="{ name: 'search', query: { q: item.keyword } }"
           class="text-sm text-gray-700 hover:text-indigo-600 truncate"
         >
           <span class="font-medium mr-2 text-gray-400">{{ index + 1 }}.</span>
