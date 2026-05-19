@@ -1,0 +1,13 @@
+.gradle
+build
+target
+out
+bin
+uploads
+logs
+*.log
+.env
+.env.*
+*.local
+.idea
+.vscode

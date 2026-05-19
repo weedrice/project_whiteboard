@@ -1,0 +1,13 @@
+node_modules
+dist
+dist-ssr
+.vite
+coverage
+.eslintcache
+*.tsbuildinfo
+.env
+.env.*
+*.local
+.idea
+.vscode
+__screenshots__
