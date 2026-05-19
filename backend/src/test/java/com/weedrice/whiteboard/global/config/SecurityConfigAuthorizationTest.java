@@ -137,6 +137,9 @@ class SecurityConfigAuthorizationTest {
         mockMvc.perform(get("/api/v1/search/posts").param("q", "test"))
                 .andExpect(status().isOk());
 
+        mockMvc.perform(get("/api/v1/search/semantic").param("q", "test"))
+                .andExpect(status().isOk());
+
         mockMvc.perform(get("/api/v1/search/popular"))
                 .andExpect(status().isOk());
 
@@ -213,6 +216,11 @@ class SecurityConfigAuthorizationTest {
         @GetMapping("/search/posts")
         String searchPosts() {
             return "posts";
+        }
+
+        @GetMapping("/search/semantic")
+        String semanticSearch() {
+            return "semantic";
         }
 
         @GetMapping("/search/popular")

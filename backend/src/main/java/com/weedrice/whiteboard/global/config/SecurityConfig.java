@@ -103,6 +103,7 @@ public class SecurityConfig {
                                                                 "/api/v1/tags/**",
                                                                 "/api/v1/search",
                                                                 "/api/v1/search/posts",
+                                                                "/api/v1/search/semantic",
                                                                 "/api/v1/search/popular",
                                                                 "/api/v1/shop/items/**",
                                                                 "/api/v1/ads",
