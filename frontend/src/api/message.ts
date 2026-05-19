@@ -11,7 +11,7 @@ const BLOCKED_BY_USER_CODE = 'U009'
 
 export const messageApi = {
     sendMessage: (receiverId: string | number, content: string, config?: AxiosRequestConfig) =>
-        api.post<ApiResponse<Message>>(`/messages`, { receiverId, content }, config),
+        api.post<ApiResponse<number>>('/messages', { receiverId, content }, config),
     getReceivedMessages: (params: MessageParams) => api.get<ApiResponse<PageResponse<Message>>>('/messages/received', { params }),
     getSentMessages: (params: MessageParams) => api.get<ApiResponse<PageResponse<Message>>>('/messages/sent', { params }),
     getUnreadCount: () => api.get<ApiResponse<number>>('/messages/unread-count'),
