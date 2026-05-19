@@ -25,7 +25,7 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class HomeLandingService {
 
-    private static final int LANDING_BOARD_LIMIT = 6;
+    private static final int LANDING_BOARD_LIMIT = 7;
 
     private final PostService postService;
     private final BoardService boardService;

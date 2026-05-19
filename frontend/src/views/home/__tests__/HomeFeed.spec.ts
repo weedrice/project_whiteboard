@@ -208,6 +208,43 @@ describe('HomeFeed', () => {
         expect(wrapper.text()).toContain('1,824')
     })
 
+    it('links the remaining board strip area to the all boards page', () => {
+        state.editorPicks.value = [makePost(101, 'Hero')]
+        state.spotlightBoards.value = Array.from({ length: 6 }, (_, index) => ({
+            boardId: index + 1,
+            boardUrl: `board-${index + 1}`,
+            boardName: `Board ${index + 1}`,
+            subscriberCount: (index + 1) * 10,
+            postCount: (index + 1) * 100,
+        }))
+        state.boards.value = state.spotlightBoards.value
+
+        const wrapper = mount(HomeFeed, {
+            global: {
+                mocks: {
+                    $t: (key: string) => key,
+                },
+                stubs: {
+                    RouterLink: RouterLinkStub,
+                    HomePostCard: HomePostCardStub,
+                    HomeActivityList: HomeActivityListStub,
+                    EmptyState: EmptyStateStub,
+                    ErrorState: ErrorStateStub,
+                    HomeLandingSkeleton: HomeLandingSkeletonStub,
+                },
+            },
+        })
+
+        const boardLinks = wrapper.findAllComponents(RouterLinkStub)
+            .filter((link) => String(link.props('to')).startsWith('/board/'))
+        const viewAllSlot = wrapper.findAllComponents(RouterLinkStub)
+            .find((link) => link.text().includes('common.viewAll') && link.text().includes('home.landing.topBoards'))
+
+        expect(boardLinks).toHaveLength(6)
+        expect(viewAllSlot?.props('to')).toBe('/boards')
+        expect(viewAllSlot?.attributes('style')).toContain('--remaining-board-slots: 1')
+    })
+
     it('shows the empty state when every landing section is empty', () => {
         const wrapper = mount(HomeFeed, {
             global: {

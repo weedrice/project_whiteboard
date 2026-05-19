@@ -12,6 +12,7 @@ import HomeActivityList from '@/components/home/HomeActivityList.vue'
 import { useHomeLanding } from '@/composables/useHomeLanding'
 import type { HomeLandingPeriod } from '@/types'
 
+const BOARD_STRIP_LIMIT = 7
 const { t, locale } = useI18n()
 const homeTitle = computed(() => t('common.appName'))
 
@@ -52,8 +53,8 @@ const heroPost = computed(() =>
 const heroPostId = computed(() => heroPost.value?.postId ?? null)
 const visibleTrending = computed(() => trending.value.filter((post) => post.postId !== heroPostId.value))
 const visibleLiveActivity = computed(() => liveActivity.value.filter((post) => post.postId !== heroPostId.value))
-const boardStrip = computed(() => spotlightBoards.value.slice(0, 7))
-const boardSlots = computed(() => Array.from({ length: 7 }, (_, index) => boardStrip.value[index] ?? null))
+const boardStrip = computed(() => spotlightBoards.value.slice(0, BOARD_STRIP_LIMIT))
+const remainingBoardSlots = computed(() => Math.max(0, BOARD_STRIP_LIMIT - boardStrip.value.length))
 const numberFormatter = computed(() => new Intl.NumberFormat(locale.value === 'ko' ? 'ko-KR' : 'en-US'))
 const formatNumber = (value: number) => numberFormatter.value.format(value)
 const formatSignedNumber = (value: number) => (value > 0 ? `+${formatNumber(value)}` : formatNumber(value))
@@ -213,14 +214,12 @@ useHead({
           class="overflow-hidden rounded-[16px] border border-[var(--nv-line)] bg-[var(--nv-line)] shadow-[var(--nv-shadow-soft)]"
         >
           <div class="grid grid-cols-2 gap-px xl:grid-cols-7">
-          <component
-            v-for="(board, index) in boardSlots"
-            :is="board ? RouterLink : 'div'"
-            :key="board?.boardId ?? `empty-${index}`"
-            :to="board ? `/board/${board.boardUrl}` : undefined"
-            :class="board ? 'group flex min-h-[68px] flex-col bg-[var(--nv-surface)] px-3.5 pt-3 pb-2 transition-all duration-150 hover:bg-[var(--nv-surface-2)]' : 'pointer-events-none min-h-[68px] bg-[var(--nv-bg)] px-3.5 pt-3 pb-2'"
+          <RouterLink
+            v-for="board in boardStrip"
+            :key="board.boardId"
+            :to="`/board/${board.boardUrl}`"
+            class="group flex min-h-[68px] flex-col bg-[var(--nv-surface)] px-3.5 pt-3 pb-2 transition-all duration-150 hover:bg-[var(--nv-surface-2)]"
           >
-            <template v-if="board">
             <div class="min-w-0">
               <p class="line-clamp-2 text-[15px] font-semibold leading-5 text-[var(--nv-ink)] group-hover:text-[var(--nv-accent)]">
                 {{ board.boardName }}
@@ -229,8 +228,20 @@ useHead({
             <div class="mt-0.5 flex items-center gap-2 text-left">
               <p class="text-[12px] font-medium tracking-[0.02em] text-[var(--nv-ink-soft)]">{{ formatNumber(board.postCount ?? 0) }}</p>
             </div>
-            </template>
-          </component>
+          </RouterLink>
+          <RouterLink
+            v-if="remainingBoardSlots > 0"
+            to="/boards"
+            class="nv-home-board-view-all group flex min-h-[68px] flex-col justify-center bg-[var(--nv-bg)] px-3.5 pt-3 pb-2 transition-all duration-150 hover:bg-[var(--nv-surface-2)]"
+            :style="{ '--remaining-board-slots': remainingBoardSlots }"
+          >
+            <span class="text-[15px] font-semibold leading-5 text-[var(--nv-ink)] group-hover:text-[var(--nv-accent)]">
+              {{ $t('common.viewAll') }}
+            </span>
+            <span class="mt-0.5 text-[12px] font-medium tracking-[0.02em] text-[var(--nv-ink-soft)]">
+              {{ $t('home.landing.topBoards') }}
+            </span>
+          </RouterLink>
           </div>
         </div>
         <div
@@ -289,3 +300,11 @@ useHead({
     </template>
   </div>
 </template>
+
+<style scoped>
+@media (min-width: 1280px) {
+  .nv-home-board-view-all {
+    grid-column: span var(--remaining-board-slots, 1) / span var(--remaining-board-slots, 1);
+  }
+}
+</style>
