@@ -5,6 +5,7 @@ import {
   resolveEmoticonTagAddition,
   resizeEmoticonImage,
   revokeEmoticonPreviewUrl,
+  uploadEmoticonImagePreviews,
   validateEmoticonImageFile
 } from '../emoticonImage'
 
@@ -152,6 +153,43 @@ describe('emoticonImage utilities', () => {
     expect(uploadFile.name).toBe('big.png')
     expect(uploadFile.type).toBe('image/png')
     expect(drawImage).toHaveBeenCalled()
+  })
+
+  it('uploads previews concurrently while preserving original result order', async () => {
+    const files = [
+      new File(['first'], 'first.png', { type: 'image/png' }),
+      new File(['second'], 'second.png', { type: 'image/png' })
+    ]
+    const progress: Array<{ completed: number; total: number }> = []
+    const resolvers: Array<(value: number) => void> = []
+
+    const resultPromise = uploadEmoticonImagePreviews(
+      files.map((file) => ({
+        file,
+        preview: `blob:${file.name}`,
+        width: 80,
+        height: 80
+      })),
+      (file, _item, index) => new Promise<number>((resolve) => {
+        expect(file).toBe(files[index])
+        resolvers[index] = resolve
+      }),
+      (completed, total) => {
+        progress.push({ completed, total })
+      }
+    )
+
+    await Promise.resolve()
+    resolvers[1](22)
+    await Promise.resolve()
+    expect(progress).toEqual([{ completed: 1, total: 2 }])
+
+    resolvers[0](11)
+    await expect(resultPromise).resolves.toEqual([11, 22])
+    expect(progress).toEqual([
+      { completed: 1, total: 2 },
+      { completed: 2, total: 2 }
+    ])
   })
 
   it('normalizes tag additions and enforces the tag limit', () => {

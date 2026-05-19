@@ -11,10 +11,10 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import {
   createEmoticonImagePreview,
-  createUploadableEmoticonImageFile,
   resolveEmoticonTagAddition,
   revokeEmoticonPreviewUrl,
   SUPPORTED_EMOTICON_IMAGE_ACCEPT,
+  uploadEmoticonImagePreviews,
   validateEmoticonImageFile,
   type EmoticonImagePreview
 } from '@/utils/emoticonImage'
@@ -36,6 +36,7 @@ const tagInput = ref('')
 const tags = ref<string[]>([])
 const isSubmitting = ref(false)
 const uploadProgress = ref({ current: 0, total: 0 })
+let submitRunId = 0
 
 // 파일 입력 refs
 const thumbnailInput = ref<HTMLInputElement | null>(null)
@@ -183,6 +184,7 @@ const handleSubmit = async () => {
   if (!isFormValid.value || isSubmitting.value) return
 
   isSubmitting.value = true
+  const currentRunId = ++submitRunId
 
   try {
     // 1. 썸네일 업로드
@@ -190,27 +192,19 @@ const handleSubmit = async () => {
     const thumbnailFileId = thumbnailResponse.data.data.fileId
 
     // 2. 이모티콘 이미지 업로드 (리사이징 적용)
-    const imageFileIds: number[] = []
     uploadProgress.value = { current: 0, total: emoticonPreviews.value.length }
-    
-    for (let i = 0; i < emoticonPreviews.value.length; i++) {
-      const item = emoticonPreviews.value[i]
-      
-      // 저장된 크기 정보 사용 (이미지 재로드 불필요)
-      // GIF는 리사이징 시 애니메이션 손실 → 원본 그대로 업로드
-      const uploadFile = await createUploadableEmoticonImageFile(item)
-      
-      const response = await fileApi.uploadFile(uploadFile)
-      imageFileIds.push(response.data.data.fileId)
-      
-      // 진행 상태 업데이트
-      uploadProgress.value.current = i + 1
-      
-      // UI가 블로킹되지 않도록 작은 딜레이 추가 (마지막 항목 제외)
-      if (i < emoticonPreviews.value.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 20))
+    const imageFileIds = await uploadEmoticonImagePreviews(
+      emoticonPreviews.value,
+      async (uploadFile) => {
+        const response = await fileApi.uploadFile(uploadFile)
+        return response.data.data.fileId
+      },
+      (current) => {
+        if (submitRunId === currentRunId) {
+          uploadProgress.value.current = current
+        }
       }
-    }
+    )
 
     // 3. 이모티콘 생성
     await emoticonApi.createEmoticon({
@@ -227,7 +221,10 @@ const handleSubmit = async () => {
     toastStore.addToast(message, 'error')
   } finally {
     isSubmitting.value = false
-    uploadProgress.value = { current: 0, total: 0 }
+    if (submitRunId === currentRunId) {
+      submitRunId += 1
+      uploadProgress.value = { current: 0, total: 0 }
+    }
   }
 }
 
