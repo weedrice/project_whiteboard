@@ -15,6 +15,7 @@ import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import CommentList from '@/components/comment/CommentList.vue'
 import { useErrorHandler } from '@/composables/useErrorHandler'
+import { useEmailVerificationState } from '@/composables/useEmailVerificationState'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { getOptimizedProfileImageUrl, handleImageError } from '@/utils/image'
@@ -23,7 +24,6 @@ import { formatDate } from '@/utils/date'
 import { isValidEmail } from '@/utils/validation'
 import { renderCommentContentHtml } from '@/utils/commentContent'
 import { applyImageFallback } from '@/utils/imageFallback'
-import { useEmailVerificationState } from '@/composables/useEmailVerificationState'
 import type { User as UserType, PostSummary, Post, Comment } from '@/types'
 import type { UserAgent } from '@/api/user'
 
@@ -210,12 +210,12 @@ const {
   stopTimer: stopVerifyTimer,
   startResendCooldown: startVerifyResendCooldown,
   stopResendCooldown: stopVerifyResendCooldown,
-  reset: resetEmailVerification,
+  resetVerification,
   formatTime: formatVerifyTime
 } = useEmailVerificationState()
 
 function openVerifyModal() {
-  resetEmailVerification(profile.value?.email || '')
+  resetVerification(profile.value?.email || '')
   isVerifyModalOpen.value = true
 }
 

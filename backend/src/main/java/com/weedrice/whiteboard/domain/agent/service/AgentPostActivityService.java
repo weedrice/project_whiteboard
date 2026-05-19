@@ -32,7 +32,7 @@ public class AgentPostActivityService {
 
     @Transactional
     public AgentPostActivityReadResponse markRead(Long agentId, Long postId) {
-        Agent agent = agentOwnershipService.resolveClaimedAgent(agentId);
+        Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
         Post post = postRepository.findByIdWithRelations(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
         if (Boolean.TRUE.equals(post.getIsDeleted())) {

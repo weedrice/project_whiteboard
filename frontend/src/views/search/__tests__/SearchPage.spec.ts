@@ -1,106 +1,132 @@
-import { shallowMount } from '@vue/test-utils'
+import { mount, RouterLinkStub } from '@vue/test-utils'
+import { computed, defineComponent, h, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ref, type Ref } from 'vue'
-import SearchPage from '../SearchPage.vue'
 
-const mocks = vi.hoisted(() => {
-  const route: { query: Record<string, unknown> } = {
-    query: {},
-  }
-  const useIntegratedSearch = vi.fn()
+const routeState = vi.hoisted(() => ({
+  query: {} as Record<string, unknown>,
+}))
 
-  return {
-    route,
-    useIntegratedSearch,
-    t: (key: string, params?: Record<string, string>) => {
-      if (key === 'search.noResultsFor') return `No results for ${params?.query}`
-      return key
-    },
-  }
-})
+const searchState = vi.hoisted(() => ({
+  lastParams: null as ReturnType<typeof computed<Record<string, unknown>>> | null,
+  searchData: {
+    posts: { content: [] },
+    boards: [],
+  },
+  isLoading: false,
+}))
 
 vi.mock('vue-router', () => ({
-  useRoute: () => mocks.route,
-  createWebHistory: vi.fn(),
-  createRouter: vi.fn(() => ({
-    beforeEach: vi.fn(),
-    afterEach: vi.fn(),
-    onError: vi.fn(),
-    push: vi.fn(),
-    currentRoute: {
-      value: {
-        fullPath: '/',
-        meta: {},
-      },
-    },
-  })),
-  RouterLink: {
-    props: ['to'],
-    template: '<a><slot /></a>',
-  },
+  useRoute: () => routeState,
 }))
 
 vi.mock('@/composables/useSearch', () => ({
   useSearch: () => ({
-    useIntegratedSearch: mocks.useIntegratedSearch,
+    useIntegratedSearch: (params: ReturnType<typeof computed<Record<string, unknown>>>) => {
+      searchState.lastParams = params
+      return {
+        data: ref(searchState.searchData),
+        isLoading: ref(searchState.isLoading),
+      }
+    },
   }),
 }))
 
+vi.mock('@/utils/image', () => ({
+  getOptimizedBoardIconUrl: (value: string) => value,
+  handleImageError: vi.fn(),
+}))
+
+vi.mock('@/components/board/PostList.vue', () => ({
+  default: defineComponent({
+    name: 'PostListStub',
+    props: {
+      posts: { type: Array, default: () => [] },
+    },
+    setup(props) {
+      return () => h('div', { 'data-testid': 'post-list' }, String(props.posts.length))
+    },
+  }),
+}))
+
+const { default: SearchPage } = await import('../SearchPage.vue')
+
+const EmptyStateStub = defineComponent({
+  name: 'EmptyStateStub',
+  props: {
+    title: { type: String, default: '' },
+    description: { type: String, default: undefined },
+  },
+  setup(props) {
+    return () => h('div', {
+      'data-testid': 'empty-state',
+      'data-description': props.description,
+    }, props.title)
+  },
+})
+
 describe('SearchPage', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-    mocks.route.query = {}
-    mocks.useIntegratedSearch.mockReturnValue({
-      data: ref({ posts: { content: [] }, boards: [] }),
-      isLoading: ref(false),
-    })
+    routeState.query = {}
+    searchState.lastParams = null
+    searchState.searchData = {
+      posts: { content: [] },
+      boards: [],
+    }
+    searchState.isLoading = false
   })
 
-  const mountPage = () => shallowMount(SearchPage, {
+  const mountPage = () => mount(SearchPage, {
     global: {
       mocks: {
-        $t: mocks.t,
+        $t: (key: string, params?: Record<string, string>) => params?.query ? `${key}:${params.query}` : key,
       },
       stubs: {
-        'router-link': true,
+        BaseSpinner: true,
+        EmptyState: EmptyStateStub,
+        Layout: true,
+        RouterLink: RouterLinkStub,
+        Search: true,
       },
     },
   })
 
-  const integratedSearchParams = () => mocks.useIntegratedSearch.mock.calls[0][0] as Ref<{
-    q: string
-    page: number
-    size: number
-    t?: string
-  }>
+  it('uses q query as the primary integrated search text', () => {
+    routeState.query = {
+      q: ' vue ',
+      keyword: 'ignored',
+      tag: 'ignored-tag',
+      t: '123',
+    }
 
-  it('uses q as the canonical search query', () => {
-    mocks.route.query = { q: ' vue ', keyword: 'legacy', tag: 'tagged', t: '123' }
+    const wrapper = mountPage()
 
-    mountPage()
-
-    expect(integratedSearchParams().value).toEqual({
+    expect(searchState.lastParams?.value).toEqual({
       q: 'vue',
       page: 0,
       size: 20,
       t: '123',
     })
+    expect(wrapper.text()).toContain('"vue"')
+    expect(wrapper.find('[data-testid="empty-state"]').attributes('data-description')).toBe('search.noResultsFor:vue')
   })
 
-  it('keeps keyword and tag deep links working as q fallbacks', () => {
-    mocks.route.query = { q: '   ', keyword: 'pinia' }
+  it('falls back to keyword and tag query names used by search entry components', () => {
+    routeState.query = { q: '   ', keyword: 'pinia' }
     mountPage()
-    expect(integratedSearchParams().value.q).toBe('pinia')
+    expect(searchState.lastParams?.value.q).toBe('pinia')
 
-    vi.clearAllMocks()
-    mocks.useIntegratedSearch.mockReturnValue({
-      data: ref({ posts: { content: [] }, boards: [] }),
-      isLoading: ref(false),
-    })
-    mocks.route.query = { tag: ['vue'] }
+    routeState.query = { tag: 'notice' }
+    mountPage()
+    expect(searchState.lastParams?.value.q).toBe('notice')
+  })
+
+  it('uses the first value when the route query is an array', () => {
+    routeState.query = {
+      keyword: ['first', 'second'],
+    }
 
     mountPage()
 
-    expect(integratedSearchParams().value.q).toBe('vue')
+    expect(searchState.lastParams?.value.q).toBe('first')
   })
 })

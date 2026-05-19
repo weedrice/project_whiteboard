@@ -58,7 +58,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSearch } from '@/composables/useSearch'
 import PostList from '@/components/board/PostList.vue'
@@ -72,9 +72,9 @@ const { useIntegratedSearch } = useSearch()
 
 const firstQueryValue = (value: unknown): string => {
   if (Array.isArray(value)) {
-    return typeof value[0] === 'string' ? value[0] : ''
+    return String(value[0] ?? '')
   }
-  return typeof value === 'string' ? value : ''
+  return String(value ?? '')
 }
 
 const query = computed(() => (
@@ -97,6 +97,4 @@ const { data: searchData, isLoading } = useIntegratedSearch(params)
 const posts = computed(() => searchData.value?.posts?.content || [])
 const boards = computed(() => searchData.value?.boards || [])
 const searchQuery = computed(() => query.value)
-
-
 </script>
