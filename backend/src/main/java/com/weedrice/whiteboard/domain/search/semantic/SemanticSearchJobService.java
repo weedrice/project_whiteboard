@@ -19,6 +19,7 @@ public class SemanticSearchJobService {
     private static final String STALE_PROCESSING_ERROR = "Processing lease expired";
 
     private final SemanticSearchProperties properties;
+    private final EmbeddingClient embeddingClient;
     private final SemanticSearchJobRepository jobRepository;
     private final SemanticSearchIndexService indexService;
     private final Clock clock;
@@ -45,7 +46,7 @@ public class SemanticSearchJobService {
     }
 
     public int processPendingJobs() {
-        if (!properties.isEnabled()) {
+        if (!properties.isEnabled() || !embeddingClient.isAvailable()) {
             return 0;
         }
 

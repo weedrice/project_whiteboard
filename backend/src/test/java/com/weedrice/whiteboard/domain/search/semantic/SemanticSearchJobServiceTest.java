@@ -16,6 +16,7 @@ import static org.mockito.Mockito.*;
 class SemanticSearchJobServiceTest {
 
     private SemanticSearchProperties properties;
+    private EmbeddingClient embeddingClient;
     private SemanticSearchJobRepository jobRepository;
     private SemanticSearchIndexService indexService;
     private SemanticSearchJobService jobService;
@@ -26,10 +27,12 @@ class SemanticSearchJobServiceTest {
         properties.setEnabled(true);
         properties.getJob().setBatchSize(10);
         properties.getJob().setMaxRetryCount(3);
+        embeddingClient = mock(EmbeddingClient.class);
+        when(embeddingClient.isAvailable()).thenReturn(true);
         jobRepository = mock(SemanticSearchJobRepository.class);
         indexService = mock(SemanticSearchIndexService.class);
         Clock clock = Clock.fixed(Instant.parse("2026-05-19T06:00:00Z"), ZoneId.of("Asia/Seoul"));
-        jobService = new SemanticSearchJobService(properties, jobRepository, indexService, clock);
+        jobService = new SemanticSearchJobService(properties, embeddingClient, jobRepository, indexService, clock);
     }
 
     @Test
@@ -44,6 +47,16 @@ class SemanticSearchJobServiceTest {
     @Test
     void processPendingJobs_skipsWhenDisabled() {
         properties.setEnabled(false);
+
+        int processed = jobService.processPendingJobs();
+
+        assertThat(processed).isZero();
+        verify(jobRepository, never()).findPendingJobs(anyInt(), anyInt());
+    }
+
+    @Test
+    void processPendingJobs_skipsWhenEmbeddingClientUnavailable() {
+        when(embeddingClient.isAvailable()).thenReturn(false);
 
         int processed = jobService.processPendingJobs();
 
