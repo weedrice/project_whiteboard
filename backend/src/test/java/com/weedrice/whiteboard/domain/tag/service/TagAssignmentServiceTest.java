@@ -12,22 +12,22 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Optional;
+import java.util.Set;
 import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -40,8 +40,6 @@ class TagAssignmentServiceTest {
     private TagRepository tagRepository;
     @Mock
     private PostTagRepository postTagRepository;
-    @Mock
-    private TagCreationService tagCreationService;
 
     @InjectMocks
     private TagAssignmentService tagAssignmentService;
@@ -64,45 +62,65 @@ class TagAssignmentServiceTest {
         when(postTagRepository.findByPost(post)).thenReturn(Collections.emptyList());
         Tag savedTag = new Tag("newTag");
         ReflectionTestUtils.setField(savedTag, "tagId", 20L);
-        when(tagRepository.findByTagNameInForUpdate(Collections.singleton("newTag"))).thenReturn(List.of());
-        when(tagCreationService.create("newTag")).thenReturn(savedTag);
+        when(tagRepository.findByTagNameInForUpdate(Collections.singleton("newTag")))
+                .thenReturn(List.of(), List.of(savedTag));
 
         tagAssignmentService.assignTags(post, Collections.singletonList("newTag"));
 
+        verify(tagRepository).insertIgnore("newTag");
         verify(postTagRepository).save(any(PostTag.class));
         verify(tagRepository).incrementPostCountIn(List.of(20L));
     }
 
     @Test
-    @DisplayName("assignTags reuses existing tag after duplicate tag creation race")
-    void assignTags_reusesExistingTagAfterDuplicateTagCreationRace() {
+    @DisplayName("assignTags reuses tag loaded after duplicate insert-ignore")
+    void assignTags_reusesTagLoadedAfterDuplicateInsertIgnore() {
         when(postTagRepository.findByPost(post)).thenReturn(Collections.emptyList());
         Tag concurrentlyCreatedTag = new Tag("newTag");
         ReflectionTestUtils.setField(concurrentlyCreatedTag, "tagId", 20L);
-        when(tagRepository.findByTagNameInForUpdate(Collections.singleton("newTag"))).thenReturn(List.of());
-        when(tagRepository.findByTagName("newTag")).thenReturn(Optional.of(concurrentlyCreatedTag));
-        doThrow(new DataIntegrityViolationException("duplicate"))
-                .when(tagCreationService).create("newTag");
+        when(tagRepository.findByTagNameInForUpdate(Collections.singleton("newTag")))
+                .thenReturn(List.of(), List.of(concurrentlyCreatedTag));
+        when(tagRepository.insertIgnore("newTag")).thenReturn(0);
 
         tagAssignmentService.assignTags(post, Collections.singletonList("newTag"));
 
+        verify(tagRepository).insertIgnore("newTag");
         verify(postTagRepository).save(any(PostTag.class));
         verify(tagRepository).incrementPostCountIn(List.of(20L));
     }
 
     @Test
-    @DisplayName("assignTags preserves duplicate error when duplicate tag cannot be recovered")
-    void assignTags_preservesDuplicateErrorWhenDuplicateTagCannotBeRecovered() {
+    @DisplayName("assignTags inserts missing tags in stable name order")
+    void assignTags_insertsMissingTagsInStableNameOrder() {
         when(postTagRepository.findByPost(post)).thenReturn(Collections.emptyList());
-        when(tagRepository.findByTagNameInForUpdate(Collections.singleton("newTag"))).thenReturn(List.of());
-        when(tagRepository.findByTagName("newTag")).thenReturn(Optional.empty());
-        doThrow(new DataIntegrityViolationException("duplicate"))
-                .when(tagCreationService).create("newTag");
+        Tag alphaTag = new Tag("alpha");
+        Tag zuluTag = new Tag("zulu");
+        ReflectionTestUtils.setField(alphaTag, "tagId", 21L);
+        ReflectionTestUtils.setField(zuluTag, "tagId", 22L);
+        Set<String> requestedTags = new LinkedHashSet<>(Arrays.asList("zulu", "alpha"));
+        when(tagRepository.findByTagNameInForUpdate(requestedTags))
+                .thenReturn(List.of(), List.of(alphaTag, zuluTag));
+
+        tagAssignmentService.assignTags(post, Arrays.asList("zulu", "alpha"));
+
+        InOrder inOrder = inOrder(tagRepository);
+        inOrder.verify(tagRepository).insertIgnore("alpha");
+        inOrder.verify(tagRepository).insertIgnore("zulu");
+        verify(tagRepository).incrementPostCountIn(List.of(22L, 21L));
+    }
+
+    @Test
+    @DisplayName("assignTags preserves duplicate error when inserted tag cannot be loaded")
+    void assignTags_preservesDuplicateErrorWhenInsertedTagCannotBeLoaded() {
+        when(postTagRepository.findByPost(post)).thenReturn(Collections.emptyList());
+        when(tagRepository.findByTagNameInForUpdate(Collections.singleton("newTag")))
+                .thenReturn(List.of(), List.of());
 
         assertThatThrownBy(() -> tagAssignmentService.assignTags(post, Collections.singletonList("newTag")))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_RESOURCE);
 
+        verify(tagRepository).insertIgnore("newTag");
         verify(postTagRepository, never()).save(any(PostTag.class));
         verify(tagRepository, never()).incrementPostCountIn(any());
     }
@@ -150,11 +168,12 @@ class TagAssignmentServiceTest {
         when(postTagRepository.findByPost(post)).thenReturn(Arrays.asList(existingPostTag, postTagToRemove));
         Tag savedTag = new Tag("newTag");
         ReflectionTestUtils.setField(savedTag, "tagId", 12L);
-        when(tagRepository.findByTagNameInForUpdate(Collections.singleton("newTag"))).thenReturn(List.of());
-        when(tagCreationService.create("newTag")).thenReturn(savedTag);
+        when(tagRepository.findByTagNameInForUpdate(Collections.singleton("newTag")))
+                .thenReturn(List.of(), List.of(savedTag));
 
         tagAssignmentService.assignTags(post, Arrays.asList("existingTag", "newTag"));
 
+        verify(tagRepository).insertIgnore("newTag");
         verify(postTagRepository).save(any(PostTag.class));
         verify(postTagRepository).delete(postTagToRemove);
         verify(tagRepository).incrementPostCountIn(List.of(12L));

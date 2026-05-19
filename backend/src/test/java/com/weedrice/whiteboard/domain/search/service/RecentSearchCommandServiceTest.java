@@ -1,10 +1,7 @@
 package com.weedrice.whiteboard.domain.search.service;
 
-import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,9 +10,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.test.util.ReflectionTestUtils;
-
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -35,23 +29,14 @@ class RecentSearchCommandServiceTest {
     private RecentSearchWriteService recentSearchWriteService;
 
     @Mock
-    private UserRepository userRepository;
+    private SearchUserLookupPolicy searchUserLookupPolicy;
 
     @InjectMocks
     private RecentSearchCommandService recentSearchCommandService;
 
-    private User user;
-
-    @BeforeEach
-    void setUp() {
-        user = User.builder().loginId("test-user").build();
-        ReflectionTestUtils.setField(user, "userId", 1L);
-    }
-
     @Test
     @DisplayName("최근 검색어를 정규화 키워드 기준으로 신규 저장한다")
     void recordRecentSearch_createsNewNormalizedKeyword() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(recentSearchWriteService.updateRecentSearch(any(), any(), any(), any())).thenReturn(0);
 
         recentSearchCommandService.recordRecentSearch(1L, "  Test KEYWORD  ");
@@ -72,7 +57,6 @@ class RecentSearchCommandServiceTest {
     @Test
     @DisplayName("recent search keyword is capped at 255 characters")
     void recordRecentSearch_truncatesKeyword() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(recentSearchWriteService.updateRecentSearch(any(), any(), any(), any())).thenReturn(0);
         String keyword = "A".repeat(SearchRequestNormalizer.MAX_KEYWORD_LENGTH + 10);
 
@@ -96,14 +80,16 @@ class RecentSearchCommandServiceTest {
     void recordRecentSearch_ignoresBlankKeyword() {
         recentSearchCommandService.recordRecentSearch(1L, "   ");
 
-        verify(userRepository, never()).findById(any());
+        verify(searchUserLookupPolicy, never()).validateExists(any());
         verifyNoInteractions(recentSearchWriteService);
     }
 
     @Test
     @DisplayName("사용자가 없으면 예외를 던진다")
     void recordRecentSearch_throwsWhenUserMissing() {
-        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+        doThrow(new BusinessException(ErrorCode.USER_NOT_FOUND))
+                .when(searchUserLookupPolicy)
+                .validateExists(1L);
 
         assertThatThrownBy(() -> recentSearchCommandService.recordRecentSearch(1L, "keyword"))
                 .isInstanceOf(BusinessException.class)
@@ -113,7 +99,6 @@ class RecentSearchCommandServiceTest {
     @Test
     @DisplayName("기존 정규화 키워드가 있으면 최근 검색어를 갱신한다")
     void recordRecentSearch_updatesExistingNormalizedKeyword() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(recentSearchWriteService.updateRecentSearch(any(), any(), any(), any())).thenReturn(1);
 
         recentSearchCommandService.recordRecentSearch(1L, "keyword");
@@ -125,7 +110,6 @@ class RecentSearchCommandServiceTest {
     @Test
     @DisplayName("삽입 충돌이 발생하면 재조회 없이 갱신으로 복구한다")
     void recordRecentSearch_recoversFromDuplicateInsert() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(recentSearchWriteService.updateRecentSearch(any(), any(), any(), any()))
                 .thenReturn(0)
                 .thenReturn(1);

@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.post.service;
 
+import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
@@ -54,6 +55,10 @@ public class PostService {
 
     public List<PostSummary> getNoticeSummaries(String boardUrl, Long currentUserId) {
         return postListReadService.getNoticeSummaries(boardUrl, currentUserId);
+    }
+
+    public List<PostSummary> getNoticeSummaries(Long boardId, Long currentUserId, Boolean includeSecret) {
+        return postListReadService.getNoticeSummaries(boardId, currentUserId, includeSecret);
     }
 
     public List<Post> getNotices(String boardUrl, Long currentUserId) {
@@ -211,6 +216,11 @@ public class PostService {
     @Transactional
     public int likePost(@NonNull Long userId, Long actorAgentId, @NonNull Long postId) {
         return postInteractionService.likePost(userId, actorAgentId, postId);
+    }
+
+    @Transactional
+    public int likePost(@NonNull Long userId, Agent actorAgent, @NonNull Post post) {
+        return postInteractionService.likePost(userId, actorAgent, post);
     }
 
     @Transactional

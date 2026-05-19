@@ -16,17 +16,15 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
-import org.springframework.core.io.ByteArrayResource;
-import org.springframework.http.ContentDisposition;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.nio.charset.StandardCharsets;
+import java.io.ByteArrayInputStream;
 import java.util.Collections;
 
 import static org.hamcrest.Matchers.containsString;
@@ -63,31 +61,31 @@ class FileControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private FileService fileService;
 
-    @MockBean
+    @MockitoBean
     private FileDownloadService fileDownloadService;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor ipBlockInterceptor;
 
-    @MockBean
+    @MockitoBean
     private org.springframework.data.jpa.mapping.JpaMetamodelMappingContext jpaMetamodelMappingContext;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.RefererCheckInterceptor refererCheckInterceptor;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor rateLimitInterceptor;
 
-    @MockBean
+    @MockitoBean
     private org.springframework.context.MessageSource messageSource;
 
     private CustomUserDetails customUserDetails;
@@ -143,8 +141,8 @@ class FileControllerTest {
     void downloadFile_returnsSuccess() throws Exception {
         Long fileId = 1L;
         when(fileDownloadService.downloadFile(eq(fileId), isNull())).thenReturn(downloadResponse(
-                "text/plain",
-                ContentDisposition.attachment().filename("test.txt", StandardCharsets.UTF_8).build()));
+                "test.txt",
+                "text/plain"));
 
         mockMvc.perform(get("/api/v1/files/{fileId}", fileId))
                 .andExpect(status().isOk())
@@ -157,8 +155,8 @@ class FileControllerTest {
     void downloadFile_authenticatedPassesViewerUserId() throws Exception {
         Long fileId = 3L;
         when(fileDownloadService.downloadFile(eq(fileId), eq(1L))).thenReturn(downloadResponse(
-                "text/plain",
-                ContentDisposition.attachment().filename("test.txt", StandardCharsets.UTF_8).build()));
+                "test.txt",
+                "text/plain"));
 
         mockMvc.perform(get("/api/v1/files/{fileId}", fileId)
                         .with(user(customUserDetails)))
@@ -170,8 +168,8 @@ class FileControllerTest {
     void downloadFile_legacyPathReturnsSuccess() throws Exception {
         Long fileId = 4L;
         when(fileDownloadService.downloadFile(eq(fileId), isNull())).thenReturn(downloadResponse(
-                "image/png",
-                ContentDisposition.inline().filename("emoticon.png", StandardCharsets.UTF_8).build()));
+                "emoticon.png",
+                "image/png"));
 
         mockMvc.perform(get("/files/{fileId}", fileId))
                 .andExpect(status().isOk())
@@ -184,8 +182,8 @@ class FileControllerTest {
     void downloadFile_svgServedAsAttachment() throws Exception {
         Long fileId = 2L;
         when(fileDownloadService.downloadFile(eq(fileId), isNull())).thenReturn(downloadResponse(
-                "image/svg+xml",
-                ContentDisposition.attachment().filename("vector.svg", StandardCharsets.UTF_8).build()));
+                "vector.svg",
+                "image/svg+xml"));
 
         mockMvc.perform(get("/api/v1/files/{fileId}", fileId))
                 .andExpect(status().isOk())
@@ -215,10 +213,10 @@ class FileControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
-    private FileDownloadResponse downloadResponse(String contentType, ContentDisposition contentDisposition) {
+    private FileDownloadResponse downloadResponse(String originalName, String contentType) {
         return new FileDownloadResponse(
-                new ByteArrayResource("test content".getBytes()),
-                MediaType.parseMediaType(contentType),
-                contentDisposition);
+                new ByteArrayInputStream("test content".getBytes()),
+                originalName,
+                contentType);
     }
 }

@@ -3,13 +3,16 @@ package com.weedrice.whiteboard.domain.auth.repository;
 import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.config.QuerydslConfig;
+import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.jpa.repository.Lock;
 
+import java.lang.reflect.Method;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 
@@ -55,14 +58,23 @@ class RefreshTokenRepositoryTest {
     }
 
     @Test
-    void findUserIdByTokenHash_returnsTokenOwnerId() {
-        persistRefreshToken("active", LocalDateTime.now().plusHours(1), false);
+    void findRenewalCandidateByTokenHash_returnsTokenAndUserIds() {
+        RefreshToken refreshToken = persistRefreshToken("active", LocalDateTime.now().plusHours(1), false);
         entityManager.flush();
         entityManager.clear();
 
-        var userId = refreshTokenRepository.findUserIdByTokenHash("active");
+        var candidate = refreshTokenRepository.findRenewalCandidateByTokenHash("active");
 
-        assertThat(userId).contains(user.getUserId());
+        assertThat(candidate).isPresent();
+        assertThat(candidate.get().getTokenId()).isEqualTo(refreshToken.getTokenId());
+        assertThat(candidate.get().getUserId()).isEqualTo(user.getUserId());
+    }
+
+    @Test
+    void findByTokenIdForUpdate_declaresPessimisticWriteLock() throws NoSuchMethodException {
+        Method method = RefreshTokenRepository.class.getMethod("findByTokenIdForUpdate", Long.class);
+
+        assertThat(method.getAnnotation(Lock.class).value()).isEqualTo(LockModeType.PESSIMISTIC_WRITE);
     }
 
     @Test
@@ -85,7 +97,7 @@ class RefreshTokenRepositoryTest {
                 .isEmpty();
     }
 
-    private void persistRefreshToken(String tokenHash, LocalDateTime expiresAt, boolean revoked) {
+    private RefreshToken persistRefreshToken(String tokenHash, LocalDateTime expiresAt, boolean revoked) {
         RefreshToken refreshToken = RefreshToken.builder()
                 .user(user)
                 .tokenHash(tokenHash)
@@ -96,5 +108,6 @@ class RefreshTokenRepositoryTest {
             refreshToken.revoke();
         }
         entityManager.persist(refreshToken);
+        return refreshToken;
     }
 }

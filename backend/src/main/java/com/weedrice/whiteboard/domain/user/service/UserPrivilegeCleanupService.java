@@ -20,11 +20,23 @@ public class UserPrivilegeCleanupService {
 
     @Transactional
     public void removeOperationalPrivileges(User user) {
+        removeOperationalPrivileges(user, null, false);
+    }
+
+    @Transactional
+    public void removeOperationalPrivileges(User user, Long actorUserId) {
+        removeOperationalPrivileges(user, actorUserId, true);
+    }
+
+    private void removeOperationalPrivileges(User user, Long actorUserId, boolean validateActor) {
         Objects.requireNonNull(user, "user must not be null");
 
-        var activeAdmins = adminRepository.findByUserAndIsActiveOrderByAdminIdAsc(user, true);
-        privilegeRevocationGuard.validateOperationalPrivilegesCanBeRevoked(user, activeAdmins);
         var lockedActiveAdmins = adminRepository.findAllByUserAndIsActiveOrderByAdminIdAsc(user, true);
+        if (validateActor) {
+            privilegeRevocationGuard.validateOperationalPrivilegesCanBeRevokedBy(user, lockedActiveAdmins, actorUserId);
+        } else {
+            privilegeRevocationGuard.validateOperationalPrivilegesCanBeRevoked(user, lockedActiveAdmins);
+        }
 
         if (Boolean.TRUE.equals(user.getIsSuperAdmin())) {
             user.revokeSuperAdminRole();

@@ -29,26 +29,26 @@ class PostReadContextResolver {
     private final AdminRepository adminRepository;
 
     PostReadContext resolve(Long currentUserId) {
-        return resolve(currentUserId, false);
-    }
-
-    PostReadContext resolveForExistingUser(Long currentUserId) {
-        return resolve(currentUserId, true);
-    }
-
-    private PostReadContext resolve(Long currentUserId, boolean useExistingUserBlockLookup) {
         if (currentUserId == null) {
             return PostReadContext.anonymous();
         }
         User viewer = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        List<Long> blockedUserIds = useExistingUserBlockLookup
-                ? userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(currentUserId)
-                : userBlockService.getBlockedUserIdsEitherDirection(currentUserId);
-        Set<Long> blockedUserIdSet = blockedUserIds == null || blockedUserIds.isEmpty()
-                ? Collections.emptySet()
-                : new HashSet<>(blockedUserIds);
-        return new PostReadContext(viewer, currentUserId, blockedUserIds, blockedUserIdSet, Collections.emptySet());
+        return resolveForResolvedUser(viewer);
+    }
+
+    PostReadContext resolveForResolvedUser(User viewer) {
+        if (viewer == null || viewer.getUserId() == null) {
+            return PostReadContext.anonymous();
+        }
+        Long currentUserId = viewer.getUserId();
+        List<Long> blockedUserIds = userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(currentUserId);
+        return new PostReadContext(viewer, currentUserId, blockedUserIds, toBlockedUserIdSet(blockedUserIds),
+                Collections.emptySet());
+    }
+
+    PostReadContext resolveForExistingUser(Long currentUserId) {
+        return resolve(currentUserId);
     }
 
     PostReadContext resolveForBoards(Long currentUserId, Collection<Board> boards) {
@@ -65,8 +65,11 @@ class PostReadContextResolver {
     }
 
     PostReadContext resolveForExistingUserPosts(Long currentUserId, Collection<Post> posts) {
-        PostReadContext context = resolveForExistingUser(currentUserId);
-        if (context.viewer() == null || posts == null || posts.isEmpty()
+        return withAdminBoardIdsForPosts(resolveForExistingUser(currentUserId), posts);
+    }
+
+    PostReadContext withAdminBoardIdsForPosts(PostReadContext context, Collection<Post> posts) {
+        if (context == null || context.viewer() == null || posts == null || posts.isEmpty()
                 || context.viewer().isUsableSuperAdmin()) {
             return context;
         }
@@ -147,5 +150,12 @@ class PostReadContextResolver {
         return board != null
                 && (!Boolean.TRUE.equals(board.getIsActive())
                 || !Boolean.TRUE.equals(board.getIsPublic()));
+    }
+
+    private Set<Long> toBlockedUserIdSet(List<Long> blockedUserIds) {
+        if (blockedUserIds == null || blockedUserIds.isEmpty()) {
+            return Collections.emptySet();
+        }
+        return new HashSet<>(blockedUserIds);
     }
 }

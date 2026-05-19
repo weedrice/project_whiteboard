@@ -41,6 +41,7 @@ public class CommentQueryService {
     private final UserRepository userRepository;
     private final CommentPostAccessService commentPostAccessService;
     private final CommentReadSupport commentReadSupport;
+    private final CommentReadModelAssembler commentReadModelAssembler;
 
     // Contract: /posts/{postId}/comments pages only parent comments; replies are fetched lazily via /comments/{id}/replies.
     public Page<CommentResponse> getComments(Long postId, Long currentUserId, Pageable pageable) {
@@ -64,7 +65,10 @@ public class CommentQueryService {
                 parentComments.getContent(),
                 context.blockedUserIds());
         List<CommentResponse> responseContent = parentComments.getContent().stream()
-                .map(comment -> toMaskedCommentResponse(comment, context.blockedUserIds(), replyCounts))
+                .map(comment -> toCommentResponse(commentReadModelAssembler.from(
+                        comment,
+                        context.blockedUserIds(),
+                        replyCounts)))
                 .toList();
 
         return new PageImpl<>(responseContent, pageable, parentComments.getTotalElements());
@@ -92,7 +96,10 @@ public class CommentQueryService {
                 replies.getContent(),
                 context.blockedUserIds());
         List<CommentResponse> maskedReplies = replies.getContent().stream()
-                .map(comment -> toMaskedCommentResponse(comment, context.blockedUserIds(), replyCounts))
+                .map(comment -> toCommentResponse(commentReadModelAssembler.from(
+                        comment,
+                        context.blockedUserIds(),
+                        replyCounts)))
                 .toList();
 
         return CommentListResponse.builder()
@@ -111,7 +118,7 @@ public class CommentQueryService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
         CommentReadContext context = resolveReadContext(currentUserId);
         commentPostAccessService.validateReadable(comment.getPost(), context);
-        return toMaskedCommentResponse(comment, context.blockedUserIds());
+        return toCommentResponse(commentReadModelAssembler.from(comment, context.blockedUserIds()));
     }
 
     public Page<MyCommentResponse> getMyComments(Long userId, Pageable pageable) {
@@ -152,29 +159,49 @@ public class CommentQueryService {
         return commentPostAccessService.resolveReadContext(viewer);
     }
 
-    private CommentResponse maskCommentContent(CommentResponse response, Set<Long> blockedUserIds) {
-        if (response.getAuthor() != null
-                && blockedUserIds.contains(response.getAuthor().getUserId())) {
-            return response.toBuilder()
-                    .content(null)
-                    .author(null)
-                    .isBlockedAuthor(true)
-                    .maskedAuthorId(response.getAuthor().getUserId())
-                    .build();
-        }
-        return response;
-    }
+    private CommentResponse toCommentResponse(CommentReadModel model) {
+        Comment comment = model.comment();
+        CommentReadModel.Author author = model.author();
+        boolean deleted = model.status() == CommentReadModel.Status.DELETED;
+        boolean blockedAuthor = model.status() == CommentReadModel.Status.BLOCKED_AUTHOR;
 
-    private CommentResponse toMaskedCommentResponse(Comment comment, Set<Long> blockedUserIds) {
-        return toMaskedCommentResponse(comment, blockedUserIds, Collections.emptyMap());
-    }
-
-    private CommentResponse toMaskedCommentResponse(Comment comment, Set<Long> blockedUserIds, Map<Long, Long> replyCounts) {
-        long replyCount = replyCounts.getOrDefault(comment.getCommentId(), 0L);
-        CommentResponse response = CommentResponse.from(comment).toBuilder()
-                .replyCount(replyCount)
-                .hasReplies(replyCount > 0)
+        return CommentResponse.builder()
+                .commentId(comment.getCommentId())
+                .parentId(comment.getParent() != null ? comment.getParent().getCommentId() : null)
+                .content(resolveCommentResponseContent(model))
+                .author(toCommentAuthor(author))
+                .depth(comment.getDepth())
+                .likeCount(comment.getLikeCount())
+                .isDeleted(deleted)
+                .isBlockedAuthor(blockedAuthor)
+                .maskedAuthorId(blockedAuthor ? model.maskedAuthorId() : null)
+                .createdAt(comment.getCreatedAt())
+                .postId(comment.getPost().getPostId())
+                .boardUrl(comment.getPost().getBoard().getBoardUrl())
+                .postTitle(comment.getPost().getTitle())
+                .replyCount(model.replyCount())
+                .hasReplies(model.hasReplies())
                 .build();
-        return maskCommentContent(response, blockedUserIds);
+    }
+
+    private String resolveCommentResponseContent(CommentReadModel model) {
+        return switch (model.status()) {
+            case ACTIVE -> model.comment().getContent();
+            case DELETED -> CommentResponse.DELETED_CONTENT;
+            case BLOCKED_AUTHOR -> null;
+        };
+    }
+
+    private CommentResponse.AuthorInfo toCommentAuthor(CommentReadModel.Author author) {
+        if (author == null) {
+            return null;
+        }
+        return CommentResponse.AuthorInfo.builder()
+                .userId(author.userId())
+                .agentId(author.agentId())
+                .authorType(author.authorType())
+                .displayName(author.displayName())
+                .profileImageUrl(author.profileImageUrl())
+                .build();
     }
 }

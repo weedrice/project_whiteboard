@@ -3,6 +3,9 @@ package com.weedrice.whiteboard.domain.emoticon.service;
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonMasterDto;
 import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonMaster;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
+import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonSearchCondition;
+import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonSearchCondition.SearchType;
+import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonSearchCondition.SortType;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -114,65 +117,20 @@ class EmoticonCatalogService {
         }
 
         String trimmedKeyword = keyword.trim();
-        Page<EmoticonMaster> result;
-
-        switch (normalizedSearchType) {
-            case SEARCH_TYPE_NAME:
-                result = searchByName(trimmedKeyword, pageable, sortBy);
-                break;
-            case SEARCH_TYPE_CREATOR:
-                result = searchByCreator(trimmedKeyword, pageable, sortBy);
-                break;
-            case SEARCH_TYPE_TAG:
-                result = searchByTag(trimmedKeyword, pageable, sortBy);
-                break;
-            case SEARCH_TYPE_ALL:
-                result = searchByKeywordAll(trimmedKeyword, pageable, sortBy);
-                break;
-            default:
-                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
+        Page<EmoticonMaster> result = emoticonMasterRepository.searchActive(
+                new EmoticonSearchCondition(trimmedKeyword, toSearchType(normalizedSearchType), normalizeSortType(sortBy)),
+                pageable);
         return toSummaryPage(result);
     }
 
-    private Page<EmoticonMaster> searchByName(String keyword, Pageable pageable, String sortBy) {
+    private SortType normalizeSortType(String sortBy) {
         if (isPopularSort(sortBy)) {
-            return emoticonMasterRepository.searchByNameOrderByPurchase(keyword, pageable);
+            return SortType.POPULAR;
         }
         if (isOldestSort(sortBy)) {
-            return emoticonMasterRepository.searchByNameOrderByCreatedAtAsc(keyword, pageable);
+            return SortType.OLDEST;
         }
-        return emoticonMasterRepository.searchByNameOrderByCreatedAtDesc(keyword, pageable);
-    }
-
-    private Page<EmoticonMaster> searchByCreator(String keyword, Pageable pageable, String sortBy) {
-        if (isPopularSort(sortBy)) {
-            return emoticonMasterRepository.searchByCreatorOrderByPurchase(keyword, pageable);
-        }
-        if (isOldestSort(sortBy)) {
-            return emoticonMasterRepository.searchByCreatorOrderByCreatedAtAsc(keyword, pageable);
-        }
-        return emoticonMasterRepository.searchByCreatorOrderByCreatedAtDesc(keyword, pageable);
-    }
-
-    private Page<EmoticonMaster> searchByTag(String keyword, Pageable pageable, String sortBy) {
-        if (isPopularSort(sortBy)) {
-            return emoticonMasterRepository.searchByTagOrderByPurchase(keyword, pageable);
-        }
-        if (isOldestSort(sortBy)) {
-            return emoticonMasterRepository.searchByTagOrderByCreatedAtAsc(keyword, pageable);
-        }
-        return emoticonMasterRepository.findByTag(keyword, pageable);
-    }
-
-    private Page<EmoticonMaster> searchByKeywordAll(String keyword, Pageable pageable, String sortBy) {
-        if (isPopularSort(sortBy)) {
-            return emoticonMasterRepository.searchByKeywordAllOrderByPurchase(keyword, pageable);
-        }
-        if (isOldestSort(sortBy)) {
-            return emoticonMasterRepository.searchByKeywordAllOrderByCreatedAtAsc(keyword, pageable);
-        }
-        return emoticonMasterRepository.searchByKeywordAllOrderByCreatedAtDesc(keyword, pageable);
+        return SortType.LATEST;
     }
 
     private boolean isPopularSort(String sortBy) {
@@ -192,6 +150,16 @@ class EmoticonCatalogService {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         return normalizedSearchType;
+    }
+
+    private SearchType toSearchType(String normalizedSearchType) {
+        return switch (normalizedSearchType) {
+            case SEARCH_TYPE_NAME -> SearchType.NAME;
+            case SEARCH_TYPE_CREATOR -> SearchType.CREATOR;
+            case SEARCH_TYPE_TAG -> SearchType.TAG;
+            case SEARCH_TYPE_ALL -> SearchType.ALL;
+            default -> throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        };
     }
 
     Page<EmoticonMasterDto> getPurchasedEmoticons(Long userId, Pageable pageable) {

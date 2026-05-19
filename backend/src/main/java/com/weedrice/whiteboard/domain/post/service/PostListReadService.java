@@ -67,24 +67,16 @@ public class PostListReadService {
 
     public Page<PostSummary> getPosts(String boardUrl, Long categoryId, String keyword, Integer minLikes,
             Long currentUserId, @NonNull Pageable pageable) {
-        Board board = boardRepository.findByBoardUrl(boardUrl)
-                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        if (boardAccessPolicy.isInquiryBoard(board)) {
-            throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
-        }
-
-        PostReadContext context = postReadContextResolver.resolveForBoards(currentUserId, List.of(board));
-        validateBoardReadable(board, context);
-        boolean includeSecret = context.canViewSecretPosts(board, boardAccessPolicy);
+        BoardReadContext boardContext = resolveReadableBoardContext(boardUrl, currentUserId);
         String canonicalKeyword = SearchRequestNormalizer.canonicalizeOptionalKeyword(keyword);
 
         Page<Post> posts = getPosts(
-                board.getBoardId(),
+                boardContext.board().getBoardId(),
                 categoryId,
                 canonicalKeyword,
                 minLikes,
-                context,
-                includeSecret,
+                boardContext.context(),
+                boardContext.includeSecret(),
                 pageable);
         Page<PostSummary> response = postSummaryAssembler.assembleBoardPage(posts, posts.getPageable(), true, true);
         publishSearchRecord(currentUserId, canonicalKeyword);
@@ -93,20 +85,15 @@ public class PostListReadService {
 
     public List<PostSummary> getNoticeSummaries(String boardUrl, Long currentUserId) {
         List<Post> notices = getNotices(boardUrl, currentUserId);
-        return notices.stream().map(PostSummary::from).collect(Collectors.toList());
+        return toNoticeSummaries(notices);
     }
 
     public List<Post> getNotices(String boardUrl, Long currentUserId) {
-        Board board = boardRepository.findByBoardUrl(boardUrl)
-                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        if (boardAccessPolicy.isInquiryBoard(board)) {
-            throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
-        }
-
-        PostReadContext context = postReadContextResolver.resolveForBoards(currentUserId, List.of(board));
-        validateBoardReadable(board, context);
-        boolean includeSecret = context.canViewSecretPosts(board, boardAccessPolicy);
-        return getNotices(board.getBoardId(), context, includeSecret);
+        BoardReadContext boardContext = resolveReadableBoardContext(boardUrl, currentUserId);
+        return getNotices(
+                boardContext.board().getBoardId(),
+                boardContext.context(),
+                boardContext.includeSecret());
     }
 
     public Page<Post> getPosts(Long boardId, Long categoryId, String keyword, Integer minLikes, Long currentUserId,
@@ -134,6 +121,11 @@ public class PostListReadService {
         return getNotices(boardId, postReadContextResolver.resolveQueryParameters(currentUserId), includeSecret);
     }
 
+    public List<PostSummary> getNoticeSummaries(Long boardId, Long currentUserId, Boolean includeSecret) {
+        List<Post> notices = getNotices(boardId, currentUserId, includeSecret);
+        return toNoticeSummaries(notices);
+    }
+
     private List<Post> getNotices(Long boardId, PostReadContext context, Boolean includeSecret) {
         return postRepository.findNoticesByBoardId(
                 boardId,
@@ -142,6 +134,12 @@ public class PostListReadService {
                 context.blockedUserIds(),
                 includeSecret,
                 context.viewerUserId());
+    }
+
+    private List<PostSummary> toNoticeSummaries(List<Post> notices) {
+        return notices.stream()
+                .map(PostSummary::from)
+                .collect(Collectors.toList());
     }
 
     public Page<PostSummary> getPostsByTag(Long tagId, Long currentUserId, @NonNull Pageable pageable) {
@@ -278,9 +276,27 @@ public class PostListReadService {
         };
     }
 
+    private BoardReadContext resolveReadableBoardContext(String boardUrl, Long currentUserId) {
+        Board board = boardRepository.findByBoardUrl(boardUrl)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        if (boardAccessPolicy.isInquiryBoard(board)) {
+            throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
+        }
+
+        PostReadContext context = postReadContextResolver.resolveForBoards(currentUserId, List.of(board));
+        validateBoardReadable(board, context);
+        return new BoardReadContext(
+                board,
+                context,
+                context.canViewSecretPosts(board, boardAccessPolicy));
+    }
+
     private void validateBoardReadable(Board board, PostReadContext context) {
         if (!boardAccessPolicy.canReadBoard(board, context.viewer(), context.activeAdminBoardIds())) {
             throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
         }
+    }
+
+    private record BoardReadContext(Board board, PostReadContext context, boolean includeSecret) {
     }
 }

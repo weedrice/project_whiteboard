@@ -16,6 +16,9 @@ export interface BoardListItem {
     subscriptionAccessible: boolean
 }
 
+export type SubscriptionAccessState = 'ACCESSIBLE' | 'INACCESSIBLE'
+export type SubscriptionInaccessibleReason = 'INACTIVE' | 'PRIVATE' | 'RESTRICTED'
+
 export interface SubscriptionBoardListItem {
     boardId: number
     boardName: string | null
@@ -30,6 +33,8 @@ export interface SubscriptionBoardListItem {
     isActive: boolean
     isPublic: boolean
     subscriptionAccessible: boolean
+    accessState: SubscriptionAccessState
+    inaccessibleReason?: SubscriptionInaccessibleReason | null
 }
 
 export interface BoardDetail extends BoardListItem {
@@ -56,6 +61,14 @@ export interface AdminBoard {
     isPublic: boolean
     agentUseYn: boolean
     guidePrompt?: string
+}
+
+export interface BoardManagerCandidate {
+    userId: number
+    loginId: string
+    displayName: string
+    profileImageUrl?: string | null
+    currentManager: boolean
 }
 
 export interface BoardSearchItem {
@@ -186,10 +199,7 @@ export interface HomeLandingStats {
 }
 
 export interface HomeLandingResponse {
-    featuredPost: PostSummary | null
-    editorPicks: PostSummary[]
-    trendingPosts: PostSummary[]
-    liveActivity: PostSummary[]
+    posts: PostSummary[]
     boards: BoardListItem[]
     stats: HomeLandingStats
 }

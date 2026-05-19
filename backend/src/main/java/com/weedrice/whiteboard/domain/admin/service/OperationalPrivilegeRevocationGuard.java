@@ -34,6 +34,11 @@ public class OperationalPrivilegeRevocationGuard {
         }
     }
 
+    public void validateSuperAdminCanBeRevokedBy(User user, Long actorUserId) {
+        validateSelfSuperAdminCanBeRevoked(user, actorUserId);
+        validateSuperAdminCanBeRevoked(user);
+    }
+
     public void validateBoardAdminCanBeRevoked(Admin admin) {
         Objects.requireNonNull(admin, "admin must not be null");
 
@@ -54,6 +59,26 @@ public class OperationalPrivilegeRevocationGuard {
         Objects.requireNonNull(user, "user must not be null");
         validateSuperAdminCanBeRevoked(user);
         validateBoardAdminsCanBeRevoked(activeAdmins);
+    }
+
+    public void validateOperationalPrivilegesCanBeRevokedBy(
+            User user,
+            Collection<Admin> activeAdmins,
+            Long actorUserId) {
+        Objects.requireNonNull(user, "user must not be null");
+        validateSelfSuperAdminCanBeRevoked(user, actorUserId);
+        validateSuperAdminCanBeRevoked(user);
+        validateBoardAdminsCanBeRevoked(activeAdmins);
+    }
+
+    private void validateSelfSuperAdminCanBeRevoked(User user, Long actorUserId) {
+        Objects.requireNonNull(user, "user must not be null");
+        if (actorUserId != null
+                && user.getUserId() != null
+                && actorUserId.equals(user.getUserId())
+                && Boolean.TRUE.equals(user.getIsSuperAdmin())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
     }
 
     private void validateBoardAdminsCanBeRevoked(Collection<Admin> activeAdmins) {

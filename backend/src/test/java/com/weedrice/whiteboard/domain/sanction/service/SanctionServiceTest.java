@@ -12,17 +12,13 @@ import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserLifecycleService;
-import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -40,7 +36,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -56,13 +51,11 @@ class SanctionServiceTest {
     @Mock private UserLifecycleService userLifecycleService;
     @Mock private SanctionPolicyService sanctionPolicyService;
 
-    @InjectMocks
     private SanctionService sanctionService;
 
     private User adminUser;
     private User targetUser;
     private Admin admin;
-    private MockedStatic<SecurityUtils> mockedSecurityUtils;
 
     @BeforeEach
     void setUp() {
@@ -76,14 +69,16 @@ class SanctionServiceTest {
         admin = Admin.builder().user(adminUser).build();
         ReflectionTestUtils.setField(admin, "adminId", 10L);
 
-        mockedSecurityUtils = mockStatic(SecurityUtils.class);
+        sanctionService = new SanctionService(
+                sanctionRepository,
+                userRepository,
+                moderationActorResolver,
+                sanctionPolicyService,
+                new SanctionRequestValidator(),
+                new SanctionTargetResolver(userRepository, postRepository, commentRepository),
+                new SanctionEffectApplier(userLifecycleService));
         lenient().when(moderationActorResolver.resolveModerationActor(1L))
                 .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, admin));
-    }
-
-    @AfterEach
-    void tearDown() {
-        mockedSecurityUtils.close();
     }
 
     private PageRequest defaultSanctionPageable() {
@@ -94,7 +89,6 @@ class SanctionServiceTest {
     @Test
     @DisplayName("create sanction succeeds")
     void createSanction_success() {
-        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
         when(moderationActorResolver.resolveModerationActor(1L))
                 .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, admin));
         when(userRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(targetUser));
@@ -127,7 +121,6 @@ class SanctionServiceTest {
     @Test
     @DisplayName("temporary ban keeps user status active")
     void createSanction_temporaryBan_keepsUserStatusActive() {
-        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
         when(moderationActorResolver.resolveModerationActor(1L))
                 .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, admin));
         when(userRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(targetUser));
@@ -152,7 +145,6 @@ class SanctionServiceTest {
     @Test
     @DisplayName("permanent ban rejects deleted users")
     void createSanction_permanentBanRejectsDeletedUser() {
-        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
         targetUser.delete();
         when(userRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(targetUser));
 
@@ -167,7 +159,6 @@ class SanctionServiceTest {
     @Test
     @DisplayName("create sanction normalizes type to uppercase")
     void createSanction_normalizesTypeToUpperCase() {
-        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
         when(userRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(targetUser));
 
         Sanction savedSanction = Sanction.builder()
@@ -189,7 +180,6 @@ class SanctionServiceTest {
     @Test
     @DisplayName("create sanction trims remark before save")
     void createSanction_trimsRemarkBeforeSave() {
-        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
         when(userRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(targetUser));
 
         Sanction savedSanction = Sanction.builder()
@@ -210,7 +200,6 @@ class SanctionServiceTest {
     @Test
     @DisplayName("create sanction rejects overlong remark")
     void createSanction_rejectsOverlongRemark() {
-        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
 
         assertThatThrownBy(() -> sanctionService.createSanction(
                 1L, 2L, "WARNING", "a".repeat(256), null, null, null))
@@ -224,7 +213,6 @@ class SanctionServiceTest {
     @Test
     @DisplayName("reject endDate when it is not in the future")
     void createSanction_rejectsPastOrImmediateEndDate() {
-        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
 
         assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "BAN", "Expired", LocalDateTime.now(), null, null))
                 .isInstanceOf(BusinessException.class)
@@ -247,7 +235,6 @@ class SanctionServiceTest {
     @Test
     @DisplayName("reject unsupported sanction type")
     void createSanction_rejectsUnsupportedType() {
-        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
 
         assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "BLOCK", "Invalid", null, null, null))
                 .isInstanceOf(BusinessException.class)
@@ -258,7 +245,6 @@ class SanctionServiceTest {
     @Test
     @DisplayName("reject incomplete sanction content metadata")
     void createSanction_rejectsIncompleteContentMetadata() {
-        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
 
         assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "WARNING", "Invalid", null, 100L, null))
                 .isInstanceOf(BusinessException.class)
@@ -274,7 +260,6 @@ class SanctionServiceTest {
     @Test
     @DisplayName("reject unsupported sanction content type")
     void createSanction_rejectsUnsupportedContentType() {
-        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
 
         assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "WARNING", "Invalid", null, 100L, "ARTICLE"))
                 .isInstanceOf(BusinessException.class)
@@ -285,7 +270,6 @@ class SanctionServiceTest {
     @Test
     @DisplayName("reject sanction without target user id")
     void createSanction_rejectsNullTargetUserId() {
-        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
 
         assertThatThrownBy(() -> sanctionService.createSanction(1L, null, "WARNING", "Invalid", null, null, null))
                 .isInstanceOf(BusinessException.class)
@@ -299,7 +283,6 @@ class SanctionServiceTest {
     @Test
     @DisplayName("reject sanction when post target is missing")
     void createSanction_rejectsMissingPostTarget() {
-        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
         when(userRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(targetUser));
         when(postRepository.findById(100L)).thenReturn(Optional.empty());
 
@@ -314,7 +297,6 @@ class SanctionServiceTest {
     @Test
     @DisplayName("reject sanction when post target is deleted")
     void createSanction_rejectsDeletedPostTarget() {
-        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
         Post post = Post.builder()
                 .user(targetUser)
                 .title("Post")
@@ -335,7 +317,6 @@ class SanctionServiceTest {
     @Test
     @DisplayName("reject sanction when post owner differs from target user")
     void createSanction_rejectsPostOwnerMismatch() {
-        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
         User otherUser = User.builder().build();
         ReflectionTestUtils.setField(otherUser, "userId", 3L);
         Post post = Post.builder()
@@ -357,7 +338,6 @@ class SanctionServiceTest {
     @Test
     @DisplayName("reject sanction when comment target is missing or deleted")
     void createSanction_rejectsMissingCommentTarget() {
-        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
         when(userRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(targetUser));
         when(commentRepository.findNonDeletedByIdWithRelations(100L)).thenReturn(Optional.empty());
 
@@ -372,7 +352,6 @@ class SanctionServiceTest {
     @Test
     @DisplayName("reject sanction when comment post is deleted")
     void createSanction_rejectsCommentOnDeletedPost() {
-        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
         Post post = Post.builder()
                 .user(targetUser)
                 .title("Post")
@@ -399,7 +378,6 @@ class SanctionServiceTest {
     @Test
     @DisplayName("reject sanction when user content target is inactive")
     void createSanction_rejectsInactiveUserContentTarget() {
-        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
         User inactiveUser = User.builder().build();
         ReflectionTestUtils.setField(inactiveUser, "userId", 3L);
         inactiveUser.suspend();
@@ -417,7 +395,6 @@ class SanctionServiceTest {
     @Test
     @DisplayName("create sanction without admin row records processor user")
     void createSanction_withoutAdmin_recordsProcessorUser() {
-        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
         when(moderationActorResolver.resolveModerationActor(1L))
                 .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, null));
         when(userRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(targetUser));
@@ -441,7 +418,6 @@ class SanctionServiceTest {
     @Test
     @DisplayName("get sanctions returns mapped responses")
     void getSanctions_returnsMappedResponses() {
-        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
 
         Sanction sanction = Sanction.builder()
                 .targetUser(targetUser)
@@ -468,7 +444,6 @@ class SanctionServiceTest {
     @Test
     @DisplayName("get sanctions uses stable default sort when pageable is unsorted")
     void getSanctions_appliesStableDefaultSort() {
-        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
         PageRequest requestedPageable = PageRequest.of(0, 20);
         PageRequest safePageable = defaultSanctionPageable();
         when(sanctionRepository.findAll(safePageable))
@@ -482,7 +457,6 @@ class SanctionServiceTest {
     @Test
     @DisplayName("get sanctions by target user uses stable default sort when pageable is unsorted")
     void getSanctionsByTargetUser_appliesStableDefaultSort() {
-        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).then(invocation -> null);
         PageRequest requestedPageable = PageRequest.of(0, 20);
         PageRequest safePageable = defaultSanctionPageable();
         when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));

@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenReposito
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -45,7 +46,7 @@ public class PasswordResetTokenOrchestrationService {
                         body,
                         id -> updateDeliveryStatus(id, false),
                         id -> promotePendingToken(id, user, verificationEmail, verificationTicket),
-                        (id, e) -> markCurrentTokenSentAfterPromotionFailure(
+                        (id, e) -> handlePromotionFailureAfterDelivery(
                                 id, user, verificationEmail, verificationTicket, e)),
                 tokenId);
     }
@@ -97,7 +98,7 @@ public class PasswordResetTokenOrchestrationService {
         markTokenSentAfterInvalidatingPrevious(user, tokenId, verificationEmail, verificationTicket);
     }
 
-    private void markCurrentTokenSentAfterPromotionFailure(
+    private void handlePromotionFailureAfterDelivery(
             Long tokenId,
             User user,
             String verificationEmail,
@@ -105,6 +106,10 @@ public class PasswordResetTokenOrchestrationService {
             RuntimeException promotionException) {
         log.error("Password reset token promotion failed after email delivery: tokenId={} userId={}",
                 tokenId, user.getUserId(), promotionException);
+        if (isUnrecoverablePromotionFailure(promotionException)) {
+            markCurrentTokenFailedAfterPromotionFailure(tokenId, promotionException);
+            throw promotionException;
+        }
         try {
             markCurrentTokenSent(tokenId, verificationEmail, verificationTicket);
         } catch (RuntimeException statusUpdateException) {
@@ -120,14 +125,11 @@ public class PasswordResetTokenOrchestrationService {
             String verificationTicket) {
         transactionTemplate.executeWithoutResult(status -> {
             PasswordResetToken passwordResetToken = passwordResetTokenRepository.findByIdForUpdate(tokenId)
-                    .orElse(null);
-            if (passwordResetToken == null) {
-                return;
-            }
+                    .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_PASSWORD_RESET_TOKEN));
             // Token rows are locked before the user to match resetPasswordWithToken and avoid lock cycles.
             invalidatePreviousSentTokens(user, tokenId);
             userRepository.findByIdForUpdate(user.getUserId())
-                    .orElseThrow(() -> new IllegalStateException("Password reset user not found"));
+                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
             consumePasswordResetVerificationTicket(verificationEmail, verificationTicket);
             passwordResetToken.markSent();
             passwordResetTokenRepository.save(passwordResetToken);
@@ -159,6 +161,23 @@ public class PasswordResetTokenOrchestrationService {
         } catch (BusinessException e) {
             log.warn("Password reset ticket was already unavailable during delivery recovery: tokenId={} errorCode={}",
                     tokenId, e.getErrorCode());
+        }
+    }
+
+    private boolean isUnrecoverablePromotionFailure(RuntimeException exception) {
+        if (!(exception instanceof BusinessException businessException)) {
+            return false;
+        }
+        ErrorCode errorCode = businessException.getErrorCode();
+        return errorCode == ErrorCode.INVALID_PASSWORD_RESET_TOKEN
+                || errorCode == ErrorCode.USER_NOT_FOUND;
+    }
+
+    private void markCurrentTokenFailedAfterPromotionFailure(Long tokenId, RuntimeException promotionException) {
+        try {
+            updateDeliveryStatus(tokenId, false);
+        } catch (RuntimeException statusUpdateException) {
+            promotionException.addSuppressed(statusUpdateException);
         }
     }
 

@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.global.log.repository;
 
 import com.weedrice.whiteboard.global.config.QuerydslConfig;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogSearchRequest;
+import com.weedrice.whiteboard.global.log.dto.ErrorLogResponse;
 import com.weedrice.whiteboard.global.log.entity.ErrorLog;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
 
+import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,8 +40,35 @@ class ErrorLogRepositoryTest {
         var result = errorLogRepository.searchErrorLogs(new ErrorLogSearchRequest(), PageRequest.of(0, 10));
 
         assertThat(result.getContent())
-                .extracting(ErrorLog::getErrorLogId)
+                .extracting(resultItem -> resultItem.getErrorLogId())
                 .containsExactly(second.getErrorLogId(), first.getErrorLogId());
+    }
+
+    @Test
+    @DisplayName("searchErrorLogs excludes stackTrace from list projection")
+    void searchErrorLogs_excludesStackTraceFromListProjection() {
+        ErrorLog errorLog = ErrorLog.builder()
+                .errorCode("ERROR1")
+                .errorType("RuntimeException")
+                .httpStatus(500)
+                .message("Error")
+                .requestUri("/api/v1/test")
+                .requestMethod("GET")
+                .ipAddress("127.0.0.1")
+                .stackTrace("stack trace")
+                .build();
+        entityManager.persistAndFlush(errorLog);
+        entityManager.clear();
+
+        var result = errorLogRepository.searchErrorLogs(new ErrorLogSearchRequest(), PageRequest.of(0, 10));
+
+        assertThat(result.getContent().get(0).getErrorLogId()).isEqualTo(errorLog.getErrorLogId());
+        assertThat(ErrorLogResponse.ErrorLogSummary.class.getDeclaredFields())
+                .extracting(Field::getName)
+                .doesNotContain("stackTrace");
+        assertThat(result.getContent().get(0))
+                .hasNoNullFieldsOrPropertiesExcept("errorCode", "userId", "userAgent", "resolvedBy",
+                        "resolvedAt", "resolvedMemo");
     }
 
     private ErrorLog persistErrorLog(String errorCode) {

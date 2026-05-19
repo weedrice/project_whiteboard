@@ -412,6 +412,67 @@ class FileServiceTest {
     }
 
     @Test
+    @DisplayName("여러 업로드 파일을 요청 순서대로 엔티티에 연결한다")
+    void associateFilesWithEntity_associatesOwnedTemporaryFilesInOrder() {
+        User uploader = User.builder().build();
+        ReflectionTestUtils.setField(uploader, "userId", 1L);
+        File firstFile = uploadedFile(10L, uploader);
+        File secondFile = uploadedFile(11L, uploader);
+
+        when(fileRepository.findByFileIdInAndStorageStatus(List.of(10L, 11L), FileStorageStatus.ACTIVE))
+                .thenReturn(List.of(secondFile, firstFile));
+        when(fileRepository.associateIfUnassociated(10L, 1L, 100L, "EMOTICON_IMAGE")).thenReturn(1);
+        when(fileRepository.associateIfUnassociated(11L, 1L, 100L, "EMOTICON_IMAGE")).thenReturn(1);
+
+        List<String> result = fileService.associateFilesWithEntity(
+                List.of(10L, 11L),
+                1L,
+                100L,
+                "EMOTICON_IMAGE");
+
+        assertThat(result).containsExactly("/api/v1/files/10", "/api/v1/files/11");
+        assertThat(firstFile.getRelatedId()).isEqualTo(100L);
+        assertThat(secondFile.getRelatedType()).isEqualTo("EMOTICON_IMAGE");
+        verify(fileRepository).associateIfUnassociated(10L, 1L, 100L, "EMOTICON_IMAGE");
+        verify(fileRepository).associateIfUnassociated(11L, 1L, 100L, "EMOTICON_IMAGE");
+    }
+
+    @Test
+    @DisplayName("여러 파일 연결 중 잘못된 소유자는 FORBIDDEN으로 거부한다")
+    void associateFilesWithEntity_rejectsWrongOwner() {
+        User uploader = User.builder().build();
+        ReflectionTestUtils.setField(uploader, "userId", 2L);
+        File file = uploadedFile(10L, uploader);
+
+        when(fileRepository.findByFileIdInAndStorageStatus(List.of(10L), FileStorageStatus.ACTIVE))
+                .thenReturn(List.of(file));
+
+        assertThatThrownBy(() -> fileService.associateFilesWithEntity(
+                List.of(10L),
+                1L,
+                100L,
+                "EMOTICON_IMAGE"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        verify(fileRepository, never()).associateIfUnassociated(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("여러 파일 연결 중 null 파일 ID는 NOT_FOUND로 거부한다")
+    void associateFilesWithEntity_rejectsNullFileId() {
+        assertThatThrownBy(() -> fileService.associateFilesWithEntity(
+                Arrays.asList((Long) null),
+                1L,
+                100L,
+                "EMOTICON_IMAGE"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
+
+        verify(fileRepository, never()).associateIfUnassociated(any(), any(), any(), any());
+    }
+
+    @Test
     @DisplayName("프로필 이미지 교체 시 새 파일은 유지하고 기존 프로필 파일은 삭제 예정으로 전환한다")
     void replaceUserProfileImage_marksPreviousFilesPendingDelete() {
         User uploader = User.builder().build();
@@ -922,6 +983,18 @@ class FileServiceTest {
                 return fileId;
             }
         };
+    }
+
+    private File uploadedFile(Long fileId, User uploader) {
+        File file = File.builder()
+                .filePath("stored-" + fileId + ".jpg")
+                .originalName("test-" + fileId + ".jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .build();
+        ReflectionTestUtils.setField(file, "fileId", fileId);
+        return file;
     }
 
     private void stubSuccessfulUpload(

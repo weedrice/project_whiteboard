@@ -39,6 +39,14 @@ class BoardResponseReadService {
     private final PostLatestReadService postLatestReadService;
 
     ListReadContext loadList(List<Board> boards, User currentUser) {
+        return loadList(boards, currentUser, null);
+    }
+
+    ListReadContext loadListWithPostCounts(List<Board> boards, User currentUser, Map<Long, Long> postCounts) {
+        return loadList(boards, currentUser, postCounts);
+    }
+
+    private ListReadContext loadList(List<Board> boards, User currentUser, Map<Long, Long> precomputedPostCounts) {
         if (boards == null || boards.isEmpty()) {
             return ListReadContext.empty();
         }
@@ -53,7 +61,9 @@ class BoardResponseReadService {
                         BoardSubscriptionRepository.BoardSubscriberCountProjection::getSubscriberCount));
         Map<Long, Admin> boardAdmins = resolveBoardAdmins(boardIds);
         Set<Long> adminBoardIds = resolveAdminBoardIds(currentUser, boards, boardIds);
-        Map<Long, Long> postCounts = resolvePostCounts(boards, boardIds, adminBoardIds);
+        Map<Long, Long> postCounts = precomputedPostCounts != null
+                ? precomputedPostCounts
+                : resolvePostCounts(boards, boardIds, adminBoardIds);
         Set<Long> subscribedBoardIds = resolveSubscribedBoardIds(currentUser, boards);
         return new ListReadContext(
                 subscriberCounts,

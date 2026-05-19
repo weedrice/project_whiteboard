@@ -133,13 +133,19 @@ class VerificationCodeServiceTest {
                     }
                     return invalidatedCount;
                 });
-        verificationCodeService = new VerificationCodeService(
+        VerificationCodeDeliveryService verificationCodeDeliveryService = new VerificationCodeDeliveryService(
                 verificationCodeRepository,
-                userRepository,
-                new EmailEligibilityService(userRepository),
                 new AuthMailDeliveryOrchestrationService(emailService),
                 tokenHashService,
                 transactionTemplate);
+        VerificationTicketService verificationTicketService = new VerificationTicketService(
+                verificationCodeRepository,
+                tokenHashService,
+                new VerifyCodeResponseAssembler(userRepository));
+        verificationCodeService = new VerificationCodeService(
+                new EmailEligibilityService(userRepository),
+                verificationCodeDeliveryService,
+                verificationTicketService);
     }
 
     @Test

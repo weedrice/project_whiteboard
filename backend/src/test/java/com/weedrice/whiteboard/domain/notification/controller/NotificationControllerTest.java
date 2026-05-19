@@ -8,7 +8,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.data.domain.Pageable;
@@ -16,25 +16,24 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.Collections;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import static org.mockito.Mockito.doAnswer;
 
 @WebMvcTest(controllers = NotificationController.class,
     excludeFilters = {
@@ -60,28 +59,28 @@ class NotificationControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private NotificationService notificationService;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor ipBlockInterceptor;
 
-    @MockBean
+    @MockitoBean
     private org.springframework.data.jpa.mapping.JpaMetamodelMappingContext jpaMetamodelMappingContext;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.RefererCheckInterceptor refererCheckInterceptor;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor rateLimitInterceptor;
 
-    @MockBean
+    @MockitoBean
     private org.springframework.context.MessageSource messageSource;
 
     private CustomUserDetails customUserDetails;
@@ -145,5 +144,50 @@ class NotificationControllerTest {
         mockMvc.perform(get("/api/v1/notifications/stream")
                         .with(user(customUserDetails)))
                 .andExpect(status().isOk());
+
+        verify(notificationService).subscribe(1L);
+    }
+
+    @Test
+    @DisplayName("알림 단건 읽음 처리 성공")
+    void readNotification_success() throws Exception {
+        mockMvc.perform(put("/api/v1/notifications/{notificationId}/read", 10L)
+                        .with(user(customUserDetails)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(notificationService).readNotification(1L, 10L);
+    }
+
+    @Test
+    @DisplayName("모든 알림 읽음 처리 성공")
+    void readAllNotifications_success() throws Exception {
+        mockMvc.perform(put("/api/v1/notifications/read-all")
+                        .with(user(customUserDetails)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(notificationService).readAllNotifications(1L);
+    }
+
+    @Test
+    @DisplayName("읽지 않은 알림 수 조회 성공")
+    void getUnreadNotificationCount_success() throws Exception {
+        when(notificationService.getUnreadNotificationCount(1L)).thenReturn(3L);
+
+        mockMvc.perform(get("/api/v1/notifications/unread-count")
+                        .with(user(customUserDetails)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").value(3L));
+    }
+
+    @Test
+    @DisplayName("인증 principal이 없으면 401로 처리한다")
+    void getNotifications_missingPrincipal_returnsUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/v1/notifications"))
+                .andExpect(status().isUnauthorized());
+
+        verify(notificationService, never()).getNotifications(anyLong(), any());
     }
 }

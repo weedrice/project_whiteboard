@@ -164,6 +164,13 @@ class SecurityConfigAuthorizationTest {
     }
 
     @Test
+    @DisplayName("agent register endpoint does not require authentication")
+    void agentRegisterEndpoint_doesNotRequireAuthentication() throws Exception {
+        mockMvc.perform(post("/api/v1/agents/register"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("authenticated self and recent search requests can reach controllers")
     void protectedEndpoints_allowAuthenticatedUsers() throws Exception {
         mockMvc.perform(get("/api/v1/users/me").with(user(userDetails)))
@@ -256,6 +263,11 @@ class SecurityConfigAuthorizationTest {
         @PostMapping("/ads/{adId}/click")
         String adClick(@PathVariable Long adId) {
             return "ad-click-" + adId;
+        }
+
+        @PostMapping("/agents/register")
+        String agentRegister() {
+            return "agent-register";
         }
     }
 }

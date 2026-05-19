@@ -9,9 +9,11 @@ import com.weedrice.whiteboard.domain.board.dto.AdminBoardResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardDetailResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
+import com.weedrice.whiteboard.domain.board.dto.BoardManagerCandidateResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
+import com.weedrice.whiteboard.domain.board.dto.SubscriptionBoardResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardAiInfo;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
@@ -23,13 +25,13 @@ import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
-import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostLatestReadService;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
+import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
@@ -46,16 +48,17 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -113,6 +116,7 @@ class BoardServiceTest {
     private BoardResponseAssembler boardResponseAssembler;
 
     private BoardService boardService;
+    private BoardApplicationService boardApplicationService;
     private BoardAccessPolicy boardAccessPolicy;
 
     private User user;
@@ -138,16 +142,26 @@ class BoardServiceTest {
                 boardResponseAssembler,
                 boardAccessPolicy,
                 postService);
+        BoardIconAttachmentService boardIconAttachmentService = new BoardIconAttachmentService(fileService);
+        BoardCreationBillingService boardCreationBillingService = new BoardCreationBillingService(
+                pointService,
+                globalConfigService);
+        BoardAiInfoService boardAiInfoService = new BoardAiInfoService(boardAiInfoRepository);
+        BoardCreationInitializer boardCreationInitializer = new BoardCreationInitializer(
+                boardAiInfoService,
+                boardCategoryRepository,
+                boardManagerAssignmentService);
         BoardProvisioningService provisioningService = new BoardProvisioningService(
                 boardRepository,
-                boardAiInfoRepository,
                 boardCategoryRepository,
+                boardSubscriptionRepository,
                 userRepository,
-                pointService,
-                globalConfigService,
-                fileService,
                 adminEligibleUserService,
                 boardManagerAssignmentService,
+                boardIconAttachmentService,
+                boardCreationBillingService,
+                boardCreationInitializer,
+                boardAiInfoService,
                 boardAccessPolicy);
         BoardSubscriptionService subscriptionService = new BoardSubscriptionService(
                 boardRepository,
@@ -163,7 +177,9 @@ class BoardServiceTest {
                 queryService,
                 provisioningService,
                 subscriptionService,
-                categoryService);
+                categoryService,
+                boardAccessPolicy);
+        boardApplicationService = new BoardApplicationService(boardService, queryService);
 
         lenient().when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(anyLong(), any()))
                 .thenReturn(Collections.emptyList());
@@ -296,6 +312,98 @@ class BoardServiceTest {
     }
 
     @Test
+    @DisplayName("게시판 관리자는 해당 게시판 구독자 후보를 조회할 수 있다")
+    void getBoardManagerCandidates_boardAdmin_success() {
+        User candidate = User.builder()
+                .loginId("candidate")
+                .password("password")
+                .email("candidate@test.com")
+                .displayName("Candidate")
+                .build();
+        ReflectionTestUtils.setField(candidate, "userId", 2L);
+        BoardSubscription subscription = BoardSubscription.builder()
+                .user(candidate)
+                .board(board)
+                .role("MEMBER")
+                .sortOrder(1)
+                .build();
+
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(boardSubscriptionRepository.findManagerCandidatesByBoardAndKeyword(eq(board), eq("%cand%"), any()))
+                .thenReturn(new PageImpl<>(List.of(subscription), PageRequest.of(0, 10), 1));
+        when(adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(board, Role.BOARD_ADMIN, true))
+                .thenReturn(Optional.of(Admin.builder()
+                        .user(candidate)
+                        .board(board)
+                        .role(Role.BOARD_ADMIN)
+                        .build()));
+
+        Page<BoardManagerCandidateResponse> result = boardService.getBoardManagerCandidates(
+                "test-board",
+                1L,
+                " cand ",
+                PageRequest.of(0, 10));
+
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        BoardManagerCandidateResponse response = result.getContent().get(0);
+        assertThat(response.getUserId()).isEqualTo(2L);
+        assertThat(response.getLoginId()).isEqualTo("candidate");
+        assertThat(response.isCurrentManager()).isTrue();
+    }
+
+    @Test
+    @DisplayName("슈퍼 관리자는 게시판 관리자 후보를 조회할 수 있다")
+    void getBoardManagerCandidates_superAdmin_success() {
+        User superUser = User.builder()
+                .loginId("super")
+                .password("password")
+                .email("super@test.com")
+                .displayName("Super")
+                .build();
+        ReflectionTestUtils.setField(superUser, "userId", 3L);
+        superUser.grantSuperAdminRole();
+
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(userRepository.findById(3L)).thenReturn(Optional.of(superUser));
+        when(boardSubscriptionRepository.findManagerCandidatesByBoard(eq(board), any()))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
+        when(adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(board, Role.BOARD_ADMIN, true))
+                .thenReturn(Optional.empty());
+
+        Page<BoardManagerCandidateResponse> result = boardService.getBoardManagerCandidates(
+                "test-board",
+                3L,
+                "",
+                PageRequest.of(0, 10));
+
+        assertThat(result.getTotalElements()).isZero();
+        verify(boardSubscriptionRepository).findManagerCandidatesByBoard(eq(board), any());
+    }
+
+    @Test
+    @DisplayName("게시판 관리자 권한이 없으면 후보 조회를 거부한다")
+    void getBoardManagerCandidates_forbidden() {
+        User otherUser = User.builder()
+                .loginId("other")
+                .password("password")
+                .email("other@test.com")
+                .displayName("Other")
+                .build();
+        ReflectionTestUtils.setField(otherUser, "userId", 99L);
+
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(userRepository.findById(99L)).thenReturn(Optional.of(otherUser));
+        when(adminRepository.existsByUserAndBoardAndIsActive(otherUser, board, true)).thenReturn(false);
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.getBoardManagerCandidates("test-board", 99L, null, PageRequest.of(0, 10)));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN);
+        verify(boardSubscriptionRepository, never()).findManagerCandidatesByBoard(any(), any());
+        verify(boardSubscriptionRepository, never()).findManagerCandidatesByBoardAndKeyword(any(), any(), any());
+    }
+
+    @Test
     @DisplayName("게시판 구독 성공")
     void subscribeBoard_success() {
         // given
@@ -407,12 +515,61 @@ class BoardServiceTest {
 
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
         when(adminEligibleUserService.getActiveUserByLoginId("nextmanager")).thenReturn(nextManager);
+        when(boardSubscriptionRepository.existsByUserAndBoard(nextManager, board)).thenReturn(true);
 
-        boardService.transferBoardManager("test-board", "nextmanager", 1L);
+        BoardCommandResult result = boardService.transferBoardManager("test-board", "nextmanager", 1L);
 
+        assertThat(result.boardUrl()).isEqualTo("test-board");
         verify(boardRepository).findByBoardUrlForUpdate("test-board");
         verify(boardRepository, never()).findByBoardUrl("test-board");
         verify(boardManagerAssignmentService).assignBoardManager(board, nextManager);
+    }
+
+    @Test
+    @DisplayName("게시판 관리자 이관 상세 응답은 이관 후 상세 조회 결과를 반환한다")
+    void transferBoardManagerDetail_returnsDetailAfterTransfer() {
+        User nextManager = User.builder()
+                .loginId("nextmanager")
+                .password("password")
+                .email("next@test.com")
+                .displayName("Next Manager")
+                .build();
+        ReflectionTestUtils.setField(nextManager, "userId", 2L);
+
+        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
+        when(adminEligibleUserService.getActiveUserByLoginId("nextmanager")).thenReturn(nextManager);
+        when(boardSubscriptionRepository.existsByUserAndBoard(nextManager, board)).thenReturn(true);
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+
+        BoardDetailResponse response = boardApplicationService.transferBoardManagerDetail("test-board", "nextmanager", 1L);
+
+        assertThat(response.getBoardUrl()).isEqualTo("test-board");
+        verify(boardManagerAssignmentService).assignBoardManager(board, nextManager);
+        InOrder inOrder = inOrder(boardRepository);
+        inOrder.verify(boardRepository).findByBoardUrlForUpdate("test-board");
+        inOrder.verify(boardRepository).findByBoardUrl("test-board");
+    }
+
+    @Test
+    @DisplayName("게시판 관리자 이관 대상이 구독자가 아니면 FORBIDDEN을 반환한다")
+    void transferBoardManager_rejectsNonSubscriber() {
+        User nextManager = User.builder()
+                .loginId("nextmanager")
+                .password("password")
+                .email("next@test.com")
+                .displayName("Next Manager")
+                .build();
+        ReflectionTestUtils.setField(nextManager, "userId", 2L);
+
+        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
+        when(adminEligibleUserService.getActiveUserByLoginId("nextmanager")).thenReturn(nextManager);
+        when(boardSubscriptionRepository.existsByUserAndBoard(nextManager, board)).thenReturn(false);
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.transferBoardManager("test-board", "nextmanager", 1L));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN);
+        verify(boardManagerAssignmentService, never()).assignBoardManager(any(), any());
     }
 
     @Test
@@ -473,10 +630,10 @@ class BoardServiceTest {
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
 
         // when
-        Board createdBoard = boardService.createBoard(creatorId, request);
+        BoardCommandResult result = boardService.createBoard(creatorId, request);
 
         // then
-        assertThat(createdBoard.getBoardName()).isEqualTo("Test Board");
+        assertThat(result.boardUrl()).isEqualTo("test-board");
         InOrder inOrder = inOrder(boardRepository, pointService, boardCategoryRepository, boardManagerAssignmentService);
         inOrder.verify(boardRepository).saveAndFlush(any(Board.class));
         inOrder.verify(pointService).spendPoint(
@@ -490,6 +647,29 @@ class BoardServiceTest {
         inOrder.verify(boardManagerAssignmentService).assignBoardManager(board, user);
         assertThat(categoryCaptor.getValue().getName()).isEqualTo("일반");
         assertThat(categoryCaptor.getValue().isDefaultCategory()).isTrue();
+    }
+
+    @Test
+    @DisplayName("게시판 생성 상세 응답은 저장 후 상세 조회 결과를 반환한다")
+    void createBoardDetail_returnsDetailAfterCreate() {
+        Long creatorId = 1L;
+        BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
+
+        when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
+        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
+        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
+        when(globalConfigService.getConfig(anyString())).thenReturn("500");
+        when(boardRepository.saveAndFlush(any(Board.class))).thenReturn(board);
+        when(boardCategoryRepository.save(any(BoardCategory.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(boardRepository.findMaxSortOrder()).thenReturn(0);
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+
+        BoardDetailResponse response = boardApplicationService.createBoardDetail(creatorId, request);
+
+        assertThat(response.getBoardUrl()).isEqualTo("test-board");
+        InOrder inOrder = inOrder(boardRepository);
+        inOrder.verify(boardRepository).saveAndFlush(any(Board.class));
+        inOrder.verify(boardRepository).findByBoardUrl("test-board");
     }
 
     @Test
@@ -639,11 +819,32 @@ class BoardServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
 
-        Board createdBoard = boardService.createBoard(creatorId, request);
+        BoardCommandResult result = boardService.createBoard(creatorId, request);
 
-        assertThat(createdBoard.getIsPublic()).isFalse();
-        assertThat(createdBoard.isAgentEnabled()).isFalse();
+        assertThat(result.boardUrl()).isEqualTo("private-ai");
+        verify(boardRepository).saveAndFlush(argThat(savedBoard ->
+                Boolean.FALSE.equals(savedBoard.getIsPublic()) && !savedBoard.isAgentEnabled()));
         verify(boardAiInfoRepository, never()).save(any(BoardAiInfo.class));
+    }
+
+    @Test
+    @DisplayName("게시판 수정 상세 응답은 변경된 URL로 상세 조회한다")
+    void updateBoardDetail_returnsDetailForUpdatedUrl() {
+        BoardUpdateRequest request = createBoardUpdateRequest("Updated Board", "updated-board", null);
+
+        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
+        when(boardRepository.existsByBoardName("Updated Board")).thenReturn(false);
+        when(boardRepository.existsByBoardUrl("updated-board")).thenReturn(false);
+        when(boardRepository.saveAndFlush(board)).thenReturn(board);
+        when(boardRepository.findByBoardUrl("updated-board")).thenReturn(Optional.of(board));
+
+        BoardDetailResponse response = boardApplicationService.updateBoardDetail("test-board", request, 1L);
+
+        assertThat(response.getBoardUrl()).isEqualTo("updated-board");
+        InOrder inOrder = inOrder(boardRepository);
+        inOrder.verify(boardRepository).findByBoardUrlForUpdate("test-board");
+        inOrder.verify(boardRepository).saveAndFlush(board);
+        inOrder.verify(boardRepository).findByBoardUrl("updated-board");
     }
 
     @Test
@@ -662,11 +863,11 @@ class BoardServiceTest {
 
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
 
-        Board updatedBoard;
-        updatedBoard = boardService.updateBoard("test-board", request, 1L);
+        BoardCommandResult result = boardService.updateBoard("test-board", request, 1L);
 
-        assertThat(updatedBoard.getIsPublic()).isFalse();
-        assertThat(updatedBoard.isAgentEnabled()).isFalse();
+        assertThat(result.boardUrl()).isEqualTo("test-board");
+        assertThat(board.getIsPublic()).isFalse();
+        assertThat(board.isAgentEnabled()).isFalse();
         verify(boardRepository).findByBoardUrlForUpdate("test-board");
         verify(boardRepository, never()).findByBoardUrl("test-board");
         verify(boardAiInfoRepository, never()).save(any(BoardAiInfo.class));
@@ -686,10 +887,10 @@ class BoardServiceTest {
 
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
 
-        Board updatedBoard;
-        updatedBoard = boardService.updateBoard("test-board", request, 1L);
+        BoardCommandResult result = boardService.updateBoard("test-board", request, 1L);
 
-        assertThat(updatedBoard.getSortOrder()).isEqualTo(7);
+        assertThat(result.boardUrl()).isEqualTo("test-board");
+        assertThat(board.getSortOrder()).isEqualTo(7);
     }
 
     @Test
@@ -708,10 +909,10 @@ class BoardServiceTest {
 
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
 
-        Board updatedBoard;
-        updatedBoard = boardService.updateBoard("test-board", request, 1L);
+        BoardCommandResult result = boardService.updateBoard("test-board", request, 1L);
 
-        assertThat(updatedBoard.getIconUrl()).isEqualTo("/api/v1/files/88");
+        assertThat(result.boardUrl()).isEqualTo("test-board");
+        assertThat(board.getIconUrl()).isEqualTo("/api/v1/files/88");
         verify(fileService).replaceBoardIcon(88L, 1L, 1L);
         verify(fileService).deleteFileWithStorageIfAssociated(77L, 1L, FileService.RELATED_TYPE_BOARD_ICON);
     }
@@ -855,6 +1056,23 @@ class BoardServiceTest {
     }
 
     @Test
+    @DisplayName("카테고리 생성 저장 중 활성 이름 제약 충돌은 중복 리소스로 매핑한다")
+    void createCategory_activeNameConstraintOnSave_throwsDuplicateResource() {
+        CategoryRequest request = categoryRequest("General", 1, "USER");
+        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
+        when(boardCategoryRepository.existsByBoard_BoardIdAndNameAndIsActive(1L, "General", true))
+                .thenReturn(false);
+        when(boardCategoryRepository.saveAndFlush(any(BoardCategory.class)))
+                .thenThrow(activeCategoryConstraintViolation("uq_board_categories_active_name"));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.createCategory("test-board", request, 1L));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
+        assertThat(exception.getMessage()).isEqualTo("Duplicate active board category");
+    }
+
+    @Test
     @DisplayName("카테고리 수정은 자기 자신을 제외하고 활성 이름 중복을 거부한다")
     void updateCategory_duplicateActiveName_throwsDuplicateResource() {
         CategoryRequest request = categoryRequest("General", 1, "USER");
@@ -880,6 +1098,35 @@ class BoardServiceTest {
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
         verify(boardCategoryRepository, never()).saveAndFlush(any(BoardCategory.class));
+    }
+
+    @Test
+    @DisplayName("카테고리 수정 저장 중 활성 이름 제약 충돌은 중복 리소스로 매핑한다")
+    void updateCategory_activeNameConstraintOnSave_throwsDuplicateResource() {
+        CategoryRequest request = categoryRequest("General", 1, "USER");
+        BoardCategory category = BoardCategory.builder()
+                .board(board)
+                .name("News")
+                .sortOrder(1)
+                .minWriteRole("USER")
+                .build();
+        ReflectionTestUtils.setField(category, "categoryId", 10L);
+        stubCategoryBoardLock(10L);
+        when(boardCategoryRepository.findById(10L)).thenReturn(Optional.of(category));
+        when(boardCategoryRepository.existsByBoard_BoardIdAndNameAndIsActiveAndCategoryIdNot(
+                1L,
+                "General",
+                true,
+                10L))
+                .thenReturn(false);
+        when(boardCategoryRepository.saveAndFlush(category))
+                .thenThrow(activeCategoryConstraintViolation("uk_board_categories_board_name_active"));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.updateCategory(10L, request, 1L));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
+        assertThat(exception.getMessage()).isEqualTo("Duplicate active board category");
     }
 
     @Test
@@ -1189,19 +1436,9 @@ class BoardServiceTest {
     @DisplayName("인기 게시판 목록 조회 성공")
     void getTopBoards_success() {
         // given
-        when(boardRepository.findTopPublicBoardIdsByPostCount(anyString(), any())).thenReturn(Collections.singletonList(1L));
+        when(boardRepository.findTopPublicBoardPostCounts(anyString(), any()))
+                .thenReturn(List.of(topBoardPostCount(1L, 37L)));
         when(boardRepository.findByBoardIdIn(List.of(1L))).thenReturn(Collections.singletonList(board));
-        when(postRepository.countPublicVisiblePostsByBoardIds(Set.of(1L))).thenReturn(List.of(new PostRepository.BoardPostCountProjection() {
-            @Override
-            public Long getBoardId() {
-                return 1L;
-            }
-
-            @Override
-            public Long getPostCount() {
-                return 37L;
-            }
-        }));
 
         // when
         List<BoardListResponse> boards = boardService.getTopBoards(null);
@@ -1209,25 +1446,28 @@ class BoardServiceTest {
         // then
         assertThat(boards).hasSize(1);
         assertThat(boards.get(0).getPostCount()).isEqualTo(37L);
-        verify(boardRepository).findTopPublicBoardIdsByPostCount(anyString(), any());
+        verify(boardRepository).findTopPublicBoardPostCounts(anyString(), any());
         verify(boardRepository).findByBoardIdIn(List.of(1L));
+        verify(postRepository, never()).countPublicVisiblePostsByBoardIds(any());
+        verify(postRepository, never()).countActiveByBoardIds(any());
     }
 
     @Test
     @DisplayName("일반 로그인 사용자는 공개 인기 게시판 전용 쿼리를 사용한다")
     void getTopBoards_authenticatedUsesPublicQueryWhenUserHasNoElevatedAccess() {
         when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(false);
-        when(boardRepository.findTopPublicBoardIdsByPostCount(anyString(), any())).thenReturn(Collections.singletonList(1L));
+        when(boardRepository.findTopPublicBoardPostCounts(anyString(), any()))
+                .thenReturn(List.of(topBoardPostCount(1L, 11L)));
         when(boardRepository.findByBoardIdIn(List.of(1L))).thenReturn(Collections.singletonList(board));
 
         List<BoardListResponse> boards = boardService.getTopBoards(1L);
 
         assertThat(boards).extracting(BoardListResponse::getBoardUrl).containsExactly("test-board");
         verify(adminRepository).existsByUserAndIsActive(user, true);
-        verify(boardRepository).findTopPublicBoardIdsByPostCount(anyString(), any());
+        verify(boardRepository).findTopPublicBoardPostCounts(anyString(), any());
         verify(boardRepository).findByBoardIdIn(List.of(1L));
         verify(boardRepository, never()).findTopBoardIdsByPostCount(any());
-        verify(boardRepository, never()).findTopReadableBoardIdsByPostCount(any(), anyBoolean(), anyString(), any());
+        verify(boardRepository, never()).findTopReadableBoardPostCounts(any(), anyBoolean(), anyString(), any());
     }
 
     @Test
@@ -1235,15 +1475,30 @@ class BoardServiceTest {
     void getTopBoards_userIdUsesPublicQueryWhenUserHasNoElevatedAccess() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(false);
-        when(boardRepository.findTopPublicBoardIdsByPostCount(anyString(), any())).thenReturn(Collections.singletonList(1L));
+        when(boardRepository.findTopPublicBoardPostCounts(anyString(), any()))
+                .thenReturn(List.of(topBoardPostCount(1L, 11L)));
         when(boardRepository.findByBoardIdIn(List.of(1L))).thenReturn(Collections.singletonList(board));
 
         List<BoardListResponse> boards = boardService.getTopBoardsByUserId(1L);
 
         assertThat(boards).extracting(BoardListResponse::getBoardUrl).containsExactly("test-board");
         verify(userRepository).findById(1L);
-        verify(boardRepository).findTopPublicBoardIdsByPostCount(anyString(), any());
-        verify(boardRepository, never()).findTopReadableBoardIdsByPostCount(any(), anyBoolean(), anyString(), any());
+        verify(boardRepository).findTopPublicBoardPostCounts(anyString(), any());
+        verify(boardRepository, never()).findTopReadableBoardPostCounts(any(), anyBoolean(), anyString(), any());
+    }
+
+    @Test
+    @DisplayName("userId 기반 인기 게시판 조회는 요청 limit을 공개 게시판 쿼리에 전달한다")
+    void getTopBoardsByUserId_usesRequestedLimitForPublicQuery() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(false);
+        when(boardRepository.findTopPublicBoardPostCounts(anyString(), any())).thenReturn(List.of());
+
+        List<BoardListResponse> boards = boardService.getTopBoardsByUserId(1L, 6);
+
+        assertThat(boards).isEmpty();
+        verify(boardRepository).findTopPublicBoardPostCounts(anyString(), eq(PageRequest.of(0, 6)));
+        verify(boardRepository, never()).findTopReadableBoardPostCounts(any(), anyBoolean(), anyString(), any());
     }
 
     @Test
@@ -1255,8 +1510,8 @@ class BoardServiceTest {
                 () -> boardService.getTopBoardsByUserId(99L));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND);
-        verify(boardRepository, never()).findTopPublicBoardIdsByPostCount(anyString(), any());
-        verify(boardRepository, never()).findTopReadableBoardIdsByPostCount(any(), anyBoolean(), anyString(), any());
+        verify(boardRepository, never()).findTopPublicBoardPostCounts(anyString(), any());
+        verify(boardRepository, never()).findTopReadableBoardPostCounts(any(), anyBoolean(), anyString(), any());
     }
 
     @Test
@@ -1273,15 +1528,38 @@ class BoardServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(true);
-        when(boardRepository.findTopReadableBoardIdsByPostCount(eq(user), eq(false), anyString(), any())).thenReturn(List.of(2L));
+        when(boardRepository.findTopReadableBoardPostCounts(eq(user), eq(false), anyString(), any()))
+                .thenReturn(List.of(topBoardPostCount(2L, 5L)));
         when(boardRepository.findByBoardIdIn(List.of(2L))).thenReturn(List.of(privateBoard));
 
         List<BoardListResponse> boards = boardService.getTopBoardsByUserId(1L);
 
         assertThat(boards).extracting(BoardListResponse::getBoardUrl).containsExactly("private-board");
+        assertThat(boards).extracting(BoardListResponse::getPostCount).containsExactly(5L);
         verify(userRepository).findById(1L);
-        verify(boardRepository).findTopReadableBoardIdsByPostCount(eq(user), eq(false), anyString(), any());
-        verify(boardRepository, never()).findTopPublicBoardIdsByPostCount(anyString(), any());
+        verify(boardRepository).findTopReadableBoardPostCounts(eq(user), eq(false), anyString(), any());
+        verify(boardRepository, never()).findTopPublicBoardPostCounts(anyString(), any());
+        verify(postRepository, never()).countPublicVisiblePostsByBoardIds(any());
+        verify(postRepository, never()).countActiveByBoardIds(any());
+    }
+
+    @Test
+    @DisplayName("userId 기반 인기 게시판 조회는 요청 limit을 readable 게시판 쿼리에 전달한다")
+    void getTopBoardsByUserId_usesRequestedLimitForReadableQuery() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(true);
+        when(boardRepository.findTopReadableBoardPostCounts(eq(user), eq(false), anyString(), any()))
+                .thenReturn(List.of());
+
+        List<BoardListResponse> boards = boardService.getTopBoardsByUserId(1L, 6);
+
+        assertThat(boards).isEmpty();
+        verify(boardRepository).findTopReadableBoardPostCounts(
+                eq(user),
+                eq(false),
+                anyString(),
+                eq(PageRequest.of(0, 6)));
+        verify(boardRepository, never()).findTopPublicBoardPostCounts(anyString(), any());
     }
 
     @Test
@@ -1297,16 +1575,20 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(privateBoard, "isActive", true);
 
         when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(true);
-        when(boardRepository.findTopReadableBoardIdsByPostCount(eq(user), eq(false), anyString(), any())).thenReturn(List.of(2L));
+        when(boardRepository.findTopReadableBoardPostCounts(eq(user), eq(false), anyString(), any()))
+                .thenReturn(List.of(topBoardPostCount(2L, 5L)));
         when(boardRepository.findByBoardIdIn(List.of(2L))).thenReturn(List.of(privateBoard));
 
         List<BoardListResponse> boards = boardService.getTopBoards(1L);
 
         assertThat(boards).extracting(BoardListResponse::getBoardUrl).containsExactly("private-board");
+        assertThat(boards).extracting(BoardListResponse::getPostCount).containsExactly(5L);
         verify(adminRepository).existsByUserAndIsActive(user, true);
-        verify(boardRepository).findTopReadableBoardIdsByPostCount(eq(user), eq(false), anyString(), any());
-        verify(boardRepository, never()).findTopPublicBoardIdsByPostCount(anyString(), any());
+        verify(boardRepository).findTopReadableBoardPostCounts(eq(user), eq(false), anyString(), any());
+        verify(boardRepository, never()).findTopPublicBoardPostCounts(anyString(), any());
         verify(boardRepository, never()).findTopBoardIdsByPostCount(any());
+        verify(postRepository, never()).countPublicVisiblePostsByBoardIds(any());
+        verify(postRepository, never()).countActiveByBoardIds(any());
     }
 
     @Test
@@ -1322,13 +1604,15 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(privateBoard, "isActive", true);
         user.grantSuperAdminRole();
 
-        when(boardRepository.findTopReadableBoardIdsByPostCount(eq(user), eq(true), anyString(), any())).thenReturn(List.of(2L));
+        when(boardRepository.findTopReadableBoardPostCounts(eq(user), eq(true), anyString(), any()))
+                .thenReturn(List.of(topBoardPostCount(2L, 8L)));
         when(boardRepository.findByBoardIdIn(List.of(2L))).thenReturn(List.of(privateBoard));
 
         List<BoardListResponse> boards = boardService.getTopBoards(1L);
 
         assertThat(boards).extracting(BoardListResponse::getBoardUrl).containsExactly("private-board");
-        verify(boardRepository).findTopReadableBoardIdsByPostCount(eq(user), eq(true), anyString(), any());
+        assertThat(boards).extracting(BoardListResponse::getPostCount).containsExactly(8L);
+        verify(boardRepository).findTopReadableBoardPostCounts(eq(user), eq(true), anyString(), any());
         verify(boardRepository).findByBoardIdIn(List.of(2L));
     }
 
@@ -1350,23 +1634,19 @@ class BoardServiceTest {
     @Test
     @DisplayName("게시판 공지 요약 조회 성공")
     void getNoticeSummaries_success() {
-        Post notice = Post.builder()
-                .board(board)
-                .user(user)
+        PostSummary noticeSummary = PostSummary.builder()
+                .postId(10L)
                 .title("Notice")
-                .contents("Notice contents")
-                .isNotice(true)
                 .build();
-        ReflectionTestUtils.setField(notice, "postId", 10L);
 
         when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
-        when(postService.getNotices(1L, null, false)).thenReturn(List.of(notice));
+        when(postService.getNoticeSummaries(1L, null, false)).thenReturn(List.of(noticeSummary));
 
         List<PostSummary> summaries = boardService.getNoticeSummaries("test-board", null);
 
         assertThat(summaries).hasSize(1);
         assertThat(summaries.get(0).getTitle()).isEqualTo("Notice");
-        verify(postService).getNotices(1L, null, false);
+        verify(postService).getNoticeSummaries(1L, null, false);
     }
 
     @Test
@@ -1387,7 +1667,7 @@ class BoardServiceTest {
                 () -> boardService.getNoticeSummaries("private-board", null));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BOARD_NOT_FOUND);
-        verify(postService, never()).getNotices(anyLong(), any(), anyBoolean());
+        verify(postService, never()).getNoticeSummaries(anyLong(), any(), anyBoolean());
     }
 
     @Test
@@ -1408,28 +1688,32 @@ class BoardServiceTest {
                 () -> boardService.getNoticeSummaries("inactive-board", null));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BOARD_NOT_FOUND);
-        verify(postService, never()).getNotices(anyLong(), any(), anyBoolean());
+        verify(postService, never()).getNoticeSummaries(anyLong(), any(), anyBoolean());
     }
 
     @Test
     @DisplayName("문의 게시판 공지 요약 조회는 차단한다")
     void getNoticeSummaries_inquiryBoard_throwsBoardNotFound() {
-        Board inquiryBoard = Board.builder()
-                .boardName("Inquiry")
-                .boardUrl("inquiry")
-                .creator(user)
-                .isPublic(false)
-                .build();
-        ReflectionTestUtils.setField(inquiryBoard, "boardId", 4L);
-        ReflectionTestUtils.setField(inquiryBoard, "isActive", true);
-
-        when(boardRepository.findByBoardUrl("inquiry")).thenReturn(Optional.of(inquiryBoard));
-
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> boardService.getNoticeSummaries("inquiry", null));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BOARD_NOT_FOUND);
-        verify(postService, never()).getNotices(anyLong(), any(), anyBoolean());
+        verify(postService, never()).getNoticeSummaries(anyLong(), any(), anyBoolean());
+    }
+
+    @Test
+    @DisplayName("Inquiry board URL based BoardService entrypoints are blocked")
+    void boardUrlServiceEntrypoints_rejectInquiryBoardUrl() {
+        assertInquiryBoardBlocked(() -> boardService.getBoardDetails("inquiry", null));
+        assertInquiryBoardBlocked(() -> boardService.getActiveCategories("inquiry", null));
+        assertInquiryBoardBlocked(() -> boardService.updateBoard("inquiry", null, 1L));
+        assertInquiryBoardBlocked(() -> boardApplicationService.updateBoardDetail("inquiry", null, 1L));
+        assertInquiryBoardBlocked(() -> boardService.transferBoardManager("inquiry", "next", 1L));
+        assertInquiryBoardBlocked(() -> boardApplicationService.transferBoardManagerDetail("inquiry", "next", 1L));
+        assertInquiryBoardBlocked(() -> boardService.deleteBoard("inquiry", 1L));
+        assertInquiryBoardBlocked(() -> boardService.subscribeBoard(1L, "inquiry"));
+        assertInquiryBoardBlocked(() -> boardService.unsubscribeBoard(1L, "inquiry"));
+        assertInquiryBoardBlocked(() -> boardService.createCategory("inquiry", null, 1L));
     }
 
     @Test
@@ -1504,6 +1788,10 @@ class BoardServiceTest {
         assertThat(result.getTotalElements()).isEqualTo(1);
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).isSubscribed()).isTrue();
+        assertThat(result.getContent().get(0).isSubscriptionAccessible()).isTrue();
+        assertThat(result.getContent().get(0).getAccessState())
+                .isEqualTo(SubscriptionBoardResponse.AccessState.ACCESSIBLE);
+        assertThat(result.getContent().get(0).getInaccessibleReason()).isNull();
     }
 
     @Test
@@ -1732,7 +2020,7 @@ class BoardServiceTest {
         when(boardRepository.findByBoardUrlForUpdate("inquiry")).thenReturn(Optional.empty());
         when(userRepository.findUsableSuperAdmins()).thenReturn(List.of(activeSuperAdmin));
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
-        when(boardRepository.existsByBoardName(anyString())).thenReturn(false);
+        when(boardRepository.findExistingBoardNamesIn(any())).thenReturn(Collections.emptyList());
         when(boardRepository.saveAndFlush(any(Board.class))).thenAnswer(invocation -> {
             Board savedBoard = invocation.getArgument(0);
             ReflectionTestUtils.setField(savedBoard, "boardId", 2L);
@@ -1758,6 +2046,43 @@ class BoardServiceTest {
         verify(userRepository, org.mockito.Mockito.atLeastOnce()).findUsableSuperAdmins();
         verify(boardManagerAssignmentService, org.mockito.Mockito.atLeastOnce())
                 .assignBoardManager(boardCaptor.getValue(), activeSuperAdmin);
+    }
+
+    @Test
+    @DisplayName("문의 게시판 이름 후보는 한 번 조회한 기존 이름을 제외하고 선택한다")
+    void ensureInquiryBoard_usesFirstAvailableNameFromSingleExistingNameLookup() {
+        User superAdmin = User.builder()
+                .loginId("super-admin")
+                .password("password")
+                .email("super@test.com")
+                .displayName("Super Admin")
+                .build();
+        ReflectionTestUtils.setField(superAdmin, "userId", 2L);
+        superAdmin.grantSuperAdminRole();
+        when(boardRepository.findByBoardUrlForUpdate("inquiry")).thenReturn(Optional.empty());
+        when(userRepository.findUsableSuperAdmins()).thenReturn(List.of(superAdmin));
+        when(boardRepository.findMaxSortOrder()).thenReturn(0);
+        when(boardRepository.findExistingBoardNamesIn(any()))
+                .thenReturn(List.of("문의", "문의-inquiry"));
+        when(boardRepository.saveAndFlush(any(Board.class))).thenAnswer(invocation -> {
+            Board savedBoard = invocation.getArgument(0);
+            ReflectionTestUtils.setField(savedBoard, "boardId", 2L);
+            return savedBoard;
+        });
+        when(boardCategoryRepository.saveAndFlush(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        boardService.ensureInquiryBoard(1L, "custom-inquiry-url");
+
+        ArgumentCaptor<Board> boardCaptor = ArgumentCaptor.forClass(Board.class);
+        verify(boardRepository).saveAndFlush(boardCaptor.capture());
+        assertThat(boardCaptor.getValue().getBoardName()).isEqualTo("문의-inquiry-2");
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Collection<String>> candidatesCaptor = ArgumentCaptor.forClass(Collection.class);
+        verify(boardRepository).findExistingBoardNamesIn(candidatesCaptor.capture());
+        assertThat(candidatesCaptor.getValue())
+                .startsWith("문의", "문의-inquiry", "문의-inquiry-2");
+        verify(boardRepository, never()).existsByBoardName(anyString());
     }
 
     @Test
@@ -1845,7 +2170,7 @@ class BoardServiceTest {
                 .thenReturn(Optional.of(board));
         when(userRepository.findUsableSuperAdmins()).thenReturn(List.of(superAdmin));
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
-        when(boardRepository.existsByBoardName(anyString())).thenReturn(false);
+        when(boardRepository.findExistingBoardNamesIn(any())).thenReturn(Collections.emptyList());
         when(boardRepository.saveAndFlush(any(Board.class)))
                 .thenThrow(new DataIntegrityViolationException("uk_boards_board_url"));
         when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true))
@@ -1878,7 +2203,7 @@ class BoardServiceTest {
                 .thenReturn(Optional.of(board));
         when(userRepository.findUsableSuperAdmins()).thenReturn(List.of(superAdmin));
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
-        when(boardRepository.existsByBoardName(anyString())).thenReturn(false);
+        when(boardRepository.findExistingBoardNamesIn(any())).thenReturn(Collections.emptyList());
         when(boardRepository.saveAndFlush(any(Board.class)))
                 .thenThrow(new DataIntegrityViolationException("uk_boards_board_name"));
         when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true))
@@ -2028,6 +2353,8 @@ class BoardServiceTest {
         assertThat(result.getTotalElements()).isEqualTo(1);
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getBoardUrl()).isEqualTo("test-board");
+        assertThat(result.getContent().get(0).getAccessState())
+                .isEqualTo(SubscriptionBoardResponse.AccessState.ACCESSIBLE);
     }
 
     @Test
@@ -2105,6 +2432,10 @@ class BoardServiceTest {
         assertThat(result.getContent().get(0).getBoardName()).isNull();
         assertThat(result.getContent().get(0).getDescription()).isNull();
         assertThat(result.getContent().get(0).isSubscriptionAccessible()).isFalse();
+        assertThat(result.getContent().get(0).getAccessState())
+                .isEqualTo(SubscriptionBoardResponse.AccessState.INACCESSIBLE);
+        assertThat(result.getContent().get(0).getInaccessibleReason())
+                .isEqualTo(SubscriptionBoardResponse.InaccessibleReason.PRIVATE);
         assertThat(result.getContent().get(0).getBoardUrl()).isEqualTo("hidden-board");
     }
 
@@ -2177,10 +2508,20 @@ class BoardServiceTest {
         assertThat(result.getContent()).hasSize(3);
         assertThat(result.getContent().get(0).getBoardName()).isEqualTo("Admin Hidden");
         assertThat(result.getContent().get(0).isSubscriptionAccessible()).isTrue();
+        assertThat(result.getContent().get(0).getAccessState())
+                .isEqualTo(SubscriptionBoardResponse.AccessState.ACCESSIBLE);
+        assertThat(result.getContent().get(0).getInaccessibleReason()).isNull();
         assertThat(result.getContent().get(1).getBoardName()).isEqualTo("Admin Inactive");
         assertThat(result.getContent().get(1).isSubscriptionAccessible()).isTrue();
+        assertThat(result.getContent().get(1).getAccessState())
+                .isEqualTo(SubscriptionBoardResponse.AccessState.ACCESSIBLE);
+        assertThat(result.getContent().get(1).getInaccessibleReason()).isNull();
         assertThat(result.getContent().get(2).getBoardName()).isNull();
         assertThat(result.getContent().get(2).isSubscriptionAccessible()).isFalse();
+        assertThat(result.getContent().get(2).getAccessState())
+                .isEqualTo(SubscriptionBoardResponse.AccessState.INACCESSIBLE);
+        assertThat(result.getContent().get(2).getInaccessibleReason())
+                .isEqualTo(SubscriptionBoardResponse.InaccessibleReason.PRIVATE);
         verify(adminRepository).findByUserAndBoard_BoardIdInAndIsActive(
                 eq(user),
                 argThat(boardIds -> boardIds.containsAll(List.of(3L, 4L, 5L)) && boardIds.size() == 3),
@@ -2204,6 +2545,31 @@ class BoardServiceTest {
     private void stubCategoryBoardLock(Long categoryId) {
         when(boardCategoryRepository.findBoardIdByCategoryId(categoryId)).thenReturn(Optional.of(1L));
         when(boardRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(board));
+    }
+
+    private DataIntegrityViolationException activeCategoryConstraintViolation(String constraintName) {
+        return new DataIntegrityViolationException(
+                "duplicate",
+                new ConstraintViolationException("duplicate", null, constraintName));
+    }
+
+    private void assertInquiryBoardBlocked(org.junit.jupiter.api.function.Executable executable) {
+        BusinessException exception = assertThrows(BusinessException.class, executable);
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BOARD_NOT_FOUND);
+    }
+
+    private BoardRepository.TopBoardPostCountProjection topBoardPostCount(Long boardId, Long postCount) {
+        return new BoardRepository.TopBoardPostCountProjection() {
+            @Override
+            public Long getBoardId() {
+                return boardId;
+            }
+
+            @Override
+            public Long getPostCount() {
+                return postCount;
+            }
+        };
     }
 
     private BoardUpdateRequest createBoardUpdateRequest(String boardName, String boardUrl, String iconUrl) {

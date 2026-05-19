@@ -71,31 +71,38 @@ public class ShopService {
 
     @Transactional
     public Long purchaseItem(Long userId, Long itemId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        sanctionService.validateNotBanned(user);
+        User user = resolvePurchasingUser(userId);
         ShopItem item = shopItemRepository.findById(itemId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE));
+        return purchaseItem(user, item);
+    }
 
+    @Transactional
+    public Long purchaseActiveItemByTarget(Long userId, String itemType, Long targetId) {
+        List<ShopItem> items = shopItemRepository.findByIsActiveAndItemTypeAndTargetId(true, itemType, targetId);
+        if (items.size() != 1) {
+            throw new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE);
+        }
+        User user = resolvePurchasingUser(userId);
+        return purchaseItem(user, items.get(0));
+    }
+
+    private User resolvePurchasingUser(Long userId) {
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        sanctionService.validateNotBanned(user);
+        return user;
+    }
+
+    private Long purchaseItem(User user, ShopItem item) {
         if (!item.getIsActive() || !shopEntitlementCapabilityRegistry.supports(item)) {
             throw new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE);
         }
 
-        try {
-            shopEntitlementCapabilityRegistry.validateConfiguration(item);
-        } catch (IllegalStateException ex) {
-            throw new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE);
-        }
-
-        if (item.getPrice() < 0) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
-
-        ShopEntitlementCapabilityRegistry.PreparedPurchase preparedPurchase =
-                shopEntitlementCapabilityRegistry.preparePurchase(userId, item);
+        ShopEntitlementCapabilityRegistry.PreparedPurchase preparedPurchase = preparePurchase(user, item);
         if (item.getPrice() > 0) {
-            pointService.spendPoint(
-                    userId,
+            pointService.spendPointForPrevalidatedUser(
+                    user,
                     item.getPrice(),
                     "Shop item purchase: " + item.getItemName(),
                     item.getItemId(),
@@ -109,6 +116,33 @@ public class ShopService {
                 .purchasedPrice(item.getPrice())
                 .build();
         return purchaseHistoryRepository.save(purchaseHistory).getPurchaseId();
+    }
+
+    private ShopEntitlementCapabilityRegistry.PreparedPurchase preparePurchase(User user, ShopItem item) {
+        if (shopEntitlementCapabilityRegistry.supportsValidatedPurchasePreparation(item)) {
+            try {
+                return shopEntitlementCapabilityRegistry.prepareValidatedPurchase(
+                        user.getUserId(),
+                        item,
+                        () -> validatePurchasePrice(item));
+            } catch (IllegalStateException ex) {
+                throw new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE);
+            }
+        }
+
+        try {
+            shopEntitlementCapabilityRegistry.validateConfiguration(item);
+        } catch (IllegalStateException ex) {
+            throw new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE);
+        }
+        validatePurchasePrice(item);
+        return shopEntitlementCapabilityRegistry.preparePurchase(user.getUserId(), item);
+    }
+
+    private void validatePurchasePrice(ShopItem item) {
+        if (item.getPrice() < 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
     }
 
     public PurchaseHistoryResponse getPurchaseHistories(Long userId, Pageable pageable) {

@@ -17,6 +17,8 @@ import com.weedrice.whiteboard.domain.auth.dto.TokenResponse;
 import com.weedrice.whiteboard.domain.auth.dto.VerifyCodeRequest;
 import com.weedrice.whiteboard.domain.auth.dto.VerifyCodeResponse;
 import com.weedrice.whiteboard.domain.auth.service.AuthService;
+import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadata;
+import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadataResolver;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.annotation.ApiCommonResponses;
@@ -50,6 +52,7 @@ public class AuthController {
     private final AuthService authService;
     private final VerificationCodeService verificationCodeService; // Inject VerificationCodeService
     private final RefreshTokenCookieWriter refreshTokenCookieWriter;
+    private final LoginClientMetadataResolver loginClientMetadataResolver;
 
     @Operation(
             summary = "회원가입",
@@ -129,7 +132,8 @@ public class AuthController {
     public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request,
             HttpServletRequest httpServletRequest,
             HttpServletResponse httpServletResponse) {
-        LoginResult result = authService.login(request, httpServletRequest);
+        LoginClientMetadata metadata = loginClientMetadataResolver.resolve(httpServletRequest);
+        LoginResult result = authService.login(request, metadata);
         refreshTokenCookieWriter.writeRefreshTokenCookie(httpServletResponse, result.getRefreshToken(), httpServletRequest);
 
         LoginResponse response = LoginResponse.builder()

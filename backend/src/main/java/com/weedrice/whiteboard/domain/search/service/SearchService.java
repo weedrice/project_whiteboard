@@ -57,6 +57,7 @@ public class SearchService {
     private final PostSummaryAssembler postSummaryAssembler;
     private final BoardAccessPolicy boardAccessPolicy;
     private final SearchRecordEventPublisher searchRecordEventPublisher;
+    private final SearchUserLookupPolicy searchUserLookupPolicy;
 
     @Transactional
     public void recordSearch(Long userId, String keyword, LocalDate searchDate) {
@@ -110,19 +111,17 @@ public class SearchService {
         return response;
     }
 
-    public Page<PostSummary> searchPosts(String keyword, String searchType, String boardUrl, Pageable pageable,
+    public Page<PostSummary> searchPosts(String keyword, String searchType, String boardUrl, int page, int size,
+            Sort sort,
             Long currentUserId) {
         String canonicalKeyword = SearchRequestNormalizer.canonicalizeKeyword(keyword);
-        Pageable normalizedPageable = SearchRequestNormalizer.normalizePostSearchPageable(pageable);
+        Pageable normalizedPageable = SearchRequestNormalizer.normalizePostSearchPageable(page, size, sort);
         boolean includeSecret = false;
+        User currentUser = null;
         if (boardUrl != null && !boardUrl.trim().isEmpty()) {
             Board board = boardRepository.findByBoardUrl(boardUrl)
                     .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-            User currentUser = null;
-            if (currentUserId != null) {
-                currentUser = userRepository.findById(currentUserId)
-                        .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-            }
+            currentUser = searchUserLookupPolicy.resolveOptional(currentUserId);
             if (!boardAccessPolicy.canReadBoard(board, currentUser)) {
                 throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
             }
@@ -131,7 +130,9 @@ public class SearchService {
 
         List<Long> blockedUserIds = null;
         if (currentUserId != null) {
-            blockedUserIds = userBlockService.getBlockedUserIdsEitherDirection(currentUserId);
+            blockedUserIds = currentUser == null
+                    ? userBlockService.getBlockedUserIdsEitherDirection(currentUserId)
+                    : userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(currentUserId);
         }
         Page<Post> postPage = postRepository.searchPosts(canonicalKeyword, searchType,
                 boardUrl, blockedUserIds, includeSecret, currentUserId, normalizedPageable);
@@ -142,8 +143,7 @@ public class SearchService {
     }
 
     public SearchPersonalizationResponse getRecentSearches(Long userId, Pageable pageable) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = searchUserLookupPolicy.resolveRequired(userId);
         Pageable normalizedPageable = SearchRequestNormalizer.normalizeRecentSearchPageable(pageable);
         return SearchPersonalizationResponse
                 .from(searchPersonalizationRepository.findByUserOrderBySearchedAtDesc(user, normalizedPageable));
@@ -151,8 +151,7 @@ public class SearchService {
 
     @Transactional
     public void deleteRecentSearch(Long userId, Long logId) {
-        userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        searchUserLookupPolicy.validateExists(userId);
         int deletedCount = searchPersonalizationRepository.deleteByLogIdAndUserId(logId, userId);
         if (deletedCount == 0) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
@@ -161,8 +160,7 @@ public class SearchService {
 
     @Transactional
     public void deleteAllRecentSearches(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = searchUserLookupPolicy.resolveRequired(userId);
         searchPersonalizationRepository.deleteByUser(user);
     }
 

@@ -30,7 +30,6 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.JwtTokenProvider;
 import jakarta.persistence.EntityManager;
-import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -115,9 +114,8 @@ class AuthServiceTest {
         CurrentUserSummaryAssembler currentUserSummaryAssembler =
                 new CurrentUserSummaryAssembler(userPointRepository, userSettingsRepository);
         SessionTokenService sessionTokenService = new SessionTokenService(
-                userRepository, currentUserSummaryAssembler, jwtTokenProvider, authenticationManagerBuilder,
-                refreshTokenRepository, sanctionService, tokenHashService,
-                loginHistoryAuditService, loginAccountEligibilityService);
+                userRepository, jwtTokenProvider, refreshTokenRepository, sanctionService, tokenHashService,
+                transactionTemplate);
         PasswordResetTokenOrchestrationService passwordResetTokenOrchestrationService =
                 new PasswordResetTokenOrchestrationService(
                         passwordResetTokenRepository,
@@ -136,7 +134,15 @@ class AuthServiceTest {
                 userRepository, pointService, userSettingsRepository,
                 socialAccountLinkService, verificationCodeService, emailEligibilityService, globalConfigService,
                 entityManager, refreshTokenLifecycleService, userPrivilegeCleanupService, passwordHistoryPolicy);
-        authService = new AuthService(signupService, sessionTokenService, passwordResetService);
+        authService = new AuthService(
+                signupService,
+                sessionTokenService,
+                passwordResetService,
+                userRepository,
+                loginAccountEligibilityService,
+                new LoginAuthenticator(authenticationManagerBuilder),
+                new LoginAuditRecorder(loginHistoryAuditService),
+                new LoginUserInfoAssembler(currentUserSummaryAssembler));
 
         user = User.builder()
                 .loginId("testuser")
@@ -337,7 +343,6 @@ class AuthServiceTest {
         Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null,
                 Collections.emptyList());
         AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
-        HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
 
         when(authenticationManagerBuilder.getObject()).thenReturn(authenticationManager);
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
@@ -353,7 +358,7 @@ class AuthServiceTest {
         when(jwtTokenProvider.getAccessTokenValidityInMilliseconds()).thenReturn(1800L);
         when(jwtTokenProvider.getRefreshTokenValidityInMilliseconds()).thenReturn(1209600000L);
 
-        LoginResult response = authService.login(request, httpServletRequest);
+        LoginResult response = authService.login(request, noMetadata());
 
         assertThat(response.getAccessToken()).isEqualTo("accessToken");
         assertThat(response.getRefreshToken()).isEqualTo("refreshToken");
@@ -371,7 +376,6 @@ class AuthServiceTest {
         Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null,
                 Collections.emptyList());
         AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
-        HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
 
         when(authenticationManagerBuilder.getObject()).thenReturn(authenticationManager);
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
@@ -387,7 +391,7 @@ class AuthServiceTest {
                 .when(loginHistoryAuditService)
                 .recordSuccess(1L, "testuser", null, null);
 
-        LoginResult response = authService.login(request, httpServletRequest);
+        LoginResult response = authService.login(request, noMetadata());
 
         assertThat(response.getAccessToken()).isEqualTo("accessToken");
         assertThat(response.getRefreshToken()).isEqualTo("refreshToken");
@@ -404,15 +408,13 @@ class AuthServiceTest {
         Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null,
                 Collections.emptyList());
         AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
-        HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
         String longIpAddress = "1".repeat(60);
         String longUserAgent = "a".repeat(600);
+        LoginClientMetadata metadata = new LoginClientMetadata(longIpAddress, longUserAgent);
 
         when(authenticationManagerBuilder.getObject()).thenReturn(authenticationManager);
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(authentication);
-        when(httpServletRequest.getHeader("X-Forwarded-For")).thenReturn(longIpAddress);
-        when(httpServletRequest.getHeader("User-Agent")).thenReturn(longUserAgent);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userPointRepository.findById(1L)).thenReturn(Optional.empty());
         when(sanctionPolicyService.isUserBanned(user)).thenReturn(false);
@@ -421,7 +423,7 @@ class AuthServiceTest {
         when(jwtTokenProvider.getAccessTokenValidityInMilliseconds()).thenReturn(1800L);
         when(jwtTokenProvider.getRefreshTokenValidityInMilliseconds()).thenReturn(1209600000L);
 
-        authService.login(request, httpServletRequest);
+        authService.login(request, metadata);
 
         verify(refreshTokenRepository).save(argThat(token ->
                 longIpAddress.substring(0, 45).equals(token.getIpAddress())
@@ -438,7 +440,6 @@ class AuthServiceTest {
         Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null,
                 Collections.emptyList());
         AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
-        HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
         String expectedRefreshTokenHash = new TokenHashService().hashSha256("refreshToken");
 
         when(authenticationManagerBuilder.getObject()).thenReturn(authenticationManager);
@@ -453,7 +454,7 @@ class AuthServiceTest {
         when(jwtTokenProvider.getRefreshTokenValidityInMilliseconds()).thenReturn(7_200_000L);
         LocalDateTime beforeLogin = LocalDateTime.now();
 
-        LoginResult response = authService.login(request, httpServletRequest);
+        LoginResult response = authService.login(request, noMetadata());
 
         LocalDateTime afterLogin = LocalDateTime.now();
         assertThat(response.getUser().getTheme()).isEqualTo("LIGHT");
@@ -472,7 +473,6 @@ class AuthServiceTest {
         Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null,
                 Collections.emptyList());
         AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
-        HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
 
         when(authenticationManagerBuilder.getObject()).thenReturn(authenticationManager);
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
@@ -481,7 +481,7 @@ class AuthServiceTest {
         when(sanctionPolicyService.isUserBanned(user)).thenReturn(true);
 
         BusinessException exception = assertThrows(BusinessException.class,
-                () -> authService.login(request, httpServletRequest));
+                () -> authService.login(request, noMetadata()));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.LOGIN_FAILED);
         verify(jwtTokenProvider, never()).createAccessToken(any());
@@ -494,13 +494,12 @@ class AuthServiceTest {
     void login_fail_whenAuthenticationFails_recordsFailure() {
         LoginRequest request = new LoginRequest("testuser", "password123");
         AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
-        HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
 
         when(authenticationManagerBuilder.getObject()).thenReturn(authenticationManager);
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenThrow(new BadCredentialsException("bad credentials"));
 
-        assertThrows(BadCredentialsException.class, () -> authService.login(request, httpServletRequest));
+        assertThrows(BadCredentialsException.class, () -> authService.login(request, noMetadata()));
 
         verify(loginHistoryAuditService).recordFailure(eq("testuser"), nullable(String.class),
                 nullable(String.class), eq("AUTHENTICATION_FAILED"));
@@ -512,13 +511,12 @@ class AuthServiceTest {
     void login_fail_whenAuthenticationReportsDisabled_recordsInactiveFailure() {
         LoginRequest request = new LoginRequest("testuser", "password123");
         AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
-        HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
 
         when(authenticationManagerBuilder.getObject()).thenReturn(authenticationManager);
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenThrow(new DisabledException("disabled"));
 
-        assertThrows(DisabledException.class, () -> authService.login(request, httpServletRequest));
+        assertThrows(DisabledException.class, () -> authService.login(request, noMetadata()));
 
         verify(loginHistoryAuditService).recordFailure(eq("testuser"), nullable(String.class),
                 nullable(String.class), eq(LoginAccountEligibilityService.FAILURE_REASON_USER_NOT_ACTIVE));
@@ -530,13 +528,12 @@ class AuthServiceTest {
     void login_fail_whenAuthenticationReportsLocked_recordsBannedFailure() {
         LoginRequest request = new LoginRequest("testuser", "password123");
         AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
-        HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
 
         when(authenticationManagerBuilder.getObject()).thenReturn(authenticationManager);
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenThrow(new LockedException("locked"));
 
-        assertThrows(LockedException.class, () -> authService.login(request, httpServletRequest));
+        assertThrows(LockedException.class, () -> authService.login(request, noMetadata()));
 
         verify(loginHistoryAuditService).recordFailure(eq("testuser"), nullable(String.class),
                 nullable(String.class), eq(LoginAccountEligibilityService.FAILURE_REASON_USER_BANNED));
@@ -552,7 +549,6 @@ class AuthServiceTest {
         Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null,
                 Collections.emptyList());
         AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
-        HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
 
         when(authenticationManagerBuilder.getObject()).thenReturn(authenticationManager);
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
@@ -560,7 +556,7 @@ class AuthServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.empty());
 
         BusinessException exception = assertThrows(BusinessException.class,
-                () -> authService.login(request, httpServletRequest));
+                () -> authService.login(request, noMetadata()));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND);
         verify(loginHistoryAuditService).recordFailure(eq("testuser"), nullable(String.class),
@@ -577,7 +573,6 @@ class AuthServiceTest {
         Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null,
                 Collections.emptyList());
         AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
-        HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
         user.suspend();
 
         when(authenticationManagerBuilder.getObject()).thenReturn(authenticationManager);
@@ -586,7 +581,7 @@ class AuthServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         BusinessException exception = assertThrows(BusinessException.class,
-                () -> authService.login(request, httpServletRequest));
+                () -> authService.login(request, noMetadata()));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.LOGIN_FAILED);
         verify(loginHistoryAuditService).recordFailure(eq("testuser"), nullable(String.class),
@@ -600,7 +595,6 @@ class AuthServiceTest {
     void login_fail_whenFailureRecordingFails_preservesOriginalException() {
         LoginRequest request = new LoginRequest("testuser", "password123");
         AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
-        HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
 
         when(authenticationManagerBuilder.getObject()).thenReturn(authenticationManager);
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
@@ -609,7 +603,7 @@ class AuthServiceTest {
                 .when(loginHistoryAuditService)
                 .recordFailure(anyString(), nullable(String.class), nullable(String.class), anyString());
 
-        assertThrows(BadCredentialsException.class, () -> authService.login(request, httpServletRequest));
+        assertThrows(BadCredentialsException.class, () -> authService.login(request, noMetadata()));
 
         verify(loginHistoryAuditService).recordFailure(eq("testuser"), nullable(String.class),
                 nullable(String.class), eq("AUTHENTICATION_FAILED"));
@@ -619,20 +613,21 @@ class AuthServiceTest {
     @Test
     @DisplayName("refresh rotates token with persisted client metadata")
     void refresh_success_reusesClientMetadata() {
+        String oldRefreshTokenHash = new TokenHashService().hashSha256("old-refresh-token");
+        String expectedRefreshTokenHash = new TokenHashService().hashSha256("new-refresh-token");
         RefreshToken storedRefreshToken = RefreshToken.builder()
                 .user(user)
-                .tokenHash("hashed-old-token")
+                .tokenHash(oldRefreshTokenHash)
                 .ipAddress("127.0.0.1")
                 .deviceInfo("browser")
                 .expiresAt(LocalDateTime.now().plusDays(7))
                 .build();
-        String oldRefreshTokenHash = new TokenHashService().hashSha256("old-refresh-token");
-        String expectedRefreshTokenHash = new TokenHashService().hashSha256("new-refresh-token");
 
         when(jwtTokenProvider.validateToken("old-refresh-token")).thenReturn(true);
-        when(refreshTokenRepository.findUserIdByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(1L));
+        when(refreshTokenRepository.findRenewalCandidateByTokenHash(oldRefreshTokenHash))
+                .thenReturn(Optional.of(renewalCandidate(10L, 1L)));
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(refreshTokenRepository.findByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(storedRefreshToken));
+        when(refreshTokenRepository.findByTokenIdForUpdate(10L)).thenReturn(Optional.of(storedRefreshToken));
         when(sanctionService.isUserBanned(user)).thenReturn(false);
         when(jwtTokenProvider.createAccessToken(any(Authentication.class))).thenReturn("new-access-token");
         when(jwtTokenProvider.createRefreshToken(any(Authentication.class))).thenReturn("new-refresh-token");
@@ -644,6 +639,10 @@ class AuthServiceTest {
         assertThat(response.getAccessToken()).isEqualTo("new-access-token");
         assertThat(response.getRefreshToken()).isEqualTo("new-refresh-token");
         assertThat(storedRefreshToken.getIsRevoked()).isTrue();
+        var lockOrder = inOrder(refreshTokenRepository, userRepository);
+        lockOrder.verify(refreshTokenRepository).findRenewalCandidateByTokenHash(oldRefreshTokenHash);
+        lockOrder.verify(userRepository).findByIdForUpdate(1L);
+        lockOrder.verify(refreshTokenRepository).findByTokenIdForUpdate(10L);
         verify(refreshTokenRepository).save(storedRefreshToken);
         verify(refreshTokenRepository).save(argThat(rotatedToken ->
                 rotatedToken != storedRefreshToken
@@ -657,26 +656,82 @@ class AuthServiceTest {
     @Test
     @DisplayName("refresh fails when user is banned")
     void refresh_fail_whenUserIsBanned() {
+        String oldRefreshTokenHash = new TokenHashService().hashSha256("old-refresh-token");
         RefreshToken refreshToken = RefreshToken.builder()
                 .user(user)
-                .tokenHash("hashed-old-token")
+                .tokenHash(oldRefreshTokenHash)
                 .ipAddress("127.0.0.1")
                 .deviceInfo("browser")
                 .expiresAt(LocalDateTime.now().plusDays(7))
                 .build();
-        String oldRefreshTokenHash = new TokenHashService().hashSha256("old-refresh-token");
 
         when(jwtTokenProvider.validateToken("old-refresh-token")).thenReturn(true);
-        when(refreshTokenRepository.findUserIdByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(1L));
+        when(refreshTokenRepository.findRenewalCandidateByTokenHash(oldRefreshTokenHash))
+                .thenReturn(Optional.of(renewalCandidate(10L, 1L)));
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(refreshTokenRepository.findByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(refreshToken));
+        when(refreshTokenRepository.findByTokenIdForUpdate(10L)).thenReturn(Optional.of(refreshToken));
         when(sanctionService.isUserBanned(user)).thenReturn(true);
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> authService.refresh("old-refresh-token"));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+        assertThat(refreshToken.getIsRevoked()).isTrue();
         verify(refreshTokenRepository).save(refreshToken);
+        verify(jwtTokenProvider, never()).createAccessToken(any());
+    }
+
+    @Test
+    @DisplayName("refresh fails and revokes token when user is inactive")
+    void refresh_fail_whenUserIsInactive_revokesToken() {
+        user.suspend();
+        String oldRefreshTokenHash = new TokenHashService().hashSha256("old-refresh-token");
+        RefreshToken refreshToken = RefreshToken.builder()
+                .user(user)
+                .tokenHash(oldRefreshTokenHash)
+                .ipAddress("127.0.0.1")
+                .deviceInfo("browser")
+                .expiresAt(LocalDateTime.now().plusDays(7))
+                .build();
+
+        when(jwtTokenProvider.validateToken("old-refresh-token")).thenReturn(true);
+        when(refreshTokenRepository.findRenewalCandidateByTokenHash(oldRefreshTokenHash))
+                .thenReturn(Optional.of(renewalCandidate(10L, 1L)));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(refreshTokenRepository.findByTokenIdForUpdate(10L)).thenReturn(Optional.of(refreshToken));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> authService.refresh("old-refresh-token"));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+        assertThat(refreshToken.getIsRevoked()).isTrue();
+        verify(refreshTokenRepository).save(refreshToken);
+        verify(jwtTokenProvider, never()).createAccessToken(any());
+    }
+
+    @Test
+    @DisplayName("refresh fails when locked token does not match renewal candidate hash")
+    void refresh_fail_whenLockedTokenHashDoesNotMatchCandidate() {
+        String oldRefreshTokenHash = new TokenHashService().hashSha256("old-refresh-token");
+        RefreshToken refreshToken = RefreshToken.builder()
+                .user(user)
+                .tokenHash("different-token-hash")
+                .ipAddress("127.0.0.1")
+                .deviceInfo("browser")
+                .expiresAt(LocalDateTime.now().plusDays(7))
+                .build();
+
+        when(jwtTokenProvider.validateToken("old-refresh-token")).thenReturn(true);
+        when(refreshTokenRepository.findRenewalCandidateByTokenHash(oldRefreshTokenHash))
+                .thenReturn(Optional.of(renewalCandidate(10L, 1L)));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(refreshTokenRepository.findByTokenIdForUpdate(10L)).thenReturn(Optional.of(refreshToken));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> authService.refresh("old-refresh-token"));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_REFRESH_TOKEN);
+        verify(refreshTokenRepository, never()).save(any());
         verify(jwtTokenProvider, never()).createAccessToken(any());
     }
 
@@ -1016,5 +1071,23 @@ class AuthServiceTest {
                 .displayName("Test User")
                 .verificationTicket("ticket-1")
                 .build();
+    }
+
+    private RefreshTokenRepository.RefreshTokenRenewalCandidate renewalCandidate(Long tokenId, Long userId) {
+        return new RefreshTokenRepository.RefreshTokenRenewalCandidate() {
+            @Override
+            public Long getTokenId() {
+                return tokenId;
+            }
+
+            @Override
+            public Long getUserId() {
+                return userId;
+            }
+        };
+    }
+
+    private LoginClientMetadata noMetadata() {
+        return LoginClientMetadata.empty();
     }
 }

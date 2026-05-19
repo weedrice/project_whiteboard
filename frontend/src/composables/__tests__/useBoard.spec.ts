@@ -57,6 +57,7 @@ vi.mock('@/api/board', () => ({
         createBoard: vi.fn(),
         updateBoard: vi.fn(),
         updateBoardManager: vi.fn(),
+        getBoardManagerCandidates: vi.fn(),
         deleteBoard: vi.fn(),
     },
 }))
@@ -97,7 +98,19 @@ describe('useBoard', () => {
 
     it('fetches subscribed boards and supports enabled variations', async () => {
         vi.mocked(userApi.getMySubscriptions).mockResolvedValue({
-            data: { data: { content: [{ boardId: 11 }] } },
+            data: {
+                data: {
+                    content: [
+                        { boardId: 11, boardName: 'General', accessState: 'ACCESSIBLE' },
+                        {
+                            boardId: 12,
+                            boardName: null,
+                            accessState: 'INACCESSIBLE',
+                            inaccessibleReason: 'PRIVATE',
+                        },
+                    ],
+                },
+            },
         } as never)
 
         const { useSubscribedBoards } = useBoard()
@@ -112,7 +125,7 @@ describe('useBoard', () => {
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
         const result = await (options.queryFn as () => Promise<unknown>)()
         expect(userApi.getMySubscriptions).toHaveBeenCalledWith({ size: 5 })
-        expect(result).toEqual([{ boardId: 11 }])
+        expect(result).toEqual([{ boardId: 11, boardName: 'General', accessState: 'ACCESSIBLE' }])
 
         useSubscribedBoards(3, ref(false))
         options = mocks.queryOptions.at(-1)!
@@ -127,10 +140,10 @@ describe('useBoard', () => {
         const boardUrl = ref('free')
 
         useBoardDetail(boardUrl)
-        let options = mocks.queryOptions.at(-1)!
+        const options = mocks.queryOptions.at(-1)!
         expect(options.queryKey).toEqual(['board', boardUrl])
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
-        let result = await (options.queryFn as () => Promise<unknown>)()
+        const result = await (options.queryFn as () => Promise<unknown>)()
         expect(result).toEqual({ boardId: 2, boardUrl: 'free' })
         expect(boardApi.getBoard).toHaveBeenCalledWith('free', undefined)
     })
@@ -336,6 +349,34 @@ describe('useBoard', () => {
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'free'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards', 'subscriptions'] })
+    })
+
+    it('fetches board manager candidates with enabled guard', async () => {
+        vi.mocked(boardApi.getBoardManagerCandidates).mockResolvedValueOnce({
+            data: { data: { content: [{ userId: 1, loginId: 'manager', currentManager: true }] } },
+        } as never)
+
+        const { useBoardManagerCandidates } = useBoard()
+        const boardUrl = ref('free')
+        const params = ref({ page: 0, size: 10, q: 'manager' })
+        const enabled = ref(false)
+
+        useBoardManagerCandidates(boardUrl, params, enabled)
+        let options = mocks.queryOptions.at(-1)!
+        expect(options.queryKey).toEqual(['board', boardUrl, 'manager-candidates', params])
+        expect((options.enabled as ReturnType<typeof computed>).value).toBe(false)
+
+        enabled.value = true
+        expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
+        const result = await (options.queryFn as () => Promise<unknown>)()
+
+        expect(boardApi.getBoardManagerCandidates).toHaveBeenCalledWith('free', { page: 0, size: 10, q: 'manager' })
+        expect(result).toEqual({ content: [{ userId: 1, loginId: 'manager', currentManager: true }] })
+
+        boardUrl.value = ''
+        useBoardManagerCandidates(boardUrl, params, ref(true))
+        options = mocks.queryOptions.at(-1)!
+        expect((options.enabled as ReturnType<typeof computed>).value).toBe(false)
     })
 
     it('deletes board and invalidates board lists', async () => {

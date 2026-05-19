@@ -32,10 +32,10 @@
                     class="px-3 py-3 sm:px-6 sm:py-4 hover:bg-gray-50 dark:hover:bg-gray-700 flex flex-row items-center justify-between gap-2 sm:gap-3 bg-white dark:bg-gray-800 transition-colors duration-200">
                     <div
                         class="flex items-center flex-1 min-w-0"
-                        :class="board.subscriptionAccessible === false ? 'cursor-default' : 'cursor-pointer'"
-                        @click="board.subscriptionAccessible === false ? undefined : $router.push(`/board/${board.boardUrl}`)">
+                        :class="isAccessibleSubscription(board) ? 'cursor-pointer' : 'cursor-default'"
+                        @click="isAccessibleSubscription(board) ? $router.push(`/board/${board.boardUrl}`) : undefined">
                         <div
-                            v-if="!isMobile && board.subscriptionAccessible !== false"
+                            v-if="!isMobile && isAccessibleSubscription(board)"
                             class="handle mr-3 sm:mr-4 p-2 -m-2 cursor-move text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
                             @click.stop>
                             <Menu class="h-5 w-5" />
@@ -111,8 +111,12 @@ function updateIsMobile() {
   isMobile.value = window.innerWidth < 640
 }
 
+function isAccessibleSubscription(board: SubscriptionBoardListItem) {
+    return board.accessState === 'ACCESSIBLE'
+}
+
 function canReorderSubscription(board: SubscriptionBoardListItem) {
-    return board.subscriptionAccessible !== false && board.isActive !== false
+    return isAccessibleSubscription(board) && board.isActive !== false
 }
 
 async function fetchAllSubscriptions() {

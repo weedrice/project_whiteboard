@@ -13,8 +13,10 @@ import com.weedrice.whiteboard.domain.point.service.ContentRewardPolicy;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostUpdateRequest;
+import com.weedrice.whiteboard.domain.post.entity.DraftPost;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.PostVersion;
+import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostVersionRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
@@ -41,6 +43,7 @@ public class PostCommandService {
     private final PostRepository postRepository;
     private final BoardRepository boardRepository;
     private final BoardCategoryRepository boardCategoryRepository;
+    private final DraftPostRepository draftPostRepository;
     private final PostVersionRepository postVersionRepository;
     private final TagAssignmentService tagAssignmentService;
     private final ApplicationEventPublisher eventPublisher;
@@ -106,6 +109,7 @@ public class PostCommandService {
             postAuthorCommandPolicy.validateAppliedCategoryWriteRole(board, user, category);
         }
 
+        PostTitleValidator.validate(request.getTitle());
         String sanitizedContents = sanitizePostContents(request.getContents());
         boolean isSecret = !boardAccessPolicy.isInquiryBoard(board) && request.isSecret();
 
@@ -129,6 +133,7 @@ public class PostCommandService {
         if (request.getFileIds() != null && !request.getFileIds().isEmpty()) {
             fileService.attachFilesToPost(request.getFileIds(), userId, savedPost.getPostId(), request.getDraftId());
         }
+        deletePublishedDraftIfOwned(request.getDraftId(), user);
 
         contentRewardService.rewardCreate(userId, savedPost.getPostId(), ContentRewardPolicy.POST);
         eventPublisher.publishEvent(new PostPublishedEvent(savedPost.getPostId(), board.getBoardId()));
@@ -211,6 +216,7 @@ public class PostCommandService {
         BoardCategory category = resolveUpdatedCategory(post, request.getCategoryId());
         postAuthorCommandPolicy.validateWritableCommand(post, modifier, category);
         tagAssignmentService.validateTags(request.getTags());
+        PostTitleValidator.validate(request.getTitle());
 
         String originalTitle = post.getTitle();
         String originalContents = post.getContents();
@@ -224,6 +230,7 @@ public class PostCommandService {
         if (request.getFileIds() != null) {
             fileService.syncPostFiles(request.getFileIds(), userId, post.getPostId(), request.getDraftId());
         }
+        deletePublishedDraftIfOwned(request.getDraftId(), modifier);
 
         savePostVersion(post, modifier, "MODIFY", originalTitle, originalContents);
 
@@ -252,6 +259,19 @@ public class PostCommandService {
         }
         return boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(categoryId, board.getBoardId(), true)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+    }
+
+    private void deletePublishedDraftIfOwned(Long draftId, User user) {
+        if (draftId == null) {
+            return;
+        }
+        draftPostRepository.findByDraftIdAndUserForUpdate(draftId, user)
+                .ifPresent(draftPost -> deleteDraft(draftId, draftPost));
+    }
+
+    private void deleteDraft(Long draftId, DraftPost draftPost) {
+        fileService.markDraftFilesDeletionPending(draftId);
+        draftPostRepository.delete(draftPost);
     }
 
     private BoardCategory resolveUpdatedCategory(Post post, Long categoryId) {

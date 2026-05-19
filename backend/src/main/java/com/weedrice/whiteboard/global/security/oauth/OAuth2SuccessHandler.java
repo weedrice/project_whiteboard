@@ -1,6 +1,8 @@
 package com.weedrice.whiteboard.global.security.oauth;
 
 import com.weedrice.whiteboard.domain.auth.dto.TokenResponse;
+import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadata;
+import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadataResolver;
 import com.weedrice.whiteboard.domain.auth.service.SessionTokenService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -31,6 +33,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     private final UserRepository userRepository;
     private final SanctionService sanctionService;
     private final RefreshTokenCookieWriter refreshTokenCookieWriter;
+    private final LoginClientMetadataResolver loginClientMetadataResolver;
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
@@ -62,7 +65,11 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
             return;
         }
 
-        TokenResponse issuedTokens = sessionTokenService.issueTokens(authentication, authenticatedUser, request);
+        LoginClientMetadata metadata = loginClientMetadataResolver.resolve(request);
+        TokenResponse issuedTokens = sessionTokenService.issueTokens(
+                authentication,
+                authenticatedUser,
+                metadata);
 
         // Keep refresh token in HttpOnly cookie; only pass short-lived access token to frontend.
         refreshTokenCookieWriter.writeRefreshTokenCookie(response, issuedTokens.getRefreshToken(), request);

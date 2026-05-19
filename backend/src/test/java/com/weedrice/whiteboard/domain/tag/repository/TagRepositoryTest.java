@@ -80,6 +80,32 @@ class TagRepositoryTest {
     }
 
     @Test
+    @DisplayName("없는 태그를 insert-ignore로 생성한다")
+    void insertIgnore_createsMissingTag() {
+        int inserted = tagRepository.insertIgnore("inserted-tag");
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<Tag> insertedTag = tagRepository.findByTagName("inserted-tag");
+        assertThat(inserted).isEqualTo(1);
+        assertThat(insertedTag).isPresent();
+        assertThat(insertedTag.get().getPostCount()).isZero();
+        assertThat(insertedTag.get().getCreatedAt()).isNotNull();
+        assertThat(insertedTag.get().getModifiedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("중복 태그 이름은 insert-ignore에서 건너뛴다")
+    void insertIgnore_skipsDuplicateTagName() {
+        int inserted = tagRepository.insertIgnore("test-tag");
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(inserted).isZero();
+        assertThat(tagRepository.findByTagName("test-tag")).isPresent();
+    }
+
+    @Test
     @DisplayName("tag id 컬렉션으로 게시글 수를 증가시킨다")
     void incrementPostCountIn_success() {
         int updated = tagRepository.incrementPostCountIn(List.of(tag.getTagId()));

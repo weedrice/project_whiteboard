@@ -43,17 +43,22 @@ class EmoticonEntitlementGrantService {
         return new EmoticonGrantContext(user, emoticon);
     }
 
+    EmoticonGrantContext prepareConfiguredGrant(Long userId, Long emoticonId, Runnable afterConfigurationValidation) {
+        EmoticonMaster emoticon = resolveConfiguredTargetWithImages(emoticonId);
+        afterConfigurationValidation.run();
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        validatePurchasable(userId, emoticon);
+        if (emoticonPurchaseRepository.existsByUser_UserIdAndEmoticon_EmoticonId(user.getUserId(), emoticonId)) {
+            throw new BusinessException(ErrorCode.EMOTICON_ALREADY_PURCHASED);
+        }
+
+        return new EmoticonGrantContext(user, emoticon);
+    }
+
     void validateTargetConfiguration(Long emoticonId) {
-        if (emoticonId == null) {
-            throw new IllegalStateException("missing-targetId");
-        }
-
-        EmoticonMaster emoticon = emoticonMasterRepository.findById(emoticonId)
-                .orElseThrow(() -> new IllegalStateException("missing-target"));
-
-        if (!"Y".equals(emoticon.getIsActive())) {
-            throw new IllegalStateException("inactive-target");
-        }
+        validateConfiguredTarget(resolveConfiguredTarget(emoticonId));
     }
 
     @Transactional
@@ -86,6 +91,32 @@ class EmoticonEntitlementGrantService {
 
         if (!"Y".equals(emoticon.getIsActive())) {
             throw new BusinessException(ErrorCode.EMOTICON_HIDDEN);
+        }
+    }
+
+    private EmoticonMaster resolveConfiguredTargetWithImages(Long emoticonId) {
+        if (emoticonId == null) {
+            throw new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE);
+        }
+
+        EmoticonMaster emoticon = emoticonMasterRepository.findByIdWithImages(emoticonId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE));
+        validateConfiguredTarget(emoticon);
+        return emoticon;
+    }
+
+    private EmoticonMaster resolveConfiguredTarget(Long emoticonId) {
+        if (emoticonId == null) {
+            throw new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE);
+        }
+
+        return emoticonMasterRepository.findById(emoticonId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE));
+    }
+
+    private void validateConfiguredTarget(EmoticonMaster emoticon) {
+        if (!"Y".equals(emoticon.getIsActive())) {
+            throw new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE);
         }
     }
 

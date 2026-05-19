@@ -1,0 +1,85 @@
+package com.weedrice.whiteboard.domain.sanction.service;
+
+import com.weedrice.whiteboard.domain.report.entity.ReportTargetType;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDateTime;
+import java.util.Locale;
+import java.util.Set;
+
+@Component
+class SanctionRequestValidator {
+
+    private static final String TYPE_BAN = "BAN";
+    private static final int MAX_REMARK_LENGTH = 255;
+    private static final Set<String> ALLOWED_TYPES = Set.of("WARNING", "MUTE", "BAN");
+
+    NormalizedCommand validate(String type, String remark, LocalDateTime endDate,
+                               Long contentId, String contentType) {
+        String normalizedType = normalizeType(type);
+        String normalizedContentType = normalizeContentType(contentId, contentType);
+        String normalizedRemark = normalizeRemark(remark);
+        validateEndDate(endDate);
+        return new NormalizedCommand(normalizedType, normalizedRemark, endDate, contentId, normalizedContentType);
+    }
+
+    private String normalizeType(String type) {
+        if (type == null || type.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        String normalizedType = type.trim().toUpperCase(Locale.ROOT);
+        if (!ALLOWED_TYPES.contains(normalizedType)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return normalizedType;
+    }
+
+    private String normalizeContentType(Long contentId, String contentType) {
+        boolean hasContentId = contentId != null;
+        boolean hasContentType = contentType != null && !contentType.isBlank();
+        if (hasContentId != hasContentType) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        if (!hasContentId) {
+            return null;
+        }
+        if (contentId <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        try {
+            return ReportTargetType.from(contentType).name();
+        } catch (IllegalArgumentException ex) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+    }
+
+    private String normalizeRemark(String remark) {
+        if (remark == null) {
+            return null;
+        }
+        String normalizedRemark = remark.strip();
+        if (normalizedRemark.length() > MAX_REMARK_LENGTH) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return normalizedRemark;
+    }
+
+    private void validateEndDate(LocalDateTime endDate) {
+        if (endDate != null && !endDate.isAfter(LocalDateTime.now())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+    }
+
+    record NormalizedCommand(String type,
+                             String remark,
+                             LocalDateTime endDate,
+                             Long contentId,
+                             String contentType) {
+        boolean isPermanentBan() {
+            return TYPE_BAN.equalsIgnoreCase(type) && endDate == null;
+        }
+    }
+}

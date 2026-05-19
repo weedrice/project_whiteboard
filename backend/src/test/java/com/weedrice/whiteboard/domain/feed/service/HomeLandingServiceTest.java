@@ -29,6 +29,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
@@ -70,13 +71,12 @@ class HomeLandingServiceTest {
                 boardRepository,
                 commentRepository,
                 userRepository,
-                new HomeLandingCurationPolicy(),
                 clock);
     }
 
     @Test
-    @DisplayName("Landing response is split into featured, picks, trending, and live sections")
-    void getLanding_slicesCuratedSections() {
+    @DisplayName("Landing response returns layout independent source posts")
+    void getLanding_returnsCuratedPosts() {
         List<PostSummary> curatedPosts = List.of(
                 post(1L, "featured"),
                 post(2L, "pick-1"),
@@ -89,7 +89,7 @@ class HomeLandingServiceTest {
                 board(2L, "tech"));
 
         when(postService.getTrendingPosts(any(), eq(1L), eq("24h"))).thenReturn(curatedPosts);
-        when(boardService.getTopBoardsByUserId(1L)).thenReturn(boards);
+        when(boardService.getTopBoardsByUserId(1L, 6)).thenReturn(boards);
         when(postRepository.countPublicLandingPostStats(any(), any(), any(), eq(BoardPolicyConstants.INQUIRY_BOARD_URL)))
                 .thenReturn(postStats(8421L, 12L, 10L));
         when(boardRepository.countPublicLandingVisibleBoards(BoardPolicyConstants.INQUIRY_BOARD_URL)).thenReturn(11L);
@@ -103,10 +103,7 @@ class HomeLandingServiceTest {
 
         HomeLandingResponse response = homeLandingService.getLanding(1L, "24h");
 
-        assertThat(response.getFeaturedPost().getPostId()).isEqualTo(1L);
-        assertThat(response.getEditorPicks()).extracting(PostSummary::getPostId).containsExactly(2L, 3L, 4L);
-        assertThat(response.getTrendingPosts()).extracting(PostSummary::getPostId).containsExactly(5L, 6L);
-        assertThat(response.getLiveActivity()).extracting(PostSummary::getPostId)
+        assertThat(response.getPosts()).extracting(PostSummary::getPostId)
                 .containsExactly(1L, 2L, 3L, 4L, 5L, 6L);
         assertThat(response.getStats().getBoardCount()).isEqualTo(11L);
         assertThat(response.getStats().getPostCount()).isEqualTo(8421L);
@@ -117,6 +114,7 @@ class HomeLandingServiceTest {
         assertThat(response.getStats().getActiveBoardCount()).isEqualTo(11L);
         assertThat(response.getStats().getNewMembersLast24Hours()).isEqualTo(47L);
         assertThat(response.getStats().getCommentsToday()).isEqualTo(1824L);
+        verify(boardService).getTopBoardsByUserId(1L, 6);
     }
 
     @Test
@@ -129,7 +127,7 @@ class HomeLandingServiceTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("post failure");
 
-        verify(boardService, never()).getTopBoardsByUserId(any());
+        verify(boardService, never()).getTopBoardsByUserId(any(), anyInt());
         verify(postRepository, never()).countPublicLandingPostStats(any(), any(), any(), any());
     }
 
@@ -137,7 +135,7 @@ class HomeLandingServiceTest {
     @DisplayName("Landing lookup propagates stats failures")
     void getLanding_propagatesStatsFailures() {
         when(postService.getTrendingPosts(any(), isNull(), eq("24h"))).thenReturn(List.of());
-        when(boardService.getTopBoardsByUserId(isNull())).thenReturn(List.of(board(1L, "free")));
+        when(boardService.getTopBoardsByUserId(isNull(), eq(6))).thenReturn(List.of(board(1L, "free")));
         when(postRepository.countPublicLandingPostStats(any(), any(), any(), eq(BoardPolicyConstants.INQUIRY_BOARD_URL)))
                 .thenThrow(new IllegalStateException("stats failure"));
 
@@ -150,7 +148,7 @@ class HomeLandingServiceTest {
     @DisplayName("Landing lookup propagates board failures")
     void getLanding_propagatesBoardFailures() {
         when(postService.getTrendingPosts(any(), isNull(), eq("24h"))).thenReturn(List.of());
-        when(boardService.getTopBoardsByUserId(isNull())).thenThrow(new IllegalStateException("board failure"));
+        when(boardService.getTopBoardsByUserId(isNull(), eq(6))).thenThrow(new IllegalStateException("board failure"));
 
         assertThatThrownBy(() -> homeLandingService.getLanding(null, "24h"))
                 .isInstanceOf(IllegalStateException.class)
@@ -163,7 +161,7 @@ class HomeLandingServiceTest {
     @DisplayName("Landing stats use KST day boundaries")
     void getLanding_statsUseKstDayBoundaries() {
         when(postService.getTrendingPosts(any(), isNull(), eq("24h"))).thenReturn(List.of());
-        when(boardService.getTopBoardsByUserId(isNull())).thenReturn(List.of());
+        when(boardService.getTopBoardsByUserId(isNull(), eq(6))).thenReturn(List.of());
         when(postRepository.countPublicLandingPostStats(any(), any(), any(), eq(BoardPolicyConstants.INQUIRY_BOARD_URL)))
                 .thenReturn(postStats(8421L, 12L, 10L));
         when(boardRepository.countPublicLandingVisibleBoards(BoardPolicyConstants.INQUIRY_BOARD_URL)).thenReturn(11L);

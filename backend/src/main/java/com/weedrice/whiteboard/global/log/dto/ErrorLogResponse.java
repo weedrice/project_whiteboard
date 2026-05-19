@@ -1,13 +1,13 @@
 package com.weedrice.whiteboard.global.log.dto;
 
-import com.weedrice.whiteboard.global.log.entity.ErrorLog;
 import lombok.Builder;
 import lombok.Getter;
 import org.springframework.data.domain.Page;
 
+import com.weedrice.whiteboard.global.log.entity.ErrorLog;
+
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Getter
 @Builder
@@ -33,7 +33,6 @@ public class ErrorLogResponse {
         private Long userId;
         private String ipAddress;
         private String userAgent;
-        private String stackTrace;
         private String isResolved;
         private Long resolvedBy;
         private LocalDateTime resolvedAt;
@@ -41,30 +40,51 @@ public class ErrorLogResponse {
         private LocalDateTime createdAt;
     }
 
-    public static ErrorLogResponse from(Page<ErrorLog> errorLogPage) {
-        List<ErrorLogSummary> content = errorLogPage.getContent().stream()
-                .map(log -> ErrorLogSummary.builder()
-                        .errorLogId(log.getErrorLogId())
-                        .errorCode(log.getErrorCode())
-                        .errorType(log.getErrorType())
-                        .httpStatus(log.getHttpStatus())
-                        .message(log.getMessage())
-                        .requestUri(log.getRequestUri())
-                        .requestMethod(log.getRequestMethod())
-                        .userId(log.getUserId())
-                        .ipAddress(log.getIpAddress())
-                        .userAgent(log.getUserAgent())
-                        .stackTrace(log.getStackTrace())
-                        .isResolved(log.getIsResolved())
-                        .resolvedBy(log.getResolvedBy())
-                        .resolvedAt(log.getResolvedAt())
-                        .resolvedMemo(log.getResolvedMemo())
-                        .createdAt(log.getCreatedAt())
-                        .build())
-                .collect(Collectors.toList());
+    @Getter
+    @Builder
+    public static class ErrorLogDetail {
+        private Long errorLogId;
+        private String errorCode;
+        private String errorType;
+        private int httpStatus;
+        private String message;
+        private String requestUri;
+        private String requestMethod;
+        private Long userId;
+        private String ipAddress;
+        private String userAgent;
+        private String stackTrace;
+        private String isResolved;
+        private Long resolvedBy;
+        private LocalDateTime resolvedAt;
+        private String resolvedMemo;
+        private LocalDateTime createdAt;
 
+        public static ErrorLogDetail from(ErrorLog errorLog) {
+            return ErrorLogDetail.builder()
+                    .errorLogId(errorLog.getErrorLogId())
+                    .errorCode(errorLog.getErrorCode())
+                    .errorType(errorLog.getErrorType())
+                    .httpStatus(errorLog.getHttpStatus())
+                    .message(errorLog.getMessage())
+                    .requestUri(errorLog.getRequestUri())
+                    .requestMethod(errorLog.getRequestMethod())
+                    .userId(errorLog.getUserId())
+                    .ipAddress(errorLog.getIpAddress())
+                    .userAgent(errorLog.getUserAgent())
+                    .stackTrace(errorLog.getStackTrace())
+                    .isResolved(errorLog.getIsResolved())
+                    .resolvedBy(errorLog.getResolvedBy())
+                    .resolvedAt(errorLog.getResolvedAt())
+                    .resolvedMemo(errorLog.getResolvedMemo())
+                    .createdAt(errorLog.getCreatedAt())
+                    .build();
+        }
+    }
+
+    public static ErrorLogResponse from(Page<ErrorLogSummary> errorLogPage) {
         return ErrorLogResponse.builder()
-                .content(content)
+                .content(errorLogPage.getContent())
                 .page(errorLogPage.getNumber())
                 .size(errorLogPage.getSize())
                 .totalElements(errorLogPage.getTotalElements())

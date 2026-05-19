@@ -28,33 +28,34 @@ class AgentAuthenticationFilterTest {
     private AgentAuthService agentAuthService;
 
     @Test
-    @DisplayName("register request from localhost passes without bearer token")
-    void registerFromLocalhost_passes() throws Exception {
+    @DisplayName("register request bypasses agent filter")
+    void registerRequest_bypassesAgentFilter() throws Exception {
         AgentAuthenticationFilter filter = new AgentAuthenticationFilter(agentAuthService, "");
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/agents/register");
-        request.addHeader("X-NoviIs-Agent", "true");
-        request.setRemoteAddr("127.0.0.1");
+        request.setRemoteAddr("10.0.0.5");
         MockHttpServletResponse response = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);
 
         filter.doFilter(request, response, chain);
 
         assertThat(response.getStatus()).isEqualTo(200);
+        verify(chain).doFilter(request, response);
         verifyNoInteractions(agentAuthService);
     }
 
     @Test
-    @DisplayName("register request from non-local address is forbidden")
-    void registerFromNonLocal_forbidden() throws Exception {
-        AgentAuthenticationFilter filter = new AgentAuthenticationFilter(agentAuthService, "");
+    @DisplayName("register request bypasses internal secret validation")
+    void registerRequest_bypassesInternalSecretValidation() throws Exception {
+        AgentAuthenticationFilter filter = new AgentAuthenticationFilter(agentAuthService, "internal-secret");
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/agents/register");
-        request.addHeader("X-NoviIs-Agent", "true");
         request.setRemoteAddr("10.0.0.5");
         MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
 
-        filter.doFilter(request, response, mock(FilterChain.class));
+        filter.doFilter(request, response, chain);
 
-        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getStatus()).isEqualTo(200);
+        verify(chain).doFilter(request, response);
         verifyNoInteractions(agentAuthService);
     }
 

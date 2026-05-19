@@ -122,80 +122,37 @@ class FeedServiceTest {
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getContent().getFirst().getContentId()).isEqualTo(202L);
         assertThat(response.getContent().getFirst().getPost()).isEqualTo(validPost);
-        assertThat(response.getTotalElements()).isEqualTo(1);
-        assertThat(response.getTotalPages()).isEqualTo(1);
-        assertThat(response.isHasNext()).isFalse();
-    }
-
-    @Test
-    @DisplayName("POST feed filtering refills current page from the next physical feed page")
-    void getUserFeeds_refillsCurrentPageFromNextPhysicalPage() {
-        Long userId = 1L;
-        User user = User.builder().build();
-        Pageable pageable = feedPageable(0, 2);
-        Pageable nextPageable = feedPageable(1, 2);
-
-        UserFeed staleFeed = createFeed(1L, user, "SUBSCRIPTION_POST", "POST", 101L, "BOARD_SUBSCRIPTION", 10L,
-                LocalDateTime.now());
-        UserFeed validFeed = createFeed(2L, user, "SUBSCRIPTION_POST", "POST", 202L, "BOARD_SUBSCRIPTION", 10L,
-                LocalDateTime.now().minusMinutes(1));
-        UserFeed refillFeed = createFeed(3L, user, "SUBSCRIPTION_POST", "POST", 303L, "BOARD_SUBSCRIPTION", 10L,
-                LocalDateTime.now().minusMinutes(2));
-        Page<UserFeed> feedPage = new PageImpl<>(List.of(staleFeed, validFeed), pageable, 3);
-        Page<UserFeed> refillPage = new PageImpl<>(List.of(refillFeed), nextPageable, 3);
-        PostSummary validPost = PostSummary.builder().postId(202L).title("valid").build();
-        PostSummary refillPost = PostSummary.builder().postId(303L).title("refill").build();
-
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of());
-        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(user), pageable)).thenReturn(feedPage);
-        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(user), nextPageable)).thenReturn(refillPage);
-        when(postService.getPostSummariesByIds(List.of(101L, 202L), userId)).thenReturn(Map.of(202L, validPost));
-        when(postService.getPostSummariesByIds(List.of(303L), userId)).thenReturn(Map.of(303L, refillPost));
-
-        FeedResponse response = feedService.getUserFeeds(userId, pageable);
-
-        assertThat(response.getContent()).hasSize(2);
-        assertThat(response.getContent()).extracting(FeedResponse.FeedSummary::getContentId)
-                .containsExactly(202L, 303L);
         assertThat(response.getTotalElements()).isEqualTo(2);
         assertThat(response.getTotalPages()).isEqualTo(1);
         assertThat(response.isHasNext()).isFalse();
     }
 
     @Test
-    @DisplayName("POST feed refill stops at the additional page lookup limit")
-    void getUserFeeds_refillStopsAtAdditionalPageLookupLimit() {
+    @DisplayName("POST feed filtering does not refill from additional physical pages")
+    void getUserFeeds_doesNotRefillCurrentPageFromNextPhysicalPage() {
         Long userId = 1L;
         User user = User.builder().build();
-        Pageable pageable = feedPageable(0, 1);
+        Pageable pageable = feedPageable(0, 2);
+
+        UserFeed staleFeed = createFeed(1L, user, "SUBSCRIPTION_POST", "POST", 101L, "BOARD_SUBSCRIPTION", 10L,
+                LocalDateTime.now());
+        UserFeed validFeed = createFeed(2L, user, "SUBSCRIPTION_POST", "POST", 202L, "BOARD_SUBSCRIPTION", 10L,
+                LocalDateTime.now().minusMinutes(1));
+        Page<UserFeed> feedPage = new PageImpl<>(List.of(staleFeed, validFeed), pageable, 3);
+        PostSummary validPost = PostSummary.builder().postId(202L).title("valid").build();
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of());
-        for (int page = 0; page <= 5; page++) {
-            UserFeed staleFeed = createFeed(
-                    (long) page + 1,
-                    user,
-                    "SUBSCRIPTION_POST",
-                    "POST",
-                    100L + page,
-                    "BOARD_SUBSCRIPTION",
-                    10L,
-                    LocalDateTime.now().minusMinutes(page));
-            Pageable currentPageable = feedPageable(page, 1);
-            when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(user), currentPageable))
-                    .thenReturn(new PageImpl<>(List.of(staleFeed), currentPageable, 10));
-            when(postService.getPostSummariesByIds(List.of(100L + page), userId)).thenReturn(Map.of());
-        }
+        when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(user), pageable)).thenReturn(feedPage);
+        when(postService.getPostSummariesByIds(List.of(101L, 202L), userId)).thenReturn(Map.of(202L, validPost));
 
         FeedResponse response = feedService.getUserFeeds(userId, pageable);
 
-        assertThat(response.getContent()).isEmpty();
-        assertThat(response.getTotalElements()).isEqualTo(4);
+        assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent()).extracting(FeedResponse.FeedSummary::getContentId)
+                .containsExactly(202L);
+        assertThat(response.getTotalElements()).isEqualTo(3);
         assertThat(response.isHasNext()).isTrue();
-        verify(userFeedRepository, never()).findVisibleByTargetUserOrderByCreatedAtDesc(
-                vf(user),
-                feedPageable(6, 1));
     }
 
     @Test

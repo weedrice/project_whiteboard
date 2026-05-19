@@ -4,11 +4,11 @@ import { useAdmin } from '@/composables/useAdmin'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
 import { Eye, CheckCircle, ChevronLeft, ChevronRight, X, Search, Copy } from 'lucide-vue-next'
-import type { ErrorLogItem } from '@/types'
+import type { ErrorLogDetail, ErrorLogListItem } from '@/types'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
-const { useErrorLogs, useResolveErrorLog, useErrorLogStats } = useAdmin()
+const { useErrorLogs, useErrorLog, useResolveErrorLog, useErrorLogStats } = useAdmin()
 
 // 날짜 기본값 (시작일: 2주 전, 종료일: 오늘)
 function toDateString(date: Date): string {
@@ -65,6 +65,7 @@ function handleSearch() {
 
 const { data: errorLogsData, isLoading, refetch } = useErrorLogs(params)
 const { data: statsData } = useErrorLogStats()
+const { mutateAsync: fetchErrorLogDetail } = useErrorLog()
 const { mutateAsync: resolveErrorLog } = useResolveErrorLog()
 
 const errorLogs = computed(() => errorLogsData.value?.content || [])
@@ -73,16 +74,20 @@ const totalElements = computed(() => errorLogsData.value?.totalElements || 0)
 
 // 상세 모달
 const isDetailModalOpen = ref(false)
-const selectedLog = ref<ErrorLogItem | null>(null)
+const selectedLog = ref<ErrorLogDetail | null>(null)
 
 // 확인 처리 모달
 const isResolveModalOpen = ref(false)
-const resolveTargetLog = ref<ErrorLogItem | null>(null)
+const resolveTargetLog = ref<ErrorLogListItem | ErrorLogDetail | null>(null)
 const resolveMemo = ref('')
 
-function openDetailModal(log: ErrorLogItem) {
-    selectedLog.value = log
-    isDetailModalOpen.value = true
+async function openDetailModal(log: ErrorLogListItem) {
+    try {
+        selectedLog.value = await fetchErrorLogDetail(log.errorLogId)
+        isDetailModalOpen.value = true
+    } catch {
+        toastStore.addToast(t('common.error'), 'error')
+    }
 }
 
 function closeDetailModal() {
@@ -90,7 +95,7 @@ function closeDetailModal() {
     selectedLog.value = null
 }
 
-function openResolveModal(log: ErrorLogItem) {
+function openResolveModal(log: ErrorLogListItem | ErrorLogDetail) {
     resolveTargetLog.value = log
     resolveMemo.value = ''
     isResolveModalOpen.value = true

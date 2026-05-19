@@ -11,7 +11,7 @@ public class UserAdminCommandService {
     private final UserLifecycleService userLifecycleService;
 
     @Transactional
-    public void updateUserStatus(Long userId, String status) {
-        userLifecycleService.updateAdminManagedStatus(userId, status);
+    public void updateUserStatus(Long actorUserId, Long userId, String status) {
+        userLifecycleService.updateAdminManagedStatus(actorUserId, userId, status);
     }
 }

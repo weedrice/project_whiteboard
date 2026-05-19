@@ -13,12 +13,20 @@ import java.util.List;
 import java.util.Optional;
 
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
-    @Query("SELECT rt.user.userId FROM RefreshToken rt WHERE rt.tokenHash = :tokenHash")
-    Optional<Long> findUserIdByTokenHash(@Param("tokenHash") String tokenHash);
+    @Query("""
+            SELECT rt.tokenId AS tokenId, rt.user.userId AS userId
+            FROM RefreshToken rt
+            WHERE rt.tokenHash = :tokenHash
+            """)
+    Optional<RefreshTokenRenewalCandidate> findRenewalCandidateByTokenHash(@Param("tokenHash") String tokenHash);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT rt FROM RefreshToken rt WHERE rt.tokenHash = :tokenHash")
     Optional<RefreshToken> findByTokenHash(@Param("tokenHash") String tokenHash);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT rt FROM RefreshToken rt WHERE rt.tokenId = :tokenId")
+    Optional<RefreshToken> findByTokenIdForUpdate(@Param("tokenId") Long tokenId);
 
     @Modifying(flushAutomatically = true)
     @Query("""
@@ -34,4 +42,10 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
             com.weedrice.whiteboard.domain.user.entity.User user,
             Boolean isRevoked,
             LocalDateTime now);
+
+    interface RefreshTokenRenewalCandidate {
+        Long getTokenId();
+
+        Long getUserId();
+    }
 }

@@ -4,9 +4,9 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentClaimRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentResponse;
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
-import com.weedrice.whiteboard.domain.agent.service.AgentRequestContext;
+import com.weedrice.whiteboard.domain.agent.web.AgentRequestContextResolver;
 import com.weedrice.whiteboard.domain.auth.dto.EmailVerificationConfirmRequest;
-import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
+import com.weedrice.whiteboard.domain.board.dto.SubscriptionBoardResponse;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
@@ -17,19 +17,16 @@ import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.domain.user.service.UserProfileService;
 import com.weedrice.whiteboard.domain.user.service.UserSecurityService;
 import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
+import com.weedrice.whiteboard.domain.user.web.UserActionResponseFactory;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
-import com.weedrice.whiteboard.global.common.util.ClientUtils;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.MessageSource;
-import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -51,7 +48,8 @@ public class UserController {
         private final PostService postService;
         private final CommentService commentService;
         private final AgentLifecycleService agentLifecycleService;
-        private final MessageSource messageSource;
+        private final UserActionResponseFactory userActionResponseFactory;
+        private final AgentRequestContextResolver agentRequestContextResolver;
 
         @GetMapping("/{userId}")
         public ResponseEntity<ApiResponse<UserProfileResponse>> getUserProfile(
@@ -92,9 +90,7 @@ public class UserController {
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 userSecurityService.updatePassword(userDetails.getUserId(), request.getCurrentPassword(),
                                 request.getNewPassword());
-                String message = messageSource.getMessage("success.user.passwordChanged", null,
-                                LocaleContextHolder.getLocale());
-                return ResponseEntity.ok(ApiResponse.success(new MessageResponse(message)));
+                return userActionResponseFactory.passwordChanged();
         }
 
         @DeleteMapping("/me")
@@ -102,9 +98,7 @@ public class UserController {
                         @Valid @RequestBody DeleteAccountRequest request,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 userProfileService.deleteAccount(userDetails.getUserId(), request.getPassword());
-                String message = messageSource.getMessage("success.user.accountDeleted", null,
-                                LocaleContextHolder.getLocale());
-                return ResponseEntity.ok(ApiResponse.success(new MessageResponse(message)));
+                return userActionResponseFactory.accountDeleted();
         }
 
         @GetMapping("/me/settings")
@@ -143,10 +137,7 @@ public class UserController {
                         @PathVariable Long userId,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 userBlockService.blockUser(userDetails.getUserId(), userId);
-                String message = messageSource.getMessage("success.user.blocked", null,
-                                LocaleContextHolder.getLocale());
-                return ResponseEntity.status(HttpStatus.CREATED)
-                                .body(ApiResponse.success(new MessageResponse(message)));
+                return userActionResponseFactory.blocked();
         }
 
         @DeleteMapping("/{userId}/block")
@@ -154,9 +145,7 @@ public class UserController {
                         @PathVariable Long userId,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 userBlockService.unblockUser(userDetails.getUserId(), userId);
-                String message = messageSource.getMessage("success.user.unblocked", null,
-                                LocaleContextHolder.getLocale());
-                return ResponseEntity.ok(ApiResponse.success(new MessageResponse(message)));
+                return userActionResponseFactory.unblocked();
         }
 
         @GetMapping("/me/blocks")
@@ -172,14 +161,14 @@ public class UserController {
         }
 
         @GetMapping("/me/subscriptions")
-        public ApiResponse<PageResponse<BoardListResponse>> getMySubscriptions(
+        public ApiResponse<PageResponse<SubscriptionBoardResponse>> getMySubscriptions(
                         @AuthenticationPrincipal CustomUserDetails userDetails,
                         @RequestParam(defaultValue = "false") boolean includeUnavailable,
                         @RequestParam(defaultValue = "0") int page,
                         @RequestParam(defaultValue = "20") int size,
                         Sort sort) {
                 Pageable pageable = PageRequestUtils.of(page, size, sort);
-                Page<BoardListResponse> response = boardService.getMySubscriptions(
+                Page<SubscriptionBoardResponse> response = boardService.getMySubscriptions(
                                 userDetails.getUserId(),
                                 pageable,
                                 includeUnavailable);
@@ -193,7 +182,7 @@ public class UserController {
                         jakarta.servlet.http.HttpServletRequest httpServletRequest) {
                 return ApiResponse.success(
                                 agentLifecycleService.claim(userDetails.getUserId(), request,
-                                                toAgentRequestContext(httpServletRequest)));
+                                                agentRequestContextResolver.resolve(httpServletRequest)));
         }
 
         @GetMapping("/me/agents")
@@ -209,7 +198,7 @@ public class UserController {
                         jakarta.servlet.http.HttpServletRequest httpServletRequest) {
                 return ApiResponse.success(
                                 agentLifecycleService.suspendMyAgent(userDetails.getUserId(), agentId,
-                                                toAgentRequestContext(httpServletRequest)));
+                                                agentRequestContextResolver.resolve(httpServletRequest)));
         }
 
         @PatchMapping("/me/agents/{agentId}/activate")
@@ -219,7 +208,7 @@ public class UserController {
                         jakarta.servlet.http.HttpServletRequest httpServletRequest) {
                 return ApiResponse.success(
                                 agentLifecycleService.activateMyAgent(userDetails.getUserId(), agentId,
-                                                toAgentRequestContext(httpServletRequest)));
+                                                agentRequestContextResolver.resolve(httpServletRequest)));
         }
 
         @DeleteMapping("/me/agents/{agentId}")
@@ -228,15 +217,8 @@ public class UserController {
                         @AuthenticationPrincipal CustomUserDetails userDetails,
                         jakarta.servlet.http.HttpServletRequest httpServletRequest) {
                 agentLifecycleService.deleteMyAgent(userDetails.getUserId(), agentId,
-                                toAgentRequestContext(httpServletRequest));
+                                agentRequestContextResolver.resolve(httpServletRequest));
                 return ApiResponse.success(null);
-        }
-
-        private AgentRequestContext toAgentRequestContext(jakarta.servlet.http.HttpServletRequest request) {
-                if (request == null) {
-                        return AgentRequestContext.empty();
-                }
-                return new AgentRequestContext(ClientUtils.getIp(request), request.getRequestURI());
         }
 
         @GetMapping("/me/posts")

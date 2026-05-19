@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.board.controller;
 
 import com.weedrice.whiteboard.domain.board.dto.AdminBoardResponse;
+import com.weedrice.whiteboard.domain.board.dto.BoardManagerCandidateResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardDetailResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardManagerTransferRequest;
@@ -9,13 +10,12 @@ import com.weedrice.whiteboard.domain.board.dto.BoardSubscriptionOrderRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
-import com.weedrice.whiteboard.domain.board.entity.Board;
-import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
+import com.weedrice.whiteboard.domain.board.service.BoardApplicationService;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.global.common.ApiResponse;
-import com.weedrice.whiteboard.global.exception.BusinessException;
-import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.common.dto.PageResponse;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +32,7 @@ import java.util.List;
 public class BoardController {
 
     private final BoardService boardService;
-    private final BoardAccessPolicy boardAccessPolicy;
+    private final BoardApplicationService boardApplicationService;
 
     @GetMapping
     public ApiResponse<List<BoardListResponse>> getBoards(@AuthenticationPrincipal CustomUserDetails userDetails) {
@@ -53,14 +53,12 @@ public class BoardController {
     @GetMapping("/{boardUrl}")
     public ApiResponse<BoardDetailResponse> getBoardDetails(@PathVariable String boardUrl,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        validateBlockedInquiryBoardPath(boardUrl);
         return ApiResponse.success(boardService.getBoardDetails(boardUrl, userIdOrNull(userDetails)));
     }
 
     @GetMapping("/{boardUrl}/notices")
     public ApiResponse<List<PostSummary>> getNotices(@PathVariable String boardUrl,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        validateBlockedInquiryBoardPath(boardUrl);
         return ApiResponse.success(boardService.getNoticeSummaries(boardUrl, userIdOrNull(userDetails)));
     }
 
@@ -68,8 +66,7 @@ public class BoardController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<BoardDetailResponse> createBoard(@Valid @RequestBody BoardCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Board board = boardService.createBoard(userDetails.getUserId(), request);
-        return ApiResponse.success(boardService.getBoardDetails(board.getBoardUrl(), userIdOrNull(userDetails)));
+        return ApiResponse.success(boardApplicationService.createBoardDetail(userDetails.getUserId(), request));
     }
 
     @PostMapping("/inquiry/ensure")
@@ -84,24 +81,36 @@ public class BoardController {
     public ApiResponse<BoardDetailResponse> updateBoard(@PathVariable String boardUrl,
             @Valid @RequestBody BoardUpdateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        validateBlockedInquiryBoardPath(boardUrl);
-        Board updatedBoard = boardService.updateBoard(boardUrl, request, userIdOrNull(userDetails));
-        return ApiResponse.success(boardService.getBoardDetails(updatedBoard.getBoardUrl(), userIdOrNull(userDetails)));
+        return ApiResponse.success(boardApplicationService.updateBoardDetail(boardUrl, request, userIdOrNull(userDetails)));
     }
 
     @PutMapping("/{boardUrl}/manager")
     public ApiResponse<BoardDetailResponse> transferBoardManager(@PathVariable String boardUrl,
             @Valid @RequestBody BoardManagerTransferRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        validateBlockedInquiryBoardPath(boardUrl);
-        boardService.transferBoardManager(boardUrl, request.getLoginId(), userIdOrNull(userDetails));
-        return ApiResponse.success(boardService.getBoardDetails(boardUrl, userIdOrNull(userDetails)));
+        return ApiResponse.success(boardApplicationService.transferBoardManagerDetail(
+                boardUrl,
+                request.getLoginId(),
+                userIdOrNull(userDetails)));
+    }
+
+    @GetMapping("/{boardUrl}/manager-candidates")
+    public ApiResponse<PageResponse<BoardManagerCandidateResponse>> getBoardManagerCandidates(
+            @PathVariable String boardUrl,
+            @RequestParam(required = false, name = "q") String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.success(new PageResponse<>(boardService.getBoardManagerCandidates(
+                boardUrl,
+                userIdOrNull(userDetails),
+                keyword,
+                PageRequestUtils.of(page, size))));
     }
 
     @DeleteMapping("/{boardUrl}")
     public ApiResponse<Void> deleteBoard(@PathVariable String boardUrl,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        validateBlockedInquiryBoardPath(boardUrl);
         boardService.deleteBoard(boardUrl, userIdOrNull(userDetails));
         return ApiResponse.success(null);
     }
@@ -109,7 +118,6 @@ public class BoardController {
     @GetMapping("/{boardUrl}/categories")
     public ApiResponse<List<CategoryResponse>> getCategories(@PathVariable String boardUrl,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        validateBlockedInquiryBoardPath(boardUrl);
         return ApiResponse.success(boardService.getActiveCategories(boardUrl, userIdOrNull(userDetails)));
     }
 
@@ -117,7 +125,6 @@ public class BoardController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Void> subscribeBoard(@PathVariable String boardUrl,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        validateBlockedInquiryBoardPath(boardUrl);
         boardService.subscribeBoard(userDetails.getUserId(), boardUrl);
         return ApiResponse.success(null);
     }
@@ -125,7 +132,6 @@ public class BoardController {
     @DeleteMapping("/{boardUrl}/subscribe")
     public ApiResponse<Void> unsubscribeBoard(@PathVariable String boardUrl,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        validateBlockedInquiryBoardPath(boardUrl);
         boardService.unsubscribeBoard(userDetails.getUserId(), boardUrl);
         return ApiResponse.success(null);
     }
@@ -135,7 +141,6 @@ public class BoardController {
     public ApiResponse<CategoryResponse> createCategory(@PathVariable String boardUrl,
             @Valid @RequestBody CategoryRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        validateBlockedInquiryBoardPath(boardUrl);
         return ApiResponse.success(boardService.createCategory(boardUrl, request, userIdOrNull(userDetails)));
     }
 
@@ -159,12 +164,6 @@ public class BoardController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         boardService.updateSubscriptionOrder(userDetails.getUserId(), request.boardUrls());
         return ApiResponse.success(null);
-    }
-
-    private void validateBlockedInquiryBoardPath(String boardUrl) {
-        if (boardAccessPolicy.isInquiryBoardUrl(boardUrl)) {
-            throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
-        }
     }
 
     private Long userIdOrNull(CustomUserDetails userDetails) {

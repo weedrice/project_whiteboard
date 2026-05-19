@@ -1,32 +1,17 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { boardApi } from '@/api/board'
+import { computed, onMounted, toRef } from 'vue'
 import { Trash2, Edit2, Check, X, Plus, GripVertical } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
-import logger from '@/utils/logger'
-import { useToastStore } from '@/stores/toast'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
-import { useConfirm } from '@/composables/useConfirm'
-import { resolveDefaultCategory } from '@/utils/board'
+import { useBoardCategoriesManager } from '@/composables/useBoardCategoriesManager'
 
 const { t } = useI18n()
-const toastStore = useToastStore()
-const { confirm } = useConfirm()
 
 const props = defineProps<{
   boardUrl: string
 }>()
-
-interface Category {
-  categoryId: number
-  name: string
-  sortOrder: number
-  isActive: boolean
-  minWriteRole: string
-  isDefault?: boolean
-}
 
 const roles = computed(() => [
   { value: 'USER', label: t('admin.users.role.USER') },
@@ -34,155 +19,25 @@ const roles = computed(() => [
   { value: 'SUPER_ADMIN', label: t('admin.users.role.SUPER_ADMIN') }
 ])
 
-const categories = ref<Category[]>([])
-const isLoading = ref(true)
-const error = ref('')
-const newCategoryName = ref('')
-const newCategoryRole = ref('USER')
-const editingId = ref<number | null>(null)
-const editingName = ref('')
-const editingRole = ref('USER')
-const dragIndex = ref<number | null>(null)
-
-const defaultCategory = computed(() => resolveDefaultCategory(categories.value))
-const draggableCategories = computed(() => categories.value.filter(c => c.categoryId !== defaultCategory.value?.categoryId))
-
-async function fetchCategories() {
-  isLoading.value = true
-  try {
-    const { data } = await boardApi.getCategories(props.boardUrl)
-    if (data.success) {
-      categories.value = data.data.sort((a: Category, b: Category) => a.sortOrder - b.sortOrder)
-    }
-  } catch (err: unknown) {
-    logger.error('Failed to load categories:', err)
-    error.value = t('board.category.loadFailed')
-  } finally {
-    isLoading.value = false
-  }
-}
-
-async function handleAdd() {
-  if (!newCategoryName.value.trim()) return
-
-  try {
-    const { data } = await boardApi.createCategory(props.boardUrl, {
-      name: newCategoryName.value,
-      minWriteRole: newCategoryRole.value,
-      sortOrder: categories.value.length + 1
-    })
-    if (data.success) {
-      categories.value.push(data.data)
-      newCategoryName.value = ''
-      newCategoryRole.value = 'USER'
-    }
-  } catch (err: unknown) {
-    logger.error('Failed to create category:', err)
-    toastStore.addToast(t('board.category.createFailed'), 'error')
-  }
-}
-
-async function handleDelete(categoryId: number) {
-  const isConfirmed = await confirm(t('board.category.deleteConfirm'))
-  if (!isConfirmed) return
-
-  try {
-    const { data } = await boardApi.deleteCategory(props.boardUrl, categoryId)
-    if (data.success) {
-      categories.value = categories.value.filter(c => c.categoryId !== categoryId)
-    }
-  } catch (err: unknown) {
-    logger.error('Failed to delete category:', err)
-    toastStore.addToast(t('board.category.deleteFailed'), 'error')
-  }
-}
-
-function startEdit(category: Category) {
-  editingId.value = category.categoryId
-  editingName.value = category.name
-  editingRole.value = category.minWriteRole || 'USER'
-}
-
-function cancelEdit() {
-  editingId.value = null
-  editingName.value = ''
-  editingRole.value = 'USER'
-}
-
-async function saveEdit(category: Category) {
-  if (!editingName.value.trim()) return
-
-  try {
-    const { data } = await boardApi.updateCategory(props.boardUrl, category.categoryId, {
-      name: editingName.value,
-      sortOrder: category.sortOrder,
-      minWriteRole: editingRole.value,
-      isDefault: category.isDefault,
-      isActive: true
-    })
-    if (data.success) {
-      const index = categories.value.findIndex(c => c.categoryId === category.categoryId)
-      if (index !== -1) {
-        categories.value[index] = data.data
-      }
-      cancelEdit()
-    }
-  } catch (err: unknown) {
-    logger.error('Failed to update category:', err)
-    toastStore.addToast(t('board.category.updateFailed'), 'error')
-  }
-}
-
-function onDragStart(event: DragEvent, index: number) {
-  dragIndex.value = index
-  if (event.dataTransfer) {
-    event.dataTransfer.effectAllowed = 'move'
-  }
-}
-
-async function onDrop(index: number) {
-  const fromIndex = dragIndex.value
-  const toIndex = index
-
-  if (fromIndex === null || fromIndex === toIndex) return
-
-  // Operate on draggableCategories logic
-  const newDraggables = [...draggableCategories.value]
-  const [movedItem] = newDraggables.splice(fromIndex, 1)
-  newDraggables.splice(toIndex, 0, movedItem)
-
-  // Reconstruct full list: General (if exists) + Reordered Draggables
-  const newCategories: Category[] = []
-  if (defaultCategory.value) newCategories.push(defaultCategory.value)
-  newCategories.push(...newDraggables)
-
-  categories.value = newCategories
-  dragIndex.value = null
-
-  // Update sortOrder for all categories
-  try {
-    const updatePromises = categories.value.map((cat, idx) => {
-      // If sortOrder is already correct, skip (optimization)
-      if (cat.sortOrder === idx + 1) return Promise.resolve()
-
-      // Update local state first to reflect sortOrder immediately
-      cat.sortOrder = idx + 1
-
-      return boardApi.updateCategory(props.boardUrl, cat.categoryId, {
-        name: cat.name,
-        sortOrder: idx + 1,
-        minWriteRole: cat.minWriteRole,
-        isDefault: cat.isDefault,
-        isActive: cat.isActive
-      })
-    })
-    await Promise.all(updatePromises)
-  } catch (err: unknown) {
-    logger.error('Failed to reorder categories:', err)
-    toastStore.addToast(t('board.category.orderFailed'), 'error')
-    fetchCategories() // Revert changes
-  }
-}
+const {
+  categories,
+  isLoading,
+  newCategoryName,
+  newCategoryRole,
+  editingId,
+  editingName,
+  editingRole,
+  defaultCategory,
+  draggableCategories,
+  fetchCategories,
+  handleAdd,
+  handleDelete,
+  startEdit,
+  cancelEdit,
+  saveEdit,
+  onDragStart,
+  onDrop
+} = useBoardCategoriesManager(toRef(props, 'boardUrl'))
 
 onMounted(fetchCategories)
 </script>

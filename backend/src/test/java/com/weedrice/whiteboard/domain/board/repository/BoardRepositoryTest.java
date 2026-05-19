@@ -83,6 +83,18 @@ class BoardRepositoryTest {
     }
 
     @Test
+    @DisplayName("후보 이름 목록 중 이미 존재하는 게시판 이름만 조회한다")
+    void findExistingBoardNamesIn_returnsOnlyExistingNames() {
+        persistBoard("Inquiry", "inquiry-board", 10, true, true);
+        entityManager.flush();
+
+        List<String> existingNames = boardRepository.findExistingBoardNamesIn(
+                List.of("Test Board", "Inquiry", "Missing Board"));
+
+        assertThat(existingNames).containsExactlyInAnyOrder("Test Board", "Inquiry");
+    }
+
+    @Test
     @DisplayName("홈 랜딩 게시판 수는 문의 게시판을 제외한 공개 활성 게시판만 집계한다")
     void countPublicLandingVisibleBoards_countsOnlyPublicActiveNonInquiryBoards() {
         persistBoard("Landing Public Board", "landing-public-board", 10, true, true);
@@ -160,15 +172,20 @@ class BoardRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        var boardIds = boardRepository.findTopPublicBoardIdsByPostCount(
+        var topBoardCounts = boardRepository.findTopPublicBoardPostCounts(
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
                 PageRequest.of(0, 10));
+        var boardIds = topBoardCounts.stream()
+                .map(BoardRepository.TopBoardPostCountProjection::getBoardId)
+                .toList();
         var boards = boardRepository.findByBoardIdIn(boardIds);
 
         assertThat(boardIds).containsExactly(
                 visibleTop.getBoardId(),
                 visibleTieFirst.getBoardId(),
                 visibleTieSecond.getBoardId());
+        assertThat(topBoardCounts).extracting(BoardRepository.TopBoardPostCountProjection::getPostCount)
+                .containsExactly(4L, 2L, 2L);
         assertThat(boards).extracting(Board::getBoardName)
                 .containsExactlyInAnyOrder("Visible Top", "Visible Tie First", "Visible Tie Second");
         assertThat(boardIds).doesNotContain(secretOnlyBoard.getBoardId());
@@ -259,8 +276,27 @@ class BoardRepositoryTest {
     }
 
     @Test
+    @DisplayName("Agent board list query filters agent enabled boards and keeps stable order")
+    void findAgentEnabledPublicBoards_filtersAgentUseYnAndKeepsOrder() {
+        Board disabled = persistBoard("Agent Disabled", "agent-disabled", 0, true, true, false);
+        Board sameSortFirst = persistBoard("Agent Enabled First", "agent-enabled-first", 10, true, true, true);
+        Board privateEnabled = persistBoard("Private Agent Enabled", "private-agent-enabled", 20, true, false, true);
+        Board inactiveEnabled = persistBoard("Inactive Agent Enabled", "inactive-agent-enabled", 30, false, true, true);
+        Board sameSortSecond = persistBoard("Agent Enabled Second", "agent-enabled-second", 10, true, true, true);
+        entityManager.flush();
+        entityManager.clear();
+
+        var boards = boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc();
+
+        assertThat(boards).extracting(Board::getBoardId)
+                .containsExactly(sameSortFirst.getBoardId(), sameSortSecond.getBoardId());
+        assertThat(boards).extracting(Board::getBoardId)
+                .doesNotContain(disabled.getBoardId(), privateEnabled.getBoardId(), inactiveEnabled.getBoardId());
+    }
+
+    @Test
     @DisplayName("Readable top boards filter visibility before limit and keep order")
-    void findTopReadableBoardIdsByPostCount_filtersVisibilityBeforeLimit() {
+    void findTopReadableBoardPostCounts_filtersVisibilityBeforeLimit() {
         User reader = persistUser("top-reader");
         Board publicBoard = persistBoard("Readable Public", "readable-public", 20, true, true);
         Board secretOnlyPublicBoard = persistBoard("Readable Secret Only Public", "readable-secret-only-public", 5,
@@ -284,13 +320,18 @@ class BoardRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        var boardIds = boardRepository.findTopReadableBoardIdsByPostCount(
+        var topBoardCounts = boardRepository.findTopReadableBoardPostCounts(
                 reader,
                 false,
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
                 PageRequest.of(0, 10));
+        var boardIds = topBoardCounts.stream()
+                .map(BoardRepository.TopBoardPostCountProjection::getBoardId)
+                .toList();
 
         assertThat(boardIds).containsExactly(adminPrivateBoard.getBoardId(), publicBoard.getBoardId());
+        assertThat(topBoardCounts).extracting(BoardRepository.TopBoardPostCountProjection::getPostCount)
+                .containsExactly(5L, 2L);
         assertThat(boardIds).doesNotContain(secretOnlyPublicBoard.getBoardId());
     }
 
@@ -299,13 +340,24 @@ class BoardRepositoryTest {
     }
 
     private Board persistBoard(String boardName, String boardUrl, int sortOrder, boolean isActive, boolean isPublic,
+            boolean agentUseYn) {
+        return persistBoard(boardName, boardUrl, sortOrder, isActive, isPublic, creator, agentUseYn);
+    }
+
+    private Board persistBoard(String boardName, String boardUrl, int sortOrder, boolean isActive, boolean isPublic,
             User boardCreator) {
+        return persistBoard(boardName, boardUrl, sortOrder, isActive, isPublic, boardCreator, false);
+    }
+
+    private Board persistBoard(String boardName, String boardUrl, int sortOrder, boolean isActive, boolean isPublic,
+            User boardCreator, boolean agentUseYn) {
         Board board = Board.builder()
                 .boardName(boardName)
                 .boardUrl(boardUrl)
                 .creator(boardCreator)
                 .sortOrder(sortOrder)
                 .isPublic(isPublic)
+                .agentUseYn(agentUseYn)
                 .build();
         if (!isActive) {
             board.deactivate();

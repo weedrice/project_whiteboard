@@ -24,11 +24,16 @@ public class UserLifecycleService {
 
     @Transactional
     public void updateAdminManagedStatus(Long userId, String status) {
+        updateAdminManagedStatus(null, userId, status);
+    }
+
+    @Transactional
+    public void updateAdminManagedStatus(Long actorUserId, Long userId, String status) {
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         if ("SUSPENDED".equals(status)) {
-            suspendUser(user);
+            suspendUser(user, actorUserId);
             return;
         }
         if ("ACTIVE".equals(status)) {
@@ -46,13 +51,21 @@ public class UserLifecycleService {
 
     @Transactional
     public void suspendUser(User user) {
+        suspendUser(user, null);
+    }
+
+    private void suspendUser(User user, Long actorUserId) {
         if (user == null) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
         if ("DELETED".equals(user.getStatus())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        userPrivilegeCleanupService.removeOperationalPrivileges(user);
+        if (actorUserId == null) {
+            userPrivilegeCleanupService.removeOperationalPrivileges(user);
+        } else {
+            userPrivilegeCleanupService.removeOperationalPrivileges(user, actorUserId);
+        }
         user.suspend();
         refreshTokenLifecycleService.revokeActiveRefreshTokens(user);
         agentLifecycleService.suspendAllForUser(user);

@@ -5,17 +5,26 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentBoardListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentBoardItem;
+import com.weedrice.whiteboard.domain.agent.dto.AgentHomeResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentLimits;
+import com.weedrice.whiteboard.domain.agent.dto.AgentPostActivityReadResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostLikeResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentPostDeleteResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentRestrictions;
+import com.weedrice.whiteboard.domain.agent.dto.AgentRulesResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentStatusResponse;
 import com.weedrice.whiteboard.domain.agent.service.AgentCommandService;
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
+import com.weedrice.whiteboard.domain.agent.service.AgentPostActivityService;
 import com.weedrice.whiteboard.domain.agent.service.AgentQueryService;
 import com.weedrice.whiteboard.domain.agent.service.AgentRequestContext;
+import com.weedrice.whiteboard.domain.agent.service.AgentRulesService;
+import com.weedrice.whiteboard.domain.agent.web.AgentRequestContextResolver;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -37,6 +46,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.Map;
 import java.util.List;
 import java.util.Set;
 
@@ -45,6 +55,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.same;
 
 @ExtendWith(MockitoExtension.class)
 class AgentControllerTest {
@@ -55,6 +66,12 @@ class AgentControllerTest {
     private AgentQueryService agentQueryService;
     @Mock
     private AgentCommandService agentCommandService;
+    @Mock
+    private AgentPostActivityService agentPostActivityService;
+    @Mock
+    private AgentRulesService agentRulesService;
+    @Mock
+    private AgentRequestContextResolver agentRequestContextResolver;
 
     @Mock
     private HttpServletRequest httpServletRequest;
@@ -63,6 +80,22 @@ class AgentControllerTest {
     private AgentController agentController;
 
     private final AgentPrincipal agentPrincipal = new AgentPrincipal(7L, 1L, "Writer Agent", "ACTIVE");
+
+    @Test
+    @DisplayName("Agent post request rejects HTML title")
+    void postCreateRequest_rejectsHtmlTitle() {
+        Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
+        AgentPostCreateRequest request = new AgentPostCreateRequest();
+        ReflectionTestUtils.setField(request, "boardUrl", "free");
+        ReflectionTestUtils.setField(request, "title", "<b>html-title</b>");
+        ReflectionTestUtils.setField(request, "content", "a".repeat(60));
+
+        Set<ConstraintViolation<AgentPostCreateRequest>> violations = validator.validate(request);
+
+        assertThat(violations).anySatisfy(violation ->
+                assertThat(violation.getConstraintDescriptor().getAnnotation().annotationType())
+                        .isEqualTo(NoHtml.class));
+    }
 
     @Test
     @DisplayName("Agent comment request rejects HTML content")
@@ -118,6 +151,17 @@ class AgentControllerTest {
                         .commentsToday(5)
                         .resetAt(OffsetDateTime.now())
                         .build())
+                .limits(AgentLimits.builder()
+                        .maxPostsPerDay(50)
+                        .maxCommentsPerDay(100)
+                        .postsRemaining(48)
+                        .commentsRemaining(95)
+                        .build())
+                .restrictions(AgentRestrictions.builder()
+                        .canPost(true)
+                        .canComment(true)
+                        .suspended(false)
+                        .build())
                 .build();
 
         given(agentQueryService.getStatus(7L)).willReturn(responseBody);
@@ -127,6 +171,98 @@ class AgentControllerTest {
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getStatus()).isEqualTo("active");
         assertThat(response.getData().getStats().getPostsToday()).isEqualTo(2);
+        assertThat(response.getData().getLimits().getPostsRemaining()).isEqualTo(48);
+        assertThat(response.getData().getRestrictions().isCanPost()).isTrue();
+    }
+
+    @Test
+    void home_success() {
+        AgentHomeResponse responseBody = AgentHomeResponse.builder()
+                .agent(AgentHomeResponse.AgentSummary.builder()
+                        .status("active")
+                        .name("Writer Agent")
+                        .newAgent(false)
+                        .createdAt(OffsetDateTime.now())
+                        .build())
+                .usage(AgentHomeResponse.Usage.builder()
+                        .postsToday(1)
+                        .commentsToday(2)
+                        .maxPostsPerDay(50)
+                        .maxCommentsPerDay(100)
+                        .postsRemaining(49)
+                        .commentsRemaining(98)
+                        .resetAt(OffsetDateTime.now())
+                        .build())
+                .capabilities(Map.of(
+                        "create_post", AgentHomeResponse.Capability.builder().available(true).unavailableReasons(List.of()).build(),
+                        "create_comment", AgentHomeResponse.Capability.builder().available(true).unavailableReasons(List.of()).build()))
+                .hardConstraints(AgentHomeResponse.HardConstraints.builder()
+                        .suspended(false)
+                        .canCreatePost(true)
+                        .canCreateComment(true)
+                        .postsRemaining(49)
+                        .commentsRemaining(98)
+                        .writeEndpointsEnforce(List.of("suspension", "quota", "permission", "moderation", "validation"))
+                        .build())
+                .softGuidance(List.of())
+                .styleGuidance(List.of())
+                .activityOnMyPosts(List.of())
+                .myRecentPosts(List.of())
+                .recommendedBoards(List.of())
+                .recentFeed(List.of())
+                .opportunities(List.of(AgentHomeResponse.Opportunity.builder()
+                        .type("review_feed")
+                        .availableActions(List.of(AgentHomeResponse.AvailableAction.builder()
+                                .tool("get_feed")
+                                .params(Map.of("page", 0, "size", 10))
+                                .build()))
+                        .build()))
+                .warnings(List.of())
+                .build();
+
+        given(agentQueryService.getHome(7L)).willReturn(responseBody);
+
+        ApiResponse<AgentHomeResponse> response = agentController.home(agentPrincipal);
+
+        assertThat(response.isSuccess()).isTrue();
+        assertThat(response.getData().getAgent().getStatus()).isEqualTo("active");
+        assertThat(response.getData().getUsage().getCommentsRemaining()).isEqualTo(98);
+        assertThat(response.getData().getCapabilities().get("create_post").isAvailable()).isTrue();
+        assertThat(response.getData().getOpportunities()).extracting(AgentHomeResponse.Opportunity::getType)
+                .containsExactly("review_feed");
+    }
+
+    @Test
+    @DisplayName("Agent principal이 없으면 UNAUTHORIZED를 던진다")
+    void rules_success() {
+        AgentRulesResponse responseBody = AgentRulesResponse.builder()
+                .title("NoviIs Agent Rules")
+                .version("2026-05-18")
+                .hardConstraints(List.of(AgentRulesResponse.RuleItem.builder()
+                        .code("agent_active")
+                        .description("Write endpoints require an active agent.")
+                        .build()))
+                .softGuidance(List.of(AgentRulesResponse.RuleItem.builder()
+                        .code("quality_over_quantity")
+                        .description("Prefer useful contributions.")
+                        .build()))
+                .styleGuidance(List.of(AgentRulesResponse.RuleItem.builder()
+                        .code("primary_language_ko")
+                        .description("Write naturally in Korean.")
+                        .build()))
+                .build();
+        given(agentRulesService.getRules(7L)).willReturn(responseBody);
+
+        ApiResponse<AgentRulesResponse> response = agentController.rules(agentPrincipal);
+
+        assertThat(response.isSuccess()).isTrue();
+        assertThat(response.getData().getVersion()).isEqualTo("2026-05-18");
+        assertThat(response.getData().getHardConstraints()).extracting(AgentRulesResponse.RuleItem::getCode)
+                .containsExactly("agent_active");
+        assertThat(response.getData().getSoftGuidance()).extracting(AgentRulesResponse.RuleItem::getCode)
+                .containsExactly("quality_over_quantity");
+        assertThat(response.getData().getStyleGuidance()).extracting(AgentRulesResponse.RuleItem::getCode)
+                .containsExactly("primary_language_ko");
     }
 
     @Test
@@ -179,8 +315,10 @@ class AgentControllerTest {
         ReflectionTestUtils.setField(request, "boardUrl", "free");
         ReflectionTestUtils.setField(request, "title", "Agent title");
         ReflectionTestUtils.setField(request, "content", "a".repeat(60));
+        AgentRequestContext context = requestContext();
 
-        given(agentCommandService.createPost(eq(7L), any(AgentPostCreateRequest.class), any(AgentRequestContext.class)))
+        given(agentRequestContextResolver.resolve(httpServletRequest)).willReturn(context);
+        given(agentCommandService.createPost(eq(7L), any(AgentPostCreateRequest.class), same(context)))
                 .willReturn(new AgentPostCreateResponse(101L, "https://noviis.kr/posts/101"));
 
         ApiResponse<AgentPostCreateResponse> response = agentController.createPost(
@@ -192,13 +330,33 @@ class AgentControllerTest {
     }
 
     @Test
+    void deletePost_success() {
+        AgentRequestContext context = requestContext();
+        OffsetDateTime deletedAt = OffsetDateTime.now();
+
+        given(agentRequestContextResolver.resolve(httpServletRequest)).willReturn(context);
+        given(agentCommandService.deletePost(eq(7L), eq(101L), same(context)))
+                .willReturn(new AgentPostDeleteResponse(101L, true, null, deletedAt));
+
+        ApiResponse<AgentPostDeleteResponse> response = agentController.deletePost(
+                agentPrincipal, 101L, httpServletRequest);
+
+        assertThat(response.isSuccess()).isTrue();
+        assertThat(response.getData().getPostId()).isEqualTo(101L);
+        assertThat(response.getData().isDeleted()).isTrue();
+        assertThat(response.getData().getDeletedAt()).isEqualTo(deletedAt);
+    }
+
+    @Test
     @DisplayName("Agent 댓글 작성 API 성공")
     void createComment_success() {
         AgentCommentCreateRequest request = new AgentCommentCreateRequest();
         ReflectionTestUtils.setField(request, "content", "b".repeat(25));
+        AgentRequestContext context = requestContext();
 
+        given(agentRequestContextResolver.resolve(httpServletRequest)).willReturn(context);
         given(agentCommandService.createComment(eq(7L), eq(101L), any(AgentCommentCreateRequest.class),
-                any(AgentRequestContext.class)))
+                same(context)))
                 .willReturn(new AgentCommentCreateResponse(301L));
 
         ApiResponse<AgentCommentCreateResponse> response = agentController.createComment(
@@ -288,9 +446,11 @@ class AgentControllerTest {
     void createReply_success() {
         AgentCommentCreateRequest request = new AgentCommentCreateRequest();
         ReflectionTestUtils.setField(request, "content", "reply content");
+        AgentRequestContext context = requestContext();
 
+        given(agentRequestContextResolver.resolve(httpServletRequest)).willReturn(context);
         given(agentCommandService.createReply(eq(7L), eq(301L), any(AgentCommentCreateRequest.class),
-                any(AgentRequestContext.class)))
+                same(context)))
                 .willReturn(new AgentCommentCreateResponse(501L));
 
         ApiResponse<AgentCommentCreateResponse> response = agentController.createReply(
@@ -303,7 +463,10 @@ class AgentControllerTest {
     @Test
     @DisplayName("Agent 게시글 좋아요 API 성공")
     void likePost_success() {
-        given(agentCommandService.likePost(eq(7L), eq(101L), any(AgentRequestContext.class)))
+        AgentRequestContext context = requestContext();
+
+        given(agentRequestContextResolver.resolve(httpServletRequest)).willReturn(context);
+        given(agentCommandService.likePost(eq(7L), eq(101L), same(context)))
                 .willReturn(new AgentPostLikeResponse(101L, 11, true));
 
         ApiResponse<AgentPostLikeResponse> response = agentController.likePost(agentPrincipal, 101L, httpServletRequest);
@@ -311,5 +474,24 @@ class AgentControllerTest {
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getPostId()).isEqualTo(101L);
         assertThat(response.getData().getLikeCount()).isEqualTo(11);
+    }
+
+    @Test
+    void markPostActivityRead_success() {
+        OffsetDateTime markedAt = OffsetDateTime.now();
+        given(agentPostActivityService.markRead(7L, 101L))
+                .willReturn(new AgentPostActivityReadResponse(101L, true, markedAt, 0L));
+
+        ApiResponse<AgentPostActivityReadResponse> response = agentController.markPostActivityRead(agentPrincipal, 101L);
+
+        assertThat(response.isSuccess()).isTrue();
+        assertThat(response.getData().getPostId()).isEqualTo(101L);
+        assertThat(response.getData().isMarkedRead()).isTrue();
+        assertThat(response.getData().getMarkedReadAt()).isEqualTo(markedAt);
+        assertThat(response.getData().getRemainingUnreadCount()).isZero();
+    }
+
+    private AgentRequestContext requestContext() {
+        return new AgentRequestContext("127.0.0.1", "/api/v1/agents");
     }
 }

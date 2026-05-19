@@ -71,6 +71,35 @@ class SecurityUtilsTest {
     }
 
     @Test
+    @DisplayName("getCurrentUserIdOrNull returns authenticated user id")
+    void getCurrentUserIdOrNull_authenticatedUser_returnsUserId() {
+        setupSecurityContext(1L);
+
+        assertThat(SecurityUtils.getCurrentUserIdOrNull()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("getCurrentUserIdOrNull returns null when authentication is missing")
+    void getCurrentUserIdOrNull_missingAuthentication_returnsNull() {
+        SecurityContextHolder.clearContext();
+
+        assertThat(SecurityUtils.getCurrentUserIdOrNull()).isNull();
+    }
+
+    @Test
+    @DisplayName("getCurrentUserIdOrNull returns null for non user principal")
+    void getCurrentUserIdOrNull_nonUserPrincipal_returnsNull() {
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                "anonymousUser",
+                null);
+        SecurityContext context = mock(SecurityContext.class);
+        when(context.getAuthentication()).thenReturn(authentication);
+        SecurityContextHolder.setContext(context);
+
+        assertThat(SecurityUtils.getCurrentUserIdOrNull()).isNull();
+    }
+
+    @Test
     @DisplayName("isSuperAdmin returns true when role is present")
     void isSuperAdmin_true() {
         CustomUserDetails userDetails = new CustomUserDetails(

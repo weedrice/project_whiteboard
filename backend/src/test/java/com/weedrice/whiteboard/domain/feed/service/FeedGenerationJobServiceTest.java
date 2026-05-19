@@ -58,13 +58,23 @@ class FeedGenerationJobServiceTest {
     }
 
     @Test
+    void existsPostPublishedJob_delegatesToRepository() {
+        when(feedGenerationJobRepository.existsByPostId(100L)).thenReturn(true);
+
+        boolean exists = feedGenerationJobService.existsPostPublishedJob(100L);
+
+        assertThat(exists).isTrue();
+        verify(feedGenerationJobRepository).existsByPostId(100L);
+    }
+
+    @Test
     void enqueuePostPublishedJob_savesPendingJobWhenAbsent() {
         when(feedGenerationJobRepository.existsByPostId(100L)).thenReturn(false);
 
         feedGenerationJobService.enqueuePostPublishedJob(100L, 10L);
 
         ArgumentCaptor<FeedGenerationJob> jobCaptor = ArgumentCaptor.forClass(FeedGenerationJob.class);
-        verify(feedGenerationJobRepository).save(jobCaptor.capture());
+        verify(feedGenerationJobRepository).saveAndFlush(jobCaptor.capture());
         assertThat(jobCaptor.getValue().getPostId()).isEqualTo(100L);
         assertThat(jobCaptor.getValue().getBoardId()).isEqualTo(10L);
         assertThat(jobCaptor.getValue().getStatus()).isEqualTo(FeedGenerationJob.STATUS_PENDING);
@@ -77,7 +87,7 @@ class FeedGenerationJobServiceTest {
 
         feedGenerationJobService.enqueuePostPublishedJob(100L, 10L);
 
-        verify(feedGenerationJobRepository, never()).save(any());
+        verify(feedGenerationJobRepository, never()).saveAndFlush(any());
     }
 
     @Test

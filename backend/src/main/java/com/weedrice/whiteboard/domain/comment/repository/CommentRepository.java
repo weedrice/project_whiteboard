@@ -24,6 +24,12 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                 long getReplyCount();
         }
 
+        interface UnreadCommentCountProjection {
+                Long getPostId();
+
+                long getUnreadCount();
+        }
+
         @org.springframework.data.jpa.repository.Query(value = """
                         SELECT DISTINCT c
                         FROM Comment c
@@ -301,6 +307,77 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
         List<Long> findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(
                         @org.springframework.data.repository.query.Param("postIds") List<Long> postIds,
                         @org.springframework.data.repository.query.Param("agentId") Long agentId);
+
+        @EntityGraph(attributePaths = {"post", "post.board", "agent", "user"})
+        @Query("""
+                        SELECT c
+                        FROM Comment c
+                        JOIN c.post p
+                        WHERE p.agent.agentId = :agentId
+                          AND c.isDeleted = false
+                          AND p.isDeleted = false
+                          AND (c.agent IS NULL OR c.agent.agentId <> :agentId)
+                        ORDER BY c.createdAt DESC, c.commentId DESC
+                        """)
+        Page<Comment> findRecentCommentsOnAgentPosts(
+                        @org.springframework.data.repository.query.Param("agentId") Long agentId,
+                        Pageable pageable);
+
+        @EntityGraph(attributePaths = {"post", "post.board", "agent", "user"})
+        @Query("""
+                        SELECT c
+                        FROM Comment c
+                        JOIN c.post p
+                        LEFT JOIN AgentPostActivityRead read
+                          ON read.agent.agentId = :agentId
+                         AND read.post.postId = p.postId
+                        WHERE p.agent.agentId = :agentId
+                          AND c.isDeleted = false
+                          AND p.isDeleted = false
+                          AND (c.agent IS NULL OR c.agent.agentId <> :agentId)
+                          AND c.createdAt > COALESCE(read.lastReadAt, p.createdAt)
+                        ORDER BY c.createdAt DESC, c.commentId DESC
+                        """)
+        Page<Comment> findRecentUnreadCommentsOnAgentPosts(
+                        @org.springframework.data.repository.query.Param("agentId") Long agentId,
+                        Pageable pageable);
+
+        @Query("""
+                        SELECT COUNT(c)
+                        FROM Comment c
+                        JOIN c.post p
+                        LEFT JOIN AgentPostActivityRead read
+                          ON read.agent.agentId = :agentId
+                         AND read.post.postId = p.postId
+                        WHERE p.postId = :postId
+                          AND p.agent.agentId = :agentId
+                          AND c.isDeleted = false
+                          AND p.isDeleted = false
+                          AND (c.agent IS NULL OR c.agent.agentId <> :agentId)
+                          AND c.createdAt > COALESCE(read.lastReadAt, p.createdAt)
+                        """)
+        long countUnreadCommentsOnAgentPost(
+                        @org.springframework.data.repository.query.Param("agentId") Long agentId,
+                        @org.springframework.data.repository.query.Param("postId") Long postId);
+
+        @Query("""
+                        SELECT p.postId AS postId, COUNT(c) AS unreadCount
+                        FROM Comment c
+                        JOIN c.post p
+                        LEFT JOIN AgentPostActivityRead read
+                          ON read.agent.agentId = :agentId
+                         AND read.post.postId = p.postId
+                        WHERE p.postId IN :postIds
+                          AND p.agent.agentId = :agentId
+                          AND c.isDeleted = false
+                          AND p.isDeleted = false
+                          AND (c.agent IS NULL OR c.agent.agentId <> :agentId)
+                          AND c.createdAt > COALESCE(read.lastReadAt, p.createdAt)
+                        GROUP BY p.postId
+                        """)
+        List<UnreadCommentCountProjection> countUnreadCommentsOnAgentPosts(
+                        @org.springframework.data.repository.query.Param("agentId") Long agentId,
+                        @org.springframework.data.repository.query.Param("postIds") Collection<Long> postIds);
 
         @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"agent", "parent", "post", "post.board"})
         Page<Comment> findByUserOrderByCreatedAtDescCommentIdDesc(User user, Pageable pageable);

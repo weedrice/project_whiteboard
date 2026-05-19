@@ -10,7 +10,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.data.domain.Page;
@@ -21,6 +21,9 @@ import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -35,10 +38,6 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import static org.mockito.Mockito.doAnswer;
 
 @WebMvcTest(controllers = SanctionController.class,
@@ -52,6 +51,7 @@ class SanctionControllerTest {
 
     @org.springframework.boot.test.context.TestConfiguration
     @org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
+    @org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
     static class TestSecurityConfig {
         @org.springframework.context.annotation.Bean
         public org.springframework.security.web.SecurityFilterChain filterChain(org.springframework.security.config.annotation.web.builders.HttpSecurity http) throws Exception {
@@ -68,25 +68,25 @@ class SanctionControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockBean
+    @MockitoBean
     private SanctionService sanctionService;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor ipBlockInterceptor;
 
-    @MockBean
+    @MockitoBean
     private org.springframework.data.jpa.mapping.JpaMetamodelMappingContext jpaMetamodelMappingContext;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.RefererCheckInterceptor refererCheckInterceptor;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor rateLimitInterceptor;
 
     private CustomUserDetails customUserDetails;
@@ -162,7 +162,8 @@ class SanctionControllerTest {
         // when & then
         mockMvc.perform(get("/api/v1/admin/sanctions")
                         .param("page", "0")
-                        .param("size", "20"))
+                        .param("size", "20")
+                        .with(user(customUserDetails)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.content").isArray())
@@ -179,7 +180,8 @@ class SanctionControllerTest {
 
         mockMvc.perform(get("/api/v1/admin/sanctions")
                         .param("page", "0")
-                        .param("size", "1000"))
+                        .param("size", "1000")
+                        .with(user(customUserDetails)))
                 .andExpect(status().isOk());
 
         org.mockito.ArgumentCaptor<Pageable> captor = org.mockito.ArgumentCaptor.forClass(Pageable.class);
@@ -194,8 +196,22 @@ class SanctionControllerTest {
 
         mockMvc.perform(get("/api/v1/admin/sanctions")
                         .param("page", "-1")
-                        .param("size", "20"))
+                        .param("size", "20")
+                        .with(user(customUserDetails)))
                 .andExpect(status().isBadRequest());
+
+        verify(sanctionService, never()).getSanctions(any(), any());
+    }
+
+    @Test
+    @DisplayName("get sanctions rejects non-super-admin users")
+    void getSanctions_rejectsNonSuperAdmin() throws Exception {
+        CustomUserDetails adminUserDetails = new CustomUserDetails(2L, "admin@example.com", "password",
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN")));
+
+        mockMvc.perform(get("/api/v1/admin/sanctions")
+                        .with(user(adminUserDetails)))
+                .andExpect(status().isForbidden());
 
         verify(sanctionService, never()).getSanctions(any(), any());
     }

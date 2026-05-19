@@ -18,7 +18,6 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 
 class EmoticonCommandService {
 
@@ -71,15 +70,19 @@ class EmoticonCommandService {
         }
 
         if (request.getImageFileIds() != null && !request.getImageFileIds().isEmpty()) {
-            AtomicInteger sortOrder = new AtomicInteger(0);
-            request.getImageFileIds().forEach(fileId -> {
+            List<String> imageUrls = attachmentHelper.attachFiles(
+                    request.getImageFileIds(),
+                    userId,
+                    master.getEmoticonId(),
+                    emoticonImageType);
+            for (int sortOrder = 0; sortOrder < imageUrls.size(); sortOrder++) {
                 EmoticonImage image = EmoticonImage.builder()
                         .emoticonMaster(master)
-                        .imageUrl(attachmentHelper.attachFile(fileId, userId, master.getEmoticonId(), emoticonImageType))
-                        .sortOrder(sortOrder.getAndIncrement())
+                        .imageUrl(imageUrls.get(sortOrder))
+                        .sortOrder(sortOrder)
                         .build();
                 master.addImage(image);
-            });
+            }
         }
 
         return EmoticonMasterDto.from(master);

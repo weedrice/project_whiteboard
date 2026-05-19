@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogSearchRequest;
+import com.weedrice.whiteboard.global.log.dto.ErrorLogResponse;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogStatsResponse;
 import com.weedrice.whiteboard.global.log.entity.ErrorLog;
 import com.weedrice.whiteboard.global.log.repository.ErrorLogRepository;
@@ -79,7 +80,7 @@ public class ErrorLogService {
      * 에러 로그 검색 조회 (관리자용)
      */
     @Transactional(readOnly = true)
-    public Page<ErrorLog> getErrorLogs(ErrorLogSearchRequest condition, Pageable pageable) {
+    public Page<ErrorLogResponse.ErrorLogSummary> getErrorLogs(ErrorLogSearchRequest condition, Pageable pageable) {
         SecurityUtils.validateSuperAdminPermission();
         return errorLogRepository.searchErrorLogs(condition, pageable);
     }
@@ -92,6 +93,11 @@ public class ErrorLogService {
         SecurityUtils.validateSuperAdminPermission();
         return errorLogRepository.findById(errorLogId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+    }
+
+    @Transactional(readOnly = true)
+    public ErrorLogResponse.ErrorLogDetail getErrorLogDetail(Long errorLogId) {
+        return ErrorLogResponse.ErrorLogDetail.from(getErrorLog(errorLogId));
     }
 
     /**

@@ -1,127 +1,45 @@
 package com.weedrice.whiteboard.domain.auth.service;
 
-import com.weedrice.whiteboard.domain.auth.dto.LoginRequest;
-import com.weedrice.whiteboard.domain.auth.dto.LoginResponse;
-import com.weedrice.whiteboard.domain.auth.dto.LoginResult;
 import com.weedrice.whiteboard.domain.auth.dto.TokenResponse;
 import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
-import com.weedrice.whiteboard.domain.auth.service.LoginAccountEligibilityService.LoginAccountEligibility;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.domain.user.service.CurrentUserSummaryAssembler;
-import com.weedrice.whiteboard.global.common.util.ClientUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.JwtTokenProvider;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.authentication.DisabledException;
-import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 @Transactional(readOnly = true)
 public class SessionTokenService {
 
-    private static final String FAILURE_REASON_AUTHENTICATION_FAILED = "AUTHENTICATION_FAILED";
-
     private final UserRepository userRepository;
-    private final CurrentUserSummaryAssembler currentUserSummaryAssembler;
     private final JwtTokenProvider jwtTokenProvider;
-    private final AuthenticationManagerBuilder authenticationManagerBuilder;
     private final RefreshTokenRepository refreshTokenRepository;
     private final SanctionService sanctionService;
     private final TokenHashService tokenHashService;
-    private final LoginHistoryAuditService loginHistoryAuditService;
-    private final LoginAccountEligibilityService loginAccountEligibilityService;
-
-    @Transactional
-    public LoginResult login(LoginRequest request, HttpServletRequest httpServletRequest) {
-        String ipAddress = resolveIpAddress(httpServletRequest);
-        String userAgent = resolveUserAgent(httpServletRequest);
-        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
-                request.getLoginId(), request.getPassword());
-
-        Authentication authentication;
-        try {
-            authentication = authenticationManagerBuilder.getObject()
-                    .authenticate(authenticationToken);
-        } catch (AuthenticationException exception) {
-            recordLoginFailure(request, ipAddress, userAgent, resolveAuthenticationFailureReason(exception));
-            throw exception;
-        }
-        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-
-        Long userId = userDetails.getUserId();
-        if (userId == null) {
-            recordLoginFailure(request, ipAddress, userAgent,
-                    LoginAccountEligibilityService.FAILURE_REASON_USER_NOT_FOUND);
-            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
-        }
-        User user = userRepository.findById(userId)
-                .orElse(null);
-        if (user == null) {
-            recordLoginFailure(request, ipAddress, userAgent,
-                    LoginAccountEligibilityService.FAILURE_REASON_USER_NOT_FOUND);
-            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
-        }
-
-        LoginAccountEligibility eligibility = loginAccountEligibilityService.evaluate(user);
-        if (!eligibility.isLoginAllowed()) {
-            recordLoginFailure(request, ipAddress, userAgent, eligibility.failureReason());
-            throw new BusinessException(ErrorCode.LOGIN_FAILED);
-        }
-
-        TokenResponse issuedTokens = issueTokens(authentication, user, ipAddress, userAgent);
-
-        recordLoginSuccess(request, user, ipAddress, userAgent);
-        user.updateLastLogin();
-        CurrentUserSummaryAssembler.CurrentUserSummary userSummary = currentUserSummaryAssembler.assemble(user);
-
-        return LoginResult.builder()
-                .accessToken(issuedTokens.getAccessToken())
-                .refreshToken(issuedTokens.getRefreshToken())
-                .expiresIn(issuedTokens.getExpiresIn())
-                .user(LoginResponse.UserInfo.builder()
-                        .userId(userSummary.userId())
-                        .loginId(userSummary.loginId())
-                        .displayName(userSummary.displayName())
-                        .profileImageUrl(userSummary.profileImageUrl())
-                        .isEmailVerified(Boolean.TRUE.equals(userSummary.isEmailVerified()))
-                        .role(userSummary.role())
-                        .theme(userSummary.theme())
-                        .points(userSummary.points())
-                        .build())
-                .build();
-    }
-
-    @Transactional
-    public TokenResponse issueTokens(Authentication authentication, User user, HttpServletRequest httpServletRequest) {
-        String ipAddress = ClientUtils.getIp(httpServletRequest);
-        String userAgent = httpServletRequest != null ? httpServletRequest.getHeader("User-Agent") : null;
-        return issueTokens(authentication, user, ipAddress, userAgent);
-    }
+    private final TransactionTemplate transactionTemplate;
 
     @Transactional
     public void logout(String token) {
@@ -137,12 +55,20 @@ public class SessionTokenService {
                 });
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public TokenResponse refresh(String oldRefreshToken) {
         if (!jwtTokenProvider.validateToken(oldRefreshToken)) {
             throw new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 
+        RefreshTokenRefreshOutcome outcome = transactionTemplate.execute(ignored -> refreshInTransaction(oldRefreshToken));
+        if (outcome.errorCode() != null) {
+            throw new BusinessException(outcome.errorCode());
+        }
+        return outcome.tokenResponse();
+    }
+
+    private RefreshTokenRefreshOutcome refreshInTransaction(String oldRefreshToken) {
         String oldRefreshTokenHash = tokenHashService.hashSha256(oldRefreshToken);
         RefreshTokenRenewalContext renewalContext = loadRefreshTokenRenewalContext(oldRefreshTokenHash);
         RefreshToken refreshToken = renewalContext.refreshToken();
@@ -156,22 +82,31 @@ public class SessionTokenService {
         refreshTokenRepository.save(refreshToken);
 
         if (!"ACTIVE".equals(user.getStatus()) || sanctionService.isUserBanned(user)) {
-            throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
+            return RefreshTokenRefreshOutcome.failure(ErrorCode.USER_NOT_ACTIVE);
         }
 
         user.updateLastLogin();
 
         Authentication authentication = createRefreshAuthentication(user);
-        return issueTokens(authentication, user, refreshToken.getIpAddress(), refreshToken.getDeviceInfo());
+        return RefreshTokenRefreshOutcome.success(
+                issueTokens(
+                        authentication,
+                        user,
+                        new LoginClientMetadata(refreshToken.getIpAddress(), refreshToken.getDeviceInfo())));
     }
 
     private RefreshTokenRenewalContext loadRefreshTokenRenewalContext(String refreshTokenHash) {
-        Long userId = refreshTokenRepository.findUserIdByTokenHash(refreshTokenHash)
+        RefreshTokenRepository.RefreshTokenRenewalCandidate candidate =
+                refreshTokenRepository.findRenewalCandidateByTokenHash(refreshTokenHash)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
-        User user = userRepository.findByIdForUpdate(userId)
+        User user = userRepository.findByIdForUpdate(candidate.getUserId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        RefreshToken refreshToken = refreshTokenRepository.findByTokenHash(refreshTokenHash)
+        RefreshToken refreshToken = refreshTokenRepository.findByTokenIdForUpdate(candidate.getTokenId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
+        if (!Objects.equals(refreshToken.getUser().getUserId(), user.getUserId())
+                || !Objects.equals(refreshToken.getTokenHash(), refreshTokenHash)) {
+            throw new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN);
+        }
         return new RefreshTokenRenewalContext(refreshToken, user);
     }
 
@@ -206,11 +141,13 @@ public class SessionTokenService {
         refreshTokenRepository.save(issuedRefreshToken);
     }
 
-    private TokenResponse issueTokens(Authentication authentication, User user, String ipAddress, String userAgent) {
+    @Transactional
+    public TokenResponse issueTokens(Authentication authentication, User user, LoginClientMetadata metadata) {
+        LoginClientMetadata resolvedMetadata = metadata != null ? metadata : LoginClientMetadata.empty();
         String accessToken = jwtTokenProvider.createAccessToken(authentication);
         String refreshToken = jwtTokenProvider.createRefreshToken(authentication);
 
-        persistRefreshToken(user, refreshToken, ipAddress, userAgent);
+        persistRefreshToken(user, refreshToken, resolvedMetadata.ipAddress(), resolvedMetadata.userAgent());
 
         return TokenResponse.builder()
                 .accessToken(accessToken)
@@ -219,44 +156,16 @@ public class SessionTokenService {
                 .build();
     }
 
-    private void recordLoginSuccess(LoginRequest request, User user, String ipAddress, String userAgent) {
-        try {
-            loginHistoryAuditService.recordSuccess(user.getUserId(), request.getLoginId(), ipAddress, userAgent);
-        } catch (RuntimeException exception) {
-            log.warn("Failed to record login success history", exception);
-        }
-    }
-
-    private void recordLoginFailure(
-            LoginRequest request,
-            String ipAddress,
-            String userAgent,
-            String failureReason) {
-        try {
-            loginHistoryAuditService.recordFailure(request.getLoginId(), ipAddress, userAgent, failureReason);
-        } catch (RuntimeException exception) {
-            log.warn("Failed to record login failure history", exception);
-        }
-    }
-
-    private String resolveAuthenticationFailureReason(AuthenticationException exception) {
-        if (exception instanceof DisabledException) {
-            return LoginAccountEligibilityService.FAILURE_REASON_USER_NOT_ACTIVE;
-        }
-        if (exception instanceof LockedException) {
-            return LoginAccountEligibilityService.FAILURE_REASON_USER_BANNED;
-        }
-        return FAILURE_REASON_AUTHENTICATION_FAILED;
-    }
-
-    private String resolveIpAddress(HttpServletRequest httpServletRequest) {
-        return httpServletRequest != null ? ClientUtils.getIp(httpServletRequest) : null;
-    }
-
-    private String resolveUserAgent(HttpServletRequest httpServletRequest) {
-        return httpServletRequest != null ? httpServletRequest.getHeader("User-Agent") : null;
-    }
-
     private record RefreshTokenRenewalContext(RefreshToken refreshToken, User user) {
+    }
+
+    private record RefreshTokenRefreshOutcome(TokenResponse tokenResponse, ErrorCode errorCode) {
+        private static RefreshTokenRefreshOutcome success(TokenResponse tokenResponse) {
+            return new RefreshTokenRefreshOutcome(tokenResponse, null);
+        }
+
+        private static RefreshTokenRefreshOutcome failure(ErrorCode errorCode) {
+            return new RefreshTokenRefreshOutcome(null, errorCode);
+        }
     }
 }

@@ -3,16 +3,20 @@ package com.weedrice.whiteboard.domain.board.service;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.dto.AdminBoardResponse;
+import com.weedrice.whiteboard.domain.board.dto.BoardManagerCandidateResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardDetailResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
+import com.weedrice.whiteboard.domain.board.dto.SubscriptionBoardResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.board.repository.BoardRepository.TopBoardPostCountProjection;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -24,7 +28,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -72,26 +78,43 @@ class BoardQueryService {
     }
 
     List<BoardListResponse> getTopBoardsByUserId(Long userId) {
-        User currentUser = getCurrentUserByIdOrNull(userId);
-        return getTopBoardsForUser(currentUser);
+        return getTopBoardsByUserId(userId, TOP_BOARD_LIMIT);
     }
 
-    private List<BoardListResponse> getTopBoardsForUser(User currentUser) {
+    List<BoardListResponse> getTopBoardsByUserId(Long userId, int limit) {
+        User currentUser = getCurrentUserByIdOrNull(userId);
+        return getTopBoardsForUser(currentUser, limit);
+    }
+
+    private List<BoardListResponse> getTopBoardsForUser(User currentUser, int limit) {
         if (currentUser == null || !boardAccessPolicy.hasElevatedBoardVisibility(currentUser)) {
-            List<Long> boardIds = boardRepository.findTopPublicBoardIdsByPostCount(
+            List<TopBoardPostCountProjection> topBoardCounts = boardRepository.findTopPublicBoardPostCounts(
                     boardAccessPolicy.getInquiryBoardUrl(),
-                    PageRequest.of(0, TOP_BOARD_LIMIT));
-            List<Board> boards = findBoardsByIdsInOrder(boardIds);
-            return boardResponseAssembler.assembleListAll(boards, currentUser);
+                    PageRequest.of(0, limit));
+            return assembleTopBoards(topBoardCounts, currentUser);
         }
 
-        List<Long> boardIds = boardRepository.findTopReadableBoardIdsByPostCount(
+        List<TopBoardPostCountProjection> topBoardCounts = boardRepository.findTopReadableBoardPostCounts(
                 currentUser,
                 currentUser.isUsableSuperAdmin(),
                 boardAccessPolicy.getInquiryBoardUrl(),
-                PageRequest.of(0, TOP_BOARD_LIMIT));
+                PageRequest.of(0, limit));
+        return assembleTopBoards(topBoardCounts, currentUser);
+    }
+
+    private List<BoardListResponse> assembleTopBoards(List<TopBoardPostCountProjection> topBoardCounts,
+                                                      User currentUser) {
+        List<Long> boardIds = topBoardCounts.stream()
+                .map(TopBoardPostCountProjection::getBoardId)
+                .toList();
         List<Board> boards = findBoardsByIdsInOrder(boardIds);
-        return boardResponseAssembler.assembleListAll(boards, currentUser);
+        Map<Long, Long> postCounts = topBoardCounts.stream()
+                .collect(Collectors.toMap(
+                        TopBoardPostCountProjection::getBoardId,
+                        TopBoardPostCountProjection::getPostCount,
+                        (existing, ignored) -> existing,
+                        LinkedHashMap::new));
+        return boardResponseAssembler.assembleListAll(boards, currentUser, postCounts);
     }
 
     List<AdminBoardResponse> getAllBoards(Long userId) {
@@ -133,17 +156,14 @@ class BoardQueryService {
         User currentUser = getCurrentUserByIdOrNull(currentUserId);
         boardAccessPolicy.validateReadable(board, currentUser);
         boolean includeSecret = boardAccessPolicy.canViewSecretPosts(board, currentUser);
-        return postService.getNotices(board.getBoardId(), currentUserId, includeSecret)
-                .stream()
-                .map(PostSummary::from)
-                .toList();
+        return postService.getNoticeSummaries(board.getBoardId(), currentUserId, includeSecret);
     }
 
-    Page<BoardListResponse> getMySubscriptions(Long userId, Pageable pageable) {
+    Page<SubscriptionBoardResponse> getMySubscriptions(Long userId, Pageable pageable) {
         return getMySubscriptions(userId, pageable, false);
     }
 
-    Page<BoardListResponse> getMySubscriptions(Long userId, Pageable pageable, boolean includeUnavailable) {
+    Page<SubscriptionBoardResponse> getMySubscriptions(Long userId, Pageable pageable, boolean includeUnavailable) {
         if (userId == null) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
@@ -162,7 +182,7 @@ class BoardQueryService {
             Map<Long, BoardListResponse> readableResponsesByBoardId = boardResponseAssembler.assembleListAll(readableBoards, user)
                     .stream()
                     .collect(Collectors.toMap(BoardListResponse::getBoardId, Function.identity()));
-            List<BoardListResponse> responses = subscriptions.getContent().stream()
+            List<SubscriptionBoardResponse> responses = subscriptions.getContent().stream()
                     .map(subscription -> toSubscriptionResponse(subscription, readableResponsesByBoardId))
                     .toList();
             return new PageImpl<>(responses, fixedOrderPageable, subscriptions.getTotalElements());
@@ -174,8 +194,43 @@ class BoardQueryService {
         List<Board> visibleBoards = visibleSubscriptions.getContent().stream()
                 .map(BoardSubscription::getBoard)
                 .toList();
-        List<BoardListResponse> responses = boardResponseAssembler.assembleListAll(visibleBoards, user);
+        List<SubscriptionBoardResponse> responses = boardResponseAssembler.assembleListAll(visibleBoards, user)
+                .stream()
+                .map(SubscriptionBoardResponse::accessible)
+                .toList();
         return new PageImpl<>(responses, fixedOrderPageable, visibleSubscriptions.getTotalElements());
+    }
+
+    Page<BoardManagerCandidateResponse> getBoardManagerCandidates(String boardUrl, Long currentUserId,
+            String keyword, Pageable pageable) {
+        Board board = boardRepository.findByBoardUrl(boardUrl)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        User currentUser = getCurrentUserByIdOrNull(currentUserId);
+        boardAccessPolicy.validateBoardAdmin(board, currentUser);
+
+        String keywordPattern = toKeywordPattern(keyword);
+        Page<BoardSubscription> candidates = keywordPattern == null
+                ? boardSubscriptionRepository.findManagerCandidatesByBoard(board, pageable)
+                : boardSubscriptionRepository.findManagerCandidatesByBoardAndKeyword(board, keywordPattern, pageable);
+        Long currentManagerUserId = adminRepository
+                .findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(board, Role.BOARD_ADMIN, true)
+                .map(Admin::getUser)
+                .map(User::getUserId)
+                .orElse(null);
+
+        return candidates.map(subscription -> {
+            User user = subscription.getUser();
+            return BoardManagerCandidateResponse.from(
+                    user,
+                    currentManagerUserId != null && currentManagerUserId.equals(user.getUserId()));
+        });
+    }
+
+    private String toKeywordPattern(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return null;
+        }
+        return "%" + keyword.trim().toLowerCase(Locale.ROOT) + "%";
     }
 
     private Pageable fixedSubscriptionOrderPageable(Pageable pageable) {
@@ -209,14 +264,14 @@ class BoardQueryService {
         return Boolean.TRUE.equals(board.getIsActive()) && Boolean.TRUE.equals(board.getIsPublic());
     }
 
-    private BoardListResponse toSubscriptionResponse(BoardSubscription subscription,
+    private SubscriptionBoardResponse toSubscriptionResponse(BoardSubscription subscription,
             Map<Long, BoardListResponse> readableResponsesByBoardId) {
         Board board = subscription.getBoard();
         BoardListResponse readableResponse = readableResponsesByBoardId.get(board.getBoardId());
         if (readableResponse != null) {
-            return readableResponse;
+            return SubscriptionBoardResponse.accessible(readableResponse);
         }
-        return BoardListResponse.unavailableSubscription(board);
+        return SubscriptionBoardResponse.inaccessible(board);
     }
 
     private User getCurrentUserByIdOrNull(Long userId) {

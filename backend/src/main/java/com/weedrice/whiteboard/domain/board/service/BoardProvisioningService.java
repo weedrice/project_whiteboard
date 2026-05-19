@@ -6,16 +6,12 @@ import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.entity.Board;
-import com.weedrice.whiteboard.domain.board.entity.BoardAiInfo;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
-import com.weedrice.whiteboard.domain.board.repository.BoardAiInfoRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
-import com.weedrice.whiteboard.domain.file.service.FileService;
-import com.weedrice.whiteboard.domain.point.service.PointService;
+import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.hibernate.exception.ConstraintViolationException;
@@ -23,57 +19,57 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 @Service
 class BoardProvisioningService {
 
     private static final String DEFAULT_INQUIRY_BOARD_NAME = "문의";
     private static final String DEFAULT_INQUIRY_BOARD_DESCRIPTION = "운영진에게 문의를 남기는 비공개 게시판입니다.";
-    private static final String DEFAULT_CATEGORY_NAME = "일반";
     private static final String BOARD_NAME_CONSTRAINT = "uk_boards_board_name";
     private static final String BOARD_URL_CONSTRAINT = "uk_boards_board_url";
     private static final String LEGACY_BOARD_NAME_CONSTRAINT = "boards_board_name_key";
     private static final String LEGACY_BOARD_URL_CONSTRAINT = "boards_board_url_key";
     private static final String BOARD_NAME_COLUMN = "board_name";
     private static final String BOARD_URL_COLUMN = "board_url";
-    private static final String BOARD_CATEGORY_ACTIVE_CONSTRAINT = "uq_board_categories_active_name";
-    private static final String ORM_BOARD_CATEGORY_ACTIVE_CONSTRAINT = "uk_board_categories_board_name_active";
-    private static final String LEGACY_BOARD_CATEGORY_ACTIVE_CONSTRAINT = "board_categories_board_id_name_is_active_key";
-    private static final String POINT_BOARD_CREATE_COST_CONFIG_KEY = "POINT_BOARD_CREATE_COST";
-    private static final int DEFAULT_BOARD_CREATE_COST = 500;
 
     private final BoardRepository boardRepository;
-    private final BoardAiInfoRepository boardAiInfoRepository;
     private final BoardCategoryRepository boardCategoryRepository;
+    private final BoardSubscriptionRepository boardSubscriptionRepository;
     private final UserRepository userRepository;
-    private final PointService pointService;
-    private final GlobalConfigService globalConfigService;
-    private final FileService fileService;
     private final AdminEligibleUserService adminEligibleUserService;
     private final BoardManagerAssignmentService boardManagerAssignmentService;
+    private final BoardIconAttachmentService boardIconAttachmentService;
+    private final BoardCreationBillingService boardCreationBillingService;
+    private final BoardCreationInitializer boardCreationInitializer;
+    private final BoardAiInfoService boardAiInfoService;
     private final BoardAccessPolicy boardAccessPolicy;
 
     BoardProvisioningService(BoardRepository boardRepository,
-                             BoardAiInfoRepository boardAiInfoRepository,
                              BoardCategoryRepository boardCategoryRepository,
+                             BoardSubscriptionRepository boardSubscriptionRepository,
                              UserRepository userRepository,
-                             PointService pointService,
-                             GlobalConfigService globalConfigService,
-                             FileService fileService,
                              AdminEligibleUserService adminEligibleUserService,
                              BoardManagerAssignmentService boardManagerAssignmentService,
+                             BoardIconAttachmentService boardIconAttachmentService,
+                             BoardCreationBillingService boardCreationBillingService,
+                             BoardCreationInitializer boardCreationInitializer,
+                             BoardAiInfoService boardAiInfoService,
                              BoardAccessPolicy boardAccessPolicy) {
         this.boardRepository = boardRepository;
-        this.boardAiInfoRepository = boardAiInfoRepository;
         this.boardCategoryRepository = boardCategoryRepository;
+        this.boardSubscriptionRepository = boardSubscriptionRepository;
         this.userRepository = userRepository;
-        this.pointService = pointService;
-        this.globalConfigService = globalConfigService;
-        this.fileService = fileService;
         this.adminEligibleUserService = adminEligibleUserService;
         this.boardManagerAssignmentService = boardManagerAssignmentService;
+        this.boardIconAttachmentService = boardIconAttachmentService;
+        this.boardCreationBillingService = boardCreationBillingService;
+        this.boardCreationInitializer = boardCreationInitializer;
+        this.boardAiInfoService = boardAiInfoService;
         this.boardAccessPolicy = boardAccessPolicy;
     }
 
@@ -123,27 +119,9 @@ class BoardProvisioningService {
         } catch (DataIntegrityViolationException ex) {
             throw resolveBoardConflict(ex);
         }
-        syncBoardIcon(creatorId, savedBoard, null);
-        int boardCreateCost = resolveBoardCreateCost();
-        if (boardCreateCost > 0) {
-            pointService.spendPoint(
-                    creatorId,
-                    boardCreateCost,
-                    "게시판 생성 (" + savedBoard.getBoardName() + ")",
-                    savedBoard.getBoardId(),
-                    "BOARD_CREATE");
-        }
-        upsertBoardAiInfoIfEnabled(savedBoard, request.getGuidePrompt(), true);
-
-        BoardCategory defaultCategory = BoardCategory.builder()
-                .board(savedBoard)
-                .name(DEFAULT_CATEGORY_NAME)
-                .sortOrder(1)
-                .isDefault(true)
-                .build();
-        boardCategoryRepository.save(defaultCategory);
-
-        boardManagerAssignmentService.assignBoardManager(savedBoard, creator);
+        boardIconAttachmentService.syncBoardIcon(creatorId, savedBoard, null);
+        boardCreationBillingService.spendCreationCost(creatorId, savedBoard);
+        boardCreationInitializer.initialize(savedBoard, creator, request.getGuidePrompt());
 
         return savedBoard;
     }
@@ -197,8 +175,8 @@ class BoardProvisioningService {
         } catch (DataIntegrityViolationException ex) {
             throw resolveBoardConflict(ex);
         }
-        syncBoardIcon(currentUser.getUserId(), board, previousIconUrl);
-        upsertBoardAiInfoIfEnabled(board, request.getGuidePrompt(), false);
+        boardIconAttachmentService.syncBoardIcon(currentUser.getUserId(), board, previousIconUrl);
+        boardAiInfoService.upsertBoardAiInfoIfEnabled(board, request.getGuidePrompt(), false);
         return board;
     }
 
@@ -217,6 +195,9 @@ class BoardProvisioningService {
         boardAccessPolicy.validateBoardAdmin(board, currentUser);
 
         User nextManager = adminEligibleUserService.getActiveUserByLoginId(loginId);
+        if (!boardSubscriptionRepository.existsByUserAndBoard(nextManager, board)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
         boardManagerAssignmentService.assignBoardManager(board, nextManager);
     }
 
@@ -315,7 +296,8 @@ class BoardProvisioningService {
             canonicalCategory.update(canonicalCategory.getName(), 1, canonicalCategory.getMinWriteRole());
         }
         activeCategories.stream()
-                .filter(category -> category.isDefaultCategory() || DEFAULT_CATEGORY_NAME.equals(category.getName()))
+                .filter(category -> category.isDefaultCategory()
+                        || BoardDefaultCategoryNames.DEFAULT_CATEGORY_NAME.equals(category.getName()))
                 .filter(category -> !Objects.equals(category.getCategoryId(), canonicalCategory.getCategoryId()))
                 .forEach(BoardCategory::deactivate);
     }
@@ -326,7 +308,7 @@ class BoardProvisioningService {
                 .min(Comparator.comparing(BoardCategory::getSortOrder, Comparator.nullsLast(Integer::compareTo))
                         .thenComparing(BoardCategory::getCategoryId, Comparator.nullsLast(Long::compareTo)))
                 .or(() -> activeCategories.stream()
-                        .filter(category -> DEFAULT_CATEGORY_NAME.equals(category.getName()))
+                        .filter(category -> BoardDefaultCategoryNames.DEFAULT_CATEGORY_NAME.equals(category.getName()))
                         .min(Comparator.comparing(BoardCategory::getSortOrder, Comparator.nullsLast(Integer::compareTo))
                                 .thenComparing(BoardCategory::getCategoryId, Comparator.nullsLast(Long::compareTo))))
                 .or(() -> BoardDefaultCategoryResolver.resolveDefaultCategory(activeCategories));
@@ -336,12 +318,12 @@ class BoardProvisioningService {
         try {
             boardCategoryRepository.saveAndFlush(BoardCategory.builder()
                     .board(board)
-                    .name(DEFAULT_CATEGORY_NAME)
+                    .name(BoardDefaultCategoryNames.DEFAULT_CATEGORY_NAME)
                     .sortOrder(1)
                     .isDefault(true)
                     .build());
         } catch (DataIntegrityViolationException ex) {
-            if (!containsBoardCategoryConstraint(ex)) {
+            if (!BoardCategoryConstraintResolver.isActiveNameConstraint(ex)) {
                 throw ex;
             }
         }
@@ -365,24 +347,25 @@ class BoardProvisioningService {
     }
 
     private String resolveInquiryBoardName(String inquiryBoardUrl) {
-        String base = DEFAULT_INQUIRY_BOARD_NAME;
-        if (!boardRepository.existsByBoardName(base)) {
-            return base;
-        }
+        LinkedHashSet<String> candidates = buildInquiryBoardNameCandidates(inquiryBoardUrl);
+        Set<String> existingBoardNames = new HashSet<>(boardRepository.findExistingBoardNamesIn(candidates));
+        return candidates.stream()
+                .filter(candidate -> !existingBoardNames.contains(candidate))
+                .findFirst()
+                .orElseGet(() -> trimToMaxLength(DEFAULT_INQUIRY_BOARD_NAME + "-" + System.currentTimeMillis(), 100));
+    }
 
+    private LinkedHashSet<String> buildInquiryBoardNameCandidates(String inquiryBoardUrl) {
+        String base = DEFAULT_INQUIRY_BOARD_NAME;
         String candidate = trimToMaxLength(base + "-" + inquiryBoardUrl, 100);
-        if (!boardRepository.existsByBoardName(candidate)) {
-            return candidate;
-        }
+        LinkedHashSet<String> candidates = new LinkedHashSet<>();
+        candidates.add(base);
+        candidates.add(candidate);
 
         for (int i = 2; i <= 999; i++) {
-            String withSuffix = trimToMaxLength(candidate + "-" + i, 100);
-            if (!boardRepository.existsByBoardName(withSuffix)) {
-                return withSuffix;
-            }
+            candidates.add(trimToMaxLength(candidate + "-" + i, 100));
         }
-
-        return trimToMaxLength(base + "-" + System.currentTimeMillis(), 100);
+        return candidates;
     }
 
     private String trimToMaxLength(String value, int maxLength) {
@@ -395,14 +378,6 @@ class BoardProvisioningService {
 
     private boolean containsBoardUrlConstraint(Throwable throwable) {
         return containsConstraint(throwable, BOARD_URL_CONSTRAINT, LEGACY_BOARD_URL_CONSTRAINT, BOARD_URL_COLUMN);
-    }
-
-    private boolean containsBoardCategoryConstraint(Throwable throwable) {
-        return containsConstraint(
-                throwable,
-                BOARD_CATEGORY_ACTIVE_CONSTRAINT,
-                ORM_BOARD_CATEGORY_ACTIVE_CONSTRAINT,
-                LEGACY_BOARD_CATEGORY_ACTIVE_CONSTRAINT);
     }
 
     private boolean containsConstraint(Throwable throwable, String... candidates) {
@@ -439,65 +414,6 @@ class BoardProvisioningService {
         if (BoardPolicyConstants.INQUIRY_BOARD_URL.equalsIgnoreCase(boardUrl.trim())) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Reserved board URL");
         }
-    }
-
-    private void upsertBoardAiInfoIfEnabled(Board board, String requestedGuidePrompt, boolean initializeFromDescription) {
-        if (board == null || !board.isAgentEnabled()) {
-            return;
-        }
-
-        BoardAiInfo boardAiInfo = boardAiInfoRepository.findByBoard_BoardId(board.getBoardId())
-                .orElse(null);
-
-        if (boardAiInfo == null) {
-            boardAiInfoRepository.save(BoardAiInfo.builder()
-                    .board(board)
-                    .guidePrompt(resolveInitialGuidePrompt(board, requestedGuidePrompt, initializeFromDescription))
-                    .build());
-            return;
-        }
-
-        if (requestedGuidePrompt != null) {
-            boardAiInfo.updateGuidePrompt(normalizeGuidePrompt(requestedGuidePrompt));
-        }
-    }
-
-    private String resolveInitialGuidePrompt(Board board, String requestedGuidePrompt, boolean initializeFromDescription) {
-        if (requestedGuidePrompt != null && !requestedGuidePrompt.isBlank()) {
-            return normalizeGuidePrompt(requestedGuidePrompt);
-        }
-        if (initializeFromDescription || requestedGuidePrompt == null || requestedGuidePrompt.isBlank()) {
-            return normalizeDescription(board.getDescription());
-        }
-        return normalizeGuidePrompt(requestedGuidePrompt);
-    }
-
-    private int resolveBoardCreateCost() {
-        String boardCreateCostConfig = globalConfigService.getConfig(POINT_BOARD_CREATE_COST_CONFIG_KEY);
-        return GlobalConfigService.parseIntConfigOrDefault(
-                boardCreateCostConfig,
-                DEFAULT_BOARD_CREATE_COST,
-                0);
-    }
-
-    private void syncBoardIcon(Long ownerUserId, Board board, String previousIconUrl) {
-        Long currentFileId = FileService.extractFileIdFromUrl(board.getIconUrl());
-        Long previousFileId = FileService.extractFileIdFromUrl(previousIconUrl);
-
-        if (currentFileId != null) {
-            fileService.replaceBoardIcon(currentFileId, ownerUserId, board.getBoardId());
-        }
-
-        if (previousFileId != null && !Objects.equals(previousFileId, currentFileId)) {
-            fileService.deleteFileWithStorageIfAssociated(
-                    previousFileId,
-                    board.getBoardId(),
-                    FileService.RELATED_TYPE_BOARD_ICON);
-        }
-    }
-
-    private String normalizeGuidePrompt(String guidePrompt) {
-        return guidePrompt == null || guidePrompt.isBlank() ? "" : guidePrompt;
     }
 
     private String normalizeDescription(String description) {

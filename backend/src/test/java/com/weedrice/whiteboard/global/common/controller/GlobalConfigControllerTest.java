@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
@@ -54,37 +54,37 @@ class GlobalConfigControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockBean
+    @MockitoBean
     private GlobalConfigService globalConfigService;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor ipBlockInterceptor;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.RefererCheckInterceptor refererCheckInterceptor;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor rateLimitInterceptor;
 
-    @MockBean
+    @MockitoBean
     private org.springframework.data.jpa.mapping.JpaMetamodelMappingContext jpaMetamodelMappingContext;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.domain.user.repository.UserRepository userRepository;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.domain.admin.repository.AdminRepository adminRepository;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.oauth.CustomOAuth2UserService customOAuth2UserService;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.oauth.OAuth2SuccessHandler oAuth2SuccessHandler;
 
     private CustomUserDetails adminUser;
@@ -124,7 +124,8 @@ class GlobalConfigControllerTest {
     @Test
     @DisplayName("설정 단건 조회")
     void getConfig_success() throws Exception {
-        when(globalConfigService.getConfigOrThrow("key")).thenReturn("value");
+        when(globalConfigService.getConfigResponseOrThrow("key"))
+                .thenReturn(configResponse("key", "value", null));
 
         mockMvc.perform(get("/api/v1/configs/{key}", "key")
                 .with(user(adminUser))
@@ -138,7 +139,8 @@ class GlobalConfigControllerTest {
     @Test
     @DisplayName("GET /configs/{key} response uses normalized key")
     void getConfig_normalizesResponseKey() throws Exception {
-        when(globalConfigService.getConfigOrThrow(" key ")).thenReturn("value");
+        when(globalConfigService.getConfigResponseOrThrow(" key "))
+                .thenReturn(configResponse("key", "value", null));
 
         mockMvc.perform(get("/api/v1/configs/{key}", " key ")
                 .with(user(adminUser))
@@ -152,7 +154,7 @@ class GlobalConfigControllerTest {
     @Test
     @DisplayName("단건 설정 조회는 없는 key에 404를 반환한다")
     void getConfig_missing_returnsNotFound() throws Exception {
-        when(globalConfigService.getConfigOrThrow("missing"))
+        when(globalConfigService.getConfigResponseOrThrow("missing"))
                 .thenThrow(new BusinessException(ErrorCode.NOT_FOUND));
 
         mockMvc.perform(get("/api/v1/configs/{key}", "missing")

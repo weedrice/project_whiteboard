@@ -4,12 +4,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardDetailResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
+import com.weedrice.whiteboard.domain.board.dto.BoardManagerCandidateResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardManagerTransferRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.entity.Board;
-import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
+import com.weedrice.whiteboard.domain.board.service.BoardApplicationService;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
+import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,10 +23,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.http.MediaType;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
@@ -58,28 +64,28 @@ class BoardControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockBean
+    @MockitoBean
     private BoardService boardService;
 
-    @MockBean
-    private BoardAccessPolicy boardAccessPolicy;
+    @MockitoBean
+    private BoardApplicationService boardApplicationService;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor ipBlockInterceptor;
 
-    @MockBean
+    @MockitoBean
     private org.springframework.data.jpa.mapping.JpaMetamodelMappingContext jpaMetamodelMappingContext;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.RefererCheckInterceptor refererCheckInterceptor;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor rateLimitInterceptor;
 
     private CustomUserDetails customUserDetails;
@@ -166,8 +172,7 @@ class BoardControllerTest {
     void createBoard_returnsSuccess() throws Exception {
         BoardCreateRequest request = new BoardCreateRequest("New Board", "newboard", "Description", "icon.png", true);
 
-        when(boardService.createBoard(eq(1L), any())).thenReturn(board);
-        when(boardService.getBoardDetails(eq("free"), eq(1L)))
+        when(boardApplicationService.createBoardDetail(eq(1L), any()))
                 .thenReturn(boardDetailResponse("Admin", 1L, false));
 
         mockMvc.perform(post("/api/v1/boards")
@@ -186,8 +191,7 @@ class BoardControllerTest {
         BoardUpdateRequest request = new BoardUpdateRequest();
         ReflectionTestUtils.setField(request, "boardName", "Updated Board");
 
-        when(boardService.updateBoard(eq(boardUrl), any(BoardUpdateRequest.class), eq(1L))).thenReturn(board);
-        when(boardService.getBoardDetails(eq(boardUrl), eq(1L)))
+        when(boardApplicationService.updateBoardDetail(eq(boardUrl), any(BoardUpdateRequest.class), eq(1L)))
                 .thenReturn(boardDetailResponse("Admin", 1L, false));
 
         mockMvc.perform(put("/api/v1/boards/{boardUrl}", boardUrl)
@@ -209,7 +213,7 @@ class BoardControllerTest {
                         .with(csrf()))
                 .andExpect(status().isBadRequest());
 
-        verify(boardService, never()).updateBoard(any(), any(), any());
+        verify(boardApplicationService, never()).updateBoardDetail(any(), any(), any());
     }
 
     @Test
@@ -229,7 +233,7 @@ class BoardControllerTest {
                         .with(csrf()))
                 .andExpect(status().isBadRequest());
 
-        verify(boardService, never()).createBoard(any(), any());
+        verify(boardApplicationService, never()).createBoardDetail(any(), any());
     }
 
     @Test
@@ -247,7 +251,7 @@ class BoardControllerTest {
                         .with(csrf()))
                 .andExpect(status().isBadRequest());
 
-        verify(boardService, never()).updateBoard(any(), any(), any());
+        verify(boardApplicationService, never()).updateBoardDetail(any(), any(), any());
     }
 
     @Test
@@ -257,9 +261,8 @@ class BoardControllerTest {
         BoardManagerTransferRequest request = new BoardManagerTransferRequest();
         ReflectionTestUtils.setField(request, "loginId", "nextmanager");
 
-        doNothing().when(boardService).transferBoardManager(eq(boardUrl), eq("nextmanager"), eq(1L));
-        when(boardService.getBoardDetails(eq(boardUrl), eq(1L)))
-                .thenReturn(boardDetailResponse("Next Manager", 2L, true));
+        when(boardApplicationService.transferBoardManagerDetail(eq(boardUrl), eq("nextmanager"), eq(1L)))
+                .thenReturn(boardDetailResponse("Next Manager", 2L, false));
 
         mockMvc.perform(put("/api/v1/boards/{boardUrl}/manager", boardUrl)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -268,6 +271,36 @@ class BoardControllerTest {
                         .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    @DisplayName("게시판 관리자 후보 조회 성공")
+    void getBoardManagerCandidates_returnsSuccess() throws Exception {
+        String boardUrl = "free";
+        User candidateUser = User.builder()
+                .loginId("manager")
+                .password("password")
+                .email("manager@test.com")
+                .displayName("Manager")
+                .build();
+        ReflectionTestUtils.setField(candidateUser, "userId", 2L);
+        BoardManagerCandidateResponse candidate = BoardManagerCandidateResponse.from(candidateUser, true);
+
+        when(boardService.getBoardManagerCandidates(eq(boardUrl), eq(1L), eq("man"), any()))
+                .thenReturn(new PageImpl<>(List.of(candidate), PageRequest.of(0, 10), 1));
+
+        mockMvc.perform(get("/api/v1/boards/{boardUrl}/manager-candidates", boardUrl)
+                        .queryParam("q", "man")
+                        .queryParam("page", "0")
+                        .queryParam("size", "10")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content[0].loginId").value("manager"))
+                .andExpect(jsonPath("$.data.content[0].displayName").value("Manager"))
+                .andExpect(jsonPath("$.data.content[0].currentManager").value(true))
+                .andExpect(jsonPath("$.data.content[0].email").doesNotExist());
     }
 
     @Test
@@ -349,14 +382,15 @@ class BoardControllerTest {
     @Test
     @DisplayName("문의 게시판 URL 상세 조회는 404로 차단한다")
     void getBoardDetails_inquiryBoardUrlReturnsNotFound() throws Exception {
-        when(boardAccessPolicy.isInquiryBoardUrl("inquiry")).thenReturn(true);
+        when(boardService.getBoardDetails(eq("inquiry"), eq(1L)))
+                .thenThrow(new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
         mockMvc.perform(get("/api/v1/boards/{boardUrl}", "inquiry")
                         .with(user(customUserDetails))
                         .with(csrf()))
                 .andExpect(status().isNotFound());
 
-        verify(boardService, never()).getBoardDetails(any(), any());
+        verify(boardService).getBoardDetails(eq("inquiry"), eq(1L));
     }
 
     private BoardListResponse boardListResponse(String adminDisplayName) {

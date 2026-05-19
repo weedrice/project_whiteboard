@@ -6,7 +6,6 @@ import com.weedrice.whiteboard.global.log.dto.ErrorLogResolveRequest;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogResponse;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogSearchRequest;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogStatsResponse;
-import com.weedrice.whiteboard.global.log.entity.ErrorLog;
 import com.weedrice.whiteboard.global.log.service.ErrorLogService;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.servlet.FilterChain;
@@ -18,7 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.data.domain.Page;
@@ -56,25 +55,25 @@ class ErrorLogControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockBean
+    @MockitoBean
     private ErrorLogService errorLogService;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor ipBlockInterceptor;
 
-    @MockBean
+    @MockitoBean
     private org.springframework.data.jpa.mapping.JpaMetamodelMappingContext jpaMetamodelMappingContext;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.RefererCheckInterceptor refererCheckInterceptor;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor rateLimitInterceptor;
 
     private CustomUserDetails customUserDetails;
@@ -103,7 +102,7 @@ class ErrorLogControllerTest {
     @DisplayName("에러 로그 목록 조회 성공")
     void getErrorLogs_returnsSuccess() throws Exception {
         // given
-        ErrorLog errorLog = ErrorLog.builder()
+        ErrorLogResponse.ErrorLogSummary errorLog = ErrorLogResponse.ErrorLogSummary.builder()
                 .errorCode("INTERNAL_SERVER_ERROR")
                 .errorType("NullPointerException")
                 .httpStatus(500)
@@ -112,7 +111,7 @@ class ErrorLogControllerTest {
                 .requestMethod("GET")
                 .ipAddress("127.0.0.1")
                 .build();
-        Page<ErrorLog> page = new PageImpl<>(List.of(errorLog), PageRequest.of(0, 20), 1);
+        Page<ErrorLogResponse.ErrorLogSummary> page = new PageImpl<>(List.of(errorLog), PageRequest.of(0, 20), 1);
         when(errorLogService.getErrorLogs(any(ErrorLogSearchRequest.class), any(Pageable.class))).thenReturn(page);
 
         // when & then
@@ -126,6 +125,7 @@ class ErrorLogControllerTest {
                 .andExpect(jsonPath("$.data.content").isArray())
                 .andExpect(jsonPath("$.data.content[0].errorCode").value("INTERNAL_SERVER_ERROR"))
                 .andExpect(jsonPath("$.data.content[0].httpStatus").value(500))
+                .andExpect(jsonPath("$.data.content[0].stackTrace").doesNotHaveJsonPath())
                 .andExpect(jsonPath("$.data.totalElements").value(1))
                 .andExpect(jsonPath("$.data.totalPages").value(1));
 
@@ -138,7 +138,7 @@ class ErrorLogControllerTest {
     @Test
     @DisplayName("에러 로그 목록 조회는 공통 페이지 최대 크기를 적용한다")
     void getErrorLogs_clampsPageSize() throws Exception {
-        Page<ErrorLog> emptyPage = new PageImpl<>(Collections.emptyList());
+        Page<ErrorLogResponse.ErrorLogSummary> emptyPage = new PageImpl<>(Collections.emptyList());
         when(errorLogService.getErrorLogs(any(ErrorLogSearchRequest.class), any(Pageable.class))).thenReturn(emptyPage);
 
         mockMvc.perform(get("/api/v1/admin/error-logs")
@@ -167,7 +167,8 @@ class ErrorLogControllerTest {
     @DisplayName("에러 로그 목록 조회 - 빈 결과")
     void getErrorLogs_emptyResult() throws Exception {
         // given
-        Page<ErrorLog> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 20), 0);
+        Page<ErrorLogResponse.ErrorLogSummary> emptyPage =
+                new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 20), 0);
         when(errorLogService.getErrorLogs(any(ErrorLogSearchRequest.class), any(Pageable.class))).thenReturn(emptyPage);
 
         // when & then
@@ -185,7 +186,7 @@ class ErrorLogControllerTest {
     @DisplayName("에러 로그 목록 조회 - 필터 파라미터 전달")
     void getErrorLogs_withFilterParams() throws Exception {
         // given
-        Page<ErrorLog> emptyPage = new PageImpl<>(Collections.emptyList());
+        Page<ErrorLogResponse.ErrorLogSummary> emptyPage = new PageImpl<>(Collections.emptyList());
         when(errorLogService.getErrorLogs(any(ErrorLogSearchRequest.class), any(Pageable.class))).thenReturn(emptyPage);
 
         // when & then
@@ -211,7 +212,8 @@ class ErrorLogControllerTest {
     @DisplayName("에러 로그 상세 조회 성공")
     void getErrorLog_returnsSuccess() throws Exception {
         // given
-        ErrorLog errorLog = ErrorLog.builder()
+        ErrorLogResponse.ErrorLogDetail errorLog = ErrorLogResponse.ErrorLogDetail.builder()
+                .errorLogId(1L)
                 .errorCode("INTERNAL_SERVER_ERROR")
                 .errorType("NullPointerException")
                 .httpStatus(500)
@@ -222,9 +224,9 @@ class ErrorLogControllerTest {
                 .ipAddress("192.168.1.1")
                 .userAgent("Mozilla/5.0")
                 .stackTrace("java.lang.NullPointerException\n\tat com.example.Test.method(Test.java:1)")
+                .isResolved("N")
                 .build();
-        org.springframework.test.util.ReflectionTestUtils.setField(errorLog, "errorLogId", 1L);
-        when(errorLogService.getErrorLog(1L)).thenReturn(errorLog);
+        when(errorLogService.getErrorLogDetail(1L)).thenReturn(errorLog);
 
         // when & then
         mockMvc.perform(get("/api/v1/admin/error-logs/1")

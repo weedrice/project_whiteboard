@@ -22,7 +22,7 @@ public class GlobalConfig extends BaseTimeEntity {
     @Column(name = "config_key", length = 100)
     private String configKey;
 
-    @Column(name = "config_value", length = 255)
+    @Column(name = "config_value", columnDefinition = "TEXT")
     private String configValue;
 
     @Column(name = "description", length = 255)

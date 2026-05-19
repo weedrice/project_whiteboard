@@ -25,26 +25,23 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class HomeLandingService {
 
+    private static final int LANDING_BOARD_LIMIT = 6;
+
     private final PostService postService;
     private final BoardService boardService;
     private final PostRepository postRepository;
     private final BoardRepository boardRepository;
     private final CommentRepository commentRepository;
     private final UserRepository userRepository;
-    private final HomeLandingCurationPolicy curationPolicy;
     private final Clock clock;
 
     public HomeLandingResponse getLanding(Long userId, String period) {
         List<PostSummary> curatedPosts = getCuratedPosts(userId, period);
         List<BoardListResponse> boards = getBoards(userId);
         HomeLandingResponse.Stats stats = getStats();
-        HomeLandingCurationPolicy.HomeLandingSections sections = curationPolicy.curate(curatedPosts);
 
         return HomeLandingResponse.builder()
-                .featuredPost(sections.featuredPost())
-                .editorPicks(sections.editorPicks())
-                .trendingPosts(sections.trendingPosts())
-                .liveActivity(sections.liveActivity())
+                .posts(curatedPosts)
                 .boards(boards)
                 .stats(stats)
                 .build();
@@ -104,8 +101,6 @@ public class HomeLandingService {
     }
 
     private List<BoardListResponse> getBoards(Long userId) {
-        return boardService.getTopBoardsByUserId(userId).stream()
-                .limit(6)
-                .toList();
+        return boardService.getTopBoardsByUserId(userId, LANDING_BOARD_LIMIT);
     }
 }

@@ -1,7 +1,6 @@
 package com.weedrice.whiteboard.domain.report.service;
 
 import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
-import com.weedrice.whiteboard.domain.report.constant.ReportConstraints;
 import com.weedrice.whiteboard.domain.report.dto.MyReportResponse;
 import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.entity.Report;
@@ -62,7 +61,7 @@ class ReportModerationService {
     public ReportResponse processReport(Long adminUserId, Long reportId, String status, String remark) {
         SecurityUtils.validateSuperAdminPermission();
         String normalizedStatus = normalizeTerminalStatus(status);
-        String normalizedRemark = normalizeRemark(remark);
+        String normalizedRemark = ReportRemarkNormalizer.normalize(remark);
         Report report = reportRepository.findByIdForUpdate(reportId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         ModerationActorResolver.ModerationActor moderationActor =
@@ -107,14 +106,4 @@ class ReportModerationService {
         }
     }
 
-    private String normalizeRemark(String remark) {
-        if (remark == null) {
-            return null;
-        }
-        String normalizedRemark = remark.strip();
-        if (normalizedRemark.length() > ReportConstraints.MAX_REMARK_LENGTH) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
-        }
-        return normalizedRemark;
-    }
 }

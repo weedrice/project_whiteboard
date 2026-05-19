@@ -14,13 +14,12 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
@@ -33,7 +32,6 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous;
@@ -72,25 +70,25 @@ class SearchControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private SearchService searchService;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor ipBlockInterceptor;
 
-    @MockBean
+    @MockitoBean
     private org.springframework.data.jpa.mapping.JpaMetamodelMappingContext jpaMetamodelMappingContext;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.RefererCheckInterceptor refererCheckInterceptor;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor rateLimitInterceptor;
 
     private CustomUserDetails customUserDetails;
@@ -139,8 +137,8 @@ class SearchControllerTest {
     }
 
     @Test
-    @DisplayName("통합 검색은 검색어를 정규화해 검색과 기록에 사용한다")
-    void integratedSearch_trimsKeywordBeforeSearch() throws Exception {
+    @DisplayName("통합 검색은 raw 검색어를 서비스에 위임한다")
+    void integratedSearch_delegatesRawKeywordToService() throws Exception {
         String rawQuery = " test ";
         String canonicalQuery = "test";
         org.springframework.data.domain.Page<PostSummary> emptyPostPage = new PageImpl<>(List.of());
@@ -151,7 +149,7 @@ class SearchControllerTest {
         IntegratedSearchResponse response = IntegratedSearchResponse.from(emptyPostPage, emptyCommentPage,
                 emptyUserPage, java.util.Collections.emptyList(), canonicalQuery);
 
-        when(searchService.integratedSearch(eq(canonicalQuery), isNull())).thenReturn(response);
+        when(searchService.integratedSearch(eq(rawQuery), isNull())).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/search")
                 .param("q", rawQuery)
@@ -159,12 +157,12 @@ class SearchControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
-        verify(searchService).integratedSearch(eq(canonicalQuery), isNull());
+        verify(searchService).integratedSearch(eq(rawQuery), isNull());
     }
 
     @Test
-    @DisplayName("integrated search caps keyword before service call")
-    void integratedSearch_truncatesKeywordBeforeSearch() throws Exception {
+    @DisplayName("통합 검색은 긴 raw 검색어를 서비스에 위임한다")
+    void integratedSearch_delegatesLongRawKeywordToService() throws Exception {
         String rawQuery = "A".repeat(MAX_KEYWORD_LENGTH + 10);
         String canonicalQuery = "A".repeat(MAX_KEYWORD_LENGTH);
         org.springframework.data.domain.Page<PostSummary> emptyPostPage = new PageImpl<>(List.of());
@@ -175,7 +173,7 @@ class SearchControllerTest {
         IntegratedSearchResponse response = IntegratedSearchResponse.from(emptyPostPage, emptyCommentPage,
                 emptyUserPage, java.util.Collections.emptyList(), canonicalQuery);
 
-        when(searchService.integratedSearch(eq(canonicalQuery), isNull())).thenReturn(response);
+        when(searchService.integratedSearch(eq(rawQuery), isNull())).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/search")
                         .param("q", rawQuery)
@@ -183,18 +181,21 @@ class SearchControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
-        verify(searchService).integratedSearch(eq(canonicalQuery), isNull());
+        verify(searchService).integratedSearch(eq(rawQuery), isNull());
     }
 
     @Test
     @DisplayName("통합 검색은 빈 검색어를 거부한다")
     void integratedSearch_rejectsBlankKeyword() throws Exception {
+        when(searchService.integratedSearch(eq("   "), isNull()))
+                .thenThrow(new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
+
         mockMvc.perform(get("/api/v1/search")
                 .param("q", "   ")
                 .with(anonymous()))
                 .andExpect(status().isBadRequest());
 
-        verify(searchService, never()).integratedSearch(anyString(), any());
+        verify(searchService).integratedSearch(eq("   "), isNull());
     }
 
     @Test
@@ -206,7 +207,8 @@ class SearchControllerTest {
         PostSummary postSummary = PostSummary.builder().build();
         Page<PostSummary> page = new PageImpl<>(List.of(postSummary), pageRequest, 1);
 
-        when(searchService.searchPosts(eq(query), any(), any(), any(), any())).thenReturn(page);
+        when(searchService.searchPosts(eq(query), any(), any(), anyInt(), anyInt(), any(Sort.class), any()))
+                .thenReturn(page);
 
         // when & then
         mockMvc.perform(get("/api/v1/search/posts")
@@ -218,15 +220,16 @@ class SearchControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.content").isArray());
 
-        verify(searchService).searchPosts(eq(query), any(), any(), any(), eq(1L));
+        verify(searchService).searchPosts(eq(query), any(), any(), eq(0), eq(10), any(Sort.class), eq(1L));
     }
 
     @Test
-    @DisplayName("게시글 검색은 페이지 크기와 정렬 필드를 정규화한다")
-    void searchPosts_normalizesPageable() throws Exception {
+    @DisplayName("게시글 검색은 원본 페이지 요청을 서비스에 전달한다")
+    void searchPosts_passesRawPageRequestToService() throws Exception {
         String query = "test";
         Page<PostSummary> page = new PageImpl<>(List.of(), PageRequest.of(2, 100), 0);
-        when(searchService.searchPosts(eq(query), any(), any(), any(), any())).thenReturn(page);
+        when(searchService.searchPosts(eq(query), any(), any(), anyInt(), anyInt(), any(Sort.class), any()))
+                .thenReturn(page);
 
         mockMvc.perform(get("/api/v1/search/posts")
                         .param("q", query)
@@ -237,25 +240,25 @@ class SearchControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
-        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        verify(searchService).searchPosts(eq(query), any(), any(), pageableCaptor.capture(), eq(1L));
-        Pageable pageable = pageableCaptor.getValue();
-        assertThat(pageable.getPageNumber()).isEqualTo(2);
-        assertThat(pageable.getPageSize()).isEqualTo(100);
-        assertThat(pageable.getSort()).isEqualTo(Sort.by(
-                Sort.Order.desc("createdAt"),
-                Sort.Order.desc("postId")));
+        ArgumentCaptor<Integer> pageCaptor = ArgumentCaptor.forClass(Integer.class);
+        ArgumentCaptor<Integer> sizeCaptor = ArgumentCaptor.forClass(Integer.class);
+        ArgumentCaptor<Sort> sortCaptor = ArgumentCaptor.forClass(Sort.class);
+        verify(searchService).searchPosts(eq(query), any(), any(),
+                pageCaptor.capture(), sizeCaptor.capture(), sortCaptor.capture(), eq(1L));
+        assertThat(pageCaptor.getValue()).isEqualTo(2);
+        assertThat(sizeCaptor.getValue()).isEqualTo(1000);
+        assertThat(sortCaptor.getValue()).isEqualTo(Sort.by(Sort.Order.asc("unknown")));
     }
 
     @Test
-    @DisplayName("게시글 검색은 검색어를 정규화해 검색과 기록에 사용한다")
-    void searchPosts_trimsKeywordBeforeSearch() throws Exception {
+    @DisplayName("게시글 검색은 원본 검색어를 서비스에 전달한다")
+    void searchPosts_passesRawKeywordToService() throws Exception {
         String rawQuery = " test ";
-        String canonicalQuery = "test";
         PageRequest pageRequest = PageRequest.of(0, 10);
         Page<PostSummary> page = new PageImpl<>(List.of(PostSummary.builder().build()), pageRequest, 1);
 
-        when(searchService.searchPosts(eq(canonicalQuery), any(), any(), any(), any())).thenReturn(page);
+        when(searchService.searchPosts(eq(rawQuery), any(), any(), anyInt(), anyInt(), any(Sort.class), any()))
+                .thenReturn(page);
 
         mockMvc.perform(get("/api/v1/search/posts")
                 .param("q", rawQuery)
@@ -265,25 +268,28 @@ class SearchControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
-        verify(searchService).searchPosts(eq(canonicalQuery), any(), any(), any(), eq(1L));
+        verify(searchService).searchPosts(eq(rawQuery), any(), any(), eq(0), eq(10), any(Sort.class), eq(1L));
     }
 
     @Test
     @DisplayName("게시글 검색은 빈 검색어를 거부한다")
     void searchPosts_rejectsBlankKeyword() throws Exception {
+        when(searchService.searchPosts(eq("   "), any(), any(), anyInt(), anyInt(), any(Sort.class), any()))
+                .thenThrow(new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
+
         mockMvc.perform(get("/api/v1/search/posts")
                 .param("q", "   ")
                 .with(user(customUserDetails)))
                 .andExpect(status().isBadRequest());
 
-        verify(searchService, never()).searchPosts(anyString(), any(), any(), any(), any());
+        verify(searchService).searchPosts(eq("   "), any(), any(), eq(0), eq(20), any(Sort.class), eq(1L));
     }
 
     @Test
     @DisplayName("게시글 검색 실패 시 비즈니스 예외를 반환한다")
     void searchPosts_failureReturnsBusinessException() throws Exception {
         String query = "test";
-        when(searchService.searchPosts(eq(query), any(), any(), any(), any()))
+        when(searchService.searchPosts(eq(query), any(), any(), anyInt(), anyInt(), any(Sort.class), any()))
                 .thenThrow(new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
         mockMvc.perform(get("/api/v1/search/posts")
@@ -338,9 +344,9 @@ class SearchControllerTest {
     }
 
     @Test
-    @DisplayName("인기 검색어 기간은 대소문자와 공백을 정규화한다")
-    void getPopularKeywords_normalizesPeriod() throws Exception {
-        when(searchService.getPopularKeywords(eq("WEEKLY"), eq(10))).thenReturn(List.of());
+    @DisplayName("인기 검색어 기간은 raw 값으로 서비스에 위임한다")
+    void getPopularKeywords_delegatesRawPeriodToService() throws Exception {
+        when(searchService.getPopularKeywords(eq(" weekly "), eq(10))).thenReturn(List.of());
 
         mockMvc.perform(get("/api/v1/search/popular")
                 .param("period", " weekly ")
@@ -348,13 +354,13 @@ class SearchControllerTest {
                 .with(anonymous()))
                 .andExpect(status().isOk());
 
-        verify(searchService).getPopularKeywords("WEEKLY", 10);
+        verify(searchService).getPopularKeywords(" weekly ", 10);
     }
 
     @Test
-    @DisplayName("인기 검색어 제한은 최대 100으로 보정한다")
-    void getPopularKeywords_clampsLimit() throws Exception {
-        when(searchService.getPopularKeywords(eq("DAILY"), eq(100))).thenReturn(List.of());
+    @DisplayName("인기 검색어 제한은 raw 값으로 서비스에 위임한다")
+    void getPopularKeywords_delegatesRawLimitToService() throws Exception {
+        when(searchService.getPopularKeywords(eq("DAILY"), eq(101))).thenReturn(List.of());
 
         mockMvc.perform(get("/api/v1/search/popular")
                 .param("period", "DAILY")
@@ -362,29 +368,35 @@ class SearchControllerTest {
                 .with(anonymous()))
                 .andExpect(status().isOk());
 
-        verify(searchService).getPopularKeywords("DAILY", 100);
+        verify(searchService).getPopularKeywords("DAILY", 101);
     }
 
     @Test
     @DisplayName("인기 검색어 제한이 0 이하면 400을 반환한다")
     void getPopularKeywords_rejectsInvalidLimit() throws Exception {
+        when(searchService.getPopularKeywords(eq("DAILY"), eq(0)))
+                .thenThrow(new BusinessException(ErrorCode.VALIDATION_ERROR));
+
         mockMvc.perform(get("/api/v1/search/popular")
                 .param("limit", "0")
                 .with(anonymous()))
                 .andExpect(status().isBadRequest());
 
-        verify(searchService, never()).getPopularKeywords(anyString(), anyInt());
+        verify(searchService).getPopularKeywords("DAILY", 0);
     }
 
     @Test
     @DisplayName("인기 검색어 기간이 유효하지 않으면 400을 반환한다")
     void getPopularKeywords_rejectsInvalidPeriod() throws Exception {
+        when(searchService.getPopularKeywords(eq("YEARLY"), eq(10)))
+                .thenThrow(new BusinessException(ErrorCode.VALIDATION_ERROR));
+
         mockMvc.perform(get("/api/v1/search/popular")
                 .param("period", "YEARLY")
                 .with(anonymous()))
                 .andExpect(status().isBadRequest());
 
-        verify(searchService, never()).getPopularKeywords(anyString(), anyInt());
+        verify(searchService).getPopularKeywords("YEARLY", 10);
     }
 
     @Test

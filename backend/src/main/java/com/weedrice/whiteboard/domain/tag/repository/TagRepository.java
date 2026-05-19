@@ -13,7 +13,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-public interface TagRepository extends JpaRepository<Tag, Long> {
+public interface TagRepository extends JpaRepository<Tag, Long>, TagRepositoryCustom {
     Optional<Tag> findByTagName(String tagName);
 
     List<Tag> findByTagNameIn(Collection<String> tagNames);

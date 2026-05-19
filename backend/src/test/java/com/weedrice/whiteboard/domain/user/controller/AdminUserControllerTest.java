@@ -19,7 +19,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.data.domain.Page;
@@ -60,28 +60,28 @@ class AdminUserControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockBean
+    @MockitoBean
     private UserAdminQueryService userAdminQueryService;
 
-    @MockBean
+    @MockitoBean
     private UserAdminCommandService userAdminCommandService;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor ipBlockInterceptor;
 
-    @MockBean
+    @MockitoBean
     private org.springframework.data.jpa.mapping.JpaMetamodelMappingContext jpaMetamodelMappingContext;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.RefererCheckInterceptor refererCheckInterceptor;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor rateLimitInterceptor;
 
     private CustomUserDetails customUserDetails;
@@ -273,7 +273,7 @@ class AdminUserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
-        verify(userAdminCommandService).updateUserStatus(1L, "ACTIVE");
+        verify(userAdminCommandService).updateUserStatus(1L, 1L, "ACTIVE");
     }
 
     @Test
@@ -282,7 +282,7 @@ class AdminUserControllerTest {
         UserStatusUpdateRequest request = new UserStatusUpdateRequest();
         ReflectionTestUtils.setField(request, "status", "ACTIVE");
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
-                .when(userAdminCommandService).updateUserStatus(1L, "ACTIVE");
+                .when(userAdminCommandService).updateUserStatus(1L, 1L, "ACTIVE");
 
         mockMvc.perform(put("/api/v1/admin/users/{userId}/status", 1L)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -300,7 +300,7 @@ class AdminUserControllerTest {
         UserStatusUpdateRequest request = new UserStatusUpdateRequest();
         ReflectionTestUtils.setField(request, "status", "SUSPENDED");
         doThrow(new BusinessException(ErrorCode.INVALID_INPUT_VALUE))
-                .when(userAdminCommandService).updateUserStatus(1L, "SUSPENDED");
+                .when(userAdminCommandService).updateUserStatus(1L, 1L, "SUSPENDED");
 
         mockMvc.perform(put("/api/v1/admin/users/{userId}/status", 1L)
                         .contentType(MediaType.APPLICATION_JSON)

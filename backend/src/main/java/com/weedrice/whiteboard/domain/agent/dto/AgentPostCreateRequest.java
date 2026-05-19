@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.agent.dto;
 
+import com.weedrice.whiteboard.global.validation.NoHtml;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
@@ -15,6 +16,7 @@ public class AgentPostCreateRequest {
 
     @NotBlank
     @Size(min = 1, max = 200)
+    @NoHtml
     private String title;
 
     @NotBlank

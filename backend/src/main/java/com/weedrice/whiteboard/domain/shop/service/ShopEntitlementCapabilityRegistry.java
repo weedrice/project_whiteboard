@@ -29,9 +29,18 @@ public class ShopEntitlementCapabilityRegistry {
         findRequiredHandler(item.getItemType()).validateConfiguration(item);
     }
 
+    public boolean supportsValidatedPurchasePreparation(ShopItem item) {
+        return findRequiredHandler(item.getItemType()).supportsValidatedPurchasePreparation();
+    }
+
     public PreparedPurchase preparePurchase(Long userId, ShopItem item) {
         ShopEntitlementHandler handler = findRequiredHandler(item.getItemType());
         return new PreparedPurchase(handler, handler.preparePurchase(userId, item));
+    }
+
+    public PreparedPurchase prepareValidatedPurchase(Long userId, ShopItem item, Runnable afterConfigurationValidation) {
+        ShopEntitlementHandler handler = findRequiredHandler(item.getItemType());
+        return new PreparedPurchase(handler, handler.prepareValidatedPurchase(userId, item, afterConfigurationValidation));
     }
 
     public void grant(PreparedPurchase preparedPurchase) {

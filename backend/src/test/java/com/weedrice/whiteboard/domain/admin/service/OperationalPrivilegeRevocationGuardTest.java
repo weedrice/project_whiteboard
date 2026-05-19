@@ -103,6 +103,31 @@ class OperationalPrivilegeRevocationGuardTest {
     }
 
     @Test
+    @DisplayName("현재 슈퍼 관리자는 자신의 권한을 회수할 수 없다")
+    void validateSuperAdminCanBeRevokedBy_selfSuperAdmin_forbidden() {
+        user.grantSuperAdminRole();
+
+        assertThatThrownBy(() -> guard.validateSuperAdminCanBeRevokedBy(user, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        verify(userRepository, never()).findUsableSuperAdminsForUpdate();
+    }
+
+    @Test
+    @DisplayName("다른 슈퍼 관리자는 기존 회수 가드를 통과해야 한다")
+    void validateSuperAdminCanBeRevokedBy_otherSuperAdmin_usesUsableCountGuard() {
+        user.grantSuperAdminRole();
+        User other = User.builder().loginId("other").build();
+        other.grantSuperAdminRole();
+        when(userRepository.findUsableSuperAdminsForUpdate()).thenReturn(List.of(user, other));
+
+        guard.validateSuperAdminCanBeRevokedBy(user, 2L);
+
+        verify(userRepository).findUsableSuperAdminsForUpdate();
+    }
+
+    @Test
     @DisplayName("게시판의 마지막 활성 매니저는 단건 회수할 수 없다")
     void validateBoardAdminCanBeRevoked_lastActiveBoardAdmin_validationError() {
         when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));

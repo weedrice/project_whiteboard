@@ -46,10 +46,27 @@ export interface UserSettings {
 
 // Point history
 export interface PointHistory {
-    pointHistoryId: number
-    points: number
+    historyId: number
+    type: string
+    amount: number
+    balanceAfter: number
     description: string
     createdAt: string
+}
+
+export interface PointHistoryResponse {
+    content: PointHistory[]
+    page: number
+    size: number
+    totalElements: number
+    totalPages: number
+    hasNext: boolean
+    hasPrevious: boolean
+    last: boolean
+}
+
+export interface UserPoint {
+    currentPoint: number
 }
 
 // Sanction-related types

@@ -1,6 +1,9 @@
 package com.weedrice.whiteboard.domain.emoticon.service;
 
 import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.file.support.FileUrlResolver;
+
+import java.util.List;
 
 class EmoticonAttachmentHelper {
 
@@ -12,7 +15,11 @@ class EmoticonAttachmentHelper {
 
     String attachFile(Long fileId, Long userId, Long emoticonId, String relatedType) {
         fileService.associateFileWithEntity(fileId, userId, emoticonId, relatedType);
-        return "/api/v1/files/" + fileId;
+        return FileUrlResolver.resolve(fileId);
+    }
+
+    List<String> attachFiles(List<Long> fileIds, Long userId, Long emoticonId, String relatedType) {
+        return fileService.associateFilesWithEntity(fileIds, userId, emoticonId, relatedType);
     }
 
     void deleteAssociatedFile(String fileUrl, Long emoticonId, String relatedType) {

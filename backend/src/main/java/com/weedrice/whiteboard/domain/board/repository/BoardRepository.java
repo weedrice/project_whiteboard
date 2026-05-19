@@ -16,6 +16,12 @@ import java.util.Optional;
 
 public interface BoardRepository extends JpaRepository<Board, Long> {
 
+    interface TopBoardPostCountProjection {
+        Long getBoardId();
+
+        Long getPostCount();
+    }
+
     long countByIsActiveTrueAndIsPublicTrue();
 
     @Query("""
@@ -57,12 +63,22 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
     @EntityGraph(attributePaths = "creator")
     List<Board> findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(Boolean isActive, Boolean isPublic);
 
+    @EntityGraph(attributePaths = "creator")
+    List<Board> findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc();
+
     List<Board> findByBoardNameContainingIgnoreCaseAndIsActiveTrue(String keyword);
 
     List<Board> findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(String keyword,
             Pageable pageable);
 
     boolean existsByBoardName(String boardName);
+
+    @Query("""
+            SELECT b.boardName
+            FROM Board b
+            WHERE b.boardName IN :boardNames
+            """)
+    List<String> findExistingBoardNamesIn(@Param("boardNames") Collection<String> boardNames);
 
     boolean existsByBoardUrl(String boardUrl);
 
@@ -85,7 +101,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
     List<Long> findTopBoardIdsByPostCount(Pageable pageable);
 
     @Query("""
-            SELECT b.boardId
+            SELECT b.boardId AS boardId, COUNT(p) AS postCount
             FROM Post p
             JOIN p.board b
             WHERE p.isDeleted = false
@@ -96,12 +112,12 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
             GROUP BY b.boardId, b.sortOrder
             ORDER BY COUNT(p) DESC, b.sortOrder ASC, b.boardId ASC
             """)
-    List<Long> findTopPublicBoardIdsByPostCount(
+    List<TopBoardPostCountProjection> findTopPublicBoardPostCounts(
             @Param("inquiryBoardUrl") String inquiryBoardUrl,
             Pageable pageable);
 
     @Query("""
-            SELECT b.boardId
+            SELECT b.boardId AS boardId, COUNT(p) AS postCount
             FROM Post p
             JOIN p.board b
             WHERE p.isDeleted = false
@@ -132,7 +148,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
             GROUP BY b.boardId, b.sortOrder
             ORDER BY COUNT(p) DESC, b.sortOrder ASC, b.boardId ASC
             """)
-    List<Long> findTopReadableBoardIdsByPostCount(
+    List<TopBoardPostCountProjection> findTopReadableBoardPostCounts(
             @Param("user") User user,
             @Param("isSuperAdmin") boolean isSuperAdmin,
             @Param("inquiryBoardUrl") String inquiryBoardUrl,

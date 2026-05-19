@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogSearchRequest;
+import com.weedrice.whiteboard.global.log.dto.ErrorLogResponse;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogStatsResponse;
 import com.weedrice.whiteboard.global.log.entity.ErrorLog;
 import com.weedrice.whiteboard.global.log.repository.ErrorLogRepository;
@@ -232,19 +233,19 @@ class ErrorLogServiceTest {
         // given
         ErrorLogSearchRequest condition = new ErrorLogSearchRequest();
         Pageable pageable = PageRequest.of(0, 20);
-        ErrorLog log1 = ErrorLog.builder()
+        ErrorLogResponse.ErrorLogSummary log1 = ErrorLogResponse.ErrorLogSummary.builder()
                 .errorCode("ERROR1").errorType("Type1").httpStatus(500)
                 .message("msg1").requestUri("/test1").requestMethod("GET")
                 .ipAddress("127.0.0.1").build();
-        ErrorLog log2 = ErrorLog.builder()
+        ErrorLogResponse.ErrorLogSummary log2 = ErrorLogResponse.ErrorLogSummary.builder()
                 .errorCode("ERROR2").errorType("Type2").httpStatus(400)
                 .message("msg2").requestUri("/test2").requestMethod("POST")
                 .ipAddress("10.0.0.1").build();
-        Page<ErrorLog> page = new PageImpl<>(Arrays.asList(log1, log2));
+        Page<ErrorLogResponse.ErrorLogSummary> page = new PageImpl<>(Arrays.asList(log1, log2));
         when(errorLogRepository.searchErrorLogs(condition, pageable)).thenReturn(page);
 
         // when
-        Page<ErrorLog> result = errorLogService.getErrorLogs(condition, pageable);
+        Page<ErrorLogResponse.ErrorLogSummary> result = errorLogService.getErrorLogs(condition, pageable);
 
         // then
         assertThat(result.getContent()).hasSize(2);
@@ -273,6 +274,24 @@ class ErrorLogServiceTest {
         // then
         assertThat(result.getErrorCode()).isEqualTo("INTERNAL_SERVER_ERROR");
         assertThat(result.getStackTrace()).isEqualTo("stack trace here");
+        securityUtilsMockedStatic.verify(SecurityUtils::validateSuperAdminPermission);
+    }
+
+    @Test
+    @DisplayName("getErrorLogDetail returns detail response")
+    void getErrorLogDetail_success() {
+        Long errorLogId = 1L;
+        ErrorLog errorLog = ErrorLog.builder()
+                .errorCode("INTERNAL_SERVER_ERROR").errorType("NullPointerException")
+                .httpStatus(500).message("Error").requestUri("/test")
+                .requestMethod("GET").ipAddress("127.0.0.1")
+                .stackTrace("stack trace here").build();
+        when(errorLogRepository.findById(errorLogId)).thenReturn(Optional.of(errorLog));
+
+        ErrorLogResponse.ErrorLogDetail detail = errorLogService.getErrorLogDetail(errorLogId);
+
+        assertThat(detail.getErrorCode()).isEqualTo("INTERNAL_SERVER_ERROR");
+        assertThat(detail.getStackTrace()).isEqualTo("stack trace here");
         securityUtilsMockedStatic.verify(SecurityUtils::validateSuperAdminPermission);
     }
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { userApi } from '@/api/user'
 import { postApi } from '@/api/post'
@@ -15,6 +15,7 @@ import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import CommentList from '@/components/comment/CommentList.vue'
 import { useErrorHandler } from '@/composables/useErrorHandler'
+import { useEmailVerificationState } from '@/composables/useEmailVerificationState'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { getOptimizedProfileImageUrl, handleImageError } from '@/utils/image'
@@ -203,78 +204,26 @@ function getAgentStatusLabel(status: UserAgent['status']) {
 
 // Email Verification
 const isVerifyModalOpen = ref(false)
-const emailVerification = reactive({
-  email: '',
-  code: '',
-  verificationTicket: '',
-  isCodeSent: false,
-  isVerified: false,
-  loading: false,
-  timeLeft: 0,
-  resendCooldown: 0
-})
-let verifyTimerInterval: ReturnType<typeof setInterval> | null = null
-let verifyResendInterval: ReturnType<typeof setInterval> | null = null
+const {
+  verification: emailVerification,
+  startTimer: startVerifyTimer,
+  stopTimer: stopVerifyTimer,
+  startResendCooldown: startVerifyResendCooldown,
+  stopResendCooldown: stopVerifyResendCooldown,
+  resetVerification,
+  formatTime: formatVerifyTime
+} = useEmailVerificationState()
 
 function openVerifyModal() {
-  emailVerification.email = profile.value?.email || ''
-  emailVerification.code = ''
-  emailVerification.verificationTicket = ''
-  emailVerification.isCodeSent = false
-  emailVerification.isVerified = false
-  emailVerification.loading = false
-  emailVerification.timeLeft = 0
-  emailVerification.resendCooldown = 0
-  stopVerifyTimer()
-  stopVerifyResendCooldown()
+  resetVerification(profile.value?.email || '')
   isVerifyModalOpen.value = true
 }
 
-function startVerifyTimer() {
+function closeVerifyModal() {
   stopVerifyTimer()
-  emailVerification.timeLeft = 300
-  verifyTimerInterval = setInterval(() => {
-    if (emailVerification.timeLeft > 0) {
-      emailVerification.timeLeft--
-    } else {
-      stopVerifyTimer()
-    }
-  }, 1000)
-}
-
-function stopVerifyTimer() {
-  if (verifyTimerInterval) {
-    clearInterval(verifyTimerInterval)
-    verifyTimerInterval = null
-  }
-}
-
-function startVerifyResendCooldown() {
   stopVerifyResendCooldown()
-  emailVerification.resendCooldown = 60
-  verifyResendInterval = setInterval(() => {
-    if (emailVerification.resendCooldown > 0) {
-      emailVerification.resendCooldown--
-    } else {
-      stopVerifyResendCooldown()
-    }
-  }, 1000)
+  isVerifyModalOpen.value = false
 }
-
-function stopVerifyResendCooldown() {
-  if (verifyResendInterval) {
-    clearInterval(verifyResendInterval)
-    verifyResendInterval = null
-  }
-}
-
-function formatVerifyTime(seconds: number) {
-  const m = Math.floor(seconds / 60)
-  const s = seconds % 60
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-}
-
-
 
 async function sendVerifyCode() {
   const trimmed = emailVerification.email.trim()
@@ -291,6 +240,7 @@ async function sendVerifyCode() {
   try {
     const { data } = await authApi.sendVerificationCode(trimmed, 'CHANGE_EMAIL')
     if (data.success) {
+      emailVerification.code = ''
       emailVerification.verificationTicket = ''
       emailVerification.isVerified = false
       emailVerification.isCodeSent = true
@@ -339,7 +289,7 @@ async function verifyEmailCode() {
         fetchMyProfile(),
         authStore.fetchUser()
       ])
-      isVerifyModalOpen.value = false
+      closeVerifyModal()
     }
   } catch (err: unknown) {
     const message = extractErrorMessage(err) || t('auth.verificationFailed')
@@ -360,10 +310,6 @@ onMounted(async () => {
   isLoading.value = false
 })
 
-onUnmounted(() => {
-  stopVerifyTimer()
-  stopVerifyResendCooldown()
-})
 </script>
 
 <template>
@@ -569,7 +515,7 @@ onUnmounted(() => {
       </BaseModal>
 
       <!-- Email Verification Modal -->
-      <BaseModal :isOpen="isVerifyModalOpen" :title="$t('auth.emailNotVerified')" @close="isVerifyModalOpen = false">
+      <BaseModal :isOpen="isVerifyModalOpen" :title="$t('auth.emailNotVerified')" @close="closeVerifyModal">
         <div class="space-y-6 p-4">
           <!-- Email Input & Send Button -->
           <div class="flex flex-col">

@@ -5,13 +5,12 @@ import com.weedrice.whiteboard.domain.admin.dto.SuperAdminUpdateResponse;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,10 +50,7 @@ public class SuperAdminService {
         if (!Boolean.TRUE.equals(user.getIsSuperAdmin())) {
             throw new BusinessException(ErrorCode.INVALID_TARGET);
         }
-        if (isCurrentSuperAdmin(loginId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
-        privilegeRevocationGuard.validateSuperAdminCanBeRevoked(user);
+        privilegeRevocationGuard.validateSuperAdminCanBeRevokedBy(user, SecurityUtils.getCurrentUserIdOrNull());
 
         user.revokeSuperAdminRole();
         return SuperAdminUpdateResponse.from(userRepository.save(user));
@@ -65,11 +61,6 @@ public class SuperAdminService {
         return getUsableSuperAdmins().stream()
                 .map(SuperAdminResponse::from)
                 .toList();
-    }
-
-    private boolean isCurrentSuperAdmin(String loginId) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return authentication != null && loginId.equals(authentication.getName());
     }
 
     private List<User> getUsableSuperAdmins() {

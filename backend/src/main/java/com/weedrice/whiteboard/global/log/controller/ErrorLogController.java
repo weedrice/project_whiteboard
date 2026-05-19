@@ -45,26 +45,8 @@ public class ErrorLogController {
      * 에러 로그 상세 조회
      */
     @GetMapping("/{errorLogId}")
-    public ApiResponse<ErrorLogResponse.ErrorLogSummary> getErrorLog(@PathVariable Long errorLogId) {
-        var errorLog = errorLogService.getErrorLog(errorLogId);
-        return ApiResponse.success(ErrorLogResponse.ErrorLogSummary.builder()
-                .errorLogId(errorLog.getErrorLogId())
-                .errorCode(errorLog.getErrorCode())
-                .errorType(errorLog.getErrorType())
-                .httpStatus(errorLog.getHttpStatus())
-                .message(errorLog.getMessage())
-                .requestUri(errorLog.getRequestUri())
-                .requestMethod(errorLog.getRequestMethod())
-                .userId(errorLog.getUserId())
-                .ipAddress(errorLog.getIpAddress())
-                .userAgent(errorLog.getUserAgent())
-                .stackTrace(errorLog.getStackTrace())
-                .isResolved(errorLog.getIsResolved())
-                .resolvedBy(errorLog.getResolvedBy())
-                .resolvedAt(errorLog.getResolvedAt())
-                .resolvedMemo(errorLog.getResolvedMemo())
-                .createdAt(errorLog.getCreatedAt())
-                .build());
+    public ApiResponse<ErrorLogResponse.ErrorLogDetail> getErrorLog(@PathVariable Long errorLogId) {
+        return ApiResponse.success(errorLogService.getErrorLogDetail(errorLogId));
     }
 
     /**

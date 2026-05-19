@@ -310,6 +310,42 @@ class AuthPasswordResetMailFlowTest {
     }
 
     @Test
+    @DisplayName("sendPasswordResetLinkByEmail marks delivered token failed when promotion token lock is unavailable")
+    void sendPasswordResetLinkByEmail_unavailablePromotionTokenLock_marksDeliveredTokenFailed() {
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+        when(passwordResetTokenRepository.findByIdForUpdate(any())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> passwordResetService
+                .sendPasswordResetLinkByEmail("test@example.com", "ticket-missing-token"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_PASSWORD_RESET_TOKEN);
+
+        verify(emailService).sendEmail(anyString(), anyString(), anyString());
+        assertThat(passwordResetTokens.values())
+                .filteredOn(token -> PasswordResetToken.DELIVERY_STATUS_FAILED.equals(token.getDeliveryStatus()))
+                .hasSize(1);
+    }
+
+    @Test
+    @DisplayName("sendPasswordResetLinkByEmail marks delivered token failed when promotion user is missing")
+    void sendPasswordResetLinkByEmail_missingPromotionUser_marksDeliveredTokenFailed() {
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(user.getUserId())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> passwordResetService
+                .sendPasswordResetLinkByEmail("test@example.com", "ticket-missing-user"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+
+        verify(emailService).sendEmail(anyString(), anyString(), anyString());
+        assertThat(passwordResetTokens.values())
+                .filteredOn(token -> PasswordResetToken.DELIVERY_STATUS_FAILED.equals(token.getDeliveryStatus()))
+                .hasSize(1);
+    }
+
+    @Test
     @DisplayName("sendPasswordResetLinkByEmail preserves delivered token when promotion retry also fails")
     void sendPasswordResetLinkByEmail_promoteRetryFailure_marksDeliveredTokenSent() {
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));

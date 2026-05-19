@@ -6,6 +6,7 @@ import type {
     BoardCreateData,
     BoardDetail,
     BoardListItem,
+    BoardManagerCandidate,
     BoardUpdateData,
     Category,
     PostSummary
@@ -38,6 +39,12 @@ interface BoardManagerTransferData {
     loginId: string
 }
 
+interface BoardManagerCandidateParams {
+    page?: number
+    size?: number
+    q?: string
+}
+
 export const boardApi = {
     // Get all boards
     getBoards: () => api.get<ApiResponse<BoardListItem[]>>('/boards'),
@@ -65,6 +72,10 @@ export const boardApi = {
     // Transfer board manager
     updateBoardManager: (boardUrl: string, data: BoardManagerTransferData) =>
         api.put<ApiResponse<BoardDetail>>(`/boards/${boardUrl}/manager`, data),
+
+    // Get board manager candidates
+    getBoardManagerCandidates: (boardUrl: string, params: BoardManagerCandidateParams) =>
+        api.get<ApiResponse<PageResponse<BoardManagerCandidate>>>(`/boards/${boardUrl}/manager-candidates`, { params }),
 
     // Delete board
     deleteBoard: (boardUrl: string) => api.delete<ApiResponse<void>>(`/boards/${boardUrl}`),

@@ -13,6 +13,7 @@ public class AgentPostListItem {
 
     private Long postId;
     private Long boardId;
+    private String boardName;
     private String boardUrl;
     private Long categoryId;
     private String title;
@@ -40,6 +41,7 @@ public class AgentPostListItem {
         return AgentPostListItem.builder()
                 .postId(post.getPostId())
                 .boardId(post.getBoard().getBoardId())
+                .boardName(post.getBoard().getBoardName())
                 .boardUrl(post.getBoard().getBoardUrl())
                 .categoryId(post.getCategory() != null ? post.getCategory().getCategoryId() : null)
                 .title(post.getTitle())

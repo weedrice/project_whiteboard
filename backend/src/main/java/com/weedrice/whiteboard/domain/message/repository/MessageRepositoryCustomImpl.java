@@ -4,7 +4,6 @@ import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.weedrice.whiteboard.domain.message.entity.Message;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -12,6 +11,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
+import jakarta.persistence.LockModeType;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,13 +26,14 @@ public class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public Page<Message> findReceivedMessagesExcludingBlocked(User currentUser, Boolean isDeleted, List<Long> blockedUserIds, Pageable pageable) {
+    public Page<Message> findReceivedMessagesExcludingBlocked(Long userId, Boolean isDeleted,
+            List<Long> blockedUserIds, Pageable pageable) {
         List<Message> content = queryFactory
                 .selectFrom(message)
                 .join(message.sender, user).fetchJoin()
                 .join(message.receiver).fetchJoin()
                 .where(
-                        message.receiver.eq(currentUser),
+                        message.receiver.userId.eq(userId),
                         message.isDeletedByReceiver.eq(isDeleted),
                         notBlockedSenderCondition(blockedUserIds)
                 )
@@ -44,7 +46,7 @@ public class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
                 .select(message.count())
                 .from(message)
                 .where(
-                        message.receiver.eq(currentUser),
+                        message.receiver.userId.eq(userId),
                         message.isDeletedByReceiver.eq(isDeleted),
                         notBlockedSenderCondition(blockedUserIds)
                 )
@@ -54,13 +56,14 @@ public class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
     }
 
     @Override
-    public Page<Message> findSentMessagesExcludingBlocked(User currentUser, Boolean isDeleted, List<Long> blockedUserIds, Pageable pageable) {
+    public Page<Message> findSentMessagesExcludingBlocked(Long userId, Boolean isDeleted, List<Long> blockedUserIds,
+            Pageable pageable) {
         List<Message> content = queryFactory
                 .selectFrom(message)
                 .join(message.sender, user).fetchJoin()
                 .join(message.receiver).fetchJoin()
                 .where(
-                        message.sender.eq(currentUser),
+                        message.sender.userId.eq(userId),
                         message.isDeletedBySender.eq(isDeleted),
                         notBlockedReceiverCondition(blockedUserIds)
                 )
@@ -73,7 +76,7 @@ public class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
                 .select(message.count())
                 .from(message)
                 .where(
-                        message.sender.eq(currentUser),
+                        message.sender.userId.eq(userId),
                         message.isDeletedBySender.eq(isDeleted),
                         notBlockedReceiverCondition(blockedUserIds)
                 )
@@ -83,12 +86,13 @@ public class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
     }
 
     @Override
-    public long countUnreadMessagesExcludingBlocked(User currentUser, Boolean isRead, Boolean isDeleted, List<Long> blockedUserIds) {
+    public long countUnreadMessagesExcludingBlocked(Long userId, Boolean isRead, Boolean isDeleted,
+            List<Long> blockedUserIds) {
         Long count = queryFactory
                 .select(message.count())
                 .from(message)
                 .where(
-                        message.receiver.eq(currentUser),
+                        message.receiver.userId.eq(userId),
                         message.isRead.eq(isRead),
                         message.isDeletedByReceiver.eq(isDeleted),
                         notBlockedSenderCondition(blockedUserIds)
@@ -110,6 +114,25 @@ public class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
                 )
                 .fetchOne();
         return Optional.ofNullable(result);
+    }
+
+    @Override
+    public List<Message> findDeletableByMessageIdInForUpdate(Long userId, Collection<Long> messageIds) {
+        if (messageIds == null || messageIds.isEmpty()) {
+            return List.of();
+        }
+
+        return queryFactory
+                .selectFrom(message)
+                .join(message.sender, user).fetchJoin()
+                .join(message.receiver).fetchJoin()
+                .where(
+                        message.messageId.in(messageIds),
+                        senderOrReceiverCanAccess(userId)
+                )
+                .orderBy(message.messageId.asc())
+                .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+                .fetch();
     }
 
     private BooleanExpression notBlockedSenderCondition(List<Long> blockedUserIds) {

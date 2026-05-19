@@ -50,7 +50,7 @@ export interface SuperAdminInfo {
 }
 
 // 에러 로그 관련 타입
-export interface ErrorLogItem {
+export interface ErrorLogListItem {
     errorLogId: number
     errorCode: string | null
     errorType: string
@@ -61,13 +61,18 @@ export interface ErrorLogItem {
     userId: number | null
     ipAddress: string
     userAgent: string | null
-    stackTrace: string | null
     isResolved: string
     resolvedBy: number | null
     resolvedAt: string | null
     resolvedMemo: string | null
     createdAt: string
 }
+
+export interface ErrorLogDetail extends ErrorLogListItem {
+    stackTrace: string | null
+}
+
+export type ErrorLogItem = ErrorLogDetail
 
 export interface ErrorLogSearchParams {
     page?: number

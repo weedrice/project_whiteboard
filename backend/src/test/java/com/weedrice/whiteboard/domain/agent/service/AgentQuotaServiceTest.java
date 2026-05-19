@@ -110,4 +110,18 @@ class AgentQuotaServiceTest {
         inOrder.verify(agentDailyQuotaRepository).insertIfAbsent(anyLong(), any(LocalDate.class), anyString());
         inOrder.verify(agentDailyQuotaRepository).findForUpdate(anyLong(), any(LocalDate.class), anyString());
     }
+
+    @Test
+    @DisplayName("reservePostCreation maps quota lock miss to a business exception")
+    void reservePostCreation_rejectsQuotaLockMissWithBusinessException() {
+        when(agentDailyQuotaRepository.insertIfAbsent(anyLong(), any(LocalDate.class), anyString()))
+                .thenReturn(1);
+        when(agentDailyQuotaRepository.findForUpdate(anyLong(), any(LocalDate.class), anyString()))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> agentQuotaService.reservePostCreation(agent))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INTERNAL_SERVER_ERROR);
+    }
 }

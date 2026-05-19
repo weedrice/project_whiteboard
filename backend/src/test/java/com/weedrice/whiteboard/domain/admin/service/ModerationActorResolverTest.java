@@ -66,7 +66,7 @@ class ModerationActorResolverTest {
     @DisplayName("활성 관리자 행을 공통 resolver에서 조회한다")
     void resolveActiveAdmin_success() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
-        when(adminRepository.findAllByUserAndIsActiveOrderByAdminIdAsc(adminUser, true))
+        when(adminRepository.findByUserAndIsActiveOrderByAdminIdAsc(adminUser, true))
                 .thenReturn(List.of(admin));
 
         Admin resolved = moderationActorResolver.resolveActiveAdmin(1L);
@@ -83,7 +83,7 @@ class ModerationActorResolverTest {
         Admin unknownRole = admin("UNKNOWN", 50L);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
-        when(adminRepository.findAllByUserAndIsActiveOrderByAdminIdAsc(adminUser, true))
+        when(adminRepository.findByUserAndIsActiveOrderByAdminIdAsc(adminUser, true))
                 .thenReturn(List.of(moderator, olderBoardAdmin, latestBoardAdmin, unknownRole));
 
         Admin resolved = moderationActorResolver.resolveActiveAdmin(1L);
@@ -98,7 +98,7 @@ class ModerationActorResolverTest {
         Admin adminRole = admin("ADMIN", 20L);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
-        when(adminRepository.findAllByUserAndIsActiveOrderByAdminIdAsc(adminUser, true))
+        when(adminRepository.findByUserAndIsActiveOrderByAdminIdAsc(adminUser, true))
                 .thenReturn(List.of(boardAdmin, adminRole));
 
         Admin resolved = moderationActorResolver.resolveActiveAdmin(1L);
@@ -110,7 +110,7 @@ class ModerationActorResolverTest {
     @DisplayName("활성 관리자 행이 없으면 FORBIDDEN을 반환한다")
     void resolveActiveAdmin_forbidden() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
-        when(adminRepository.findAllByUserAndIsActiveOrderByAdminIdAsc(adminUser, true))
+        when(adminRepository.findByUserAndIsActiveOrderByAdminIdAsc(adminUser, true))
                 .thenReturn(List.of());
 
         assertThatThrownBy(() -> moderationActorResolver.resolveActiveAdmin(1L))
@@ -123,7 +123,7 @@ class ModerationActorResolverTest {
     void resolveModerationActor_withoutAdmin_success() {
         adminUser.grantSuperAdminRole();
         when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
-        when(adminRepository.findAllByUserAndIsActiveOrderByAdminIdAsc(adminUser, true))
+        when(adminRepository.findByUserAndIsActiveOrderByAdminIdAsc(adminUser, true))
                 .thenReturn(List.of());
 
         ModerationActorResolver.ModerationActor actor = moderationActorResolver.resolveModerationActor(1L);

@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
+import com.weedrice.whiteboard.domain.board.service.BoardCategoryWritePolicy;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.entity.File;
@@ -42,6 +43,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -157,7 +159,10 @@ class PostServiceTest {
                 adminRepository);
         postImageAttachmentReader = new PostImageAttachmentReader(fileService);
         ReactionWriter reactionWriter = new ReactionWriter();
-        postAuthorCommandPolicy = new PostAuthorCommandPolicy(boardAccessPolicy, boardCategoryRepository);
+        postAuthorCommandPolicy = new PostAuthorCommandPolicy(
+                boardAccessPolicy,
+                boardCategoryRepository,
+                new BoardCategoryWritePolicy(boardAccessPolicy));
         userWritableResolver = new UserWritableResolver(userRepository, sanctionService);
         viewHistoryCommandService = new ViewHistoryCommandService(viewHistoryRepository);
         postDetailReadService = new PostDetailReadService(
@@ -217,6 +222,7 @@ class PostServiceTest {
                 postRepository,
                 boardRepository,
                 boardCategoryRepository,
+                draftPostRepository,
                 postVersionRepository,
                 tagAssignmentService,
                 eventPublisher,
@@ -229,13 +235,11 @@ class PostServiceTest {
                 postAuthorCommandPolicy);
         PostFacadeReadService postFacadeReadService = new PostFacadeReadService(
                 postRepository,
-                userRepository,
                 postVersionRepository,
                 tagAssignmentService,
                 postImageAttachmentReader,
                 postReadContextResolver,
                 postSummaryAssembler,
-                postInteractionService,
                 postAccessPolicy,
                 boardAccessPolicy);
         postService = new PostService(
@@ -310,6 +314,7 @@ class PostServiceTest {
     void createPost_withDraftId_passesDraftIdToFileService() {
         PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(),
                 false, false, false, false, 55L, List.of(1L));
+        DraftPost existingDraft = DraftPost.builder().user(user).board(board).title("Draft").build();
 
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -319,10 +324,39 @@ class PostServiceTest {
             ReflectionTestUtils.setField(p, "postId", 100L);
             return p;
         });
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(55L, user)).thenReturn(Optional.of(existingDraft));
 
         postService.createPost(1L, "free", request);
 
         verify(fileService).attachFilesToPost(List.of(1L), 1L, 100L, 55L);
+        InOrder inOrder = inOrder(fileService, draftPostRepository);
+        inOrder.verify(fileService).attachFilesToPost(List.of(1L), 1L, 100L, 55L);
+        inOrder.verify(fileService).markDraftFilesDeletionPending(55L);
+        inOrder.verify(draftPostRepository).delete(existingDraft);
+    }
+
+    @Test
+    @DisplayName("게시글 발행은 첨부 파일이 없어도 사용한 초안을 삭제한다")
+    void createPost_withDraftIdWithoutFiles_deletesDraft() {
+        PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(),
+                false, false, false, false, 55L, Collections.emptyList());
+        DraftPost existingDraft = DraftPost.builder().user(user).board(board).title("Draft").build();
+
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+        when(postRepository.save(any(Post.class))).thenAnswer(invocation -> {
+            Post p = invocation.getArgument(0);
+            ReflectionTestUtils.setField(p, "postId", 100L);
+            return p;
+        });
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(55L, user)).thenReturn(Optional.of(existingDraft));
+
+        postService.createPost(1L, "free", request);
+
+        verify(fileService, never()).attachFilesToPost(anyList(), anyLong(), anyLong(), any());
+        verify(fileService).markDraftFilesDeletionPending(55L);
+        verify(draftPostRepository).delete(existingDraft);
     }
 
     @Test
@@ -351,6 +385,27 @@ class PostServiceTest {
         assertThat(postCaptor.getValue().getContents()).doesNotContain("onclick");
         assertThat(postCaptor.getValue().getContents()).doesNotContain("javascript:");
         assertThat(postCaptor.getValue().getContents()).doesNotContain("<script");
+    }
+
+    @Test
+    @DisplayName("게시글 생성은 서비스 경계에서 HTML 제목을 거부한다")
+    void createPost_htmlTitle_rejectedBeforeSideEffects() {
+        PostCreateRequest request = new PostCreateRequest(null, "<b>New Post</b>", "New Contents",
+                Collections.emptyList(), false, false, false, false, List.of(1L));
+
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+
+        assertThatThrownBy(() -> postService.createPost(1L, "free", request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+        verify(postRepository, never()).save(any(Post.class));
+        verify(tagAssignmentService, never()).assignTags(any(Post.class), anyList());
+        verify(fileService, never()).attachFilesToPost(anyList(), anyLong(), anyLong(), any());
+        verify(pointService, never()).addPointIfAbsent(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
@@ -831,7 +886,7 @@ class PostServiceTest {
     @Test
     @DisplayName("인기 게시글 조회 - 로그인 사용자")
     void getTrendingPosts_loggedIn() {
-        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(postRepository.findTrendingPosts(any(LocalDateTime.class), anyList(), any(Pageable.class)))
                 .thenReturn(List.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -854,7 +909,7 @@ class PostServiceTest {
     @Test
     @DisplayName("인기 게시글 조회는 선택한 기간 기준으로 집계 시점을 계산한다")
     void getTrendingPosts_resolvesSelectedPeriod() {
-        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(postRepository.findTrendingPosts(any(LocalDateTime.class), anyList(), any(Pageable.class)))
                 .thenReturn(List.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -880,7 +935,7 @@ class PostServiceTest {
     @Test
     @DisplayName("인기 게시글 페이지 조회는 repository count로 정확한 total을 반환한다")
     void getTrendingPostsPage_usesExactRepositoryTotal() {
-        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(postRepository.findTrendingPosts(any(LocalDateTime.class), anyList(), anyLong(), anyInt()))
                 .thenReturn(List.of(post));
         when(postRepository.countTrendingPosts(any(LocalDateTime.class), anyList())).thenReturn(20L);
@@ -949,13 +1004,19 @@ class PostServiceTest {
     void updatePost_withDraftId_passesDraftIdToFileService() {
         PostUpdateRequest request = new PostUpdateRequest(null, "Updated Title", "Updated Contents",
                 Collections.emptyList(), false, false, false, 55L, List.of(5L));
+        DraftPost existingDraft = DraftPost.builder().user(user).board(board).title("Draft").build();
 
         when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(55L, user)).thenReturn(Optional.of(existingDraft));
 
         postService.updatePost(1L, 1L, request);
 
         verify(fileService).syncPostFiles(List.of(5L), 1L, 1L, 55L);
+        InOrder inOrder = inOrder(fileService, draftPostRepository);
+        inOrder.verify(fileService).syncPostFiles(List.of(5L), 1L, 1L, 55L);
+        inOrder.verify(fileService).markDraftFilesDeletionPending(55L);
+        inOrder.verify(draftPostRepository).delete(existingDraft);
     }
 
     @Test
@@ -974,6 +1035,26 @@ class PostServiceTest {
         assertThat(post.getContents()).contains("<p>Safe</p>");
         assertThat(post.getContents()).doesNotContain("onmouseover");
         assertThat(post.getContents()).doesNotContain("javascript:");
+    }
+
+    @Test
+    @DisplayName("게시글 수정은 서비스 경계에서 HTML 제목을 거부한다")
+    void updatePost_htmlTitle_rejectedBeforeSideEffects() {
+        PostUpdateRequest request = new PostUpdateRequest(null, "<b>Updated Title</b>", "Updated Contents",
+                Collections.emptyList(), false, false, false, List.of(5L));
+
+        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> postService.updatePost(1L, 1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+        assertThat(post.getTitle()).isEqualTo("Test Post");
+        assertThat(post.getContents()).isEqualTo("Test Contents");
+        verify(tagAssignmentService, never()).assignTags(any(Post.class), anyList());
+        verify(fileService, never()).syncPostFiles(anyList(), anyLong(), anyLong(), any());
+        verify(postVersionRepository, never()).save(any(PostVersion.class));
     }
 
     @Test
@@ -1137,6 +1218,7 @@ class PostServiceTest {
 
         verify(postLikeRepository).saveAndFlush(any(PostLike.class));
         verify(postRepository).incrementLikeCount(1L);
+        verify(userRepository).findById(1L);
         assertThat(likeCount).isEqualTo(1);
     }
 
@@ -1205,6 +1287,30 @@ class PostServiceTest {
         assertThatThrownBy(() -> postService.likePost(1L, 10L, 1L))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("resolved foreign agent is forbidden")
+    void likePost_withResolvedForeignAgent_forbidden() {
+        User otherUser = User.builder().loginId("other").build();
+        ReflectionTestUtils.setField(otherUser, "userId", 2L);
+
+        Agent foreignAgent = Agent.builder()
+                .user(otherUser)
+                .agentTokenHash("hash")
+                .name("foreign-agent")
+                .description("desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(foreignAgent, "agentId", 10L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> postService.likePost(1L, foreignAgent, post))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        verify(postLikeRepository, never()).saveAndFlush(any(PostLike.class));
     }
 
     @Test
@@ -2277,6 +2383,7 @@ class PostServiceTest {
         when(postVersionRepository.findByPost_PostIdOrderByCreatedAtDesc(1L)).thenReturn(Collections.emptyList());
         postService.getPostVersions(1L, 1L);
         verify(postVersionRepository).findByPost_PostIdOrderByCreatedAtDesc(1L);
+        verify(userRepository).findById(1L);
     }
 
     @Test
@@ -2294,6 +2401,49 @@ class PostServiceTest {
         assertThatThrownBy(() -> postService.getPostVersions(1L, 2L))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("getPostVersions succeeds for board admin")
+    void getPostVersions_boardAdmin() {
+        User adminUser = User.builder().loginId("admin").build();
+        ReflectionTestUtils.setField(adminUser, "userId", 2L);
+        ReflectionTestUtils.setField(adminUser, "isSuperAdmin", false);
+
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
+        when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
+        when(adminRepository.existsByUserAndBoardAndIsActive(adminUser, board, true)).thenReturn(true);
+        when(postVersionRepository.findByPost_PostIdOrderByCreatedAtDesc(1L)).thenReturn(Collections.emptyList());
+
+        postService.getPostVersions(1L, 2L);
+
+        verify(postVersionRepository).findByPost_PostIdOrderByCreatedAtDesc(1L);
+    }
+
+    @Test
+    @DisplayName("getPostVersions succeeds for board admin on secret post")
+    void getPostVersions_secretPostBoardAdmin() {
+        User adminUser = User.builder().loginId("admin").build();
+        ReflectionTestUtils.setField(adminUser, "userId", 2L);
+        ReflectionTestUtils.setField(adminUser, "isSuperAdmin", false);
+        Post secretPost = createPost(1L, board, user, true);
+
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(secretPost));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
+        when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
+        when(adminRepository.findByUserAndBoard_BoardIdInAndIsActive(adminUser, List.of(board.getBoardId()), true))
+                .thenReturn(List.of(Admin.builder()
+                        .user(adminUser)
+                        .board(board)
+                        .role("BOARD_ADMIN")
+                        .build()));
+        when(postVersionRepository.findByPost_PostIdOrderByCreatedAtDesc(1L)).thenReturn(Collections.emptyList());
+
+        postService.getPostVersions(1L, 2L);
+
+        verify(postVersionRepository).findByPost_PostIdOrderByCreatedAtDesc(1L);
+        verify(adminRepository, never()).existsByUserAndBoardAndIsActive(adminUser, board, true);
     }
 
     // --- PostResponse ---
@@ -2683,7 +2833,7 @@ class PostServiceTest {
     @DisplayName("게시판 최신 게시글 조회 - 로그인 사용자")
     void getLatestPostsByBoard_loggedIn() {
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
-        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), anyList(), any(Boolean.class), any(),
                 any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(post)));
@@ -3238,6 +3388,18 @@ class PostServiceTest {
                 .thenReturn(List.of(post));
 
         List<PostSummary> summaries = postService.getNoticeSummaries("free", null);
+
+        assertThat(summaries).hasSize(1);
+        assertThat(summaries.get(0).getTitle()).isEqualTo("Test Post");
+    }
+
+    @Test
+    @DisplayName("boardId 기반 공지사항 요약 조회")
+    void getNoticeSummariesByBoardId_success() {
+        when(postRepository.findNoticesByBoardId(eq(1L), eq(true), eq(false), isNull(), eq(false), isNull()))
+                .thenReturn(List.of(post));
+
+        List<PostSummary> summaries = postService.getNoticeSummaries(1L, null, false);
 
         assertThat(summaries).hasSize(1);
         assertThat(summaries.get(0).getTitle()).isEqualTo("Test Post");

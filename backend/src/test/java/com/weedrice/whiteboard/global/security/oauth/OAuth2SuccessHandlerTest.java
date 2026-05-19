@@ -1,6 +1,8 @@
 package com.weedrice.whiteboard.global.security.oauth;
 
 import com.weedrice.whiteboard.domain.auth.dto.TokenResponse;
+import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadata;
+import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadataResolver;
 import com.weedrice.whiteboard.domain.auth.service.SessionTokenService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -23,6 +25,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -46,7 +50,8 @@ class OAuth2SuccessHandlerTest {
                 sessionTokenService,
                 userRepository,
                 sanctionService,
-                new RefreshTokenCookieWriter(1209600000L));
+                new RefreshTokenCookieWriter(1209600000L),
+                new LoginClientMetadataResolver());
         ReflectionTestUtils.setField(handler, "frontendUrl", "http://localhost:5173");
 
         user = User.builder()
@@ -79,7 +84,7 @@ class OAuth2SuccessHandlerTest {
         handler.onAuthenticationSuccess(request, response, authentication);
 
         assertThat(response.getRedirectedUrl()).isEqualTo("http://localhost:5173/auth/oauth/callback");
-        verify(sessionTokenService, never()).issueTokens(authentication, user, request);
+        verify(sessionTokenService, never()).issueTokens(any(), any(), any());
     }
 
     @Test
@@ -95,15 +100,21 @@ class OAuth2SuccessHandlerTest {
                 null,
                 principal.getAuthorities());
         MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("X-Forwarded-For", "203.0.113.7, 10.0.0.1");
+        request.addHeader("User-Agent", "OAuth Browser");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(sanctionService.isUserBanned(user)).thenReturn(false);
-        when(sessionTokenService.issueTokens(authentication, user, request)).thenReturn(TokenResponse.builder()
-                .accessToken("issued-access")
-                .refreshToken("issued-refresh")
-                .expiresIn(1800L)
-                .build());
+        when(sessionTokenService.issueTokens(
+                eq(authentication),
+                eq(user),
+                eq(new LoginClientMetadata("203.0.113.7", "OAuth Browser"))))
+                .thenReturn(TokenResponse.builder()
+                        .accessToken("issued-access")
+                        .refreshToken("issued-refresh")
+                        .expiresIn(1800L)
+                        .build());
 
         handler.onAuthenticationSuccess(request, response, authentication);
 
@@ -118,6 +129,9 @@ class OAuth2SuccessHandlerTest {
                 .anyMatch(header -> header.contains("refreshToken=")
                         && header.contains("Path=/api/v1/auth/refresh")
                         && header.contains("Max-Age=0"));
-        verify(sessionTokenService).issueTokens(authentication, user, request);
+        verify(sessionTokenService).issueTokens(
+                eq(authentication),
+                eq(user),
+                eq(new LoginClientMetadata("203.0.113.7", "OAuth Browser")));
     }
 }

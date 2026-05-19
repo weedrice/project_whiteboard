@@ -3,7 +3,20 @@ import { useQuery } from '@tanstack/vue-query'
 import { postApi } from '@/api/post'
 import { useAuthStore } from '@/stores/auth'
 import { QUERY_STALE_TIME } from '@/utils/constants'
-import type { FeedPost, HomeLandingPeriod, HomeLandingResponse, PostSummary } from '@/types'
+import type { FeedPost, HomeLandingPeriod, HomeLandingResponse, HomeLandingStats, PostSummary } from '@/types'
+
+const EDITOR_PICK_START_INDEX = 1
+const EDITOR_PICK_END_INDEX = 4
+const TRENDING_START_INDEX = 4
+const TRENDING_END_INDEX = 10
+const LIVE_ACTIVITY_END_INDEX = 6
+
+type LegacyHomeLandingResponse = Omit<HomeLandingResponse, 'posts'> & {
+    posts?: PostSummary[]
+    featuredPost?: PostSummary | null
+    editorPicks?: PostSummary[]
+    trendingPosts?: PostSummary[]
+}
 
 const mapToFeedPost = (post: PostSummary): FeedPost | null => {
     if (
@@ -33,24 +46,48 @@ const mapPosts = (posts: PostSummary[] | undefined): FeedPost[] => {
         .filter((post): post is FeedPost => post != null)
 }
 
-const emptyLanding = (): HomeLandingResponse => ({
-    featuredPost: null,
-    editorPicks: [],
-    trendingPosts: [],
-    liveActivity: [],
-    boards: [],
-    stats: {
-        boardCount: 0,
-        postCount: 0,
-        liveCount: 0,
-        onlineCount: 0,
-        postsToday: 0,
-        postsTodayDeltaPercent: null,
-        activeBoardCount: 0,
-        newMembersLast24Hours: 0,
-        commentsToday: 0,
-    },
+const emptyStats = (): HomeLandingStats => ({
+    boardCount: 0,
+    postCount: 0,
+    liveCount: 0,
+    onlineCount: 0,
+    postsToday: 0,
+    postsTodayDeltaPercent: null,
+    activeBoardCount: 0,
+    newMembersLast24Hours: 0,
+    commentsToday: 0,
 })
+
+const emptyLanding = (): HomeLandingResponse => ({
+    posts: [],
+    boards: [],
+    stats: emptyStats(),
+})
+
+const normalizeLanding = (landing: HomeLandingResponse | LegacyHomeLandingResponse | null | undefined): HomeLandingResponse => {
+    if (!landing) {
+        return emptyLanding()
+    }
+
+    if (Array.isArray(landing.posts)) {
+        return {
+            posts: landing.posts,
+            boards: landing.boards ?? [],
+            stats: landing.stats ?? emptyStats(),
+        }
+    }
+
+    const legacyLanding = landing as LegacyHomeLandingResponse
+    return {
+        posts: [
+            ...(legacyLanding.featuredPost ? [legacyLanding.featuredPost] : []),
+            ...(legacyLanding.editorPicks ?? []),
+            ...(legacyLanding.trendingPosts ?? []),
+        ],
+        boards: legacyLanding.boards ?? [],
+        stats: legacyLanding.stats ?? emptyStats(),
+    }
+}
 
 export function useHomeLanding() {
     const authStore = useAuthStore()
@@ -70,20 +107,21 @@ export function useHomeLanding() {
         staleTime: QUERY_STALE_TIME.SHORT,
     })
 
-    const landing = computed(() => landingQuery.data.value ?? emptyLanding())
+    const landing = computed(() => normalizeLanding(landingQuery.data.value))
     const isPendingAuthHydration = computed(() => authStore.isAuthenticated && authStore.user == null)
     const isLoading = computed(() => landingQuery.isLoading.value || isPendingAuthHydration.value)
-    const posts = computed(() => mapPosts([
-        ...(landing.value.featuredPost ? [landing.value.featuredPost] : []),
-        ...landing.value.editorPicks,
-        ...landing.value.trendingPosts,
-    ]))
+    const sourcePosts = computed(() => landing.value.posts ?? [])
+    const featuredPost = computed(() => sourcePosts.value[0] ?? null)
+    const editorPickPosts = computed(() => sourcePosts.value.slice(EDITOR_PICK_START_INDEX, EDITOR_PICK_END_INDEX))
+    const trendingPosts = computed(() => sourcePosts.value.slice(TRENDING_START_INDEX, TRENDING_END_INDEX))
+    const liveActivityPosts = computed(() => sourcePosts.value.slice(0, LIVE_ACTIVITY_END_INDEX))
+    const posts = computed(() => mapPosts(sourcePosts.value.slice(0, TRENDING_END_INDEX)))
 
     return {
-        featured: computed(() => landing.value.featuredPost ? mapToFeedPost(landing.value.featuredPost) : null),
-        editorPicks: computed(() => mapPosts(landing.value.editorPicks)),
-        trending: computed(() => mapPosts(landing.value.trendingPosts)),
-        liveActivity: computed(() => mapPosts(landing.value.liveActivity)),
+        featured: computed(() => featuredPost.value ? mapToFeedPost(featuredPost.value) : null),
+        editorPicks: computed(() => mapPosts(editorPickPosts.value)),
+        trending: computed(() => mapPosts(trendingPosts.value)),
+        liveActivity: computed(() => mapPosts(liveActivityPosts.value)),
         spotlightBoards: computed(() => landing.value.boards),
         boards: computed(() => landing.value.boards),
         stats: computed(() => landing.value.stats),

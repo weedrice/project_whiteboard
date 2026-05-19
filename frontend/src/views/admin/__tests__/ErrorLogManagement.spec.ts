@@ -1,4 +1,4 @@
-import { mount, VueWrapper } from '@vue/test-utils'
+import { flushPromises, mount, VueWrapper } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref, nextTick, defineComponent, h } from 'vue'
 import ErrorLogManagement from '../ErrorLogManagement.vue'
@@ -16,7 +16,6 @@ const mockErrorLogs = [
         userId: 10,
         ipAddress: '192.168.1.1',
         userAgent: 'Mozilla/5.0',
-        stackTrace: 'java.lang.NullPointerException...',
         isResolved: 'N',
         resolvedBy: null,
         resolvedAt: null,
@@ -35,7 +34,6 @@ const mockErrorLogs = [
         userId: null,
         ipAddress: '10.0.0.1',
         userAgent: 'Chrome/120',
-        stackTrace: null,
         isResolved: 'Y',
         resolvedBy: 1,
         resolvedAt: '2026-02-23T12:00:00',
@@ -44,6 +42,10 @@ const mockErrorLogs = [
         modifiedAt: '2026-02-23T12:00:00'
     }
 ]
+const mockErrorLogDetail = {
+    ...mockErrorLogs[0],
+    stackTrace: 'java.lang.NullPointerException...'
+}
 
 const mockStats = {
     totalCount: 100,
@@ -62,6 +64,7 @@ const mockPageData = {
 // Mock 함수
 const mockRefetch = vi.fn()
 const mockMutateAsync = vi.fn()
+const mockFetchErrorLogDetail = vi.fn().mockResolvedValue(mockErrorLogDetail)
 const mockInvalidateQueries = vi.fn()
 
 const mocks = vi.hoisted(() => {
@@ -130,6 +133,9 @@ vi.mock('@/composables/useAdmin', () => ({
             data: ref(mockPageData),
             isLoading: ref(false),
             refetch: mockRefetch
+        }),
+        useErrorLog: () => ({
+            mutateAsync: mockFetchErrorLogDetail
         }),
         useResolveErrorLog: () => ({
             mutateAsync: mockMutateAsync
@@ -333,6 +339,18 @@ describe('ErrorLogManagement', () => {
         it('모든 행에 상세 보기 버튼이 있다', () => {
             const detailButtons = wrapper.findAll('.btn-icon')
             expect(detailButtons.length).toBeGreaterThanOrEqual(2)
+        })
+
+        it('상세 보기 버튼 클릭 시 상세 API 결과의 스택 트레이스를 모달에 표시한다', async () => {
+            const detailButtons = wrapper.findAll('.btn-icon')
+
+            await detailButtons[0].trigger('click')
+            await flushPromises()
+            await nextTick()
+
+            expect(mockFetchErrorLogDetail).toHaveBeenCalledWith(1)
+            expect(wrapper.text()).toContain('java.lang.NullPointerException...')
+            expect(wrapper.find('.btn-copy-stack-trace').exists()).toBe(true)
         })
 
         it('미확인 행에만 확인 처리 버튼이 있다', () => {

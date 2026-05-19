@@ -2,9 +2,10 @@ package com.weedrice.whiteboard.domain.shop.service;
 
 import com.weedrice.whiteboard.domain.shop.entity.ShopItem;
 import com.weedrice.whiteboard.domain.shop.repository.ShopItemRepository;
+import com.weedrice.whiteboard.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.SmartInitializingSingleton;
+import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -44,6 +45,9 @@ public class ShopEntitlementStartupValidator implements SmartInitializingSinglet
         try {
             shopEntitlementCapabilityRegistry.validateConfiguration(item);
             return "";
+        } catch (BusinessException ex) {
+            return "itemId=" + item.getItemId() + ", itemType=" + item.getItemType() + ", reason="
+                    + ex.getErrorCode().name();
         } catch (IllegalStateException ex) {
             return "itemId=" + item.getItemId() + ", itemType=" + item.getItemType() + ", reason=" + ex.getMessage();
         }

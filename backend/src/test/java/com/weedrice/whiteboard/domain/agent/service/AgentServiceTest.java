@@ -4,14 +4,19 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentBoardListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentClaimRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentItem;
+import com.weedrice.whiteboard.domain.agent.dto.AgentHomeResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
+import com.weedrice.whiteboard.domain.agent.dto.AgentPostActivityReadResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentStatusResponse;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.entity.AgentDailyQuota;
+import com.weedrice.whiteboard.domain.agent.entity.AgentPostActivityRead;
+import com.weedrice.whiteboard.domain.agent.exception.AgentWriteException;
 import com.weedrice.whiteboard.domain.agent.repository.AgentDailyQuotaRepository;
+import com.weedrice.whiteboard.domain.agent.repository.AgentPostActivityReadRepository;
 import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
@@ -22,9 +27,11 @@ import com.weedrice.whiteboard.domain.board.repository.BoardAiInfoRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
+import com.weedrice.whiteboard.domain.board.service.BoardCategoryWritePolicy;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.service.CommentCreateContext;
+import com.weedrice.whiteboard.domain.comment.service.CommentReadModelAssembler;
 import com.weedrice.whiteboard.domain.comment.service.CommentReadSupport;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
@@ -33,6 +40,8 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.post.service.PostCreateContext;
 import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
+import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionPolicyService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
@@ -64,9 +73,11 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -97,6 +108,8 @@ class AgentServiceTest {
     @Mock
     private AgentDailyQuotaRepository agentDailyQuotaRepository;
     @Mock
+    private AgentPostActivityReadRepository agentPostActivityReadRepository;
+    @Mock
     private UserRepository userRepository;
     @Mock
     private UserBlockService userBlockService;
@@ -121,6 +134,8 @@ class AgentServiceTest {
     @Mock
     private SanctionPolicyService sanctionPolicyService;
     @Mock
+    private SanctionRepository sanctionRepository;
+    @Mock
     private EntityManager entityManager;
 
     private AgentOwnershipService agentOwnershipService;
@@ -130,9 +145,11 @@ class AgentServiceTest {
     private CommentReadSupport commentReadSupport;
     private AgentLifecycleService agentLifecycleService;
     private AgentAuthService agentAuthService;
+    private AgentPolicyService agentPolicyService;
     private AgentQueryService agentQueryService;
     private AgentQuotaService agentQuotaService;
     private AgentCommandService agentCommandService;
+    private AgentPostActivityService agentPostActivityService;
 
     private User user;
     private Agent agent;
@@ -145,13 +162,16 @@ class AgentServiceTest {
     void setUp() {
         agentOwnershipService = spy(new AgentOwnershipService(agentRepository, sanctionService));
         agentAuditService = spy(new AgentAuditService(agentAuditLogWriter));
+        BoardAccessPolicy boardAccessPolicy = new BoardAccessPolicy(adminRepository);
         agentBoardAccessService = spy(new AgentBoardAccessService(
                 adminRepository,
                 boardRepository,
                 boardCategoryRepository,
-                postService));
+                postService,
+                new BoardCategoryWritePolicy(boardAccessPolicy)));
         agentPostListItemAssembler = spy(new AgentPostListItemAssembler(commentRepository));
         commentReadSupport = new CommentReadSupport(commentRepository);
+        CommentReadModelAssembler commentReadModelAssembler = new CommentReadModelAssembler(commentReadSupport);
         agentQuotaService = new AgentQuotaService(agentDailyQuotaRepository);
         agentLifecycleService = new AgentLifecycleService(
                 agentRepository,
@@ -159,35 +179,55 @@ class AgentServiceTest {
                 agentAuditService,
                 sanctionPolicyService,
                 entityManager);
-        agentAuthService = new AgentAuthService(agentRepository, agentOwnershipService);
+        agentAuthService = new AgentAuthService(agentRepository);
         PostAccessPolicy postAccessPolicy = new PostAccessPolicy(new BoardAccessPolicy(adminRepository));
+        agentPolicyService = new AgentPolicyService(
+                postRepository,
+                commentRepository,
+                sanctionRepository,
+                agentQuotaService);
         agentQueryService = new AgentQueryService(
                 boardRepository,
                 boardAiInfoRepository,
                 postRepository,
                 commentRepository,
+                agentPostActivityReadRepository,
                 postService,
                 postAccessPolicy,
                 userBlockService,
                 agentOwnershipService,
                 agentBoardAccessService,
                 agentPostListItemAssembler,
-                commentReadSupport);
+                commentReadSupport,
+                commentReadModelAssembler,
+                agentPolicyService);
         AgentLinkBuilder agentLinkBuilder = new AgentLinkBuilder();
         ReflectionTestUtils.setField(agentLinkBuilder, "frontendUrl", "https://noviis.kr");
         agentCommandService = new AgentCommandService(
                 boardRepository,
                 boardCategoryRepository,
                 commentRepository,
+                postRepository,
                 postService,
                 commentService,
                 agentOwnershipService,
                 agentBoardAccessService,
                 agentAuditService,
                 agentQuotaService,
+                agentPolicyService,
                 agentLinkBuilder);
+        agentPostActivityService = new AgentPostActivityService(
+                agentOwnershipService,
+                postRepository,
+                agentPostActivityReadRepository,
+                commentRepository);
 
         lenient().when(agentDailyQuotaRepository.findForUpdate(anyLong(), any(LocalDate.class), anyString()))
+                .thenReturn(Optional.empty());
+        lenient().when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(
+                        anyLong(), any(LocalDate.class), anyString()))
+                .thenReturn(Optional.empty());
+        lenient().when(sanctionRepository.findFirstActiveTypeIn(any(), any(), any(LocalDateTime.class)))
                 .thenReturn(Optional.empty());
         lenient().when(agentDailyQuotaRepository.saveAndFlush(any(AgentDailyQuota.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -390,6 +430,10 @@ class AgentServiceTest {
                 any(LocalDateTime.class),
                 any(LocalDateTime.class)))
                 .thenReturn(3L);
+        when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(eq(7L), any(LocalDate.class), eq("POST")))
+                .thenReturn(Optional.of(quota("POST", 49L)));
+        when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(eq(7L), any(LocalDate.class), eq("COMMENT")))
+                .thenReturn(Optional.of(quota("COMMENT", 100L)));
 
         AgentStatusResponse response = agentQueryService.getStatus(7L);
 
@@ -411,6 +455,185 @@ class AgentServiceTest {
         assertThat(postEndCaptor.getValue()).isEqualTo(postStartCaptor.getValue().plusDays(1));
         assertThat(response.getStats().getPostsToday()).isEqualTo(2L);
         assertThat(response.getStats().getCommentsToday()).isEqualTo(3L);
+        assertThat(response.getLimits().getPostsRemaining()).isEqualTo(1L);
+        assertThat(response.getLimits().getCommentsRemaining()).isZero();
+        assertThat(response.getRestrictions().isCanPost()).isTrue();
+        assertThat(response.getRestrictions().isCanComment()).isFalse();
+    }
+
+    @Test
+    void getStatus_allowsSuspendedAgentAndExposesRestrictions() {
+        agent.suspend();
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+
+        AgentStatusResponse response = agentQueryService.getStatus(7L);
+
+        assertThat(response.getStatus()).isEqualTo("suspended");
+        assertThat(response.getLimits().getPostsRemaining()).isEqualTo(50L);
+        assertThat(response.getLimits().getCommentsRemaining()).isEqualTo(100L);
+        assertThat(response.getRestrictions().isSuspended()).isTrue();
+        assertThat(response.getRestrictions().isCanPost()).isFalse();
+        assertThat(response.getRestrictions().isCanComment()).isFalse();
+    }
+
+    @Test
+    void getHome_returnsRequiredEmptyListsAndUnavailableWriteCapabilitiesForSuspendedAgent() {
+        agent.suspend();
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+
+        var response = agentQueryService.getHome(7L);
+
+        assertThat(response.getAgent().getStatus()).isEqualTo("suspended");
+        assertThat(response.getHardConstraints().isSuspended()).isTrue();
+        assertThat(response.getCapabilities().get("create_post").isAvailable()).isFalse();
+        assertThat(response.getCapabilities().get("create_comment").isAvailable()).isFalse();
+        assertThat(response.getCapabilities().get("create_reply").isAvailable()).isFalse();
+        assertThat(response.getCapabilities().get("like_post").isAvailable()).isFalse();
+        assertThat(response.getCapabilities().get("delete_post").isAvailable()).isFalse();
+        assertThat(response.getCapabilities().get("mark_post_activity_read").isAvailable()).isFalse();
+        assertThat(response.getActivityOnMyPosts()).isEmpty();
+        assertThat(response.getMyRecentPosts()).isEmpty();
+        assertThat(response.getRecommendedBoards()).isEmpty();
+        assertThat(response.getRecentFeed()).isEmpty();
+        assertThat(response.getOpportunities()).isEmpty();
+        assertThat(response.getWarnings()).containsExactly("agent_suspended");
+        verify(agentOwnershipService, never()).validateAuthenticatedAgent(agent);
+        verify(agentOwnershipService, never()).resolveActiveAgent(7L);
+    }
+
+    @Test
+    void getHome_returnsCapabilitiesAndOpportunitiesForActiveAgent() {
+        doReturn(agent).when(agentOwnershipService).resolveClaimedAgent(7L);
+        ReflectionTestUtils.setField(writablePost, "agent", agent);
+        ReflectionTestUtils.setField(writablePost, "createdAt", LocalDateTime.now());
+        User commenter = User.builder().loginId("commenter").displayName("Commenter").build();
+        ReflectionTestUtils.setField(commenter, "userId", 2L);
+        Comment comment = Comment.builder()
+                .post(writablePost)
+                .user(commenter)
+                .depth(0)
+                .content("<p>recent reply</p>")
+                .build();
+        ReflectionTestUtils.setField(comment, "commentId", 301L);
+        ReflectionTestUtils.setField(comment, "createdAt", LocalDateTime.now());
+
+        when(commentRepository.findRecentUnreadCommentsOnAgentPosts(eq(7L), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(comment), PageRequest.of(0, 20), 1));
+        when(commentRepository.countUnreadCommentsOnAgentPosts(7L, List.of(100L)))
+                .thenReturn(List.of(new CommentRepository.UnreadCommentCountProjection() {
+                    @Override
+                    public Long getPostId() {
+                        return 100L;
+                    }
+
+                    @Override
+                    public long getUnreadCount() {
+                        return 2L;
+                    }
+                }));
+        when(agentPostActivityReadRepository.findByAgent_AgentIdAndPost_PostIdIn(7L, List.of(100L)))
+                .thenReturn(List.of());
+        when(postRepository.findByAgent_AgentIdAndIsDeleted(eq(7L), eq(false), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 5), 1));
+        when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
+                .thenReturn(List.of(writableBoard));
+        doReturn(Set.of(10L)).when(agentBoardAccessService)
+                .resolveWritableBoardIds(eq(agent), eq(List.of(writableBoard)), any());
+        when(postRepository.countActiveByBoardIds(List.of(10L))).thenReturn(List.of(new PostRepository.BoardPostCountProjection() {
+            @Override
+            public Long getBoardId() {
+                return 10L;
+            }
+
+            @Override
+            public Long getPostCount() {
+                return 3L;
+            }
+        }));
+        when(boardAiInfoRepository.findByBoard_BoardIdIn(List.of(10L))).thenReturn(List.of());
+        doReturn(List.of(writableBoard)).when(agentBoardAccessService).getAccessibleFeedBoards(agent, null);
+        doReturn(Set.of()).when(agentBoardAccessService).resolveBoardAdminIds(user, List.of(writableBoard), List.of(10L));
+        when(postRepository.findAgentFeedByBoardIds(eq(List.of(10L)), any(), any(), eq(1L), any()))
+                .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 10), 1));
+
+        var response = agentQueryService.getHome(7L);
+
+        assertThat(response.getCapabilities().get("create_post").isAvailable()).isTrue();
+        assertThat(response.getCapabilities().get("create_comment").isAvailable()).isTrue();
+        assertThat(response.getOpportunities()).extracting(AgentHomeResponse.Opportunity::getType)
+                .contains("reply_to_activity", "review_feed", "explore_board", "create_post_candidate", "continue_own_thread");
+        AgentHomeResponse.ActivityOnMyPost activity = response.getActivityOnMyPosts().get(0);
+        assertThat(activity.getNewCommentCount()).isEqualTo(2L);
+        assertThat(activity.getLatestCommentPreview()).isEqualTo("recent reply");
+        AgentHomeResponse.Opportunity replyToActivity = response.getOpportunities().stream()
+                .filter(opportunity -> "reply_to_activity".equals(opportunity.getType()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(replyToActivity.getTargetType()).isEqualTo("post");
+        assertThat(replyToActivity.getTargetId()).isEqualTo(100L);
+        assertThat(replyToActivity.getAvailableActions()).extracting(AgentHomeResponse.AvailableAction::getTool)
+                .contains("get_post_comments");
+        assertThat(replyToActivity.getAvailableActions().get(0).getParams()).containsEntry("post_id", 100L);
+        verify(agentOwnershipService).validateAuthenticatedAgent(agent);
+        verify(agentOwnershipService, never()).resolveActiveAgent(7L);
+        verify(commentRepository, never()).countUnreadCommentsOnAgentPost(anyLong(), anyLong());
+    }
+
+    @Test
+    void getHome_marksCreatePostCapabilityUnavailableWhenPostLimitExhausted() {
+        doReturn(agent).when(agentOwnershipService).resolveClaimedAgent(7L);
+        when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(
+                eq(7L), any(LocalDate.class), eq(AgentQuotaService.ACTION_POST)))
+                .thenReturn(Optional.of(AgentDailyQuota.builder()
+                        .agent(agent)
+                        .quotaDate(LocalDate.now())
+                        .actionType(AgentQuotaService.ACTION_POST)
+                        .usedCount(AgentQuotaService.DAILY_AGENT_POST_LIMIT)
+                        .build()));
+        when(commentRepository.findRecentUnreadCommentsOnAgentPosts(eq(7L), any(Pageable.class)))
+                .thenReturn(Page.empty());
+        when(postRepository.findByAgent_AgentIdAndIsDeleted(eq(7L), eq(false), any(Pageable.class)))
+                .thenReturn(Page.empty());
+        when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
+                .thenReturn(List.of(writableBoard));
+        doReturn(Set.of(10L)).when(agentBoardAccessService)
+                .resolveWritableBoardIds(eq(agent), eq(List.of(writableBoard)), any());
+        when(postRepository.countActiveByBoardIds(List.of(10L))).thenReturn(List.of(new PostRepository.BoardPostCountProjection() {
+            @Override
+            public Long getBoardId() {
+                return 10L;
+            }
+
+            @Override
+            public Long getPostCount() {
+                return 1L;
+            }
+        }));
+        when(boardAiInfoRepository.findByBoard_BoardIdIn(List.of(10L))).thenReturn(List.of());
+        doReturn(List.of(writableBoard)).when(agentBoardAccessService).getAccessibleFeedBoards(agent, null);
+        doReturn(Set.of()).when(agentBoardAccessService).resolveBoardAdminIds(user, List.of(writableBoard), List.of(10L));
+        when(postRepository.findAgentFeedByBoardIds(eq(List.of(10L)), any(), any(), eq(1L), any()))
+                .thenReturn(Page.empty());
+
+        var response = agentQueryService.getHome(7L);
+
+        AgentHomeResponse.Capability createPost = response.getCapabilities().get("create_post");
+        assertThat(createPost.isAvailable()).isFalse();
+        assertThat(createPost.getUnavailableReasons()).contains("post_quota_exceeded");
+        assertThat(createPost.getPostsRemaining()).isZero();
+        assertThat(createPost.getNextPostAllowedAt()).isNotNull();
+        assertThat(response.getUsage().getPostsRemaining()).isZero();
+        assertThat(response.getUsage().getNextPostAllowedAt()).isNotNull();
+        assertThat(response.getOpportunities()).extracting(AgentHomeResponse.Opportunity::getType)
+                .contains("explore_board");
+        AgentHomeResponse.Opportunity exploreBoard = response.getOpportunities().stream()
+                .filter(opportunity -> "explore_board".equals(opportunity.getType()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(exploreBoard.getAvailableActions()).extracting(AgentHomeResponse.AvailableAction::getTool)
+                .containsExactly("get_board_posts");
+        verify(agentOwnershipService).validateAuthenticatedAgent(agent);
+        verify(agentOwnershipService, never()).resolveActiveAgent(7L);
     }
 
     @Test
@@ -911,8 +1134,8 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(boardAiInfo, "boardId", 10L);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
-                .thenReturn(List.of(writableBoard, blockedBoard));
+        when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
+                .thenReturn(List.of(writableBoard));
         when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
                 List.of(10L), true)).thenReturn(List.of(defaultCategory(writableBoard, Role.BOARD_ADMIN)));
         when(boardAiInfoRepository.findByBoard_BoardIdIn(List.of(10L))).thenReturn(List.of(boardAiInfo));
@@ -937,7 +1160,7 @@ class AgentServiceTest {
         Board readableOnlyBoard = readableOnlyAgentEnabledBoard(30L);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
+        when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(writableBoard, readableOnlyBoard));
         when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
                 List.of(10L, 30L), true)).thenReturn(List.of(
@@ -968,7 +1191,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(managedBoard, "agentUseYn", true);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
+        when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(managedBoard));
         when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
                 List.of(30L), true)).thenReturn(List.of(defaultCategory(managedBoard, Role.BOARD_ADMIN)));
@@ -1002,7 +1225,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(boardAiInfo, "boardId", 10L);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
+        when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(writableBoard, superAdminOnlyBoard));
         when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
                 List.of(10L, 40L), true)).thenReturn(List.of(
@@ -1033,7 +1256,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(superAdminOnlyBoard, "agentUseYn", true);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
+        when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(superAdminOnlyBoard));
         when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
                 List.of(40L), true)).thenReturn(List.of(defaultCategory(superAdminOnlyBoard, Role.SUPER_ADMIN)));
@@ -1049,8 +1272,8 @@ class AgentServiceTest {
     @Test
     void getBoards_returnsEmptyWithoutMetadataWhenNoAgentEnabledBoards() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
-                .thenReturn(List.of(blockedBoard));
+        when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
+                .thenReturn(List.of());
 
         AgentBoardListResponse response = agentQueryService.getBoards(7L);
 
@@ -1342,6 +1565,87 @@ class AgentServiceTest {
     }
 
     @Test
+    void markPostActivityRead_createsReadCursorAndReturnsRemainingUnreadCount() {
+        ReflectionTestUtils.setField(writablePost, "agent", agent);
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(writablePost));
+        when(agentPostActivityReadRepository.findByAgentIdAndPostId(7L, 100L)).thenReturn(Optional.empty());
+        when(agentPostActivityReadRepository.save(any(AgentPostActivityRead.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(commentRepository.countUnreadCommentsOnAgentPost(7L, 100L)).thenReturn(0L);
+
+        AgentPostActivityReadResponse response = agentPostActivityService.markRead(7L, 100L);
+
+        assertThat(response.getPostId()).isEqualTo(100L);
+        assertThat(response.isMarkedRead()).isTrue();
+        assertThat(response.getMarkedReadAt()).isNotNull();
+        assertThat(response.getRemainingUnreadCount()).isZero();
+        ArgumentCaptor<AgentPostActivityRead> readCaptor = ArgumentCaptor.forClass(AgentPostActivityRead.class);
+        verify(agentPostActivityReadRepository).save(readCaptor.capture());
+        assertThat(readCaptor.getValue().getAgent()).isSameAs(agent);
+        assertThat(readCaptor.getValue().getPost()).isSameAs(writablePost);
+        assertThat(readCaptor.getValue().getLastReadAt()).isNotNull();
+    }
+
+    @Test
+    void markPostActivityRead_updatesExistingCursorIdempotently() {
+        ReflectionTestUtils.setField(writablePost, "agent", agent);
+        LocalDateTime previousReadAt = LocalDateTime.now().minusHours(1);
+        AgentPostActivityRead existingRead = AgentPostActivityRead.builder()
+                .agent(agent)
+                .post(writablePost)
+                .lastReadAt(previousReadAt)
+                .build();
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(writablePost));
+        when(agentPostActivityReadRepository.findByAgentIdAndPostId(7L, 100L)).thenReturn(Optional.of(existingRead));
+        when(agentPostActivityReadRepository.save(existingRead)).thenReturn(existingRead);
+        when(commentRepository.countUnreadCommentsOnAgentPost(7L, 100L)).thenReturn(0L);
+
+        AgentPostActivityReadResponse response = agentPostActivityService.markRead(7L, 100L);
+
+        assertThat(response.isMarkedRead()).isTrue();
+        assertThat(existingRead.getLastReadAt()).isAfter(previousReadAt);
+        verify(agentPostActivityReadRepository).save(existingRead);
+    }
+
+    @Test
+    void markPostActivityRead_forbiddenWhenPostBelongsToDifferentAgent() {
+        Agent otherAgent = Agent.builder()
+                .user(user)
+                .agentTokenHash("other-hash")
+                .name("other")
+                .description("desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(otherAgent, "agentId", 8L);
+        ReflectionTestUtils.setField(writablePost, "agent", otherAgent);
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(writablePost));
+
+        assertThatThrownBy(() -> agentPostActivityService.markRead(7L, 100L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        verify(agentPostActivityReadRepository, never()).save(any());
+    }
+
+    @Test
+    void markPostActivityRead_rejectsSuspendedAgent() {
+        agent.suspend();
+        ReflectionTestUtils.setField(writablePost, "agent", agent);
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+
+        assertThatThrownBy(() -> agentPostActivityService.markRead(7L, 100L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        verify(agentPostActivityReadRepository, never()).save(any());
+    }
+
+    @Test
     void createPost_forbiddenWhenReadableBoardIsNotWritable() {
         AgentPostCreateRequest request = new AgentPostCreateRequest();
         ReflectionTestUtils.setField(request, "boardUrl", "free");
@@ -1353,11 +1657,35 @@ class AgentServiceTest {
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(false);
 
         assertThatThrownBy(() -> agentCommandService.createPost(7L, request, null))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+                .isInstanceOf(AgentWriteException.class)
+                .hasFieldOrPropertyWithValue("code", "board_write_forbidden");
 
         verify(postService).canWriteToBoard(1L, writableBoard);
         verify(agentDailyQuotaRepository, never()).findForUpdate(anyLong(), any(LocalDate.class), anyString());
+        verify(postService, never()).createPostAsAgent(
+                anyLong(),
+                anyLong(),
+                any(PostCreateRequest.class),
+                any(PostCreateContext.class));
+    }
+
+    @Test
+    void createPost_htmlTitleRejectedBeforeQuotaReservation() {
+        AgentPostCreateRequest request = new AgentPostCreateRequest();
+        ReflectionTestUtils.setField(request, "boardUrl", "free");
+        ReflectionTestUtils.setField(request, "title", "<b>title</b>");
+        ReflectionTestUtils.setField(request, "content", "a".repeat(60));
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(boardRepository.findByBoardUrlForUpdate("free")).thenReturn(Optional.of(writableBoard));
+        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
+
+        assertThatThrownBy(() -> agentCommandService.createPost(7L, request, null))
+                .isInstanceOf(AgentWriteException.class)
+                .hasFieldOrPropertyWithValue("code", "validation_failed");
+
+        verify(agentDailyQuotaRepository, never()).findForUpdate(anyLong(), any(LocalDate.class), anyString());
+        verify(agentDailyQuotaRepository, never()).saveAndFlush(any(AgentDailyQuota.class));
         verify(postService, never()).createPostAsAgent(
                 anyLong(),
                 anyLong(),
@@ -1375,8 +1703,8 @@ class AgentServiceTest {
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(false);
 
         assertThatThrownBy(() -> agentCommandService.createComment(7L, 100L, request, null))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+                .isInstanceOf(AgentWriteException.class)
+                .hasFieldOrPropertyWithValue("code", "board_write_forbidden");
 
         verify(postService).canWriteToBoard(1L, writableBoard);
         verify(agentDailyQuotaRepository, never()).findForUpdate(anyLong(), any(LocalDate.class), anyString());
@@ -1394,7 +1722,7 @@ class AgentServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
 
         verify(postService).canWriteToBoard(1L, writableBoard);
-        verify(postService, never()).likePost(anyLong(), anyLong(), anyLong());
+        verify(postService, never()).likePost(anyLong(), (Agent) any(), any(Post.class));
         verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(),
                 any(), any());
     }
@@ -1408,15 +1736,14 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(request, "content", "a".repeat(60));
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByBoardUrlForUpdate("free")).thenReturn(Optional.of(writableBoard));
-        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
-        when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("POST")))
+        when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(eq(7L), any(LocalDate.class), eq("POST")))
                 .thenReturn(Optional.of(quota("POST", 50L)));
 
         assertThatThrownBy(() -> agentCommandService.createPost(7L, request, null))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.RATE_LIMIT_EXCEEDED);
+                .isInstanceOf(AgentWriteException.class)
+                .hasFieldOrPropertyWithValue("code", "post_daily_limit_exceeded");
 
+        verify(boardRepository, never()).findByBoardUrlForUpdate(anyString());
         verify(postService, never()).createPostAsAgent(
                 anyLong(),
                 anyLong(),
@@ -1431,16 +1758,167 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(request, "content", "b".repeat(25));
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
-        when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
-        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
-        when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("COMMENT")))
+        when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(eq(7L), any(LocalDate.class), eq("COMMENT")))
                 .thenReturn(Optional.of(quota("COMMENT", 100L)));
+        when(sanctionRepository.existsActiveTypeIn(eq(user), any(), any(LocalDateTime.class))).thenReturn(false);
 
         assertThatThrownBy(() -> agentCommandService.createComment(7L, 100L, request, null))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.RATE_LIMIT_EXCEEDED);
+                .isInstanceOf(AgentWriteException.class)
+                .hasFieldOrPropertyWithValue("code", "comment_daily_limit_exceeded");
 
+        verify(postService, never()).getPostById(anyLong(), anyLong(), anyBoolean());
         verify(commentService, never()).createCommentAsAgent(anyLong(), anyLong(), eq(100L), isNull(), any(), any());
+    }
+
+    @Test
+    void createPost_missingBoard_returnsStructuredWriteError() {
+        AgentPostCreateRequest request = new AgentPostCreateRequest();
+        ReflectionTestUtils.setField(request, "boardUrl", "missing");
+        ReflectionTestUtils.setField(request, "title", "title");
+        ReflectionTestUtils.setField(request, "content", "a".repeat(60));
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(boardRepository.findByBoardUrlForUpdate("missing")).thenReturn(Optional.empty());
+
+        Throwable thrown = catchThrowable(() -> agentCommandService.createPost(7L, request, null));
+
+        assertThat(thrown).isInstanceOf(AgentWriteException.class);
+        AgentWriteException exception = (AgentWriteException) thrown;
+        assertThat(exception.getCode()).isEqualTo("board_not_found");
+        assertThat(exception.getDetails().getAction()).isEqualTo("create_post");
+        assertThat(exception.getDetails().getLimits()).isNotNull();
+        assertThat(exception.getDetails().getRestrictions()).isNotNull();
+    }
+
+    @Test
+    void createPost_suspendedAgent_returnsStructuredWriteErrorBeforeTargetLookup() {
+        ReflectionTestUtils.setField(agent, "status", Agent.STATUS_SUSPENDED);
+        AgentPostCreateRequest request = new AgentPostCreateRequest();
+        ReflectionTestUtils.setField(request, "boardUrl", "free");
+        ReflectionTestUtils.setField(request, "title", "title");
+        ReflectionTestUtils.setField(request, "content", "a".repeat(60));
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+
+        Throwable thrown = catchThrowable(() -> agentCommandService.createPost(7L, request, null));
+
+        assertThat(thrown).isInstanceOf(AgentWriteException.class);
+        AgentWriteException exception = (AgentWriteException) thrown;
+        assertThat(exception.getCode()).isEqualTo("agent_suspended");
+        assertThat(exception.getDetails().getAction()).isEqualTo("create_post");
+        assertThat(exception.getDetails().getRestrictions().isSuspended()).isTrue();
+        verify(boardRepository, never()).findByBoardUrlForUpdate(anyString());
+    }
+
+    @Test
+    void createPost_activeBanWinsEvenWhenLatestRestrictionIsMute() {
+        AgentPostCreateRequest request = new AgentPostCreateRequest();
+        ReflectionTestUtils.setField(request, "boardUrl", "free");
+        ReflectionTestUtils.setField(request, "title", "title");
+        ReflectionTestUtils.setField(request, "content", "a".repeat(60));
+        Sanction mute = Sanction.builder()
+                .targetUser(user)
+                .type("MUTE")
+                .remark("muted")
+                .startDate(LocalDateTime.now().minusMinutes(1))
+                .endDate(LocalDateTime.now().plusDays(1))
+                .build();
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(sanctionRepository.findFirstActiveTypeIn(eq(user), any(), any(LocalDateTime.class)))
+                .thenReturn(Optional.of(mute));
+        when(sanctionRepository.existsActiveBan(eq(user), any(LocalDateTime.class))).thenReturn(true);
+
+        Throwable thrown = catchThrowable(() -> agentCommandService.createPost(7L, request, null));
+
+        assertThat(thrown).isInstanceOf(AgentWriteException.class);
+        AgentWriteException exception = (AgentWriteException) thrown;
+        assertThat(exception.getCode()).isEqualTo("agent_suspended");
+        assertThat(exception.getDetails().getRestrictions().isSuspended()).isTrue();
+        verify(boardRepository, never()).findByBoardUrlForUpdate(anyString());
+    }
+
+    @Test
+    void createComment_mutedAgentWinsBeforeDailyLimit() {
+        AgentCommentCreateRequest request = new AgentCommentCreateRequest();
+        ReflectionTestUtils.setField(request, "content", "b".repeat(25));
+        Sanction mute = Sanction.builder()
+                .targetUser(user)
+                .type("MUTE")
+                .remark("muted")
+                .startDate(LocalDateTime.now().minusMinutes(1))
+                .endDate(LocalDateTime.now().plusDays(1))
+                .build();
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(eq(7L), any(LocalDate.class), eq("COMMENT")))
+                .thenReturn(Optional.of(quota("COMMENT", 100L)));
+        when(sanctionRepository.findFirstActiveTypeIn(eq(user), any(), any(LocalDateTime.class)))
+                .thenReturn(Optional.of(mute));
+        when(sanctionRepository.existsActiveTypeIn(eq(user), any(), any(LocalDateTime.class))).thenReturn(true);
+
+        Throwable thrown = catchThrowable(() -> agentCommandService.createComment(7L, 100L, request, null));
+
+        assertThat(thrown).isInstanceOf(AgentWriteException.class);
+        AgentWriteException exception = (AgentWriteException) thrown;
+        assertThat(exception.getCode()).isEqualTo("agent_suspended");
+        assertThat(exception.getDetails().getAction()).isEqualTo("create_comment");
+        verify(postService, never()).getPostById(anyLong(), anyLong(), anyBoolean());
+    }
+
+    @Test
+    void createPost_invalidEncoding_returnsStructuredWriteError() {
+        AgentPostCreateRequest request = new AgentPostCreateRequest();
+        ReflectionTestUtils.setField(request, "boardUrl", "free");
+        ReflectionTestUtils.setField(request, "title", "ì œëª©");
+        ReflectionTestUtils.setField(request, "content", "a".repeat(60));
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(boardRepository.findByBoardUrlForUpdate("free")).thenReturn(Optional.of(writableBoard));
+        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
+
+        Throwable thrown = catchThrowable(() -> agentCommandService.createPost(7L, request, null));
+
+        assertThat(thrown).isInstanceOf(AgentWriteException.class);
+        AgentWriteException exception = (AgentWriteException) thrown;
+        assertThat(exception.getCode()).isEqualTo("content_encoding_invalid");
+        assertThat(exception.getDetails().getAction()).isEqualTo("create_post");
+        verify(agentDailyQuotaRepository, never()).findForUpdate(anyLong(), any(LocalDate.class), anyString());
+    }
+
+    @Test
+    void createComment_missingPost_returnsStructuredWriteError() {
+        AgentCommentCreateRequest request = new AgentCommentCreateRequest();
+        ReflectionTestUtils.setField(request, "content", "b".repeat(25));
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(postService.getPostById(100L, 1L, false))
+                .thenThrow(new BusinessException(ErrorCode.POST_NOT_FOUND));
+
+        Throwable thrown = catchThrowable(() -> agentCommandService.createComment(7L, 100L, request, null));
+
+        assertThat(thrown).isInstanceOf(AgentWriteException.class);
+        AgentWriteException exception = (AgentWriteException) thrown;
+        assertThat(exception.getCode()).isEqualTo("post_not_found");
+        assertThat(exception.getDetails().getAction()).isEqualTo("create_comment");
+        assertThat(exception.getDetails().getLimits()).isNotNull();
+    }
+
+    @Test
+    void createReply_missingComment_returnsStructuredWriteError() {
+        AgentCommentCreateRequest request = new AgentCommentCreateRequest();
+        ReflectionTestUtils.setField(request, "content", "reply");
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(commentRepository.findByIdWithRelationsForUpdate(500L)).thenReturn(Optional.empty());
+
+        Throwable thrown = catchThrowable(() -> agentCommandService.createReply(7L, 500L, request, null));
+
+        assertThat(thrown).isInstanceOf(AgentWriteException.class);
+        AgentWriteException exception = (AgentWriteException) thrown;
+        assertThat(exception.getCode()).isEqualTo("comment_not_found");
+        assertThat(exception.getDetails().getAction()).isEqualTo("create_reply");
+        assertThat(exception.getDetails().getRestrictions()).isNotNull();
     }
 
     @Test
@@ -1626,11 +2104,98 @@ class AgentServiceTest {
     }
 
     @Test
+    void deletePost_success() {
+        Post agentPost = agentPost(101L, agent, false);
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(postRepository.findByIdWithRelationsForUpdate(101L)).thenReturn(Optional.of(agentPost));
+
+        var response = agentCommandService.deletePost(7L, 101L, null);
+
+        assertThat(response.getPostId()).isEqualTo(101L);
+        assertThat(response.isDeleted()).isTrue();
+        assertThat(response.getAlreadyDeleted()).isNull();
+        assertThat(agentPost.getIsDeleted()).isTrue();
+        verify(agentAuditLogWriter).saveLog(
+                eq(7L),
+                eq(1L),
+                eq(AgentAuditActionType.DELETE_POST),
+                eq(AgentAuditTargetType.POST),
+                eq(101L),
+                isNull(), isNull());
+    }
+
+    @Test
+    void deletePost_alreadyDeleted_isIdempotent() {
+        Post agentPost = agentPost(101L, agent, true);
+        ReflectionTestUtils.setField(agentPost, "modifiedAt", LocalDateTime.of(2026, 5, 18, 15, 30));
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(postRepository.findByIdWithRelationsForUpdate(101L)).thenReturn(Optional.of(agentPost));
+
+        var response = agentCommandService.deletePost(7L, 101L, null);
+
+        assertThat(response.getPostId()).isEqualTo(101L);
+        assertThat(response.isDeleted()).isTrue();
+        assertThat(response.getAlreadyDeleted()).isTrue();
+        assertThat(response.getDeletedAt()).isNotNull();
+        verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(), any(), any());
+    }
+
+    @Test
+    void deletePost_forbiddenWhenPostBelongsToAnotherAgent() {
+        Agent otherAgent = Agent.builder()
+                .user(user)
+                .agentTokenHash("other-hash")
+                .name("other")
+                .description("desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(otherAgent, "agentId", 8L);
+        Post otherAgentPost = agentPost(101L, otherAgent, false);
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(postRepository.findByIdWithRelationsForUpdate(101L)).thenReturn(Optional.of(otherAgentPost));
+
+        assertThatThrownBy(() -> agentCommandService.deletePost(7L, 101L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        assertThat(otherAgentPost.getIsDeleted()).isFalse();
+        verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(), any(), any());
+    }
+
+    @Test
+    void deletePost_missingPost_notFound() {
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(postRepository.findByIdWithRelationsForUpdate(404L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> agentCommandService.deletePost(7L, 404L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+    }
+
+    @Test
+    void deletePost_rejectsSuspendedAgent() {
+        ReflectionTestUtils.setField(agent, "status", Agent.STATUS_SUSPENDED);
+        Post agentPost = agentPost(101L, agent, false);
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+
+        assertThatThrownBy(() -> agentCommandService.deletePost(7L, 101L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        assertThat(agentPost.getIsDeleted()).isFalse();
+        verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(), any(), any());
+    }
+
+    @Test
     void likePost_success() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
         when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
-        when(postService.likePost(1L, 7L, 100L)).thenReturn(3);
+        when(postService.likePost(1L, agent, writablePost)).thenReturn(3);
 
         var response = agentCommandService.likePost(7L, 100L, null);
 
@@ -1681,6 +2246,19 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(board, "isPublic", true);
         ReflectionTestUtils.setField(board, "agentUseYn", true);
         return board;
+    }
+
+    private Post agentPost(Long postId, Agent ownerAgent, boolean deleted) {
+        Post post = Post.builder()
+                .board(writableBoard)
+                .user(user)
+                .agent(ownerAgent)
+                .title("agent post")
+                .contents("content")
+                .build();
+        ReflectionTestUtils.setField(post, "postId", postId);
+        ReflectionTestUtils.setField(post, "isDeleted", deleted);
+        return post;
     }
 
     private Admin activeAdmin(User adminUser, Board board) {

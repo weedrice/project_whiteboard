@@ -16,7 +16,6 @@ import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -30,7 +29,7 @@ class ReportReadAssembler {
     private final CommentRepository commentRepository;
 
     public Page<ReportResponse> toAdminResponsePage(Page<Report> reports) {
-        ReportTargetMetadata targetMetadata = loadTargetMetadata(reports.getContent(), false);
+        ReportTargetMetadata targetMetadata = loadTargetMetadata(reports.getContent(), true);
         return reports.map(report -> toAdminResponse(report, targetMetadata));
     }
 
@@ -40,12 +39,13 @@ class ReportReadAssembler {
     }
 
     public ReportResponse toAdminResponse(Report report) {
-        return toAdminResponse(report, loadTargetMetadata(List.of(report), false));
+        return toAdminResponse(report, loadTargetMetadata(List.of(report), true));
     }
 
     private ReportResponse toAdminResponse(Report report, ReportTargetMetadata targetMetadata) {
-        User targetUser = isUserTarget(report)
-                ? targetMetadata.userTargets().get(report.getTargetId())
+        Long targetUserId = resolveTargetUserId(report, targetMetadata);
+        User targetUser = targetUserId != null
+                ? targetMetadata.userTargets().get(targetUserId)
                 : null;
 
         return ReportResponse.builder()
@@ -54,7 +54,7 @@ class ReportReadAssembler {
                 .reporterDisplayName(report.getReporter().getDisplayName())
                 .targetType(report.getTargetType())
                 .targetId(report.getTargetId())
-                .targetUserId(resolveTargetUserId(report, targetMetadata))
+                .targetUserId(targetUserId)
                 .targetDisplayName(targetUser != null ? targetUser.getDisplayName() : null)
                 .targetLoginId(targetUser != null ? targetUser.getLoginId() : null)
                 .reasonType(report.getReasonType())
@@ -99,27 +99,30 @@ class ReportReadAssembler {
                 .distinct()
                 .toList();
 
-        Map<Long, Long> postTargetUserIds = postTargetIds.isEmpty()
-                ? Map.of()
-                : postRepository.findByPostIdIn(postTargetIds).stream()
-                        .collect(Collectors.toMap(Post::getPostId, post -> post.getUser().getUserId()));
+        List<Post> postTargets = postTargetIds.isEmpty()
+                ? List.of()
+                : postRepository.findByPostIdIn(postTargetIds);
+        Map<Long, Long> postTargetUserIds = postTargets.stream()
+                .collect(Collectors.toMap(Post::getPostId, post -> post.getUser().getUserId()));
 
-        Map<Long, Long> commentTargetUserIds = commentTargetIds.isEmpty()
-                ? Map.of()
-                : commentRepository.findByCommentIdIn(commentTargetIds).stream()
-                        .collect(Collectors.toMap(Comment::getCommentId, comment -> comment.getUser().getUserId()));
+        List<Comment> commentTargets = commentTargetIds.isEmpty()
+                ? List.of()
+                : commentRepository.findByCommentIdIn(commentTargetIds);
+        Map<Long, Long> commentTargetUserIds = commentTargets.stream()
+                .collect(Collectors.toMap(Comment::getCommentId, comment -> comment.getUser().getUserId()));
 
-        Stream<Long> contentAuthorUserIds = Stream.concat(
-                postTargetUserIds.values().stream(),
-                commentTargetUserIds.values().stream());
-        Set<Long> targetUserIds = includeContentAuthorUsers
-                ? Stream.concat(userTargetIds.stream(), contentAuthorUserIds)
-                        .collect(Collectors.toSet())
-                : Set.copyOf(userTargetIds);
-        Map<Long, User> userTargets = targetUserIds.isEmpty()
+        Map<Long, User> userTargetUsers = userTargetIds.isEmpty()
                 ? Map.of()
-                : userRepository.findAllById(targetUserIds).stream()
+                : userRepository.findAllById(userTargetIds).stream()
                         .collect(Collectors.toMap(User::getUserId, Function.identity()));
+        Map<Long, User> userTargets = includeContentAuthorUsers
+                ? Stream.concat(
+                                userTargetUsers.values().stream(),
+                                Stream.concat(
+                                        postTargets.stream().map(Post::getUser),
+                                        commentTargets.stream().map(Comment::getUser)))
+                        .collect(Collectors.toMap(User::getUserId, Function.identity(), (existing, replacement) -> existing))
+                : userTargetUsers;
 
         return new ReportTargetMetadata(userTargets, postTargetUserIds, commentTargetUserIds);
     }

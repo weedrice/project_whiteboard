@@ -3,16 +3,15 @@ package com.weedrice.whiteboard.domain.report.controller;
 import com.weedrice.whiteboard.domain.report.dto.ReportProcessRequest;
 import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.service.ReportService;
+import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
-import com.weedrice.whiteboard.domain.user.entity.Role;
+import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -35,9 +34,8 @@ public class AdminReportController {
     @PutMapping("/{reportId}")
     public ApiResponse<ReportResponse> processReport(
             @PathVariable Long reportId,
-            @Valid @RequestBody ReportProcessRequest request,
-            Authentication authentication) {
-        Long adminUserId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
+            @Valid @RequestBody ReportProcessRequest request) {
+        Long adminUserId = SecurityUtils.getCurrentUserId();
         ReportResponse response = reportService.processReport(
                 adminUserId,
                 reportId,

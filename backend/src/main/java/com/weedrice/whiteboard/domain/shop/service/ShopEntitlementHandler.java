@@ -18,5 +18,15 @@ public interface ShopEntitlementHandler {
 
     PurchasePreparation preparePurchase(Long userId, ShopItem item);
 
+    default boolean supportsValidatedPurchasePreparation() {
+        return false;
+    }
+
+    default PurchasePreparation prepareValidatedPurchase(Long userId, ShopItem item, Runnable afterConfigurationValidation) {
+        validateConfiguration(item);
+        afterConfigurationValidation.run();
+        return preparePurchase(userId, item);
+    }
+
     void grant(PurchasePreparation preparation);
 }

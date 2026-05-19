@@ -11,7 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -56,25 +56,25 @@ class HomeControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private HomeLandingService homeLandingService;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor ipBlockInterceptor;
 
-    @MockBean
+    @MockitoBean
     private org.springframework.data.jpa.mapping.JpaMetamodelMappingContext jpaMetamodelMappingContext;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.security.RefererCheckInterceptor refererCheckInterceptor;
 
-    @MockBean
+    @MockitoBean
     private com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor rateLimitInterceptor;
 
     private CustomUserDetails customUserDetails;
@@ -101,6 +101,8 @@ class HomeControllerTest {
     @DisplayName("홈 랜딩 API가 성공 응답을 반환한다")
     void getLanding_returnsSuccess() throws Exception {
         HomeLandingResponse response = HomeLandingResponse.builder()
+                .posts(Collections.emptyList())
+                .boards(Collections.emptyList())
                 .stats(HomeLandingResponse.Stats.builder()
                         .boardCount(1)
                         .postCount(2)
@@ -115,6 +117,8 @@ class HomeControllerTest {
                         .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.posts").isArray())
+                .andExpect(jsonPath("$.data.boards").isArray())
                 .andExpect(jsonPath("$.data.stats.boardCount").value(1))
                 .andExpect(jsonPath("$.data.stats.onlineCount").value(10));
 
@@ -124,6 +128,8 @@ class HomeControllerTest {
     @DisplayName("홈 랜딩 API는 비로그인 사용자도 성공 응답을 받는다")
     void getLanding_allowsAnonymous() throws Exception {
         HomeLandingResponse response = HomeLandingResponse.builder()
+                .posts(Collections.emptyList())
+                .boards(Collections.emptyList())
                 .stats(HomeLandingResponse.Stats.builder()
                         .boardCount(0)
                         .postCount(0)
@@ -145,6 +151,8 @@ class HomeControllerTest {
     @DisplayName("홈 랜딩 API는 요청한 기간 파라미터를 서비스로 전달한다")
     void getLanding_forwardsExplicitPeriod() throws Exception {
         HomeLandingResponse response = HomeLandingResponse.builder()
+                .posts(Collections.emptyList())
+                .boards(Collections.emptyList())
                 .stats(HomeLandingResponse.Stats.builder()
                         .boardCount(3)
                         .postCount(9)

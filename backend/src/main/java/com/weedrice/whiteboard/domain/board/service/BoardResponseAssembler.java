@@ -43,11 +43,17 @@ class BoardResponseAssembler {
     }
 
     List<BoardListResponse> assembleListAll(List<Board> boards, User currentUser) {
+        return assembleListAll(boards, currentUser, null);
+    }
+
+    List<BoardListResponse> assembleListAll(List<Board> boards, User currentUser, Map<Long, Long> precomputedPostCounts) {
         if (boards == null || boards.isEmpty()) {
             return Collections.emptyList();
         }
 
-        BoardResponseReadService.ListReadContext readContext = boardResponseReadService.loadList(boards, currentUser);
+        BoardResponseReadService.ListReadContext readContext = precomputedPostCounts != null
+                ? boardResponseReadService.loadListWithPostCounts(boards, currentUser, precomputedPostCounts)
+                : boardResponseReadService.loadList(boards, currentUser);
 
         return boards.stream()
                 .map(board -> buildResponse(

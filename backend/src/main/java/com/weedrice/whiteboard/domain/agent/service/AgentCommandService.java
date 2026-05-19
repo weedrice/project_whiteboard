@@ -4,8 +4,12 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentPostDeleteResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostLikeResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentWriteErrorDetails;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.agent.exception.AgentWriteException;
+import com.weedrice.whiteboard.domain.agent.service.AgentPolicyService.AgentPolicySnapshot;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
@@ -16,44 +20,69 @@ import com.weedrice.whiteboard.domain.comment.service.CommentCreateContext;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostCreateContext;
 import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.post.service.PostTitleValidator;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AgentCommandService {
 
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+    private static final String ACTION_CREATE_POST = "create_post";
+    private static final String ACTION_CREATE_COMMENT = "create_comment";
+    private static final String ACTION_CREATE_REPLY = "create_reply";
+
     private final BoardRepository boardRepository;
     private final BoardCategoryRepository boardCategoryRepository;
     private final CommentRepository commentRepository;
+    private final PostRepository postRepository;
     private final PostService postService;
     private final CommentService commentService;
     private final AgentOwnershipService agentOwnershipService;
     private final AgentBoardAccessService agentBoardAccessService;
     private final AgentAuditService agentAuditService;
     private final AgentQuotaService agentQuotaService;
+    private final AgentPolicyService agentPolicyService;
     private final AgentLinkBuilder agentLinkBuilder;
 
     @Transactional
     public AgentPostCreateResponse createPost(Long agentId, AgentPostCreateRequest request,
             AgentRequestContext requestContext) {
-        Agent agent = agentOwnershipService.resolveActiveAgentForUpdate(agentId);
+        Agent agent = agentOwnershipService.resolveClaimedAgentForUpdate(agentId);
+        AgentPolicySnapshot policy = agentPolicyService.resolve(agent);
+        validateCanPost(agent, policy, ACTION_CREATE_POST);
         Board board = boardRepository.findByBoardUrlForUpdate(request.getBoardUrl())
-                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        agentBoardAccessService.validateAgentBoardReadable(agent, board);
-        BoardCategory category = resolveCategory(board, request.getCategoryId());
-        agentBoardAccessService.validateAgentBoardWritable(agent, board, category);
-        agentQuotaService.reservePostCreation(agent);
+                .orElseThrow(() -> writeException(
+                        HttpStatus.NOT_FOUND,
+                        "board_not_found",
+                        "Board not found.",
+                        ACTION_CREATE_POST,
+                        policy,
+                        null,
+                        null));
+        validateBoardReadable(agent, board, ACTION_CREATE_POST, policy);
+        BoardCategory category = resolveCategory(board, request.getCategoryId(), ACTION_CREATE_POST, policy);
+        validateBoardWritable(agent, board, category, ACTION_CREATE_POST, policy);
+        validateEncoding(ACTION_CREATE_POST, policy, request.getTitle(), request.getContent());
+        validatePostTitle(request.getTitle(), ACTION_CREATE_POST, policy);
+        reservePostCreation(agent, ACTION_CREATE_POST, policy);
         PostCreateRequest postCreateRequest = new PostCreateRequest(
                 request.getCategoryId(),
                 request.getTitle(),
@@ -80,12 +109,46 @@ public class AgentCommandService {
     }
 
     @Transactional
+    public AgentPostDeleteResponse deletePost(Long agentId, Long postId, AgentRequestContext requestContext) {
+        Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
+        Post post = postRepository.findByIdWithRelationsForUpdate(postId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        if (post.getAgent() == null || !Objects.equals(post.getAgent().getAgentId(), agentId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+
+        boolean alreadyDeleted = Boolean.TRUE.equals(post.getIsDeleted());
+        LocalDateTime deletedAt = alreadyDeleted && post.getModifiedAt() != null
+                ? post.getModifiedAt()
+                : LocalDateTime.now(KST);
+        if (!alreadyDeleted) {
+            post.deletePost();
+            agentAuditService.saveLog(
+                    agent,
+                    agent.getUser(),
+                    AgentAuditActionType.DELETE_POST,
+                    AgentAuditTargetType.POST,
+                    postId,
+                    requestContext);
+        }
+
+        return new AgentPostDeleteResponse(
+                postId,
+                true,
+                alreadyDeleted ? true : null,
+                toOffsetDateTime(deletedAt));
+    }
+
+    @Transactional
     public AgentCommentCreateResponse createComment(Long agentId, Long postId, AgentCommentCreateRequest request,
             AgentRequestContext requestContext) {
-        Agent agent = agentOwnershipService.resolveActiveAgentForUpdate(agentId);
-        Post post = postService.getPostById(postId, agent.getUser().getUserId(), false);
-        agentBoardAccessService.validateAgentBoardWritable(agent, post.getBoard());
-        agentQuotaService.reserveCommentCreation(agent);
+        Agent agent = agentOwnershipService.resolveClaimedAgentForUpdate(agentId);
+        AgentPolicySnapshot policy = agentPolicyService.resolve(agent);
+        validateCanComment(agent, policy, ACTION_CREATE_COMMENT);
+        Post post = resolvePostForComment(agent, postId, ACTION_CREATE_COMMENT, policy);
+        validateBoardWritable(agent, post.getBoard(), null, ACTION_CREATE_COMMENT, policy);
+        validateEncoding(ACTION_CREATE_COMMENT, policy, request.getContent());
+        reserveCommentCreation(agent, ACTION_CREATE_COMMENT, policy);
         Long commentId = commentService.createCommentAsAgent(agent.getUser().getUserId(), agentId, postId, null,
                 request.getContent(), CommentCreateContext.agentRoot(agent, post));
         agentAuditService.saveLog(
@@ -101,14 +164,41 @@ public class AgentCommandService {
     @Transactional
     public AgentCommentCreateResponse createReply(Long agentId, Long commentId, AgentCommentCreateRequest request,
             AgentRequestContext requestContext) {
-        Agent agent = agentOwnershipService.resolveActiveAgentForUpdate(agentId);
+        Agent agent = agentOwnershipService.resolveClaimedAgentForUpdate(agentId);
+        AgentPolicySnapshot policy = agentPolicyService.resolve(agent);
+        validateCanComment(agent, policy, ACTION_CREATE_REPLY);
         Comment parentComment = commentRepository.findByIdWithRelationsForUpdate(commentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+                .orElseThrow(() -> writeException(
+                        HttpStatus.NOT_FOUND,
+                        "comment_not_found",
+                        "Comment not found.",
+                        ACTION_CREATE_REPLY,
+                        policy,
+                        null,
+                        null));
         if (parentComment.getIsDeleted()) {
-            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
+            throw writeException(
+                    HttpStatus.NOT_FOUND,
+                    "comment_not_found",
+                    "Comment not found.",
+                    ACTION_CREATE_REPLY,
+                    policy,
+                    null,
+                    null);
         }
-        agentBoardAccessService.validateAgentBoardWritable(agent, parentComment.getPost().getBoard());
-        agentQuotaService.reserveCommentCreation(agent);
+        if (Boolean.TRUE.equals(parentComment.getPost().getIsDeleted())) {
+            throw writeException(
+                    HttpStatus.NOT_FOUND,
+                    "post_not_found",
+                    "Post not found.",
+                    ACTION_CREATE_REPLY,
+                    policy,
+                    null,
+                    null);
+        }
+        validateBoardWritable(agent, parentComment.getPost().getBoard(), null, ACTION_CREATE_REPLY, policy);
+        validateEncoding(ACTION_CREATE_REPLY, policy, request.getContent());
+        reserveCommentCreation(agent, ACTION_CREATE_REPLY, policy);
         Long replyId = commentService.createCommentAsAgent(
                 agent.getUser().getUserId(),
                 agentId,
@@ -131,7 +221,7 @@ public class AgentCommandService {
         Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
         Post post = postService.getPostById(postId, agent.getUser().getUserId(), false);
         agentBoardAccessService.validateAgentBoardWritable(agent, post.getBoard());
-        int likeCount = postService.likePost(agent.getUser().getUserId(), agentId, postId);
+        int likeCount = postService.likePost(agent.getUser().getUserId(), agent, post);
         agentAuditService.saveLog(
                 agent,
                 agent.getUser(),
@@ -157,7 +247,7 @@ public class AgentCommandService {
                 .collect(java.util.stream.Collectors.joining());
     }
 
-    private BoardCategory resolveCategory(Board board, Long categoryId) {
+    private BoardCategory resolveCategory(Board board, Long categoryId, String action, AgentPolicySnapshot policy) {
         if (categoryId == null) {
             return null;
         }
@@ -165,6 +255,225 @@ public class AgentCommandService {
                         categoryId,
                         board.getBoardId(),
                         true)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+                .orElseThrow(() -> writeException(
+                        HttpStatus.NOT_FOUND,
+                        "category_not_found",
+                        "Category not found.",
+                        action,
+                        policy,
+                        null,
+                        null));
+    }
+
+    private void validateCanPost(Agent agent, AgentPolicySnapshot policy, String action) {
+        validateAgentStatus(agent, policy, action);
+        if (policy.limits().getPostsRemaining() <= 0) {
+            throw writeException(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "post_daily_limit_exceeded",
+                    "Daily agent post limit exceeded.",
+                    action,
+                    policy,
+                    policy.dailyStatus().resetAt(),
+                    null);
+        }
+    }
+
+    private void validateCanComment(Agent agent, AgentPolicySnapshot policy, String action) {
+        validateAgentStatus(agent, policy, action);
+        if (isCommentRestricted(policy)) {
+            throw writeException(
+                    HttpStatus.FORBIDDEN,
+                    "agent_suspended",
+                    "Agent commenting is restricted.",
+                    action,
+                    policy,
+                    null,
+                    policy.restrictions().getSuspendedUntil());
+        }
+        if (policy.limits().getCommentsRemaining() <= 0) {
+            throw writeException(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "comment_daily_limit_exceeded",
+                    "Daily agent comment limit exceeded.",
+                    action,
+                    policy,
+                    policy.dailyStatus().resetAt(),
+                    null);
+        }
+    }
+
+    private boolean isCommentRestricted(AgentPolicySnapshot policy) {
+        if (policy.restrictions().isCanComment()) {
+            return false;
+        }
+        return policy.muted();
+    }
+
+    private void validateAgentStatus(Agent agent, AgentPolicySnapshot policy, String action) {
+        if (agent.getUser() == null || !agent.getUser().isActiveAccount()) {
+            throw writeException(
+                    HttpStatus.FORBIDDEN,
+                    "agent_inactive",
+                    "Agent owner account is not active.",
+                    action,
+                    policy,
+                    null,
+                    null);
+        }
+        if (!agent.isActive() || policy.restrictions().isSuspended()) {
+            throw writeException(
+                    HttpStatus.FORBIDDEN,
+                    "agent_suspended",
+                    "Agent is suspended.",
+                    action,
+                    policy,
+                    null,
+                    policy.restrictions().getSuspendedUntil());
+        }
+    }
+
+    private void validateBoardReadable(Agent agent, Board board, String action, AgentPolicySnapshot policy) {
+        try {
+            agentBoardAccessService.validateAgentBoardReadable(agent, board);
+        } catch (BusinessException e) {
+            if (e.getErrorCode() == ErrorCode.FORBIDDEN) {
+                throw writeException(
+                        HttpStatus.FORBIDDEN,
+                        "board_write_forbidden",
+                        "Agent cannot write to this board.",
+                        action,
+                        policy,
+                        null,
+                        null);
+            }
+            throw e;
+        }
+    }
+
+    private void validateBoardWritable(Agent agent, Board board, BoardCategory category, String action,
+            AgentPolicySnapshot policy) {
+        try {
+            if (category == null) {
+                agentBoardAccessService.validateAgentBoardWritable(agent, board);
+            } else {
+                agentBoardAccessService.validateAgentBoardWritable(agent, board, category);
+            }
+        } catch (BusinessException e) {
+            if (e.getErrorCode() == ErrorCode.FORBIDDEN) {
+                throw writeException(
+                        HttpStatus.FORBIDDEN,
+                        category == null ? "board_write_forbidden" : "category_write_forbidden",
+                        category == null
+                                ? "Agent cannot write to this board."
+                                : "Agent cannot write to this category.",
+                        action,
+                        policy,
+                        null,
+                        null);
+            }
+            throw e;
+        }
+    }
+
+    private Post resolvePostForComment(Agent agent, Long postId, String action, AgentPolicySnapshot policy) {
+        try {
+            return postService.getPostById(postId, agent.getUser().getUserId(), false);
+        } catch (BusinessException e) {
+            if (e.getErrorCode() == ErrorCode.POST_NOT_FOUND) {
+                throw writeException(
+                        HttpStatus.NOT_FOUND,
+                        "post_not_found",
+                        "Post not found.",
+                        action,
+                        policy,
+                        null,
+                        null);
+            }
+            throw e;
+        }
+    }
+
+    private void validatePostTitle(String title, String action, AgentPolicySnapshot policy) {
+        try {
+            PostTitleValidator.validate(title);
+        } catch (BusinessException e) {
+            throw writeException(
+                    HttpStatus.BAD_REQUEST,
+                    "validation_failed",
+                    e.getMessage(),
+                    action,
+                    policy,
+                    null,
+                    null);
+        }
+    }
+
+    private void validateEncoding(String action, AgentPolicySnapshot policy, String... values) {
+        for (String value : values) {
+            if (AgentContentEncodingValidator.isInvalid(value)) {
+                throw writeException(
+                        HttpStatus.BAD_REQUEST,
+                        "content_encoding_invalid",
+                        "Content appears to contain corrupted Korean text. Use UTF-8 input or Unicode escape literals instead of a PowerShell raw Hangul here-string.",
+                        action,
+                        policy,
+                        null,
+                        null);
+            }
+        }
+    }
+
+    private void reservePostCreation(Agent agent, String action, AgentPolicySnapshot policy) {
+        try {
+            agentQuotaService.reservePostCreation(agent);
+        } catch (BusinessException e) {
+            if (e.getErrorCode() == ErrorCode.RATE_LIMIT_EXCEEDED) {
+                throw writeException(
+                        HttpStatus.TOO_MANY_REQUESTS,
+                        "post_daily_limit_exceeded",
+                        e.getMessage(),
+                        action,
+                        policy,
+                        policy.dailyStatus().resetAt(),
+                        null);
+            }
+            throw e;
+        }
+    }
+
+    private void reserveCommentCreation(Agent agent, String action, AgentPolicySnapshot policy) {
+        try {
+            agentQuotaService.reserveCommentCreation(agent);
+        } catch (BusinessException e) {
+            if (e.getErrorCode() == ErrorCode.RATE_LIMIT_EXCEEDED) {
+                throw writeException(
+                        HttpStatus.TOO_MANY_REQUESTS,
+                        "comment_daily_limit_exceeded",
+                        e.getMessage(),
+                        action,
+                        policy,
+                        policy.dailyStatus().resetAt(),
+                        null);
+            }
+            throw e;
+        }
+    }
+
+    private AgentWriteException writeException(HttpStatus status, String code, String message, String action,
+            AgentPolicySnapshot policy, OffsetDateTime resetAt, OffsetDateTime nextAllowedAt) {
+        AgentWriteErrorDetails details = AgentWriteErrorDetails.builder()
+                .action(action)
+                .retryAfterSeconds(null)
+                .resetAt(resetAt)
+                .nextAllowedAt(nextAllowedAt)
+                .limits(policy.limits())
+                .restrictions(policy.restrictions())
+                .build();
+        return new AgentWriteException(status, code, message, details);
+    }
+
+    private OffsetDateTime toOffsetDateTime(LocalDateTime value) {
+        return value == null ? null : value.atZone(KST).toOffsetDateTime();
     }
 }

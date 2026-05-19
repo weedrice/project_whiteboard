@@ -14,6 +14,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -82,6 +84,20 @@ class EmoticonShopEntitlementHandlerTest {
         ShopEntitlementHandler.PurchasePreparation preparation = handler.preparePurchase(1L, shopItem);
 
         verify(emoticonEntitlementGrantService).prepareGrant(1L, 10L);
+        handler.grant(preparation);
+        verify(emoticonEntitlementGrantService).grant(grantContext, 100);
+    }
+
+    @Test
+    @DisplayName("Prepares validated purchase using one configured grant lookup")
+    void prepareValidatedPurchase_delegatesWithTargetId() {
+        when(emoticonEntitlementGrantService.prepareConfiguredGrant(eq(1L), eq(10L), any(Runnable.class)))
+                .thenReturn(grantContext);
+
+        ShopEntitlementHandler.PurchasePreparation preparation = handler.prepareValidatedPurchase(1L, shopItem, () -> {
+        });
+
+        verify(emoticonEntitlementGrantService).prepareConfiguredGrant(eq(1L), eq(10L), any(Runnable.class));
         handler.grant(preparation);
         verify(emoticonEntitlementGrantService).grant(grantContext, 100);
     }

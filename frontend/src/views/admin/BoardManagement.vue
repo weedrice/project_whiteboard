@@ -248,7 +248,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import draggable from 'vuedraggable'
 import { GripVertical } from 'lucide-vue-next'
 import { useAdmin } from '@/composables/useAdmin'
-import api from '@/api'
+import { fileApi } from '@/api/file'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -260,7 +260,7 @@ import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
-import type { AdminBoard, User } from '@/types'
+import type { AdminBoard } from '@/types'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -480,15 +480,8 @@ async function handleFileUpload(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0]
   if (!file) return
 
-  const formData = new FormData()
-  formData.append('file', file)
-
   try {
-    const { data } = await api.post('/files/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    })
+    const { data } = await fileApi.uploadFile(file)
 
     if (data.success) {
       form.iconUrl = data.data.url
@@ -620,7 +613,7 @@ function closeManagerModal() {
   isManagerModalOpen.value = false
 }
 
-async function confirmManagerSelection(users: User[]) {
+async function confirmManagerSelection(users: Array<{ loginId: string; displayName?: string }>) {
   if (!selectedBoard.value || users.length === 0) return
 
   isAssigningManager.value = true

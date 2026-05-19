@@ -9,8 +9,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface PointHistoryRepository extends JpaRepository<PointHistory, Long> {
-    Page<PointHistory> findByUserOrderByCreatedAtDescHistoryIdDesc(User user, Pageable pageable);
-    Page<PointHistory> findByUserAndTypeOrderByCreatedAtDescHistoryIdDesc(User user, String type, Pageable pageable);
+    Page<PointHistory> findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(Long userId, Pageable pageable);
+    Page<PointHistory> findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc(
+            Long userId,
+            String type,
+            Pageable pageable);
     boolean existsByUser_UserIdAndTypeAndRelatedTypeAndRelatedId(
             Long userId,
             String type,

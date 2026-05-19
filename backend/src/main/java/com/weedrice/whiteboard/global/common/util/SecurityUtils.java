@@ -26,10 +26,17 @@ public class SecurityUtils {
     }
 
     public static Long getCurrentUserId() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-        if (authentication == null || authentication.getName() == null) {
+        Long currentUserId = getCurrentUserIdOrNull();
+        if (currentUserId == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        return currentUserId;
+    }
+
+    public static Long getCurrentUserIdOrNull() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null) {
+            return null;
         }
 
         Object principal = authentication.getPrincipal();
@@ -37,7 +44,7 @@ public class SecurityUtils {
             return userDetails.getUserId();
         }
 
-        throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        return null;
     }
 
     public static boolean isSuperAdmin() {

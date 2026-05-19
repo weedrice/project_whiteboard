@@ -58,7 +58,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSearch } from '@/composables/useSearch'
 import PostList from '@/components/board/PostList.vue'
@@ -70,7 +70,22 @@ import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
 const route = useRoute()
 const { useIntegratedSearch } = useSearch()
 
-const query = computed(() => ((route.query.q as string) || '').trim())
+const firstQueryValue = (value: unknown): string => {
+  if (Array.isArray(value)) {
+    return String(value[0] ?? '')
+  }
+  return String(value ?? '')
+}
+
+const query = computed(() => (
+  [
+    firstQueryValue(route.query.q),
+    firstQueryValue(route.query.keyword),
+    firstQueryValue(route.query.tag)
+  ]
+    .map((value) => value.trim())
+    .find(Boolean) ?? ''
+))
 const params = computed(() => ({
   q: query.value,
   page: 0,
@@ -82,6 +97,4 @@ const { data: searchData, isLoading } = useIntegratedSearch(params)
 const posts = computed(() => searchData.value?.posts?.content || [])
 const boards = computed(() => searchData.value?.boards || [])
 const searchQuery = computed(() => query.value)
-
-
 </script>

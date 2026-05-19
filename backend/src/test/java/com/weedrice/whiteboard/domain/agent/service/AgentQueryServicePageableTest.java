@@ -3,17 +3,20 @@ package com.weedrice.whiteboard.domain.agent.service;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.agent.repository.AgentPostActivityReadRepository;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardAiInfoRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.comment.service.CommentReadModelAssembler;
 import com.weedrice.whiteboard.domain.comment.service.CommentReadSupport;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,6 +53,9 @@ class AgentQueryServicePageableTest {
     @Mock private AdminRepository adminRepository;
     @Mock private PostRepository postRepository;
     @Mock private CommentRepository commentRepository;
+    @Mock private AgentPostActivityReadRepository agentPostActivityReadRepository;
+    @Mock private SanctionRepository sanctionRepository;
+    @Mock private AgentQuotaService agentQuotaService;
     @Mock private PostService postService;
     @Mock private UserBlockService userBlockService;
     @Mock private AgentOwnershipService agentOwnershipService;
@@ -66,19 +72,28 @@ class AgentQueryServicePageableTest {
     @BeforeEach
     void setUp() {
         commentReadSupport = new CommentReadSupport(commentRepository);
+        CommentReadModelAssembler commentReadModelAssembler = new CommentReadModelAssembler(commentReadSupport);
         PostAccessPolicy postAccessPolicy = new PostAccessPolicy(new BoardAccessPolicy(adminRepository));
+        AgentPolicyService agentPolicyService = new AgentPolicyService(
+                postRepository,
+                commentRepository,
+                sanctionRepository,
+                agentQuotaService);
         agentQueryService = new AgentQueryService(
                 boardRepository,
                 boardAiInfoRepository,
                 postRepository,
                 commentRepository,
+                agentPostActivityReadRepository,
                 postService,
                 postAccessPolicy,
                 userBlockService,
                 agentOwnershipService,
                 agentBoardAccessService,
                 agentPostListItemAssembler,
-                commentReadSupport);
+                commentReadSupport,
+                commentReadModelAssembler,
+                agentPolicyService);
 
         user = User.builder().loginId("user").displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);

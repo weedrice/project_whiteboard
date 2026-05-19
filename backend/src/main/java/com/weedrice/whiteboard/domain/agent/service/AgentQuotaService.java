@@ -18,10 +18,10 @@ import java.time.ZoneId;
 public class AgentQuotaService {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
-    private static final String ACTION_POST = "POST";
-    private static final String ACTION_COMMENT = "COMMENT";
-    private static final long DAILY_AGENT_POST_LIMIT = 50;
-    private static final long DAILY_AGENT_COMMENT_LIMIT = 100;
+    public static final String ACTION_POST = "POST";
+    public static final String ACTION_COMMENT = "COMMENT";
+    public static final long DAILY_AGENT_POST_LIMIT = 50;
+    public static final long DAILY_AGENT_COMMENT_LIMIT = 100;
 
     private final AgentDailyQuotaRepository agentDailyQuotaRepository;
 
@@ -33,6 +33,18 @@ public class AgentQuotaService {
     @Transactional
     public void reserveCommentCreation(Agent agent) {
         reserve(agent, ACTION_COMMENT, DAILY_AGENT_COMMENT_LIMIT, "Daily agent comment limit exceeded");
+    }
+
+    public DailyUsage getDailyUsage(Long agentId, LocalDate quotaDate) {
+        long postsUsed = getUsedCount(agentId, quotaDate, ACTION_POST);
+        long commentsUsed = getUsedCount(agentId, quotaDate, ACTION_COMMENT);
+        return new DailyUsage(postsUsed, commentsUsed);
+    }
+
+    private long getUsedCount(Long agentId, LocalDate quotaDate, String actionType) {
+        return agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(agentId, quotaDate, actionType)
+                .map(AgentDailyQuota::getUsedCount)
+                .orElse(0L);
     }
 
     private void reserve(Agent agent, String actionType, long limit, String message) {
@@ -48,6 +60,9 @@ public class AgentQuotaService {
     private AgentDailyQuota getOrCreateQuotaForUpdate(Agent agent, LocalDate quotaDate, String actionType) {
         agentDailyQuotaRepository.insertIfAbsent(agent.getAgentId(), quotaDate, actionType);
         return agentDailyQuotaRepository.findForUpdate(agent.getAgentId(), quotaDate, actionType)
-                .orElseThrow(() -> new IllegalStateException("Agent daily quota row could not be locked"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR));
+    }
+
+    public record DailyUsage(long postsUsed, long commentsUsed) {
     }
 }

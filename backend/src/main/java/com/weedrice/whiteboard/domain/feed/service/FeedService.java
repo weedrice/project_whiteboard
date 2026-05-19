@@ -16,19 +16,15 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -36,7 +32,6 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class FeedService {
 
-    private static final int MAX_REFILL_PAGE_LOOKAHEAD = 5;
     private static final int DEFAULT_FEED_PAGE_SIZE = 20;
     private static final Sort FEED_LIST_SORT = Sort.by(
             Sort.Order.desc("createdAt"),
@@ -58,7 +53,7 @@ public class FeedService {
         Page<UserFeed> feedPage = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
                 visibilityCondition,
                 normalizedPageable);
-        ResolvedFeedPage resolvedFeedPage = resolveFeedPage(visibilityCondition, userId, feedPage);
+        ResolvedFeedPage resolvedFeedPage = resolveFeedPage(userId, feedPage);
         return FeedResponse.from(
                 resolvedFeedPage.page(),
                 resolvedFeedPage.feeds(),
@@ -96,7 +91,7 @@ public class FeedService {
     }
 
     private void logUnresolvedPostFeeds(Page<UserFeed> feedPage, Map<Long, PostSummary> postSummariesById,
-                                        Long userId) {
+                                         Long userId) {
         long unresolvedPostFeedCount = feedPage.getContent().stream()
                 .filter(feed -> FeedGenerationService.CONTENT_TYPE_POST.equals(feed.getContentType()))
                 .filter(feed -> !postSummariesById.containsKey(feed.getContentId()))
@@ -107,99 +102,34 @@ public class FeedService {
         }
     }
 
-    private ResolvedFeedPage resolveFeedPage(UserFeedVisibilityCondition visibilityCondition, Long userId,
-                                             Page<UserFeed> firstFeedPage) {
-        Pageable pageable = firstFeedPage.getPageable();
-        int requestedSize = pageable.isPaged() ? pageable.getPageSize() : firstFeedPage.getNumberOfElements();
-        List<UserFeed> responseFeeds = new ArrayList<>();
+    private ResolvedFeedPage resolveFeedPage(Long userId, Page<UserFeed> firstFeedPage) {
         Map<Long, PostSummary> postSummariesById = new LinkedHashMap<>();
-        Set<Long> seenFeedIds = new HashSet<>();
-        int droppedCount = 0;
+        Map<Long, PostSummary> currentSummariesById = resolvePostSummaries(firstFeedPage, userId);
+        postSummariesById.putAll(currentSummariesById);
+        logUnresolvedPostFeeds(firstFeedPage, currentSummariesById, userId);
 
-        Page<UserFeed> currentPage = firstFeedPage;
-        int additionalPageCount = 0;
-        while (true) {
-            Map<Long, PostSummary> currentSummariesById = resolvePostSummaries(currentPage, userId);
-            postSummariesById.putAll(currentSummariesById);
-            logUnresolvedPostFeeds(currentPage, currentSummariesById, userId);
+        FeedFilterResult filterResult = excludeUnresolvedPostFeeds(firstFeedPage, currentSummariesById);
 
-            FeedFilterResult filterResult = excludeUnresolvedPostFeeds(
-                    currentPage,
-                    currentSummariesById,
-                    seenFeedIds,
-                    requestedSize - responseFeeds.size());
-            responseFeeds.addAll(filterResult.feeds());
-            droppedCount += filterResult.droppedCount();
-
-            if (!shouldRefill(pageable, requestedSize, responseFeeds.size(), currentPage, additionalPageCount)) {
-                break;
-            }
-
-            additionalPageCount++;
-            currentPage = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
-                    visibilityCondition,
-                    PageRequest.of(
-                            pageable.getPageNumber() + additionalPageCount,
-                            pageable.getPageSize(),
-                            pageable.getSort()));
-        }
-
-        Page<UserFeed> responsePage = adjustPageMetadata(
-                firstFeedPage,
-                responseFeeds,
-                droppedCount,
-                currentPage.hasNext());
-        return new ResolvedFeedPage(responsePage, responseFeeds, postSummariesById);
-    }
-
-    private boolean shouldRefill(Pageable pageable, int requestedSize, int responseFeedCount, Page<UserFeed> currentPage,
-                                 int additionalPageCount) {
-        return pageable.isPaged()
-                && responseFeedCount < requestedSize
-                && currentPage.hasNext()
-                && additionalPageCount < MAX_REFILL_PAGE_LOOKAHEAD;
+        return new ResolvedFeedPage(firstFeedPage, filterResult.feeds(), postSummariesById);
     }
 
     private FeedFilterResult excludeUnresolvedPostFeeds(Page<UserFeed> feedPage,
-                                                        Map<Long, PostSummary> postSummariesById,
-                                                        Set<Long> seenFeedIds,
-                                                        int remainingCount) {
-        if (remainingCount <= 0) {
-            return new FeedFilterResult(List.of(), 0);
-        }
+                                                        Map<Long, PostSummary> postSummariesById) {
         List<UserFeed> feeds = new ArrayList<>();
-        int droppedCount = 0;
         for (UserFeed feed : feedPage.getContent()) {
-            Long feedId = feed.getFeedId();
-            if (feedId != null && !seenFeedIds.add(feedId)) {
-                continue;
-            }
             if (FeedGenerationService.CONTENT_TYPE_POST.equals(feed.getContentType())
                     && !postSummariesById.containsKey(feed.getContentId())) {
-                droppedCount++;
                 continue;
             }
-            if (feeds.size() < remainingCount) {
-                feeds.add(feed);
-            }
+            feeds.add(feed);
         }
-        return new FeedFilterResult(feeds, droppedCount);
-    }
-
-    private Page<UserFeed> adjustPageMetadata(Page<UserFeed> feedPage, List<UserFeed> responseFeeds,
-                                              int droppedCount, boolean hasMoreAfterFetchedRange) {
-        long adjustedTotal = Math.max(0L, feedPage.getTotalElements() - droppedCount);
-        if (hasMoreAfterFetchedRange && feedPage.getPageable().isPaged()) {
-            long minimumTotalToKeepNextPage = feedPage.getPageable().getOffset() + feedPage.getSize() + 1L;
-            adjustedTotal = Math.max(adjustedTotal, minimumTotalToKeepNextPage);
-        }
-        return new PageImpl<>(responseFeeds, feedPage.getPageable(), adjustedTotal);
+        return new FeedFilterResult(feeds);
     }
 
     private record ResolvedFeedPage(Page<UserFeed> page, List<UserFeed> feeds,
                                     Map<Long, PostSummary> postSummariesById) {
     }
 
-    private record FeedFilterResult(List<UserFeed> feeds, int droppedCount) {
+    private record FeedFilterResult(List<UserFeed> feeds) {
     }
 }

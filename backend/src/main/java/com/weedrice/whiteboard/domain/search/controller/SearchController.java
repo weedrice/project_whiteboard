@@ -5,7 +5,6 @@ import com.weedrice.whiteboard.domain.search.dto.IntegratedSearchResponse;
 import com.weedrice.whiteboard.domain.search.dto.PopularKeywordDto;
 import com.weedrice.whiteboard.domain.search.dto.PopularKeywordResponse;
 import com.weedrice.whiteboard.domain.search.dto.SearchPersonalizationResponse;
-import com.weedrice.whiteboard.domain.search.service.SearchRequestNormalizer;
 import com.weedrice.whiteboard.domain.search.service.SearchService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
@@ -31,9 +30,8 @@ public class SearchController {
             @RequestParam String q,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        String keyword = SearchRequestNormalizer.canonicalizeKeyword(q);
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
-        IntegratedSearchResponse response = searchService.integratedSearch(keyword, userId);
+        IntegratedSearchResponse response = searchService.integratedSearch(q, userId);
         return ApiResponse.success(response);
     }
 
@@ -47,10 +45,8 @@ public class SearchController {
             Sort sort,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        String keyword = SearchRequestNormalizer.canonicalizeKeyword(q);
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
-        Pageable pageable = SearchRequestNormalizer.normalizePostSearchPageable(page, size, sort);
-        Page<PostSummary> response = searchService.searchPosts(keyword, searchType, boardUrl, pageable, userId);
+        Page<PostSummary> response = searchService.searchPosts(q, searchType, boardUrl, page, size, sort, userId);
 
         return ApiResponse.success(new PageResponse<>(response));
     }
@@ -59,9 +55,7 @@ public class SearchController {
     public ApiResponse<PopularKeywordResponse> getPopularKeywords(
             @RequestParam(defaultValue = "DAILY") String period,
             @RequestParam(defaultValue = "10") int limit) {
-        List<PopularKeywordDto> popularKeywords = searchService.getPopularKeywords(
-                SearchRequestNormalizer.normalizePopularKeywordPeriod(period),
-                SearchRequestNormalizer.normalizePopularKeywordLimit(limit));
+        List<PopularKeywordDto> popularKeywords = searchService.getPopularKeywords(period, limit);
         return ApiResponse.success(PopularKeywordResponse.from(popularKeywords));
     }
 
