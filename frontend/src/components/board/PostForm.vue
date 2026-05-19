@@ -865,12 +865,15 @@ defineExpose({
 
 .editor-area-container {
   background: var(--nv-surface);
+  overflow: hidden;
 }
 
 .tiptap-editor-wrapper {
   display: flex;
+  height: 26rem;
   min-height: 26rem;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .editor-view-toggle-btn {
@@ -962,13 +965,14 @@ defineExpose({
 }
 
 .html-source-editor-wrap {
-  min-height: 26rem;
+  height: 26rem;
+  overflow: hidden;
 }
 
 .html-source-textarea {
   display: block;
   width: 100%;
-  min-height: 26rem;
+  height: 100%;
   padding: 16px;
   font-size: 13px;
   line-height: 1.6;
@@ -977,7 +981,8 @@ defineExpose({
   background: transparent;
   border: none;
   outline: none;
-  resize: vertical;
+  resize: none;
+  overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-word;
   box-sizing: border-box;
