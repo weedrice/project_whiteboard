@@ -4,10 +4,9 @@ import com.weedrice.whiteboard.domain.ad.dto.AdResponse;
 import com.weedrice.whiteboard.domain.ad.service.AdService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.util.ClientUtils;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -32,16 +31,11 @@ public class AdController {
     @PostMapping("/{adId}/click")
     public ApiResponse<String> recordAdClick(
             @PathVariable Long adId,
-            Authentication authentication,
             HttpServletRequest request) {
-        String targetUrl = adService.recordAdClick(adId, extractUserId(authentication), ClientUtils.getIp(request));
+        String targetUrl = adService.recordAdClick(
+                adId,
+                SecurityUtils.getCurrentUserIdOrNull(),
+                ClientUtils.getIp(request));
         return ApiResponse.success(targetUrl);
-    }
-
-    private Long extractUserId(Authentication authentication) {
-        if (authentication != null && authentication.getPrincipal() instanceof CustomUserDetails userDetails) {
-            return userDetails.getUserId();
-        }
-        return null;
     }
 }

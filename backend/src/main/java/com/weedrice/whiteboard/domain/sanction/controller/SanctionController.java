@@ -6,13 +6,12 @@ import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -26,9 +25,8 @@ public class SanctionController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Long> createSanction(
-            @Valid @RequestBody SanctionCreateRequest request,
-            Authentication authentication) {
-        Long adminUserId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
+            @Valid @RequestBody SanctionCreateRequest request) {
+        Long adminUserId = SecurityUtils.getCurrentUserId();
         return ApiResponse.success(sanctionService.createSanction(
                 adminUserId,
                 request.getTargetUserId(),

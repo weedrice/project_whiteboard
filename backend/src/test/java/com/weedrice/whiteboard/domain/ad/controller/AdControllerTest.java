@@ -15,6 +15,7 @@ import com.weedrice.whiteboard.global.security.RefererCheckInterceptor;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,6 +28,7 @@ import org.springframework.context.annotation.FilterType;
 import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -84,6 +86,11 @@ class AdControllerTest {
 
     private CustomUserDetails customUserDetails;
 
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
+
     @BeforeEach
     void setUp() throws Exception {
         customUserDetails = new CustomUserDetails(1L, "test@example.com", "password",
@@ -140,13 +147,13 @@ class AdControllerTest {
     @Test
     @DisplayName("광고 클릭 기록 성공")
     void recordAdClick_returnsSuccess() throws Exception {
-        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                customUserDetails, null, customUserDetails.getAuthorities());
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+                customUserDetails, null, customUserDetails.getAuthorities()));
         when(adService.recordAdClick(eq(1L), eq(1L), eq("203.0.113.10"))).thenReturn("http://example.com");
 
         mockMvc.perform(post("/api/v1/ads/{adId}/click", 1L)
                         .header("X-Forwarded-For", "203.0.113.10, 10.0.0.1")
-                        .principal(auth))
+                        .with(user(customUserDetails)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data").exists());
