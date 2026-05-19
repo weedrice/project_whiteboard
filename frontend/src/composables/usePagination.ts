@@ -84,17 +84,17 @@ export function usePagination<T>(
      */
     const handlePageChange = (newPage: number) => {
         page.value = newPage
-        fetch()
+        return fetch()
     }
 
     /**
      * 페이지 크기 변경 핸들러
      * @param newSize 새로운 페이지 크기
      */
-    const handleSizeChange = (newSize: number) => {
+    const handleSizeChange = (newSize = size.value) => {
         size.value = newSize
         page.value = 0 // 페이지 크기 변경 시 첫 페이지로 리셋
-        fetch()
+        return fetch()
     }
 
     /**
@@ -104,7 +104,7 @@ export function usePagination<T>(
     const handleSortChange = (newSort: string) => {
         sort.value = newSort
         page.value = 0 // 정렬 변경 시 첫 페이지로 리셋
-        fetch()
+        return fetch()
     }
 
     /**

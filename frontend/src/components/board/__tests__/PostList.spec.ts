@@ -394,4 +394,41 @@ describe('PostList', () => {
       query: undefined
     })
   })
+
+  it('can suppress post metadata that is unavailable for normalized summaries', () => {
+    const wrapper = mount(PostList, {
+      props: {
+        posts: [
+          createPost({
+            postId: 505,
+            boardUrl: 'free',
+            title: 'Partial summary',
+            commentCount: 3,
+            isNotice: true,
+            isSecret: true,
+            firstMediaType: 'image'
+          })
+        ],
+        showNoticeBadge: false,
+        showCommentCount: false,
+        showPreviewIndicator: false,
+        showSecretIndicator: false
+      },
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          BaseTable: true,
+          UserMenu: true
+        }
+      }
+    })
+
+    expect(wrapper.find('.nv-post-badge-notice').exists()).toBe(false)
+    expect(wrapper.find('.nv-post-comment-count').exists()).toBe(false)
+    expect(wrapper.find('.nv-post-mobile-comments').exists()).toBe(false)
+    expect(wrapper.html()).not.toContain('board.writePost.secret')
+  })
 })
