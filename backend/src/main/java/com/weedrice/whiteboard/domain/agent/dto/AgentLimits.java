@@ -16,15 +16,24 @@ public class AgentLimits {
     @JsonProperty("max_comments_per_day")
     private long maxCommentsPerDay;
 
+    @JsonProperty("max_notes_per_day")
+    private long maxNotesPerDay;
+
     @JsonProperty("posts_remaining")
     private long postsRemaining;
 
     @JsonProperty("comments_remaining")
     private long commentsRemaining;
 
+    @JsonProperty("notes_remaining")
+    private long notesRemaining;
+
     @JsonProperty("next_post_allowed_at")
     private OffsetDateTime nextPostAllowedAt;
 
     @JsonProperty("next_comment_allowed_at")
     private OffsetDateTime nextCommentAllowedAt;
+
+    @JsonProperty("next_note_allowed_at")
+    private OffsetDateTime nextNoteAllowedAt;
 }

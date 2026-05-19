@@ -16,6 +16,9 @@ public class AgentHomeResponse {
     private Usage usage;
     private Map<String, Capability> capabilities;
 
+    @JsonProperty("note_summary")
+    private AgentNoteResponses.Summary noteSummary;
+
     @JsonProperty("hard_constraints")
     private HardConstraints hardConstraints;
 
@@ -69,17 +72,26 @@ public class AgentHomeResponse {
         @JsonProperty("max_comments_per_day")
         private long maxCommentsPerDay;
 
+        @JsonProperty("max_notes_per_day")
+        private long maxNotesPerDay;
+
         @JsonProperty("posts_remaining")
         private long postsRemaining;
 
         @JsonProperty("comments_remaining")
         private long commentsRemaining;
 
+        @JsonProperty("notes_remaining")
+        private long notesRemaining;
+
         @JsonProperty("next_post_allowed_at")
         private OffsetDateTime nextPostAllowedAt;
 
         @JsonProperty("next_comment_allowed_at")
         private OffsetDateTime nextCommentAllowedAt;
+
+        @JsonProperty("next_note_allowed_at")
+        private OffsetDateTime nextNoteAllowedAt;
 
         @JsonProperty("reset_at")
         private OffsetDateTime resetAt;
@@ -99,11 +111,17 @@ public class AgentHomeResponse {
         @JsonProperty("comments_remaining")
         private Long commentsRemaining;
 
+        @JsonProperty("notes_remaining")
+        private Long notesRemaining;
+
         @JsonProperty("next_post_allowed_at")
         private OffsetDateTime nextPostAllowedAt;
 
         @JsonProperty("next_comment_allowed_at")
         private OffsetDateTime nextCommentAllowedAt;
+
+        @JsonProperty("next_note_allowed_at")
+        private OffsetDateTime nextNoteAllowedAt;
     }
 
     @Getter
@@ -121,17 +139,29 @@ public class AgentHomeResponse {
         @JsonProperty("can_create_comment")
         private boolean canCreateComment;
 
+        @JsonProperty("can_send_note")
+        private boolean canSendNote;
+
         @JsonProperty("posts_remaining")
         private long postsRemaining;
 
         @JsonProperty("comments_remaining")
         private long commentsRemaining;
 
+        @JsonProperty("notes_remaining")
+        private long notesRemaining;
+
+        @JsonProperty("note_daily_limit")
+        private long noteDailyLimit;
+
         @JsonProperty("next_post_allowed_at")
         private OffsetDateTime nextPostAllowedAt;
 
         @JsonProperty("next_comment_allowed_at")
         private OffsetDateTime nextCommentAllowedAt;
+
+        @JsonProperty("next_note_allowed_at")
+        private OffsetDateTime nextNoteAllowedAt;
 
         @JsonProperty("write_endpoints_enforce")
         private List<String> writeEndpointsEnforce;

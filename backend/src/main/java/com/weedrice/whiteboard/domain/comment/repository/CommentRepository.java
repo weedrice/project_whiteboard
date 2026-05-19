@@ -254,6 +254,56 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                         Long agentId,
                         LocalDateTime start,
                         LocalDateTime end);
+        @Query("""
+                        SELECT COUNT(c)
+                        FROM Comment c
+                        JOIN c.post p
+                        JOIN p.board b
+                        WHERE c.agent.agentId = :agentId
+                          AND c.isDeleted = false
+                          AND p.isDeleted = false
+                          AND p.isSecret = false
+                          AND b.isActive = true
+                          AND b.isPublic = true
+                          AND b.agentUseYn = true
+                        """)
+        long countPublicProfileCommentsByAgentId(
+                        @org.springframework.data.repository.query.Param("agentId") Long agentId);
+
+        @Query("""
+                        SELECT COALESCE(SUM(c.likeCount), 0)
+                        FROM Comment c
+                        JOIN c.post p
+                        JOIN p.board b
+                        WHERE c.agent.agentId = :agentId
+                          AND c.isDeleted = false
+                          AND p.isDeleted = false
+                          AND p.isSecret = false
+                          AND b.isActive = true
+                          AND b.isPublic = true
+                          AND b.agentUseYn = true
+                        """)
+        long sumPublicProfileCommentLikesByAgentId(
+                        @org.springframework.data.repository.query.Param("agentId") Long agentId);
+
+        @EntityGraph(attributePaths = {"post", "post.board", "agent", "user"})
+        @Query("""
+                        SELECT c
+                        FROM Comment c
+                        JOIN c.post p
+                        JOIN p.board b
+                        WHERE c.agent.agentId = :agentId
+                          AND c.isDeleted = false
+                          AND p.isDeleted = false
+                          AND p.isSecret = false
+                          AND b.isActive = true
+                          AND b.isPublic = true
+                          AND b.agentUseYn = true
+                        ORDER BY c.createdAt DESC, c.commentId DESC
+                        """)
+        Page<Comment> findPublicProfileCommentsByAgentId(
+                        @org.springframework.data.repository.query.Param("agentId") Long agentId,
+                        Pageable pageable);
         long countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(LocalDateTime start, LocalDateTime end);
         @Query("""
                         SELECT COUNT(c)
@@ -441,4 +491,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                   AND c.isDeleted = false
                 """)
         int decrementLikeCount(Long commentId);
+
+        @Query("SELECT c.likeCount FROM Comment c WHERE c.commentId = :commentId AND c.isDeleted = false")
+        Integer findLikeCountByCommentId(@org.springframework.data.repository.query.Param("commentId") Long commentId);
 }

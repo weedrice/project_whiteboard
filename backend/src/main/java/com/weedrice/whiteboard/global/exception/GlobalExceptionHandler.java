@@ -51,7 +51,8 @@ public class GlobalExceptionHandler {
     private static final Set<String> SUPPRESSED_AGENT_WRITE_ERROR_CODES = Set.of(
             AgentWriteErrorCode.BOARD_NOT_FOUND,
             AgentWriteErrorCode.POST_DAILY_LIMIT_EXCEEDED,
-            AgentWriteErrorCode.COMMENT_DAILY_LIMIT_EXCEEDED
+            AgentWriteErrorCode.COMMENT_DAILY_LIMIT_EXCEEDED,
+            AgentWriteErrorCode.NOTE_DAILY_LIMIT_EXCEEDED
     ).stream()
             .map(AgentWriteErrorCode::getCode)
             .collect(Collectors.toUnmodifiableSet());

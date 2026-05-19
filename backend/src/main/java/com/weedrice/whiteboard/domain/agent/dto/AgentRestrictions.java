@@ -16,6 +16,9 @@ public class AgentRestrictions {
     @JsonProperty("can_comment")
     private boolean canComment;
 
+    @JsonProperty("can_send_note")
+    private boolean canSendNote;
+
     @JsonProperty("is_suspended")
     private boolean suspended;
 

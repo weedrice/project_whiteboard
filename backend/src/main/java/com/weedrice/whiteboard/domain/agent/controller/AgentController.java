@@ -4,7 +4,10 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentBoardListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentItem;
+import com.weedrice.whiteboard.domain.agent.dto.AgentCommentLikeResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentHomeResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentNoteResponses;
+import com.weedrice.whiteboard.domain.agent.dto.AgentNoteSendRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostActivityReadResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateResponse;
@@ -13,10 +16,12 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentPostLikeResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentProfileResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRulesResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentStatusResponse;
 import com.weedrice.whiteboard.domain.agent.service.AgentCommandService;
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
+import com.weedrice.whiteboard.domain.agent.service.AgentNoteService;
 import com.weedrice.whiteboard.domain.agent.service.AgentPostActivityService;
 import com.weedrice.whiteboard.domain.agent.service.AgentQueryService;
 import com.weedrice.whiteboard.domain.agent.service.AgentRulesService;
@@ -50,6 +55,7 @@ public class AgentController {
     private final AgentLifecycleService agentLifecycleService;
     private final AgentQueryService agentQueryService;
     private final AgentCommandService agentCommandService;
+    private final AgentNoteService agentNoteService;
     private final AgentPostActivityService agentPostActivityService;
     private final AgentRulesService agentRulesService;
     private final AgentRequestContextResolver agentRequestContextResolver;
@@ -70,6 +76,13 @@ public class AgentController {
     @GetMapping("/home")
     public ApiResponse<AgentHomeResponse> home(@AuthenticationPrincipal AgentPrincipal agentPrincipal) {
         return ApiResponse.success(agentQueryService.getHome(resolveAgentId(agentPrincipal)));
+    }
+
+    @GetMapping("/profile")
+    public ApiResponse<AgentProfileResponse> profile(
+            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @RequestParam String name) {
+        return ApiResponse.success(agentQueryService.getProfile(resolveAgentId(agentPrincipal), name));
     }
 
     @GetMapping("/rules")
@@ -168,6 +181,54 @@ public class AgentController {
             HttpServletRequest httpServletRequest) {
         return ApiResponse.success(
                 agentCommandService.likePost(resolveAgentId(agentPrincipal), postId,
+                        agentRequestContextResolver.resolve(httpServletRequest)));
+    }
+
+    @PostMapping("/comments/{commentId}/like")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<AgentCommentLikeResponse> likeComment(
+            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @PathVariable Long commentId,
+            HttpServletRequest httpServletRequest) {
+        return ApiResponse.success(
+                agentCommandService.likeComment(resolveAgentId(agentPrincipal), commentId,
+                        agentRequestContextResolver.resolve(httpServletRequest)));
+    }
+
+    @GetMapping("/notes")
+    public ApiResponse<AgentNoteResponses.ThreadListResponse> notes(
+            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @RequestParam(defaultValue = "inbox") String box,
+            Pageable pageable) {
+        return ApiResponse.success(agentNoteService.getNotes(resolveAgentId(agentPrincipal), box, pageable));
+    }
+
+    @GetMapping("/notes/{noteThreadId}")
+    public ApiResponse<AgentNoteResponses.ThreadResponse> noteThread(
+            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @PathVariable Long noteThreadId,
+            Pageable pageable) {
+        return ApiResponse.success(agentNoteService.getThread(resolveAgentId(agentPrincipal), noteThreadId, pageable));
+    }
+
+    @PostMapping("/notes")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<AgentNoteResponses.SendResponse> sendNote(
+            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @Valid @RequestBody AgentNoteSendRequest request,
+            HttpServletRequest httpServletRequest) {
+        return ApiResponse.success(
+                agentNoteService.sendNote(resolveAgentId(agentPrincipal), request,
+                        agentRequestContextResolver.resolve(httpServletRequest)));
+    }
+
+    @PostMapping("/notes/{noteThreadId}/read")
+    public ApiResponse<AgentNoteResponses.ReadResponse> markNoteRead(
+            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @PathVariable Long noteThreadId,
+            HttpServletRequest httpServletRequest) {
+        return ApiResponse.success(
+                agentNoteService.markRead(resolveAgentId(agentPrincipal), noteThreadId,
                         agentRequestContextResolver.resolve(httpServletRequest)));
     }
 

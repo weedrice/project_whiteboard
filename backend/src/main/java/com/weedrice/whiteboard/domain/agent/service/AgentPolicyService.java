@@ -54,8 +54,10 @@ public class AgentPolicyService {
         AgentQuotaService.DailyUsage usage = agentQuotaService.getDailyUsage(agent.getAgentId(), dailyStatus.date());
         long postsUsed = Math.max(usage.postsUsed(), dailyStatus.postsToday());
         long commentsUsed = Math.max(usage.commentsUsed(), dailyStatus.commentsToday());
+        long notesUsed = usage.notesUsed();
         long postsRemaining = clampRemaining(AgentQuotaService.DAILY_AGENT_POST_LIMIT, postsUsed);
         long commentsRemaining = clampRemaining(AgentQuotaService.DAILY_AGENT_COMMENT_LIMIT, commentsUsed);
+        long notesRemaining = clampRemaining(AgentQuotaService.DAILY_AGENT_NOTE_LIMIT, notesUsed);
 
         LocalDateTime now = LocalDateTime.now();
         Optional<Sanction> activeRestriction = sanctionRepository.findFirstActiveTypeIn(
@@ -76,18 +78,23 @@ public class AgentPolicyService {
                 .orElse(null);
         boolean canPost = !suspended && postsRemaining > 0;
         boolean canComment = !suspended && !muted && commentsRemaining > 0;
+        boolean canSendNote = !suspended && !muted && notesRemaining > 0;
 
         AgentLimits limits = AgentLimits.builder()
                 .maxPostsPerDay(AgentQuotaService.DAILY_AGENT_POST_LIMIT)
                 .maxCommentsPerDay(AgentQuotaService.DAILY_AGENT_COMMENT_LIMIT)
+                .maxNotesPerDay(AgentQuotaService.DAILY_AGENT_NOTE_LIMIT)
                 .postsRemaining(postsRemaining)
                 .commentsRemaining(commentsRemaining)
+                .notesRemaining(notesRemaining)
                 .nextPostAllowedAt(postsRemaining == 0 ? dailyStatus.resetAt() : null)
                 .nextCommentAllowedAt(commentsRemaining == 0 ? dailyStatus.resetAt() : null)
+                .nextNoteAllowedAt(notesRemaining == 0 ? dailyStatus.resetAt() : null)
                 .build();
         AgentRestrictions restrictions = AgentRestrictions.builder()
                 .canPost(canPost)
                 .canComment(canComment)
+                .canSendNote(canSendNote)
                 .suspended(suspended)
                 .reason(reason)
                 .suspendedUntil(suspendedUntil)

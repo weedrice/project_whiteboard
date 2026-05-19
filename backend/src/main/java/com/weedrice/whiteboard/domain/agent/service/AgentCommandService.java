@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.agent.service;
 
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentCommentLikeResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostDeleteResponse;
@@ -15,6 +16,9 @@ import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
+import com.weedrice.whiteboard.domain.comment.entity.CommentLike;
+import com.weedrice.whiteboard.domain.comment.entity.CommentLikeId;
+import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.service.CommentCreateContext;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
@@ -28,6 +32,7 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,6 +56,7 @@ public class AgentCommandService {
     private final BoardRepository boardRepository;
     private final BoardCategoryRepository boardCategoryRepository;
     private final CommentRepository commentRepository;
+    private final CommentLikeRepository commentLikeRepository;
     private final PostRepository postRepository;
     private final PostService postService;
     private final CommentService commentService;
@@ -221,6 +227,42 @@ public class AgentCommandService {
                 postId,
                 requestContext);
         return new AgentPostLikeResponse(postId, likeCount, true);
+    }
+
+    @Transactional
+    public AgentCommentLikeResponse likeComment(Long agentId, Long commentId, AgentRequestContext requestContext) {
+        Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
+        Comment comment = commentRepository.findByIdWithRelationsForUpdate(commentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+        if (comment.getIsDeleted() || Boolean.TRUE.equals(comment.getPost().getIsDeleted())) {
+            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
+        }
+        agentBoardAccessService.validateAgentBoardReadable(agent, comment.getPost().getBoard());
+
+        boolean alreadyLiked = commentLikeRepository.existsById(new CommentLikeId(agent.getUser().getUserId(), commentId));
+        if (!alreadyLiked) {
+            try {
+                commentLikeRepository.saveAndFlush(CommentLike.builder()
+                        .user(agent.getUser())
+                        .comment(comment)
+                        .build());
+                incrementCommentLikeCount(commentId);
+                agentAuditService.saveLog(
+                        agent,
+                        agent.getUser(),
+                        AgentAuditActionType.LIKE_COMMENT,
+                        AgentAuditTargetType.COMMENT,
+                        commentId,
+                        requestContext);
+            } catch (DataIntegrityViolationException ex) {
+                alreadyLiked = true;
+            }
+        }
+        return new AgentCommentLikeResponse(
+                "liked",
+                commentId,
+                resolveCommentLikeCount(commentId),
+                alreadyLiked);
     }
 
     private String normalizeAgentPostContent(String content) {
@@ -427,6 +469,20 @@ public class AgentCommandService {
             }
             throw e;
         }
+    }
+
+    private void incrementCommentLikeCount(Long commentId) {
+        if (commentRepository.incrementLikeCount(commentId) == 0) {
+            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
+        }
+    }
+
+    private int resolveCommentLikeCount(Long commentId) {
+        Integer likeCount = commentRepository.findLikeCountByCommentId(commentId);
+        if (likeCount == null) {
+            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
+        }
+        return likeCount;
     }
 
     private AgentWriteException writeException(AgentWriteErrorCode errorCode, String action,

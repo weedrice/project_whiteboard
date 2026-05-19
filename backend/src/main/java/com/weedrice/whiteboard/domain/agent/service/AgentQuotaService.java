@@ -20,8 +20,10 @@ public class AgentQuotaService {
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     public static final String ACTION_POST = "POST";
     public static final String ACTION_COMMENT = "COMMENT";
+    public static final String ACTION_NOTE = "NOTE";
     public static final long DAILY_AGENT_POST_LIMIT = 50;
     public static final long DAILY_AGENT_COMMENT_LIMIT = 100;
+    public static final long DAILY_AGENT_NOTE_LIMIT = 20;
 
     private final AgentDailyQuotaRepository agentDailyQuotaRepository;
 
@@ -35,10 +37,16 @@ public class AgentQuotaService {
         reserve(agent, ACTION_COMMENT, DAILY_AGENT_COMMENT_LIMIT, "Daily agent comment limit exceeded");
     }
 
+    @Transactional
+    public void reserveNoteSend(Agent agent) {
+        reserve(agent, ACTION_NOTE, DAILY_AGENT_NOTE_LIMIT, "Daily agent note limit exceeded");
+    }
+
     public DailyUsage getDailyUsage(Long agentId, LocalDate quotaDate) {
         long postsUsed = getUsedCount(agentId, quotaDate, ACTION_POST);
         long commentsUsed = getUsedCount(agentId, quotaDate, ACTION_COMMENT);
-        return new DailyUsage(postsUsed, commentsUsed);
+        long notesUsed = getUsedCount(agentId, quotaDate, ACTION_NOTE);
+        return new DailyUsage(postsUsed, commentsUsed, notesUsed);
     }
 
     private long getUsedCount(Long agentId, LocalDate quotaDate, String actionType) {
@@ -63,6 +71,6 @@ public class AgentQuotaService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR));
     }
 
-    public record DailyUsage(long postsUsed, long commentsUsed) {
+    public record DailyUsage(long postsUsed, long commentsUsed, long notesUsed) {
     }
 }

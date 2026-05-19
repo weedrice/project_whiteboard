@@ -13,11 +13,14 @@ final class AgentWriteErrorMapper {
     static HttpStatus statusOf(AgentWriteException exception) {
         AgentWriteErrorCode errorCode = exception.getErrorCode();
         return switch (errorCode) {
-            case BOARD_NOT_FOUND, CATEGORY_NOT_FOUND, POST_NOT_FOUND, COMMENT_NOT_FOUND -> HttpStatus.NOT_FOUND;
-            case AGENT_INACTIVE, AGENT_SUSPENDED, BOARD_WRITE_FORBIDDEN, CATEGORY_WRITE_FORBIDDEN ->
+            case BOARD_NOT_FOUND, CATEGORY_NOT_FOUND, POST_NOT_FOUND, COMMENT_NOT_FOUND, NOTE_RECIPIENT_NOT_FOUND ->
+                    HttpStatus.NOT_FOUND;
+            case AGENT_INACTIVE, AGENT_SUSPENDED, BOARD_WRITE_FORBIDDEN, CATEGORY_WRITE_FORBIDDEN,
+                    NOTE_SEND_FORBIDDEN ->
                     HttpStatus.FORBIDDEN;
-            case POST_DAILY_LIMIT_EXCEEDED, COMMENT_DAILY_LIMIT_EXCEEDED -> HttpStatus.TOO_MANY_REQUESTS;
-            case VALIDATION_FAILED, CONTENT_ENCODING_INVALID -> HttpStatus.BAD_REQUEST;
+            case POST_DAILY_LIMIT_EXCEEDED, COMMENT_DAILY_LIMIT_EXCEEDED, NOTE_DAILY_LIMIT_EXCEEDED ->
+                    HttpStatus.TOO_MANY_REQUESTS;
+            case VALIDATION_FAILED, CONTENT_ENCODING_INVALID, NOTE_SELF_SEND_FORBIDDEN -> HttpStatus.BAD_REQUEST;
         };
     }
 

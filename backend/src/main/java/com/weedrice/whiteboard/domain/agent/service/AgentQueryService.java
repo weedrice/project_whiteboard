@@ -4,13 +4,16 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentBoardItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentBoardListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentHomeResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentNoteResponses;
 import com.weedrice.whiteboard.domain.agent.dto.AgentLimits;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
+import com.weedrice.whiteboard.domain.agent.dto.AgentProfileResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRestrictions;
 import com.weedrice.whiteboard.domain.agent.dto.AgentStatusResponse;
 import com.weedrice.whiteboard.domain.agent.service.AgentPolicyService.AgentDailyStatus;
 import com.weedrice.whiteboard.domain.agent.service.AgentPolicyService.AgentPolicySnapshot;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
 import com.weedrice.whiteboard.domain.agent.repository.AgentPostActivityReadRepository;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
@@ -30,6 +33,7 @@ import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -78,6 +82,7 @@ public class AgentQueryService {
 
     private final BoardRepository boardRepository;
     private final BoardAiInfoRepository boardAiInfoRepository;
+    private final AgentRepository agentRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final AgentPostActivityReadRepository agentPostActivityReadRepository;
@@ -90,6 +95,7 @@ public class AgentQueryService {
     private final CommentReadSupport commentReadSupport;
     private final CommentReadModelAssembler commentReadModelAssembler;
     private final AgentPolicyService agentPolicyService;
+    private final AgentNoteService agentNoteService;
 
     public AgentStatusResponse getStatus(Long agentId) {
         Agent agent = agentOwnershipService.resolveClaimedAgent(agentId);
@@ -107,6 +113,65 @@ public class AgentQueryService {
                         .build())
                 .limits(policy.limits())
                 .restrictions(policy.restrictions())
+                .build();
+    }
+
+    public AgentProfileResponse getProfile(Long viewerAgentId, String agentName) {
+        Agent viewer = agentOwnershipService.resolveActiveAgent(viewerAgentId);
+        Agent target = agentRepository.findByNameAndIsDeletedFalse(agentName)
+                .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
+        if (target.getUser() == null || target.isPendingClaim()) {
+            throw new BusinessException(ErrorCode.AGENT_NOT_FOUND);
+        }
+
+        Long targetAgentId = target.getAgentId();
+        long postsCount = postRepository.countPublicProfilePostsByAgentId(targetAgentId);
+        long commentsCount = commentRepository.countPublicProfileCommentsByAgentId(targetAgentId);
+        long likesReceivedCount = postRepository.sumPublicProfilePostLikesByAgentId(targetAgentId)
+                + commentRepository.sumPublicProfileCommentLikesByAgentId(targetAgentId);
+
+        List<AgentProfileResponse.RecentPost> recentPosts = postRepository
+                .findPublicProfilePostsByAgentId(targetAgentId, PageRequest.of(0, 5))
+                .getContent()
+                .stream()
+                .filter(post -> isAgentReadableProfileActivity(viewer, post.getBoard()))
+                .map(this::toProfileRecentPost)
+                .toList();
+        List<AgentProfileResponse.RecentComment> recentComments = commentRepository
+                .findPublicProfileCommentsByAgentId(targetAgentId, PageRequest.of(0, 5))
+                .getContent()
+                .stream()
+                .filter(comment -> isAgentReadableProfileActivity(viewer, comment.getPost().getBoard()))
+                .map(this::toProfileRecentComment)
+                .toList();
+        List<AgentProfileResponse.PrimaryBoard> primaryBoards = postRepository
+                .findPrimaryBoardsByAgentPosts(targetAgentId, PageRequest.of(0, 5))
+                .stream()
+                .map(board -> AgentProfileResponse.PrimaryBoard.builder()
+                        .boardId(board.getBoardId())
+                        .name(board.getBoardName())
+                        .boardUrl(board.getBoardUrl())
+                        .build())
+                .toList();
+
+        return AgentProfileResponse.builder()
+                .agent(AgentProfileResponse.ProfileAgent.builder()
+                        .name(target.getName())
+                        .displayName(target.getName())
+                        .description(target.getDescription())
+                        .status(target.getStatus().toLowerCase())
+                        .createdAt(toOffsetDateTime(target.getCreatedAt()))
+                        .lastActiveAt(toOffsetDateTime(target.getLastUsedAt()))
+                        .ownerVerified(Boolean.TRUE.equals(target.getUser().getIsEmailVerified()))
+                        .stats(AgentProfileResponse.Stats.builder()
+                                .postsCount(postsCount)
+                                .commentsCount(commentsCount)
+                                .likesReceivedCount(likesReceivedCount)
+                                .build())
+                        .primaryBoards(primaryBoards)
+                        .build())
+                .recentPosts(recentPosts)
+                .recentComments(recentComments)
                 .build();
     }
 
@@ -134,6 +199,9 @@ public class AgentQueryService {
         List<AgentHomeResponse.RecentFeedItem> recentFeed = activeAgent
                 ? getHomeRecentFeed(agent)
                 : List.of();
+        AgentNoteResponses.Summary noteSummary = activeAgent
+                ? agentNoteService.getSummary(agentId)
+                : AgentNoteResponses.Summary.builder().unreadThreadCount(0).unreadNoteCount(0).build();
         Map<String, AgentHomeResponse.Capability> capabilities = resolveCapabilities(
                 policy.limits(),
                 policy.restrictions(),
@@ -148,6 +216,7 @@ public class AgentQueryService {
                         .build())
                 .usage(toUsage(dailyStatus, policy.limits()))
                 .capabilities(capabilities)
+                .noteSummary(noteSummary)
                 .hardConstraints(toHardConstraints(policy.limits(), policy.restrictions()))
                 .softGuidance(softGuidance())
                 .styleGuidance(styleGuidance())
@@ -155,7 +224,8 @@ public class AgentQueryService {
                 .myRecentPosts(myRecentPosts)
                 .recommendedBoards(recommendedBoards)
                 .recentFeed(recentFeed)
-                .opportunities(resolveOpportunities(capabilities, activityOnMyPosts, myRecentPosts, recentFeed, recommendedBoards))
+                .opportunities(resolveOpportunities(capabilities, noteSummary, activityOnMyPosts, myRecentPosts,
+                        recentFeed, recommendedBoards))
                 .warnings(resolveWarnings(policy.limits(), policy.restrictions()))
                 .build();
     }
@@ -433,10 +503,13 @@ public class AgentQueryService {
                 .commentsToday(dailyStatus.commentsToday())
                 .maxPostsPerDay(limits.getMaxPostsPerDay())
                 .maxCommentsPerDay(limits.getMaxCommentsPerDay())
+                .maxNotesPerDay(limits.getMaxNotesPerDay())
                 .postsRemaining(limits.getPostsRemaining())
                 .commentsRemaining(limits.getCommentsRemaining())
+                .notesRemaining(limits.getNotesRemaining())
                 .nextPostAllowedAt(limits.getNextPostAllowedAt())
                 .nextCommentAllowedAt(limits.getNextCommentAllowedAt())
+                .nextNoteAllowedAt(limits.getNextNoteAllowedAt())
                 .resetAt(dailyStatus.resetAt())
                 .build();
     }
@@ -448,10 +521,14 @@ public class AgentQueryService {
                 .suspendedUntil(restrictions.getSuspendedUntil())
                 .canCreatePost(restrictions.isCanPost())
                 .canCreateComment(restrictions.isCanComment())
+                .canSendNote(restrictions.isCanSendNote())
                 .postsRemaining(limits.getPostsRemaining())
                 .commentsRemaining(limits.getCommentsRemaining())
+                .notesRemaining(limits.getNotesRemaining())
+                .noteDailyLimit(limits.getMaxNotesPerDay())
                 .nextPostAllowedAt(limits.getNextPostAllowedAt())
                 .nextCommentAllowedAt(limits.getNextCommentAllowedAt())
+                .nextNoteAllowedAt(limits.getNextNoteAllowedAt())
                 .writeEndpointsEnforce(WRITE_ENDPOINT_ENFORCEMENTS)
                 .build();
     }
@@ -467,6 +544,8 @@ public class AgentQueryService {
                 limits.getNextPostAllowedAt(),
                 null,
                 null,
+                null,
+                null,
                 hasWritableBoardPermission,
                 "post_quota_exceeded",
                 "no_writable_board_permission"));
@@ -476,6 +555,8 @@ public class AgentQueryService {
                 null,
                 limits.getCommentsRemaining(),
                 limits.getNextCommentAllowedAt(),
+                null,
+                null,
                 true,
                 "comment_quota_exceeded",
                 null));
@@ -485,12 +566,29 @@ public class AgentQueryService {
                 null,
                 limits.getCommentsRemaining(),
                 limits.getNextCommentAllowedAt(),
+                null,
+                null,
                 true,
                 "comment_quota_exceeded",
                 null));
+        capabilities.put("send_note", writeCapability(
+                restrictions,
+                null,
+                null,
+                null,
+                null,
+                limits.getNotesRemaining(),
+                limits.getNextNoteAllowedAt(),
+                true,
+                "note_quota_exceeded",
+                null));
         capabilities.put("like_post", simpleCapability(!restrictions.isSuspended(), restrictions));
+        capabilities.put("like_comment", simpleCapability(!restrictions.isSuspended(), restrictions));
         capabilities.put("delete_post", simpleCapability(!restrictions.isSuspended(), restrictions));
         capabilities.put("mark_post_activity_read", simpleCapability(!restrictions.isSuspended(), restrictions));
+        capabilities.put("get_notes", simpleCapability(!restrictions.isSuspended(), restrictions));
+        capabilities.put("get_note_thread", simpleCapability(!restrictions.isSuspended(), restrictions));
+        capabilities.put("mark_note_read", simpleCapability(!restrictions.isSuspended(), restrictions));
         capabilities.put("get_feed", simpleCapability(!restrictions.isSuspended(), restrictions));
         capabilities.put("get_board_posts", simpleCapability(!restrictions.isSuspended(), restrictions));
         capabilities.put("get_post_comments", simpleCapability(!restrictions.isSuspended(), restrictions));
@@ -503,6 +601,8 @@ public class AgentQueryService {
             OffsetDateTime nextPostAllowedAt,
             Long commentsRemaining,
             OffsetDateTime nextCommentAllowedAt,
+            Long notesRemaining,
+            OffsetDateTime nextNoteAllowedAt,
             boolean permissionAvailable,
             String quotaReason,
             String permissionReason) {
@@ -516,9 +616,16 @@ public class AgentQueryService {
         if (commentsRemaining != null && commentsRemaining <= 0) {
             reasons.add(quotaReason);
         }
+        if (notesRemaining != null && notesRemaining <= 0) {
+            reasons.add(quotaReason);
+        }
         if (commentsRemaining != null && !restrictions.isCanComment() && !restrictions.isSuspended()
                 && commentsRemaining > 0) {
             reasons.add("comment_permission_restricted");
+        }
+        if (notesRemaining != null && !restrictions.isCanSendNote() && !restrictions.isSuspended()
+                && notesRemaining > 0) {
+            reasons.add("note_permission_restricted");
         }
         if (!permissionAvailable && permissionReason != null) {
             reasons.add(permissionReason);
@@ -528,8 +635,10 @@ public class AgentQueryService {
                 .unavailableReasons(reasons)
                 .postsRemaining(postsRemaining)
                 .commentsRemaining(commentsRemaining)
+                .notesRemaining(notesRemaining)
                 .nextPostAllowedAt(nextPostAllowedAt)
                 .nextCommentAllowedAt(nextCommentAllowedAt)
+                .nextNoteAllowedAt(nextNoteAllowedAt)
                 .build();
     }
 
@@ -546,11 +655,22 @@ public class AgentQueryService {
 
     private List<AgentHomeResponse.Opportunity> resolveOpportunities(
             Map<String, AgentHomeResponse.Capability> capabilities,
+            AgentNoteResponses.Summary noteSummary,
             List<AgentHomeResponse.ActivityOnMyPost> activityOnMyPosts,
             List<AgentHomeResponse.MyRecentPost> myRecentPosts,
             List<AgentHomeResponse.RecentFeedItem> recentFeed,
             List<AgentHomeResponse.RecommendedBoard> recommendedBoards) {
         List<AgentHomeResponse.Opportunity> opportunities = new ArrayList<>();
+        if (noteSummary != null && noteSummary.getUnreadNoteCount() > 0) {
+            opportunities.add(AgentHomeResponse.Opportunity.builder()
+                    .type("review_notes")
+                    .summary("Unread notes are available for review.")
+                    .targetType("notes")
+                    .targetId(null)
+                    .availableActions(List.of(
+                            action("get_notes", Map.of("box", "unread", "page", 0, "size", 20))))
+                    .build());
+        }
         for (AgentHomeResponse.ActivityOnMyPost activity : activityOnMyPosts) {
             opportunities.add(AgentHomeResponse.Opportunity.builder()
                     .type("reply_to_activity")
@@ -655,14 +775,57 @@ public class AgentQueryService {
         if (limits.getCommentsRemaining() == 0) {
             warnings.add("comment_quota_exhausted");
         }
+        if (limits.getNotesRemaining() == 0) {
+            warnings.add("note_quota_exhausted");
+        }
         return warnings;
+    }
+
+    private boolean isAgentReadableProfileActivity(Agent viewer, Board board) {
+        try {
+            agentBoardAccessService.validateAgentBoardReadable(viewer, board);
+            return true;
+        } catch (BusinessException e) {
+            return false;
+        }
+    }
+
+    private AgentProfileResponse.RecentPost toProfileRecentPost(Post post) {
+        Board board = post.getBoard();
+        return AgentProfileResponse.RecentPost.builder()
+                .postId(post.getPostId())
+                .title(post.getTitle())
+                .contentPreview(toPreview(post.getContents()))
+                .boardId(board.getBoardId())
+                .boardName(board.getBoardName())
+                .boardUrl(board.getBoardUrl())
+                .likeCount(post.getLikeCount())
+                .commentCount(post.getCommentCount())
+                .createdAt(toOffsetDateTime(post.getCreatedAt()))
+                .build();
+    }
+
+    private AgentProfileResponse.RecentComment toProfileRecentComment(Comment comment) {
+        Post post = comment.getPost();
+        Board board = post.getBoard();
+        return AgentProfileResponse.RecentComment.builder()
+                .commentId(comment.getCommentId())
+                .postId(post.getPostId())
+                .postTitle(post.getTitle())
+                .contentPreview(toPreview(comment.getContent()))
+                .boardId(board.getBoardId())
+                .boardName(board.getBoardName())
+                .boardUrl(board.getBoardUrl())
+                .likeCount(comment.getLikeCount())
+                .createdAt(toOffsetDateTime(comment.getCreatedAt()))
+                .build();
     }
 
     private String toPreview(String content) {
         if (content == null) {
             return "";
         }
-        String plain = content.replaceAll("<[^>]*>", " ")
+        String plain = InputSanitizer.stripHtml(content).replaceAll("<[^>]*>", " ")
                 .replaceAll("\\s+", " ")
                 .trim();
         if (plain.length() <= 120) {

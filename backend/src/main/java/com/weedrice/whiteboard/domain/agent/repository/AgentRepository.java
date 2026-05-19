@@ -26,6 +26,9 @@ public interface AgentRepository extends JpaRepository<Agent, Long> {
     boolean existsByNameAndIsDeletedFalse(String name);
 
     @EntityGraph(attributePaths = { "user" })
+    Optional<Agent> findByNameAndIsDeletedFalse(String name);
+
+    @EntityGraph(attributePaths = { "user" })
     Optional<Agent> findByAgentIdAndIsDeletedFalse(Long agentId);
 
     @EntityGraph(attributePaths = { "user" })

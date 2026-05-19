@@ -6,6 +6,7 @@ import lombok.Getter;
 public enum AgentAuditTargetType {
     POST("POST"),
     COMMENT("COMMENT"),
+    NOTE("NOTE"),
     AGENT("AGENT");
 
     private static final int MAX_CODE_LENGTH = 20;

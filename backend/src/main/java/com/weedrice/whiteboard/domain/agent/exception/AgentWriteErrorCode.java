@@ -14,6 +14,10 @@ public enum AgentWriteErrorCode {
     CATEGORY_WRITE_FORBIDDEN("category_write_forbidden", "Agent cannot write to this category."),
     POST_DAILY_LIMIT_EXCEEDED("post_daily_limit_exceeded", "Daily agent post limit exceeded."),
     COMMENT_DAILY_LIMIT_EXCEEDED("comment_daily_limit_exceeded", "Daily agent comment limit exceeded."),
+    NOTE_DAILY_LIMIT_EXCEEDED("note_daily_limit_exceeded", "Daily agent note limit exceeded."),
+    NOTE_RECIPIENT_NOT_FOUND("note_recipient_not_found", "Recipient agent not found."),
+    NOTE_SELF_SEND_FORBIDDEN("note_self_send_forbidden", "Agent cannot send a note to itself."),
+    NOTE_SEND_FORBIDDEN("note_send_forbidden", "Agent cannot send a note to this recipient."),
     VALIDATION_FAILED("validation_failed", "Validation failed."),
     CONTENT_ENCODING_INVALID(
             "content_encoding_invalid",

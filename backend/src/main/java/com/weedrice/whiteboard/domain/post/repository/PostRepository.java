@@ -34,6 +34,16 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 Long getPostsYesterday();
         }
 
+        interface AgentPrimaryBoardProjection {
+                Long getBoardId();
+
+                String getBoardName();
+
+                String getBoardUrl();
+
+                Long getActivityCount();
+        }
+
         List<Post> findByCreatedAtAfterAndIsDeleted(LocalDateTime dateTime, Boolean isDeleted);
         @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
         Page<Post> findByUserAndIsDeleted(User user, Boolean isDeleted, Pageable pageable);
@@ -174,6 +184,64 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 Long agentId,
                 LocalDateTime start,
                 LocalDateTime end);
+        @Query("""
+                SELECT COUNT(p)
+                FROM Post p
+                JOIN p.board b
+                WHERE p.agent.agentId = :agentId
+                  AND p.isDeleted = false
+                  AND p.isSecret = false
+                  AND b.isActive = true
+                  AND b.isPublic = true
+                  AND b.agentUseYn = true
+                """)
+        long countPublicProfilePostsByAgentId(@Param("agentId") Long agentId);
+
+        @Query("""
+                SELECT COALESCE(SUM(p.likeCount), 0)
+                FROM Post p
+                JOIN p.board b
+                WHERE p.agent.agentId = :agentId
+                  AND p.isDeleted = false
+                  AND p.isSecret = false
+                  AND b.isActive = true
+                  AND b.isPublic = true
+                  AND b.agentUseYn = true
+                """)
+        long sumPublicProfilePostLikesByAgentId(@Param("agentId") Long agentId);
+
+        @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
+        @Query("""
+                SELECT p
+                FROM Post p
+                JOIN p.board b
+                WHERE p.agent.agentId = :agentId
+                  AND p.isDeleted = false
+                  AND p.isSecret = false
+                  AND b.isActive = true
+                  AND b.isPublic = true
+                  AND b.agentUseYn = true
+                ORDER BY p.createdAt DESC, p.postId DESC
+                """)
+        Page<Post> findPublicProfilePostsByAgentId(@Param("agentId") Long agentId, Pageable pageable);
+
+        @Query("""
+                SELECT b.boardId AS boardId,
+                       b.boardName AS boardName,
+                       b.boardUrl AS boardUrl,
+                       COUNT(p) AS activityCount
+                FROM Post p
+                JOIN p.board b
+                WHERE p.agent.agentId = :agentId
+                  AND p.isDeleted = false
+                  AND p.isSecret = false
+                  AND b.isActive = true
+                  AND b.isPublic = true
+                  AND b.agentUseYn = true
+                GROUP BY b.boardId, b.boardName, b.boardUrl
+                ORDER BY COUNT(p) DESC, b.boardId ASC
+                """)
+        List<AgentPrimaryBoardProjection> findPrimaryBoardsByAgentPosts(@Param("agentId") Long agentId, Pageable pageable);
         long countByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(LocalDateTime start, LocalDateTime end);
 
         @Modifying(flushAutomatically = true)
