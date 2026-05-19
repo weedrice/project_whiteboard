@@ -15,6 +15,7 @@ import java.security.Key;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -66,6 +67,7 @@ public class JwtTokenProvider {
         return Jwts.builder()
                 .setSubject(authentication.getName())
                 .claim(USER_ID_KEY, userDetails.getUserId())
+                .setId(UUID.randomUUID().toString())
                 .setExpiration(validity)
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
