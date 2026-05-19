@@ -11,12 +11,12 @@ import com.weedrice.whiteboard.global.common.util.ClientMetadataNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -40,20 +40,29 @@ public class AdService {
 
     public Ad getAd(String placement) {
         LocalDateTime now = LocalDateTime.now(clock);
-        long activeCount = adRepository.countActiveByPlacement(placement, now);
-        if (activeCount == 0) {
+        List<Long> activeAdIds = adRepository.findActiveIdsByPlacement(placement, now);
+        if (activeAdIds.isEmpty()) {
             return null;
         }
 
-        int randomOffset = ThreadLocalRandom.current().nextInt((int) Math.min(activeCount, Integer.MAX_VALUE));
-        List<Ad> ads = adRepository.findActiveByPlacement(placement, now, PageRequest.of(randomOffset, 1));
-        if (ads.isEmpty()) {
-            ads = adRepository.findActiveByPlacement(placement, now, PageRequest.of(0, 1));
+        Ad ad = findRandomActiveAd(activeAdIds, now);
+        if (ad != null) {
+            return ad;
         }
-        if (ads.isEmpty()) {
-            return null;
+        return findRandomActiveAd(adRepository.findActiveIdsByPlacement(placement, now), now);
+    }
+
+    private Ad findRandomActiveAd(List<Long> activeAdIds, LocalDateTime now) {
+        List<Long> candidateIds = new ArrayList<>(activeAdIds);
+        while (!candidateIds.isEmpty()) {
+            int randomIndex = ThreadLocalRandom.current().nextInt(candidateIds.size());
+            Long adId = candidateIds.remove(randomIndex);
+            Ad ad = adRepository.findActiveById(adId, now).orElse(null);
+            if (ad != null) {
+                return ad;
+            }
         }
-        return ads.get(0);
+        return null;
     }
 
     @Transactional

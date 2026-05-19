@@ -8,7 +8,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -28,31 +27,28 @@ class AdRepositoryTest {
 
     @Test
     @DisplayName("활성 광고 조회는 오픈엔드 광고를 포함하고 만료 광고를 제외한다")
-    void findActiveByPlacement_includesOpenEndedAndExcludesExpired() {
+    void findActiveIdsByPlacement_includesOpenEndedAndExcludesExpired() {
         LocalDateTime now = LocalDateTime.now();
         Ad openEndedAd = persistAd("TOP", now.minusDays(1), null, true);
         persistAd("TOP", now.minusDays(2), now.minusMinutes(1), true);
         persistAd("TOP", now.plusMinutes(1), now.plusDays(1), true);
         persistAd("TOP", now.minusDays(1), now.plusDays(1), false);
 
-        List<Ad> activeAds = adRepository.findActiveByPlacement("TOP", now, PageRequest.of(0, 10));
+        List<Long> activeAdIds = adRepository.findActiveIdsByPlacement("TOP", now);
 
-        assertThat(activeAds).extracting(Ad::getAdId).contains(openEndedAd.getAdId());
-        assertThat(activeAds).hasSize(1);
-        assertThat(adRepository.countActiveByPlacement("TOP", now)).isEqualTo(1);
+        assertThat(activeAdIds).containsExactly(openEndedAd.getAdId());
     }
 
     @Test
-    @DisplayName("활성 광고 후보는 페이지 크기만큼 조회한다")
-    void findActiveByPlacement_withPageableReturnsRequestedCandidateWindow() {
+    @DisplayName("활성 광고 ID 조회는 adId 오름차순 후보 목록을 반환한다")
+    void findActiveIdsByPlacement_returnsOrderedCandidateIds() {
         LocalDateTime now = LocalDateTime.now();
         Ad firstAd = persistAd("TOP", now.minusDays(1), null, true);
         Ad secondAd = persistAd("TOP", now.minusDays(1), null, true);
 
-        List<Ad> activeAds = adRepository.findActiveByPlacement("TOP", now, PageRequest.of(1, 1));
+        List<Long> activeAdIds = adRepository.findActiveIdsByPlacement("TOP", now);
 
-        assertThat(activeAds).extracting(Ad::getAdId).containsExactly(secondAd.getAdId());
-        assertThat(activeAds).extracting(Ad::getAdId).doesNotContain(firstAd.getAdId());
+        assertThat(activeAdIds).containsExactly(firstAd.getAdId(), secondAd.getAdId());
     }
 
     @Test
@@ -65,16 +61,16 @@ class AdRepositoryTest {
     }
 
     @Test
-    @DisplayName("활성 광고 impression 집계는 만료 광고를 제외한다")
-    void findActiveByPlacement_appliesStartInclusiveAndEndExclusiveBoundary() {
+    @DisplayName("활성 광고 ID 조회는 시작 포함과 종료 제외 경계를 적용한다")
+    void findActiveIdsByPlacement_appliesStartInclusiveAndEndExclusiveBoundary() {
         LocalDateTime now = LocalDateTime.of(2026, 4, 29, 10, 0);
         Ad startsNow = persistAd("TOP", now, now.plusHours(1), true);
         Ad endsNow = persistAd("TOP", now.minusHours(1), now, true);
 
-        List<Ad> activeAds = adRepository.findActiveByPlacement("TOP", now, PageRequest.of(0, 10));
+        List<Long> activeAdIds = adRepository.findActiveIdsByPlacement("TOP", now);
 
-        assertThat(activeAds).extracting(Ad::getAdId).containsExactly(startsNow.getAdId());
-        assertThat(activeAds).extracting(Ad::getAdId).doesNotContain(endsNow.getAdId());
+        assertThat(activeAdIds).containsExactly(startsNow.getAdId());
+        assertThat(activeAdIds).doesNotContain(endsNow.getAdId());
     }
 
     @Test
