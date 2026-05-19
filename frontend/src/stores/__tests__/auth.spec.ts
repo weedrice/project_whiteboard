@@ -101,7 +101,7 @@ describe('Auth Store', () => {
             expect(store.user).toBeNull()
         })
 
-        it('returns undefined and keeps state when success flag is false', async () => {
+        it('returns false and keeps state when success flag is false', async () => {
             vi.mocked(authApi.login).mockResolvedValue({
                 data: {
                     success: false,
@@ -115,7 +115,7 @@ describe('Auth Store', () => {
 
             const result = await store.login({ loginId: 'test', password: 'password' })
 
-            expect(result).toBeUndefined()
+            expect(result).toBe(false)
             expect(store.accessToken).toBeNull()
             expect(store.user).toBeNull()
             expect(localStorage.getItem('accessToken')).toBeNull()
