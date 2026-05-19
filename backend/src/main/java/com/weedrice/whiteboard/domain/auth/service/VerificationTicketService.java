@@ -35,6 +35,10 @@ public class VerificationTicketService {
 
         boolean codeMatches = matchesVerificationCode(verificationCode.getCode(), code);
 
+        if (verificationCode.isExpired()) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, EXPIRED_CODE_MESSAGE);
+        }
+
         if (Boolean.TRUE.equals(verificationCode.getIsVerified())) {
             if (verificationCode.hasActiveVerificationTicket()) {
                 if (!codeMatches) {
@@ -42,17 +46,10 @@ public class VerificationTicketService {
                 }
                 return verifyCodeResponseAssembler.assemble(email, purpose, verificationCode.getVerificationTicket());
             }
-            if (verificationCode.isExpired()) {
-                throw new BusinessException(ErrorCode.VALIDATION_ERROR, EXPIRED_CODE_MESSAGE);
-            }
             if (!codeMatches) {
                 throw new BusinessException(ErrorCode.VALIDATION_ERROR, INVALID_CODE_MESSAGE);
             }
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, USED_CODE_MESSAGE);
-        }
-
-        if (verificationCode.isExpired()) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, EXPIRED_CODE_MESSAGE);
         }
 
         if (!codeMatches) {
