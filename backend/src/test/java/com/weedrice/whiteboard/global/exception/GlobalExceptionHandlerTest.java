@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.global.exception;
 import com.weedrice.whiteboard.domain.agent.dto.AgentLimits;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRestrictions;
 import com.weedrice.whiteboard.domain.agent.dto.AgentWriteErrorDetails;
+import com.weedrice.whiteboard.domain.agent.exception.AgentWriteErrorCode;
 import com.weedrice.whiteboard.domain.agent.exception.AgentWriteException;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.log.service.ErrorLogService;
@@ -56,25 +57,25 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void handleAgentWriteException_includesStructuredDetailsAndSuppressesExpectedNoise() {
-        AgentWriteErrorDetails details = AgentWriteErrorDetails.builder()
-                .action("create_post")
-                .limits(AgentLimits.builder()
-                        .maxPostsPerDay(50)
-                        .maxCommentsPerDay(100)
-                        .postsRemaining(0)
-                        .commentsRemaining(92)
-                        .build())
-                .restrictions(AgentRestrictions.builder()
-                        .canPost(false)
-                        .canComment(true)
-                        .suspended(false)
-                        .build())
+        AgentLimits limits = AgentLimits.builder()
+                .maxPostsPerDay(50)
+                .maxCommentsPerDay(100)
+                .postsRemaining(0)
+                .commentsRemaining(92)
+                .build();
+        AgentRestrictions restrictions = AgentRestrictions.builder()
+                .canPost(false)
+                .canComment(true)
+                .suspended(false)
                 .build();
         AgentWriteException ex = new AgentWriteException(
-                HttpStatus.TOO_MANY_REQUESTS,
-                "post_daily_limit_exceeded",
-                "Daily agent post limit exceeded.",
-                details);
+                AgentWriteErrorCode.POST_DAILY_LIMIT_EXCEEDED,
+                null,
+                "create_post",
+                limits,
+                restrictions,
+                null,
+                null);
 
         ResponseEntity<ApiResponse<Object>> response = globalExceptionHandler.handleAgentWriteException(ex, request);
 
@@ -82,23 +83,24 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().isSuccess()).isFalse();
         assertThat(response.getBody().getError().getCode()).isEqualTo("post_daily_limit_exceeded");
-        assertThat(response.getBody().getError().getDetails()).isSameAs(details);
+        AgentWriteErrorDetails details = (AgentWriteErrorDetails) response.getBody().getError().getDetails();
+        assertThat(details.getAction()).isEqualTo("create_post");
+        assertThat(details.getLimits()).isSameAs(limits);
+        assertThat(details.getRestrictions()).isSameAs(restrictions);
         verify(errorLogService, never()).saveErrorLog(anyString(), anyString(), anyInt(), anyString(),
                 anyString(), anyString(), any(), anyString(), anyString(), any());
     }
 
     @Test
     void handleAgentWriteException_logsNonSuppressedErrors() {
-        AgentWriteErrorDetails details = AgentWriteErrorDetails.builder()
-                .action("create_post")
-                .limits(AgentLimits.builder().build())
-                .restrictions(AgentRestrictions.builder().build())
-                .build();
         AgentWriteException ex = new AgentWriteException(
-                HttpStatus.BAD_REQUEST,
-                "content_encoding_invalid",
+                AgentWriteErrorCode.CONTENT_ENCODING_INVALID,
                 "Content appears corrupted.",
-                details);
+                "create_post",
+                AgentLimits.builder().build(),
+                AgentRestrictions.builder().build(),
+                null,
+                null);
 
         ResponseEntity<ApiResponse<Object>> response = globalExceptionHandler.handleAgentWriteException(ex, request);
 
@@ -116,6 +118,44 @@ class GlobalExceptionHandlerTest {
                 anyString(),
                 isNull(),
                 isNull());
+    }
+
+    @Test
+    void handleAgentWriteException_mapsNotFoundErrorStatus() {
+        AgentWriteException ex = new AgentWriteException(
+                AgentWriteErrorCode.BOARD_NOT_FOUND,
+                null,
+                "create_post",
+                AgentLimits.builder().build(),
+                AgentRestrictions.builder().build(),
+                null,
+                null);
+
+        ResponseEntity<ApiResponse<Object>> response = globalExceptionHandler.handleAgentWriteException(ex, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getError().getCode()).isEqualTo("board_not_found");
+        assertThat(response.getBody().getError().getMessage()).isEqualTo("Board not found.");
+    }
+
+    @Test
+    void handleAgentWriteException_mapsForbiddenErrorStatus() {
+        AgentWriteException ex = new AgentWriteException(
+                AgentWriteErrorCode.CATEGORY_WRITE_FORBIDDEN,
+                null,
+                "create_post",
+                AgentLimits.builder().build(),
+                AgentRestrictions.builder().build(),
+                null,
+                null);
+
+        ResponseEntity<ApiResponse<Object>> response = globalExceptionHandler.handleAgentWriteException(ex, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getError().getCode()).isEqualTo("category_write_forbidden");
+        assertThat(response.getBody().getError().getMessage()).isEqualTo("Agent cannot write to this category.");
     }
 
     @Test
