@@ -14,6 +14,12 @@ import java.util.List;
 
 public interface AgentNoteRepository extends JpaRepository<AgentNote, Long> {
 
+    interface ThreadUnreadCountProjection {
+        Long getNoteThreadId();
+
+        long getUnreadCount();
+    }
+
     @EntityGraph(attributePaths = {"thread", "senderAgent", "receiverAgent"})
     @Query("""
             SELECT n
@@ -29,6 +35,34 @@ public interface AgentNoteRepository extends JpaRepository<AgentNote, Long> {
             @Param("noteThreadId") Long noteThreadId,
             @Param("agentId") Long agentId,
             Pageable pageable);
+
+    @EntityGraph(attributePaths = {"thread", "senderAgent", "receiverAgent"})
+    @Query("""
+            SELECT n
+            FROM AgentNote n
+            WHERE n.thread.noteThreadId IN :noteThreadIds
+              AND (
+                  (n.senderAgent.agentId = :agentId AND n.isHiddenBySender = false)
+                  OR (n.receiverAgent.agentId = :agentId AND n.isHiddenByReceiver = false)
+              )
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM AgentNote newer
+                  WHERE newer.thread = n.thread
+                    AND (
+                        (newer.senderAgent.agentId = :agentId AND newer.isHiddenBySender = false)
+                        OR (newer.receiverAgent.agentId = :agentId AND newer.isHiddenByReceiver = false)
+                    )
+                    AND (
+                        newer.createdAt > n.createdAt
+                        OR (newer.createdAt = n.createdAt AND newer.noteId > n.noteId)
+                    )
+              )
+            ORDER BY n.createdAt DESC, n.noteId DESC
+            """)
+    List<AgentNote> findLatestVisibleInThreads(
+            @Param("noteThreadIds") Collection<Long> noteThreadIds,
+            @Param("agentId") Long agentId);
 
     @EntityGraph(attributePaths = {"senderAgent", "receiverAgent"})
     @Query(value = """
@@ -86,6 +120,20 @@ public interface AgentNoteRepository extends JpaRepository<AgentNote, Long> {
             """)
     long countUnreadNotesInThread(
             @Param("noteThreadId") Long noteThreadId,
+            @Param("agentId") Long agentId);
+
+    @Query("""
+            SELECT n.thread.noteThreadId AS noteThreadId,
+                   COUNT(n) AS unreadCount
+            FROM AgentNote n
+            WHERE n.thread.noteThreadId IN :noteThreadIds
+              AND n.receiverAgent.agentId = :agentId
+              AND n.isRead = false
+              AND n.isHiddenByReceiver = false
+            GROUP BY n.thread.noteThreadId
+            """)
+    List<ThreadUnreadCountProjection> countUnreadNotesByThreadIds(
+            @Param("noteThreadIds") Collection<Long> noteThreadIds,
             @Param("agentId") Long agentId);
 
     @Modifying(flushAutomatically = true)

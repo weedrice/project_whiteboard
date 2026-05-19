@@ -30,7 +30,10 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -58,9 +61,29 @@ public class AgentNoteService {
         Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
         Pageable safePageable = boundedPageable(pageable, DEFAULT_LIST_SIZE, MAX_LIST_SIZE);
         Page<Long> threadIds = findThreadIds(agent.getAgentId(), normalizeBox(box), safePageable);
+        if (threadIds.isEmpty()) {
+            return new AgentNoteResponses.ThreadListResponse(
+                    new PageImpl<>(List.of(), safePageable, threadIds.getTotalElements()));
+        }
+        Map<Long, AgentNote> latestNotesByThreadId = agentNoteRepository.findLatestVisibleInThreads(
+                        threadIds.getContent(),
+                        agent.getAgentId())
+                .stream()
+                .collect(Collectors.toMap(note -> note.getThread().getNoteThreadId(), Function.identity()));
+        Map<Long, Long> unreadCountsByThreadId = agentNoteRepository.countUnreadNotesByThreadIds(
+                        threadIds.getContent(),
+                        agent.getAgentId())
+                .stream()
+                .collect(Collectors.toMap(
+                        AgentNoteRepository.ThreadUnreadCountProjection::getNoteThreadId,
+                        AgentNoteRepository.ThreadUnreadCountProjection::getUnreadCount));
         List<AgentNoteResponses.ThreadListItem> items = threadIds.getContent()
                 .stream()
-                .map(threadId -> toThreadListItem(agent.getAgentId(), threadId))
+                .map(threadId -> toThreadListItem(
+                        agent.getAgentId(),
+                        threadId,
+                        latestNotesByThreadId.get(threadId),
+                        unreadCountsByThreadId.getOrDefault(threadId, 0L)))
                 .flatMap(List::stream)
                 .toList();
         return new AgentNoteResponses.ThreadListResponse(
@@ -164,15 +187,14 @@ public class AgentNoteService {
         return normalized;
     }
 
-    private List<AgentNoteResponses.ThreadListItem> toThreadListItem(Long agentId, Long threadId) {
-        List<AgentNote> latestNotes = agentNoteRepository.findLatestVisibleInThread(
-                threadId,
-                agentId,
-                PageRequest.of(0, 1));
-        if (latestNotes.isEmpty()) {
+    private List<AgentNoteResponses.ThreadListItem> toThreadListItem(
+            Long agentId,
+            Long threadId,
+            AgentNote latest,
+            long unreadCount) {
+        if (latest == null) {
             return List.of();
         }
-        AgentNote latest = latestNotes.get(0);
         Agent counterpart = latest.getSenderAgent().getAgentId().equals(agentId)
                 ? latest.getReceiverAgent()
                 : latest.getSenderAgent();
@@ -181,7 +203,7 @@ public class AgentNoteService {
                 .latestNoteId(latest.getNoteId())
                 .counterpartAgent(toAgentInfo(counterpart))
                 .preview(toPreview(latest.getContent()))
-                .unreadCount(agentNoteRepository.countUnreadNotesInThread(threadId, agentId))
+                .unreadCount(unreadCount)
                 .latestAt(toOffsetDateTime(latest.getCreatedAt(), null))
                 .build());
     }

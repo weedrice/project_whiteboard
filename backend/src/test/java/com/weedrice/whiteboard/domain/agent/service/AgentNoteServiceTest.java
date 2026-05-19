@@ -18,17 +18,20 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -133,6 +136,56 @@ class AgentNoteServiceTest {
         assertThat(response.getRemainingUnreadCount()).isZero();
     }
 
+    @Test
+    void getNotes_usesBulkQueriesAndPreservesThreadOrder() {
+        AgentNoteThread firstThread = thread(101L, sender, receiver);
+        AgentNoteThread secondThread = thread(102L, sender, receiver);
+        AgentNote firstLatest = note(firstThread, receiver, sender, 1001L, "first latest", LocalDateTime.now());
+        AgentNote secondLatest = note(
+                secondThread,
+                sender,
+                receiver,
+                1002L,
+                "second latest",
+                LocalDateTime.now().plusMinutes(1));
+
+        when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(sender);
+        when(agentNoteThreadRepository.findInboxThreadIds(7L, PageRequest.of(0, 20)))
+                .thenReturn(new PageImpl<>(List.of(101L, 102L, 103L), PageRequest.of(0, 20), 3));
+        when(agentNoteRepository.findLatestVisibleInThreads(List.of(101L, 102L, 103L), 7L))
+                .thenReturn(List.of(secondLatest, firstLatest));
+        when(agentNoteRepository.countUnreadNotesByThreadIds(List.of(101L, 102L, 103L), 7L))
+                .thenReturn(List.of(unreadCount(101L, 2L)));
+
+        AgentNoteResponses.ThreadListResponse response = agentNoteService.getNotes(7L, null, PageRequest.of(0, 20));
+
+        assertThat(response.getContent())
+                .extracting(AgentNoteResponses.ThreadListItem::getNoteThreadId)
+                .containsExactly(101L, 102L);
+        assertThat(response.getContent())
+                .extracting(AgentNoteResponses.ThreadListItem::getLatestNoteId)
+                .containsExactly(1001L, 1002L);
+        assertThat(response.getContent())
+                .extracting(AgentNoteResponses.ThreadListItem::getUnreadCount)
+                .containsExactly(2L, 0L);
+        verify(agentNoteRepository, never()).findLatestVisibleInThread(any(), any(), any());
+        verify(agentNoteRepository, never()).countUnreadNotesInThread(any(), any());
+    }
+
+    @Test
+    void getNotes_skipsBulkQueriesWhenThreadPageIsEmpty() {
+        when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(sender);
+        when(agentNoteThreadRepository.findInboxThreadIds(7L, PageRequest.of(0, 20)))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+        AgentNoteResponses.ThreadListResponse response = agentNoteService.getNotes(7L, null, PageRequest.of(0, 20));
+
+        assertThat(response.getContent()).isEmpty();
+        assertThat(response.getTotalElements()).isZero();
+        verify(agentNoteRepository, never()).findLatestVisibleInThreads(any(), any());
+        verify(agentNoteRepository, never()).countUnreadNotesByThreadIds(any(), any());
+    }
+
     private AgentPolicyService.AgentPolicySnapshot policy(long notesRemaining) {
         AgentLimits limits = AgentLimits.builder()
                 .maxNotesPerDay(AgentQuotaService.DAILY_AGENT_NOTE_LIMIT)
@@ -172,5 +225,33 @@ class AgentNoteServiceTest {
                 .build();
         ReflectionTestUtils.setField(agent, "agentId", agentId);
         return agent;
+    }
+
+    private AgentNoteThread thread(Long threadId, Agent firstAgent, Agent secondAgent) {
+        AgentNoteThread thread = new AgentNoteThread(firstAgent, secondAgent);
+        ReflectionTestUtils.setField(thread, "noteThreadId", threadId);
+        return thread;
+    }
+
+    private AgentNote note(AgentNoteThread thread, Agent senderAgent, Agent receiverAgent, Long noteId,
+            String content, LocalDateTime createdAt) {
+        AgentNote note = new AgentNote(thread, senderAgent, receiverAgent, content);
+        ReflectionTestUtils.setField(note, "noteId", noteId);
+        ReflectionTestUtils.setField(note, "createdAt", createdAt);
+        return note;
+    }
+
+    private AgentNoteRepository.ThreadUnreadCountProjection unreadCount(Long noteThreadId, long unreadCount) {
+        return new AgentNoteRepository.ThreadUnreadCountProjection() {
+            @Override
+            public Long getNoteThreadId() {
+                return noteThreadId;
+            }
+
+            @Override
+            public long getUnreadCount() {
+                return unreadCount;
+            }
+        };
     }
 }
