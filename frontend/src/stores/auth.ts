@@ -18,7 +18,7 @@ export const useAuthStore = defineStore('auth', () => {
     const themeStore = useThemeStore()
     const toastStore = useToastStore()
 
-    async function login(credentials: LoginCredentials) {
+    async function login(credentials: LoginCredentials): Promise<boolean> {
         try {
             const { data } = await authApi.login(credentials)
             if (data.success) {
@@ -37,6 +37,7 @@ export const useAuthStore = defineStore('auth', () => {
 
                 return true
             }
+            return false
         } catch (error: unknown) {
             logger.error('Login failed:', error)
             throw error
