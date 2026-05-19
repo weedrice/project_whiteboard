@@ -116,6 +116,10 @@ public class PostService {
         return postListReadService.getTrendingPostsPage(pageable, currentUserId, period);
     }
 
+    public List<PostSummary> getPublicLandingLatestPosts(Pageable pageable, Long currentUserId) {
+        return postListReadService.getPublicLandingLatestPosts(pageable, currentUserId);
+    }
+
     @Transactional
     public Post getPostById(@NonNull Long postId, Long userId) {
         return postInteractionService.getPostById(postId, userId);

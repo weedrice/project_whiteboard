@@ -26,6 +26,7 @@ import java.util.List;
 public class HomeLandingService {
 
     private static final int LANDING_BOARD_LIMIT = 7;
+    private static final int LANDING_LATEST_POST_LIMIT = 6;
 
     private final PostService postService;
     private final BoardService boardService;
@@ -37,11 +38,13 @@ public class HomeLandingService {
 
     public HomeLandingResponse getLanding(Long userId, String period) {
         List<PostSummary> curatedPosts = getCuratedPosts(userId, period);
+        List<PostSummary> latestPosts = getLatestPosts(userId);
         List<BoardListResponse> boards = getBoards(userId);
         HomeLandingResponse.Stats stats = getStats();
 
         return HomeLandingResponse.builder()
                 .posts(curatedPosts)
+                .latestPosts(latestPosts)
                 .boards(boards)
                 .stats(stats)
                 .build();
@@ -98,6 +101,10 @@ public class HomeLandingService {
 
     private List<PostSummary> getCuratedPosts(Long userId, String period) {
         return postService.getTrendingPosts(PageRequest.of(0, 16), userId, period);
+    }
+
+    private List<PostSummary> getLatestPosts(Long userId) {
+        return postService.getPublicLandingLatestPosts(PageRequest.of(0, LANDING_LATEST_POST_LIMIT), userId);
     }
 
     private List<BoardListResponse> getBoards(Long userId) {

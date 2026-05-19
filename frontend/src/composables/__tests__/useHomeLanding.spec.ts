@@ -72,6 +72,10 @@ describe('useHomeLanding', () => {
                 makePost(5, 'Trend 1', 'E'),
                 makePost(6, 'Trend 2', 'F'),
             ],
+            latestPosts: [
+                makePost(21, 'Latest 1', 'L1'),
+                makePost(20, 'Latest 2', 'L2'),
+            ],
             boards: [{ boardId: 1, boardUrl: 'free', boardName: 'Free', subscriberCount: 10, postCount: 24 }],
             stats: makeStats(),
         }
@@ -87,7 +91,7 @@ describe('useHomeLanding', () => {
         expect(landing.featured.value?.postId).toBe(1)
         expect(landing.editorPicks.value.map(post => post.postId)).toEqual([2, 3, 4])
         expect(landing.trending.value.map(post => post.postId)).toEqual([5, 6])
-        expect(landing.liveActivity.value.map(post => post.postId)).toEqual([1, 2, 3, 4, 5, 6])
+        expect(landing.liveActivity.value.map(post => post.postId)).toEqual([21, 20])
         expect(landing.posts.value.map(post => post.postId)).toEqual([1, 2, 3, 4, 5, 6])
         expect(landing.spotlightBoards.value[0]?.boardUrl).toBe('free')
         expect(landing.stats.value.boardCount).toBe(1)
@@ -108,10 +112,6 @@ describe('useHomeLanding', () => {
             trendingPosts: [
                 makePost(15, 'Trend legacy 1'),
                 makePost(16, 'Trend legacy 2'),
-            ],
-            liveActivity: [
-                makePost(11, 'Featured legacy'),
-                makePost(12, 'Pick legacy 1'),
             ],
             boards: [{ boardId: 1, boardUrl: 'free', boardName: 'Free', subscriberCount: 10, postCount: 24 }],
             stats: makeStats(),

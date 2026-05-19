@@ -84,11 +84,15 @@ class HomeLandingServiceTest {
                 post(4L, "pick-3"),
                 post(5L, "trend-1"),
                 post(6L, "trend-2"));
+        List<PostSummary> latestPosts = List.of(
+                post(11L, "latest-1"),
+                post(10L, "latest-2"));
         List<BoardListResponse> boards = List.of(
                 board(1L, "free"),
                 board(2L, "tech"));
 
         when(postService.getTrendingPosts(any(), eq(1L), eq("24h"))).thenReturn(curatedPosts);
+        when(postService.getPublicLandingLatestPosts(any(), eq(1L))).thenReturn(latestPosts);
         when(boardService.getTopBoardsByUserId(1L, 7)).thenReturn(boards);
         when(postRepository.countPublicLandingPostStats(any(), any(), any(), eq(BoardPolicyConstants.INQUIRY_BOARD_URL)))
                 .thenReturn(postStats(8421L, 12L, 10L));
@@ -105,6 +109,8 @@ class HomeLandingServiceTest {
 
         assertThat(response.getPosts()).extracting(PostSummary::getPostId)
                 .containsExactly(1L, 2L, 3L, 4L, 5L, 6L);
+        assertThat(response.getLatestPosts()).extracting(PostSummary::getPostId)
+                .containsExactly(11L, 10L);
         assertThat(response.getStats().getBoardCount()).isEqualTo(11L);
         assertThat(response.getStats().getPostCount()).isEqualTo(8421L);
         assertThat(response.getStats().getLiveCount()).isEqualTo(1824L);
@@ -115,6 +121,7 @@ class HomeLandingServiceTest {
         assertThat(response.getStats().getNewMembersLast24Hours()).isEqualTo(47L);
         assertThat(response.getStats().getCommentsToday()).isEqualTo(1824L);
         verify(boardService).getTopBoardsByUserId(1L, 7);
+        verify(postService).getPublicLandingLatestPosts(any(), eq(1L));
     }
 
     @Test
@@ -128,6 +135,7 @@ class HomeLandingServiceTest {
                 .hasMessage("post failure");
 
         verify(boardService, never()).getTopBoardsByUserId(any(), anyInt());
+        verify(postService, never()).getPublicLandingLatestPosts(any(), any());
         verify(postRepository, never()).countPublicLandingPostStats(any(), any(), any(), any());
     }
 
@@ -135,6 +143,7 @@ class HomeLandingServiceTest {
     @DisplayName("Landing lookup propagates stats failures")
     void getLanding_propagatesStatsFailures() {
         when(postService.getTrendingPosts(any(), isNull(), eq("24h"))).thenReturn(List.of());
+        when(postService.getPublicLandingLatestPosts(any(), isNull())).thenReturn(List.of());
         when(boardService.getTopBoardsByUserId(isNull(), eq(7))).thenReturn(List.of(board(1L, "free")));
         when(postRepository.countPublicLandingPostStats(any(), any(), any(), eq(BoardPolicyConstants.INQUIRY_BOARD_URL)))
                 .thenThrow(new IllegalStateException("stats failure"));
@@ -148,6 +157,7 @@ class HomeLandingServiceTest {
     @DisplayName("Landing lookup propagates board failures")
     void getLanding_propagatesBoardFailures() {
         when(postService.getTrendingPosts(any(), isNull(), eq("24h"))).thenReturn(List.of());
+        when(postService.getPublicLandingLatestPosts(any(), isNull())).thenReturn(List.of());
         when(boardService.getTopBoardsByUserId(isNull(), eq(7))).thenThrow(new IllegalStateException("board failure"));
 
         assertThatThrownBy(() -> homeLandingService.getLanding(null, "24h"))
@@ -161,6 +171,7 @@ class HomeLandingServiceTest {
     @DisplayName("Landing stats use KST day boundaries")
     void getLanding_statsUseKstDayBoundaries() {
         when(postService.getTrendingPosts(any(), isNull(), eq("24h"))).thenReturn(List.of());
+        when(postService.getPublicLandingLatestPosts(any(), isNull())).thenReturn(List.of());
         when(boardService.getTopBoardsByUserId(isNull(), eq(7))).thenReturn(List.of());
         when(postRepository.countPublicLandingPostStats(any(), any(), any(), eq(BoardPolicyConstants.INQUIRY_BOARD_URL)))
                 .thenReturn(postStats(8421L, 12L, 10L));
