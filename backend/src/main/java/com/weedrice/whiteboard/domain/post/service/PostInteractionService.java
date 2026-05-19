@@ -88,7 +88,7 @@ public class PostInteractionService {
         Post post = getReadablePost(postId, context);
 
         if (incrementView) {
-            postRepository.incrementViewCount(postId);
+            incrementReadablePostViewCount(postId);
             entityManager.refresh(post);
 
             if (viewer != null) {
@@ -143,7 +143,7 @@ public class PostInteractionService {
     @Transactional
     public void incrementViewCount(@NonNull Long postId, Long userId) {
         Post post = getReadablePost(postId, postReadContextResolver.resolveForExistingUser(userId));
-        postRepository.incrementViewCount(post.getPostId());
+        incrementReadablePostViewCount(post.getPostId());
     }
 
     @Transactional
@@ -361,6 +361,12 @@ public class PostInteractionService {
             throw new BusinessException(ErrorCode.POST_NOT_FOUND);
         }
         return likeCount;
+    }
+
+    private void incrementReadablePostViewCount(Long postId) {
+        if (postRepository.incrementViewCount(postId) == 0) {
+            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+        }
     }
 
     private void incrementPostLikeCount(Long postId) {

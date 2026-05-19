@@ -703,6 +703,7 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.incrementViewCount(1L)).thenReturn(1);
         when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(1);
 
         Post result = postService.getPostById(1L, 1L);
@@ -720,6 +721,7 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.incrementViewCount(1L)).thenReturn(1);
         when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(0);
         when(viewHistoryRepository.touchModifiedAt(1L, 1L)).thenReturn(1);
 
@@ -2470,6 +2472,7 @@ class PostServiceTest {
         lenient().when(postRepository.countPostsBeforeInBoardDefaultOrder(
                 eq(1L), nullable(LocalDateTime.class), eq(1L), eq(Collections.emptyList()), anyBoolean(), eq(1L)))
                 .thenReturn(45L);
+        lenient().when(postRepository.incrementViewCount(1L)).thenReturn(1);
         lenient().when(postRepository.findViewCountByPostId(1L)).thenReturn(1);
 
         PostResponse response = postService.getPostResponse(1L, 1L);
@@ -2546,12 +2549,30 @@ class PostServiceTest {
         when(postRepository.countPostsBeforeInBoardDefaultOrder(
                 eq(1L), nullable(LocalDateTime.class), eq(1L), eq(Collections.emptyList()), anyBoolean(), eq(1L)))
                 .thenReturn(0L);
+        when(postRepository.incrementViewCount(1L)).thenReturn(1);
         when(postRepository.findViewCountByPostId(1L)).thenReturn(1);
 
         PostResponse response = postService.getPostResponse(1L, 1L);
 
         assertThat(response.getLastReadCommentId()).isEqualTo(100L);
         verify(viewHistoryRepository).touchModifiedAt(1L, 1L);
+    }
+
+    @Test
+    @DisplayName("게시글 응답 조회는 조회수 갱신 실패 시 POST_NOT_FOUND를 반환한다")
+    void getPostResponse_incrementViewUpdateCountZero_throwsPostNotFound() {
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
+                .thenReturn(Collections.emptyList());
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.incrementViewCount(1L)).thenReturn(0);
+
+        assertThatThrownBy(() -> postService.getPostResponse(1L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+
+        verify(viewHistoryRepository, never()).insertIgnore(anyLong(), anyLong());
+        verify(viewHistoryRepository, never()).touchModifiedAt(anyLong(), anyLong());
     }
 
     @Test
@@ -2689,10 +2710,22 @@ class PostServiceTest {
     @DisplayName("조회수 증가")
     void incrementViewCount_success() {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(postRepository.incrementViewCount(1L)).thenReturn(1);
 
         postService.incrementViewCount(1L);
 
         verify(postRepository).incrementViewCount(1L);
+    }
+
+    @Test
+    @DisplayName("조회수 증가는 카운터 갱신 실패 시 POST_NOT_FOUND를 반환한다")
+    void incrementViewCount_updateCountZero_throwsPostNotFound() {
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(postRepository.incrementViewCount(1L)).thenReturn(0);
+
+        assertThatThrownBy(() -> postService.incrementViewCount(1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
     }
 
     // --- Draft Posts ---
@@ -3337,6 +3370,7 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.incrementViewCount(1L)).thenReturn(1);
         when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(1);
 
         Post result = postService.getPostById(1L, 1L);
@@ -3358,6 +3392,7 @@ class PostServiceTest {
         when(userRepository.findById(2L)).thenReturn(Optional.of(otherUser));
         when(adminRepository.findByUserAndBoard_BoardIdInAndIsActive(otherUser, List.of(1L), true))
                 .thenReturn(List.of(admin));
+        when(postRepository.incrementViewCount(1L)).thenReturn(1);
         when(viewHistoryRepository.insertIgnore(2L, 1L)).thenReturn(1);
 
         Post result = postService.getPostById(1L, 2L);
@@ -3373,6 +3408,7 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.incrementViewCount(1L)).thenReturn(1);
         when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(1);
 
         Post result = postService.getPostById(1L, 1L);
@@ -3531,6 +3567,7 @@ class PostServiceTest {
     @DisplayName("조회수 적립 - 공개글은 익명 사용자도 허용")
     void incrementViewCount_anonymousVisiblePost_success() {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(postRepository.incrementViewCount(1L)).thenReturn(1);
 
         postService.incrementViewCount(1L, null);
 

@@ -587,6 +587,25 @@ class PostRepositoryTest {
     }
 
     @Test
+    @DisplayName("조회수 증가는 삭제되지 않은 게시글만 갱신한다")
+    void incrementViewCount_updatesOnlyActivePost() {
+        Long activePostId = post.getPostId();
+        Post deletedPost = persistPost("Deleted View Count Post");
+        deletedPost.deletePost();
+        Long deletedPostId = deletedPost.getPostId();
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(postRepository.incrementViewCount(activePostId)).isEqualTo(1);
+        assertThat(postRepository.incrementViewCount(deletedPostId)).isZero();
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(postRepository.findById(activePostId).orElseThrow().getViewCount()).isEqualTo(1);
+        assertThat(postRepository.findById(deletedPostId).orElseThrow().getViewCount()).isZero();
+    }
+
+    @Test
     @DisplayName("Agent posts respect pageable sort")
     void findByAgent_respectsPageableSort() {
         Agent agent = Agent.builder()
@@ -1194,6 +1213,22 @@ class PostRepositoryTest {
 
         assertThat(postRepository.findLikeCountByPostId(activePostId)).isZero();
         assertThat(postRepository.findLikeCountByPostId(deletedPostId)).isNull();
+    }
+
+    @Test
+    @DisplayName("조회수 조회는 삭제 게시글을 제외한다")
+    void findViewCountByPostId_excludesDeletedPost() {
+        Long activePostId = post.getPostId();
+        post.incrementViewCount();
+        Post deletedPost = persistPost("Deleted View Count Post");
+        deletedPost.incrementViewCount();
+        deletedPost.deletePost();
+        Long deletedPostId = deletedPost.getPostId();
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(postRepository.findViewCountByPostId(activePostId)).isEqualTo(1);
+        assertThat(postRepository.findViewCountByPostId(deletedPostId)).isNull();
     }
 
     @Test

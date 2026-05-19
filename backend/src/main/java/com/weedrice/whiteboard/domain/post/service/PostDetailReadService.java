@@ -66,7 +66,7 @@ public class PostDetailReadService {
         List<String> imageUrls = getPostImageUrls(postId);
         boolean isAdmin = isBoardAdmin(context);
         int boardListPage = resolveDefaultBoardListPage(context, normalizedBoardListPageSize);
-        Integer viewCount = incrementView ? postRepository.findViewCountByPostId(postId) : null;
+        Integer viewCount = incrementView ? getReadablePostViewCount(postId) : null;
 
         return PostResponse.from(
                 post, tags, context.viewHistory(), isLiked, isScrapped, imageUrls, isAdmin, boardListPage, viewCount);
@@ -80,7 +80,7 @@ public class PostDetailReadService {
         ViewHistory viewHistory = null;
 
         if (incrementView) {
-            postRepository.incrementViewCount(postId);
+            incrementReadablePostViewCount(postId);
 
             if (readContext.viewer() != null) {
                 viewHistoryCommandService.touchView(readContext.viewer(), post);
@@ -128,6 +128,20 @@ public class PostDetailReadService {
     private Post findPost(@NonNull Long postId) {
         return postRepository.findByIdWithRelations(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+    }
+
+    private void incrementReadablePostViewCount(Long postId) {
+        if (postRepository.incrementViewCount(postId) == 0) {
+            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+        }
+    }
+
+    private int getReadablePostViewCount(Long postId) {
+        Integer viewCount = postRepository.findViewCountByPostId(postId);
+        if (viewCount == null) {
+            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+        }
+        return viewCount;
     }
 
     private void validateReadable(Post post, PostReadContext context) {

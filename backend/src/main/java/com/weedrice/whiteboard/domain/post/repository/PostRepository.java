@@ -270,10 +270,11 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 UPDATE Post p
                 SET p.viewCount = p.viewCount + 1
                 WHERE p.postId = :postId
+                  AND p.isDeleted = false
                 """)
         int incrementViewCount(@Param("postId") Long postId);
 
-        @Query("SELECT p.viewCount FROM Post p WHERE p.postId = :postId")
+        @Query("SELECT p.viewCount FROM Post p WHERE p.postId = :postId AND p.isDeleted = false")
         Integer findViewCountByPostId(@Param("postId") Long postId);
 
         @Modifying(flushAutomatically = true)
