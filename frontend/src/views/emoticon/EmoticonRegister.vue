@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { emoticonApi } from '@/api/emoticon'
 import { fileApi } from '@/api/file'
@@ -9,6 +9,15 @@ import { useToastStore } from '@/stores/toast'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { extractErrorMessage } from '@/utils/errorHandler'
+import {
+  createEmoticonImagePreview,
+  createUploadableEmoticonImageFile,
+  resolveEmoticonTagAddition,
+  revokeEmoticonPreviewUrl,
+  SUPPORTED_EMOTICON_IMAGE_ACCEPT,
+  validateEmoticonImageFile,
+  type EmoticonImagePreview
+} from '@/utils/emoticonImage'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -22,8 +31,7 @@ useHead({
 const emoticonName = ref('')
 const thumbnailFile = ref<File | null>(null)
 const thumbnailPreview = ref<string | null>(null)
-const emoticonFiles = ref<File[]>([])
-const emoticonPreviews = ref<{ file: File; preview: string; width: number; height: number }[]>([])
+const emoticonPreviews = ref<EmoticonImagePreview[]>([])
 const tagInput = ref('')
 const tags = ref<string[]>([])
 const isSubmitting = ref(false)
@@ -33,81 +41,14 @@ const uploadProgress = ref({ current: 0, total: 0 })
 const thumbnailInput = ref<HTMLInputElement | null>(null)
 const emoticonInput = ref<HTMLInputElement | null>(null)
 
-const MAX_FILE_SIZE_BYTES = 1024 * 1024 // 1MB
-const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp'])
-const SUPPORTED_IMAGE_ACCEPT = 'image/jpeg,image/png,image/gif,image/webp'
+const SUPPORTED_IMAGE_ACCEPT = SUPPORTED_EMOTICON_IMAGE_ACCEPT
 
-const isSupportedImageType = (file: File) => SUPPORTED_IMAGE_TYPES.has(file.type)
-
-// 이미지 리사이징 함수 (100px 이하로)
-// GIF는 Canvas 리사이징 시 애니메이션 손실 → 원본 그대로 반환
-const resizeImage = (file: File, maxSize: number = 100): Promise<Blob> => {
-  return new Promise((resolve, reject) => {
-    // GIF는 Canvas가 첫 프레임만 캡처하므로 애니메이션 손실 → 원본 그대로 사용
-    if (file.type === 'image/gif') {
-      file.arrayBuffer().then(buffer => {
-        resolve(new Blob([buffer], { type: 'image/gif' }))
-      }).catch(reject)
-      return
-    }
-
-    const img = new Image()
-    const reader = new FileReader()
-
-    reader.onload = (e) => {
-      img.src = e.target?.result as string
-    }
-
-    img.onload = () => {
-      let { width, height } = img
-      
-      // 이미 충분히 작으면 그대로 반환 (Blob로 변환)
-      if (width <= maxSize && height <= maxSize) {
-        file.arrayBuffer().then(buffer => {
-          resolve(new Blob([buffer], { type: file.type || 'image/png' }))
-        }).catch(reject)
-        return
-      }
-
-      // 비율 유지하며 긴 쪽이 maxSize가 되도록 리사이징
-      if (width > height) {
-        height = Math.round((height * maxSize) / width)
-        width = maxSize
-      } else {
-        width = Math.round((width * maxSize) / height)
-        height = maxSize
-      }
-
-      const canvas = document.createElement('canvas')
-      canvas.width = width
-      canvas.height = height
-      const ctx = canvas.getContext('2d')
-      
-      if (!ctx) {
-        reject(new Error('Canvas context not available'))
-        return
-      }
-
-      ctx.drawImage(img, 0, 0, width, height)
-      
-      canvas.toBlob(
-        (blob) => {
-          if (blob) {
-            resolve(blob)
-          } else {
-            reject(new Error('Failed to create blob'))
-          }
-        },
-        file.type || 'image/png',
-        0.9
-      )
-    }
-
-    img.onerror = () => reject(new Error('Failed to load image'))
-    reader.onerror = () => reject(new Error('Failed to read file'))
-    reader.readAsDataURL(file)
+onUnmounted(() => {
+  revokeEmoticonPreviewUrl(thumbnailPreview.value)
+  emoticonPreviews.value.forEach((item) => {
+    revokeEmoticonPreviewUrl(item.preview)
   })
-}
+})
 
 // 썸네일 선택
 const handleThumbnailSelect = async (event: Event) => {
@@ -115,51 +56,41 @@ const handleThumbnailSelect = async (event: Event) => {
   const file = input.files?.[0]
   if (!file) return
 
-  // 이미지 파일 검증
-  if (!file.type.startsWith('image/')) {
+  const validationError = validateEmoticonImageFile(file, { nonImageReason: 'imageOnly' })
+  if (validationError === 'imageOnly') {
     toastStore.addToast(t('emoticon.validation.imageOnly'), 'error')
     return
   }
-  if (!isSupportedImageType(file)) {
+  if (validationError === 'notImage') {
     toastStore.addToast(t('emoticon.validation.notImage', { name: file.name }), 'error')
     return
   }
-
-  // GIF는 리사이징 시 애니메이션 손실 → 1MB 용량 제한만 적용 (일반 이미지는 리사이징으로 작아짐)
-  if (file.type === 'image/gif' && file.size > MAX_FILE_SIZE_BYTES) {
+  if (validationError === 'gifSizeExceeded') {
     toastStore.addToast(t('emoticon.validation.fileSizeExceeded'), 'error')
     return
   }
 
-  // 500x500px 제한 확인
-  const img = new Image()
-  const preview = URL.createObjectURL(file)
-  
-  await new Promise<void>((resolve) => {
-    img.onload = () => {
-      if (img.width > 500 || img.height > 500) {
-        toastStore.addToast(t('emoticon.validation.imageSizeExceeded', { width: img.width, height: img.height }), 'error')
-        URL.revokeObjectURL(preview)
-      } else {
-        thumbnailFile.value = file
-        thumbnailPreview.value = preview
-      }
-      resolve()
-    }
-    img.onerror = () => {
+  const previewResult = await createEmoticonImagePreview(file)
+  if (!previewResult.ok) {
+    if (previewResult.reason === 'sizeExceeded') {
+      toastStore.addToast(t('emoticon.validation.imageSizeExceeded', {
+        width: previewResult.width,
+        height: previewResult.height
+      }), 'error')
+    } else {
       toastStore.addToast(t('emoticon.validation.imageLoadFailed'), 'error')
-      URL.revokeObjectURL(preview)
-      resolve()
     }
-    img.src = preview
-  })
+    return
+  }
+
+  revokeEmoticonPreviewUrl(thumbnailPreview.value)
+  thumbnailFile.value = file
+  thumbnailPreview.value = previewResult.item.preview
 }
 
 // 썸네일 제거
 const removeThumbnail = () => {
-  if (thumbnailPreview.value) {
-    URL.revokeObjectURL(thumbnailPreview.value)
-  }
+  revokeEmoticonPreviewUrl(thumbnailPreview.value)
   thumbnailFile.value = null
   thumbnailPreview.value = null
   if (thumbnailInput.value) {
@@ -182,48 +113,31 @@ const handleEmoticonSelect = async (event: Event) => {
   const filesToAdd = Array.from(files).slice(0, remainingSlots)
   
   for (const file of filesToAdd) {
-    // 이미지 파일 검증
-    if (!file.type.startsWith('image/')) {
+    const validationError = validateEmoticonImageFile(file)
+    if (validationError === 'notImage' || validationError === 'imageOnly') {
       toastStore.addToast(t('emoticon.validation.notImage', { name: file.name }), 'error')
       continue
     }
-    if (!isSupportedImageType(file)) {
-      toastStore.addToast(t('emoticon.validation.notImage', { name: file.name }), 'error')
-      continue
-    }
-
-    // GIF는 리사이징 시 애니메이션 손실 → 1MB 용량 제한만 적용 (일반 이미지는 리사이징으로 작아짐)
-    if (file.type === 'image/gif' && file.size > MAX_FILE_SIZE_BYTES) {
+    if (validationError === 'gifSizeExceeded') {
       toastStore.addToast(t('emoticon.validation.fileSizeExceededNamed', { name: file.name }), 'error')
       continue
     }
 
-    // 500x500px 제한 확인 및 크기 정보 저장
-    const img = new Image()
-    const preview = URL.createObjectURL(file)
-    
-    await new Promise<void>((resolve) => {
-      img.onload = () => {
-        if (img.width > 500 || img.height > 500) {
-          toastStore.addToast(t('emoticon.validation.imageSizeExceededNamed', { name: file.name, width: img.width, height: img.height }), 'error')
-          URL.revokeObjectURL(preview)
-        } else {
-          emoticonPreviews.value.push({ 
-            file, 
-            preview, 
-            width: img.width, 
-            height: img.height 
-          })
-        }
-        resolve()
-      }
-      img.onerror = () => {
+    const previewResult = await createEmoticonImagePreview(file)
+    if (!previewResult.ok) {
+      if (previewResult.reason === 'sizeExceeded') {
+        toastStore.addToast(t('emoticon.validation.imageSizeExceededNamed', {
+          name: file.name,
+          width: previewResult.width,
+          height: previewResult.height
+        }), 'error')
+      } else {
         toastStore.addToast(t('emoticon.validation.loadFailedNamed', { name: file.name }), 'error')
-        URL.revokeObjectURL(preview)
-        resolve()
       }
-      img.src = preview
-    })
+      continue
+    }
+
+    emoticonPreviews.value.push(previewResult.item)
   }
 
   // 입력 초기화
@@ -236,20 +150,18 @@ const handleEmoticonSelect = async (event: Event) => {
 const removeEmoticonImage = (index: number) => {
   const item = emoticonPreviews.value[index]
   if (item) {
-    URL.revokeObjectURL(item.preview)
+    revokeEmoticonPreviewUrl(item.preview)
     emoticonPreviews.value.splice(index, 1)
   }
 }
 
 // 태그 추가
 const addTag = () => {
-  const tag = tagInput.value.trim().replace(/^#/, '')
-  if (tag && !tags.value.includes(tag)) {
-    if (tags.value.length >= 10) {
-      toastStore.addToast(t('emoticon.validation.maxTags'), 'error')
-      return
-    }
-    tags.value.push(tag)
+  const result = resolveEmoticonTagAddition(tagInput.value, tags.value)
+  if (result.error === 'maxTags') {
+    toastStore.addToast(t('emoticon.validation.maxTags'), 'error')
+  } else if (result.tag) {
+    tags.value.push(result.tag)
   }
   tagInput.value = ''
 }
@@ -286,23 +198,7 @@ const handleSubmit = async () => {
       
       // 저장된 크기 정보 사용 (이미지 재로드 불필요)
       // GIF는 리사이징 시 애니메이션 손실 → 원본 그대로 업로드
-      let fileToUpload: File | Blob = item.file
-      const isGif = item.file.type === 'image/gif'
-      const needsResize = !isGif && (item.width > 100 || item.height > 100)
-      
-      if (needsResize) {
-        fileToUpload = await resizeImage(item.file, 100)
-        // 리사이징 후 메모리 정리를 위해 작은 딜레이
-        await new Promise(resolve => setTimeout(resolve, 50))
-      }
-      
-      // File 객체로 변환 (Blob인 경우)
-      const uploadMimeType = fileToUpload instanceof File
-        ? fileToUpload.type
-        : (fileToUpload.type || item.file.type || 'image/png')
-      const uploadFile = fileToUpload instanceof File
-        ? fileToUpload
-        : new File([fileToUpload], item.file.name, { type: uploadMimeType })
+      const uploadFile = await createUploadableEmoticonImageFile(item)
       
       const response = await fileApi.uploadFile(uploadFile)
       imageFileIds.push(response.data.data.fileId)
