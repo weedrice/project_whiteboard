@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { onMounted } from 'vue'
 import { userApi } from '@/api/user'
 import PostList from '@/components/board/PostList.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
@@ -7,43 +7,22 @@ import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import { Bookmark } from 'lucide-vue-next'
-import logger from '@/utils/logger'
 import type { PostSummary } from '@/types'
+import { usePagination } from '@/composables/usePagination'
 
-const scraps = ref<PostSummary[]>([])
-const loading = ref(false)
-const page = ref(0)
-const totalPages = ref(0)
-const size = ref(15)
-
-const fetchScraps = async () => {
-  loading.value = true
-  try {
-    const { data } = await userApi.getMyScraps({
-      page: page.value,
-      size: size.value
-    })
-    if (data.success) {
-      const newScraps = data.data.content.map((item: PostSummary & { post?: PostSummary }) => item.post || item)
-      scraps.value = newScraps
-      totalPages.value = data.data.totalPages
-    }
-  } catch (error: unknown) {
-    logger.error('Failed to load scraps:', error)
-  } finally {
-    loading.value = false
-  }
-}
-
-const handlePageChange = (newPage: number) => {
-  page.value = newPage
-  fetchScraps()
-}
-
-const handleSizeChange = () => {
-  page.value = 0
-  fetchScraps()
-}
+const {
+  items: scraps,
+  loading,
+  page,
+  size,
+  totalPages,
+  fetch: fetchScraps,
+  handlePageChange,
+  handleSizeChange
+} = usePagination<PostSummary>(async (params) => {
+  const { data } = await userApi.getMyScraps(params)
+  return data
+}, { page: 0, size: 15 })
 
 onMounted(() => {
   fetchScraps()
@@ -76,7 +55,15 @@ onMounted(() => {
       </div>
       <EmptyState v-else-if="scraps.length === 0" :title="$t('user.scrapList.empty')" :icon="Bookmark" />
       <div v-else>
-        <PostList :posts="scraps" :show-board-name="true" :hide-no-column="true" />
+        <PostList
+          :posts="scraps"
+          :show-board-name="true"
+          :hide-no-column="true"
+          :show-notice-badge="false"
+          :show-comment-count="false"
+          :show-preview-indicator="false"
+          :show-secret-indicator="false"
+        />
         <div class="bg-gray-50 dark:bg-gray-900/50 px-4 py-4 sm:px-6 flex justify-center">
           <Pagination :current-page="page" :total-pages="totalPages" @page-change="handlePageChange" />
         </div>

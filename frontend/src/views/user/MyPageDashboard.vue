@@ -1,10 +1,7 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { userApi } from '@/api/user'
-import { postApi } from '@/api/post'
 import { User, Mail, Calendar, FileText, CheckCircle, XCircle, Clock, MessageSquare, ShieldCheck } from 'lucide-vue-next'
-import { authApi } from '@/api/auth'
 import PostList from '@/components/board/PostList.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
@@ -14,300 +11,78 @@ import Pagination from '@/components/common/ui/Pagination.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import CommentList from '@/components/comment/CommentList.vue'
-import { useErrorHandler } from '@/composables/useErrorHandler'
-import { useEmailVerificationState } from '@/composables/useEmailVerificationState'
-import { useAuthStore } from '@/stores/auth'
-import { useToastStore } from '@/stores/toast'
+import { useMyPageDashboardResource } from '@/composables/useMyPageDashboardResource'
+import { useInquiryDetailModal } from '@/composables/useInquiryDetailModal'
+import { useEmailVerificationFlow } from '@/composables/useEmailVerificationFlow'
 import { getOptimizedProfileImageUrl, handleImageError } from '@/utils/image'
-import { extractErrorMessage } from '@/utils/errorHandler'
 import { formatDate } from '@/utils/date'
-import { isValidEmail } from '@/utils/validation'
 import { renderCommentContentHtml } from '@/utils/commentContent'
 import { applyImageFallback } from '@/utils/imageFallback'
-import type { User as UserType, PostSummary, Post, Comment } from '@/types'
-import type { UserAgent } from '@/api/user'
 
 const { t } = useI18n()
-const { handleSilentError } = useErrorHandler()
-const authStore = useAuthStore()
-const toastStore = useToastStore()
 
 // Comment list uses a dedicated emoticon rendering class.
 function renderCommentContent(content: string | null | undefined): string {
   return renderCommentContentHtml(content, 'comment-emoticon comment-emoticon-list')
 }
 
-const profile = ref<UserType | null>(null)
-const myAgents = ref<UserAgent[]>([])
-
-// Posts pagination state
-const myPosts = ref<PostSummary[]>([])
-const myPostsTotalCount = ref(0)
-const myPostsCurrentPage = ref(0)
-const myPostsSize = ref(10) // 10 items per page
-const myPostsSort = ref('createdAt,desc')
-const isInquiryDetailOpen = ref(false)
-const selectedInquiryPost = ref<Post | null>(null)
-const isInquiryDetailLoading = ref(false)
-const inquiryDetailError = ref('')
-const isDeletingInquiry = ref(false)
-
-// Comments pagination state
-const myComments = ref<Comment[]>([])
-const myCommentsTotalCount = ref(0)
-const myCommentsCurrentPage = ref(0)
-const myCommentsSize = ref(10) // 10 items per page
-
-const isLoading = ref(true)
-const error = ref<string | null>(null)
 const isEditModalOpen = ref(false)
 
 
 
-async function fetchMyProfile() {
-  try {
-    const { data } = await userApi.getMyProfile()
-    if (data.success) {
-      profile.value = data.data
-    }
-  } catch (err: unknown) {
-    handleSilentError(err, 'Failed to load my profile')
-  }
-}
 
-async function fetchMyPosts() {
-  try {
-    const { data } = await userApi.getMyPosts({
-      page: myPostsCurrentPage.value,
-      size: myPostsSize.value,
-      sort: myPostsSort.value
-    })
-    if (data.success) {
-      myPosts.value = data.data.content
-      myPostsTotalCount.value = data.data.totalElements
-    }
-  } catch (err: unknown) {
-    handleSilentError(err, 'Failed to load my posts')
-  }
-}
-
-async function fetchMyComments() {
-  try {
-    const { data } = await userApi.getMyComments({ page: myCommentsCurrentPage.value, size: myCommentsSize.value })
-    if (data.success) {
-      myComments.value = data.data.content
-      myCommentsTotalCount.value = data.data.totalElements
-    }
-  } catch (err: unknown) {
-    handleSilentError(err, 'Failed to load my comments')
-  }
-}
-
-function handleMyPostsPageChange(page: number) {
-  myPostsCurrentPage.value = page
-  fetchMyPosts()
-}
-
-function handleMyPostsSortChange(newSort: string) {
-  myPostsSort.value = newSort
-  fetchMyPosts()
-}
-
-function isInquiryPostItem(post: { boardUrl?: string | number }): boolean {
-  return String(post.boardUrl || '').toLowerCase() === 'inquiry'
-}
-
-async function openMyInquiryPost(post: { postId: number; boardUrl?: string | number }) {
-  if (!isInquiryPostItem(post)) {
-    return
-  }
-
-  isInquiryDetailOpen.value = true
-  selectedInquiryPost.value = null
-  inquiryDetailError.value = ''
-  isInquiryDetailLoading.value = true
-
-  try {
-    const { data } = await postApi.getPost(post.postId, { params: { incrementView: false } })
-    if (data.success) {
-      selectedInquiryPost.value = data.data
-    }
-  } catch (err: unknown) {
-    inquiryDetailError.value = extractErrorMessage(err) || t('common.messages.loadFailed')
-  } finally {
-    isInquiryDetailLoading.value = false
-  }
-}
-
-async function fetchMyAgents() {
-  try {
-    const { data } = await userApi.getMyAgents()
-    if (data.success) {
-      myAgents.value = data.data.agents
-    }
-  } catch (err: unknown) {
-    handleSilentError(err, 'Failed to load my agents')
-  }
-}
-
-function closeInquiryModal() {
-  isInquiryDetailOpen.value = false
-  selectedInquiryPost.value = null
-  inquiryDetailError.value = ''
-  fetchMyPosts()
-}
-
-async function deleteInquiryPost() {
-  const post = selectedInquiryPost.value
-  if (!post) return
-  if (!window.confirm('\uBB38\uC758\uB97C \uC0AD\uC81C\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?')) {
-    return
-  }
-
-  isDeletingInquiry.value = true
-  try {
-    await postApi.deletePost(post.postId)
-    toastStore.addToast(t('common.messages.deleteSuccess'), 'success')
-    closeInquiryModal()
-    await fetchMyPosts()
-  } catch (err: unknown) {
-    toastStore.addToast(extractErrorMessage(err) || t('common.messages.deleteFailed'), 'error')
-  } finally {
-    isDeletingInquiry.value = false
-  }
-}
-
-function handleMyCommentsPageChange(page: number) {
-  myCommentsCurrentPage.value = page
-  fetchMyComments()
-}
-function getAgentSummary() {
-  if (myAgents.value.length === 0) {
-    return '\uB4F1\uB85D\uB41C \uC5D0\uC774\uC804\uD2B8\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.'
-  }
-
-  const activeAgents = myAgents.value.filter((agent) => agent.status === 'ACTIVE')
-  if (activeAgents.length === 1) {
-    return `${activeAgents[0].name} \uC5F0\uACB0\uB428`
-  }
-  if (activeAgents.length > 1) {
-    return `\uD65C\uC131 \uC5D0\uC774\uC804\uD2B8 ${activeAgents.length}\uAC1C \uC5F0\uACB0\uB428`
-  }
-  return `\uC5D0\uC774\uC804\uD2B8 ${myAgents.value.length}\uAC1C \uB4F1\uB85D\uB428`
-}
-
-function getAgentStatusLabel(status: UserAgent['status']) {
-  if (status === 'ACTIVE') return '\uD65C\uC131'
-  if (status === 'SUSPENDED') return '\uBBF8\uB4F1\uB85D'
-  return '\uB300\uAE30'
-}
-
-// Email Verification
-const isVerifyModalOpen = ref(false)
 const {
-  verification: emailVerification,
-  startTimer: startVerifyTimer,
-  stopTimer: stopVerifyTimer,
-  startResendCooldown: startVerifyResendCooldown,
-  stopResendCooldown: stopVerifyResendCooldown,
-  resetVerification,
-  formatTime: formatVerifyTime
-} = useEmailVerificationState()
+  profile,
+  myAgents,
+  myPosts,
+  myPostsTotalCount,
+  myPostsCurrentPage,
+  myPostsSize,
+  myPostsSort,
+  myComments,
+  myCommentsTotalCount,
+  myCommentsCurrentPage,
+  myCommentsSize,
+  isLoading,
+  error,
+  fetchMyProfile,
+  fetchMyAgents,
+  fetchMyPosts,
+  handleMyPostsPageChange,
+  handleMyPostsSortChange,
+  handleMyCommentsPageChange,
+  getAgentStatusLabel,
+  loadDashboard
+} = useMyPageDashboardResource()
 
-function openVerifyModal() {
-  resetVerification(profile.value?.email || '')
-  isVerifyModalOpen.value = true
-}
+const {
+  isInquiryDetailOpen,
+  selectedInquiryPost,
+  isInquiryDetailLoading,
+  inquiryDetailError,
+  isDeletingInquiry,
+  openMyInquiryPost,
+  closeInquiryModal,
+  deleteInquiryPost
+} = useInquiryDetailModal(fetchMyPosts)
 
-function closeVerifyModal() {
-  stopVerifyTimer()
-  stopVerifyResendCooldown()
-  isVerifyModalOpen.value = false
-}
 
-async function sendVerifyCode() {
-  const trimmed = emailVerification.email.trim()
-  if (!trimmed) {
-    toastStore.addToast(t('auth.emailRequired'), 'error')
-    return
-  }
-  if (!isValidEmail(trimmed)) {
-    toastStore.addToast(t('auth.validation.emailFormat'), 'error')
-    return
-  }
-
-  emailVerification.loading = true
-  try {
-    const { data } = await authApi.sendVerificationCode(trimmed, 'CHANGE_EMAIL')
-    if (data.success) {
-      emailVerification.code = ''
-      emailVerification.verificationTicket = ''
-      emailVerification.isVerified = false
-      emailVerification.isCodeSent = true
-      startVerifyTimer()
-      startVerifyResendCooldown()
-      toastStore.addToast(t('auth.codeSent'), 'success')
-    }
-  } catch (err: unknown) {
-    const message = extractErrorMessage(err) || t('auth.sendCodeFailed')
-    toastStore.addToast(message, 'error')
-    emailVerification.resendCooldown = 0
-    stopVerifyResendCooldown()
-  } finally {
-    emailVerification.loading = false
-  }
-}
-
-async function verifyEmailCode() {
-  const trimmed = emailVerification.email.trim()
-  if (!emailVerification.code || !trimmed) return
-
-  if (emailVerification.timeLeft <= 0) {
-    toastStore.addToast(t('auth.codeExpired'), 'error')
-    return
-  }
-
-  emailVerification.loading = true
-  try {
-    const verifyResponse = await authApi.verifyCode(trimmed, emailVerification.code, 'CHANGE_EMAIL')
-    if (!verifyResponse.data.success || !verifyResponse.data.data?.verificationTicket) {
-      throw new Error(t('auth.verificationFailed'))
-    }
-
-    emailVerification.verificationTicket = verifyResponse.data.data.verificationTicket
-
-    const { data } = await userApi.verifyEmail({
-      email: trimmed,
-      verificationTicket: emailVerification.verificationTicket
-    })
-    if (data.success) {
-      emailVerification.isVerified = true
-      stopVerifyTimer()
-      toastStore.addToast(t('auth.codeVerified'), 'success')
-      // ????썹땟怨⒲뀋????썹땟?ⓦ궘?????⑤베鍮????곗뵯???????쇰젩.
-      await Promise.all([
-        fetchMyProfile(),
-        authStore.fetchUser()
-      ])
-      closeVerifyModal()
-    }
-  } catch (err: unknown) {
-    const message = extractErrorMessage(err) || t('auth.verificationFailed')
-    toastStore.addToast(message, 'error')
-  } finally {
-    emailVerification.loading = false
-  }
-}
+const {
+  isVerifyModalOpen,
+  emailVerification,
+  formatVerifyTime,
+  isValidEmail,
+  openVerifyModal,
+  closeVerifyModal,
+  sendVerifyCode,
+  verifyEmailCode
+} = useEmailVerificationFlow({
+  getEmail: () => profile.value?.email || '',
+  refreshProfile: fetchMyProfile
+})
 
 onMounted(async () => {
-  isLoading.value = true
-  await Promise.all([
-    fetchMyProfile(),
-    fetchMyAgents(),
-    fetchMyPosts(),
-    fetchMyComments()
-  ])
-  isLoading.value = false
+  await loadDashboard()
 })
 
 </script>

@@ -11,8 +11,11 @@ import type {
     SubscriptionBoardListItem,
     PublicUserProfile,
     PointHistoryResponse,
+    PointHistory,
+    ScrapListResponse,
     UserPoint,
 } from '@/types'
+import type { AxiosResponse } from 'axios'
 
 export interface UserProfile {
     userId: number;
@@ -64,6 +67,74 @@ export interface UserAgent {
 
 export interface UserAgentListResponse {
     agents: UserAgent[]
+}
+
+function toPageResponse<T>(response: {
+    content: T[]
+    page?: number
+    number?: number
+    size: number
+    totalElements: number
+    totalPages: number
+    hasNext?: boolean
+    hasPrevious?: boolean
+    last?: boolean
+    first?: boolean
+    empty?: boolean
+}): PageResponse<T> {
+    const pageNumber = response.number ?? response.page ?? 0
+    return {
+        content: response.content,
+        totalElements: response.totalElements,
+        totalPages: response.totalPages,
+        size: response.size,
+        number: pageNumber,
+        first: response.first ?? (pageNumber === 0),
+        last: response.last ?? (!response.hasNext),
+        empty: response.empty ?? (response.content.length === 0),
+    }
+}
+
+export function toScrapPostSummaryPage(response: ScrapListResponse): PageResponse<PostSummary> {
+    return toPageResponse({
+        ...response,
+        content: response.content.map(({ post }) => ({
+            postId: post.postId,
+            title: post.title,
+            viewCount: post.viewCount,
+            likeCount: post.likeCount,
+            commentCount: post.commentCount ?? 0,
+            isNotice: post.isNotice ?? false,
+            isNsfw: post.isNsfw ?? false,
+            isSpoiler: post.isSpoiler ?? false,
+            isSecret: post.isSecret ?? false,
+            thumbnailUrl: post.thumbnailUrl ?? undefined,
+            firstMediaType: post.firstMediaType ?? undefined,
+            author: post.author,
+            createdAt: post.createdAt,
+            rowNum: post.rowNum,
+            boardName: post.boardName,
+            boardUrl: post.boardUrl,
+            scrapped: true,
+        })),
+    })
+}
+
+function mapApiPageResponse<TSource, TTarget>(
+    response: AxiosResponse<ApiResponse<TSource>>,
+    mapper: (source: TSource) => PageResponse<TTarget>,
+): AxiosResponse<ApiResponse<PageResponse<TTarget>>> {
+    if (!response.data.success || response.data.data == null) {
+        return response as unknown as AxiosResponse<ApiResponse<PageResponse<TTarget>>>
+    }
+
+    return {
+        ...response,
+        data: {
+            ...response.data,
+            data: mapper(response.data.data),
+        },
+    }
 }
 
 export const userApi = {
@@ -128,7 +199,8 @@ export const userApi = {
         return api.get<ApiResponse<PageResponse<Comment>>>('/users/me/comments', { params })
     },
     getMyScraps(params: PaginationParams) {
-        return api.get<ApiResponse<PageResponse<PostSummary>>>('/users/me/scraps', { params })
+        return api.get<ApiResponse<ScrapListResponse>>('/users/me/scraps', { params })
+            .then((response) => mapApiPageResponse(response, toScrapPostSummaryPage))
     },
     getMyDrafts(params: PaginationParams) {
         return api.get<ApiResponse<DraftPostListResponse>>('/users/me/drafts', { params })
@@ -144,5 +216,6 @@ export const userApi = {
     },
     getMyPointHistories(params: PaginationParams) {
         return api.get<ApiResponse<PointHistoryResponse>>('/points/me/history', { params })
+            .then((response) => mapApiPageResponse<PointHistoryResponse, PointHistory>(response, toPageResponse))
     }
 }

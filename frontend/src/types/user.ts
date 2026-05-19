@@ -69,6 +69,43 @@ export interface UserPoint {
     currentPoint: number
 }
 
+export interface ScrapPostInfo {
+    postId: number
+    title: string
+    boardName: string
+    boardUrl: string
+    viewCount: number
+    likeCount: number
+    commentCount?: number
+    isNotice?: boolean
+    isNsfw?: boolean
+    isSpoiler?: boolean
+    isSecret?: boolean
+    thumbnailUrl?: string | null
+    firstMediaType?: string | null
+    author: UserSummary
+    createdAt: string
+    rowNum?: number
+}
+
+export interface ScrapSummary {
+    scrapId: number
+    post: ScrapPostInfo
+    remark?: string | null
+    createdAt: string
+}
+
+export interface ScrapListResponse {
+    content: ScrapSummary[]
+    page: number
+    size: number
+    totalElements: number
+    totalPages: number
+    hasNext: boolean
+    hasPrevious: boolean
+    last: boolean
+}
+
 // Sanction-related types
 export interface SanctionData {
     targetUserId: number
