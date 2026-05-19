@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentClaimRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentHomeResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentNoteResponses;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostActivityReadResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
@@ -29,6 +30,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.board.service.BoardCategoryWritePolicy;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
+import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.service.CommentCreateContext;
 import com.weedrice.whiteboard.domain.comment.service.CommentReadModelAssembler;
@@ -126,6 +128,8 @@ class AgentServiceTest {
     @Mock
     private CommentRepository commentRepository;
     @Mock
+    private CommentLikeRepository commentLikeRepository;
+    @Mock
     private PostService postService;
     @Mock
     private CommentService commentService;
@@ -146,6 +150,8 @@ class AgentServiceTest {
     private AgentLifecycleService agentLifecycleService;
     private AgentAuthService agentAuthService;
     private AgentPolicyService agentPolicyService;
+    @Mock
+    private AgentNoteService agentNoteService;
     private AgentQueryService agentQueryService;
     private AgentQuotaService agentQuotaService;
     private AgentCommandService agentCommandService;
@@ -189,6 +195,7 @@ class AgentServiceTest {
         agentQueryService = new AgentQueryService(
                 boardRepository,
                 boardAiInfoRepository,
+                agentRepository,
                 postRepository,
                 commentRepository,
                 agentPostActivityReadRepository,
@@ -200,13 +207,15 @@ class AgentServiceTest {
                 agentPostListItemAssembler,
                 commentReadSupport,
                 commentReadModelAssembler,
-                agentPolicyService);
+                agentPolicyService,
+                agentNoteService);
         AgentLinkBuilder agentLinkBuilder = new AgentLinkBuilder();
         ReflectionTestUtils.setField(agentLinkBuilder, "frontendUrl", "https://noviis.kr");
         agentCommandService = new AgentCommandService(
                 boardRepository,
                 boardCategoryRepository,
                 commentRepository,
+                commentLikeRepository,
                 postRepository,
                 postService,
                 commentService,
@@ -233,6 +242,8 @@ class AgentServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
         lenient().when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(any(), anyLong()))
                 .thenReturn(List.of());
+        lenient().when(agentNoteService.getSummary(anyLong()))
+                .thenReturn(AgentNoteResponses.Summary.builder().unreadThreadCount(0).unreadNoteCount(0).build());
         lenient().when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
         lenient().when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(any(), eq(true)))
                 .thenReturn(List.of());
@@ -2209,6 +2220,62 @@ class AgentServiceTest {
                 eq(AgentAuditTargetType.POST),
                 eq(100L),
                 isNull(), isNull());
+    }
+
+    @Test
+    void likeComment_success() {
+        Comment comment = Comment.builder()
+                .post(writablePost)
+                .user(user)
+                .depth(0)
+                .content("comment")
+                .build();
+        ReflectionTestUtils.setField(comment, "commentId", 300L);
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(commentRepository.findByIdWithRelationsForUpdate(300L)).thenReturn(Optional.of(comment));
+        when(commentLikeRepository.existsById(any())).thenReturn(false);
+        when(commentRepository.incrementLikeCount(300L)).thenReturn(1);
+        when(commentRepository.findLikeCountByCommentId(300L)).thenReturn(1);
+
+        var response = agentCommandService.likeComment(7L, 300L, null);
+
+        assertThat(response.getStatus()).isEqualTo("liked");
+        assertThat(response.getCommentId()).isEqualTo(300L);
+        assertThat(response.getLikeCount()).isEqualTo(1);
+        assertThat(response.isAlreadyLiked()).isFalse();
+        verify(commentLikeRepository).saveAndFlush(any());
+        verify(agentAuditLogWriter).saveLog(
+                eq(7L),
+                eq(1L),
+                eq(AgentAuditActionType.LIKE_COMMENT),
+                eq(AgentAuditTargetType.COMMENT),
+                eq(300L),
+                isNull(), isNull());
+    }
+
+    @Test
+    void likeComment_alreadyLikedIsIdempotent() {
+        Comment comment = Comment.builder()
+                .post(writablePost)
+                .user(user)
+                .depth(0)
+                .content("comment")
+                .build();
+        ReflectionTestUtils.setField(comment, "commentId", 300L);
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(commentRepository.findByIdWithRelationsForUpdate(300L)).thenReturn(Optional.of(comment));
+        when(commentLikeRepository.existsById(any())).thenReturn(true);
+        when(commentRepository.findLikeCountByCommentId(300L)).thenReturn(4);
+
+        var response = agentCommandService.likeComment(7L, 300L, null);
+
+        assertThat(response.isAlreadyLiked()).isTrue();
+        assertThat(response.getLikeCount()).isEqualTo(4);
+        verify(commentLikeRepository, never()).saveAndFlush(any());
+        verify(commentRepository, never()).incrementLikeCount(anyLong());
+        verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(), any(), any());
     }
 
     private BoardCategory defaultCategory(Board board, String minWriteRole) {

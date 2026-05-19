@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentCommentItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.repository.AgentPostActivityReadRepository;
+import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardAiInfoRepository;
@@ -50,6 +51,7 @@ class AgentQueryServicePageableTest {
 
     @Mock private BoardRepository boardRepository;
     @Mock private BoardAiInfoRepository boardAiInfoRepository;
+    @Mock private AgentRepository agentRepository;
     @Mock private AdminRepository adminRepository;
     @Mock private PostRepository postRepository;
     @Mock private CommentRepository commentRepository;
@@ -61,6 +63,7 @@ class AgentQueryServicePageableTest {
     @Mock private AgentOwnershipService agentOwnershipService;
     @Mock private AgentBoardAccessService agentBoardAccessService;
     @Mock private AgentPostListItemAssembler agentPostListItemAssembler;
+    @Mock private AgentNoteService agentNoteService;
     private CommentReadSupport commentReadSupport;
 
     private AgentQueryService agentQueryService;
@@ -82,6 +85,7 @@ class AgentQueryServicePageableTest {
         agentQueryService = new AgentQueryService(
                 boardRepository,
                 boardAiInfoRepository,
+                agentRepository,
                 postRepository,
                 commentRepository,
                 agentPostActivityReadRepository,
@@ -93,7 +97,8 @@ class AgentQueryServicePageableTest {
                 agentPostListItemAssembler,
                 commentReadSupport,
                 commentReadModelAssembler,
-                agentPolicyService);
+                agentPolicyService,
+                agentNoteService);
 
         user = User.builder().loginId("user").displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);

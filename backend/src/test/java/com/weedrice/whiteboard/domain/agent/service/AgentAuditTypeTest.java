@@ -15,6 +15,9 @@ class AgentAuditTypeTest {
                         "DELETE_POST",
                         "CREATE_COMMENT",
                         "LIKE_POST",
+                        "LIKE_COMMENT",
+                        "SEND_NOTE",
+                        "MARK_NOTE_READ",
                         "CLAIM",
                         "SUSPEND",
                         "REACTIVATE",
@@ -29,7 +32,7 @@ class AgentAuditTypeTest {
     void targetTypeCodesMatchPersistedValuesAndFitColumnLimit() {
         assertThat(AgentAuditTargetType.values())
                 .extracting(AgentAuditTargetType::getCode)
-                .containsExactly("POST", "COMMENT", "AGENT")
+                .containsExactly("POST", "COMMENT", "NOTE", "AGENT")
                 .allSatisfy(code -> {
                     assertThat(code).isNotBlank();
                     assertThat(code).hasSizeLessThanOrEqualTo(20);

@@ -3,16 +3,20 @@ package com.weedrice.whiteboard.domain.agent.controller;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentCreateResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentItem;
+import com.weedrice.whiteboard.domain.agent.dto.AgentCommentLikeResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentBoardListResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentBoardItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentHomeResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentLimits;
+import com.weedrice.whiteboard.domain.agent.dto.AgentNoteResponses;
+import com.weedrice.whiteboard.domain.agent.dto.AgentNoteSendRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostActivityReadResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostLikeResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostDeleteResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentProfileResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRestrictions;
@@ -20,6 +24,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentRulesResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentStatusResponse;
 import com.weedrice.whiteboard.domain.agent.service.AgentCommandService;
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
+import com.weedrice.whiteboard.domain.agent.service.AgentNoteService;
 import com.weedrice.whiteboard.domain.agent.service.AgentPostActivityService;
 import com.weedrice.whiteboard.domain.agent.service.AgentQueryService;
 import com.weedrice.whiteboard.domain.agent.service.AgentRequestContext;
@@ -66,6 +71,8 @@ class AgentControllerTest {
     private AgentQueryService agentQueryService;
     @Mock
     private AgentCommandService agentCommandService;
+    @Mock
+    private AgentNoteService agentNoteService;
     @Mock
     private AgentPostActivityService agentPostActivityService;
     @Mock
@@ -263,6 +270,62 @@ class AgentControllerTest {
                 .containsExactly("quality_over_quantity");
         assertThat(response.getData().getStyleGuidance()).extracting(AgentRulesResponse.RuleItem::getCode)
                 .containsExactly("primary_language_ko");
+    }
+
+    @Test
+    void profile_success() {
+        AgentProfileResponse responseBody = AgentProfileResponse.builder()
+                .agent(AgentProfileResponse.ProfileAgent.builder()
+                        .name("other")
+                        .displayName("other")
+                        .status("active")
+                        .build())
+                .recentPosts(List.of())
+                .recentComments(List.of())
+                .build();
+        given(agentQueryService.getProfile(7L, "other")).willReturn(responseBody);
+
+        ApiResponse<AgentProfileResponse> response = agentController.profile(agentPrincipal, "other");
+
+        assertThat(response.isSuccess()).isTrue();
+        assertThat(response.getData().getAgent().getName()).isEqualTo("other");
+    }
+
+    @Test
+    void likeComment_success() {
+        AgentRequestContext context = new AgentRequestContext("127.0.0.1", "/api/v1/agents/comments/3/like");
+        given(agentRequestContextResolver.resolve(httpServletRequest)).willReturn(context);
+        given(agentCommandService.likeComment(7L, 3L, context))
+                .willReturn(new AgentCommentLikeResponse("liked", 3L, 2, false));
+
+        ApiResponse<AgentCommentLikeResponse> response =
+                agentController.likeComment(agentPrincipal, 3L, httpServletRequest);
+
+        assertThat(response.isSuccess()).isTrue();
+        assertThat(response.getData().getCommentId()).isEqualTo(3L);
+        assertThat(response.getData().isAlreadyLiked()).isFalse();
+    }
+
+    @Test
+    void sendNote_success() {
+        AgentNoteSendRequest request = new AgentNoteSendRequest();
+        ReflectionTestUtils.setField(request, "recipientAgentName", "other");
+        ReflectionTestUtils.setField(request, "content", "hello");
+        AgentRequestContext context = new AgentRequestContext("127.0.0.1", "/api/v1/agents/notes");
+        given(agentRequestContextResolver.resolve(httpServletRequest)).willReturn(context);
+        given(agentNoteService.sendNote(eq(7L), same(request), eq(context)))
+                .willReturn(AgentNoteResponses.SendResponse.builder()
+                        .status("sent")
+                        .noteThreadId(10L)
+                        .noteId(11L)
+                        .build());
+
+        ApiResponse<AgentNoteResponses.SendResponse> response =
+                agentController.sendNote(agentPrincipal, request, httpServletRequest);
+
+        assertThat(response.isSuccess()).isTrue();
+        assertThat(response.getData().getStatus()).isEqualTo("sent");
+        assertThat(response.getData().getNoteThreadId()).isEqualTo(10L);
     }
 
     @Test
