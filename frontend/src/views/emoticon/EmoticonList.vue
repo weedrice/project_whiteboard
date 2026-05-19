@@ -14,6 +14,11 @@ import type { EmoticonSearchParams } from '@/types/emoticon'
 const router = useRouter()
 const authStore = useAuthStore()
 
+interface DisplayedPage {
+  key: string
+  page: number | null
+}
+
 useHead({
   title: '노비콘',
   meta: [
@@ -61,6 +66,42 @@ const { data: emoticonsPage, isLoading: emoticonsLoading } = useQuery({
 const emoticons = computed(() => emoticonsPage.value?.content || [])
 const totalPages = computed(() => emoticonsPage.value?.totalPages || 0)
 const totalElements = computed(() => emoticonsPage.value?.totalElements || 0)
+const displayedPages = computed(() => {
+  const pages: DisplayedPage[] = []
+  const lastPage = totalPages.value
+  const current = currentPage.value + 1
+
+  if (lastPage <= 7) {
+    return Array.from({ length: lastPage }, (_, index) => ({
+      key: `page-${index + 1}`,
+      page: index + 1
+    }))
+  }
+
+  const visiblePages = new Set<number>([1, lastPage])
+  for (let page = Math.max(2, current - 1); page <= Math.min(lastPage - 1, current + 1); page += 1) {
+    visiblePages.add(page)
+  }
+
+  let previousPage = 0
+  Array.from(visiblePages)
+    .sort((a, b) => a - b)
+    .forEach((page) => {
+      if (previousPage && page - previousPage > 1) {
+        pages.push({
+          key: `ellipsis-${previousPage}-${page}`,
+          page: null
+        })
+      }
+      pages.push({
+        key: `page-${page}`,
+        page
+      })
+      previousPage = page
+    })
+
+  return pages
+})
 
 // 페이지 변경
 const goToPage = (page: number) => {
@@ -272,20 +313,20 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
           >
             이전
           </button>
-          <template v-for="page in totalPages" :key="page">
+          <template v-for="item in displayedPages" :key="item.key">
             <button
-              v-if="page <= 5 || page === totalPages || (page >= currentPage && page <= currentPage + 2)"
-              @click="goToPage(page - 1)"
+              v-if="item.page !== null"
+              @click="goToPage(item.page - 1)"
               :class="[
                 'px-3 py-2 text-sm font-medium rounded-md',
-                currentPage === page - 1
+                currentPage === item.page - 1
                   ? 'bg-indigo-600 text-white'
                   : 'text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
               ]"
             >
-              {{ page }}
+              {{ item.page }}
             </button>
-            <span v-else-if="page === 6 || page === currentPage - 1" class="px-2 text-gray-500">...</span>
+            <span v-else class="px-2 text-gray-500">...</span>
           </template>
           <button
             @click="goToPage(currentPage + 1)"

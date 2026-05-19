@@ -18,6 +18,7 @@ import EmoticonPicker from '@/components/common/widgets/EmoticonPicker.vue'
 import PostEditorTipTap from '@/components/board/PostEditorTipTap.vue'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
 import { normalizeEditorFileImageUrls, normalizeLegacyFileUrls } from '@/utils/fileUrl'
+import { canWriteCategory } from '@/utils/board'
 import logger from '@/utils/logger'
 
 const props = defineProps<{
@@ -192,26 +193,13 @@ function resolvePayloadFileIds(scope: 'content' | 'draft'): number[] {
   return contentFileIds.filter((fileId) => draftFileIds.value.includes(fileId))
 }
 
-function canWriteCategory(minWriteRole?: string) {
-  const userRole = authStore.user?.role || 'USER'
-  const isBoardAdmin = board.value?.isAdmin || false
-  const normalizedRole = minWriteRole || 'USER'
-
-  switch (normalizedRole) {
-    case 'USER':
-      return true
-    case 'BOARD_ADMIN':
-      return userRole === 'SUPER_ADMIN' || isBoardAdmin
-    case 'SUPER_ADMIN':
-      return userRole === 'SUPER_ADMIN'
-    default:
-      return false
-  }
-}
-
 const filteredCategories = computed<CategoryOption[]>(() => {
   if (!categories.value) return []
-  const selectableCategories = categories.value.filter((cat) => canWriteCategory(cat.minWriteRole))
+  const selectableCategories = categories.value.filter((cat) => canWriteCategory(
+    cat,
+    authStore.user?.role,
+    board.value?.isAdmin ?? false
+  ))
   const selectedCategoryId = Number(form.value.categoryId)
   const selectedCategory = categories.value.find((category) => category.categoryId === selectedCategoryId)
     ?? (post.value?.category?.categoryId === selectedCategoryId

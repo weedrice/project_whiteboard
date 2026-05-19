@@ -7,6 +7,7 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useToastStore } from '@/stores/toast'
 import { ChevronLeft, Lock } from 'lucide-vue-next'
+import { isValidPassword } from '@/utils/validation'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -22,16 +23,6 @@ const newPassword = ref('')
 const confirmPassword = ref('')
 const isLoading = ref(false)
 
-function validatePasswordStrength(pwd: string): boolean {
-  if (pwd.length < 8 || pwd.length > 20) return false
-  let types = 0
-  if (/[a-z]/.test(pwd)) types++
-  if (/[A-Z]/.test(pwd)) types++
-  if (/[0-9]/.test(pwd)) types++
-  if (/[^a-zA-Z0-9]/.test(pwd)) types++
-  return types >= 3
-}
-
 async function handleResetPassword() {
   if (!token.value) {
     toastStore.addToast(t('auth.invalidResetLink'), 'error')
@@ -41,7 +32,7 @@ async function handleResetPassword() {
     toastStore.addToast(t('auth.placeholders.password'), 'error')
     return
   }
-  if (!validatePasswordStrength(newPassword.value)) {
+  if (!isValidPassword(newPassword.value)) {
     toastStore.addToast(t('auth.validation.passwordStrength'), 'error')
     return
   }

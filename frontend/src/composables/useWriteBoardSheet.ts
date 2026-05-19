@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useBoard } from '@/composables/useBoard'
 import { useToastStore } from '@/stores/toast'
 import { boardApi } from '@/api/board'
-import type { BoardDetail, Category } from '@/types'
+import { canWriteCategory } from '@/utils/board'
 
 export function useWriteBoardSheet() {
   const route = useRoute()
@@ -49,22 +49,6 @@ export function useWriteBoardSheet() {
     showWriteSheet.value = true
   }
 
-  const canWriteCategory = (category: Category, board: BoardDetail) => {
-    const userRole = authStore.user?.role || 'USER'
-    const normalizedRole = category.minWriteRole || 'USER'
-
-    switch (normalizedRole) {
-      case 'USER':
-        return true
-      case 'BOARD_ADMIN':
-        return userRole === 'SUPER_ADMIN' || board.isAdmin
-      case 'SUPER_ADMIN':
-        return userRole === 'SUPER_ADMIN'
-      default:
-        return false
-    }
-  }
-
   const verifyBoardWriteAccess = async (boardUrl: string) => {
     const [{ data: boardResponse }, { data: categoriesResponse }] = await Promise.all([
       boardApi.getBoard(boardUrl),
@@ -75,7 +59,11 @@ export function useWriteBoardSheet() {
     const categories = categoriesResponse.data
     if (!categories.length) return true
 
-    return categories.some((category) => canWriteCategory(category, board))
+    return categories.some((category) => canWriteCategory(
+      category,
+      authStore.user?.role,
+      board.isAdmin
+    ))
   }
 
   const goToBoardWrite = async (boardUrl: string) => {

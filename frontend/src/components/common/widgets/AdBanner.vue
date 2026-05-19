@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import axios from '@/api'
+import { adApi, type Ad } from '@/api/ad'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 
@@ -11,13 +11,6 @@ const props = withDefaults(defineProps<{
 }>(), {
   placement: 'SIDEBAR'
 })
-
-interface Ad {
-  adId: number | null;
-  title: string;
-  imageUrl: string | null;
-  targetUrl: string | null;
-}
 
 const ad = ref<Ad | null>(null)
 const loading = ref(true)
@@ -51,9 +44,7 @@ function openExternalUrl(rawUrl: string | null | undefined) {
 
 const fetchAd = async () => {
   try {
-    const { data } = await axios.get('/ads', {
-      params: { placement: props.placement }
-    })
+    const { data } = await adApi.getAd(props.placement)
     if (data.success) {
       ad.value = data.data
       void recordImpression()
@@ -85,7 +76,7 @@ const recordImpression = async () => {
   }
 
   try {
-    await axios.post(`/ads/${ad.value.adId}/impression`)
+    await adApi.recordImpression(ad.value.adId)
     impressionRecorded.value = true
   } catch (error) {
     logger.warn('Failed to record ad impression:', error)
@@ -97,7 +88,7 @@ const handleAdClick = async () => {
 
   try {
     if (ad.value.adId) {
-      const { data } = await axios.post(`/ads/${ad.value.adId}/click`)
+      const { data } = await adApi.recordClick(ad.value.adId)
       if (data.success && data.data) {
         openExternalUrl(data.data)
       } else if (ad.value.targetUrl) {
