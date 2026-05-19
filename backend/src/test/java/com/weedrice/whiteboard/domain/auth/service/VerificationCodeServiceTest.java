@@ -516,7 +516,7 @@ class VerificationCodeServiceTest {
                 .satisfies(ex -> {
                     BusinessException businessException = (BusinessException) ex;
                     assertThat(businessException.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
-                    assertThat(businessException.getMessage()).isEqualTo("인증 코드가 만료되었습니다.");
+                    assertThat(businessException.getMessage()).isEqualTo("만료된 인증 코드입니다.");
                 });
     }
 
