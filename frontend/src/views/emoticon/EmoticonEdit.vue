@@ -274,10 +274,10 @@ const handleSubmit = async () => {
     }
 
     // 2. 기존 이미지 삭제 처리
-    for (const imageId of submitSnapshot.imagesToDelete) {
+    await Promise.all(submitSnapshot.imagesToDelete.map(async (imageId) => {
       await emoticonApi.deleteImage(imageId)
       assertSubmitActive()
-    }
+    }))
 
     // 3. 새 이미지 업로드 및 추가
     if (uploadFiles.length > 0) {
