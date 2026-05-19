@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => {
         getUnreadCount: vi.fn(),
         markAsRead: vi.fn(),
         markAllAsRead: vi.fn(),
+        openStream: vi.fn(),
     }
     const authApi = {
         refreshToken: vi.fn(),
@@ -115,6 +116,18 @@ describe('useNotification', () => {
         mocks.mutationOptions.length = 0
         mocks.authStore.isAuthenticated = true
         mocks.authStore.accessToken = 'test-token'
+        mocks.notificationApi.openStream.mockImplementation((token: string, signal: AbortSignal) => {
+            return fetch('/api/v1/notifications/stream', {
+                method: 'GET',
+                headers: {
+                    Accept: 'text/event-stream',
+                    Authorization: `Bearer ${token}`,
+                },
+                cache: 'no-store',
+                credentials: 'same-origin',
+                signal,
+            })
+        })
         localStorage.clear()
     })
 
@@ -190,6 +203,7 @@ describe('useNotification', () => {
         connectToSse()
 
         expect(fetchMock).not.toHaveBeenCalled()
+        expect(mocks.notificationApi.openStream).not.toHaveBeenCalled()
     })
 
     it('applies incoming notification to first page and increments unread count', async () => {
@@ -233,6 +247,7 @@ describe('useNotification', () => {
         await Promise.resolve()
         closeSse()
 
+        expect(mocks.notificationApi.openStream).toHaveBeenCalledWith('test-token', expect.any(AbortSignal))
         expect((firstPage.content as Array<{ notificationId: number; isRead: boolean }>)[0]).toEqual({
             notificationId: 1,
             isRead: false,

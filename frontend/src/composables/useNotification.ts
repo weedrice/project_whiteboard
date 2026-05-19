@@ -235,16 +235,7 @@ export function useNotification() {
 
     const startStream = async (token: string, controller: AbortController) => {
         try {
-            const response = await fetch('/api/v1/notifications/stream', {
-                method: 'GET',
-                headers: {
-                    Accept: 'text/event-stream',
-                    Authorization: `Bearer ${token}`,
-                },
-                cache: 'no-store',
-                credentials: 'same-origin',
-                signal: controller.signal,
-            })
+            const response = await notificationApi.openStream(token, controller.signal)
 
             if (!response.ok) {
                 throw new Error(`SSE stream request failed: ${response.status}`)
