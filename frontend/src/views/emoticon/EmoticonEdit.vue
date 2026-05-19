@@ -12,13 +12,12 @@ import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import type { EmoticonImage } from '@/types/emoticon'
 import { extractErrorMessage } from '@/utils/errorHandler'
+import { useEmoticonImageSelection } from '@/composables/useEmoticonImageSelection'
 import {
-  createEmoticonImagePreview,
   createUploadableEmoticonImageFile,
   resolveEmoticonTagAddition,
   revokeEmoticonPreviewUrl,
   SUPPORTED_EMOTICON_IMAGE_ACCEPT,
-  validateEmoticonImageFile,
   type EmoticonImagePreview
 } from '@/utils/emoticonImage'
 
@@ -28,6 +27,7 @@ const router = useRouter()
 const toastStore = useToastStore()
 const authStore = useAuthStore()
 const queryClient = useQueryClient()
+const { selectThumbnailImage, selectEmoticonImages } = useEmoticonImageSelection(t, toastStore)
 
 const emoticonId = computed(() => Number(route.params.emoticonId))
 
@@ -57,10 +57,31 @@ const tagInput = ref('')
 const tags = ref<string[]>([])
 const isSubmitting = ref(false)
 const uploadProgress = ref({ current: 0, total: 0 })
+const uploadControllers = new Set<AbortController>()
+let isComponentUnmounted = false
 
 // 파일 입력 refs
 const thumbnailInput = ref<HTMLInputElement | null>(null)
 const emoticonInput = ref<HTMLInputElement | null>(null)
+
+const createUploadCancelledError = () => new DOMException('Upload has been cancelled', 'AbortError')
+
+const assertSubmitActive = () => {
+  if (isComponentUnmounted) {
+    throw createUploadCancelledError()
+  }
+}
+
+const abortPendingUploads = () => {
+  uploadControllers.forEach((controller) => controller.abort())
+  uploadControllers.clear()
+}
+
+const createUploadController = () => {
+  const controller = new AbortController()
+  uploadControllers.add(controller)
+  return controller
+}
 
 // 권한 체크
 const isOwner = computed(() => {
@@ -122,6 +143,8 @@ const handleToggleVisibility = () => {
 const SUPPORTED_IMAGE_ACCEPT = SUPPORTED_EMOTICON_IMAGE_ACCEPT
 
 onUnmounted(() => {
+  isComponentUnmounted = true
+  abortPendingUploads()
   revokeEmoticonPreviewUrl(thumbnailPreview.value)
   newEmoticonPreviews.value.forEach((item) => {
     revokeEmoticonPreviewUrl(item.preview)
@@ -134,36 +157,12 @@ const handleThumbnailSelect = async (event: Event) => {
   const file = input.files?.[0]
   if (!file) return
 
-  const validationError = validateEmoticonImageFile(file, { nonImageReason: 'imageOnly' })
-  if (validationError === 'imageOnly') {
-    toastStore.addToast(t('emoticon.validation.imageOnly'), 'error')
-    return
-  }
-  if (validationError === 'notImage') {
-    toastStore.addToast(t('emoticon.validation.notImage', { name: file.name }), 'error')
-    return
-  }
-  if (validationError === 'gifSizeExceeded') {
-    toastStore.addToast(t('emoticon.validation.fileSizeExceeded'), 'error')
-    return
-  }
-
-  const previewResult = await createEmoticonImagePreview(file)
-  if (!previewResult.ok) {
-    if (previewResult.reason === 'sizeExceeded') {
-      toastStore.addToast(t('emoticon.validation.imageSizeExceeded', {
-        width: previewResult.width,
-        height: previewResult.height
-      }), 'error')
-    } else {
-      toastStore.addToast(t('emoticon.validation.imageLoadFailed'), 'error')
-    }
-    return
-  }
+  const selectedThumbnail = await selectThumbnailImage(file)
+  if (!selectedThumbnail) return
 
   revokeEmoticonPreviewUrl(thumbnailPreview.value)
   thumbnailFile.value = file
-  thumbnailPreview.value = previewResult.item.preview
+  thumbnailPreview.value = selectedThumbnail.preview
 }
 
 // 썸네일 변경 (변경할 수 있도록)
@@ -179,40 +178,8 @@ const handleEmoticonSelect = async (event: Event) => {
 
   const currentCount = existingImages.value.filter(img => !imagesToDelete.value.includes(img.imageId)).length + newEmoticonPreviews.value.length
   const remainingSlots = 100 - currentCount
-  if (remainingSlots <= 0) {
-    toastStore.addToast(t('emoticon.validation.maxImages'), 'error')
-    return
-  }
-
-  const filesToAdd = Array.from(files).slice(0, remainingSlots)
-
-  for (const file of filesToAdd) {
-    const validationError = validateEmoticonImageFile(file)
-    if (validationError === 'notImage' || validationError === 'imageOnly') {
-      toastStore.addToast(t('emoticon.validation.notImage', { name: file.name }), 'error')
-      continue
-    }
-    if (validationError === 'gifSizeExceeded') {
-      toastStore.addToast(t('emoticon.validation.fileSizeExceededNamed', { name: file.name }), 'error')
-      continue
-    }
-
-    const previewResult = await createEmoticonImagePreview(file)
-    if (!previewResult.ok) {
-      if (previewResult.reason === 'sizeExceeded') {
-        toastStore.addToast(t('emoticon.validation.imageSizeExceededNamed', {
-          name: file.name,
-          width: previewResult.width,
-          height: previewResult.height
-        }), 'error')
-      } else {
-        toastStore.addToast(t('emoticon.validation.loadFailedNamed', { name: file.name }), 'error')
-      }
-      continue
-    }
-
-    newEmoticonPreviews.value.push(previewResult.item)
-  }
+  const selectedImages = await selectEmoticonImages(files, remainingSlots)
+  newEmoticonPreviews.value.push(...selectedImages)
 
   // 입력 초기화
   if (emoticonInput.value) {
@@ -280,48 +247,96 @@ const handleSubmit = async () => {
   isSubmitting.value = true
 
   try {
+    const submitSnapshot = {
+      thumbnail: thumbnailFile.value,
+      imagesToDelete: [...imagesToDelete.value],
+      newPreviews: [...newEmoticonPreviews.value],
+      name: emoticonName.value.trim(),
+      tags: [...tags.value],
+    }
+    const uploadFiles = submitSnapshot.newPreviews.length > 0
+      ? await Promise.all(submitSnapshot.newPreviews.map((item) => createUploadableEmoticonImageFile(item)))
+      : []
+    assertSubmitActive()
+
     // 1. 썸네일 업로드 (변경된 경우에만)
     let thumbnailFileId: number | undefined
-    if (thumbnailFile.value) {
-      const thumbnailResponse = await fileApi.uploadFile(thumbnailFile.value)
-      thumbnailFileId = thumbnailResponse.data.data.fileId
+    if (submitSnapshot.thumbnail) {
+      const controller = createUploadController()
+
+      try {
+        const thumbnailResponse = await fileApi.uploadFile(submitSnapshot.thumbnail, { signal: controller.signal })
+        assertSubmitActive()
+        thumbnailFileId = thumbnailResponse.data.data.fileId
+      } finally {
+        uploadControllers.delete(controller)
+      }
     }
 
     // 2. 기존 이미지 삭제 처리
-    for (const imageId of imagesToDelete.value) {
+    for (const imageId of submitSnapshot.imagesToDelete) {
       await emoticonApi.deleteImage(imageId)
+      assertSubmitActive()
     }
 
     // 3. 새 이미지 업로드 및 추가
-    if (newEmoticonPreviews.value.length > 0) {
-      uploadProgress.value = { current: 0, total: newEmoticonPreviews.value.length }
+    if (uploadFiles.length > 0) {
+      uploadProgress.value = { current: 0, total: uploadFiles.length }
 
-      for (let i = 0; i < newEmoticonPreviews.value.length; i++) {
-        const item = newEmoticonPreviews.value[i]
+      let uploadFailed = false
 
-        // 저장된 크기 정보 사용 (이미지 재로드 불필요)
-        // GIF는 리사이징 시 애니메이션 손실 → 원본 그대로 업로드
-        const uploadFile = await createUploadableEmoticonImageFile(item)
+      const imageFileIds = await (async () => {
+        try {
+          let completed = 0
 
-        const response = await fileApi.uploadFile(uploadFile)
-        await emoticonApi.addImage(emoticonId.value, response.data.data.fileId)
+          return await Promise.all(
+            uploadFiles.map(async (uploadFile) => {
+              if (uploadFailed) {
+                throw createUploadCancelledError()
+              }
 
-        // 진행 상태 업데이트
-        uploadProgress.value.current = i + 1
+              assertSubmitActive()
+              const controller = createUploadController()
 
-        // UI가 블로킹되지 않도록 작은 딜레이 추가 (마지막 항목 제외)
-        if (i < newEmoticonPreviews.value.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 20))
+              try {
+                const response = await fileApi.uploadFile(uploadFile, { signal: controller.signal })
+                assertSubmitActive()
+                completed += 1
+                if (!isComponentUnmounted) {
+                  uploadProgress.value.current = completed
+                }
+                return response.data.data.fileId
+              } catch (error) {
+                uploadFailed = true
+                abortPendingUploads()
+                throw error
+              } finally {
+                uploadControllers.delete(controller)
+              }
+            })
+          )
+        } catch (error) {
+          uploadFailed = true
+          abortPendingUploads()
+          throw error
         }
+      })()
+
+      for (const fileId of imageFileIds) {
+        assertSubmitActive()
+        await emoticonApi.addImage(emoticonId.value, fileId)
+        assertSubmitActive()
       }
     }
 
     // 4. 이모티콘 정보 수정 (이름, 썸네일, 태그)
+    assertSubmitActive()
     await emoticonApi.updateEmoticon(emoticonId.value, {
-      name: emoticonName.value.trim(),
+      name: submitSnapshot.name,
       thumbnailFileId,
-      tags: tags.value
+      tags: submitSnapshot.tags
     })
+    assertSubmitActive()
 
     // 캐시 무효화
     queryClient.invalidateQueries({ queryKey: ['emoticon', emoticonId] })
@@ -330,11 +345,15 @@ const handleSubmit = async () => {
     toastStore.addToast(t('emoticon.edit.updated'), 'success')
     router.push({ name: 'emoticon-detail', params: { emoticonId: emoticonId.value } })
   } catch (error: unknown) {
-    const message = extractErrorMessage(error) || t('emoticon.edit.failed')
-    toastStore.addToast(message, 'error')
+    if (!isComponentUnmounted) {
+      const message = extractErrorMessage(error) || t('emoticon.edit.failed')
+      toastStore.addToast(message, 'error')
+    }
   } finally {
-    isSubmitting.value = false
-    uploadProgress.value = { current: 0, total: 0 }
+    if (!isComponentUnmounted) {
+      isSubmitting.value = false
+      uploadProgress.value = { current: 0, total: 0 }
+    }
   }
 }
 

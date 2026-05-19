@@ -186,6 +186,7 @@ onMounted(() => {
 
 onUnmounted(() => {
     window.removeEventListener('resize', throttledUpdateUnderline)
+    throttledUpdateUnderline.cancel()
     document.removeEventListener('keydown', handleDocumentKeyDown)
 })
 
