@@ -157,19 +157,11 @@ public class CommentCommandService {
 
     @Transactional
     public Long updateComment(Long userId, Long commentId, String content) {
-        Comment comment = commentRepository.findByIdWithRelationsForUpdate(commentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+        Comment comment = loadCommentForUpdate(commentId);
         User user = userWritableResolver.resolve(userId);
         sanctionService.validateNotMuted(user);
-        validatePostReadable(comment.getPost(), user);
-
-        if (comment.getIsDeleted()) {
-            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
-        }
-
-        if (!comment.getUser().getUserId().equals(userId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
+        validateReadableActiveComment(comment, user);
+        validateCommentOwner(comment, userId);
 
         String originalContent = comment.getContent();
         String sanitizedContent = sanitizeCommentContent(content);
@@ -181,18 +173,10 @@ public class CommentCommandService {
 
     @Transactional
     public void deleteComment(Long userId, Long commentId) {
-        Comment comment = commentRepository.findByIdWithRelationsForUpdate(commentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+        Comment comment = loadCommentForUpdate(commentId);
         User user = userWritableResolver.resolve(userId);
-        validatePostReadable(comment.getPost(), user);
-
-        if (comment.getIsDeleted()) {
-            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
-        }
-
-        if (!comment.getUser().getUserId().equals(userId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
+        validateReadableActiveComment(comment, user);
+        validateCommentOwner(comment, userId);
 
         String originalContent = comment.getContent();
         comment.deleteComment();
@@ -217,13 +201,7 @@ public class CommentCommandService {
     @Transactional
     public void likeComment(Long userId, Long commentId) {
         User user = userWritableResolver.resolve(userId);
-        Comment comment = commentRepository.findById(commentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
-        validatePostReadable(comment.getPost(), user);
-
-        if (comment.getIsDeleted()) {
-            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
-        }
+        Comment comment = loadReadableActiveCommentForReaction(commentId, user);
 
         CommentLike commentLike = CommentLike.builder()
                 .user(user)
@@ -239,13 +217,7 @@ public class CommentCommandService {
     @Transactional
     public void unlikeComment(Long userId, Long commentId) {
         User user = userWritableResolver.resolve(userId);
-        Comment comment = commentRepository.findById(commentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
-        validatePostReadable(comment.getPost(), user);
-
-        if (comment.getIsDeleted()) {
-            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
-        }
+        loadReadableActiveCommentForReaction(commentId, user);
 
         int deletedCount = commentLikeRepository.deleteByUserIdAndCommentId(userId, commentId);
         if (deletedCount == 0) {
@@ -264,6 +236,31 @@ public class CommentCommandService {
     private void decrementCommentLikeCount(Long commentId) {
         if (commentRepository.decrementLikeCount(commentId) == 0) {
             throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
+        }
+    }
+
+    private Comment loadCommentForUpdate(Long commentId) {
+        return commentRepository.findByIdWithRelationsForUpdate(commentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+    }
+
+    private Comment loadReadableActiveCommentForReaction(Long commentId, User user) {
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+        validateReadableActiveComment(comment, user);
+        return comment;
+    }
+
+    private void validateReadableActiveComment(Comment comment, User user) {
+        validatePostReadable(comment.getPost(), user);
+        if (comment.getIsDeleted()) {
+            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
+        }
+    }
+
+    private void validateCommentOwner(Comment comment, Long userId) {
+        if (!comment.getUser().getUserId().equals(userId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }
 
