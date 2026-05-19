@@ -62,6 +62,16 @@ const baseCheckboxStub = {
     template: '<input type="checkbox" />',
 }
 
+function deferred<T>() {
+    let resolve!: (value: T) => void
+    let reject!: (reason?: unknown) => void
+    const promise = new Promise<T>((res, rej) => {
+        resolve = res
+        reject = rej
+    })
+    return { promise, resolve, reject }
+}
+
 describe('MyMessages', () => {
     beforeEach(() => {
         vi.clearAllMocks()
@@ -124,6 +134,86 @@ describe('MyMessages', () => {
         expect(messageApi.markAsRead).toHaveBeenCalledWith(5, { skipGlobalErrorHandler: true })
         expect(messageApi.getMessage.mock.invocationCallOrder[0]).toBeLessThan(messageApi.markAsRead.mock.invocationCallOrder[0])
         expect(listedMessage.isRead).toBe(true)
+    })
+
+    it('ignores stale detail responses when another message is selected first', async () => {
+        const firstMessage = {
+            messageId: 1,
+            content: 'first listed',
+            partner: { userId: 2, displayName: 'First User' },
+            isRead: true,
+            createdAt: '2026-04-16T11:00:00',
+        }
+        const secondMessage = {
+            messageId: 2,
+            content: 'second listed',
+            partner: { userId: 3, displayName: 'Second User' },
+            isRead: true,
+            createdAt: '2026-04-16T12:00:00',
+        }
+        const firstDetail = deferred<{
+            data: { success: boolean; data: typeof firstMessage }
+        }>()
+        const secondDetail = deferred<{
+            data: { success: boolean; data: typeof secondMessage }
+        }>()
+
+        messageApi.getReceivedMessages.mockResolvedValue({
+            data: {
+                success: true,
+                data: {
+                    content: [firstMessage, secondMessage],
+                    totalPages: 1,
+                }
+            }
+        })
+        messageApi.getMessage.mockImplementation((messageId: number) => {
+            return messageId === 1 ? firstDetail.promise : secondDetail.promise
+        })
+
+        const wrapper = mount(MyMessages, {
+            global: {
+                mocks: {
+                    $t: (key: string) => key,
+                },
+                stubs: {
+                    BaseModal: baseModalStub,
+                    BaseButton: true,
+                    BaseCheckbox: baseCheckboxStub,
+                    BaseTextarea: true,
+                    BaseSkeleton: true,
+                    EmptyState: true,
+                    Pagination: true,
+                    PageSizeSelector: true,
+                    Mail: true,
+                }
+            }
+        })
+
+        await flushPromises()
+
+        const messages = wrapper.findAll('li')
+        await messages[0].trigger('click')
+        await messages[1].trigger('click')
+
+        secondDetail.resolve({
+            data: {
+                success: true,
+                data: { ...secondMessage, content: 'second detail' },
+            }
+        })
+        await flushPromises()
+
+        firstDetail.resolve({
+            data: {
+                success: true,
+                data: { ...firstMessage, content: 'first stale detail' },
+            }
+        })
+        await flushPromises()
+
+        expect(wrapper.text()).toContain('second detail')
+        expect(wrapper.text()).not.toContain('first stale detail')
     })
 
     it('closes stale message detail and refreshes the list when detail lookup returns not found', async () => {
