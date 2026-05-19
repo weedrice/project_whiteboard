@@ -67,6 +67,25 @@ describe('MyMessages', () => {
         vi.clearAllMocks()
     })
 
+    const mountMyMessages = () => mount(MyMessages, {
+        global: {
+            mocks: {
+                $t: (key: string) => key,
+            },
+            stubs: {
+                BaseModal: baseModalStub,
+                BaseButton: true,
+                BaseCheckbox: baseCheckboxStub,
+                BaseTextarea: true,
+                BaseSkeleton: true,
+                EmptyState: true,
+                Pagination: true,
+                PageSizeSelector: true,
+                Mail: true,
+            }
+        }
+    })
+
     it('loads message detail and then calls read endpoint for unread received messages', async () => {
         const listedMessage = {
             messageId: 5,
@@ -95,24 +114,7 @@ describe('MyMessages', () => {
             data: { success: true }
         })
 
-        const wrapper = mount(MyMessages, {
-            global: {
-                mocks: {
-                    $t: (key: string) => key,
-                },
-                stubs: {
-                    BaseModal: baseModalStub,
-                    BaseButton: true,
-                    BaseCheckbox: baseCheckboxStub,
-                    BaseTextarea: true,
-                    BaseSkeleton: true,
-                    EmptyState: true,
-                    Pagination: true,
-                    PageSizeSelector: true,
-                    Mail: true,
-                }
-            }
-        })
+        const wrapper = mountMyMessages()
 
         await flushPromises()
         await wrapper.find('li').trigger('click')
@@ -158,24 +160,7 @@ describe('MyMessages', () => {
             message: 'not found',
         })
 
-        const wrapper = mount(MyMessages, {
-            global: {
-                mocks: {
-                    $t: (key: string) => key,
-                },
-                stubs: {
-                    BaseModal: baseModalStub,
-                    BaseButton: true,
-                    BaseCheckbox: baseCheckboxStub,
-                    BaseTextarea: true,
-                    BaseSkeleton: true,
-                    EmptyState: true,
-                    Pagination: true,
-                    PageSizeSelector: true,
-                    Mail: true,
-                }
-            }
-        })
+        const wrapper = mountMyMessages()
 
         await flushPromises()
         await wrapper.find('li').trigger('click')
@@ -227,24 +212,7 @@ describe('MyMessages', () => {
             message: 'not found',
         })
 
-        const wrapper = mount(MyMessages, {
-            global: {
-                mocks: {
-                    $t: (key: string) => key,
-                },
-                stubs: {
-                    BaseModal: baseModalStub,
-                    BaseButton: true,
-                    BaseCheckbox: baseCheckboxStub,
-                    BaseTextarea: true,
-                    BaseSkeleton: true,
-                    EmptyState: true,
-                    Pagination: true,
-                    PageSizeSelector: true,
-                    Mail: true,
-                }
-            }
-        })
+        const wrapper = mountMyMessages()
 
         await flushPromises()
         await wrapper.find('li').trigger('click')
@@ -255,5 +223,128 @@ describe('MyMessages', () => {
         expect(messageApi.markAsRead).toHaveBeenCalledWith(5, { skipGlobalErrorHandler: true })
         expect(wrapper.findAllComponents(baseModalStub)[0]?.props('isOpen')).toBe(false)
         expect(addToast).toHaveBeenCalledWith('common.messages.notFound', 'info')
+    })
+
+    it('ignores stale detail responses after another message is selected', async () => {
+        const firstMessage = {
+            messageId: 5,
+            content: 'first summary',
+            partner: { userId: 2, displayName: 'First' },
+            isRead: false,
+            createdAt: '2026-04-16T11:00:00',
+        }
+        const secondMessage = {
+            messageId: 6,
+            content: 'second summary',
+            partner: { userId: 3, displayName: 'Second' },
+            isRead: false,
+            createdAt: '2026-04-16T11:05:00',
+        }
+        const resolvers = new Map<number, (value: unknown) => void>()
+
+        messageApi.getReceivedMessages.mockResolvedValue({
+            data: {
+                success: true,
+                data: {
+                    content: [firstMessage, secondMessage],
+                    totalPages: 1,
+                }
+            }
+        })
+        messageApi.getMessage.mockImplementation((messageId: number) => new Promise((resolve) => {
+            resolvers.set(messageId, resolve)
+        }))
+        messageApi.markAsRead.mockResolvedValue({
+            data: { success: true }
+        })
+
+        const wrapper = mountMyMessages()
+
+        await flushPromises()
+        await wrapper.findAll('li')[0].trigger('click')
+        await wrapper.findAll('li')[1].trigger('click')
+
+        resolvers.get(6)?.({
+            data: {
+                success: true,
+                data: { ...secondMessage, content: 'second detail' }
+            }
+        })
+        await flushPromises()
+
+        resolvers.get(5)?.({
+            data: {
+                success: true,
+                data: { ...firstMessage, content: 'first stale detail' }
+            }
+        })
+        await flushPromises()
+
+        expect(wrapper.text()).toContain('second detail')
+        expect(wrapper.text()).not.toContain('first stale detail')
+        expect(messageApi.markAsRead).toHaveBeenCalledTimes(1)
+        expect(messageApi.markAsRead).toHaveBeenCalledWith(6, { skipGlobalErrorHandler: true })
+        expect(firstMessage.isRead).toBe(false)
+        expect(secondMessage.isRead).toBe(true)
+    })
+
+    it('keeps the list read state when read completion is stale for the modal', async () => {
+        const firstMessage = {
+            messageId: 5,
+            content: 'first summary',
+            partner: { userId: 2, displayName: 'First' },
+            isRead: false,
+            createdAt: '2026-04-16T11:00:00',
+        }
+        const secondMessage = {
+            messageId: 6,
+            content: 'second summary',
+            partner: { userId: 3, displayName: 'Second' },
+            isRead: false,
+            createdAt: '2026-04-16T11:05:00',
+        }
+        let resolveFirstRead: ((value: unknown) => void) | undefined
+
+        messageApi.getReceivedMessages.mockResolvedValue({
+            data: {
+                success: true,
+                data: {
+                    content: [firstMessage, secondMessage],
+                    totalPages: 1,
+                }
+            }
+        })
+        messageApi.getMessage.mockImplementation((messageId: number) => Promise.resolve({
+            data: {
+                success: true,
+                data: {
+                    ...(messageId === 5 ? firstMessage : secondMessage),
+                    content: messageId === 5 ? 'first detail' : 'second detail'
+                }
+            }
+        }))
+        messageApi.markAsRead.mockImplementation((messageId: number) => {
+            if (messageId === 5) {
+                return new Promise((resolve) => {
+                    resolveFirstRead = resolve
+                })
+            }
+            return Promise.resolve({ data: { success: true } })
+        })
+
+        const wrapper = mountMyMessages()
+
+        await flushPromises()
+        await wrapper.findAll('li')[0].trigger('click')
+        await flushPromises()
+        await wrapper.findAll('li')[1].trigger('click')
+        await flushPromises()
+
+        resolveFirstRead?.({ data: { success: true } })
+        await flushPromises()
+
+        expect(firstMessage.isRead).toBe(true)
+        expect(wrapper.text()).toContain('second detail')
+        expect(wrapper.text()).not.toContain('first detail')
     })
 })
