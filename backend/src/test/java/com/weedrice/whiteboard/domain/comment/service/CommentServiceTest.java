@@ -22,6 +22,7 @@ import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
+import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
@@ -102,6 +103,8 @@ class CommentServiceTest {
     private AgentOwnershipService agentOwnershipService;
     @Mock
     private SanctionService sanctionService;
+    @Mock
+    private SemanticSearchEventPublisher semanticSearchEventPublisher;
 
     @BeforeEach
     void setUp() {
@@ -136,7 +139,8 @@ class CommentServiceTest {
                 commentPostAccessService,
                 contentRewardService,
                 commentNotificationService,
-                reactionWriter);
+                reactionWriter,
+                semanticSearchEventPublisher);
         commentService = new CommentService(commentQueryService, commentCommandService);
     }
 

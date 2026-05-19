@@ -31,6 +31,7 @@ import com.weedrice.whiteboard.domain.post.service.PostLatestReadService;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
+import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -112,6 +113,8 @@ class BoardServiceTest {
     private BoardManagerAssignmentService boardManagerAssignmentService;
     @Mock
     private SanctionService sanctionService;
+    @Mock
+    private SemanticSearchEventPublisher semanticSearchEventPublisher;
     private BoardResponseReadService boardResponseReadService;
     private BoardResponseAssembler boardResponseAssembler;
 
@@ -162,7 +165,8 @@ class BoardServiceTest {
                 boardCreationBillingService,
                 boardCreationInitializer,
                 boardAiInfoService,
-                boardAccessPolicy);
+                boardAccessPolicy,
+                semanticSearchEventPublisher);
         BoardSubscriptionService subscriptionService = new BoardSubscriptionService(
                 boardRepository,
                 boardSubscriptionRepository,

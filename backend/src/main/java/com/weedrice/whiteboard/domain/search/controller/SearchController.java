@@ -5,6 +5,8 @@ import com.weedrice.whiteboard.domain.search.dto.IntegratedSearchResponse;
 import com.weedrice.whiteboard.domain.search.dto.PopularKeywordDto;
 import com.weedrice.whiteboard.domain.search.dto.PopularKeywordResponse;
 import com.weedrice.whiteboard.domain.search.dto.SearchPersonalizationResponse;
+import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchResultResponse;
+import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchService;
 import com.weedrice.whiteboard.domain.search.service.SearchService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
@@ -24,6 +26,7 @@ import java.util.List;
 public class SearchController {
 
     private final SearchService searchService;
+    private final SemanticSearchService semanticSearchService;
 
     @GetMapping
     public ApiResponse<IntegratedSearchResponse> integratedSearch(
@@ -48,6 +51,21 @@ public class SearchController {
         Long userId = (userDetails != null) ? userDetails.getUserId() : null;
         Page<PostSummary> response = searchService.searchPosts(q, searchType, boardUrl, page, size, sort, userId);
 
+        return ApiResponse.success(new PageResponse<>(response));
+    }
+
+    @GetMapping("/semantic")
+    public ApiResponse<PageResponse<SemanticSearchResultResponse>> semanticSearch(
+            @RequestParam String q,
+            @RequestParam(defaultValue = "ALL") String contentType,
+            @RequestParam(required = false) String boardUrl,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        Long userId = (userDetails != null) ? userDetails.getUserId() : null;
+        Page<SemanticSearchResultResponse> response = semanticSearchService.search(
+                q, contentType, boardUrl, page, size, userId);
         return ApiResponse.success(new PageResponse<>(response));
     }
 

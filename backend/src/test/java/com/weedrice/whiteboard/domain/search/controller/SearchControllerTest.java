@@ -4,6 +4,8 @@ import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.search.dto.IntegratedSearchResponse;
 import com.weedrice.whiteboard.domain.search.dto.PopularKeywordDto;
 import com.weedrice.whiteboard.domain.search.dto.SearchPersonalizationResponse;
+import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchResultResponse;
+import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchService;
 import com.weedrice.whiteboard.domain.search.service.SearchService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -72,6 +74,9 @@ class SearchControllerTest {
 
     @MockitoBean
     private SearchService searchService;
+
+    @MockitoBean
+    private SemanticSearchService semanticSearchService;
 
     @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -221,6 +226,35 @@ class SearchControllerTest {
                 .andExpect(jsonPath("$.data.content").isArray());
 
         verify(searchService).searchPosts(eq(query), any(), any(), eq(0), eq(10), any(Sort.class), eq(1L));
+    }
+
+    @Test
+    @DisplayName("semantic search delegates request to semantic service")
+    void semanticSearch_authenticated() throws Exception {
+        String query = "semantic";
+        Page<SemanticSearchResultResponse> page = new PageImpl<>(
+                List.of(SemanticSearchResultResponse.builder()
+                        .contentType("POST")
+                        .contentId(1L)
+                        .rankSource("VECTOR")
+                        .build()),
+                PageRequest.of(0, 10),
+                1);
+        when(semanticSearchService.search(eq(query), eq("POST"), eq("free"), eq(0), eq(10), eq(1L)))
+                .thenReturn(page);
+
+        mockMvc.perform(get("/api/v1/search/semantic")
+                        .param("q", query)
+                        .param("contentType", "POST")
+                        .param("boardUrl", "free")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .with(user(customUserDetails)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content[0].rankSource").value("VECTOR"));
+
+        verify(semanticSearchService).search(query, "POST", "free", 0, 10, 1L);
     }
 
     @Test

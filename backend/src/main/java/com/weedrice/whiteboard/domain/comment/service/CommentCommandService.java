@@ -14,6 +14,8 @@ import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
+import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
+import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchIndexAction;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.common.service.ReactionWriter;
@@ -45,6 +47,7 @@ public class CommentCommandService {
     private final ContentRewardService contentRewardService;
     private final CommentNotificationService commentNotificationService;
     private final ReactionWriter reactionWriter;
+    private final SemanticSearchEventPublisher semanticSearchEventPublisher;
 
     @Transactional
     public Long createComment(Long userId, Long postId, Long parentId, String content) {
@@ -126,6 +129,7 @@ public class CommentCommandService {
         } else {
             commentNotificationService.publishCreateNotification(user, agent, post, postId);
         }
+        semanticSearchEventPublisher.publish("COMMENT", savedComment.getCommentId(), SemanticSearchIndexAction.UPSERT);
 
         return savedComment.getCommentId();
     }
@@ -168,6 +172,7 @@ public class CommentCommandService {
         comment.updateContent(sanitizedContent);
 
         saveCommentVersion(comment, user, "MODIFY", originalContent);
+        semanticSearchEventPublisher.publish("COMMENT", comment.getCommentId(), SemanticSearchIndexAction.UPSERT);
         return comment.getCommentId();
     }
 
@@ -184,6 +189,7 @@ public class CommentCommandService {
 
         saveCommentVersion(comment, user, "DELETE", originalContent);
         contentRewardService.rollbackCreateReward(user, commentId, ContentRewardPolicy.COMMENT);
+        semanticSearchEventPublisher.publish("COMMENT", comment.getCommentId(), SemanticSearchIndexAction.DELETE);
     }
 
     private void incrementPostCommentCount(Long postId) {

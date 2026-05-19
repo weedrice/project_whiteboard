@@ -20,6 +20,8 @@ import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostVersionRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
+import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
+import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchIndexAction;
 import com.weedrice.whiteboard.domain.tag.service.TagAssignmentService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
@@ -54,6 +56,7 @@ public class PostCommandService {
     private final SanctionService sanctionService;
     private final BoardAccessPolicy boardAccessPolicy;
     private final PostAuthorCommandPolicy postAuthorCommandPolicy;
+    private final SemanticSearchEventPublisher semanticSearchEventPublisher;
 
     @Transactional
     public Long createPost(@NonNull Long userId, String boardUrl, PostCreateRequest request) {
@@ -137,6 +140,7 @@ public class PostCommandService {
 
         contentRewardService.rewardCreate(userId, savedPost.getPostId(), ContentRewardPolicy.POST);
         eventPublisher.publishEvent(new PostPublishedEvent(savedPost.getPostId(), board.getBoardId()));
+        semanticSearchEventPublisher.publish("POST", savedPost.getPostId(), SemanticSearchIndexAction.UPSERT);
         return savedPost;
     }
 
@@ -233,6 +237,10 @@ public class PostCommandService {
         deletePublishedDraftIfOwned(request.getDraftId(), modifier);
 
         savePostVersion(post, modifier, "MODIFY", originalTitle, originalContents);
+        semanticSearchEventPublisher.publish("POST", post.getPostId(), SemanticSearchIndexAction.UPSERT);
+        if (!Objects.equals(originalTitle, post.getTitle())) {
+            semanticSearchEventPublisher.publishPostCommentsReindex(post.getPostId());
+        }
 
         return post.getPostId();
     }
@@ -251,6 +259,7 @@ public class PostCommandService {
         fileService.markPostContentFilesDeletionPending(post.getPostId());
 
         contentRewardService.rollbackCreateReward(modifier, postId, ContentRewardPolicy.POST);
+        semanticSearchEventPublisher.publish("POST", post.getPostId(), SemanticSearchIndexAction.DELETE);
     }
 
     private BoardCategory findActiveCategory(Board board, Long categoryId) {

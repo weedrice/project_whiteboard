@@ -27,6 +27,7 @@ import com.weedrice.whiteboard.domain.post.dto.*;
 import com.weedrice.whiteboard.domain.post.entity.*;
 import com.weedrice.whiteboard.domain.post.repository.*;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
+import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
 import com.weedrice.whiteboard.domain.search.service.SearchRecordEventPublisher;
 import com.weedrice.whiteboard.domain.tag.service.TagAssignmentService;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -118,6 +119,8 @@ class PostServiceTest {
     private EntityManager entityManager;
     @Mock
     private SearchRecordEventPublisher searchRecordEventPublisher;
+    @Mock
+    private SemanticSearchEventPublisher semanticSearchEventPublisher;
     private BoardAccessPolicy boardAccessPolicy;
     private PostAccessPolicy postAccessPolicy;
     private PostSummaryAssembler postSummaryAssembler;
@@ -232,7 +235,8 @@ class PostServiceTest {
                 userWritableResolver,
                 sanctionService,
                 boardAccessPolicy,
-                postAuthorCommandPolicy);
+                postAuthorCommandPolicy,
+                semanticSearchEventPublisher);
         PostFacadeReadService postFacadeReadService = new PostFacadeReadService(
                 postRepository,
                 postVersionRepository,

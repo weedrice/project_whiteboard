@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
+import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -48,6 +49,7 @@ class BoardProvisioningService {
     private final BoardCreationInitializer boardCreationInitializer;
     private final BoardAiInfoService boardAiInfoService;
     private final BoardAccessPolicy boardAccessPolicy;
+    private final SemanticSearchEventPublisher semanticSearchEventPublisher;
 
     BoardProvisioningService(BoardRepository boardRepository,
                              BoardCategoryRepository boardCategoryRepository,
@@ -59,7 +61,8 @@ class BoardProvisioningService {
                              BoardCreationBillingService boardCreationBillingService,
                              BoardCreationInitializer boardCreationInitializer,
                              BoardAiInfoService boardAiInfoService,
-                             BoardAccessPolicy boardAccessPolicy) {
+                             BoardAccessPolicy boardAccessPolicy,
+                             SemanticSearchEventPublisher semanticSearchEventPublisher) {
         this.boardRepository = boardRepository;
         this.boardCategoryRepository = boardCategoryRepository;
         this.boardSubscriptionRepository = boardSubscriptionRepository;
@@ -71,6 +74,7 @@ class BoardProvisioningService {
         this.boardCreationInitializer = boardCreationInitializer;
         this.boardAiInfoService = boardAiInfoService;
         this.boardAccessPolicy = boardAccessPolicy;
+        this.semanticSearchEventPublisher = semanticSearchEventPublisher;
     }
 
     void ensureInquiryBoard(Long userId, String requestedBoardUrl) {
@@ -141,6 +145,7 @@ class BoardProvisioningService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         User currentUser = getCurrentUser(userId);
         String previousIconUrl = board.getIconUrl();
+        String previousBoardName = board.getBoardName();
         String iconUrl = normalizeIconUrl(request.getIconUrl());
 
         boardAccessPolicy.validateBoardAdmin(board, currentUser);
@@ -177,6 +182,9 @@ class BoardProvisioningService {
         }
         boardIconAttachmentService.syncBoardIcon(currentUser.getUserId(), board, previousIconUrl);
         boardAiInfoService.upsertBoardAiInfoIfEnabled(board, request.getGuidePrompt(), false);
+        if (!Objects.equals(previousBoardName, board.getBoardName())) {
+            semanticSearchEventPublisher.publishBoardContentReindex(board.getBoardId());
+        }
         return board;
     }
 
