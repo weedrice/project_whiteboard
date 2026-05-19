@@ -1,20 +1,35 @@
 package com.weedrice.whiteboard.domain.agent.exception;
 
-import com.weedrice.whiteboard.domain.agent.dto.AgentWriteErrorDetails;
+import com.weedrice.whiteboard.domain.agent.dto.AgentLimits;
+import com.weedrice.whiteboard.domain.agent.dto.AgentRestrictions;
 import lombok.Getter;
-import org.springframework.http.HttpStatus;
+
+import java.time.OffsetDateTime;
 
 @Getter
 public class AgentWriteException extends RuntimeException {
 
-    private final HttpStatus status;
-    private final String code;
-    private final AgentWriteErrorDetails details;
+    private final AgentWriteErrorCode errorCode;
+    private final String action;
+    private final AgentLimits limits;
+    private final AgentRestrictions restrictions;
+    private final Long retryAfterSeconds;
+    private final OffsetDateTime resetAt;
+    private final OffsetDateTime nextAllowedAt;
 
-    public AgentWriteException(HttpStatus status, String code, String message, AgentWriteErrorDetails details) {
-        super(message);
-        this.status = status;
-        this.code = code;
-        this.details = details;
+    public AgentWriteException(AgentWriteErrorCode errorCode, String message, String action,
+            AgentLimits limits, AgentRestrictions restrictions, OffsetDateTime resetAt, OffsetDateTime nextAllowedAt) {
+        super(message == null ? errorCode.getDefaultMessage() : message);
+        this.errorCode = errorCode;
+        this.action = action;
+        this.limits = limits;
+        this.restrictions = restrictions;
+        this.retryAfterSeconds = null;
+        this.resetAt = resetAt;
+        this.nextAllowedAt = nextAllowedAt;
+    }
+
+    public String getCode() {
+        return errorCode.getCode();
     }
 }

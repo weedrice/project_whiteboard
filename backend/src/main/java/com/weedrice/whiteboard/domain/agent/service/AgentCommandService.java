@@ -6,8 +6,8 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostDeleteResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostLikeResponse;
-import com.weedrice.whiteboard.domain.agent.dto.AgentWriteErrorDetails;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.agent.exception.AgentWriteErrorCode;
 import com.weedrice.whiteboard.domain.agent.exception.AgentWriteException;
 import com.weedrice.whiteboard.domain.agent.service.AgentPolicyService.AgentPolicySnapshot;
 import com.weedrice.whiteboard.domain.board.entity.Board;
@@ -28,7 +28,6 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -70,9 +69,7 @@ public class AgentCommandService {
         validateCanPost(agent, policy, ACTION_CREATE_POST);
         Board board = boardRepository.findByBoardUrlForUpdate(request.getBoardUrl())
                 .orElseThrow(() -> writeException(
-                        HttpStatus.NOT_FOUND,
-                        "board_not_found",
-                        "Board not found.",
+                        AgentWriteErrorCode.BOARD_NOT_FOUND,
                         ACTION_CREATE_POST,
                         policy,
                         null,
@@ -169,18 +166,14 @@ public class AgentCommandService {
         validateCanComment(agent, policy, ACTION_CREATE_REPLY);
         Comment parentComment = commentRepository.findByIdWithRelationsForUpdate(commentId)
                 .orElseThrow(() -> writeException(
-                        HttpStatus.NOT_FOUND,
-                        "comment_not_found",
-                        "Comment not found.",
+                        AgentWriteErrorCode.COMMENT_NOT_FOUND,
                         ACTION_CREATE_REPLY,
                         policy,
                         null,
                         null));
         if (parentComment.getIsDeleted()) {
             throw writeException(
-                    HttpStatus.NOT_FOUND,
-                    "comment_not_found",
-                    "Comment not found.",
+                    AgentWriteErrorCode.COMMENT_NOT_FOUND,
                     ACTION_CREATE_REPLY,
                     policy,
                     null,
@@ -188,9 +181,7 @@ public class AgentCommandService {
         }
         if (Boolean.TRUE.equals(parentComment.getPost().getIsDeleted())) {
             throw writeException(
-                    HttpStatus.NOT_FOUND,
-                    "post_not_found",
-                    "Post not found.",
+                    AgentWriteErrorCode.POST_NOT_FOUND,
                     ACTION_CREATE_REPLY,
                     policy,
                     null,
@@ -256,9 +247,7 @@ public class AgentCommandService {
                         board.getBoardId(),
                         true)
                 .orElseThrow(() -> writeException(
-                        HttpStatus.NOT_FOUND,
-                        "category_not_found",
-                        "Category not found.",
+                        AgentWriteErrorCode.CATEGORY_NOT_FOUND,
                         action,
                         policy,
                         null,
@@ -269,9 +258,7 @@ public class AgentCommandService {
         validateAgentStatus(agent, policy, action);
         if (policy.limits().getPostsRemaining() <= 0) {
             throw writeException(
-                    HttpStatus.TOO_MANY_REQUESTS,
-                    "post_daily_limit_exceeded",
-                    "Daily agent post limit exceeded.",
+                    AgentWriteErrorCode.POST_DAILY_LIMIT_EXCEEDED,
                     action,
                     policy,
                     policy.dailyStatus().resetAt(),
@@ -283,8 +270,7 @@ public class AgentCommandService {
         validateAgentStatus(agent, policy, action);
         if (isCommentRestricted(policy)) {
             throw writeException(
-                    HttpStatus.FORBIDDEN,
-                    "agent_suspended",
+                    AgentWriteErrorCode.AGENT_SUSPENDED,
                     "Agent commenting is restricted.",
                     action,
                     policy,
@@ -293,9 +279,7 @@ public class AgentCommandService {
         }
         if (policy.limits().getCommentsRemaining() <= 0) {
             throw writeException(
-                    HttpStatus.TOO_MANY_REQUESTS,
-                    "comment_daily_limit_exceeded",
-                    "Daily agent comment limit exceeded.",
+                    AgentWriteErrorCode.COMMENT_DAILY_LIMIT_EXCEEDED,
                     action,
                     policy,
                     policy.dailyStatus().resetAt(),
@@ -313,9 +297,7 @@ public class AgentCommandService {
     private void validateAgentStatus(Agent agent, AgentPolicySnapshot policy, String action) {
         if (agent.getUser() == null || !agent.getUser().isActiveAccount()) {
             throw writeException(
-                    HttpStatus.FORBIDDEN,
-                    "agent_inactive",
-                    "Agent owner account is not active.",
+                    AgentWriteErrorCode.AGENT_INACTIVE,
                     action,
                     policy,
                     null,
@@ -323,9 +305,7 @@ public class AgentCommandService {
         }
         if (!agent.isActive() || policy.restrictions().isSuspended()) {
             throw writeException(
-                    HttpStatus.FORBIDDEN,
-                    "agent_suspended",
-                    "Agent is suspended.",
+                    AgentWriteErrorCode.AGENT_SUSPENDED,
                     action,
                     policy,
                     null,
@@ -339,9 +319,7 @@ public class AgentCommandService {
         } catch (BusinessException e) {
             if (e.getErrorCode() == ErrorCode.FORBIDDEN) {
                 throw writeException(
-                        HttpStatus.FORBIDDEN,
-                        "board_write_forbidden",
-                        "Agent cannot write to this board.",
+                        AgentWriteErrorCode.BOARD_WRITE_FORBIDDEN,
                         action,
                         policy,
                         null,
@@ -362,11 +340,9 @@ public class AgentCommandService {
         } catch (BusinessException e) {
             if (e.getErrorCode() == ErrorCode.FORBIDDEN) {
                 throw writeException(
-                        HttpStatus.FORBIDDEN,
-                        category == null ? "board_write_forbidden" : "category_write_forbidden",
                         category == null
-                                ? "Agent cannot write to this board."
-                                : "Agent cannot write to this category.",
+                                ? AgentWriteErrorCode.BOARD_WRITE_FORBIDDEN
+                                : AgentWriteErrorCode.CATEGORY_WRITE_FORBIDDEN,
                         action,
                         policy,
                         null,
@@ -382,9 +358,7 @@ public class AgentCommandService {
         } catch (BusinessException e) {
             if (e.getErrorCode() == ErrorCode.POST_NOT_FOUND) {
                 throw writeException(
-                        HttpStatus.NOT_FOUND,
-                        "post_not_found",
-                        "Post not found.",
+                        AgentWriteErrorCode.POST_NOT_FOUND,
                         action,
                         policy,
                         null,
@@ -399,8 +373,7 @@ public class AgentCommandService {
             PostTitleValidator.validate(title);
         } catch (BusinessException e) {
             throw writeException(
-                    HttpStatus.BAD_REQUEST,
-                    "validation_failed",
+                    AgentWriteErrorCode.VALIDATION_FAILED,
                     e.getMessage(),
                     action,
                     policy,
@@ -413,9 +386,7 @@ public class AgentCommandService {
         for (String value : values) {
             if (AgentContentEncodingValidator.isInvalid(value)) {
                 throw writeException(
-                        HttpStatus.BAD_REQUEST,
-                        "content_encoding_invalid",
-                        "Content appears to contain corrupted Korean text. Use UTF-8 input or Unicode escape literals instead of a PowerShell raw Hangul here-string.",
+                        AgentWriteErrorCode.CONTENT_ENCODING_INVALID,
                         action,
                         policy,
                         null,
@@ -430,8 +401,7 @@ public class AgentCommandService {
         } catch (BusinessException e) {
             if (e.getErrorCode() == ErrorCode.RATE_LIMIT_EXCEEDED) {
                 throw writeException(
-                        HttpStatus.TOO_MANY_REQUESTS,
-                        "post_daily_limit_exceeded",
+                        AgentWriteErrorCode.POST_DAILY_LIMIT_EXCEEDED,
                         e.getMessage(),
                         action,
                         policy,
@@ -448,8 +418,7 @@ public class AgentCommandService {
         } catch (BusinessException e) {
             if (e.getErrorCode() == ErrorCode.RATE_LIMIT_EXCEEDED) {
                 throw writeException(
-                        HttpStatus.TOO_MANY_REQUESTS,
-                        "comment_daily_limit_exceeded",
+                        AgentWriteErrorCode.COMMENT_DAILY_LIMIT_EXCEEDED,
                         e.getMessage(),
                         action,
                         policy,
@@ -460,17 +429,21 @@ public class AgentCommandService {
         }
     }
 
-    private AgentWriteException writeException(HttpStatus status, String code, String message, String action,
+    private AgentWriteException writeException(AgentWriteErrorCode errorCode, String action,
             AgentPolicySnapshot policy, OffsetDateTime resetAt, OffsetDateTime nextAllowedAt) {
-        AgentWriteErrorDetails details = AgentWriteErrorDetails.builder()
-                .action(action)
-                .retryAfterSeconds(null)
-                .resetAt(resetAt)
-                .nextAllowedAt(nextAllowedAt)
-                .limits(policy.limits())
-                .restrictions(policy.restrictions())
-                .build();
-        return new AgentWriteException(status, code, message, details);
+        return writeException(errorCode, null, action, policy, resetAt, nextAllowedAt);
+    }
+
+    private AgentWriteException writeException(AgentWriteErrorCode errorCode, String message, String action,
+            AgentPolicySnapshot policy, OffsetDateTime resetAt, OffsetDateTime nextAllowedAt) {
+        return new AgentWriteException(
+                errorCode,
+                message,
+                action,
+                policy.limits(),
+                policy.restrictions(),
+                resetAt,
+                nextAllowedAt);
     }
 
     private OffsetDateTime toOffsetDateTime(LocalDateTime value) {

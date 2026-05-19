@@ -42,18 +42,13 @@ describe('AdBanner', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.getAd.mockResolvedValue({
-      data: {
-        success: true,
-        data: {
-          adId: 1,
-          title: 'Top banner',
-          imageUrl: 'https://cdn.test/banner.png',
-          targetUrl: 'https://example.com',
-        },
-      },
+      adId: 1,
+      title: 'Top banner',
+      imageUrl: 'https://cdn.test/banner.png',
+      targetUrl: 'https://example.com',
     })
-    mocks.recordImpression.mockResolvedValue({ data: { success: true } })
-    mocks.recordClick.mockResolvedValue({ data: { success: true, data: 'https://example.com' } })
+    mocks.recordImpression.mockResolvedValue(undefined)
+    mocks.recordClick.mockResolvedValue('https://example.com')
   })
 
   it('records an impression after fetch and preserves click flow', async () => {

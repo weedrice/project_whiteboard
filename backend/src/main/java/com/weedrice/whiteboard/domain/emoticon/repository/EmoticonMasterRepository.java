@@ -123,4 +123,16 @@ public interface EmoticonMasterRepository extends JpaRepository<EmoticonMaster, 
             AND (ep.purchaseId IS NOT NULL OR e.creator.userId = :userId)
             """)
     boolean canUseAnyEmoticon(@Param("userId") Long userId, @Param("emoticonIds") List<Long> emoticonIds);
+
+    @Query("""
+            SELECT CASE WHEN COUNT(DISTINCT e.emoticonId) = :requiredCount THEN true ELSE false END
+            FROM EmoticonMaster e
+            LEFT JOIN EmoticonPurchase ep ON ep.emoticon = e AND ep.user.userId = :userId
+            WHERE e.emoticonId IN :emoticonIds
+            AND (ep.purchaseId IS NOT NULL OR e.creator.userId = :userId)
+            """)
+    boolean canUseAllEmoticons(
+            @Param("userId") Long userId,
+            @Param("emoticonIds") List<Long> emoticonIds,
+            @Param("requiredCount") long requiredCount);
 }

@@ -111,22 +111,28 @@ class FileAccessService {
     }
 
     private void validateEmoticonMastersReadable(List<EmoticonMaster> masters, Long viewerUserId) {
-        if (masters.stream().anyMatch(this::isActiveEmoticon)) {
+        List<EmoticonMaster> inactiveMasters = masters.stream()
+                .filter(master -> !isActiveEmoticon(master))
+                .toList();
+        if (inactiveMasters.isEmpty()) {
             return;
         }
         if (viewerUserId == null) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
-        if (masters.stream().anyMatch(master -> master.isOwner(viewerUserId))) {
+        if (inactiveMasters.stream().allMatch(master -> master.isOwner(viewerUserId))) {
             return;
         }
-        List<Long> emoticonIds = masters.stream()
+        if (inactiveMasters.stream().anyMatch(master -> master.getEmoticonId() == null)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+        List<Long> emoticonIds = inactiveMasters.stream()
                 .map(EmoticonMaster::getEmoticonId)
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
         if (!emoticonIds.isEmpty()
-                && emoticonMasterRepository.canUseAnyEmoticon(viewerUserId, emoticonIds)) {
+                && emoticonMasterRepository.canUseAllEmoticons(viewerUserId, emoticonIds, emoticonIds.size())) {
             return;
         }
         throw new BusinessException(ErrorCode.FORBIDDEN);

@@ -107,8 +107,22 @@ describe('Router Navigation Guards', () => {
 
     it('redirects to home if guestOnly and authenticated', async () => {
         mockAuthStore.isAuthenticated = true
+        mockAuthStore.user = { role: 'USER' }
         await router.push('/login')
         expect(router.currentRoute.value.name).toBe('home')
+    })
+
+    it('allows guestOnly login route after token-backed user hydration returns false', async () => {
+        mockAuthStore.accessToken = 'token'
+        mockAuthStore.user = null
+        mockAuthStore.isAuthenticated = true
+        mockAuthStore.fetchUser.mockResolvedValueOnce(false)
+
+        await router.push('/login')
+
+        expect(mockAuthStore.fetchUser).toHaveBeenCalled()
+        expect(mockAuthStore.logout).not.toHaveBeenCalled()
+        expect(router.currentRoute.value.name).toBe('login')
     })
 
     it('allows navigation if guestOnly and not authenticated', async () => {

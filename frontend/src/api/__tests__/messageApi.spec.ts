@@ -17,6 +17,14 @@ describe('messageApi', () => {
         vi.clearAllMocks()
     })
 
+    it('posts a new message with config', () => {
+        const config = { skipGlobalErrorHandler: true }
+
+        messageApi.sendMessage(2, 'hello', config as never)
+
+        expect(apiMock.post).toHaveBeenCalledWith('/messages', { receiverId: 2, content: 'hello' }, config)
+    })
+
     it('calls message detail and read endpoints separately', () => {
         const config = { skipGlobalErrorHandler: true }
 

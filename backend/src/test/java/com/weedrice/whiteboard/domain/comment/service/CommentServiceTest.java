@@ -1341,6 +1341,30 @@ class CommentServiceTest {
     }
 
     @Test
+    @DisplayName("삭제된 댓글은 좋아요할 수 없다")
+    void likeComment_deletedComment_throwsCommentNotFound() {
+        User user = User.builder().displayName("User").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(user).build();
+        Comment comment = Comment.builder().user(user).post(post).build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
+        comment.deleteComment();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+
+        assertThatThrownBy(() -> commentService.likeComment(1L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
+
+        verify(commentLikeRepository, never()).saveAndFlush(any());
+        verify(commentRepository, never()).incrementLikeCount(anyLong());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
     @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 ?볤? 醫뗭븘?????녿떎")
     void likeComment_bannedUser_forbidden() {
         User user = User.builder().displayName("User").build();
@@ -1602,6 +1626,27 @@ class CommentServiceTest {
     }
 
     @Test
+    @DisplayName("삭제된 댓글은 수정할 수 없다")
+    void updateComment_deletedComment_throwsCommentNotFound() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(user).build();
+        Comment comment = Comment.builder().user(user).post(post).content("Old").build();
+        comment.deleteComment();
+
+        when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> commentService.updateComment(1L, 10L, "New"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
+
+        assertThat(comment.getContent()).isEqualTo("Old");
+        verify(commentVersionRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 ?볤????섏젙?????녿떎")
     void updateComment_bannedUser_forbidden() {
         User user = User.builder().build();
@@ -1751,6 +1796,30 @@ class CommentServiceTest {
         commentService.deleteComment(1L, 10L);
 
         verify(postRepository).decrementCommentCount(1L);
+        verify(pointService, never())
+                .reverseRewardPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+    }
+
+    @Test
+    @DisplayName("삭제된 댓글은 삭제할 수 없다")
+    void deleteComment_deletedComment_throwsCommentNotFound() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
+        Comment comment = Comment.builder().user(user).post(post).content("Content").build();
+        comment.deleteComment();
+
+        when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> commentService.deleteComment(1L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
+
+        verify(postRepository, never()).decrementCommentCount(anyLong());
+        verify(commentVersionRepository, never()).save(any());
         verify(pointService, never())
                 .reverseRewardPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
     }

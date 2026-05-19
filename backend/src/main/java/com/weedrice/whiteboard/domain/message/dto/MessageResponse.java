@@ -30,6 +30,18 @@ public class MessageResponse {
         private String content;
         private Boolean isRead;
         private LocalDateTime createdAt;
+
+        public static MessageSummary from(Message message, Long currentUserId) {
+            User partner = message.getSender().getUserId().equals(currentUserId) ? message.getReceiver()
+                    : message.getSender();
+            return MessageSummary.builder()
+                    .messageId(message.getMessageId())
+                    .partner(UserInfo.from(partner))
+                    .content(InputSanitizer.stripHtml(message.getContent()))
+                    .isRead(message.getIsRead())
+                    .createdAt(message.getCreatedAt())
+                    .build();
+        }
     }
 
     @Getter
@@ -37,24 +49,18 @@ public class MessageResponse {
     public static class UserInfo {
         private Long userId;
         private String displayName;
+
+        public static UserInfo from(User user) {
+            return UserInfo.builder()
+                    .userId(user.getUserId())
+                    .displayName(user.getDisplayName())
+                    .build();
+        }
     }
 
     public static MessageResponse from(Page<Message> messagePage, Long currentUserId) {
         List<MessageSummary> content = messagePage.getContent().stream()
-                .map(message -> {
-                    User partner = message.getSender().getUserId().equals(currentUserId) ? message.getReceiver()
-                            : message.getSender();
-                    return MessageSummary.builder()
-                            .messageId(message.getMessageId())
-                            .partner(UserInfo.builder()
-                                    .userId(partner.getUserId())
-                                    .displayName(partner.getDisplayName())
-                                    .build())
-                            .content(InputSanitizer.stripHtml(message.getContent()))
-                            .isRead(message.getIsRead())
-                            .createdAt(message.getCreatedAt())
-                            .build();
-                })
+                .map(message -> MessageSummary.from(message, currentUserId))
                 .collect(Collectors.toList());
 
         return MessageResponse.builder()

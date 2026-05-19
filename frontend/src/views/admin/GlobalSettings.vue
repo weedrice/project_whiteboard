@@ -103,7 +103,7 @@ const columns = [
     </div>
 
     <div class="mt-8">
-      <BaseTable :columns="columns" :items="configs" :loading="isLoading" :emptyText="t('common.noData')">
+      <BaseTable :columns="columns" :items="configs" row-key="key" :loading="isLoading" :emptyText="t('common.noData')">
         <template #cell-description="{ item }">
           <BaseInput v-model="item.description" hideLabel
             inputClass="block w-full border-0 p-0 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-500 focus:ring-0 sm:text-sm bg-transparent shadow-none" />

@@ -16,10 +16,16 @@ describe('adApi', () => {
     vi.clearAllMocks()
   })
 
-  it('calls ad endpoints with existing paths and payloads', () => {
-    adApi.getAd('SIDEBAR')
-    adApi.recordImpression(11)
-    adApi.recordClick(11)
+  it('calls ad endpoints with existing paths and unwraps envelopes', async () => {
+    const ad = { adId: 11, title: 'Ad', imageUrl: null, targetUrl: 'https://example.com' }
+    apiMock.get.mockResolvedValueOnce({ data: { success: true, data: ad } })
+    apiMock.post
+      .mockResolvedValueOnce({ data: { success: true } })
+      .mockResolvedValueOnce({ data: { success: true, data: 'https://example.com' } })
+
+    await expect(adApi.getAd('SIDEBAR')).resolves.toEqual(ad)
+    await adApi.recordImpression(11)
+    await expect(adApi.recordClick(11)).resolves.toBe('https://example.com')
 
     expect(apiMock.get).toHaveBeenCalledWith('/ads', {
       params: { placement: 'SIDEBAR' },

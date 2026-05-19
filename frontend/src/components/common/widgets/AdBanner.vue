@@ -44,9 +44,9 @@ function openExternalUrl(rawUrl: string | null | undefined) {
 
 const fetchAd = async () => {
   try {
-    const { data } = await adApi.getAd(props.placement)
-    if (data.success) {
-      ad.value = data.data
+    const nextAd = await adApi.getAd(props.placement)
+    if (nextAd) {
+      ad.value = nextAd
       void recordImpression()
     }
   } catch (error) {
@@ -88,9 +88,9 @@ const handleAdClick = async () => {
 
   try {
     if (ad.value.adId) {
-      const { data } = await adApi.recordClick(ad.value.adId)
-      if (data.success && data.data) {
-        openExternalUrl(data.data)
+      const targetUrl = await adApi.recordClick(ad.value.adId)
+      if (targetUrl) {
+        openExternalUrl(targetUrl)
       } else if (ad.value.targetUrl) {
         openExternalUrl(ad.value.targetUrl)
       }

@@ -78,8 +78,10 @@ export function useIntersectionObserver(
      * 옵저버 중지
      */
     const unobserve = () => {
-        if (observer && targetRef.value) {
-            observer.unobserve(targetRef.value)
+        if (observer) {
+            if (targetRef.value) {
+                observer.unobserve(targetRef.value)
+            }
             observer.disconnect()
             observer = null
         }

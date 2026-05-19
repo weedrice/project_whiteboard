@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.global.exception;
 
+import com.weedrice.whiteboard.domain.agent.exception.AgentWriteErrorCode;
 import com.weedrice.whiteboard.domain.agent.exception.AgentWriteException;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.util.ClientUtils;
@@ -31,6 +32,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.EnumSet;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestControllerAdvice
@@ -47,10 +49,12 @@ public class GlobalExceptionHandler {
             ErrorCode.RATE_LIMIT_EXCEEDED
     );
     private static final Set<String> SUPPRESSED_AGENT_WRITE_ERROR_CODES = Set.of(
-            "board_not_found",
-            "post_daily_limit_exceeded",
-            "comment_daily_limit_exceeded"
-    );
+            AgentWriteErrorCode.BOARD_NOT_FOUND,
+            AgentWriteErrorCode.POST_DAILY_LIMIT_EXCEEDED,
+            AgentWriteErrorCode.COMMENT_DAILY_LIMIT_EXCEEDED
+    ).stream()
+            .map(AgentWriteErrorCode::getCode)
+            .collect(Collectors.toUnmodifiableSet());
 
     private final MessageSource messageSource;
 
@@ -60,6 +64,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AgentWriteException.class)
     public ResponseEntity<ApiResponse<Object>> handleAgentWriteException(AgentWriteException e,
             HttpServletRequest request) {
+        HttpStatus status = AgentWriteErrorMapper.statusOf(e);
         MDC.put("errorCode", e.getCode());
         MDC.put("errorType", "AgentWriteException");
         log.warn("[{}] Agent write exception: {} - {}", request.getRequestURI(), e.getCode(), e.getMessage());
@@ -68,12 +73,12 @@ public class GlobalExceptionHandler {
 
         if (!SUPPRESSED_AGENT_WRITE_ERROR_CODES.contains(e.getCode())) {
             saveErrorLog(e.getCode(), "AgentWriteException",
-                    e.getStatus().value(), e.getMessage(), request, null);
+                    status.value(), e.getMessage(), request, null);
         }
 
         return ResponseEntity
-                .status(e.getStatus())
-                .body(ApiResponse.error(e.getCode(), e.getMessage(), e.getDetails()));
+                .status(status)
+                .body(ApiResponse.error(e.getCode(), e.getMessage(), AgentWriteErrorMapper.detailsOf(e)));
     }
 
     @ExceptionHandler(BusinessException.class)

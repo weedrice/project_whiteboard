@@ -69,6 +69,22 @@ class EmoticonMasterRepositoryTest {
     }
 
     @Test
+    @DisplayName("canUseAllEmoticons checks entitlement for every requested master")
+    void canUseAllEmoticons_declaresAllEntitlementQuery() throws NoSuchMethodException {
+        var method = EmoticonMasterRepository.class.getMethod("canUseAllEmoticons", Long.class, List.class,
+                long.class);
+
+        Query query = method.getAnnotation(Query.class);
+
+        assertThat(query).isNotNull();
+        assertThat(query.value())
+                .contains("COUNT(DISTINCT e.emoticonId) = :requiredCount")
+                .contains("e.emoticonId IN :emoticonIds")
+                .contains("ep.purchaseId IS NOT NULL")
+                .contains("e.creator.userId = :userId");
+    }
+
+    @Test
     @DisplayName("latest list query orders by createdAt descending")
     void findAllActive_declaresLatestOrdering() throws NoSuchMethodException {
         var method = EmoticonMasterRepository.class.getMethod("findAllActive", Pageable.class);

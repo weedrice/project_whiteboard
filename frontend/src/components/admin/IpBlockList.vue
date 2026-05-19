@@ -32,7 +32,7 @@ const columns = computed(() => [
 
 <template>
   <div class="mt-8">
-    <BaseTable :columns="columns" :items="ipBlocks" :emptyText="t('common.noData')">
+    <BaseTable :columns="columns" :items="ipBlocks" row-key="ipAddress" :emptyText="t('common.noData')">
       <template #cell-admin="{ item }">
         {{ item.admin.adminId }}
       </template>

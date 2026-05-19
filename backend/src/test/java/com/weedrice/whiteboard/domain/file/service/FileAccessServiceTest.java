@@ -172,7 +172,7 @@ class FileAccessServiceTest {
         File result = fileAccessService.getFileForDownload(10L, 1L);
 
         assertThat(result).isSameAs(file);
-        verify(emoticonMasterRepository, never()).canUseAnyEmoticon(anyLong(), anyList());
+        verify(emoticonMasterRepository, never()).canUseAllEmoticons(anyLong(), anyList(), anyLong());
     }
 
     @Test
@@ -186,12 +186,12 @@ class FileAccessServiceTest {
         when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
         when(emoticonMasterRepository.findFileAccessTargets(100L, List.of("/api/v1/files/10", "/files/10")))
                 .thenReturn(List.of(master));
-        when(emoticonMasterRepository.canUseAnyEmoticon(1L, List.of(100L))).thenReturn(true);
+        when(emoticonMasterRepository.canUseAllEmoticons(1L, List.of(100L), 1L)).thenReturn(true);
 
         File result = fileAccessService.getFileForDownload(10L, 1L);
 
         assertThat(result).isSameAs(file);
-        verify(emoticonMasterRepository).canUseAnyEmoticon(1L, List.of(100L));
+        verify(emoticonMasterRepository).canUseAllEmoticons(1L, List.of(100L), 1L);
     }
 
     @Test
@@ -207,12 +207,47 @@ class FileAccessServiceTest {
         when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
         when(emoticonMasterRepository.findFileAccessTargets(100L, List.of("/api/v1/files/10", "/files/10")))
                 .thenReturn(List.of(firstMaster, duplicateMaster, secondMaster));
-        when(emoticonMasterRepository.canUseAnyEmoticon(1L, List.of(100L, 200L))).thenReturn(true);
+        when(emoticonMasterRepository.canUseAllEmoticons(1L, List.of(100L, 200L), 2L)).thenReturn(true);
 
         File result = fileAccessService.getFileForDownload(10L, 1L);
 
         assertThat(result).isSameAs(file);
-        verify(emoticonMasterRepository).canUseAnyEmoticon(1L, List.of(100L, 200L));
+        verify(emoticonMasterRepository).canUseAllEmoticons(1L, List.of(100L, 200L), 2L);
+    }
+
+    @Test
+    @DisplayName("inactive emoticon file rejects users without all entitlements")
+    void getFileForDownload_inactiveEmoticonFile_partialEntitlementForbidden() {
+        User owner = User.builder().build();
+        ReflectionTestUtils.setField(owner, "userId", 2L);
+        File file = file(FileRelatedType.EMOTICON_IMAGE, 100L);
+        ReflectionTestUtils.setField(file, "fileId", 10L);
+        EmoticonMaster firstMaster = emoticonMaster(100L, owner, false);
+        EmoticonMaster secondMaster = emoticonMaster(200L, owner, false);
+        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
+        when(emoticonMasterRepository.findFileAccessTargets(100L, List.of("/api/v1/files/10", "/files/10")))
+                .thenReturn(List.of(firstMaster, secondMaster));
+        when(emoticonMasterRepository.canUseAllEmoticons(1L, List.of(100L, 200L), 2L)).thenReturn(false);
+
+        assertThatThrownBy(() -> fileAccessService.getFileForDownload(10L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("active emoticon match does not bypass inactive match")
+    void getFileForDownload_activeAndInactiveEmoticonFile_anonymousForbidden() {
+        File file = file(FileRelatedType.EMOTICON_IMAGE, 100L);
+        ReflectionTestUtils.setField(file, "fileId", 10L);
+        EmoticonMaster activeMaster = emoticonMaster(100L, User.builder().build(), true);
+        EmoticonMaster inactiveMaster = emoticonMaster(200L, User.builder().build(), false);
+        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
+        when(emoticonMasterRepository.findFileAccessTargets(100L, List.of("/api/v1/files/10", "/files/10")))
+                .thenReturn(List.of(activeMaster, inactiveMaster));
+
+        assertThatThrownBy(() -> fileAccessService.getFileForDownload(10L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
     }
 
     @Test
@@ -243,7 +278,7 @@ class FileAccessServiceTest {
         when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
         when(emoticonMasterRepository.findFileAccessTargets(100L, List.of("/api/v1/files/10", "/files/10")))
                 .thenReturn(List.of(master));
-        when(emoticonMasterRepository.canUseAnyEmoticon(1L, List.of(100L))).thenReturn(false);
+        when(emoticonMasterRepository.canUseAllEmoticons(1L, List.of(100L), 1L)).thenReturn(false);
 
         assertThatThrownBy(() -> fileAccessService.getFileForDownload(10L, 1L))
                 .isInstanceOf(BusinessException.class)

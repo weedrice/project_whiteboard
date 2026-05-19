@@ -17,6 +17,8 @@ import { postApi } from '../post'
 import { searchApi } from '../search'
 import { fileApi } from '../file'
 import { emoticonApi } from '../emoticon'
+import { adApi } from '../ad'
+import { notificationApi } from '../notification'
 
 describe('boardApi', () => {
     beforeEach(() => {
@@ -166,6 +168,55 @@ describe('fileApi', () => {
                 }),
             }),
         )
+    })
+})
+
+describe('adApi', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('calls ad endpoints and unwraps response envelopes', async () => {
+        const ad = { adId: 1, title: 'Ad', imageUrl: null, targetUrl: 'https://example.com' }
+        apiMock.get.mockResolvedValueOnce({ data: { success: true, data: ad } })
+        apiMock.post
+            .mockResolvedValueOnce({ data: { success: true } })
+            .mockResolvedValueOnce({ data: { success: true, data: 'https://example.com' } })
+
+        await expect(adApi.getAd('SIDEBAR')).resolves.toEqual(ad)
+        await adApi.recordImpression(1)
+        await expect(adApi.recordClick(1)).resolves.toBe('https://example.com')
+
+        expect(apiMock.get).toHaveBeenCalledWith('/ads', { params: { placement: 'SIDEBAR' } })
+        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/ads/1/impression')
+        expect(apiMock.post).toHaveBeenNthCalledWith(2, '/ads/1/click')
+    })
+})
+
+describe('notificationApi', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('opens notification stream through fetch using API base URL', async () => {
+        const response = new Response(null, { status: 200 })
+        const fetchMock = vi.fn().mockResolvedValue(response)
+        vi.stubGlobal('fetch', fetchMock)
+        const controller = new AbortController()
+
+        await expect(notificationApi.openStream('token', controller.signal)).resolves.toBe(response)
+
+        expect(fetchMock).toHaveBeenCalledWith('/api/v1/notifications/stream', {
+            method: 'GET',
+            headers: {
+                Accept: 'text/event-stream',
+                Authorization: 'Bearer token',
+            },
+            cache: 'no-store',
+            credentials: 'same-origin',
+            signal: controller.signal,
+        })
+        vi.unstubAllGlobals()
     })
 })
 

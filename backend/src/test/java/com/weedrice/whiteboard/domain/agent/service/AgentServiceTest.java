@@ -1785,9 +1785,9 @@ class AgentServiceTest {
         assertThat(thrown).isInstanceOf(AgentWriteException.class);
         AgentWriteException exception = (AgentWriteException) thrown;
         assertThat(exception.getCode()).isEqualTo("board_not_found");
-        assertThat(exception.getDetails().getAction()).isEqualTo("create_post");
-        assertThat(exception.getDetails().getLimits()).isNotNull();
-        assertThat(exception.getDetails().getRestrictions()).isNotNull();
+        assertThat(exception.getAction()).isEqualTo("create_post");
+        assertThat(exception.getLimits()).isNotNull();
+        assertThat(exception.getRestrictions()).isNotNull();
     }
 
     @Test
@@ -1805,8 +1805,8 @@ class AgentServiceTest {
         assertThat(thrown).isInstanceOf(AgentWriteException.class);
         AgentWriteException exception = (AgentWriteException) thrown;
         assertThat(exception.getCode()).isEqualTo("agent_suspended");
-        assertThat(exception.getDetails().getAction()).isEqualTo("create_post");
-        assertThat(exception.getDetails().getRestrictions().isSuspended()).isTrue();
+        assertThat(exception.getAction()).isEqualTo("create_post");
+        assertThat(exception.getRestrictions().isSuspended()).isTrue();
         verify(boardRepository, never()).findByBoardUrlForUpdate(anyString());
     }
 
@@ -1834,7 +1834,7 @@ class AgentServiceTest {
         assertThat(thrown).isInstanceOf(AgentWriteException.class);
         AgentWriteException exception = (AgentWriteException) thrown;
         assertThat(exception.getCode()).isEqualTo("agent_suspended");
-        assertThat(exception.getDetails().getRestrictions().isSuspended()).isTrue();
+        assertThat(exception.getRestrictions().isSuspended()).isTrue();
         verify(boardRepository, never()).findByBoardUrlForUpdate(anyString());
     }
 
@@ -1862,7 +1862,7 @@ class AgentServiceTest {
         assertThat(thrown).isInstanceOf(AgentWriteException.class);
         AgentWriteException exception = (AgentWriteException) thrown;
         assertThat(exception.getCode()).isEqualTo("agent_suspended");
-        assertThat(exception.getDetails().getAction()).isEqualTo("create_comment");
+        assertThat(exception.getAction()).isEqualTo("create_comment");
         verify(postService, never()).getPostById(anyLong(), anyLong(), anyBoolean());
     }
 
@@ -1882,7 +1882,7 @@ class AgentServiceTest {
         assertThat(thrown).isInstanceOf(AgentWriteException.class);
         AgentWriteException exception = (AgentWriteException) thrown;
         assertThat(exception.getCode()).isEqualTo("content_encoding_invalid");
-        assertThat(exception.getDetails().getAction()).isEqualTo("create_post");
+        assertThat(exception.getAction()).isEqualTo("create_post");
         verify(agentDailyQuotaRepository, never()).findForUpdate(anyLong(), any(LocalDate.class), anyString());
     }
 
@@ -1900,8 +1900,8 @@ class AgentServiceTest {
         assertThat(thrown).isInstanceOf(AgentWriteException.class);
         AgentWriteException exception = (AgentWriteException) thrown;
         assertThat(exception.getCode()).isEqualTo("post_not_found");
-        assertThat(exception.getDetails().getAction()).isEqualTo("create_comment");
-        assertThat(exception.getDetails().getLimits()).isNotNull();
+        assertThat(exception.getAction()).isEqualTo("create_comment");
+        assertThat(exception.getLimits()).isNotNull();
     }
 
     @Test
@@ -1917,8 +1917,8 @@ class AgentServiceTest {
         assertThat(thrown).isInstanceOf(AgentWriteException.class);
         AgentWriteException exception = (AgentWriteException) thrown;
         assertThat(exception.getCode()).isEqualTo("comment_not_found");
-        assertThat(exception.getDetails().getAction()).isEqualTo("create_reply");
-        assertThat(exception.getDetails().getRestrictions()).isNotNull();
+        assertThat(exception.getAction()).isEqualTo("create_reply");
+        assertThat(exception.getRestrictions()).isNotNull();
     }
 
     @Test
