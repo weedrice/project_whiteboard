@@ -7,6 +7,7 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useToastStore } from '@/stores/toast'
 import { extractErrorMessage } from '@/utils/errorHandler'
+import { isValidPassword } from '@/utils/validation'
 import axios from 'axios'
 import { Mail, ChevronLeft, Key, User, CheckCircle } from 'lucide-vue-next'
 
@@ -129,6 +130,11 @@ const findId = async (verificationTicket: string) => {
 }
 
 const handleResetPassword = async () => {
+    if (!isValidPassword(form.newPassword)) {
+        toastStore.addToast(t('auth.validation.passwordStrength'), 'error')
+        return
+    }
+
     if (form.newPassword !== form.confirmPassword) {
         toastStore.addToast(t('auth.passwordMismatch'), 'error')
         return
