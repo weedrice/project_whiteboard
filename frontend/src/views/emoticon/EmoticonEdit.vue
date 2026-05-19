@@ -12,13 +12,12 @@ import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import type { EmoticonImage } from '@/types/emoticon'
 import { extractErrorMessage } from '@/utils/errorHandler'
+import { useEmoticonImageSelection } from '@/composables/useEmoticonImageSelection'
 import {
-  createEmoticonImagePreview,
   createUploadableEmoticonImageFile,
   resolveEmoticonTagAddition,
   revokeEmoticonPreviewUrl,
   SUPPORTED_EMOTICON_IMAGE_ACCEPT,
-  validateEmoticonImageFile,
   type EmoticonImagePreview
 } from '@/utils/emoticonImage'
 
@@ -28,6 +27,7 @@ const router = useRouter()
 const toastStore = useToastStore()
 const authStore = useAuthStore()
 const queryClient = useQueryClient()
+const { selectThumbnailImage, selectEmoticonImages } = useEmoticonImageSelection(t, toastStore)
 
 const emoticonId = computed(() => Number(route.params.emoticonId))
 
@@ -134,36 +134,12 @@ const handleThumbnailSelect = async (event: Event) => {
   const file = input.files?.[0]
   if (!file) return
 
-  const validationError = validateEmoticonImageFile(file, { nonImageReason: 'imageOnly' })
-  if (validationError === 'imageOnly') {
-    toastStore.addToast(t('emoticon.validation.imageOnly'), 'error')
-    return
-  }
-  if (validationError === 'notImage') {
-    toastStore.addToast(t('emoticon.validation.notImage', { name: file.name }), 'error')
-    return
-  }
-  if (validationError === 'gifSizeExceeded') {
-    toastStore.addToast(t('emoticon.validation.fileSizeExceeded'), 'error')
-    return
-  }
-
-  const previewResult = await createEmoticonImagePreview(file)
-  if (!previewResult.ok) {
-    if (previewResult.reason === 'sizeExceeded') {
-      toastStore.addToast(t('emoticon.validation.imageSizeExceeded', {
-        width: previewResult.width,
-        height: previewResult.height
-      }), 'error')
-    } else {
-      toastStore.addToast(t('emoticon.validation.imageLoadFailed'), 'error')
-    }
-    return
-  }
+  const selectedThumbnail = await selectThumbnailImage(file)
+  if (!selectedThumbnail) return
 
   revokeEmoticonPreviewUrl(thumbnailPreview.value)
   thumbnailFile.value = file
-  thumbnailPreview.value = previewResult.item.preview
+  thumbnailPreview.value = selectedThumbnail.preview
 }
 
 // 썸네일 변경 (변경할 수 있도록)
@@ -179,40 +155,8 @@ const handleEmoticonSelect = async (event: Event) => {
 
   const currentCount = existingImages.value.filter(img => !imagesToDelete.value.includes(img.imageId)).length + newEmoticonPreviews.value.length
   const remainingSlots = 100 - currentCount
-  if (remainingSlots <= 0) {
-    toastStore.addToast(t('emoticon.validation.maxImages'), 'error')
-    return
-  }
-
-  const filesToAdd = Array.from(files).slice(0, remainingSlots)
-
-  for (const file of filesToAdd) {
-    const validationError = validateEmoticonImageFile(file)
-    if (validationError === 'notImage' || validationError === 'imageOnly') {
-      toastStore.addToast(t('emoticon.validation.notImage', { name: file.name }), 'error')
-      continue
-    }
-    if (validationError === 'gifSizeExceeded') {
-      toastStore.addToast(t('emoticon.validation.fileSizeExceededNamed', { name: file.name }), 'error')
-      continue
-    }
-
-    const previewResult = await createEmoticonImagePreview(file)
-    if (!previewResult.ok) {
-      if (previewResult.reason === 'sizeExceeded') {
-        toastStore.addToast(t('emoticon.validation.imageSizeExceededNamed', {
-          name: file.name,
-          width: previewResult.width,
-          height: previewResult.height
-        }), 'error')
-      } else {
-        toastStore.addToast(t('emoticon.validation.loadFailedNamed', { name: file.name }), 'error')
-      }
-      continue
-    }
-
-    newEmoticonPreviews.value.push(previewResult.item)
-  }
+  const selectedImages = await selectEmoticonImages(files, remainingSlots)
+  newEmoticonPreviews.value.push(...selectedImages)
 
   // 입력 초기화
   if (emoticonInput.value) {
