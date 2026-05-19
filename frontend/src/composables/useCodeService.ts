@@ -8,7 +8,7 @@ export function useCodeService() {
             queryKey: ['codes', typeCode],
             queryFn: async () => {
                 const { data } = await codeApi.getCodes(typeCode)
-                return data
+                return data.data
             },
             staleTime: QUERY_STALE_TIME.LONG, // 1 hour
             gcTime: QUERY_STALE_TIME.DAY // 24 hours (cacheTime renamed to gcTime in v5)
