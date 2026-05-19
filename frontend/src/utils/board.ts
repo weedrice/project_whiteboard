@@ -9,6 +9,9 @@ type CategoryContext = {
   sortOrder?: number | null
   isDefault?: boolean | null
 }
+type CategoryWriteContext = {
+  minWriteRole?: string | null
+}
 
 export function isGeneralCategoryName(name?: string | null): boolean {
   const normalized = name?.trim().toLowerCase()
@@ -35,6 +38,28 @@ export function resolveDefaultCategory<T extends CategoryContext>(categories?: T
     ?? orderedCategories[0]
 }
 
+export function canWriteCategory(
+  category: CategoryWriteContext | string | null | undefined,
+  userRole?: string | null,
+  isBoardAdmin = false
+): boolean {
+  const minRole = typeof category === 'string'
+    ? category
+    : category?.minWriteRole
+  const normalizedRole = minRole || 'USER'
+  const normalizedUserRole = userRole || 'USER'
+
+  if (normalizedRole === 'SUPER_ADMIN') {
+    return normalizedUserRole === 'SUPER_ADMIN'
+  }
+
+  if (normalizedRole === 'BOARD_ADMIN') {
+    return normalizedUserRole === 'SUPER_ADMIN' || isBoardAdmin
+  }
+
+  return normalizedRole === 'USER'
+}
+
 export function canWriteBoardPost(
   board: BoardWriteContext | null | undefined,
   isAuthenticated: boolean,
@@ -49,16 +74,5 @@ export function canWriteBoardPost(
     return true
   }
 
-  const minRole = defaultCategory.minWriteRole || 'USER'
-  const normalizedUserRole = userRole || 'USER'
-
-  if (minRole === 'SUPER_ADMIN') {
-    return normalizedUserRole === 'SUPER_ADMIN'
-  }
-
-  if (minRole === 'BOARD_ADMIN') {
-    return normalizedUserRole === 'SUPER_ADMIN' || board.isAdmin
-  }
-
-  return true
+  return canWriteCategory(defaultCategory, userRole, board.isAdmin)
 }
