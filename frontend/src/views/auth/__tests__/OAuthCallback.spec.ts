@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => {
     const authStore = {
         setTokens: vi.fn(),
         fetchUser: vi.fn(),
+        logout: vi.fn(),
     }
     const toastStore = {
         addToast: vi.fn(),
@@ -63,7 +64,8 @@ describe('OAuthCallback', () => {
         vi.clearAllMocks()
         sessionStorage.clear()
         mocks.route.query = {}
-        mocks.authStore.fetchUser.mockResolvedValue(undefined)
+        mocks.authStore.fetchUser.mockResolvedValue(true)
+        mocks.authStore.logout.mockResolvedValue(undefined)
         window.history.replaceState({}, '', '/auth/oauth/callback')
     })
 
@@ -141,6 +143,22 @@ describe('OAuthCallback', () => {
         await flushMountedWork()
 
         expect(mocks.logger.error).toHaveBeenCalledWith('OAuth login failed:', expect.any(Error))
+        expect(mocks.authStore.logout).toHaveBeenCalled()
+        expect(mocks.toastStore.addToast).toHaveBeenCalledWith('auth.loginFailed', 'error')
+        expect(mocks.router.push).toHaveBeenCalledWith('/login')
+    })
+
+    it('redirects to login when user hydration returns false', async () => {
+        mocks.route.query = {
+            accessToken: 'bad-access',
+        }
+        mocks.authStore.fetchUser.mockResolvedValueOnce(false)
+
+        mount(OAuthCallback)
+        await flushMountedWork()
+
+        expect(mocks.authStore.setTokens).toHaveBeenCalledWith('bad-access')
+        expect(mocks.authStore.logout).toHaveBeenCalled()
         expect(mocks.toastStore.addToast).toHaveBeenCalledWith('auth.loginFailed', 'error')
         expect(mocks.router.push).toHaveBeenCalledWith('/login')
     })

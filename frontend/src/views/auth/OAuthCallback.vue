@@ -65,7 +65,10 @@ onMounted(async () => {
       authStore.setTokens(accessToken)
       
       // Fetch user info
-      await authStore.fetchUser()
+      const didFetchUser = await authStore.fetchUser()
+      if (!didFetchUser) {
+        throw new Error('OAuth user hydration failed')
+      }
       
       toastStore.addToast(t('auth.loginSuccess'), 'success')
       const redirect = sessionStorage.getItem(LOGIN_REDIRECT_KEY)
@@ -73,6 +76,7 @@ onMounted(async () => {
       router.push(isSafeRedirect(redirect) ? redirect : '/')
     } catch (error) {
       logger.error('OAuth login failed:', error)
+      await authStore.logout()
       toastStore.addToast(t('auth.loginFailed'), 'error')
       router.push('/login')
     }
