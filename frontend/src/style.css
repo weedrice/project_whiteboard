@@ -657,7 +657,96 @@ html {
 
   .nv-home-card-body {
     @apply text-sm leading-6;
+    --nv-home-card-body-lines: 5;
     color: var(--nv-ink-soft);
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--nv-home-card-body-lines);
+  }
+
+  .nv-home-card-body-featured-with-media {
+    --nv-home-card-body-lines: 4;
+  }
+
+  .nv-home-card-body-featured-no-media {
+    --nv-home-card-body-lines: 8;
+  }
+
+  .nv-home-card-body-with-media {
+    --nv-home-card-body-lines: 3;
+  }
+
+  .nv-home-card-body-no-media {
+    --nv-home-card-body-lines: 5;
+  }
+
+  .nv-home-card-body.prose-feed :where(p) {
+    margin: 0.35rem 0;
+  }
+
+  .nv-home-card-body.prose-feed :where(p:first-child) {
+    margin-top: 0;
+  }
+
+  .nv-home-card-body.prose-feed :where(p:last-child) {
+    margin-bottom: 0;
+  }
+
+  .nv-home-card-body.prose-feed :where(h1, h2, h3, h4) {
+    color: var(--nv-ink);
+    font-weight: 700;
+    letter-spacing: 0;
+    line-height: 1.35;
+    margin: 0.55rem 0 0.25rem;
+  }
+
+  .nv-home-card-body.prose-feed :where(h1, h2) {
+    font-size: 1.02rem;
+  }
+
+  .nv-home-card-body.prose-feed :where(h3, h4) {
+    font-size: 0.95rem;
+  }
+
+  .nv-home-card-body.prose-feed :where(ul, ol) {
+    margin: 0.35rem 0;
+    padding-left: 1.25rem;
+  }
+
+  .nv-home-card-body.prose-feed :where(ul) {
+    list-style: disc;
+  }
+
+  .nv-home-card-body.prose-feed :where(ol) {
+    list-style: decimal;
+  }
+
+  .nv-home-card-body.prose-feed :where(li) {
+    display: list-item;
+    margin: 0.15rem 0;
+  }
+
+  .nv-home-card-body.prose-feed :where(blockquote) {
+    border-left: 3px solid var(--nv-line);
+    color: var(--nv-muted);
+    margin: 0.45rem 0;
+    padding-left: 0.8rem;
+  }
+
+  .nv-home-card-body.prose-feed :where(a) {
+    color: var(--nv-accent);
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+  }
+
+  .nv-home-card-body.prose-feed :where(strong, b) {
+    color: var(--nv-ink);
+    font-weight: 700;
+  }
+
+  .nv-home-card-body.prose-feed :where(em, i) {
+    font-style: italic;
   }
 
   .nv-home-media {
