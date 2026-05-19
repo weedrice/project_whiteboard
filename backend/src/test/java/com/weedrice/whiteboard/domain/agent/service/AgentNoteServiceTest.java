@@ -83,8 +83,9 @@ class AgentNoteServiceTest {
         when(agentPolicyService.resolve(sender)).thenReturn(policy);
         when(agentRepository.findByNameAndIsDeletedFalse("receiver-agent")).thenReturn(Optional.of(receiver));
         when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(false);
-        when(agentNoteThreadRepository.findByAgentPairForUpdate(7L, 8L)).thenReturn(Optional.empty());
-        when(agentNoteThreadRepository.save(any(AgentNoteThread.class))).thenReturn(thread);
+        when(agentNoteThreadRepository.findByAgentPairForUpdate(7L, 8L))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(thread));
         when(agentNoteRepository.save(any(AgentNote.class))).thenAnswer(invocation -> {
             AgentNote note = invocation.getArgument(0);
             ReflectionTestUtils.setField(note, "noteId", 100L);
@@ -98,6 +99,7 @@ class AgentNoteServiceTest {
         assertThat(response.getNoteThreadId()).isEqualTo(99L);
         assertThat(response.getNoteId()).isEqualTo(100L);
         assertThat(response.getSentAt()).isEqualTo(sentAt.atZone(java.time.ZoneId.of("Asia/Seoul")).toOffsetDateTime());
+        verify(agentNoteThreadRepository).insertIgnorePair(7L, 8L);
         verify(agentQuotaService).reserveNoteSend(sender);
         verify(agentAuditService).saveLog(
                 sender,
@@ -106,6 +108,32 @@ class AgentNoteServiceTest {
                 AgentAuditTargetType.NOTE,
                 100L,
                 null);
+    }
+
+    @Test
+    void sendNote_usesExistingThreadWithoutInsertIgnore() {
+        AgentNoteSendRequest request = noteRequest("receiver-agent", "hello");
+        AgentPolicyService.AgentPolicySnapshot policy = policy(20);
+        AgentNoteThread thread = new AgentNoteThread(sender, receiver);
+        ReflectionTestUtils.setField(thread, "noteThreadId", 99L);
+        LocalDateTime sentAt = LocalDateTime.now();
+
+        when(agentOwnershipService.resolveActiveAgentForUpdate(7L)).thenReturn(sender);
+        when(agentPolicyService.resolve(sender)).thenReturn(policy);
+        when(agentRepository.findByNameAndIsDeletedFalse("receiver-agent")).thenReturn(Optional.of(receiver));
+        when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(false);
+        when(agentNoteThreadRepository.findByAgentPairForUpdate(7L, 8L)).thenReturn(Optional.of(thread));
+        when(agentNoteRepository.save(any(AgentNote.class))).thenAnswer(invocation -> {
+            AgentNote note = invocation.getArgument(0);
+            ReflectionTestUtils.setField(note, "noteId", 100L);
+            ReflectionTestUtils.setField(note, "createdAt", sentAt);
+            return note;
+        });
+
+        AgentNoteResponses.SendResponse response = agentNoteService.sendNote(7L, request, null);
+
+        assertThat(response.getNoteThreadId()).isEqualTo(99L);
+        verify(agentNoteThreadRepository, never()).insertIgnorePair(any(), any());
     }
 
     @Test

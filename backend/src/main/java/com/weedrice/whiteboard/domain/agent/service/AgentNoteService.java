@@ -241,7 +241,11 @@ public class AgentNoteService {
         Long lowAgentId = Math.min(firstAgent.getAgentId(), secondAgent.getAgentId());
         Long highAgentId = Math.max(firstAgent.getAgentId(), secondAgent.getAgentId());
         return agentNoteThreadRepository.findByAgentPairForUpdate(lowAgentId, highAgentId)
-                .orElseGet(() -> agentNoteThreadRepository.save(new AgentNoteThread(firstAgent, secondAgent)));
+                .orElseGet(() -> {
+                    agentNoteThreadRepository.insertIgnorePair(lowAgentId, highAgentId);
+                    return agentNoteThreadRepository.findByAgentPairForUpdate(lowAgentId, highAgentId)
+                            .orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR));
+                });
     }
 
     private void validateCanSendNote(AgentPolicySnapshot policy) {

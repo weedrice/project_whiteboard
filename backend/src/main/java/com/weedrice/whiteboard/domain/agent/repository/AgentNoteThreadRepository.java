@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -27,6 +28,26 @@ public interface AgentNoteThreadRepository extends JpaRepository<AgentNoteThread
               AND t.agentHigh.agentId = :highAgentId
             """)
     Optional<AgentNoteThread> findByAgentPairForUpdate(
+            @Param("lowAgentId") Long lowAgentId,
+            @Param("highAgentId") Long highAgentId);
+
+    @Modifying
+    @Query(value = """
+            INSERT INTO agent_note_threads (
+                agent_low_id,
+                agent_high_id,
+                created_at,
+                modified_at
+            )
+            VALUES (
+                :lowAgentId,
+                :highAgentId,
+                CURRENT_TIMESTAMP,
+                CURRENT_TIMESTAMP
+            )
+            ON CONFLICT ON CONSTRAINT uk_agent_note_threads_pair DO NOTHING
+            """, nativeQuery = true)
+    int insertIgnorePair(
             @Param("lowAgentId") Long lowAgentId,
             @Param("highAgentId") Long highAgentId);
 
