@@ -1,6 +1,7 @@
 import api from './index'
 import type { ApiResponse, Notification, PageResponse } from '@/types'
 import type { AxiosResponse } from 'axios'
+import { API } from '@/utils/constants'
 
 export interface NotificationParams {
     page?: number;
@@ -88,6 +89,10 @@ function normalizeNotificationPage(raw: NotificationPageRaw): PageResponse<Notif
         last,
         empty,
     }
+}
+
+export function getNotificationStreamUrl(): string {
+    return `${API.BASE_URL.replace(/\/$/, '')}/notifications/stream`
 }
 
 export const notificationApi = {

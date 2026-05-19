@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => {
         markAsRead: vi.fn(),
         markAllAsRead: vi.fn(),
     }
+    const getNotificationStreamUrl = vi.fn(() => 'https://api.example.com/api/v1/notifications/stream')
     const authApi = {
         refreshToken: vi.fn(),
     }
@@ -58,6 +59,7 @@ const mocks = vi.hoisted(() => {
 
     return {
         notificationApi,
+        getNotificationStreamUrl,
         authApi,
         authStore,
         logger,
@@ -71,6 +73,7 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('@/api/notification', () => ({
     notificationApi: mocks.notificationApi,
+    getNotificationStreamUrl: mocks.getNotificationStreamUrl,
 }))
 
 vi.mock('@/api/auth', () => ({
@@ -113,6 +116,7 @@ describe('useNotification', () => {
         vi.clearAllMocks()
         mocks.queryOptions.length = 0
         mocks.mutationOptions.length = 0
+        mocks.getNotificationStreamUrl.mockReturnValue('https://api.example.com/api/v1/notifications/stream')
         mocks.authStore.isAuthenticated = true
         mocks.authStore.accessToken = 'test-token'
         localStorage.clear()
@@ -308,6 +312,18 @@ describe('useNotification', () => {
         connectToSse()
 
         expect(fetchMock).toHaveBeenCalledTimes(1)
+        expect(fetchMock).toHaveBeenCalledWith(
+            'https://api.example.com/api/v1/notifications/stream',
+            expect.objectContaining({
+                method: 'GET',
+                headers: expect.objectContaining({
+                    Accept: 'text/event-stream',
+                    Authorization: 'Bearer test-token',
+                }),
+                cache: 'no-store',
+                credentials: 'same-origin',
+            }),
+        )
         closeSse()
     })
 

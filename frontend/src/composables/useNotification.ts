@@ -1,6 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { authApi } from '@/api/auth'
-import { notificationApi, type NotificationParams } from '@/api/notification'
+import {
+    getNotificationStreamUrl,
+    notificationApi,
+    type NotificationParams
+} from '@/api/notification'
 import type { Notification, PageResponse } from '@/types'
 import { type Ref, computed } from 'vue'
 import logger from '@/utils/logger'
@@ -235,7 +239,7 @@ export function useNotification() {
 
     const startStream = async (token: string, controller: AbortController) => {
         try {
-            const response = await fetch('/api/v1/notifications/stream', {
+            const response = await fetch(getNotificationStreamUrl(), {
                 method: 'GET',
                 headers: {
                     Accept: 'text/event-stream',
