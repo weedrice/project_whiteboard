@@ -1,4 +1,8 @@
-import { ref, watch, onUnmounted, type Ref } from 'vue'
+import { ref, watch, onUnmounted, onScopeDispose, type Ref } from 'vue'
+
+export type ThrottledFunction<T extends (...args: any[]) => any> = ((...args: Parameters<T>) => void) & {
+    cancel: () => void
+}
 
 /**
  * 스로틀링을 위한 composable
@@ -73,22 +77,28 @@ export function useThrottle<T>(value: Ref<T>, delay: number = 100): Ref<T> {
 export function useThrottleFn<T extends (...args: any[]) => any>(
     fn: T,
     delay: number = 100
-): (...args: Parameters<T>) => void {
+): ThrottledFunction<T> {
     let lastCall = 0
     let timeoutId: ReturnType<typeof setTimeout> | null = null
 
-    return (...args: Parameters<T>) => {
+    const cancel = () => {
+        if (timeoutId) {
+            clearTimeout(timeoutId)
+            timeoutId = null
+        }
+    }
+
+    const throttled = ((...args: Parameters<T>) => {
         const now = Date.now()
         const timeSinceLastCall = now - lastCall
 
         if (timeSinceLastCall >= delay) {
+            cancel()
             fn(...args)
             lastCall = now
         } else {
             // 남은 시간 후에 실행
-            if (timeoutId) {
-                clearTimeout(timeoutId)
-            }
+            cancel()
 
             timeoutId = setTimeout(() => {
                 fn(...args)
@@ -96,5 +106,10 @@ export function useThrottleFn<T extends (...args: any[]) => any>(
                 timeoutId = null
             }, delay - timeSinceLastCall)
         }
-    }
+    }) as ThrottledFunction<T>
+
+    throttled.cancel = cancel
+    onScopeDispose(cancel, true)
+
+    return throttled
 }
