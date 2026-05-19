@@ -293,6 +293,7 @@ const columns = computed(() => [
       <BaseTable
         :columns="columns"
         :items="users"
+        row-key="userId"
         :loading="isLoading"
         :emptyText="t('common.noData')"
         @sort="handleSort"

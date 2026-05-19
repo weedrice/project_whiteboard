@@ -64,7 +64,7 @@ const columns = computed(() => [
 
 <template>
   <div class="mt-8">
-    <BaseTable :columns="columns" :items="reports" :emptyText="t('common.noData')">
+    <BaseTable :columns="columns" :items="reports" row-key="reportId" :emptyText="t('common.noData')">
       <template #cell-targetType="{ item }">
         {{ item.targetType }}
       </template>
