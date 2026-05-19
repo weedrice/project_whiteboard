@@ -17,9 +17,14 @@ import { useToastStore } from '@/stores/toast'
 import EmoticonPicker from '@/components/common/widgets/EmoticonPicker.vue'
 import PostEditorTipTap from '@/components/board/PostEditorTipTap.vue'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
-import { normalizeEditorFileImageUrls, normalizeLegacyFileUrls } from '@/utils/fileUrl'
 import { canWriteCategory } from '@/utils/board'
 import logger from '@/utils/logger'
+import {
+  buildPostFormPayload,
+  resolvePostFormFileIds,
+  toEmbedPostVideoUrl,
+  type PostFormFileIdScope,
+} from '@/utils/postForm'
 
 const props = defineProps<{
   mode: 'create' | 'edit'
@@ -142,55 +147,6 @@ function markCurrentSnapshotSaved() {
   initialFormSnapshot.value = copyFormSnapshot(form.value)
 }
 
-function extractFileIdFromImageSrc(src: string): number | null {
-  const baseOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost'
-  let url: URL
-  try {
-    url = new URL(src, baseOrigin)
-  } catch {
-    return null
-  }
-  const isLocalFileUrl = src.startsWith('/') || url.origin === baseOrigin
-  if (!isLocalFileUrl) {
-    return null
-  }
-  const match = url.pathname.match(/^\/(?:api\/v1\/)?files\/(\d+)$/)
-  if (!match) {
-    return null
-  }
-  const fileId = Number(match[1])
-  return Number.isSafeInteger(fileId) ? fileId : null
-}
-
-function extractFileIdsFromContent(content: string): number[] {
-  const fileIds = new Set<number>()
-  const parser = new DOMParser()
-  const doc = parser.parseFromString(content, 'text/html')
-  doc.querySelectorAll('img[src]').forEach((image) => {
-    const dataFileIdAttribute = image.getAttribute('data-file-id')
-    const dataFileId = dataFileIdAttribute && /^\d+$/.test(dataFileIdAttribute)
-      ? Number(dataFileIdAttribute)
-      : null
-    if (dataFileId != null && Number.isSafeInteger(dataFileId)) {
-      fileIds.add(dataFileId)
-      return
-    }
-    const fileId = extractFileIdFromImageSrc(image.getAttribute('src') ?? '')
-    if (fileId != null) {
-      fileIds.add(fileId)
-    }
-  })
-  return [...fileIds]
-}
-
-function resolvePayloadFileIds(scope: 'content' | 'draft'): number[] {
-  const contentFileIds = extractFileIdsFromContent(form.value.content)
-  if (scope === 'content') {
-    return contentFileIds
-  }
-  return contentFileIds.filter((fileId) => draftFileIds.value.includes(fileId))
-}
-
 const filteredCategories = computed<CategoryOption[]>(() => {
   const selectableCategories = categories.value.filter((cat) => canWriteCategory(
     cat,
@@ -231,7 +187,7 @@ const submitLabel = computed(() =>
     : (props.mode === 'create' ? t('common.submit') : t('board.writePost.update')),
 )
 
-const showNotice = computed(() => !props.hideNotice && props.mode === 'create' && board.value?.isAdmin)
+const showNotice = computed(() => !props.hideNotice && props.mode === 'create' && Boolean(board.value?.isAdmin))
 const canShowNsfw = computed(() => Boolean(board.value?.allowNsfw))
 const draftEnabled = computed(() => authStore.isAuthenticated && !!boardUrl.value)
 const draftStorageKey = computed(() => `noviis:draft:${authStore.user?.userId ?? 'guest'}:${props.mode}:${boardUrl.value || 'unknown'}:${postId.value || 'new'}`)
@@ -290,27 +246,18 @@ function applyDraftSnapshot(draft: {
   draftFileIds.value = [...(draft.fileIds ?? [])]
 }
 
-const buildPayload = (fileIdScope: 'content' | 'draft' = 'content') => {
-  const fileIds = resolvePayloadFileIds(fileIdScope)
-  const contents = normalizeLegacyFileUrls(normalizeEditorFileImageUrls(form.value.content))
-  const parsedCategoryId = typeof form.value.categoryId === 'string'
-    ? parseInt(form.value.categoryId, 10)
-    : form.value.categoryId
-  const categoryId = props.hideCategory || Number.isNaN(parsedCategoryId) || !parsedCategoryId
-    ? undefined
-    : parsedCategoryId
-
-  return {
-    title: form.value.title,
-    ...(categoryId !== undefined && { categoryId }),
-    tags: props.hideTags ? [] : form.value.tags,
-    contents,
-    isNsfw: canShowNsfw.value ? form.value.isNsfw : false,
-    isSpoiler: props.hideSpoiler ? false : form.value.isSpoiler,
-    isSecret: props.hideSecret ? false : form.value.isSecret,
-    ...(props.mode === 'create' && { isNotice: showNotice.value ? form.value.isNotice : false }),
-    fileIds,
-  }
+const buildPayload = (fileIdScope: PostFormFileIdScope = 'content') => {
+  return buildPostFormPayload({
+    form: form.value,
+    mode: props.mode,
+    hideCategory: props.hideCategory,
+    hideTags: props.hideTags,
+    hideSpoiler: props.hideSpoiler,
+    hideSecret: props.hideSecret,
+    showNotice: showNotice.value,
+    canShowNsfw: canShowNsfw.value,
+    fileIds: resolvePostFormFileIds(form.value.content, draftFileIds.value, fileIdScope),
+  })
 }
 
 function trackUploadedFile(fileId: number) {
@@ -409,21 +356,6 @@ watch(
   { flush: 'post' },
 )
 
-function toEmbedVideoUrl(url: string): string {
-  const trimmed = (url || '').trim()
-  if (!trimmed) return ''
-  const youtubeMatch = trimmed.match(/^(?:(https?):\/\/)?(?:(?:www|m)\.)?youtube\.com\/watch.*v=([a-zA-Z0-9_-]+)/)
-    || trimmed.match(/^(?:(https?):\/\/)?(?:(?:www|m)\.)?youtu\.be\/([a-zA-Z0-9_-]+)/)
-  if (youtubeMatch) {
-    return `${youtubeMatch[1] || 'https'}://www.youtube.com/embed/${youtubeMatch[2]}?showinfo=0`
-  }
-  const vimeoMatch = trimmed.match(/^(?:(https?):\/\/)?(?:www\.)?vimeo\.com\/(\d+)/)
-  if (vimeoMatch) {
-    return `${vimeoMatch[1] || 'https'}://player.vimeo.com/video/${vimeoMatch[2]}/`
-  }
-  return trimmed
-}
-
 function isMobileView(): boolean {
   if (typeof window === 'undefined') return false
   return window.matchMedia('(max-width: 767px)').matches
@@ -463,7 +395,7 @@ function closeVideoPopover() {
 }
 
 function insertVideoFromPopover() {
-  const embedUrl = toEmbedVideoUrl(videoUrl.value)
+  const embedUrl = toEmbedPostVideoUrl(videoUrl.value)
   if (!embedUrl) {
     toastStore.addToast(t('board.writePost.videoUrlRequired'), 'error')
     return
