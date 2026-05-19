@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { authApi } from '@/api/auth'
 import {
     notificationApi,
+    normalizeNotification,
+    type NotificationRaw,
     type NotificationParams
 } from '@/api/notification'
 import type { Notification, PageResponse } from '@/types'
@@ -160,7 +162,10 @@ export function useNotification() {
         if (eventType !== 'notification' && eventType !== 'message') return
 
         try {
-            const notification = JSON.parse(payload) as Notification
+            const rawNotification = JSON.parse(payload) as NotificationRaw
+            const rawNotificationId = rawNotification.notificationId ?? rawNotification.notification_id
+            if (typeof rawNotificationId !== 'number' || !Number.isFinite(rawNotificationId)) return
+            const notification = normalizeNotification(rawNotification)
             applyIncomingNotification(notification)
         } catch (error: unknown) {
             logger.error('Failed to parse SSE notification:', error)
