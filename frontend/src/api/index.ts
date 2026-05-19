@@ -227,6 +227,15 @@ const handleApiError = (error: AxiosError, toastStore: ToastStore) => {
     }
 }
 
+const markGlobalErrorToastHandled = (error: AxiosError) => {
+    const suppressibleError = error as SuppressibleApiError
+    suppressibleError.suppressGlobalErrorToast = true
+}
+
+const shouldMarkGlobalErrorToastHandled = (error: AxiosError, toastStore: ToastStore) => {
+    return error.response?.status !== 401 && toastStore !== noopToastStore
+}
+
 // Response Interceptor
 api.interceptors.response.use(
     (response: AxiosResponse) => {
@@ -238,6 +247,9 @@ api.interceptors.response.use(
 
         if (!originalRequest) {
             handleApiError(error, toastStore)
+            if (shouldMarkGlobalErrorToastHandled(error, toastStore)) {
+                markGlobalErrorToastHandled(error)
+            }
             return Promise.reject(error)
         }
 
@@ -354,6 +366,9 @@ api.interceptors.response.use(
 
         // Handle other common errors
         handleApiError(error, toastStore)
+        if (shouldMarkGlobalErrorToastHandled(error, toastStore)) {
+            markGlobalErrorToastHandled(error)
+        }
 
         return Promise.reject(error)
     }

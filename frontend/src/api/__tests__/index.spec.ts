@@ -198,6 +198,7 @@ describe('API Interceptors', () => {
 
         await expect(responseRejected(error)).rejects.toBe(error)
         expect(mocks.mockAddToast).not.toHaveBeenCalled()
+        expect(error.suppressGlobalErrorToast).toBeUndefined()
     })
 
     it('falls back to noop toast store when resolver throws', async () => {
@@ -217,6 +218,7 @@ describe('API Interceptors', () => {
 
         await expect(responseRejected(error)).rejects.toBe(error)
         expect(mocks.mockAddToast).not.toHaveBeenCalled()
+        expect(error.suppressGlobalErrorToast).toBeUndefined()
     })
 
     it('handles response errors without config safely', async () => {
@@ -227,6 +229,7 @@ describe('API Interceptors', () => {
         } as any
 
         await expect(responseRejected(errorWithoutConfig)).rejects.toBe(errorWithoutConfig)
+        expect(errorWithoutConfig.suppressGlobalErrorToast).toBe(true)
         expect(mocks.mockAddToast).toHaveBeenCalledWith(
             'common.messages.networkRetry',
             'error',
@@ -279,6 +282,7 @@ describe('API Interceptors', () => {
         } as any
 
         await expect(responseRejected(error)).rejects.toBe(error)
+        expect(error.suppressGlobalErrorToast).toBeUndefined()
         expect(mocks.mockAddToast).not.toHaveBeenCalled()
     })
 
@@ -301,6 +305,7 @@ describe('API Interceptors', () => {
         } as any
 
         await expect(responseRejected(error)).rejects.toBe(error)
+        expect(error.suppressGlobalErrorToast).toBe(true)
         expect(mocks.mockAddToast).toHaveBeenCalledWith(
             'title is required',
             'error',
@@ -508,6 +513,24 @@ describe('API Interceptors', () => {
         await expect(responseRejected(error)).rejects.toBe(error)
         expect(mocks.mockAxiosPost).not.toHaveBeenCalled()
         expect(mocks.mockAddToast).not.toHaveBeenCalled()
+        expect(error.suppressGlobalErrorToast).toBeUndefined()
+    })
+
+    it('does not suppress global query toast for retried 401 failures without an axios toast', async () => {
+        const { responseRejected } = await loadApiModule()
+        const error = {
+            message: 'unauthorized after retry',
+            config: { _retry: true, headers: {} },
+            response: {
+                status: 401,
+                data: { message: 'unauthorized after retry' },
+            },
+        } as any
+
+        await expect(responseRejected(error)).rejects.toBe(error)
+        expect(mocks.mockAxiosPost).not.toHaveBeenCalled()
+        expect(mocks.mockAddToast).not.toHaveBeenCalled()
+        expect(error.suppressGlobalErrorToast).toBeUndefined()
     })
 
     it('refreshes token and retries original request on 401', async () => {
