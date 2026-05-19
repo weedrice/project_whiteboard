@@ -6,12 +6,18 @@ const mocks = vi.hoisted(() => {
   const searchAll = vi.fn()
   const getPopularEmoticons = vi.fn()
   const push = vi.fn()
+  const listPage = {
+    content: [],
+    totalPages: 0,
+    totalElements: 0,
+  }
 
   return {
     queryOptions,
     searchAll,
     getPopularEmoticons,
     push,
+    listPage,
   }
 })
 
@@ -27,11 +33,7 @@ vi.mock('@tanstack/vue-query', () => ({
     return {
       data: {
         __v_isRef: true,
-        value: {
-          content: [],
-          totalPages: 0,
-          totalElements: 0,
-        },
+        value: mocks.listPage,
       },
       isLoading: { __v_isRef: true, value: false },
     }
@@ -100,13 +102,12 @@ describe('EmoticonList', () => {
     mocks.queryOptions.length = 0
     mocks.searchAll.mockResolvedValue({
       data: {
-        data: {
-          content: [],
-          totalPages: 0,
-          totalElements: 0,
-        },
+        data: mocks.listPage,
       },
     })
+    mocks.listPage.content = []
+    mocks.listPage.totalPages = 0
+    mocks.listPage.totalElements = 0
     mocks.getPopularEmoticons.mockResolvedValue({ data: { data: [] } })
   })
 
@@ -133,5 +134,19 @@ describe('EmoticonList', () => {
     await listQuery.queryFn()
 
     expect(mocks.searchAll).toHaveBeenLastCalledWith(expect.objectContaining({ sortBy: 'oldest' }))
+  })
+
+  it('renders a bounded pagination range for large page counts', () => {
+    mocks.listPage.totalPages = 12
+
+    const wrapper = mountList()
+    const buttons = wrapper.findAll('button').map((button) => button.text())
+
+    expect(buttons).toContain('1')
+    expect(buttons).toContain('2')
+    expect(buttons).toContain('12')
+    expect(wrapper.text()).toContain('...')
+    expect(buttons).not.toContain('6')
+    expect(buttons).not.toContain('11')
   })
 })
