@@ -1,6 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { authApi } from '@/api/auth'
-import { notificationApi, type NotificationParams } from '@/api/notification'
+import {
+    notificationApi,
+    type NotificationParams
+} from '@/api/notification'
 import type { Notification, PageResponse } from '@/types'
 import { type Ref, computed } from 'vue'
 import logger from '@/utils/logger'

@@ -507,19 +507,23 @@ class VerificationCodeServiceTest {
     }
 
     @Test
-    @DisplayName("인증 코드가 만료되어도 활성 ticket은 같은 코드로 재조회할 수 있다")
+    @DisplayName("만료된 인증 코드는 활성 ticket이 있어도 거부한다")
     void verifyCode_reusesActiveTicketAfterCodeExpiry() {
         VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.FIND_ID, "123456");
         sentCode.issueVerificationTicket("ticket-1", LocalDateTime.now().plusMinutes(5));
         ReflectionTestUtils.setField(sentCode, "expiryDate", LocalDateTime.now().minusMinutes(1));
         verificationCodes.put(1L, sentCode);
 
-        VerifyCodeResponse response = verificationCodeService.verifyCode(
+        assertThatThrownBy(() -> verificationCodeService.verifyCode(
                 "test@example.com",
                 "123456",
-                VerificationPurpose.FIND_ID);
-
-        assertThat(response.getVerificationTicket()).isEqualTo("ticket-1");
+                VerificationPurpose.FIND_ID))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> {
+                    BusinessException businessException = (BusinessException) ex;
+                    assertThat(businessException.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
+                    assertThat(businessException.getMessage()).isEqualTo("만료된 인증 코드입니다.");
+                });
     }
 
     @Test

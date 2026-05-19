@@ -14,7 +14,7 @@
       <router-link
         v-for="tag in tags"
         :key="tag.name"
-        :to="{ name: 'search', query: { tag: tag.name } }"
+        :to="{ name: 'search', query: { q: tag.name } }"
         class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors"
         :style="{ fontSize: calculateFontSize(tag.count) }"
       >

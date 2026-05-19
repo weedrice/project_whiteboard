@@ -91,7 +91,7 @@ function normalizeNotificationPage(raw: NotificationPageRaw): PageResponse<Notif
     }
 }
 
-function buildNotificationStreamUrl(): string {
+export function getNotificationStreamUrl(): string {
     return `${API.BASE_URL.replace(/\/+$/, '')}/notifications/stream`
 }
 
@@ -120,7 +120,7 @@ export const notificationApi = {
     getUnreadCount: () => api.get<ApiResponse<number>>('/notifications/unread-count'),
 
     openStream: (token: string, signal: AbortSignal): Promise<Response> => {
-        return fetch(buildNotificationStreamUrl(), {
+        return fetch(getNotificationStreamUrl(), {
             method: 'GET',
             headers: {
                 Accept: 'text/event-stream',

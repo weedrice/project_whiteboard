@@ -3,7 +3,7 @@ import { defineComponent, h, nextTick, ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import type { EmoticonImage } from '@/types/emoticon'
 import PostForm from '../PostForm.vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useBoard } from '@/composables/useBoard'
 import { usePost } from '@/composables/usePost'
 import { useAuthStore } from '@/stores/auth'
@@ -11,7 +11,6 @@ import { useToastStore } from '@/stores/toast'
 import logger from '@/utils/logger'
 
 vi.mock('vue-router', () => ({
-    useRoute: vi.fn(),
     useRouter: vi.fn(),
 }))
 
@@ -269,7 +268,12 @@ const mountPostForm = (
     props: Record<string, unknown> = {},
 ) => {
     const wrapper = mount(PostForm, {
-        props: { mode, ...props },
+        props: {
+            mode,
+            boardUrl: routeState.params.boardUrl,
+            postId: routeState.params.postId,
+            ...props,
+        },
         global: {
             mocks: {
                 $t: overrideMocks.$t ?? ((key: string) => key),
@@ -318,7 +322,6 @@ describe('PostForm', () => {
         isCreatePendingRef.value = false
         isUpdatePendingRef.value = false
 
-        vi.mocked(useRoute).mockReturnValue(routeState as any)
         vi.mocked(useRouter).mockReturnValue({ push: mockPush, back: mockBack } as any)
         vi.mocked(useAuthStore).mockReturnValue({ user: { role: 'USER' } } as any)
         vi.mocked(useToastStore).mockReturnValue({ addToast: mockAddToast } as any)
@@ -560,6 +563,33 @@ describe('PostForm', () => {
         expect(mockPush).toHaveBeenCalledWith('/inquiry')
     })
 
+    it('delegates create navigation to onSubmitted when provided', async () => {
+        const onSubmitted = vi.fn()
+        boardRef.value = {
+            allowNsfw: false,
+            isAdmin: false,
+            categories: [{ categoryId: 1, name: 'General', minWriteRole: 'USER' }],
+        }
+        const wrapper = mountPostForm('create', {}, {}, { onSubmitted })
+
+        await wrapper.get('#title').setValue('Created title')
+        await wrapper.get('#category').setValue('1')
+        await wrapper.get('[data-testid=\"editor-input\"]').setValue('Created body')
+        await wrapper.get('form').trigger('submit')
+
+        const [, options] = mockCreateMutate.mock.calls[0]
+        options.onSuccess({ data: { data: 103 } })
+
+        expect(onSubmitted).toHaveBeenCalledWith({
+            mode: 'create',
+            boardUrl: 'free',
+            newPostId: 103,
+            isSecret: false,
+            isBoardAdmin: false,
+        })
+        expect(mockPush).not.toHaveBeenCalled()
+    })
+
     it('goes back after create when goBackOnCreate is true', async () => {
         window.history.pushState({}, '', '/temp-inquiry')
         setBoardCategories([{ categoryId: 1, name: 'General', minWriteRole: 'USER' }])
@@ -645,6 +675,38 @@ describe('PostForm', () => {
 
         options.onSuccess()
         expect(mockPush).toHaveBeenCalledWith('/board/free/post/77')
+    })
+
+    it('delegates update navigation to onSubmitted when provided', async () => {
+        const onSubmitted = vi.fn()
+        routeState.params.postId = '88'
+        postRef.value = {
+            postId: 88,
+            title: 'Before title',
+            contents: 'Before body',
+            category: { categoryId: 5 },
+            tags: ['before'],
+            isNsfw: false,
+            isSpoiler: false,
+        }
+        const wrapper = mountPostForm('edit', {}, {}, { onSubmitted })
+        await nextTick()
+
+        await wrapper.get('#title').setValue('After title')
+        await wrapper.get('[data-testid=\"editor-input\"]').setValue('After body')
+        await wrapper.get('form').trigger('submit')
+
+        const [, options] = mockUpdateMutate.mock.calls[0]
+        options.onSuccess()
+
+        expect(onSubmitted).toHaveBeenCalledWith({
+            mode: 'edit',
+            boardUrl: 'free',
+            postId: '88',
+            isSecret: false,
+            isBoardAdmin: false,
+        })
+        expect(mockPush).not.toHaveBeenCalled()
     })
 
     it('saves the draft before update submit and includes draft id', async () => {

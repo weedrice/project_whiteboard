@@ -12,16 +12,20 @@ export interface EmailVerificationState {
 }
 
 export interface EmailVerificationOptions {
+  initialEmail?: string
   timerSeconds?: number
   resendCooldownSeconds?: number
 }
 
-export function useEmailVerificationState(options: EmailVerificationOptions = {}) {
+export function useEmailVerificationState(optionsOrInitialEmail: EmailVerificationOptions | string = {}) {
+  const options = typeof optionsOrInitialEmail === 'string'
+    ? { initialEmail: optionsOrInitialEmail }
+    : optionsOrInitialEmail
   const timerSeconds = options.timerSeconds ?? 300
   const resendCooldownSeconds = options.resendCooldownSeconds ?? 60
 
   const verification = reactive<EmailVerificationState>({
-    email: '',
+    email: options.initialEmail ?? '',
     code: '',
     verificationTicket: '',
     isCodeSent: false,
@@ -41,9 +45,9 @@ export function useEmailVerificationState(options: EmailVerificationOptions = {}
     }
   }
 
-  const startTimer = () => {
+  const startTimer = (seconds = timerSeconds) => {
     stopTimer()
-    verification.timeLeft = timerSeconds
+    verification.timeLeft = seconds
     timerInterval = setInterval(() => {
       if (verification.timeLeft > 0) {
         verification.timeLeft--
@@ -60,9 +64,9 @@ export function useEmailVerificationState(options: EmailVerificationOptions = {}
     }
   }
 
-  const startResendCooldown = () => {
+  const startResendCooldown = (seconds = resendCooldownSeconds) => {
     stopResendCooldown()
-    verification.resendCooldown = resendCooldownSeconds
+    verification.resendCooldown = seconds
     resendInterval = setInterval(() => {
       if (verification.resendCooldown > 0) {
         verification.resendCooldown--
@@ -94,7 +98,7 @@ export function useEmailVerificationState(options: EmailVerificationOptions = {}
   onScopeDispose(() => {
     stopTimer()
     stopResendCooldown()
-  })
+  }, true)
 
   return {
     verification,
@@ -103,6 +107,7 @@ export function useEmailVerificationState(options: EmailVerificationOptions = {}
     startResendCooldown,
     stopResendCooldown,
     resetVerification,
+    reset: resetVerification,
     formatTime,
   }
 }

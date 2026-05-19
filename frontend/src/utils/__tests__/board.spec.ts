@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   canWriteBoardPost,
+  canWriteCategory,
   isDefaultCategory,
   isGeneralCategoryName,
   resolveDefaultCategory
@@ -65,5 +66,14 @@ describe('board utils', () => {
 
     expect(canWriteBoardPost(board, true, 'USER')).toBe(false)
     expect(canWriteBoardPost({ ...board, isAdmin: true }, true, 'USER')).toBe(true)
+  })
+
+  it('checks category-level write roles consistently', () => {
+    expect(canWriteCategory({ minWriteRole: 'USER' }, 'USER', false)).toBe(true)
+    expect(canWriteCategory({ minWriteRole: 'BOARD_ADMIN' }, 'USER', false)).toBe(false)
+    expect(canWriteCategory({ minWriteRole: 'BOARD_ADMIN' }, 'USER', true)).toBe(true)
+    expect(canWriteCategory({ minWriteRole: 'SUPER_ADMIN' }, 'BOARD_ADMIN', true)).toBe(false)
+    expect(canWriteCategory({ minWriteRole: 'SUPER_ADMIN' }, 'SUPER_ADMIN', false)).toBe(true)
+    expect(canWriteCategory({ minWriteRole: 'UNKNOWN' }, 'SUPER_ADMIN', true)).toBe(false)
   })
 })
