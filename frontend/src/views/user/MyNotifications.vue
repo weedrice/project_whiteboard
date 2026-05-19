@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
 import { useNotification } from '@/composables/useNotification'
-import { postApi } from '@/api/post'
-import { commentApi } from '@/api/comment'
+import { useNotificationNavigation } from '@/composables/useNotificationNavigation'
 import { Check, Bell } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import Pagination from '@/components/common/ui/Pagination.vue'
@@ -12,14 +10,11 @@ import EmptyState from '@/components/common/ui/EmptyState.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import { formatDate } from '@/utils/date'
-import logger from '@/utils/logger'
-import { useToastStore } from '@/stores/toast'
 import type { Notification } from '@/types'
 
 const { t } = useI18n()
-const router = useRouter()
-const toastStore = useToastStore()
-const { useNotifications, useMarkAsRead, useMarkAllAsRead } = useNotification()
+const { useNotifications, useMarkAllAsRead } = useNotification()
+const { navigateFromNotification } = useNotificationNavigation({ showCommentFailureToast: true })
 
 const page = ref(0)
 const size = ref(15)
@@ -30,7 +25,6 @@ const params = computed(() => ({
 }))
 
 const { data: notificationsData, isLoading } = useNotifications(params)
-const { mutate: markAsRead } = useMarkAsRead()
 const { mutate: markAllAsRead } = useMarkAllAsRead()
 
 const notifications = computed(() => notificationsData.value?.content || [])
@@ -45,37 +39,7 @@ function handleSizeChange() {
 }
 
 async function handleNotificationClick(notification: Notification) {
-  if (!notification.isRead) {
-    markAsRead(notification.notificationId)
-  }
-
-  if (notification.sourceType === 'POST' || notification.sourceType === 'COMMENT') {
-    if (notification.sourceType === 'POST') {
-      try {
-        const { data } = await postApi.getPost(notification.sourceId)
-        if (data.success && data.data.board) {
-          router.push(`/board/${data.data.board.boardUrl}/post/${notification.sourceId}`)
-        }
-      } catch (err: unknown) {
-        logger.error('Failed to navigate to post:', err)
-      }
-    } else if (notification.sourceType === 'COMMENT') {
-      try {
-        const { data } = await commentApi.getComment(notification.sourceId)
-        if (data.success) {
-          const comment = data.data
-          const boardUrl = comment.post?.boardUrl ?? comment.boardUrl
-          const postId = comment.post?.postId ?? comment.postId
-          if (boardUrl && postId) {
-            router.push(`/board/${boardUrl}/post/${postId}#comment-${notification.sourceId}`)
-          }
-        }
-      } catch (err: unknown) {
-        toastStore.addToast(t('common.messages.notFound'), 'warning')
-        logger.error('Failed to navigate to comment:', err)
-      }
-    }
-  }
+  await navigateFromNotification(notification)
 }
 </script>
 

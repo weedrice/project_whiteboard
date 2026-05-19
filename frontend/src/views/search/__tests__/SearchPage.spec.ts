@@ -92,7 +92,7 @@ describe('SearchPage', () => {
 
   it('uses q query as the primary integrated search text', () => {
     routeState.query = {
-      q: 'vue',
+      q: ' vue ',
       keyword: 'ignored',
       tag: 'ignored-tag',
       t: '123',
@@ -111,7 +111,7 @@ describe('SearchPage', () => {
   })
 
   it('falls back to keyword and tag query names used by search entry components', () => {
-    routeState.query = { keyword: 'pinia' }
+    routeState.query = { q: '   ', keyword: 'pinia' }
     mountPage()
     expect(searchState.lastParams?.value.q).toBe('pinia')
 

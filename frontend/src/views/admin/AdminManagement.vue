@@ -110,7 +110,7 @@ const superAdminColumns: { key: string; label: string; width: string; align?: 'l
 
     <div class="mt-8">
       <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white mb-4">{{ t('admin.admins.superAdmins') }}</h3>
-      <BaseTable :columns="superAdminColumns" :items="superAdmins" :loading="isSuperAdminsLoading" :emptyText="t('common.noData')">
+      <BaseTable :columns="superAdminColumns" :items="superAdmins" row-key="userId" :loading="isSuperAdminsLoading" :emptyText="t('common.noData')">
         <template #cell-loginId="{ item }">
           {{ item.loginId || '-' }}
         </template>

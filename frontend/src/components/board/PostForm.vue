@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useBoard } from '@/composables/useBoard'
 import { usePost } from '@/composables/usePost'
 import { usePostDraft } from '@/composables/usePostDraft'
@@ -18,11 +18,14 @@ import EmoticonPicker from '@/components/common/widgets/EmoticonPicker.vue'
 import PostEditorTipTap from '@/components/board/PostEditorTipTap.vue'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
 import { normalizeEditorFileImageUrls, normalizeLegacyFileUrls } from '@/utils/fileUrl'
+import { canWriteCategory } from '@/utils/board'
 import logger from '@/utils/logger'
 
 const props = defineProps<{
   mode: 'create' | 'edit'
   boardUrl?: string
+  postId?: string | number
+  onSubmitted?: (result: PostFormSubmitResult) => void
   redirectOnCreate?: string
   goBackOnCreate?: boolean
   createTitleOverride?: string
@@ -34,6 +37,15 @@ const props = defineProps<{
   hideSecret?: boolean
   skipBoardLookup?: boolean
 }>()
+
+type PostFormSubmitResult = {
+  mode: 'create' | 'edit'
+  boardUrl: string
+  postId?: string | number
+  newPostId?: string | number
+  isSecret: boolean
+  isBoardAdmin: boolean
+}
 
 type CategoryOption = {
   categoryId: number
@@ -54,15 +66,14 @@ type FormState = {
 }
 
 const { t } = useI18n()
-const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
 
-const boardUrl = computed(() => props.boardUrl ?? (route.params.boardUrl as string))
-const postId = computed(() => route.params.postId as string)
+const boardUrl = computed(() => props.boardUrl ?? '')
+const postId = computed(() => props.postId ?? '')
 
-const { useBoardDetail, useBoardCategories } = useBoard()
+const { useBoardDetail } = useBoard()
 const {
   usePostDetail,
   useCreatePost,
@@ -73,9 +84,7 @@ const queryEnabled = computed(() => !!boardUrl.value && !props.skipBoardLookup)
 const { data: board, isLoading: isBoardLoading } = useBoardDetail(boardUrl, {
   enabled: queryEnabled,
 })
-const { data: categories, isLoading: isCategoriesLoading } = useBoardCategories(boardUrl, {
-  enabled: queryEnabled,
-})
+const categories = computed(() => board.value?.categories ?? [])
 const postIdRef = computed(() => (props.mode === 'edit' ? postId.value : '') as string)
 const { data: post, isLoading: isPostLoading } = usePostDetail(postIdRef, {
   enabled: computed(() => props.mode === 'edit' && !!postId.value),
@@ -113,7 +122,7 @@ const initialFormSnapshot = ref<FormState | null>(null)
 
 const isSubmitting = computed(() => isCreateSubmitting.value || isUpdateSubmitting.value)
 const isLoading = computed(() =>
-  isBoardLoading.value || isCategoriesLoading.value || (props.mode === 'edit' && isPostLoading.value),
+  isBoardLoading.value || (props.mode === 'edit' && isPostLoading.value),
 )
 
 function copyFormSnapshot(src: FormState): FormState {
@@ -182,26 +191,12 @@ function resolvePayloadFileIds(scope: 'content' | 'draft'): number[] {
   return contentFileIds.filter((fileId) => draftFileIds.value.includes(fileId))
 }
 
-function canWriteCategory(minWriteRole?: string) {
-  const userRole = authStore.user?.role || 'USER'
-  const isBoardAdmin = board.value?.isAdmin || false
-  const normalizedRole = minWriteRole || 'USER'
-
-  switch (normalizedRole) {
-    case 'USER':
-      return true
-    case 'BOARD_ADMIN':
-      return userRole === 'SUPER_ADMIN' || isBoardAdmin
-    case 'SUPER_ADMIN':
-      return userRole === 'SUPER_ADMIN'
-    default:
-      return false
-  }
-}
-
 const filteredCategories = computed<CategoryOption[]>(() => {
-  if (!categories.value) return []
-  const selectableCategories = categories.value.filter((cat) => canWriteCategory(cat.minWriteRole))
+  const selectableCategories = categories.value.filter((cat) => canWriteCategory(
+    cat,
+    authStore.user?.role,
+    board.value?.isAdmin ?? false
+  ))
   const selectedCategoryId = Number(form.value.categoryId)
   const selectedCategory = categories.value.find((category) => category.categoryId === selectedCategoryId)
     ?? (post.value?.category?.categoryId === selectedCategoryId
@@ -518,6 +513,17 @@ function cleanupPublishedDraft() {
 }
 
 function navigateAfterCreate(newPostId: string | number, payload: ReturnType<typeof buildPayload>) {
+  if (props.onSubmitted) {
+    props.onSubmitted({
+      mode: 'create',
+      boardUrl: boardUrl.value,
+      newPostId,
+      isSecret: payload.isSecret,
+      isBoardAdmin: board.value?.isAdmin ?? false,
+    })
+    return
+  }
+
   if (props.goBackOnCreate) {
     if (typeof window !== 'undefined' && window.history.length > 1) {
       router.back()
@@ -590,6 +596,16 @@ async function handleSubmit() {
     onSuccess: () => {
       markCurrentSnapshotSaved()
       cleanupPublishedDraft()
+      if (props.onSubmitted) {
+        props.onSubmitted({
+          mode: 'edit',
+          boardUrl: boardUrl.value,
+          postId: postId.value,
+          isSecret: payload.isSecret,
+          isBoardAdmin: board.value?.isAdmin ?? false,
+        })
+        return
+      }
       router.push(`/board/${boardUrl.value}/post/${postId.value}`)
     },
     onError: (error) => {

@@ -186,8 +186,10 @@ const replyContent = ref('')
 const isSending = ref(false)
 /** 차단 관계로 인해 상세/읽음 API가 실패한 쪽지인지 (답장 클릭 시에만 토스트 표시용) */
 const messageFromBlockedUser = ref(false)
+let messageListRequestId = 0
 
 async function fetchMessages() {
+    const requestId = ++messageListRequestId
     loading.value = true
     messages.value = []
     selectedMessages.value = []
@@ -200,14 +202,18 @@ async function fetchMessages() {
             ? await messageApi.getReceivedMessages(params)
             : await messageApi.getSentMessages(params)
 
-        if (data.success) {
+        if (requestId === messageListRequestId && data.success) {
             messages.value = data.data?.content || []
             totalPages.value = data.data?.totalPages || 0
         }
     } catch (error) {
-        logger.error('Failed to fetch messages:', error)
+        if (requestId === messageListRequestId) {
+            logger.error('Failed to fetch messages:', error)
+        }
     } finally {
-        loading.value = false
+        if (requestId === messageListRequestId) {
+            loading.value = false
+        }
     }
 }
 

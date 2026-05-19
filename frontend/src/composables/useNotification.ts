@@ -1,6 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { authApi } from '@/api/auth'
-import { notificationApi, type NotificationParams } from '@/api/notification'
+import {
+    notificationApi,
+    type NotificationParams
+} from '@/api/notification'
 import type { Notification, PageResponse } from '@/types'
 import { type Ref, computed } from 'vue'
 import logger from '@/utils/logger'
@@ -235,16 +238,7 @@ export function useNotification() {
 
     const startStream = async (token: string, controller: AbortController) => {
         try {
-            const response = await fetch('/api/v1/notifications/stream', {
-                method: 'GET',
-                headers: {
-                    Accept: 'text/event-stream',
-                    Authorization: `Bearer ${token}`,
-                },
-                cache: 'no-store',
-                credentials: 'same-origin',
-                signal: controller.signal,
-            })
+            const response = await notificationApi.openStream(token, controller.signal)
 
             if (!response.ok) {
                 throw new Error(`SSE stream request failed: ${response.status}`)

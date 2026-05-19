@@ -23,7 +23,7 @@ const keyword = ref('')
 
 const onSearch = () => {
   if (keyword.value.trim()) {
-    router.push({ name: 'search', query: { keyword: keyword.value.trim() } })
+    router.push({ name: 'search', query: { q: keyword.value.trim() } })
     keyword.value = ''
   }
 }

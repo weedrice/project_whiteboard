@@ -219,7 +219,11 @@ function openVerifyModal() {
   isVerifyModalOpen.value = true
 }
 
-
+function closeVerifyModal() {
+  stopVerifyTimer()
+  stopVerifyResendCooldown()
+  isVerifyModalOpen.value = false
+}
 
 async function sendVerifyCode() {
   const trimmed = emailVerification.email.trim()
@@ -236,6 +240,7 @@ async function sendVerifyCode() {
   try {
     const { data } = await authApi.sendVerificationCode(trimmed, 'CHANGE_EMAIL')
     if (data.success) {
+      emailVerification.code = ''
       emailVerification.verificationTicket = ''
       emailVerification.isVerified = false
       emailVerification.isCodeSent = true
@@ -284,7 +289,7 @@ async function verifyEmailCode() {
         fetchMyProfile(),
         authStore.fetchUser()
       ])
-      isVerifyModalOpen.value = false
+      closeVerifyModal()
     }
   } catch (err: unknown) {
     const message = extractErrorMessage(err) || t('auth.verificationFailed')
@@ -510,7 +515,7 @@ onMounted(async () => {
       </BaseModal>
 
       <!-- Email Verification Modal -->
-      <BaseModal :isOpen="isVerifyModalOpen" :title="$t('auth.emailNotVerified')" @close="isVerifyModalOpen = false">
+      <BaseModal :isOpen="isVerifyModalOpen" :title="$t('auth.emailNotVerified')" @close="closeVerifyModal">
         <div class="space-y-6 p-4">
           <!-- Email Input & Send Button -->
           <div class="flex flex-col">

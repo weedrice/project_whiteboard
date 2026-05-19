@@ -9,7 +9,9 @@ const mocks = vi.hoisted(() => {
         getUnreadCount: vi.fn(),
         markAsRead: vi.fn(),
         markAllAsRead: vi.fn(),
+        openStream: vi.fn(),
     }
+    const getNotificationStreamUrl = vi.fn(() => 'https://api.example.com/api/v1/notifications/stream')
     const authApi = {
         refreshToken: vi.fn(),
     }
@@ -58,6 +60,7 @@ const mocks = vi.hoisted(() => {
 
     return {
         notificationApi,
+        getNotificationStreamUrl,
         authApi,
         authStore,
         logger,
@@ -71,6 +74,7 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('@/api/notification', () => ({
     notificationApi: mocks.notificationApi,
+    getNotificationStreamUrl: mocks.getNotificationStreamUrl,
 }))
 
 vi.mock('@/api/auth', () => ({
@@ -113,8 +117,21 @@ describe('useNotification', () => {
         vi.clearAllMocks()
         mocks.queryOptions.length = 0
         mocks.mutationOptions.length = 0
+        mocks.getNotificationStreamUrl.mockReturnValue('https://api.example.com/api/v1/notifications/stream')
         mocks.authStore.isAuthenticated = true
         mocks.authStore.accessToken = 'test-token'
+        mocks.notificationApi.openStream.mockImplementation((token: string, signal: AbortSignal) => {
+            return fetch('/api/v1/notifications/stream', {
+                method: 'GET',
+                headers: {
+                    Accept: 'text/event-stream',
+                    Authorization: `Bearer ${token}`,
+                },
+                cache: 'no-store',
+                credentials: 'same-origin',
+                signal,
+            })
+        })
         localStorage.clear()
     })
 
@@ -190,6 +207,7 @@ describe('useNotification', () => {
         connectToSse()
 
         expect(fetchMock).not.toHaveBeenCalled()
+        expect(mocks.notificationApi.openStream).not.toHaveBeenCalled()
     })
 
     it('applies incoming notification to first page and increments unread count', async () => {
@@ -233,6 +251,7 @@ describe('useNotification', () => {
         await Promise.resolve()
         closeSse()
 
+        expect(mocks.notificationApi.openStream).toHaveBeenCalledWith('test-token', expect.any(AbortSignal))
         expect((firstPage.content as Array<{ notificationId: number; isRead: boolean }>)[0]).toEqual({
             notificationId: 1,
             isRead: false,
@@ -307,6 +326,8 @@ describe('useNotification', () => {
         connectToSse()
         connectToSse()
 
+        expect(mocks.notificationApi.openStream).toHaveBeenCalledTimes(1)
+        expect(mocks.notificationApi.openStream).toHaveBeenCalledWith('test-token', expect.any(AbortSignal))
         expect(fetchMock).toHaveBeenCalledTimes(1)
         closeSse()
     })

@@ -84,7 +84,14 @@ const getRowKey = (item: T, index: number): string | number => {
         }
     }
 
-    const defaultKey = record.id ?? record.postId
+    const defaultKey = record.id
+        ?? record.postId
+        ?? record.key
+        ?? record.userId
+        ?? record.reportId
+        ?? record.ipAddress
+        ?? record.adminId
+        ?? record.errorLogId
     if (typeof defaultKey === 'string' || typeof defaultKey === 'number') {
         return defaultKey
     }

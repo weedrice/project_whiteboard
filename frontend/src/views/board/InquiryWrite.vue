@@ -1,17 +1,20 @@
 ﻿<script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { onBeforeRouteLeave } from 'vue-router'
+import { useRouter } from 'vue-router'
 import PostForm from '@/components/board/PostForm.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import { boardApi } from '@/api/board'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import logger from '@/utils/logger'
 import { useI18n } from 'vue-i18n'
+import { usePostFormLeaveGuard } from '@/composables/usePostFormLeaveGuard'
 
 const postFormRef = ref<InstanceType<typeof PostForm> | null>(null)
 const isPreparingBoard = ref(true)
 const prepareError = ref('')
 const { t } = useI18n()
+const router = useRouter()
+const leaveConfirmMessage = '페이지에서 나가시겠습니까? 변경사항이 저장되지 않을 수 있습니다.'
 
 const inquiryBoardUrl = computed(() => {
   const fromEnv = (import.meta.env.VITE_INQUIRY_BOARD_URL || 'inquiry').trim()
@@ -31,17 +34,15 @@ const ensureInquiryBoard = async () => {
   }
 }
 
-onBeforeRouteLeave((_to, _from, next) => {
-  const form = postFormRef.value
-  if (form?.hasUnsavedChanges?.()) {
-    const message = form.getLeaveConfirmMessage?.() ?? '페이지에서 나가시겠습니까? 변경사항이 저장되지 않을 수 있습니다.'
-    if (!window.confirm(message)) {
-      next(false)
-      return
-    }
+usePostFormLeaveGuard(postFormRef, leaveConfirmMessage)
+
+function handleSubmitted() {
+  if (typeof window !== 'undefined' && window.history.length > 1) {
+    router.back()
+    return
   }
-  next()
-})
+  router.push('/')
+}
 
 onMounted(() => {
   ensureInquiryBoard()
@@ -79,8 +80,7 @@ onMounted(() => {
       ref="postFormRef"
       mode="create"
       :board-url="inquiryBoardUrl"
-      go-back-on-create
-      redirect-on-create="/"
+      :on-submitted="handleSubmitted"
       create-title-override="문의 작성"
       create-success-toast-message="문의가 성공적으로 등록되었습니다."
       :hide-category="true"

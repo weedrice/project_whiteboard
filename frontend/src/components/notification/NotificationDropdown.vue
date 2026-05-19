@@ -1,51 +1,30 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { useNotification } from '@/composables/useNotification'
-import { postApi } from '@/api/post'
+import { useNotificationNavigation } from '@/composables/useNotificationNavigation'
 import { Check } from 'lucide-vue-next'
-import logger from '@/utils/logger'
 import type { NotificationParams } from '@/api/notification'
 import type { Notification } from '@/types'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { formatTimeAgo } from '@/utils/date'
 
-const router = useRouter()
 const { t } = useI18n()
-const { useNotifications, useMarkAsRead, useMarkAllAsRead } = useNotification()
+const { useNotifications, useMarkAllAsRead } = useNotification()
+const { navigateFromNotification } = useNotificationNavigation()
 
 // Default params for dropdown
 const params = ref<NotificationParams>({ page: 0, size: 20 })
 
 // Trigger fetch via useQuery
 const { data: notificationsData, isLoading } = useNotifications(params)
-const { mutate: markAsRead } = useMarkAsRead()
 const { mutate: markAllAsRead } = useMarkAllAsRead()
 
 // Use query data
 const notifications = computed<Notification[]>(() => notificationsData.value?.content || [])
 
 async function handleNotificationClick(notification: Notification) {
-  if (!notification.isRead) {
-    markAsRead(notification.notificationId)
-  }
-
-  // Navigate based on source type
-  if (notification.sourceType === 'POST' || notification.sourceType === 'COMMENT') {
-    // Assuming sourceId is postId for now
-    if (notification.sourceType === 'POST') {
-      try {
-        const { data } = await postApi.getPost(notification.sourceId)
-        if (data.success && data.data.board) {
-          router.push(`/board/${data.data.board.boardUrl}/post/${notification.sourceId}`)
-        }
-      } catch (err) {
-        logger.error('Failed to navigate to post:', err)
-      }
-    }
-    // If we can't determine the URL, just stay here (marked as read)
-  }
+  await navigateFromNotification(notification)
 }
 </script>
 

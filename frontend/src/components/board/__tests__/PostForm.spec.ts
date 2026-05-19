@@ -3,7 +3,7 @@ import { defineComponent, h, nextTick, ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import type { EmoticonImage } from '@/types/emoticon'
 import PostForm from '../PostForm.vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useBoard } from '@/composables/useBoard'
 import { usePost } from '@/composables/usePost'
 import { useAuthStore } from '@/stores/auth'
@@ -11,7 +11,6 @@ import { useToastStore } from '@/stores/toast'
 import logger from '@/utils/logger'
 
 vi.mock('vue-router', () => ({
-    useRoute: vi.fn(),
     useRouter: vi.fn(),
 }))
 
@@ -251,11 +250,12 @@ const routeState = {
     },
 }
 
-const boardRef = ref<{ allowNsfw?: boolean; isAdmin?: boolean } | null>({ allowNsfw: false, isAdmin: false })
-const categoriesRef = ref<Array<{ categoryId: number; name: string; minWriteRole?: string }>>([])
+type TestCategory = { categoryId: number; name: string; minWriteRole?: string }
+type TestBoard = { allowNsfw?: boolean; isAdmin?: boolean; categories?: TestCategory[] }
+
+const boardRef = ref<TestBoard | null>({ allowNsfw: false, isAdmin: false, categories: [] })
 const postRef = ref<any>(null)
 const isBoardLoadingRef = ref(false)
-const isCategoriesLoadingRef = ref(false)
 const isPostLoadingRef = ref(false)
 const isCreatePendingRef = ref(false)
 const isUpdatePendingRef = ref(false)
@@ -268,7 +268,12 @@ const mountPostForm = (
     props: Record<string, unknown> = {},
 ) => {
     const wrapper = mount(PostForm, {
-        props: { mode, ...props },
+        props: {
+            mode,
+            boardUrl: routeState.params.boardUrl,
+            postId: routeState.params.postId,
+            ...props,
+        },
         global: {
             mocks: {
                 $t: overrideMocks.$t ?? ((key: string) => key),
@@ -281,6 +286,13 @@ const mountPostForm = (
     })
     mountedWrappers.push(wrapper)
     return wrapper
+}
+
+const setBoardCategories = (categories: TestCategory[]) => {
+    boardRef.value = {
+        ...(boardRef.value ?? {}),
+        categories,
+    }
 }
 
 describe('PostForm', () => {
@@ -299,23 +311,23 @@ describe('PostForm', () => {
         routeState.params.boardUrl = 'free'
         routeState.params.postId = '1'
 
-        boardRef.value = { allowNsfw: false, isAdmin: false }
-        categoriesRef.value = [{ categoryId: 1, name: 'General', minWriteRole: 'USER' }]
+        boardRef.value = {
+            allowNsfw: false,
+            isAdmin: false,
+            categories: [{ categoryId: 1, name: 'General', minWriteRole: 'USER' }],
+        }
         postRef.value = null
         isBoardLoadingRef.value = false
-        isCategoriesLoadingRef.value = false
         isPostLoadingRef.value = false
         isCreatePendingRef.value = false
         isUpdatePendingRef.value = false
 
-        vi.mocked(useRoute).mockReturnValue(routeState as any)
         vi.mocked(useRouter).mockReturnValue({ push: mockPush, back: mockBack } as any)
         vi.mocked(useAuthStore).mockReturnValue({ user: { role: 'USER' } } as any)
         vi.mocked(useToastStore).mockReturnValue({ addToast: mockAddToast } as any)
 
         vi.mocked(useBoard).mockReturnValue({
             useBoardDetail: () => ({ data: boardRef, isLoading: isBoardLoadingRef }),
-            useBoardCategories: () => ({ data: categoriesRef, isLoading: isCategoriesLoadingRef }),
         } as any)
 
         vi.mocked(usePost).mockReturnValue({
@@ -382,12 +394,12 @@ describe('PostForm', () => {
     })
 
     it('filters categories by role in create mode and keeps only selectable categories plus current one in edit mode', async () => {
-        categoriesRef.value = [
+        setBoardCategories([
             { categoryId: 1, name: 'General', minWriteRole: 'USER' },
             { categoryId: 2, name: 'Board Admin', minWriteRole: 'BOARD_ADMIN' },
             { categoryId: 3, name: 'Super Admin', minWriteRole: 'SUPER_ADMIN' },
             { categoryId: 4, name: 'Legacy', minWriteRole: 'ADMIN' },
-        ]
+        ])
         const createWrapper = mountPostForm('create')
         await nextTick()
         const createOptionTexts = createWrapper.findAll('option').map((option) => option.text())
@@ -429,10 +441,10 @@ describe('PostForm', () => {
             isNsfw: true,
             isSpoiler: true,
         }
-        categoriesRef.value = [
+        setBoardCategories([
             { categoryId: 9, name: 'Edit Category', minWriteRole: 'USER' },
             { categoryId: 1, name: 'General', minWriteRole: 'USER' },
-        ]
+        ])
 
         const wrapper = mountPostForm('edit')
         await nextTick()
@@ -449,7 +461,7 @@ describe('PostForm', () => {
         expect(mockAddToast).toHaveBeenCalledWith('board.writePost.validation', 'error')
         expect(mockCreateMutate).not.toHaveBeenCalled()
 
-        categoriesRef.value = []
+        setBoardCategories([])
         const wrapperNoCategory = mountPostForm('create')
         await wrapperNoCategory.get('#title').setValue('Title only')
         await wrapperNoCategory.get('form').trigger('submit')
@@ -459,8 +471,11 @@ describe('PostForm', () => {
     })
 
     it('submits create payload and navigates on success', async () => {
-        boardRef.value = { allowNsfw: true, isAdmin: true }
-        categoriesRef.value = [{ categoryId: 12, name: 'General', minWriteRole: 'USER' }]
+        boardRef.value = {
+            allowNsfw: true,
+            isAdmin: true,
+            categories: [{ categoryId: 12, name: 'General', minWriteRole: 'USER' }],
+        }
         const wrapper = mountPostForm('create')
 
         await wrapper.get('#title').setValue('Created title')
@@ -501,7 +516,7 @@ describe('PostForm', () => {
             isAuthenticated: true,
             user: { userId: 1, role: 'USER' },
         } as any)
-        categoriesRef.value = [{ categoryId: 12, name: 'General', minWriteRole: 'USER' }]
+        setBoardCategories([{ categoryId: 12, name: 'General', minWriteRole: 'USER' }])
         const wrapper = mountPostForm('create')
 
         await wrapper.get('#title').setValue('Created title')
@@ -516,7 +531,7 @@ describe('PostForm', () => {
     })
 
     it('normalizes local editor preview images before submit', async () => {
-        categoriesRef.value = [{ categoryId: 12, name: 'General', minWriteRole: 'USER' }]
+        setBoardCategories([{ categoryId: 12, name: 'General', minWriteRole: 'USER' }])
         const wrapper = mountPostForm('create')
 
         await wrapper.get('#title').setValue('Created title')
@@ -535,7 +550,7 @@ describe('PostForm', () => {
     })
 
     it('redirects to custom route after create when redirectOnCreate is provided', async () => {
-        categoriesRef.value = [{ categoryId: 1, name: 'General', minWriteRole: 'USER' }]
+        setBoardCategories([{ categoryId: 1, name: 'General', minWriteRole: 'USER' }])
         const wrapper = mountPostForm('create', {}, {}, { redirectOnCreate: '/inquiry' })
 
         await wrapper.get('#title').setValue('Created title')
@@ -548,9 +563,36 @@ describe('PostForm', () => {
         expect(mockPush).toHaveBeenCalledWith('/inquiry')
     })
 
+    it('delegates create navigation to onSubmitted when provided', async () => {
+        const onSubmitted = vi.fn()
+        boardRef.value = {
+            allowNsfw: false,
+            isAdmin: false,
+            categories: [{ categoryId: 1, name: 'General', minWriteRole: 'USER' }],
+        }
+        const wrapper = mountPostForm('create', {}, {}, { onSubmitted })
+
+        await wrapper.get('#title').setValue('Created title')
+        await wrapper.get('#category').setValue('1')
+        await wrapper.get('[data-testid=\"editor-input\"]').setValue('Created body')
+        await wrapper.get('form').trigger('submit')
+
+        const [, options] = mockCreateMutate.mock.calls[0]
+        options.onSuccess({ data: { data: 103 } })
+
+        expect(onSubmitted).toHaveBeenCalledWith({
+            mode: 'create',
+            boardUrl: 'free',
+            newPostId: 103,
+            isSecret: false,
+            isBoardAdmin: false,
+        })
+        expect(mockPush).not.toHaveBeenCalled()
+    })
+
     it('goes back after create when goBackOnCreate is true', async () => {
         window.history.pushState({}, '', '/temp-inquiry')
-        categoriesRef.value = [{ categoryId: 1, name: 'General', minWriteRole: 'USER' }]
+        setBoardCategories([{ categoryId: 1, name: 'General', minWriteRole: 'USER' }])
         const wrapper = mountPostForm('create', {}, {}, {
             goBackOnCreate: true,
             redirectOnCreate: '/fallback',
@@ -635,6 +677,38 @@ describe('PostForm', () => {
         expect(mockPush).toHaveBeenCalledWith('/board/free/post/77')
     })
 
+    it('delegates update navigation to onSubmitted when provided', async () => {
+        const onSubmitted = vi.fn()
+        routeState.params.postId = '88'
+        postRef.value = {
+            postId: 88,
+            title: 'Before title',
+            contents: 'Before body',
+            category: { categoryId: 5 },
+            tags: ['before'],
+            isNsfw: false,
+            isSpoiler: false,
+        }
+        const wrapper = mountPostForm('edit', {}, {}, { onSubmitted })
+        await nextTick()
+
+        await wrapper.get('#title').setValue('After title')
+        await wrapper.get('[data-testid=\"editor-input\"]').setValue('After body')
+        await wrapper.get('form').trigger('submit')
+
+        const [, options] = mockUpdateMutate.mock.calls[0]
+        options.onSuccess()
+
+        expect(onSubmitted).toHaveBeenCalledWith({
+            mode: 'edit',
+            boardUrl: 'free',
+            postId: '88',
+            isSecret: false,
+            isBoardAdmin: false,
+        })
+        expect(mockPush).not.toHaveBeenCalled()
+    })
+
     it('saves the draft before update submit and includes draft id', async () => {
         vi.mocked(useAuthStore).mockReturnValue({
             isAuthenticated: true,
@@ -685,7 +759,7 @@ describe('PostForm', () => {
 
     it('keeps current edit category when it is no longer selectable', async () => {
         routeState.params.postId = '88'
-        categoriesRef.value = [{ categoryId: 1, name: 'General', minWriteRole: 'USER' }]
+        setBoardCategories([{ categoryId: 1, name: 'General', minWriteRole: 'USER' }])
         postRef.value = {
             postId: 88,
             title: 'Before title',
@@ -808,7 +882,11 @@ describe('PostForm', () => {
     })
 
     it('supports html source mode and cancel button navigation', async () => {
-        boardRef.value = { allowNsfw: true, isAdmin: true }
+        boardRef.value = {
+            allowNsfw: true,
+            isAdmin: true,
+            categories: [{ categoryId: 1, name: 'General', minWriteRole: 'USER' }],
+        }
         const wrapper = mountPostForm('create')
 
         const modeButtons = wrapper.findAll('.editor-view-toggle-btn')
@@ -883,15 +961,15 @@ describe('PostForm', () => {
     })
 
     it('covers unsaved-change helper branches for empty snapshot, category and tag changes', async () => {
-        categoriesRef.value = undefined as any
+        setBoardCategories([])
         const noCategoryWrapper = mountPostForm('create')
         const noCategoryExposed = noCategoryWrapper.vm as unknown as { hasUnsavedChanges: () => boolean }
         expect(noCategoryExposed.hasUnsavedChanges()).toBe(false)
 
-        categoriesRef.value = [
+        setBoardCategories([
             { categoryId: 1, name: 'General', minWriteRole: 'USER' },
             { categoryId: 2, name: 'Second', minWriteRole: 'USER' },
-        ]
+        ])
         const categoryDirtyWrapper = mountPostForm('create')
         await nextTick()
         await categoryDirtyWrapper.get('#category').setValue('2')
@@ -1000,7 +1078,11 @@ describe('PostForm', () => {
     })
 
     it('updates mobile/desktop checkboxes and uses fallback strings when translation is empty', async () => {
-        boardRef.value = { allowNsfw: true, isAdmin: true }
+        boardRef.value = {
+            allowNsfw: true,
+            isAdmin: true,
+            categories: [{ categoryId: 1, name: 'General', minWriteRole: 'USER' }],
+        }
         const wrapper = mountPostForm('create', {}, { $t: () => '' })
 
         await wrapper.get('#isNotice-m').setValue(true)

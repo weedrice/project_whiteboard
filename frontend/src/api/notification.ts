@@ -1,6 +1,7 @@
 import api from './index'
 import type { ApiResponse, Notification, PageResponse } from '@/types'
 import type { AxiosResponse } from 'axios'
+import { API } from '@/utils/constants'
 
 export interface NotificationParams {
     page?: number;
@@ -90,6 +91,10 @@ function normalizeNotificationPage(raw: NotificationPageRaw): PageResponse<Notif
     }
 }
 
+export function getNotificationStreamUrl(): string {
+    return `${API.BASE_URL.replace(/\/+$/, '')}/notifications/stream`
+}
+
 export const notificationApi = {
     // Get notifications
     getNotifications: async (params: NotificationParams): Promise<AxiosResponse<ApiResponse<PageResponse<Notification>>>> => {
@@ -113,4 +118,17 @@ export const notificationApi = {
 
     // Get unread count
     getUnreadCount: () => api.get<ApiResponse<number>>('/notifications/unread-count'),
+
+    openStream: (token: string, signal: AbortSignal): Promise<Response> => {
+        return fetch(getNotificationStreamUrl(), {
+            method: 'GET',
+            headers: {
+                Accept: 'text/event-stream',
+                Authorization: `Bearer ${token}`,
+            },
+            cache: 'no-store',
+            credentials: 'same-origin',
+            signal,
+        })
+    },
 }
