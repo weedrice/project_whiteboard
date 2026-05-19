@@ -19,6 +19,7 @@ import { fileApi } from '../file'
 import { emoticonApi } from '../emoticon'
 import { adApi } from '../ad'
 import { notificationApi } from '../notification'
+import { codeApi } from '../code'
 
 describe('boardApi', () => {
     beforeEach(() => {
@@ -112,16 +113,66 @@ describe('searchApi', () => {
         vi.clearAllMocks()
     })
 
-    it('calls search endpoints with params', () => {
+    it('calls search endpoints with params', async () => {
         const params = { keyword: 'vue', page: 1, size: 20, type: 'post' }
+        apiMock.get.mockResolvedValue({
+            data: {
+                success: true,
+                data: {
+                    keywords: [
+                        { rank: 1, keyword: 'vue', count: 10 },
+                    ],
+                },
+            },
+        })
 
         searchApi.search(params as never)
         searchApi.searchPosts(params as never)
-        searchApi.getPopularKeywords()
+        const response = await searchApi.getPopularKeywords()
 
         expect(apiMock.get).toHaveBeenNthCalledWith(1, '/search', { params })
         expect(apiMock.get).toHaveBeenNthCalledWith(2, '/search/posts', { params })
-        expect(apiMock.get).toHaveBeenNthCalledWith(3, '/search/popular-keywords')
+        expect(apiMock.get).toHaveBeenNthCalledWith(3, '/search/popular')
+        expect(response.data).toEqual({
+            success: true,
+            data: [{ keyword: 'vue', count: 10 }],
+        })
+    })
+})
+
+describe('codeApi', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('calls common code detail endpoint and maps backend fields', async () => {
+        apiMock.get.mockResolvedValueOnce({
+            data: {
+                success: true,
+                data: [
+                    {
+                        codeValue: 'NOTICE',
+                        codeName: 'Notice',
+                        sortOrder: 1,
+                    },
+                ],
+            },
+        })
+
+        const response = await codeApi.getCodes('BOARD_TYPE')
+
+        expect(apiMock.get).toHaveBeenCalledWith('/common-codes/BOARD_TYPE/details')
+        expect(response.data).toEqual({
+            success: true,
+            data: [
+                {
+                    code: 'NOTICE',
+                    value: 'NOTICE',
+                    name: 'Notice',
+                    sortOrder: 1,
+                },
+            ],
+        })
     })
 })
 
