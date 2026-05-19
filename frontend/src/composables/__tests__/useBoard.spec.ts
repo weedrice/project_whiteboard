@@ -169,6 +169,19 @@ describe('useBoard', () => {
         expect(result).toEqual({ content: [{ postId: 1 }] })
     })
 
+    it('disables board posts when boardUrl is empty or caller enabled flag is false', () => {
+        const { useBoardPosts } = useBoard()
+        const params = ref({ page: 0, size: 20 })
+
+        useBoardPosts(ref(''), params, ref(false))
+        const emptyBoardUrlOptions = mocks.queryOptions.at(-1)!
+        expect((emptyBoardUrlOptions.enabled as ReturnType<typeof computed>).value).toBe(false)
+
+        useBoardPosts(ref('free'), params, ref(false), ref(false))
+        const disabledOptions = mocks.queryOptions.at(-1)!
+        expect((disabledOptions.enabled as ReturnType<typeof computed>).value).toBe(false)
+    })
+
     it('fetches board posts through searchApi when searching', async () => {
         vi.mocked(searchApi.searchPosts).mockResolvedValueOnce({
             data: { data: { content: [{ postId: 2 }] } },

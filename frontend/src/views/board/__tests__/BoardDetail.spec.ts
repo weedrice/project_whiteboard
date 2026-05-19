@@ -9,7 +9,9 @@ const {
   addRecentBoard,
   subscribeMutate,
   boardPayload,
-  postsPayload
+  postsPayload,
+  boardState,
+  useBoardPostsCalls
 } = vi.hoisted(() => ({
   route: {
     params: {
@@ -52,7 +54,11 @@ const {
     content: [],
     totalElements: 0,
     totalPages: 0
-  }
+  },
+  boardState: {
+    value: null as null | Record<string, unknown>
+  },
+  useBoardPostsCalls: [] as unknown[][]
 }))
 
 vi.mock('vue-router', async (importOriginal) => {
@@ -96,16 +102,19 @@ vi.mock('@/composables/useRecentBoards', () => ({
 vi.mock('@/composables/useBoard', () => ({
   useBoard: () => ({
     useBoardDetail: () => ({
-      data: ref(boardPayload),
+      data: ref(boardState.value),
       isLoading: ref(false),
       error: ref(null)
     }),
-    useBoardPosts: () => ({
-      data: ref(postsPayload),
-      isLoading: ref(false),
-      isFetching: ref(false),
-      error: ref(null)
-    }),
+    useBoardPosts: (...args: unknown[]) => {
+      useBoardPostsCalls.push(args)
+      return {
+        data: ref(postsPayload),
+        isLoading: ref(false),
+        isFetching: ref(false),
+        error: ref(null)
+      }
+    },
     useSubscribeBoard: () => ({
       mutate: subscribeMutate,
       isPending: ref(false)
@@ -134,6 +143,8 @@ describe('BoardDetail', () => {
     postsPayload.content = []
     postsPayload.totalElements = 0
     postsPayload.totalPages = 0
+    boardState.value = boardPayload
+    useBoardPostsCalls.length = 0
     router.replace.mockReset()
     router.push.mockReset()
     addRecentBoard.mockReset()
@@ -167,6 +178,29 @@ describe('BoardDetail', () => {
 
     const allButton = wrapper.findAll('button').find((button) => button.text() === 'board.detail.filter.all')
     expect(allButton?.attributes('aria-pressed')).toBe('true')
+  })
+
+  it('enables posts query from route boardUrl before board detail data resolves', () => {
+    boardState.value = null
+
+    mount(BoardDetail, {
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          RouterView: true,
+          PostList: true,
+          Pagination: true,
+          UserMenu: true,
+          BaseSkeleton: true
+        }
+      }
+    })
+
+    const enabled = useBoardPostsCalls[0]?.[3] as { value: boolean } | undefined
+    expect(enabled?.value).toBe(true)
   })
 
   it('syncs category selection into the board URL state', async () => {

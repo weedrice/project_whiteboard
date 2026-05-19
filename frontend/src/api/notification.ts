@@ -9,7 +9,7 @@ export interface NotificationParams {
 }
 
 // API 응답 원본 타입 (snake_case)
-interface NotificationActorRaw {
+export interface NotificationActorRaw {
     userId?: number;
     user_id?: number;
     agentId?: number;
@@ -22,7 +22,7 @@ interface NotificationActorRaw {
     profile_image_url?: string;
 }
 
-interface NotificationRaw {
+export interface NotificationRaw {
     notificationId?: number;
     notification_id?: number;
     message?: string;
@@ -44,7 +44,7 @@ interface NotificationPageRaw extends Partial<PageResponse<NotificationRaw>> {
     hasPrevious?: boolean;
 }
 
-function normalizeNotification(raw: NotificationRaw): Notification {
+export function normalizeNotification(raw: NotificationRaw): Notification {
     return {
         notificationId: raw.notificationId || raw.notification_id || 0,
         sourceType: raw.sourceType || raw.source_type || 'SYSTEM',

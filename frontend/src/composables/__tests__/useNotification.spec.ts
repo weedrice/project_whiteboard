@@ -12,6 +12,25 @@ const mocks = vi.hoisted(() => {
         openStream: vi.fn(),
     }
     const getNotificationStreamUrl = vi.fn(() => 'https://api.example.com/api/v1/notifications/stream')
+    const normalizeNotification = vi.fn((raw: Record<string, unknown>) => {
+        const actor = raw.actor as Record<string, unknown> | undefined
+        return {
+            notificationId: raw.notificationId || raw.notification_id || 0,
+            sourceType: raw.sourceType || raw.source_type || 'SYSTEM',
+            sourceId: raw.sourceId || raw.source_id || 0,
+            isRead: raw.isRead === true || raw.is_read === true || raw.is_read === 'Y',
+            createdAt: raw.createdAt || raw.created_at || '',
+            message: raw.message || '',
+            actor: {
+                userId: actor?.userId || actor?.user_id || 0,
+                agentId: actor?.agentId || actor?.agent_id,
+                authorType: actor?.authorType || actor?.author_type,
+                displayName: actor?.displayName || actor?.display_name || '',
+                profileImageUrl: actor?.profileImageUrl || actor?.profile_image_url,
+            },
+            targetUrl: raw.targetUrl,
+        }
+    })
     const authApi = {
         refreshToken: vi.fn(),
     }
@@ -61,6 +80,7 @@ const mocks = vi.hoisted(() => {
     return {
         notificationApi,
         getNotificationStreamUrl,
+        normalizeNotification,
         authApi,
         authStore,
         logger,
@@ -75,6 +95,7 @@ const mocks = vi.hoisted(() => {
 vi.mock('@/api/notification', () => ({
     notificationApi: mocks.notificationApi,
     getNotificationStreamUrl: mocks.getNotificationStreamUrl,
+    normalizeNotification: mocks.normalizeNotification,
 }))
 
 vi.mock('@/api/auth', () => ({
@@ -118,6 +139,7 @@ describe('useNotification', () => {
         mocks.queryOptions.length = 0
         mocks.mutationOptions.length = 0
         mocks.getNotificationStreamUrl.mockReturnValue('https://api.example.com/api/v1/notifications/stream')
+        mocks.normalizeNotification.mockClear()
         mocks.authStore.isAuthenticated = true
         mocks.authStore.accessToken = 'test-token'
         mocks.notificationApi.openStream.mockImplementation((token: string, signal: AbortSignal) => {
@@ -252,9 +274,51 @@ describe('useNotification', () => {
         closeSse()
 
         expect(mocks.notificationApi.openStream).toHaveBeenCalledWith('test-token', expect.any(AbortSignal))
-        expect((firstPage.content as Array<{ notificationId: number; isRead: boolean }>)[0]).toEqual({
+        expect((firstPage.content as Array<{ notificationId: number; isRead: boolean }>)[0]).toMatchObject({
             notificationId: 1,
             isRead: false,
+        })
+        expect(unreadCount).toBe(1)
+    })
+
+    it('normalizes snake_case SSE notifications before caching', async () => {
+        let firstPage: Record<string, unknown> = {
+            content: [],
+            number: 0,
+            size: 20,
+            totalElements: 0,
+            empty: true,
+        }
+        mocks.queryClient.setQueriesData.mockImplementation((_filters, updater) => {
+            firstPage = updater(firstPage)
+            return firstPage
+        })
+        let unreadCount = 0
+        mocks.queryClient.setQueryData.mockImplementation((_key, updater) => {
+            unreadCount = updater(unreadCount)
+        })
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            status: 200,
+            body: createSseStream(
+                'event: notification\n'
+                + 'data: {"notification_id":7,"source_type":"COMMENT","source_id":3,"is_read":"Y","created_at":"2026-05-19T01:00:00Z","actor":{"display_name":"Alice"}}\n\n',
+            ),
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        const { connectToSse, closeSse } = useNotification()
+        connectToSse()
+        await flushAsync()
+        closeSse()
+
+        expect(mocks.normalizeNotification).toHaveBeenCalledWith(expect.objectContaining({ notification_id: 7 }))
+        expect((firstPage.content as Array<{ notificationId: number; actor: { displayName: string } }>)[0]).toMatchObject({
+            notificationId: 7,
+            sourceType: 'COMMENT',
+            sourceId: 3,
+            isRead: false,
+            actor: { displayName: 'Alice' },
         })
         expect(unreadCount).toBe(1)
     })
@@ -484,7 +548,7 @@ describe('useNotification', () => {
         expect(unreadCount).toBe(1)
     })
 
-    it('does not remember IDs for existing first-page notifications when id is non-numeric', async () => {
+    it('ignores SSE payloads without a numeric notification id', async () => {
         let firstPage: Record<string, unknown> = {
             content: [{ message: 'legacy-entry' }],
             number: 0,
@@ -519,7 +583,7 @@ describe('useNotification', () => {
         expect(unreadCount).toBe(0)
     })
 
-    it('accepts non-numeric notification id payloads without recent-id dedupe', async () => {
+    it('ignores non-numeric notification id payloads', async () => {
         let firstPage: Record<string, unknown> = {
             content: [],
             number: 0,
@@ -550,8 +614,8 @@ describe('useNotification', () => {
         await flushAsync()
         closeSse()
 
-        expect((firstPage.content as Array<{ notificationId: string }>)[0].notificationId).toBe('abc')
-        expect(unreadCount).toBe(1)
+        expect(firstPage.content).toEqual([])
+        expect(unreadCount).toBe(0)
     })
 
     it('handles keep-alive comments and blank event names as default message events', async () => {
