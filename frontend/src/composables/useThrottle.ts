@@ -1,4 +1,4 @@
-import { ref, watch, onUnmounted, onScopeDispose, type Ref } from 'vue'
+import { onScopeDispose, ref, watch, type Ref } from 'vue'
 
 export type ThrottledFunction<T extends (...args: any[]) => any> = ((...args: Parameters<T>) => void) & {
     cancel: () => void
@@ -48,9 +48,10 @@ export function useThrottle<T>(value: Ref<T>, delay: number = 100): Ref<T> {
         }
     }, { immediate: true })
 
-    onUnmounted(() => {
+    onScopeDispose(() => {
         if (timeoutId) {
             clearTimeout(timeoutId)
+            timeoutId = null
         }
     })
 

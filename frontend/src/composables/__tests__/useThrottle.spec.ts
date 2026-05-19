@@ -1,6 +1,33 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { effectScope } from 'vue'
-import { useThrottleFn } from '../useThrottle'
+import { effectScope, ref, type Ref } from 'vue'
+import { useThrottle, useThrottleFn } from '../useThrottle'
+
+describe('useThrottle', () => {
+    beforeEach(() => {
+        vi.useFakeTimers()
+        vi.setSystemTime(1000)
+    })
+
+    afterEach(() => {
+        vi.useRealTimers()
+    })
+
+    it('cleans up pending value updates when the effect scope is disposed', () => {
+        const scope = effectScope()
+        const source = ref('initial')
+        let throttled: Ref<string>
+
+        scope.run(() => {
+            throttled = useThrottle(source, 100)
+            source.value = 'next'
+        })
+
+        scope.stop()
+        vi.advanceTimersByTime(100)
+
+        expect(throttled!.value).toBe('initial')
+    })
+})
 
 describe('useThrottleFn', () => {
     beforeEach(() => {
