@@ -62,7 +62,7 @@ const toastStore = useToastStore()
 const boardUrl = computed(() => props.boardUrl ?? (route.params.boardUrl as string))
 const postId = computed(() => route.params.postId as string)
 
-const { useBoardDetail, useBoardCategories } = useBoard()
+const { useBoardDetail } = useBoard()
 const {
   usePostDetail,
   useCreatePost,
@@ -73,9 +73,7 @@ const queryEnabled = computed(() => !!boardUrl.value && !props.skipBoardLookup)
 const { data: board, isLoading: isBoardLoading } = useBoardDetail(boardUrl, {
   enabled: queryEnabled,
 })
-const { data: categories, isLoading: isCategoriesLoading } = useBoardCategories(boardUrl, {
-  enabled: queryEnabled,
-})
+const categories = computed(() => board.value?.categories ?? [])
 const postIdRef = computed(() => (props.mode === 'edit' ? postId.value : '') as string)
 const { data: post, isLoading: isPostLoading } = usePostDetail(postIdRef, {
   enabled: computed(() => props.mode === 'edit' && !!postId.value),
@@ -113,7 +111,7 @@ const initialFormSnapshot = ref<FormState | null>(null)
 
 const isSubmitting = computed(() => isCreateSubmitting.value || isUpdateSubmitting.value)
 const isLoading = computed(() =>
-  isBoardLoading.value || isCategoriesLoading.value || (props.mode === 'edit' && isPostLoading.value),
+  isBoardLoading.value || (props.mode === 'edit' && isPostLoading.value),
 )
 
 function copyFormSnapshot(src: FormState): FormState {
@@ -200,7 +198,6 @@ function canWriteCategory(minWriteRole?: string) {
 }
 
 const filteredCategories = computed<CategoryOption[]>(() => {
-  if (!categories.value) return []
   const selectableCategories = categories.value.filter((cat) => canWriteCategory(cat.minWriteRole))
   const selectedCategoryId = Number(form.value.categoryId)
   const selectedCategory = categories.value.find((category) => category.categoryId === selectedCategoryId)
