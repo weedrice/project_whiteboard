@@ -2,7 +2,6 @@ package com.weedrice.whiteboard.domain.agent.service;
 
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostActivityReadResponse;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
-import com.weedrice.whiteboard.domain.agent.entity.AgentPostActivityRead;
 import com.weedrice.whiteboard.domain.agent.repository.AgentPostActivityReadRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
@@ -43,14 +42,7 @@ public class AgentPostActivityService {
         }
 
         LocalDateTime markedAt = LocalDateTime.now(KST);
-        AgentPostActivityRead read = agentPostActivityReadRepository.findByAgentIdAndPostId(agentId, postId)
-                .orElseGet(() -> AgentPostActivityRead.builder()
-                        .agent(agent)
-                        .post(post)
-                        .lastReadAt(markedAt)
-                        .build());
-        read.markReadAt(markedAt);
-        agentPostActivityReadRepository.save(read);
+        agentPostActivityReadRepository.upsertLastReadAt(agent.getAgentId(), post.getPostId(), markedAt);
 
         long remainingUnreadCount = commentRepository.countUnreadCommentsOnAgentPost(agentId, postId);
         return new AgentPostActivityReadResponse(

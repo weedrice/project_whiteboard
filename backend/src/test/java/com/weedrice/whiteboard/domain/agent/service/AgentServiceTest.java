@@ -14,7 +14,6 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentStatusResponse;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.entity.AgentDailyQuota;
-import com.weedrice.whiteboard.domain.agent.entity.AgentPostActivityRead;
 import com.weedrice.whiteboard.domain.agent.exception.AgentWriteException;
 import com.weedrice.whiteboard.domain.agent.repository.AgentDailyQuotaRepository;
 import com.weedrice.whiteboard.domain.agent.repository.AgentPostActivityReadRepository;
@@ -1576,13 +1575,10 @@ class AgentServiceTest {
     }
 
     @Test
-    void markPostActivityRead_createsReadCursorAndReturnsRemainingUnreadCount() {
+    void markPostActivityRead_upsertsReadCursorAndReturnsRemainingUnreadCount() {
         ReflectionTestUtils.setField(writablePost, "agent", agent);
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(writablePost));
-        when(agentPostActivityReadRepository.findByAgentIdAndPostId(7L, 100L)).thenReturn(Optional.empty());
-        when(agentPostActivityReadRepository.save(any(AgentPostActivityRead.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
         when(commentRepository.countUnreadCommentsOnAgentPost(7L, 100L)).thenReturn(0L);
 
         AgentPostActivityReadResponse response = agentPostActivityService.markRead(7L, 100L);
@@ -1591,34 +1587,7 @@ class AgentServiceTest {
         assertThat(response.isMarkedRead()).isTrue();
         assertThat(response.getMarkedReadAt()).isNotNull();
         assertThat(response.getRemainingUnreadCount()).isZero();
-        ArgumentCaptor<AgentPostActivityRead> readCaptor = ArgumentCaptor.forClass(AgentPostActivityRead.class);
-        verify(agentPostActivityReadRepository).save(readCaptor.capture());
-        assertThat(readCaptor.getValue().getAgent()).isSameAs(agent);
-        assertThat(readCaptor.getValue().getPost()).isSameAs(writablePost);
-        assertThat(readCaptor.getValue().getLastReadAt()).isNotNull();
-    }
-
-    @Test
-    void markPostActivityRead_updatesExistingCursorIdempotently() {
-        ReflectionTestUtils.setField(writablePost, "agent", agent);
-        LocalDateTime previousReadAt = LocalDateTime.now().minusHours(1);
-        AgentPostActivityRead existingRead = AgentPostActivityRead.builder()
-                .agent(agent)
-                .post(writablePost)
-                .lastReadAt(previousReadAt)
-                .build();
-
-        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(writablePost));
-        when(agentPostActivityReadRepository.findByAgentIdAndPostId(7L, 100L)).thenReturn(Optional.of(existingRead));
-        when(agentPostActivityReadRepository.save(existingRead)).thenReturn(existingRead);
-        when(commentRepository.countUnreadCommentsOnAgentPost(7L, 100L)).thenReturn(0L);
-
-        AgentPostActivityReadResponse response = agentPostActivityService.markRead(7L, 100L);
-
-        assertThat(response.isMarkedRead()).isTrue();
-        assertThat(existingRead.getLastReadAt()).isAfter(previousReadAt);
-        verify(agentPostActivityReadRepository).save(existingRead);
+        verify(agentPostActivityReadRepository).upsertLastReadAt(eq(7L), eq(100L), any(LocalDateTime.class));
     }
 
     @Test
@@ -1640,7 +1609,7 @@ class AgentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
 
-        verify(agentPostActivityReadRepository, never()).save(any());
+        verify(agentPostActivityReadRepository, never()).upsertLastReadAt(any(), any(), any());
     }
 
     @Test
@@ -1653,7 +1622,7 @@ class AgentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
 
-        verify(agentPostActivityReadRepository, never()).save(any());
+        verify(agentPostActivityReadRepository, never()).upsertLastReadAt(any(), any(), any());
     }
 
     @Test
