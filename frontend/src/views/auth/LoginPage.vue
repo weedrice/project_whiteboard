@@ -65,10 +65,14 @@ async function handleLogin() {
   isLoading.value = true
 
   try {
-    await authStore.login({
+    const didLogin = await authStore.login({
       loginId: loginId.value,
       password: password.value
     })
+    if (!didLogin) {
+      toastStore.addToast(t('auth.loginFailed'), 'error', 3000, 'top-center')
+      return
+    }
     const redirect = getRedirectTarget()
     clearRedirectStorage()
     router.push(redirect || '/')

@@ -16,7 +16,7 @@ vi.mock('@/utils/constants', () => ({
     },
 }))
 
-import { getNotificationStreamUrl, notificationApi } from '../notification'
+import { getNotificationStreamUrl, normalizeNotification, notificationApi } from '../notification'
 
 describe('notificationApi', () => {
     beforeEach(() => {
@@ -51,5 +51,37 @@ describe('notificationApi', () => {
 
     it('builds the SSE stream URL from the configured API base URL', () => {
         expect(getNotificationStreamUrl()).toBe('https://api.example.com/api/v1/notifications/stream')
+    })
+
+    it('normalizes snake_case notification payloads', () => {
+        expect(normalizeNotification({
+            notification_id: 12,
+            source_type: 'COMMENT',
+            source_id: 34,
+            is_read: 'Y',
+            created_at: '2026-05-19T01:00:00Z',
+            message: 'hello',
+            actor: {
+                user_id: 5,
+                author_type: 'USER',
+                display_name: 'Alice',
+                profile_image_url: '/profile.png',
+            },
+        })).toEqual({
+            notificationId: 12,
+            sourceType: 'COMMENT',
+            sourceId: 34,
+            isRead: true,
+            createdAt: '2026-05-19T01:00:00Z',
+            message: 'hello',
+            actor: {
+                userId: 5,
+                agentId: undefined,
+                authorType: 'USER',
+                displayName: 'Alice',
+                profileImageUrl: '/profile.png',
+            },
+            targetUrl: undefined,
+        })
     })
 })

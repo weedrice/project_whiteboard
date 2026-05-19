@@ -95,7 +95,7 @@ watch([() => route.name, boardTitle], ([routeName, title]) => {
   document.title = `${title} - ${t('common.appName')}`
 }, { immediate: true })
 
-const boardContentEnabled = computed(() => !!board.value && !boardError.value)
+const boardContentEnabled = computed(() => !boardError.value)
 const {
   data: postsData,
   isLoading: isPostsLoading,
