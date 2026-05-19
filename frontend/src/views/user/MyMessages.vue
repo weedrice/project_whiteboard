@@ -250,10 +250,10 @@ async function openMessage(msg: Message) {
         }
         if (viewType.value === 'received' && !msg.isRead) {
             await messageApi.markAsRead(messageId, { skipGlobalErrorHandler: true })
+            msg.isRead = true
             if (requestId !== messageDetailRequestId || selectedMessage.value?.messageId !== messageId) {
                 return
             }
-            msg.isRead = true
             if (selectedMessage.value?.messageId === messageId) {
                 selectedMessage.value = { ...selectedMessage.value, isRead: true }
             }
