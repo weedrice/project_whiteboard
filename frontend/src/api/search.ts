@@ -2,6 +2,16 @@ import api from './index'
 import type { AxiosRequestConfig } from 'axios'
 import type { ApiResponse, PageResponse, PostSummary, PopularKeyword, SearchParams, IntegratedSearchResponse } from '@/types'
 
+interface PopularKeywordResponse {
+    keywords: Array<{
+        keyword: string
+        count: number
+    }>
+}
+
+const toPopularKeywords = (response: PopularKeywordResponse): PopularKeyword[] =>
+    response.keywords.map(({ keyword, count }) => ({ keyword, count }))
+
 export const searchApi = {
     // General search
     search: (params: SearchParams) => api.get<ApiResponse<IntegratedSearchResponse>>('/search', { params }),
@@ -11,5 +21,15 @@ export const searchApi = {
         api.get<ApiResponse<PageResponse<PostSummary>>>('/search/posts', { ...config, params }),
 
     // Get popular keywords
-    getPopularKeywords: () => api.get<ApiResponse<PopularKeyword[]>>('/search/popular-keywords')
+    async getPopularKeywords() {
+        const response = await api.get<ApiResponse<PopularKeywordResponse>>('/search/popular')
+
+        return {
+            ...response,
+            data: {
+                ...response.data,
+                data: toPopularKeywords(response.data.data)
+            }
+        }
+    }
 }

@@ -30,6 +30,7 @@ vi.mock('@/api/search', () => ({
     searchApi: {
         search: vi.fn(),
         searchPosts: vi.fn(),
+        getPopularKeywords: vi.fn(),
     },
 }))
 
@@ -102,8 +103,16 @@ describe('useSearch', () => {
         expect((blankOptions.enabled as ReturnType<typeof computed>).value).toBe(false)
     })
 
-    it('returns mocked popular keywords with medium staleTime', async () => {
-        vi.useFakeTimers()
+    it('fetches popular keywords with medium staleTime', async () => {
+        vi.mocked(searchApi.getPopularKeywords).mockResolvedValueOnce({
+            data: {
+                success: true,
+                data: [
+                    { keyword: 'Vue 3', count: 120 },
+                    { keyword: 'Tailwind', count: 95 },
+                ],
+            },
+        } as never)
 
         const { usePopularKeywords } = useSearch()
         usePopularKeywords()
@@ -111,13 +120,10 @@ describe('useSearch', () => {
         expect(options.queryKey).toEqual(['search', 'popular'])
         expect(options.staleTime).toBe(QUERY_STALE_TIME.MEDIUM)
 
-        const promise = (options.queryFn as () => Promise<unknown>)()
-        await vi.advanceTimersByTimeAsync(500)
-        const result = await promise as Array<{ keyword: string; count: number }>
+        const result = await (options.queryFn as () => Promise<unknown>)() as Array<{ keyword: string; count: number }>
 
-        expect(result).toHaveLength(5)
+        expect(searchApi.getPopularKeywords).toHaveBeenCalledOnce()
+        expect(result).toHaveLength(2)
         expect(result[0]).toEqual({ keyword: 'Vue 3', count: 120 })
-
-        vi.useRealTimers()
     })
 })
