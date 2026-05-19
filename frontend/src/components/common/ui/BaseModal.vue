@@ -35,6 +35,28 @@
   </Teleport>
 </template>
 
+<script lang="ts">
+let bodyScrollLockCount = 0
+let previousBodyOverflow: string | null = null
+
+function lockBodyScroll() {
+  if (bodyScrollLockCount === 0) {
+    previousBodyOverflow = document.body.style.overflow
+  }
+  bodyScrollLockCount += 1
+  document.body.style.overflow = 'hidden'
+}
+
+function unlockBodyScroll() {
+  if (bodyScrollLockCount === 0) return
+  bodyScrollLockCount -= 1
+  if (bodyScrollLockCount === 0) {
+    document.body.style.overflow = previousBodyOverflow ?? ''
+    previousBodyOverflow = null
+  }
+}
+</script>
+
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -76,9 +98,22 @@ const titleId = `modal-title-${Math.random().toString(36).substr(2, 9)}`
 const descriptionId = `modal-description-${Math.random().toString(36).substr(2, 9)}`
 
 let previouslyFocusedElement: HTMLElement | null = null
+let hasLockedBodyScroll = false
 
 const close = () => {
   emit('close')
+}
+
+function lockModalBodyScroll() {
+  if (hasLockedBodyScroll) return
+  lockBodyScroll()
+  hasLockedBodyScroll = true
+}
+
+function unlockModalBodyScroll() {
+  if (!hasLockedBodyScroll) return
+  unlockBodyScroll()
+  hasLockedBodyScroll = false
 }
 
 // Keyboard navigation: Escape key to close
@@ -112,6 +147,8 @@ watch(() => props.isOpen, (isOpen) => {
     previouslyFocusedElement = document.activeElement as HTMLElement
 
     nextTick(() => {
+      if (!props.isOpen) return
+
       // Focus first focusable element in modal
       if (modalRef.value) {
         const focusableElements = modalRef.value.querySelectorAll<HTMLElement>(
@@ -121,11 +158,11 @@ watch(() => props.isOpen, (isOpen) => {
       }
 
       // Prevent body scroll when modal is open
-      document.body.style.overflow = 'hidden'
+      lockModalBodyScroll()
     })
   } else {
     // Restore body scroll
-    document.body.style.overflow = ''
+    unlockModalBodyScroll()
 
     // Restore focus to previously focused element
     if (previouslyFocusedElement) {
@@ -133,7 +170,7 @@ watch(() => props.isOpen, (isOpen) => {
       previouslyFocusedElement = null
     }
   }
-})
+}, { immediate: true })
 
 onMounted(() => {
   document.addEventListener('keydown', handleKeyDown)
@@ -142,6 +179,6 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown)
   // Ensure body scroll is restored
-  document.body.style.overflow = ''
+  unlockModalBodyScroll()
 })
 </script>
