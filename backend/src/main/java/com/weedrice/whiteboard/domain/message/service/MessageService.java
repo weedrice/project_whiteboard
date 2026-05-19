@@ -115,18 +115,7 @@ public class MessageService {
 
     public MessageResponse.MessageSummary getMessageSummary(Long userId, Long messageId) {
         Message message = getMessage(userId, messageId);
-        User partner = message.getSender().getUserId().equals(userId) ? message.getReceiver() : message.getSender();
-
-        return MessageResponse.MessageSummary.builder()
-                .messageId(message.getMessageId())
-                .partner(MessageResponse.UserInfo.builder()
-                        .userId(partner.getUserId())
-                        .displayName(partner.getDisplayName())
-                        .build())
-                .content(InputSanitizer.stripHtml(message.getContent()))
-                .isRead(message.getIsRead())
-                .createdAt(message.getCreatedAt())
-                .build();
+        return MessageResponse.MessageSummary.from(message, userId);
     }
 
     @Transactional
