@@ -123,6 +123,19 @@ describe('Confirm Store', () => {
     })
 
     describe('multiple dialog flow', () => {
+        it('resolves the previous pending dialog as cancelled when another dialog opens', async () => {
+            const promise1 = store.open('First question?')
+            const promise2 = store.open('Second question?')
+
+            await expect(promise1).resolves.toBe(false)
+            expect(store.isOpen).toBe(true)
+            expect(store.message).toBe('Second question?')
+
+            store.confirm()
+
+            await expect(promise2).resolves.toBe(true)
+        })
+
         it('can open new dialog after closing previous', async () => {
             // First dialog
             const promise1 = store.open('First question?')

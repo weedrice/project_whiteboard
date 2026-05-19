@@ -15,6 +15,11 @@ export const useConfirmStore = defineStore('confirm', () => {
         confirmTxt: string = 'Confirm',
         cancelTxt: string = 'Cancel'
     ): Promise<boolean> {
+        if (resolvePromise.value) {
+            resolvePromise.value(false)
+            resolvePromise.value = null
+        }
+
         title.value = ttl
         message.value = msg
         confirmText.value = confirmTxt

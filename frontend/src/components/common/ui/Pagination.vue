@@ -8,7 +8,7 @@
         {{ $t('common.previous') }}
       </span>
 
-      <template v-for="page in displayedPages" :key="page">
+      <template v-for="(page, index) in displayedPages" :key="getPageKey(page, index)">
         <span v-if="page === '...'" class="px-2 sm:px-3 py-2 sm:py-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400 min-h-[44px] sm:min-h-0 flex items-center">...</span>
         <span v-else-if="currentPage === (page as number) - 1" :class="activePageClass">
           {{ page }}
@@ -32,7 +32,7 @@
         {{ $t('common.previous') }}
       </BaseButton>
 
-      <template v-for="page in displayedPages" :key="page">
+      <template v-for="(page, index) in displayedPages" :key="getPageKey(page, index)">
         <span v-if="page === '...'" class="px-2 sm:px-3 py-2 sm:py-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400 min-h-[44px] sm:min-h-0 flex items-center">...</span>
         <BaseButton v-else @click="$emit('page-change', (page as number) - 1)"
           :variant="currentPage === (page as number) - 1 ? 'primary' : 'secondary'"
@@ -79,6 +79,10 @@ function buildLink(page: number): RouteLocationRaw {
     return {}
   }
   return props.linkBuilder(page)
+}
+
+function getPageKey(page: number | string, index: number): string {
+  return `${page}-${index}`
 }
 
 const displayedPages = computed(() => {

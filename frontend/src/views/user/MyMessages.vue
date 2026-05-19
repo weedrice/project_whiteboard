@@ -189,10 +189,6 @@ const messageFromBlockedUser = ref(false)
 let messageListRequestId = 0
 let messageDetailRequestId = 0
 
-function isCurrentMessageRequest(requestId: number, messageId: number): boolean {
-    return requestId === messageDetailRequestId && selectedMessage.value?.messageId === messageId
-}
-
 async function fetchMessages() {
     const requestId = ++messageListRequestId
     loading.value = true
@@ -241,24 +237,31 @@ function changeViewType(type: 'received' | 'sent') {
 
 async function openMessage(msg: Message) {
     const requestId = ++messageDetailRequestId
+    const messageId = msg.messageId
     messageFromBlockedUser.value = false
     selectedMessage.value = msg
     try {
-        const { data } = await messageApi.getMessage(msg.messageId, { skipGlobalErrorHandler: true })
-        if (!isCurrentMessageRequest(requestId, msg.messageId)) return
+        const { data } = await messageApi.getMessage(messageId, { skipGlobalErrorHandler: true })
+        if (requestId !== messageDetailRequestId || selectedMessage.value?.messageId !== messageId) {
+            return
+        }
         if (data.success && data.data) {
             selectedMessage.value = data.data
         }
         if (viewType.value === 'received' && !msg.isRead) {
-            await messageApi.markAsRead(msg.messageId, { skipGlobalErrorHandler: true })
+            await messageApi.markAsRead(messageId, { skipGlobalErrorHandler: true })
             msg.isRead = true
-            if (selectedMessage.value?.messageId === msg.messageId) {
+            if (requestId !== messageDetailRequestId || selectedMessage.value?.messageId !== messageId) {
+                return
+            }
+            if (selectedMessage.value?.messageId === messageId) {
                 selectedMessage.value = { ...selectedMessage.value, isRead: true }
             }
-            if (!isCurrentMessageRequest(requestId, msg.messageId)) return
         }
     } catch (error) {
-        if (!isCurrentMessageRequest(requestId, msg.messageId)) return
+        if (requestId !== messageDetailRequestId || selectedMessage.value?.messageId !== messageId) {
+            return
+        }
         const errRes = extractErrorResponse(error as AxiosError)
         if (errRes?.code === BLOCKED_BY_USER_CODE) {
             messageFromBlockedUser.value = true
