@@ -110,4 +110,27 @@ describe('usePagination', () => {
             scope.stop()
         }
     })
+
+    it('does not commit an in-flight request after reset', async () => {
+        const scope = effectScope()
+        const request = deferred<ApiResponse<PageResponse<{ id: number }>>>()
+        const fetchFn = vi.fn(async () => request.promise)
+
+        try {
+            await scope.run(async () => {
+                const pagination = usePagination(fetchFn, { page: 0, size: 15 })
+
+                const fetchPromise = pagination.fetch()
+                pagination.reset()
+                request.resolve(pageResponse([{ id: 1 }], { page: 0, size: 15 }))
+                await fetchPromise
+
+                expect(pagination.items.value).toEqual([])
+                expect(pagination.totalPages.value).toBe(0)
+                expect(pagination.loading.value).toBe(false)
+            })
+        } finally {
+            scope.stop()
+        }
+    })
 })
