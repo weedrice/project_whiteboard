@@ -81,11 +81,12 @@ class NotificationSettingsFlowTest {
                 notificationRepository,
                 preferenceService);
         NotificationEventHandler eventHandler = new NotificationEventHandler(commandService, streamService);
-        NotificationQueryService queryService = new NotificationQueryService(notificationRepository, userRepository);
+        NotificationQueryService queryService = new NotificationQueryService(notificationRepository);
         NotificationReadCommandService readCommandService =
-                new NotificationReadCommandService(userRepository, commandService);
-        NotificationSseFacade sseFacade = new NotificationSseFacade(userRepository, streamService);
-        notificationService = new NotificationService(eventHandler, queryService, readCommandService, sseFacade);
+                new NotificationReadCommandService(commandService);
+        NotificationSseFacade sseFacade = new NotificationSseFacade(streamService);
+        notificationService = new NotificationService(eventHandler, queryService, readCommandService, sseFacade,
+                userRepository);
 
         receiver = User.builder().build();
         ReflectionTestUtils.setField(receiver, "userId", 1L);

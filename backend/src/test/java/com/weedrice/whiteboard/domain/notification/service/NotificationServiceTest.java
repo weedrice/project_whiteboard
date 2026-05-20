@@ -377,6 +377,17 @@ class NotificationServiceTest {
     }
 
     @Test
+    @DisplayName("Unread notification count rejects missing user")
+    void getUnreadNotificationCount_missingUser_throwsUserNotFound() {
+        Long userId = 999L;
+        when(userRepository.existsById(userId)).thenReturn(false);
+
+        assertThatThrownBy(() -> notificationService.getUnreadNotificationCount(userId))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
     @DisplayName("Read all validates user existence before bulk update")
     void readAllNotifications_validatesUserExists() {
         Long userId = 1L;
@@ -387,17 +398,29 @@ class NotificationServiceTest {
         verify(notificationRepository).readAllByUserId(userId);
     }
 
+    @Test
+    @DisplayName("Read all rejects missing user before bulk update")
+    void readAllNotifications_missingUser_throwsUserNotFound() {
+        Long userId = 999L;
+        when(userRepository.existsById(userId)).thenReturn(false);
+
+        assertThatThrownBy(() -> notificationService.readAllNotifications(userId))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_FOUND);
+        verify(notificationRepository, never()).readAllByUserId(userId);
+    }
+
     private NotificationService createNotificationService(NotificationPreferenceService preferenceService,
                                                           NotificationStreamService streamService) {
         NotificationCommandService commandService = new NotificationCommandService(
                 notificationRepository,
                 preferenceService);
         NotificationEventHandler eventHandler = new NotificationEventHandler(commandService, streamService);
-        NotificationQueryService queryService = new NotificationQueryService(notificationRepository, userRepository);
+        NotificationQueryService queryService = new NotificationQueryService(notificationRepository);
         NotificationReadCommandService readCommandService =
-                new NotificationReadCommandService(userRepository, commandService);
-        NotificationSseFacade sseFacade = new NotificationSseFacade(userRepository, streamService);
-        return new NotificationService(eventHandler, queryService, readCommandService, sseFacade);
+                new NotificationReadCommandService(commandService);
+        NotificationSseFacade sseFacade = new NotificationSseFacade(streamService);
+        return new NotificationService(eventHandler, queryService, readCommandService, sseFacade, userRepository);
     }
 
     private static class ThrowingNotificationStreamService extends NotificationStreamService {

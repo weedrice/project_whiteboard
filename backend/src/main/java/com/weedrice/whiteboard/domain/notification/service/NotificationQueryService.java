@@ -3,10 +3,7 @@ package com.weedrice.whiteboard.domain.notification.service;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.notification.repository.NotificationRepository;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
-import com.weedrice.whiteboard.global.exception.BusinessException;
-import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -26,16 +23,12 @@ class NotificationQueryService {
     private static final Set<String> ALLOWED_NOTIFICATION_SORTS = Set.of("createdAt");
 
     private final NotificationRepository notificationRepository;
-    private final UserRepository userRepository;
 
-    NotificationQueryService(NotificationRepository notificationRepository,
-                             UserRepository userRepository) {
+    NotificationQueryService(NotificationRepository notificationRepository) {
         this.notificationRepository = notificationRepository;
-        this.userRepository = userRepository;
     }
 
     public NotificationResponse getNotifications(Long userId, Pageable pageable) {
-        validateUserExists(userId);
         Pageable safePageable = PageRequestUtils.of(
                 pageable,
                 DEFAULT_NOTIFICATION_PAGE_SIZE,
@@ -47,13 +40,6 @@ class NotificationQueryService {
     }
 
     public long getUnreadNotificationCount(Long userId) {
-        validateUserExists(userId);
         return notificationRepository.countByUser_UserIdAndIsRead(userId, false);
-    }
-
-    private void validateUserExists(Long userId) {
-        if (!userRepository.existsById(userId)) {
-            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
-        }
     }
 }
