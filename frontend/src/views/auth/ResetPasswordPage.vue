@@ -7,12 +7,13 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useToastStore } from '@/stores/toast'
 import { ChevronLeft, Lock } from 'lucide-vue-next'
-import { isValidPassword } from '@/utils/validation'
+import { useAuthPasswordValidation } from '@/composables/useAuthPasswordValidation'
 
 const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const toastStore = useToastStore()
+const { validatePasswordPair } = useAuthPasswordValidation()
 
 const token = computed(() => {
   const t = route.query.token
@@ -28,16 +29,16 @@ async function handleResetPassword() {
     toastStore.addToast(t('auth.invalidResetLink'), 'error')
     return
   }
-  if (!newPassword.value) {
-    toastStore.addToast(t('auth.placeholders.password'), 'error')
-    return
-  }
-  if (!isValidPassword(newPassword.value)) {
-    toastStore.addToast(t('auth.validation.passwordStrength'), 'error')
-    return
-  }
-  if (newPassword.value !== confirmPassword.value) {
-    toastStore.addToast(t('auth.passwordMismatch'), 'error')
+  const passwordError = validatePasswordPair(newPassword.value, confirmPassword.value, {
+    requirePassword: true,
+    messages: {
+      required: t('auth.placeholders.password'),
+      invalid: t('auth.validation.passwordStrength'),
+      mismatch: t('auth.passwordMismatch')
+    }
+  })
+  if (passwordError) {
+    toastStore.addToast(passwordError, 'error')
     return
   }
 
