@@ -780,19 +780,61 @@ html {
     --nv-home-card-body-max-height: 7.5rem;
   }
 
-  .nv-home-card-body.prose-feed :where(p) {
-    margin: 0.35rem 0;
+  .nv-home-curation-body {
+    --tw-prose-body: var(--nv-ink-soft);
+    --tw-prose-headings: var(--nv-ink);
+    --tw-prose-quotes: var(--nv-ink-soft);
+    --tw-prose-quote-borders: var(--nv-accent);
+    max-width: none;
+    font-size: 0.95rem;
+    line-height: 1.65;
   }
 
-  .nv-home-card-body.prose-feed :where(p:first-child) {
+  .nv-home-curation-body :where(p, ul, ol) {
+    margin-top: 0.4rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .nv-home-curation-body :where(p:first-child, ul:first-child, ol:first-child) {
     margin-top: 0;
   }
 
-  .nv-home-card-body.prose-feed :where(p:last-child) {
+  .nv-home-curation-body :where(p:last-child, ul:last-child, ol:last-child) {
     margin-bottom: 0;
   }
 
-  .nv-home-card-body.prose-feed :where(h1, h2, h3, h4) {
+  .nv-home-curation-body :where(h1, h2, h3, h4) {
+    font-size: 1.05rem;
+    line-height: 1.45;
+    margin-top: 0.65rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .nv-home-curation-body :where(h1:first-child, h2:first-child, h3:first-child, h4:first-child) {
+    margin-top: 0;
+  }
+
+  .nv-home-curation-body :where(blockquote) {
+    margin: 0.65rem 0;
+  }
+
+  .nv-home-curation-body :where(pre) {
+    margin: 0.65rem 0;
+  }
+
+  .nv-home-card-body .prose-feed :where(p) {
+    margin: 0.35rem 0;
+  }
+
+  .nv-home-card-body .prose-feed :where(p:first-child) {
+    margin-top: 0;
+  }
+
+  .nv-home-card-body .prose-feed :where(p:last-child) {
+    margin-bottom: 0;
+  }
+
+  .nv-home-card-body .prose-feed :where(h1, h2, h3, h4) {
     color: var(--nv-ink);
     font-weight: 700;
     letter-spacing: 0;
@@ -800,51 +842,51 @@ html {
     margin: 0.55rem 0 0.25rem;
   }
 
-  .nv-home-card-body.prose-feed :where(h1, h2) {
+  .nv-home-card-body .prose-feed :where(h1, h2) {
     font-size: 1.02rem;
   }
 
-  .nv-home-card-body.prose-feed :where(h3, h4) {
+  .nv-home-card-body .prose-feed :where(h3, h4) {
     font-size: 0.95rem;
   }
 
-  .nv-home-card-body.prose-feed :where(ul, ol) {
+  .nv-home-card-body .prose-feed :where(ul, ol) {
     margin: 0.35rem 0;
     padding-left: 1.25rem;
   }
 
-  .nv-home-card-body.prose-feed :where(ul) {
+  .nv-home-card-body .prose-feed :where(ul) {
     list-style: disc;
   }
 
-  .nv-home-card-body.prose-feed :where(ol) {
+  .nv-home-card-body .prose-feed :where(ol) {
     list-style: decimal;
   }
 
-  .nv-home-card-body.prose-feed :where(li) {
+  .nv-home-card-body .prose-feed :where(li) {
     display: list-item;
     margin: 0.15rem 0;
   }
 
-  .nv-home-card-body.prose-feed :where(blockquote) {
+  .nv-home-card-body .prose-feed :where(blockquote) {
     border-left: 3px solid var(--nv-line);
     color: var(--nv-muted);
     margin: 0.45rem 0;
     padding-left: 0.8rem;
   }
 
-  .nv-home-card-body.prose-feed :where(a) {
+  .nv-home-card-body .prose-feed :where(a) {
     color: var(--nv-accent);
     text-decoration: underline;
     text-underline-offset: 0.15em;
   }
 
-  .nv-home-card-body.prose-feed :where(strong, b) {
+  .nv-home-card-body .prose-feed :where(strong, b) {
     color: var(--nv-ink);
     font-weight: 700;
   }
 
-  .nv-home-card-body.prose-feed :where(em, i) {
+  .nv-home-card-body .prose-feed :where(em, i) {
     font-style: italic;
   }
 

@@ -57,8 +57,10 @@ describe('HomePostCard', () => {
     })
 
     const body = wrapper.get('.nv-home-card-body')
+    const content = body.get('.nv-home-curation-body')
 
-    expect(body.classes()).toContain('prose-feed')
+    expect(content.classes()).toContain('nv-rich-content')
+    expect(content.classes()).toContain('prose')
     expect(body.classes()).toContain('nv-home-card-body-featured-no-media')
     expect(body.html()).toContain('<h2>소제목</h2>')
     expect(body.html()).toContain('<strong>강조</strong>')
@@ -80,6 +82,22 @@ describe('HomePostCard', () => {
     expect(wrapper.get('.nv-home-card-body').classes()).toContain('nv-home-card-body-featured-with-media')
   })
 
+  it('keeps grid cards on the lightweight feed preview renderer', () => {
+    const wrapper = mount(HomePostCard, {
+      props: {
+        post: makePost(),
+        variant: 'grid',
+      },
+    })
+
+    const body = wrapper.get('.nv-home-card-body')
+    const content = body.get('.prose-feed')
+
+    expect(content.classes()).toContain('prose-feed')
+    expect(body.classes()).not.toContain('nv-rich-content')
+    expect(body.classes()).not.toContain('prose')
+  })
+
   it('renders blockquote HTML when the featured post has no media', () => {
     const wrapper = mount(HomePostCard, {
       props: {
@@ -94,8 +112,10 @@ describe('HomePostCard', () => {
     })
 
     const body = wrapper.get('.nv-home-card-body')
+    const content = body.get('.nv-home-curation-body')
 
     expect(body.classes()).toContain('nv-home-card-body-featured-no-media')
+    expect(content.classes()).toContain('nv-rich-content')
     expect(body.find('blockquote').exists()).toBe(true)
     expect(body.find('blockquote p').text()).toBe('quoted text')
   })
@@ -112,8 +132,10 @@ describe('HomePostCard', () => {
     })
 
     const body = wrapper.get('.nv-home-card-body')
+    const content = body.get('.nv-home-curation-body')
 
-    expect(body.classes()).toContain('prose-feed')
+    expect(content.classes()).toContain('nv-rich-content')
+    expect(content.classes()).toContain('prose')
     expect(body.find('em').text()).toBe('fallback')
     expect(body.html()).not.toContain('<script>')
   })

@@ -38,6 +38,11 @@ const bodyClass = computed(() => [
   bodyClampClass.value,
   { 'pointer-events-none select-none opacity-40 blur-[8px]': isSpoiler.value },
 ])
+const bodyContentClass = computed(() =>
+  isFeatured.value
+    ? 'nv-rich-content prose prose-sm max-w-none dark:prose-invert nv-home-curation-body'
+    : 'prose-feed',
+)
 
 const cardClass = computed(() => {
   if (props.variant === 'featured') return 'nv-home-card nv-home-card-featured'
@@ -142,9 +147,13 @@ const handleKeydown = (event: KeyboardEvent) => {
       <h2 class="nv-home-card-title">{{ post.title }}</h2>
       <div
         v-if="bodyHtml"
-        :class="[...bodyClass, 'prose-feed']"
-        v-html="bodyHtml"
-      />
+        :class="bodyClass"
+      >
+        <div
+          :class="bodyContentClass"
+          v-html="bodyHtml"
+        />
+      </div>
       <p
         v-else-if="post.summary"
         :class="bodyClass"
