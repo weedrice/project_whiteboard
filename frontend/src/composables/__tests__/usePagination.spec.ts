@@ -17,6 +17,16 @@ const pageResponse = <T>(content: T[], params: { page: number; size: number; tot
     },
 })
 
+function deferred<T>() {
+    let resolve!: (value: T) => void
+    let reject!: (reason?: unknown) => void
+    const promise = new Promise<T>((res, rej) => {
+        resolve = res
+        reject = rej
+    })
+    return { promise, resolve, reject }
+}
+
 describe('usePagination', () => {
     it('fetches items with current page and size', async () => {
         const scope = effectScope()
@@ -59,6 +69,42 @@ describe('usePagination', () => {
                 await pagination.handleSizeChange()
                 expect(fetchFn).toHaveBeenLastCalledWith({ page: 0, size: 30 })
                 expect(pagination.page.value).toBe(0)
+            })
+        } finally {
+            scope.stop()
+        }
+    })
+
+    it('keeps the latest fetch result when requests resolve out of order', async () => {
+        const scope = effectScope()
+        const firstRequest = deferred<ApiResponse<PageResponse<{ id: number }>>>()
+        const secondRequest = deferred<ApiResponse<PageResponse<{ id: number }>>>()
+        const fetchFn = vi
+            .fn<(params: PaginationParams) => Promise<ApiResponse<PageResponse<{ id: number }>>>>()
+            .mockReturnValueOnce(firstRequest.promise)
+            .mockReturnValueOnce(secondRequest.promise)
+
+        try {
+            await scope.run(async () => {
+                const pagination = usePagination(fetchFn, { page: 0, size: 15 })
+
+                const firstFetch = pagination.fetch()
+                pagination.page.value = 1
+                const secondFetch = pagination.fetch()
+
+                secondRequest.resolve(pageResponse([{ id: 2 }], { page: 1, size: 15, totalPages: 3 }))
+                await secondFetch
+
+                expect(pagination.items.value).toEqual([{ id: 2 }])
+                expect(pagination.totalPages.value).toBe(3)
+                expect(pagination.loading.value).toBe(false)
+
+                firstRequest.resolve(pageResponse([{ id: 1 }], { page: 0, size: 15, totalPages: 2 }))
+                await firstFetch
+
+                expect(pagination.items.value).toEqual([{ id: 2 }])
+                expect(pagination.totalPages.value).toBe(3)
+                expect(pagination.loading.value).toBe(false)
             })
         } finally {
             scope.stop()

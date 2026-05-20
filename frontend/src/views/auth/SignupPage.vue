@@ -9,10 +9,12 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { isEmpty, isValidEmail, isValidLoginId, isValidPassword, isValidDisplayName } from '@/utils/validation'
 import { extractErrorMessage } from '@/utils/errorHandler'
-import { useEmailVerificationState } from '@/composables/useEmailVerificationState'
+import { useEmailVerificationFlow } from '@/composables/useEmailVerificationFlow'
+import { useAuthPasswordValidation } from '@/composables/useAuthPasswordValidation'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
+const { validatePasswordPair } = useAuthPasswordValidation()
 
 const router = useRouter()
 const route = useRoute()
@@ -134,29 +136,22 @@ watch(() => form.value.displayName, () => {
   validateDisplayName()
 })
 
-const {
-  verification,
-  startTimer,
-  stopTimer,
-  startResendCooldown,
-  stopResendCooldown,
-  formatTime
-} = useEmailVerificationState()
-
 const error = ref('')
 const isLoading = ref(false)
 const isReregister = ref(false) // 탈퇴 계정 재가입 모드
 
-async function sendVerificationCode() {
-  const email = form.value.email.trim()
-  if (!email) {
-    toastStore.addToast(t('auth.placeholders.email'), 'error')
-    return
-  }
-
-  verification.loading = true
-  try {
-    // 인증코드 발송 전 DB 조회: 재가입(DELETED) vs 신규가입 판단
+const {
+  emailVerification: verification,
+  formatVerifyTime: formatTime,
+  sendVerifyCode: sendVerificationCode,
+  verifyEmailCode: verifyCode
+} = useEmailVerificationFlow({
+  getEmail: () => form.value.email,
+  purpose: 'SIGNUP',
+  validateEmailFormat: false,
+  closeOnVerifySuccess: false,
+  emailRequiredMessage: t('auth.placeholders.email'),
+  beforeSend: async (email) => {
     const checkRes = await authApi.checkEmailForReregister(email)
     if (checkRes.data.success && checkRes.data.data?.canReregister && checkRes.data.data?.maskedLoginId) {
       isReregister.value = true
@@ -165,61 +160,13 @@ async function sendVerificationCode() {
       isReregister.value = false
       form.value.loginId = ''
     }
-
-    const { data } = await authApi.sendVerificationCode(email, 'SIGNUP')
-    if (data.success) {
-      verification.code = ''
-      verification.verificationTicket = ''
-      verification.isVerified = false
-      verification.isCodeSent = true
-      startTimer()
-      startResendCooldown()
-      toastStore.addToast(t('auth.codeSent'), 'success')
+  },
+  afterVerify: ({ response }) => {
+    if (response.isReregister && response.loginId) {
+      form.value.loginId = response.loginId
     }
-  } catch (err: unknown) {
-    const message = extractErrorMessage(err) || t('auth.sendCodeFailed')
-    toastStore.addToast(message, 'error')
-    verification.resendCooldown = 0
-    stopResendCooldown()
-  } finally {
-    verification.loading = false
   }
-}
-
-async function verifyCode() {
-  if (!verification.code) {
-    toastStore.addToast(t('auth.codeInvalid'), 'error')
-    return
-  }
-
-  if (verification.timeLeft <= 0) {
-    toastStore.addToast(t('auth.codeExpired'), 'error')
-    return
-  }
-
-  verification.loading = true
-  try {
-    const { data } = await authApi.verifyCode(form.value.email.trim(), verification.code, 'SIGNUP')
-    const verificationTicket = data.data?.verificationTicket
-    if (!data.success || !verificationTicket) {
-      throw new Error(t('auth.verificationFailed'))
-    }
-    verification.isVerified = true
-    verification.verificationTicket = verificationTicket
-    stopTimer()
-    toastStore.addToast(t('auth.codeVerified'), 'success')
-    // Restore the original loginId after signup-purpose verification for re-registration.
-    const resp = data.data
-    if (resp?.isReregister && resp?.loginId) {
-      form.value.loginId = resp.loginId
-    }
-  } catch (err: unknown) {
-    const message = extractErrorMessage(err) || t('auth.verificationFailed')
-    toastStore.addToast(message, 'error')
-  } finally {
-    verification.loading = false
-  }
-}
+})
 
 async function handleSignup() {
   error.value = ''
@@ -247,16 +194,19 @@ async function handleSignup() {
     toastStore.addToast(t('auth.placeholders.loginId'), 'error')
     return
   }
-  if (isEmpty(form.value.password)) {
-    toastStore.addToast(t('auth.placeholders.password'), 'error')
-    return
-  }
-  if (isEmpty(form.value.passwordConfirm)) {
-    toastStore.addToast(t('auth.newPasswordConfirm'), 'error')
-    return
-  }
-  if (form.value.password !== form.value.passwordConfirm) {
-    toastStore.addToast(t('auth.passwordMismatch'), 'error')
+  const passwordError = validatePasswordPair(form.value.password, form.value.passwordConfirm, {
+    requirePassword: true,
+    requireConfirm: true,
+    messages: {
+      required: t('auth.placeholders.password'),
+      invalid: t('auth.validation.passwordStrength'),
+      mismatch: isEmpty(form.value.passwordConfirm)
+        ? t('auth.newPasswordConfirm')
+        : t('auth.passwordMismatch')
+    }
+  })
+  if (passwordError) {
+    toastStore.addToast(passwordError, 'error')
     return
   }
   if (isEmpty(form.value.email)) {

@@ -20,13 +20,14 @@ const selectedEmoticon = ref<EmoticonMaster | null>(null)
 const selectedEmoticonId = ref<number | null>(null)
 const searchKeyword = ref('')
 const isLoadingDetail = ref(false)
+let detailRequestId = 0
 
 // 구매한 이모티콘 목록 조회
 const { data: purchasedEmoticons, isLoading } = useQuery({
   queryKey: ['emoticons', 'purchased', 'picker'],
   queryFn: async () => {
-    const { data } = await emoticonApi.getPurchasedEmoticons({ size: 100 })
-    return data.data.content
+    const purchasedPage = await emoticonApi.getPurchasedEmoticonsData({ size: 100 })
+    return purchasedPage.content
   },
   enabled: () => props.show
 })
@@ -50,16 +51,24 @@ const selectedImages = computed(() => {
 
 const handleEmoticonClick = async (emoticon: EmoticonMaster) => {
   // 상세 정보 조회 (이미지 포함)
+  const requestId = ++detailRequestId
   isLoadingDetail.value = true
   selectedEmoticonId.value = emoticon.emoticonId
 
   try {
-    const { data } = await emoticonApi.getEmoticon(emoticon.emoticonId)
-    selectedEmoticon.value = data.data
+    const emoticonDetail = await emoticonApi.getEmoticonData(emoticon.emoticonId)
+    if (requestId !== detailRequestId || selectedEmoticonId.value !== emoticon.emoticonId) {
+      return
+    }
+    selectedEmoticon.value = emoticonDetail
   } catch (error) {
-    logger.error('Failed to load emoticon detail:', error)
+    if (requestId === detailRequestId && selectedEmoticonId.value === emoticon.emoticonId) {
+      logger.error('Failed to load emoticon detail:', error)
+    }
   } finally {
-    isLoadingDetail.value = false
+    if (requestId === detailRequestId && selectedEmoticonId.value === emoticon.emoticonId) {
+      isLoadingDetail.value = false
+    }
   }
 }
 
@@ -68,11 +77,15 @@ const handleImageClick = (image: EmoticonImage) => {
 }
 
 const goBack = () => {
+  detailRequestId++
+  isLoadingDetail.value = false
   selectedEmoticon.value = null
   selectedEmoticonId.value = null
 }
 
 const close = () => {
+  detailRequestId++
+  isLoadingDetail.value = false
   selectedEmoticon.value = null
   selectedEmoticonId.value = null
   searchKeyword.value = ''
@@ -82,6 +95,8 @@ const close = () => {
 // 팝업이 닫힐 때 상태 초기화
 watch(() => props.show, (newVal) => {
   if (!newVal) {
+    detailRequestId++
+    isLoadingDetail.value = false
     selectedEmoticon.value = null
     selectedEmoticonId.value = null
     searchKeyword.value = ''

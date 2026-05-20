@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue'
-import { useRouter } from 'vue-router'
 import { useBoard } from '@/composables/useBoard'
 import { usePost } from '@/composables/usePost'
 import { usePostDraft } from '@/composables/usePostDraft'
@@ -43,6 +42,10 @@ const props = defineProps<{
   skipBoardLookup?: boolean
 }>()
 
+const emit = defineEmits<{
+  cancel: []
+}>()
+
 type PostFormSubmitResult = {
   mode: 'create' | 'edit'
   boardUrl: string
@@ -71,7 +74,6 @@ type FormState = {
 }
 
 const { t } = useI18n()
-const router = useRouter()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
 
@@ -453,30 +455,7 @@ function navigateAfterCreate(newPostId: string | number, payload: ReturnType<typ
       isSecret: payload.isSecret,
       isBoardAdmin: board.value?.isAdmin ?? false,
     })
-    return
   }
-
-  if (props.goBackOnCreate) {
-    if (typeof window !== 'undefined' && window.history.length > 1) {
-      router.back()
-      return
-    }
-    if (props.redirectOnCreate) {
-      router.push(props.redirectOnCreate)
-      return
-    }
-    router.push('/')
-    return
-  }
-  if (props.redirectOnCreate) {
-    router.push(props.redirectOnCreate)
-    return
-  }
-  if (payload.isSecret && !board.value?.isAdmin) {
-    router.push(`/board/${boardUrl.value}`)
-    return
-  }
-  router.push(`/board/${boardUrl.value}/post/${newPostId}`)
 }
 
 async function handleSubmit() {
@@ -536,9 +515,7 @@ async function handleSubmit() {
           isSecret: payload.isSecret,
           isBoardAdmin: board.value?.isAdmin ?? false,
         })
-        return
       }
-      router.push(`/board/${boardUrl.value}/post/${postId.value}`)
     },
     onError: (error) => {
       logger.error('Failed to update post:', error)
@@ -547,7 +524,7 @@ async function handleSubmit() {
 }
 
 function handleCancel() {
-  router.back()
+  emit('cancel')
 }
 
 function handleKeyDown(event: KeyboardEvent) {
