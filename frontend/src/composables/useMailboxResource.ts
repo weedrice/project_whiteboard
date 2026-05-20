@@ -75,9 +75,9 @@ export function useMailboxResource() {
                 messages.value = data.data?.content || []
                 totalPages.value = data.data?.totalPages || 0
             }
-        } catch (error) {
+        } catch (caughtError) {
             if (requestId === messageListRequestId && !controller.signal.aborted) {
-                logger.error('Failed to fetch messages:', error)
+                logger.error('Failed to fetch messages:', caughtError)
                 error.value = t('common.messages.loadFailed')
             }
         } finally {
