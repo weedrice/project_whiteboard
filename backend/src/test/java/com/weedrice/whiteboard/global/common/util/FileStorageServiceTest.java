@@ -12,12 +12,15 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -101,16 +104,62 @@ class FileStorageServiceTest {
     }
 
     @Test
-    @DisplayName("파일 로드 실패")
-    void loadFile_failure() {
-        // given
+    @DisplayName("missing S3 object maps to not found")
+    void loadFile_missingObject_notFound() {
         String fileName = "nonexistent.txt";
-        when(s3Client.getObject(any(GetObjectRequest.class))).thenThrow(new RuntimeException("Not Found"));
+        when(s3Client.getObject(any(GetObjectRequest.class))).thenThrow(NoSuchKeyException.builder().build());
 
-        // when & then
         assertThatThrownBy(() -> fileStorageService.loadFile(fileName))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("S3 404 service error maps to not found")
+    void loadFile_s3NotFoundStatus_notFound() {
+        String fileName = "nonexistent.txt";
+        S3Exception exception = mock(S3Exception.class);
+        when(exception.statusCode()).thenReturn(404);
+        when(s3Client.getObject(any(GetObjectRequest.class))).thenThrow(exception);
+
+        assertThatThrownBy(() -> fileStorageService.loadFile(fileName))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("S3 non-404 service error maps to file load error")
+    void loadFile_s3ServiceError_fileLoadError() {
+        String fileName = "test.txt";
+        S3Exception exception = mock(S3Exception.class);
+        when(exception.statusCode()).thenReturn(403);
+        when(s3Client.getObject(any(GetObjectRequest.class))).thenThrow(exception);
+
+        assertThatThrownBy(() -> fileStorageService.loadFile(fileName))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FILE_LOAD_ERROR);
+    }
+
+    @Test
+    @DisplayName("S3 client error maps to file load error")
+    void loadFile_s3ClientError_fileLoadError() {
+        String fileName = "test.txt";
+        when(s3Client.getObject(any(GetObjectRequest.class))).thenThrow(SdkClientException.create("network"));
+
+        assertThatThrownBy(() -> fileStorageService.loadFile(fileName))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FILE_LOAD_ERROR);
+    }
+
+    @Test
+    @DisplayName("unexpected load error maps to file load error")
+    void loadFile_unexpectedError_fileLoadError() {
+        String fileName = "test.txt";
+        when(s3Client.getObject(any(GetObjectRequest.class))).thenThrow(new RuntimeException("S3 Error"));
+
+        assertThatThrownBy(() -> fileStorageService.loadFile(fileName))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FILE_LOAD_ERROR);
     }
 
     @Test

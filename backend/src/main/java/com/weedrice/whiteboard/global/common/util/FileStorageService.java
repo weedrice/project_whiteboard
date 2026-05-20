@@ -8,10 +8,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -65,8 +68,17 @@ public class FileStorageService {
                     .key(fileName)
                     .build();
             return s3Client.getObject(getOb);
-        } catch (Exception ex) {
+        } catch (NoSuchKeyException ex) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "S3 file load failed: " + fileName);
+        } catch (S3Exception ex) {
+            if (ex.statusCode() == 404) {
+                throw new BusinessException(ErrorCode.NOT_FOUND, "S3 file load failed: " + fileName);
+            }
+            throw new BusinessException(ErrorCode.FILE_LOAD_ERROR, "S3 file load failed: " + fileName);
+        } catch (SdkClientException ex) {
+            throw new BusinessException(ErrorCode.FILE_LOAD_ERROR, "S3 file load failed: " + fileName);
+        } catch (Exception ex) {
+            throw new BusinessException(ErrorCode.FILE_LOAD_ERROR, "S3 file load failed: " + fileName);
         }
     }
 
