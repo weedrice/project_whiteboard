@@ -564,11 +564,12 @@ describe('PostEditorTipTap', () => {
         expect(wrapper.findAll('select.tiptap-select')[0].attributes('aria-label')).toBe('board.writePost.fontSize')
         expect(wrapper.findAll('select.tiptap-select')[1].attributes('aria-label')).toBe('board.writePost.lineHeight')
         await wrapper.get('.tiptap-color-trigger').trigger('click')
-        expect(wrapper.get('.color-panel').attributes('aria-modal')).toBe('true')
+        expect(wrapper.get('.color-panel').attributes('aria-modal')).toBeUndefined()
         expect(wrapper.findAll('.color-panel-swatch')[0].attributes('aria-label')).toBe('board.writePost.colorLabels.black')
         dispatchEscape(wrapper.get('.color-panel').element)
         await nextTick()
         expect(wrapper.find('.color-panel').exists()).toBe(false)
+        expect(wrapper.find('.advanced-popover').exists()).toBe(true)
 
         await wrapper.get(selectors.tableDialog).trigger('click')
         expect(wrapper.get('.table-popover').attributes('aria-modal')).toBe('true')

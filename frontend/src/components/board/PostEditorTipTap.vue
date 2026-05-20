@@ -70,11 +70,11 @@ const advancedPopoverRef = ref<HTMLElement | null>(null)
 const colorPanelRef = ref<HTMLElement | null>(null)
 const linkPopoverRef = ref<HTMLElement | null>(null)
 const tablePopoverRef = ref<HTMLElement | null>(null)
+const colorTriggerElement = ref<HTMLElement | null>(null)
 
 const { isUploadingImage, validateImageFile, uploadImage, abortImageUpload, isAbortUploadError } = useEditorImageUpload()
 usePopoverFocus(slashPopoverRef, showSlashMenu)
 usePopoverFocus(advancedPopoverRef, showAdvancedMenu)
-usePopoverFocus(colorPanelRef, showColorPanel)
 usePopoverFocus(linkPopoverRef, showLinkPopover)
 usePopoverFocus(tablePopoverRef, showTablePopover)
 const slashPosition = useAnchoredPopover(slashPopoverRef)
@@ -281,24 +281,31 @@ function setSlashSelection(index: number) {
 
 function setDefaultColor() {
   editor.value?.chain().focus().unsetColor().run()
-  showColorPanel.value = false
-  colorPosition.clearAnchor()
+  closeColorPanel()
 }
 
 function setPresetColor(color: string) {
   editor.value?.chain().focus().setColor(color).run()
-  showColorPanel.value = false
-  colorPosition.clearAnchor()
+  closeColorPanel()
 }
 
 function toggleColorPanel(anchor?: HTMLElement) {
+  if (showColorPanel.value) {
+    closeColorPanel(anchor)
+    return
+  }
+  colorTriggerElement.value = anchor ?? null
   colorPosition.setAnchor(anchor)
-  showColorPanel.value = !showColorPanel.value
+  showColorPanel.value = true
 }
 
-function closeColorPanel() {
+function closeColorPanel(focusTarget = colorTriggerElement.value) {
   showColorPanel.value = false
   colorPosition.clearAnchor()
+  colorTriggerElement.value = null
+  if (focusTarget instanceof HTMLElement) {
+    focusTarget.focus()
+  }
 }
 
 function openAdvancedMenu(anchor?: HTMLElement) {
@@ -764,23 +771,18 @@ onBeforeUnmount(() => {
             @horizontal-rule="applyHorizontalRule"
             @align="setTextAlign"
           />
-        </div>
-      </div>
-    </Teleport>
-
-    <Teleport to="body">
-      <div v-if="showColorPanel" class="link-popover-mask" @click.self="closeColorPanel" @keydown.enter.stop @keydown.escape.stop.prevent="closeColorPanel">
-        <div id="editor-color-dialog" ref="colorPanelRef" class="color-panel" :style="colorPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-color-dialog-title">
-          <p id="editor-color-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.textColor') }}</p>
-          <PostEditorColorPopover
-            :colors="colorPresets"
-            :labels="colorPresetLabels"
-            :current-text-color="currentTextColor"
-            :is-default-color="isDefaultColor"
-            @default-color="setDefaultColor"
-            @preset-color="setPresetColor"
-            @custom-color="setPresetColor"
-          />
+          <div v-if="showColorPanel" id="editor-color-dialog" ref="colorPanelRef" class="color-panel" :style="colorPosition.popoverStyle.value" role="dialog" aria-labelledby="editor-color-dialog-title" @keydown.enter.stop @keydown.escape.stop.prevent="closeColorPanel()">
+            <p id="editor-color-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.textColor') }}</p>
+            <PostEditorColorPopover
+              :colors="colorPresets"
+              :labels="colorPresetLabels"
+              :current-text-color="currentTextColor"
+              :is-default-color="isDefaultColor"
+              @default-color="setDefaultColor"
+              @preset-color="setPresetColor"
+              @custom-color="setPresetColor"
+            />
+          </div>
         </div>
       </div>
     </Teleport>
