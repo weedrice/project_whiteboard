@@ -83,11 +83,11 @@ public class PostDetailReadService {
             incrementReadablePostViewCount(postId);
 
             if (readContext.viewer() != null) {
-                viewHistoryCommandService.touchView(readContext.viewer(), post);
+                viewHistory = viewHistoryCommandService.touchAndLoadView(readContext.viewer(), post);
             }
         }
 
-        if (readContext.viewer() != null) {
+        if (readContext.viewer() != null && viewHistory == null) {
             viewHistory = viewHistoryRepository.findByUserAndPost(readContext.viewer(), post).orElse(null);
         }
 

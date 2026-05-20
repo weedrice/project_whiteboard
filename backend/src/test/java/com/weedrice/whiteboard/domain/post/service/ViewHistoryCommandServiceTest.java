@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
 import com.weedrice.whiteboard.domain.post.repository.ViewHistoryRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -17,6 +18,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
@@ -77,6 +79,19 @@ class ViewHistoryCommandServiceTest {
         assertThatThrownBy(() -> viewHistoryCommandService.touchView(user, post))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("touch-and-load는 갱신된 조회 이력을 반환한다")
+    void touchAndLoadView_existingHistory_returnsLoadedHistory() {
+        ViewHistory viewHistory = ViewHistory.builder().user(user).post(post).build();
+        when(viewHistoryRepository.insertIgnore(user.getUserId(), post.getPostId())).thenReturn(0);
+        when(viewHistoryRepository.touchModifiedAt(user.getUserId(), post.getPostId())).thenReturn(1);
+        when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.of(viewHistory));
+
+        ViewHistory result = viewHistoryCommandService.touchAndLoadView(user, post);
+
+        assertThat(result).isSameAs(viewHistory);
     }
 
     @Test

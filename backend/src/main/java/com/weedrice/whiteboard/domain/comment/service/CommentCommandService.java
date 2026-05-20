@@ -83,22 +83,7 @@ public class CommentCommandService {
         Comment parentComment = null;
         int depth = 0;
         if (parentId != null) {
-            parentComment = commentRepository.findByIdWithRelationsForUpdate(parentId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
-
-            if (!Objects.equals(parentComment.getCommentId(), parentId)) {
-                throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
-            }
-            if (parentComment.getIsDeleted()) {
-                throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
-            }
-            if (!Objects.equals(parentComment.getPost().getPostId(), post.getPostId())) {
-                throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
-            }
-
-            if (parentComment.getDepth() >= MAX_COMMENT_DEPTH) {
-                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-            }
+            parentComment = resolveParentComment(parentId, post, context);
             depth = parentComment.getDepth() + 1;
         }
 
@@ -157,6 +142,30 @@ public class CommentCommandService {
         }
         return postRepository.findByIdWithRelations(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+    }
+
+    private Comment resolveParentComment(Long parentId, Post post, CommentCreateContext context) {
+        Comment parentComment = context != null && context.parentComment() != null
+                ? context.parentComment()
+                : commentRepository.findByIdWithRelationsForUpdate(parentId)
+                        .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+
+        validateParentComment(parentComment, parentId, post);
+        return parentComment;
+    }
+
+    private void validateParentComment(Comment parentComment, Long parentId, Post post) {
+        if (parentComment == null
+                || !Objects.equals(parentComment.getCommentId(), parentId)
+                || parentComment.getIsDeleted()
+                || parentComment.getPost() == null
+                || !Objects.equals(parentComment.getPost().getPostId(), post.getPostId())) {
+            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
+        }
+
+        if (parentComment.getDepth() >= MAX_COMMENT_DEPTH) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
     }
 
     @Transactional

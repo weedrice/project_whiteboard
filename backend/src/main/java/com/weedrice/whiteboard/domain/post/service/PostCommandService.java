@@ -62,7 +62,8 @@ public class PostCommandService {
     public Long createPost(@NonNull Long userId, String boardUrl, PostCreateRequest request) {
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        return createPost(userId, null, board.getBoardId(), request, null).getPostId();
+        return createPost(userId, null, board.getBoardId(), request, new PostCreateContext(null, board, null, false))
+                .getPostId();
     }
 
     @Transactional
@@ -70,7 +71,8 @@ public class PostCommandService {
             PostCreateRequest request) {
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        return createPost(userId, agentId, board.getBoardId(), request, null).getPostId();
+        return createPost(userId, agentId, board.getBoardId(), request, new PostCreateContext(null, board, null, false))
+                .getPostId();
     }
 
     @Transactional

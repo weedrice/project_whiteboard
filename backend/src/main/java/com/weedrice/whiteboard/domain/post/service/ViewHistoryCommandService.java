@@ -25,6 +25,16 @@ public class ViewHistoryCommandService {
 
     @Transactional
     public void touchView(User user, Post post) {
+        touchViewHistory(user, post);
+    }
+
+    @Transactional
+    public ViewHistory touchAndLoadView(User user, Post post) {
+        touchViewHistory(user, post);
+        return loadViewHistory(user, post);
+    }
+
+    private void touchViewHistory(User user, Post post) {
         int insertedCount = viewHistoryRepository.insertIgnore(user.getUserId(), post.getPostId());
         if (insertedCount > 0) {
             return;
@@ -43,13 +53,17 @@ public class ViewHistoryCommandService {
 
     private ViewHistory insertAndLoad(User user, Post post) {
         viewHistoryRepository.insertIgnore(user.getUserId(), post.getPostId());
-        return viewHistoryRepository.findByUserAndPost(user, post)
-                .orElseThrow(this::viewHistoryUnavailable);
+        return loadViewHistory(user, post);
     }
 
     private ViewHistory insertAndLoadForUpdate(User user, Post post) {
         viewHistoryRepository.insertIgnore(user.getUserId(), post.getPostId());
         return viewHistoryRepository.findByUserAndPostForUpdate(user.getUserId(), post.getPostId())
+                .orElseThrow(this::viewHistoryUnavailable);
+    }
+
+    private ViewHistory loadViewHistory(User user, Post post) {
+        return viewHistoryRepository.findByUserAndPost(user, post)
                 .orElseThrow(this::viewHistoryUnavailable);
     }
 

@@ -296,7 +296,6 @@ class PostServiceTest {
 
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
         when(postRepository.save(any(Post.class))).thenAnswer(invocation -> {
             Post p = invocation.getArgument(0);
             ReflectionTestUtils.setField(p, "postId", 100L);
@@ -322,7 +321,6 @@ class PostServiceTest {
 
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
         when(postRepository.save(any(Post.class))).thenAnswer(invocation -> {
             Post p = invocation.getArgument(0);
             ReflectionTestUtils.setField(p, "postId", 100L);
@@ -348,7 +346,6 @@ class PostServiceTest {
 
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
         when(postRepository.save(any(Post.class))).thenAnswer(invocation -> {
             Post p = invocation.getArgument(0);
             ReflectionTestUtils.setField(p, "postId", 100L);
@@ -373,7 +370,6 @@ class PostServiceTest {
 
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
         when(postRepository.save(any(Post.class))).thenAnswer(invocation -> {
             Post saved = invocation.getArgument(0);
             ReflectionTestUtils.setField(saved, "postId", 100L);
@@ -399,8 +395,6 @@ class PostServiceTest {
 
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
-
         assertThatThrownBy(() -> postService.createPost(1L, "free", request))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
@@ -420,7 +414,6 @@ class PostServiceTest {
 
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
         when(postRepository.save(any(Post.class))).thenAnswer(invocation -> {
             Post saved = invocation.getArgument(0);
             ReflectionTestUtils.setField(saved, "postId", 100L);
@@ -442,7 +435,6 @@ class PostServiceTest {
 
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
         when(globalConfigService.getConfig("POINT_POST_CREATE_REWARD")).thenReturn("invalid");
         when(postRepository.save(any(Post.class))).thenAnswer(invocation -> {
             Post p = invocation.getArgument(0);
@@ -463,7 +455,6 @@ class PostServiceTest {
 
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
         when(globalConfigService.getConfig("POINT_POST_CREATE_REWARD")).thenReturn("0");
         when(postRepository.save(any(Post.class))).thenAnswer(invocation -> {
             Post p = invocation.getArgument(0);
@@ -518,7 +509,6 @@ class PostServiceTest {
 
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
         when(postRepository.save(any(Post.class))).thenAnswer(invocation -> {
             Post saved = invocation.getArgument(0);
             ReflectionTestUtils.setField(saved, "postId", 200L);
@@ -654,7 +644,6 @@ class PostServiceTest {
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(agentOwnershipService.resolveOwnedActiveAgent(1L, 10L)).thenReturn(agent);
-        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
         when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(1L, true))
                 .thenReturn(List.of(generalCategory));
         when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
@@ -2463,7 +2452,6 @@ class PostServiceTest {
         lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         lenient().when(postRepository.findById(1L)).thenReturn(Optional.of(post));
         lenient().when(viewHistoryRepository.findByUserAndPost(user, post))
-                .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(new ViewHistory(user, post)));
         lenient().when(viewHistoryRepository.insertIgnore(1L, 1L)).thenReturn(1);
         lenient().when(tagAssignmentService.getTagNames(post)).thenReturn(Collections.emptyList());

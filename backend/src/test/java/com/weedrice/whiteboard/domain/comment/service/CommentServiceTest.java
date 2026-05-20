@@ -742,7 +742,6 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(parent, "commentId", 5L);
 
         when(userRepository.findById(2L)).thenReturn(Optional.of(actorUser));
-        when(commentRepository.findByIdWithRelationsForUpdate(5L)).thenReturn(Optional.of(parent));
 
         assertThatThrownBy(() -> commentService.createCommentAsAgent(
                 2L,
@@ -755,6 +754,7 @@ class CommentServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
 
         verify(commentRepository, never()).save(any(Comment.class));
+        verify(commentRepository, never()).findByIdWithRelationsForUpdate(5L);
     }
 
     @Test
