@@ -36,6 +36,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -317,7 +318,7 @@ class UserSettingsServiceTest {
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(userNotificationSettingsRepository.findByUserIdOrderByModifiedAtDescCreatedAtDesc(1L))
                 .thenReturn(List.of(likeSetting, replySetting));
-        when(userNotificationSettingsRepository.saveAll(org.mockito.ArgumentMatchers.<Iterable<UserNotificationSettings>>any()))
+        when(userNotificationSettingsRepository.saveAllAndFlush(org.mockito.ArgumentMatchers.<Iterable<UserNotificationSettings>>any()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         List<NotificationSettingResponse> responses = userSettingsService.updateNotificationSettings(1L, List.of(
@@ -342,7 +343,7 @@ class UserSettingsServiceTest {
                 .extracting(NotificationSettingResponse::isEnabled)
                 .isEqualTo(true);
 
-        verify(userNotificationSettingsRepository).saveAll(argThat((Iterable<UserNotificationSettings> settings) -> {
+        verify(userNotificationSettingsRepository).saveAllAndFlush(argThat((Iterable<UserNotificationSettings> settings) -> {
             List<UserNotificationSettings> saved = StreamSupport
                     .stream(settings.spliterator(), false)
                     .toList();
@@ -358,6 +359,39 @@ class UserSettingsServiceTest {
         inOrder.verify(userRepository).findByIdForUpdate(1L);
         inOrder.verify(sanctionService).validateNotBanned(user);
         inOrder.verify(userNotificationSettingsRepository).findByUserIdOrderByModifiedAtDescCreatedAtDesc(1L);
+    }
+
+    @Test
+    @DisplayName("Bulk notification settings update reloads and reapplies when concurrent insert wins")
+    void updateNotificationSettings_duplicateInsert_reloadsAndReapplies() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        UserNotificationSettings reloadedCommentSetting =
+                new UserNotificationSettings(1L, NotificationType.COMMENT, true);
+
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(userNotificationSettingsRepository.findByUserIdOrderByModifiedAtDescCreatedAtDesc(1L))
+                .thenReturn(List.of())
+                .thenReturn(List.of(reloadedCommentSetting));
+        when(userNotificationSettingsRepository.saveAllAndFlush(
+                org.mockito.ArgumentMatchers.<Iterable<UserNotificationSettings>>any()))
+                .thenThrow(new DataIntegrityViolationException("duplicate notification setting"))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        List<NotificationSettingResponse> responses = userSettingsService.updateNotificationSettings(1L, List.of(
+                new UpdateNotificationSettingItem("comment", false)));
+
+        assertThat(responses)
+                .filteredOn(response -> NotificationType.COMMENT.name().equals(response.getNotificationType()))
+                .singleElement()
+                .extracting(NotificationSettingResponse::isEnabled)
+                .isEqualTo(false);
+        assertThat(reloadedCommentSetting.getIsEnabled()).isFalse();
+        verify(entityManager).clear();
+        verify(userNotificationSettingsRepository, times(2)).saveAllAndFlush(argThat((Iterable<UserNotificationSettings> settings) ->
+                StreamSupport.stream(settings.spliterator(), false)
+                        .anyMatch(setting -> setting.getNotificationType() == NotificationType.COMMENT
+                                && !setting.getIsEnabled())));
     }
 
     @Test
@@ -386,7 +420,7 @@ class UserSettingsServiceTest {
                 .singleElement()
                 .extracting(NotificationSettingResponse::isEnabled)
                 .isEqualTo(true);
-        verify(userNotificationSettingsRepository, never()).saveAll(any());
+        verify(userNotificationSettingsRepository, never()).saveAllAndFlush(any());
         verify(userRepository).findByIdForUpdate(1L);
     }
 
@@ -415,7 +449,7 @@ class UserSettingsServiceTest {
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
         verify(userRepository, never()).findByIdForUpdate(any());
-        verify(userNotificationSettingsRepository, never()).saveAll(any());
+        verify(userNotificationSettingsRepository, never()).saveAllAndFlush(any());
     }
 
     @Test
@@ -427,7 +461,7 @@ class UserSettingsServiceTest {
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
         verify(userRepository, never()).findByIdForUpdate(any());
-        verify(userNotificationSettingsRepository, never()).saveAll(any());
+        verify(userNotificationSettingsRepository, never()).saveAllAndFlush(any());
     }
 
     @Test
@@ -443,6 +477,6 @@ class UserSettingsServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
 
-        verify(userNotificationSettingsRepository, never()).saveAll(any());
+        verify(userNotificationSettingsRepository, never()).saveAllAndFlush(any());
     }
 }

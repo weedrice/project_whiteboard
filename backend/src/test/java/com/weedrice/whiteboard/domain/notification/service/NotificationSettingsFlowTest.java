@@ -101,7 +101,7 @@ class NotificationSettingsFlowTest {
         when(userNotificationSettingsRepository.findByUserIdAndNotificationType(anyLong(), any(NotificationType.class)))
                 .thenAnswer(invocation -> Optional.ofNullable(
                         storedSettings.get(new UserNotificationSettingsId(invocation.getArgument(0), invocation.getArgument(1)))));
-        when(userNotificationSettingsRepository.saveAll(any()))
+        when(userNotificationSettingsRepository.saveAllAndFlush(any()))
                 .thenAnswer(invocation -> {
                     Iterable<UserNotificationSettings> settings = invocation.getArgument(0);
                     for (UserNotificationSettings setting : settings) {

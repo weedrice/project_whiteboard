@@ -114,8 +114,22 @@ public class UserSettingsService {
                 validateNoDuplicateNotificationTypes(normalizedRequests);
 
                 Map<NotificationType, UserNotificationSettings> settingsByType = loadNotificationSettingsByType(userId);
-                List<UserNotificationSettings> settingsToSave = new ArrayList<>();
+                List<UserNotificationSettings> settingsToSave = applyNotificationSettingRequests(
+                                userId,
+                                normalizedRequests,
+                                settingsByType);
 
+                if (!settingsToSave.isEmpty()) {
+                        saveNotificationSettingsWithRetry(userId, normalizedRequests, settingsByType, settingsToSave);
+                }
+
+                return buildNotificationSettingResponses(settingsByType);
+        }
+
+        private List<UserNotificationSettings> applyNotificationSettingRequests(Long userId,
+                        List<NormalizedNotificationSettingRequest> normalizedRequests,
+                        Map<NotificationType, UserNotificationSettings> settingsByType) {
+                List<UserNotificationSettings> settingsToSave = new ArrayList<>();
                 for (NormalizedNotificationSettingRequest request : normalizedRequests) {
                         UserNotificationSettings setting = settingsByType.get(request.notificationType());
                         if (setting == null) {
@@ -135,12 +149,29 @@ public class UserSettingsService {
                         setting.setEnabled(enabled);
                         settingsToSave.add(setting);
                 }
+                return settingsToSave;
+        }
 
-                if (!settingsToSave.isEmpty()) {
-                        userNotificationSettingsRepository.saveAll(settingsToSave);
+        private void saveNotificationSettingsWithRetry(Long userId,
+                        List<NormalizedNotificationSettingRequest> normalizedRequests,
+                        Map<NotificationType, UserNotificationSettings> settingsByType,
+                        List<UserNotificationSettings> settingsToSave) {
+                try {
+                        userNotificationSettingsRepository.saveAllAndFlush(settingsToSave);
+                } catch (DataIntegrityViolationException ex) {
+                        entityManager.clear();
+                        Map<NotificationType, UserNotificationSettings> reloadedSettingsByType =
+                                        loadNotificationSettingsByType(userId);
+                        List<UserNotificationSettings> retrySettingsToSave = applyNotificationSettingRequests(
+                                        userId,
+                                        normalizedRequests,
+                                        reloadedSettingsByType);
+                        if (!retrySettingsToSave.isEmpty()) {
+                                userNotificationSettingsRepository.saveAllAndFlush(retrySettingsToSave);
+                        }
+                        settingsByType.clear();
+                        settingsByType.putAll(reloadedSettingsByType);
                 }
-
-                return buildNotificationSettingResponses(settingsByType);
         }
 
         private void validateUserExists(Long userId) {
