@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/vue-query'
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -5,10 +6,12 @@ import { useBoard } from '@/composables/useBoard'
 import { useToastStore } from '@/stores/toast'
 import { boardApi } from '@/api/board'
 import { canWriteCategory } from '@/utils/board'
+import type { BoardDetail } from '@/types'
 
 export function useWriteBoardSheet() {
   const route = useRoute()
   const router = useRouter()
+  const queryClient = useQueryClient()
   const authStore = useAuthStore()
   const toastStore = useToastStore()
   const { useBoards, useSubscribedBoards } = useBoard()
@@ -50,13 +53,14 @@ export function useWriteBoardSheet() {
   }
 
   const verifyBoardWriteAccess = async (boardUrl: string) => {
-    const [{ data: boardResponse }, { data: categoriesResponse }] = await Promise.all([
-      boardApi.getBoard(boardUrl),
-      boardApi.getCategories(boardUrl),
-    ])
-
-    const board = boardResponse.data
-    const categories = categoriesResponse.data
+    const board = await queryClient.fetchQuery({
+      queryKey: ['board', boardUrl],
+      queryFn: async () => {
+        const { data } = await boardApi.getBoard(boardUrl)
+        return data.data as BoardDetail
+      },
+    })
+    const categories = board.categories ?? []
     if (!categories.length) return true
 
     return categories.some((category) => canWriteCategory(
