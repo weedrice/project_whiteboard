@@ -80,21 +80,22 @@ public class FeedGenerationJobService {
                 0,
                 FeedGenerationJobPolicy.BATCH_SIZE,
                 Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("jobId")));
-        List<FeedGenerationJob> pendingJobs = feedGenerationJobRepository.findByStatusAndRetryCountLessThan(
-                FeedGenerationJob.STATUS_PENDING,
-                FeedGenerationJobPolicy.MAX_RETRY_COUNT,
-                pendingPageRequest);
+        List<FeedGenerationJobRepository.JobIdProjection> pendingJobIds =
+                feedGenerationJobRepository.findJobIdsByStatusAndRetryCountLessThan(
+                        FeedGenerationJob.STATUS_PENDING,
+                        FeedGenerationJobPolicy.MAX_RETRY_COUNT,
+                        pendingPageRequest);
 
         int processedCount = 0;
-        for (FeedGenerationJob job : pendingJobs) {
+        for (FeedGenerationJobRepository.JobIdProjection pendingJobId : pendingJobIds) {
             LocalDateTime claimedAt = now();
             int claimed = feedGenerationJobRepository.claimForProcessing(
-                    job.getJobId(),
+                    pendingJobId.getJobId(),
                     FeedGenerationJobPolicy.MAX_RETRY_COUNT,
                     claimedAt);
             if (claimed == 1) {
                 processedCount++;
-                processClaimedJob(job.getJobId(), claimedAt);
+                processClaimedJob(pendingJobId.getJobId(), claimedAt);
             }
         }
         return processedCount;

@@ -166,10 +166,10 @@ class FeedGenerationJobServiceTest {
                 now.minusMinutes(FeedGenerationJobPolicy.PROCESSING_LEASE_MINUTES),
                 FeedGenerationJobPolicy.MAX_RETRY_COUNT,
                 "Processing lease expired")).thenReturn(1);
-        when(feedGenerationJobRepository.findByStatusAndRetryCountLessThan(
+        when(feedGenerationJobRepository.findJobIdsByStatusAndRetryCountLessThan(
                 eq(FeedGenerationJob.STATUS_PENDING),
                 eq(FeedGenerationJobPolicy.MAX_RETRY_COUNT),
-                any(Pageable.class))).thenReturn(List.of(job));
+                any(Pageable.class))).thenReturn(List.of(jobIdProjection(1L)));
         when(feedGenerationJobRepository.claimForProcessing(
                 1L, FeedGenerationJobPolicy.MAX_RETRY_COUNT, now)).thenReturn(1);
         when(feedGenerationJobRepository.findByJobIdAndStatusAndProcessingStartedAt(
@@ -181,7 +181,7 @@ class FeedGenerationJobServiceTest {
 
         assertThat(processedCount).isEqualTo(1);
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        verify(feedGenerationJobRepository).findByStatusAndRetryCountLessThan(
+        verify(feedGenerationJobRepository).findJobIdsByStatusAndRetryCountLessThan(
                 eq(FeedGenerationJob.STATUS_PENDING),
                 eq(FeedGenerationJobPolicy.MAX_RETRY_COUNT),
                 pageableCaptor.capture());
@@ -196,15 +196,14 @@ class FeedGenerationJobServiceTest {
 
     @Test
     void processPendingJobs_skipsUnclaimedJob() {
-        FeedGenerationJob job = processingJob(1L, 100L, 10L, now);
         when(feedGenerationJobRepository.recoverStaleProcessingJobs(
                 now.minusMinutes(FeedGenerationJobPolicy.PROCESSING_LEASE_MINUTES),
                 FeedGenerationJobPolicy.MAX_RETRY_COUNT,
                 "Processing lease expired")).thenReturn(0);
-        when(feedGenerationJobRepository.findByStatusAndRetryCountLessThan(
+        when(feedGenerationJobRepository.findJobIdsByStatusAndRetryCountLessThan(
                 eq(FeedGenerationJob.STATUS_PENDING),
                 eq(FeedGenerationJobPolicy.MAX_RETRY_COUNT),
-                any(Pageable.class))).thenReturn(List.of(job));
+                any(Pageable.class))).thenReturn(List.of(jobIdProjection(1L)));
         when(feedGenerationJobRepository.claimForProcessing(
                 1L, FeedGenerationJobPolicy.MAX_RETRY_COUNT, now)).thenReturn(0);
 
@@ -225,6 +224,10 @@ class FeedGenerationJobServiceTest {
         ReflectionTestUtils.setField(job, "status", FeedGenerationJob.STATUS_PROCESSING);
         ReflectionTestUtils.setField(job, "processingStartedAt", claimedAt);
         return job;
+    }
+
+    private FeedGenerationJobRepository.JobIdProjection jobIdProjection(Long jobId) {
+        return () -> jobId;
     }
 
     private Board board(Long boardId) {

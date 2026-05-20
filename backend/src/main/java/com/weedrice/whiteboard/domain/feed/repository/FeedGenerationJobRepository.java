@@ -14,9 +14,22 @@ import java.util.Optional;
 
 public interface FeedGenerationJobRepository extends JpaRepository<FeedGenerationJob, Long> {
 
+    interface JobIdProjection {
+        Long getJobId();
+    }
+
     boolean existsByPostId(Long postId);
 
-    List<FeedGenerationJob> findByStatusAndRetryCountLessThan(String status, int retryCount, Pageable pageable);
+    @Query("""
+            SELECT j.jobId AS jobId
+            FROM FeedGenerationJob j
+            WHERE j.status = :status
+              AND j.retryCount < :retryCount
+            """)
+    List<JobIdProjection> findJobIdsByStatusAndRetryCountLessThan(
+            @Param("status") String status,
+            @Param("retryCount") int retryCount,
+            Pageable pageable);
 
     Optional<FeedGenerationJob> findByJobIdAndStatusAndProcessingStartedAt(
             Long jobId,

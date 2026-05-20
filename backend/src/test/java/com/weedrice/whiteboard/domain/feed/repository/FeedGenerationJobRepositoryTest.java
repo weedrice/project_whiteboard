@@ -223,7 +223,7 @@ class FeedGenerationJobRepositoryTest {
     }
 
     @Test
-    void findByStatusAndRetryCountLessThan_sortsByCreatedAtThenJobId() {
+    void findJobIdsByStatusAndRetryCountLessThan_sortsByCreatedAtThenJobId() {
         FeedGenerationJob third = persistJob(300L, 10L);
         FeedGenerationJob first = persistJob(100L, 10L);
         FeedGenerationJob second = persistJob(200L, 10L);
@@ -235,12 +235,13 @@ class FeedGenerationJobRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        List<FeedGenerationJob> jobs = feedGenerationJobRepository.findByStatusAndRetryCountLessThan(
+        List<FeedGenerationJobRepository.JobIdProjection> jobs =
+                feedGenerationJobRepository.findJobIdsByStatusAndRetryCountLessThan(
                 FeedGenerationJob.STATUS_PENDING,
                 FeedGenerationJobPolicy.MAX_RETRY_COUNT,
                 PageRequest.of(0, 10, Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("jobId"))));
 
-        assertThat(jobs).extracting(FeedGenerationJob::getJobId)
+        assertThat(jobs).extracting(FeedGenerationJobRepository.JobIdProjection::getJobId)
                 .containsExactly(first.getJobId(), second.getJobId(), third.getJobId());
     }
 
