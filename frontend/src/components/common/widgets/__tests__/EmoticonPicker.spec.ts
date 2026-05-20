@@ -205,6 +205,36 @@ describe('EmoticonPicker', () => {
         expect(wrapper.findAll('.emoticon-btn')).toHaveLength(1)
     })
 
+    it('ignores stale detail responses after selecting another emoticon', async () => {
+        const first = createEmoticon(40, 'FirstPack', ['first'])
+        const second = createEmoticon(41, 'SecondPack', ['second'])
+        let resolveFirst: (value: unknown) => void = () => undefined
+        let resolveSecond: (value: unknown) => void = () => undefined
+
+        mocks.purchasedEmoticons.value = [first, second]
+        mocks.getEmoticon
+            .mockReturnValueOnce(new Promise((resolve) => {
+                resolveFirst = resolve
+            }))
+            .mockReturnValueOnce(new Promise((resolve) => {
+                resolveSecond = resolve
+            }))
+
+        const wrapper = mountPicker(true)
+        const buttons = wrapper.findAll('.emoticon-btn')
+        await buttons[0].trigger('click')
+        await buttons[1].trigger('click')
+
+        resolveSecond({ data: { data: second } })
+        await flushPromises()
+        expect(wrapper.text()).toContain('SecondPack')
+
+        resolveFirst({ data: { data: first } })
+        await flushPromises()
+        expect(wrapper.text()).toContain('SecondPack')
+        expect(wrapper.text()).not.toContain('FirstPack')
+    })
+
     it('logs detail load error and exits loading state', async () => {
         mocks.purchasedEmoticons.value = [createEmoticon(20, 'BrokenPack', ['oops'])]
         mocks.getEmoticon.mockRejectedValueOnce(new Error('detail failed'))
