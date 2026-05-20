@@ -184,6 +184,7 @@ let blurTimer: ReturnType<typeof setInterval> | null = null
 let likeAnimationTimer: ReturnType<typeof setTimeout> | null = null
 let bookmarkAnimationTimer: ReturnType<typeof setTimeout> | null = null
 let copyHintTimer: ReturnType<typeof setTimeout> | null = null
+let focusCommentComposerTimer: number | null = null
 let composerObserver: IntersectionObserver | null = null
 
 const translateOrFallback = (key: string, fallback: string) => {
@@ -434,7 +435,12 @@ function scrollToCommentComposer() {
 
   composer.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
-  window.setTimeout(() => {
+  if (focusCommentComposerTimer) {
+    clearTimeout(focusCommentComposerTimer)
+  }
+
+  focusCommentComposerTimer = window.setTimeout(() => {
+    focusCommentComposerTimer = null
     const textarea = composer.querySelector('textarea') as HTMLTextAreaElement | null
     textarea?.focus()
   }, 250)
@@ -683,6 +689,10 @@ onUnmounted(() => {
   if (copyHintTimer) {
     clearTimeout(copyHintTimer)
     copyHintTimer = null
+  }
+  if (focusCommentComposerTimer) {
+    clearTimeout(focusCommentComposerTimer)
+    focusCommentComposerTimer = null
   }
 })
 </script>
