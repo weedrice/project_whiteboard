@@ -666,8 +666,6 @@ onBeforeUnmount(() => {
             :url="linkUrl"
             :text="linkText"
             :can-remove="editor?.isActive('link') ?? false"
-            @update:url="linkUrl = $event"
-            @update:text="linkText = $event"
             @apply="applyLink"
             @close="closeLinkPopover"
             @remove="removeLink"

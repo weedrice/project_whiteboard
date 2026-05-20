@@ -234,11 +234,8 @@ describe('PostEditorTipTap', () => {
 
     beforeEach(() => {
         vi.clearAllMocks()
-        vi.stubGlobal('URL', {
-            ...URL,
-            createObjectURL: vi.fn(() => 'blob:https://noviis.kr/local-preview'),
-            revokeObjectURL: vi.fn(),
-        })
+        vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:https://noviis.kr/local-preview')
+        vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
         mocks.editorRef.value = mocks.editor
         mocks.themeStore.isDark = false
         mocks.editor.getHTML.mockReturnValue('<p>editor-html</p>')
@@ -383,6 +380,19 @@ describe('PostEditorTipTap', () => {
         await wrapper.findAll('.link-popover-input')[0].setValue('javascript:alert(1)')
         await wrapper.findAll('.link-popover-actions button').at(-1)!.trigger('click')
         expect(mocks.toastAdd).toHaveBeenLastCalledWith('board.writePost.invalidLinkUrl', 'error')
+
+        await wrapper.findAll('.link-popover-input')[0].setValue('example.com')
+        await wrapper.findAll('.link-popover-input')[1].setValue('Example')
+        await wrapper.findAll('.link-popover-actions button').at(-1)!.trigger('click')
+        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('href="https://example.com/"'))
+        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('>Example</a>'))
+
+        mocks.chain.setLink.mockClear()
+        mocks.editor.state.selection = { from: 2, to: 5 }
+        await wrapper.get(selectors.link).trigger('click')
+        await wrapper.findAll('.link-popover-input')[0].setValue('https://selected.test')
+        await wrapper.findAll('.link-popover-actions button').at(-1)!.trigger('click')
+        expect(mocks.chain.setLink).toHaveBeenCalledWith({ href: 'https://selected.test/' })
 
         mocks.editor.isActive.mockImplementation((name: unknown) => name === 'link')
         await wrapper.get(selectors.link).trigger('click')
