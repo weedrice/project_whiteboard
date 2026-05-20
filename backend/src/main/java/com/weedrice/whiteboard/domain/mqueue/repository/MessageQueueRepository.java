@@ -24,6 +24,19 @@ public interface MessageQueueRepository extends JpaRepository<MessageQueue, Long
             String deliveryMethod,
             Pageable pageable);
 
+    @Query("""
+            select m.queueId
+            from MessageQueue m
+            where m.status = :status
+              and m.retryCount < :maxRetryCount
+              and m.deliveryMethod = :deliveryMethod
+            """)
+    List<Long> findPendingQueueIdsByStatusAndRetryCountLessThanAndDeliveryMethod(
+            @Param("status") String status,
+            @Param("maxRetryCount") int maxRetryCount,
+            @Param("deliveryMethod") String deliveryMethod,
+            Pageable pageable);
+
     @EntityGraph(attributePaths = "targetUser")
     @Query("select m from MessageQueue m where m.queueId = :queueId")
     Optional<MessageQueue> findByIdWithTargetUser(@Param("queueId") Long queueId);

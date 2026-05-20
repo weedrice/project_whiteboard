@@ -1,10 +1,8 @@
 package com.weedrice.whiteboard.domain.mqueue.scheduler;
 
 import com.weedrice.whiteboard.domain.mqueue.MessageQueuePolicy;
-import com.weedrice.whiteboard.domain.mqueue.entity.MessageQueue;
 import com.weedrice.whiteboard.domain.mqueue.repository.MessageQueueRepository;
 import com.weedrice.whiteboard.domain.mqueue.service.MqueueService;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,7 +11,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.data.domain.Pageable;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -45,7 +42,7 @@ class MqueueSchedulerTest {
         when(messageQueueRepository.recoverStaleProcessingMessages(
                 any(), eq(MessageQueuePolicy.MAX_RETRY_COUNT), any()))
                 .thenReturn(2);
-        when(messageQueueRepository.findByStatusAndRetryCountLessThanAndDeliveryMethod(
+        when(messageQueueRepository.findPendingQueueIdsByStatusAndRetryCountLessThanAndDeliveryMethod(
                 eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), eq("EMAIL"), any(Pageable.class)))
                 .thenReturn(List.of());
 
@@ -54,7 +51,7 @@ class MqueueSchedulerTest {
         var inOrder = inOrder(messageQueueRepository);
         inOrder.verify(messageQueueRepository)
                 .recoverStaleProcessingMessages(any(), eq(MessageQueuePolicy.MAX_RETRY_COUNT), any());
-        inOrder.verify(messageQueueRepository).findByStatusAndRetryCountLessThanAndDeliveryMethod(
+        inOrder.verify(messageQueueRepository).findPendingQueueIdsByStatusAndRetryCountLessThanAndDeliveryMethod(
                 eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), eq("EMAIL"), any(Pageable.class));
     }
 
@@ -64,14 +61,14 @@ class MqueueSchedulerTest {
         when(messageQueueRepository.recoverStaleProcessingMessages(
                 any(), eq(MessageQueuePolicy.MAX_RETRY_COUNT), any()))
                 .thenReturn(0);
-        when(messageQueueRepository.findByStatusAndRetryCountLessThanAndDeliveryMethod(
+        when(messageQueueRepository.findPendingQueueIdsByStatusAndRetryCountLessThanAndDeliveryMethod(
                 eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), eq("EMAIL"), any(Pageable.class)))
                 .thenReturn(List.of());
 
         mqueueScheduler.processMessageQueue();
 
         var pageableCaptor = forClass(Pageable.class);
-        verify(messageQueueRepository).findByStatusAndRetryCountLessThanAndDeliveryMethod(
+        verify(messageQueueRepository).findPendingQueueIdsByStatusAndRetryCountLessThanAndDeliveryMethod(
                 eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), eq("EMAIL"), pageableCaptor.capture());
 
         Pageable pageable = pageableCaptor.getValue();
@@ -93,13 +90,13 @@ class MqueueSchedulerTest {
         when(messageQueueRepository.recoverStaleProcessingMessages(
                 any(), eq(MessageQueuePolicy.MAX_RETRY_COUNT), any()))
                 .thenReturn(0);
-        when(messageQueueRepository.findByStatusAndRetryCountLessThanAndDeliveryMethod(
+        when(messageQueueRepository.findPendingQueueIdsByStatusAndRetryCountLessThanAndDeliveryMethod(
                 eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), eq("EMAIL"), any(Pageable.class)))
                 .thenReturn(List.of());
 
         mqueueScheduler.processMessageQueue();
 
-        verify(messageQueueRepository).findByStatusAndRetryCountLessThanAndDeliveryMethod(
+        verify(messageQueueRepository).findPendingQueueIdsByStatusAndRetryCountLessThanAndDeliveryMethod(
                 eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), eq("EMAIL"), any(Pageable.class));
         verify(messageQueueRepository, never()).claimForProcessing(any(), any(Integer.class), any());
         verify(mqueueService, never()).sendEmail(any(), any());
@@ -108,13 +105,12 @@ class MqueueSchedulerTest {
     @Test
     @DisplayName("scheduler releases processing lease when async dispatch is rejected")
     void processMessageQueue_handlesDispatchRejection() {
-        MessageQueue message = buildMessageQueue(1L, "EMAIL");
         when(messageQueueRepository.recoverStaleProcessingMessages(
                 any(), eq(MessageQueuePolicy.MAX_RETRY_COUNT), any()))
                 .thenReturn(0);
-        when(messageQueueRepository.findByStatusAndRetryCountLessThanAndDeliveryMethod(
+        when(messageQueueRepository.findPendingQueueIdsByStatusAndRetryCountLessThanAndDeliveryMethod(
                 eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), eq("EMAIL"), any(Pageable.class)))
-                .thenReturn(List.of(message));
+                .thenReturn(List.of(1L));
         when(messageQueueRepository.claimForProcessing(eq(1L), eq(MessageQueuePolicy.MAX_RETRY_COUNT), any()))
                 .thenReturn(1);
         doThrow(new TaskRejectedException("rejected")).when(mqueueService).sendEmail(eq(1L), any());
@@ -129,14 +125,4 @@ class MqueueSchedulerTest {
         verify(mqueueService).recoverRejectedDispatch(1L, claimedAt);
     }
 
-    private MessageQueue buildMessageQueue(Long queueId, String deliveryMethod) {
-        User user = User.builder().email("user@test.com").build();
-        MessageQueue message = MessageQueue.builder()
-                .targetUser(user)
-                .deliveryMethod(deliveryMethod)
-                .content("content")
-                .build();
-        ReflectionTestUtils.setField(message, "queueId", queueId);
-        return message;
-    }
 }

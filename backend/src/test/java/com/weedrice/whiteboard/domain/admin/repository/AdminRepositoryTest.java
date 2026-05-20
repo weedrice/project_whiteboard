@@ -116,6 +116,19 @@ class AdminRepositoryTest {
     }
 
     @Test
+    @DisplayName("board와 role로 활성 관리자 조회 시 user를 함께 로드한다")
+    void findByBoardAndRoleAndIsActive_fetchesUser() {
+        Board board = olderAdmin.getBoard();
+
+        List<Admin> result = adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true);
+
+        PersistenceUnitUtil persistenceUnitUtil = entityManagerFactory.getPersistenceUnitUtil();
+        assertThat(result).hasSize(2);
+        assertThat(result).allSatisfy(admin ->
+                assertThat(persistenceUnitUtil.isLoaded(admin, "user")).isTrue());
+    }
+
+    @Test
     @DisplayName("여러 활성 관리자 권한이 있어도 사용자 활성 관리자 존재 여부를 조회한다")
     void existsByUserAndIsActive_multipleActiveRows_returnsTrue() {
         User multiAdminUser = User.builder()

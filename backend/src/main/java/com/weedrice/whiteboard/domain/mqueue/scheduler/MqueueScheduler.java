@@ -1,7 +1,6 @@
 package com.weedrice.whiteboard.domain.mqueue.scheduler;
 
 import com.weedrice.whiteboard.domain.mqueue.MessageQueuePolicy;
-import com.weedrice.whiteboard.domain.mqueue.entity.MessageQueue;
 import com.weedrice.whiteboard.domain.mqueue.repository.MessageQueueRepository;
 import com.weedrice.whiteboard.domain.mqueue.service.MqueueService;
 import lombok.RequiredArgsConstructor;
@@ -38,24 +37,24 @@ public class MqueueScheduler {
                 0,
                 50,
                 Sort.by(Sort.Order.asc("requestedAt"), Sort.Order.asc("queueId")));
-        List<MessageQueue> pendingMessages = messageQueueRepository.findByStatusAndRetryCountLessThanAndDeliveryMethod(
+        List<Long> pendingQueueIds = messageQueueRepository.findPendingQueueIdsByStatusAndRetryCountLessThanAndDeliveryMethod(
                 "PENDING", MessageQueuePolicy.MAX_RETRY_COUNT, "EMAIL", pendingPageRequest);
 
-        for (MessageQueue message : pendingMessages) {
+        for (Long queueId : pendingQueueIds) {
             LocalDateTime claimedAt = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
             int claimed = messageQueueRepository.claimForProcessing(
-                    message.getQueueId(),
+                    queueId,
                     MessageQueuePolicy.MAX_RETRY_COUNT,
                     claimedAt);
             if (claimed == 1) {
                 try {
-                    mqueueService.sendEmail(message.getQueueId(), claimedAt);
+                    mqueueService.sendEmail(queueId, claimedAt);
                 } catch (TaskRejectedException ex) {
-                    log.error("Email dispatch rejected: queueId={}", message.getQueueId(), ex);
-                    mqueueService.recoverRejectedDispatch(message.getQueueId(), claimedAt);
+                    log.error("Email dispatch rejected: queueId={}", queueId, ex);
+                    mqueueService.recoverRejectedDispatch(queueId, claimedAt);
                 }
             }
         }
-        log.info("Message queue scheduler finished: attempted {}", pendingMessages.size());
+        log.info("Message queue scheduler finished: attempted {}", pendingQueueIds.size());
     }
 }

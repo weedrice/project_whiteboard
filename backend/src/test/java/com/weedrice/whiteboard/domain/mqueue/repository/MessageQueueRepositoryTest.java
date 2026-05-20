@@ -278,8 +278,8 @@ class MessageQueueRepositoryTest {
     }
 
     @Test
-    @DisplayName("pending email queue lookup excludes unsupported delivery methods")
-    void findByStatusAndRetryCountLessThanAndDeliveryMethod_filtersEmailMessages() {
+    @DisplayName("pending email queue id lookup excludes unsupported delivery methods")
+    void findPendingQueueIdsByStatusAndRetryCountLessThanAndDeliveryMethod_filtersEmailMessages() {
         User user = persistUser();
         persistMessageQueue(
                 user,
@@ -295,14 +295,45 @@ class MessageQueueRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        List<MessageQueue> messages = messageQueueRepository.findByStatusAndRetryCountLessThanAndDeliveryMethod(
+        List<Long> queueIds = messageQueueRepository.findPendingQueueIdsByStatusAndRetryCountLessThanAndDeliveryMethod(
                 "PENDING",
                 MessageQueuePolicy.MAX_RETRY_COUNT,
                 "EMAIL",
                 PageRequest.of(0, 10, Sort.by(Sort.Order.asc("requestedAt"), Sort.Order.asc("queueId"))));
 
-        assertThat(messages).extracting(MessageQueue::getQueueId)
-                .containsExactly(email.getQueueId());
+        assertThat(queueIds).containsExactly(email.getQueueId());
+    }
+
+    @Test
+    @DisplayName("pending email queue id lookup keeps stable FIFO order")
+    void findPendingQueueIdsByStatusAndRetryCountLessThanAndDeliveryMethod_sortsByRequestedAtThenQueueId() {
+        User user = persistUser();
+        MessageQueue third = persistMessageQueue(
+                user,
+                "third",
+                "EMAIL",
+                LocalDateTime.of(2026, 4, 22, 14, 0));
+        MessageQueue first = persistMessageQueue(
+                user,
+                "first",
+                "EMAIL",
+                LocalDateTime.of(2026, 4, 22, 13, 0));
+        MessageQueue second = persistMessageQueue(
+                user,
+                "second",
+                "EMAIL",
+                LocalDateTime.of(2026, 4, 22, 13, 0));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Long> queueIds = messageQueueRepository.findPendingQueueIdsByStatusAndRetryCountLessThanAndDeliveryMethod(
+                "PENDING",
+                MessageQueuePolicy.MAX_RETRY_COUNT,
+                "EMAIL",
+                PageRequest.of(0, 10, Sort.by(Sort.Order.asc("requestedAt"), Sort.Order.asc("queueId"))));
+
+        assertThat(queueIds).containsExactly(first.getQueueId(), second.getQueueId(), third.getQueueId());
     }
 
     private MessageQueue persistMessageQueue() {

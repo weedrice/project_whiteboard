@@ -26,6 +26,7 @@ public interface AdminRepository extends JpaRepository<Admin, Long> {
     boolean existsByUserAndRoleAndIsActive(User user, String role, Boolean isActive);
     long countByBoardAndRoleAndIsActiveAndAdminIdNot(Board board, String role, Boolean isActive, Long adminId);
     Optional<Admin> findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(Board board, String role, Boolean isActive);
+    @EntityGraph(attributePaths = "user")
     List<Admin> findByBoardAndRoleAndIsActive(Board board, String role, Boolean isActive);
 
     @Query("""
