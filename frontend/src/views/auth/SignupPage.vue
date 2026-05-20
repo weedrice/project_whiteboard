@@ -10,9 +10,11 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { isEmpty, isValidEmail, isValidLoginId, isValidPassword, isValidDisplayName } from '@/utils/validation'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { useEmailVerificationState } from '@/composables/useEmailVerificationState'
+import { useAuthPasswordValidation } from '@/composables/useAuthPasswordValidation'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
+const { validatePasswordPair } = useAuthPasswordValidation()
 
 const router = useRouter()
 const route = useRoute()
@@ -247,16 +249,19 @@ async function handleSignup() {
     toastStore.addToast(t('auth.placeholders.loginId'), 'error')
     return
   }
-  if (isEmpty(form.value.password)) {
-    toastStore.addToast(t('auth.placeholders.password'), 'error')
-    return
-  }
-  if (isEmpty(form.value.passwordConfirm)) {
-    toastStore.addToast(t('auth.newPasswordConfirm'), 'error')
-    return
-  }
-  if (form.value.password !== form.value.passwordConfirm) {
-    toastStore.addToast(t('auth.passwordMismatch'), 'error')
+  const passwordError = validatePasswordPair(form.value.password, form.value.passwordConfirm, {
+    requirePassword: true,
+    requireConfirm: true,
+    messages: {
+      required: t('auth.placeholders.password'),
+      invalid: t('auth.validation.passwordStrength'),
+      mismatch: isEmpty(form.value.passwordConfirm)
+        ? t('auth.newPasswordConfirm')
+        : t('auth.passwordMismatch')
+    }
+  })
+  if (passwordError) {
+    toastStore.addToast(passwordError, 'error')
     return
   }
   if (isEmpty(form.value.email)) {
