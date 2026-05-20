@@ -85,6 +85,10 @@ describe('Router Navigation Guards', () => {
             logout: vi.fn().mockImplementation(() => {
                 mockAuthStore.user = null
                 mockAuthStore.isAuthenticated = false
+            }),
+            handleSanctionedSession: vi.fn().mockImplementation(() => {
+                mockAuthStore.user = null
+                mockAuthStore.isAuthenticated = false
             })
         }
         vi.mocked(useAuthStore).mockReturnValue(mockAuthStore)
@@ -237,7 +241,7 @@ describe('Router Navigation Guards', () => {
 
         await router.push('/boards')
 
-        expect(mockAuthStore.logout).toHaveBeenCalled()
+        expect(mockAuthStore.handleSanctionedSession).toHaveBeenCalled()
         expect(router.currentRoute.value.name).toBe('login')
     })
 

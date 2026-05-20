@@ -327,7 +327,7 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
 
     // Sanction check
     if (authStore.user?.status === 'SANCTIONED') {
-        await authStore.logout()
+        await authStore.handleSanctionedSession()
         next({ name: 'login' })
         return
     }
