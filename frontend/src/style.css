@@ -666,11 +666,11 @@ html {
   }
 
   .nv-home-card-body-featured-with-media {
-    --nv-home-card-body-lines: 4;
+    --nv-home-card-body-lines: 10;
   }
 
   .nv-home-card-body-featured-no-media {
-    --nv-home-card-body-lines: 8;
+    --nv-home-card-body-lines: 10;
   }
 
   .nv-home-card-body-with-media {

@@ -79,4 +79,22 @@ describe('HomePostCard', () => {
 
     expect(wrapper.get('.nv-home-card-body').classes()).toContain('nv-home-card-body-featured-with-media')
   })
+
+  it('renders summary through the sanitized HTML path when an excerpt is not available', () => {
+    const wrapper = mount(HomePostCard, {
+      props: {
+        post: makePost({
+          contentsExcerpt: undefined,
+          summary: '<p><em>fallback</em> text</p><script>alert("xss")</script>',
+        }),
+        variant: 'featured',
+      },
+    })
+
+    const body = wrapper.get('.nv-home-card-body')
+
+    expect(body.classes()).toContain('prose-feed')
+    expect(body.find('em').text()).toBe('fallback')
+    expect(body.html()).not.toContain('<script>')
+  })
 })

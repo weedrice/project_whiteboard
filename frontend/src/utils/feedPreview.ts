@@ -1,8 +1,8 @@
 import type { FeedPost } from '@/types'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
 
-export const getFeedBodyHtml = (post: Pick<FeedPost, 'contentsExcerpt'>) => {
-  const excerpt = post.contentsExcerpt
+export const getFeedBodyHtml = (post: Pick<FeedPost, 'contentsExcerpt' | 'summary'>) => {
+  const excerpt = post.contentsExcerpt || post.summary
   if (!excerpt) return null
 
   let html = sanitizeQuillHtml(excerpt)
