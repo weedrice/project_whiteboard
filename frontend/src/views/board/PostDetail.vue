@@ -10,9 +10,10 @@ import {
   Eye,
   List,
   MessageSquare,
-  MoreHorizontal,
+  Pencil,
   Share2,
   ThumbsUp,
+  Trash2,
   User
 } from 'lucide-vue-next'
 import { useHead } from '@unhead/vue'
@@ -171,14 +172,11 @@ const isLikeAnimating = ref(false)
 const isBookmarkAnimating = ref(false)
 const showReportModal = ref(false)
 const reportReason = ref('')
-const showOverflowMenu = ref(false)
 const showCopyHint = ref(false)
 const showComposerCta = ref(false)
 
 const contentRef = ref<HTMLElement | null>(null)
 const commentsRef = ref<HTMLElement | null>(null)
-const overflowRef = ref<HTMLElement | null>(null)
-const overflowButtonRef = ref<HTMLElement | null>(null)
 
 let blurTimer: ReturnType<typeof setInterval> | null = null
 let likeAnimationTimer: ReturnType<typeof setTimeout> | null = null
@@ -368,7 +366,6 @@ function openReportModal() {
   if (!canReport.value) return
   showReportModal.value = true
   reportReason.value = ''
-  showOverflowMenu.value = false
 }
 
 async function submitReport() {
@@ -431,7 +428,7 @@ function handleShare() {
     }).catch((err) => {
       if (err.name !== 'AbortError') {
         logger.error('Share failed:', err)
-        toastStore.addToast(translateOrFallback('common.messages.processFailed', '怨듭쑀???ㅽ뙣?덉뒿?덈떎.'), 'error')
+        toastStore.addToast(translateOrFallback('common.messages.processFailed', '공유에 실패했습니다.'), 'error')
       }
     })
     return
@@ -558,28 +555,6 @@ function setupComposerObserver() {
   composerObserver.observe(composer)
 }
 
-function closeOverflowMenu() {
-  showOverflowMenu.value = false
-}
-
-function toggleOverflowMenu() {
-  showOverflowMenu.value = !showOverflowMenu.value
-}
-
-function handleDocumentClick(event: MouseEvent) {
-  if (!showOverflowMenu.value) return
-
-  const target = event.target as Node | null
-  if (
-    overflowRef.value?.contains(target) ||
-    overflowButtonRef.value?.contains(target)
-  ) {
-    return
-  }
-
-  closeOverflowMenu()
-}
-
 function handleResize() {
   setupComposerObserver()
 }
@@ -632,11 +607,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
       break
     case 'Escape':
       event.preventDefault()
-      if (showOverflowMenu.value) {
-        closeOverflowMenu()
-      } else {
-        goToList()
-      }
+      goToList()
       break
   }
 }
@@ -697,14 +668,12 @@ onMounted(() => {
   nextTick(() => setupComposerObserver())
 
   document.addEventListener('keydown', handleKeyDown)
-  document.addEventListener('click', handleDocumentClick)
   window.addEventListener('resize', handleResize)
 })
 
 onUnmounted(() => {
   isDisposed = true
   document.removeEventListener('keydown', handleKeyDown)
-  document.removeEventListener('click', handleDocumentClick)
   window.removeEventListener('resize', handleResize)
 
   clearBlurTimer()
@@ -758,64 +727,29 @@ onUnmounted(() => {
                   <span class="hidden sm:inline">{{ $t('board.postDetail.toList') }}</span>
                 </BaseButton>
 
-                <div class="relative flex min-w-0 items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    class="nv-post-icon-btn"
-                    :aria-label="$t('common.share')"
-                    @click="handleShare"
+                <div
+                  v-if="canEdit || canDelete"
+                  class="flex min-w-0 items-center justify-end gap-2"
+                >
+                  <router-link
+                    v-if="canEdit"
+                    :to="buildEditRoute()"
+                    class="nv-post-header-action"
+                    :aria-label="$t('common.edit')"
                   >
-                    <Share2 class="h-4 w-4" />
+                    <Pencil class="h-4 w-4" />
+                    <span>{{ $t('common.edit') }}</span>
+                  </router-link>
+                  <button
+                    v-if="canDelete"
+                    type="button"
+                    class="nv-post-header-action is-danger"
+                    :aria-label="$t('common.delete')"
+                    @click="handleDelete"
+                  >
+                    <Trash2 class="h-4 w-4" />
+                    <span>{{ $t('common.delete') }}</span>
                   </button>
-
-                  <div class="relative">
-                    <button
-                      ref="overflowButtonRef"
-                      type="button"
-                      class="nv-post-icon-btn"
-                      :aria-expanded="showOverflowMenu"
-                      aria-haspopup="menu"
-                      :aria-label="$t('board.postDetail.moreActions')"
-                      @click="toggleOverflowMenu"
-                    >
-                      <MoreHorizontal class="h-4 w-4" />
-                    </button>
-
-                    <div
-                      v-if="showOverflowMenu"
-                      ref="overflowRef"
-                      class="nv-post-overflow"
-                      role="menu"
-                    >
-                      <router-link
-                        v-if="canEdit"
-                        :to="buildEditRoute()"
-                        class="nv-post-overflow-item"
-                        role="menuitem"
-                        @click="closeOverflowMenu"
-                      >
-                        {{ $t('common.edit') }}
-                      </router-link>
-                      <button
-                        v-if="canDelete"
-                        type="button"
-                        class="nv-post-overflow-item"
-                        role="menuitem"
-                        @click="closeOverflowMenu(); handleDelete()"
-                      >
-                        {{ $t('common.delete') }}
-                      </button>
-                      <button
-                        v-if="canReport"
-                        type="button"
-                        class="nv-post-overflow-item"
-                        role="menuitem"
-                        @click="openReportModal"
-                      >
-                        {{ $t('common.report') }}
-                      </button>
-                    </div>
-                  </div>
                 </div>
               </div>
 
@@ -959,6 +893,16 @@ onUnmounted(() => {
                 >
                   <Share2 class="h-5 w-5" />
                 </button>
+                <button
+                  v-if="canReport"
+                  type="button"
+                  class="nv-post-action-btn nv-post-action-btn-circle is-report"
+                  :aria-label="$t('common.report')"
+                  :title="$t('common.report')"
+                  @click="openReportModal"
+                >
+                  <AlertTriangle class="h-5 w-5" />
+                </button>
               </div>
             </div>
 
@@ -1071,51 +1015,34 @@ onUnmounted(() => {
   gap: 0.375rem;
 }
 
-.nv-post-icon-btn {
+.nv-post-header-action {
   align-items: center;
   background: var(--nv-surface);
   border: 1px solid var(--nv-line);
   border-radius: 9999px;
   color: var(--nv-ink-soft);
   display: inline-flex;
-  height: 2.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  gap: 0.35rem;
+  min-height: 2.5rem;
   justify-content: center;
+  padding: 0.55rem 0.8rem;
   transition: background-color 0.2s ease, color 0.2s ease;
-  width: 2.5rem;
 }
 
-.nv-post-icon-btn:hover {
+.nv-post-header-action:hover {
   background: var(--nv-surface-2);
   color: var(--nv-ink);
 }
 
-.nv-post-overflow {
-  background: var(--nv-surface);
-  border: 1px solid var(--nv-line);
-  border-radius: 1.25rem;
-  box-shadow: var(--nv-shadow-popup);
-  min-width: 10rem;
-  padding: 0.4rem;
-  position: absolute;
-  right: 0;
-  top: calc(100% + 0.5rem);
-  z-index: 30;
+.nv-post-header-action.is-danger {
+  color: var(--nv-danger);
 }
 
-.nv-post-overflow-item {
-  align-items: center;
-  border-radius: 0.95rem;
-  color: var(--nv-ink);
-  display: flex;
-  font-size: 0.9rem;
-  justify-content: flex-start;
-  padding: 0.7rem 0.9rem;
-  transition: background-color 0.2s ease;
-  width: 100%;
-}
-
-.nv-post-overflow-item:hover {
-  background: var(--nv-surface-2);
+.nv-post-header-action.is-danger:hover {
+  background: color-mix(in srgb, var(--nv-danger) 10%, var(--nv-surface));
+  color: var(--nv-danger);
 }
 
 .nv-post-copy-hint {
@@ -1301,6 +1228,10 @@ onUnmounted(() => {
 
 .nv-post-action-btn.is-bookmark {
   color: #bb7a00;
+}
+
+.nv-post-action-btn.is-report {
+  color: var(--nv-danger);
 }
 
 .nv-post-action-btn-circle {
