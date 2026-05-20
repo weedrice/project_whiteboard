@@ -263,6 +263,32 @@ describe('PostDetail', () => {
     expect(wrapper.text()).not.toContain('board.postDetail.tableOfContents')
   })
 
+  it('renders editor html inside the rich content surface', async () => {
+    postValue.contents = '<h2>제목 블록</h2><blockquote><p>인용문</p></blockquote><pre><code>const value = 1</code></pre>'
+
+    const wrapper = mount(PostDetail, {
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          CommentList: true,
+          PostTags: true,
+          UserMenu: true,
+          BaseModal: true
+        }
+      }
+    })
+
+    const content = wrapper.get('.nv-rich-content')
+
+    expect(content.classes()).toContain('prose')
+    expect(content.find('h2').text()).toBe('제목 블록')
+    expect(content.find('blockquote p').text()).toBe('인용문')
+    expect(content.find('pre code').text()).toBe('const value = 1')
+  })
+
   it('navigates back to the board route from the list action even when the list is already mounted', async () => {
     const mountedList = document.createElement('section')
     mountedList.id = 'board-post-list'

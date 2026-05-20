@@ -139,7 +139,7 @@ const editor = useEditor({
   editable: true,
   editorProps: {
     attributes: {
-      class: 'prose prose-sm dark:prose-invert max-w-none min-h-[280px] px-4 py-4 focus:outline-none',
+      class: 'nv-rich-content prose prose-sm dark:prose-invert max-w-none min-h-[280px] px-4 py-4 focus:outline-none',
     },
     handleDOMEvents: {
       click: (_view, event) => {

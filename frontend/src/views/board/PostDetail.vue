@@ -886,7 +886,7 @@ onUnmounted(() => {
             <div class="nv-post-article relative overflow-hidden">
               <div
                 ref="contentRef"
-                class="ql-editor prose prose-sm max-w-none text-sm text-[var(--nv-ink)] sm:prose-base dark:prose-invert sm:text-base"
+                class="ql-editor nv-rich-content prose prose-sm max-w-none sm:prose-base dark:prose-invert"
                 :class="{ 'blur-md select-none': isBlurred }"
                 v-html="processedContents"
                 @error.capture="applyImageFallback"

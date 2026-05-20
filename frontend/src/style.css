@@ -1,6 +1,7 @@
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css');
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 @variant dark (&:where(.dark, .dark *));
 
 @theme {
@@ -64,6 +65,100 @@ html {
 }
 
 @layer components {
+
+  .nv-rich-content {
+    --tw-prose-body: var(--nv-ink-soft);
+    --tw-prose-headings: var(--nv-ink);
+    --tw-prose-lead: var(--nv-ink-soft);
+    --tw-prose-links: var(--nv-accent);
+    --tw-prose-bold: var(--nv-ink);
+    --tw-prose-counters: var(--nv-muted);
+    --tw-prose-bullets: var(--nv-muted);
+    --tw-prose-hr: var(--nv-line);
+    --tw-prose-quotes: var(--nv-ink-soft);
+    --tw-prose-quote-borders: var(--nv-accent);
+    --tw-prose-captions: var(--nv-muted);
+    --tw-prose-kbd: var(--nv-ink);
+    --tw-prose-code: var(--nv-ink);
+    --tw-prose-pre-code: var(--nv-ink);
+    --tw-prose-pre-bg: var(--nv-surface-2);
+    --tw-prose-th-borders: var(--nv-line);
+    --tw-prose-td-borders: var(--nv-line);
+    --tw-prose-invert-body: var(--nv-ink-soft);
+    --tw-prose-invert-headings: var(--nv-ink);
+    --tw-prose-invert-lead: var(--nv-ink-soft);
+    --tw-prose-invert-links: var(--nv-accent);
+    --tw-prose-invert-bold: var(--nv-ink);
+    --tw-prose-invert-counters: var(--nv-muted);
+    --tw-prose-invert-bullets: var(--nv-muted);
+    --tw-prose-invert-hr: var(--nv-line);
+    --tw-prose-invert-quotes: var(--nv-ink-soft);
+    --tw-prose-invert-quote-borders: var(--nv-accent);
+    --tw-prose-invert-captions: var(--nv-muted);
+    --tw-prose-invert-kbd: var(--nv-ink);
+    --tw-prose-invert-code: var(--nv-ink);
+    --tw-prose-invert-pre-code: var(--nv-ink);
+    --tw-prose-invert-pre-bg: var(--nv-surface-2);
+    --tw-prose-invert-th-borders: var(--nv-line);
+    --tw-prose-invert-td-borders: var(--nv-line);
+    color: var(--nv-ink-soft);
+    overflow-wrap: anywhere;
+  }
+
+  .nv-rich-content :where(blockquote) {
+    background: color-mix(in srgb, var(--nv-accent) 6%, transparent);
+    border-left-color: color-mix(in srgb, var(--nv-accent) 45%, var(--nv-line));
+    border-left-width: 0.22rem;
+    border-radius: 0 0.75rem 0.75rem 0;
+    font-style: normal;
+    padding: 0.55rem 0 0.55rem 1rem;
+  }
+
+  .nv-rich-content :where(blockquote p:first-of-type::before),
+  .nv-rich-content :where(blockquote p:last-of-type::after) {
+    content: none;
+  }
+
+  .nv-rich-content :where(pre) {
+    border: 1px solid var(--nv-line);
+    border-radius: 0.85rem;
+    overflow-x: auto;
+  }
+
+  .nv-rich-content :where(pre code) {
+    background: transparent;
+    border: 0;
+    color: inherit;
+    font-size: 0.9em;
+    padding: 0;
+    white-space: pre;
+  }
+
+  .nv-rich-content :where(code) {
+    background: color-mix(in srgb, var(--nv-surface-2) 86%, transparent);
+    border: 1px solid var(--nv-line);
+    border-radius: 0.35rem;
+    font-weight: 500;
+    padding: 0.12rem 0.32rem;
+  }
+
+  .nv-rich-content :where(code::before),
+  .nv-rich-content :where(code::after) {
+    content: none;
+  }
+
+  .nv-rich-content :where(img) {
+    border-radius: 0.75rem;
+  }
+
+  .nv-rich-content :where(.tiptap-image-inline) {
+    display: inline-block;
+    vertical-align: baseline;
+  }
+
+  .nv-rich-content :where(.tiptap-video-wrapper) {
+    margin: 1.25rem 0;
+  }
 
   /* Card Component */
   .card {
