@@ -1,279 +1,29 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { authApi } from '@/api/auth'
 import { Lock, User, Mail, Smile, ChevronLeft, CheckCircle } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
-import { useToastStore } from '@/stores/toast'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import { isEmpty, isValidEmail, isValidLoginId, isValidPassword, isValidDisplayName } from '@/utils/validation'
-import { extractErrorMessage } from '@/utils/errorHandler'
-import { useEmailVerificationFlow } from '@/composables/useEmailVerificationFlow'
-import { useAuthPasswordValidation } from '@/composables/useAuthPasswordValidation'
+import { useSignupRegistration } from '@/composables/useSignupRegistration'
 
 const { t } = useI18n()
-const toastStore = useToastStore()
-const { validatePasswordPair } = useAuthPasswordValidation()
-
 const router = useRouter()
 const route = useRoute()
 
-const form = ref({
-  loginId: '',
-  password: '',
-  passwordConfirm: '',
-  email: '',
-  displayName: ''
-})
-
-// 필드별 에러 메시지
-const fieldErrors = reactive({
-  loginId: '',
-  password: '',
-  passwordConfirm: '',
-  email: '',
-  displayName: ''
-})
-
-// 필드가 한 번이라도 수정되었는지 추적
-const touched = reactive({
-  loginId: false,
-  password: false,
-  passwordConfirm: false,
-  email: false,
-  displayName: false
-})
-
-// 실시간 validation 함수들
-function validateLoginId() {
-  if (!touched.loginId) return
-  // 재가입 모드: 인증 전에는 마스킹된 값이 있어 패턴 검사 스킵
-  if (isReregister.value && !verification.isVerified) {
-    fieldErrors.loginId = ''
-    return
-  }
-  if (isEmpty(form.value.loginId)) {
-    fieldErrors.loginId = ''
-  } else if (!isValidLoginId(form.value.loginId)) {
-    fieldErrors.loginId = t('auth.validation.loginIdFormat')
-  } else {
-    fieldErrors.loginId = ''
-  }
-}
-
-function validatePassword() {
-  if (!touched.password) return
-  if (isEmpty(form.value.password)) {
-    fieldErrors.password = ''
-  } else if (!isValidPassword(form.value.password)) {
-    fieldErrors.password = t('auth.validation.passwordStrength')
-  } else {
-    fieldErrors.password = ''
-  }
-  // 비밀번호가 변경되면 확인 필드도 재검증
-  if (touched.passwordConfirm) {
-    validatePasswordConfirm()
-  }
-}
-
-function validatePasswordConfirm() {
-  if (!touched.passwordConfirm) return
-  if (isEmpty(form.value.passwordConfirm)) {
-    fieldErrors.passwordConfirm = ''
-  } else if (form.value.password !== form.value.passwordConfirm) {
-    fieldErrors.passwordConfirm = t('auth.passwordMismatch')
-  } else {
-    fieldErrors.passwordConfirm = ''
-  }
-}
-
-function validateEmail() {
-  if (!touched.email) return
-  if (isEmpty(form.value.email)) {
-    fieldErrors.email = ''
-  } else if (!isValidEmail(form.value.email)) {
-    fieldErrors.email = t('auth.validation.emailFormat')
-  } else {
-    fieldErrors.email = ''
-  }
-}
-
-function validateDisplayName() {
-  if (!touched.displayName) return
-  if (isEmpty(form.value.displayName)) {
-    fieldErrors.displayName = ''
-  } else if (!isValidDisplayName(form.value.displayName)) {
-    fieldErrors.displayName = t('auth.validation.displayNameLength')
-  } else {
-    fieldErrors.displayName = ''
-  }
-}
-
-// watch로 실시간 validation
-watch(() => form.value.loginId, () => {
-  touched.loginId = true
-  validateLoginId()
-})
-
-watch(() => form.value.password, () => {
-  touched.password = true
-  validatePassword()
-})
-
-watch(() => form.value.passwordConfirm, () => {
-  touched.passwordConfirm = true
-  validatePasswordConfirm()
-})
-
-watch(() => form.value.email, () => {
-  touched.email = true
-  validateEmail()
-})
-
-watch(() => form.value.displayName, () => {
-  touched.displayName = true
-  validateDisplayName()
-})
-
-const error = ref('')
-const isLoading = ref(false)
-const isReregister = ref(false) // 탈퇴 계정 재가입 모드
-
 const {
-  emailVerification: verification,
-  formatVerifyTime: formatTime,
-  sendVerifyCode: sendVerificationCode,
-  verifyEmailCode: verifyCode
-} = useEmailVerificationFlow({
-  getEmail: () => form.value.email,
-  purpose: 'SIGNUP',
-  validateEmailFormat: false,
-  closeOnVerifySuccess: false,
-  emailRequiredMessage: t('auth.placeholders.email'),
-  beforeSend: async (email) => {
-    const checkRes = await authApi.checkEmailForReregister(email)
-    if (checkRes.data.success && checkRes.data.data?.canReregister && checkRes.data.data?.maskedLoginId) {
-      isReregister.value = true
-      form.value.loginId = checkRes.data.data.maskedLoginId
-    } else {
-      isReregister.value = false
-      form.value.loginId = ''
-    }
-  },
-  afterVerify: ({ response }) => {
-    if (response.isReregister && response.loginId) {
-      form.value.loginId = response.loginId
-    }
-  }
-})
-
-async function handleSignup() {
-  error.value = ''
-
-  // 모든 필드를 touched로 표시하고 전체 validation 수행
-  touched.loginId = true
-  touched.password = true
-  touched.passwordConfirm = true
-  touched.email = true
-  touched.displayName = true
-
-  validateLoginId()
-  validatePassword()
-  validatePasswordConfirm()
-  validateEmail()
-  validateDisplayName()
-
-  // 에러가 있으면 중단
-  if (fieldErrors.loginId || fieldErrors.password || fieldErrors.passwordConfirm || fieldErrors.email || fieldErrors.displayName) {
-    return
-  }
-
-  // 빈 필드 체크
-  if (isEmpty(form.value.loginId)) {
-    toastStore.addToast(t('auth.placeholders.loginId'), 'error')
-    return
-  }
-  const passwordError = validatePasswordPair(form.value.password, form.value.passwordConfirm, {
-    requirePassword: true,
-    requireConfirm: true,
-    messages: {
-      required: t('auth.placeholders.password'),
-      invalid: t('auth.validation.passwordStrength'),
-      mismatch: isEmpty(form.value.passwordConfirm)
-        ? t('auth.newPasswordConfirm')
-        : t('auth.passwordMismatch')
-    }
-  })
-  if (passwordError) {
-    toastStore.addToast(passwordError, 'error')
-    return
-  }
-  if (isEmpty(form.value.email)) {
-    toastStore.addToast(t('auth.placeholders.newEmail'), 'error')
-    return
-  }
-  if (isEmpty(form.value.displayName)) {
-    toastStore.addToast(t('auth.placeholders.displayName'), 'error')
-    return
-  }
-
-  // 이메일 인증 여부 체크
-  if (!verification.isVerified || !verification.verificationTicket) {
-    toastStore.addToast(t('auth.verificationRequired'), 'error')
-    return
-  }
-
-  // 재가입 시: 마스킹 해제(인증 완료 후 loginId 표시)되어야 회원가입 가능
-  if (isReregister.value && form.value.loginId.includes('*')) {
-    toastStore.addToast(t('auth.verificationRequired'), 'error')
-    return
-  }
-
-  isLoading.value = true
-
-  try {
-    const { passwordConfirm, ...formData } = form.value
-    const signupData = {
-      ...formData,
-      email: form.value.email.trim(),
-      verificationTicket: verification.verificationTicket,
-      provider: (route.query.provider as string) || null,
-      providerId: (route.query.providerId as string) || null
-    }
-
-    const { data } = await authApi.signup(signupData)
-    if (data.success) {
-      toastStore.addToast(t('auth.signupSuccess'), 'success')
-      router.push('/login')
-    }
-  } catch (err: unknown) {
-    const message = extractErrorMessage(err) || t('auth.signupFailed')
-    toastStore.addToast(message, 'error')
-  } finally {
-    isLoading.value = false
-  }
-}
-
-onMounted(async () => {
-  if (route.query.email) {
-    form.value.email = String(route.query.email)
-  }
-  if (route.query.name) {
-    form.value.displayName = String(route.query.name)
-  }
-  // 재가입 진입: 탈퇴 계정 이메일인 경우 마스킹된 loginId 조회
-  if (route.query.email) {
-    try {
-      const { data } = await authApi.checkEmailForReregister(String(route.query.email))
-      if (data.success && data.data?.canReregister && data.data?.maskedLoginId) {
-        isReregister.value = true
-        form.value.loginId = data.data.maskedLoginId
-      }
-    } catch {
-      // 조회 실패 시 일반 가입으로 진행
-    }
-  }
+  form,
+  fieldErrors,
+  isLoading,
+  isReregister,
+  verification,
+  formatTime,
+  sendVerificationCode,
+  verifyCode,
+  handleSignup
+} = useSignupRegistration({
+  route,
+  router,
+  t
 })
 </script>
 

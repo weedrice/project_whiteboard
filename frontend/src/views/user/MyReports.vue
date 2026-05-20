@@ -9,6 +9,11 @@ import EmptyState from '@/components/common/ui/EmptyState.vue'
 import { Flag } from 'lucide-vue-next'
 import type { MyReport } from '@/types'
 import { usePagination } from '@/composables/usePagination'
+import {
+  getMyReportStatusClass,
+  getMyReportStatusLabel,
+  getMyReportTargetTypeLabel
+} from '@/utils/reportDisplay'
 
 const {
   items: reports,
@@ -57,7 +62,7 @@ onMounted(() => {
           class="px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 min-h-[44px] flex flex-row items-center justify-between gap-3">
           <div class="flex flex-col min-w-0 flex-1">
             <p class="text-sm font-medium text-indigo-600 dark:text-indigo-400 line-clamp-2 sm:truncate">
-              {{ $t('report.types.' + report.targetType.toLowerCase()) }} {{ $t('user.reportList.targetType') }} - {{
+              {{ getMyReportTargetTypeLabel($t, report.targetType) }} {{ $t('user.reportList.targetType') }} - {{
                 report.reasonType || report.contents || '-' }}
             </p>
             <p class="mt-0.5 sm:mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -65,13 +70,11 @@ onMounted(() => {
             </p>
           </div>
           <div class="flex items-center flex-shrink-0 self-center">
-            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full whitespace-nowrap" :class="{
-              'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-400': report.status === 'PENDING',
-              'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-400': report.status === 'RESOLVED',
-              'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-400': report.status === 'REJECTED'
-            }">
-              {{ report.status === 'PENDING' ? $t('user.reportList.pending') : (report.status === 'RESOLVED' ?
-                $t('user.reportList.processed') : $t('user.reportList.rejected')) }}
+            <span
+              class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full whitespace-nowrap"
+              :class="getMyReportStatusClass(report.status)"
+            >
+              {{ getMyReportStatusLabel($t, report.status) }}
             </span>
           </div>
         </li>

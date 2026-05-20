@@ -4,6 +4,11 @@ import { useI18n } from 'vue-i18n'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import { formatDate } from '@/utils/date'
+import {
+  getAdminReportStatusLabel,
+  getCommonReportTargetTypeLabel,
+  getReportStatusVariant
+} from '@/utils/reportDisplay'
 import type { Report } from '@/types'
 
 const { t } = useI18n()
@@ -19,30 +24,12 @@ defineEmits<{
 
 const statusVariant = computed(() => {
   if (!props.report) return 'gray'
-  switch (props.report.status) {
-    case 'PENDING':
-      return 'warning'
-    case 'RESOLVED':
-      return 'success'
-    case 'REJECTED':
-      return 'gray'
-    default:
-      return 'gray'
-  }
+  return getReportStatusVariant(props.report.status)
 })
 
 const targetTypeLabel = computed(() => {
   if (!props.report) return ''
-  switch (props.report.targetType) {
-    case 'POST':
-      return t('common.post')
-    case 'COMMENT':
-      return t('common.comment')
-    case 'USER':
-      return t('common.user')
-    default:
-      return props.report.targetType
-  }
+  return getCommonReportTargetTypeLabel(t, props.report.targetType)
 })
 
 function getProcessorText(report: Report) {
@@ -94,7 +81,7 @@ function getReportReasonText(report: Report) {
             <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('common.status') }}</dt>
             <dd class="mt-1">
               <BaseBadge :variant="statusVariant" size="sm">
-                {{ t(`admin.reports.status.${report.status}`) }}
+                {{ getAdminReportStatusLabel(t, report.status) }}
               </BaseBadge>
             </dd>
           </div>
