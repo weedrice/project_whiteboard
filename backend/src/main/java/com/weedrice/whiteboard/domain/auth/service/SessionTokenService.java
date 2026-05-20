@@ -3,7 +3,6 @@ package com.weedrice.whiteboard.domain.auth.service;
 import com.weedrice.whiteboard.domain.auth.dto.TokenResponse;
 import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
-import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -37,7 +36,7 @@ public class SessionTokenService {
     private final UserRepository userRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenRepository refreshTokenRepository;
-    private final SanctionService sanctionService;
+    private final LoginAccountEligibilityService loginAccountEligibilityService;
     private final TokenHashService tokenHashService;
     private final TransactionTemplate transactionTemplate;
 
@@ -81,7 +80,7 @@ public class SessionTokenService {
         refreshToken.revoke();
         refreshTokenRepository.save(refreshToken);
 
-        if (!"ACTIVE".equals(user.getStatus()) || sanctionService.isUserBanned(user)) {
+        if (!loginAccountEligibilityService.evaluate(user).isLoginAllowed()) {
             return RefreshTokenRefreshOutcome.failure(ErrorCode.USER_NOT_ACTIVE);
         }
 

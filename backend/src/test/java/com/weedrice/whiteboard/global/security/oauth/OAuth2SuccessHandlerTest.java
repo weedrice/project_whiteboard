@@ -1,10 +1,11 @@
 package com.weedrice.whiteboard.global.security.oauth;
 
 import com.weedrice.whiteboard.domain.auth.dto.TokenResponse;
+import com.weedrice.whiteboard.domain.auth.service.LoginAccountEligibilityService;
 import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadata;
 import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadataResolver;
 import com.weedrice.whiteboard.domain.auth.service.SessionTokenService;
-import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionPolicyService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.security.RefreshTokenCookieWriter;
@@ -23,6 +24,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -39,7 +41,7 @@ class OAuth2SuccessHandlerTest {
     @Mock
     private UserRepository userRepository;
     @Mock
-    private SanctionService sanctionService;
+    private SanctionPolicyService sanctionPolicyService;
 
     private OAuth2SuccessHandler handler;
     private User user;
@@ -49,7 +51,7 @@ class OAuth2SuccessHandlerTest {
         handler = new OAuth2SuccessHandler(
                 sessionTokenService,
                 userRepository,
-                sanctionService,
+                new LoginAccountEligibilityService(sanctionPolicyService),
                 new RefreshTokenCookieWriter(1209600000L),
                 new LoginClientMetadataResolver());
         ReflectionTestUtils.setField(handler, "frontendUrl", "http://localhost:5173");
@@ -79,7 +81,31 @@ class OAuth2SuccessHandlerTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(sanctionService.isUserBanned(user)).thenReturn(true);
+        when(sanctionPolicyService.isUserBanned(user)).thenReturn(true);
+
+        handler.onAuthenticationSuccess(request, response, authentication);
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("http://localhost:5173/auth/oauth/callback");
+        verify(sessionTokenService, never()).issueTokens(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("deleted-at oauth user is redirected without issuing tokens")
+    void onAuthenticationSuccess_deletedAtUser_redirectsWithoutIssuingTokens() throws Exception {
+        ReflectionTestUtils.setField(user, "deletedAt", LocalDateTime.now().minusDays(1));
+        CustomOAuth2User principal = new CustomOAuth2User(
+                user,
+                Map.of("id", "oauth-user"),
+                "id",
+                List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                principal,
+                null,
+                principal.getAuthorities());
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         handler.onAuthenticationSuccess(request, response, authentication);
 
@@ -105,7 +131,7 @@ class OAuth2SuccessHandlerTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(sanctionService.isUserBanned(user)).thenReturn(false);
+        when(sanctionPolicyService.isUserBanned(user)).thenReturn(false);
         when(sessionTokenService.issueTokens(
                 eq(authentication),
                 eq(user),

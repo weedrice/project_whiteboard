@@ -1,10 +1,10 @@
 package com.weedrice.whiteboard.global.security.oauth;
 
 import com.weedrice.whiteboard.domain.auth.dto.TokenResponse;
+import com.weedrice.whiteboard.domain.auth.service.LoginAccountEligibilityService;
 import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadata;
 import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadataResolver;
 import com.weedrice.whiteboard.domain.auth.service.SessionTokenService;
-import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
@@ -31,7 +31,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
     private final SessionTokenService sessionTokenService;
     private final UserRepository userRepository;
-    private final SanctionService sanctionService;
+    private final LoginAccountEligibilityService loginAccountEligibilityService;
     private final RefreshTokenCookieWriter refreshTokenCookieWriter;
     private final LoginClientMetadataResolver loginClientMetadataResolver;
 
@@ -56,7 +56,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
             return;
         }
 
-        User authenticatedUser = getAuthenticatedActiveUser(authentication);
+        User authenticatedUser = getEligibleAuthenticatedUser(authentication);
         if (authenticatedUser == null) {
             String targetUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/auth/oauth/callback")
                     .build(true)
@@ -85,14 +85,13 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
     }
 
-    private User getAuthenticatedActiveUser(Authentication authentication) {
+    private User getEligibleAuthenticatedUser(Authentication authentication) {
         if (authentication == null || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
             return null;
         }
 
         return userRepository.findById(userDetails.getUserId())
-                .filter(user -> "ACTIVE".equals(user.getStatus()))
-                .filter(user -> !sanctionService.isUserBanned(user))
+                .filter(user -> loginAccountEligibilityService.evaluate(user).isLoginAllowed())
                 .orElse(null);
     }
 }

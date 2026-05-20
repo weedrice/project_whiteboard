@@ -12,7 +12,6 @@ import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
 import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionPolicyService;
-import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.PasswordHistory;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserSettings;
@@ -94,7 +93,6 @@ class AuthServiceTest {
     @Mock private EmailService emailService;
     @Mock private GlobalConfigService globalConfigService;
     @Mock private TransactionTemplate transactionTemplate;
-    @Mock private SanctionService sanctionService;
     @Mock private SanctionPolicyService sanctionPolicyService;
     @Mock private EntityManager entityManager;
     @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
@@ -114,7 +112,7 @@ class AuthServiceTest {
         CurrentUserSummaryAssembler currentUserSummaryAssembler =
                 new CurrentUserSummaryAssembler(userPointRepository, userSettingsRepository);
         SessionTokenService sessionTokenService = new SessionTokenService(
-                userRepository, jwtTokenProvider, refreshTokenRepository, sanctionService, tokenHashService,
+                userRepository, jwtTokenProvider, refreshTokenRepository, loginAccountEligibilityService, tokenHashService,
                 transactionTemplate);
         PasswordResetTokenOrchestrationService passwordResetTokenOrchestrationService =
                 new PasswordResetTokenOrchestrationService(
@@ -630,7 +628,7 @@ class AuthServiceTest {
                 .thenReturn(Optional.of(renewalCandidate(10L, 1L)));
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(refreshTokenRepository.findByTokenIdForUpdate(10L)).thenReturn(Optional.of(storedRefreshToken));
-        when(sanctionService.isUserBanned(user)).thenReturn(false);
+        when(sanctionPolicyService.isUserBanned(user)).thenReturn(false);
         when(jwtTokenProvider.createAccessToken(any(Authentication.class))).thenReturn("new-access-token");
         when(jwtTokenProvider.createRefreshToken(any(Authentication.class))).thenReturn("new-refresh-token");
         when(jwtTokenProvider.getAccessTokenValidityInMilliseconds()).thenReturn(1800L);
@@ -672,7 +670,7 @@ class AuthServiceTest {
                 .thenReturn(Optional.of(renewalCandidate(10L, 1L)));
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(refreshTokenRepository.findByTokenIdForUpdate(10L)).thenReturn(Optional.of(refreshToken));
-        when(sanctionService.isUserBanned(user)).thenReturn(true);
+        when(sanctionPolicyService.isUserBanned(user)).thenReturn(true);
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> authService.refresh("old-refresh-token"));
@@ -687,6 +685,34 @@ class AuthServiceTest {
     @DisplayName("refresh fails and revokes token when user is inactive")
     void refresh_fail_whenUserIsInactive_revokesToken() {
         user.suspend();
+        String oldRefreshTokenHash = new TokenHashService().hashSha256("old-refresh-token");
+        RefreshToken refreshToken = RefreshToken.builder()
+                .user(user)
+                .tokenHash(oldRefreshTokenHash)
+                .ipAddress("127.0.0.1")
+                .deviceInfo("browser")
+                .expiresAt(LocalDateTime.now().plusDays(7))
+                .build();
+
+        when(jwtTokenProvider.validateToken("old-refresh-token")).thenReturn(true);
+        when(refreshTokenRepository.findRenewalCandidateByTokenHash(oldRefreshTokenHash))
+                .thenReturn(Optional.of(renewalCandidate(10L, 1L)));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(refreshTokenRepository.findByTokenIdForUpdate(10L)).thenReturn(Optional.of(refreshToken));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> authService.refresh("old-refresh-token"));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+        assertThat(refreshToken.getIsRevoked()).isTrue();
+        verify(refreshTokenRepository).save(refreshToken);
+        verify(jwtTokenProvider, never()).createAccessToken(any());
+    }
+
+    @Test
+    @DisplayName("refresh fails and revokes token when active user has deleted timestamp")
+    void refresh_fail_whenActiveUserHasDeletedAt_revokesToken() {
+        ReflectionTestUtils.setField(user, "deletedAt", LocalDateTime.now().minusDays(1));
         String oldRefreshTokenHash = new TokenHashService().hashSha256("old-refresh-token");
         RefreshToken refreshToken = RefreshToken.builder()
                 .user(user)
