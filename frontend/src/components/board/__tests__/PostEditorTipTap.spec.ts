@@ -147,6 +147,7 @@ vi.mock('lucide-vue-next', () => {
     const icon = defineComponent({ name: 'TestIcon', setup: () => () => h('i') })
     return {
         Image: icon,
+        Link2: icon,
         List: icon,
         ListOrdered: icon,
         SeparatorHorizontal: icon,
@@ -221,7 +222,6 @@ const mountEditor = (modelValue = '<p>initial</p>') => {
 }
 
 const selectors = {
-    more: 'button[title="board.writePost.toolbar.more"]',
     link: 'button[title="board.writePost.toolbar.link"]',
     image: 'button[title="board.writePost.toolbar.image"]',
     video: 'button[title="board.writePost.toolbar.video"]',
@@ -232,10 +232,6 @@ const selectors = {
     divider: 'button[title="board.writePost.toolbar.divider"]',
     tableDialog: 'button[title="board.writePost.toolbar.tableDialog"]',
 } as const
-
-const openAdvancedTools = async (wrapper: ReturnType<typeof mountEditor>) => {
-    await wrapper.get(selectors.more).trigger('click')
-}
 
 describe('PostEditorTipTap', () => {
     afterEach(() => {
@@ -321,7 +317,7 @@ describe('PostEditorTipTap', () => {
         expect(wrapper.find('.slash-popover').exists()).toBe(true)
     })
 
-    it('applies advanced formatting controls and table insertion', async () => {
+    it('applies toolbar formatting controls and table insertion', async () => {
         mocks.i18nT.mockImplementation((key: string) => {
             if (key === 'board.writePost.fontSize') return ''
             if (key === 'board.writePost.lineHeight') return ''
@@ -356,7 +352,6 @@ describe('PostEditorTipTap', () => {
         await wrapper.get('button[title="board.writePost.alignRight"]').trigger('click')
         await wrapper.get('button[title="board.writePost.alignJustify"]').trigger('click')
 
-        await openAdvancedTools(wrapper)
         await wrapper.get(selectors.divider).trigger('click')
 
         await wrapper.get(selectors.tableDialog).trigger('click')
@@ -370,8 +365,7 @@ describe('PostEditorTipTap', () => {
         expect(mocks.chain.setLineHeight).toHaveBeenCalledWith('1.5')
         expect(mocks.chain.unsetFontSize).toHaveBeenCalled()
         expect(mocks.chain.unsetLineHeight).toHaveBeenCalled()
-        expect(mocks.chain.setHighlight).toHaveBeenCalledWith({ color: '#22c55e' })
-        expect(mocks.chain.setColor).toHaveBeenCalled()
+        expect(mocks.chain.setColor).toHaveBeenCalledWith('#22c55e')
         expect(mocks.chain.unsetColor).toHaveBeenCalled()
         expect(mocks.chain.insertTable).toHaveBeenCalledWith({ rows: 20, cols: 3, withHeaderRow: false })
         expect(mocks.chain.setTextAlign).toHaveBeenCalledWith('left')
@@ -413,7 +407,6 @@ describe('PostEditorTipTap', () => {
         expect(mocks.chain.unsetLink).toHaveBeenCalled()
 
         mocks.editor.isActive.mockImplementation((name: unknown) => name === 'bold')
-        await openAdvancedTools(wrapper)
         await wrapper.get(selectors.link).trigger('click')
         expect(wrapper.find('.link-popover-remove').exists()).toBe(false)
     })
@@ -612,27 +605,20 @@ describe('PostEditorTipTap', () => {
         await nextTick()
         expect(wrapper.find('.slash-popover').exists()).toBe(false)
 
-        await wrapper.get(selectors.more).trigger('click')
-        expect(wrapper.get('.advanced-popover').attributes('aria-modal')).toBe('true')
         await wrapper.get('.tiptap-color-trigger').trigger('click')
         expect(wrapper.get('.color-panel').attributes('aria-modal')).toBeUndefined()
         expect(wrapper.findAll('.color-panel-swatch')[0].attributes('aria-label')).toBe('board.writePost.colorLabels.black')
         dispatchEscape(wrapper.get('.color-panel').element)
         await nextTick()
         expect(wrapper.find('.color-panel').exists()).toBe(false)
-        expect(wrapper.find('.advanced-popover').exists()).toBe(false)
 
-        await wrapper.get(selectors.more).trigger('click')
         await wrapper.get(selectors.tableDialog).trigger('click')
         expect(wrapper.get('.table-popover').attributes('aria-modal')).toBe('true')
         dispatchEscape(wrapper.get('#editor-table-rows').element)
         await nextTick()
         expect(wrapper.find('.table-popover').exists()).toBe(false)
 
-        await wrapper.get(selectors.more).trigger('click')
-        dispatchEscape(wrapper.get('.advanced-popover').element)
-        await nextTick()
-        expect(wrapper.find('.advanced-popover').exists()).toBe(false)
+        expect(wrapper.find('button[title="board.writePost.toolbar.more"]').exists()).toBe(false)
         expect(documentKeydown).not.toHaveBeenCalled()
         document.removeEventListener('keydown', documentKeydown)
     })
@@ -766,8 +752,22 @@ describe('PostEditorTipTap', () => {
 
     it('renders grouped desktop toolbar controls with insert block affordance', () => {
         const wrapper = mountEditor()
+        const toolbarRows = wrapper.findAll('.tiptap-toolbar-row')
+        const firstRow = toolbarRows[0]
+        const secondRow = toolbarRows[1]
 
-        expect(wrapper.findAll('.tiptap-toolbar-group').length).toBeGreaterThanOrEqual(4)
+        expect(toolbarRows).toHaveLength(2)
+        expect(firstRow.find('button[title="board.writePost.toolbar.bold"]').exists()).toBe(true)
+        expect(firstRow.find('button[title="board.writePost.toolbar.link"]').exists()).toBe(false)
+        expect(firstRow.find(selectors.bulletList).exists()).toBe(true)
+        expect(firstRow.find(selectors.orderedList).exists()).toBe(true)
+        expect(secondRow.find(selectors.link).exists()).toBe(true)
+        expect(secondRow.find(selectors.image).exists()).toBe(true)
+        expect(secondRow.find(selectors.video).exists()).toBe(true)
+        expect(secondRow.find(selectors.emoticon).exists()).toBe(true)
+        expect(secondRow.find(selectors.tableDialog).exists()).toBe(true)
+        expect(secondRow.find(selectors.divider).exists()).toBe(true)
         expect(wrapper.get(selectors.slashMenu).text()).toContain('board.writePost.toolbar.insertBlock')
+        expect(wrapper.find('button[title="board.writePost.toolbar.more"]').exists()).toBe(false)
     })
 })

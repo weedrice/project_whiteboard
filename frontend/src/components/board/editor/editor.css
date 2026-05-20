@@ -29,6 +29,14 @@
   padding: 0 0.8rem;
 }
 
+.tiptap-toolbar-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
 .tiptap-toolbar-group {
   align-items: center;
   background: color-mix(in srgb, var(--nv-surface) 88%, transparent);
@@ -37,6 +45,11 @@
   display: inline-flex;
   gap: 0.15rem;
   padding: 0.2rem;
+}
+
+.tiptap-toolbar-group--format {
+  flex-wrap: wrap;
+  max-width: 100%;
 }
 
 .image-upload-status {
@@ -255,8 +268,7 @@
   box-shadow: var(--nv-shadow-soft);
 }
 
-.slash-popover,
-.advanced-popover {
+.slash-popover {
   width: min(90vw, 440px);
 }
 

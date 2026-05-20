@@ -13,7 +13,6 @@ import { TableKit } from '@tiptap/extension-table'
 import HorizontalRule from '@tiptap/extension-horizontal-rule'
 import { FontSize, LineHeight } from '@tiptap/extension-text-style'
 import { Video } from '@/extensions/tiptap-video'
-import PostEditorAdvancedPopover from '@/components/board/editor/PostEditorAdvancedPopover.vue'
 import PostEditorColorPopover from '@/components/board/editor/PostEditorColorPopover.vue'
 import PostEditorImageAltPopover from '@/components/board/editor/PostEditorImageAltPopover.vue'
 import PostEditorLinkPopover from '@/components/board/editor/PostEditorLinkPopover.vue'
@@ -53,7 +52,6 @@ const fileIds = ref<number[]>([])
 const showColorPanel = ref(false)
 const showLinkPopover = ref(false)
 const showTablePopover = ref(false)
-const showAdvancedMenu = ref(false)
 const showSlashMenu = ref(false)
 const showImageAltPopover = ref(false)
 const linkUrl = ref('')
@@ -67,7 +65,6 @@ const imageInput = ref<HTMLInputElement | null>(null)
 const isDraggingImage = ref(false)
 const slashActiveIndex = ref(0)
 const slashPopoverRef = ref<HTMLElement | null>(null)
-const advancedPopoverRef = ref<HTMLElement | null>(null)
 const colorPanelRef = ref<HTMLElement | null>(null)
 const linkPopoverRef = ref<HTMLElement | null>(null)
 const tablePopoverRef = ref<HTMLElement | null>(null)
@@ -77,12 +74,10 @@ const editorImagePreviewUrls = new Set<string>()
 
 const { isUploadingImage, validateImageFile, uploadImage, abortImageUpload, isAbortUploadError } = useEditorImageUpload()
 usePopoverFocus(slashPopoverRef, showSlashMenu)
-usePopoverFocus(advancedPopoverRef, showAdvancedMenu)
 usePopoverFocus(linkPopoverRef, showLinkPopover)
 usePopoverFocus(tablePopoverRef, showTablePopover)
 usePopoverFocus(imageAltPopoverRef, showImageAltPopover)
 const slashPosition = useAnchoredPopover(slashPopoverRef, showSlashMenu)
-const advancedPosition = useAnchoredPopover(advancedPopoverRef, showAdvancedMenu)
 const colorPosition = useAnchoredPopover(colorPanelRef, showColorPanel)
 const linkPosition = useAnchoredPopover(linkPopoverRef, showLinkPopover)
 const tablePosition = useAnchoredPopover(tablePopoverRef, showTablePopover)
@@ -242,7 +237,6 @@ const currentTextColor = computed(() => editor.value?.getAttributes('textStyle')
 const isDefaultColor = computed(() => !currentTextColor.value)
 const currentFontSize = computed(() => editor.value?.getAttributes('textStyle').fontSize || '')
 const currentLineHeight = computed(() => editor.value?.getAttributes('textStyle').lineHeight || '')
-const currentHighlightColor = computed(() => editor.value?.getAttributes('highlight').color || '#fef08a')
 const hasImageUploadError = computed(() => imageUploadQueue.failedCount.value > 0)
 const failedImageCount = computed(() => imageUploadQueue.failedCount.value)
 const failedImageFiles = computed(() => imageUploadQueue.failedItems.value.map((item) => item.file))
@@ -263,7 +257,6 @@ const colorPresetLabels = computed(() => Object.fromEntries(
 ))
 
 function closeFloatingMenus() {
-  showAdvancedMenu.value = false
   showSlashMenu.value = false
   showColorPanel.value = false
   colorPosition.clearAnchor()
@@ -308,9 +301,7 @@ function toggleColorPanel(anchor?: HTMLElement) {
     closeColorPanel(anchor)
     return
   }
-  showAdvancedMenu.value = false
   showSlashMenu.value = false
-  advancedPosition.clearAnchor()
   slashPosition.clearAnchor()
   colorTriggerElement.value = anchor ?? null
   colorPosition.setAnchor(anchor)
@@ -324,20 +315,6 @@ function closeColorPanel(focusTarget = colorTriggerElement.value) {
   if (focusTarget instanceof HTMLElement) {
     focusTarget.focus()
   }
-}
-
-function openAdvancedMenu(anchor?: HTMLElement) {
-  closeFloatingMenus()
-  advancedPosition.setAnchor(anchor)
-  showAdvancedMenu.value = true
-}
-
-function toggleAdvancedMenu(anchor?: HTMLElement) {
-  if (showAdvancedMenu.value) {
-    showAdvancedMenu.value = false
-    return
-  }
-  openAdvancedMenu(anchor)
 }
 
 function openLinkPopover(anchor?: HTMLElement) {
@@ -694,10 +671,6 @@ function applyLineHeight(value: string) {
   editor.value.chain().focus().unsetLineHeight().run()
 }
 
-function applyHighlightColor(value: string) {
-  editor.value?.chain().focus().setHighlight({ color: value }).run()
-}
-
 function applyHorizontalRule() {
   editor.value?.chain().focus().setHorizontalRule().run()
 }
@@ -741,12 +714,11 @@ onBeforeUnmount(() => {
       :line-heights="lineHeights"
       :current-font-size="currentFontSize"
       :current-line-height="currentLineHeight"
-      :current-highlight-color="currentHighlightColor"
       :current-text-color="currentTextColor"
       :is-default-color="isDefaultColor"
       :is-dark="themeStore.isDark"
       :show-slash-menu="showSlashMenu"
-      :show-advanced-menu="showAdvancedMenu"
+      :show-table-popover="showTablePopover"
       :show-color-panel="showColorPanel"
       :active-text-align="activeTextAlign"
       @toggle-bold="editor.chain().focus().toggleBold().run()"
@@ -762,11 +734,12 @@ onBeforeUnmount(() => {
       @ordered-list="applyOrderedList"
       @font-size="applyFontSize"
       @line-height="applyLineHeight"
-      @highlight-color="applyHighlightColor"
+      @custom-text-color="setPresetColor"
       @toggle-color-panel="toggleColorPanel"
       @align="setTextAlign"
       @toggle-slash-menu="toggleSlashMenu"
-      @toggle-advanced-menu="toggleAdvancedMenu"
+      @open-table="openTablePopover"
+      @horizontal-rule="applyHorizontalRule"
       @retry-image-upload="retryImageUpload"
       @retry-failed-image-upload="retryFailedImageUpload"
       @cancel-image-upload="cancelImageUpload"
@@ -805,22 +778,6 @@ onBeforeUnmount(() => {
           @preset-color="setPresetColor"
           @custom-color="setPresetColor"
         />
-      </div>
-    </Teleport>
-
-    <Teleport to="body">
-      <div v-if="showAdvancedMenu" class="link-popover-mask" @click.self="showAdvancedMenu = false" @keydown.enter.stop @keydown.escape.stop.prevent="showAdvancedMenu = false">
-        <div id="editor-advanced-dialog" ref="advancedPopoverRef" class="link-popover advanced-popover" :style="advancedPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-advanced-dialog-title">
-          <div class="mb-3">
-            <p class="text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">{{ t('board.writePost.toolbar.advanced') }}</p>
-            <h3 id="editor-advanced-dialog-title" class="text-base font-semibold text-[var(--nv-ink)]">{{ t('board.writePost.toolbar.formattingTools') }}</h3>
-          </div>
-          <PostEditorAdvancedPopover
-            :show-table-popover="showTablePopover"
-            @open-table="openTablePopover"
-            @horizontal-rule="applyHorizontalRule"
-          />
-        </div>
       </div>
     </Teleport>
 
