@@ -44,12 +44,16 @@ export function usePagination<T>(
     const totalPages = ref(0)
     const loading = ref(false)
     const error = ref<string | null>(null)
+    let latestRequestId = 0
+
+    const isLatestRequest = (requestId: number) => requestId === latestRequestId
 
     /**
      * 데이터 페칭 함수
      * @param additionalParams 추가 파라미터
      */
     const fetch = async (additionalParams: Record<string, unknown> = {}) => {
+        const requestId = ++latestRequestId
         loading.value = true
         error.value = null
 
@@ -63,6 +67,8 @@ export function usePagination<T>(
 
             const result = await fetchFn(params)
 
+            if (!isLatestRequest(requestId)) return
+
             if (result.success) {
                 items.value = result.data.content
                 totalCount.value = result.data.totalElements
@@ -71,10 +77,14 @@ export function usePagination<T>(
                 error.value = '데이터를 불러오는데 실패했습니다.'
             }
         } catch (err: unknown) {
+            if (!isLatestRequest(requestId)) return
+
             logger.error('Failed to fetch paginated data:', err)
             error.value = '데이터를 불러오는데 실패했습니다.'
         } finally {
-            loading.value = false
+            if (isLatestRequest(requestId)) {
+                loading.value = false
+            }
         }
     }
 
