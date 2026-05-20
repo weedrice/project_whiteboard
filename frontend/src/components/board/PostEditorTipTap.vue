@@ -22,6 +22,7 @@ import PostEditorToolbar from '@/components/board/editor/PostEditorToolbar.vue'
 import '@/components/board/editor/editor.css'
 import { useAnchoredPopover } from '@/composables/useAnchoredPopover'
 import { useEditorImageUpload } from '@/composables/useEditorImageUpload'
+import { useEditorImageUploadQueue, type EditorImageUploadItem } from '@/composables/useEditorImageUploadQueue'
 import { usePopoverFocus } from '@/composables/usePopoverFocus'
 import { useI18n } from 'vue-i18n'
 import { useThemeStore } from '@/stores/theme'
@@ -42,6 +43,7 @@ const emit = defineEmits<{
 }>()
 
 type SlashAction = 'image' | 'quote' | 'list' | 'link' | 'divider'
+type UploadedEditorImage = { url: string; fileId?: number }
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -59,11 +61,6 @@ const tableCols = ref(3)
 const tableHeaderRow = ref(true)
 const savedListSelection = ref<{ from: number; to: number } | null>(null)
 const imageInput = ref<HTMLInputElement | null>(null)
-const imageUploadQueue = ref<File[]>([])
-const failedImageFiles = ref<File[]>([])
-const currentUploadingImageName = ref('')
-const isProcessingImageQueue = ref(false)
-const shouldStopImageQueue = ref(false)
 const slashActiveIndex = ref(0)
 const slashPopoverRef = ref<HTMLElement | null>(null)
 const advancedPopoverRef = ref<HTMLElement | null>(null)
@@ -82,6 +79,19 @@ const advancedPosition = useAnchoredPopover(advancedPopoverRef)
 const colorPosition = useAnchoredPopover(colorPanelRef)
 const linkPosition = useAnchoredPopover(linkPopoverRef)
 const tablePosition = useAnchoredPopover(tablePopoverRef)
+const imageUploadQueue = useEditorImageUploadQueue<UploadedEditorImage>({
+  validate: validateImageFile,
+  upload: uploadImage,
+  isAbort: isAbortUploadError,
+  onUploaded: (uploaded) => {
+    insertUploadedImage(uploaded)
+  },
+  onFailed: (error) => {
+    logger.error('Image upload failed:', error)
+    toastStore.addToast(t('common.messages.uploadFailed'), 'error')
+  },
+  abort: abortImageUpload,
+})
 
 const EditorImage = Image.extend({
   addAttributes() {
@@ -218,9 +228,11 @@ const isDefaultColor = computed(() => !currentTextColor.value)
 const currentFontSize = computed(() => editor.value?.getAttributes('textStyle').fontSize || '')
 const currentLineHeight = computed(() => editor.value?.getAttributes('textStyle').lineHeight || '')
 const currentHighlightColor = computed(() => editor.value?.getAttributes('highlight').color || '#fef08a')
-const hasImageUploadError = computed(() => failedImageFiles.value.length > 0)
-const failedImageCount = computed(() => failedImageFiles.value.length)
-const imageUploadQueueCount = computed(() => imageUploadQueue.value.length)
+const hasImageUploadError = computed(() => imageUploadQueue.failedCount.value > 0)
+const failedImageCount = computed(() => imageUploadQueue.failedCount.value)
+const failedImageFiles = computed(() => imageUploadQueue.failedItems.value.map((item) => item.file))
+const currentUploadingImageName = computed(() => imageUploadQueue.currentItem.value?.file.name ?? '')
+const imageUploadQueueCount = computed(() => imageUploadQueue.queueCount.value)
 const activeTextAlign = computed<'left' | 'center' | 'right' | 'justify' | ''>(() => {
   if (isTextAlignActive('left')) return 'left'
   if (isTextAlignActive('center')) return 'center'
@@ -473,6 +485,14 @@ function isCandidateImageFile(file: File) {
     || /\.(jpe?g|png|gif|webp|svg)$/i.test(file.name)
 }
 
+function reportImageValidationError(validationError: 'type' | 'size') {
+  if (validationError === 'type') {
+    toastStore.addToast(t('common.messages.badRequest'), 'warning')
+    return
+  }
+  toastStore.addToast(t('common.messages.fileSizeExceeded'), 'warning')
+}
+
 function insertUploadedImage(uploaded: { url: string; fileId?: number }) {
   if (typeof uploaded.fileId === 'number') {
     fileIds.value.push(uploaded.fileId)
@@ -484,76 +504,20 @@ function insertUploadedImage(uploaded: { url: string; fileId?: number }) {
   editor.value?.chain().focus().insertContent(`<img src="${escapeHtmlAttr(uploaded.url)}"${serverAttributes}>`).run()
 }
 
-async function uploadSelectedImage(file: File): Promise<boolean> {
-  const validationError = validateImageFile(file)
-  if (validationError === 'type') {
-    toastStore.addToast(t('common.messages.badRequest'), 'warning')
-    return false
-  }
-  if (validationError === 'size') {
-    toastStore.addToast(t('common.messages.fileSizeExceeded'), 'warning')
-    return false
-  }
-
-  try {
-    currentUploadingImageName.value = file.name
-    const uploaded = await uploadImage(file)
-    if (uploaded) {
-      insertUploadedImage(uploaded)
-      return true
-    }
-  } catch (error: unknown) {
-    if (isAbortUploadError(error)) {
-      return false
-    }
-    failedImageFiles.value.push(file)
-    logger.error('Image upload failed:', error)
-    toastStore.addToast(t('common.messages.uploadFailed'), 'error')
-    return false
-  } finally {
-    currentUploadingImageName.value = ''
-  }
-  return false
-}
-
-async function processImageUploadQueue() {
-  if (isProcessingImageQueue.value) return
-  isProcessingImageQueue.value = true
-  shouldStopImageQueue.value = false
-  try {
-    while (imageUploadQueue.value.length > 0 && !shouldStopImageQueue.value) {
-      const nextFile = imageUploadQueue.value.shift()
-      if (!nextFile) continue
-      await uploadSelectedImage(nextFile)
-    }
-  } finally {
-    isProcessingImageQueue.value = false
-    shouldStopImageQueue.value = false
-  }
-}
-
 function queueImageFiles(files: File[]) {
   const candidateFiles = files.filter(isCandidateImageFile)
   if (candidateFiles.length === 0) return false
-
-  const validFiles: File[] = []
-  candidateFiles.forEach((file) => {
+  const validFiles = candidateFiles.filter((file) => {
     const validationError = validateImageFile(file)
-    if (validationError === 'type') {
-      toastStore.addToast(t('common.messages.badRequest'), 'warning')
-      return
+    if (validationError) {
+      reportImageValidationError(validationError)
+      return false
     }
-    if (validationError === 'size') {
-      toastStore.addToast(t('common.messages.fileSizeExceeded'), 'warning')
-      return
-    }
-    validFiles.push(file)
+    return true
   })
-
-  if (validFiles.length === 0) return true
-  failedImageFiles.value = []
-  imageUploadQueue.value.push(...validFiles)
-  void processImageUploadQueue()
+  if (validFiles.length > 0) {
+    imageUploadQueue.enqueueFiles(validFiles)
+  }
   return true
 }
 
@@ -570,31 +534,29 @@ async function onImageChange(event: Event) {
 }
 
 function retryImageUpload() {
-  const retryFile = failedImageFiles.value.shift()
-  if (!retryFile) return
-  imageUploadQueue.value.unshift(retryFile)
-  void processImageUploadQueue()
+  imageUploadQueue.retryNextFailed()
 }
 
 function retryFailedImageUpload(file: File) {
-  const index = failedImageFiles.value.indexOf(file)
-  if (index >= 0) failedImageFiles.value.splice(index, 1)
-  imageUploadQueue.value.unshift(file)
-  void processImageUploadQueue()
+  const item = findFailedImageUploadItem(file)
+  if (item) imageUploadQueue.retryItem(item)
 }
 
 function dismissImageUploadError() {
-  failedImageFiles.value = []
+  imageUploadQueue.dismissFailed()
 }
 
 function dismissFailedImageUpload(file: File) {
-  failedImageFiles.value = failedImageFiles.value.filter((failedFile) => failedFile !== file)
+  const item = findFailedImageUploadItem(file)
+  if (item) imageUploadQueue.dismissItem(item)
 }
 
 function cancelImageUpload() {
-  shouldStopImageQueue.value = true
-  imageUploadQueue.value = []
-  abortImageUpload()
+  imageUploadQueue.cancel()
+}
+
+function findFailedImageUploadItem(file: File): EditorImageUploadItem<UploadedEditorImage> | undefined {
+  return imageUploadQueue.failedItems.value.find((item) => item.file === file)
 }
 
 function onEditorPaste(event: ClipboardEvent) {
