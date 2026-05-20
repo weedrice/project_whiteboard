@@ -80,6 +80,20 @@ class UserRepositoryTest {
     }
 
     @Test
+    @DisplayName("findReportTargetMetadataByUserIds returns user metadata")
+    void findReportTargetMetadataByUserIds_returnsUserMetadata() {
+        List<UserRepository.ReportTargetMetadataProjection> metadata =
+                userRepository.findReportTargetMetadataByUserIds(List.of(user1.getUserId()));
+
+        assertThat(metadata).singleElement().satisfies(item -> {
+            assertThat(item.getTargetId()).isEqualTo(user1.getUserId());
+            assertThat(item.getTargetUserId()).isEqualTo(user1.getUserId());
+            assertThat(item.getTargetDisplayName()).isEqualTo("Apple User");
+            assertThat(item.getTargetLoginId()).isEqualTo("testuser1");
+        });
+    }
+
+    @Test
     @DisplayName("사용자 검색 성공 - 닉네임으로 검색")
     void searchUsers_byDisplayName() {
         // given

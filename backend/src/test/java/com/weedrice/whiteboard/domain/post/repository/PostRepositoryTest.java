@@ -99,6 +99,20 @@ class PostRepositoryTest {
     }
 
     @Test
+    @DisplayName("findReportTargetMetadataByPostIds returns author metadata")
+    void findReportTargetMetadataByPostIds_returnsAuthorMetadata() {
+        List<PostRepository.ReportTargetMetadataProjection> metadata =
+                postRepository.findReportTargetMetadataByPostIds(List.of(post.getPostId()));
+
+        assertThat(metadata).singleElement().satisfies(item -> {
+            assertThat(item.getTargetId()).isEqualTo(post.getPostId());
+            assertThat(item.getTargetUserId()).isEqualTo(user.getUserId());
+            assertThat(item.getTargetDisplayName()).isEqualTo("Test User");
+            assertThat(item.getTargetLoginId()).isEqualTo("testuser");
+        });
+    }
+
+    @Test
     @DisplayName("사용자별 게시글 목록 조회 성공")
     void findByUser_success() {
         // given

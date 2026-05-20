@@ -1,9 +1,6 @@
 package com.weedrice.whiteboard.domain.report.service;
 
-import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
-import com.weedrice.whiteboard.domain.board.entity.Board;
-import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.report.dto.MyReportResponse;
 import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
@@ -48,12 +45,6 @@ class ReportReadAssemblerTest {
         User reporter = User.builder().displayName("Reporter").build();
         ReflectionTestUtils.setField(reporter, "userId", 1L);
 
-        User targetUser = User.builder()
-                .loginId("target-user")
-                .displayName("Target User")
-                .build();
-        ReflectionTestUtils.setField(targetUser, "userId", 30L);
-
         Report report = Report.builder()
                 .reporter(reporter)
                 .targetType("USER")
@@ -63,7 +54,8 @@ class ReportReadAssemblerTest {
         ReflectionTestUtils.setField(report, "reportId", 2L);
 
         Page<Report> page = new PageImpl<>(List.of(report), PageRequest.of(0, 10), 1);
-        when(userRepository.findAllById(argThat(ids -> containsExactlyIds(ids, 30L)))).thenReturn(List.of(targetUser));
+        when(userRepository.findReportTargetMetadataByUserIds(argThat(ids -> containsExactlyIds(ids, 30L))))
+                .thenReturn(List.of(userMetadata(30L, 30L, "Target User", "target-user")));
 
         Page<ReportResponse> result = reportReadAssembler.toAdminResponsePage(page);
 
@@ -78,17 +70,6 @@ class ReportReadAssemblerTest {
     void toAdminResponsePage_includesTargetAuthorMetadata() {
         User reporter = User.builder().displayName("Reporter").build();
         ReflectionTestUtils.setField(reporter, "userId", 1L);
-
-        User postAuthor = User.builder()
-                .loginId("post-author")
-                .displayName("Post Author")
-                .build();
-        ReflectionTestUtils.setField(postAuthor, "userId", 44L);
-        User commentAuthor = User.builder()
-                .loginId("comment-author")
-                .displayName("Comment Author")
-                .build();
-        ReflectionTestUtils.setField(commentAuthor, "userId", 55L);
 
         Report postReport = Report.builder()
                 .reporter(reporter)
@@ -105,24 +86,11 @@ class ReportReadAssemblerTest {
         ReflectionTestUtils.setField(postReport, "reportId", 3L);
         ReflectionTestUtils.setField(commentReport, "reportId", 4L);
 
-        Post post = Post.builder()
-                .board(Board.builder().creator(reporter).build())
-                .user(postAuthor)
-                .title("Reported Post")
-                .contents("contents")
-                .build();
-        ReflectionTestUtils.setField(post, "postId", 100L);
-
-        Comment comment = Comment.builder()
-                .post(post)
-                .user(commentAuthor)
-                .content("comment")
-                .build();
-        ReflectionTestUtils.setField(comment, "commentId", 200L);
-
         Page<Report> page = new PageImpl<>(List.of(postReport, commentReport), PageRequest.of(0, 10), 2);
-        when(postRepository.findByPostIdIn(List.of(100L))).thenReturn(List.of(post));
-        when(commentRepository.findByCommentIdIn(List.of(200L))).thenReturn(List.of(comment));
+        when(postRepository.findReportTargetMetadataByPostIds(List.of(100L)))
+                .thenReturn(List.of(postMetadata(100L, 44L, "Post Author", "post-author")));
+        when(commentRepository.findReportTargetMetadataByCommentIds(List.of(200L)))
+                .thenReturn(List.of(commentMetadata(200L, 55L, "Comment Author", "comment-author")));
         Page<ReportResponse> result = reportReadAssembler.toAdminResponsePage(page);
 
         assertThat(result.getContent()).hasSize(2);
@@ -139,13 +107,6 @@ class ReportReadAssemblerTest {
     void toMyReportResponsePage_populatesTargetAuthorDisplayNames() {
         User reporter = User.builder().displayName("Reporter").build();
         ReflectionTestUtils.setField(reporter, "userId", 1L);
-
-        User targetUser = User.builder().displayName("Target User").build();
-        ReflectionTestUtils.setField(targetUser, "userId", 30L);
-        User postAuthor = User.builder().displayName("Post Author").build();
-        ReflectionTestUtils.setField(postAuthor, "userId", 44L);
-        User commentAuthor = User.builder().displayName("Comment Author").build();
-        ReflectionTestUtils.setField(commentAuthor, "userId", 55L);
 
         Report userReport = Report.builder()
                 .reporter(reporter)
@@ -169,26 +130,13 @@ class ReportReadAssemblerTest {
         ReflectionTestUtils.setField(postReport, "reportId", 6L);
         ReflectionTestUtils.setField(commentReport, "reportId", 7L);
 
-        Post post = Post.builder()
-                .board(Board.builder().creator(reporter).build())
-                .user(postAuthor)
-                .title("Reported Post")
-                .contents("contents")
-                .build();
-        ReflectionTestUtils.setField(post, "postId", 40L);
-
-        Comment comment = Comment.builder()
-                .post(post)
-                .user(commentAuthor)
-                .content("comment")
-                .build();
-        ReflectionTestUtils.setField(comment, "commentId", 50L);
-
         Page<Report> page = new PageImpl<>(List.of(userReport, postReport, commentReport), PageRequest.of(0, 10), 3);
-        when(postRepository.findByPostIdIn(List.of(40L))).thenReturn(List.of(post));
-        when(commentRepository.findByCommentIdIn(List.of(50L))).thenReturn(List.of(comment));
-        when(userRepository.findAllById(argThat(ids -> containsExactlyIds(ids, 30L))))
-                .thenReturn(List.of(targetUser));
+        when(postRepository.findReportTargetMetadataByPostIds(List.of(40L)))
+                .thenReturn(List.of(postMetadata(40L, 44L, "Post Author", "post-author")));
+        when(commentRepository.findReportTargetMetadataByCommentIds(List.of(50L)))
+                .thenReturn(List.of(commentMetadata(50L, 55L, "Comment Author", "comment-author")));
+        when(userRepository.findReportTargetMetadataByUserIds(argThat(ids -> containsExactlyIds(ids, 30L))))
+                .thenReturn(List.of(userMetadata(30L, 30L, "Target User", "target-user")));
 
         Page<MyReportResponse> result = reportReadAssembler.toMyReportResponsePage(page);
 
@@ -205,5 +153,89 @@ class ReportReadAssemblerTest {
         Set<Long> actual = new HashSet<>();
         actualIds.forEach(actual::add);
         return actual.equals(Set.of(expectedIds));
+    }
+
+    private UserRepository.ReportTargetMetadataProjection userMetadata(
+            Long targetId,
+            Long targetUserId,
+            String targetDisplayName,
+            String targetLoginId) {
+        return new UserRepository.ReportTargetMetadataProjection() {
+            @Override
+            public Long getTargetId() {
+                return targetId;
+            }
+
+            @Override
+            public Long getTargetUserId() {
+                return targetUserId;
+            }
+
+            @Override
+            public String getTargetDisplayName() {
+                return targetDisplayName;
+            }
+
+            @Override
+            public String getTargetLoginId() {
+                return targetLoginId;
+            }
+        };
+    }
+
+    private PostRepository.ReportTargetMetadataProjection postMetadata(
+            Long targetId,
+            Long targetUserId,
+            String targetDisplayName,
+            String targetLoginId) {
+        return new PostRepository.ReportTargetMetadataProjection() {
+            @Override
+            public Long getTargetId() {
+                return targetId;
+            }
+
+            @Override
+            public Long getTargetUserId() {
+                return targetUserId;
+            }
+
+            @Override
+            public String getTargetDisplayName() {
+                return targetDisplayName;
+            }
+
+            @Override
+            public String getTargetLoginId() {
+                return targetLoginId;
+            }
+        };
+    }
+
+    private CommentRepository.ReportTargetMetadataProjection commentMetadata(
+            Long targetId,
+            Long targetUserId,
+            String targetDisplayName,
+            String targetLoginId) {
+        return new CommentRepository.ReportTargetMetadataProjection() {
+            @Override
+            public Long getTargetId() {
+                return targetId;
+            }
+
+            @Override
+            public Long getTargetUserId() {
+                return targetUserId;
+            }
+
+            @Override
+            public String getTargetDisplayName() {
+                return targetDisplayName;
+            }
+
+            @Override
+            public String getTargetLoginId() {
+                return targetLoginId;
+            }
+        };
     }
 }
