@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { onMounted } from 'vue'
 import { reportApi } from '@/api/report'
 import { formatDate } from '@/utils/date'
 import Pagination from '@/components/common/ui/Pagination.vue'
@@ -7,42 +7,22 @@ import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import { Flag } from 'lucide-vue-next'
-import logger from '@/utils/logger'
 import type { MyReport } from '@/types'
+import { usePagination } from '@/composables/usePagination'
 
-const reports = ref<MyReport[]>([])
-const loading = ref(false)
-const page = ref(0)
-const size = ref(15)
-const totalPages = ref(0)
-
-const fetchReports = async () => {
-  loading.value = true
-  try {
-    const { data } = await reportApi.getMyReports({
-      page: page.value,
-      size: size.value
-    })
-    if (data.success) {
-      reports.value = data.data.content
-      totalPages.value = data.data.totalPages
-    }
-  } catch (error: unknown) {
-    logger.error('Failed to load reports:', error)
-  } finally {
-    loading.value = false
-  }
-}
-
-const handlePageChange = (newPage: number) => {
-  page.value = newPage
-  fetchReports()
-}
-
-const handleSizeChange = () => {
-  page.value = 0
-  fetchReports()
-}
+const {
+  items: reports,
+  loading,
+  page,
+  size,
+  totalPages,
+  fetch: fetchReports,
+  handlePageChange,
+  handleSizeChange
+} = usePagination<MyReport>(async (params) => {
+  const { data } = await reportApi.getMyReports(params)
+  return data
+}, { page: 0, size: 15 })
 
 onMounted(() => {
   fetchReports()

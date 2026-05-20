@@ -1,5 +1,9 @@
 package com.weedrice.whiteboard.global.security;
 
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -169,5 +173,32 @@ class JwtTokenProviderTest {
     @DisplayName("잘못된 토큰 검증 실패")
     void validateToken_invalid() {
         assertThat(jwtTokenProvider.validateToken("invalid-token")).isFalse();
+    }
+
+    @Test
+    void createRefreshToken_usesUniqueJwtId() {
+        CustomUserDetails userDetails = new CustomUserDetails(1L, "test@test.com", "pass",
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
+        Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, "", userDetails.getAuthorities());
+
+        String firstToken = jwtTokenProvider.createRefreshToken(authentication);
+        String secondToken = jwtTokenProvider.createRefreshToken(authentication);
+
+        Claims firstClaims = parseClaims(firstToken);
+        Claims secondClaims = parseClaims(secondToken);
+        assertThat(firstToken).isNotEqualTo(secondToken);
+        assertThat(firstClaims.getId()).isNotBlank();
+        assertThat(secondClaims.getId()).isNotBlank();
+        assertThat(firstClaims.getId()).isNotEqualTo(secondClaims.getId());
+        assertThat(jwtTokenProvider.validateToken(firstToken)).isTrue();
+        assertThat(jwtTokenProvider.validateToken(secondToken)).isTrue();
+    }
+
+    private Claims parseClaims(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret)))
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
     }
 }

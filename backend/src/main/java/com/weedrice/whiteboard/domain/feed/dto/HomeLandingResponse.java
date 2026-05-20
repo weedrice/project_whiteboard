@@ -11,6 +11,7 @@ import java.util.List;
 @Builder
 public class HomeLandingResponse {
     private List<PostSummary> posts;
+    private List<PostSummary> latestPosts;
     private List<BoardListResponse> boards;
     private Stats stats;
 

@@ -881,6 +881,69 @@ class PostRepositoryTest {
 
     @Test
     @DisplayName("인기 게시글 조회는 점수 동점일 때 생성일과 게시글 ID로 안정 정렬한다")
+    void findPublicLandingLatestPosts_ordersVisiblePostsByCreatedAtAndPostId() {
+        User blockedUser = User.builder()
+                .loginId("landing-blocked")
+                .email("landing-blocked@test.com")
+                .password("password")
+                .displayName("Landing Blocked")
+                .build();
+        entityManager.persist(blockedUser);
+
+        Board privateBoard = persistBoard("Landing Latest Private", "landing-latest-private", false);
+        Board inactiveBoard = persistBoard("Landing Latest Inactive", "landing-latest-inactive", true);
+        inactiveBoard.deactivate();
+        Board inquiryBoard = persistBoard("Landing Latest Inquiry", "inquiry", true);
+
+        Post visibleOld = landingPost("Visible Old", board, false, false);
+        Post visibleSameTimeOlderId = landingPost("Visible Same Time Older Id", board, false, false);
+        Post visibleSameTimeNewerId = landingPost("Visible Same Time Newer Id", board, false, false);
+        Post secretPost = landingPost("Latest Secret", board, true, false);
+        Post deletedPost = landingPost("Latest Deleted", board, false, true);
+        Post privatePost = landingPost("Latest Private Board", privateBoard, false, false);
+        Post inactivePost = landingPost("Latest Inactive Board", inactiveBoard, false, false);
+        Post inquiryPost = landingPost("Latest Inquiry Board", inquiryBoard, false, false);
+        Post blockedPost = trendingPost("Latest Blocked", "Contents", blockedUser, board, false);
+        entityManager.persist(visibleOld);
+        entityManager.persist(visibleSameTimeOlderId);
+        entityManager.persist(visibleSameTimeNewerId);
+        entityManager.persist(secretPost);
+        entityManager.persist(deletedPost);
+        entityManager.persist(privatePost);
+        entityManager.persist(inactivePost);
+        entityManager.persist(inquiryPost);
+        entityManager.persist(blockedPost);
+        entityManager.flush();
+
+        LocalDateTime baseCreatedAt = LocalDateTime.now().minusHours(2);
+        updateCreatedAt(post, baseCreatedAt.minusDays(1));
+        updateCreatedAt(visibleOld, baseCreatedAt);
+        updateCreatedAt(visibleSameTimeOlderId, baseCreatedAt.plusMinutes(1));
+        updateCreatedAt(visibleSameTimeNewerId, baseCreatedAt.plusMinutes(1));
+        updateCreatedAt(secretPost, baseCreatedAt.plusMinutes(10));
+        updateCreatedAt(deletedPost, baseCreatedAt.plusMinutes(10));
+        updateCreatedAt(privatePost, baseCreatedAt.plusMinutes(10));
+        updateCreatedAt(inactivePost, baseCreatedAt.plusMinutes(10));
+        updateCreatedAt(inquiryPost, baseCreatedAt.plusMinutes(10));
+        updateCreatedAt(blockedPost, baseCreatedAt.plusMinutes(10));
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Post> latestPosts = postRepository.findPublicLandingLatestPosts(
+                BoardPolicyConstants.INQUIRY_BOARD_URL,
+                List.of(blockedUser.getUserId()),
+                PageRequest.of(0, 3));
+
+        assertThat(latestPosts)
+                .extracting(Post::getTitle)
+                .containsExactly(
+                        "Visible Same Time Newer Id",
+                        "Visible Same Time Older Id",
+                        "Visible Old");
+    }
+
+    @Test
+    @DisplayName("홈 랜딩 최신글은 공개 게시판의 공개 글을 최신순으로 조회한다")
     void findTrendingPosts_ordersTiesByCreatedAtAndPostId() {
         Post sameCreatedOlderId = post;
         Post sameCreatedNewerId = Post.builder()

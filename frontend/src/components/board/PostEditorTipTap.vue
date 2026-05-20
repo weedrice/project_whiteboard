@@ -777,12 +777,15 @@ onBeforeUnmount(() => {
 .tiptap-editor-wrap .tiptap-content {
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .tiptap-editor-wrap .tiptap-content > div,
 .tiptap-editor-wrap .tiptap-content .ProseMirror {
   flex: 1;
   min-height: 100%;
+  overflow-wrap: anywhere;
 }
 
 .tiptap-editor-wrap .ProseMirror ul {

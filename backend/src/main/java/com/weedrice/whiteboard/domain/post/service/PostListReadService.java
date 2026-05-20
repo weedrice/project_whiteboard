@@ -205,6 +205,15 @@ public class PostListReadService {
         return new PageImpl<>(summaries, pageable, total);
     }
 
+    public List<PostSummary> getPublicLandingLatestPosts(Pageable pageable, Long currentUserId) {
+        PostReadContext context = postReadContextResolver.resolve(currentUserId);
+        List<Post> posts = postRepository.findPublicLandingLatestPosts(
+                boardAccessPolicy.getInquiryBoardUrl(),
+                context.blockedUserIds(),
+                pageable);
+        return postSummaryAssembler.assembleLatestPosts(posts, currentUserId);
+    }
+
     public List<PostSummary> getLatestPostsByBoard(Long boardId, int limit, Long currentUserId) {
         Pageable pageable = PageRequestUtils.of(0, limit, DEFAULT_BOARD_POST_SORT);
         Board board = boardRepository.findById(boardId)

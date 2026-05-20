@@ -1,5 +1,6 @@
 ﻿import { ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { defineComponent } from 'vue'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import PostDetail from '../PostDetail.vue'
 
@@ -158,6 +159,18 @@ class MockIntersectionObserver {
   observe() {}
   disconnect() {}
 }
+
+const PostTagsStub = defineComponent({
+  name: 'PostTags',
+  props: {
+    modelValue: {
+      type: Array,
+      default: () => []
+    }
+  },
+  emits: ['tag-click'],
+  template: '<button type="button" data-testid="tag" @click="$emit(\'tag-click\', modelValue[0])">#{{ modelValue[0] }}</button>'
+})
 
 describe('PostDetail', () => {
   beforeEach(() => {
@@ -422,6 +435,34 @@ describe('PostDetail', () => {
         hash: '',
         query: { page: '4' }
       })
+    })
+  })
+
+  it('handles tag search navigation in the parent view', async () => {
+    route.query = { page: '2', categoryId: '3' }
+    const wrapper = mount(PostDetail, {
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          CommentList: true,
+          PostTags: PostTagsStub,
+          UserMenu: true,
+          BaseModal: true
+        }
+      }
+    })
+
+    await wrapper.get('[data-testid="tag"]').trigger('click')
+
+    expect(router.push).toHaveBeenCalledWith({
+      path: '/board/free',
+      query: {
+        q: 'vue',
+        type: 'TAG'
+      }
     })
   })
 })

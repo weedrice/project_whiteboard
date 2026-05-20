@@ -8,8 +8,16 @@ const props = withDefaults(defineProps<{
   post: PostSummary
   boardUrl?: string
   truncateTitle?: boolean
+  showNoticeBadge?: boolean
+  showCommentCount?: boolean
+  showPreviewIndicator?: boolean
+  showSecretIndicator?: boolean
 }>(), {
-  truncateTitle: false
+  truncateTitle: false,
+  showNoticeBadge: true,
+  showCommentCount: true,
+  showPreviewIndicator: true,
+  showSecretIndicator: true
 })
 
 const { t } = useI18n()
@@ -30,17 +38,17 @@ const isInquiryPost = (post: PostSummary, boardUrl?: string) => (
   >
     {{ post.category.name }}
   </span>
-  <span v-if="post.isNotice" class="nv-post-badge nv-post-badge-notice">
+  <span v-if="showNoticeBadge && post.isNotice" class="nv-post-badge nv-post-badge-notice">
     {{ $t('common.notice') }}
   </span>
   <span
-    v-if="post.isSecret"
+    v-if="showSecretIndicator && post.isSecret"
     class="inline-flex flex-shrink-0 items-center text-amber-500"
     :title="t('board.writePost.secret')"
   >
     <Lock class="h-4 w-4" />
   </span>
-  <span v-if="hasPreviewImage(post)" class="inline-flex flex-shrink-0 items-center text-[var(--nv-muted)]">
+  <span v-if="showPreviewIndicator && hasPreviewImage(post)" class="inline-flex flex-shrink-0 items-center text-[var(--nv-muted)]">
     <ImageIcon class="h-4 w-4" />
   </span>
   <span
@@ -53,7 +61,7 @@ const isInquiryPost = (post: PostSummary, boardUrl?: string) => (
   <span :class="['nv-post-title-text', truncateTitle ? 'truncate' : 'min-w-0 flex-1 break-words']">
     {{ post.title }}
   </span>
-  <span v-if="post.commentCount > 0" class="nv-post-comment-count flex-shrink-0 text-[var(--nv-accent)]">
+  <span v-if="showCommentCount && post.commentCount > 0" class="nv-post-comment-count flex-shrink-0 text-[var(--nv-accent)]">
     [{{ post.commentCount }}]
   </span>
 </template>

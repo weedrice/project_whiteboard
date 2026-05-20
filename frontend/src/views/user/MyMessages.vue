@@ -187,6 +187,7 @@ const isSending = ref(false)
 /** 차단 관계로 인해 상세/읽음 API가 실패한 쪽지인지 (답장 클릭 시에만 토스트 표시용) */
 const messageFromBlockedUser = ref(false)
 let messageListRequestId = 0
+let messageDetailRequestId = 0
 
 async function fetchMessages() {
     const requestId = ++messageListRequestId
@@ -235,21 +236,32 @@ function changeViewType(type: 'received' | 'sent') {
 }
 
 async function openMessage(msg: Message) {
+    const requestId = ++messageDetailRequestId
+    const messageId = msg.messageId
     messageFromBlockedUser.value = false
     selectedMessage.value = msg
     try {
-        const { data } = await messageApi.getMessage(msg.messageId, { skipGlobalErrorHandler: true })
+        const { data } = await messageApi.getMessage(messageId, { skipGlobalErrorHandler: true })
+        if (requestId !== messageDetailRequestId || selectedMessage.value?.messageId !== messageId) {
+            return
+        }
         if (data.success && data.data) {
             selectedMessage.value = data.data
         }
         if (viewType.value === 'received' && !msg.isRead) {
-            await messageApi.markAsRead(msg.messageId, { skipGlobalErrorHandler: true })
+            await messageApi.markAsRead(messageId, { skipGlobalErrorHandler: true })
             msg.isRead = true
-            if (selectedMessage.value?.messageId === msg.messageId) {
+            if (requestId !== messageDetailRequestId || selectedMessage.value?.messageId !== messageId) {
+                return
+            }
+            if (selectedMessage.value?.messageId === messageId) {
                 selectedMessage.value = { ...selectedMessage.value, isRead: true }
             }
         }
     } catch (error) {
+        if (requestId !== messageDetailRequestId || selectedMessage.value?.messageId !== messageId) {
+            return
+        }
         const errRes = extractErrorResponse(error as AxiosError)
         if (errRes?.code === BLOCKED_BY_USER_CODE) {
             messageFromBlockedUser.value = true

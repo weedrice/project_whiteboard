@@ -15,7 +15,7 @@
 
     <div class="flex flex-wrap" :class="compact && readOnly ? 'gap-x-2 gap-y-1' : 'gap-2'">
       <template v-for="(tag, index) in modelValue" :key="index">
-        <router-link v-if="readOnly && boardUrl" :to="{ path: `/board/${boardUrl}`, query: { q: tag, type: 'TAG' } }"
+        <button v-if="readOnly && boardUrl" type="button" @click="handleTagClick(tag)"
           :class="[
             'inline-flex items-center rounded-full font-medium transition-colors cursor-pointer',
             compact
@@ -23,7 +23,7 @@
               : 'px-2 py-0.5 text-xs sm:text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-800'
           ]">
           #{{ tag }}
-        </router-link>
+        </button>
         <span v-else
           :class="[
             'inline-flex items-center rounded-full font-medium',
@@ -62,6 +62,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:modelValue', tags: string[]): void
+  (e: 'tag-click', tag: string): void
 }>()
 
 const newTag = ref('')
@@ -78,5 +79,9 @@ const removeTag = (index: number) => {
   const newTags = [...props.modelValue]
   newTags.splice(index, 1)
   emit('update:modelValue', newTags)
+}
+
+const handleTagClick = (tag: string) => {
+  emit('tag-click', tag)
 }
 </script>

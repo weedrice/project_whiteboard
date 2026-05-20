@@ -297,6 +297,22 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     }
 
     @Override
+    public List<Post> findPublicLandingLatestPosts(String inquiryBoardUrl, List<Long> blockedUserIds,
+            Pageable pageable) {
+        return queryFactory
+                .selectFrom(post)
+                .join(post.user).fetchJoin()
+                .leftJoin(post.agent).fetchJoin()
+                .join(post.board).fetchJoin()
+                .leftJoin(post.category).fetchJoin()
+                .where(publicLandingLatestPostConditions(inquiryBoardUrl, blockedUserIds))
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .orderBy(post.createdAt.desc(), post.postId.desc())
+                .fetch();
+    }
+
+    @Override
     public Page<Post> findAgentFeedByBoardIds(Collection<Long> boardIds, List<Long> blockedUserIds,
             Collection<Long> secretVisibleBoardIds, Long viewerUserId, @NonNull Pageable pageable) {
         if (boardIds == null || boardIds.isEmpty()) {
@@ -455,6 +471,17 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 post.board.isPublic.eq(true),
                 notBlockedCondition(blockedUserIds),
                 TrendingPostRankingPolicy.mediaCondition(post, file)
+        };
+    }
+
+    private BooleanExpression[] publicLandingLatestPostConditions(String inquiryBoardUrl, List<Long> blockedUserIds) {
+        return new BooleanExpression[] {
+                post.isDeleted.eq(false),
+                post.isSecret.eq(false),
+                post.board.isActive.eq(true),
+                post.board.isPublic.eq(true),
+                post.board.boardUrl.lower().ne(inquiryBoardUrl),
+                notBlockedCondition(blockedUserIds)
         };
     }
 

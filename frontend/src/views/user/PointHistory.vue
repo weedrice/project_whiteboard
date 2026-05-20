@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { onMounted } from 'vue'
 import { userApi } from '@/api/user'
 import type { PointHistory } from '@/types'
 import { formatDate } from '@/utils/date'
@@ -9,41 +9,21 @@ import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import { Coins } from 'lucide-vue-next'
-import logger from '@/utils/logger'
+import { usePagination } from '@/composables/usePagination'
 
-const history = ref<PointHistory[]>([])
-const loading = ref(false)
-const page = ref(0)
-const totalPages = ref(0)
-const size = ref(15)
-
-const fetchHistory = async () => {
-  loading.value = true
-  try {
-    const { data } = await userApi.getMyPointHistories({
-      page: page.value,
-      size: size.value
-    })
-    if (data.success) {
-      history.value = data.data.content
-      totalPages.value = data.data.totalPages
-    }
-  } catch (error: unknown) {
-    logger.error('Failed to load point history:', error)
-  } finally {
-    loading.value = false
-  }
-}
-
-const handlePageChange = (newPage: number) => {
-  page.value = newPage
-  fetchHistory()
-}
-
-const handleSizeChange = () => {
-  page.value = 0
-  fetchHistory()
-}
+const {
+  items: history,
+  loading,
+  page,
+  size,
+  totalPages,
+  fetch: fetchHistory,
+  handlePageChange,
+  handleSizeChange
+} = usePagination<PointHistory>(async (params) => {
+  const { data } = await userApi.getMyPointHistories(params)
+  return data
+}, { page: 0, size: 15 })
 
 onMounted(() => {
   fetchHistory()

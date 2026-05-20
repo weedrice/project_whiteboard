@@ -200,6 +200,7 @@ export interface HomeLandingStats {
 
 export interface HomeLandingResponse {
     posts: PostSummary[]
+    latestPosts?: PostSummary[]
     boards: BoardListItem[]
     stats: HomeLandingStats
 }

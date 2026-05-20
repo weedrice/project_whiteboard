@@ -27,6 +27,17 @@ const categoryName = computed(() => props.post.category?.name?.trim() || '')
 const hasMedia = computed(() => showFirstVideo.value || !!showFirstImageUrl.value)
 const isFeatured = computed(() => props.variant === 'featured')
 const timeAgo = computed(() => formatTimeAgo(props.post.createdAt, t))
+const bodyClampClass = computed(() => {
+  if (isFeatured.value) {
+    return hasMedia.value ? 'nv-home-card-body-featured-with-media' : 'nv-home-card-body-featured-no-media'
+  }
+  return hasMedia.value ? 'nv-home-card-body-with-media' : 'nv-home-card-body-no-media'
+})
+const bodyClass = computed(() => [
+  'nv-home-card-body',
+  bodyClampClass.value,
+  { 'pointer-events-none select-none opacity-40 blur-[8px]': isSpoiler.value },
+])
 
 const cardClass = computed(() => {
   if (props.variant === 'featured') return 'nv-home-card nv-home-card-featured'
@@ -131,14 +142,12 @@ const handleKeydown = (event: KeyboardEvent) => {
       <h2 class="nv-home-card-title">{{ post.title }}</h2>
       <div
         v-if="bodyHtml"
-        class="nv-home-card-body prose-feed"
-        :class="{ 'pointer-events-none select-none opacity-40 blur-[8px]': isSpoiler }"
+        :class="[...bodyClass, 'prose-feed']"
         v-html="bodyHtml"
       />
       <p
         v-else-if="post.summary"
-        class="nv-home-card-body"
-        :class="{ 'pointer-events-none select-none opacity-40 blur-[8px]': isSpoiler }"
+        :class="bodyClass"
       >
         {{ post.summary }}
       </p>

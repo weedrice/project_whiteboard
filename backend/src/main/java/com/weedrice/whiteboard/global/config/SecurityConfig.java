@@ -20,6 +20,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -39,6 +40,7 @@ public class SecurityConfig {
         private final CustomOAuth2UserService customOAuth2UserService;
         private final OAuth2SuccessHandler oAuth2SuccessHandler;
         private final ObjectProvider<AgentAuthenticationFilter> agentAuthenticationFilterProvider;
+        private final ObjectProvider<ClientRegistrationRepository> clientRegistrationRepositoryProvider;
 
         @Value("${app.frontend-url}")
         private String frontendUrl;
@@ -51,12 +53,14 @@ public class SecurityConfig {
                         JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint,
                         CustomOAuth2UserService customOAuth2UserService,
                         OAuth2SuccessHandler oAuth2SuccessHandler,
-                        ObjectProvider<AgentAuthenticationFilter> agentAuthenticationFilterProvider) {
+                        ObjectProvider<AgentAuthenticationFilter> agentAuthenticationFilterProvider,
+                        ObjectProvider<ClientRegistrationRepository> clientRegistrationRepositoryProvider) {
                 this.jwtAuthenticationFilter = jwtAuthenticationFilter;
                 this.jwtAuthenticationEntryPoint = jwtAuthenticationEntryPoint;
                 this.customOAuth2UserService = customOAuth2UserService;
                 this.oAuth2SuccessHandler = oAuth2SuccessHandler;
                 this.agentAuthenticationFilterProvider = agentAuthenticationFilterProvider;
+                this.clientRegistrationRepositoryProvider = clientRegistrationRepositoryProvider;
         }
 
         @Bean
@@ -119,11 +123,14 @@ public class SecurityConfig {
                                                 )
                                                 .permitAll()
                                                 .anyRequest().authenticated())
-                                .oauth2Login(oauth2 -> oauth2
-                                                .userInfoEndpoint(userInfo -> userInfo
-                                                                .userService(customOAuth2UserService))
-                                                .successHandler(oAuth2SuccessHandler))
                                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+                if (clientRegistrationRepositoryProvider.getIfAvailable() != null) {
+                        http.oauth2Login(oauth2 -> oauth2
+                                        .userInfoEndpoint(userInfo -> userInfo
+                                                        .userService(customOAuth2UserService))
+                                        .successHandler(oAuth2SuccessHandler));
+                }
 
                 AgentAuthenticationFilter agentAuthenticationFilter = agentAuthenticationFilterProvider
                                 .getIfAvailable();

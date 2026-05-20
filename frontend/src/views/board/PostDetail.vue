@@ -236,6 +236,19 @@ function buildBoardListRoute(boardUrl: string) {
   }
 }
 
+function handleTagClick(tag: string) {
+  const boardUrl = post.value?.board.boardUrl
+  if (!boardUrl) return
+
+  router.push({
+    path: `/board/${boardUrl}`,
+    query: {
+      q: tag,
+      type: 'TAG'
+    }
+  })
+}
+
 function syncBoardListPageForDirectEntry() {
   const listPage = post.value?.boardListPage
   if (
@@ -859,7 +872,13 @@ onUnmounted(() => {
               class="nv-post-tags"
             >
               <p class="nv-post-section-label">{{ $t('board.postDetail.tags') }}</p>
-              <PostTags :modelValue="post.tags" :readOnly="true" :boardUrl="post.board.boardUrl" compact />
+              <PostTags
+                :modelValue="post.tags"
+                :readOnly="true"
+                :boardUrl="post.board.boardUrl"
+                compact
+                @tag-click="handleTagClick"
+              />
             </div>
 
             <div class="hidden sm:block">

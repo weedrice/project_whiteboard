@@ -21,12 +21,20 @@ const props = withDefaults(defineProps<{
   showBoardName?: boolean
   hideNoColumn?: boolean
   interceptInquiry?: boolean
+  showNoticeBadge?: boolean
+  showCommentCount?: boolean
+  showPreviewIndicator?: boolean
+  showSecretIndicator?: boolean
 }>(), {
   loading: false,
   currentSort: 'createdAt,desc',
   showBoardName: false,
   hideNoColumn: false,
-  interceptInquiry: false
+  interceptInquiry: false,
+  showNoticeBadge: true,
+  showCommentCount: true,
+  showPreviewIndicator: true,
+  showSecretIndicator: true
 })
 
 const emit = defineEmits<{
@@ -258,7 +266,7 @@ const columns = computed(() => {
         :aria-disabled="getInteractiveTag(item) === 'div' ? 'true' : undefined"
         :class="[
           'nv-post-card block w-full px-4 py-4 text-left transition-colors',
-          item.isNotice ? 'nv-post-card-notice' : '',
+          props.showNoticeBadge && item.isNotice ? 'nv-post-card-notice' : '',
           isCurrentPost(item) ? 'nv-post-card-current' : '',
           getInteractiveTag(item) === 'div' ? 'cursor-not-allowed opacity-70' : ''
         ]"
@@ -267,7 +275,14 @@ const columns = computed(() => {
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0 flex-1">
             <div class="mt-2 flex items-center gap-2 text-sm font-medium text-[var(--nv-ink)]">
-              <PostListTitleContent :post="item" :board-url="getResolvedBoardUrl(item)" />
+              <PostListTitleContent
+                :post="item"
+                :board-url="getResolvedBoardUrl(item)"
+                :show-notice-badge="props.showNoticeBadge"
+                :show-comment-count="props.showCommentCount"
+                :show-preview-indicator="props.showPreviewIndicator"
+                :show-secret-indicator="props.showSecretIndicator"
+              />
             </div>
           </div>
 
@@ -295,7 +310,7 @@ const columns = computed(() => {
             <Eye class="h-3.5 w-3.5" />
             {{ item.viewCount }}
           </span>
-          <span class="inline-flex items-center gap-1">
+          <span v-if="props.showCommentCount" class="nv-post-mobile-comments inline-flex items-center gap-1">
             <MessageSquare class="h-3.5 w-3.5" />
             {{ item.commentCount }}
           </span>
@@ -315,7 +330,7 @@ const columns = computed(() => {
         @sort="handleSort"
       >
         <template #cell-postId="{ item }">
-          <span v-if="item.isNotice" class="nv-post-table-emphasis">
+          <span v-if="props.showNoticeBadge && item.isNotice" class="nv-post-table-emphasis">
             {{ $t('common.notice') }}
           </span>
           <span v-else>{{ item.rowNum }}</span>
@@ -350,7 +365,15 @@ const columns = computed(() => {
               :class="{ 'text-[var(--nv-muted)]': getTitleTag(item) === 'span' }"
               @click="onTitleClick($event, item)"
             >
-              <PostListTitleContent :post="item" :board-url="getResolvedBoardUrl(item)" truncateTitle />
+              <PostListTitleContent
+                :post="item"
+                :board-url="getResolvedBoardUrl(item)"
+                :show-notice-badge="props.showNoticeBadge"
+                :show-comment-count="props.showCommentCount"
+                :show-preview-indicator="props.showPreviewIndicator"
+                :show-secret-indicator="props.showSecretIndicator"
+                truncateTitle
+              />
             </component>
           </div>
         </template>
