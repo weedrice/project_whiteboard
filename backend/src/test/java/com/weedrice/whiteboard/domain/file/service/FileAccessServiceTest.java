@@ -1,5 +1,8 @@
 package com.weedrice.whiteboard.domain.file.service;
 
+import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonMaster;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
 import com.weedrice.whiteboard.domain.file.entity.File;
@@ -26,6 +29,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
@@ -40,9 +44,13 @@ class FileAccessServiceTest {
     @Mock
     private FileRepository fileRepository;
     @Mock
+    private BoardRepository boardRepository;
+    @Mock
     private PostRepository postRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private BoardAccessPolicy boardAccessPolicy;
     @Mock
     private PostAccessPolicy postAccessPolicy;
     @Mock
@@ -56,8 +64,10 @@ class FileAccessServiceTest {
     void setUp() {
         fileAccessService = new FileAccessService(
                 fileRepository,
+                boardRepository,
                 postRepository,
                 userRepository,
+                boardAccessPolicy,
                 postAccessPolicy,
                 userBlockService,
                 emoticonMasterRepository);
@@ -124,9 +134,7 @@ class FileAccessServiceTest {
     @Test
     @DisplayName("공개 파일 타입은 추가 접근 정책 검증을 생략한다")
     void getFileForDownload_publicTypes_skipAccessPolicy() {
-        List<String> relatedTypes = List.of(
-                FileRelatedType.USER_PROFILE,
-                FileRelatedType.BOARD_ICON);
+        List<String> relatedTypes = List.of(FileRelatedType.USER_PROFILE);
 
         for (int i = 0; i < relatedTypes.size(); i++) {
             Long fileId = 10L + i;
@@ -138,7 +146,70 @@ class FileAccessServiceTest {
 
             assertThat(result).isSameAs(file);
         }
+        verifyNoInteractions(boardRepository, boardAccessPolicy, postRepository, userRepository,
+                postAccessPolicy, userBlockService);
+    }
+
+    @Test
+    @DisplayName("board icon files validate board read policy")
+    void getFileForDownload_boardIcon_validatesBoardReadPolicy() {
+        File file = file(FileRelatedType.BOARD_ICON, 100L);
+        Board board = board();
+        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
+        when(boardRepository.findByBoardId(100L)).thenReturn(Optional.of(board));
+
+        File result = fileAccessService.getFileForDownload(10L, null);
+
+        assertThat(result).isSameAs(file);
+        verify(boardRepository).findByBoardId(100L);
+        verify(boardAccessPolicy).validateReadable(board, null);
         verifyNoInteractions(postRepository, userRepository, postAccessPolicy, userBlockService);
+    }
+
+    @Test
+    @DisplayName("board icon files reject unreadable boards")
+    void getFileForDownload_boardIcon_unreadableBoardNotFound() {
+        File file = file(FileRelatedType.BOARD_ICON, 100L);
+        Board board = board();
+        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
+        when(boardRepository.findByBoardId(100L)).thenReturn(Optional.of(board));
+        doThrow(new BusinessException(ErrorCode.BOARD_NOT_FOUND))
+                .when(boardAccessPolicy).validateReadable(board, null);
+
+        assertThatThrownBy(() -> fileAccessService.getFileForDownload(10L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("board icon files validate authenticated viewers with board read policy")
+    void getFileForDownload_boardIcon_authenticatedViewerUsesBoardPolicy() {
+        User viewer = User.builder().build();
+        ReflectionTestUtils.setField(viewer, "userId", 1L);
+        File file = file(FileRelatedType.BOARD_ICON, 100L);
+        Board board = board();
+        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
+        when(boardRepository.findByBoardId(100L)).thenReturn(Optional.of(board));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
+
+        File result = fileAccessService.getFileForDownload(10L, 1L);
+
+        assertThat(result).isSameAs(file);
+        verify(boardAccessPolicy).validateReadable(board, viewer);
+    }
+
+    @Test
+    @DisplayName("missing board icon board is hidden")
+    void getFileForDownload_boardIcon_missingBoardNotFound() {
+        File file = file(FileRelatedType.BOARD_ICON, 100L);
+        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
+        when(boardRepository.findByBoardId(100L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> fileAccessService.getFileForDownload(10L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
+
+        verify(boardAccessPolicy, never()).validateReadable(any(), any());
     }
 
     @Test
@@ -381,6 +452,14 @@ class FileAccessServiceTest {
 
     private File file(String relatedType, Long relatedId) {
         return file(relatedType, relatedId, User.builder().build());
+    }
+
+    private Board board() {
+        return Board.builder()
+                .boardName("test-board")
+                .boardUrl("test-board")
+                .creator(User.builder().build())
+                .build();
     }
 
     private EmoticonMaster emoticonMaster(Long emoticonId, User creator, boolean active) {

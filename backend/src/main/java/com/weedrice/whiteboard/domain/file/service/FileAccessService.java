@@ -1,5 +1,8 @@
 package com.weedrice.whiteboard.domain.file.service;
 
+import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonMaster;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
 import com.weedrice.whiteboard.domain.file.entity.File;
@@ -27,8 +30,10 @@ import java.util.Objects;
 class FileAccessService {
 
     private final FileRepository fileRepository;
+    private final BoardRepository boardRepository;
     private final PostRepository postRepository;
     private final UserRepository userRepository;
+    private final BoardAccessPolicy boardAccessPolicy;
     private final PostAccessPolicy postAccessPolicy;
     private final UserBlockService userBlockService;
     private final EmoticonMasterRepository emoticonMasterRepository;
@@ -64,10 +69,10 @@ class FileAccessService {
                 boolean authorBlocked = isBlockedBetweenAuthorAndViewer(post, viewer);
                 postAccessPolicy.validateReadable(post, viewer, authorBlocked);
             }
-            case FileRelatedType.USER_PROFILE,
-                    FileRelatedType.BOARD_ICON -> {
+            case FileRelatedType.USER_PROFILE -> {
                 return;
             }
+            case FileRelatedType.BOARD_ICON -> validateBoardIconReadable(file, viewerUserId);
             case FileRelatedType.EMOTICON_THUMBNAIL,
                     FileRelatedType.EMOTICON_IMAGE -> validateEmoticonFile(file, viewerUserId);
             case FileRelatedType.DRAFT_POST -> {
@@ -83,6 +88,13 @@ class FileAccessService {
                 throw new BusinessException(ErrorCode.FORBIDDEN);
             }
         }
+    }
+
+    private void validateBoardIconReadable(File file, Long viewerUserId) {
+        Board board = boardRepository.findByBoardId(file.getRelatedId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        User viewer = resolveViewer(viewerUserId);
+        boardAccessPolicy.validateReadable(board, viewer);
     }
 
     private void validateEmoticonFile(File file, Long viewerUserId) {
