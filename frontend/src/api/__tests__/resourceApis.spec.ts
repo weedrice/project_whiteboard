@@ -241,7 +241,7 @@ describe('adApi', () => {
         await expect(adApi.recordClick(1)).resolves.toBe('https://example.com')
 
         expect(apiMock.get).toHaveBeenCalledWith('/ads', { params: { placement: 'SIDEBAR' } })
-        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/ads/1/impression')
+        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/ads/1/impression', undefined, undefined)
         expect(apiMock.post).toHaveBeenNthCalledWith(2, '/ads/1/click')
     })
 })

@@ -30,7 +30,7 @@ describe('adApi', () => {
     expect(apiMock.get).toHaveBeenCalledWith('/ads', {
       params: { placement: 'SIDEBAR' },
     })
-    expect(apiMock.post).toHaveBeenNthCalledWith(1, '/ads/11/impression')
+    expect(apiMock.post).toHaveBeenNthCalledWith(1, '/ads/11/impression', undefined, undefined)
     expect(apiMock.post).toHaveBeenNthCalledWith(2, '/ads/11/click')
   })
 })
