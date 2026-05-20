@@ -572,6 +572,14 @@ export interface BoardMessages {
       cancel: string
       dismiss: string
     }
+    imageAlt: {
+      title: string
+      label: string
+      placeholder: string
+      help: string
+      apply: string
+      clear: string
+    }
     colorLabels: {
       black: string
       gray: string

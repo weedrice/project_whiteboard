@@ -15,6 +15,7 @@ import { FontSize, LineHeight } from '@tiptap/extension-text-style'
 import { Video } from '@/extensions/tiptap-video'
 import PostEditorAdvancedPopover from '@/components/board/editor/PostEditorAdvancedPopover.vue'
 import PostEditorColorPopover from '@/components/board/editor/PostEditorColorPopover.vue'
+import PostEditorImageAltPopover from '@/components/board/editor/PostEditorImageAltPopover.vue'
 import PostEditorLinkPopover from '@/components/board/editor/PostEditorLinkPopover.vue'
 import PostEditorSlashMenu from '@/components/board/editor/PostEditorSlashMenu.vue'
 import PostEditorTablePopover from '@/components/board/editor/PostEditorTablePopover.vue'
@@ -54,8 +55,10 @@ const showLinkPopover = ref(false)
 const showTablePopover = ref(false)
 const showAdvancedMenu = ref(false)
 const showSlashMenu = ref(false)
+const showImageAltPopover = ref(false)
 const linkUrl = ref('')
 const linkText = ref('')
+const imageAltText = ref('')
 const tableRows = ref(3)
 const tableCols = ref(3)
 const tableHeaderRow = ref(true)
@@ -67,6 +70,7 @@ const advancedPopoverRef = ref<HTMLElement | null>(null)
 const colorPanelRef = ref<HTMLElement | null>(null)
 const linkPopoverRef = ref<HTMLElement | null>(null)
 const tablePopoverRef = ref<HTMLElement | null>(null)
+const imageAltPopoverRef = ref<HTMLElement | null>(null)
 const colorTriggerElement = ref<HTMLElement | null>(null)
 
 const { isUploadingImage, validateImageFile, uploadImage, abortImageUpload, isAbortUploadError } = useEditorImageUpload()
@@ -74,11 +78,13 @@ usePopoverFocus(slashPopoverRef, showSlashMenu)
 usePopoverFocus(advancedPopoverRef, showAdvancedMenu)
 usePopoverFocus(linkPopoverRef, showLinkPopover)
 usePopoverFocus(tablePopoverRef, showTablePopover)
+usePopoverFocus(imageAltPopoverRef, showImageAltPopover)
 const slashPosition = useAnchoredPopover(slashPopoverRef, showSlashMenu)
 const advancedPosition = useAnchoredPopover(advancedPopoverRef, showAdvancedMenu)
 const colorPosition = useAnchoredPopover(colorPanelRef, showColorPanel)
 const linkPosition = useAnchoredPopover(linkPopoverRef, showLinkPopover)
 const tablePosition = useAnchoredPopover(tablePopoverRef, showTablePopover)
+const imageAltPosition = useAnchoredPopover(imageAltPopoverRef, showImageAltPopover)
 const imageUploadQueue = useEditorImageUploadQueue<UploadedEditorImage>({
   validate: validateImageFile,
   upload: uploadImage,
@@ -169,6 +175,13 @@ const editor = useEditor({
         }
         return false
       },
+    },
+    handleClickOn: (_view, _pos, node, nodePos, event) => {
+      if (node.type.name !== 'image') return false
+      const target = event.target instanceof HTMLElement ? event.target.closest('img') : null
+      if (!(target instanceof HTMLImageElement)) return false
+      openImageAltPopover(target, node.attrs.alt ?? '', nodePos)
+      return false
     },
   },
   extensions: [
@@ -338,6 +351,32 @@ function closeLinkPopover() {
   linkText.value = ''
 }
 
+function openImageAltPopover(anchor: HTMLElement, alt = '', nodePos?: number) {
+  closeFloatingMenus()
+  imageAltPosition.setAnchor(anchor)
+  imageAltText.value = alt
+  showImageAltPopover.value = true
+  if (typeof nodePos === 'number') {
+    editor.value?.commands.setTextSelection(nodePos)
+  }
+}
+
+function closeImageAltPopover() {
+  showImageAltPopover.value = false
+  imageAltPosition.clearAnchor()
+  imageAltText.value = ''
+}
+
+function applyImageAlt(value = imageAltText.value) {
+  editor.value?.chain().focus().updateAttributes('image', { alt: value.trim() }).run()
+  closeImageAltPopover()
+}
+
+function clearImageAlt() {
+  editor.value?.chain().focus().updateAttributes('image', { alt: null }).run()
+  closeImageAltPopover()
+}
+
 function escapeHtmlAttr(value: string) {
   return value
     .replace(/&/g, '&amp;')
@@ -486,6 +525,12 @@ function insertUploadedImage(uploaded: { url: string; fileId?: number }) {
     ? ` data-file-id="${uploaded.fileId}"`
     : ''
   editor.value?.chain().focus().insertContent(`<img src="${escapeHtmlAttr(uploaded.url)}"${serverAttributes}>`).run()
+  const editorRoot = editor.value?.view.dom
+  const image = Array.from(editorRoot?.querySelectorAll('img') ?? [])
+    .find((candidate) => candidate.getAttribute('src') === uploaded.url)
+  if (image instanceof HTMLImageElement) {
+    openImageAltPopover(image, '')
+  }
 }
 
 function queueImageFiles(files: File[]) {
@@ -744,6 +789,20 @@ onBeforeUnmount(() => {
             @apply="applyLink"
             @close="closeLinkPopover"
             @remove="removeLink"
+          />
+        </div>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <div v-if="showImageAltPopover" class="link-popover-mask" @click.self="closeImageAltPopover" @keydown.enter.stop @keydown.escape.stop.prevent="closeImageAltPopover">
+        <div ref="imageAltPopoverRef" class="link-popover image-alt-popover" :style="imageAltPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-image-alt-dialog-title">
+          <h3 id="editor-image-alt-dialog-title" class="sr-only">{{ t('board.writePost.imageAlt.title') }}</h3>
+          <PostEditorImageAltPopover
+            :alt="imageAltText"
+            @apply="applyImageAlt"
+            @clear="clearImageAlt"
+            @close="closeImageAltPopover"
           />
         </div>
       </div>

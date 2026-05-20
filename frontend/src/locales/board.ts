@@ -205,6 +205,14 @@ export const board: BoardMessages = {
       cancel: '취소',
       dismiss: '닫기',
     },
+    imageAlt: {
+      title: '이미지 대체 텍스트',
+      label: '대체 텍스트',
+      placeholder: '이미지를 설명하는 짧은 문구',
+      help: '스크린리더와 이미지 로딩 실패 상황에서 표시됩니다.',
+      apply: '적용',
+      clear: '비우기',
+    },
     colorLabels: {
       black: '검정',
       gray: '진한 회색',
@@ -469,6 +477,14 @@ export const boardEn: BoardMessages = {
       retry: 'Retry',
       cancel: 'Cancel',
       dismiss: 'Dismiss',
+    },
+    imageAlt: {
+      title: 'Image alt text',
+      label: 'Alt text',
+      placeholder: 'Briefly describe the image',
+      help: 'Used by screen readers and shown when the image cannot load.',
+      apply: 'Apply',
+      clear: 'Clear',
     },
     colorLabels: {
       black: 'Black',
