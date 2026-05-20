@@ -58,7 +58,11 @@ const tableCols = ref(3)
 const tableHeaderRow = ref(true)
 const savedListSelection = ref<{ from: number; to: number } | null>(null)
 const imageInput = ref<HTMLInputElement | null>(null)
-const failedImageFile = ref<File | null>(null)
+const imageUploadQueue = ref<File[]>([])
+const failedImageFiles = ref<File[]>([])
+const currentUploadingImageName = ref('')
+const isProcessingImageQueue = ref(false)
+const shouldStopImageQueue = ref(false)
 const slashActiveIndex = ref(0)
 const slashPopoverRef = ref<HTMLElement | null>(null)
 const advancedPopoverRef = ref<HTMLElement | null>(null)
@@ -213,7 +217,9 @@ const isDefaultColor = computed(() => !currentTextColor.value)
 const currentFontSize = computed(() => editor.value?.getAttributes('textStyle').fontSize || '')
 const currentLineHeight = computed(() => editor.value?.getAttributes('textStyle').lineHeight || '')
 const currentHighlightColor = computed(() => editor.value?.getAttributes('highlight').color || '#fef08a')
-const hasImageUploadError = computed(() => failedImageFile.value !== null)
+const hasImageUploadError = computed(() => failedImageFiles.value.length > 0)
+const failedImageCount = computed(() => failedImageFiles.value.length)
+const imageUploadQueueCount = computed(() => imageUploadQueue.value.length)
 const activeTextAlign = computed<'left' | 'center' | 'right' | 'justify' | ''>(() => {
   if (isTextAlignActive('left')) return 'left'
   if (isTextAlignActive('center')) return 'center'
@@ -454,66 +460,147 @@ function triggerImageUpload() {
   imageInput.value?.click()
 }
 
-async function uploadSelectedImage(file: File) {
+function isCandidateImageFile(file: File) {
+  return file.type.toLowerCase().startsWith('image/')
+    || /\.(jpe?g|png|gif|webp|svg)$/i.test(file.name)
+}
+
+function insertUploadedImage(uploaded: { url: string; fileId?: number }) {
+  if (typeof uploaded.fileId === 'number') {
+    fileIds.value.push(uploaded.fileId)
+    emit('file-uploaded', uploaded.fileId)
+  }
+  const serverAttributes = typeof uploaded.fileId === 'number'
+    ? ` data-file-id="${uploaded.fileId}"`
+    : ''
+  editor.value?.chain().focus().insertContent(`<img src="${escapeHtmlAttr(uploaded.url)}"${serverAttributes}>`).run()
+}
+
+async function uploadSelectedImage(file: File): Promise<boolean> {
   const validationError = validateImageFile(file)
   if (validationError === 'type') {
     toastStore.addToast(t('common.messages.badRequest'), 'warning')
-    failedImageFile.value = null
-    return
+    return false
   }
   if (validationError === 'size') {
     toastStore.addToast(t('common.messages.fileSizeExceeded'), 'warning')
-    failedImageFile.value = null
-    return
+    return false
   }
 
   try {
-    failedImageFile.value = null
+    currentUploadingImageName.value = file.name
     const uploaded = await uploadImage(file)
     if (uploaded) {
-      if (typeof uploaded.fileId === 'number') {
-        fileIds.value.push(uploaded.fileId)
-        emit('file-uploaded', uploaded.fileId)
-      }
-      const serverAttributes = typeof uploaded.fileId === 'number'
-        ? ` data-file-id="${uploaded.fileId}"`
-        : ''
-      editor.value?.chain().focus().insertContent(`<img src="${escapeHtmlAttr(uploaded.url)}"${serverAttributes}>`).run()
+      insertUploadedImage(uploaded)
+      return true
     }
   } catch (error: unknown) {
     if (isAbortUploadError(error)) {
-      return
+      return false
     }
-    failedImageFile.value = file
+    failedImageFiles.value.push(file)
     logger.error('Image upload failed:', error)
     toastStore.addToast(t('common.messages.uploadFailed'), 'error')
+    return false
+  } finally {
+    currentUploadingImageName.value = ''
   }
+  return false
+}
+
+async function processImageUploadQueue() {
+  if (isProcessingImageQueue.value) return
+  isProcessingImageQueue.value = true
+  shouldStopImageQueue.value = false
+  try {
+    while (imageUploadQueue.value.length > 0 && !shouldStopImageQueue.value) {
+      const nextFile = imageUploadQueue.value.shift()
+      if (!nextFile) continue
+      await uploadSelectedImage(nextFile)
+    }
+  } finally {
+    isProcessingImageQueue.value = false
+    shouldStopImageQueue.value = false
+  }
+}
+
+function queueImageFiles(files: File[]) {
+  const candidateFiles = files.filter(isCandidateImageFile)
+  if (candidateFiles.length === 0) return false
+
+  const validFiles: File[] = []
+  candidateFiles.forEach((file) => {
+    const validationError = validateImageFile(file)
+    if (validationError === 'type') {
+      toastStore.addToast(t('common.messages.badRequest'), 'warning')
+      return
+    }
+    if (validationError === 'size') {
+      toastStore.addToast(t('common.messages.fileSizeExceeded'), 'warning')
+      return
+    }
+    validFiles.push(file)
+  })
+
+  if (validFiles.length === 0) return true
+  failedImageFiles.value = []
+  imageUploadQueue.value.push(...validFiles)
+  void processImageUploadQueue()
+  return true
 }
 
 async function onImageChange(event: Event) {
   const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
+  const files = Array.from(input.files ?? [])
+  if (files.length === 0) return
 
   try {
-    await uploadSelectedImage(file)
+    queueImageFiles(files)
   } finally {
     input.value = ''
   }
 }
 
 function retryImageUpload() {
-  if (failedImageFile.value) {
-    void uploadSelectedImage(failedImageFile.value)
-  }
+  const retryFile = failedImageFiles.value.shift()
+  if (!retryFile) return
+  imageUploadQueue.value.unshift(retryFile)
+  void processImageUploadQueue()
+}
+
+function retryFailedImageUpload(file: File) {
+  const index = failedImageFiles.value.indexOf(file)
+  if (index >= 0) failedImageFiles.value.splice(index, 1)
+  imageUploadQueue.value.unshift(file)
+  void processImageUploadQueue()
 }
 
 function dismissImageUploadError() {
-  failedImageFile.value = null
+  failedImageFiles.value = []
+}
+
+function dismissFailedImageUpload(file: File) {
+  failedImageFiles.value = failedImageFiles.value.filter((failedFile) => failedFile !== file)
 }
 
 function cancelImageUpload() {
+  shouldStopImageQueue.value = true
+  imageUploadQueue.value = []
   abortImageUpload()
+}
+
+function onEditorPaste(event: ClipboardEvent) {
+  const files = Array.from(event.clipboardData?.files ?? [])
+  if (queueImageFiles(files)) {
+    event.preventDefault()
+  }
+}
+
+function onEditorDrop(event: DragEvent) {
+  const files = Array.from(event.dataTransfer?.files ?? [])
+  if (queueImageFiles(files)) {
+    event.preventDefault()
+  }
 }
 
 function setVideo(src: string) {
@@ -597,13 +684,17 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="tiptap-editor-wrap flex min-h-0 flex-1 flex-col">
-    <input ref="imageInput" type="file" accept=".jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp" class="hidden" @change="onImageChange">
+    <input ref="imageInput" type="file" accept=".jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp" multiple class="hidden" @change="onImageChange">
 
     <PostEditorToolbar
       v-if="editor"
       :editor="editor"
       :is-uploading-image="isUploadingImage"
       :has-image-upload-error="hasImageUploadError"
+      :current-uploading-image-name="currentUploadingImageName"
+      :image-upload-queue-count="imageUploadQueueCount"
+      :failed-image-count="failedImageCount"
+      :failed-image-files="failedImageFiles"
       :show-slash-menu="showSlashMenu"
       :show-advanced-menu="showAdvancedMenu"
       @toggle-bold="editor.chain().focus().toggleBold().run()"
@@ -620,8 +711,10 @@ onBeforeUnmount(() => {
       @toggle-slash-menu="toggleSlashMenu"
       @toggle-advanced-menu="toggleAdvancedMenu"
       @retry-image-upload="retryImageUpload"
+      @retry-failed-image-upload="retryFailedImageUpload"
       @cancel-image-upload="cancelImageUpload"
       @dismiss-image-upload-error="dismissImageUploadError"
+      @dismiss-failed-image-upload="dismissFailedImageUpload"
     />
 
     <Teleport to="body">
@@ -725,7 +818,7 @@ onBeforeUnmount(() => {
       </div>
     </Teleport>
 
-    <div class="tiptap-content flex-1 min-h-0 overflow-auto cursor-text" @mousedown="onContentAreaClick">
+    <div class="tiptap-content flex-1 min-h-0 overflow-auto cursor-text" @mousedown="onContentAreaClick" @paste="onEditorPaste" @drop="onEditorDrop" @dragover.prevent>
       <EditorContent :editor="editor" />
     </div>
   </div>

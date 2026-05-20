@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 
 const mocks = vi.hoisted(() => {
     const chain = {
@@ -430,29 +430,49 @@ describe('PostEditorTipTap', () => {
         }
 
         mocks.validateImageFile.mockReturnValueOnce('type')
-        setFile('bad.txt', 'text/plain')
+        setFile('bad.svg', 'image/svg+xml')
         await fileInput.trigger('change')
+        await flushPromises()
         expect(mocks.toastAdd).toHaveBeenCalledWith('common.messages.badRequest', 'warning')
 
         mocks.validateImageFile.mockReturnValueOnce('size')
         setFile('big.png')
         await fileInput.trigger('change')
+        await flushPromises()
         expect(mocks.toastAdd).toHaveBeenCalledWith('common.messages.fileSizeExceeded', 'warning')
 
         mocks.validateImageFile.mockReturnValueOnce(null)
         mocks.uploadImage.mockResolvedValueOnce({ url: 'https://cdn.test/u1.png', fileId: 88 })
         setFile('ok.png')
         await fileInput.trigger('change')
+        await flushPromises()
         expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="https://cdn.test/u1.png"'))
         expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-file-id="88"'))
         expect(mocks.chain.insertContent).not.toHaveBeenCalledWith(expect.stringContaining('blob:https://noviis.kr/local-preview"'))
         expect(mocks.chain.insertContent).not.toHaveBeenCalledWith(expect.stringContaining('data-server-src='))
+
+        const firstFile = new File(['a'], 'first.png', { type: 'image/png' })
+        const secondFile = new File(['b'], 'second.webp', { type: 'image/webp' })
+        Object.defineProperty(fileInput.element, 'files', {
+            value: [firstFile, secondFile],
+            configurable: true,
+        })
+        mocks.uploadImage
+            .mockResolvedValueOnce({ url: 'https://cdn.test/first.png', fileId: 90 })
+            .mockResolvedValueOnce({ url: 'https://cdn.test/second.webp', fileId: 91 })
+        await fileInput.trigger('change')
+        await flushPromises()
+        expect(mocks.uploadImage).toHaveBeenCalledWith(firstFile)
+        expect(mocks.uploadImage).toHaveBeenCalledWith(secondFile)
+        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="https://cdn.test/first.png"'))
+        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="https://cdn.test/second.webp"'))
 
         mocks.validateImageFile.mockReturnValueOnce(null)
         mocks.uploadImage.mockRejectedValueOnce(new Error('abort'))
         mocks.isAbortUploadError.mockReturnValueOnce(true)
         setFile('abort.png')
         await fileInput.trigger('change')
+        await flushPromises()
         expect(mocks.loggerError).not.toHaveBeenCalledWith('Image upload failed:', expect.anything())
 
         mocks.validateImageFile.mockReturnValueOnce(null)
@@ -460,6 +480,7 @@ describe('PostEditorTipTap', () => {
         mocks.isAbortUploadError.mockReturnValueOnce(false)
         setFile('err.png')
         await fileInput.trigger('change')
+        await flushPromises()
         expect(mocks.loggerError).toHaveBeenCalledWith('Image upload failed:', expect.any(Error))
         expect(mocks.toastAdd).toHaveBeenCalledWith('common.messages.uploadFailed', 'error')
         expect(wrapper.find('.image-upload-status').text()).toContain('common.messages.uploadFailed')
@@ -467,10 +488,42 @@ describe('PostEditorTipTap', () => {
         mocks.validateImageFile.mockReturnValueOnce(null)
         mocks.uploadImage.mockResolvedValueOnce({ url: 'https://cdn.test/retry.png', fileId: 89 })
         await wrapper.findAll('.image-upload-status-btn')[0].trigger('click')
+        await flushPromises()
         expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="https://cdn.test/retry.png"'))
 
         wrapper.unmount()
         expect(URL.revokeObjectURL).not.toHaveBeenCalled()
+    })
+
+    it('uploads pasted and dropped image files through the sequential queue', async () => {
+        const wrapper = mountEditor()
+        const contentArea = wrapper.get('.tiptap-content')
+        const pastedFile = new File(['p'], 'pasted.png', { type: 'image/png' })
+        const droppedFile = new File(['d'], 'dropped.webp', { type: 'image/webp' })
+
+        mocks.uploadImage
+            .mockResolvedValueOnce({ url: 'https://cdn.test/pasted.png', fileId: 101 })
+            .mockResolvedValueOnce({ url: 'https://cdn.test/dropped.webp', fileId: 102 })
+
+        const pasteEvent = new Event('paste', { bubbles: true, cancelable: true }) as ClipboardEvent
+        Object.defineProperty(pasteEvent, 'clipboardData', {
+            value: { files: [pastedFile] },
+        })
+        contentArea.element.dispatchEvent(pasteEvent)
+        await flushPromises()
+        expect(pasteEvent.defaultPrevented).toBe(true)
+        expect(mocks.uploadImage).toHaveBeenCalledWith(pastedFile)
+        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="https://cdn.test/pasted.png"'))
+
+        const dropEvent = new Event('drop', { bubbles: true, cancelable: true }) as DragEvent
+        Object.defineProperty(dropEvent, 'dataTransfer', {
+            value: { files: [droppedFile] },
+        })
+        contentArea.element.dispatchEvent(dropEvent)
+        await flushPromises()
+        expect(dropEvent.defaultPrevented).toBe(true)
+        expect(mocks.uploadImage).toHaveBeenCalledWith(droppedFile)
+        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="https://cdn.test/dropped.webp"'))
     })
 
     it('shows cancellable image upload progress while uploading', async () => {
