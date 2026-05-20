@@ -70,6 +70,7 @@ export function useBoard() {
                 return data.data as BoardDetail
             },
             enabled: computed(() => !!boardUrl.value),
+            staleTime: QUERY_STALE_TIME.SHORT,
             ...queryOptions
         })
     }
