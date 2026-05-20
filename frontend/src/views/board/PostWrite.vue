@@ -23,7 +23,10 @@ function handleSubmitted(result: {
     router.push(`/board/${result.boardUrl}`)
     return
   }
-  router.push(`/board/${result.boardUrl}/post/${result.newPostId}`)
+  router.push({
+    path: `/board/${result.boardUrl}/post/${result.newPostId}`,
+    query: { fromCreate: '1' }
+  })
 }
 
 function handleCancel() {

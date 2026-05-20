@@ -52,11 +52,21 @@ const { addRecentBoard } = useRecentBoards()
 
 const boardUrl = computed(() => route.params.boardUrl as string)
 const currentPostId = computed(() => route.params.postId as string | undefined)
+const suppressedCurrentPostId = ref<string | null>(null)
 const searchInputElementId = 'board-search-input'
+const listQuery = computed(() => {
+  const { fromCreate, ...query } = route.query
+  return query
+})
+const highlightedPostId = computed(() => (
+  currentPostId.value && currentPostId.value !== suppressedCurrentPostId.value
+    ? currentPostId.value
+    : undefined
+))
 
 const buildBoardListRoute = () => ({
   path: `/board/${boardUrl.value}`,
-  query: route.query
+  query: listQuery.value
 })
 
 const {
@@ -187,7 +197,7 @@ function onPageChange(newPage: number) {
 function getNoticeRoute(notice: PostSummary) {
   return {
     path: `/board/${boardUrl.value}/post/${notice.postId}`,
-    query: route.query
+    query: listQuery.value
   }
 }
 
@@ -222,7 +232,23 @@ function hasInteractiveFocus(): boolean {
 watch(() => route.params.boardUrl, () => {
   resetListState()
   isNoticesExpanded.value = false
+  suppressedCurrentPostId.value = null
 })
+
+watch([currentPostId, () => route.query.fromCreate], ([postId, fromCreate]) => {
+  if (!postId) {
+    suppressedCurrentPostId.value = null
+    return
+  }
+
+  if (fromCreate === '1') {
+    suppressedCurrentPostId.value = postId
+    router.replace({
+      path: route.path,
+      query: listQuery.value
+    })
+  }
+}, { immediate: true })
 
 watch(board, (newBoard) => {
   if (!newBoard) return
@@ -452,7 +478,7 @@ onUnmounted(() => {
               :key="notice.postId"
               :to="getNoticeRoute(notice)"
               class="nv-board-notice-row"
-              :class="{ 'is-current': String(notice.postId) === String(currentPostId ?? '') }"
+              :class="{ 'is-current': String(notice.postId) === String(highlightedPostId ?? '') }"
             >
               <span class="nv-board-notice-badge">{{ $t('common.notice') }}</span>
               <span class="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--nv-ink)]">
@@ -522,8 +548,8 @@ onUnmounted(() => {
           :loading="showPostListLoading"
           :boardUrl="board.boardUrl"
           :current-sort="sort"
-          :currentPostId="currentPostId"
-          :linkQuery="route.query"
+          :currentPostId="highlightedPostId"
+          :linkQuery="listQuery"
           @update:sort="handleSortChange"
         />
 

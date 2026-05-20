@@ -52,7 +52,7 @@ const {
     agentUseYn: false
   },
   postsPayload: {
-    content: [],
+    content: [] as Array<Record<string, unknown>>,
     totalElements: 0,
     totalPages: 0
   },
@@ -145,7 +145,9 @@ vi.mock('@/utils/errorHandler', () => ({
 describe('BoardDetail', () => {
   beforeEach(() => {
     route.params.boardUrl = 'free'
+    delete (route.params as Record<string, string | undefined>).postId
     route.query = {}
+    route.name = 'board-detail'
     route.path = '/board/free'
     postsPayload.content = []
     postsPayload.totalElements = 0
@@ -482,6 +484,71 @@ describe('BoardDetail', () => {
     await wrapper.get('[data-testid="sort-proxy"]').trigger('click')
 
     expect(wrapper.get('[data-testid="sort-proxy"]').text()).toBe('likeCount,desc')
+  })
+
+  it('suppresses the current post highlight after create navigation', () => {
+    route.name = 'post-detail'
+    ;(route.params as Record<string, string>).postId = '123'
+    route.query = {
+      fromCreate: '1',
+      page: '2'
+    }
+    postsPayload.content = [
+      {
+        postId: 123,
+        boardUrl: 'free',
+        title: 'Created post',
+        createdAt: '2026-01-04T00:00:00',
+        viewCount: 0,
+        likeCount: 0,
+        commentCount: 0,
+        isNotice: false,
+        isNsfw: false,
+        isSpoiler: false,
+        author: { userId: 1, displayName: 'Author' }
+      }
+    ]
+
+    const PostListStub = defineComponent({
+      name: 'PostListStub',
+      props: {
+        currentPostId: {
+          type: String,
+          default: undefined
+        },
+        linkQuery: {
+          type: Object,
+          default: undefined
+        }
+      },
+      setup(props) {
+        return () => h('div', {
+          'data-testid': 'post-list-proxy',
+          'data-current-post-id': props.currentPostId ?? '',
+          'data-link-query': JSON.stringify(props.linkQuery ?? {})
+        })
+      }
+    })
+
+    const wrapper = mount(BoardDetail, {
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          RouterView: true,
+          PostList: PostListStub,
+          Pagination: true,
+          UserMenu: true,
+          BaseSkeleton: true
+        }
+      }
+    })
+
+    const postList = wrapper.get('[data-testid="post-list-proxy"]')
+    expect(postList.attributes('data-current-post-id')).toBe('')
+    expect(postList.attributes('data-link-query')).toBe('{"page":"2"}')
   })
 
   it('shows the latest three notices first and expands to all notices', async () => {

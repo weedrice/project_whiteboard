@@ -248,9 +248,10 @@ function revealSpoiler() {
 }
 
 function buildBoardListRoute(boardUrl: string) {
+  const { fromCreate, ...query } = route.query
   return {
     path: `/board/${boardUrl}`,
-    query: route.query
+    query
   }
 }
 
