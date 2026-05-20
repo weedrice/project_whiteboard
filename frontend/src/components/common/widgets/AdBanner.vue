@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { adApi, type Ad } from '@/api/ad'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
@@ -15,6 +15,18 @@ const props = withDefaults(defineProps<{
 const ad = ref<Ad | null>(null)
 const loading = ref(true)
 const impressionRecorded = ref(false)
+let isMounted = false
+let adRequestController: AbortController | null = null
+let impressionAbortController: AbortController | null = null
+
+function setFallbackAd() {
+  ad.value = {
+    adId: null,
+    title: t('common.advertisement'),
+    imageUrl: null,
+    targetUrl: null
+  }
+}
 
 function normalizeExternalUrl(rawUrl: string | null | undefined): string | null {
   if (!rawUrl) return null
@@ -43,28 +55,33 @@ function openExternalUrl(rawUrl: string | null | undefined) {
 }
 
 const fetchAd = async () => {
+  adRequestController?.abort()
+  const controller = new AbortController()
+  adRequestController = controller
+
   try {
-    const nextAd = await adApi.getAd(props.placement)
+    const nextAd = await adApi.getAd(props.placement, { signal: controller.signal })
+    if (!isMounted || controller.signal.aborted) {
+      return
+    }
     if (nextAd) {
       ad.value = nextAd
       void recordImpression()
     }
   } catch (error) {
-    logger.warn('Failed to load ad:', error)
-    ad.value = {
-      adId: null,
-      title: t('common.advertisement'),
-      imageUrl: null,
-      targetUrl: null
+    if (!isMounted || controller.signal.aborted) {
+      return
     }
+    logger.warn('Failed to load ad:', error)
+    setFallbackAd()
   } finally {
-    loading.value = false
-    if (!ad.value) {
-      ad.value = {
-        adId: null,
-        title: t('common.advertisement'),
-        imageUrl: null,
-        targetUrl: null
+    if (adRequestController === controller) {
+      adRequestController = null
+    }
+    if (isMounted && !controller.signal.aborted) {
+      loading.value = false
+      if (!ad.value) {
+        setFallbackAd()
       }
     }
   }
@@ -75,11 +92,25 @@ const recordImpression = async () => {
     return
   }
 
+  impressionAbortController?.abort()
+  const controller = new AbortController()
+  impressionAbortController = controller
+
   try {
-    await adApi.recordImpression(ad.value.adId)
+    await adApi.recordImpression(ad.value.adId, { signal: controller.signal })
+    if (!isMounted || controller.signal.aborted) {
+      return
+    }
     impressionRecorded.value = true
   } catch (error) {
+    if (!isMounted || controller.signal.aborted) {
+      return
+    }
     logger.warn('Failed to record ad impression:', error)
+  } finally {
+    if (impressionAbortController === controller) {
+      impressionAbortController = null
+    }
   }
 }
 
@@ -106,7 +137,16 @@ const handleAdClick = async () => {
 }
 
 onMounted(() => {
+  isMounted = true
   fetchAd()
+})
+
+onUnmounted(() => {
+  isMounted = false
+  adRequestController?.abort()
+  adRequestController = null
+  impressionAbortController?.abort()
+  impressionAbortController = null
 })
 </script>
 
