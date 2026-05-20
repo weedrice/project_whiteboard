@@ -73,6 +73,7 @@ const linkPopoverRef = ref<HTMLElement | null>(null)
 const tablePopoverRef = ref<HTMLElement | null>(null)
 const imageAltPopoverRef = ref<HTMLElement | null>(null)
 const colorTriggerElement = ref<HTMLElement | null>(null)
+const editorImagePreviewUrls = new Set<string>()
 
 const { isUploadingImage, validateImageFile, uploadImage, abortImageUpload, isAbortUploadError } = useEditorImageUpload()
 usePopoverFocus(slashPopoverRef, showSlashMenu)
@@ -90,8 +91,8 @@ const imageUploadQueue = useEditorImageUploadQueue<UploadedEditorImage>({
   validate: validateImageFile,
   upload: uploadImage,
   isAbort: isAbortUploadError,
-  onUploaded: (uploaded) => {
-    insertUploadedImage(uploaded)
+  onUploaded: (uploaded, file) => {
+    insertUploadedImage(uploaded, file)
   },
   onFailed: (error) => {
     logger.error('Image upload failed:', error)
@@ -528,18 +529,21 @@ function reportImageValidationError(validationError: 'type' | 'size') {
   toastStore.addToast(t('common.messages.fileSizeExceeded'), 'warning')
 }
 
-function insertUploadedImage(uploaded: { url: string; fileId?: number }) {
+function insertUploadedImage(uploaded: { url: string; fileId?: number }, file: File) {
   if (typeof uploaded.fileId === 'number') {
     fileIds.value.push(uploaded.fileId)
     emit('file-uploaded', uploaded.fileId)
   }
-  const serverAttributes = typeof uploaded.fileId === 'number'
-    ? ` data-file-id="${uploaded.fileId}"`
-    : ''
-  editor.value?.chain().focus().insertContent(`<img src="${escapeHtmlAttr(uploaded.url)}"${serverAttributes}>`).run()
+  const previewUrl = URL.createObjectURL(file)
+  editorImagePreviewUrls.add(previewUrl)
+  const serverAttributes = [
+    typeof uploaded.fileId === 'number' ? `data-file-id="${uploaded.fileId}"` : '',
+    `data-server-src="${escapeHtmlAttr(uploaded.url)}"`,
+  ].filter(Boolean).join(' ')
+  editor.value?.chain().focus().insertContent(`<img src="${escapeHtmlAttr(previewUrl)}" ${serverAttributes}>`).run()
   const editorRoot = editor.value?.view.dom
   const image = Array.from(editorRoot?.querySelectorAll('img') ?? [])
-    .find((candidate) => candidate.getAttribute('src') === uploaded.url)
+    .find((candidate) => candidate.getAttribute('src') === previewUrl)
   if (image instanceof HTMLImageElement) {
     openImageAltPopover(image, '')
   }
@@ -714,6 +718,8 @@ defineExpose({
 })
 
 onBeforeUnmount(() => {
+  editorImagePreviewUrls.forEach((url) => URL.revokeObjectURL(url))
+  editorImagePreviewUrls.clear()
   editor.value?.destroy()
 })
 </script>

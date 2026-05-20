@@ -458,10 +458,9 @@ describe('PostEditorTipTap', () => {
         setFile('ok.png')
         await fileInput.trigger('change')
         await flushPromises()
-        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="https://cdn.test/u1.png"'))
+        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="blob:https://noviis.kr/local-preview"'))
         expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-file-id="88"'))
-        expect(mocks.chain.insertContent).not.toHaveBeenCalledWith(expect.stringContaining('blob:https://noviis.kr/local-preview"'))
-        expect(mocks.chain.insertContent).not.toHaveBeenCalledWith(expect.stringContaining('data-server-src='))
+        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-server-src="https://cdn.test/u1.png"'))
 
         const firstFile = new File(['a'], 'first.png', { type: 'image/png' })
         const secondFile = new File(['b'], 'second.webp', { type: 'image/webp' })
@@ -476,8 +475,8 @@ describe('PostEditorTipTap', () => {
         await flushPromises()
         expect(mocks.uploadImage).toHaveBeenCalledWith(firstFile)
         expect(mocks.uploadImage).toHaveBeenCalledWith(secondFile)
-        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="https://cdn.test/first.png"'))
-        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="https://cdn.test/second.webp"'))
+        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-server-src="https://cdn.test/first.png"'))
+        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-server-src="https://cdn.test/second.webp"'))
 
         mocks.validateImageFile.mockReturnValueOnce(null)
         mocks.uploadImage.mockRejectedValueOnce(new Error('abort'))
@@ -501,10 +500,10 @@ describe('PostEditorTipTap', () => {
         mocks.uploadImage.mockResolvedValueOnce({ url: 'https://cdn.test/retry.png', fileId: 89 })
         await wrapper.findAll('.image-upload-status-btn')[0].trigger('click')
         await flushPromises()
-        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="https://cdn.test/retry.png"'))
+        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-server-src="https://cdn.test/retry.png"'))
 
         wrapper.unmount()
-        expect(URL.revokeObjectURL).not.toHaveBeenCalled()
+        expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:https://noviis.kr/local-preview')
     })
 
     it('uploads pasted and dropped image files through the sequential queue', async () => {
@@ -525,7 +524,7 @@ describe('PostEditorTipTap', () => {
         await flushPromises()
         expect(pasteEvent.defaultPrevented).toBe(true)
         expect(mocks.uploadImage).toHaveBeenCalledWith(pastedFile)
-        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="https://cdn.test/pasted.png"'))
+        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-server-src="https://cdn.test/pasted.png"'))
 
         const dragEnterEvent = new Event('dragenter', { bubbles: true, cancelable: true }) as DragEvent
         Object.defineProperty(dragEnterEvent, 'dataTransfer', {
@@ -544,7 +543,7 @@ describe('PostEditorTipTap', () => {
         expect(dropEvent.defaultPrevented).toBe(true)
         expect(wrapper.find('.image-drop-overlay').exists()).toBe(false)
         expect(mocks.uploadImage).toHaveBeenCalledWith(droppedFile)
-        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="https://cdn.test/dropped.webp"'))
+        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-server-src="https://cdn.test/dropped.webp"'))
     })
 
     it('opens image alt editor from selected images and applies or clears alt text', async () => {
