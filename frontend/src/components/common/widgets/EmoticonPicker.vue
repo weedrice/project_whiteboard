@@ -26,8 +26,8 @@ let detailRequestId = 0
 const { data: purchasedEmoticons, isLoading } = useQuery({
   queryKey: ['emoticons', 'purchased', 'picker'],
   queryFn: async () => {
-    const { data } = await emoticonApi.getPurchasedEmoticons({ size: 100 })
-    return data.data.content
+    const purchasedPage = await emoticonApi.getPurchasedEmoticonsData({ size: 100 })
+    return purchasedPage.content
   },
   enabled: () => props.show
 })
@@ -56,11 +56,11 @@ const handleEmoticonClick = async (emoticon: EmoticonMaster) => {
   selectedEmoticonId.value = emoticon.emoticonId
 
   try {
-    const { data } = await emoticonApi.getEmoticon(emoticon.emoticonId)
+    const emoticonDetail = await emoticonApi.getEmoticonData(emoticon.emoticonId)
     if (requestId !== detailRequestId || selectedEmoticonId.value !== emoticon.emoticonId) {
       return
     }
-    selectedEmoticon.value = data.data
+    selectedEmoticon.value = emoticonDetail
   } catch (error) {
     if (requestId === detailRequestId && selectedEmoticonId.value === emoticon.emoticonId) {
       logger.error('Failed to load emoticon detail:', error)

@@ -33,8 +33,8 @@ vi.mock('@tanstack/vue-query', () => ({
 
 vi.mock('@/api/emoticon', () => ({
     emoticonApi: {
-        getPurchasedEmoticons: mocks.getPurchasedEmoticons,
-        getEmoticon: mocks.getEmoticon,
+        getPurchasedEmoticonsData: mocks.getPurchasedEmoticons,
+        getEmoticonData: mocks.getEmoticon,
     },
 }))
 
@@ -93,7 +93,7 @@ describe('EmoticonPicker', () => {
     it('configures purchased emoticon query and respects show flag', async () => {
         const mockList = [createEmoticon(1, 'Cat')]
         mocks.getPurchasedEmoticons.mockResolvedValueOnce({
-            data: { data: { content: mockList } },
+            content: mockList,
         })
 
         mountPicker(false)
@@ -165,25 +165,21 @@ describe('EmoticonPicker', () => {
         const listItem = createEmoticon(10, 'PackOne', ['fun'])
         mocks.purchasedEmoticons.value = [listItem]
         mocks.getEmoticon.mockResolvedValueOnce({
-            data: {
-                data: {
-                    ...listItem,
-                    images: [
-                        {
-                            imageId: 101,
-                            emoticonId: 10,
-                            imageUrl: 'https://cdn.test/10-1.png',
-                            sortOrder: 1,
-                        },
-                        {
-                            imageId: 102,
-                            emoticonId: 10,
-                            imageUrl: 'https://cdn.test/10-2.png',
-                            sortOrder: 2,
-                        },
-                    ],
+            ...listItem,
+            images: [
+                {
+                    imageId: 101,
+                    emoticonId: 10,
+                    imageUrl: 'https://cdn.test/10-1.png',
+                    sortOrder: 1,
                 },
-            },
+                {
+                    imageId: 102,
+                    emoticonId: 10,
+                    imageUrl: 'https://cdn.test/10-2.png',
+                    sortOrder: 2,
+                },
+            ],
         })
 
         const wrapper = mountPicker(true)
@@ -225,11 +221,11 @@ describe('EmoticonPicker', () => {
         await buttons[0].trigger('click')
         await buttons[1].trigger('click')
 
-        resolveSecond({ data: { data: second } })
+        resolveSecond(second)
         await flushPromises()
         expect(wrapper.text()).toContain('SecondPack')
 
-        resolveFirst({ data: { data: first } })
+        resolveFirst(first)
         await flushPromises()
         expect(wrapper.text()).toContain('SecondPack')
         expect(wrapper.text()).not.toContain('FirstPack')
@@ -251,14 +247,10 @@ describe('EmoticonPicker', () => {
         const listItem = createEmoticon(21, 'NoImagesPack', ['edge'])
         mocks.purchasedEmoticons.value = [listItem]
         mocks.getEmoticon.mockResolvedValueOnce({
-            data: {
-                data: {
-                    emoticonId: 21,
-                    name: 'NoImagesPack',
-                    tags: ['edge'],
-                    isActive: true,
-                },
-            },
+            emoticonId: 21,
+            name: 'NoImagesPack',
+            tags: ['edge'],
+            isActive: true,
         })
 
         const wrapper = mountPicker(true)
@@ -272,9 +264,7 @@ describe('EmoticonPicker', () => {
     it('closes by button/backdrop and resets state when show becomes false', async () => {
         mocks.purchasedEmoticons.value = [createEmoticon(30, 'ResetPack', ['reset'])]
         mocks.getEmoticon.mockResolvedValueOnce({
-            data: {
-                data: createEmoticon(30, 'ResetPack', ['reset']),
-            },
+            ...createEmoticon(30, 'ResetPack', ['reset']),
         })
 
         const wrapper = mountPicker(true)
