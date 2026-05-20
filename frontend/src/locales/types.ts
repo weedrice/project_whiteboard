@@ -572,6 +572,7 @@ export interface BoardMessages {
       cancel: string
       dismiss: string
     }
+    dropImageHint: string
     imageAlt: {
       title: string
       label: string

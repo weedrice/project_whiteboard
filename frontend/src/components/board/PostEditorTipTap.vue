@@ -64,6 +64,7 @@ const tableCols = ref(3)
 const tableHeaderRow = ref(true)
 const savedListSelection = ref<{ from: number; to: number } | null>(null)
 const imageInput = ref<HTMLInputElement | null>(null)
+const isDraggingImage = ref(false)
 const slashActiveIndex = ref(0)
 const slashPopoverRef = ref<HTMLElement | null>(null)
 const advancedPopoverRef = ref<HTMLElement | null>(null)
@@ -508,6 +509,10 @@ function isCandidateImageFile(file: File) {
     || /\.(jpe?g|png|gif|webp|svg)$/i.test(file.name)
 }
 
+function hasCandidateImageFiles(files: File[]) {
+  return files.some(isCandidateImageFile)
+}
+
 function reportImageValidationError(validationError: 'type' | 'size') {
   if (validationError === 'type') {
     toastStore.addToast(t('common.messages.badRequest'), 'warning')
@@ -597,8 +602,27 @@ function onEditorPaste(event: ClipboardEvent) {
 
 function onEditorDrop(event: DragEvent) {
   const files = Array.from(event.dataTransfer?.files ?? [])
+  isDraggingImage.value = false
   if (queueImageFiles(files)) {
     event.preventDefault()
+  }
+}
+
+function onEditorDragEnter(event: DragEvent) {
+  const files = Array.from(event.dataTransfer?.items ?? [])
+    .filter((item) => item.kind === 'file')
+    .map((item) => item.getAsFile())
+    .filter((file): file is File => Boolean(file))
+  if (files.length > 0 && hasCandidateImageFiles(files)) {
+    isDraggingImage.value = true
+  }
+}
+
+function onEditorDragLeave(event: DragEvent) {
+  const currentTarget = event.currentTarget as HTMLElement
+  const relatedTarget = event.relatedTarget as Node | null
+  if (!relatedTarget || !currentTarget.contains(relatedTarget)) {
+    isDraggingImage.value = false
   }
 }
 
@@ -826,8 +850,20 @@ onBeforeUnmount(() => {
       </div>
     </Teleport>
 
-    <div class="tiptap-content flex-1 min-h-0 overflow-auto cursor-text" @mousedown="onContentAreaClick" @paste="onEditorPaste" @drop="onEditorDrop" @dragover.prevent>
+    <div
+      class="tiptap-content flex-1 min-h-0 overflow-auto cursor-text"
+      :class="{ 'tiptap-content--dragging-image': isDraggingImage }"
+      @mousedown="onContentAreaClick"
+      @paste="onEditorPaste"
+      @drop="onEditorDrop"
+      @dragenter.prevent="onEditorDragEnter"
+      @dragleave="onEditorDragLeave"
+      @dragover.prevent
+    >
       <EditorContent :editor="editor" />
+      <div v-if="isDraggingImage" class="image-drop-overlay" aria-live="polite">
+        {{ t('board.writePost.dropImageHint') }}
+      </div>
     </div>
   </div>
 </template>

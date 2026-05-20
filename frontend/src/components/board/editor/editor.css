@@ -116,6 +116,26 @@
   flex-direction: column;
   min-height: 0;
   overflow-y: auto;
+  position: relative;
+}
+
+.tiptap-content--dragging-image {
+  background: color-mix(in srgb, var(--nv-accent) 5%, var(--nv-surface));
+}
+
+.image-drop-overlay {
+  align-items: center;
+  border: 2px dashed color-mix(in srgb, var(--nv-accent) 50%, transparent);
+  border-radius: 1rem;
+  color: var(--nv-accent);
+  display: flex;
+  font-size: 0.95rem;
+  font-weight: 700;
+  inset: 0.75rem;
+  justify-content: center;
+  pointer-events: none;
+  position: absolute;
+  z-index: 5;
 }
 
 .tiptap-editor-wrap .tiptap-content > div,

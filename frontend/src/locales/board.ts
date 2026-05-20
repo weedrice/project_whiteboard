@@ -205,6 +205,7 @@ export const board: BoardMessages = {
       cancel: '취소',
       dismiss: '닫기',
     },
+    dropImageHint: '이미지를 놓아 업로드',
     imageAlt: {
       title: '이미지 대체 텍스트',
       label: '대체 텍스트',
@@ -478,6 +479,7 @@ export const boardEn: BoardMessages = {
       cancel: 'Cancel',
       dismiss: 'Dismiss',
     },
+    dropImageHint: 'Drop images to upload',
     imageAlt: {
       title: 'Image alt text',
       label: 'Alt text',

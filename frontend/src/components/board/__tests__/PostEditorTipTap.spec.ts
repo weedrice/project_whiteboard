@@ -518,6 +518,14 @@ describe('PostEditorTipTap', () => {
         expect(mocks.uploadImage).toHaveBeenCalledWith(pastedFile)
         expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="https://cdn.test/pasted.png"'))
 
+        const dragEnterEvent = new Event('dragenter', { bubbles: true, cancelable: true }) as DragEvent
+        Object.defineProperty(dragEnterEvent, 'dataTransfer', {
+            value: { items: [{ kind: 'file', getAsFile: () => droppedFile }] },
+        })
+        contentArea.element.dispatchEvent(dragEnterEvent)
+        await nextTick()
+        expect(wrapper.find('.image-drop-overlay').text()).toContain('board.writePost.dropImageHint')
+
         const dropEvent = new Event('drop', { bubbles: true, cancelable: true }) as DragEvent
         Object.defineProperty(dropEvent, 'dataTransfer', {
             value: { files: [droppedFile] },
@@ -525,6 +533,7 @@ describe('PostEditorTipTap', () => {
         contentArea.element.dispatchEvent(dropEvent)
         await flushPromises()
         expect(dropEvent.defaultPrevented).toBe(true)
+        expect(wrapper.find('.image-drop-overlay').exists()).toBe(false)
         expect(mocks.uploadImage).toHaveBeenCalledWith(droppedFile)
         expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="https://cdn.test/dropped.webp"'))
     })
