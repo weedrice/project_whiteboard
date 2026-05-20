@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, h } from 'vue'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import PostWrite from '../PostWrite.vue'
@@ -25,7 +25,8 @@ function createPostFormStub(hasUnsavedChanges: boolean, leaveMessage?: string) {
         default: undefined
       }
     },
-    setup(props, { expose }) {
+    emits: ['cancel'],
+    setup(props, { expose, emit }) {
       const exposed: Record<string, unknown> = {
         hasUnsavedChanges: () => hasUnsavedChanges,
       }
@@ -36,10 +37,12 @@ function createPostFormStub(hasUnsavedChanges: boolean, leaveMessage?: string) {
         hasUnsavedChanges: () => boolean
         getLeaveConfirmMessage?: () => string
       })
-      return () => h('div', {
+      return () => h('button', {
+        type: 'button',
         'data-testid': 'post-form',
         'data-mode': props.mode,
-        'data-board-url': props.boardUrl
+        'data-board-url': props.boardUrl,
+        onClick: () => emit('cancel')
       })
     }
   })
@@ -56,6 +59,14 @@ async function mountPostWrite(hasUnsavedChanges = false, leaveMessage?: string) 
       {
         path: '/done',
         component: { template: '<div>Done</div>' }
+      },
+      {
+        path: '/board/:boardUrl',
+        component: { template: '<div>Board</div>' }
+      },
+      {
+        path: '/board/:boardUrl/post/:postId',
+        component: { template: '<div>Post</div>' }
       }
     ]
   })
@@ -127,5 +138,46 @@ describe('PostWrite', () => {
 
     expect(confirmSpy).toHaveBeenCalledWith(expect.any(String))
     expect(router.currentRoute.value.path).toBe('/board/test/write')
+  })
+
+  it('navigates after create from the view-level onSubmitted handler', async () => {
+    const { router, wrapper } = await mountPostWrite(false)
+    const form = wrapper.findComponent({ name: 'PostForm' })
+
+    await form.props('onSubmitted')({
+      boardUrl: 'test',
+      newPostId: 123,
+      isSecret: false,
+      isBoardAdmin: false
+    })
+    await flushPromises()
+
+    expect(router.currentRoute.value.path).toBe('/board/test/post/123')
+  })
+
+  it('routes secret non-admin create results back to the board list', async () => {
+    const { router, wrapper } = await mountPostWrite(false)
+    const form = wrapper.findComponent({ name: 'PostForm' })
+
+    await form.props('onSubmitted')({
+      boardUrl: 'test',
+      newPostId: 123,
+      isSecret: true,
+      isBoardAdmin: false
+    })
+    await flushPromises()
+
+    expect(router.currentRoute.value.path).toBe('/board/test')
+  })
+
+  it('handles PostForm cancel from the view', async () => {
+    const { router, wrapper } = await mountPostWrite(false)
+
+    await router.push('/done')
+    await router.push('/board/test/write')
+    await wrapper.find('[data-testid="post-form"]').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.path).toBe('/done')
   })
 })

@@ -16,6 +16,10 @@ usePostFormLeaveGuard(postFormRef, leaveConfirmMessage)
 function handleSubmitted(result: { boardUrl: string; postId?: string | number }) {
   router.push(`/board/${result.boardUrl}/post/${result.postId ?? postId.value}`)
 }
+
+function handleCancel() {
+  router.back()
+}
 </script>
 
 <template>
@@ -25,5 +29,6 @@ function handleSubmitted(result: { boardUrl: string; postId?: string | number })
     :board-url="boardUrl"
     :post-id="postId"
     :on-submitted="handleSubmitted"
+    @cancel="handleCancel"
   />
 </template>

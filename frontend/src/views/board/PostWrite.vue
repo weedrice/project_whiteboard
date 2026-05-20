@@ -25,8 +25,18 @@ function handleSubmitted(result: {
   }
   router.push(`/board/${result.boardUrl}/post/${result.newPostId}`)
 }
+
+function handleCancel() {
+  router.back()
+}
 </script>
 
 <template>
-  <PostForm ref="postFormRef" mode="create" :board-url="boardUrl" :on-submitted="handleSubmitted" />
+  <PostForm
+    ref="postFormRef"
+    mode="create"
+    :board-url="boardUrl"
+    :on-submitted="handleSubmitted"
+    @cancel="handleCancel"
+  />
 </template>

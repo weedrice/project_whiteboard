@@ -3,16 +3,11 @@ import { defineComponent, h, nextTick, ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import type { EmoticonImage } from '@/types/emoticon'
 import PostForm from '../PostForm.vue'
-import { useRouter } from 'vue-router'
 import { useBoard } from '@/composables/useBoard'
 import { usePost } from '@/composables/usePost'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import logger from '@/utils/logger'
-
-vi.mock('vue-router', () => ({
-    useRouter: vi.fn(),
-}))
 
 vi.mock('vue-i18n', () => ({
     useI18n: () => ({ t: (key: string) => key }),
@@ -230,8 +225,6 @@ const stubs = {
     Teleport: true,
 }
 
-const mockPush = vi.fn()
-const mockBack = vi.fn()
 const mockAddToast = vi.fn()
 const mockCreateMutate = vi.fn()
 const mockUpdateMutate = vi.fn()
@@ -322,7 +315,6 @@ describe('PostForm', () => {
         isCreatePendingRef.value = false
         isUpdatePendingRef.value = false
 
-        vi.mocked(useRouter).mockReturnValue({ push: mockPush, back: mockBack } as any)
         vi.mocked(useAuthStore).mockReturnValue({ user: { role: 'USER' } } as any)
         vi.mocked(useToastStore).mockReturnValue({ addToast: mockAddToast } as any)
 
@@ -470,7 +462,7 @@ describe('PostForm', () => {
         expect(mockCreateMutate).not.toHaveBeenCalled()
     })
 
-    it('submits create payload and navigates on success', async () => {
+    it('submits create payload and leaves success navigation to the parent view', async () => {
         boardRef.value = {
             allowNsfw: true,
             isAdmin: true,
@@ -508,7 +500,7 @@ describe('PostForm', () => {
         })
 
         options.onSuccess({ data: { data: 99 } })
-        expect(mockPush).toHaveBeenCalledWith('/board/free/post/99')
+        expect(wrapper.emitted('cancel')).toBeUndefined()
     })
 
     it('saves the draft before create submit and includes draft id', async () => {
@@ -549,7 +541,7 @@ describe('PostForm', () => {
         expect(variables.data.contents).not.toContain('data-file-id')
     })
 
-    it('redirects to custom route after create when redirectOnCreate is provided', async () => {
+    it('keeps redirectOnCreate as a compatibility prop without navigating internally', async () => {
         setBoardCategories([{ categoryId: 1, name: 'General', minWriteRole: 'USER' }])
         const wrapper = mountPostForm('create', {}, {}, { redirectOnCreate: '/inquiry' })
 
@@ -560,7 +552,7 @@ describe('PostForm', () => {
 
         const [, options] = mockCreateMutate.mock.calls[0]
         options.onSuccess({ data: { data: 101 } })
-        expect(mockPush).toHaveBeenCalledWith('/inquiry')
+        expect(wrapper.emitted('cancel')).toBeUndefined()
     })
 
     it('delegates create navigation to onSubmitted when provided', async () => {
@@ -587,10 +579,9 @@ describe('PostForm', () => {
             isSecret: false,
             isBoardAdmin: false,
         })
-        expect(mockPush).not.toHaveBeenCalled()
     })
 
-    it('goes back after create when goBackOnCreate is true', async () => {
+    it('keeps goBackOnCreate as a compatibility prop without navigating internally', async () => {
         window.history.pushState({}, '', '/temp-inquiry')
         setBoardCategories([{ categoryId: 1, name: 'General', minWriteRole: 'USER' }])
         const wrapper = mountPostForm('create', {}, {}, {
@@ -606,7 +597,7 @@ describe('PostForm', () => {
         const [, options] = mockCreateMutate.mock.calls[0]
         options.onSuccess({ data: { data: 102 } })
 
-        expect(mockBack).toHaveBeenCalled()
+        expect(wrapper.emitted('cancel')).toBeUndefined()
     })
 
     it('logs errors when create or update fails', async () => {
@@ -638,7 +629,7 @@ describe('PostForm', () => {
         expect(logger.error).toHaveBeenCalledWith('Failed to update post:', expect.any(Error))
     })
 
-    it('submits update payload and navigates on success', async () => {
+    it('submits update payload and leaves success navigation to the parent view', async () => {
         routeState.params.postId = '77'
         postRef.value = {
             postId: 77,
@@ -674,7 +665,7 @@ describe('PostForm', () => {
         })
 
         options.onSuccess()
-        expect(mockPush).toHaveBeenCalledWith('/board/free/post/77')
+        expect(wrapper.emitted('cancel')).toBeUndefined()
     })
 
     it('delegates update navigation to onSubmitted when provided', async () => {
@@ -706,7 +697,6 @@ describe('PostForm', () => {
             isSecret: false,
             isBoardAdmin: false,
         })
-        expect(mockPush).not.toHaveBeenCalled()
     })
 
     it('saves the draft before update submit and includes draft id', async () => {
@@ -860,7 +850,7 @@ describe('PostForm', () => {
 
         const escapeForCancel = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
         document.dispatchEvent(escapeForCancel)
-        expect(mockBack).toHaveBeenCalled()
+        expect(wrapper.emitted('cancel')).toHaveLength(1)
 
         const exposed = wrapper.vm as unknown as {
             hasUnsavedChanges: () => boolean
@@ -881,7 +871,7 @@ describe('PostForm', () => {
         expect(wrapper.text()).toContain('loading')
     })
 
-    it('supports html source mode and cancel button navigation', async () => {
+    it('supports html source mode and emits cancel from the cancel button', async () => {
         boardRef.value = {
             allowNsfw: true,
             isAdmin: true,
@@ -905,7 +895,7 @@ describe('PostForm', () => {
         const cancelButton = wrapper.findAll('button').find((button) => button.text() === 'common.cancel')
         expect(cancelButton).toBeTruthy()
         await cancelButton?.trigger('click')
-        expect(mockBack).toHaveBeenCalled()
+        expect(wrapper.emitted('cancel')).toHaveLength(1)
     })
 
     it('keeps uploaded file ids after switching to html source mode', async () => {
