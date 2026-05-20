@@ -116,22 +116,89 @@ export function buildPostFormPayload({
     }
 }
 
+export function toSafePostLinkUrl(url: string): string {
+    const trimmed = (url || '').trim()
+    if (!trimmed) return ''
+    if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed) && !/^https?:\/\//i.test(trimmed)) return ''
+
+    let parsed: URL
+    try {
+        parsed = new URL(/^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`)
+    } catch {
+        return ''
+    }
+
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+        return ''
+    }
+
+    if (!parsed.hostname || parsed.username || parsed.password) {
+        return ''
+    }
+
+    return parsed.toString()
+}
+
 export function toEmbedPostVideoUrl(url: string): string {
     const trimmed = (url || '').trim()
     if (!trimmed) return ''
 
-    const youtubeMatch = trimmed.match(/^(?:(https?):\/\/)?(?:(?:www|m)\.)?youtube\.com\/watch.*v=([a-zA-Z0-9_-]+)/)
-        || trimmed.match(/^(?:(https?):\/\/)?(?:(?:www|m)\.)?youtu\.be\/([a-zA-Z0-9_-]+)/)
-    if (youtubeMatch) {
-        return `${youtubeMatch[1] || 'https'}://www.youtube.com/embed/${youtubeMatch[2]}?showinfo=0`
+    let parsed: URL
+    try {
+        parsed = new URL(/^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`)
+    } catch {
+        return ''
     }
 
-    const vimeoMatch = trimmed.match(/^(?:(https?):\/\/)?(?:www\.)?vimeo\.com\/(\d+)/)
-    if (vimeoMatch) {
-        return `${vimeoMatch[1] || 'https'}://player.vimeo.com/video/${vimeoMatch[2]}/`
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+        return ''
     }
 
-    return trimmed
+    const host = parsed.hostname.toLowerCase()
+    const path = parsed.pathname
+    const youtubeIdPattern = /^[a-zA-Z0-9_-]+$/
+    const vimeoIdPattern = /^\d+$/
+
+    if (host === 'youtu.be') {
+        const id = path.split('/').filter(Boolean)[0] ?? ''
+        return youtubeIdPattern.test(id) ? `https://www.youtube.com/embed/${id}?showinfo=0` : ''
+    }
+
+    if (['youtube.com', 'www.youtube.com', 'm.youtube.com'].includes(host)) {
+        const watchId = parsed.searchParams.get('v') ?? ''
+        if (path === '/watch' && youtubeIdPattern.test(watchId)) {
+            return `https://www.youtube.com/embed/${watchId}?showinfo=0`
+        }
+
+        const pathParts = path.split('/').filter(Boolean)
+        if (pathParts[0] === 'embed' && youtubeIdPattern.test(pathParts[1] ?? '')) {
+            return `https://www.youtube.com/embed/${pathParts[1]}?showinfo=0`
+        }
+        if (pathParts[0] === 'shorts' && youtubeIdPattern.test(pathParts[1] ?? '')) {
+            return `https://www.youtube.com/embed/${pathParts[1]}?showinfo=0`
+        }
+    }
+
+    if (['youtube-nocookie.com', 'www.youtube-nocookie.com'].includes(host)) {
+        const pathParts = path.split('/').filter(Boolean)
+        if (pathParts[0] === 'embed' && youtubeIdPattern.test(pathParts[1] ?? '')) {
+            return `https://www.youtube-nocookie.com/embed/${pathParts[1]}?showinfo=0`
+        }
+    }
+
+    if (host === 'vimeo.com') {
+        const id = path.split('/').filter(Boolean)[0] ?? ''
+        return vimeoIdPattern.test(id) ? `https://player.vimeo.com/video/${id}/` : ''
+    }
+
+    if (host === 'player.vimeo.com') {
+        const pathParts = path.split('/').filter(Boolean)
+        if (pathParts[0] === 'video' && vimeoIdPattern.test(pathParts[1] ?? '')) {
+            return `https://player.vimeo.com/video/${pathParts[1]}/`
+        }
+    }
+
+    return ''
 }
 
 function getDefaultBaseOrigin(): string {

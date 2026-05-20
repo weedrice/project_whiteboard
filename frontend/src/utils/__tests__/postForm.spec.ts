@@ -5,6 +5,7 @@ import {
     extractPostFileIdsFromContent,
     resolvePostFormFileIds,
     toEmbedPostVideoUrl,
+    toSafePostLinkUrl,
 } from '../postForm'
 
 const baseForm = {
@@ -80,9 +81,32 @@ describe('postForm', () => {
         })
     })
 
-    it('normalizes supported video URLs to embed URLs', () => {
+    it('normalizes supported video URLs to backend-allowed embed URLs', () => {
         expect(toEmbedPostVideoUrl('https://youtu.be/abc_123')).toBe('https://www.youtube.com/embed/abc_123?showinfo=0')
+        expect(toEmbedPostVideoUrl('https://www.youtube.com/watch?v=watch_123')).toBe('https://www.youtube.com/embed/watch_123?showinfo=0')
+        expect(toEmbedPostVideoUrl('https://youtube.com/shorts/short_123')).toBe('https://www.youtube.com/embed/short_123?showinfo=0')
+        expect(toEmbedPostVideoUrl('https://www.youtube.com/embed/embed_123?start=10')).toBe('https://www.youtube.com/embed/embed_123?showinfo=0')
+        expect(toEmbedPostVideoUrl('https://www.youtube-nocookie.com/embed/private_123')).toBe('https://www.youtube-nocookie.com/embed/private_123?showinfo=0')
         expect(toEmbedPostVideoUrl('https://vimeo.com/12345')).toBe('https://player.vimeo.com/video/12345/')
-        expect(toEmbedPostVideoUrl('https://example.com/video')).toBe('https://example.com/video')
+        expect(toEmbedPostVideoUrl('https://player.vimeo.com/video/67890?autoplay=1')).toBe('https://player.vimeo.com/video/67890/')
+    })
+
+    it('rejects unsupported or unsafe video URLs', () => {
+        expect(toEmbedPostVideoUrl('https://example.com/video')).toBe('')
+        expect(toEmbedPostVideoUrl('javascript:alert(1)')).toBe('')
+        expect(toEmbedPostVideoUrl('data:text/html,video')).toBe('')
+        expect(toEmbedPostVideoUrl('https://youtube.com/watch')).toBe('')
+        expect(toEmbedPostVideoUrl('https://player.vimeo.com/channels/staffpicks/12345')).toBe('')
+    })
+
+    it('normalizes only safe post link URLs', () => {
+        expect(toSafePostLinkUrl('https://example.com/path')).toBe('https://example.com/path')
+        expect(toSafePostLinkUrl('http://example.com')).toBe('http://example.com/')
+        expect(toSafePostLinkUrl('example.com/docs')).toBe('https://example.com/docs')
+        expect(toSafePostLinkUrl('javascript:alert(1)')).toBe('')
+        expect(toSafePostLinkUrl('data:text/html,link')).toBe('')
+        expect(toSafePostLinkUrl('ftp://example.com/file')).toBe('')
+        expect(toSafePostLinkUrl('https://user:pass@example.com')).toBe('')
+        expect(toSafePostLinkUrl('http://')).toBe('')
     })
 })

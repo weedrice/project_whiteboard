@@ -13,14 +13,24 @@ import { TableKit } from '@tiptap/extension-table'
 import HorizontalRule from '@tiptap/extension-horizontal-rule'
 import { FontSize, LineHeight } from '@tiptap/extension-text-style'
 import { Video } from '@/extensions/tiptap-video'
-import { Image as ImageIcon, TextAlignCenter, TextAlignEnd, TextAlignJustify, TextAlignStart, Video as VideoIcon } from 'lucide-vue-next'
-import BaseButton from '@/components/common/ui/BaseButton.vue'
+import PostEditorAdvancedPopover from '@/components/board/editor/PostEditorAdvancedPopover.vue'
+import PostEditorColorPopover from '@/components/board/editor/PostEditorColorPopover.vue'
+import PostEditorImageAltPopover from '@/components/board/editor/PostEditorImageAltPopover.vue'
+import PostEditorLinkPopover from '@/components/board/editor/PostEditorLinkPopover.vue'
+import PostEditorSlashMenu from '@/components/board/editor/PostEditorSlashMenu.vue'
+import PostEditorTablePopover from '@/components/board/editor/PostEditorTablePopover.vue'
+import PostEditorToolbar from '@/components/board/editor/PostEditorToolbar.vue'
+import '@/components/board/editor/editor.css'
+import { useAnchoredPopover } from '@/composables/useAnchoredPopover'
 import { useEditorImageUpload } from '@/composables/useEditorImageUpload'
+import { useEditorImageUploadQueue, type EditorImageUploadItem } from '@/composables/useEditorImageUploadQueue'
+import { usePopoverFocus } from '@/composables/usePopoverFocus'
 import { useI18n } from 'vue-i18n'
 import { useThemeStore } from '@/stores/theme'
 import { useToastStore } from '@/stores/toast'
 import type { EmoticonImage } from '@/types/emoticon'
 import logger from '@/utils/logger'
+import { toSafePostLinkUrl } from '@/utils/postForm'
 
 const props = defineProps<{
   modelValue: string
@@ -33,6 +43,9 @@ const emit = defineEmits<{
   (e: 'file-uploaded', fileId: number): void
 }>()
 
+type SlashAction = 'heading' | 'image' | 'quote' | 'list' | 'link' | 'table' | 'video' | 'codeBlock' | 'divider'
+type UploadedEditorImage = { url: string; fileId?: number }
+
 const { t } = useI18n()
 const toastStore = useToastStore()
 const themeStore = useThemeStore()
@@ -42,16 +55,50 @@ const showLinkPopover = ref(false)
 const showTablePopover = ref(false)
 const showAdvancedMenu = ref(false)
 const showSlashMenu = ref(false)
+const showImageAltPopover = ref(false)
 const linkUrl = ref('')
 const linkText = ref('')
+const imageAltText = ref('')
 const tableRows = ref(3)
 const tableCols = ref(3)
 const tableHeaderRow = ref(true)
 const savedListSelection = ref<{ from: number; to: number } | null>(null)
 const imageInput = ref<HTMLInputElement | null>(null)
-const localPreviewUrls: string[] = []
+const isDraggingImage = ref(false)
+const slashActiveIndex = ref(0)
+const slashPopoverRef = ref<HTMLElement | null>(null)
+const advancedPopoverRef = ref<HTMLElement | null>(null)
+const colorPanelRef = ref<HTMLElement | null>(null)
+const linkPopoverRef = ref<HTMLElement | null>(null)
+const tablePopoverRef = ref<HTMLElement | null>(null)
+const imageAltPopoverRef = ref<HTMLElement | null>(null)
+const colorTriggerElement = ref<HTMLElement | null>(null)
 
-const { isUploadingImage, validateImageFile, uploadImage, isAbortUploadError } = useEditorImageUpload()
+const { isUploadingImage, validateImageFile, uploadImage, abortImageUpload, isAbortUploadError } = useEditorImageUpload()
+usePopoverFocus(slashPopoverRef, showSlashMenu)
+usePopoverFocus(advancedPopoverRef, showAdvancedMenu)
+usePopoverFocus(linkPopoverRef, showLinkPopover)
+usePopoverFocus(tablePopoverRef, showTablePopover)
+usePopoverFocus(imageAltPopoverRef, showImageAltPopover)
+const slashPosition = useAnchoredPopover(slashPopoverRef, showSlashMenu)
+const advancedPosition = useAnchoredPopover(advancedPopoverRef, showAdvancedMenu)
+const colorPosition = useAnchoredPopover(colorPanelRef, showColorPanel)
+const linkPosition = useAnchoredPopover(linkPopoverRef, showLinkPopover)
+const tablePosition = useAnchoredPopover(tablePopoverRef, showTablePopover)
+const imageAltPosition = useAnchoredPopover(imageAltPopoverRef, showImageAltPopover)
+const imageUploadQueue = useEditorImageUploadQueue<UploadedEditorImage>({
+  validate: validateImageFile,
+  upload: uploadImage,
+  isAbort: isAbortUploadError,
+  onUploaded: (uploaded) => {
+    insertUploadedImage(uploaded)
+  },
+  onFailed: (error) => {
+    logger.error('Image upload failed:', error)
+    toastStore.addToast(t('common.messages.uploadFailed'), 'error')
+  },
+  abort: abortImageUpload,
+})
 
 const EditorImage = Image.extend({
   addAttributes() {
@@ -81,6 +128,13 @@ const colorPresets = [
   '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6',
   '#ffffff', '#1f2937', '#4b5563', '#d1d5db',
 ]
+const colorLabelKeys = [
+  'black', 'gray', 'muted', 'lightGray',
+  'red', 'orange', 'yellow', 'green',
+  'blue', 'purple', 'pink', 'teal',
+  'white', 'dark', 'slate', 'paleGray',
+]
+const slashActions: SlashAction[] = ['heading', 'image', 'quote', 'list', 'link', 'table', 'video', 'codeBlock', 'divider']
 const fontSizes = ['12px', '14px', '16px', '18px', '24px']
 const lineHeights = ['1', '1.25', '1.5', '1.75', '2']
 
@@ -116,10 +170,19 @@ const editor = useEditor({
           && textBeforeCursor.trim().length === 0
 
         if (shouldOpenSlashMenu) {
-          showSlashMenu.value = true
+          event.preventDefault()
+          openSlashMenu()
+          return true
         }
         return false
       },
+    },
+    handleClickOn: (_view, _pos, node, nodePos, event) => {
+      if (node.type.name !== 'image') return false
+      const target = event.target instanceof HTMLElement ? event.target.closest('img') : null
+      if (!(target instanceof HTMLImageElement)) return false
+      openImageAltPopover(target, node.attrs.alt ?? '', nodePos)
+      return false
     },
   },
   extensions: [
@@ -179,32 +242,99 @@ const isDefaultColor = computed(() => !currentTextColor.value)
 const currentFontSize = computed(() => editor.value?.getAttributes('textStyle').fontSize || '')
 const currentLineHeight = computed(() => editor.value?.getAttributes('textStyle').lineHeight || '')
 const currentHighlightColor = computed(() => editor.value?.getAttributes('highlight').color || '#fef08a')
+const hasImageUploadError = computed(() => imageUploadQueue.failedCount.value > 0)
+const failedImageCount = computed(() => imageUploadQueue.failedCount.value)
+const failedImageFiles = computed(() => imageUploadQueue.failedItems.value.map((item) => item.file))
+const currentUploadingImageName = computed(() => imageUploadQueue.currentItem.value?.file.name ?? '')
+const imageUploadQueueCount = computed(() => imageUploadQueue.queueCount.value)
+const activeTextAlign = computed<'left' | 'center' | 'right' | 'justify' | ''>(() => {
+  if (isTextAlignActive('left')) return 'left'
+  if (isTextAlignActive('center')) return 'center'
+  if (isTextAlignActive('right')) return 'right'
+  if (isTextAlignActive('justify')) return 'justify'
+  return ''
+})
+const colorPresetLabels = computed(() => Object.fromEntries(
+  colorPresets.map((color, index) => [
+    color,
+    t(`board.writePost.colorLabels.${colorLabelKeys[index]}`),
+  ]),
+))
 
 function closeFloatingMenus() {
   showAdvancedMenu.value = false
   showSlashMenu.value = false
 }
 
+function openSlashMenu(anchor?: HTMLElement) {
+  closeFloatingMenus()
+  slashPosition.setAnchor(anchor)
+  slashActiveIndex.value = 0
+  showSlashMenu.value = true
+}
+
+function toggleSlashMenu(anchor?: HTMLElement) {
+  if (showSlashMenu.value) {
+    showSlashMenu.value = false
+    return
+  }
+  openSlashMenu(anchor)
+}
+
+function moveSlashSelection(direction: 1 | -1) {
+  slashActiveIndex.value = (slashActiveIndex.value + direction + slashActions.length) % slashActions.length
+}
+
+function setSlashSelection(index: number) {
+  slashActiveIndex.value = Math.max(0, Math.min(slashActions.length - 1, index))
+}
+
 function setDefaultColor() {
   editor.value?.chain().focus().unsetColor().run()
-  showColorPanel.value = false
+  closeColorPanel()
 }
 
 function setPresetColor(color: string) {
   editor.value?.chain().focus().setColor(color).run()
+  closeColorPanel()
+}
+
+function toggleColorPanel(anchor?: HTMLElement) {
+  if (showColorPanel.value) {
+    closeColorPanel(anchor)
+    return
+  }
+  colorTriggerElement.value = anchor ?? null
+  colorPosition.setAnchor(anchor)
+  showColorPanel.value = true
+}
+
+function closeColorPanel(focusTarget = colorTriggerElement.value) {
   showColorPanel.value = false
+  colorPosition.clearAnchor()
+  colorTriggerElement.value = null
+  if (focusTarget instanceof HTMLElement) {
+    focusTarget.focus()
+  }
 }
 
-function toggleColorPanel() {
-  showColorPanel.value = !showColorPanel.value
-}
-
-function closeColorPanel() {
-  showColorPanel.value = false
-}
-
-function openLinkPopover() {
+function openAdvancedMenu(anchor?: HTMLElement) {
   closeFloatingMenus()
+  advancedPosition.setAnchor(anchor)
+  showAdvancedMenu.value = true
+}
+
+function toggleAdvancedMenu(anchor?: HTMLElement) {
+  if (showAdvancedMenu.value) {
+    showAdvancedMenu.value = false
+    return
+  }
+  openAdvancedMenu(anchor)
+}
+
+function openLinkPopover(anchor?: HTMLElement) {
+  closeFloatingMenus()
+  linkPosition.setAnchor(anchor)
   const attrs = editor.value?.getAttributes('link')
   linkUrl.value = attrs?.href ?? ''
   const { from, to } = editor.value?.state.selection ?? {}
@@ -217,8 +347,35 @@ function openLinkPopover() {
 
 function closeLinkPopover() {
   showLinkPopover.value = false
+  linkPosition.clearAnchor()
   linkUrl.value = ''
   linkText.value = ''
+}
+
+function openImageAltPopover(anchor: HTMLElement, alt = '', nodePos?: number) {
+  closeFloatingMenus()
+  imageAltPosition.setAnchor(anchor)
+  imageAltText.value = alt
+  showImageAltPopover.value = true
+  if (typeof nodePos === 'number') {
+    editor.value?.commands.setTextSelection(nodePos)
+  }
+}
+
+function closeImageAltPopover() {
+  showImageAltPopover.value = false
+  imageAltPosition.clearAnchor()
+  imageAltText.value = ''
+}
+
+function applyImageAlt(value = imageAltText.value) {
+  editor.value?.chain().focus().updateAttributes('image', { alt: value.trim() }).run()
+  closeImageAltPopover()
+}
+
+function clearImageAlt() {
+  editor.value?.chain().focus().updateAttributes('image', { alt: null }).run()
+  closeImageAltPopover()
 }
 
 function escapeHtmlAttr(value: string) {
@@ -237,23 +394,20 @@ function escapeHtmlText(value: string) {
     .replace(/"/g, '&quot;')
 }
 
-function createLocalPreviewUrl(file: File): string | null {
-  if (typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
-    return null
-  }
-  const previewUrl = URL.createObjectURL(file)
-  localPreviewUrls.push(previewUrl)
-  return previewUrl
-}
-
-function applyLink() {
-  const url = linkUrl.value.trim()
-  const displayText = linkText.value.trim()
+function applyLink(nextUrl = linkUrl.value, nextText = linkText.value) {
+  linkUrl.value = nextUrl
+  linkText.value = nextText
+  const url = nextUrl.trim()
+  const displayText = nextText.trim()
   if (!url) {
     toastStore.addToast(t('board.writePost.linkUrlPrompt'), 'error')
     return
   }
-  const safeUrl = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`
+  const safeUrl = toSafePostLinkUrl(url)
+  if (!safeUrl) {
+    toastStore.addToast(t('board.writePost.invalidLinkUrl'), 'error')
+    return
+  }
   const text = displayText || url
   const { from, to } = editor.value?.state.selection ?? {}
   const hasSelection = from !== undefined && to !== undefined && from < to
@@ -270,8 +424,9 @@ function removeLink() {
   closeLinkPopover()
 }
 
-function openTablePopover() {
+function openTablePopover(anchor?: HTMLElement) {
   closeFloatingMenus()
+  tablePosition.setAnchor(anchor)
   tableRows.value = 3
   tableCols.value = 3
   tableHeaderRow.value = true
@@ -280,6 +435,7 @@ function openTablePopover() {
 
 function closeTablePopover() {
   showTablePopover.value = false
+  tablePosition.clearAnchor()
 }
 
 function applyTable() {
@@ -348,47 +504,125 @@ function triggerImageUpload() {
   imageInput.value?.click()
 }
 
-async function onImageChange(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
+function isCandidateImageFile(file: File) {
+  return file.type.toLowerCase().startsWith('image/')
+    || /\.(jpe?g|png|gif|webp|svg)$/i.test(file.name)
+}
 
-  const validationError = validateImageFile(file)
+function hasCandidateImageFiles(files: File[]) {
+  return files.some(isCandidateImageFile)
+}
+
+function reportImageValidationError(validationError: 'type' | 'size') {
   if (validationError === 'type') {
     toastStore.addToast(t('common.messages.badRequest'), 'warning')
-    input.value = ''
     return
   }
-  if (validationError === 'size') {
-    toastStore.addToast(t('common.messages.fileSizeExceeded'), 'warning')
-    input.value = ''
-    return
+  toastStore.addToast(t('common.messages.fileSizeExceeded'), 'warning')
+}
+
+function insertUploadedImage(uploaded: { url: string; fileId?: number }) {
+  if (typeof uploaded.fileId === 'number') {
+    fileIds.value.push(uploaded.fileId)
+    emit('file-uploaded', uploaded.fileId)
   }
+  const serverAttributes = typeof uploaded.fileId === 'number'
+    ? ` data-file-id="${uploaded.fileId}"`
+    : ''
+  editor.value?.chain().focus().insertContent(`<img src="${escapeHtmlAttr(uploaded.url)}"${serverAttributes}>`).run()
+  const editorRoot = editor.value?.view.dom
+  const image = Array.from(editorRoot?.querySelectorAll('img') ?? [])
+    .find((candidate) => candidate.getAttribute('src') === uploaded.url)
+  if (image instanceof HTMLImageElement) {
+    openImageAltPopover(image, '')
+  }
+}
+
+function queueImageFiles(files: File[]) {
+  const candidateFiles = files.filter(isCandidateImageFile)
+  if (candidateFiles.length === 0) return false
+  const validFiles = candidateFiles.filter((file) => {
+    const validationError = validateImageFile(file)
+    if (validationError) {
+      reportImageValidationError(validationError)
+      return false
+    }
+    return true
+  })
+  if (validFiles.length > 0) {
+    imageUploadQueue.enqueueFiles(validFiles)
+  }
+  return true
+}
+
+async function onImageChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const files = Array.from(input.files ?? [])
+  if (files.length === 0) return
 
   try {
-    const uploaded = await uploadImage(file)
-    if (uploaded) {
-      if (typeof uploaded.fileId === 'number') {
-        fileIds.value.push(uploaded.fileId)
-        emit('file-uploaded', uploaded.fileId)
-      }
-      const previewUrl = typeof uploaded.fileId === 'number'
-        ? createLocalPreviewUrl(file) ?? uploaded.url
-        : uploaded.url
-      const serverAttributes = typeof uploaded.fileId === 'number'
-        ? ` data-file-id="${uploaded.fileId}" data-server-src="${escapeHtmlAttr(uploaded.url)}"`
-        : ''
-      editor.value?.chain().focus().insertContent(`<img src="${escapeHtmlAttr(previewUrl)}"${serverAttributes}>`).run()
-    }
-  } catch (error: unknown) {
-    if (isAbortUploadError(error)) {
-      input.value = ''
-      return
-    }
-    logger.error('Image upload failed:', error)
-    toastStore.addToast(t('common.messages.uploadFailed'), 'error')
+    queueImageFiles(files)
   } finally {
     input.value = ''
+  }
+}
+
+function retryImageUpload() {
+  imageUploadQueue.retryNextFailed()
+}
+
+function retryFailedImageUpload(file: File) {
+  const item = findFailedImageUploadItem(file)
+  if (item) imageUploadQueue.retryItem(item)
+}
+
+function dismissImageUploadError() {
+  imageUploadQueue.dismissFailed()
+}
+
+function dismissFailedImageUpload(file: File) {
+  const item = findFailedImageUploadItem(file)
+  if (item) imageUploadQueue.dismissItem(item)
+}
+
+function cancelImageUpload() {
+  imageUploadQueue.cancel()
+}
+
+function findFailedImageUploadItem(file: File): EditorImageUploadItem<UploadedEditorImage> | undefined {
+  return imageUploadQueue.failedItems.value.find((item) => item.file === file)
+}
+
+function onEditorPaste(event: ClipboardEvent) {
+  const files = Array.from(event.clipboardData?.files ?? [])
+  if (queueImageFiles(files)) {
+    event.preventDefault()
+  }
+}
+
+function onEditorDrop(event: DragEvent) {
+  const files = Array.from(event.dataTransfer?.files ?? [])
+  isDraggingImage.value = false
+  if (queueImageFiles(files)) {
+    event.preventDefault()
+  }
+}
+
+function onEditorDragEnter(event: DragEvent) {
+  const files = Array.from(event.dataTransfer?.items ?? [])
+    .filter((item) => item.kind === 'file')
+    .map((item) => item.getAsFile())
+    .filter((file): file is File => Boolean(file))
+  if (files.length > 0 && hasCandidateImageFiles(files)) {
+    isDraggingImage.value = true
+  }
+}
+
+function onEditorDragLeave(event: DragEvent) {
+  const currentTarget = event.currentTarget as HTMLElement
+  const relatedTarget = event.relatedTarget as Node | null
+  if (!relatedTarget || !currentTarget.contains(relatedTarget)) {
+    isDraggingImage.value = false
   }
 }
 
@@ -404,8 +638,11 @@ function setEmoticon(image: EmoticonImage) {
   }).run()
 }
 
-function applySlashAction(action: 'image' | 'quote' | 'list' | 'link' | 'divider') {
+function applySlashAction(action: SlashAction) {
   switch (action) {
+    case 'heading':
+      editor.value?.chain().focus().toggleHeading({ level: 2 }).run()
+      break
     case 'image':
       triggerImageUpload()
       break
@@ -418,6 +655,15 @@ function applySlashAction(action: 'image' | 'quote' | 'list' | 'link' | 'divider
     case 'link':
       openLinkPopover()
       break
+    case 'table':
+      openTablePopover()
+      break
+    case 'video':
+      emit('open-video')
+      break
+    case 'codeBlock':
+      editor.value?.chain().focus().toggleCodeBlock().run()
+      break
     case 'divider':
       editor.value?.chain().focus().setHorizontalRule().run()
       break
@@ -425,8 +671,7 @@ function applySlashAction(action: 'image' | 'quote' | 'list' | 'link' | 'divider
   showSlashMenu.value = false
 }
 
-function applyFontSize(event: Event) {
-  const value = (event.target as HTMLSelectElement).value
+function applyFontSize(value: string) {
   if (!editor.value) return
   if (value) {
     editor.value.chain().focus().setFontSize(value).run()
@@ -435,8 +680,7 @@ function applyFontSize(event: Event) {
   editor.value.chain().focus().unsetFontSize().run()
 }
 
-function applyLineHeight(event: Event) {
-  const value = (event.target as HTMLSelectElement).value
+function applyLineHeight(value: string) {
   if (!editor.value) return
   if (value) {
     editor.value.chain().focus().setLineHeight(value).run()
@@ -445,14 +689,8 @@ function applyLineHeight(event: Event) {
   editor.value.chain().focus().unsetLineHeight().run()
 }
 
-function applyHighlightColor(event: Event) {
-  const value = (event.target as HTMLInputElement).value
+function applyHighlightColor(value: string) {
   editor.value?.chain().focus().setHighlight({ color: value }).run()
-}
-
-function applyCustomTextColor(event: Event) {
-  const value = (event.target as HTMLInputElement).value
-  editor.value?.chain().focus().setColor(value).run()
 }
 
 function applyHorizontalRule() {
@@ -475,590 +713,169 @@ defineExpose({
 })
 
 onBeforeUnmount(() => {
-  if (typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
-    localPreviewUrls.forEach((previewUrl) => URL.revokeObjectURL(previewUrl))
-  }
   editor.value?.destroy()
 })
 </script>
 
 <template>
   <div class="tiptap-editor-wrap flex min-h-0 flex-1 flex-col">
-    <input ref="imageInput" type="file" accept="image/*" class="hidden" @change="onImageChange">
+    <input ref="imageInput" type="file" accept=".jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp" multiple class="hidden" @change="onImageChange">
 
-    <div v-if="editor" class="tiptap-toolbar flex flex-wrap items-center gap-2 border-b border-[var(--nv-line)] bg-[var(--nv-surface-alt)] p-2">
-      <div class="tiptap-toolbar-group">
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('bold') }" :title="t('board.writePost.toolbar.bold')" :aria-pressed="editor.isActive('bold')" @mousedown.prevent @click="editor.chain().focus().toggleBold().run()">
-          <span class="font-bold">B</span>
-        </button>
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('italic') }" :title="t('board.writePost.toolbar.italic')" :aria-pressed="editor.isActive('italic')" @mousedown.prevent @click="editor.chain().focus().toggleItalic().run()">
-          <span class="italic">I</span>
-        </button>
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('underline') }" :title="t('board.writePost.toolbar.underline')" :aria-pressed="editor.isActive('underline')" @mousedown.prevent @click="editor.chain().focus().toggleUnderline().run()">
-          <span class="underline">U</span>
-        </button>
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('strike') }" :title="t('board.writePost.toolbar.strikethrough')" :aria-pressed="editor.isActive('strike')" @mousedown.prevent @click="editor.chain().focus().toggleStrike().run()">
-          <span class="line-through">S</span>
-        </button>
-      </div>
-      <div class="tiptap-toolbar-group">
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('link') }" :title="t('board.writePost.toolbar.link')" :aria-pressed="editor.isActive('link')" @mousedown.prevent @click="openLinkPopover">
-          {{ t('board.writePost.toolbar.link') }}
-        </button>
-        <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.image')" :disabled="isUploadingImage" @mousedown.prevent @click="triggerImageUpload">
-          <ImageIcon class="h-4 w-4" aria-hidden="true" />
-        </button>
-        <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.video')" @mousedown.prevent @click="emit('open-video')">
-          <VideoIcon class="h-4 w-4" aria-hidden="true" />
-        </button>
-        <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.emoticon')" @mousedown.prevent @click="emit('open-emoticon')">
-          :)
-        </button>
-      </div>
-      <div class="tiptap-toolbar-group">
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('bulletList') }" :title="t('board.writePost.toolbar.bulletList')" :aria-pressed="editor.isActive('bulletList')" @mousedown.prevent="saveListSelection" @click="applyBulletList">
-          UL
-        </button>
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('orderedList') }" :title="t('board.writePost.toolbar.orderedList')" :aria-pressed="editor.isActive('orderedList')" @mousedown.prevent="saveListSelection" @click="applyOrderedList">
-          1.
-        </button>
-      </div>
-      <div class="tiptap-toolbar-group">
-        <button type="button" class="tiptap-btn tiptap-btn-pill" :title="t('board.writePost.toolbar.slashMenu')" aria-haspopup="dialog" :aria-expanded="showSlashMenu" @mousedown.prevent @click="showSlashMenu = !showSlashMenu">
-          {{ t('board.writePost.toolbar.insertBlock') }}
-        </button>
-        <button type="button" class="tiptap-btn tiptap-btn-pill" :title="t('board.writePost.toolbar.more')" aria-haspopup="dialog" :aria-expanded="showAdvancedMenu" @mousedown.prevent @click="showAdvancedMenu = !showAdvancedMenu">
-          {{ t('board.writePost.toolbar.more') }}
-        </button>
-      </div>
-    </div>
+    <PostEditorToolbar
+      v-if="editor"
+      :editor="editor"
+      :is-uploading-image="isUploadingImage"
+      :has-image-upload-error="hasImageUploadError"
+      :current-uploading-image-name="currentUploadingImageName"
+      :image-upload-queue-count="imageUploadQueueCount"
+      :failed-image-count="failedImageCount"
+      :failed-image-files="failedImageFiles"
+      :show-slash-menu="showSlashMenu"
+      :show-advanced-menu="showAdvancedMenu"
+      @toggle-bold="editor.chain().focus().toggleBold().run()"
+      @toggle-italic="editor.chain().focus().toggleItalic().run()"
+      @toggle-underline="editor.chain().focus().toggleUnderline().run()"
+      @toggle-strike="editor.chain().focus().toggleStrike().run()"
+      @open-link="openLinkPopover"
+      @upload-image="triggerImageUpload"
+      @open-video="emit('open-video')"
+      @open-emoticon="emit('open-emoticon')"
+      @save-list-selection="saveListSelection"
+      @bullet-list="applyBulletList"
+      @ordered-list="applyOrderedList"
+      @toggle-slash-menu="toggleSlashMenu"
+      @toggle-advanced-menu="toggleAdvancedMenu"
+      @retry-image-upload="retryImageUpload"
+      @retry-failed-image-upload="retryFailedImageUpload"
+      @cancel-image-upload="cancelImageUpload"
+      @dismiss-image-upload-error="dismissImageUploadError"
+      @dismiss-failed-image-upload="dismissFailedImageUpload"
+    />
 
     <Teleport to="body">
-      <div v-if="showSlashMenu" class="link-popover-mask" @click.self="showSlashMenu = false">
-        <div class="link-popover slash-popover" role="dialog" :aria-label="t('board.writePost.toolbar.slashMenu')">
+      <div v-if="showSlashMenu" class="link-popover-mask" @click.self="showSlashMenu = false" @keydown.enter.stop @keydown.escape.stop.prevent="showSlashMenu = false">
+        <div id="editor-slash-dialog" ref="slashPopoverRef" class="link-popover slash-popover" :style="slashPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-slash-dialog-title">
           <div class="mb-3">
             <p class="text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">{{ t('board.writePost.toolbar.slashMenu') }}</p>
-            <h3 class="text-base font-semibold text-[var(--nv-ink)]">{{ t('board.writePost.toolbar.insertBlock') }}</h3>
+            <h3 id="editor-slash-dialog-title" class="text-base font-semibold text-[var(--nv-ink)]">{{ t('board.writePost.toolbar.insertBlock') }}</h3>
           </div>
-          <div class="grid gap-2">
-            <button type="button" class="slash-action-btn" @click="applySlashAction('image')">{{ t('board.writePost.toolbar.image') }}</button>
-            <button type="button" class="slash-action-btn" @click="applySlashAction('quote')">{{ t('board.writePost.toolbar.quote') }}</button>
-            <button type="button" class="slash-action-btn" @click="applySlashAction('list')">{{ t('board.writePost.toolbar.list') }}</button>
-            <button type="button" class="slash-action-btn" @click="applySlashAction('link')">{{ t('board.writePost.toolbar.link') }}</button>
-            <button type="button" class="slash-action-btn" @click="applySlashAction('divider')">{{ t('board.writePost.toolbar.divider') }}</button>
-          </div>
+          <PostEditorSlashMenu
+            :actions="slashActions"
+            :active-index="slashActiveIndex"
+            @select="applySlashAction"
+            @move="moveSlashSelection"
+            @set-active="setSlashSelection"
+            @close="showSlashMenu = false"
+          />
         </div>
       </div>
     </Teleport>
 
     <Teleport to="body">
-      <div v-if="showAdvancedMenu" class="link-popover-mask" @click.self="showAdvancedMenu = false">
-        <div class="link-popover advanced-popover" role="dialog" :aria-label="t('board.writePost.toolbar.advanced')">
+      <div v-if="showAdvancedMenu" class="link-popover-mask" @click.self="showAdvancedMenu = false" @keydown.enter.stop @keydown.escape.stop.prevent="showAdvancedMenu = false">
+        <div id="editor-advanced-dialog" ref="advancedPopoverRef" class="link-popover advanced-popover" :style="advancedPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-advanced-dialog-title">
           <div class="mb-3">
             <p class="text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">{{ t('board.writePost.toolbar.advanced') }}</p>
-            <h3 class="text-base font-semibold text-[var(--nv-ink)]">{{ t('board.writePost.toolbar.formattingTools') }}</h3>
+            <h3 id="editor-advanced-dialog-title" class="text-base font-semibold text-[var(--nv-ink)]">{{ t('board.writePost.toolbar.formattingTools') }}</h3>
           </div>
-          <div class="grid gap-3">
-            <div class="flex flex-wrap items-center gap-2">
-              <select class="tiptap-select text-xs" :value="currentFontSize" @change="applyFontSize">
-                <option value="">{{ t('board.writePost.fontSize') || 'Font size' }}</option>
-                <option v-for="size in fontSizes" :key="size" :value="size">{{ size }}</option>
-              </select>
-              <select class="tiptap-select text-xs" :value="currentLineHeight" @change="applyLineHeight">
-                <option value="">{{ t('board.writePost.lineHeight') || 'Line height' }}</option>
-                <option v-for="height in lineHeights" :key="height" :value="height">{{ height }}</option>
-              </select>
-            </div>
-
-            <div class="flex flex-wrap items-center gap-2">
-              <div class="relative inline-block">
-                <button type="button" class="tiptap-btn tiptap-color-trigger" :title="t('board.writePost.toolbar.textColor')" @mousedown.prevent @click="toggleColorPanel">
-                  <span class="tiptap-color-indicator">
-                    A
-                    <span class="tiptap-color-bar" :style="{ backgroundColor: isDefaultColor ? (themeStore.isDark ? '#f3f4f6' : '#111827') : currentTextColor }" />
-                  </span>
-                </button>
-              </div>
-              <input type="color" :value="currentHighlightColor" class="tiptap-color-input w-9 h-9 cursor-pointer" @input="applyHighlightColor">
-              <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.tableDialog')" @mousedown.prevent @click="openTablePopover">Tbl</button>
-              <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.divider')" @mousedown.prevent @click="applyHorizontalRule">HR</button>
-            </div>
-
-            <div class="flex flex-wrap items-center gap-2">
-              <button type="button" class="tiptap-btn" :class="{ active: isTextAlignActive('left') }" :title="t('board.writePost.alignLeft')" @mousedown.prevent @click="setTextAlign('left')">
-                <TextAlignStart :size="16" />
-              </button>
-              <button type="button" class="tiptap-btn" :class="{ active: isTextAlignActive('center') }" :title="t('board.writePost.alignCenter')" @mousedown.prevent @click="setTextAlign('center')">
-                <TextAlignCenter :size="16" />
-              </button>
-              <button type="button" class="tiptap-btn" :class="{ active: isTextAlignActive('right') }" :title="t('board.writePost.alignRight')" @mousedown.prevent @click="setTextAlign('right')">
-                <TextAlignEnd :size="16" />
-              </button>
-              <button type="button" class="tiptap-btn" :class="{ active: isTextAlignActive('justify') }" :title="t('board.writePost.alignJustify')" @mousedown.prevent @click="setTextAlign('justify')">
-                <TextAlignJustify :size="16" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Teleport>
-
-    <Teleport to="body">
-      <div v-if="showColorPanel" class="link-popover-mask" @click.self="closeColorPanel">
-        <div class="color-panel" role="dialog" :aria-label="t('board.writePost.toolbar.textColor')">
-          <button type="button" class="color-panel-default" :class="{ 'color-panel-default--active': isDefaultColor }" @click="setDefaultColor">
-            <span class="color-panel-default-swatch">
-              <span class="color-panel-default-light" />
-              <span class="color-panel-default-dark" />
-            </span>
-            <span>{{ t('board.writePost.toolbar.defaultColor') }}</span>
-          </button>
-          <div class="color-panel-grid">
-            <button
-              v-for="color in colorPresets"
-              :key="color"
-              type="button"
-              class="color-panel-swatch"
-              :class="{ 'color-panel-swatch--active': currentTextColor === color }"
-              :style="{ backgroundColor: color }"
-              :title="color"
-              @click="setPresetColor(color)"
+          <PostEditorAdvancedPopover
+            :font-sizes="fontSizes"
+            :line-heights="lineHeights"
+            :current-font-size="currentFontSize"
+            :current-line-height="currentLineHeight"
+            :current-highlight-color="currentHighlightColor"
+            :current-text-color="currentTextColor"
+            :is-default-color="isDefaultColor"
+            :is-dark="themeStore.isDark"
+            :show-color-panel="showColorPanel"
+            :show-table-popover="showTablePopover"
+            :active-text-align="activeTextAlign"
+            @font-size="applyFontSize"
+            @line-height="applyLineHeight"
+            @highlight-color="applyHighlightColor"
+            @toggle-color-panel="toggleColorPanel"
+            @open-table="openTablePopover"
+            @horizontal-rule="applyHorizontalRule"
+            @align="setTextAlign"
+          />
+          <div v-if="showColorPanel" id="editor-color-dialog" ref="colorPanelRef" class="color-panel" :style="colorPosition.popoverStyle.value" role="dialog" aria-labelledby="editor-color-dialog-title" @keydown.enter.stop @keydown.escape.stop.prevent="closeColorPanel()">
+            <p id="editor-color-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.textColor') }}</p>
+            <PostEditorColorPopover
+              :colors="colorPresets"
+              :labels="colorPresetLabels"
+              :current-text-color="currentTextColor"
+              :is-default-color="isDefaultColor"
+              @default-color="setDefaultColor"
+              @preset-color="setPresetColor"
+              @custom-color="setPresetColor"
             />
           </div>
-          <div class="color-panel-custom">
-            <label class="color-panel-custom-label">{{ t('board.writePost.toolbar.customColor') }}</label>
-            <input type="color" :value="currentTextColor || '#000000'" class="color-panel-custom-input" @input="applyCustomTextColor">
-          </div>
         </div>
       </div>
     </Teleport>
 
     <Teleport to="body">
-      <div v-if="showLinkPopover" class="link-popover-mask" @click.self="closeLinkPopover">
-        <div class="link-popover" role="dialog" :aria-label="t('board.writePost.toolbar.linkDialog')">
-          <div class="link-popover-row">
-            <label class="link-popover-label">{{ t('board.writePost.linkUrlPrompt') }}</label>
-            <input v-model="linkUrl" type="url" class="link-popover-input" placeholder="https://..." @keydown.enter.prevent="applyLink" @keydown.escape="closeLinkPopover">
-          </div>
-          <div class="link-popover-row">
-            <label class="link-popover-label">{{ t('board.writePost.linkDisplayText') }}</label>
-            <input v-model="linkText" type="text" class="link-popover-input" :placeholder="t('board.writePost.linkDisplayText')" @keydown.enter.prevent="applyLink" @keydown.escape="closeLinkPopover">
-          </div>
-          <div class="link-popover-actions">
-            <BaseButton type="button" variant="secondary" size="sm" @click="closeLinkPopover">
-              {{ t('common.cancel') }}
-            </BaseButton>
-            <button v-if="editor?.isActive('link')" type="button" class="link-popover-remove" @click="removeLink">
-              {{ t('board.writePost.linkRemove') }}
-            </button>
-            <BaseButton type="button" variant="primary" size="sm" @click="applyLink">
-              {{ t('board.writePost.linkInsert') }}
-            </BaseButton>
-          </div>
+      <div v-if="showLinkPopover" class="link-popover-mask" @click.self="closeLinkPopover" @keydown.enter.stop @keydown.escape.stop.prevent="closeLinkPopover">
+        <div ref="linkPopoverRef" class="link-popover" :style="linkPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-link-dialog-title">
+          <h3 id="editor-link-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.linkDialog') }}</h3>
+          <PostEditorLinkPopover
+            :url="linkUrl"
+            :text="linkText"
+            :can-remove="editor?.isActive('link') ?? false"
+            @apply="applyLink"
+            @close="closeLinkPopover"
+            @remove="removeLink"
+          />
         </div>
       </div>
     </Teleport>
 
     <Teleport to="body">
-      <div v-if="showTablePopover" class="link-popover-mask" @click.self="closeTablePopover">
-        <div class="link-popover table-popover" role="dialog" :aria-label="t('board.writePost.toolbar.tableDialog')">
-          <div class="link-popover-row">
-            <label class="link-popover-label">{{ t('board.writePost.tableRows') }}</label>
-            <input v-model.number="tableRows" type="number" min="1" max="20" class="link-popover-input" @keydown.enter.prevent="applyTable" @keydown.escape="closeTablePopover">
-          </div>
-          <div class="link-popover-row">
-            <label class="link-popover-label">{{ t('board.writePost.tableCols') }}</label>
-            <input v-model.number="tableCols" type="number" min="1" max="10" class="link-popover-input" @keydown.enter.prevent="applyTable" @keydown.escape="closeTablePopover">
-          </div>
-          <div class="link-popover-row flex items-center gap-2">
-            <input id="table-header-row" v-model="tableHeaderRow" type="checkbox" class="rounded border-[var(--nv-line)]">
-            <label for="table-header-row" class="link-popover-label !mb-0">{{ t('board.writePost.tableHeaderRow') }}</label>
-          </div>
-          <div class="link-popover-actions">
-            <BaseButton type="button" variant="secondary" size="sm" @click="closeTablePopover">
-              {{ t('common.cancel') }}
-            </BaseButton>
-            <BaseButton type="button" variant="primary" size="sm" @click="applyTable">
-              {{ t('board.writePost.tableInsert') }}
-            </BaseButton>
-          </div>
+      <div v-if="showImageAltPopover" class="link-popover-mask" @click.self="closeImageAltPopover" @keydown.enter.stop @keydown.escape.stop.prevent="closeImageAltPopover">
+        <div ref="imageAltPopoverRef" class="link-popover image-alt-popover" :style="imageAltPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-image-alt-dialog-title">
+          <h3 id="editor-image-alt-dialog-title" class="sr-only">{{ t('board.writePost.imageAlt.title') }}</h3>
+          <PostEditorImageAltPopover
+            :alt="imageAltText"
+            @apply="applyImageAlt"
+            @clear="clearImageAlt"
+            @close="closeImageAltPopover"
+          />
         </div>
       </div>
     </Teleport>
 
-    <div class="tiptap-content flex-1 min-h-0 overflow-auto cursor-text" @mousedown="onContentAreaClick">
+    <Teleport to="body">
+      <div v-if="showTablePopover" class="link-popover-mask" @click.self="closeTablePopover" @keydown.enter.stop @keydown.escape.stop.prevent="closeTablePopover">
+        <div ref="tablePopoverRef" class="link-popover table-popover" :style="tablePosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-table-dialog-title">
+          <h3 id="editor-table-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.tableDialog') }}</h3>
+          <PostEditorTablePopover
+            :rows="tableRows"
+            :cols="tableCols"
+            :header-row="tableHeaderRow"
+            @update:rows="tableRows = $event"
+            @update:cols="tableCols = $event"
+            @update:header-row="tableHeaderRow = $event"
+            @apply="applyTable"
+            @close="closeTablePopover"
+          />
+        </div>
+      </div>
+    </Teleport>
+
+    <div
+      class="tiptap-content flex-1 min-h-0 overflow-auto cursor-text"
+      :class="{ 'tiptap-content--dragging-image': isDraggingImage }"
+      @mousedown="onContentAreaClick"
+      @paste="onEditorPaste"
+      @drop="onEditorDrop"
+      @dragenter.prevent="onEditorDragEnter"
+      @dragleave="onEditorDragLeave"
+      @dragover.prevent
+    >
       <EditorContent :editor="editor" />
+      <div v-if="isDraggingImage" class="image-drop-overlay" aria-live="polite">
+        {{ t('board.writePost.dropImageHint') }}
+      </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-.tiptap-btn {
-  width: 2.2rem;
-  height: 2.2rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.85rem;
-  border: 1px solid transparent;
-  color: var(--nv-ink-soft);
-  background: transparent;
-  font-size: 0.75rem;
-  font-weight: 600;
-  transition: all 0.15s ease;
-}
-
-.tiptap-btn:hover {
-  background: var(--nv-elevated);
-  color: var(--nv-ink);
-}
-
-.tiptap-btn.active {
-  border-color: color-mix(in srgb, var(--nv-accent) 28%, transparent);
-  background: color-mix(in srgb, var(--nv-accent) 14%, var(--nv-surface));
-  color: var(--nv-accent);
-}
-
-.tiptap-btn-pill {
-  width: auto;
-  padding: 0 0.8rem;
-}
-
-.tiptap-toolbar-group {
-  align-items: center;
-  background: color-mix(in srgb, var(--nv-surface) 88%, transparent);
-  border: 1px solid var(--nv-line);
-  border-radius: 1rem;
-  display: inline-flex;
-  gap: 0.15rem;
-  padding: 0.2rem;
-}
-
-
-.tiptap-select {
-  height: 2.25rem;
-  min-width: 7rem;
-  padding: 0 0.75rem;
-  border-radius: 0.85rem;
-  border: 1px solid var(--nv-line);
-  background: var(--nv-elevated);
-  color: var(--nv-ink);
-}
-
-.tiptap-color-input {
-  border-radius: 0.85rem;
-  border: 1px solid var(--nv-line);
-  background: transparent;
-  padding: 0.15rem;
-}
-
-.tiptap-color-trigger {
-  font-weight: 700;
-  font-size: 14px;
-}
-
-.tiptap-color-indicator {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  line-height: 1;
-}
-
-.tiptap-color-bar {
-  display: block;
-  width: 14px;
-  height: 3px;
-  border-radius: 999px;
-}
-</style>
-
-<style>
-.tiptap-editor-wrap .tiptap-content {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.tiptap-editor-wrap .tiptap-content > div,
-.tiptap-editor-wrap .tiptap-content .ProseMirror {
-  flex: 1;
-  min-height: 100%;
-  overflow-wrap: anywhere;
-}
-
-.tiptap-editor-wrap .ProseMirror ul {
-  list-style-type: disc;
-  padding-left: 1.5em;
-  margin: 0.5em 0;
-}
-
-.tiptap-editor-wrap .ProseMirror ol {
-  list-style-type: decimal;
-  padding-left: 1.5em;
-  margin: 0.5em 0;
-}
-
-.tiptap-editor-wrap .ProseMirror li {
-  display: list-item;
-  margin: 0.25em 0;
-}
-
-.tiptap-editor-wrap .ProseMirror table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-  border: 1px solid var(--nv-line);
-}
-
-.tiptap-editor-wrap .ProseMirror td,
-.tiptap-editor-wrap .ProseMirror th {
-  border: 1px solid var(--nv-line);
-  vertical-align: top;
-  box-sizing: border-box;
-  position: relative;
-  min-width: var(--table-cell-min-width, 40px);
-}
-
-.tiptap-editor-wrap .ProseMirror .tableWrapper {
-  overflow-x: auto;
-}
-
-.tiptap-editor-wrap .ProseMirror .column-resize-handle {
-  position: absolute;
-  right: -3px;
-  top: 0;
-  bottom: 0;
-  width: 6px;
-  z-index: 20;
-  background-color: var(--nv-accent);
-  cursor: col-resize;
-  pointer-events: auto;
-}
-
-.tiptap-editor-wrap .ProseMirror.resize-cursor {
-  cursor: col-resize;
-}
-
-.tiptap-editor-wrap .ProseMirror a.tiptap-link,
-.tiptap-editor-wrap .ProseMirror a[href] {
-  color: color-mix(in srgb, var(--nv-accent) 82%, white 18%);
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.tiptap-video-wrapper {
-  position: relative;
-  padding-bottom: 56.25%;
-  height: 0;
-  overflow: hidden;
-  max-width: 100%;
-}
-
-.tiptap-video-wrapper iframe {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.tiptap-image-inline {
-  display: inline-block;
-  vertical-align: baseline;
-}
-
-.tiptap-editor-wrap .ProseMirror img.ProseMirror-selectednode,
-.tiptap-editor-wrap .ProseMirror .ProseMirror-selectednode img,
-.tiptap-editor-wrap .ProseMirror .ProseMirror-selectednode:has(> img) {
-  outline: 2px solid var(--nv-accent);
-  outline-offset: 2px;
-  border-radius: 8px;
-}
-
-.link-popover-mask {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  background: rgba(9, 12, 22, 0.28);
-}
-
-.link-popover {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  min-width: 320px;
-  max-width: min(90vw, 460px);
-  padding: 1rem 1.1rem;
-  background: var(--nv-surface);
-  border: 1px solid var(--nv-line);
-  border-radius: 1.25rem;
-  box-shadow: var(--nv-shadow-soft);
-}
-
-.slash-popover,
-.advanced-popover {
-  width: min(90vw, 440px);
-}
-
-.slash-action-btn {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  justify-content: space-between;
-  border: 1px solid var(--nv-line);
-  border-radius: 1rem;
-  padding: 0.75rem 0.95rem;
-  font-size: 0.95rem;
-  color: var(--nv-ink);
-  background: var(--nv-elevated);
-}
-
-.link-popover-row {
-  margin-bottom: 0.75rem;
-}
-
-.link-popover-label {
-  display: block;
-  margin-bottom: 0.25rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--nv-ink-soft);
-}
-
-.link-popover-input {
-  display: block;
-  width: 100%;
-  padding: 0.7rem 0.8rem;
-  font-size: 0.875rem;
-  border: 1px solid var(--nv-line);
-  border-radius: 0.9rem;
-  background: var(--nv-elevated);
-  color: var(--nv-ink);
-  box-sizing: border-box;
-}
-
-.link-popover-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  margin-top: 1rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--nv-line);
-}
-
-.link-popover-remove {
-  margin-right: auto;
-  font-size: 0.875rem;
-  color: var(--nv-danger);
-  background: none;
-  border: none;
-  cursor: pointer;
-}
-
-.color-panel {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 220px;
-  padding: 12px;
-  background: var(--nv-surface);
-  border: 1px solid var(--nv-line);
-  border-radius: 1rem;
-  box-shadow: var(--nv-shadow-soft);
-  z-index: 10000;
-}
-
-.color-panel-default {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  margin-bottom: 8px;
-  padding: 6px 8px;
-  border-radius: 0.7rem;
-  border: 1px solid var(--nv-line);
-  background: transparent;
-  color: var(--nv-ink-soft);
-}
-
-.color-panel-default--active {
-  border-color: color-mix(in srgb, var(--nv-accent) 35%, transparent);
-  background: color-mix(in srgb, var(--nv-accent) 14%, var(--nv-surface));
-  color: var(--nv-accent);
-}
-
-.color-panel-default-swatch {
-  display: inline-flex;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  overflow: hidden;
-  border: 1px solid var(--nv-line);
-  position: relative;
-  flex-shrink: 0;
-}
-
-.color-panel-default-light,
-.color-panel-default-dark {
-  position: absolute;
-  inset: 0;
-}
-
-.color-panel-default-light {
-  background: #111827;
-  clip-path: polygon(0 0, 100% 0, 0 100%);
-}
-
-.color-panel-default-dark {
-  background: #f3f4f6;
-  clip-path: polygon(100% 0, 100% 100%, 0 100%);
-}
-
-.color-panel-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
-  margin-bottom: 8px;
-}
-
-.color-panel-swatch {
-  width: 100%;
-  aspect-ratio: 1;
-  border-radius: 0.45rem;
-  border: 2px solid transparent;
-  cursor: pointer;
-}
-
-.color-panel-swatch--active {
-  border-color: var(--nv-accent);
-}
-
-.color-panel-custom {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding-top: 8px;
-  border-top: 1px solid var(--nv-line);
-}
-
-.color-panel-custom-label {
-  font-size: 12px;
-  color: var(--nv-muted);
-  white-space: nowrap;
-}
-
-.color-panel-custom-input {
-  width: 28px;
-  height: 28px;
-  border-radius: 0.45rem;
-  border: 1px solid var(--nv-line);
-  padding: 0;
-  background: transparent;
-  cursor: pointer;
-}
-</style>

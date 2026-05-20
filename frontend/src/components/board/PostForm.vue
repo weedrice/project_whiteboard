@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch, watchEffect } f
 import { useBoard } from '@/composables/useBoard'
 import { usePost } from '@/composables/usePost'
 import { usePostDraft } from '@/composables/usePostDraft'
+import { usePopoverFocus } from '@/composables/usePopoverFocus'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
@@ -102,6 +103,7 @@ const { mutate: updatePost, isPending: isUpdateSubmitting } = useUpdatePost()
 const tiptapEditorRef = ref<InstanceType<typeof PostEditorTipTap> | null>(null)
 const editorWrapperRef = ref<HTMLElement | null>(null)
 const composePageRef = ref<HTMLElement | null>(null)
+const videoPopoverRef = ref<HTMLElement | null>(null)
 const draftFileIds = ref<number[]>([])
 
 const showPreview = ref(false)
@@ -124,6 +126,8 @@ const form = ref<FormState>({
   isNotice: false,
   isSecret: false,
 })
+
+usePopoverFocus(videoPopoverRef, showVideoPopover)
 
 const initialFormSnapshot = ref<FormState | null>(null)
 
@@ -397,9 +401,15 @@ function closeVideoPopover() {
 }
 
 function insertVideoFromPopover() {
-  const embedUrl = toEmbedPostVideoUrl(videoUrl.value)
-  if (!embedUrl) {
+  const rawVideoUrl = videoUrl.value.trim()
+  if (!rawVideoUrl) {
     toastStore.addToast(t('board.writePost.videoUrlRequired'), 'error')
+    return
+  }
+
+  const embedUrl = toEmbedPostVideoUrl(rawVideoUrl)
+  if (!embedUrl) {
+    toastStore.addToast(t('board.writePost.invalidVideoUrl'), 'error')
     return
   }
   tiptapEditorRef.value?.setVideo(embedUrl)
@@ -689,17 +699,27 @@ defineExpose({
                     @file-uploaded="trackUploadedFile"
                   />
                   <Teleport to="body">
-                    <div v-if="showVideoPopover" class="video-url-popover-mask" @click.self="closeVideoPopover">
-                      <div class="video-url-popover" :style="{ top: videoPopoverStyle.top, left: videoPopoverStyle.left }" role="dialog" :aria-label="$t('board.writePost.video.dialogLabel')">
-                        <span class="video-url-popover-label">{{ $t('board.writePost.video.inputLabel') }}</span>
+                    <div v-if="showVideoPopover" class="video-url-popover-mask" @click.self="closeVideoPopover" @keydown.enter.stop @keydown.escape.stop.prevent="closeVideoPopover">
+                      <div
+                        ref="videoPopoverRef"
+                        class="video-url-popover"
+                        :style="{ top: videoPopoverStyle.top, left: videoPopoverStyle.left }"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="post-video-url-label"
+                      >
+                        <label id="post-video-url-label" for="post-video-url-input" class="video-url-popover-label">{{ $t('board.writePost.video.inputLabel') }}</label>
                         <input
+                          id="post-video-url-input"
                           v-model="videoUrl"
                           type="url"
                           class="video-url-popover-input"
                           :placeholder="$t('board.writePost.video.placeholder')"
-                          @keydown.enter="insertVideoFromPopover"
-                          @keydown.escape="closeVideoPopover"
+                          aria-describedby="post-video-url-help"
+                          @keydown.enter.stop.prevent="insertVideoFromPopover"
+                          @keydown.escape.stop.prevent="closeVideoPopover"
                         >
+                        <p id="post-video-url-help" class="video-url-popover-help">{{ $t('board.writePost.video.help') }}</p>
                         <div class="video-url-popover-actions">
                           <BaseButton type="button" variant="secondary" size="sm" @click="closeVideoPopover">
                             {{ $t('common.cancel') }}
@@ -926,13 +946,19 @@ defineExpose({
 .video-url-popover-input {
   display: block;
   width: 100%;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
   padding: 10px 12px;
   border: 1px solid var(--nv-line);
   border-radius: 8px;
   background: var(--nv-elevated);
   color: var(--nv-ink);
   box-sizing: border-box;
+}
+
+.video-url-popover-help {
+  margin: 0 0 10px;
+  color: var(--nv-muted);
+  font-size: 12px;
 }
 
 .video-url-popover-actions {
