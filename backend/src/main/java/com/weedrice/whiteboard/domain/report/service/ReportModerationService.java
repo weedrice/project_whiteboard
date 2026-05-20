@@ -35,6 +35,7 @@ class ReportModerationService {
     private final ReportReadAssembler reportReadAssembler;
 
     public Page<ReportResponse> getReports(String status, String targetType, Pageable pageable) {
+        SecurityUtils.validateSuperAdminPermission();
         String normalizedStatus = normalizeStatus(status);
         String normalizedTargetType = normalizeTargetType(targetType);
         Pageable safePageable = normalizeReportPageable(pageable);

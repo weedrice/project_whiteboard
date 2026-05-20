@@ -33,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -104,7 +105,23 @@ class ReportModerationServiceTest {
         Page<ReportResponse> result = reportModerationService.getReports("PENDING", "POST", pageable);
 
         assertThat(result.getContent()).hasSize(1);
+        mockedSecurityUtils.verify(SecurityUtils::validateSuperAdminPermission);
         verify(reportReadAssembler).toAdminResponsePage(reportPage);
+    }
+
+    @Test
+    @DisplayName("getReports rejects when super admin guard fails")
+    void getReports_guardFailure_throwsForbidden() {
+        PageRequest pageable = PageRequest.of(0, 20);
+        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission)
+                .thenThrow(new BusinessException(ErrorCode.FORBIDDEN));
+
+        assertThatThrownBy(() -> reportModerationService.getReports(null, null, pageable))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        mockedSecurityUtils.verify(SecurityUtils::validateSuperAdminPermission);
+        verifyNoInteractions(reportRepository, reportReadAssembler);
     }
 
     @Test
