@@ -2,7 +2,7 @@ import { onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useKeyboardStore } from '@/stores/keyboard'
 import { useAuthStore } from '@/stores/auth'
-import { useThemeStore } from '@/stores/theme'
+import { useThemePreference } from '@/composables/useThemePreference'
 import { isInputFocused } from '@/utils/keyboard'
 
 export interface KeyboardShortcutHandlers {
@@ -24,7 +24,7 @@ export function useKeyboardShortcuts(handlers: KeyboardShortcutHandlers = {}) {
     const route = useRoute()
     const keyboardStore = useKeyboardStore()
     const authStore = useAuthStore()
-    const themeStore = useThemeStore()
+    const { toggleTheme } = useThemePreference()
 
     const handleKeyDown = (event: KeyboardEvent) => {
         const { key, shiftKey, ctrlKey, altKey, metaKey } = event
@@ -150,7 +150,7 @@ export function useKeyboardShortcuts(handlers: KeyboardShortcutHandlers = {}) {
             case 'd':
                 // 다크모드 토글
                 event.preventDefault()
-                themeStore.toggleTheme()
+                toggleTheme()
                 break
         }
     }

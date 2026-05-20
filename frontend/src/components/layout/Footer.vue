@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useThemeStore } from '@/stores/theme'
+import { useThemePreference } from '@/composables/useThemePreference'
 import { Sun, Moon } from 'lucide-vue-next'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 
 const currentYear = computed(() => new Date().getFullYear())
 const themeStore = useThemeStore()
+const { toggleTheme } = useThemePreference()
 const commitHash = __COMMIT_HASH__
 </script>
 
@@ -22,7 +24,7 @@ const commitHash = __COMMIT_HASH__
         >
           <div class="flex justify-center items-center gap-x-2 md:contents shrink-0">
             <BaseButton
-              @click="themeStore.toggleTheme()"
+              @click="toggleTheme"
               variant="ghost"
               size="sm"
               class="min-h-[36px] min-w-[36px] p-0 rounded-full touch-manipulation flex items-center justify-center shrink-0"

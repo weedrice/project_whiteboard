@@ -58,6 +58,11 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
+    async function handleSanctionedSession() {
+        toastStore.addToast(i18n.global.t('user.sanctioned'), 'error')
+        await logout()
+    }
+
     async function fetchUser(config?: AxiosRequestConfig): Promise<boolean> {
         // Double check token existence
         const token = Storage.getString('accessToken')
@@ -76,8 +81,7 @@ export const useAuthStore = defineStore('auth', () => {
 
                 // Check for sanctions
                 if (user.value?.status === 'SANCTIONED') {
-                    toastStore.addToast(i18n.global.t('user.sanctioned'), 'error')
-                    await logout()
+                    await handleSanctionedSession()
                     return false
                 }
 
@@ -111,6 +115,7 @@ export const useAuthStore = defineStore('auth', () => {
         isAdmin: computed(() => user.value?.role === 'ADMIN' || user.value?.role === 'SUPER_ADMIN'),
         login,
         logout,
+        handleSanctionedSession,
         fetchUser,
         setTokens
     }
