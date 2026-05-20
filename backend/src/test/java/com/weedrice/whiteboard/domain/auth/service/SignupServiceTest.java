@@ -54,6 +54,7 @@ class SignupServiceTest {
     @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
     @Mock private UserPrivilegeCleanupService userPrivilegeCleanupService;
     @Mock private PasswordHistoryPolicy passwordHistoryPolicy;
+    @Mock private AuthAccountEligibilityPolicy authAccountEligibilityPolicy;
 
     @InjectMocks
     private SignupService signupService;

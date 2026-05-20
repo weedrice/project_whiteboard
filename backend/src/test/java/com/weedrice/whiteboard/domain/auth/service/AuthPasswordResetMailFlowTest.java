@@ -79,7 +79,7 @@ class AuthPasswordResetMailFlowTest {
         passwordResetService = new PasswordResetService(
                 userRepository, verificationCodeService, passwordResetTokenRepository,
                 passwordHistoryPolicy, refreshTokenLifecycleService, tokenHashService,
-                passwordResetTokenOrchestrationService, transactionTemplate);
+                passwordResetTokenOrchestrationService, transactionTemplate, new AuthAccountEligibilityPolicy());
 
         user = User.builder()
                 .loginId("testuser")

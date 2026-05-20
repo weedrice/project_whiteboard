@@ -126,14 +126,16 @@ class AuthServiceTest {
                         verificationCodeService);
         PasswordHistoryPolicy passwordHistoryPolicy =
                 new PasswordHistoryPolicy(passwordHistoryRepository, passwordEncoder);
+        AuthAccountEligibilityPolicy authAccountEligibilityPolicy = new AuthAccountEligibilityPolicy();
         PasswordResetService passwordResetService = new PasswordResetService(
                 userRepository, verificationCodeService, passwordResetTokenRepository,
                 passwordHistoryPolicy, refreshTokenLifecycleService, tokenHashService,
-                passwordResetTokenOrchestrationService, transactionTemplate);
+                passwordResetTokenOrchestrationService, transactionTemplate, authAccountEligibilityPolicy);
         SignupService signupService = new SignupService(
                 userRepository, pointService, userSettingsRepository,
                 socialAccountLinkService, verificationCodeService, emailEligibilityService, globalConfigService,
-                entityManager, refreshTokenLifecycleService, userPrivilegeCleanupService, passwordHistoryPolicy);
+                entityManager, refreshTokenLifecycleService, userPrivilegeCleanupService, passwordHistoryPolicy,
+                authAccountEligibilityPolicy);
         authService = new AuthService(
                 signupService,
                 sessionTokenService,

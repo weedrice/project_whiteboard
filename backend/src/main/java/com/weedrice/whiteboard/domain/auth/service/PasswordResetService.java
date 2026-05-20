@@ -31,6 +31,7 @@ public class PasswordResetService {
     private final TokenHashService tokenHashService;
     private final PasswordResetTokenOrchestrationService passwordResetTokenOrchestrationService;
     private final TransactionTemplate transactionTemplate;
+    private final AuthAccountEligibilityPolicy authAccountEligibilityPolicy;
 
     @Value("${cloud.aws.password-reset.frontend-url}")
     private String passwordResetFrontendUrl;
@@ -193,12 +194,7 @@ public class PasswordResetService {
     }
 
     private void validateUsablePasswordResetUser(User user) {
-        if (User.STATUS_DELETED.equals(user.getStatus()) || user.getDeletedAt() != null) {
-            throw new BusinessException(ErrorCode.USER_DELETED);
-        }
-        if (!user.isActiveAccount()) {
-            throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
-        }
+        authAccountEligibilityPolicy.validateUsableAccount(user);
     }
 
     private record PasswordResetMailCommand(

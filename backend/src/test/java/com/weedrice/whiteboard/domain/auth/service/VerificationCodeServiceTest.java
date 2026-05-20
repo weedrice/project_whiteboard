@@ -143,7 +143,7 @@ class VerificationCodeServiceTest {
                 tokenHashService,
                 new VerifyCodeResponseAssembler(userRepository));
         verificationCodeService = new VerificationCodeService(
-                new EmailEligibilityService(userRepository),
+                new EmailEligibilityService(userRepository, new AuthAccountEligibilityPolicy()),
                 verificationCodeDeliveryService,
                 verificationTicketService);
     }

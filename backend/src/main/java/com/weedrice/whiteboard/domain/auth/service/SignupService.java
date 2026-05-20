@@ -44,6 +44,7 @@ public class SignupService {
     private final RefreshTokenLifecycleService refreshTokenLifecycleService;
     private final UserPrivilegeCleanupService userPrivilegeCleanupService;
     private final PasswordHistoryPolicy passwordHistoryPolicy;
+    private final AuthAccountEligibilityPolicy authAccountEligibilityPolicy;
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
@@ -164,12 +165,7 @@ public class SignupService {
 
         User user = userRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        if (User.STATUS_DELETED.equals(user.getStatus()) || user.getDeletedAt() != null) {
-            throw new BusinessException(ErrorCode.USER_DELETED);
-        }
-        if (!user.isActiveAccount()) {
-            throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
-        }
+        authAccountEligibilityPolicy.validateUsableAccount(user);
         verificationCodeService.consumeValidatedVerificationTicket(
                 normalizedEmail,
                 VerificationPurpose.FIND_ID,

@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class EmailEligibilityService {
 
     private final UserRepository userRepository;
+    private final AuthAccountEligibilityPolicy authAccountEligibilityPolicy;
 
     public void validateSignupEmail(String email) {
         String normalizedEmail = AuthEmailNormalizer.normalize(email);
@@ -48,23 +49,14 @@ public class EmailEligibilityService {
         String normalizedEmail = AuthEmailNormalizer.normalize(email);
         User user = userRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        validateActiveAccount(user);
+        authAccountEligibilityPolicy.validateUsableAccount(user);
     }
 
     public void validatePasswordResetEmail(String email) {
         String normalizedEmail = AuthEmailNormalizer.normalize(email);
         User user = userRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND_BY_EMAIL));
-        validateActiveAccount(user);
-    }
-
-    private void validateActiveAccount(User user) {
-        if (User.STATUS_DELETED.equals(user.getStatus()) || user.getDeletedAt() != null) {
-            throw new BusinessException(ErrorCode.USER_DELETED);
-        }
-        if (!user.isActiveAccount()) {
-            throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
-        }
+        authAccountEligibilityPolicy.validateUsableAccount(user);
     }
 
     private boolean isSameUser(User user, Long currentUserId) {
