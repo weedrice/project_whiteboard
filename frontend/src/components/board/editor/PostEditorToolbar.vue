@@ -17,15 +17,15 @@ const emit = defineEmits<{
   (e: 'toggle-italic'): void
   (e: 'toggle-underline'): void
   (e: 'toggle-strike'): void
-  (e: 'open-link'): void
+  (e: 'open-link', trigger: HTMLElement): void
   (e: 'upload-image'): void
   (e: 'open-video'): void
   (e: 'open-emoticon'): void
   (e: 'save-list-selection'): void
   (e: 'bullet-list'): void
   (e: 'ordered-list'): void
-  (e: 'toggle-slash-menu'): void
-  (e: 'toggle-advanced-menu'): void
+  (e: 'toggle-slash-menu', trigger: HTMLElement): void
+  (e: 'toggle-advanced-menu', trigger: HTMLElement): void
   (e: 'retry-image-upload'): void
   (e: 'cancel-image-upload'): void
   (e: 'dismiss-image-upload-error'): void
@@ -52,7 +52,7 @@ const { t } = useI18n()
     </div>
 
     <div class="tiptap-toolbar-group">
-      <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('link') }" :title="t('board.writePost.toolbar.link')" :aria-label="t('board.writePost.toolbar.link')" :aria-pressed="editor.isActive('link')" @mousedown.prevent @click="emit('open-link')">
+      <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('link') }" :title="t('board.writePost.toolbar.link')" :aria-label="t('board.writePost.toolbar.link')" :aria-pressed="editor.isActive('link')" @mousedown.prevent @click="emit('open-link', $event.currentTarget as HTMLElement)">
         {{ t('board.writePost.toolbar.link') }}
       </button>
       <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.image')" :aria-label="t('board.writePost.toolbar.image')" :disabled="isUploadingImage" @mousedown.prevent @click="emit('upload-image')">
@@ -76,10 +76,10 @@ const { t } = useI18n()
     </div>
 
     <div class="tiptap-toolbar-group">
-      <button type="button" class="tiptap-btn tiptap-btn-pill" :title="t('board.writePost.toolbar.slashMenu')" :aria-label="t('board.writePost.toolbar.slashMenu')" aria-haspopup="dialog" :aria-expanded="showSlashMenu" aria-controls="editor-slash-dialog" @mousedown.prevent @click="emit('toggle-slash-menu')">
+      <button type="button" class="tiptap-btn tiptap-btn-pill" :title="t('board.writePost.toolbar.slashMenu')" :aria-label="t('board.writePost.toolbar.slashMenu')" aria-haspopup="dialog" :aria-expanded="showSlashMenu" aria-controls="editor-slash-dialog" @mousedown.prevent @click="emit('toggle-slash-menu', $event.currentTarget as HTMLElement)">
         {{ t('board.writePost.toolbar.insertBlock') }}
       </button>
-      <button type="button" class="tiptap-btn tiptap-btn-pill" :title="t('board.writePost.toolbar.more')" :aria-label="t('board.writePost.toolbar.more')" aria-haspopup="dialog" :aria-expanded="showAdvancedMenu" aria-controls="editor-advanced-dialog" @mousedown.prevent @click="emit('toggle-advanced-menu')">
+      <button type="button" class="tiptap-btn tiptap-btn-pill" :title="t('board.writePost.toolbar.more')" :aria-label="t('board.writePost.toolbar.more')" aria-haspopup="dialog" :aria-expanded="showAdvancedMenu" aria-controls="editor-advanced-dialog" @mousedown.prevent @click="emit('toggle-advanced-menu', $event.currentTarget as HTMLElement)">
         {{ t('board.writePost.toolbar.more') }}
       </button>
     </div>

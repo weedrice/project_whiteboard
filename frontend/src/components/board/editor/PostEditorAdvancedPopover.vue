@@ -20,8 +20,8 @@ const emit = defineEmits<{
   (e: 'font-size', value: string): void
   (e: 'line-height', value: string): void
   (e: 'highlight-color', value: string): void
-  (e: 'toggle-color-panel'): void
-  (e: 'open-table'): void
+  (e: 'toggle-color-panel', trigger: HTMLElement): void
+  (e: 'open-table', trigger: HTMLElement): void
   (e: 'horizontal-rule'): void
   (e: 'align', value: 'left' | 'center' | 'right' | 'justify'): void
 }>()
@@ -44,7 +44,7 @@ const { t } = useI18n()
 
     <div class="flex flex-wrap items-center gap-2">
       <div class="relative inline-block">
-        <button type="button" class="tiptap-btn tiptap-color-trigger" :title="t('board.writePost.toolbar.textColor')" :aria-label="t('board.writePost.toolbar.textColor')" aria-haspopup="dialog" :aria-expanded="showColorPanel" aria-controls="editor-color-dialog" @mousedown.prevent @click="emit('toggle-color-panel')">
+        <button type="button" class="tiptap-btn tiptap-color-trigger" :title="t('board.writePost.toolbar.textColor')" :aria-label="t('board.writePost.toolbar.textColor')" aria-haspopup="dialog" :aria-expanded="showColorPanel" aria-controls="editor-color-dialog" @mousedown.prevent @click="emit('toggle-color-panel', $event.currentTarget as HTMLElement)">
           <span class="tiptap-color-indicator">
             A
             <span class="tiptap-color-bar" :style="{ backgroundColor: isDefaultColor ? (isDark ? '#f3f4f6' : '#111827') : currentTextColor }" />
@@ -52,7 +52,7 @@ const { t } = useI18n()
         </button>
       </div>
       <input type="color" :value="currentHighlightColor" class="tiptap-color-input w-9 h-9 cursor-pointer" :aria-label="t('board.writePost.toolbar.textColor')" @input="emit('highlight-color', ($event.target as HTMLInputElement).value)">
-      <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.tableDialog')" :aria-label="t('board.writePost.toolbar.tableDialog')" aria-haspopup="dialog" :aria-expanded="showTablePopover" aria-controls="editor-table-dialog" @mousedown.prevent @click="emit('open-table')">Tbl</button>
+      <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.tableDialog')" :aria-label="t('board.writePost.toolbar.tableDialog')" aria-haspopup="dialog" :aria-expanded="showTablePopover" aria-controls="editor-table-dialog" @mousedown.prevent @click="emit('open-table', $event.currentTarget as HTMLElement)">Tbl</button>
       <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.divider')" :aria-label="t('board.writePost.toolbar.divider')" @mousedown.prevent @click="emit('horizontal-rule')">HR</button>
     </div>
 

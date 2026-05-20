@@ -19,6 +19,7 @@ import PostEditorLinkPopover from '@/components/board/editor/PostEditorLinkPopov
 import PostEditorSlashMenu from '@/components/board/editor/PostEditorSlashMenu.vue'
 import PostEditorTablePopover from '@/components/board/editor/PostEditorTablePopover.vue'
 import PostEditorToolbar from '@/components/board/editor/PostEditorToolbar.vue'
+import { useAnchoredPopover } from '@/composables/useAnchoredPopover'
 import { useEditorImageUpload } from '@/composables/useEditorImageUpload'
 import { usePopoverFocus } from '@/composables/usePopoverFocus'
 import { useI18n } from 'vue-i18n'
@@ -71,6 +72,11 @@ usePopoverFocus(advancedPopoverRef, showAdvancedMenu)
 usePopoverFocus(colorPanelRef, showColorPanel)
 usePopoverFocus(linkPopoverRef, showLinkPopover)
 usePopoverFocus(tablePopoverRef, showTablePopover)
+const slashPosition = useAnchoredPopover(slashPopoverRef)
+const advancedPosition = useAnchoredPopover(advancedPopoverRef)
+const colorPosition = useAnchoredPopover(colorPanelRef)
+const linkPosition = useAnchoredPopover(linkPopoverRef)
+const tablePosition = useAnchoredPopover(tablePopoverRef)
 
 const EditorImage = Image.extend({
   addAttributes() {
@@ -227,18 +233,35 @@ function closeFloatingMenus() {
   showSlashMenu.value = false
 }
 
-function openSlashMenu() {
+watch(showSlashMenu, (isOpen) => {
+  if (isOpen) void slashPosition.updatePosition()
+})
+watch(showAdvancedMenu, (isOpen) => {
+  if (isOpen) void advancedPosition.updatePosition()
+})
+watch(showColorPanel, (isOpen) => {
+  if (isOpen) void colorPosition.updatePosition()
+})
+watch(showLinkPopover, (isOpen) => {
+  if (isOpen) void linkPosition.updatePosition()
+})
+watch(showTablePopover, (isOpen) => {
+  if (isOpen) void tablePosition.updatePosition()
+})
+
+function openSlashMenu(anchor?: HTMLElement) {
   closeFloatingMenus()
+  slashPosition.setAnchor(anchor)
   slashActiveIndex.value = 0
   showSlashMenu.value = true
 }
 
-function toggleSlashMenu() {
+function toggleSlashMenu(anchor?: HTMLElement) {
   if (showSlashMenu.value) {
     showSlashMenu.value = false
     return
   }
-  openSlashMenu()
+  openSlashMenu(anchor)
 }
 
 function moveSlashSelection(direction: 1 | -1) {
@@ -252,23 +275,42 @@ function setSlashSelection(index: number) {
 function setDefaultColor() {
   editor.value?.chain().focus().unsetColor().run()
   showColorPanel.value = false
+  colorPosition.clearAnchor()
 }
 
 function setPresetColor(color: string) {
   editor.value?.chain().focus().setColor(color).run()
   showColorPanel.value = false
+  colorPosition.clearAnchor()
 }
 
-function toggleColorPanel() {
+function toggleColorPanel(anchor?: HTMLElement) {
+  colorPosition.setAnchor(anchor)
   showColorPanel.value = !showColorPanel.value
 }
 
 function closeColorPanel() {
   showColorPanel.value = false
+  colorPosition.clearAnchor()
 }
 
-function openLinkPopover() {
+function openAdvancedMenu(anchor?: HTMLElement) {
   closeFloatingMenus()
+  advancedPosition.setAnchor(anchor)
+  showAdvancedMenu.value = true
+}
+
+function toggleAdvancedMenu(anchor?: HTMLElement) {
+  if (showAdvancedMenu.value) {
+    showAdvancedMenu.value = false
+    return
+  }
+  openAdvancedMenu(anchor)
+}
+
+function openLinkPopover(anchor?: HTMLElement) {
+  closeFloatingMenus()
+  linkPosition.setAnchor(anchor)
   const attrs = editor.value?.getAttributes('link')
   linkUrl.value = attrs?.href ?? ''
   const { from, to } = editor.value?.state.selection ?? {}
@@ -281,6 +323,7 @@ function openLinkPopover() {
 
 function closeLinkPopover() {
   showLinkPopover.value = false
+  linkPosition.clearAnchor()
   linkUrl.value = ''
   linkText.value = ''
 }
@@ -331,8 +374,9 @@ function removeLink() {
   closeLinkPopover()
 }
 
-function openTablePopover() {
+function openTablePopover(anchor?: HTMLElement) {
   closeFloatingMenus()
+  tablePosition.setAnchor(anchor)
   tableRows.value = 3
   tableCols.value = 3
   tableHeaderRow.value = true
@@ -341,6 +385,7 @@ function openTablePopover() {
 
 function closeTablePopover() {
   showTablePopover.value = false
+  tablePosition.clearAnchor()
 }
 
 function applyTable() {
@@ -573,7 +618,7 @@ onBeforeUnmount(() => {
       @bullet-list="applyBulletList"
       @ordered-list="applyOrderedList"
       @toggle-slash-menu="toggleSlashMenu"
-      @toggle-advanced-menu="showAdvancedMenu = !showAdvancedMenu"
+      @toggle-advanced-menu="toggleAdvancedMenu"
       @retry-image-upload="retryImageUpload"
       @cancel-image-upload="cancelImageUpload"
       @dismiss-image-upload-error="dismissImageUploadError"
@@ -581,7 +626,7 @@ onBeforeUnmount(() => {
 
     <Teleport to="body">
       <div v-if="showSlashMenu" class="link-popover-mask" @click.self="showSlashMenu = false" @keydown.enter.stop @keydown.escape.stop.prevent="showSlashMenu = false">
-        <div id="editor-slash-dialog" ref="slashPopoverRef" class="link-popover slash-popover" role="dialog" aria-modal="true" aria-labelledby="editor-slash-dialog-title">
+        <div id="editor-slash-dialog" ref="slashPopoverRef" class="link-popover slash-popover" :style="slashPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-slash-dialog-title">
           <div class="mb-3">
             <p class="text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">{{ t('board.writePost.toolbar.slashMenu') }}</p>
             <h3 id="editor-slash-dialog-title" class="text-base font-semibold text-[var(--nv-ink)]">{{ t('board.writePost.toolbar.insertBlock') }}</h3>
@@ -600,7 +645,7 @@ onBeforeUnmount(() => {
 
     <Teleport to="body">
       <div v-if="showAdvancedMenu" class="link-popover-mask" @click.self="showAdvancedMenu = false" @keydown.enter.stop @keydown.escape.stop.prevent="showAdvancedMenu = false">
-        <div id="editor-advanced-dialog" ref="advancedPopoverRef" class="link-popover advanced-popover" role="dialog" aria-modal="true" aria-labelledby="editor-advanced-dialog-title">
+        <div id="editor-advanced-dialog" ref="advancedPopoverRef" class="link-popover advanced-popover" :style="advancedPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-advanced-dialog-title">
           <div class="mb-3">
             <p class="text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">{{ t('board.writePost.toolbar.advanced') }}</p>
             <h3 id="editor-advanced-dialog-title" class="text-base font-semibold text-[var(--nv-ink)]">{{ t('board.writePost.toolbar.formattingTools') }}</h3>
@@ -631,7 +676,7 @@ onBeforeUnmount(() => {
 
     <Teleport to="body">
       <div v-if="showColorPanel" class="link-popover-mask" @click.self="closeColorPanel" @keydown.enter.stop @keydown.escape.stop.prevent="closeColorPanel">
-        <div id="editor-color-dialog" ref="colorPanelRef" class="color-panel" role="dialog" aria-modal="true" aria-labelledby="editor-color-dialog-title">
+        <div id="editor-color-dialog" ref="colorPanelRef" class="color-panel" :style="colorPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-color-dialog-title">
           <p id="editor-color-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.textColor') }}</p>
           <PostEditorColorPopover
             :colors="colorPresets"
@@ -648,7 +693,7 @@ onBeforeUnmount(() => {
 
     <Teleport to="body">
       <div v-if="showLinkPopover" class="link-popover-mask" @click.self="closeLinkPopover" @keydown.enter.stop @keydown.escape.stop.prevent="closeLinkPopover">
-        <div ref="linkPopoverRef" class="link-popover" role="dialog" aria-modal="true" aria-labelledby="editor-link-dialog-title">
+        <div ref="linkPopoverRef" class="link-popover" :style="linkPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-link-dialog-title">
           <h3 id="editor-link-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.linkDialog') }}</h3>
           <PostEditorLinkPopover
             :url="linkUrl"
@@ -664,7 +709,7 @@ onBeforeUnmount(() => {
 
     <Teleport to="body">
       <div v-if="showTablePopover" class="link-popover-mask" @click.self="closeTablePopover" @keydown.enter.stop @keydown.escape.stop.prevent="closeTablePopover">
-        <div ref="tablePopoverRef" class="link-popover table-popover" role="dialog" aria-modal="true" aria-labelledby="editor-table-dialog-title">
+        <div ref="tablePopoverRef" class="link-popover table-popover" :style="tablePosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-table-dialog-title">
           <h3 id="editor-table-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.tableDialog') }}</h3>
           <PostEditorTablePopover
             :rows="tableRows"
