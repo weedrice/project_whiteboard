@@ -61,6 +61,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -94,6 +95,7 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -647,7 +649,7 @@ class AgentServiceTest {
 
         agentLifecycleService.register(request);
 
-        verify(agentRepository).save(argThat(savedAgent -> "desc".equals(savedAgent.getDescription())));
+        verify(agentRepository).saveAndFlush(argThat(savedAgent -> "desc".equals(savedAgent.getDescription())));
     }
 
     @Test
@@ -658,7 +660,7 @@ class AgentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
 
-        verify(agentRepository, never()).save(any());
+        verify(agentRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -669,7 +671,7 @@ class AgentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
 
-        verify(agentRepository, never()).save(any());
+        verify(agentRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -680,7 +682,7 @@ class AgentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
 
-        verify(agentRepository, never()).save(any());
+        verify(agentRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -691,7 +693,7 @@ class AgentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
 
-        verify(agentRepository, never()).save(any());
+        verify(agentRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -703,7 +705,7 @@ class AgentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
 
-        verify(agentRepository, never()).save(any());
+        verify(agentRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -711,12 +713,12 @@ class AgentServiceTest {
         AgentLifecycleService spyService = spy(agentLifecycleService);
         AgentRegisterRequest request = agentRegisterRequest("desc");
 
-        doReturn("푸른 고래").when(spyService).generateBaseAgentNickname();
-        when(agentRepository.existsByNameAndIsDeletedFalse("푸른 고래")).thenReturn(false);
+        doReturn("agent base").when(spyService).generateBaseAgentNickname();
+        when(agentRepository.findActiveNamesByBaseName("agent base")).thenReturn(List.of());
 
         spyService.register(request);
 
-        verify(agentRepository).save(argThat(savedAgent -> "푸른 고래".equals(savedAgent.getName())));
+        verify(agentRepository).saveAndFlush(argThat(savedAgent -> "agent base".equals(savedAgent.getName())));
     }
 
     @Test
@@ -740,15 +742,66 @@ class AgentServiceTest {
         AgentLifecycleService spyService = spy(agentLifecycleService);
         AgentRegisterRequest request = agentRegisterRequest("desc");
 
-        doReturn("푸른 고래").when(spyService).generateBaseAgentNickname();
-        when(agentRepository.existsByNameAndIsDeletedFalse("푸른 고래")).thenReturn(true);
-        when(agentRepository.existsByNameAndIsDeletedFalse("푸른 고래 2")).thenReturn(false);
+        doReturn("agent base").when(spyService).generateBaseAgentNickname();
+        when(agentRepository.findActiveNamesByBaseName("agent base")).thenReturn(List.of("agent base"));
 
         spyService.register(request);
 
-        verify(agentRepository).existsByNameAndIsDeletedFalse("푸른 고래");
-        verify(agentRepository).existsByNameAndIsDeletedFalse("푸른 고래 2");
-        verify(agentRepository).save(argThat(savedAgent -> "푸른 고래 2".equals(savedAgent.getName())));
+        verify(agentRepository).findActiveNamesByBaseName("agent base");
+        verify(agentRepository).saveAndFlush(argThat(savedAgent -> "agent base 2".equals(savedAgent.getName())));
+    }
+
+    @Test
+    void register_usesFirstAvailableGeneratedNicknameSuffix() {
+        AgentLifecycleService spyService = spy(agentLifecycleService);
+        AgentRegisterRequest request = agentRegisterRequest("desc");
+
+        doReturn("agent base").when(spyService).generateBaseAgentNickname();
+        when(agentRepository.findActiveNamesByBaseName("agent base"))
+                .thenReturn(List.of("agent base", "agent base 2", "agent base 4", "agent base abc"));
+
+        spyService.register(request);
+
+        verify(agentRepository).saveAndFlush(argThat(savedAgent -> "agent base 3".equals(savedAgent.getName())));
+    }
+
+    @Test
+    void register_retriesWithNewTokenAndNicknameWhenSaveConflicts() {
+        AgentLifecycleService spyService = spy(agentLifecycleService);
+        AgentRegisterRequest request = agentRegisterRequest("desc");
+
+        doReturn("agent base", "agent next").when(spyService).generateBaseAgentNickname();
+        when(agentRepository.findActiveNamesByBaseName("agent base")).thenReturn(List.of());
+        when(agentRepository.findActiveNamesByBaseName("agent next")).thenReturn(List.of());
+        doThrow(new DataIntegrityViolationException("duplicate"))
+                .doAnswer(invocation -> invocation.getArgument(0))
+                .when(agentRepository).saveAndFlush(any(Agent.class));
+
+        spyService.register(request);
+
+        ArgumentCaptor<Agent> agentCaptor = ArgumentCaptor.forClass(Agent.class);
+        verify(agentRepository, times(2)).saveAndFlush(agentCaptor.capture());
+        assertThat(agentCaptor.getAllValues()).extracting(Agent::getName)
+                .containsExactly("agent base", "agent next");
+        assertThat(agentCaptor.getAllValues().get(0).getAgentTokenHash())
+                .isNotEqualTo(agentCaptor.getAllValues().get(1).getAgentTokenHash());
+    }
+
+    @Test
+    void register_failsWithDuplicateResourceAfterRetryExhaustion() {
+        AgentLifecycleService spyService = spy(agentLifecycleService);
+        AgentRegisterRequest request = agentRegisterRequest("desc");
+
+        doReturn("agent base").when(spyService).generateBaseAgentNickname();
+        when(agentRepository.findActiveNamesByBaseName("agent base")).thenReturn(List.of());
+        doThrow(new DataIntegrityViolationException("duplicate"))
+                .when(agentRepository).saveAndFlush(any(Agent.class));
+
+        assertThatThrownBy(() -> spyService.register(request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_RESOURCE);
+
+        verify(agentRepository, times(5)).saveAndFlush(any(Agent.class));
     }
 
     @Test
@@ -756,12 +809,12 @@ class AgentServiceTest {
         AgentLifecycleService spyService = spy(agentLifecycleService);
         AgentRegisterRequest request = agentRegisterRequest("desc");
 
-        doReturn("푸른 고래").when(spyService).generateBaseAgentNickname();
-        when(agentRepository.existsByNameAndIsDeletedFalse("푸른 고래")).thenReturn(false);
+        doReturn("agent base").when(spyService).generateBaseAgentNickname();
+        when(agentRepository.findActiveNamesByBaseName("agent base")).thenReturn(List.of());
 
         spyService.register(request);
 
-        verify(agentRepository).save(argThat(savedAgent -> "푸른 고래".equals(savedAgent.getName())));
+        verify(agentRepository).saveAndFlush(argThat(savedAgent -> "agent base".equals(savedAgent.getName())));
     }
 
     @Test

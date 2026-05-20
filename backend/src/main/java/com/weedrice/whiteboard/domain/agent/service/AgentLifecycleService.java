@@ -17,7 +17,9 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
@@ -27,6 +29,7 @@ import java.time.LocalDateTime;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
@@ -35,6 +38,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AgentLifecycleService {
+    private static final int REGISTER_NAME_SAVE_ATTEMPTS = 5;
 
     private static final String[] AGENT_NAME_PREFIXES = {
             "고요한", "눈부신", "달콤한", "맑은", "반짝이는", "붉은", "부드러운", "사뿐한", "산뜻한", "새벽의",
@@ -70,18 +74,25 @@ public class AgentLifecycleService {
     @Value("${app.agent.pending-claim-ttl-hours:24}")
     private long pendingClaimTtlHours = 24L;
 
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public AgentRegisterResponse register(AgentRegisterRequest request) {
         String description = normalizeRegisterDescription(request);
-        String rawToken = generateRawToken();
-        Agent agent = Agent.builder()
-                .agentTokenHash(hashToken(rawToken))
-                .name(resolveAgentName(null))
-                .description(description)
-                .status(Agent.STATUS_PENDING_CLAIM)
-                .build();
-        agentRepository.save(agent);
-        return new AgentRegisterResponse(rawToken);
+        for (int attempt = 0; attempt < REGISTER_NAME_SAVE_ATTEMPTS; attempt++) {
+            String rawToken = generateRawToken();
+            Agent agent = Agent.builder()
+                    .agentTokenHash(hashToken(rawToken))
+                    .name(resolveAgentName(null))
+                    .description(description)
+                    .status(Agent.STATUS_PENDING_CLAIM)
+                    .build();
+            try {
+                agentRepository.saveAndFlush(agent);
+                return new AgentRegisterResponse(rawToken);
+            } catch (DataIntegrityViolationException exception) {
+                // Retry with a new token and nickname. The database unique constraints remain the final guard.
+            }
+        }
+        throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
     }
 
     @Transactional(noRollbackFor = ExpiredPendingClaimNotFoundException.class)
@@ -320,17 +331,36 @@ public class AgentLifecycleService {
         }
 
         String baseName = generateBaseAgentNickname();
-        if (!agentRepository.existsByNameAndIsDeletedFalse(baseName)) {
+        return resolveAvailableAgentName(baseName, agentRepository.findActiveNamesByBaseName(baseName));
+    }
+
+    private String resolveAvailableAgentName(String baseName, List<String> activeNames) {
+        if (activeNames == null || activeNames.isEmpty() || !activeNames.contains(baseName)) {
             return baseName;
         }
 
+        Set<Integer> usedSuffixes = activeNames.stream()
+                .map(name -> extractAgentNameSuffix(baseName, name))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
         int suffix = 2;
-        String candidate = baseName + " " + suffix;
-        while (agentRepository.existsByNameAndIsDeletedFalse(candidate)) {
+        while (usedSuffixes.contains(suffix)) {
             suffix++;
-            candidate = baseName + " " + suffix;
         }
-        return candidate;
+        return baseName + " " + suffix;
+    }
+
+    private Integer extractAgentNameSuffix(String baseName, String name) {
+        String prefix = baseName + " ";
+        if (name == null || !name.startsWith(prefix)) {
+            return null;
+        }
+        try {
+            int suffix = Integer.parseInt(name.substring(prefix.length()));
+            return suffix >= 2 ? suffix : null;
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 
     private String hashToken(String rawToken) {

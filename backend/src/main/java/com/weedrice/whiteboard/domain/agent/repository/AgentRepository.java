@@ -25,6 +25,14 @@ public interface AgentRepository extends JpaRepository<Agent, Long> {
 
     boolean existsByNameAndIsDeletedFalse(String name);
 
+    @Query("""
+            SELECT a.name
+            FROM Agent a
+            WHERE a.isDeleted = false
+              AND (a.name = :baseName OR a.name LIKE CONCAT(:baseName, ' %'))
+            """)
+    List<String> findActiveNamesByBaseName(@Param("baseName") String baseName);
+
     @EntityGraph(attributePaths = { "user" })
     Optional<Agent> findByNameAndIsDeletedFalse(String name);
 
