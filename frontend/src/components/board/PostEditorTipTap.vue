@@ -13,7 +13,7 @@ import { TableKit } from '@tiptap/extension-table'
 import HorizontalRule from '@tiptap/extension-horizontal-rule'
 import { FontSize, LineHeight } from '@tiptap/extension-text-style'
 import { Video } from '@/extensions/tiptap-video'
-import { TextAlignCenter, TextAlignEnd, TextAlignJustify, TextAlignStart } from 'lucide-vue-next'
+import PostEditorAdvancedPopover from '@/components/board/editor/PostEditorAdvancedPopover.vue'
 import PostEditorColorPopover from '@/components/board/editor/PostEditorColorPopover.vue'
 import PostEditorLinkPopover from '@/components/board/editor/PostEditorLinkPopover.vue'
 import PostEditorSlashMenu from '@/components/board/editor/PostEditorSlashMenu.vue'
@@ -208,6 +208,13 @@ const currentFontSize = computed(() => editor.value?.getAttributes('textStyle').
 const currentLineHeight = computed(() => editor.value?.getAttributes('textStyle').lineHeight || '')
 const currentHighlightColor = computed(() => editor.value?.getAttributes('highlight').color || '#fef08a')
 const hasImageUploadError = computed(() => failedImageFile.value !== null)
+const activeTextAlign = computed<'left' | 'center' | 'right' | 'justify' | ''>(() => {
+  if (isTextAlignActive('left')) return 'left'
+  if (isTextAlignActive('center')) return 'center'
+  if (isTextAlignActive('right')) return 'right'
+  if (isTextAlignActive('justify')) return 'justify'
+  return ''
+})
 const colorPresetLabels = computed(() => Object.fromEntries(
   colorPresets.map((color, index) => [
     color,
@@ -493,8 +500,7 @@ function applySlashAction(action: SlashAction) {
   showSlashMenu.value = false
 }
 
-function applyFontSize(event: Event) {
-  const value = (event.target as HTMLSelectElement).value
+function applyFontSize(value: string) {
   if (!editor.value) return
   if (value) {
     editor.value.chain().focus().setFontSize(value).run()
@@ -503,8 +509,7 @@ function applyFontSize(event: Event) {
   editor.value.chain().focus().unsetFontSize().run()
 }
 
-function applyLineHeight(event: Event) {
-  const value = (event.target as HTMLSelectElement).value
+function applyLineHeight(value: string) {
   if (!editor.value) return
   if (value) {
     editor.value.chain().focus().setLineHeight(value).run()
@@ -513,8 +518,7 @@ function applyLineHeight(event: Event) {
   editor.value.chain().focus().unsetLineHeight().run()
 }
 
-function applyHighlightColor(event: Event) {
-  const value = (event.target as HTMLInputElement).value
+function applyHighlightColor(value: string) {
   editor.value?.chain().focus().setHighlight({ color: value }).run()
 }
 
@@ -596,47 +600,26 @@ onBeforeUnmount(() => {
             <p class="text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">{{ t('board.writePost.toolbar.advanced') }}</p>
             <h3 id="editor-advanced-dialog-title" class="text-base font-semibold text-[var(--nv-ink)]">{{ t('board.writePost.toolbar.formattingTools') }}</h3>
           </div>
-          <div class="grid gap-3">
-            <div class="flex flex-wrap items-center gap-2">
-              <select class="tiptap-select text-xs" :value="currentFontSize" :aria-label="t('board.writePost.fontSize')" @change="applyFontSize">
-                <option value="">{{ t('board.writePost.fontSize') || 'Font size' }}</option>
-                <option v-for="size in fontSizes" :key="size" :value="size">{{ size }}</option>
-              </select>
-              <select class="tiptap-select text-xs" :value="currentLineHeight" :aria-label="t('board.writePost.lineHeight')" @change="applyLineHeight">
-                <option value="">{{ t('board.writePost.lineHeight') || 'Line height' }}</option>
-                <option v-for="height in lineHeights" :key="height" :value="height">{{ height }}</option>
-              </select>
-            </div>
-
-            <div class="flex flex-wrap items-center gap-2">
-              <div class="relative inline-block">
-                <button type="button" class="tiptap-btn tiptap-color-trigger" :title="t('board.writePost.toolbar.textColor')" :aria-label="t('board.writePost.toolbar.textColor')" aria-haspopup="dialog" :aria-expanded="showColorPanel" aria-controls="editor-color-dialog" @mousedown.prevent @click="toggleColorPanel">
-                  <span class="tiptap-color-indicator">
-                    A
-                    <span class="tiptap-color-bar" :style="{ backgroundColor: isDefaultColor ? (themeStore.isDark ? '#f3f4f6' : '#111827') : currentTextColor }" />
-                  </span>
-                </button>
-              </div>
-              <input type="color" :value="currentHighlightColor" class="tiptap-color-input w-9 h-9 cursor-pointer" :aria-label="t('board.writePost.toolbar.textColor')" @input="applyHighlightColor">
-              <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.tableDialog')" :aria-label="t('board.writePost.toolbar.tableDialog')" aria-haspopup="dialog" :aria-expanded="showTablePopover" aria-controls="editor-table-dialog" @mousedown.prevent @click="openTablePopover">Tbl</button>
-              <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.divider')" :aria-label="t('board.writePost.toolbar.divider')" @mousedown.prevent @click="applyHorizontalRule">HR</button>
-            </div>
-
-            <div class="flex flex-wrap items-center gap-2">
-              <button type="button" class="tiptap-btn" :class="{ active: isTextAlignActive('left') }" :title="t('board.writePost.alignLeft')" :aria-label="t('board.writePost.alignLeft')" @mousedown.prevent @click="setTextAlign('left')">
-                <TextAlignStart :size="16" />
-              </button>
-              <button type="button" class="tiptap-btn" :class="{ active: isTextAlignActive('center') }" :title="t('board.writePost.alignCenter')" :aria-label="t('board.writePost.alignCenter')" @mousedown.prevent @click="setTextAlign('center')">
-                <TextAlignCenter :size="16" />
-              </button>
-              <button type="button" class="tiptap-btn" :class="{ active: isTextAlignActive('right') }" :title="t('board.writePost.alignRight')" :aria-label="t('board.writePost.alignRight')" @mousedown.prevent @click="setTextAlign('right')">
-                <TextAlignEnd :size="16" />
-              </button>
-              <button type="button" class="tiptap-btn" :class="{ active: isTextAlignActive('justify') }" :title="t('board.writePost.alignJustify')" :aria-label="t('board.writePost.alignJustify')" @mousedown.prevent @click="setTextAlign('justify')">
-                <TextAlignJustify :size="16" />
-              </button>
-            </div>
-          </div>
+          <PostEditorAdvancedPopover
+            :font-sizes="fontSizes"
+            :line-heights="lineHeights"
+            :current-font-size="currentFontSize"
+            :current-line-height="currentLineHeight"
+            :current-highlight-color="currentHighlightColor"
+            :current-text-color="currentTextColor"
+            :is-default-color="isDefaultColor"
+            :is-dark="themeStore.isDark"
+            :show-color-panel="showColorPanel"
+            :show-table-popover="showTablePopover"
+            :active-text-align="activeTextAlign"
+            @font-size="applyFontSize"
+            @line-height="applyLineHeight"
+            @highlight-color="applyHighlightColor"
+            @toggle-color-panel="toggleColorPanel"
+            @open-table="openTablePopover"
+            @horizontal-rule="applyHorizontalRule"
+            @align="setTextAlign"
+          />
         </div>
       </div>
     </Teleport>
