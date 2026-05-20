@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Editor } from '@tiptap/core'
-import { Image as ImageIcon, Video as VideoIcon } from 'lucide-vue-next'
+import { Image as ImageIcon, List as ListIcon, ListOrdered, Smile, Video as VideoIcon } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 
@@ -68,16 +68,16 @@ const { t } = useI18n()
         <VideoIcon class="h-4 w-4" aria-hidden="true" />
       </button>
       <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.emoticon')" :aria-label="t('board.writePost.toolbar.emoticon')" @mousedown.prevent @click="emit('open-emoticon')">
-        :)
+        <Smile class="h-4 w-4" aria-hidden="true" />
       </button>
     </div>
 
     <div class="tiptap-toolbar-group">
       <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('bulletList') }" :title="t('board.writePost.toolbar.bulletList')" :aria-label="t('board.writePost.toolbar.bulletList')" :aria-pressed="editor.isActive('bulletList')" @mousedown.prevent="emit('save-list-selection')" @click="emit('bullet-list')">
-        UL
+        <ListIcon class="h-4 w-4" aria-hidden="true" />
       </button>
       <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('orderedList') }" :title="t('board.writePost.toolbar.orderedList')" :aria-label="t('board.writePost.toolbar.orderedList')" :aria-pressed="editor.isActive('orderedList')" @mousedown.prevent="emit('save-list-selection')" @click="emit('ordered-list')">
-        1.
+        <ListOrdered class="h-4 w-4" aria-hidden="true" />
       </button>
     </div>
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { TextAlignCenter, TextAlignEnd, TextAlignJustify, TextAlignStart } from 'lucide-vue-next'
+import { SeparatorHorizontal, Table2, TextAlignCenter, TextAlignEnd, TextAlignJustify, TextAlignStart } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 defineProps<{
@@ -52,8 +52,12 @@ const { t } = useI18n()
         </button>
       </div>
       <input type="color" :value="currentHighlightColor" class="tiptap-color-input w-9 h-9 cursor-pointer" :aria-label="t('board.writePost.toolbar.textColor')" @input="emit('highlight-color', ($event.target as HTMLInputElement).value)">
-      <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.tableDialog')" :aria-label="t('board.writePost.toolbar.tableDialog')" aria-haspopup="dialog" :aria-expanded="showTablePopover" aria-controls="editor-table-dialog" @mousedown.prevent @click="emit('open-table', $event.currentTarget as HTMLElement)">Tbl</button>
-      <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.divider')" :aria-label="t('board.writePost.toolbar.divider')" @mousedown.prevent @click="emit('horizontal-rule')">HR</button>
+      <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.tableDialog')" :aria-label="t('board.writePost.toolbar.tableDialog')" aria-haspopup="dialog" :aria-expanded="showTablePopover" aria-controls="editor-table-dialog" @mousedown.prevent @click="emit('open-table', $event.currentTarget as HTMLElement)">
+        <Table2 :size="16" aria-hidden="true" />
+      </button>
+      <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.divider')" :aria-label="t('board.writePost.toolbar.divider')" @mousedown.prevent @click="emit('horizontal-rule')">
+        <SeparatorHorizontal :size="16" aria-hidden="true" />
+      </button>
     </div>
 
     <div class="flex flex-wrap items-center gap-2">

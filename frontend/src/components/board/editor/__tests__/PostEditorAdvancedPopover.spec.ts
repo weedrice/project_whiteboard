@@ -19,6 +19,8 @@ vi.mock('lucide-vue-next', () => {
         TextAlignCenter: icon,
         TextAlignEnd: icon,
         TextAlignJustify: icon,
+        SeparatorHorizontal: icon,
+        Table2: icon,
     }
 })
 

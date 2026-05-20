@@ -144,6 +144,11 @@ vi.mock('lucide-vue-next', () => {
     const icon = defineComponent({ name: 'TestIcon', setup: () => () => h('i') })
     return {
         Image: icon,
+        List: icon,
+        ListOrdered: icon,
+        SeparatorHorizontal: icon,
+        Smile: icon,
+        Table2: icon,
         Video: icon,
         TextAlignStart: icon,
         TextAlignCenter: icon,
