@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onMounted, ref, watch } from 'vue'
+import { nextTick, onMounted, ref, watch, type ComponentPublicInstance } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 type SlashAction = 'image' | 'quote' | 'list' | 'link' | 'divider'
@@ -28,9 +28,14 @@ const actionLabels: Record<SlashAction, string> = {
 
 const actionButtonRefs = ref<HTMLButtonElement[]>([])
 
-function setActionButtonRef(element: Element | null, index: number) {
-  if (element instanceof HTMLButtonElement) {
-    actionButtonRefs.value[index] = element
+function setActionButtonRef(element: Element | ComponentPublicInstance | null, index: number) {
+  const button = element instanceof Element
+    ? element
+    : element?.$el
+  if (button) {
+    if (button instanceof HTMLButtonElement) {
+      actionButtonRefs.value[index] = button
+    }
   }
 }
 
