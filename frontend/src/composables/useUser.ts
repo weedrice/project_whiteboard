@@ -48,6 +48,7 @@ export function useUser() {
                 const { data } = await userApi.getUserSettings()
                 return data.data
             },
+            staleTime: QUERY_STALE_TIME.SHORT,
         })
     }
 

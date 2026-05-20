@@ -18,6 +18,7 @@ export function useMailboxResource() {
     const viewType = ref<'received' | 'sent'>('received')
     const messages = ref<Message[]>([])
     const loading = ref(false)
+    const error = ref<string | null>(null)
     const selectedMessage = ref<Message | null>(null)
     const selectedMessages = ref<number[]>([])
 
@@ -37,6 +38,7 @@ export function useMailboxResource() {
     async function fetchMessages() {
         const requestId = ++messageListRequestId
         loading.value = true
+        error.value = null
         messages.value = []
         selectedMessages.value = []
         try {
@@ -52,9 +54,10 @@ export function useMailboxResource() {
                 messages.value = data.data?.content || []
                 totalPages.value = data.data?.totalPages || 0
             }
-        } catch (error) {
+        } catch (err) {
             if (requestId === messageListRequestId) {
-                logger.error('Failed to fetch messages:', error)
+                logger.error('Failed to fetch messages:', err)
+                error.value = t('common.messages.loadFailed')
             }
         } finally {
             if (requestId === messageListRequestId) {
@@ -189,6 +192,7 @@ export function useMailboxResource() {
         viewType,
         messages,
         loading,
+        error,
         selectedMessage,
         selectedMessages,
         page,

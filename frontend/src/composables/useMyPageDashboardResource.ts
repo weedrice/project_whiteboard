@@ -1,9 +1,18 @@
 import { useQueryClient } from '@tanstack/vue-query'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { userApi, type UserAgent } from '@/api/user'
 import { useErrorHandler } from '@/composables/useErrorHandler'
-import type { Comment, PostSummary, User } from '@/types'
+import type { MyComment, PostSummary, User } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
+
+export interface MyCommentListItem {
+  commentId: number
+  content: string | null
+  createdAt: string
+  postLink: string | null
+  postTitle: string
+  boardLabel: string
+}
 
 export function useMyPageDashboardResource() {
   const { handleSilentError } = useErrorHandler()
@@ -18,10 +27,18 @@ export function useMyPageDashboardResource() {
   const myPostsSize = ref(10)
   const myPostsSort = ref('createdAt,desc')
 
-  const myComments = ref<Comment[]>([])
+  const myComments = ref<MyComment[]>([])
   const myCommentsTotalCount = ref(0)
   const myCommentsCurrentPage = ref(0)
   const myCommentsSize = ref(10)
+  const myCommentItems = computed<MyCommentListItem[]>(() => myComments.value.map((comment) => ({
+    commentId: comment.commentId,
+    content: comment.content,
+    createdAt: comment.createdAt,
+    postLink: comment.post ? `/board/${comment.post.boardUrl}/post/${comment.post.postId}` : null,
+    postTitle: comment.post?.title ?? '',
+    boardLabel: comment.post?.boardName ?? ''
+  })))
 
   const isLoading = ref(true)
   const error = ref<string | null>(null)
@@ -148,6 +165,7 @@ export function useMyPageDashboardResource() {
     myPostsSize,
     myPostsSort,
     myComments,
+    myCommentItems,
     myCommentsTotalCount,
     myCommentsCurrentPage,
     myCommentsSize,

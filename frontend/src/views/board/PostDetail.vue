@@ -184,7 +184,10 @@ let blurTimer: ReturnType<typeof setInterval> | null = null
 let likeAnimationTimer: ReturnType<typeof setTimeout> | null = null
 let bookmarkAnimationTimer: ReturnType<typeof setTimeout> | null = null
 let copyHintTimer: ReturnType<typeof setTimeout> | null = null
+let composerFocusTimer: number | null = null
+const imageLoadTimeouts = new Map<number, () => void>()
 let composerObserver: IntersectionObserver | null = null
+let isDisposed = false
 
 const translateOrFallback = (key: string, fallback: string) => {
   const translated = t(key)
@@ -212,6 +215,21 @@ function clearBlurTimer() {
     clearInterval(blurTimer)
     blurTimer = null
   }
+}
+
+function clearComposerFocusTimer() {
+  if (composerFocusTimer) {
+    window.clearTimeout(composerFocusTimer)
+    composerFocusTimer = null
+  }
+}
+
+function clearImageLoadTimeoutTimers() {
+  imageLoadTimeouts.forEach((resolve, timer) => {
+    window.clearTimeout(timer)
+    resolve()
+  })
+  imageLoadTimeouts.clear()
 }
 
 function startBlurTimer() {
@@ -426,6 +444,8 @@ function scrollToTop() {
 }
 
 function scrollToCommentComposer() {
+  if (isDisposed) return
+
   const composer = document.getElementById('comment-composer')
   if (!composer) {
     scrollToComments()
@@ -434,13 +454,18 @@ function scrollToCommentComposer() {
 
   composer.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
-  window.setTimeout(() => {
+  clearComposerFocusTimer()
+  composerFocusTimer = window.setTimeout(() => {
+    composerFocusTimer = null
+    if (isDisposed) return
     const textarea = composer.querySelector('textarea') as HTMLTextAreaElement | null
     textarea?.focus()
   }, 250)
 }
 
 function scrollToComments() {
+  if (isDisposed) return
+
   const target = document.getElementById('comment-composer') || commentsRef.value
   if (!target) return
 
@@ -455,6 +480,8 @@ function scrollToComments() {
 }
 
 function waitForImagesInContent(): Promise<void> {
+  if (isDisposed) return Promise.resolve()
+
   const container = contentRef.value
   if (!container) return Promise.resolve()
 
@@ -471,7 +498,14 @@ function waitForImagesInContent(): Promise<void> {
         image.onload = () => resolve()
         image.onerror = () => resolve()
       }),
-      new Promise<void>((resolve) => setTimeout(resolve, imageLoadTimeout))
+      new Promise<void>((resolve) => {
+        const resolveTimeout = () => {
+          imageLoadTimeouts.delete(timer)
+          resolve()
+        }
+        const timer = window.setTimeout(resolveTimeout, imageLoadTimeout)
+        imageLoadTimeouts.set(timer, resolveTimeout)
+      })
     ])
   })
 
@@ -480,6 +514,7 @@ function waitForImagesInContent(): Promise<void> {
 
 function scrollToCommentsAfterImagesLoad() {
   waitForImagesInContent().then(() => {
+    if (isDisposed) return
     nextTick(() => scrollToComments())
   })
 }
@@ -494,6 +529,8 @@ function goToList() {
 }
 
 function setupComposerObserver() {
+  if (isDisposed) return
+
   if (composerObserver) {
     composerObserver.disconnect()
     composerObserver = null
@@ -655,6 +692,7 @@ watch(post, (newPost, oldPost) => {
 }, { immediate: true })
 
 onMounted(() => {
+  isDisposed = false
   nextTick(() => setupComposerObserver())
 
   document.addEventListener('keydown', handleKeyDown)
@@ -663,11 +701,14 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  isDisposed = true
   document.removeEventListener('keydown', handleKeyDown)
   document.removeEventListener('click', handleDocumentClick)
   window.removeEventListener('resize', handleResize)
 
   clearBlurTimer()
+  clearComposerFocusTimer()
+  clearImageLoadTimeoutTimers()
   if (composerObserver) {
     composerObserver.disconnect()
     composerObserver = null

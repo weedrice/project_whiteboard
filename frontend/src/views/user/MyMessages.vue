@@ -48,6 +48,13 @@
                 </div>
             </div>
 
+            <ErrorState
+                v-else-if="error"
+                :message="error"
+                :show-retry="true"
+                @retry="fetchMessages"
+            />
+
             <EmptyState
                 v-else-if="messages.length === 0"
                 :title="$t('user.message.empty')"
@@ -148,6 +155,7 @@ import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import { Mail } from 'lucide-vue-next'
@@ -158,6 +166,7 @@ const {
     viewType,
     messages,
     loading,
+    error,
     selectedMessage,
     selectedMessages,
     page,
@@ -167,6 +176,7 @@ const {
     replyTarget,
     replyContent,
     isSending,
+    fetchMessages,
     handlePageChange,
     handleSizeChange,
     changeViewType,

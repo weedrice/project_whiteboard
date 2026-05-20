@@ -151,6 +151,22 @@ describe('Auth Store', () => {
         })
     })
 
+    describe('handleSanctionedSession', () => {
+        it('shows sanction toast and clears auth state', async () => {
+            store.accessToken = 'token'
+            store.user = { id: 1, username: 'test', role: 'USER', status: 'SANCTIONED' } as any
+            localStorage.setItem('accessToken', 'token')
+            vi.mocked(authApi.logout).mockResolvedValue({ data: { success: true } } as any)
+
+            await store.handleSanctionedSession()
+
+            expect(mockAddToast).toHaveBeenCalledWith('user.sanctioned', 'error')
+            expect(authApi.logout).toHaveBeenCalled()
+            expect(store.accessToken).toBeNull()
+            expect(store.user).toBeNull()
+        })
+    })
+
     describe('fetchUser', () => {
         it('does nothing if no token', async () => {
             store.accessToken = null
@@ -226,6 +242,7 @@ describe('Auth Store', () => {
             // Now uses toast instead of alert, and logout is called
             expect(result).toBe(false)
             expect(store.accessToken).toBeNull() // Should have logged out
+            expect(mockAddToast).toHaveBeenCalledWith('user.sanctioned', 'error')
         })
 
         it('does not logout on fetch error (handled by interceptor)', async () => {

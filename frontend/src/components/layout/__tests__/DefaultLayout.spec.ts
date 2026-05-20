@@ -5,6 +5,7 @@ import { defineComponent, h, nextTick, ref } from 'vue'
 const routeState = ref({ name: 'home' as string | null })
 const routerPush = vi.fn()
 const logout = vi.fn()
+const toggleThemePreference = vi.hoisted(() => vi.fn())
 
 vi.mock('vue-router', () => ({
     createRouter: vi.fn(() => ({
@@ -43,7 +44,12 @@ vi.mock('@/stores/auth', () => ({
 vi.mock('@/stores/theme', () => ({
     useThemeStore: () => ({
         isDark: false,
-        toggleTheme: vi.fn(),
+    }),
+}))
+
+vi.mock('@/composables/useThemePreference', () => ({
+    useThemePreference: () => ({
+        toggleTheme: toggleThemePreference,
     }),
 }))
 
@@ -87,6 +93,7 @@ const MobileBottomNavStub = defineComponent({
 describe('DefaultLayout', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        toggleThemePreference.mockClear()
         routeState.value = { name: 'home' }
         Object.defineProperty(window, 'matchMedia', {
             writable: true,

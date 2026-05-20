@@ -39,7 +39,7 @@ const {
   myPostsCurrentPage,
   myPostsSize,
   myPostsSort,
-  myComments,
+  myCommentItems,
   myCommentsTotalCount,
   myCommentsCurrentPage,
   myCommentsSize,
@@ -241,20 +241,20 @@ onMounted(async () => {
             <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">{{ $t('user.myComments') }}</h3>
           </div>
 
-          <div v-if="myComments.length > 0">
+          <div v-if="myCommentItems.length > 0">
             <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
-              <li v-for="comment in myComments" :key="comment.commentId"
+              <li v-for="comment in myCommentItems" :key="comment.commentId"
                 class="px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 min-h-[44px]">
-                <router-link v-if="comment.post" :to="`/board/${comment.post.boardUrl}/post/${comment.post.postId}`"
+                <router-link v-if="comment.postLink" :to="comment.postLink"
                   class="block">
                   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
                     <div class="flex flex-wrap items-center gap-2 min-w-0">
                       <span
                         class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 flex-shrink-0">
-                        {{ comment.post.boardName }}
+                        {{ comment.boardLabel }}
                       </span>
                       <p class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate min-w-0">
-                        {{ comment.post.title }}
+                        {{ comment.postTitle }}
                       </p>
                     </div>
                     <p class="flex-shrink-0 font-normal text-gray-500 dark:text-gray-400 text-xs">{{

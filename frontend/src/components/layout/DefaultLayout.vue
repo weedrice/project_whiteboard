@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { useKeyboardStore } from '@/stores/keyboard'
 import { useNotification } from '@/composables/useNotification'
+import { useThemePreference } from '@/composables/useThemePreference'
 import NotificationDropdown from '@/components/notification/NotificationDropdown.vue'
 import UserDropdown from '@/components/layout/UserDropdown.vue'
 import BoardDropdown from '@/components/layout/BoardDropdown.vue'
@@ -25,6 +26,7 @@ const authStore = useAuthStore()
 const themeStore = useThemeStore()
 const keyboardStore = useKeyboardStore()
 const { useUnreadCount, connectToSse, closeSse } = useNotification()
+const { toggleTheme } = useThemePreference()
 
 const logoSrc = computed(() => (themeStore.isDark ? logoDark : logoLight))
 
@@ -163,7 +165,7 @@ const handleKeyDown = async (event: KeyboardEvent) => {
       break
     case 'd':
       event.preventDefault()
-      themeStore.toggleTheme()
+      toggleTheme()
       break
     case 'q':
       if (authStore.isAuthenticated) {
