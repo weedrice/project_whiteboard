@@ -12,6 +12,11 @@ import UserDetailModal from '@/components/admin/UserDetailModal.vue'
 import { formatDateOnly } from '@/utils/date'
 import { useConfirm } from '@/composables/useConfirm'
 import type { User } from '@/types'
+import {
+  getAdminUserRoleLabel,
+  getAdminUserStatusLabel,
+  getAdminUserStatusVariant,
+} from '@/utils/adminUserDisplay'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -89,14 +94,11 @@ function openDetailModal(user: User) {
 }
 
 function getStatusVariant(status: string) {
-  if (status === 'ACTIVE') return 'success'
-  if (status === 'SUSPENDED' || status === 'SANCTIONED') return 'danger'
-  if (status === 'DELETED') return 'warning'
-  return 'gray'
+  return getAdminUserStatusVariant(status)
 }
 
 function getStatusLabel(status: string) {
-  return t(`admin.users.status.${status}`)
+  return getAdminUserStatusLabel(t, status)
 }
 
 function canChangeStatus(status: string) {
@@ -112,7 +114,7 @@ function getStatusActionLabel(status: string) {
 }
 
 function getRoleLabel(role: string) {
-  return t(`admin.users.role.${role}`)
+  return getAdminUserRoleLabel(t, role)
 }
 
 async function handleStatusChange(user: User, status: 'ACTIVE' | 'SUSPENDED') {

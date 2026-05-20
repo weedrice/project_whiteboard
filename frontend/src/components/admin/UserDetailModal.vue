@@ -8,6 +8,12 @@ import { useAdmin } from '@/composables/useAdmin'
 import { formatDate } from '@/utils/date'
 import { isEmoticonOnlyContent, renderCommentContentHtml } from '@/utils/commentContent'
 import { applyImageFallback } from '@/utils/imageFallback'
+import {
+  getAdminUserRoleLabel,
+  getAdminUserRoleVariant,
+  getAdminUserStatusLabel,
+  getAdminUserStatusVariant,
+} from '@/utils/adminUserDisplay'
 
 const { t } = useI18n()
 const { useAdminUserDetail, useAdminUserPosts, useAdminUserComments, useAdminUserSubscriptions } = useAdmin()
@@ -40,31 +46,19 @@ const { data: userSubscriptions, isLoading: isSubscriptionsLoading } = useAdminU
 
 const statusVariant = computed(() => {
   if (!userDetail.value) return 'gray'
-  if (userDetail.value.status === 'ACTIVE') return 'success'
-  if (userDetail.value.status === 'SUSPENDED' || userDetail.value.status === 'SANCTIONED') return 'danger'
-  if (userDetail.value.status === 'DELETED') return 'warning'
-  return 'gray'
+  return getAdminUserStatusVariant(userDetail.value.status)
 })
 
 function getStatusLabel(status: string) {
-  return t(`admin.users.status.${status}`)
+  return getAdminUserStatusLabel(t, status)
 }
 
 function getRoleLabel(role: string | undefined) {
-  if (!role) return '-'
-  return t(`admin.users.role.${role}`)
+  return getAdminUserRoleLabel(t, role)
 }
 
 const roleVariant = computed(() => {
-  switch (userDetail.value?.role) {
-    case 'SUPER_ADMIN':
-      return 'danger'
-    case 'BOARD_ADMIN':
-    case 'MODERATOR':
-      return 'warning'
-    default:
-      return 'gray'
-  }
+  return getAdminUserRoleVariant(userDetail.value?.role)
 })
 
 watch(() => props.isOpen, (open) => {

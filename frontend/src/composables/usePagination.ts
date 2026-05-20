@@ -121,12 +121,14 @@ export function usePagination<T>(
      * 페이지네이션 상태 리셋
      */
     const reset = () => {
+        latestRequestId++
         page.value = initialParams.page || 0
         size.value = initialParams.size || 20
         sort.value = initialParams.sort
         items.value = []
         totalCount.value = 0
         totalPages.value = 0
+        loading.value = false
         error.value = null
     }
 
