@@ -1,7 +1,7 @@
 package com.weedrice.whiteboard.global.log.service;
 
+import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
-import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.log.entity.Log;
 import com.weedrice.whiteboard.global.log.repository.LogRepository;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +9,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,8 +44,8 @@ public class LogService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public Page<Log> getLogs(Pageable pageable) {
-        SecurityUtils.validateSuperAdminPermission();
         return logRepository.findAll(applyStableSort(pageable));
     }
 

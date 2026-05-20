@@ -8,10 +8,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -25,6 +27,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -37,9 +40,27 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import static org.mockito.Mockito.doAnswer;
 
-@WebMvcTest(controllers = LogController.class,
-    excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class))
+@WebMvcTest(controllers = LogController.class, excludeFilters = {
+        @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class),
+        @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
+})
+@AutoConfigureMockMvc
+@Import(LogControllerTest.TestSecurityConfig.class)
 class LogControllerTest {
+
+    @org.springframework.boot.test.context.TestConfiguration
+    @org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
+    @org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
+    static class TestSecurityConfig {
+        @org.springframework.context.annotation.Bean
+        public org.springframework.security.web.SecurityFilterChain filterChain(
+                org.springframework.security.config.annotation.web.builders.HttpSecurity http) throws Exception {
+            http
+                    .csrf(csrf -> csrf.disable())
+                    .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+            return http.build();
+        }
+    }
 
     @Autowired
     private MockMvc mockMvc;
@@ -66,10 +87,12 @@ class LogControllerTest {
     private org.springframework.data.jpa.mapping.JpaMetamodelMappingContext jpaMetamodelMappingContext;
 
     private CustomUserDetails adminUser;
+    private CustomUserDetails normalUser;
 
     @BeforeEach
     void setUp() throws Exception {
         adminUser = new CustomUserDetails(1L, "admin", "password", Collections.singletonList(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN")));
+        normalUser = new CustomUserDetails(2L, "user", "password", Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
 
         when(ipBlockInterceptor.preHandle(any(), any(), any())).thenReturn(true);
         when(refererCheckInterceptor.preHandle(any(), any(), any())).thenReturn(true);
@@ -85,7 +108,18 @@ class LogControllerTest {
     }
 
     @Test
-    @DisplayName("로그 목록 조회")
+    @DisplayName("Log list rejects non-super-admin users")
+    void getLogs_forbiddenForNonSuperAdmin() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/logs")
+                        .with(user(normalUser))
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isForbidden());
+
+        verify(logService, never()).getLogs(any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("Log list returns logs")
     void getLogs_success() throws Exception {
         Log log = Log.builder().userId(1L).actionType("TEST").ipAddress("127.0.0.1").build();
         when(logService.getLogs(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(log)));

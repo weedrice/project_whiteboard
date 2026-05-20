@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.global.log.controller;
 
+import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.log.dto.LogResponse;
@@ -7,6 +8,7 @@ import com.weedrice.whiteboard.global.log.service.LogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/admin/logs")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
 public class LogController {
 
     private static final Sort LOG_LIST_SORT = Sort.by(

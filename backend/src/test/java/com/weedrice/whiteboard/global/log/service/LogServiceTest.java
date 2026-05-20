@@ -1,17 +1,13 @@
 package com.weedrice.whiteboard.global.log.service;
 
-import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.log.entity.Log;
 import com.weedrice.whiteboard.global.log.repository.LogRepository;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -33,18 +29,6 @@ class LogServiceTest {
 
     @InjectMocks
     private LogService logService;
-
-    private MockedStatic<SecurityUtils> securityUtilsMockedStatic;
-
-    @BeforeEach
-    void setUp() {
-        securityUtilsMockedStatic = mockStatic(SecurityUtils.class);
-    }
-
-    @AfterEach
-    void tearDown() {
-        securityUtilsMockedStatic.close();
-    }
 
     @Test
     @DisplayName("로그 저장 성공 (Entity)")
@@ -77,7 +61,6 @@ class LogServiceTest {
         Page<Log> result = logService.getLogs(pageable);
 
         assertThat(result).isEqualTo(page);
-        securityUtilsMockedStatic.verify(SecurityUtils::validateSuperAdminPermission);
     }
 
     @Test

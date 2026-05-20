@@ -1,6 +1,5 @@
 package com.weedrice.whiteboard.global.log.service;
 
-import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogSearchRequest;
@@ -8,15 +7,12 @@ import com.weedrice.whiteboard.global.log.dto.ErrorLogResponse;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogStatsResponse;
 import com.weedrice.whiteboard.global.log.entity.ErrorLog;
 import com.weedrice.whiteboard.global.log.repository.ErrorLogRepository;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -30,7 +26,6 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -43,18 +38,6 @@ class ErrorLogServiceTest {
 
     @InjectMocks
     private ErrorLogService errorLogService;
-
-    private MockedStatic<SecurityUtils> securityUtilsMockedStatic;
-
-    @BeforeEach
-    void setUp() {
-        securityUtilsMockedStatic = mockStatic(SecurityUtils.class);
-    }
-
-    @AfterEach
-    void tearDown() {
-        securityUtilsMockedStatic.close();
-    }
 
     // ===== saveErrorLog 테스트 =====
 
@@ -251,7 +234,6 @@ class ErrorLogServiceTest {
         assertThat(result.getContent()).hasSize(2);
         assertThat(result.getContent().get(0).getErrorCode()).isEqualTo("ERROR1");
         assertThat(result.getContent().get(1).getErrorCode()).isEqualTo("ERROR2");
-        securityUtilsMockedStatic.verify(SecurityUtils::validateSuperAdminPermission);
     }
 
     // ===== getErrorLog 테스트 =====
@@ -274,7 +256,6 @@ class ErrorLogServiceTest {
         // then
         assertThat(result.getErrorCode()).isEqualTo("INTERNAL_SERVER_ERROR");
         assertThat(result.getStackTrace()).isEqualTo("stack trace here");
-        securityUtilsMockedStatic.verify(SecurityUtils::validateSuperAdminPermission);
     }
 
     @Test
@@ -292,7 +273,6 @@ class ErrorLogServiceTest {
 
         assertThat(detail.getErrorCode()).isEqualTo("INTERNAL_SERVER_ERROR");
         assertThat(detail.getStackTrace()).isEqualTo("stack trace here");
-        securityUtilsMockedStatic.verify(SecurityUtils::validateSuperAdminPermission);
     }
 
     @Test
@@ -330,7 +310,6 @@ class ErrorLogServiceTest {
         assertThat(errorLog.getResolvedBy()).isEqualTo(adminUserId);
         assertThat(errorLog.getResolvedAt()).isNotNull();
         assertThat(errorLog.getResolvedMemo()).isEqualTo(memo);
-        securityUtilsMockedStatic.verify(SecurityUtils::validateSuperAdminPermission);
     }
 
     @Test
@@ -432,7 +411,6 @@ class ErrorLogServiceTest {
         assertThat(stats.getTotalCount()).isEqualTo(100L);
         assertThat(stats.getUnresolvedCount()).isEqualTo(30L);
         assertThat(stats.getResolvedCount()).isEqualTo(70L);
-        securityUtilsMockedStatic.verify(SecurityUtils::validateSuperAdminPermission);
     }
 
     @Test

@@ -16,10 +16,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -47,7 +49,23 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class),
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
 })
+@AutoConfigureMockMvc
+@Import(ErrorLogControllerTest.TestSecurityConfig.class)
 class ErrorLogControllerTest {
+
+    @org.springframework.boot.test.context.TestConfiguration
+    @org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
+    @org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
+    static class TestSecurityConfig {
+        @org.springframework.context.annotation.Bean
+        public org.springframework.security.web.SecurityFilterChain filterChain(
+                org.springframework.security.config.annotation.web.builders.HttpSecurity http) throws Exception {
+            http
+                    .csrf(csrf -> csrf.disable())
+                    .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+            return http.build();
+        }
+    }
 
     @Autowired
     private MockMvc mockMvc;
@@ -77,11 +95,14 @@ class ErrorLogControllerTest {
     private com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor rateLimitInterceptor;
 
     private CustomUserDetails customUserDetails;
+    private CustomUserDetails normalUserDetails;
 
     @BeforeEach
     void setUp() throws Exception {
         customUserDetails = new CustomUserDetails(1L, "admin@example.com", "password",
                 Collections.singletonList(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN")));
+        normalUserDetails = new CustomUserDetails(2L, "user@example.com", "password",
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
 
         when(ipBlockInterceptor.preHandle(any(), any(), any())).thenReturn(true);
         when(refererCheckInterceptor.preHandle(any(), any(), any())).thenReturn(true);
@@ -99,7 +120,51 @@ class ErrorLogControllerTest {
     // ===== GET /api/v1/admin/error-logs =====
 
     @Test
-    @DisplayName("에러 로그 목록 조회 성공")
+    @DisplayName("Error log list rejects non-super-admin users")
+    void getErrorLogs_forbiddenForNonSuperAdmin() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/error-logs")
+                .with(user(normalUserDetails))
+                .with(csrf()))
+                .andExpect(status().isForbidden());
+
+        verify(errorLogService, never()).getErrorLogs(any(ErrorLogSearchRequest.class), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("Error log detail rejects non-super-admin users")
+    void getErrorLog_forbiddenForNonSuperAdmin() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/error-logs/1")
+                .with(user(normalUserDetails))
+                .with(csrf()))
+                .andExpect(status().isForbidden());
+
+        verify(errorLogService, never()).getErrorLogDetail(anyLong());
+    }
+
+    @Test
+    @DisplayName("Error log resolve rejects non-super-admin users")
+    void resolveErrorLog_forbiddenForNonSuperAdmin() throws Exception {
+        mockMvc.perform(put("/api/v1/admin/error-logs/1/resolve")
+                .with(user(normalUserDetails))
+                .with(csrf()))
+                .andExpect(status().isForbidden());
+
+        verify(errorLogService, never()).resolveErrorLog(anyLong(), anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("Error log stats rejects non-super-admin users")
+    void getErrorLogStats_forbiddenForNonSuperAdmin() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/error-logs/stats")
+                .with(user(normalUserDetails))
+                .with(csrf()))
+                .andExpect(status().isForbidden());
+
+        verify(errorLogService, never()).getErrorLogStats();
+    }
+
+    @Test
+    @DisplayName("Error log list returns results")
     void getErrorLogs_returnsSuccess() throws Exception {
         // given
         ErrorLogResponse.ErrorLogSummary errorLog = ErrorLogResponse.ErrorLogSummary.builder()
