@@ -63,4 +63,26 @@ describe('useMyPageDashboardResource', () => {
       sort: 'likeCount,desc'
     })
   })
+
+  it('sets an error when a dashboard resource request fails', async () => {
+    vi.mocked(userApi.getMyPosts).mockRejectedValueOnce(new Error('network'))
+    const resource = useMyPageDashboardResource()
+
+    await resource.loadDashboard()
+
+    expect(resource.error.value).toBe('데이터를 불러오는데 실패했습니다.')
+    expect(resource.isLoading.value).toBe(false)
+  })
+
+  it('sets an error when a dashboard resource returns an unsuccessful envelope', async () => {
+    vi.mocked(userApi.getMyComments).mockResolvedValueOnce({
+      data: { success: false }
+    } as never)
+    const resource = useMyPageDashboardResource()
+
+    await resource.loadDashboard()
+
+    expect(resource.error.value).toBe('데이터를 불러오는데 실패했습니다.')
+    expect(resource.isLoading.value).toBe(false)
+  })
 })
