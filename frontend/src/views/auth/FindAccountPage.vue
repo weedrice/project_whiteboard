@@ -8,13 +8,14 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useToastStore } from '@/stores/toast'
 import { extractErrorMessage } from '@/utils/errorHandler'
-import { isValidPassword } from '@/utils/validation'
+import { useAuthPasswordValidation } from '@/composables/useAuthPasswordValidation'
 import axios from 'axios'
 import { Mail, ChevronLeft, Key, User, CheckCircle } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const router = useRouter()
 const toastStore = useToastStore()
+const { validatePasswordPair } = useAuthPasswordValidation()
 
 const activeTab = ref('id')
 const form = reactive({
@@ -109,13 +110,14 @@ const findId = async (verificationTicket: string) => {
 }
 
 const handleResetPassword = async () => {
-    if (!isValidPassword(form.newPassword)) {
-        toastStore.addToast(t('auth.validation.passwordStrength'), 'error')
-        return
-    }
-
-    if (form.newPassword !== form.confirmPassword) {
-        toastStore.addToast(t('auth.passwordMismatch'), 'error')
+    const passwordError = validatePasswordPair(form.newPassword, form.confirmPassword, {
+        messages: {
+            invalid: t('auth.validation.passwordStrength'),
+            mismatch: t('auth.passwordMismatch')
+        }
+    })
+    if (passwordError) {
+        toastStore.addToast(passwordError, 'error')
         return
     }
 

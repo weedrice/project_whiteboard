@@ -149,6 +149,7 @@ describe('useUser', () => {
         useMyAgents()
         options = mocks.queryOptions.at(-1)!
         expect(options.queryKey).toEqual(['user', 'agents'])
+        expect(options.staleTime).toBe(QUERY_STALE_TIME.MEDIUM)
         result = await (options.queryFn as () => Promise<unknown>)()
         expect(result).toEqual({ agents: [{ agentId: 10 }] })
     })

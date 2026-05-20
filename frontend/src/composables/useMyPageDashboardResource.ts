@@ -1,10 +1,13 @@
+import { useQueryClient } from '@tanstack/vue-query'
 import { ref } from 'vue'
 import { userApi, type UserAgent } from '@/api/user'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import type { Comment, PostSummary, User } from '@/types'
+import { QUERY_STALE_TIME } from '@/utils/constants'
 
 export function useMyPageDashboardResource() {
   const { handleSilentError } = useErrorHandler()
+  const queryClient = useQueryClient()
 
   const profile = ref<User | null>(null)
   const myAgents = ref<UserAgent[]>([])
@@ -22,26 +25,44 @@ export function useMyPageDashboardResource() {
 
   const isLoading = ref(true)
   const error = ref<string | null>(null)
+  const loadFailedMessage = '데이터를 불러오는데 실패했습니다.'
+
+  function markLoadFailed() {
+    error.value = loadFailedMessage
+  }
 
   async function fetchMyProfile() {
     try {
       const { data } = await userApi.getMyProfile()
       if (data.success) {
         profile.value = data.data
+      } else {
+        markLoadFailed()
       }
     } catch (err: unknown) {
       handleSilentError(err, 'Failed to load my profile')
+      markLoadFailed()
     }
   }
 
   async function fetchMyAgents() {
     try {
-      const { data } = await userApi.getMyAgents()
-      if (data.success) {
-        myAgents.value = data.data.agents
+      const data = await queryClient.fetchQuery({
+        queryKey: ['user', 'agents'],
+        queryFn: async () => {
+          const { data } = await userApi.getMyAgents()
+          return data.data
+        },
+        staleTime: QUERY_STALE_TIME.MEDIUM
+      })
+      if (data?.agents) {
+        myAgents.value = data.agents
+      } else {
+        markLoadFailed()
       }
     } catch (err: unknown) {
       handleSilentError(err, 'Failed to load my agents')
+      markLoadFailed()
     }
   }
 
@@ -55,9 +76,12 @@ export function useMyPageDashboardResource() {
       if (data.success) {
         myPosts.value = data.data.content
         myPostsTotalCount.value = data.data.totalElements
+      } else {
+        markLoadFailed()
       }
     } catch (err: unknown) {
       handleSilentError(err, 'Failed to load my posts')
+      markLoadFailed()
     }
   }
 
@@ -70,9 +94,12 @@ export function useMyPageDashboardResource() {
       if (data.success) {
         myComments.value = data.data.content
         myCommentsTotalCount.value = data.data.totalElements
+      } else {
+        markLoadFailed()
       }
     } catch (err: unknown) {
       handleSilentError(err, 'Failed to load my comments')
+      markLoadFailed()
     }
   }
 
@@ -99,13 +126,17 @@ export function useMyPageDashboardResource() {
 
   async function loadDashboard() {
     isLoading.value = true
-    await Promise.all([
-      fetchMyProfile(),
-      fetchMyAgents(),
-      fetchMyPosts(),
-      fetchMyComments()
-    ])
-    isLoading.value = false
+    error.value = null
+    try {
+      await Promise.all([
+        fetchMyProfile(),
+        fetchMyAgents(),
+        fetchMyPosts(),
+        fetchMyComments()
+      ])
+    } finally {
+      isLoading.value = false
+    }
   }
 
   return {

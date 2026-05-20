@@ -78,6 +78,7 @@ export function useUser() {
                 const { data } = await userApi.getMyAgents()
                 return data.data
             },
+            staleTime: QUERY_STALE_TIME.MEDIUM,
         })
     }
 
