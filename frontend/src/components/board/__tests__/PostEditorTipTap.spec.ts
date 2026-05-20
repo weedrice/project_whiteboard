@@ -420,9 +420,10 @@ describe('PostEditorTipTap', () => {
         mocks.uploadImage.mockResolvedValueOnce({ url: 'https://cdn.test/u1.png', fileId: 88 })
         setFile('ok.png')
         await fileInput.trigger('change')
-        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="blob:https://noviis.kr/local-preview"'))
+        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="https://cdn.test/u1.png"'))
         expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-file-id="88"'))
-        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-server-src="https://cdn.test/u1.png"'))
+        expect(mocks.chain.insertContent).not.toHaveBeenCalledWith(expect.stringContaining('blob:https://noviis.kr/local-preview"'))
+        expect(mocks.chain.insertContent).not.toHaveBeenCalledWith(expect.stringContaining('data-server-src='))
 
         mocks.validateImageFile.mockReturnValueOnce(null)
         mocks.uploadImage.mockRejectedValueOnce(new Error('abort'))
@@ -440,7 +441,52 @@ describe('PostEditorTipTap', () => {
         expect(mocks.toastAdd).toHaveBeenCalledWith('common.messages.uploadFailed', 'error')
 
         wrapper.unmount()
-        expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:https://noviis.kr/local-preview')
+        expect(URL.revokeObjectURL).not.toHaveBeenCalled()
+    })
+
+    it('keeps popover escape events inside the editor and exposes dialog accessibility attributes', async () => {
+        const wrapper = mountEditor()
+        const documentKeydown = vi.fn()
+        document.addEventListener('keydown', documentKeydown)
+
+        const dispatchEscape = (element: Element) => {
+            element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+        }
+
+        expect(wrapper.get(selectors.image).attributes('aria-label')).toBe('board.writePost.toolbar.image')
+        expect(wrapper.get(selectors.video).attributes('aria-label')).toBe('board.writePost.toolbar.video')
+
+        await wrapper.get(selectors.link).trigger('click')
+        expect(wrapper.get('.link-popover').attributes('aria-modal')).toBe('true')
+        dispatchEscape(wrapper.get('#editor-link-url').element)
+        await nextTick()
+        expect(wrapper.find('#editor-link-url').exists()).toBe(false)
+
+        await wrapper.get(selectors.slashMenu).trigger('click')
+        expect(wrapper.get('.slash-popover').attributes('aria-modal')).toBe('true')
+        dispatchEscape(wrapper.get('.slash-popover').element)
+        await nextTick()
+        expect(wrapper.find('.slash-popover').exists()).toBe(false)
+
+        await wrapper.get(selectors.more).trigger('click')
+        expect(wrapper.get('.advanced-popover').attributes('aria-modal')).toBe('true')
+        await wrapper.get('.tiptap-color-trigger').trigger('click')
+        expect(wrapper.get('.color-panel').attributes('aria-modal')).toBe('true')
+        dispatchEscape(wrapper.get('.color-panel').element)
+        await nextTick()
+        expect(wrapper.find('.color-panel').exists()).toBe(false)
+
+        await wrapper.get(selectors.tableDialog).trigger('click')
+        expect(wrapper.get('.table-popover').attributes('aria-modal')).toBe('true')
+        dispatchEscape(wrapper.get('#editor-table-rows').element)
+        await nextTick()
+        expect(wrapper.find('.table-popover').exists()).toBe(false)
+
+        dispatchEscape(wrapper.get('.advanced-popover').element)
+        await nextTick()
+        expect(wrapper.find('.advanced-popover').exists()).toBe(false)
+        expect(documentKeydown).not.toHaveBeenCalled()
+        document.removeEventListener('keydown', documentKeydown)
     })
 
     it('supports list helpers and slash menu actions', async () => {

@@ -2,7 +2,19 @@ import { ref, onBeforeUnmount } from 'vue'
 import { fileApi } from '@/api/file'
 
 const DEFAULT_MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
-const IMAGE_MIME_PREFIX = 'image/'
+const ALLOWED_IMAGE_MIME_TYPES = new Set([
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+])
+const ALLOWED_IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp'])
+
+function getFileExtension(fileName: string): string {
+    const lastDotIndex = fileName.lastIndexOf('.')
+    return lastDotIndex >= 0 ? fileName.slice(lastDotIndex).toLowerCase() : ''
+}
 
 function isAbortUploadError(error: unknown): boolean {
     const maybeError = error as { name?: string; code?: string }
@@ -18,7 +30,8 @@ export function useEditorImageUpload(maxImageSizeBytes = DEFAULT_MAX_IMAGE_SIZE_
     let uploadAbortController: AbortController | null = null
 
     const validateImageFile = (file: File): 'type' | 'size' | null => {
-        if (!file.type.startsWith(IMAGE_MIME_PREFIX)) return 'type'
+        const extension = getFileExtension(file.name)
+        if (!ALLOWED_IMAGE_MIME_TYPES.has(file.type.toLowerCase()) || !ALLOWED_IMAGE_EXTENSIONS.has(extension)) return 'type'
         if (file.size > maxImageSizeBytes) return 'size'
         return null
     }

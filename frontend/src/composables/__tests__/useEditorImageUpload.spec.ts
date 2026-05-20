@@ -38,12 +38,20 @@ describe('useEditorImageUpload', () => {
     it('validates image mime type and size', () => {
         const { composable } = createHarness(100)
         const textFile = new File(['hello'], 'a.txt', { type: 'text/plain' })
+        const svgFile = new File(['<svg />'], 'vector.svg', { type: 'image/svg+xml' })
+        const mismatchedExtension = new File([new ArrayBuffer(50)], 'small.svg', { type: 'image/png' })
+        const mismatchedMime = new File([new ArrayBuffer(50)], 'small.png', { type: 'image/svg+xml' })
         const largeImage = new File([new ArrayBuffer(200)], 'large.png', { type: 'image/png' })
         const validImage = new File([new ArrayBuffer(50)], 'small.png', { type: 'image/png' })
+        const validJpgAlias = new File([new ArrayBuffer(50)], 'small.jpg', { type: 'image/jpg' })
 
         expect(composable.validateImageFile(textFile)).toBe('type')
+        expect(composable.validateImageFile(svgFile)).toBe('type')
+        expect(composable.validateImageFile(mismatchedExtension)).toBe('type')
+        expect(composable.validateImageFile(mismatchedMime)).toBe('type')
         expect(composable.validateImageFile(largeImage)).toBe('size')
         expect(composable.validateImageFile(validImage)).toBeNull()
+        expect(composable.validateImageFile(validJpgAlias)).toBeNull()
     })
 
     it('uploads image and returns url/fileId on success', async () => {

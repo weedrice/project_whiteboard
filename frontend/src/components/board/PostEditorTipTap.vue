@@ -16,6 +16,7 @@ import { Video } from '@/extensions/tiptap-video'
 import { Image as ImageIcon, TextAlignCenter, TextAlignEnd, TextAlignJustify, TextAlignStart, Video as VideoIcon } from 'lucide-vue-next'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useEditorImageUpload } from '@/composables/useEditorImageUpload'
+import { usePopoverFocus } from '@/composables/usePopoverFocus'
 import { useI18n } from 'vue-i18n'
 import { useThemeStore } from '@/stores/theme'
 import { useToastStore } from '@/stores/toast'
@@ -49,9 +50,18 @@ const tableCols = ref(3)
 const tableHeaderRow = ref(true)
 const savedListSelection = ref<{ from: number; to: number } | null>(null)
 const imageInput = ref<HTMLInputElement | null>(null)
-const localPreviewUrls: string[] = []
+const slashPopoverRef = ref<HTMLElement | null>(null)
+const advancedPopoverRef = ref<HTMLElement | null>(null)
+const colorPanelRef = ref<HTMLElement | null>(null)
+const linkPopoverRef = ref<HTMLElement | null>(null)
+const tablePopoverRef = ref<HTMLElement | null>(null)
 
 const { isUploadingImage, validateImageFile, uploadImage, isAbortUploadError } = useEditorImageUpload()
+usePopoverFocus(slashPopoverRef, showSlashMenu)
+usePopoverFocus(advancedPopoverRef, showAdvancedMenu)
+usePopoverFocus(colorPanelRef, showColorPanel)
+usePopoverFocus(linkPopoverRef, showLinkPopover)
+usePopoverFocus(tablePopoverRef, showTablePopover)
 
 const EditorImage = Image.extend({
   addAttributes() {
@@ -237,15 +247,6 @@ function escapeHtmlText(value: string) {
     .replace(/"/g, '&quot;')
 }
 
-function createLocalPreviewUrl(file: File): string | null {
-  if (typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
-    return null
-  }
-  const previewUrl = URL.createObjectURL(file)
-  localPreviewUrls.push(previewUrl)
-  return previewUrl
-}
-
 function applyLink() {
   const url = linkUrl.value.trim()
   const displayText = linkText.value.trim()
@@ -372,13 +373,10 @@ async function onImageChange(event: Event) {
         fileIds.value.push(uploaded.fileId)
         emit('file-uploaded', uploaded.fileId)
       }
-      const previewUrl = typeof uploaded.fileId === 'number'
-        ? createLocalPreviewUrl(file) ?? uploaded.url
-        : uploaded.url
       const serverAttributes = typeof uploaded.fileId === 'number'
-        ? ` data-file-id="${uploaded.fileId}" data-server-src="${escapeHtmlAttr(uploaded.url)}"`
+        ? ` data-file-id="${uploaded.fileId}"`
         : ''
-      editor.value?.chain().focus().insertContent(`<img src="${escapeHtmlAttr(previewUrl)}"${serverAttributes}>`).run()
+      editor.value?.chain().focus().insertContent(`<img src="${escapeHtmlAttr(uploaded.url)}"${serverAttributes}>`).run()
     }
   } catch (error: unknown) {
     if (isAbortUploadError(error)) {
@@ -475,70 +473,67 @@ defineExpose({
 })
 
 onBeforeUnmount(() => {
-  if (typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
-    localPreviewUrls.forEach((previewUrl) => URL.revokeObjectURL(previewUrl))
-  }
   editor.value?.destroy()
 })
 </script>
 
 <template>
   <div class="tiptap-editor-wrap flex min-h-0 flex-1 flex-col">
-    <input ref="imageInput" type="file" accept="image/*" class="hidden" @change="onImageChange">
+    <input ref="imageInput" type="file" accept=".jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp" class="hidden" @change="onImageChange">
 
     <div v-if="editor" class="tiptap-toolbar flex flex-wrap items-center gap-2 border-b border-[var(--nv-line)] bg-[var(--nv-surface-alt)] p-2">
       <div class="tiptap-toolbar-group">
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('bold') }" :title="t('board.writePost.toolbar.bold')" :aria-pressed="editor.isActive('bold')" @mousedown.prevent @click="editor.chain().focus().toggleBold().run()">
+        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('bold') }" :title="t('board.writePost.toolbar.bold')" :aria-label="t('board.writePost.toolbar.bold')" :aria-pressed="editor.isActive('bold')" @mousedown.prevent @click="editor.chain().focus().toggleBold().run()">
           <span class="font-bold">B</span>
         </button>
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('italic') }" :title="t('board.writePost.toolbar.italic')" :aria-pressed="editor.isActive('italic')" @mousedown.prevent @click="editor.chain().focus().toggleItalic().run()">
+        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('italic') }" :title="t('board.writePost.toolbar.italic')" :aria-label="t('board.writePost.toolbar.italic')" :aria-pressed="editor.isActive('italic')" @mousedown.prevent @click="editor.chain().focus().toggleItalic().run()">
           <span class="italic">I</span>
         </button>
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('underline') }" :title="t('board.writePost.toolbar.underline')" :aria-pressed="editor.isActive('underline')" @mousedown.prevent @click="editor.chain().focus().toggleUnderline().run()">
+        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('underline') }" :title="t('board.writePost.toolbar.underline')" :aria-label="t('board.writePost.toolbar.underline')" :aria-pressed="editor.isActive('underline')" @mousedown.prevent @click="editor.chain().focus().toggleUnderline().run()">
           <span class="underline">U</span>
         </button>
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('strike') }" :title="t('board.writePost.toolbar.strikethrough')" :aria-pressed="editor.isActive('strike')" @mousedown.prevent @click="editor.chain().focus().toggleStrike().run()">
+        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('strike') }" :title="t('board.writePost.toolbar.strikethrough')" :aria-label="t('board.writePost.toolbar.strikethrough')" :aria-pressed="editor.isActive('strike')" @mousedown.prevent @click="editor.chain().focus().toggleStrike().run()">
           <span class="line-through">S</span>
         </button>
       </div>
       <div class="tiptap-toolbar-group">
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('link') }" :title="t('board.writePost.toolbar.link')" :aria-pressed="editor.isActive('link')" @mousedown.prevent @click="openLinkPopover">
+        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('link') }" :title="t('board.writePost.toolbar.link')" :aria-label="t('board.writePost.toolbar.link')" :aria-pressed="editor.isActive('link')" @mousedown.prevent @click="openLinkPopover">
           {{ t('board.writePost.toolbar.link') }}
         </button>
-        <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.image')" :disabled="isUploadingImage" @mousedown.prevent @click="triggerImageUpload">
+        <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.image')" :aria-label="t('board.writePost.toolbar.image')" :disabled="isUploadingImage" @mousedown.prevent @click="triggerImageUpload">
           <ImageIcon class="h-4 w-4" aria-hidden="true" />
         </button>
-        <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.video')" @mousedown.prevent @click="emit('open-video')">
+        <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.video')" :aria-label="t('board.writePost.toolbar.video')" @mousedown.prevent @click="emit('open-video')">
           <VideoIcon class="h-4 w-4" aria-hidden="true" />
         </button>
-        <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.emoticon')" @mousedown.prevent @click="emit('open-emoticon')">
+        <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.emoticon')" :aria-label="t('board.writePost.toolbar.emoticon')" @mousedown.prevent @click="emit('open-emoticon')">
           :)
         </button>
       </div>
       <div class="tiptap-toolbar-group">
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('bulletList') }" :title="t('board.writePost.toolbar.bulletList')" :aria-pressed="editor.isActive('bulletList')" @mousedown.prevent="saveListSelection" @click="applyBulletList">
+        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('bulletList') }" :title="t('board.writePost.toolbar.bulletList')" :aria-label="t('board.writePost.toolbar.bulletList')" :aria-pressed="editor.isActive('bulletList')" @mousedown.prevent="saveListSelection" @click="applyBulletList">
           UL
         </button>
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('orderedList') }" :title="t('board.writePost.toolbar.orderedList')" :aria-pressed="editor.isActive('orderedList')" @mousedown.prevent="saveListSelection" @click="applyOrderedList">
+        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('orderedList') }" :title="t('board.writePost.toolbar.orderedList')" :aria-label="t('board.writePost.toolbar.orderedList')" :aria-pressed="editor.isActive('orderedList')" @mousedown.prevent="saveListSelection" @click="applyOrderedList">
           1.
         </button>
       </div>
       <div class="tiptap-toolbar-group">
-        <button type="button" class="tiptap-btn tiptap-btn-pill" :title="t('board.writePost.toolbar.slashMenu')" aria-haspopup="dialog" :aria-expanded="showSlashMenu" @mousedown.prevent @click="showSlashMenu = !showSlashMenu">
+        <button type="button" class="tiptap-btn tiptap-btn-pill" :title="t('board.writePost.toolbar.slashMenu')" :aria-label="t('board.writePost.toolbar.slashMenu')" aria-haspopup="dialog" :aria-expanded="showSlashMenu" aria-controls="editor-slash-dialog" @mousedown.prevent @click="showSlashMenu = !showSlashMenu">
           {{ t('board.writePost.toolbar.insertBlock') }}
         </button>
-        <button type="button" class="tiptap-btn tiptap-btn-pill" :title="t('board.writePost.toolbar.more')" aria-haspopup="dialog" :aria-expanded="showAdvancedMenu" @mousedown.prevent @click="showAdvancedMenu = !showAdvancedMenu">
+        <button type="button" class="tiptap-btn tiptap-btn-pill" :title="t('board.writePost.toolbar.more')" :aria-label="t('board.writePost.toolbar.more')" aria-haspopup="dialog" :aria-expanded="showAdvancedMenu" aria-controls="editor-advanced-dialog" @mousedown.prevent @click="showAdvancedMenu = !showAdvancedMenu">
           {{ t('board.writePost.toolbar.more') }}
         </button>
       </div>
     </div>
 
     <Teleport to="body">
-      <div v-if="showSlashMenu" class="link-popover-mask" @click.self="showSlashMenu = false">
-        <div class="link-popover slash-popover" role="dialog" :aria-label="t('board.writePost.toolbar.slashMenu')">
+      <div v-if="showSlashMenu" class="link-popover-mask" @click.self="showSlashMenu = false" @keydown.enter.stop @keydown.escape.stop.prevent="showSlashMenu = false">
+        <div id="editor-slash-dialog" ref="slashPopoverRef" class="link-popover slash-popover" role="dialog" aria-modal="true" aria-labelledby="editor-slash-dialog-title">
           <div class="mb-3">
             <p class="text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">{{ t('board.writePost.toolbar.slashMenu') }}</p>
-            <h3 class="text-base font-semibold text-[var(--nv-ink)]">{{ t('board.writePost.toolbar.insertBlock') }}</h3>
+            <h3 id="editor-slash-dialog-title" class="text-base font-semibold text-[var(--nv-ink)]">{{ t('board.writePost.toolbar.insertBlock') }}</h3>
           </div>
           <div class="grid gap-2">
             <button type="button" class="slash-action-btn" @click="applySlashAction('image')">{{ t('board.writePost.toolbar.image') }}</button>
@@ -552,11 +547,11 @@ onBeforeUnmount(() => {
     </Teleport>
 
     <Teleport to="body">
-      <div v-if="showAdvancedMenu" class="link-popover-mask" @click.self="showAdvancedMenu = false">
-        <div class="link-popover advanced-popover" role="dialog" :aria-label="t('board.writePost.toolbar.advanced')">
+      <div v-if="showAdvancedMenu" class="link-popover-mask" @click.self="showAdvancedMenu = false" @keydown.enter.stop @keydown.escape.stop.prevent="showAdvancedMenu = false">
+        <div id="editor-advanced-dialog" ref="advancedPopoverRef" class="link-popover advanced-popover" role="dialog" aria-modal="true" aria-labelledby="editor-advanced-dialog-title">
           <div class="mb-3">
             <p class="text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">{{ t('board.writePost.toolbar.advanced') }}</p>
-            <h3 class="text-base font-semibold text-[var(--nv-ink)]">{{ t('board.writePost.toolbar.formattingTools') }}</h3>
+            <h3 id="editor-advanced-dialog-title" class="text-base font-semibold text-[var(--nv-ink)]">{{ t('board.writePost.toolbar.formattingTools') }}</h3>
           </div>
           <div class="grid gap-3">
             <div class="flex flex-wrap items-center gap-2">
@@ -572,7 +567,7 @@ onBeforeUnmount(() => {
 
             <div class="flex flex-wrap items-center gap-2">
               <div class="relative inline-block">
-                <button type="button" class="tiptap-btn tiptap-color-trigger" :title="t('board.writePost.toolbar.textColor')" @mousedown.prevent @click="toggleColorPanel">
+                <button type="button" class="tiptap-btn tiptap-color-trigger" :title="t('board.writePost.toolbar.textColor')" :aria-label="t('board.writePost.toolbar.textColor')" aria-haspopup="dialog" :aria-expanded="showColorPanel" aria-controls="editor-color-dialog" @mousedown.prevent @click="toggleColorPanel">
                   <span class="tiptap-color-indicator">
                     A
                     <span class="tiptap-color-bar" :style="{ backgroundColor: isDefaultColor ? (themeStore.isDark ? '#f3f4f6' : '#111827') : currentTextColor }" />
@@ -580,21 +575,21 @@ onBeforeUnmount(() => {
                 </button>
               </div>
               <input type="color" :value="currentHighlightColor" class="tiptap-color-input w-9 h-9 cursor-pointer" @input="applyHighlightColor">
-              <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.tableDialog')" @mousedown.prevent @click="openTablePopover">Tbl</button>
-              <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.divider')" @mousedown.prevent @click="applyHorizontalRule">HR</button>
+              <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.tableDialog')" :aria-label="t('board.writePost.toolbar.tableDialog')" @mousedown.prevent @click="openTablePopover">Tbl</button>
+              <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.divider')" :aria-label="t('board.writePost.toolbar.divider')" @mousedown.prevent @click="applyHorizontalRule">HR</button>
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
-              <button type="button" class="tiptap-btn" :class="{ active: isTextAlignActive('left') }" :title="t('board.writePost.alignLeft')" @mousedown.prevent @click="setTextAlign('left')">
+              <button type="button" class="tiptap-btn" :class="{ active: isTextAlignActive('left') }" :title="t('board.writePost.alignLeft')" :aria-label="t('board.writePost.alignLeft')" @mousedown.prevent @click="setTextAlign('left')">
                 <TextAlignStart :size="16" />
               </button>
-              <button type="button" class="tiptap-btn" :class="{ active: isTextAlignActive('center') }" :title="t('board.writePost.alignCenter')" @mousedown.prevent @click="setTextAlign('center')">
+              <button type="button" class="tiptap-btn" :class="{ active: isTextAlignActive('center') }" :title="t('board.writePost.alignCenter')" :aria-label="t('board.writePost.alignCenter')" @mousedown.prevent @click="setTextAlign('center')">
                 <TextAlignCenter :size="16" />
               </button>
-              <button type="button" class="tiptap-btn" :class="{ active: isTextAlignActive('right') }" :title="t('board.writePost.alignRight')" @mousedown.prevent @click="setTextAlign('right')">
+              <button type="button" class="tiptap-btn" :class="{ active: isTextAlignActive('right') }" :title="t('board.writePost.alignRight')" :aria-label="t('board.writePost.alignRight')" @mousedown.prevent @click="setTextAlign('right')">
                 <TextAlignEnd :size="16" />
               </button>
-              <button type="button" class="tiptap-btn" :class="{ active: isTextAlignActive('justify') }" :title="t('board.writePost.alignJustify')" @mousedown.prevent @click="setTextAlign('justify')">
+              <button type="button" class="tiptap-btn" :class="{ active: isTextAlignActive('justify') }" :title="t('board.writePost.alignJustify')" :aria-label="t('board.writePost.alignJustify')" @mousedown.prevent @click="setTextAlign('justify')">
                 <TextAlignJustify :size="16" />
               </button>
             </div>
@@ -604,8 +599,9 @@ onBeforeUnmount(() => {
     </Teleport>
 
     <Teleport to="body">
-      <div v-if="showColorPanel" class="link-popover-mask" @click.self="closeColorPanel">
-        <div class="color-panel" role="dialog" :aria-label="t('board.writePost.toolbar.textColor')">
+      <div v-if="showColorPanel" class="link-popover-mask" @click.self="closeColorPanel" @keydown.enter.stop @keydown.escape.stop.prevent="closeColorPanel">
+        <div id="editor-color-dialog" ref="colorPanelRef" class="color-panel" role="dialog" aria-modal="true" aria-labelledby="editor-color-dialog-title">
+          <p id="editor-color-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.textColor') }}</p>
           <button type="button" class="color-panel-default" :class="{ 'color-panel-default--active': isDefaultColor }" @click="setDefaultColor">
             <span class="color-panel-default-swatch">
               <span class="color-panel-default-light" />
@@ -622,6 +618,7 @@ onBeforeUnmount(() => {
               :class="{ 'color-panel-swatch--active': currentTextColor === color }"
               :style="{ backgroundColor: color }"
               :title="color"
+              :aria-label="color"
               @click="setPresetColor(color)"
             />
           </div>
@@ -634,15 +631,16 @@ onBeforeUnmount(() => {
     </Teleport>
 
     <Teleport to="body">
-      <div v-if="showLinkPopover" class="link-popover-mask" @click.self="closeLinkPopover">
-        <div class="link-popover" role="dialog" :aria-label="t('board.writePost.toolbar.linkDialog')">
+      <div v-if="showLinkPopover" class="link-popover-mask" @click.self="closeLinkPopover" @keydown.enter.stop @keydown.escape.stop.prevent="closeLinkPopover">
+        <div ref="linkPopoverRef" class="link-popover" role="dialog" aria-modal="true" aria-labelledby="editor-link-dialog-title">
+          <h3 id="editor-link-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.linkDialog') }}</h3>
           <div class="link-popover-row">
-            <label class="link-popover-label">{{ t('board.writePost.linkUrlPrompt') }}</label>
-            <input v-model="linkUrl" type="url" class="link-popover-input" placeholder="https://..." @keydown.enter.prevent="applyLink" @keydown.escape="closeLinkPopover">
+            <label for="editor-link-url" class="link-popover-label">{{ t('board.writePost.linkUrlPrompt') }}</label>
+            <input id="editor-link-url" v-model="linkUrl" type="url" class="link-popover-input" placeholder="https://..." @keydown.enter.stop.prevent="applyLink" @keydown.escape.stop.prevent="closeLinkPopover">
           </div>
           <div class="link-popover-row">
-            <label class="link-popover-label">{{ t('board.writePost.linkDisplayText') }}</label>
-            <input v-model="linkText" type="text" class="link-popover-input" :placeholder="t('board.writePost.linkDisplayText')" @keydown.enter.prevent="applyLink" @keydown.escape="closeLinkPopover">
+            <label for="editor-link-text" class="link-popover-label">{{ t('board.writePost.linkDisplayText') }}</label>
+            <input id="editor-link-text" v-model="linkText" type="text" class="link-popover-input" :placeholder="t('board.writePost.linkDisplayText')" @keydown.enter.stop.prevent="applyLink" @keydown.escape.stop.prevent="closeLinkPopover">
           </div>
           <div class="link-popover-actions">
             <BaseButton type="button" variant="secondary" size="sm" @click="closeLinkPopover">
@@ -660,15 +658,16 @@ onBeforeUnmount(() => {
     </Teleport>
 
     <Teleport to="body">
-      <div v-if="showTablePopover" class="link-popover-mask" @click.self="closeTablePopover">
-        <div class="link-popover table-popover" role="dialog" :aria-label="t('board.writePost.toolbar.tableDialog')">
+      <div v-if="showTablePopover" class="link-popover-mask" @click.self="closeTablePopover" @keydown.enter.stop @keydown.escape.stop.prevent="closeTablePopover">
+        <div ref="tablePopoverRef" class="link-popover table-popover" role="dialog" aria-modal="true" aria-labelledby="editor-table-dialog-title">
+          <h3 id="editor-table-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.tableDialog') }}</h3>
           <div class="link-popover-row">
-            <label class="link-popover-label">{{ t('board.writePost.tableRows') }}</label>
-            <input v-model.number="tableRows" type="number" min="1" max="20" class="link-popover-input" @keydown.enter.prevent="applyTable" @keydown.escape="closeTablePopover">
+            <label for="editor-table-rows" class="link-popover-label">{{ t('board.writePost.tableRows') }}</label>
+            <input id="editor-table-rows" v-model.number="tableRows" type="number" min="1" max="20" class="link-popover-input" @keydown.enter.stop.prevent="applyTable" @keydown.escape.stop.prevent="closeTablePopover">
           </div>
           <div class="link-popover-row">
-            <label class="link-popover-label">{{ t('board.writePost.tableCols') }}</label>
-            <input v-model.number="tableCols" type="number" min="1" max="10" class="link-popover-input" @keydown.enter.prevent="applyTable" @keydown.escape="closeTablePopover">
+            <label for="editor-table-cols" class="link-popover-label">{{ t('board.writePost.tableCols') }}</label>
+            <input id="editor-table-cols" v-model.number="tableCols" type="number" min="1" max="10" class="link-popover-input" @keydown.enter.stop.prevent="applyTable" @keydown.escape.stop.prevent="closeTablePopover">
           </div>
           <div class="link-popover-row flex items-center gap-2">
             <input id="table-header-row" v-model="tableHeaderRow" type="checkbox" class="rounded border-[var(--nv-line)]">
