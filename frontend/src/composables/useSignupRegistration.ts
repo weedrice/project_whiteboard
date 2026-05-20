@@ -6,7 +6,7 @@ import { useAuthPasswordValidation } from '@/composables/useAuthPasswordValidati
 import { useEmailVerificationFlow } from '@/composables/useEmailVerificationFlow'
 import { useToastStore } from '@/stores/toast'
 import { extractErrorMessage } from '@/utils/errorHandler'
-import { isEmpty, isValidDisplayName, isValidEmail, isValidLoginId, isValidPassword } from '@/utils/validation'
+import { isEmpty, isValidDisplayName, isValidEmail, isValidLoginId } from '@/utils/validation'
 
 interface SignupRegistrationOptions {
   route: RouteLocationNormalizedLoaded
@@ -30,7 +30,11 @@ type SignupPayload = Omit<SignupForm, 'passwordConfirm'> & {
 
 export function useSignupRegistration({ route, router, t }: SignupRegistrationOptions) {
   const toastStore = useToastStore()
-  const { validatePasswordPair } = useAuthPasswordValidation()
+  const {
+    validatePasswordValue,
+    validatePasswordConfirmValue,
+    validatePasswordPair
+  } = useAuthPasswordValidation()
 
   const form = ref<SignupForm>({
     loginId: '',
@@ -108,13 +112,11 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
 
   function validatePassword() {
     if (!touched.password) return
-    if (isEmpty(form.value.password)) {
-      fieldErrors.password = ''
-    } else if (!isValidPassword(form.value.password)) {
-      fieldErrors.password = t('auth.validation.passwordStrength')
-    } else {
-      fieldErrors.password = ''
-    }
+    fieldErrors.password = validatePasswordValue(form.value.password, {
+      messages: {
+        invalid: t('auth.validation.passwordStrength')
+      }
+    }) ?? ''
     if (touched.passwordConfirm) {
       validatePasswordConfirm()
     }
@@ -122,13 +124,15 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
 
   function validatePasswordConfirm() {
     if (!touched.passwordConfirm) return
-    if (isEmpty(form.value.passwordConfirm)) {
-      fieldErrors.passwordConfirm = ''
-    } else if (form.value.password !== form.value.passwordConfirm) {
-      fieldErrors.passwordConfirm = t('auth.passwordMismatch')
-    } else {
-      fieldErrors.passwordConfirm = ''
-    }
+    fieldErrors.passwordConfirm = validatePasswordConfirmValue(
+      form.value.password,
+      form.value.passwordConfirm,
+      {
+        messages: {
+          mismatch: t('auth.passwordMismatch')
+        }
+      }
+    ) ?? ''
   }
 
   function validateEmail() {

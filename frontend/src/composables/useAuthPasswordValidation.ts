@@ -12,7 +12,50 @@ export interface PasswordPairValidationOptions {
     messages: PasswordValidationMessages
 }
 
+export interface PasswordValueValidationOptions {
+    requirePassword?: boolean
+    messages: Pick<PasswordValidationMessages, 'required' | 'invalid'>
+}
+
+export interface PasswordConfirmValidationOptions {
+    requireConfirm?: boolean
+    messages: Pick<PasswordValidationMessages, 'mismatch'>
+}
+
 export function useAuthPasswordValidation() {
+    const validatePasswordValue = (
+        password: string,
+        options: PasswordValueValidationOptions
+    ): string | null => {
+        if (!password) {
+            return options.requirePassword
+                ? options.messages.required ?? options.messages.invalid
+                : null
+        }
+
+        if (!isValidPassword(password)) {
+            return options.messages.invalid
+        }
+
+        return null
+    }
+
+    const validatePasswordConfirmValue = (
+        password: string,
+        confirmPassword: string,
+        options: PasswordConfirmValidationOptions
+    ): string | null => {
+        if (!confirmPassword) {
+            return options.requireConfirm ? options.messages.mismatch : null
+        }
+
+        if (password !== confirmPassword) {
+            return options.messages.mismatch
+        }
+
+        return null
+    }
+
     const validatePasswordPair = (
         password: string,
         confirmPassword: string,
@@ -38,6 +81,8 @@ export function useAuthPasswordValidation() {
     }
 
     return {
+        validatePasswordValue,
+        validatePasswordConfirmValue,
         validatePasswordPair,
     }
 }

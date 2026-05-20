@@ -59,8 +59,12 @@ describe('AdBanner', () => {
 
     await flushPromises()
 
-    expect(mocks.getAd).toHaveBeenCalledWith('TOP')
-    expect(mocks.recordImpression).toHaveBeenCalledWith(1)
+    expect(mocks.getAd).toHaveBeenCalledWith('TOP', expect.objectContaining({
+      signal: expect.any(AbortSignal),
+    }))
+    expect(mocks.recordImpression).toHaveBeenCalledWith(1, expect.objectContaining({
+      signal: expect.any(AbortSignal),
+    }))
 
     await wrapper.get('.cursor-pointer').trigger('click')
     await flushPromises()
