@@ -7,7 +7,7 @@ import type {
     UserSummary,
     UserSettings,
     PostSummary,
-    Comment,
+    MyComment,
     SubscriptionBoardListItem,
     PublicUserProfile,
     PointHistoryResponse,
@@ -196,7 +196,7 @@ export const userApi = {
         return api.get<ApiResponse<PageResponse<PostSummary>>>('/users/me/posts', { params })
     },
     getMyComments(params: PaginationParams) {
-        return api.get<ApiResponse<PageResponse<Comment>>>('/users/me/comments', { params })
+        return api.get<ApiResponse<PageResponse<MyComment>>>('/users/me/comments', { params })
     },
     getMyScraps(params: PaginationParams) {
         return api.get<ApiResponse<ScrapListResponse>>('/users/me/scraps', { params })
