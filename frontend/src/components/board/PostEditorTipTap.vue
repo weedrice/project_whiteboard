@@ -74,11 +74,11 @@ usePopoverFocus(slashPopoverRef, showSlashMenu)
 usePopoverFocus(advancedPopoverRef, showAdvancedMenu)
 usePopoverFocus(linkPopoverRef, showLinkPopover)
 usePopoverFocus(tablePopoverRef, showTablePopover)
-const slashPosition = useAnchoredPopover(slashPopoverRef)
-const advancedPosition = useAnchoredPopover(advancedPopoverRef)
-const colorPosition = useAnchoredPopover(colorPanelRef)
-const linkPosition = useAnchoredPopover(linkPopoverRef)
-const tablePosition = useAnchoredPopover(tablePopoverRef)
+const slashPosition = useAnchoredPopover(slashPopoverRef, showSlashMenu)
+const advancedPosition = useAnchoredPopover(advancedPopoverRef, showAdvancedMenu)
+const colorPosition = useAnchoredPopover(colorPanelRef, showColorPanel)
+const linkPosition = useAnchoredPopover(linkPopoverRef, showLinkPopover)
+const tablePosition = useAnchoredPopover(tablePopoverRef, showTablePopover)
 const imageUploadQueue = useEditorImageUploadQueue<UploadedEditorImage>({
   validate: validateImageFile,
   upload: uploadImage,
@@ -251,22 +251,6 @@ function closeFloatingMenus() {
   showAdvancedMenu.value = false
   showSlashMenu.value = false
 }
-
-watch(showSlashMenu, (isOpen) => {
-  if (isOpen) void slashPosition.updatePosition()
-})
-watch(showAdvancedMenu, (isOpen) => {
-  if (isOpen) void advancedPosition.updatePosition()
-})
-watch(showColorPanel, (isOpen) => {
-  if (isOpen) void colorPosition.updatePosition()
-})
-watch(showLinkPopover, (isOpen) => {
-  if (isOpen) void linkPosition.updatePosition()
-})
-watch(showTablePopover, (isOpen) => {
-  if (isOpen) void tablePosition.updatePosition()
-})
 
 function openSlashMenu(anchor?: HTMLElement) {
   closeFloatingMenus()

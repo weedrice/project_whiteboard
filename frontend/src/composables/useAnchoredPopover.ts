@@ -1,4 +1,4 @@
-import { nextTick, onBeforeUnmount, ref, type Ref } from 'vue'
+import { nextTick, onBeforeUnmount, ref, watch, type Ref } from 'vue'
 
 type PopoverStyle = {
     top: string
@@ -25,9 +25,11 @@ function getCenteredStyle(): PopoverStyle {
     }
 }
 
-export function useAnchoredPopover(popoverRef: Ref<HTMLElement | null>) {
+export function useAnchoredPopover(popoverRef: Ref<HTMLElement | null>, isOpen: Ref<boolean> = ref(false)) {
     const anchorElement = ref<HTMLElement | null>(null)
     const popoverStyle = ref<PopoverStyle>(getCenteredStyle())
+    let isListening = false
+    let animationFrameId: number | null = null
 
     function setAnchor(element?: HTMLElement | null) {
         anchorElement.value = element ?? null
@@ -38,6 +40,7 @@ export function useAnchoredPopover(popoverRef: Ref<HTMLElement | null>) {
     }
 
     async function updatePosition() {
+        cancelScheduledUpdate()
         await nextTick()
         const anchor = anchorElement.value
         const popover = popoverRef.value
@@ -64,25 +67,61 @@ export function useAnchoredPopover(popoverRef: Ref<HTMLElement | null>) {
         }
     }
 
+    function scheduleUpdatePosition() {
+        if (typeof window === 'undefined') return
+        if (animationFrameId != null) return
+        animationFrameId = window.requestAnimationFrame(() => {
+            animationFrameId = null
+            void updatePosition()
+        })
+    }
+
+    function cancelScheduledUpdate() {
+        if (typeof window === 'undefined' || animationFrameId == null) return
+        window.cancelAnimationFrame(animationFrameId)
+        animationFrameId = null
+    }
+
     function onViewportChange() {
+        scheduleUpdatePosition()
+    }
+
+    function startListening() {
+        if (typeof window === 'undefined' || isListening) return
+        window.addEventListener('resize', onViewportChange)
+        window.addEventListener('scroll', onViewportChange, true)
+        isListening = true
+    }
+
+    function stopListening() {
+        if (typeof window === 'undefined' || !isListening) return
+        window.removeEventListener('resize', onViewportChange)
+        window.removeEventListener('scroll', onViewportChange, true)
+        isListening = false
+        cancelScheduledUpdate()
+    }
+
+    watch(isOpen, (open) => {
+        if (open) {
+            startListening()
+            void updatePosition()
+            return
+        }
+        stopListening()
+    }, { immediate: true })
+
+    function requestPositionUpdate() {
         void updatePosition()
     }
 
-    if (typeof window !== 'undefined') {
-        window.addEventListener('resize', onViewportChange)
-        window.addEventListener('scroll', onViewportChange, true)
-    }
-
     onBeforeUnmount(() => {
-        if (typeof window === 'undefined') return
-        window.removeEventListener('resize', onViewportChange)
-        window.removeEventListener('scroll', onViewportChange, true)
+        stopListening()
     })
 
     return {
         popoverStyle,
         setAnchor,
         clearAnchor,
-        updatePosition,
+        updatePosition: requestPositionUpdate,
     }
 }
