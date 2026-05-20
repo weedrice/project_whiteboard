@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { nextTick, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 type SlashAction = 'image' | 'quote' | 'list' | 'link' | 'divider'
@@ -12,6 +12,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'select', action: SlashAction): void
   (e: 'move', direction: 1 | -1): void
+  (e: 'set-active', index: number): void
   (e: 'close'): void
 }>()
 
@@ -25,7 +26,26 @@ const actionLabels: Record<SlashAction, string> = {
   divider: 'board.writePost.toolbar.divider',
 }
 
-const activeItemId = computed(() => `editor-slash-action-${props.activeIndex}`)
+const actionButtonRefs = ref<HTMLButtonElement[]>([])
+
+function setActionButtonRef(element: Element | null, index: number) {
+  if (element instanceof HTMLButtonElement) {
+    actionButtonRefs.value[index] = element
+  }
+}
+
+async function focusActiveItem() {
+  await nextTick()
+  actionButtonRefs.value[props.activeIndex]?.focus()
+}
+
+watch(() => props.activeIndex, () => {
+  void focusActiveItem()
+})
+
+onMounted(() => {
+  void focusActiveItem()
+})
 
 function onKeydown(event: KeyboardEvent) {
   if (event.key === 'ArrowDown') {
@@ -47,6 +67,16 @@ function onKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') {
     event.preventDefault()
     emit('close')
+    return
+  }
+  if (event.key === 'Home') {
+    event.preventDefault()
+    emit('set-active', 0)
+    return
+  }
+  if (event.key === 'End') {
+    event.preventDefault()
+    emit('set-active', props.actions.length - 1)
   }
 }
 </script>
@@ -55,18 +85,20 @@ function onKeydown(event: KeyboardEvent) {
   <div
     class="grid gap-2"
     role="menu"
-    :aria-activedescendant="activeItemId"
-    tabindex="0"
     @keydown.stop="onKeydown"
   >
     <button
       v-for="(action, index) in actions"
       :id="`editor-slash-action-${index}`"
+      :ref="(element) => setActionButtonRef(element, index)"
       :key="action"
       type="button"
       role="menuitem"
       class="slash-action-btn"
       :class="{ 'slash-action-btn--active': index === activeIndex }"
+      :tabindex="index === activeIndex ? 0 : -1"
+      @focus="emit('set-active', index)"
+      @mouseenter="emit('set-active', index)"
       @click="emit('select', action)"
     >
       {{ t(actionLabels[action]) }}

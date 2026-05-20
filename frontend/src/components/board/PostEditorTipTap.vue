@@ -245,6 +245,10 @@ function moveSlashSelection(direction: 1 | -1) {
   slashActiveIndex.value = (slashActiveIndex.value + direction + slashActions.length) % slashActions.length
 }
 
+function setSlashSelection(index: number) {
+  slashActiveIndex.value = Math.max(0, Math.min(slashActions.length - 1, index))
+}
+
 function setDefaultColor() {
   editor.value?.chain().focus().unsetColor().run()
   showColorPanel.value = false
@@ -587,6 +591,7 @@ onBeforeUnmount(() => {
             :active-index="slashActiveIndex"
             @select="applySlashAction"
             @move="moveSlashSelection"
+            @set-active="setSlashSelection"
             @close="showSlashMenu = false"
           />
         </div>
