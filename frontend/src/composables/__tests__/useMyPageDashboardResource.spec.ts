@@ -1,6 +1,17 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { useMyPageDashboardResource } from '../useMyPageDashboardResource'
 import { userApi } from '@/api/user'
+import { QUERY_STALE_TIME } from '@/utils/constants'
+
+const mocks = vi.hoisted(() => ({
+  fetchQuery: vi.fn(),
+}))
+
+vi.mock('@tanstack/vue-query', () => ({
+  useQueryClient: () => ({
+    fetchQuery: mocks.fetchQuery,
+  }),
+}))
 
 vi.mock('@/api/user', () => ({
   userApi: {
@@ -20,6 +31,7 @@ vi.mock('@/composables/useErrorHandler', () => ({
 describe('useMyPageDashboardResource', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.fetchQuery.mockImplementation(async (options: { queryFn: () => Promise<unknown> }) => options.queryFn())
     vi.mocked(userApi.getMyProfile).mockResolvedValue({
       data: { success: true, data: { userId: 1, email: 'me@example.com' } }
     } as never)
@@ -45,6 +57,10 @@ describe('useMyPageDashboardResource', () => {
       sort: 'createdAt,desc'
     })
     expect(userApi.getMyComments).toHaveBeenCalledWith({ page: 0, size: 10 })
+    expect(mocks.fetchQuery).toHaveBeenCalledWith(expect.objectContaining({
+      queryKey: ['user', 'agents'],
+      staleTime: QUERY_STALE_TIME.MEDIUM
+    }))
     expect(resource.profile.value?.email).toBe('me@example.com')
     expect(resource.myAgents.value).toHaveLength(1)
     expect(resource.myPostsTotalCount.value).toBe(1)

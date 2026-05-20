@@ -1,10 +1,13 @@
+import { useQueryClient } from '@tanstack/vue-query'
 import { ref } from 'vue'
 import { userApi, type UserAgent } from '@/api/user'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import type { Comment, PostSummary, User } from '@/types'
+import { QUERY_STALE_TIME } from '@/utils/constants'
 
 export function useMyPageDashboardResource() {
   const { handleSilentError } = useErrorHandler()
+  const queryClient = useQueryClient()
 
   const profile = ref<User | null>(null)
   const myAgents = ref<UserAgent[]>([])
@@ -44,9 +47,16 @@ export function useMyPageDashboardResource() {
 
   async function fetchMyAgents() {
     try {
-      const { data } = await userApi.getMyAgents()
-      if (data.success) {
-        myAgents.value = data.data.agents
+      const data = await queryClient.fetchQuery({
+        queryKey: ['user', 'agents'],
+        queryFn: async () => {
+          const { data } = await userApi.getMyAgents()
+          return data.data
+        },
+        staleTime: QUERY_STALE_TIME.MEDIUM
+      })
+      if (data?.agents) {
+        myAgents.value = data.agents
       } else {
         markLoadFailed()
       }
