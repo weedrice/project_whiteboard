@@ -120,4 +120,23 @@ class SemanticSearchJobServiceTest {
         verify(jobRepository).markFailedIfCurrent(eq(2L), any(LocalDateTime.class), eq(3),
                 contains("provider down"));
     }
+
+    @Test
+    void processPendingJobs_retriesAndDoesNotCompleteWhenIndexPayloadTurnsStale() {
+        SemanticSearchJob pending = new SemanticSearchJob(3L, "POST", 30L, "UPSERT", null);
+        when(jobRepository.findPendingJobs(3, 10)).thenReturn(List.of(pending));
+        when(jobRepository.claimForProcessing(eq(3L), eq(3), any(LocalDateTime.class))).thenReturn(1);
+        when(jobRepository.findClaimed(eq(3L), any(LocalDateTime.class)))
+                .thenAnswer(invocation -> java.util.Optional.of(new SemanticSearchJob(
+                        3L, "POST", 30L, "UPSERT", invocation.getArgument(1))));
+        doThrow(new IllegalStateException("Semantic search post payload changed before write"))
+                .when(indexService).upsertPost(30L);
+
+        int processed = jobService.processPendingJobs();
+
+        assertThat(processed).isEqualTo(1);
+        verify(jobRepository, never()).markCompleted(anyLong(), any(LocalDateTime.class), any(LocalDateTime.class));
+        verify(jobRepository).markFailedIfCurrent(eq(3L), any(LocalDateTime.class), eq(3),
+                contains("payload changed"));
+    }
 }
