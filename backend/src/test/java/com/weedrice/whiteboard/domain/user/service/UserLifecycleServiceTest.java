@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -74,6 +75,40 @@ class UserLifecycleServiceTest {
                 .when(userPrivilegeCleanupService).removeOperationalPrivileges(user);
 
         assertThatThrownBy(() -> userLifecycleService.updateAdminManagedStatus(1L, "SUSPENDED"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.FORBIDDEN);
+
+        assertThat(user.getStatus()).isEqualTo("ACTIVE");
+        verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(user);
+        verify(agentLifecycleService, never()).suspendAllForUser(user);
+    }
+
+    @Test
+    @DisplayName("deleteAccount revokes operational access and marks user deleted")
+    void deleteAccount_revokesOperationalAccessAndDeletesUser() {
+        User user = User.builder().build();
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+
+        userLifecycleService.deleteAccount(1L);
+
+        assertThat(user.getStatus()).isEqualTo("DELETED");
+        verify(userRepository).findByIdForUpdate(1L);
+        var inOrder = inOrder(userPrivilegeCleanupService, refreshTokenLifecycleService, agentLifecycleService);
+        inOrder.verify(userPrivilegeCleanupService).removeOperationalPrivileges(user);
+        inOrder.verify(refreshTokenLifecycleService).revokeActiveRefreshTokens(user);
+        inOrder.verify(agentLifecycleService).suspendAllForUser(user);
+    }
+
+    @Test
+    @DisplayName("deleteAccount does not revoke sessions or agents when operational privilege guard rejects")
+    void deleteAccount_guardRejectedDoesNotMutate() {
+        User user = User.builder().build();
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.FORBIDDEN))
+                .when(userPrivilegeCleanupService).removeOperationalPrivileges(user);
+
+        assertThatThrownBy(() -> userLifecycleService.deleteAccount(1L))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.FORBIDDEN);

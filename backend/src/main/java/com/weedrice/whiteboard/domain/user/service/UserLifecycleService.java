@@ -54,19 +54,36 @@ public class UserLifecycleService {
         suspendUser(user, null);
     }
 
+    @Transactional
+    public void deleteAccount(Long userId) {
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        validateLifecycleMutationTarget(user);
+        cleanupOperationalAccess(user, null);
+        user.delete();
+    }
+
     private void suspendUser(User user, Long actorUserId) {
+        validateLifecycleMutationTarget(user);
+        cleanupOperationalAccess(user, actorUserId);
+        user.suspend();
+    }
+
+    private void validateLifecycleMutationTarget(User user) {
         if (user == null) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
         if ("DELETED".equals(user.getStatus())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
+    }
+
+    private void cleanupOperationalAccess(User user, Long actorUserId) {
         if (actorUserId == null) {
             userPrivilegeCleanupService.removeOperationalPrivileges(user);
         } else {
             userPrivilegeCleanupService.removeOperationalPrivileges(user, actorUserId);
         }
-        user.suspend();
         refreshTokenLifecycleService.revokeActiveRefreshTokens(user);
         agentLifecycleService.suspendAllForUser(user);
     }

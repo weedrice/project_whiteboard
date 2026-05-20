@@ -1,7 +1,5 @@
 package com.weedrice.whiteboard.domain.user.service;
 
-import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
-import com.weedrice.whiteboard.domain.auth.service.RefreshTokenLifecycleService;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.point.entity.UserPoint;
@@ -36,9 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -57,10 +53,8 @@ class UserProfileServiceTest {
     @Mock private FileService fileService;
     @Mock private UserPointRepository userPointRepository;
     @Mock private SanctionService sanctionService;
-    @Mock private AgentLifecycleService agentLifecycleService;
     @Mock private PasswordEncoder passwordEncoder;
-    @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
-    @Mock private UserPrivilegeCleanupService userPrivilegeCleanupService;
+    @Mock private UserLifecycleService userLifecycleService;
 
     @BeforeEach
     void setUp() {
@@ -75,11 +69,9 @@ class UserProfileServiceTest {
                 postRepository,
                 userBlockRepository,
                 fileService,
-                agentLifecycleService,
                 passwordEncoder,
-                refreshTokenLifecycleService,
-                userPrivilegeCleanupService,
-                userWritableResolver);
+                userWritableResolver,
+                userLifecycleService);
     }
 
     @Test
@@ -259,20 +251,13 @@ class UserProfileServiceTest {
     @DisplayName("회원 탈퇴 성공")
     void deleteAccount_success() {
         User user = User.builder().password("encodedPass").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("pass", "encodedPass")).thenReturn(true);
-        doAnswer(invocation -> {
-            assertThat(user.getStatus()).isEqualTo("ACTIVE");
-            return null;
-        }).when(agentLifecycleService).suspendAllForUser(user);
 
         userProfileService.deleteAccount(1L, "pass");
 
-        assertThat(user.getStatus()).isEqualTo("DELETED");
-        var inOrder = inOrder(refreshTokenLifecycleService, userPrivilegeCleanupService, agentLifecycleService);
-        inOrder.verify(refreshTokenLifecycleService).revokeActiveRefreshTokens(user);
-        inOrder.verify(userPrivilegeCleanupService).removeOperationalPrivileges(user);
-        inOrder.verify(agentLifecycleService).suspendAllForUser(user);
+        verify(userLifecycleService).deleteAccount(1L);
     }
 
     @Test
@@ -287,9 +272,7 @@ class UserProfileServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_PASSWORD);
 
-        verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(any());
-        verify(userPrivilegeCleanupService, never()).removeOperationalPrivileges(any());
-        verify(agentLifecycleService, never()).suspendAllForUser(any());
+        verify(userLifecycleService, never()).deleteAccount(any());
     }
 
     @Test
