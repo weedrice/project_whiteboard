@@ -9,7 +9,7 @@ vi.mock('vue-i18n', () => ({
     }),
 }))
 
-const actions = ['image', 'quote', 'list', 'link', 'divider'] as const
+const actions = ['heading', 'image', 'quote', 'list', 'link', 'table', 'video', 'codeBlock', 'divider'] as const
 
 function mountMenu(activeIndex = 1) {
     return mount(PostEditorSlashMenu, {
@@ -27,7 +27,17 @@ describe('PostEditorSlashMenu', () => {
         await nextTick()
 
         const buttons = wrapper.findAll('.slash-action-btn')
-        expect(buttons.map((button) => button.attributes('tabindex'))).toEqual(['-1', '0', '-1', '-1', '-1'])
+        expect(buttons.map((button) => button.attributes('tabindex'))).toEqual([
+            '-1',
+            '0',
+            '-1',
+            '-1',
+            '-1',
+            '-1',
+            '-1',
+            '-1',
+            '-1',
+        ])
         expect(document.activeElement).toBe(buttons[1].element)
 
         await wrapper.setProps({ activeIndex: 3 })
@@ -38,6 +48,10 @@ describe('PostEditorSlashMenu', () => {
             '-1',
             '-1',
             '0',
+            '-1',
+            '-1',
+            '-1',
+            '-1',
             '-1',
         ])
         expect(document.activeElement).toBe(wrapper.findAll('.slash-action-btn')[3].element)
@@ -57,8 +71,8 @@ describe('PostEditorSlashMenu', () => {
         await menu.trigger('keydown', { key: 'Escape' })
 
         expect(wrapper.emitted('move')).toEqual([[1], [-1]])
-        expect(wrapper.emitted('set-active')?.slice(setActiveOffset)).toEqual([[0], [4]])
-        expect(wrapper.emitted('select')).toEqual([['list']])
+        expect(wrapper.emitted('set-active')?.slice(setActiveOffset)).toEqual([[0], [8]])
+        expect(wrapper.emitted('select')).toEqual([['quote']])
         expect(wrapper.emitted('close')).toHaveLength(1)
     })
 
@@ -73,6 +87,6 @@ describe('PostEditorSlashMenu', () => {
         await buttons[1].trigger('click')
 
         expect(wrapper.emitted('set-active')?.slice(setActiveOffset)).toEqual([[3], [4]])
-        expect(wrapper.emitted('select')).toEqual([['quote']])
+        expect(wrapper.emitted('select')).toEqual([['image']])
     })
 })

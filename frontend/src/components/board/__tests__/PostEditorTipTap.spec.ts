@@ -27,6 +27,8 @@ const mocks = vi.hoisted(() => {
         toggleBulletList: vi.fn(),
         toggleOrderedList: vi.fn(),
         toggleBlockquote: vi.fn(),
+        toggleHeading: vi.fn(),
+        toggleCodeBlock: vi.fn(),
         setHorizontalRule: vi.fn(),
         setImage: vi.fn(),
         setVideo: vi.fn(),
@@ -662,28 +664,45 @@ describe('PostEditorTipTap', () => {
         expect(wrapper.findAll('.slash-action-btn')[0].attributes('tabindex')).toBe('0')
         await wrapper.get('[role="menu"]').trigger('keydown', { key: 'End' })
         await nextTick()
-        expect(wrapper.findAll('.slash-action-btn')[4].attributes('tabindex')).toBe('0')
+        expect(wrapper.findAll('.slash-action-btn')[8].attributes('tabindex')).toBe('0')
         await wrapper.get('[role="menu"]').trigger('keydown', { key: 'Home' })
         await nextTick()
         expect(wrapper.findAll('.slash-action-btn')[0].attributes('tabindex')).toBe('0')
         await wrapper.findAll('.slash-action-btn')[0].trigger('click')
+        expect(mocks.chain.toggleHeading).toHaveBeenCalledWith({ level: 2 })
+
+        await wrapper.get(selectors.slashMenu).trigger('click')
+        await wrapper.findAll('.slash-action-btn')[1].trigger('click')
         expect(imageInputClickSpy).toHaveBeenCalled()
 
         await wrapper.get(selectors.slashMenu).trigger('click')
+        await wrapper.get('[role="menu"]').trigger('keydown', { key: 'ArrowDown' })
         await wrapper.get('[role="menu"]').trigger('keydown', { key: 'ArrowDown' })
         await wrapper.get('[role="menu"]').trigger('keydown', { key: 'Enter' })
         expect(mocks.chain.toggleBlockquote).toHaveBeenCalled()
 
         await wrapper.get(selectors.slashMenu).trigger('click')
-        await wrapper.findAll('.slash-action-btn')[2].trigger('click')
+        await wrapper.findAll('.slash-action-btn')[3].trigger('click')
         expect(mocks.chain.toggleBulletList).toHaveBeenCalled()
 
         await wrapper.get(selectors.slashMenu).trigger('click')
-        await wrapper.findAll('.slash-action-btn')[3].trigger('click')
+        await wrapper.findAll('.slash-action-btn')[4].trigger('click')
         expect(wrapper.find('.link-popover').exists()).toBe(true)
 
         await wrapper.get(selectors.slashMenu).trigger('click')
-        await wrapper.findAll('.slash-action-btn')[4].trigger('click')
+        await wrapper.findAll('.slash-action-btn')[5].trigger('click')
+        expect(wrapper.find('.table-popover').exists()).toBe(true)
+
+        await wrapper.get(selectors.slashMenu).trigger('click')
+        await wrapper.findAll('.slash-action-btn')[6].trigger('click')
+        expect(wrapper.emitted('open-video')).toHaveLength(1)
+
+        await wrapper.get(selectors.slashMenu).trigger('click')
+        await wrapper.findAll('.slash-action-btn')[7].trigger('click')
+        expect(mocks.chain.toggleCodeBlock).toHaveBeenCalled()
+
+        await wrapper.get(selectors.slashMenu).trigger('click')
+        await wrapper.findAll('.slash-action-btn')[8].trigger('click')
         expect(mocks.chain.setHorizontalRule).toHaveBeenCalled()
     })
 

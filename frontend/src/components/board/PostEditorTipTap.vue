@@ -43,7 +43,7 @@ const emit = defineEmits<{
   (e: 'file-uploaded', fileId: number): void
 }>()
 
-type SlashAction = 'image' | 'quote' | 'list' | 'link' | 'divider'
+type SlashAction = 'heading' | 'image' | 'quote' | 'list' | 'link' | 'table' | 'video' | 'codeBlock' | 'divider'
 type UploadedEditorImage = { url: string; fileId?: number }
 
 const { t } = useI18n()
@@ -134,7 +134,7 @@ const colorLabelKeys = [
   'blue', 'purple', 'pink', 'teal',
   'white', 'dark', 'slate', 'paleGray',
 ]
-const slashActions: SlashAction[] = ['image', 'quote', 'list', 'link', 'divider']
+const slashActions: SlashAction[] = ['heading', 'image', 'quote', 'list', 'link', 'table', 'video', 'codeBlock', 'divider']
 const fontSizes = ['12px', '14px', '16px', '18px', '24px']
 const lineHeights = ['1', '1.25', '1.5', '1.75', '2']
 
@@ -640,6 +640,9 @@ function setEmoticon(image: EmoticonImage) {
 
 function applySlashAction(action: SlashAction) {
   switch (action) {
+    case 'heading':
+      editor.value?.chain().focus().toggleHeading({ level: 2 }).run()
+      break
     case 'image':
       triggerImageUpload()
       break
@@ -651,6 +654,15 @@ function applySlashAction(action: SlashAction) {
       break
     case 'link':
       openLinkPopover()
+      break
+    case 'table':
+      openTablePopover()
+      break
+    case 'video':
+      emit('open-video')
+      break
+    case 'codeBlock':
+      editor.value?.chain().focus().toggleCodeBlock().run()
       break
     case 'divider':
       editor.value?.chain().focus().setHorizontalRule().run()

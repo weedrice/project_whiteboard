@@ -616,6 +616,8 @@ export interface BoardMessages {
       quote: string
       list: string
       divider: string
+      heading: string
+      codeBlock: string
       advanced: string
       formattingTools: string
       textColor: string

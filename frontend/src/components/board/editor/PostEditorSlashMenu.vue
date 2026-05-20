@@ -2,7 +2,7 @@
 import { nextTick, onMounted, ref, watch, type ComponentPublicInstance } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-type SlashAction = 'image' | 'quote' | 'list' | 'link' | 'divider'
+type SlashAction = 'heading' | 'image' | 'quote' | 'list' | 'link' | 'table' | 'video' | 'codeBlock' | 'divider'
 
 const props = defineProps<{
   actions: SlashAction[]
@@ -19,10 +19,14 @@ const emit = defineEmits<{
 const { t } = useI18n()
 
 const actionLabels: Record<SlashAction, string> = {
+  heading: 'board.writePost.toolbar.heading',
   image: 'board.writePost.toolbar.image',
   quote: 'board.writePost.toolbar.quote',
   list: 'board.writePost.toolbar.list',
   link: 'board.writePost.toolbar.link',
+  table: 'board.writePost.toolbar.tableDialog',
+  video: 'board.writePost.toolbar.video',
+  codeBlock: 'board.writePost.toolbar.codeBlock',
   divider: 'board.writePost.toolbar.divider',
 }
 
