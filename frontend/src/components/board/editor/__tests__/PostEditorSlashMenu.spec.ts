@@ -1,5 +1,5 @@
-import { mount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { enableAutoUnmount, mount } from '@vue/test-utils'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import PostEditorSlashMenu from '../PostEditorSlashMenu.vue'
 
@@ -10,6 +10,8 @@ vi.mock('vue-i18n', () => ({
 }))
 
 const actions = ['heading', 'quote', 'list', 'link', 'table', 'codeBlock', 'divider'] as const
+
+enableAutoUnmount(afterEach)
 
 function mountMenu(activeIndex = 1) {
     return mount(PostEditorSlashMenu, {
@@ -70,6 +72,17 @@ describe('PostEditorSlashMenu', () => {
         expect(wrapper.emitted('set-active')?.slice(setActiveOffset)).toEqual([[0], [6]])
         expect(wrapper.emitted('select')).toEqual([['list']])
         expect(wrapper.emitted('close')).toHaveLength(1)
+    })
+
+    it('handles document keyboard navigation before the menu receives focus', async () => {
+        const wrapper = mountMenu(1)
+        await nextTick()
+
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }))
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+
+        expect(wrapper.emitted('move')).toEqual([[1]])
+        expect(wrapper.emitted('select')).toEqual([['quote']])
     })
 
     it('emits set-active on hover and focus and select on click', async () => {

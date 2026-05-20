@@ -80,6 +80,26 @@ describe('HomePostCard', () => {
     expect(wrapper.get('.nv-home-card-body').classes()).toContain('nv-home-card-body-featured-with-media')
   })
 
+  it('renders blockquote HTML when the featured post has no media', () => {
+    const wrapper = mount(HomePostCard, {
+      props: {
+        post: makePost({
+          contentsExcerpt: '<blockquote><p>quoted text</p></blockquote>',
+          firstMediaType: undefined,
+          firstMediaUrl: undefined,
+          thumbnailUrl: undefined,
+        }),
+        variant: 'featured',
+      },
+    })
+
+    const body = wrapper.get('.nv-home-card-body')
+
+    expect(body.classes()).toContain('nv-home-card-body-featured-no-media')
+    expect(body.find('blockquote').exists()).toBe(true)
+    expect(body.find('blockquote p').text()).toBe('quoted text')
+  })
+
   it('renders summary through the sanitized HTML path when an excerpt is not available', () => {
     const wrapper = mount(HomePostCard, {
       props: {

@@ -658,27 +658,31 @@ html {
   .nv-home-card-body {
     @apply text-sm leading-6;
     --nv-home-card-body-lines: 5;
+    --nv-home-card-body-max-height: 7.5rem;
     color: var(--nv-ink-soft);
-    display: -webkit-box;
+    display: block;
+    max-height: var(--nv-home-card-body-max-height);
     overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: var(--nv-home-card-body-lines);
   }
 
   .nv-home-card-body-featured-with-media {
     --nv-home-card-body-lines: 10;
+    --nv-home-card-body-max-height: 15rem;
   }
 
   .nv-home-card-body-featured-no-media {
     --nv-home-card-body-lines: 10;
+    --nv-home-card-body-max-height: 15rem;
   }
 
   .nv-home-card-body-with-media {
     --nv-home-card-body-lines: 3;
+    --nv-home-card-body-max-height: 4.5rem;
   }
 
   .nv-home-card-body-no-media {
     --nv-home-card-body-lines: 5;
+    --nv-home-card-body-max-height: 7.5rem;
   }
 
   .nv-home-card-body.prose-feed :where(p) {

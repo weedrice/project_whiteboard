@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onMounted, ref, watch, type ComponentPublicInstance } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch, type ComponentPublicInstance } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 type SlashAction = 'heading' | 'quote' | 'list' | 'link' | 'table' | 'codeBlock' | 'divider'
@@ -51,7 +51,12 @@ watch(() => props.activeIndex, () => {
 })
 
 onMounted(() => {
+  document.addEventListener('keydown', onDocumentKeydown)
   void focusActiveItem()
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', onDocumentKeydown)
 })
 
 function onKeydown(event: KeyboardEvent) {
@@ -86,10 +91,15 @@ function onKeydown(event: KeyboardEvent) {
     emit('set-active', props.actions.length - 1)
   }
 }
+
+function onDocumentKeydown(event: KeyboardEvent) {
+  onKeydown(event)
+}
 </script>
 
 <template>
   <div
+    data-editor-slash-menu
     class="grid gap-2"
     role="menu"
     @keydown.stop="onKeydown"

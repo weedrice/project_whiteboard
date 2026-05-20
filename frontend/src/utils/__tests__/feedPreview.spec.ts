@@ -13,6 +13,15 @@ describe('feedPreview', () => {
         expect(html).not.toContain('<script')
     })
 
+    it('keeps blockquote markup in feed body previews', () => {
+        const html = getFeedBodyHtml({
+            contentsExcerpt: '<blockquote><p>Quoted</p></blockquote>',
+        })
+
+        expect(html).toContain('<blockquote>')
+        expect(html).toContain('<p>Quoted</p>')
+    })
+
     it('returns media preview metadata for image and video posts', () => {
         expect(getFeedMediaPreview({
             firstMediaType: 'video',
