@@ -40,8 +40,7 @@ const isSearching = ref(false)
 const { data: popularEmoticons, isLoading: popularLoading } = useQuery({
   queryKey: ['emoticons', 'popular', popularPeriod],
   queryFn: async () => {
-    const { data } = await emoticonApi.getPopularEmoticons(popularPeriod.value)
-    return data.data
+    return emoticonApi.getPopularEmoticonsData(popularPeriod.value)
   }
 })
 
@@ -58,8 +57,7 @@ const { data: emoticonsPage, isLoading: emoticonsLoading } = useQuery({
       params.keyword = searchKeyword.value
       params.searchType = searchType.value
     }
-    const { data } = await emoticonApi.searchAll(params)
-    return data.data
+    return emoticonApi.searchAllData(params)
   }
 })
 

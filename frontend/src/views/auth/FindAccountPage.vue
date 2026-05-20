@@ -3,6 +3,7 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api/auth'
+import { useEmailVerificationFlow } from '@/composables/useEmailVerificationFlow'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useToastStore } from '@/stores/toast'
@@ -55,45 +56,27 @@ const switchTab = (tab: string) => {
     resetState()
 }
 
-const handleSendCode = async () => {
-    const email = form.email.trim()
-    if (!email) {
-        toastStore.addToast(t('auth.placeholders.email'), 'error')
-        return
-    }
-
-    status.loading = true
-    try {
-        const purpose = activeTab.value === 'id' ? 'FIND_ID' : 'PASSWORD_RESET'
-        const { data } = await authApi.sendVerificationCode(email, purpose)
-        if (data.success) {
-            resetVerificationState()
-            status.isCodeSent = true
-            status.foundId = ''
-            toastStore.addToast(t('auth.codeSent'), 'success')
-        }
-    } catch {
-        // Error handled by global interceptor or toast
-    } finally {
-        status.loading = false
-    }
-}
-
-const handleVerifyCode = async () => {
-    if (!form.code) {
-        toastStore.addToast(t('auth.codeInvalid'), 'error')
-        return
-    }
-
-    status.loading = true
-    try {
-        const purpose = activeTab.value === 'id' ? 'FIND_ID' : 'PASSWORD_RESET'
-        const { data } = await authApi.verifyCode(form.email.trim(), form.code, purpose)
-        const verificationTicket = data.data?.verificationTicket
-        if (!data.success || !verificationTicket) {
-            throw new Error(t('auth.verificationFailed'))
-        }
-
+const {
+    sendVerifyCode: handleSendCode,
+    verifyEmailCode: handleVerifyCode
+} = useEmailVerificationFlow({
+    getEmail: () => form.email,
+    getCode: () => form.code,
+    purpose: () => activeTab.value === 'id' ? 'FIND_ID' : 'PASSWORD_RESET',
+    validateEmailFormat: false,
+    useTimer: false,
+    closeOnVerifySuccess: false,
+    showVerifySuccessToast: false,
+    emailRequiredMessage: t('auth.placeholders.email'),
+    onLoadingChange: (loading) => {
+        status.loading = loading
+    },
+    afterSend: () => {
+        resetVerificationState()
+        status.isCodeSent = true
+        status.foundId = ''
+    },
+    afterVerify: async ({ verificationTicket }) => {
         if (activeTab.value === 'id') {
             await findId(verificationTicket)
         } else {
@@ -101,13 +84,9 @@ const handleVerifyCode = async () => {
             status.verificationTicket = verificationTicket
             toastStore.addToast(t('auth.codeVerified'), 'success')
         }
-    } catch (error: unknown) {
-        const message = extractErrorMessage(error) || t('auth.verificationFailed')
-        toastStore.addToast(message, 'error')
-    } finally {
-        status.loading = false
-    }
-}
+    },
+    onSendError: () => true
+})
 
 const findId = async (verificationTicket: string) => {
     try {

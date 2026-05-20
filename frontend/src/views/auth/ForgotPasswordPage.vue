@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type { AxiosError } from 'axios'
 import { authApi } from '@/api/auth'
+import { useEmailVerificationFlow } from '@/composables/useEmailVerificationFlow'
 import { extractErrorResponse } from '@/utils/errorHandler'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -22,62 +23,42 @@ const isLoading = ref(false)
 const isSent = ref(false)
 const isCodeSent = ref(false)
 
-async function handleSendCode() {
-  if (!form.email.trim()) {
-    toastStore.addToast(t('auth.placeholders.email'), 'error')
-    return
-  }
-
-  isLoading.value = true
-  try {
-    const { data } = await authApi.sendVerificationCode(form.email.trim(), 'PASSWORD_RESET')
-    if (data.success) {
-      isCodeSent.value = true
-      form.code = ''
-      toastStore.addToast(t('auth.codeSent'), 'success')
-    }
-  } catch (error) {
-    const errRes = extractErrorResponse(error as AxiosError)
-    const message = errRes?.message || t('auth.sendCodeFailed')
-    toastStore.addToast(message, 'error')
-  } finally {
-    isLoading.value = false
-  }
-}
-
-async function handleSendResetLink() {
-  if (!form.code.trim()) {
-    toastStore.addToast(t('auth.codeInvalid'), 'error')
-    return
-  }
-
-  isLoading.value = true
-  try {
-    const verifyResponse = await authApi.verifyCode(form.email.trim(), form.code.trim(), 'PASSWORD_RESET')
-    const verificationTicket = verifyResponse.data.data?.verificationTicket
-
-    if (!verifyResponse.data.success || !verificationTicket) {
-      throw new Error(t('auth.verificationFailed'))
-    }
-
-    const { data } = await authApi.sendPasswordResetLinkByEmail(form.email.trim(), verificationTicket)
+const {
+  sendVerifyCode: handleSendCode,
+  verifyEmailCode: handleSendResetLink
+} = useEmailVerificationFlow({
+  getEmail: () => form.email,
+  getCode: () => form.code,
+  purpose: 'PASSWORD_RESET',
+  validateEmailFormat: false,
+  useTimer: false,
+  closeOnVerifySuccess: false,
+  showVerifySuccessToast: false,
+  emailRequiredMessage: t('auth.placeholders.email'),
+  onLoadingChange: (loading) => {
+    isLoading.value = loading
+  },
+  afterSend: () => {
+    isCodeSent.value = true
+    form.code = ''
+  },
+  afterVerify: async ({ email, verificationTicket }) => {
+    const { data } = await authApi.sendPasswordResetLinkByEmail(email, verificationTicket)
     if (data.success) {
       isSent.value = true
       toastStore.addToast(t('auth.resetLinkSent'), 'success')
     }
-  } catch (error) {
+  },
+  onVerifyError: (error) => {
     const errRes = extractErrorResponse(error as AxiosError)
     if (errRes?.code === 'A009') {
       toastStore.addToast(t('auth.userDeleted'), 'info')
       router.push(`/signup?email=${encodeURIComponent(form.email.trim())}`)
-    } else {
-      const message = errRes?.message || t('auth.verificationFailed')
-      toastStore.addToast(message, 'error')
+      return true
     }
-  } finally {
-    isLoading.value = false
+    return false
   }
-}
+})
 </script>
 
 <template>

@@ -48,8 +48,8 @@ vi.mock('vue-router', () => ({
 
 vi.mock('@/api/emoticon', () => ({
   emoticonApi: {
-    getPopularEmoticons: mocks.getPopularEmoticons,
-    searchAll: mocks.searchAll,
+    getPopularEmoticonsData: mocks.getPopularEmoticons,
+    searchAllData: mocks.searchAll,
   },
 }))
 
@@ -101,14 +101,12 @@ describe('EmoticonList', () => {
     vi.clearAllMocks()
     mocks.queryOptions.length = 0
     mocks.searchAll.mockResolvedValue({
-      data: {
-        data: mocks.listPage,
-      },
+      ...mocks.listPage,
     })
     mocks.listPage.content = []
     mocks.listPage.totalPages = 0
     mocks.listPage.totalElements = 0
-    mocks.getPopularEmoticons.mockResolvedValue({ data: { data: [] } })
+    mocks.getPopularEmoticons.mockResolvedValue([])
   })
 
   it('renders latest, oldest, and popular sort buttons', () => {
