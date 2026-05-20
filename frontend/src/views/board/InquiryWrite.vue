@@ -89,6 +89,7 @@ onMounted(() => {
       :hide-spoiler="true"
       :hide-secret="true"
       :skip-board-lookup="true"
+      @cancel="handleSubmitted"
     />
   </div>
 </template>

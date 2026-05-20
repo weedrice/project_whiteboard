@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, h } from 'vue'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import PostEdit from '../PostEdit.vue'
@@ -29,7 +29,8 @@ function createPostFormStub(hasUnsavedChanges: boolean, leaveMessage?: string) {
         default: undefined
       }
     },
-    setup(props, { expose }) {
+    emits: ['cancel'],
+    setup(props, { expose, emit }) {
       const exposed: Record<string, unknown> = {
         hasUnsavedChanges: () => hasUnsavedChanges,
       }
@@ -40,11 +41,13 @@ function createPostFormStub(hasUnsavedChanges: boolean, leaveMessage?: string) {
         hasUnsavedChanges: () => boolean
         getLeaveConfirmMessage?: () => string
       })
-      return () => h('div', {
+      return () => h('button', {
+        type: 'button',
         'data-testid': 'post-form',
         'data-mode': props.mode,
         'data-board-url': props.boardUrl,
-        'data-post-id': props.postId
+        'data-post-id': props.postId,
+        onClick: () => emit('cancel')
       })
     }
   })
@@ -61,6 +64,10 @@ async function mountPostEdit(hasUnsavedChanges = false, leaveMessage?: string) {
       {
         path: '/done',
         component: { template: '<div>Done</div>' }
+      },
+      {
+        path: '/board/:boardUrl/post/:postId',
+        component: { template: '<div>Post</div>' }
       }
     ]
   })
@@ -133,5 +140,29 @@ describe('PostEdit', () => {
 
     expect(confirmSpy).toHaveBeenCalledWith(expect.any(String))
     expect(router.currentRoute.value.path).toBe('/board/test/post/1/edit')
+  })
+
+  it('navigates after update from the view-level onSubmitted handler', async () => {
+    const { router, wrapper } = await mountPostEdit(false)
+    const form = wrapper.findComponent({ name: 'PostForm' })
+
+    await form.props('onSubmitted')({
+      boardUrl: 'test',
+      postId: 1
+    })
+    await flushPromises()
+
+    expect(router.currentRoute.value.path).toBe('/board/test/post/1')
+  })
+
+  it('handles PostForm cancel from the view', async () => {
+    const { router, wrapper } = await mountPostEdit(false)
+
+    await router.push('/done')
+    await router.push('/board/test/post/1/edit')
+    await wrapper.find('[data-testid="post-form"]').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.path).toBe('/done')
   })
 })
