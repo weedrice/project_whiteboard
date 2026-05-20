@@ -6,6 +6,7 @@ import BaseTable from '@/components/common/ui/BaseTable.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import { computed } from 'vue'
 import { formatDate } from '@/utils/date'
+import { getAdminReportStatusLabel, getReportStatusVariant } from '@/utils/reportDisplay'
 import type { Report } from '@/types'
 
 const { t } = useI18n()
@@ -104,9 +105,8 @@ const columns = computed(() => [
       </template>
 
       <template #cell-status="{ item }">
-        <BaseBadge :variant="item.status === 'PENDING' ? 'warning' : item.status === 'RESOLVED' ? 'success' : 'gray'"
-          size="sm">
-          {{ t(`admin.reports.status.${item.status}`) }}
+        <BaseBadge :variant="getReportStatusVariant(item.status)" size="sm">
+          {{ getAdminReportStatusLabel(t, item.status) }}
         </BaseBadge>
       </template>
 
