@@ -25,8 +25,7 @@ const emoticonId = computed(() => Number(route.params.emoticonId))
 const { data: emoticon, isLoading, error } = useQuery({
   queryKey: ['emoticon', emoticonId],
   queryFn: async () => {
-    const { data } = await emoticonApi.getEmoticon(emoticonId.value)
-    return data.data
+    return emoticonApi.getEmoticonData(emoticonId.value)
   },
   enabled: () => !!emoticonId.value
 })
@@ -35,8 +34,7 @@ const { data: emoticon, isLoading, error } = useQuery({
 const { data: purchaseStatus } = useQuery({
   queryKey: ['emoticon', emoticonId, 'purchased'],
   queryFn: async () => {
-    const { data } = await emoticonApi.checkPurchaseStatus(emoticonId.value)
-    return data.data
+    return emoticonApi.checkPurchaseStatusData(emoticonId.value)
   },
   enabled: () => !!emoticonId.value && authStore.isAuthenticated
 })
@@ -100,9 +98,9 @@ const handlePurchase = () => {
 
 // 숨김/표시 전환 mutation
 const { mutate: toggleVisibility, isPending: isToggling } = useMutation({
-  mutationFn: () => emoticonApi.toggleVisibility(emoticonId.value),
-  onSuccess: (res) => {
-    const isNowActive = res.data.data.isActive
+  mutationFn: () => emoticonApi.toggleVisibilityData(emoticonId.value),
+  onSuccess: (updatedEmoticon) => {
+    const isNowActive = updatedEmoticon.isActive
     toastStore.addToast(
       isNowActive ? t('emoticon.visibility.showSuccess') : t('emoticon.visibility.hiddenSuccess'),
       'success'

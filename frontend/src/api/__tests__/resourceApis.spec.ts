@@ -320,4 +320,26 @@ describe('emoticonApi', () => {
         expect(apiMock.delete).toHaveBeenNthCalledWith(2, '/emoticons/images/55')
         expect(apiMock.post).toHaveBeenNthCalledWith(3, '/emoticons/9/purchase')
     })
+
+    it('unwraps emoticon response helpers without changing endpoint calls', async () => {
+        const listPage = { content: [{ emoticonId: 1, name: 'cat' }], totalPages: 1, totalElements: 1 }
+        const detail = { emoticonId: 1, name: 'cat', isActive: true }
+        const purchaseStatus = { purchased: false, price: 100 }
+
+        apiMock.get
+            .mockResolvedValueOnce({ data: { success: true, data: listPage } })
+            .mockResolvedValueOnce({ data: { success: true, data: detail } })
+            .mockResolvedValueOnce({ data: { success: true, data: purchaseStatus } })
+        apiMock.patch.mockResolvedValueOnce({ data: { success: true, data: { ...detail, isActive: false } } })
+
+        await expect(emoticonApi.searchAllData({ keyword: 'cat' })).resolves.toBe(listPage)
+        await expect(emoticonApi.getEmoticonData(1)).resolves.toBe(detail)
+        await expect(emoticonApi.checkPurchaseStatusData(1)).resolves.toBe(purchaseStatus)
+        await expect(emoticonApi.toggleVisibilityData(1)).resolves.toEqual({ ...detail, isActive: false })
+
+        expect(apiMock.get).toHaveBeenNthCalledWith(1, '/emoticons/search/all', { params: { keyword: 'cat' } })
+        expect(apiMock.get).toHaveBeenNthCalledWith(2, '/emoticons/1')
+        expect(apiMock.get).toHaveBeenNthCalledWith(3, '/emoticons/1/purchased')
+        expect(apiMock.patch).toHaveBeenCalledWith('/emoticons/1/visibility')
+    })
 })

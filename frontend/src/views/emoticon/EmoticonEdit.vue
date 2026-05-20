@@ -39,8 +39,7 @@ useHead({
 const { data: emoticon, isLoading } = useQuery({
   queryKey: ['emoticon', emoticonId],
   queryFn: async () => {
-    const { data } = await emoticonApi.getEmoticon(emoticonId.value)
-    return data.data
+    return emoticonApi.getEmoticonData(emoticonId.value)
   },
   enabled: () => !!emoticonId.value
 })
@@ -116,9 +115,9 @@ watch([emoticon, () => authStore.user], ([emoticonData, user]) => {
 
 // 숨김/표시 전환
 const { mutate: toggleVisibility, isPending: isToggling } = useMutation({
-  mutationFn: () => emoticonApi.toggleVisibility(emoticonId.value),
-  onSuccess: (res) => {
-    const isNowActive = res.data.data.isActive
+  mutationFn: () => emoticonApi.toggleVisibilityData(emoticonId.value),
+  onSuccess: (updatedEmoticon) => {
+    const isNowActive = updatedEmoticon.isActive
     toastStore.addToast(
       isNowActive ? t('emoticon.visibility.showSuccess') : t('emoticon.visibility.hiddenSuccess'),
       'success'
