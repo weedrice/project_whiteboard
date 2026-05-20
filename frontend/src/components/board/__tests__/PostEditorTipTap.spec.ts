@@ -333,7 +333,6 @@ describe('PostEditorTipTap', () => {
         })
 
         const wrapper = mountEditor()
-        await openAdvancedTools(wrapper)
 
         expect(wrapper.text()).toContain('Font size')
         expect(wrapper.text()).toContain('Line height')
@@ -355,6 +354,8 @@ describe('PostEditorTipTap', () => {
         await wrapper.get('button[title="board.writePost.alignCenter"]').trigger('click')
         await wrapper.get('button[title="board.writePost.alignRight"]').trigger('click')
         await wrapper.get('button[title="board.writePost.alignJustify"]').trigger('click')
+
+        await openAdvancedTools(wrapper)
         await wrapper.get(selectors.divider).trigger('click')
 
         await wrapper.get(selectors.tableDialog).trigger('click')
@@ -596,6 +597,8 @@ describe('PostEditorTipTap', () => {
 
         expect(wrapper.get(selectors.image).attributes('aria-label')).toBe('board.writePost.toolbar.image')
         expect(wrapper.get(selectors.video).attributes('aria-label')).toBe('board.writePost.toolbar.video')
+        expect(wrapper.findAll('select.tiptap-select')[0].attributes('aria-label')).toBe('board.writePost.fontSize')
+        expect(wrapper.findAll('select.tiptap-select')[1].attributes('aria-label')).toBe('board.writePost.lineHeight')
 
         await wrapper.get(selectors.link).trigger('click')
         expect(wrapper.get('.link-popover').attributes('aria-modal')).toBe('true')
@@ -611,16 +614,15 @@ describe('PostEditorTipTap', () => {
 
         await wrapper.get(selectors.more).trigger('click')
         expect(wrapper.get('.advanced-popover').attributes('aria-modal')).toBe('true')
-        expect(wrapper.findAll('select.tiptap-select')[0].attributes('aria-label')).toBe('board.writePost.fontSize')
-        expect(wrapper.findAll('select.tiptap-select')[1].attributes('aria-label')).toBe('board.writePost.lineHeight')
         await wrapper.get('.tiptap-color-trigger').trigger('click')
         expect(wrapper.get('.color-panel').attributes('aria-modal')).toBeUndefined()
         expect(wrapper.findAll('.color-panel-swatch')[0].attributes('aria-label')).toBe('board.writePost.colorLabels.black')
         dispatchEscape(wrapper.get('.color-panel').element)
         await nextTick()
         expect(wrapper.find('.color-panel').exists()).toBe(false)
-        expect(wrapper.find('.advanced-popover').exists()).toBe(true)
+        expect(wrapper.find('.advanced-popover').exists()).toBe(false)
 
+        await wrapper.get(selectors.more).trigger('click')
         await wrapper.get(selectors.tableDialog).trigger('click')
         expect(wrapper.get('.table-popover').attributes('aria-modal')).toBe('true')
         dispatchEscape(wrapper.get('#editor-table-rows').element)

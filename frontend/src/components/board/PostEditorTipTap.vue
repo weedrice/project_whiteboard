@@ -264,6 +264,9 @@ const colorPresetLabels = computed(() => Object.fromEntries(
 function closeFloatingMenus() {
   showAdvancedMenu.value = false
   showSlashMenu.value = false
+  showColorPanel.value = false
+  colorPosition.clearAnchor()
+  colorTriggerElement.value = null
 }
 
 function openSlashMenu(anchor?: HTMLElement) {
@@ -304,6 +307,10 @@ function toggleColorPanel(anchor?: HTMLElement) {
     closeColorPanel(anchor)
     return
   }
+  showAdvancedMenu.value = false
+  showSlashMenu.value = false
+  advancedPosition.clearAnchor()
+  slashPosition.clearAnchor()
   colorTriggerElement.value = anchor ?? null
   colorPosition.setAnchor(anchor)
   showColorPanel.value = true
@@ -730,8 +737,18 @@ onBeforeUnmount(() => {
       :image-upload-queue-count="imageUploadQueueCount"
       :failed-image-count="failedImageCount"
       :failed-image-files="failedImageFiles"
+      :font-sizes="fontSizes"
+      :line-heights="lineHeights"
+      :current-font-size="currentFontSize"
+      :current-line-height="currentLineHeight"
+      :current-highlight-color="currentHighlightColor"
+      :current-text-color="currentTextColor"
+      :is-default-color="isDefaultColor"
+      :is-dark="themeStore.isDark"
       :show-slash-menu="showSlashMenu"
       :show-advanced-menu="showAdvancedMenu"
+      :show-color-panel="showColorPanel"
+      :active-text-align="activeTextAlign"
       @toggle-bold="editor.chain().focus().toggleBold().run()"
       @toggle-italic="editor.chain().focus().toggleItalic().run()"
       @toggle-underline="editor.chain().focus().toggleUnderline().run()"
@@ -743,6 +760,11 @@ onBeforeUnmount(() => {
       @save-list-selection="saveListSelection"
       @bullet-list="applyBulletList"
       @ordered-list="applyOrderedList"
+      @font-size="applyFontSize"
+      @line-height="applyLineHeight"
+      @highlight-color="applyHighlightColor"
+      @toggle-color-panel="toggleColorPanel"
+      @align="setTextAlign"
       @toggle-slash-menu="toggleSlashMenu"
       @toggle-advanced-menu="toggleAdvancedMenu"
       @retry-image-upload="retryImageUpload"
@@ -772,6 +794,21 @@ onBeforeUnmount(() => {
     </Teleport>
 
     <Teleport to="body">
+      <div v-if="showColorPanel" id="editor-color-dialog" ref="colorPanelRef" class="color-panel" :style="colorPosition.popoverStyle.value" role="dialog" aria-labelledby="editor-color-dialog-title" @keydown.enter.stop @keydown.escape.stop.prevent="closeColorPanel()">
+        <p id="editor-color-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.textColor') }}</p>
+        <PostEditorColorPopover
+          :colors="colorPresets"
+          :labels="colorPresetLabels"
+          :current-text-color="currentTextColor"
+          :is-default-color="isDefaultColor"
+          @default-color="setDefaultColor"
+          @preset-color="setPresetColor"
+          @custom-color="setPresetColor"
+        />
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
       <div v-if="showAdvancedMenu" class="link-popover-mask" @click.self="showAdvancedMenu = false" @keydown.enter.stop @keydown.escape.stop.prevent="showAdvancedMenu = false">
         <div id="editor-advanced-dialog" ref="advancedPopoverRef" class="link-popover advanced-popover" :style="advancedPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-advanced-dialog-title">
           <div class="mb-3">
@@ -779,37 +816,10 @@ onBeforeUnmount(() => {
             <h3 id="editor-advanced-dialog-title" class="text-base font-semibold text-[var(--nv-ink)]">{{ t('board.writePost.toolbar.formattingTools') }}</h3>
           </div>
           <PostEditorAdvancedPopover
-            :font-sizes="fontSizes"
-            :line-heights="lineHeights"
-            :current-font-size="currentFontSize"
-            :current-line-height="currentLineHeight"
-            :current-highlight-color="currentHighlightColor"
-            :current-text-color="currentTextColor"
-            :is-default-color="isDefaultColor"
-            :is-dark="themeStore.isDark"
-            :show-color-panel="showColorPanel"
             :show-table-popover="showTablePopover"
-            :active-text-align="activeTextAlign"
-            @font-size="applyFontSize"
-            @line-height="applyLineHeight"
-            @highlight-color="applyHighlightColor"
-            @toggle-color-panel="toggleColorPanel"
             @open-table="openTablePopover"
             @horizontal-rule="applyHorizontalRule"
-            @align="setTextAlign"
           />
-          <div v-if="showColorPanel" id="editor-color-dialog" ref="colorPanelRef" class="color-panel" :style="colorPosition.popoverStyle.value" role="dialog" aria-labelledby="editor-color-dialog-title" @keydown.enter.stop @keydown.escape.stop.prevent="closeColorPanel()">
-            <p id="editor-color-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.textColor') }}</p>
-            <PostEditorColorPopover
-              :colors="colorPresets"
-              :labels="colorPresetLabels"
-              :current-text-color="currentTextColor"
-              :is-default-color="isDefaultColor"
-              @default-color="setDefaultColor"
-              @preset-color="setPresetColor"
-              @custom-color="setPresetColor"
-            />
-          </div>
         </div>
       </div>
     </Teleport>

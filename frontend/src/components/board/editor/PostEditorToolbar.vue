@@ -1,6 +1,16 @@
 <script setup lang="ts">
 import type { Editor } from '@tiptap/core'
-import { Image as ImageIcon, List as ListIcon, ListOrdered, Smile, Video as VideoIcon } from 'lucide-vue-next'
+import {
+  Image as ImageIcon,
+  List as ListIcon,
+  ListOrdered,
+  Smile,
+  TextAlignCenter,
+  TextAlignEnd,
+  TextAlignJustify,
+  TextAlignStart,
+  Video as VideoIcon,
+} from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 
@@ -12,8 +22,18 @@ defineProps<{
   imageUploadQueueCount: number
   failedImageCount: number
   failedImageFiles: File[]
+  fontSizes: string[]
+  lineHeights: string[]
+  currentFontSize: string
+  currentLineHeight: string
+  currentHighlightColor: string
+  currentTextColor: string
+  isDefaultColor: boolean
+  isDark: boolean
   showSlashMenu: boolean
   showAdvancedMenu: boolean
+  showColorPanel: boolean
+  activeTextAlign: 'left' | 'center' | 'right' | 'justify' | ''
 }>()
 
 const emit = defineEmits<{
@@ -28,6 +48,11 @@ const emit = defineEmits<{
   (e: 'save-list-selection'): void
   (e: 'bullet-list'): void
   (e: 'ordered-list'): void
+  (e: 'font-size', value: string): void
+  (e: 'line-height', value: string): void
+  (e: 'highlight-color', value: string): void
+  (e: 'toggle-color-panel', trigger: HTMLElement): void
+  (e: 'align', value: 'left' | 'center' | 'right' | 'justify'): void
   (e: 'toggle-slash-menu', trigger: HTMLElement): void
   (e: 'toggle-advanced-menu', trigger: HTMLElement): void
   (e: 'retry-image-upload'): void
@@ -78,6 +103,42 @@ const { t } = useI18n()
       </button>
       <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('orderedList') }" :title="t('board.writePost.toolbar.orderedList')" :aria-label="t('board.writePost.toolbar.orderedList')" :aria-pressed="editor.isActive('orderedList')" @mousedown.prevent="emit('save-list-selection')" @click="emit('ordered-list')">
         <ListOrdered class="h-4 w-4" aria-hidden="true" />
+      </button>
+    </div>
+
+    <div class="tiptap-toolbar-group">
+      <select class="tiptap-select text-xs" :value="currentFontSize" :aria-label="t('board.writePost.fontSize')" @change="emit('font-size', ($event.target as HTMLSelectElement).value)">
+        <option value="">{{ t('board.writePost.fontSize') || 'Font size' }}</option>
+        <option v-for="size in fontSizes" :key="size" :value="size">{{ size }}</option>
+      </select>
+      <select class="tiptap-select text-xs" :value="currentLineHeight" :aria-label="t('board.writePost.lineHeight')" @change="emit('line-height', ($event.target as HTMLSelectElement).value)">
+        <option value="">{{ t('board.writePost.lineHeight') || 'Line height' }}</option>
+        <option v-for="height in lineHeights" :key="height" :value="height">{{ height }}</option>
+      </select>
+    </div>
+
+    <div class="tiptap-toolbar-group">
+      <button type="button" class="tiptap-btn tiptap-color-trigger" :title="t('board.writePost.toolbar.textColor')" :aria-label="t('board.writePost.toolbar.textColor')" aria-haspopup="dialog" :aria-expanded="showColorPanel" aria-controls="editor-color-dialog" @mousedown.prevent @click="emit('toggle-color-panel', $event.currentTarget as HTMLElement)">
+        <span class="tiptap-color-indicator">
+          A
+          <span class="tiptap-color-bar" :style="{ backgroundColor: isDefaultColor ? (isDark ? '#f3f4f6' : '#111827') : currentTextColor }" />
+        </span>
+      </button>
+      <input type="color" :value="currentHighlightColor" class="tiptap-color-input h-9 w-9 cursor-pointer" :aria-label="t('board.writePost.toolbar.textColor')" @input="emit('highlight-color', ($event.target as HTMLInputElement).value)">
+    </div>
+
+    <div class="tiptap-toolbar-group">
+      <button type="button" class="tiptap-btn" :class="{ active: activeTextAlign === 'left' }" :title="t('board.writePost.alignLeft')" :aria-label="t('board.writePost.alignLeft')" @mousedown.prevent @click="emit('align', 'left')">
+        <TextAlignStart :size="16" />
+      </button>
+      <button type="button" class="tiptap-btn" :class="{ active: activeTextAlign === 'center' }" :title="t('board.writePost.alignCenter')" :aria-label="t('board.writePost.alignCenter')" @mousedown.prevent @click="emit('align', 'center')">
+        <TextAlignCenter :size="16" />
+      </button>
+      <button type="button" class="tiptap-btn" :class="{ active: activeTextAlign === 'right' }" :title="t('board.writePost.alignRight')" :aria-label="t('board.writePost.alignRight')" @mousedown.prevent @click="emit('align', 'right')">
+        <TextAlignEnd :size="16" />
+      </button>
+      <button type="button" class="tiptap-btn" :class="{ active: activeTextAlign === 'justify' }" :title="t('board.writePost.alignJustify')" :aria-label="t('board.writePost.alignJustify')" @mousedown.prevent @click="emit('align', 'justify')">
+        <TextAlignJustify :size="16" />
       </button>
     </div>
 
