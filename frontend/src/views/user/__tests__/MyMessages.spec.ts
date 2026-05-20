@@ -62,6 +62,13 @@ const baseCheckboxStub = {
     template: '<input type="checkbox" />',
 }
 
+const errorStateStub = {
+    name: 'ErrorState',
+    props: ['message', 'showRetry'],
+    emits: ['retry'],
+    template: '<div data-testid="error-state">{{ message }}</div>',
+}
+
 function deferred<T>() {
     let resolve!: (value: T) => void
     let reject!: (reason?: unknown) => void
@@ -89,6 +96,7 @@ describe('MyMessages', () => {
                 BaseTextarea: true,
                 BaseSkeleton: true,
                 EmptyState: true,
+                ErrorState: errorStateStub,
                 Pagination: true,
                 PageSizeSelector: true,
                 Mail: true,
@@ -134,6 +142,19 @@ describe('MyMessages', () => {
         expect(messageApi.markAsRead).toHaveBeenCalledWith(5, { skipGlobalErrorHandler: true })
         expect(messageApi.getMessage.mock.invocationCallOrder[0]).toBeLessThan(messageApi.markAsRead.mock.invocationCallOrder[0])
         expect(listedMessage.isRead).toBe(true)
+    })
+
+    it('shows an error state instead of empty state when the message list fails to load', async () => {
+        messageApi.getReceivedMessages.mockRejectedValue(new Error('network'))
+
+        const wrapper = mountMyMessages()
+
+        await flushPromises()
+
+        const errorState = wrapper.find('[data-testid="error-state"]')
+        expect(errorState.exists()).toBe(true)
+        expect(errorState.text()).toBe('common.messages.loadFailed')
+        expect(wrapper.findComponent({ name: 'EmptyState' }).exists()).toBe(false)
     })
 
     it('ignores stale detail responses when another message is selected first', async () => {
@@ -183,6 +204,7 @@ describe('MyMessages', () => {
                     BaseTextarea: true,
                     BaseSkeleton: true,
                     EmptyState: true,
+                    ErrorState: errorStateStub,
                     Pagination: true,
                     PageSizeSelector: true,
                     Mail: true,
