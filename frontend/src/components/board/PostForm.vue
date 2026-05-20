@@ -401,9 +401,15 @@ function closeVideoPopover() {
 }
 
 function insertVideoFromPopover() {
-  const embedUrl = toEmbedPostVideoUrl(videoUrl.value)
-  if (!embedUrl) {
+  const rawVideoUrl = videoUrl.value.trim()
+  if (!rawVideoUrl) {
     toastStore.addToast(t('board.writePost.videoUrlRequired'), 'error')
+    return
+  }
+
+  const embedUrl = toEmbedPostVideoUrl(rawVideoUrl)
+  if (!embedUrl) {
+    toastStore.addToast(t('board.writePost.invalidVideoUrl'), 'error')
     return
   }
   tiptapEditorRef.value?.setVideo(embedUrl)
@@ -709,9 +715,11 @@ defineExpose({
                           type="url"
                           class="video-url-popover-input"
                           :placeholder="$t('board.writePost.video.placeholder')"
+                          aria-describedby="post-video-url-help"
                           @keydown.enter.stop.prevent="insertVideoFromPopover"
                           @keydown.escape.stop.prevent="closeVideoPopover"
                         >
+                        <p id="post-video-url-help" class="video-url-popover-help">{{ $t('board.writePost.video.help') }}</p>
                         <div class="video-url-popover-actions">
                           <BaseButton type="button" variant="secondary" size="sm" @click="closeVideoPopover">
                             {{ $t('common.cancel') }}
@@ -938,13 +946,19 @@ defineExpose({
 .video-url-popover-input {
   display: block;
   width: 100%;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
   padding: 10px 12px;
   border: 1px solid var(--nv-line);
   border-radius: 8px;
   background: var(--nv-elevated);
   color: var(--nv-ink);
   box-sizing: border-box;
+}
+
+.video-url-popover-help {
+  margin: 0 0 10px;
+  color: var(--nv-muted);
+  font-size: 12px;
 }
 
 .video-url-popover-actions {

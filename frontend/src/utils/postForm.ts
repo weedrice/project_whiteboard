@@ -116,6 +116,29 @@ export function buildPostFormPayload({
     }
 }
 
+export function toSafePostLinkUrl(url: string): string {
+    const trimmed = (url || '').trim()
+    if (!trimmed) return ''
+    if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed) && !/^https?:\/\//i.test(trimmed)) return ''
+
+    let parsed: URL
+    try {
+        parsed = new URL(/^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`)
+    } catch {
+        return ''
+    }
+
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+        return ''
+    }
+
+    if (!parsed.hostname || parsed.username || parsed.password) {
+        return ''
+    }
+
+    return parsed.toString()
+}
+
 export function toEmbedPostVideoUrl(url: string): string {
     const trimmed = (url || '').trim()
     if (!trimmed) return ''

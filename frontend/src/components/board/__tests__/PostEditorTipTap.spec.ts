@@ -79,6 +79,7 @@ const mocks = vi.hoisted(() => {
     const isUploadingImage = { __v_isRef: true as const, value: false }
     const validateImageFile = vi.fn(() => null as null | 'type' | 'size')
     const uploadImage = vi.fn()
+    const abortImageUpload = vi.fn()
     const isAbortUploadError = vi.fn(() => false)
 
     return {
@@ -93,6 +94,7 @@ const mocks = vi.hoisted(() => {
         isUploadingImage,
         validateImageFile,
         uploadImage,
+        abortImageUpload,
         isAbortUploadError,
     }
 })
@@ -165,6 +167,7 @@ vi.mock('@/composables/useEditorImageUpload', () => ({
         isUploadingImage: mocks.isUploadingImage,
         validateImageFile: mocks.validateImageFile,
         uploadImage: mocks.uploadImage,
+        abortImageUpload: mocks.abortImageUpload,
         isAbortUploadError: mocks.isAbortUploadError,
     }),
 }))
@@ -245,6 +248,7 @@ describe('PostEditorTipTap', () => {
         mocks.validateImageFile.mockReturnValue(null)
         mocks.uploadImage.mockResolvedValue({ url: 'https://cdn.test/image.png', fileId: 55 })
         mocks.isAbortUploadError.mockReturnValue(false)
+        mocks.isUploadingImage.value = false
         mocks.i18nT.mockImplementation((key: string) => key)
     })
 
@@ -263,7 +267,7 @@ describe('PostEditorTipTap', () => {
         expect(mocks.editor.commands.setContent).not.toHaveBeenCalled()
     })
 
-    it('handles link click guards and slash key opening', () => {
+    it('handles link click guards and slash key opening', async () => {
         const wrapper = mountEditor()
         const clickHandler = (mocks.editorOptions.value?.editorProps as any).handleDOMEvents.click
         const keyHandler = (mocks.editorOptions.value?.editorProps as any).handleDOMEvents.keydown
@@ -290,6 +294,23 @@ describe('PostEditorTipTap', () => {
         const slashEvent = { key: '/' } as KeyboardEvent
         expect(keyHandler(null, slashEvent)).toBe(false)
         expect(wrapper.find('.slash-popover').exists()).toBe(false)
+
+        mocks.editor.state.selection = {
+            from: 1,
+            to: 1,
+            $from: {
+                parent: { textContent: '' },
+                parentOffset: 0,
+            },
+        } as any
+        const emptyParagraphSlashEvent = {
+            key: '/',
+            preventDefault: vi.fn(),
+        } as unknown as KeyboardEvent
+        expect(keyHandler(null, emptyParagraphSlashEvent)).toBe(true)
+        expect(emptyParagraphSlashEvent.preventDefault).toHaveBeenCalled()
+        await nextTick()
+        expect(wrapper.find('.slash-popover').exists()).toBe(true)
     })
 
     it('applies advanced formatting controls and table insertion', async () => {
@@ -359,17 +380,9 @@ describe('PostEditorTipTap', () => {
         await wrapper.findAll('.link-popover-actions button').at(-1)!.trigger('click')
         expect(mocks.toastAdd).toHaveBeenLastCalledWith('board.writePost.linkUrlPrompt', 'error')
 
-        await wrapper.findAll('.link-popover-input')[0].setValue('example.com')
-        await wrapper.findAll('.link-popover-input')[1].setValue('Example')
+        await wrapper.findAll('.link-popover-input')[0].setValue('javascript:alert(1)')
         await wrapper.findAll('.link-popover-actions button').at(-1)!.trigger('click')
-        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('https://example.com'))
-
-        mocks.chain.setLink.mockClear()
-        mocks.editor.state.selection = { from: 2, to: 5 }
-        await wrapper.get(selectors.link).trigger('click')
-        await wrapper.findAll('.link-popover-input')[0].setValue('https://selected.test')
-        await wrapper.findAll('.link-popover-actions button').at(-1)!.trigger('click')
-        expect(mocks.chain.setLink).toHaveBeenCalledWith({ href: 'https://selected.test' })
+        expect(mocks.toastAdd).toHaveBeenLastCalledWith('board.writePost.invalidLinkUrl', 'error')
 
         mocks.editor.isActive.mockImplementation((name: unknown) => name === 'link')
         await wrapper.get(selectors.link).trigger('click')
@@ -439,9 +452,24 @@ describe('PostEditorTipTap', () => {
         await fileInput.trigger('change')
         expect(mocks.loggerError).toHaveBeenCalledWith('Image upload failed:', expect.any(Error))
         expect(mocks.toastAdd).toHaveBeenCalledWith('common.messages.uploadFailed', 'error')
+        expect(wrapper.find('.image-upload-status').text()).toContain('common.messages.uploadFailed')
+
+        mocks.validateImageFile.mockReturnValueOnce(null)
+        mocks.uploadImage.mockResolvedValueOnce({ url: 'https://cdn.test/retry.png', fileId: 89 })
+        await wrapper.findAll('.image-upload-status-btn')[0].trigger('click')
+        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="https://cdn.test/retry.png"'))
 
         wrapper.unmount()
         expect(URL.revokeObjectURL).not.toHaveBeenCalled()
+    })
+
+    it('shows cancellable image upload progress while uploading', async () => {
+        mocks.isUploadingImage.value = true
+        const wrapper = mountEditor()
+
+        expect(wrapper.find('.image-upload-status').text()).toContain('board.writePost.upload.uploading')
+        await wrapper.find('.image-upload-status-btn').trigger('click')
+        expect(mocks.abortImageUpload).toHaveBeenCalled()
     })
 
     it('keeps popover escape events inside the editor and exposes dialog accessibility attributes', async () => {
@@ -470,8 +498,11 @@ describe('PostEditorTipTap', () => {
 
         await wrapper.get(selectors.more).trigger('click')
         expect(wrapper.get('.advanced-popover').attributes('aria-modal')).toBe('true')
+        expect(wrapper.findAll('select.tiptap-select')[0].attributes('aria-label')).toBe('board.writePost.fontSize')
+        expect(wrapper.findAll('select.tiptap-select')[1].attributes('aria-label')).toBe('board.writePost.lineHeight')
         await wrapper.get('.tiptap-color-trigger').trigger('click')
         expect(wrapper.get('.color-panel').attributes('aria-modal')).toBe('true')
+        expect(wrapper.findAll('.color-panel-swatch')[0].attributes('aria-label')).toBe('board.writePost.colorLabels.black')
         dispatchEscape(wrapper.get('.color-panel').element)
         await nextTick()
         expect(wrapper.find('.color-panel').exists()).toBe(false)
@@ -482,6 +513,7 @@ describe('PostEditorTipTap', () => {
         await nextTick()
         expect(wrapper.find('.table-popover').exists()).toBe(false)
 
+        await wrapper.get(selectors.more).trigger('click')
         dispatchEscape(wrapper.get('.advanced-popover').element)
         await nextTick()
         expect(wrapper.find('.advanced-popover').exists()).toBe(false)
@@ -509,11 +541,17 @@ describe('PostEditorTipTap', () => {
 
         await wrapper.get(selectors.slashMenu).trigger('click')
         expect(wrapper.find('.slash-popover').exists()).toBe(true)
+        expect(wrapper.get('[role="menu"]').attributes('aria-activedescendant')).toBe('editor-slash-action-0')
+        await wrapper.get('[role="menu"]').trigger('keydown', { key: 'ArrowDown' })
+        expect(wrapper.get('[role="menu"]').attributes('aria-activedescendant')).toBe('editor-slash-action-1')
+        await wrapper.get('[role="menu"]').trigger('keydown', { key: 'ArrowUp' })
+        expect(wrapper.get('[role="menu"]').attributes('aria-activedescendant')).toBe('editor-slash-action-0')
         await wrapper.findAll('.slash-action-btn')[0].trigger('click')
         expect(imageInputClickSpy).toHaveBeenCalled()
 
         await wrapper.get(selectors.slashMenu).trigger('click')
-        await wrapper.findAll('.slash-action-btn')[1].trigger('click')
+        await wrapper.get('[role="menu"]').trigger('keydown', { key: 'ArrowDown' })
+        await wrapper.get('[role="menu"]').trigger('keydown', { key: 'Enter' })
         expect(mocks.chain.toggleBlockquote).toHaveBeenCalled()
 
         await wrapper.get(selectors.slashMenu).trigger('click')

@@ -5,6 +5,7 @@ import {
     extractPostFileIdsFromContent,
     resolvePostFormFileIds,
     toEmbedPostVideoUrl,
+    toSafePostLinkUrl,
 } from '../postForm'
 
 const baseForm = {
@@ -96,5 +97,16 @@ describe('postForm', () => {
         expect(toEmbedPostVideoUrl('data:text/html,video')).toBe('')
         expect(toEmbedPostVideoUrl('https://youtube.com/watch')).toBe('')
         expect(toEmbedPostVideoUrl('https://player.vimeo.com/channels/staffpicks/12345')).toBe('')
+    })
+
+    it('normalizes only safe post link URLs', () => {
+        expect(toSafePostLinkUrl('https://example.com/path')).toBe('https://example.com/path')
+        expect(toSafePostLinkUrl('http://example.com')).toBe('http://example.com/')
+        expect(toSafePostLinkUrl('example.com/docs')).toBe('https://example.com/docs')
+        expect(toSafePostLinkUrl('javascript:alert(1)')).toBe('')
+        expect(toSafePostLinkUrl('data:text/html,link')).toBe('')
+        expect(toSafePostLinkUrl('ftp://example.com/file')).toBe('')
+        expect(toSafePostLinkUrl('https://user:pass@example.com')).toBe('')
+        expect(toSafePostLinkUrl('http://')).toBe('')
     })
 })

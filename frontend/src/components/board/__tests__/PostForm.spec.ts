@@ -787,7 +787,7 @@ describe('PostForm', () => {
 
         await wrapper.get('.video-url-popover-input').setValue('https://example.com/video')
         await wrapper.get('.video-url-popover-actions button:last-child').trigger('click')
-        expect(mockAddToast).toHaveBeenLastCalledWith('board.writePost.videoUrlRequired', 'error')
+        expect(mockAddToast).toHaveBeenLastCalledWith('board.writePost.invalidVideoUrl', 'error')
         expect(editorSetVideo).not.toHaveBeenCalled()
 
         await wrapper.get('.video-url-popover-input').setValue('https://youtu.be/abc123')
@@ -1082,7 +1082,7 @@ describe('PostForm', () => {
         await wrapper.get('.video-url-popover-input').setValue('  https://example.com/video  ')
         await wrapper.get('.video-url-popover-actions button:last-child').trigger('click')
         expect(editorSetVideo).not.toHaveBeenCalled()
-        expect(mockAddToast).toHaveBeenLastCalledWith('board.writePost.videoUrlRequired', 'error')
+        expect(mockAddToast).toHaveBeenLastCalledWith('board.writePost.invalidVideoUrl', 'error')
     })
 
     it('updates mobile/desktop checkboxes and uses fallback strings when translation is empty', async () => {

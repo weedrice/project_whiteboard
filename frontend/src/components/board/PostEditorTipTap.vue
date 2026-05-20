@@ -13,8 +13,12 @@ import { TableKit } from '@tiptap/extension-table'
 import HorizontalRule from '@tiptap/extension-horizontal-rule'
 import { FontSize, LineHeight } from '@tiptap/extension-text-style'
 import { Video } from '@/extensions/tiptap-video'
-import { Image as ImageIcon, TextAlignCenter, TextAlignEnd, TextAlignJustify, TextAlignStart, Video as VideoIcon } from 'lucide-vue-next'
-import BaseButton from '@/components/common/ui/BaseButton.vue'
+import { TextAlignCenter, TextAlignEnd, TextAlignJustify, TextAlignStart } from 'lucide-vue-next'
+import PostEditorColorPopover from '@/components/board/editor/PostEditorColorPopover.vue'
+import PostEditorLinkPopover from '@/components/board/editor/PostEditorLinkPopover.vue'
+import PostEditorSlashMenu from '@/components/board/editor/PostEditorSlashMenu.vue'
+import PostEditorTablePopover from '@/components/board/editor/PostEditorTablePopover.vue'
+import PostEditorToolbar from '@/components/board/editor/PostEditorToolbar.vue'
 import { useEditorImageUpload } from '@/composables/useEditorImageUpload'
 import { usePopoverFocus } from '@/composables/usePopoverFocus'
 import { useI18n } from 'vue-i18n'
@@ -22,6 +26,7 @@ import { useThemeStore } from '@/stores/theme'
 import { useToastStore } from '@/stores/toast'
 import type { EmoticonImage } from '@/types/emoticon'
 import logger from '@/utils/logger'
+import { toSafePostLinkUrl } from '@/utils/postForm'
 
 const props = defineProps<{
   modelValue: string
@@ -33,6 +38,8 @@ const emit = defineEmits<{
   (e: 'open-emoticon'): void
   (e: 'file-uploaded', fileId: number): void
 }>()
+
+type SlashAction = 'image' | 'quote' | 'list' | 'link' | 'divider'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -50,13 +57,15 @@ const tableCols = ref(3)
 const tableHeaderRow = ref(true)
 const savedListSelection = ref<{ from: number; to: number } | null>(null)
 const imageInput = ref<HTMLInputElement | null>(null)
+const failedImageFile = ref<File | null>(null)
+const slashActiveIndex = ref(0)
 const slashPopoverRef = ref<HTMLElement | null>(null)
 const advancedPopoverRef = ref<HTMLElement | null>(null)
 const colorPanelRef = ref<HTMLElement | null>(null)
 const linkPopoverRef = ref<HTMLElement | null>(null)
 const tablePopoverRef = ref<HTMLElement | null>(null)
 
-const { isUploadingImage, validateImageFile, uploadImage, isAbortUploadError } = useEditorImageUpload()
+const { isUploadingImage, validateImageFile, uploadImage, abortImageUpload, isAbortUploadError } = useEditorImageUpload()
 usePopoverFocus(slashPopoverRef, showSlashMenu)
 usePopoverFocus(advancedPopoverRef, showAdvancedMenu)
 usePopoverFocus(colorPanelRef, showColorPanel)
@@ -91,6 +100,13 @@ const colorPresets = [
   '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6',
   '#ffffff', '#1f2937', '#4b5563', '#d1d5db',
 ]
+const colorLabelKeys = [
+  'black', 'gray', 'muted', 'lightGray',
+  'red', 'orange', 'yellow', 'green',
+  'blue', 'purple', 'pink', 'teal',
+  'white', 'dark', 'slate', 'paleGray',
+]
+const slashActions: SlashAction[] = ['image', 'quote', 'list', 'link', 'divider']
 const fontSizes = ['12px', '14px', '16px', '18px', '24px']
 const lineHeights = ['1', '1.25', '1.5', '1.75', '2']
 
@@ -126,7 +142,9 @@ const editor = useEditor({
           && textBeforeCursor.trim().length === 0
 
         if (shouldOpenSlashMenu) {
-          showSlashMenu.value = true
+          event.preventDefault()
+          openSlashMenu()
+          return true
         }
         return false
       },
@@ -189,10 +207,35 @@ const isDefaultColor = computed(() => !currentTextColor.value)
 const currentFontSize = computed(() => editor.value?.getAttributes('textStyle').fontSize || '')
 const currentLineHeight = computed(() => editor.value?.getAttributes('textStyle').lineHeight || '')
 const currentHighlightColor = computed(() => editor.value?.getAttributes('highlight').color || '#fef08a')
+const hasImageUploadError = computed(() => failedImageFile.value !== null)
+const colorPresetLabels = computed(() => Object.fromEntries(
+  colorPresets.map((color, index) => [
+    color,
+    t(`board.writePost.colorLabels.${colorLabelKeys[index]}`),
+  ]),
+))
 
 function closeFloatingMenus() {
   showAdvancedMenu.value = false
   showSlashMenu.value = false
+}
+
+function openSlashMenu() {
+  closeFloatingMenus()
+  slashActiveIndex.value = 0
+  showSlashMenu.value = true
+}
+
+function toggleSlashMenu() {
+  if (showSlashMenu.value) {
+    showSlashMenu.value = false
+    return
+  }
+  openSlashMenu()
+}
+
+function moveSlashSelection(direction: 1 | -1) {
+  slashActiveIndex.value = (slashActiveIndex.value + direction + slashActions.length) % slashActions.length
 }
 
 function setDefaultColor() {
@@ -247,14 +290,20 @@ function escapeHtmlText(value: string) {
     .replace(/"/g, '&quot;')
 }
 
-function applyLink() {
-  const url = linkUrl.value.trim()
-  const displayText = linkText.value.trim()
+function applyLink(nextUrl = linkUrl.value, nextText = linkText.value) {
+  linkUrl.value = nextUrl
+  linkText.value = nextText
+  const url = nextUrl.trim()
+  const displayText = nextText.trim()
   if (!url) {
     toastStore.addToast(t('board.writePost.linkUrlPrompt'), 'error')
     return
   }
-  const safeUrl = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`
+  const safeUrl = toSafePostLinkUrl(url)
+  if (!safeUrl) {
+    toastStore.addToast(t('board.writePost.invalidLinkUrl'), 'error')
+    return
+  }
   const text = displayText || url
   const { from, to } = editor.value?.state.selection ?? {}
   const hasSelection = from !== undefined && to !== undefined && from < to
@@ -349,24 +398,21 @@ function triggerImageUpload() {
   imageInput.value?.click()
 }
 
-async function onImageChange(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
-
+async function uploadSelectedImage(file: File) {
   const validationError = validateImageFile(file)
   if (validationError === 'type') {
     toastStore.addToast(t('common.messages.badRequest'), 'warning')
-    input.value = ''
+    failedImageFile.value = null
     return
   }
   if (validationError === 'size') {
     toastStore.addToast(t('common.messages.fileSizeExceeded'), 'warning')
-    input.value = ''
+    failedImageFile.value = null
     return
   }
 
   try {
+    failedImageFile.value = null
     const uploaded = await uploadImage(file)
     if (uploaded) {
       if (typeof uploaded.fileId === 'number') {
@@ -380,14 +426,38 @@ async function onImageChange(event: Event) {
     }
   } catch (error: unknown) {
     if (isAbortUploadError(error)) {
-      input.value = ''
       return
     }
+    failedImageFile.value = file
     logger.error('Image upload failed:', error)
     toastStore.addToast(t('common.messages.uploadFailed'), 'error')
+  }
+}
+
+async function onImageChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  try {
+    await uploadSelectedImage(file)
   } finally {
     input.value = ''
   }
+}
+
+function retryImageUpload() {
+  if (failedImageFile.value) {
+    void uploadSelectedImage(failedImageFile.value)
+  }
+}
+
+function dismissImageUploadError() {
+  failedImageFile.value = null
+}
+
+function cancelImageUpload() {
+  abortImageUpload()
 }
 
 function setVideo(src: string) {
@@ -402,7 +472,7 @@ function setEmoticon(image: EmoticonImage) {
   }).run()
 }
 
-function applySlashAction(action: 'image' | 'quote' | 'list' | 'link' | 'divider') {
+function applySlashAction(action: SlashAction) {
   switch (action) {
     case 'image':
       triggerImageUpload()
@@ -448,11 +518,6 @@ function applyHighlightColor(event: Event) {
   editor.value?.chain().focus().setHighlight({ color: value }).run()
 }
 
-function applyCustomTextColor(event: Event) {
-  const value = (event.target as HTMLInputElement).value
-  editor.value?.chain().focus().setColor(value).run()
-}
-
 function applyHorizontalRule() {
   editor.value?.chain().focus().setHorizontalRule().run()
 }
@@ -481,52 +546,30 @@ onBeforeUnmount(() => {
   <div class="tiptap-editor-wrap flex min-h-0 flex-1 flex-col">
     <input ref="imageInput" type="file" accept=".jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp" class="hidden" @change="onImageChange">
 
-    <div v-if="editor" class="tiptap-toolbar flex flex-wrap items-center gap-2 border-b border-[var(--nv-line)] bg-[var(--nv-surface-alt)] p-2">
-      <div class="tiptap-toolbar-group">
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('bold') }" :title="t('board.writePost.toolbar.bold')" :aria-label="t('board.writePost.toolbar.bold')" :aria-pressed="editor.isActive('bold')" @mousedown.prevent @click="editor.chain().focus().toggleBold().run()">
-          <span class="font-bold">B</span>
-        </button>
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('italic') }" :title="t('board.writePost.toolbar.italic')" :aria-label="t('board.writePost.toolbar.italic')" :aria-pressed="editor.isActive('italic')" @mousedown.prevent @click="editor.chain().focus().toggleItalic().run()">
-          <span class="italic">I</span>
-        </button>
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('underline') }" :title="t('board.writePost.toolbar.underline')" :aria-label="t('board.writePost.toolbar.underline')" :aria-pressed="editor.isActive('underline')" @mousedown.prevent @click="editor.chain().focus().toggleUnderline().run()">
-          <span class="underline">U</span>
-        </button>
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('strike') }" :title="t('board.writePost.toolbar.strikethrough')" :aria-label="t('board.writePost.toolbar.strikethrough')" :aria-pressed="editor.isActive('strike')" @mousedown.prevent @click="editor.chain().focus().toggleStrike().run()">
-          <span class="line-through">S</span>
-        </button>
-      </div>
-      <div class="tiptap-toolbar-group">
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('link') }" :title="t('board.writePost.toolbar.link')" :aria-label="t('board.writePost.toolbar.link')" :aria-pressed="editor.isActive('link')" @mousedown.prevent @click="openLinkPopover">
-          {{ t('board.writePost.toolbar.link') }}
-        </button>
-        <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.image')" :aria-label="t('board.writePost.toolbar.image')" :disabled="isUploadingImage" @mousedown.prevent @click="triggerImageUpload">
-          <ImageIcon class="h-4 w-4" aria-hidden="true" />
-        </button>
-        <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.video')" :aria-label="t('board.writePost.toolbar.video')" @mousedown.prevent @click="emit('open-video')">
-          <VideoIcon class="h-4 w-4" aria-hidden="true" />
-        </button>
-        <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.emoticon')" :aria-label="t('board.writePost.toolbar.emoticon')" @mousedown.prevent @click="emit('open-emoticon')">
-          :)
-        </button>
-      </div>
-      <div class="tiptap-toolbar-group">
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('bulletList') }" :title="t('board.writePost.toolbar.bulletList')" :aria-label="t('board.writePost.toolbar.bulletList')" :aria-pressed="editor.isActive('bulletList')" @mousedown.prevent="saveListSelection" @click="applyBulletList">
-          UL
-        </button>
-        <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('orderedList') }" :title="t('board.writePost.toolbar.orderedList')" :aria-label="t('board.writePost.toolbar.orderedList')" :aria-pressed="editor.isActive('orderedList')" @mousedown.prevent="saveListSelection" @click="applyOrderedList">
-          1.
-        </button>
-      </div>
-      <div class="tiptap-toolbar-group">
-        <button type="button" class="tiptap-btn tiptap-btn-pill" :title="t('board.writePost.toolbar.slashMenu')" :aria-label="t('board.writePost.toolbar.slashMenu')" aria-haspopup="dialog" :aria-expanded="showSlashMenu" aria-controls="editor-slash-dialog" @mousedown.prevent @click="showSlashMenu = !showSlashMenu">
-          {{ t('board.writePost.toolbar.insertBlock') }}
-        </button>
-        <button type="button" class="tiptap-btn tiptap-btn-pill" :title="t('board.writePost.toolbar.more')" :aria-label="t('board.writePost.toolbar.more')" aria-haspopup="dialog" :aria-expanded="showAdvancedMenu" aria-controls="editor-advanced-dialog" @mousedown.prevent @click="showAdvancedMenu = !showAdvancedMenu">
-          {{ t('board.writePost.toolbar.more') }}
-        </button>
-      </div>
-    </div>
+    <PostEditorToolbar
+      v-if="editor"
+      :editor="editor"
+      :is-uploading-image="isUploadingImage"
+      :has-image-upload-error="hasImageUploadError"
+      :show-slash-menu="showSlashMenu"
+      :show-advanced-menu="showAdvancedMenu"
+      @toggle-bold="editor.chain().focus().toggleBold().run()"
+      @toggle-italic="editor.chain().focus().toggleItalic().run()"
+      @toggle-underline="editor.chain().focus().toggleUnderline().run()"
+      @toggle-strike="editor.chain().focus().toggleStrike().run()"
+      @open-link="openLinkPopover"
+      @upload-image="triggerImageUpload"
+      @open-video="emit('open-video')"
+      @open-emoticon="emit('open-emoticon')"
+      @save-list-selection="saveListSelection"
+      @bullet-list="applyBulletList"
+      @ordered-list="applyOrderedList"
+      @toggle-slash-menu="toggleSlashMenu"
+      @toggle-advanced-menu="showAdvancedMenu = !showAdvancedMenu"
+      @retry-image-upload="retryImageUpload"
+      @cancel-image-upload="cancelImageUpload"
+      @dismiss-image-upload-error="dismissImageUploadError"
+    />
 
     <Teleport to="body">
       <div v-if="showSlashMenu" class="link-popover-mask" @click.self="showSlashMenu = false" @keydown.enter.stop @keydown.escape.stop.prevent="showSlashMenu = false">
@@ -535,13 +578,13 @@ onBeforeUnmount(() => {
             <p class="text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">{{ t('board.writePost.toolbar.slashMenu') }}</p>
             <h3 id="editor-slash-dialog-title" class="text-base font-semibold text-[var(--nv-ink)]">{{ t('board.writePost.toolbar.insertBlock') }}</h3>
           </div>
-          <div class="grid gap-2">
-            <button type="button" class="slash-action-btn" @click="applySlashAction('image')">{{ t('board.writePost.toolbar.image') }}</button>
-            <button type="button" class="slash-action-btn" @click="applySlashAction('quote')">{{ t('board.writePost.toolbar.quote') }}</button>
-            <button type="button" class="slash-action-btn" @click="applySlashAction('list')">{{ t('board.writePost.toolbar.list') }}</button>
-            <button type="button" class="slash-action-btn" @click="applySlashAction('link')">{{ t('board.writePost.toolbar.link') }}</button>
-            <button type="button" class="slash-action-btn" @click="applySlashAction('divider')">{{ t('board.writePost.toolbar.divider') }}</button>
-          </div>
+          <PostEditorSlashMenu
+            :actions="slashActions"
+            :active-index="slashActiveIndex"
+            @select="applySlashAction"
+            @move="moveSlashSelection"
+            @close="showSlashMenu = false"
+          />
         </div>
       </div>
     </Teleport>
@@ -555,11 +598,11 @@ onBeforeUnmount(() => {
           </div>
           <div class="grid gap-3">
             <div class="flex flex-wrap items-center gap-2">
-              <select class="tiptap-select text-xs" :value="currentFontSize" @change="applyFontSize">
+              <select class="tiptap-select text-xs" :value="currentFontSize" :aria-label="t('board.writePost.fontSize')" @change="applyFontSize">
                 <option value="">{{ t('board.writePost.fontSize') || 'Font size' }}</option>
                 <option v-for="size in fontSizes" :key="size" :value="size">{{ size }}</option>
               </select>
-              <select class="tiptap-select text-xs" :value="currentLineHeight" @change="applyLineHeight">
+              <select class="tiptap-select text-xs" :value="currentLineHeight" :aria-label="t('board.writePost.lineHeight')" @change="applyLineHeight">
                 <option value="">{{ t('board.writePost.lineHeight') || 'Line height' }}</option>
                 <option v-for="height in lineHeights" :key="height" :value="height">{{ height }}</option>
               </select>
@@ -574,8 +617,8 @@ onBeforeUnmount(() => {
                   </span>
                 </button>
               </div>
-              <input type="color" :value="currentHighlightColor" class="tiptap-color-input w-9 h-9 cursor-pointer" @input="applyHighlightColor">
-              <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.tableDialog')" :aria-label="t('board.writePost.toolbar.tableDialog')" @mousedown.prevent @click="openTablePopover">Tbl</button>
+              <input type="color" :value="currentHighlightColor" class="tiptap-color-input w-9 h-9 cursor-pointer" :aria-label="t('board.writePost.toolbar.textColor')" @input="applyHighlightColor">
+              <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.tableDialog')" :aria-label="t('board.writePost.toolbar.tableDialog')" aria-haspopup="dialog" :aria-expanded="showTablePopover" aria-controls="editor-table-dialog" @mousedown.prevent @click="openTablePopover">Tbl</button>
               <button type="button" class="tiptap-btn" :title="t('board.writePost.toolbar.divider')" :aria-label="t('board.writePost.toolbar.divider')" @mousedown.prevent @click="applyHorizontalRule">HR</button>
             </div>
 
@@ -602,30 +645,15 @@ onBeforeUnmount(() => {
       <div v-if="showColorPanel" class="link-popover-mask" @click.self="closeColorPanel" @keydown.enter.stop @keydown.escape.stop.prevent="closeColorPanel">
         <div id="editor-color-dialog" ref="colorPanelRef" class="color-panel" role="dialog" aria-modal="true" aria-labelledby="editor-color-dialog-title">
           <p id="editor-color-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.textColor') }}</p>
-          <button type="button" class="color-panel-default" :class="{ 'color-panel-default--active': isDefaultColor }" @click="setDefaultColor">
-            <span class="color-panel-default-swatch">
-              <span class="color-panel-default-light" />
-              <span class="color-panel-default-dark" />
-            </span>
-            <span>{{ t('board.writePost.toolbar.defaultColor') }}</span>
-          </button>
-          <div class="color-panel-grid">
-            <button
-              v-for="color in colorPresets"
-              :key="color"
-              type="button"
-              class="color-panel-swatch"
-              :class="{ 'color-panel-swatch--active': currentTextColor === color }"
-              :style="{ backgroundColor: color }"
-              :title="color"
-              :aria-label="color"
-              @click="setPresetColor(color)"
-            />
-          </div>
-          <div class="color-panel-custom">
-            <label class="color-panel-custom-label">{{ t('board.writePost.toolbar.customColor') }}</label>
-            <input type="color" :value="currentTextColor || '#000000'" class="color-panel-custom-input" @input="applyCustomTextColor">
-          </div>
+          <PostEditorColorPopover
+            :colors="colorPresets"
+            :labels="colorPresetLabels"
+            :current-text-color="currentTextColor"
+            :is-default-color="isDefaultColor"
+            @default-color="setDefaultColor"
+            @preset-color="setPresetColor"
+            @custom-color="setPresetColor"
+          />
         </div>
       </div>
     </Teleport>
@@ -634,25 +662,16 @@ onBeforeUnmount(() => {
       <div v-if="showLinkPopover" class="link-popover-mask" @click.self="closeLinkPopover" @keydown.enter.stop @keydown.escape.stop.prevent="closeLinkPopover">
         <div ref="linkPopoverRef" class="link-popover" role="dialog" aria-modal="true" aria-labelledby="editor-link-dialog-title">
           <h3 id="editor-link-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.linkDialog') }}</h3>
-          <div class="link-popover-row">
-            <label for="editor-link-url" class="link-popover-label">{{ t('board.writePost.linkUrlPrompt') }}</label>
-            <input id="editor-link-url" v-model="linkUrl" type="url" class="link-popover-input" placeholder="https://..." @keydown.enter.stop.prevent="applyLink" @keydown.escape.stop.prevent="closeLinkPopover">
-          </div>
-          <div class="link-popover-row">
-            <label for="editor-link-text" class="link-popover-label">{{ t('board.writePost.linkDisplayText') }}</label>
-            <input id="editor-link-text" v-model="linkText" type="text" class="link-popover-input" :placeholder="t('board.writePost.linkDisplayText')" @keydown.enter.stop.prevent="applyLink" @keydown.escape.stop.prevent="closeLinkPopover">
-          </div>
-          <div class="link-popover-actions">
-            <BaseButton type="button" variant="secondary" size="sm" @click="closeLinkPopover">
-              {{ t('common.cancel') }}
-            </BaseButton>
-            <button v-if="editor?.isActive('link')" type="button" class="link-popover-remove" @click="removeLink">
-              {{ t('board.writePost.linkRemove') }}
-            </button>
-            <BaseButton type="button" variant="primary" size="sm" @click="applyLink">
-              {{ t('board.writePost.linkInsert') }}
-            </BaseButton>
-          </div>
+          <PostEditorLinkPopover
+            :url="linkUrl"
+            :text="linkText"
+            :can-remove="editor?.isActive('link') ?? false"
+            @update:url="linkUrl = $event"
+            @update:text="linkText = $event"
+            @apply="applyLink"
+            @close="closeLinkPopover"
+            @remove="removeLink"
+          />
         </div>
       </div>
     </Teleport>
@@ -661,26 +680,16 @@ onBeforeUnmount(() => {
       <div v-if="showTablePopover" class="link-popover-mask" @click.self="closeTablePopover" @keydown.enter.stop @keydown.escape.stop.prevent="closeTablePopover">
         <div ref="tablePopoverRef" class="link-popover table-popover" role="dialog" aria-modal="true" aria-labelledby="editor-table-dialog-title">
           <h3 id="editor-table-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.tableDialog') }}</h3>
-          <div class="link-popover-row">
-            <label for="editor-table-rows" class="link-popover-label">{{ t('board.writePost.tableRows') }}</label>
-            <input id="editor-table-rows" v-model.number="tableRows" type="number" min="1" max="20" class="link-popover-input" @keydown.enter.stop.prevent="applyTable" @keydown.escape.stop.prevent="closeTablePopover">
-          </div>
-          <div class="link-popover-row">
-            <label for="editor-table-cols" class="link-popover-label">{{ t('board.writePost.tableCols') }}</label>
-            <input id="editor-table-cols" v-model.number="tableCols" type="number" min="1" max="10" class="link-popover-input" @keydown.enter.stop.prevent="applyTable" @keydown.escape.stop.prevent="closeTablePopover">
-          </div>
-          <div class="link-popover-row flex items-center gap-2">
-            <input id="table-header-row" v-model="tableHeaderRow" type="checkbox" class="rounded border-[var(--nv-line)]">
-            <label for="table-header-row" class="link-popover-label !mb-0">{{ t('board.writePost.tableHeaderRow') }}</label>
-          </div>
-          <div class="link-popover-actions">
-            <BaseButton type="button" variant="secondary" size="sm" @click="closeTablePopover">
-              {{ t('common.cancel') }}
-            </BaseButton>
-            <BaseButton type="button" variant="primary" size="sm" @click="applyTable">
-              {{ t('board.writePost.tableInsert') }}
-            </BaseButton>
-          </div>
+          <PostEditorTablePopover
+            :rows="tableRows"
+            :cols="tableCols"
+            :header-row="tableHeaderRow"
+            @update:rows="tableRows = $event"
+            @update:cols="tableCols = $event"
+            @update:header-row="tableHeaderRow = $event"
+            @apply="applyTable"
+            @close="closeTablePopover"
+          />
         </div>
       </div>
     </Teleport>
@@ -691,7 +700,7 @@ onBeforeUnmount(() => {
   </div>
 </template>
 
-<style scoped>
+<style>
 .tiptap-btn {
   width: 2.2rem;
   height: 2.2rem;
@@ -733,6 +742,40 @@ onBeforeUnmount(() => {
   padding: 0.2rem;
 }
 
+.image-upload-status {
+  align-items: center;
+  background: color-mix(in srgb, var(--nv-surface) 92%, transparent);
+  border: 1px solid var(--nv-line);
+  border-radius: 999px;
+  color: var(--nv-ink-soft);
+  display: inline-flex;
+  font-size: 0.75rem;
+  gap: 0.4rem;
+  min-height: 2rem;
+  padding: 0.25rem 0.65rem;
+}
+
+.image-upload-spinner {
+  animation: tiptap-spin 0.75s linear infinite;
+  border: 2px solid color-mix(in srgb, var(--nv-accent) 20%, transparent);
+  border-top-color: var(--nv-accent);
+  border-radius: 999px;
+  height: 0.9rem;
+  width: 0.9rem;
+}
+
+.image-upload-status-btn {
+  border: 0;
+  color: var(--nv-accent);
+  font-weight: 600;
+  background: transparent;
+}
+
+@keyframes tiptap-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 .tiptap-select {
   height: 2.25rem;
@@ -912,6 +955,15 @@ onBeforeUnmount(() => {
   font-size: 0.95rem;
   color: var(--nv-ink);
   background: var(--nv-elevated);
+}
+
+.slash-action-btn--active,
+.slash-action-btn:hover,
+.slash-action-btn:focus-visible {
+  border-color: color-mix(in srgb, var(--nv-accent) 35%, transparent);
+  background: color-mix(in srgb, var(--nv-accent) 12%, var(--nv-elevated));
+  color: var(--nv-accent);
+  outline: none;
 }
 
 .link-popover-row {
