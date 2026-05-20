@@ -7,11 +7,16 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 public interface AgentPostActivityReadRepository extends JpaRepository<AgentPostActivityRead, Long> {
+
+    interface LastReadAtProjection {
+        Long getPostId();
+
+        LocalDateTime getLastReadAt();
+    }
 
     @Query("""
             SELECT read
@@ -49,5 +54,14 @@ public interface AgentPostActivityReadRepository extends JpaRepository<AgentPost
             @Param("postId") Long postId,
             @Param("lastReadAt") LocalDateTime lastReadAt);
 
-    List<AgentPostActivityRead> findByAgent_AgentIdAndPost_PostIdIn(Long agentId, Collection<Long> postIds);
+    @Query("""
+            SELECT read.post.postId AS postId,
+                   read.lastReadAt AS lastReadAt
+            FROM AgentPostActivityRead read
+            WHERE read.agent.agentId = :agentId
+              AND read.post.postId IN :postIds
+            """)
+    List<LastReadAtProjection> findLastReadAtByAgentIdAndPostIds(
+            @Param("agentId") Long agentId,
+            @Param("postIds") List<Long> postIds);
 }

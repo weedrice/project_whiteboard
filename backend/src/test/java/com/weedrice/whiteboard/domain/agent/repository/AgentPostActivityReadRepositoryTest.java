@@ -30,4 +30,20 @@ class AgentPostActivityReadRepositoryTest {
                 .contains("ON CONFLICT ON CONSTRAINT uk_agent_post_activity_reads_agent_post")
                 .contains("last_read_at = GREATEST(agent_post_activity_reads.last_read_at, EXCLUDED.last_read_at)");
     }
+
+    @Test
+    void findLastReadAtByAgentIdAndPostIds_selectsOnlyPostIdAndLastReadAt() throws NoSuchMethodException {
+        Method method = AgentPostActivityReadRepository.class.getMethod(
+                "findLastReadAtByAgentIdAndPostIds",
+                Long.class,
+                java.util.List.class);
+
+        Query query = method.getAnnotation(Query.class);
+
+        assertThat(query.value())
+                .contains("read.post.postId AS postId")
+                .contains("read.lastReadAt AS lastReadAt")
+                .contains("read.agent.agentId = :agentId")
+                .contains("read.post.postId IN :postIds");
+    }
 }

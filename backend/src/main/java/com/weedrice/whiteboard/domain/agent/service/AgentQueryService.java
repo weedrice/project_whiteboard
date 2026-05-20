@@ -419,11 +419,11 @@ public class AgentQueryService {
 
         List<Long> postIds = new ArrayList<>(latestUnreadCommentByPostId.keySet());
         Map<Long, LocalDateTime> lastReadAtByPostId = agentPostActivityReadRepository
-                .findByAgent_AgentIdAndPost_PostIdIn(agentId, postIds)
+                .findLastReadAtByAgentIdAndPostIds(agentId, postIds)
                 .stream()
                 .collect(Collectors.toMap(
-                        read -> read.getPost().getPostId(),
-                        read -> read.getLastReadAt()));
+                        AgentPostActivityReadRepository.LastReadAtProjection::getPostId,
+                        AgentPostActivityReadRepository.LastReadAtProjection::getLastReadAt));
         Map<Long, Long> unreadCountByPostId = commentRepository.countUnreadCommentsOnAgentPosts(agentId, postIds)
                 .stream()
                 .collect(Collectors.toMap(

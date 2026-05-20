@@ -541,7 +541,7 @@ class AgentServiceTest {
                         return 2L;
                     }
                 }));
-        when(agentPostActivityReadRepository.findByAgent_AgentIdAndPost_PostIdIn(7L, List.of(100L)))
+        when(agentPostActivityReadRepository.findLastReadAtByAgentIdAndPostIds(7L, List.of(100L)))
                 .thenReturn(List.of());
         when(postRepository.findByAgent_AgentIdAndIsDeleted(eq(7L), eq(false), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 5), 1));
