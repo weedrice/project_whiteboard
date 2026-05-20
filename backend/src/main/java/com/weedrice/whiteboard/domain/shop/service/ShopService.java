@@ -79,12 +79,17 @@ public class ShopService {
 
     @Transactional
     public Long purchaseActiveItemByTarget(Long userId, String itemType, Long targetId) {
+        ShopItem item = resolveSingleActiveItemByTarget(itemType, targetId);
+        User user = resolvePurchasingUser(userId);
+        return purchaseItem(user, item);
+    }
+
+    public ShopItem resolveSingleActiveItemByTarget(String itemType, Long targetId) {
         List<ShopItem> items = shopItemRepository.findByIsActiveAndItemTypeAndTargetId(true, itemType, targetId);
         if (items.size() != 1) {
             throw new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE);
         }
-        User user = resolvePurchasingUser(userId);
-        return purchaseItem(user, items.get(0));
+        return items.get(0);
     }
 
     private User resolvePurchasingUser(Long userId) {

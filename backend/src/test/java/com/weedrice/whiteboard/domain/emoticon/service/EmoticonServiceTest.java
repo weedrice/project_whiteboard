@@ -14,7 +14,6 @@ import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonSearchConditio
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonSearchCondition.SortType;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.shop.entity.ShopItem;
-import com.weedrice.whiteboard.domain.shop.repository.ShopItemRepository;
 import com.weedrice.whiteboard.domain.shop.service.ShopService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -56,8 +55,6 @@ class EmoticonServiceTest {
     private EmoticonPurchaseRepository emoticonPurchaseRepository;
     @Mock
     private UserRepository userRepository;
-    @Mock
-    private ShopItemRepository shopItemRepository;
     @Mock
     private ShopService shopService;
     @Mock
@@ -108,7 +105,6 @@ class EmoticonServiceTest {
                 "EMOTICON_THUMBNAIL",
                 "EMOTICON_IMAGE");
         EmoticonPurchaseService purchaseService = new EmoticonPurchaseService(
-                shopItemRepository,
                 shopService,
                 catalogService);
         emoticonService = new EmoticonService(catalogService, commandService, purchaseService);
@@ -1164,12 +1160,12 @@ class EmoticonServiceTest {
         @Test
         @DisplayName("이모티콘 가격 조회는 active 상점 상품 가격을 반환한다")
         void getEmoticonPrice_fromShopItem() {
-            when(shopItemRepository.findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 1L))
-                    .thenReturn(List.of(emoticonShopItem));
+            when(shopService.resolveSingleActiveItemByTarget("EMOTICON", 1L)).thenReturn(emoticonShopItem);
 
             int price = emoticonService.getEmoticonPrice(1L);
 
             assertThat(price).isEqualTo(250);
+            verify(shopService).resolveSingleActiveItemByTarget("EMOTICON", 1L);
         }
     }
 
@@ -1214,29 +1210,27 @@ class EmoticonServiceTest {
         @DisplayName("구매 상태 조회는 구매 여부와 가격을 함께 반환한다")
         void getPurchaseStatus_authenticated() {
             when(emoticonMasterRepository.canUseEmoticon(1L, 1L)).thenReturn(true);
-            when(shopItemRepository.findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 1L))
-                    .thenReturn(List.of(emoticonShopItem));
+            when(shopService.resolveSingleActiveItemByTarget("EMOTICON", 1L)).thenReturn(emoticonShopItem);
 
             EmoticonPurchaseStatusResponse result = emoticonService.getPurchaseStatus(1L, 1L);
 
             assertThat(result.isPurchased()).isTrue();
             assertThat(result.getPrice()).isEqualTo(250);
             verify(emoticonMasterRepository).canUseEmoticon(1L, 1L);
-            verify(shopItemRepository).findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 1L);
+            verify(shopService).resolveSingleActiveItemByTarget("EMOTICON", 1L);
         }
 
         @Test
         @DisplayName("비인증 구매 상태 조회는 가격만 조회하고 purchased false를 반환한다")
         void getPurchaseStatus_anonymous() {
-            when(shopItemRepository.findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 1L))
-                    .thenReturn(List.of(emoticonShopItem));
+            when(shopService.resolveSingleActiveItemByTarget("EMOTICON", 1L)).thenReturn(emoticonShopItem);
 
             EmoticonPurchaseStatusResponse result = emoticonService.getPurchaseStatus(null, 1L);
 
             assertThat(result.isPurchased()).isFalse();
             assertThat(result.getPrice()).isEqualTo(250);
             verify(emoticonMasterRepository, never()).canUseEmoticon(anyLong(), anyLong());
-            verify(shopItemRepository).findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 1L);
+            verify(shopService).resolveSingleActiveItemByTarget("EMOTICON", 1L);
         }
 
     }

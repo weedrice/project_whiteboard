@@ -4,7 +4,6 @@ import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepositor
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonPurchaseRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
-import com.weedrice.whiteboard.domain.shop.repository.ShopItemRepository;
 import com.weedrice.whiteboard.domain.shop.service.ShopService;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
@@ -58,11 +57,9 @@ class EmoticonServiceConfig {
     }
 
     @Bean
-    EmoticonPurchaseService emoticonPurchaseService(ShopItemRepository shopItemRepository,
-                                                    ShopService shopService,
+    EmoticonPurchaseService emoticonPurchaseService(ShopService shopService,
                                                     EmoticonCatalogService catalogService) {
         return new EmoticonPurchaseService(
-                shopItemRepository,
                 shopService,
                 catalogService);
     }
