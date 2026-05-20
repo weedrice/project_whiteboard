@@ -51,8 +51,8 @@ describe('useFocusTrap', () => {
 
     it('loops Tab and Shift+Tab while active', () => {
         const { composable, wrapper } = createHarness()
-        const first = wrapper.get('#first').element
-        const second = wrapper.get('#second').element
+        const first = wrapper.get('#first').element as HTMLElement
+        const second = wrapper.get('#second').element as HTMLElement
         composable.trapFocus()
 
         second.focus()
@@ -71,7 +71,7 @@ describe('useFocusTrap', () => {
 
     it('does not trap focus while inactive and restores the previous focus target', () => {
         const { composable, isActive, trigger, wrapper } = createHarness()
-        const second = wrapper.get('#second').element
+        const second = wrapper.get('#second').element as HTMLElement
         composable.trapFocus()
         isActive.value = false
 
