@@ -91,6 +91,23 @@ class ReportCommandServiceTest {
     }
 
     @Test
+    @DisplayName("createReport rejects invalid targetType as invalid target")
+    void createReport_invalidTargetType_throwsInvalidTarget() {
+        User reporter = User.builder().build();
+        ReflectionTestUtils.setField(reporter, "userId", 1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
+
+        assertThatThrownBy(() -> reportCommandService.createReport(1L, "article", 2L, "SPAM", null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_TARGET);
+
+        verify(reportRepository, never()).existsByReporterAndTargetTypeAndTargetIdAndStatus(
+                any(User.class), any(), any(), any());
+        verify(reportTargetValidator, never()).validate(any(), any(), any());
+        verify(reportRepository, never()).saveAndFlush(any(Report.class));
+    }
+
+    @Test
     @DisplayName("createReport normalizes reasonType before save")
     void createReport_normalizesReasonType() {
         User reporter = User.builder().build();

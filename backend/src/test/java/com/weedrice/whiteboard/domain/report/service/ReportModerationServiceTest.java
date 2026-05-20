@@ -147,6 +147,18 @@ class ReportModerationServiceTest {
     }
 
     @Test
+    @DisplayName("getReports rejects invalid targetType as invalid target")
+    void getReports_invalidTargetType_throwsInvalidTarget() {
+        PageRequest pageable = PageRequest.of(0, 20);
+
+        assertThatThrownBy(() -> reportModerationService.getReports(null, "article", pageable))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_TARGET);
+
+        verifyNoInteractions(reportRepository, reportReadAssembler);
+    }
+
+    @Test
     @DisplayName("getReports limits page size and sort fields")
     void getReports_normalizesPageable() {
         PageRequest requested = PageRequest.of(2, 250, Sort.by(Sort.Order.asc("reporterId")));

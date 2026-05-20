@@ -5,7 +5,6 @@ import com.weedrice.whiteboard.domain.report.dto.MyReportResponse;
 import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.entity.ReportStatus;
-import com.weedrice.whiteboard.domain.report.entity.ReportTargetType;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -37,7 +36,7 @@ class ReportModerationService {
     public Page<ReportResponse> getReports(String status, String targetType, Pageable pageable) {
         SecurityUtils.validateSuperAdminPermission();
         String normalizedStatus = normalizeStatus(status);
-        String normalizedTargetType = normalizeTargetType(targetType);
+        String normalizedTargetType = ReportTargetTypeNormalizer.normalizeNullable(targetType);
         Pageable safePageable = normalizeReportPageable(pageable);
         return reportReadAssembler.toAdminResponsePage(
                 reportRepository.findAdminReports(normalizedStatus, normalizedTargetType, safePageable));
@@ -81,15 +80,6 @@ class ReportModerationService {
         try {
             ReportStatus reportStatus = ReportStatus.fromNullable(status);
             return reportStatus != null ? reportStatus.name() : null;
-        } catch (IllegalArgumentException ex) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
-        }
-    }
-
-    private String normalizeTargetType(String targetType) {
-        try {
-            ReportTargetType reportTargetType = ReportTargetType.fromNullable(targetType);
-            return reportTargetType != null ? reportTargetType.name() : null;
         } catch (IllegalArgumentException ex) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }

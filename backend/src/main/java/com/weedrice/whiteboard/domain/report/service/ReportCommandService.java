@@ -3,7 +3,6 @@ package com.weedrice.whiteboard.domain.report.service;
 import com.weedrice.whiteboard.domain.report.constant.ReportConstraints;
 import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.entity.ReportReasonType;
-import com.weedrice.whiteboard.domain.report.entity.ReportTargetType;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -34,7 +33,7 @@ class ReportCommandService {
         User reporter = userRepository.findById(reporterId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         sanctionService.validateNotBanned(reporter);
-        String normalizedTargetType = normalizeTargetType(targetType);
+        String normalizedTargetType = ReportTargetTypeNormalizer.normalizeRequired(targetType);
         String normalizedReasonType = normalizeReasonType(reasonType);
         String normalizedRemark = ReportRemarkNormalizer.normalize(remark);
         String normalizedContents = normalizeContents(contents);
@@ -61,14 +60,6 @@ class ReportCommandService {
                 throw new BusinessException(ErrorCode.ALREADY_REPORTED);
             }
             throw ex;
-        }
-    }
-
-    private String normalizeTargetType(String targetType) {
-        try {
-            return ReportTargetType.from(targetType).name();
-        } catch (IllegalArgumentException ex) {
-            throw new BusinessException(ErrorCode.INVALID_TARGET);
         }
     }
 

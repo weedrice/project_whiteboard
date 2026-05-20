@@ -139,6 +139,21 @@ class AdminReportControllerTest {
 
     @Test
     @DisplayName("신고 처리 성공")
+    void getReports_invalidTargetType_returnsInvalidTarget() throws Exception {
+        when(reportService.getReports(any(), eq("article"), any()))
+                .thenThrow(new BusinessException(ErrorCode.INVALID_TARGET));
+
+        mockMvc.perform(get("/api/v1/admin/reports")
+                        .param("targetType", "article")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value(ErrorCode.INVALID_TARGET.getCode()));
+    }
+
+    @Test
+    @DisplayName("invalid targetType report filter returns invalid target")
     void processReport_returnsSuccess() throws Exception {
         ReportProcessRequest request = new ReportProcessRequest();
         org.springframework.test.util.ReflectionTestUtils.setField(request, "status", ReportStatus.RESOLVED);
