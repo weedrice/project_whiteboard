@@ -17,11 +17,11 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/admin/reports")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
 public class AdminReportController {
 
     private final ReportService reportService;
 
-    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @GetMapping
     public ApiResponse<PageResponse<ReportResponse>> getReports(
             @RequestParam(required = false) String status,
@@ -30,7 +30,6 @@ public class AdminReportController {
         return ApiResponse.success(new PageResponse<>(reportService.getReports(status, targetType, pageable)));
     }
 
-    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @PutMapping("/{reportId}")
     public ApiResponse<ReportResponse> processReport(
             @PathVariable Long reportId,

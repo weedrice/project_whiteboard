@@ -9,16 +9,24 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import jakarta.servlet.FilterChain;
@@ -30,31 +38,32 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.mockito.Mockito.doAnswer;
 
 @WebMvcTest(controllers = SanctionController.class,
     excludeFilters = {
-        @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class),
-        @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
+        @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE,
+                classes = com.weedrice.whiteboard.global.config.WebConfig.class),
+        @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE,
+                classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
     })
-@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
-@org.springframework.context.annotation.Import(SanctionControllerTest.TestSecurityConfig.class)
+@AutoConfigureMockMvc
+@Import(SanctionControllerTest.TestSecurityConfig.class)
 class SanctionControllerTest {
 
-    @org.springframework.boot.test.context.TestConfiguration
-    @org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
-    @org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
+    @TestConfiguration
+    @EnableWebSecurity
+    @EnableMethodSecurity
     static class TestSecurityConfig {
-        @org.springframework.context.annotation.Bean
-        public org.springframework.security.web.SecurityFilterChain filterChain(org.springframework.security.config.annotation.web.builders.HttpSecurity http) throws Exception {
+        @Bean
+        public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
             http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
@@ -214,5 +223,26 @@ class SanctionControllerTest {
                 .andExpect(status().isForbidden());
 
         verify(sanctionService, never()).getSanctions(any(), any());
+    }
+
+    @Test
+    @DisplayName("create sanctions rejects non-super-admin users")
+    void createSanction_rejectsNonSuperAdmin() throws Exception {
+        CustomUserDetails adminUserDetails = new CustomUserDetails(2L, "admin@example.com", "password",
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN")));
+
+        mockMvc.perform(post("/api/v1/admin/sanctions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "targetUserId": 2,
+                                  "type": "WARNING",
+                                  "remark": "Test sanction"
+                                }
+                                """)
+                        .with(user(adminUserDetails)))
+                .andExpect(status().isForbidden());
+
+        verify(sanctionService, never()).createSanction(any(), any(), any(), any(), any(), any(), any());
     }
 }

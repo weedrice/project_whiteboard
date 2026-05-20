@@ -13,7 +13,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,9 +39,8 @@ public class SanctionService {
     private final SanctionEffectApplier sanctionEffectApplier;
 
     @Transactional
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public Long createSanction(Long adminUserId, Long targetUserId, String type, String remark, LocalDateTime endDate,
-                               Long contentId, String contentType) {
+                                Long contentId, String contentType) {
         SanctionRequestValidator.NormalizedCommand command = sanctionRequestValidator.validate(
                 type, remark, endDate, contentId, contentType);
 
@@ -67,7 +65,6 @@ public class SanctionService {
         return sanctionRepository.save(sanction).getSanctionId();
     }
 
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public Page<SanctionResponse> getSanctions(Long targetUserId, Pageable pageable) {
         Pageable safePageable = PageRequestUtils.of(
                 pageable,

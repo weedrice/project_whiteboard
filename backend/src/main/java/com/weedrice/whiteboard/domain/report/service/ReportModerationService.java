@@ -9,7 +9,6 @@ import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
-import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -34,7 +33,6 @@ class ReportModerationService {
     private final ReportReadAssembler reportReadAssembler;
 
     public Page<ReportResponse> getReports(String status, String targetType, Pageable pageable) {
-        SecurityUtils.validateSuperAdminPermission();
         String normalizedStatus = normalizeStatus(status);
         String normalizedTargetType = ReportTargetTypeNormalizer.normalizeNullable(targetType);
         Pageable safePageable = normalizeReportPageable(pageable);
@@ -59,13 +57,12 @@ class ReportModerationService {
 
     @Transactional
     public ReportResponse processReport(Long adminUserId, Long reportId, String status, String remark) {
-        SecurityUtils.validateSuperAdminPermission();
+        ModerationActorResolver.ModerationActor moderationActor =
+                moderationActorResolver.resolveModerationActor(adminUserId);
         String normalizedStatus = normalizeTerminalStatus(status);
         String normalizedRemark = ReportRemarkNormalizer.normalize(remark);
         Report report = reportRepository.findByIdForUpdate(reportId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-        ModerationActorResolver.ModerationActor moderationActor =
-                moderationActorResolver.resolveModerationActor(adminUserId);
 
         report.processReport(
                 moderationActor.admin(),
