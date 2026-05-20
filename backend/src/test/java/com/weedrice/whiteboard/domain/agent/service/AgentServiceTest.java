@@ -39,6 +39,7 @@ import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
+import com.weedrice.whiteboard.domain.post.service.PostAuthorCommandPolicy;
 import com.weedrice.whiteboard.domain.post.service.PostCreateContext;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
@@ -172,8 +173,10 @@ class AgentServiceTest {
                 adminRepository,
                 boardRepository,
                 boardCategoryRepository,
-                postService,
-                new BoardCategoryWritePolicy(boardAccessPolicy)));
+                new PostAuthorCommandPolicy(
+                        boardAccessPolicy,
+                        boardCategoryRepository,
+                        new BoardCategoryWritePolicy(boardAccessPolicy))));
         agentPostListItemAssembler = spy(new AgentPostListItemAssembler(commentRepository));
         commentReadSupport = new CommentReadSupport(commentRepository);
         CommentReadModelAssembler commentReadModelAssembler = new CommentReadModelAssembler(commentReadSupport);
@@ -360,7 +363,7 @@ class AgentServiceTest {
     }
 
     @Test
-    void getFeed_keepsLegacyUnknownMinWriteRoleLenientForBoardList() {
+    void getFeed_excludesUnknownMinWriteRoleBoard() {
         Board legacyBoard = readableOnlyAgentEnabledBoard(30L);
         BoardCategory legacyCategory = defaultCategory(legacyBoard, Role.USER);
         ReflectionTestUtils.setField(legacyCategory, "minWriteRole", "LEGACY");
@@ -370,18 +373,10 @@ class AgentServiceTest {
                 .thenReturn(List.of(legacyBoard));
         when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
                 List.of(30L), true)).thenReturn(List.of(legacyCategory));
-        when(postRepository.findAgentFeedByBoardIds(
-                eq(List.of(30L)),
-                any(),
-                any(),
-                eq(1L),
-                any()))
-                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
-
         Page<AgentPostListItem> response = agentQueryService.getFeed(7L, null, PageRequest.of(0, 10));
 
         assertThat(response.getContent()).isEmpty();
-        verify(postRepository).findAgentFeedByBoardIds(eq(List.of(30L)), any(), any(), eq(1L), any());
+        verify(postRepository, never()).findAgentFeedByBoardIds(any(), any(), any(), anyLong(), any());
     }
 
     @Test
@@ -1341,7 +1336,8 @@ class AgentServiceTest {
     void getFeed_returnsPostsWhenRequestedBoardIsAccessible() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(boardRepository.findByBoardId(10L)).thenReturn(Optional.of(writableBoard));
-        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
+        when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(10L, true))
+                .thenReturn(List.of(defaultCategory(writableBoard, Role.BOARD_ADMIN)));
         when(postRepository.findAgentFeedByBoardIds(
                 eq(List.of(10L)),
                 any(),
@@ -1356,7 +1352,6 @@ class AgentServiceTest {
 
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getContent().get(0).getBoardId()).isEqualTo(10L);
-        verify(postService).canWriteToBoard(1L, writableBoard);
     }
 
     @Test
@@ -1634,13 +1629,13 @@ class AgentServiceTest {
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
         when(boardRepository.findByBoardUrlForUpdate("free")).thenReturn(Optional.of(writableBoard));
-        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(false);
+        when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(10L, true))
+                .thenReturn(List.of(defaultCategory(writableBoard, Role.SUPER_ADMIN)));
 
         assertThatThrownBy(() -> agentCommandService.createPost(7L, request, null))
                 .isInstanceOf(AgentWriteException.class)
                 .hasFieldOrPropertyWithValue("code", "board_write_forbidden");
 
-        verify(postService).canWriteToBoard(1L, writableBoard);
         verify(agentDailyQuotaRepository, never()).findForUpdate(anyLong(), any(LocalDate.class), anyString());
         verify(postService, never()).createPostAsAgent(
                 anyLong(),
@@ -1658,7 +1653,6 @@ class AgentServiceTest {
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
         when(boardRepository.findByBoardUrlForUpdate("free")).thenReturn(Optional.of(writableBoard));
-        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
 
         assertThatThrownBy(() -> agentCommandService.createPost(7L, request, null))
                 .isInstanceOf(AgentWriteException.class)
@@ -1680,13 +1674,13 @@ class AgentServiceTest {
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
         when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
-        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(false);
+        when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(10L, true))
+                .thenReturn(List.of(defaultCategory(writableBoard, Role.SUPER_ADMIN)));
 
         assertThatThrownBy(() -> agentCommandService.createComment(7L, 100L, request, null))
                 .isInstanceOf(AgentWriteException.class)
                 .hasFieldOrPropertyWithValue("code", "board_write_forbidden");
 
-        verify(postService).canWriteToBoard(1L, writableBoard);
         verify(agentDailyQuotaRepository, never()).findForUpdate(anyLong(), any(LocalDate.class), anyString());
         verify(commentService, never()).createCommentAsAgent(anyLong(), anyLong(), anyLong(), any(), any(), any());
     }
@@ -1695,13 +1689,13 @@ class AgentServiceTest {
     void likePost_forbiddenWhenReadableBoardIsNotWritable() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
-        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(false);
+        when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(10L, true))
+                .thenReturn(List.of(defaultCategory(writableBoard, Role.SUPER_ADMIN)));
 
         assertThatThrownBy(() -> agentCommandService.likePost(7L, 100L, null))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
 
-        verify(postService).canWriteToBoard(1L, writableBoard);
         verify(postService, never()).likePost(anyLong(), (Agent) any(), any(Post.class));
         verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(),
                 any(), any());
@@ -1855,7 +1849,6 @@ class AgentServiceTest {
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
         when(boardRepository.findByBoardUrlForUpdate("free")).thenReturn(Optional.of(writableBoard));
-        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
 
         Throwable thrown = catchThrowable(() -> agentCommandService.createPost(7L, request, null));
 
@@ -1911,7 +1904,6 @@ class AgentServiceTest {
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
         when(boardRepository.findByBoardUrlForUpdate("free")).thenReturn(Optional.of(writableBoard));
-        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("POST")))
                 .thenReturn(Optional.of(quota("POST", 49L)));
         when(postService.createPostAsAgent(
@@ -1988,7 +1980,6 @@ class AgentServiceTest {
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
         when(boardRepository.findByBoardUrlForUpdate("free")).thenReturn(Optional.of(writableBoard));
-        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("POST")))
                 .thenReturn(Optional.of(quota("POST", 0L)));
         when(postService.createPostAsAgent(
@@ -2016,7 +2007,6 @@ class AgentServiceTest {
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
         when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
-        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("COMMENT")))
                 .thenReturn(Optional.of(quota("COMMENT", 99L)));
         when(commentService.createCommentAsAgent(eq(1L), eq(7L), eq(100L), isNull(), eq("b".repeat(25)),
@@ -2055,7 +2045,6 @@ class AgentServiceTest {
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
         when(commentRepository.findByIdWithRelationsForUpdate(500L)).thenReturn(Optional.of(parentComment));
-        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("COMMENT")))
                 .thenReturn(Optional.of(quota("COMMENT", 99L)));
         when(commentService.createCommentAsAgent(eq(1L), eq(7L), eq(100L), eq(500L), eq("reply"),
@@ -2174,7 +2163,6 @@ class AgentServiceTest {
     void likePost_success() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
-        when(postService.canWriteToBoard(1L, writableBoard)).thenReturn(true);
         when(postService.likePost(1L, agent, writablePost)).thenReturn(3);
 
         var response = agentCommandService.likePost(7L, 100L, null);

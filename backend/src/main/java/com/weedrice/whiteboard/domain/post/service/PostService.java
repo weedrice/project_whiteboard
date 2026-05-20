@@ -307,9 +307,7 @@ public class PostService {
         }
 
         try {
-            boardAccessPolicy.validateWritable(board, user);
-            postAuthorCommandPolicy.validateAppliedCategoryWriteRole(board, user, null);
-            return true;
+            return postAuthorCommandPolicy.canWriteBoardWithDefaultCategory(board, user, null);
         } catch (BusinessException exception) {
             if (ErrorCode.FORBIDDEN.equals(exception.getErrorCode())
                     || ErrorCode.BOARD_NOT_FOUND.equals(exception.getErrorCode())) {

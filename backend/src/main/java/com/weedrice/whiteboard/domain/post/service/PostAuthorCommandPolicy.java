@@ -13,6 +13,8 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.Set;
+
 @Service
 @RequiredArgsConstructor
 public class PostAuthorCommandPolicy {
@@ -42,6 +44,28 @@ public class PostAuthorCommandPolicy {
         boardAccessPolicy.validateWritable(board, user);
     }
 
+    public boolean canWriteBoardWithDefaultCategory(Board board, User user, Set<Long> activeAdminBoardIds) {
+        if (!boardAccessPolicy.canWriteBoard(board, user, activeAdminBoardIds)) {
+            return false;
+        }
+        return BoardDefaultCategoryResolver.resolveDefaultCategory(
+                        boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(
+                                board.getBoardId(),
+                                true))
+                .map(defaultCategory -> canWriteRole(
+                        board,
+                        user,
+                        defaultCategory.getMinWriteRole(),
+                        activeAdminBoardIds))
+                .orElse(true);
+    }
+
+    public boolean canWriteBoardWithRole(Board board, User user, String minWriteRole,
+            Set<Long> activeAdminBoardIds) {
+        return boardAccessPolicy.canWriteBoard(board, user, activeAdminBoardIds)
+                && canWriteRole(board, user, minWriteRole, activeAdminBoardIds);
+    }
+
     public void validateAppliedCategoryWriteRole(Board board, User user, BoardCategory category) {
         if (category != null) {
             validateWriteRole(board, user, category.getMinWriteRole());
@@ -56,5 +80,16 @@ public class PostAuthorCommandPolicy {
 
     public void validateWriteRole(Board board, User user, String minRole) {
         boardCategoryWritePolicy.validateWriteRole(board, user, minRole);
+    }
+
+    private boolean canWriteRole(Board board, User user, String minRole, Set<Long> activeAdminBoardIds) {
+        try {
+            return boardCategoryWritePolicy.canWriteResolvedRole(board, user, minRole, activeAdminBoardIds);
+        } catch (BusinessException exception) {
+            if (ErrorCode.INVALID_INPUT_VALUE.equals(exception.getErrorCode())) {
+                return false;
+            }
+            throw exception;
+        }
     }
 }

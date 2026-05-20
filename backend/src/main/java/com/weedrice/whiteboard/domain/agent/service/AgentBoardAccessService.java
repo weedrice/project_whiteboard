@@ -7,9 +7,8 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
-import com.weedrice.whiteboard.domain.board.service.BoardCategoryWritePolicy;
 import com.weedrice.whiteboard.domain.board.service.BoardDefaultCategoryResolver;
-import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.post.service.PostAuthorCommandPolicy;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -18,7 +17,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -33,8 +31,7 @@ public class AgentBoardAccessService {
     private final AdminRepository adminRepository;
     private final BoardRepository boardRepository;
     private final BoardCategoryRepository boardCategoryRepository;
-    private final PostService postService;
-    private final BoardCategoryWritePolicy boardCategoryWritePolicy;
+    private final PostAuthorCommandPolicy postAuthorCommandPolicy;
 
     public Set<Long> resolveWritableBoardIds(Agent agent, List<Board> boards,
             Map<Long, List<CategoryResponse>> categoriesByBoardId) {
@@ -52,14 +49,14 @@ public class AgentBoardAccessService {
                 .filter(board -> Boolean.TRUE.equals(board.getIsActive()))
                 .filter(board -> Boolean.TRUE.equals(board.getIsPublic()))
                 .filter(Board::isAgentEnabled)
-                .filter(board -> hasRequiredWriteRole(board, user, boardAdminIds,
+                .filter(board -> canWriteDefaultCategory(board, user, boardAdminIds,
                         categoriesByBoardId.getOrDefault(board.getBoardId(), List.of())))
                 .map(Board::getBoardId)
                 .collect(Collectors.toSet());
     }
 
     public void validateAgentBoardWritable(Agent agent, Board board) {
-        if (!canAgentWriteBoard(agent, board, new HashMap<>())) {
+        if (!canAgentWriteBoard(agent, board)) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Agent access is disabled for this board");
         }
     }
@@ -90,7 +87,7 @@ public class AgentBoardAccessService {
     public List<Board> getAccessibleFeedBoards(Agent agent, Long boardId) {
         if (boardId != null) {
             return boardRepository.findByBoardId(boardId)
-                    .filter(board -> canAgentWriteBoard(agent, board, new HashMap<>()))
+                    .filter(board -> canAgentWriteBoard(agent, board))
                     .map(List::of)
                     .orElse(Collections.emptyList());
         }
@@ -140,7 +137,7 @@ public class AgentBoardAccessService {
                 .collect(Collectors.toSet());
     }
 
-    private boolean hasRequiredWriteRole(Board board, User user, Set<Long> boardAdminIds,
+    private boolean canWriteDefaultCategory(Board board, User user, Set<Long> boardAdminIds,
             List<CategoryResponse> categories) {
         if (board == null || user == null) {
             return false;
@@ -150,7 +147,7 @@ public class AgentBoardAccessService {
                 .map(CategoryResponse::getMinWriteRole)
                 .orElse(null);
 
-        return boardCategoryWritePolicy.canWriteLenientRole(board, user, minWriteRole, boardAdminIds);
+        return postAuthorCommandPolicy.canWriteBoardWithRole(board, user, minWriteRole, boardAdminIds);
     }
 
     private boolean canAgentWriteBoard(Agent agent, Board board, BoardCategory category) {
@@ -163,21 +160,19 @@ public class AgentBoardAccessService {
             return false;
         }
         if (category == null) {
-            return canAgentWriteBoard(agent, board, new HashMap<>());
+            return canAgentWriteBoard(agent, board);
         }
         if (category.getBoard() == null
                 || !Objects.equals(category.getBoard().getBoardId(), board.getBoardId())
                 || !Boolean.TRUE.equals(category.getIsActive())) {
             return false;
         }
-        return boardCategoryWritePolicy.canWriteResolvedRole(
-                board,
-                agent.getUser(),
-                category.getMinWriteRole(),
+        return postAuthorCommandPolicy.canWriteBoardWithRole(
+                board, agent.getUser(), category.getMinWriteRole(),
                 resolveBoardAdminIds(agent.getUser(), List.of(board), List.of(board.getBoardId())));
     }
 
-    private boolean canAgentWriteBoard(Agent agent, Board board, Map<Long, Boolean> writableBoardCache) {
+    private boolean canAgentWriteBoard(Agent agent, Board board) {
         if (agent == null || board == null) {
             return false;
         }
@@ -186,9 +181,10 @@ public class AgentBoardAccessService {
                 || !board.isAgentEnabled()) {
             return false;
         }
-        return writableBoardCache.computeIfAbsent(
-                board.getBoardId(),
-                ignored -> postService.canWriteToBoard(agent.getUser().getUserId(), board));
+        return postAuthorCommandPolicy.canWriteBoardWithDefaultCategory(
+                board,
+                agent.getUser(),
+                resolveBoardAdminIds(agent.getUser(), List.of(board), List.of(board.getBoardId())));
     }
 
     private boolean canAgentReadBoard(Agent agent, Board board) {
