@@ -43,7 +43,7 @@ const emit = defineEmits<{
   (e: 'file-uploaded', fileId: number): void
 }>()
 
-type SlashAction = 'heading' | 'image' | 'quote' | 'list' | 'link' | 'table' | 'video' | 'codeBlock' | 'divider'
+type SlashAction = 'heading' | 'quote' | 'list' | 'link' | 'table' | 'codeBlock' | 'divider'
 type UploadedEditorImage = { url: string; fileId?: number }
 
 const { t } = useI18n()
@@ -134,7 +134,7 @@ const colorLabelKeys = [
   'blue', 'purple', 'pink', 'teal',
   'white', 'dark', 'slate', 'paleGray',
 ]
-const slashActions: SlashAction[] = ['heading', 'image', 'quote', 'list', 'link', 'table', 'video', 'codeBlock', 'divider']
+const slashActions: SlashAction[] = ['heading', 'quote', 'list', 'link', 'table', 'codeBlock', 'divider']
 const fontSizes = ['12px', '14px', '16px', '18px', '24px']
 const lineHeights = ['1', '1.25', '1.5', '1.75', '2']
 
@@ -650,11 +650,8 @@ function applySlashAction(action: SlashAction) {
     case 'heading':
       editor.value?.chain().focus().toggleHeading({ level: 2 }).run()
       break
-    case 'image':
-      triggerImageUpload()
-      break
     case 'quote':
-      editor.value?.chain().focus().toggleBlockquote().run()
+      editor.value?.chain().focus().setBlockquote().run()
       break
     case 'list':
       applyBulletList()
@@ -664,9 +661,6 @@ function applySlashAction(action: SlashAction) {
       break
     case 'table':
       openTablePopover()
-      break
-    case 'video':
-      emit('open-video')
       break
     case 'codeBlock':
       editor.value?.chain().focus().toggleCodeBlock().run()
