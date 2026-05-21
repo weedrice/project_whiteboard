@@ -14,20 +14,31 @@ interface PaginationParams {
     size?: number
 }
 
+export const createMyProfileQueryOptions = () => ({
+    queryKey: ['user', 'me'] as const,
+    queryFn: async () => {
+        const { data } = await userApi.getMyProfile()
+        return data.data
+    },
+    staleTime: QUERY_STALE_TIME.MEDIUM,
+})
+
+export const createMyAgentsQueryOptions = () => ({
+    queryKey: ['user', 'agents'] as const,
+    queryFn: async () => {
+        const { data } = await userApi.getMyAgents()
+        return data.data
+    },
+    staleTime: QUERY_STALE_TIME.MEDIUM,
+})
+
 export function useUser() {
     const queryClient = useQueryClient()
 
     // --- Queries ---
 
     const useMyProfile = () => {
-        return useQuery({
-            queryKey: ['user', 'me'],
-            queryFn: async () => {
-                const { data } = await userApi.getMyProfile()
-                return data.data
-            },
-            staleTime: QUERY_STALE_TIME.MEDIUM, // 5 minutes
-        })
+        return useQuery(createMyProfileQueryOptions())
     }
 
     const useUserProfile = (userId: Ref<string | number>) => {
@@ -73,14 +84,7 @@ export function useUser() {
     }
 
     const useMyAgents = () => {
-        return useQuery({
-            queryKey: ['user', 'agents'],
-            queryFn: async () => {
-                const { data } = await userApi.getMyAgents()
-                return data.data
-            },
-            staleTime: QUERY_STALE_TIME.MEDIUM,
-        })
+        return useQuery(createMyAgentsQueryOptions())
     }
 
     // --- Mutations ---
