@@ -175,8 +175,9 @@ public class UserSettingsService {
         }
 
         private void validateUserExists(Long userId) {
-                userRepository.findById(userId)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                if (!userRepository.existsById(userId)) {
+                        throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+                }
         }
 
         private User validateUserCanWrite(Long userId) {

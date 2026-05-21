@@ -77,7 +77,7 @@ class UserSettingsServiceTest {
         User user = User.builder().build();
         UserSettings settings = new UserSettings(user);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.existsById(1L)).thenReturn(true);
         when(userSettingsRepository.findById(1L)).thenReturn(Optional.of(settings));
 
         UserSettingsResponse response = userSettingsService.getSettings(1L);
@@ -88,9 +88,7 @@ class UserSettingsServiceTest {
     @Test
     @DisplayName("Settings lookup returns defaults when settings row is missing")
     void getSettings_missingRow_returnsDefaults() {
-        User user = User.builder().build();
-
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.existsById(1L)).thenReturn(true);
         when(userSettingsRepository.findById(1L)).thenReturn(Optional.empty());
 
         UserSettingsResponse response = userSettingsService.getSettings(1L);
@@ -213,11 +211,10 @@ class UserSettingsServiceTest {
     @Test
     @DisplayName("Notification settings lookup returns all supported types")
     void getNotificationSettings_success() {
-        User user = User.builder().build();
         UserNotificationSettings notificationSetting =
                 new UserNotificationSettings(1L, NotificationType.COMMENT, true);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.existsById(1L)).thenReturn(true);
         when(userNotificationSettingsRepository.findByUserIdOrderByModifiedAtDescCreatedAtDesc(1L))
                 .thenReturn(List.of(notificationSetting));
 
@@ -242,11 +239,10 @@ class UserSettingsServiceTest {
     @Test
     @DisplayName("Notification settings lookup tolerates duplicate rows")
     void getNotificationSettings_duplicateRows_keepsFirst() {
-        User user = User.builder().build();
         UserNotificationSettings first = new UserNotificationSettings(1L, NotificationType.COMMENT, true);
         UserNotificationSettings duplicate = new UserNotificationSettings(1L, NotificationType.COMMENT, false);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.existsById(1L)).thenReturn(true);
         when(userNotificationSettingsRepository.findByUserIdOrderByModifiedAtDescCreatedAtDesc(1L))
                 .thenReturn(List.of(first, duplicate));
 
@@ -262,7 +258,7 @@ class UserSettingsServiceTest {
     @Test
     @DisplayName("Settings lookup fails when user does not exist")
     void getSettings_userNotFound() {
-        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+        when(userRepository.existsById(1L)).thenReturn(false);
 
         assertThatThrownBy(() -> userSettingsService.getSettings(1L))
                 .isInstanceOf(BusinessException.class)
@@ -299,7 +295,7 @@ class UserSettingsServiceTest {
     @Test
     @DisplayName("Notification settings lookup fails when user does not exist")
     void getNotificationSettings_userNotFound() {
-        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+        when(userRepository.existsById(1L)).thenReturn(false);
 
         assertThatThrownBy(() -> userSettingsService.getNotificationSettings(1L))
                 .isInstanceOf(BusinessException.class)
