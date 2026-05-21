@@ -336,6 +336,39 @@ class MessageQueueRepositoryTest {
         assertThat(queueIds).containsExactly(first.getQueueId(), second.getQueueId(), third.getQueueId());
     }
 
+    @Test
+    @DisplayName("claimed email dispatch projection returns scalar dispatch data only for processing email rows")
+    void findEmailDispatchesByQueueIdIn_returnsProcessingEmailDispatchData() {
+        User user = persistUser();
+        MessageQueue email = persistMessageQueue(
+                user,
+                "email-content",
+                "EMAIL",
+                LocalDateTime.of(2026, 4, 22, 13, 0));
+        MessageQueue pendingEmail = persistMessageQueue(
+                user,
+                "pending-email",
+                "EMAIL",
+                LocalDateTime.of(2026, 4, 22, 13, 1));
+        MessageQueue push = persistMessageQueue(
+                user,
+                "push-content",
+                "PUSH",
+                LocalDateTime.of(2026, 4, 22, 13, 2));
+        ReflectionTestUtils.setField(email, "status", MessageQueue.STATUS_PROCESSING);
+        ReflectionTestUtils.setField(push, "status", MessageQueue.STATUS_PROCESSING);
+        entityManager.flush();
+        entityManager.clear();
+
+        var dispatches = messageQueueRepository.findEmailDispatchesByQueueIdIn(
+                List.of(email.getQueueId(), pendingEmail.getQueueId(), push.getQueueId()));
+
+        assertThat(dispatches).hasSize(1);
+        assertThat(dispatches.get(0).getQueueId()).isEqualTo(email.getQueueId());
+        assertThat(dispatches.get(0).getTargetEmail()).isEqualTo("queue@test.com");
+        assertThat(dispatches.get(0).getContent()).isEqualTo("email-content");
+    }
+
     private MessageQueue persistMessageQueue() {
         User user = persistUser();
         MessageQueue message = MessageQueue.builder()
