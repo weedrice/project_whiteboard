@@ -34,6 +34,7 @@ public class GlobalConfigService {
     private final GlobalConfigRepository globalConfigRepository;
     private final CacheManager cacheManager;
     private final GlobalConfigAdminGuard adminGuard;
+    private final GlobalConfigDuplicatePolicy duplicatePolicy;
 
     @Cacheable(value = GLOBAL_CONFIG_CACHE,
             key = "T(com.weedrice.whiteboard.global.common.service.GlobalConfigService).normalizeConfigKey(#key)")
@@ -92,16 +93,14 @@ public class GlobalConfigService {
         adminGuard.requireSuperAdmin();
         NormalizedConfigInput input = normalizeConfigInput(key, value, description);
         validateConfigValue(input.key(), input.value());
-        if (globalConfigRepository.existsById(input.key())) {
-            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
-        }
+        duplicatePolicy.validateCreatable(input.key());
         GlobalConfig config = new GlobalConfig(input.key(), input.value(), input.description());
         try {
             GlobalConfig savedConfig = globalConfigRepository.saveAndFlush(config);
             putConfigCacheAfterCommit(input.key(), savedConfig.getConfigValue());
             return GlobalConfigResponse.from(savedConfig);
         } catch (DataIntegrityViolationException e) {
-            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
+            throw duplicatePolicy.duplicateKey();
         }
     }
 

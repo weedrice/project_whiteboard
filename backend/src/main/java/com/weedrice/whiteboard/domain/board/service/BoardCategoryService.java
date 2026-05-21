@@ -20,15 +20,18 @@ class BoardCategoryService {
     private final BoardCategoryRepository boardCategoryRepository;
     private final UserRepository userRepository;
     private final BoardAccessPolicy boardAccessPolicy;
+    private final BoardCategoryNameConflictPolicy nameConflictPolicy;
 
     BoardCategoryService(BoardRepository boardRepository,
-                         BoardCategoryRepository boardCategoryRepository,
-                         UserRepository userRepository,
-                         BoardAccessPolicy boardAccessPolicy) {
+                          BoardCategoryRepository boardCategoryRepository,
+                          UserRepository userRepository,
+                          BoardAccessPolicy boardAccessPolicy,
+                          BoardCategoryNameConflictPolicy nameConflictPolicy) {
         this.boardRepository = boardRepository;
         this.boardCategoryRepository = boardCategoryRepository;
         this.userRepository = userRepository;
         this.boardAccessPolicy = boardAccessPolicy;
+        this.nameConflictPolicy = nameConflictPolicy;
     }
 
     CategoryResponse createCategory(String boardUrl, CategoryRequest request, Long userId) {
@@ -38,7 +41,7 @@ class BoardCategoryService {
         User currentUser = getCurrentUser(userId);
         boardAccessPolicy.validateBoardAdmin(board, currentUser);
         String normalizedName = normalizeCategoryName(request.getName());
-        validateDuplicateActiveName(board.getBoardId(), normalizedName);
+        nameConflictPolicy.validateCreatable(board.getBoardId(), normalizedName);
         if (requestedDefault) {
             clearDefaultCategories(board.getBoardId(), null);
         }
@@ -53,7 +56,7 @@ class BoardCategoryService {
         try {
             return new CategoryResponse(boardCategoryRepository.saveAndFlush(category));
         } catch (DataIntegrityViolationException ex) {
-            throw resolveCategoryConflict(ex);
+            throw nameConflictPolicy.resolveSaveConflict(ex);
         }
     }
 
@@ -70,7 +73,7 @@ class BoardCategoryService {
         boardAccessPolicy.validateBoardAdmin(category.getBoard(), currentUser);
         String normalizedName = normalizeCategoryName(request.getName());
         if (Boolean.TRUE.equals(category.getIsActive())) {
-            validateDuplicateActiveName(category.getBoard().getBoardId(), normalizedName, categoryId);
+            nameConflictPolicy.validateUpdatable(category.getBoard().getBoardId(), normalizedName, categoryId);
         }
         if (!Boolean.TRUE.equals(category.getIsActive()) && Boolean.TRUE.equals(request.getIsDefault())) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Inactive category cannot be default");
@@ -87,7 +90,7 @@ class BoardCategoryService {
         try {
             return new CategoryResponse(boardCategoryRepository.saveAndFlush(category));
         } catch (DataIntegrityViolationException ex) {
-            throw resolveCategoryConflict(ex);
+            throw nameConflictPolicy.resolveSaveConflict(ex);
         }
     }
 
@@ -139,26 +142,4 @@ class BoardCategoryService {
         return name.trim();
     }
 
-    private void validateDuplicateActiveName(Long boardId, String name) {
-        if (boardCategoryRepository.existsByBoard_BoardIdAndNameAndIsActive(boardId, name, true)) {
-            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE, "Duplicate active board category");
-        }
-    }
-
-    private void validateDuplicateActiveName(Long boardId, String name, Long categoryId) {
-        if (boardCategoryRepository.existsByBoard_BoardIdAndNameAndIsActiveAndCategoryIdNot(
-                boardId,
-                name,
-                true,
-                categoryId)) {
-            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE, "Duplicate active board category");
-        }
-    }
-
-    private BusinessException resolveCategoryConflict(DataIntegrityViolationException ex) {
-        if (BoardCategoryConstraintResolver.isActiveNameConstraint(ex)) {
-            return new BusinessException(ErrorCode.DUPLICATE_RESOURCE, "Duplicate active board category");
-        }
-        return new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
-    }
 }

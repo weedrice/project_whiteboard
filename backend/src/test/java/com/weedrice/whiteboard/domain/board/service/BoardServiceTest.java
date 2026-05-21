@@ -176,7 +176,8 @@ class BoardServiceTest {
                 boardRepository,
                 boardCategoryRepository,
                 userRepository,
-                boardAccessPolicy);
+                boardAccessPolicy,
+                new BoardCategoryNameConflictPolicy(boardCategoryRepository));
         boardService = new BoardService(
                 queryService,
                 provisioningService,
