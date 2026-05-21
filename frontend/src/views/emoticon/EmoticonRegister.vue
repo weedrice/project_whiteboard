@@ -37,8 +37,8 @@ const tags = ref<string[]>([])
 const isSubmitting = ref(false)
 const uploadProgress = ref({ current: 0, total: 0 })
 const uploadControllers = new Set<AbortController>()
-let isComponentUnmounted = false
 let submitRunId = 0
+let isComponentUnmounted = false
 
 // 파일 입력 refs
 const thumbnailInput = ref<HTMLInputElement | null>(null)
@@ -65,8 +65,8 @@ const isUploadCancelledError = (error: unknown) => {
   return maybeCancelledError.code === 'ERR_CANCELED' || maybeCancelledError.name === 'AbortError'
 }
 
-const assertSubmitActive = () => {
-  if (isComponentUnmounted) {
+const assertSubmitActive = (runId: number) => {
+  if (isComponentUnmounted || submitRunId !== runId) {
     throw createUploadCancelledError()
   }
 }
@@ -84,6 +84,7 @@ const createUploadController = () => {
 
 onUnmounted(() => {
   isComponentUnmounted = true
+  submitRunId += 1
   abortPendingUploads()
   revokeEmoticonPreviewUrl(thumbnailPreview.value)
   emoticonPreviews.value.forEach((item) => {
@@ -191,7 +192,7 @@ const handleSubmit = async () => {
     }
 
     const uploadThumbnail = async () => {
-      assertSubmitActive()
+      assertSubmitActive(currentRunId)
       const controller = createUploadController()
 
       try {
@@ -199,7 +200,7 @@ const handleSubmit = async () => {
           signal: controller.signal,
           skipGlobalErrorHandler: true
         })
-        assertSubmitActive()
+        assertSubmitActive(currentRunId)
         return response.data.data.fileId
       } catch (error) {
         failSubmit(error)
@@ -216,7 +217,7 @@ const handleSubmit = async () => {
           throw createUploadCancelledError()
         }
 
-        assertSubmitActive()
+        assertSubmitActive(currentRunId)
         const controller = createUploadController()
 
         try {
@@ -224,7 +225,7 @@ const handleSubmit = async () => {
             signal: controller.signal,
             skipGlobalErrorHandler: true
           })
-          assertSubmitActive()
+          assertSubmitActive(currentRunId)
           return response.data.data.fileId
         } catch (error) {
           failSubmit(error)
@@ -249,7 +250,7 @@ const handleSubmit = async () => {
     ]).catch((error) => {
       throw submitFailure ?? error
     })
-    assertSubmitActive()
+    assertSubmitActive(currentRunId)
 
     // 3. 이모티콘 생성
     await emoticonApi.createEmoticon({
@@ -258,7 +259,7 @@ const handleSubmit = async () => {
       tags: submitSnapshot.tags,
       imageFileIds
     })
-    assertSubmitActive()
+    assertSubmitActive(currentRunId)
 
     toastStore.addToast(t('emoticon.register.created'), 'success')
     router.push({ name: 'emoticon-list' })
