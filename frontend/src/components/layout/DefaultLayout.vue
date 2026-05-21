@@ -6,7 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { useKeyboardStore } from '@/stores/keyboard'
 import { useNotification } from '@/composables/useNotification'
-import { useThemePreference } from '@/composables/useThemePreference'
+import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import NotificationDropdown from '@/components/notification/NotificationDropdown.vue'
 import UserDropdown from '@/components/layout/UserDropdown.vue'
 import BoardDropdown from '@/components/layout/BoardDropdown.vue'
@@ -15,7 +15,6 @@ import GlobalSearchBar from '@/components/search/GlobalSearchBar.vue'
 import KeyboardShortcutsModal from '@/components/common/KeyboardShortcutsModal.vue'
 import RecentBoardsBar from '@/components/layout/RecentBoardsBar.vue'
 import MobileBottomNav from '@/components/layout/MobileBottomNav.vue'
-import { isInputFocused } from '@/utils/keyboard'
 
 import logoLight from '@/assets/noviis_logo.webp'
 import logoDark from '@/assets/noviis_logo_dark.webp'
@@ -26,7 +25,6 @@ const authStore = useAuthStore()
 const themeStore = useThemeStore()
 const keyboardStore = useKeyboardStore()
 const { useUnreadCount, connectToSse, closeSse } = useNotification()
-const { toggleTheme } = useThemePreference()
 
 const logoSrc = computed(() => (themeStore.isDark ? logoDark : logoLight))
 
@@ -85,95 +83,21 @@ const setActiveDropdown = (name: string) => {
   activeDropdown.value = name
 }
 
+useKeyboardShortcuts({
+  isDropdownOpen: () => Boolean(activeDropdown.value || isNotificationOpen.value),
+  closeCurrentDropdown: closeAllDropdowns,
+  toggleSubscriptionDropdown: () => setActiveDropdown('subscription'),
+  toggleAllBoardsDropdown: () => setActiveDropdown('all'),
+  toggleUserDropdown: () => setActiveDropdown('user'),
+  logout: async () => {
+    await authStore.logout()
+    await router.push('/')
+  },
+})
+
 const handleClickOutside = () => {
   if (activeDropdown.value || isNotificationOpen.value) {
     closeAllDropdowns()
-  }
-}
-
-const handleKeyDown = async (event: KeyboardEvent) => {
-  const { key, shiftKey, ctrlKey, altKey, metaKey } = event
-
-  if (key === 'Escape') {
-    if (activeDropdown.value || isNotificationOpen.value) {
-      event.preventDefault()
-      closeAllDropdowns()
-      return
-    }
-
-    if (keyboardStore.isShortcutsModalOpen) {
-      event.preventDefault()
-      keyboardStore.closeShortcutsModal()
-    }
-    return
-  }
-
-  if (keyboardStore.isShortcutsModalOpen) return
-  if (activeDropdown.value || isNotificationOpen.value) return
-  if (isInputFocused()) return
-
-  if (ctrlKey || metaKey) {
-    if (key === 'k' || key === 'K') {
-      event.preventDefault()
-      await router.push('/search')
-    }
-    return
-  }
-
-  if (altKey) {
-    if ((key === 'n' || key === 'N') && authStore.isAuthenticated) {
-      event.preventDefault()
-      await router.push('/mypage/notifications')
-    }
-    return
-  }
-
-  if (shiftKey) {
-    if (key === 'B') {
-      event.preventDefault()
-      await router.push('/boards')
-      return
-    }
-
-    if ((key === '/' || key === '?') && !isMobile.value) {
-      event.preventDefault()
-      keyboardStore.toggleShortcutsModal()
-    }
-    return
-  }
-
-  switch (key) {
-    case 's':
-      if (authStore.isAuthenticated) {
-        event.preventDefault()
-        setActiveDropdown('subscription')
-      }
-      break
-    case 'b':
-      event.preventDefault()
-      setActiveDropdown('all')
-      break
-    case 'h':
-      event.preventDefault()
-      await router.push('/')
-      break
-    case 'm':
-      if (authStore.isAuthenticated) {
-        event.preventDefault()
-        setActiveDropdown('user')
-      }
-      break
-    case 'd':
-      event.preventDefault()
-      toggleTheme()
-      break
-    case 'q':
-      if (authStore.isAuthenticated) {
-        event.preventDefault()
-        await authStore.logout()
-        await router.push('/')
-      }
-      break
   }
 }
 
@@ -200,7 +124,6 @@ onMounted(() => {
   }
 
   document.addEventListener('click', handleClickOutside)
-  document.addEventListener('keydown', handleKeyDown)
   window.addEventListener('noviis:editor-focus-change', handleEditorFocusChange as EventListener)
 })
 
@@ -211,7 +134,6 @@ onUnmounted(() => {
 
   closeSse()
   document.removeEventListener('click', handleClickOutside)
-  document.removeEventListener('keydown', handleKeyDown)
   window.removeEventListener('noviis:editor-focus-change', handleEditorFocusChange as EventListener)
 })
 
