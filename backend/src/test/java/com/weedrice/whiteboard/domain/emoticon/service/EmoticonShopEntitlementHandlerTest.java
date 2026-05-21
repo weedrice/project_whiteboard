@@ -29,6 +29,7 @@ class EmoticonShopEntitlementHandlerTest {
     private EmoticonShopEntitlementHandler handler;
     private ShopItem shopItem;
     private EmoticonEntitlementGrantService.EmoticonGrantContext grantContext;
+    private User buyer;
 
     @BeforeEach
     void setUp() {
@@ -41,13 +42,13 @@ class EmoticonShopEntitlementHandlerTest {
                 .targetId(10L)
                 .build();
 
-        User user = User.builder()
+        buyer = User.builder()
                 .loginId("buyer")
                 .displayName("buyer")
                 .email("buyer@example.com")
                 .password("encoded")
                 .build();
-        ReflectionTestUtils.setField(user, "userId", 1L);
+        ReflectionTestUtils.setField(buyer, "userId", 1L);
 
         User creator = User.builder()
                 .loginId("creator")
@@ -65,7 +66,7 @@ class EmoticonShopEntitlementHandlerTest {
                 .build();
         ReflectionTestUtils.setField(emoticon, "emoticonId", 10L);
 
-        grantContext = new EmoticonEntitlementGrantService.EmoticonGrantContext(user, emoticon);
+        grantContext = new EmoticonEntitlementGrantService.EmoticonGrantContext(buyer, emoticon);
     }
 
     @Test
@@ -91,13 +92,13 @@ class EmoticonShopEntitlementHandlerTest {
     @Test
     @DisplayName("Prepares validated purchase using one configured grant lookup")
     void prepareValidatedPurchase_delegatesWithTargetId() {
-        when(emoticonEntitlementGrantService.prepareConfiguredGrant(eq(1L), eq(10L), any(Runnable.class)))
+        when(emoticonEntitlementGrantService.prepareConfiguredGrant(eq(buyer), eq(10L), any(Runnable.class)))
                 .thenReturn(grantContext);
 
-        ShopEntitlementHandler.PurchasePreparation preparation = handler.prepareValidatedPurchase(1L, shopItem, () -> {
+        ShopEntitlementHandler.PurchasePreparation preparation = handler.prepareValidatedPurchase(buyer, shopItem, () -> {
         });
 
-        verify(emoticonEntitlementGrantService).prepareConfiguredGrant(eq(1L), eq(10L), any(Runnable.class));
+        verify(emoticonEntitlementGrantService).prepareConfiguredGrant(eq(buyer), eq(10L), any(Runnable.class));
         handler.grant(preparation);
         verify(emoticonEntitlementGrantService).grant(grantContext, 100);
     }

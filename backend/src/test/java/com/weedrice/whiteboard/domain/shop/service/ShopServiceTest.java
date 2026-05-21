@@ -190,7 +190,7 @@ class ShopServiceTest {
             when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
             when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
             when(shopEntitlementCapabilityRegistry.supports(emoticonItem)).thenReturn(true);
-            when(shopEntitlementCapabilityRegistry.preparePurchase(1L, emoticonItem)).thenReturn(preparedPurchase);
+            when(shopEntitlementCapabilityRegistry.preparePurchase(user, emoticonItem)).thenReturn(preparedPurchase);
 
             PurchaseHistory savedPurchaseHistory = PurchaseHistory.builder()
                     .user(user)
@@ -210,7 +210,7 @@ class ShopServiceTest {
                     purchaseHistoryRepository);
             inOrder.verify(sanctionService).validateNotBanned(user);
             inOrder.verify(shopEntitlementCapabilityRegistry).validateConfiguration(emoticonItem);
-            inOrder.verify(shopEntitlementCapabilityRegistry).preparePurchase(1L, emoticonItem);
+            inOrder.verify(shopEntitlementCapabilityRegistry).preparePurchase(user, emoticonItem);
             inOrder.verify(pointService).spendPointForPrevalidatedUser(
                     eq(user),
                     eq(100),
@@ -229,7 +229,7 @@ class ShopServiceTest {
                     .thenReturn(List.of(emoticonItem));
             when(shopEntitlementCapabilityRegistry.supports(emoticonItem)).thenReturn(true);
             when(shopEntitlementCapabilityRegistry.supportsValidatedPurchasePreparation(emoticonItem)).thenReturn(true);
-            when(shopEntitlementCapabilityRegistry.prepareValidatedPurchase(eq(1L), eq(emoticonItem), any(Runnable.class)))
+            when(shopEntitlementCapabilityRegistry.prepareValidatedPurchase(eq(user), eq(emoticonItem), any(Runnable.class)))
                     .thenReturn(preparedPurchase);
             PurchaseHistory savedPurchaseHistory = PurchaseHistory.builder()
                     .user(user)
@@ -246,6 +246,7 @@ class ShopServiceTest {
             verify(shopItemRepository).findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 10L);
             verify(shopEntitlementCapabilityRegistry, never()).validateConfiguration(any());
             verify(shopEntitlementCapabilityRegistry, never()).preparePurchase(anyLong(), any());
+            verify(shopEntitlementCapabilityRegistry, never()).preparePurchase(any(User.class), any(ShopItem.class));
             verify(shopEntitlementCapabilityRegistry).grant(preparedPurchase);
         }
 
@@ -268,7 +269,12 @@ class ShopServiceTest {
 
             verify(userRepository, never()).findByIdForUpdate(anyLong());
             verify(shopEntitlementCapabilityRegistry, never()).preparePurchase(anyLong(), any());
+            verify(shopEntitlementCapabilityRegistry, never()).preparePurchase(any(User.class), any(ShopItem.class));
             verify(shopEntitlementCapabilityRegistry, never()).prepareValidatedPurchase(anyLong(), any(), any());
+            verify(shopEntitlementCapabilityRegistry, never()).prepareValidatedPurchase(
+                    any(User.class),
+                    any(ShopItem.class),
+                    any(Runnable.class));
             verifyNoInteractions(sanctionService);
             verifyNoInteractions(pointService);
             verify(purchaseHistoryRepository, never()).save(any());
@@ -288,6 +294,11 @@ class ShopServiceTest {
             verify(userRepository, never()).findByIdForUpdate(anyLong());
             verifyNoInteractions(sanctionService);
             verifyNoInteractions(pointService);
+            verify(shopEntitlementCapabilityRegistry, never()).preparePurchase(any(User.class), any(ShopItem.class));
+            verify(shopEntitlementCapabilityRegistry, never()).prepareValidatedPurchase(
+                    any(User.class),
+                    any(ShopItem.class),
+                    any(Runnable.class));
             verify(purchaseHistoryRepository, never()).save(any());
         }
 
@@ -307,7 +318,12 @@ class ShopServiceTest {
                     .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
 
             verify(shopEntitlementCapabilityRegistry, never()).preparePurchase(anyLong(), any());
+            verify(shopEntitlementCapabilityRegistry, never()).preparePurchase(any(User.class), any(ShopItem.class));
             verify(shopEntitlementCapabilityRegistry, never()).prepareValidatedPurchase(anyLong(), any(), any());
+            verify(shopEntitlementCapabilityRegistry, never()).prepareValidatedPurchase(
+                    any(User.class),
+                    any(ShopItem.class),
+                    any(Runnable.class));
             verifyNoInteractions(pointService);
             verify(purchaseHistoryRepository, never()).save(any());
         }
@@ -328,7 +344,7 @@ class ShopServiceTest {
             when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
             when(shopItemRepository.findById(4L)).thenReturn(Optional.of(freeEmoticonItem));
             when(shopEntitlementCapabilityRegistry.supports(freeEmoticonItem)).thenReturn(true);
-            when(shopEntitlementCapabilityRegistry.preparePurchase(1L, freeEmoticonItem)).thenReturn(preparedPurchase);
+            when(shopEntitlementCapabilityRegistry.preparePurchase(user, freeEmoticonItem)).thenReturn(preparedPurchase);
 
             PurchaseHistory savedPurchaseHistory = PurchaseHistory.builder()
                     .user(user)
@@ -345,7 +361,7 @@ class ShopServiceTest {
             InOrder inOrder = inOrder(sanctionService, shopEntitlementCapabilityRegistry, purchaseHistoryRepository);
             inOrder.verify(sanctionService).validateNotBanned(user);
             inOrder.verify(shopEntitlementCapabilityRegistry).validateConfiguration(freeEmoticonItem);
-            inOrder.verify(shopEntitlementCapabilityRegistry).preparePurchase(1L, freeEmoticonItem);
+            inOrder.verify(shopEntitlementCapabilityRegistry).preparePurchase(user, freeEmoticonItem);
             inOrder.verify(shopEntitlementCapabilityRegistry).grant(preparedPurchase);
             ArgumentCaptor<PurchaseHistory> historyCaptor = ArgumentCaptor.forClass(PurchaseHistory.class);
             inOrder.verify(purchaseHistoryRepository).save(historyCaptor.capture());
@@ -375,6 +391,7 @@ class ShopServiceTest {
                     .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
             verify(shopEntitlementCapabilityRegistry, never()).preparePurchase(anyLong(), any());
+            verify(shopEntitlementCapabilityRegistry, never()).preparePurchase(any(User.class), any(ShopItem.class));
             verifyNoInteractions(pointService);
             verify(shopEntitlementCapabilityRegistry, never()).grant(any());
             verify(purchaseHistoryRepository, never()).save(any());
@@ -398,7 +415,7 @@ class ShopServiceTest {
             when(shopEntitlementCapabilityRegistry.supportsValidatedPurchasePreparation(negativePriceItem))
                     .thenReturn(true);
             when(shopEntitlementCapabilityRegistry.prepareValidatedPurchase(
-                    eq(1L),
+                    eq(user),
                     eq(negativePriceItem),
                     any(Runnable.class)))
                     .thenAnswer(invocation -> {
@@ -435,7 +452,7 @@ class ShopServiceTest {
             when(shopEntitlementCapabilityRegistry.supportsValidatedPurchasePreparation(invalidConfigurationItem))
                     .thenReturn(true);
             when(shopEntitlementCapabilityRegistry.prepareValidatedPurchase(
-                    eq(1L),
+                    eq(user),
                     eq(invalidConfigurationItem),
                     any(Runnable.class)))
                     .thenThrow(new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE));
@@ -499,6 +516,7 @@ class ShopServiceTest {
 
             verifyNoInteractions(pointService);
             verify(shopEntitlementCapabilityRegistry, never()).preparePurchase(anyLong(), any());
+            verify(shopEntitlementCapabilityRegistry, never()).preparePurchase(any(User.class), any(ShopItem.class));
             verify(shopEntitlementCapabilityRegistry, never()).grant(any());
         }
 
@@ -510,7 +528,7 @@ class ShopServiceTest {
             when(shopEntitlementCapabilityRegistry.supports(emoticonItem)).thenReturn(true);
             doThrow(new BusinessException(ErrorCode.EMOTICON_ALREADY_PURCHASED))
                     .when(shopEntitlementCapabilityRegistry)
-                    .preparePurchase(1L, emoticonItem);
+                    .preparePurchase(user, emoticonItem);
 
             assertThatThrownBy(() -> shopService.purchaseItem(1L, 2L))
                     .isInstanceOf(BusinessException.class)
@@ -528,7 +546,7 @@ class ShopServiceTest {
             when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
             when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
             when(shopEntitlementCapabilityRegistry.supports(emoticonItem)).thenReturn(true);
-            when(shopEntitlementCapabilityRegistry.preparePurchase(1L, emoticonItem)).thenReturn(preparedPurchase);
+            when(shopEntitlementCapabilityRegistry.preparePurchase(user, emoticonItem)).thenReturn(preparedPurchase);
             doThrow(new BusinessException(ErrorCode.EMOTICON_ALREADY_PURCHASED))
                     .when(shopEntitlementCapabilityRegistry)
                     .grant(preparedPurchase);

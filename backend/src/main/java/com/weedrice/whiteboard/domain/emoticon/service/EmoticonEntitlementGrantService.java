@@ -49,12 +49,14 @@ class EmoticonEntitlementGrantService {
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        validatePurchasable(userId, emoticon);
-        if (emoticonPurchaseRepository.existsByUser_UserIdAndEmoticon_EmoticonId(user.getUserId(), emoticonId)) {
-            throw new BusinessException(ErrorCode.EMOTICON_ALREADY_PURCHASED);
-        }
+        return prepareConfiguredGrant(user, emoticonId, emoticon);
+    }
 
-        return new EmoticonGrantContext(user, emoticon);
+    EmoticonGrantContext prepareConfiguredGrant(User user, Long emoticonId, Runnable afterConfigurationValidation) {
+        EmoticonMaster emoticon = resolveConfiguredTargetWithImages(emoticonId);
+        afterConfigurationValidation.run();
+
+        return prepareConfiguredGrant(user, emoticonId, emoticon);
     }
 
     void validateTargetConfiguration(Long emoticonId) {
@@ -92,6 +94,15 @@ class EmoticonEntitlementGrantService {
         if (!"Y".equals(emoticon.getIsActive())) {
             throw new BusinessException(ErrorCode.EMOTICON_HIDDEN);
         }
+    }
+
+    private EmoticonGrantContext prepareConfiguredGrant(User user, Long emoticonId, EmoticonMaster emoticon) {
+        validatePurchasable(user.getUserId(), emoticon);
+        if (emoticonPurchaseRepository.existsByUser_UserIdAndEmoticon_EmoticonId(user.getUserId(), emoticonId)) {
+            throw new BusinessException(ErrorCode.EMOTICON_ALREADY_PURCHASED);
+        }
+
+        return new EmoticonGrantContext(user, emoticon);
     }
 
     private EmoticonMaster resolveConfiguredTargetWithImages(Long emoticonId) {

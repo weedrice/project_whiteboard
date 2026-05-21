@@ -127,7 +127,7 @@ public class ShopService {
         if (shopEntitlementCapabilityRegistry.supportsValidatedPurchasePreparation(item)) {
             try {
                 return shopEntitlementCapabilityRegistry.prepareValidatedPurchase(
-                        user.getUserId(),
+                        user,
                         item,
                         () -> validatePurchasePrice(item));
             } catch (IllegalStateException ex) {
@@ -141,7 +141,7 @@ public class ShopService {
             throw new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE);
         }
         validatePurchasePrice(item);
-        return shopEntitlementCapabilityRegistry.preparePurchase(user.getUserId(), item);
+        return shopEntitlementCapabilityRegistry.preparePurchase(user, item);
     }
 
     private void validatePurchasePrice(ShopItem item) {

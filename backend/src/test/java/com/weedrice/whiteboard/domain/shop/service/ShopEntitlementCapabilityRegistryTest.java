@@ -1,8 +1,10 @@
 package com.weedrice.whiteboard.domain.shop.service;
 
 import com.weedrice.whiteboard.domain.shop.entity.ShopItem;
+import com.weedrice.whiteboard.domain.user.entity.User;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Set;
@@ -65,6 +67,28 @@ class ShopEntitlementCapabilityRegistryTest {
         registry.grant(preparedPurchase);
 
         assertThat(handler.validatedItem).isSameAs(item);
+        assertThat(handler.prepareUserId).isEqualTo(1L);
+        assertThat(handler.prepareItem).isSameAs(item);
+        assertThat(handler.grantedPreparation).isSameAs(handler.preparation);
+    }
+
+    @Test
+    @DisplayName("Delegates user based preparation to the matching handler")
+    void preparePurchaseWithUser_delegateToMatchingHandler() {
+        TrackingHandler handler = new TrackingHandler(Set.of("EMOTICON"));
+        ShopEntitlementCapabilityRegistry registry = new ShopEntitlementCapabilityRegistry(List.of(handler));
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        ShopItem item = ShopItem.builder()
+                .itemName("Supported item")
+                .price(100)
+                .itemType("EMOTICON")
+                .targetId(1L)
+                .build();
+
+        ShopEntitlementCapabilityRegistry.PreparedPurchase preparedPurchase = registry.preparePurchase(user, item);
+        registry.grant(preparedPurchase);
+
         assertThat(handler.prepareUserId).isEqualTo(1L);
         assertThat(handler.prepareItem).isSameAs(item);
         assertThat(handler.grantedPreparation).isSameAs(handler.preparation);

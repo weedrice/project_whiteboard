@@ -175,6 +175,23 @@ class EmoticonEntitlementGrantServiceTest {
         }
 
         @Test
+        @DisplayName("Reuses prevalidated user without user lookup")
+        void prepareConfiguredGrant_prevalidatedUser_skipsUserLookup() {
+            when(emoticonMasterRepository.findByIdWithImages(10L)).thenReturn(Optional.of(emoticon));
+            when(emoticonPurchaseRepository.existsByUser_UserIdAndEmoticon_EmoticonId(1L, 10L)).thenReturn(false);
+            boolean[] priceValidated = {false};
+
+            EmoticonEntitlementGrantService.EmoticonGrantContext context =
+                    grantService.prepareConfiguredGrant(buyer, 10L, () -> priceValidated[0] = true);
+
+            assertThat(context.user()).isSameAs(buyer);
+            assertThat(context.emoticon()).isSameAs(emoticon);
+            assertThat(priceValidated[0]).isTrue();
+            verify(userRepository, never()).findById(any());
+            verify(emoticonMasterRepository).findByIdWithImages(10L);
+        }
+
+        @Test
         @DisplayName("Fails with configuration error when target is inactive")
         void prepareConfiguredGrant_inactiveTarget() {
             emoticon.deactivate();
