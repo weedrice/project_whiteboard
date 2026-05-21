@@ -36,7 +36,9 @@ const tagInput = ref('')
 const tags = ref<string[]>([])
 const isSubmitting = ref(false)
 const uploadProgress = ref({ current: 0, total: 0 })
+const uploadControllers = new Set<AbortController>()
 let submitRunId = 0
+let isComponentUnmounted = false
 
 // 파일 입력 refs
 const thumbnailInput = ref<HTMLInputElement | null>(null)
@@ -44,7 +46,29 @@ const emoticonInput = ref<HTMLInputElement | null>(null)
 
 const SUPPORTED_IMAGE_ACCEPT = SUPPORTED_EMOTICON_IMAGE_ACCEPT
 
+const createUploadCancelledError = () => new DOMException('Upload has been cancelled', 'AbortError')
+
+const assertSubmitActive = (runId: number) => {
+  if (isComponentUnmounted || submitRunId !== runId) {
+    throw createUploadCancelledError()
+  }
+}
+
+const abortPendingUploads = () => {
+  uploadControllers.forEach((controller) => controller.abort())
+  uploadControllers.clear()
+}
+
+const createUploadController = () => {
+  const controller = new AbortController()
+  uploadControllers.add(controller)
+  return controller
+}
+
 onUnmounted(() => {
+  isComponentUnmounted = true
+  submitRunId += 1
+  abortPendingUploads()
   revokeEmoticonPreviewUrl(thumbnailPreview.value)
   emoticonPreviews.value.forEach((item) => {
     revokeEmoticonPreviewUrl(item.preview)
@@ -132,23 +156,47 @@ const handleSubmit = async () => {
 
   try {
     // 1. 썸네일 업로드
-    const thumbnailResponse = await fileApi.uploadFile(thumbnailFile.value!)
-    const thumbnailFileId = thumbnailResponse.data.data.fileId
+    const thumbnailController = createUploadController()
+    let thumbnailFileId: number
+    try {
+      const thumbnailResponse = await fileApi.uploadFile(thumbnailFile.value!, { signal: thumbnailController.signal })
+      assertSubmitActive(currentRunId)
+      thumbnailFileId = thumbnailResponse.data.data.fileId
+    } finally {
+      uploadControllers.delete(thumbnailController)
+    }
 
     // 2. 이모티콘 이미지 업로드 (리사이징 적용)
     uploadProgress.value = { current: 0, total: emoticonPreviews.value.length }
+    let uploadFailed = false
     const imageFileIds = await uploadEmoticonImagePreviews(
       emoticonPreviews.value,
       async (uploadFile) => {
-        const response = await fileApi.uploadFile(uploadFile)
-        return response.data.data.fileId
+        if (uploadFailed) {
+          throw createUploadCancelledError()
+        }
+
+        assertSubmitActive(currentRunId)
+        const controller = createUploadController()
+        try {
+          const response = await fileApi.uploadFile(uploadFile, { signal: controller.signal })
+          assertSubmitActive(currentRunId)
+          return response.data.data.fileId
+        } catch (error) {
+          uploadFailed = true
+          abortPendingUploads()
+          throw error
+        } finally {
+          uploadControllers.delete(controller)
+        }
       },
       (current) => {
-        if (submitRunId === currentRunId) {
+        if (!isComponentUnmounted && submitRunId === currentRunId) {
           uploadProgress.value.current = current
         }
       }
     )
+    assertSubmitActive(currentRunId)
 
     // 3. 이모티콘 생성
     await emoticonApi.createEmoticon({
@@ -157,15 +205,18 @@ const handleSubmit = async () => {
       tags: tags.value,
       imageFileIds
     })
+    assertSubmitActive(currentRunId)
 
     toastStore.addToast(t('emoticon.register.created'), 'success')
     router.push({ name: 'emoticon-list' })
   } catch (error: unknown) {
-    const message = extractErrorMessage(error) || t('emoticon.register.failed')
-    toastStore.addToast(message, 'error')
+    if (!isComponentUnmounted) {
+      const message = extractErrorMessage(error) || t('emoticon.register.failed')
+      toastStore.addToast(message, 'error')
+    }
   } finally {
-    isSubmitting.value = false
-    if (submitRunId === currentRunId) {
+    if (!isComponentUnmounted && submitRunId === currentRunId) {
+      isSubmitting.value = false
       submitRunId += 1
       uploadProgress.value = { current: 0, total: 0 }
     }
