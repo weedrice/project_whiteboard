@@ -36,7 +36,7 @@ const { useReplies } = useComment()
 
 const isReplying = ref(false)
 const isEditing = ref(false)
-const isRepliesOpen = ref(!props.comment.isDeleted && Boolean(props.comment.hasReplies))
+const isRepliesOpen = ref(false)
 const optimisticHasReplies = ref(false)
 const replyParams = ref({ page: 0, size: 50 })
 const loadedReplies = ref<Comment[]>([])
@@ -143,11 +143,6 @@ watch(() => props.comment.hasReplies, (hasReplies) => {
     loadedReplies.value = []
     replyHasNext.value = false
     isRepliesOpen.value = false
-    return
-  }
-
-  if (hasReplies && !props.comment.isDeleted) {
-    isRepliesOpen.value = true
   }
 })
 

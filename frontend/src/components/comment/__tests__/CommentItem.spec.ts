@@ -119,7 +119,7 @@ describe('CommentItem', () => {
         })
     })
 
-    it('loads and shows replies by default when the parent has replies', async () => {
+    it('loads replies only after the parent thread is opened', async () => {
         const wrapper = mount(CommentItem, {
             props: {
                 comment: {
@@ -168,17 +168,17 @@ describe('CommentItem', () => {
 
         await flushPromises()
 
-        expect(wrapper.text()).toContain('child reply')
+        expect(wrapper.text()).not.toContain('child reply')
         expect(useRepliesMock).toHaveBeenCalled()
 
         const enabled = useRepliesMock.mock.calls[0][2]
-        expect((enabled as ReturnType<typeof computed>).value).toBe(true)
+        expect((enabled as ReturnType<typeof computed>).value).toBe(false)
 
         await wrapper.get('button').trigger('click')
         await flushPromises()
 
-        expect((enabled as ReturnType<typeof computed>).value).toBe(false)
-        expect(wrapper.text()).not.toContain('child reply')
+        expect((enabled as ReturnType<typeof computed>).value).toBe(true)
+        expect(wrapper.text()).toContain('child reply')
     })
 
     it('hides the replies toggle for deleted comments', () => {
@@ -270,6 +270,10 @@ describe('CommentItem', () => {
             },
         })
 
+        await flushPromises()
+
+        expect(wrapper.text()).not.toContain('child reply')
+        await wrapper.get('button').trigger('click')
         await flushPromises()
 
         expect(wrapper.text()).toContain('child reply')
