@@ -1761,6 +1761,58 @@ class AgentServiceTest {
     }
 
     @Test
+    void createComment_forbiddenWhenPostCategoryRequiresHigherRole() {
+        AgentCommentCreateRequest request = new AgentCommentCreateRequest();
+        ReflectionTestUtils.setField(request, "content", "b".repeat(25));
+        BoardCategory restrictedCategory = defaultCategory(writableBoard, Role.SUPER_ADMIN);
+        Post restrictedPost = Post.builder()
+                .board(writableBoard)
+                .user(user)
+                .category(restrictedCategory)
+                .title("Restricted post")
+                .contents("content")
+                .build();
+        ReflectionTestUtils.setField(restrictedPost, "postId", 100L);
+        ReflectionTestUtils.setField(restrictedPost, "isDeleted", false);
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(postService.getPostById(100L, 1L, false)).thenReturn(restrictedPost);
+
+        assertThatThrownBy(() -> agentCommandService.createComment(7L, 100L, request, null))
+                .isInstanceOf(AgentWriteException.class)
+                .hasFieldOrPropertyWithValue("code", "category_write_forbidden");
+
+        verify(agentDailyQuotaRepository, never()).findForUpdate(anyLong(), any(LocalDate.class), anyString());
+        verify(commentService, never()).createCommentAsAgent(anyLong(), anyLong(), anyLong(), any(), any(), any());
+    }
+
+    @Test
+    void createComment_withCategoryKeepsBoardForbiddenWhenBoardIsNotWritable() {
+        AgentCommentCreateRequest request = new AgentCommentCreateRequest();
+        ReflectionTestUtils.setField(request, "content", "b".repeat(25));
+        BoardCategory category = defaultCategory(blockedBoard, Role.USER);
+        Post post = Post.builder()
+                .board(blockedBoard)
+                .user(user)
+                .category(category)
+                .title("Blocked post")
+                .contents("content")
+                .build();
+        ReflectionTestUtils.setField(post, "postId", 200L);
+        ReflectionTestUtils.setField(post, "isDeleted", false);
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(postService.getPostById(200L, 1L, false)).thenReturn(post);
+
+        assertThatThrownBy(() -> agentCommandService.createComment(7L, 200L, request, null))
+                .isInstanceOf(AgentWriteException.class)
+                .hasFieldOrPropertyWithValue("code", "board_write_forbidden");
+
+        verify(agentDailyQuotaRepository, never()).findForUpdate(anyLong(), any(LocalDate.class), anyString());
+        verify(commentService, never()).createCommentAsAgent(anyLong(), anyLong(), anyLong(), any(), any(), any());
+    }
+
+    @Test
     void likePost_forbiddenWhenReadableBoardIsNotWritable() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
@@ -2145,6 +2197,35 @@ class AgentServiceTest {
                 AgentAuditTargetType.COMMENT,
                 501L,
                 null);
+    }
+
+    @Test
+    void createReply_forbiddenWhenParentPostCategoryRequiresHigherRole() {
+        AgentCommentCreateRequest request = new AgentCommentCreateRequest();
+        ReflectionTestUtils.setField(request, "content", "reply");
+        BoardCategory restrictedCategory = defaultCategory(writableBoard, Role.SUPER_ADMIN);
+        Post restrictedPost = Post.builder()
+                .board(writableBoard)
+                .user(user)
+                .category(restrictedCategory)
+                .title("Restricted post")
+                .contents("content")
+                .build();
+        ReflectionTestUtils.setField(restrictedPost, "postId", 100L);
+        ReflectionTestUtils.setField(restrictedPost, "isDeleted", false);
+        Comment parentComment = Comment.builder().post(restrictedPost).user(user).content("parent").build();
+        ReflectionTestUtils.setField(parentComment, "commentId", 500L);
+        ReflectionTestUtils.setField(parentComment, "isDeleted", false);
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(commentRepository.findByIdWithRelationsForUpdate(500L)).thenReturn(Optional.of(parentComment));
+
+        assertThatThrownBy(() -> agentCommandService.createReply(7L, 500L, request, null))
+                .isInstanceOf(AgentWriteException.class)
+                .hasFieldOrPropertyWithValue("code", "category_write_forbidden");
+
+        verify(agentDailyQuotaRepository, never()).findForUpdate(anyLong(), any(LocalDate.class), anyString());
+        verify(commentService, never()).createCommentAsAgent(anyLong(), anyLong(), anyLong(), anyLong(), any(), any());
     }
 
     @Test
