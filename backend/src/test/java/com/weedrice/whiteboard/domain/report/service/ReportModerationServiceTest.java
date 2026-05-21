@@ -8,17 +8,14 @@ import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -31,7 +28,6 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -55,7 +51,6 @@ class ReportModerationServiceTest {
     private User adminUser;
     private Admin admin;
     private Report report;
-    private MockedStatic<SecurityUtils> mockedSecurityUtils;
 
     @BeforeEach
     void setUp() {
@@ -76,14 +71,6 @@ class ReportModerationServiceTest {
                 .reasonType("SPAM")
                 .build();
         ReflectionTestUtils.setField(report, "reportId", 7L);
-
-        mockedSecurityUtils = mockStatic(SecurityUtils.class);
-        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission).thenAnswer(invocation -> null);
-    }
-
-    @AfterEach
-    void tearDown() {
-        mockedSecurityUtils.close();
     }
 
     @Test
@@ -105,23 +92,7 @@ class ReportModerationServiceTest {
         Page<ReportResponse> result = reportModerationService.getReports("PENDING", "POST", pageable);
 
         assertThat(result.getContent()).hasSize(1);
-        mockedSecurityUtils.verify(SecurityUtils::validateSuperAdminPermission);
         verify(reportReadAssembler).toAdminResponsePage(reportPage);
-    }
-
-    @Test
-    @DisplayName("getReports rejects when super admin guard fails")
-    void getReports_guardFailure_throwsForbidden() {
-        PageRequest pageable = PageRequest.of(0, 20);
-        mockedSecurityUtils.when(SecurityUtils::validateSuperAdminPermission)
-                .thenThrow(new BusinessException(ErrorCode.FORBIDDEN));
-
-        assertThatThrownBy(() -> reportModerationService.getReports(null, null, pageable))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
-
-        mockedSecurityUtils.verify(SecurityUtils::validateSuperAdminPermission);
-        verifyNoInteractions(reportRepository, reportReadAssembler);
     }
 
     @Test

@@ -97,8 +97,7 @@ export const postApi = {
 
     // Get home landing data
     getHomeLanding: (period: HomeLandingPeriod = '24h') => api.get<ApiResponse<HomeLandingResponse>>('/home/landing', {
-        params: { period },
-        skipAuthRefresh: true,
+        params: { period }
     }),
 
     // Draft APIs

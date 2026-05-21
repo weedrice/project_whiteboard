@@ -3,6 +3,7 @@ import { adminApi, type AdminRole } from '@/api/admin'
 import { computed, type Ref } from 'vue'
 import type {
     SanctionData,
+    ApiResponse,
     PageResponse,
     User,
     Report,
@@ -19,6 +20,10 @@ import type {
     SuperAdminInfo,
     IpBlock
 } from '@/types'
+
+function unwrapAdminPageResponse<T>(response: ApiResponse<PageResponse<T>>): PageResponse<T> {
+    return response.data
+}
 
 // Admin specific types
 interface AdminCreateData {
@@ -99,7 +104,7 @@ export function useAdmin() {
             queryKey: ['admin', 'admins', params],
             queryFn: async () => {
                 const { data } = await adminApi.getAdmins(params.value)
-                return data.data as PageResponse<BoardAdminInfo>
+                return unwrapAdminPageResponse<BoardAdminInfo>(data)
             },
             placeholderData: (previousData) => previousData
         })
@@ -148,7 +153,7 @@ export function useAdmin() {
             queryKey: ['admin', 'users', params],
             queryFn: async () => {
                 const { data } = await adminApi.getUsers(params.value)
-                return data.data as PageResponse<User>
+                return unwrapAdminPageResponse<User>(data)
             },
             enabled,
             placeholderData: (previousData) => previousData
@@ -180,7 +185,7 @@ export function useAdmin() {
             queryFn: async () => {
                 if (userId.value == null) return null
                 const { data } = await adminApi.getUserPosts(userId.value, params.value)
-                return data?.data as PageResponse<AdminUserPostItem>
+                return unwrapAdminPageResponse<AdminUserPostItem>(data)
             },
             enabled: computed(() => userId.value !== null),
             placeholderData: (previousData) => previousData
@@ -193,7 +198,7 @@ export function useAdmin() {
             queryFn: async () => {
                 if (userId.value == null) return null
                 const { data } = await adminApi.getUserComments(userId.value, params.value)
-                return data?.data as PageResponse<AdminUserCommentItem>
+                return unwrapAdminPageResponse<AdminUserCommentItem>(data)
             },
             enabled: computed(() => userId.value !== null),
             placeholderData: (previousData) => previousData
@@ -206,7 +211,7 @@ export function useAdmin() {
             queryFn: async () => {
                 if (userId.value == null) return null
                 const { data } = await adminApi.getUserSubscriptions(userId.value, params.value)
-                return data?.data as PageResponse<AdminUserSubscriptionItem>
+                return unwrapAdminPageResponse<AdminUserSubscriptionItem>(data)
             },
             enabled: computed(() => userId.value !== null),
             placeholderData: (previousData) => previousData
@@ -226,7 +231,7 @@ export function useAdmin() {
             queryKey: ['admin', 'reports', params],
             queryFn: async () => {
                 const { data } = await adminApi.getReports(params.value)
-                return data.data as PageResponse<Report>
+                return unwrapAdminPageResponse<Report>(data)
             },
             placeholderData: (previousData) => previousData
         })
@@ -245,7 +250,7 @@ export function useAdmin() {
             queryKey: ['admin', 'ip-blocks', params],
             queryFn: async () => {
                 const { data } = await adminApi.getIpBlocks(params.value)
-                return data.data as PageResponse<IpBlock>
+                return unwrapAdminPageResponse<IpBlock>(data)
             },
             placeholderData: (previousData) => previousData
         })
@@ -392,7 +397,7 @@ export function useAdmin() {
             queryKey: ['admin', 'error-logs', params],
             queryFn: async () => {
                 const { data } = await adminApi.getErrorLogs(params.value)
-                return data.data as PageResponse<ErrorLogListItem>
+                return unwrapAdminPageResponse<ErrorLogListItem>(data)
             },
             placeholderData: (previousData) => previousData
         })

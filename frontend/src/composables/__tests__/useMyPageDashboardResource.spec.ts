@@ -42,7 +42,23 @@ describe('useMyPageDashboardResource', () => {
       data: { success: true, data: { content: [{ postId: 7, title: 'Post' }], totalElements: 1 } }
     } as never)
     vi.mocked(userApi.getMyComments).mockResolvedValue({
-      data: { success: true, data: { content: [{ commentId: 3, content: 'Comment' }], totalElements: 1 } }
+      data: {
+        success: true,
+        data: {
+          content: [{
+            commentId: 3,
+            content: 'Comment',
+            createdAt: '2026-05-20T10:00:00',
+            post: {
+              postId: 9,
+              boardUrl: 'notice',
+              boardName: 'Notice',
+              title: 'Post title'
+            }
+          }],
+          totalElements: 1
+        }
+      }
     } as never)
   })
 
@@ -65,6 +81,14 @@ describe('useMyPageDashboardResource', () => {
     expect(resource.myAgents.value).toHaveLength(1)
     expect(resource.myPostsTotalCount.value).toBe(1)
     expect(resource.myCommentsTotalCount.value).toBe(1)
+    expect(resource.myCommentItems.value).toEqual([{
+      commentId: 3,
+      content: 'Comment',
+      createdAt: '2026-05-20T10:00:00',
+      postLink: '/board/notice/post/9',
+      postTitle: 'Post title',
+      boardLabel: 'Notice'
+    }])
     expect(resource.isLoading.value).toBe(false)
   })
 

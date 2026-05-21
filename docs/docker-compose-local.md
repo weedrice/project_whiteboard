@@ -1,6 +1,6 @@
 # Docker Compose Local Setup
 
-This compose file runs the local PostgreSQL database, Spring Boot backend, and built Vue frontend.
+This compose file runs the local PostgreSQL database with pgvector, Spring Boot backend, and built Vue frontend.
 
 ## Required Secret
 
@@ -23,6 +23,7 @@ Database: localhost:5432
 ```
 
 The backend container connects to PostgreSQL through the Compose network at `postgres:5432`.
+The PostgreSQL service uses the pgvector image by default because the semantic search migration creates the `vector` extension.
 
 ## Defaults And Overrides
 
@@ -30,6 +31,7 @@ Set shell variables or create an untracked `.env` file before running compose:
 
 ```text
 POSTGRES_DB=noviis
+POSTGRES_IMAGE=pgvector/pgvector:0.8.2-pg16-trixie
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=password
 POSTGRES_PORT=5432

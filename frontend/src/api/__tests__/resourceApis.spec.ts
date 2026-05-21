@@ -91,6 +91,7 @@ describe('postApi', () => {
         postApi.unscrapPost(3)
         postApi.getTrendingPosts()
         postApi.getTrendingPosts(2, 5)
+        postApi.getHomeLanding('7d')
         postApi.reportPost(reportData)
 
         expect(apiMock.post).toHaveBeenNthCalledWith(1, '/boards/general/posts', postData)
@@ -104,6 +105,7 @@ describe('postApi', () => {
         expect(apiMock.delete).toHaveBeenNthCalledWith(3, '/posts/3/scrap')
         expect(apiMock.get).toHaveBeenNthCalledWith(2, '/posts/trending', { params: { page: 0, size: 10, period: '24h' } })
         expect(apiMock.get).toHaveBeenNthCalledWith(3, '/posts/trending', { params: { page: 2, size: 5, period: '24h' } })
+        expect(apiMock.get).toHaveBeenNthCalledWith(4, '/home/landing', { params: { period: '7d' } })
         expect(apiMock.post).toHaveBeenNthCalledWith(5, '/reports/posts', reportData)
     })
 })
@@ -239,7 +241,7 @@ describe('adApi', () => {
         await expect(adApi.recordClick(1)).resolves.toBe('https://example.com')
 
         expect(apiMock.get).toHaveBeenCalledWith('/ads', { params: { placement: 'SIDEBAR' } })
-        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/ads/1/impression')
+        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/ads/1/impression', undefined, undefined)
         expect(apiMock.post).toHaveBeenNthCalledWith(2, '/ads/1/click')
     })
 })

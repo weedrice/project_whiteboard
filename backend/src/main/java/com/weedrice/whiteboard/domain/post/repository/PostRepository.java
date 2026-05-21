@@ -44,6 +44,16 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 Long getActivityCount();
         }
 
+        interface ReportTargetMetadataProjection {
+                Long getTargetId();
+
+                Long getTargetUserId();
+
+                String getTargetDisplayName();
+
+                String getTargetLoginId();
+        }
+
         List<Post> findByCreatedAtAfterAndIsDeleted(LocalDateTime dateTime, Boolean isDeleted);
         @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
         Page<Post> findByUserAndIsDeleted(User user, Boolean isDeleted, Pageable pageable);
@@ -142,6 +152,17 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
         Page<Post> findByBoard_BoardIdAndIsDeletedFalse(Long boardId, Pageable pageable);
         @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
         List<Post> findByPostIdIn(Collection<Long> postIds);
+        @Query("""
+                SELECT p.postId AS targetId,
+                       u.userId AS targetUserId,
+                       u.displayName AS targetDisplayName,
+                       u.loginId AS targetLoginId
+                FROM Post p
+                JOIN p.user u
+                WHERE p.postId IN :postIds
+                """)
+        List<ReportTargetMetadataProjection> findReportTargetMetadataByPostIds(
+                @Param("postIds") Collection<Long> postIds);
         @EntityGraph(attributePaths = {"user", "agent", "board", "board.creator", "category"})
         List<Post> findByPostIdInAndIsDeletedFalse(Collection<Long> postIds);
 

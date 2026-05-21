@@ -783,6 +783,12 @@ describe('PostForm', () => {
 
         await wrapper.get('.video-url-popover-actions button:last-child').trigger('click')
         expect(mockAddToast).toHaveBeenCalledWith('board.writePost.videoUrlRequired', 'error')
+        expect(editorSetVideo).not.toHaveBeenCalled()
+
+        await wrapper.get('.video-url-popover-input').setValue('https://example.com/video')
+        await wrapper.get('.video-url-popover-actions button:last-child').trigger('click')
+        expect(mockAddToast).toHaveBeenLastCalledWith('board.writePost.invalidVideoUrl', 'error')
+        expect(editorSetVideo).not.toHaveBeenCalled()
 
         await wrapper.get('.video-url-popover-input').setValue('https://youtu.be/abc123')
         await wrapper.get('.video-url-popover-actions button:last-child').trigger('click')
@@ -835,6 +841,17 @@ describe('PostForm', () => {
         const ctrlEnterEvent = new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, cancelable: true })
         document.dispatchEvent(ctrlEnterEvent)
         expect(mockCreateMutate).toHaveBeenCalledTimes(1)
+
+        await wrapper.get('[data-testid=\"open-video\"]').trigger('click')
+        const documentKeydown = vi.fn()
+        document.addEventListener('keydown', documentKeydown)
+        const inputEscape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+        wrapper.get('.video-url-popover-input').element.dispatchEvent(inputEscape)
+        await nextTick()
+        expect(wrapper.find('.video-url-popover').exists()).toBe(false)
+        expect(wrapper.emitted('cancel')).toBeUndefined()
+        expect(documentKeydown).not.toHaveBeenCalled()
+        document.removeEventListener('keydown', documentKeydown)
 
         await wrapper.get('[data-testid=\"open-video\"]').trigger('click')
         const escapeForVideo = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
@@ -1010,7 +1027,7 @@ describe('PostForm', () => {
         expect(editWrapper.text()).toContain('board.writePost.updating')
     })
 
-    it('uses wrapper fallback popover position and keeps non-video URLs as-is', async () => {
+    it('uses wrapper fallback popover position and rejects unsupported video URLs', async () => {
         vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({
             matches: false,
             media: query,
@@ -1064,7 +1081,8 @@ describe('PostForm', () => {
 
         await wrapper.get('.video-url-popover-input').setValue('  https://example.com/video  ')
         await wrapper.get('.video-url-popover-actions button:last-child').trigger('click')
-        expect(editorSetVideo).toHaveBeenCalledWith('https://example.com/video')
+        expect(editorSetVideo).not.toHaveBeenCalled()
+        expect(mockAddToast).toHaveBeenLastCalledWith('board.writePost.invalidVideoUrl', 'error')
     })
 
     it('updates mobile/desktop checkboxes and uses fallback strings when translation is empty', async () => {

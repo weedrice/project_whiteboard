@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, watch, computed, defineAsyncComponent, onErrorCaptured } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
+import { useQueryClient } from '@tanstack/vue-query'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { userApi } from '@/api/user'
@@ -26,6 +27,7 @@ const route = useRoute()
 const authStore = useAuthStore()
 const { locale, t } = useI18n()
 const toastStore = useToastStore()
+const queryClient = useQueryClient()
 
 const noIndexRouteNames = new Set([
     'login',
@@ -106,9 +108,15 @@ const loadSettings = async () => {
     if (!authStore.isAuthenticated) return
 
     try {
-        const { data } = await userApi.getUserSettings()
-        if (data.success) {
-            applySettings(data.data)
+        const settings = await queryClient.fetchQuery({
+            queryKey: ['user', 'settings'],
+            queryFn: async () => {
+                const { data } = await userApi.getUserSettings()
+                return data.success ? data.data : null
+            },
+        })
+        if (settings) {
+            applySettings(settings)
         }
     } catch (error) {
         logger.warn('Failed to load user settings:', error)
@@ -119,6 +127,7 @@ watch(() => authStore.isAuthenticated, (newVal) => {
     if (newVal) {
         loadSettings()
     } else {
+        queryClient.removeQueries({ queryKey: ['user', 'settings'] })
         // On logout, restore theme from localStorage (theme store will read it on next access)
         // Don't force LIGHT theme to preserve user's localStorage preference
         const storedTheme = localStorage.getItem('theme')

@@ -1,13 +1,10 @@
 package com.weedrice.whiteboard.domain.report.service;
 
-import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
-import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.report.dto.MyReportResponse;
 import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.entity.Report;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -16,9 +13,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Component
 @RequiredArgsConstructor
@@ -43,10 +38,8 @@ class ReportReadAssembler {
     }
 
     private ReportResponse toAdminResponse(Report report, ReportTargetMetadata targetMetadata) {
-        Long targetUserId = resolveTargetUserId(report, targetMetadata);
-        User targetUser = targetUserId != null
-                ? targetMetadata.userTargets().get(targetUserId)
-                : null;
+        ReportTargetUserMetadata targetUser = resolveTargetUser(report, targetMetadata);
+        Long targetUserId = targetUser != null ? targetUser.targetUserId() : null;
 
         return ReportResponse.builder()
                 .reportId(report.getReportId())
@@ -55,8 +48,8 @@ class ReportReadAssembler {
                 .targetType(report.getTargetType())
                 .targetId(report.getTargetId())
                 .targetUserId(targetUserId)
-                .targetDisplayName(targetUser != null ? targetUser.getDisplayName() : null)
-                .targetLoginId(targetUser != null ? targetUser.getLoginId() : null)
+                .targetDisplayName(targetUser != null ? targetUser.targetDisplayName() : null)
+                .targetLoginId(targetUser != null ? targetUser.targetLoginId() : null)
                 .reasonType(report.getReasonType())
                 .remark(report.getRemark())
                 .processedRemark(report.getProcessedRemark())
@@ -99,44 +92,40 @@ class ReportReadAssembler {
                 .distinct()
                 .toList();
 
-        List<Post> postTargets = postTargetIds.isEmpty()
-                ? List.of()
-                : postRepository.findByPostIdIn(postTargetIds);
-        Map<Long, Long> postTargetUserIds = postTargets.stream()
-                .collect(Collectors.toMap(Post::getPostId, post -> post.getUser().getUserId()));
-
-        List<Comment> commentTargets = commentTargetIds.isEmpty()
-                ? List.of()
-                : commentRepository.findByCommentIdIn(commentTargetIds);
-        Map<Long, Long> commentTargetUserIds = commentTargets.stream()
-                .collect(Collectors.toMap(Comment::getCommentId, comment -> comment.getUser().getUserId()));
-
-        Map<Long, User> userTargetUsers = userTargetIds.isEmpty()
+        Map<Long, ReportTargetUserMetadata> userTargets = userTargetIds.isEmpty()
                 ? Map.of()
-                : userRepository.findAllById(userTargetIds).stream()
-                        .collect(Collectors.toMap(User::getUserId, Function.identity()));
-        Map<Long, User> userTargets = includeContentAuthorUsers
-                ? Stream.concat(
-                                userTargetUsers.values().stream(),
-                                Stream.concat(
-                                        postTargets.stream().map(Post::getUser),
-                                        commentTargets.stream().map(Comment::getUser)))
-                        .collect(Collectors.toMap(User::getUserId, Function.identity(), (existing, replacement) -> existing))
-                : userTargetUsers;
+                : userRepository.findReportTargetMetadataByUserIds(userTargetIds).stream()
+                        .map(this::toUserMetadata)
+                        .collect(Collectors.toMap(ReportTargetUserMetadata::targetId, metadata -> metadata));
+        Map<Long, ReportTargetUserMetadata> postTargets = includeContentAuthorUsers && !postTargetIds.isEmpty()
+                ? postRepository.findReportTargetMetadataByPostIds(postTargetIds).stream()
+                        .map(this::toUserMetadata)
+                        .collect(Collectors.toMap(ReportTargetUserMetadata::targetId, metadata -> metadata))
+                : Map.of();
+        Map<Long, ReportTargetUserMetadata> commentTargets = includeContentAuthorUsers && !commentTargetIds.isEmpty()
+                ? commentRepository.findReportTargetMetadataByCommentIds(commentTargetIds).stream()
+                        .map(this::toUserMetadata)
+                        .collect(Collectors.toMap(ReportTargetUserMetadata::targetId, metadata -> metadata))
+                : Map.of();
 
-        return new ReportTargetMetadata(userTargets, postTargetUserIds, commentTargetUserIds);
+        return new ReportTargetMetadata(userTargets, postTargets, commentTargets);
     }
 
     private Long resolveTargetUserId(Report report, ReportTargetMetadata targetMetadata) {
+        ReportTargetUserMetadata targetUser = resolveTargetUser(report, targetMetadata);
+        return targetUser != null ? targetUser.targetUserId() : null;
+    }
+
+    private ReportTargetUserMetadata resolveTargetUser(Report report, ReportTargetMetadata targetMetadata) {
         if (isUserTarget(report)) {
-            User targetUser = targetMetadata.userTargets().get(report.getTargetId());
-            return targetUser != null ? targetUser.getUserId() : report.getTargetId();
+            return targetMetadata.userTargets()
+                    .getOrDefault(report.getTargetId(), ReportTargetUserMetadata.missingUser(report.getTargetId()));
         }
         if (isPostTarget(report)) {
-            return targetMetadata.postTargetUserIds().get(report.getTargetId());
+            return targetMetadata.postTargets().get(report.getTargetId());
         }
         if (isCommentTarget(report)) {
-            return targetMetadata.commentTargetUserIds().get(report.getTargetId());
+            return targetMetadata.commentTargets().get(report.getTargetId());
         }
         return null;
     }
@@ -146,8 +135,32 @@ class ReportReadAssembler {
         if (targetUserId == null) {
             return null;
         }
-        User targetUser = targetMetadata.userTargets().get(targetUserId);
-        return targetUser != null ? targetUser.getDisplayName() : null;
+        ReportTargetUserMetadata targetUser = resolveTargetUser(report, targetMetadata);
+        return targetUser != null ? targetUser.targetDisplayName() : null;
+    }
+
+    private ReportTargetUserMetadata toUserMetadata(UserRepository.ReportTargetMetadataProjection projection) {
+        return new ReportTargetUserMetadata(
+                projection.getTargetId(),
+                projection.getTargetUserId(),
+                projection.getTargetDisplayName(),
+                projection.getTargetLoginId());
+    }
+
+    private ReportTargetUserMetadata toUserMetadata(PostRepository.ReportTargetMetadataProjection projection) {
+        return new ReportTargetUserMetadata(
+                projection.getTargetId(),
+                projection.getTargetUserId(),
+                projection.getTargetDisplayName(),
+                projection.getTargetLoginId());
+    }
+
+    private ReportTargetUserMetadata toUserMetadata(CommentRepository.ReportTargetMetadataProjection projection) {
+        return new ReportTargetUserMetadata(
+                projection.getTargetId(),
+                projection.getTargetUserId(),
+                projection.getTargetDisplayName(),
+                projection.getTargetLoginId());
     }
 
     private boolean isUserTarget(Report report) {
@@ -169,8 +182,18 @@ class ReportReadAssembler {
     }
 
     private record ReportTargetMetadata(
-            Map<Long, User> userTargets,
-            Map<Long, Long> postTargetUserIds,
-            Map<Long, Long> commentTargetUserIds) {
+            Map<Long, ReportTargetUserMetadata> userTargets,
+            Map<Long, ReportTargetUserMetadata> postTargets,
+            Map<Long, ReportTargetUserMetadata> commentTargets) {
+    }
+
+    private record ReportTargetUserMetadata(
+            Long targetId,
+            Long targetUserId,
+            String targetDisplayName,
+            String targetLoginId) {
+        private static ReportTargetUserMetadata missingUser(Long targetId) {
+            return new ReportTargetUserMetadata(targetId, targetId, null, null);
+        }
     }
 }

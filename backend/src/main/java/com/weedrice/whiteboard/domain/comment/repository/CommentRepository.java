@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import jakarta.persistence.LockModeType;
 
@@ -28,6 +29,16 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                 Long getPostId();
 
                 long getUnreadCount();
+        }
+
+        interface ReportTargetMetadataProjection {
+                Long getTargetId();
+
+                Long getTargetUserId();
+
+                String getTargetDisplayName();
+
+                String getTargetLoginId();
         }
 
         @org.springframework.data.jpa.repository.Query(value = """
@@ -145,6 +156,18 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
 
         @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "user")
         List<Comment> findByCommentIdIn(Collection<Long> commentIds);
+
+        @Query("""
+                        SELECT c.commentId AS targetId,
+                               u.userId AS targetUserId,
+                               u.displayName AS targetDisplayName,
+                               u.loginId AS targetLoginId
+                        FROM Comment c
+                        JOIN c.user u
+                        WHERE c.commentId IN :commentIds
+                        """)
+        List<ReportTargetMetadataProjection> findReportTargetMetadataByCommentIds(
+                        @Param("commentIds") Collection<Long> commentIds);
 
         @org.springframework.data.jpa.repository.Query(value = "SELECT DISTINCT c FROM Comment c JOIN FETCH c.post p JOIN FETCH p.board WHERE c.user = :user AND c.isDeleted = :isDeleted ORDER BY c.createdAt DESC", countQuery = "SELECT COUNT(DISTINCT c) FROM Comment c WHERE c.user = :user AND c.isDeleted = :isDeleted")
         Page<Comment> findByUserAndIsDeletedOrderByCreatedAtDesc(@org.springframework.data.repository.query.Param("user") User user, @org.springframework.data.repository.query.Param("isDeleted") Boolean isDeleted, Pageable pageable);

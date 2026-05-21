@@ -70,6 +70,7 @@ export function useBoard() {
                 return data.data as BoardDetail
             },
             enabled: computed(() => !!boardUrl.value),
+            staleTime: QUERY_STALE_TIME.SHORT,
             ...queryOptions
         })
     }
@@ -106,6 +107,24 @@ export function useBoard() {
             },
             enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
             placeholderData: (previousData) => previousData,
+            ...queryOptions
+        })
+    }
+
+    const useBoardNotices = (
+        boardUrl: Ref<string>,
+        enabled?: Ref<boolean>,
+        options: { requestConfig?: AxiosRequestConfig } & Record<string, unknown> = {}
+    ) => {
+        const { requestConfig, ...queryOptions } = options
+        return useQuery({
+            queryKey: ['board', boardUrl, 'notices'],
+            queryFn: async () => {
+                const { data } = await boardApi.getNotices(boardUrl.value, requestConfig)
+                return data.data as PostSummary[]
+            },
+            enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
+            staleTime: QUERY_STALE_TIME.SHORT,
             ...queryOptions
         })
     }
@@ -233,6 +252,7 @@ export function useBoard() {
         useSubscribedBoards,
         useBoardDetail,
         useBoardPosts,
+        useBoardNotices,
         useSubscribeBoard,
         useBoardCategories,
         useCreateBoard,

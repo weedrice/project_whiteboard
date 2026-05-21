@@ -1,6 +1,7 @@
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css');
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 @variant dark (&:where(.dark, .dark *));
 
 @theme {
@@ -64,6 +65,100 @@ html {
 }
 
 @layer components {
+
+  .nv-rich-content {
+    --tw-prose-body: var(--nv-ink-soft);
+    --tw-prose-headings: var(--nv-ink);
+    --tw-prose-lead: var(--nv-ink-soft);
+    --tw-prose-links: var(--nv-accent);
+    --tw-prose-bold: var(--nv-ink);
+    --tw-prose-counters: var(--nv-muted);
+    --tw-prose-bullets: var(--nv-muted);
+    --tw-prose-hr: var(--nv-line);
+    --tw-prose-quotes: var(--nv-ink-soft);
+    --tw-prose-quote-borders: var(--nv-accent);
+    --tw-prose-captions: var(--nv-muted);
+    --tw-prose-kbd: var(--nv-ink);
+    --tw-prose-code: var(--nv-ink);
+    --tw-prose-pre-code: var(--nv-ink);
+    --tw-prose-pre-bg: var(--nv-surface-2);
+    --tw-prose-th-borders: var(--nv-line);
+    --tw-prose-td-borders: var(--nv-line);
+    --tw-prose-invert-body: var(--nv-ink-soft);
+    --tw-prose-invert-headings: var(--nv-ink);
+    --tw-prose-invert-lead: var(--nv-ink-soft);
+    --tw-prose-invert-links: var(--nv-accent);
+    --tw-prose-invert-bold: var(--nv-ink);
+    --tw-prose-invert-counters: var(--nv-muted);
+    --tw-prose-invert-bullets: var(--nv-muted);
+    --tw-prose-invert-hr: var(--nv-line);
+    --tw-prose-invert-quotes: var(--nv-ink-soft);
+    --tw-prose-invert-quote-borders: var(--nv-accent);
+    --tw-prose-invert-captions: var(--nv-muted);
+    --tw-prose-invert-kbd: var(--nv-ink);
+    --tw-prose-invert-code: var(--nv-ink);
+    --tw-prose-invert-pre-code: var(--nv-ink);
+    --tw-prose-invert-pre-bg: var(--nv-surface-2);
+    --tw-prose-invert-th-borders: var(--nv-line);
+    --tw-prose-invert-td-borders: var(--nv-line);
+    color: var(--nv-ink-soft);
+    overflow-wrap: anywhere;
+  }
+
+  .nv-rich-content :where(blockquote) {
+    background: color-mix(in srgb, var(--nv-accent) 6%, transparent);
+    border-left-color: color-mix(in srgb, var(--nv-accent) 45%, var(--nv-line));
+    border-left-width: 0.22rem;
+    border-radius: 0 0.75rem 0.75rem 0;
+    font-style: normal;
+    padding: 0.55rem 0 0.55rem 1rem;
+  }
+
+  .nv-rich-content :where(blockquote p:first-of-type::before),
+  .nv-rich-content :where(blockquote p:last-of-type::after) {
+    content: none;
+  }
+
+  .nv-rich-content :where(pre) {
+    border: 1px solid var(--nv-line);
+    border-radius: 0.85rem;
+    overflow-x: auto;
+  }
+
+  .nv-rich-content :where(pre code) {
+    background: transparent;
+    border: 0;
+    color: inherit;
+    font-size: 0.9em;
+    padding: 0;
+    white-space: pre;
+  }
+
+  .nv-rich-content :where(code) {
+    background: color-mix(in srgb, var(--nv-surface-2) 86%, transparent);
+    border: 1px solid var(--nv-line);
+    border-radius: 0.35rem;
+    font-weight: 500;
+    padding: 0.12rem 0.32rem;
+  }
+
+  .nv-rich-content :where(code::before),
+  .nv-rich-content :where(code::after) {
+    content: none;
+  }
+
+  .nv-rich-content :where(img) {
+    border-radius: 0.75rem;
+  }
+
+  .nv-rich-content :where(.tiptap-image-inline) {
+    display: inline-block;
+    vertical-align: baseline;
+  }
+
+  .nv-rich-content :where(.tiptap-video-wrapper) {
+    margin: 1.25rem 0;
+  }
 
   /* Card Component */
   .card {
@@ -658,42 +753,88 @@ html {
   .nv-home-card-body {
     @apply text-sm leading-6;
     --nv-home-card-body-lines: 5;
+    --nv-home-card-body-max-height: 7.5rem;
     color: var(--nv-ink-soft);
-    display: -webkit-box;
+    display: block;
+    max-height: var(--nv-home-card-body-max-height);
     overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: var(--nv-home-card-body-lines);
   }
 
   .nv-home-card-body-featured-with-media {
-    --nv-home-card-body-lines: 4;
+    --nv-home-card-body-lines: 10;
+    --nv-home-card-body-max-height: 15rem;
   }
 
   .nv-home-card-body-featured-no-media {
-    --nv-home-card-body-lines: 8;
+    --nv-home-card-body-lines: 10;
+    --nv-home-card-body-max-height: 15rem;
   }
 
   .nv-home-card-body-with-media {
     --nv-home-card-body-lines: 3;
+    --nv-home-card-body-max-height: 4.5rem;
   }
 
   .nv-home-card-body-no-media {
     --nv-home-card-body-lines: 5;
+    --nv-home-card-body-max-height: 7.5rem;
   }
 
-  .nv-home-card-body.prose-feed :where(p) {
-    margin: 0.35rem 0;
+  .nv-home-curation-body {
+    --tw-prose-body: var(--nv-ink-soft);
+    --tw-prose-headings: var(--nv-ink);
+    --tw-prose-quotes: var(--nv-ink-soft);
+    --tw-prose-quote-borders: var(--nv-accent);
+    max-width: none;
+    font-size: 0.95rem;
+    line-height: 1.65;
   }
 
-  .nv-home-card-body.prose-feed :where(p:first-child) {
+  .nv-home-curation-body :where(p, ul, ol) {
+    margin-top: 0.4rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .nv-home-curation-body :where(p:first-child, ul:first-child, ol:first-child) {
     margin-top: 0;
   }
 
-  .nv-home-card-body.prose-feed :where(p:last-child) {
+  .nv-home-curation-body :where(p:last-child, ul:last-child, ol:last-child) {
     margin-bottom: 0;
   }
 
-  .nv-home-card-body.prose-feed :where(h1, h2, h3, h4) {
+  .nv-home-curation-body :where(h1, h2, h3, h4) {
+    font-size: 1.05rem;
+    line-height: 1.45;
+    margin-top: 0.65rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .nv-home-curation-body :where(h1:first-child, h2:first-child, h3:first-child, h4:first-child) {
+    margin-top: 0;
+  }
+
+  .nv-home-curation-body :where(blockquote) {
+    margin: 0.65rem 0;
+  }
+
+  .nv-home-curation-body :where(pre) {
+    margin: 0.65rem 0;
+  }
+
+  .nv-home-card-body .prose-feed :where(p) {
+    margin: 0.35rem 0;
+  }
+
+  .nv-home-card-body .prose-feed :where(p:first-child) {
+    margin-top: 0;
+  }
+
+  .nv-home-card-body .prose-feed :where(p:last-child) {
+    margin-bottom: 0;
+  }
+
+  .nv-home-card-body .prose-feed :where(h1, h2, h3, h4) {
     color: var(--nv-ink);
     font-weight: 700;
     letter-spacing: 0;
@@ -701,51 +842,51 @@ html {
     margin: 0.55rem 0 0.25rem;
   }
 
-  .nv-home-card-body.prose-feed :where(h1, h2) {
+  .nv-home-card-body .prose-feed :where(h1, h2) {
     font-size: 1.02rem;
   }
 
-  .nv-home-card-body.prose-feed :where(h3, h4) {
+  .nv-home-card-body .prose-feed :where(h3, h4) {
     font-size: 0.95rem;
   }
 
-  .nv-home-card-body.prose-feed :where(ul, ol) {
+  .nv-home-card-body .prose-feed :where(ul, ol) {
     margin: 0.35rem 0;
     padding-left: 1.25rem;
   }
 
-  .nv-home-card-body.prose-feed :where(ul) {
+  .nv-home-card-body .prose-feed :where(ul) {
     list-style: disc;
   }
 
-  .nv-home-card-body.prose-feed :where(ol) {
+  .nv-home-card-body .prose-feed :where(ol) {
     list-style: decimal;
   }
 
-  .nv-home-card-body.prose-feed :where(li) {
+  .nv-home-card-body .prose-feed :where(li) {
     display: list-item;
     margin: 0.15rem 0;
   }
 
-  .nv-home-card-body.prose-feed :where(blockquote) {
+  .nv-home-card-body .prose-feed :where(blockquote) {
     border-left: 3px solid var(--nv-line);
     color: var(--nv-muted);
     margin: 0.45rem 0;
     padding-left: 0.8rem;
   }
 
-  .nv-home-card-body.prose-feed :where(a) {
+  .nv-home-card-body .prose-feed :where(a) {
     color: var(--nv-accent);
     text-decoration: underline;
     text-underline-offset: 0.15em;
   }
 
-  .nv-home-card-body.prose-feed :where(strong, b) {
+  .nv-home-card-body .prose-feed :where(strong, b) {
     color: var(--nv-ink);
     font-weight: 700;
   }
 
-  .nv-home-card-body.prose-feed :where(em, i) {
+  .nv-home-card-body .prose-feed :where(em, i) {
     font-style: italic;
   }
 

@@ -2,8 +2,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import Footer from '../Footer.vue'
 import { createPinia, setActivePinia } from 'pinia'
-import { useThemeStore } from '@/stores/theme'
 import { createRouter, createMemoryHistory } from 'vue-router'
+
+const toggleThemePreference = vi.hoisted(() => vi.fn())
+
+vi.mock('@/composables/useThemePreference', () => ({
+    useThemePreference: () => ({
+        toggleTheme: toggleThemePreference
+    })
+}))
 
 const router = createRouter({
     history: createMemoryHistory(),
@@ -18,6 +25,7 @@ const router = createRouter({
 describe('Footer', () => {
     beforeEach(async () => {
         setActivePinia(createPinia())
+        toggleThemePreference.mockClear()
         await router.push('/')
         await router.isReady()
     })
@@ -50,12 +58,10 @@ describe('Footer', () => {
                 }
             }
         })
-        const themeStore = useThemeStore()
-        const toggleSpy = vi.spyOn(themeStore, 'toggleTheme')
 
         const button = wrapper.find('button')
         await button.trigger('click')
 
-        expect(toggleSpy).toHaveBeenCalled()
+        expect(toggleThemePreference).toHaveBeenCalled()
     })
 })

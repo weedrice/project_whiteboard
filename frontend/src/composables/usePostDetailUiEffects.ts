@@ -12,7 +12,10 @@ export function usePostDetailUiEffects() {
   let likeAnimationTimer: ReturnType<typeof setTimeout> | null = null
   let bookmarkAnimationTimer: ReturnType<typeof setTimeout> | null = null
   let copyHintTimer: ReturnType<typeof setTimeout> | null = null
+  let composerFocusTimer: ReturnType<typeof setTimeout> | null = null
+  const imageLoadTimeouts = new Map<ReturnType<typeof setTimeout>, () => void>()
   let composerObserver: IntersectionObserver | null = null
+  let isDisposed = false
 
   function clearBlurTimer() {
     if (blurTimer) {
@@ -63,7 +66,51 @@ export function usePostDetailUiEffects() {
     }, 1500)
   }
 
+  function markPostDetailUiMounted() {
+    isDisposed = false
+  }
+
+  function isPostDetailUiDisposed() {
+    return isDisposed
+  }
+
+  function clearComposerFocusTimer() {
+    if (composerFocusTimer) {
+      clearTimeout(composerFocusTimer)
+      composerFocusTimer = null
+    }
+  }
+
+  function clearImageLoadTimeoutTimers() {
+    imageLoadTimeouts.forEach((resolve, timer) => {
+      clearTimeout(timer)
+      resolve()
+    })
+    imageLoadTimeouts.clear()
+  }
+
+  function scheduleComposerFocus(composer: HTMLElement) {
+    clearComposerFocusTimer()
+    composerFocusTimer = setTimeout(() => {
+      composerFocusTimer = null
+      if (isDisposed) return
+      const textarea = composer.querySelector('textarea') as HTMLTextAreaElement | null
+      textarea?.focus()
+    }, 250)
+  }
+
+  function trackImageLoadTimeout(resolve: () => void, timeoutMs: number) {
+    const resolveTimeout = () => {
+      imageLoadTimeouts.delete(timer)
+      resolve()
+    }
+    const timer = setTimeout(resolveTimeout, timeoutMs)
+    imageLoadTimeouts.set(timer, resolveTimeout)
+  }
+
   function setupComposerObserver() {
+    if (isDisposed) return
+
     if (composerObserver) {
       composerObserver.disconnect()
       composerObserver = null
@@ -91,7 +138,10 @@ export function usePostDetailUiEffects() {
   }
 
   function disposePostDetailUiEffects() {
+    isDisposed = true
     clearBlurTimer()
+    clearComposerFocusTimer()
+    clearImageLoadTimeoutTimers()
     if (composerObserver) {
       composerObserver.disconnect()
       composerObserver = null
@@ -117,12 +167,16 @@ export function usePostDetailUiEffects() {
     isBookmarkAnimating,
     showCopyHint,
     showComposerCta,
+    markPostDetailUiMounted,
+    isPostDetailUiDisposed,
     startBlurTimer,
     clearBlurTimer,
     revealSpoiler,
     triggerLikeAnimation,
     triggerBookmarkAnimation,
     showTemporaryCopyHint,
+    scheduleComposerFocus,
+    trackImageLoadTimeout,
     setupComposerObserver,
     disposePostDetailUiEffects
   }

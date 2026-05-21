@@ -402,6 +402,11 @@ export interface BoardMessages {
       author: string
       tag: string
     }
+    notices: {
+      title: string
+      more: string
+      collapse: string
+    }
     defaultAdminName: string
   }
   form: {
@@ -512,7 +517,9 @@ export interface BoardMessages {
     htmlSourcePlaceholder: string
     visualMode: string
     videoUrlRequired: string
+    invalidVideoUrl: string
     linkUrlPrompt: string
+    invalidLinkUrl: string
     linkDisplayText: string
     linkInsert: string
     linkRemove: string
@@ -562,6 +569,40 @@ export interface BoardMessages {
       dialogLabel: string
       inputLabel: string
       placeholder: string
+      help: string
+    }
+    upload: {
+      uploading: string
+      retry: string
+      cancel: string
+      dismiss: string
+    }
+    dropImageHint: string
+    imageAlt: {
+      title: string
+      label: string
+      placeholder: string
+      help: string
+      apply: string
+      clear: string
+    }
+    colorLabels: {
+      black: string
+      gray: string
+      muted: string
+      lightGray: string
+      red: string
+      orange: string
+      yellow: string
+      green: string
+      blue: string
+      purple: string
+      pink: string
+      teal: string
+      white: string
+      dark: string
+      slate: string
+      paleGray: string
     }
     toolbar: {
       bold: string
@@ -580,6 +621,8 @@ export interface BoardMessages {
       quote: string
       list: string
       divider: string
+      heading: string
+      codeBlock: string
       advanced: string
       formattingTools: string
       textColor: string

@@ -99,6 +99,20 @@ class PostRepositoryTest {
     }
 
     @Test
+    @DisplayName("findReportTargetMetadataByPostIds returns author metadata")
+    void findReportTargetMetadataByPostIds_returnsAuthorMetadata() {
+        List<PostRepository.ReportTargetMetadataProjection> metadata =
+                postRepository.findReportTargetMetadataByPostIds(List.of(post.getPostId()));
+
+        assertThat(metadata).singleElement().satisfies(item -> {
+            assertThat(item.getTargetId()).isEqualTo(post.getPostId());
+            assertThat(item.getTargetUserId()).isEqualTo(user.getUserId());
+            assertThat(item.getTargetDisplayName()).isEqualTo("Test User");
+            assertThat(item.getTargetLoginId()).isEqualTo("testuser");
+        });
+    }
+
+    @Test
     @DisplayName("사용자별 게시글 목록 조회 성공")
     void findByUser_success() {
         // given
@@ -904,6 +918,14 @@ class PostRepositoryTest {
         Post inactivePost = landingPost("Latest Inactive Board", inactiveBoard, false, false);
         Post inquiryPost = landingPost("Latest Inquiry Board", inquiryBoard, false, false);
         Post blockedPost = trendingPost("Latest Blocked", "Contents", blockedUser, board, false);
+        Post noticePost = Post.builder()
+                .title("Latest Notice")
+                .contents("Contents")
+                .user(user)
+                .board(board)
+                .category(category)
+                .isNotice(true)
+                .build();
         entityManager.persist(visibleOld);
         entityManager.persist(visibleSameTimeOlderId);
         entityManager.persist(visibleSameTimeNewerId);
@@ -913,6 +935,7 @@ class PostRepositoryTest {
         entityManager.persist(inactivePost);
         entityManager.persist(inquiryPost);
         entityManager.persist(blockedPost);
+        entityManager.persist(noticePost);
         entityManager.flush();
 
         LocalDateTime baseCreatedAt = LocalDateTime.now().minusHours(2);
@@ -926,6 +949,7 @@ class PostRepositoryTest {
         updateCreatedAt(inactivePost, baseCreatedAt.plusMinutes(10));
         updateCreatedAt(inquiryPost, baseCreatedAt.plusMinutes(10));
         updateCreatedAt(blockedPost, baseCreatedAt.plusMinutes(10));
+        updateCreatedAt(noticePost, baseCreatedAt.plusMinutes(10));
         entityManager.flush();
         entityManager.clear();
 
@@ -1009,6 +1033,14 @@ class PostRepositoryTest {
         Post iframePost = trendingPost("Iframe", "<iframe src=\"/video\"></iframe>", user, board, false);
         Post oldPost = trendingPost("Old", "<img src=\"/old.jpg\">", user, board, false);
         Post secretPost = trendingPost("Secret", "<img src=\"/secret.jpg\">", user, board, true);
+        Post noticePost = Post.builder()
+                .title("Notice")
+                .contents("<img src=\"/notice.jpg\">")
+                .user(user)
+                .board(board)
+                .category(category)
+                .isNotice(true)
+                .build();
         Post privateBoardPost = trendingPost("Private", "<img src=\"/private.jpg\">", user, privateBoard, false);
         Post inactiveBoardPost = trendingPost("Inactive", "<img src=\"/inactive.jpg\">", user, inactiveBoard, false);
         Post blockedPost = trendingPost("Blocked", "<img src=\"/blocked.jpg\">", blockedUser, board, false);
@@ -1017,6 +1049,7 @@ class PostRepositoryTest {
         entityManager.persist(iframePost);
         entityManager.persist(oldPost);
         entityManager.persist(secretPost);
+        entityManager.persist(noticePost);
         entityManager.persist(privateBoardPost);
         entityManager.persist(inactiveBoardPost);
         entityManager.persist(blockedPost);
@@ -1028,6 +1061,7 @@ class PostRepositoryTest {
         updateCreatedAt(iframePost, baseCreatedAt.plusMinutes(2));
         updateCreatedAt(oldPost, baseCreatedAt.minusDays(10));
         updateCreatedAt(secretPost, baseCreatedAt.plusMinutes(3));
+        updateCreatedAt(noticePost, baseCreatedAt.plusMinutes(4));
         updateCreatedAt(privateBoardPost, baseCreatedAt.plusMinutes(4));
         updateCreatedAt(inactiveBoardPost, baseCreatedAt.plusMinutes(5));
         updateCreatedAt(blockedPost, baseCreatedAt.plusMinutes(6));

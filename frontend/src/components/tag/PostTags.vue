@@ -14,7 +14,7 @@
     </div>
 
     <div class="flex flex-wrap" :class="compact && readOnly ? 'gap-x-2 gap-y-1' : 'gap-2'">
-      <template v-for="(tag, index) in modelValue" :key="index">
+      <template v-for="{ tag, index, key } in tagItems" :key="key">
         <button v-if="readOnly && boardUrl" type="button" @click="handleTagClick(tag)"
           :class="[
             'inline-flex items-center rounded-full font-medium transition-colors cursor-pointer',
@@ -46,7 +46,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
 const props = withDefaults(defineProps<{
   modelValue: string[]
@@ -66,6 +66,20 @@ const emit = defineEmits<{
 }>()
 
 const newTag = ref('')
+const tagItems = computed(() => {
+  const counts = new Map<string, number>()
+
+  return props.modelValue.map((tag, index) => {
+    const occurrence = (counts.get(tag) ?? 0) + 1
+    counts.set(tag, occurrence)
+
+    return {
+      tag,
+      index,
+      key: `${tag}:${occurrence}`,
+    }
+  })
+})
 
 const addTag = () => {
   const tag = newTag.value.trim()

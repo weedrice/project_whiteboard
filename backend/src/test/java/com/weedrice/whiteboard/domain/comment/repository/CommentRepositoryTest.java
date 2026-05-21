@@ -116,6 +116,20 @@ class CommentRepositoryTest {
     }
 
     @Test
+    @DisplayName("findReportTargetMetadataByCommentIds returns author metadata")
+    void findReportTargetMetadataByCommentIds_returnsAuthorMetadata() {
+        List<CommentRepository.ReportTargetMetadataProjection> metadata =
+                commentRepository.findReportTargetMetadataByCommentIds(List.of(comment.getCommentId()));
+
+        assertThat(metadata).singleElement().satisfies(item -> {
+            assertThat(item.getTargetId()).isEqualTo(comment.getCommentId());
+            assertThat(item.getTargetUserId()).isEqualTo(user.getUserId());
+            assertThat(item.getTargetDisplayName()).isEqualTo("Test User");
+            assertThat(item.getTargetLoginId()).isEqualTo("testuser");
+        });
+    }
+
+    @Test
     @DisplayName("관리자 사용자 댓글 목록은 같은 생성 시각에서 commentId 내림차순으로 정렬한다")
     void findByUserOrderByCreatedAtDescCommentIdDesc_ordersSameCreatedAtByCommentIdDesc() {
         Comment firstComment = Comment.builder()

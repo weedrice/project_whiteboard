@@ -108,6 +108,13 @@ describe('SearchPage', () => {
     expect(wrapper.find('[data-testid="empty-state"]').attributes('data-description')).toBe('search.noResultsFor:vue')
   })
 
+  it('shows a search prompt instead of no results before a query is provided', () => {
+    const wrapper = mountPage()
+
+    expect(wrapper.find('[data-testid="empty-state"]').text()).toBe('search.placeholder')
+    expect(wrapper.find('[data-testid="empty-state"]').attributes('data-description')).toBeUndefined()
+  })
+
   it('falls back to keyword and tag query names used by search entry components', () => {
     routeState.query = { q: '   ', keyword: 'pinia' }
     mountPage()

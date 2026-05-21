@@ -1,4 +1,4 @@
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { AxiosError } from 'axios'
 import { messageApi, BLOCKED_BY_USER_CODE } from '@/api/message'
@@ -18,6 +18,7 @@ export function useMailboxResource() {
     const viewType = ref<'received' | 'sent'>('received')
     const messages = ref<Message[]>([])
     const loading = ref(false)
+    const error = ref<string | null>(null)
     const selectedMessage = ref<Message | null>(null)
     const selectedMessages = ref<number[]>([])
 
@@ -33,10 +34,32 @@ export function useMailboxResource() {
     const messageFromBlockedUser = ref(false)
     let messageListRequestId = 0
     let messageDetailRequestId = 0
+    let messageListAbortController: AbortController | null = null
+    let messageDetailAbortController: AbortController | null = null
+    const markAsReadAbortControllers = new Set<AbortController>()
+
+    function abortMessageListRequest() {
+        messageListAbortController?.abort()
+        messageListAbortController = null
+    }
+
+    function abortMessageDetailRequest() {
+        messageDetailAbortController?.abort()
+        messageDetailAbortController = null
+    }
+
+    function abortMarkAsReadRequests() {
+        markAsReadAbortControllers.forEach((controller) => controller.abort())
+        markAsReadAbortControllers.clear()
+    }
 
     async function fetchMessages() {
         const requestId = ++messageListRequestId
+        abortMessageListRequest()
+        const controller = new AbortController()
+        messageListAbortController = controller
         loading.value = true
+        error.value = null
         messages.value = []
         selectedMessages.value = []
         try {
@@ -45,18 +68,22 @@ export function useMailboxResource() {
                 size: size.value
             }
             const { data } = viewType.value === 'received'
-                ? await messageApi.getReceivedMessages(params)
-                : await messageApi.getSentMessages(params)
+                ? await messageApi.getReceivedMessages(params, { signal: controller.signal })
+                : await messageApi.getSentMessages(params, { signal: controller.signal })
 
             if (requestId === messageListRequestId && data.success) {
                 messages.value = data.data?.content || []
                 totalPages.value = data.data?.totalPages || 0
             }
-        } catch (error) {
-            if (requestId === messageListRequestId) {
-                logger.error('Failed to fetch messages:', error)
+        } catch (caughtError) {
+            if (requestId === messageListRequestId && !controller.signal.aborted) {
+                logger.error('Failed to fetch messages:', caughtError)
+                error.value = t('common.messages.loadFailed')
             }
         } finally {
+            if (messageListAbortController === controller) {
+                messageListAbortController = null
+            }
             if (requestId === messageListRequestId) {
                 loading.value = false
             }
@@ -82,11 +109,17 @@ export function useMailboxResource() {
 
     async function openMessage(msg: Message) {
         const requestId = ++messageDetailRequestId
+        abortMessageDetailRequest()
+        const controller = new AbortController()
+        messageDetailAbortController = controller
         const messageId = msg.messageId
         messageFromBlockedUser.value = false
         selectedMessage.value = msg
         try {
-            const { data } = await messageApi.getMessage(messageId, { skipGlobalErrorHandler: true })
+            const { data } = await messageApi.getMessage(messageId, {
+                skipGlobalErrorHandler: true,
+                signal: controller.signal
+            })
             if (requestId !== messageDetailRequestId || selectedMessage.value?.messageId !== messageId) {
                 return
             }
@@ -94,7 +127,16 @@ export function useMailboxResource() {
                 selectedMessage.value = data.data
             }
             if (viewType.value === 'received' && !msg.isRead) {
-                await messageApi.markAsRead(messageId, { skipGlobalErrorHandler: true })
+                const markAsReadController = new AbortController()
+                markAsReadAbortControllers.add(markAsReadController)
+                try {
+                    await messageApi.markAsRead(messageId, {
+                        skipGlobalErrorHandler: true,
+                        signal: markAsReadController.signal
+                    })
+                } finally {
+                    markAsReadAbortControllers.delete(markAsReadController)
+                }
                 msg.isRead = true
                 if (requestId !== messageDetailRequestId || selectedMessage.value?.messageId !== messageId) {
                     return
@@ -107,6 +149,9 @@ export function useMailboxResource() {
             if (requestId !== messageDetailRequestId || selectedMessage.value?.messageId !== messageId) {
                 return
             }
+            if (controller.signal.aborted) {
+                return
+            }
             const errRes = extractErrorResponse(error as AxiosError)
             if (errRes?.code === BLOCKED_BY_USER_CODE) {
                 messageFromBlockedUser.value = true
@@ -116,6 +161,10 @@ export function useMailboxResource() {
                 toastStore.addToast(t('common.messages.notFound'), 'info')
             } else {
                 logger.error('Failed to open message:', error)
+            }
+        } finally {
+            if (messageDetailAbortController === controller) {
+                messageDetailAbortController = null
             }
         }
     }
@@ -185,10 +234,19 @@ export function useMailboxResource() {
         fetchMessages()
     })
 
+    onUnmounted(() => {
+        messageListRequestId++
+        messageDetailRequestId++
+        abortMessageListRequest()
+        abortMessageDetailRequest()
+        abortMarkAsReadRequests()
+    })
+
     return {
         viewType,
         messages,
         loading,
+        error,
         selectedMessage,
         selectedMessages,
         page,

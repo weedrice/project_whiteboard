@@ -1,11 +1,35 @@
 import type { FeedPost } from '@/types'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
 
-export const getFeedBodyHtml = (post: Pick<FeedPost, 'contentsExcerpt'>) => {
-  const excerpt = post.contentsExcerpt
+const HTML_TAG_PATTERN = /<[a-z][\s\S]*>/i
+
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+
+const normalizePlainTextExcerpt = (value: string) => {
+  if (HTML_TAG_PATTERN.test(value)) {
+    return value
+  }
+
+  return value
+    .trim()
+    .split(/(?:\r?\n){2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\r?\n/g, '<br>')}</p>`)
+    .join('')
+}
+
+export const getFeedBodyHtml = (post: Pick<FeedPost, 'contentsExcerpt' | 'summary'>) => {
+  const excerpt = post.contentsExcerpt || post.summary
   if (!excerpt) return null
 
-  let html = sanitizeQuillHtml(excerpt)
+  let html = sanitizeQuillHtml(normalizePlainTextExcerpt(excerpt))
   html = html.replace(/<img[^>]*>/gi, '')
   html = html.replace(/<iframe[^>]*>[\s\S]*?<\/iframe>/gi, '')
   html = html.replace(/<div[^>]*\bclass="[^"]*tiptap-video-wrapper[^"]*"[^>]*>[\s\S]*?<\/div>/gi, '')

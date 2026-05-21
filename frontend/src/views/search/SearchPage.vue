@@ -15,6 +15,9 @@
           <BaseSpinner size="lg" />
         </div>
 
+        <EmptyState v-else-if="!hasSearchQuery" :title="$t('search.placeholder')" :icon="Search"
+          container-class="bg-white dark:bg-gray-800 shadow rounded-lg" />
+
         <EmptyState v-else-if="posts.length === 0 && boards.length === 0" :title="$t('search.noResults')"
           :description="searchQuery ? $t('search.noResultsFor', { query: searchQuery }) : undefined" :icon="Search"
           container-class="bg-white dark:bg-gray-800 shadow rounded-lg" />
@@ -96,4 +99,5 @@ const { data: searchData, isLoading } = useIntegratedSearch(params)
 const posts = computed(() => searchData.value?.posts?.content || [])
 const boards = computed(() => searchData.value?.boards || [])
 const searchQuery = computed(() => query.value)
+const hasSearchQuery = computed(() => searchQuery.value.length > 0)
 </script>

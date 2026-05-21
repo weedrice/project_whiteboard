@@ -29,7 +29,11 @@ export const authApi = {
     signup: (data: SignupData) =>
         api.post<ApiResponse<User>>('/auth/signup', data, { skipGlobalErrorHandler: true }),
 
-    logout: () => api.post<ApiResponse<void>>('/auth/logout'),
+    logout: () => api.post<ApiResponse<void>>(
+        '/auth/logout',
+        undefined,
+        { skipAuthRefresh: true, skipGlobalErrorHandler: true },
+    ),
 
     refreshToken: () => api.post<ApiResponse<{ accessToken: string, expiresIn: number }>>('/auth/refresh'),
 

@@ -15,15 +15,23 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
@@ -51,7 +59,22 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
                 @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE,
                         classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
         })
+@AutoConfigureMockMvc
+@Import(AdminReportControllerTest.TestSecurityConfig.class)
 class AdminReportControllerTest {
+
+    @TestConfiguration
+    @EnableWebSecurity
+    @EnableMethodSecurity
+    static class TestSecurityConfig {
+        @Bean
+        public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+            http
+                    .csrf(csrf -> csrf.disable())
+                    .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+            return http.build();
+        }
+    }
 
     @Autowired
     private MockMvc mockMvc;
@@ -101,7 +124,7 @@ class AdminReportControllerTest {
     }
 
     @Test
-    @DisplayName("신고 목록 조회 성공")
+    @DisplayName("getReports_returnsSuccess")
     void getReports_returnsSuccess() throws Exception {
         ReportResponse response = ReportResponse.builder().build();
         Page<ReportResponse> page = new PageImpl<>(List.of(response), PageRequest.of(0, 20), 1);
@@ -120,7 +143,7 @@ class AdminReportControllerTest {
     }
 
     @Test
-    @DisplayName("신고 목록 조회 시 필터 파라미터를 전달한다")
+    @DisplayName("getReports_forwardsFilterParams")
     void getReports_forwardsFilterParams() throws Exception {
         Page<ReportResponse> page =
                 new PageImpl<>(List.of(ReportResponse.builder().build()), PageRequest.of(0, 20), 1);
@@ -138,7 +161,7 @@ class AdminReportControllerTest {
     }
 
     @Test
-    @DisplayName("신고 처리 성공")
+    @DisplayName("getReports_invalidTargetType_returnsInvalidTarget")
     void getReports_invalidTargetType_returnsInvalidTarget() throws Exception {
         when(reportService.getReports(any(), eq("article"), any()))
                 .thenThrow(new BusinessException(ErrorCode.INVALID_TARGET));
@@ -153,7 +176,21 @@ class AdminReportControllerTest {
     }
 
     @Test
-    @DisplayName("invalid targetType report filter returns invalid target")
+    @DisplayName("getReports_rejectsNonSuperAdmin")
+    void getReports_rejectsNonSuperAdmin() throws Exception {
+        CustomUserDetails adminUserDetails = new CustomUserDetails(2L, "admin@example.com", "password",
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN")));
+
+        mockMvc.perform(get("/api/v1/admin/reports")
+                        .with(user(adminUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isForbidden());
+
+        verify(reportService, never()).getReports(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("processReport_returnsSuccess")
     void processReport_returnsSuccess() throws Exception {
         ReportProcessRequest request = new ReportProcessRequest();
         org.springframework.test.util.ReflectionTestUtils.setField(request, "status", ReportStatus.RESOLVED);
@@ -175,7 +212,28 @@ class AdminReportControllerTest {
     }
 
     @Test
-    @DisplayName("소문자 신고 처리 상태를 canonical value로 전달한다")
+    @DisplayName("processReport_rejectsNonSuperAdmin")
+    void processReport_rejectsNonSuperAdmin() throws Exception {
+        CustomUserDetails adminUserDetails = new CustomUserDetails(2L, "admin@example.com", "password",
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN")));
+
+        mockMvc.perform(put("/api/v1/admin/reports/{reportId}", 1L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "status": "RESOLVED",
+                                  "remark": "Processed"
+                                }
+                                """)
+                        .with(user(adminUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isForbidden());
+
+        verify(reportService, never()).processReport(anyLong(), anyLong(), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("processReport_normalizesLowercaseStatus")
     void processReport_normalizesLowercaseStatus() throws Exception {
         when(reportService.processReport(eq(1L), eq(1L), anyString(), anyString()))
                 .thenReturn(ReportResponse.builder().reportId(1L).build());
@@ -197,7 +255,7 @@ class AdminReportControllerTest {
     }
 
     @Test
-    @DisplayName("허용되지 않은 신고 처리 상태는 400을 반환한다")
+    @DisplayName("processReport_rejectsInvalidStatus")
     void processReport_rejectsInvalidStatus() throws Exception {
         mockMvc.perform(put("/api/v1/admin/reports/{reportId}", 1L)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -216,7 +274,7 @@ class AdminReportControllerTest {
     }
 
     @Test
-    @DisplayName("비어 있는 신고 처리 상태는 400을 반환한다")
+    @DisplayName("processReport_rejectsBlankStatus")
     void processReport_rejectsBlankStatus() throws Exception {
         mockMvc.perform(put("/api/v1/admin/reports/{reportId}", 1L)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -235,7 +293,7 @@ class AdminReportControllerTest {
     }
 
     @Test
-    @DisplayName("잘못된 타입의 신고 처리 상태는 400을 반환한다")
+    @DisplayName("processReport_rejectsUnreadableStatusBody")
     void processReport_rejectsUnreadableStatusBody() throws Exception {
         mockMvc.perform(put("/api/v1/admin/reports/{reportId}", 1L)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -254,7 +312,7 @@ class AdminReportControllerTest {
     }
 
     @Test
-    @DisplayName("PENDING status는 신고 처리 요청에서 거부한다")
+    @DisplayName("processReport_rejectsPendingStatus")
     void processReport_rejectsPendingStatus() throws Exception {
         mockMvc.perform(put("/api/v1/admin/reports/{reportId}", 1L)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -273,7 +331,7 @@ class AdminReportControllerTest {
     }
 
     @Test
-    @DisplayName("processReport rejects overlong remark")
+    @DisplayName("processReport_rejectsOverlongRemark")
     void processReport_rejectsOverlongRemark() throws Exception {
         mockMvc.perform(put("/api/v1/admin/reports/{reportId}", 1L)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -292,7 +350,7 @@ class AdminReportControllerTest {
     }
 
     @Test
-    @DisplayName("이미 처리된 신고는 API에서 409를 반환한다")
+    @DisplayName("processReport_returnsConflictWhenAlreadyProcessed")
     void processReport_returnsConflictWhenAlreadyProcessed() throws Exception {
         ReportProcessRequest request = new ReportProcessRequest();
         org.springframework.test.util.ReflectionTestUtils.setField(request, "status", ReportStatus.RESOLVED);

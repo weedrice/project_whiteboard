@@ -34,7 +34,26 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
         Long getOnlineCount();
     }
 
+    interface ReportTargetMetadataProjection {
+        Long getTargetId();
+
+        Long getTargetUserId();
+
+        String getTargetDisplayName();
+
+        String getTargetLoginId();
+    }
+
     Optional<User> findByLoginId(String loginId);
+    @Query("""
+            SELECT u.userId AS targetId,
+                   u.userId AS targetUserId,
+                   u.displayName AS targetDisplayName,
+                   u.loginId AS targetLoginId
+            FROM User u
+            WHERE u.userId IN :userIds
+            """)
+    List<ReportTargetMetadataProjection> findReportTargetMetadataByUserIds(@Param("userIds") List<Long> userIds);
     Optional<User> findByUserIdAndStatusAndDeletedAtIsNull(Long userId, String status);
     boolean existsByLoginId(String loginId);
     boolean existsByEmail(String email);

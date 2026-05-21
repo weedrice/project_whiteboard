@@ -51,7 +51,12 @@ describe('authApi', () => {
         authApi.logout()
         authApi.refreshToken()
 
-        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/auth/logout')
+        expect(apiMock.post).toHaveBeenNthCalledWith(
+            1,
+            '/auth/logout',
+            undefined,
+            { skipAuthRefresh: true, skipGlobalErrorHandler: true },
+        )
         expect(apiMock.post).toHaveBeenNthCalledWith(2, '/auth/refresh')
     })
 

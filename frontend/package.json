@@ -58,6 +58,7 @@
   "devDependencies": {
     "@eslint/js": "^8.57.1",
     "@tailwindcss/postcss": "^4.1.17",
+    "@tailwindcss/typography": "^0.5.19",
     "@types/loglevel": "^1.5.4",
     "@types/node": "^24.10.2",
     "@vitejs/plugin-vue": "^6.0.1",
