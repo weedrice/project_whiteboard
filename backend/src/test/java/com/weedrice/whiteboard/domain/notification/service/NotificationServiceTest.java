@@ -271,12 +271,10 @@ class NotificationServiceTest {
     void readNotification_successWhenAlreadyReadByOwner() {
         Long userId = 1L;
         Long notificationId = 1L;
-        when(notificationRepository.markReadByNotificationIdAndUserId(notificationId, userId)).thenReturn(0);
-        when(notificationRepository.existsByNotificationIdAndUser_UserId(notificationId, userId)).thenReturn(true);
+        when(notificationRepository.markReadByNotificationIdAndUserId(notificationId, userId)).thenReturn(1);
 
         assertThatCode(() -> notificationService.readNotification(userId, notificationId))
                 .doesNotThrowAnyException();
-        verify(notificationRepository, never()).existsById(notificationId);
     }
 
     @Test
@@ -285,12 +283,10 @@ class NotificationServiceTest {
         Long userId = 1L;
         Long notificationId = 1L;
         when(notificationRepository.markReadByNotificationIdAndUserId(notificationId, userId)).thenReturn(0);
-        when(notificationRepository.existsByNotificationIdAndUser_UserId(notificationId, userId)).thenReturn(false);
 
         assertThatThrownBy(() -> notificationService.readNotification(userId, notificationId))
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.NOT_FOUND));
-        verify(notificationRepository, never()).existsById(notificationId);
     }
 
     @Test
@@ -299,12 +295,10 @@ class NotificationServiceTest {
         Long userId = 1L;
         Long notificationId = 999L;
         when(notificationRepository.markReadByNotificationIdAndUserId(notificationId, userId)).thenReturn(0);
-        when(notificationRepository.existsByNotificationIdAndUser_UserId(notificationId, userId)).thenReturn(false);
 
         assertThatThrownBy(() -> notificationService.readNotification(userId, notificationId))
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.NOT_FOUND));
-        verify(notificationRepository, never()).existsById(notificationId);
     }
 
     @Test

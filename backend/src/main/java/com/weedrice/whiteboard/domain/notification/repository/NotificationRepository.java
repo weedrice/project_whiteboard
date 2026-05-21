@@ -35,11 +35,8 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
             SET n.isRead = true
             WHERE n.notificationId = :notificationId
               AND n.user.userId = :userId
-              AND n.isRead = false
             """)
     int markReadByNotificationIdAndUserId(
             @Param("notificationId") Long notificationId,
             @Param("userId") Long userId);
-
-    boolean existsByNotificationIdAndUser_UserId(Long notificationId, Long userId);
 }

@@ -74,8 +74,27 @@ describe('useMyPageDashboardResource', () => {
     })
     expect(userApi.getMyComments).toHaveBeenCalledWith({ page: 0, size: 10 })
     expect(mocks.fetchQuery).toHaveBeenCalledWith(expect.objectContaining({
+      queryKey: ['user', 'me'],
+      staleTime: QUERY_STALE_TIME.MEDIUM
+    }))
+    expect(mocks.fetchQuery).toHaveBeenCalledWith(expect.objectContaining({
       queryKey: ['user', 'agents'],
       staleTime: QUERY_STALE_TIME.MEDIUM
+    }))
+    expect(mocks.fetchQuery).toHaveBeenCalledWith(expect.objectContaining({
+      queryKey: ['user', 'me', 'posts', {
+        page: 0,
+        size: 10,
+        sort: 'createdAt,desc'
+      }],
+      staleTime: QUERY_STALE_TIME.SHORT
+    }))
+    expect(mocks.fetchQuery).toHaveBeenCalledWith(expect.objectContaining({
+      queryKey: ['user', 'me', 'comments', {
+        page: 0,
+        size: 10
+      }],
+      staleTime: QUERY_STALE_TIME.SHORT
     }))
     expect(resource.profile.value?.email).toBe('me@example.com')
     expect(resource.myAgents.value).toHaveLength(1)
@@ -102,6 +121,13 @@ describe('useMyPageDashboardResource', () => {
       size: 10,
       sort: 'likeCount,desc'
     })
+    expect(mocks.fetchQuery).toHaveBeenCalledWith(expect.objectContaining({
+      queryKey: ['user', 'me', 'posts', {
+        page: 0,
+        size: 10,
+        sort: 'likeCount,desc'
+      }]
+    }))
   })
 
   it('sets an error when a dashboard resource request fails', async () => {

@@ -37,7 +37,7 @@
               </div>
             </div>
             <div class="flex-shrink-0 min-h-[44px] sm:min-h-0 flex items-center">
-              <BlockButton :userId="user.userId" :initialBlocked="true" @block-change="refreshList" />
+              <BlockButton :userId="user.userId" :initialBlocked="true" />
             </div>
           </div>
         </li>
@@ -47,42 +47,27 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { userApi, type BlockedUserSummary } from '@/api/user'
+import { computed, watch } from 'vue'
+import type { BlockedUserSummary } from '@/api/user'
 import BlockButton from '@/components/user/BlockButton.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import { UserX } from 'lucide-vue-next'
-import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
+import { useUser } from '@/composables/useUser'
 
-const { t } = useI18n()
+const { useBlockList } = useUser()
+const { data: blockListData, isLoading: loading, error } = useBlockList()
 
-const blockedUsers = ref<BlockedUserSummary[]>([])
-const loading = ref(false)
+const blockedUsers = computed<BlockedUserSummary[]>(() => {
+  const payload = blockListData.value
+  if (!payload) return []
+  return Array.isArray(payload) ? payload : payload.content
+})
 
-const fetchBlockedUsers = async () => {
-  loading.value = true
-  try {
-    const { data } = await userApi.getBlockList()
-    if (data.success) {
-      const payload = data.data
-      blockedUsers.value = Array.isArray(payload)
-        ? payload
-        : payload.content
-    }
-  } catch (error: unknown) {
-    logger.error('Failed to fetch blocked users:', error)
-  } finally {
-    loading.value = false
+watch(error, (value) => {
+  if (value) {
+    logger.error('Failed to fetch blocked users:', value)
   }
-}
-
-const refreshList = () => {
-  fetchBlockedUsers()
-}
-
-onMounted(() => {
-  fetchBlockedUsers()
 })
 </script>

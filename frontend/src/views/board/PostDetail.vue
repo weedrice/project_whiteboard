@@ -29,6 +29,8 @@ import PostTags from '@/components/tag/PostTags.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { usePost } from '@/composables/usePost'
 import { usePostDetailPermissions } from '@/composables/usePostDetailPermissions'
+import { usePostDetailActions } from '@/composables/usePostDetailActions'
+import { usePostDetailShare } from '@/composables/usePostDetailShare'
 import { usePostDetailUiEffects } from '@/composables/usePostDetailUiEffects'
 import { usePostDetailViewModel } from '@/composables/usePostDetailViewModel'
 import { useAuthStore } from '@/stores/auth'
@@ -36,7 +38,6 @@ import { useToastStore } from '@/stores/toast'
 import { formatDate } from '@/utils/date'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
 import { isInputFocused } from '@/utils/keyboard'
-import logger from '@/utils/logger'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
 import { normalizeLegacyFileUrls } from '@/utils/fileUrl'
 import { applyImageFallback } from '@/utils/imageFallback'
@@ -175,23 +176,15 @@ const processedContents = computed(() => {
   return sanitized.replace(/<img(?![^>]*\bloading=)([^>]+)>/gi, '<img loading="lazy"$1>')
 })
 
-const showReportModal = ref(false)
-const reportReason = ref('')
 const {
   isBlurred,
   timeLeft,
-  isLikeAnimating,
-  isBookmarkAnimating,
-  showCopyHint,
   showComposerCta,
   markPostDetailUiMounted,
   isPostDetailUiDisposed,
   startBlurTimer,
   clearBlurTimer,
   revealSpoiler,
-  triggerLikeAnimation,
-  triggerBookmarkAnimation,
-  showTemporaryCopyHint,
   scheduleComposerFocus,
   trackImageLoadTimeout,
   setupComposerObserver,
@@ -201,25 +194,18 @@ const {
 const contentRef = ref<HTMLElement | null>(null)
 const commentsRef = ref<HTMLElement | null>(null)
 
-const translateOrFallback = (key: string, fallback: string) => {
-  const translated = t(key)
-  return translated === key ? fallback : translated
-}
-
-const currentUrl = computed(() => {
-  if (typeof window === 'undefined') return ''
-  return `${window.location.origin}${route.fullPath}`
-})
-
-const compactUrl = computed(() => {
-  if (!currentUrl.value) return ''
-
-  try {
-    const url = new URL(currentUrl.value)
-    return `${url.host}${url.pathname}`
-  } catch {
-    return currentUrl.value
-  }
+const {
+  currentUrl,
+  compactUrl,
+  showCopyHint,
+  handleCopyUrl,
+  onUrlBarClick,
+  handleShare
+} = usePostDetailShare({
+  route,
+  post,
+  toastStore,
+  t,
 })
 
 function buildBoardListRoute(boardUrl: string) {
@@ -273,123 +259,34 @@ function buildEditRoute() {
   return `/board/${post.value.board.boardUrl}/post/${post.value.postId}/edit`
 }
 
-async function handleDelete() {
-  const isConfirmed = await confirm(t('common.messages.confirmDelete'))
-  if (!isConfirmed) return
-
-  deleteMutate(route.params.postId as string | number, {
-    onSuccess: () => {
-      if (post.value?.board.boardUrl) {
-        router.push(buildBoardListRoute(post.value.board.boardUrl))
-      }
-    },
-    onError: (err) => {
-      logger.error('Failed to delete post:', err)
-    }
-  })
-}
-
-async function handleLike() {
-  if (!authStore.isAuthenticated || !post.value) return
-
-  if (postView.value?.liked) {
-    unlikeMutate(route.params.postId as string | number, {
-      onError: (err) => logger.error(t('board.postDetail.likeFailed'), err)
-    })
-    return
-  }
-
-  triggerLikeAnimation()
-  likeMutate(route.params.postId as string | number, {
-    onError: (err) => logger.error(t('board.postDetail.likeFailed'), err)
-  })
-}
-
-async function handleBookmark() {
-  if (!authStore.isAuthenticated || !post.value) return
-
-  if (postView.value?.scrapped) {
-    unscrapMutate(route.params.postId as string | number, {
-      onError: (err) => logger.error(t('board.postDetail.scrapFailed'), err)
-    })
-    return
-  }
-
-  triggerBookmarkAnimation()
-  scrapMutate(route.params.postId as string | number, {
-    onError: (err) => logger.error(t('board.postDetail.scrapFailed'), err)
-  })
-}
-
-function openReportModal() {
-  if (!canReport.value) return
-  showReportModal.value = true
-  reportReason.value = ''
-}
-
-async function submitReport() {
-  if (!reportReason.value.trim()) {
-    toastStore.addToast(t('board.postDetail.reportReasonRequired'), 'error')
-    return
-  }
-
-  reportMutate({
-    targetPostId: route.params.postId as string | number,
-    reason: reportReason.value
-  }, {
-    onSuccess: () => {
-      toastStore.addToast(t('board.postDetail.reportSuccess'), 'success')
-      showReportModal.value = false
-    },
-    onError: (err) => {
-      logger.error('Report failed:', err)
-      toastStore.addToast(t('board.postDetail.reportFailed'), 'error')
-    }
-  })
-}
-
-function handleCopyUrl(showToast = true) {
-  if (!currentUrl.value) return
-
-  navigator.clipboard.writeText(currentUrl.value).then(() => {
-    if (showToast) {
-      toastStore.addToast(t('common.messages.urlCopied'), 'success')
-      return
-    }
-
-    showTemporaryCopyHint()
-    ;(document.activeElement as HTMLElement | null)?.blur()
-  }).catch((err) => {
-    logger.error('Failed to copy URL:', err)
-    toastStore.addToast(translateOrFallback('common.messages.processFailed', '二쇱냼 蹂듭궗???ㅽ뙣?덉뒿?덈떎.'), 'error')
-  })
-}
-
-function onUrlBarClick() {
-  if (typeof window !== 'undefined' && window.innerWidth < 640) {
-    handleCopyUrl(false)
-    return
-  }
-
-  handleCopyUrl(true)
-}
-
-function handleShare() {
-  if (navigator.share && post.value) {
-    navigator.share({
-      title: post.value.title,
-      url: currentUrl.value
-    }).catch((err) => {
-      if (err.name !== 'AbortError') {
-        logger.error('Share failed:', err)
-        toastStore.addToast(translateOrFallback('common.messages.processFailed', '공유에 실패했습니다.'), 'error')
-      }
-    })
-    return
-  }
-
-  handleCopyUrl()
-}
+const {
+  isLikeAnimating,
+  isBookmarkAnimating,
+  showReportModal,
+  reportReason,
+  handleDelete,
+  handleLike,
+  handleBookmark,
+  openReportModal,
+  submitReport,
+} = usePostDetailActions({
+  post,
+  canReport,
+  authStore,
+  route,
+  router,
+  toastStore,
+  confirm,
+  t,
+  buildBoardListRoute,
+  closeOverflowMenu: () => {},
+  deleteMutate,
+  likeMutate,
+  unlikeMutate,
+  scrapMutate,
+  unscrapMutate,
+  reportMutate,
+})
 
 function scrollToTop() {
   window.scrollTo({ top: 0, behavior: 'smooth' })

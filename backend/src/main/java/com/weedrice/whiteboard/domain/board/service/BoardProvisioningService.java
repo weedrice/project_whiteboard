@@ -97,13 +97,6 @@ class BoardProvisioningService {
 
         validateCreatableBoardUrl(request.getBoardUrl());
 
-        if (boardRepository.existsByBoardName(request.getBoardName())) {
-            throw new BusinessException(ErrorCode.DUPLICATE_BOARD_NAME);
-        }
-        if (boardRepository.existsByBoardUrl(request.getBoardUrl())) {
-            throw new BusinessException(ErrorCode.DUPLICATE_BOARD_URL);
-        }
-
         Integer maxSortOrder = boardRepository.findMaxSortOrder();
 
         Board board = Board.builder()
@@ -150,16 +143,8 @@ class BoardProvisioningService {
 
         boardAccessPolicy.validateBoardAdmin(board, currentUser);
 
-        if (!board.getBoardName().equals(request.getBoardName())
-                && boardRepository.existsByBoardName(request.getBoardName())) {
-            throw new BusinessException(ErrorCode.DUPLICATE_BOARD_NAME);
-        }
-
         if (request.getBoardUrl() != null && !board.getBoardUrl().equals(request.getBoardUrl())) {
             validateCreatableBoardUrl(request.getBoardUrl());
-            if (boardRepository.existsByBoardUrl(request.getBoardUrl())) {
-                throw new BusinessException(ErrorCode.DUPLICATE_BOARD_URL);
-            }
         }
 
         if (request.getBoardUrl() != null && !board.getBoardUrl().equals(request.getBoardUrl())) {
