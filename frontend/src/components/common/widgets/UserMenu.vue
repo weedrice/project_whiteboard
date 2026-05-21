@@ -63,25 +63,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, getCurrentInstance, nextTick, type CSSProperties } from 'vue'
-import { userApi } from '@/api/user'
+import { ref, onMounted, onUnmounted, computed, getCurrentInstance, nextTick, toRef } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAuthStore } from '@/stores/auth'
-import logger from '@/utils/logger'
-import { useToastStore } from '@/stores/toast'
-import { useConfirm } from '@/composables/useConfirm'
 import { useKeyboardNavigation } from '@/composables/useKeyboardNavigation'
 import { useFocusTrap } from '@/composables/useFocusTrap'
+import { useUserMenuActions } from '@/composables/useUserMenuActions'
+import { useUserMenuPosition } from '@/composables/useUserMenuPosition'
 import MessageModal from '@/components/user/MessageModal.vue'
 import ReportModal from '@/components/report/ReportModal.vue'
 import { formatUserDisplayName } from '@/utils/userDisplay'
-import { useQueryClient } from '@tanstack/vue-query'
 
 const { t } = useI18n()
-const authStore = useAuthStore()
-const toastStore = useToastStore()
-const { confirm } = useConfirm()
-const queryClient = useQueryClient()
 
 const props = withDefaults(defineProps<{
   userId: number
@@ -94,28 +86,28 @@ const props = withDefaults(defineProps<{
 })
 
 const isDropdownOpen = ref(false)
-const isMessageModalOpen = ref(false)
-const isReportModalOpen = ref(false)
 const menuInstanceId = `user-menu-${getCurrentInstance()?.uid ?? props.userId}`
 const menuButtonId = `${menuInstanceId}-button`
 const menuDropdownId = `${menuInstanceId}-dropdown`
 
-const isSelf = computed(() => !!(authStore.user && authStore.user.userId === props.userId))
-const isMenuDisabled = computed(() => !authStore.user || isSelf.value)
 const buttonLabel = computed(() => formatUserDisplayName(props.displayName, props.maxLabelLength))
 
 const buttonRef = ref<HTMLButtonElement | null>(null)
 const dropdownRef = ref<HTMLElement | null>(null)
-const dropdownStyle = ref<CSSProperties>({})
 
-const menuItems = computed(() => {
-  if (isSelf.value) return []
-
-  return [
-    { action: openMessageModal, label: t('user.menu.sendMessage') },
-    { action: openReportModal, label: t('user.menu.report') },
-    { action: handleBlockUser, label: t('user.menu.block') }
-  ]
+const { dropdownStyle, updateDropdownPosition } = useUserMenuPosition(buttonRef, dropdownRef, isDropdownOpen)
+const {
+  isMessageModalOpen,
+  isReportModalOpen,
+  isMenuDisabled,
+  menuItems,
+  closeMessageModal,
+  closeReportModal
+} = useUserMenuActions({
+  userId: toRef(props, 'userId'),
+  displayName: toRef(props, 'displayName'),
+  closeDropdown,
+  t
 })
 
 const { selectedIndex, handleKeyDown: handleMenuKeyDown, setSelectedIndex, reset: resetMenuSelection } = useKeyboardNavigation(
@@ -160,93 +152,18 @@ const toggleDropdown = () => {
   }
 }
 
-const updateDropdownPosition = () => {
-  if (!buttonRef.value) {
-    return
-  }
-
-  const rect = buttonRef.value.getBoundingClientRect()
-  const horizontalPadding = 8
-  const verticalPadding = 8
-  const dropdownWidth = dropdownRef.value?.offsetWidth ?? 224
-  const dropdownHeight = dropdownRef.value?.offsetHeight ?? 0
-  const minLeft = window.scrollX + horizontalPadding
-  const maxLeft = Math.max(minLeft, window.scrollX + window.innerWidth - dropdownWidth - horizontalPadding)
-  const preferredTop = rect.bottom + window.scrollY + 5
-  const preferredLeft = rect.left + window.scrollX
-  let top = preferredTop
-
-  if (dropdownHeight > 0) {
-    const maxTop = window.scrollY + window.innerHeight - dropdownHeight - verticalPadding
-    if (preferredTop > maxTop) {
-      const aboveTop = rect.top + window.scrollY - dropdownHeight - 5
-      top = aboveTop >= window.scrollY + verticalPadding
-        ? aboveTop
-        : Math.max(window.scrollY + verticalPadding, maxTop)
-    }
-  }
-
-  dropdownStyle.value = {
-    top: `${top}px`,
-    left: `${Math.min(Math.max(preferredLeft, minLeft), maxLeft)}px`
-  }
-}
-
-const openDropdown = async () => {
+async function openDropdown() {
   isDropdownOpen.value = true
   resetMenuSelection()
   await nextTick()
   updateDropdownPosition()
-  bindViewportListeners()
   trapFocus()
 }
 
-const closeDropdown = () => {
+function closeDropdown() {
   isDropdownOpen.value = false
-  unbindViewportListeners()
   restoreFocus()
   resetMenuSelection()
-}
-
-const openMessageModal = () => {
-  closeDropdown()
-  if (isSelf.value) return
-  isMessageModalOpen.value = true
-}
-
-const closeMessageModal = () => {
-  isMessageModalOpen.value = false
-}
-
-const openReportModal = () => {
-  closeDropdown()
-  if (isSelf.value) return
-  isReportModalOpen.value = true
-}
-
-const closeReportModal = () => {
-  isReportModalOpen.value = false
-}
-
-const handleBlockUser = async () => {
-  closeDropdown()
-  if (isSelf.value) return
-
-  const isConfirmed = await confirm(t('user.block.confirm', { name: props.displayName }))
-  if (!isConfirmed) {
-    return
-  }
-
-  try {
-    const { data } = await userApi.blockUser(props.userId)
-    if (data.success) {
-      toastStore.addToast(t('user.block.success', { name: props.displayName }), 'success')
-      queryClient.invalidateQueries({ queryKey: ['comments'] })
-    }
-  } catch (error) {
-    logger.error('Failed to block user:', error)
-    toastStore.addToast(t('user.block.failed'), 'error')
-  }
 }
 
 const handleClickOutside = (event: Event) => {
@@ -265,31 +182,12 @@ const handleClickOutside = (event: Event) => {
   closeDropdown()
 }
 
-const handleViewportChange = () => {
-  if (!isDropdownOpen.value) {
-    return
-  }
-
-  updateDropdownPosition()
-}
-
-const bindViewportListeners = () => {
-  window.addEventListener('resize', handleViewportChange)
-  window.addEventListener('scroll', handleViewportChange, true)
-}
-
-const unbindViewportListeners = () => {
-  window.removeEventListener('resize', handleViewportChange)
-  window.removeEventListener('scroll', handleViewportChange, true)
-}
-
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
-  unbindViewportListeners()
 })
 </script>
 
