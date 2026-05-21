@@ -55,22 +55,6 @@ class UserBlockRepositoryTest {
     }
 
     @Test
-    @DisplayName("차단 관계 존재 여부 확인")
-    void existsByUserAndTarget_returnsTrue_whenBlockExists() {
-        boolean exists = userBlockRepository.existsByUserAndTarget(user1, user2);
-
-        assertThat(exists).isTrue();
-    }
-
-    @Test
-    @DisplayName("차단 관계가 없으면 false를 반환한다")
-    void existsByUserAndTarget_returnsFalse_whenBlockDoesNotExist() {
-        boolean exists = userBlockRepository.existsByUserAndTarget(user2, user3);
-
-        assertThat(exists).isFalse();
-    }
-
-    @Test
     @DisplayName("ID 기반 차단 여부를 확인한다")
     void existsByUserIdAndTargetUserId_returnsTrue_whenBlockExists() {
         boolean exists = userBlockRepository.existsByUser_UserIdAndTarget_UserId(user1.getUserId(), user2.getUserId());

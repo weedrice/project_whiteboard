@@ -14,8 +14,6 @@ import java.util.Optional;
 
 public interface UserBlockRepository extends JpaRepository<UserBlock, Long> {
 
-    boolean existsByUserAndTarget(User user, User target);
-
     boolean existsByUser_UserIdAndTarget_UserId(Long userId, Long targetUserId);
 
     @Query("""
