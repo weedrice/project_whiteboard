@@ -83,9 +83,9 @@ public class TagAssignmentService {
 
         Map<String, Tag> tagsByName = existingTagsByName;
         if (!missingTagNames.isEmpty()) {
-            missingTagNames.stream()
+            tagRepository.insertIgnoreAll(missingTagNames.stream()
                     .sorted()
-                    .forEach(tagRepository::insertIgnore);
+                    .toList());
             tagsByName = findTagsForUpdateByName(tagNamesToAdd);
         }
 

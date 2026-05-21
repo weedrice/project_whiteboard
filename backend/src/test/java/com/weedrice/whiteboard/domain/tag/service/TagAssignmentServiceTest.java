@@ -12,7 +12,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
-import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -27,7 +26,6 @@ import java.util.stream.IntStream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -67,7 +65,7 @@ class TagAssignmentServiceTest {
 
         tagAssignmentService.assignTags(post, Collections.singletonList("newTag"));
 
-        verify(tagRepository).insertIgnore("newTag");
+        verify(tagRepository).insertIgnoreAll(List.of("newTag"));
         verify(postTagRepository).save(any(PostTag.class));
         verify(tagRepository).incrementPostCountIn(List.of(20L));
     }
@@ -80,11 +78,11 @@ class TagAssignmentServiceTest {
         ReflectionTestUtils.setField(concurrentlyCreatedTag, "tagId", 20L);
         when(tagRepository.findByTagNameInForUpdate(Collections.singleton("newTag")))
                 .thenReturn(List.of(), List.of(concurrentlyCreatedTag));
-        when(tagRepository.insertIgnore("newTag")).thenReturn(0);
+        when(tagRepository.insertIgnoreAll(List.of("newTag"))).thenReturn(0);
 
         tagAssignmentService.assignTags(post, Collections.singletonList("newTag"));
 
-        verify(tagRepository).insertIgnore("newTag");
+        verify(tagRepository).insertIgnoreAll(List.of("newTag"));
         verify(postTagRepository).save(any(PostTag.class));
         verify(tagRepository).incrementPostCountIn(List.of(20L));
     }
@@ -103,9 +101,7 @@ class TagAssignmentServiceTest {
 
         tagAssignmentService.assignTags(post, Arrays.asList("zulu", "alpha"));
 
-        InOrder inOrder = inOrder(tagRepository);
-        inOrder.verify(tagRepository).insertIgnore("alpha");
-        inOrder.verify(tagRepository).insertIgnore("zulu");
+        verify(tagRepository).insertIgnoreAll(List.of("alpha", "zulu"));
         verify(tagRepository).incrementPostCountIn(List.of(22L, 21L));
     }
 
@@ -120,7 +116,7 @@ class TagAssignmentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_RESOURCE);
 
-        verify(tagRepository).insertIgnore("newTag");
+        verify(tagRepository).insertIgnoreAll(List.of("newTag"));
         verify(postTagRepository, never()).save(any(PostTag.class));
         verify(tagRepository, never()).incrementPostCountIn(any());
     }
@@ -173,7 +169,7 @@ class TagAssignmentServiceTest {
 
         tagAssignmentService.assignTags(post, Arrays.asList("existingTag", "newTag"));
 
-        verify(tagRepository).insertIgnore("newTag");
+        verify(tagRepository).insertIgnoreAll(List.of("newTag"));
         verify(postTagRepository).save(any(PostTag.class));
         verify(postTagRepository).delete(postTagToRemove);
         verify(tagRepository).incrementPostCountIn(List.of(12L));
