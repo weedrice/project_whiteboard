@@ -11,7 +11,7 @@ import com.weedrice.whiteboard.domain.admin.dto.SuperAdminResponse;
 import com.weedrice.whiteboard.domain.admin.dto.SuperAdminUpdateResponse;
 import com.weedrice.whiteboard.domain.admin.entity.AdminRole;
 import com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor;
-import com.weedrice.whiteboard.domain.admin.service.AdminAssignmentService;
+import com.weedrice.whiteboard.domain.admin.service.AdminAssignmentFacade;
 import com.weedrice.whiteboard.domain.admin.service.AdminDashboardService;
 import com.weedrice.whiteboard.domain.admin.service.AdminReadService;
 import com.weedrice.whiteboard.domain.admin.service.IpBlockService;
@@ -75,7 +75,7 @@ class AdminControllerTest {
     private ObjectMapper objectMapper;
 
     @MockitoBean
-    private AdminAssignmentService adminAssignmentService;
+    private AdminAssignmentFacade adminAssignmentFacade;
 
     @MockitoBean
     private AdminReadService adminReadService;
@@ -190,7 +190,7 @@ class AdminControllerTest {
         ReflectionTestUtils.setField(request, "role", AdminRole.BOARD_ADMIN);
 
         AdminResponse response = AdminResponse.builder().adminId(1L).role("BOARD_ADMIN").isActive(true).build();
-        when(adminAssignmentService.createAdmin("admin", 1L, AdminRole.BOARD_ADMIN)).thenReturn(response);
+        when(adminAssignmentFacade.createAdmin("admin", 1L, AdminRole.BOARD_ADMIN)).thenReturn(response);
 
         mockMvc.perform(post("/api/v1/admin/admins")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -223,7 +223,7 @@ class AdminControllerTest {
     @DisplayName("게시판 관리자 조회 성공")
     void getBoardManager_returnsSuccess() throws Exception {
         AdminResponse response = AdminResponse.builder().adminId(1L).role("BOARD_ADMIN").isActive(true).build();
-        when(adminAssignmentService.getBoardManager(1L)).thenReturn(response);
+        when(adminAssignmentFacade.getBoardManager(1L)).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/admin/boards/{boardId}/manager", 1L)
                         .with(user(customUserDetails))
@@ -240,7 +240,7 @@ class AdminControllerTest {
         ReflectionTestUtils.setField(request, "loginId", "newadmin");
 
         AdminResponse response = AdminResponse.builder().adminId(1L).role("BOARD_ADMIN").isActive(true).build();
-        when(adminAssignmentService.replaceBoardManager(1L, "newadmin")).thenReturn(response);
+        when(adminAssignmentFacade.replaceBoardManager(1L, "newadmin")).thenReturn(response);
 
         mockMvc.perform(put("/api/v1/admin/boards/{boardId}/manager", 1L)
                         .contentType(MediaType.APPLICATION_JSON)
