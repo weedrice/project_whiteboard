@@ -29,6 +29,8 @@ import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 
 @Service
@@ -128,9 +130,7 @@ public class PostDraftService {
 
         DraftPost draftPost = draftPostRepository.findByDraftIdAndUserForUpdate(request.getDraftId(), user)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-        if (request.getUpdatedAt() != null
-                && draftPost.getModifiedAt() != null
-                && request.getUpdatedAt().isBefore(draftPost.getModifiedAt())) {
+        if (isOutdatedDraftVersion(request.getUpdatedAt(), draftPost.getModifiedAt())) {
             throw new BusinessException(ErrorCode.DRAFT_OUTDATED);
         }
         draftPost.updateDraft(
@@ -146,6 +146,15 @@ public class PostDraftService {
                 request.getFileIds(),
                 originalPost);
         return draftPost;
+    }
+
+    private boolean isOutdatedDraftVersion(LocalDateTime requestUpdatedAt, LocalDateTime draftModifiedAt) {
+        if (requestUpdatedAt == null || draftModifiedAt == null) {
+            return false;
+        }
+        LocalDateTime requestVersion = requestUpdatedAt.truncatedTo(ChronoUnit.SECONDS);
+        LocalDateTime currentVersion = draftModifiedAt.truncatedTo(ChronoUnit.SECONDS);
+        return requestVersion.isBefore(currentVersion);
     }
 
     private String sanitizeDraftContents(String contents) {

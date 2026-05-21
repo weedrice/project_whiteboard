@@ -466,6 +466,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         return new BooleanExpression[] {
                 post.createdAt.goe(since),
                 post.isDeleted.eq(false),
+                post.isNotice.eq(false),
                 post.isSecret.eq(false),
                 post.board.isActive.eq(true),
                 post.board.isPublic.eq(true),
@@ -477,6 +478,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     private BooleanExpression[] publicLandingLatestPostConditions(String inquiryBoardUrl, List<Long> blockedUserIds) {
         return new BooleanExpression[] {
                 post.isDeleted.eq(false),
+                post.isNotice.eq(false),
                 post.isSecret.eq(false),
                 post.board.isActive.eq(true),
                 post.board.isPublic.eq(true),

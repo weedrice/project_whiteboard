@@ -816,7 +816,7 @@ defineExpose({
             #{{ tag }}
           </span>
         </div>
-        <article class="prose max-w-none dark:prose-invert" v-html="previewHtml" />
+        <article class="nv-rich-content prose max-w-none dark:prose-invert" v-html="previewHtml" />
       </div>
       <template #footer>
         <div class="flex justify-end gap-2">

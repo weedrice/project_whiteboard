@@ -90,7 +90,10 @@ export const boardApi = {
     deleteCategory: (boardUrl: string, categoryId: string | number) => api.delete<ApiResponse<void>>(`/boards/categories/${categoryId}`),
 
     // Get board notices
-    getNotices: (boardUrl: string) => api.get<ApiResponse<PostSummary[]>>(`/boards/${boardUrl}/notices`),
+    getNotices: (boardUrl: string, config?: AxiosRequestConfig) =>
+        config
+            ? api.get<ApiResponse<PostSummary[]>>(`/boards/${boardUrl}/notices`, config)
+            : api.get<ApiResponse<PostSummary[]>>(`/boards/${boardUrl}/notices`),
 
     // Subscribe to board
     subscribeBoard: (boardUrl: string, config?: AxiosRequestConfig) =>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Search, ShieldCheck, User, X } from 'lucide-vue-next'
+import { ChevronDown, ChevronUp, Megaphone, Search, ShieldCheck, User, X } from 'lucide-vue-next'
 import { useHead } from '@unhead/vue'
 import { useI18n } from 'vue-i18n'
 import PostList from '@/components/board/PostList.vue'
@@ -18,7 +18,10 @@ import { canWriteBoardPost, resolveDefaultCategory } from '@/utils/board'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
 import { isInputFocused } from '@/utils/keyboard'
+import { formatRelativeDate } from '@/utils/date'
+import type { PostSummary } from '@/types'
 
+const NOTICE_PREVIEW_LIMIT = 3
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
@@ -44,16 +47,26 @@ const {
   resetListState
 } = useBoardListState(route, router)
 
-const { useBoardDetail, useBoardPosts, useSubscribeBoard } = useBoard()
+const { useBoardDetail, useBoardPosts, useBoardNotices, useSubscribeBoard } = useBoard()
 const { addRecentBoard } = useRecentBoards()
 
 const boardUrl = computed(() => route.params.boardUrl as string)
 const currentPostId = computed(() => route.params.postId as string | undefined)
+const suppressedCurrentPostId = ref<string | null>(null)
 const searchInputElementId = 'board-search-input'
+const listQuery = computed(() => {
+  const { fromCreate, ...query } = route.query
+  return query
+})
+const highlightedPostId = computed(() => (
+  currentPostId.value && currentPostId.value !== suppressedCurrentPostId.value
+    ? currentPostId.value
+    : undefined
+))
 
 const buildBoardListRoute = () => ({
   path: `/board/${boardUrl.value}`,
-  query: route.query
+  query: listQuery.value
 })
 
 const {
@@ -107,6 +120,13 @@ const {
 })
 
 const {
+  data: noticesData
+} = useBoardNotices(boardUrl, boardContentEnabled, {
+  meta: { errorMessage: false },
+  requestConfig: { skipGlobalErrorHandler: true }
+})
+
+const {
   mutate: subscribeMutate,
   isPending: isSubscribePending
 } = useSubscribeBoard({
@@ -119,6 +139,21 @@ const categories = computed(() => (
 ))
 
 const posts = computed(() => postsData.value?.content ?? [])
+const isNoticesExpanded = ref(false)
+const notices = computed(() => (
+  [...(noticesData.value ?? [])].sort((left, right) => {
+    const leftTime = new Date(left.createdAt).getTime()
+    const rightTime = new Date(right.createdAt).getTime()
+    if (leftTime !== rightTime) {
+      return rightTime - leftTime
+    }
+    return Number(right.postId ?? 0) - Number(left.postId ?? 0)
+  })
+))
+const visibleNotices = computed(() => (
+  isNoticesExpanded.value ? notices.value : notices.value.slice(0, NOTICE_PREVIEW_LIMIT)
+))
+const hasNoticeOverflow = computed(() => notices.value.length > NOTICE_PREVIEW_LIMIT)
 const totalPages = computed(() => postsData.value?.totalPages || 0)
 const isInitialLoading = computed(() => isBoardLoading.value && !board.value)
 const currentListKey = computed(() => JSON.stringify({
@@ -159,6 +194,13 @@ function onPageChange(newPage: number) {
   handlePageChange(newPage, totalPages.value)
 }
 
+function getNoticeRoute(notice: PostSummary) {
+  return {
+    path: `/board/${boardUrl.value}/post/${notice.postId}`,
+    query: listQuery.value
+  }
+}
+
 function handleSubscribe() {
   if (!board.value || isSubscribePending.value) return
   if (board.value.isSubscribed && !window.confirm(t('user.subscriptions.unsubscribeConfirm'))) return
@@ -189,7 +231,24 @@ function hasInteractiveFocus(): boolean {
 
 watch(() => route.params.boardUrl, () => {
   resetListState()
+  isNoticesExpanded.value = false
+  suppressedCurrentPostId.value = null
 })
+
+watch([currentPostId, () => route.query.fromCreate], ([postId, fromCreate]) => {
+  if (!postId) {
+    suppressedCurrentPostId.value = null
+    return
+  }
+
+  if (fromCreate === '1') {
+    suppressedCurrentPostId.value = postId
+    router.replace({
+      path: route.path,
+      query: listQuery.value
+    })
+  }
+}, { immediate: true })
 
 watch(board, (newBoard) => {
   if (!newBoard) return
@@ -402,6 +461,52 @@ onUnmounted(() => {
       </div>
 
       <section id="board-post-list" class="nv-board-panel nv-board-list-panel overflow-hidden">
+        <div v-if="notices.length" class="nv-board-notices">
+          <div class="nv-board-notice-heading">
+            <span class="inline-flex items-center gap-1.5">
+              <Megaphone class="h-4 w-4" />
+              {{ $t('board.detail.notices.title') }}
+            </span>
+            <span class="text-[11px] font-medium text-[var(--nv-muted)]">
+              {{ notices.length }}
+            </span>
+          </div>
+
+          <div class="divide-y divide-[var(--nv-line-soft)]">
+            <router-link
+              v-for="notice in visibleNotices"
+              :key="notice.postId"
+              :to="getNoticeRoute(notice)"
+              class="nv-board-notice-row"
+              :class="{ 'is-current': String(notice.postId) === String(highlightedPostId ?? '') }"
+            >
+              <span class="nv-board-notice-badge">{{ $t('common.notice') }}</span>
+              <span class="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--nv-ink)]">
+                {{ notice.title }}
+              </span>
+              <span class="hidden flex-shrink-0 text-xs text-[var(--nv-muted)] sm:inline">
+                {{ formatRelativeDate(notice.createdAt) }}
+              </span>
+            </router-link>
+          </div>
+
+          <button
+            v-if="hasNoticeOverflow"
+            type="button"
+            class="nv-board-notice-more"
+            :aria-expanded="isNoticesExpanded"
+            @click="isNoticesExpanded = !isNoticesExpanded"
+          >
+            <span></span>
+            <span class="inline-flex items-center gap-1">
+              {{ isNoticesExpanded ? $t('board.detail.notices.collapse') : $t('board.detail.notices.more') }}
+              <ChevronUp v-if="isNoticesExpanded" class="h-3.5 w-3.5" />
+              <ChevronDown v-else class="h-3.5 w-3.5" />
+            </span>
+            <span></span>
+          </button>
+        </div>
+
         <div class="nv-board-toolbar-sticky px-4 py-3 sm:px-5">
           <div class="nv-board-filter-rail" aria-label="Category filters">
             <div class="nv-board-filter-track">
@@ -443,8 +548,8 @@ onUnmounted(() => {
           :loading="showPostListLoading"
           :boardUrl="board.boardUrl"
           :current-sort="sort"
-          :currentPostId="currentPostId"
-          :linkQuery="route.query"
+          :currentPostId="highlightedPostId"
+          :linkQuery="listQuery"
           @update:sort="handleSortChange"
         />
 
@@ -719,6 +824,79 @@ onUnmounted(() => {
 
 .nv-board-filter-track > .nv-board-filter-chip {
   flex: 0 0 auto;
+}
+
+.nv-board-notices {
+  background: color-mix(in srgb, var(--nv-surface-2) 42%, transparent);
+  border-bottom: 1px solid var(--nv-line);
+}
+
+.nv-board-notice-heading {
+  align-items: center;
+  color: var(--nv-ink-soft);
+  display: flex;
+  font-size: 0.72rem;
+  font-weight: 700;
+  justify-content: space-between;
+  letter-spacing: 0.12em;
+  padding: 0.85rem 1rem 0.4rem;
+  text-transform: uppercase;
+}
+
+.nv-board-notice-row {
+  align-items: center;
+  display: flex;
+  gap: 0.65rem;
+  min-height: 2.75rem;
+  padding: 0.7rem 1rem;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.nv-board-notice-row:hover,
+.nv-board-notice-row.is-current {
+  background: color-mix(in srgb, var(--nv-accent-bg) 70%, transparent);
+}
+
+.nv-board-notice-badge {
+  align-items: center;
+  background: color-mix(in srgb, #ef4444 12%, transparent);
+  border: 1px solid color-mix(in srgb, #ef4444 25%, var(--nv-line));
+  border-radius: 9999px;
+  color: #dc2626;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  justify-content: center;
+  line-height: 1;
+  min-height: 1.35rem;
+  padding: 0.15rem 0.55rem;
+}
+
+.nv-board-notice-more {
+  align-items: center;
+  color: var(--nv-muted);
+  cursor: pointer;
+  display: grid;
+  font-size: 0.72rem;
+  font-weight: 700;
+  gap: 0.65rem;
+  grid-template-columns: 1fr auto 1fr;
+  letter-spacing: 0.08em;
+  min-height: 2rem;
+  padding: 0 1rem 0.55rem;
+  text-transform: uppercase;
+  width: 100%;
+}
+
+.nv-board-notice-more > span:first-child,
+.nv-board-notice-more > span:last-child {
+  background: var(--nv-line);
+  height: 1px;
+}
+
+.nv-board-notice-more:hover {
+  color: var(--nv-accent);
 }
 
 .nv-board-toolbar-sticky {

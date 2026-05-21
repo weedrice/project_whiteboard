@@ -1936,7 +1936,34 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("초안 저장은 읽기 가능 보드라도 쓰기 권한이 없으면 차단한다")
+    @DisplayName("draft update accepts matching version when only fractional seconds differ")
+    void saveDraftPost_acceptsSameSecondVersion() {
+        DraftPost existingDraft = DraftPost.builder().user(user).board(board).title("Old").build();
+        ReflectionTestUtils.setField(existingDraft, "draftId", 10L);
+        ReflectionTestUtils.setField(existingDraft, "modifiedAt",
+                LocalDateTime.of(2025, 1, 2, 12, 0, 0, 987_000_000));
+        PostDraftRequest request = PostDraftRequest.builder()
+                .draftId(10L)
+                .boardUrl("free")
+                .title("New Title")
+                .contents("New Content")
+                .fileIds(Collections.emptyList())
+                .updatedAt(LocalDateTime.of(2025, 1, 2, 12, 0))
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
+        when(draftPostRepository.saveAndFlush(any(DraftPost.class))).thenAnswer(i -> i.getArgument(0));
+
+        DraftResponse draft = postService.saveDraftPost(1L, request);
+
+        assertThat(draft.getTitle()).isEqualTo("New Title");
+        verify(fileService).syncDraftFiles(Collections.emptyList(), 1L, 10L);
+    }
+
+    @Test
+    @DisplayName("draft save requires writable board")
     void saveDraftPost_requiresWritableBoard() {
         PostDraftRequest request = new PostDraftRequest(null, "free", "Draft Title", "Draft Content", null);
         User otherCreator = User.builder().loginId("other").displayName("Other").build();

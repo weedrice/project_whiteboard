@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => {
         toggleBulletList: vi.fn(),
         toggleOrderedList: vi.fn(),
         toggleBlockquote: vi.fn(),
+        setBlockquote: vi.fn(),
         toggleHeading: vi.fn(),
         toggleCodeBlock: vi.fn(),
         setHorizontalRule: vi.fn(),
@@ -146,6 +147,7 @@ vi.mock('lucide-vue-next', () => {
     const icon = defineComponent({ name: 'TestIcon', setup: () => () => h('i') })
     return {
         Image: icon,
+        Link2: icon,
         List: icon,
         ListOrdered: icon,
         SeparatorHorizontal: icon,
@@ -220,7 +222,6 @@ const mountEditor = (modelValue = '<p>initial</p>') => {
 }
 
 const selectors = {
-    more: 'button[title="board.writePost.toolbar.more"]',
     link: 'button[title="board.writePost.toolbar.link"]',
     image: 'button[title="board.writePost.toolbar.image"]',
     video: 'button[title="board.writePost.toolbar.video"]',
@@ -231,10 +232,6 @@ const selectors = {
     divider: 'button[title="board.writePost.toolbar.divider"]',
     tableDialog: 'button[title="board.writePost.toolbar.tableDialog"]',
 } as const
-
-const openAdvancedTools = async (wrapper: ReturnType<typeof mountEditor>) => {
-    await wrapper.get(selectors.more).trigger('click')
-}
 
 describe('PostEditorTipTap', () => {
     afterEach(() => {
@@ -320,7 +317,7 @@ describe('PostEditorTipTap', () => {
         expect(wrapper.find('.slash-popover').exists()).toBe(true)
     })
 
-    it('applies advanced formatting controls and table insertion', async () => {
+    it('applies toolbar formatting controls and table insertion', async () => {
         mocks.i18nT.mockImplementation((key: string) => {
             if (key === 'board.writePost.fontSize') return ''
             if (key === 'board.writePost.lineHeight') return ''
@@ -333,7 +330,6 @@ describe('PostEditorTipTap', () => {
         })
 
         const wrapper = mountEditor()
-        await openAdvancedTools(wrapper)
 
         expect(wrapper.text()).toContain('Font size')
         expect(wrapper.text()).toContain('Line height')
@@ -355,6 +351,7 @@ describe('PostEditorTipTap', () => {
         await wrapper.get('button[title="board.writePost.alignCenter"]').trigger('click')
         await wrapper.get('button[title="board.writePost.alignRight"]').trigger('click')
         await wrapper.get('button[title="board.writePost.alignJustify"]').trigger('click')
+
         await wrapper.get(selectors.divider).trigger('click')
 
         await wrapper.get(selectors.tableDialog).trigger('click')
@@ -368,8 +365,7 @@ describe('PostEditorTipTap', () => {
         expect(mocks.chain.setLineHeight).toHaveBeenCalledWith('1.5')
         expect(mocks.chain.unsetFontSize).toHaveBeenCalled()
         expect(mocks.chain.unsetLineHeight).toHaveBeenCalled()
-        expect(mocks.chain.setHighlight).toHaveBeenCalledWith({ color: '#22c55e' })
-        expect(mocks.chain.setColor).toHaveBeenCalled()
+        expect(mocks.chain.setColor).toHaveBeenCalledWith('#22c55e')
         expect(mocks.chain.unsetColor).toHaveBeenCalled()
         expect(mocks.chain.insertTable).toHaveBeenCalledWith({ rows: 20, cols: 3, withHeaderRow: false })
         expect(mocks.chain.setTextAlign).toHaveBeenCalledWith('left')
@@ -411,7 +407,6 @@ describe('PostEditorTipTap', () => {
         expect(mocks.chain.unsetLink).toHaveBeenCalled()
 
         mocks.editor.isActive.mockImplementation((name: unknown) => name === 'bold')
-        await openAdvancedTools(wrapper)
         await wrapper.get(selectors.link).trigger('click')
         expect(wrapper.find('.link-popover-remove').exists()).toBe(false)
     })
@@ -456,10 +451,9 @@ describe('PostEditorTipTap', () => {
         setFile('ok.png')
         await fileInput.trigger('change')
         await flushPromises()
-        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="https://cdn.test/u1.png"'))
+        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="blob:https://noviis.kr/local-preview"'))
         expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-file-id="88"'))
-        expect(mocks.chain.insertContent).not.toHaveBeenCalledWith(expect.stringContaining('blob:https://noviis.kr/local-preview"'))
-        expect(mocks.chain.insertContent).not.toHaveBeenCalledWith(expect.stringContaining('data-server-src='))
+        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-server-src="https://cdn.test/u1.png"'))
 
         const firstFile = new File(['a'], 'first.png', { type: 'image/png' })
         const secondFile = new File(['b'], 'second.webp', { type: 'image/webp' })
@@ -474,8 +468,8 @@ describe('PostEditorTipTap', () => {
         await flushPromises()
         expect(mocks.uploadImage).toHaveBeenCalledWith(firstFile)
         expect(mocks.uploadImage).toHaveBeenCalledWith(secondFile)
-        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="https://cdn.test/first.png"'))
-        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="https://cdn.test/second.webp"'))
+        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-server-src="https://cdn.test/first.png"'))
+        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-server-src="https://cdn.test/second.webp"'))
 
         mocks.validateImageFile.mockReturnValueOnce(null)
         mocks.uploadImage.mockRejectedValueOnce(new Error('abort'))
@@ -499,10 +493,10 @@ describe('PostEditorTipTap', () => {
         mocks.uploadImage.mockResolvedValueOnce({ url: 'https://cdn.test/retry.png', fileId: 89 })
         await wrapper.findAll('.image-upload-status-btn')[0].trigger('click')
         await flushPromises()
-        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="https://cdn.test/retry.png"'))
+        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-server-src="https://cdn.test/retry.png"'))
 
         wrapper.unmount()
-        expect(URL.revokeObjectURL).not.toHaveBeenCalled()
+        expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:https://noviis.kr/local-preview')
     })
 
     it('uploads pasted and dropped image files through the sequential queue', async () => {
@@ -523,7 +517,7 @@ describe('PostEditorTipTap', () => {
         await flushPromises()
         expect(pasteEvent.defaultPrevented).toBe(true)
         expect(mocks.uploadImage).toHaveBeenCalledWith(pastedFile)
-        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="https://cdn.test/pasted.png"'))
+        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-server-src="https://cdn.test/pasted.png"'))
 
         const dragEnterEvent = new Event('dragenter', { bubbles: true, cancelable: true }) as DragEvent
         Object.defineProperty(dragEnterEvent, 'dataTransfer', {
@@ -542,7 +536,7 @@ describe('PostEditorTipTap', () => {
         expect(dropEvent.defaultPrevented).toBe(true)
         expect(wrapper.find('.image-drop-overlay').exists()).toBe(false)
         expect(mocks.uploadImage).toHaveBeenCalledWith(droppedFile)
-        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="https://cdn.test/dropped.webp"'))
+        expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-server-src="https://cdn.test/dropped.webp"'))
     })
 
     it('opens image alt editor from selected images and applies or clears alt text', async () => {
@@ -596,6 +590,8 @@ describe('PostEditorTipTap', () => {
 
         expect(wrapper.get(selectors.image).attributes('aria-label')).toBe('board.writePost.toolbar.image')
         expect(wrapper.get(selectors.video).attributes('aria-label')).toBe('board.writePost.toolbar.video')
+        expect(wrapper.findAll('select.tiptap-select')[0].attributes('aria-label')).toBe('board.writePost.fontSize')
+        expect(wrapper.findAll('select.tiptap-select')[1].attributes('aria-label')).toBe('board.writePost.lineHeight')
 
         await wrapper.get(selectors.link).trigger('click')
         expect(wrapper.get('.link-popover').attributes('aria-modal')).toBe('true')
@@ -609,17 +605,12 @@ describe('PostEditorTipTap', () => {
         await nextTick()
         expect(wrapper.find('.slash-popover').exists()).toBe(false)
 
-        await wrapper.get(selectors.more).trigger('click')
-        expect(wrapper.get('.advanced-popover').attributes('aria-modal')).toBe('true')
-        expect(wrapper.findAll('select.tiptap-select')[0].attributes('aria-label')).toBe('board.writePost.fontSize')
-        expect(wrapper.findAll('select.tiptap-select')[1].attributes('aria-label')).toBe('board.writePost.lineHeight')
         await wrapper.get('.tiptap-color-trigger').trigger('click')
         expect(wrapper.get('.color-panel').attributes('aria-modal')).toBeUndefined()
         expect(wrapper.findAll('.color-panel-swatch')[0].attributes('aria-label')).toBe('board.writePost.colorLabels.black')
         dispatchEscape(wrapper.get('.color-panel').element)
         await nextTick()
         expect(wrapper.find('.color-panel').exists()).toBe(false)
-        expect(wrapper.find('.advanced-popover').exists()).toBe(true)
 
         await wrapper.get(selectors.tableDialog).trigger('click')
         expect(wrapper.get('.table-popover').attributes('aria-modal')).toBe('true')
@@ -627,10 +618,7 @@ describe('PostEditorTipTap', () => {
         await nextTick()
         expect(wrapper.find('.table-popover').exists()).toBe(false)
 
-        await wrapper.get(selectors.more).trigger('click')
-        dispatchEscape(wrapper.get('.advanced-popover').element)
-        await nextTick()
-        expect(wrapper.find('.advanced-popover').exists()).toBe(false)
+        expect(wrapper.find('button[title="board.writePost.toolbar.more"]').exists()).toBe(false)
         expect(documentKeydown).not.toHaveBeenCalled()
         document.removeEventListener('keydown', documentKeydown)
     })
@@ -664,7 +652,7 @@ describe('PostEditorTipTap', () => {
         expect(wrapper.findAll('.slash-action-btn')[0].attributes('tabindex')).toBe('0')
         await wrapper.get('[role="menu"]').trigger('keydown', { key: 'End' })
         await nextTick()
-        expect(wrapper.findAll('.slash-action-btn')[8].attributes('tabindex')).toBe('0')
+        expect(wrapper.findAll('.slash-action-btn')[6].attributes('tabindex')).toBe('0')
         await wrapper.get('[role="menu"]').trigger('keydown', { key: 'Home' })
         await nextTick()
         expect(wrapper.findAll('.slash-action-btn')[0].attributes('tabindex')).toBe('0')
@@ -672,38 +660,31 @@ describe('PostEditorTipTap', () => {
         expect(mocks.chain.toggleHeading).toHaveBeenCalledWith({ level: 2 })
 
         await wrapper.get(selectors.slashMenu).trigger('click')
-        await wrapper.findAll('.slash-action-btn')[1].trigger('click')
-        expect(imageInputClickSpy).toHaveBeenCalled()
-
-        await wrapper.get(selectors.slashMenu).trigger('click')
-        await wrapper.get('[role="menu"]').trigger('keydown', { key: 'ArrowDown' })
         await wrapper.get('[role="menu"]').trigger('keydown', { key: 'ArrowDown' })
         await wrapper.get('[role="menu"]').trigger('keydown', { key: 'Enter' })
-        expect(mocks.chain.toggleBlockquote).toHaveBeenCalled()
+        expect(mocks.chain.setBlockquote).toHaveBeenCalled()
 
         await wrapper.get(selectors.slashMenu).trigger('click')
-        await wrapper.findAll('.slash-action-btn')[3].trigger('click')
+        await wrapper.findAll('.slash-action-btn')[2].trigger('click')
         expect(mocks.chain.toggleBulletList).toHaveBeenCalled()
 
         await wrapper.get(selectors.slashMenu).trigger('click')
-        await wrapper.findAll('.slash-action-btn')[4].trigger('click')
+        await wrapper.findAll('.slash-action-btn')[3].trigger('click')
         expect(wrapper.find('.link-popover').exists()).toBe(true)
 
         await wrapper.get(selectors.slashMenu).trigger('click')
-        await wrapper.findAll('.slash-action-btn')[5].trigger('click')
+        await wrapper.findAll('.slash-action-btn')[4].trigger('click')
         expect(wrapper.find('.table-popover').exists()).toBe(true)
 
         await wrapper.get(selectors.slashMenu).trigger('click')
-        await wrapper.findAll('.slash-action-btn')[6].trigger('click')
-        expect(wrapper.emitted('open-video')).toHaveLength(1)
-
-        await wrapper.get(selectors.slashMenu).trigger('click')
-        await wrapper.findAll('.slash-action-btn')[7].trigger('click')
+        await wrapper.findAll('.slash-action-btn')[5].trigger('click')
         expect(mocks.chain.toggleCodeBlock).toHaveBeenCalled()
 
         await wrapper.get(selectors.slashMenu).trigger('click')
-        await wrapper.findAll('.slash-action-btn')[8].trigger('click')
+        await wrapper.findAll('.slash-action-btn')[6].trigger('click')
         expect(mocks.chain.setHorizontalRule).toHaveBeenCalled()
+
+        expect(imageInputClickSpy).not.toHaveBeenCalled()
     })
 
     it('handles content area cursor placement and editor-null guards safely', async () => {
@@ -771,8 +752,22 @@ describe('PostEditorTipTap', () => {
 
     it('renders grouped desktop toolbar controls with insert block affordance', () => {
         const wrapper = mountEditor()
+        const toolbarRows = wrapper.findAll('.tiptap-toolbar-row')
+        const firstRow = toolbarRows[0]
+        const secondRow = toolbarRows[1]
 
-        expect(wrapper.findAll('.tiptap-toolbar-group').length).toBeGreaterThanOrEqual(4)
+        expect(toolbarRows).toHaveLength(2)
+        expect(firstRow.find('button[title="board.writePost.toolbar.bold"]').exists()).toBe(true)
+        expect(firstRow.find('button[title="board.writePost.toolbar.link"]').exists()).toBe(false)
+        expect(firstRow.find(selectors.bulletList).exists()).toBe(true)
+        expect(firstRow.find(selectors.orderedList).exists()).toBe(true)
+        expect(secondRow.find(selectors.link).exists()).toBe(true)
+        expect(secondRow.find(selectors.image).exists()).toBe(true)
+        expect(secondRow.find(selectors.video).exists()).toBe(true)
+        expect(secondRow.find(selectors.emoticon).exists()).toBe(true)
+        expect(secondRow.find(selectors.tableDialog).exists()).toBe(true)
+        expect(secondRow.find(selectors.divider).exists()).toBe(true)
         expect(wrapper.get(selectors.slashMenu).text()).toContain('board.writePost.toolbar.insertBlock')
+        expect(wrapper.find('button[title="board.writePost.toolbar.more"]').exists()).toBe(false)
     })
 })

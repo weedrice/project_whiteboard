@@ -111,6 +111,24 @@ export function useBoard() {
         })
     }
 
+    const useBoardNotices = (
+        boardUrl: Ref<string>,
+        enabled?: Ref<boolean>,
+        options: { requestConfig?: AxiosRequestConfig } & Record<string, unknown> = {}
+    ) => {
+        const { requestConfig, ...queryOptions } = options
+        return useQuery({
+            queryKey: ['board', boardUrl, 'notices'],
+            queryFn: async () => {
+                const { data } = await boardApi.getNotices(boardUrl.value, requestConfig)
+                return data.data as PostSummary[]
+            },
+            enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
+            staleTime: QUERY_STALE_TIME.SHORT,
+            ...queryOptions
+        })
+    }
+
     // Subscribe/Unsubscribe mutation
     const useSubscribeBoard = (options: { requestConfig?: AxiosRequestConfig } & Record<string, unknown> = {}) => {
         const { requestConfig, ...mutationOptions } = options
@@ -234,6 +252,7 @@ export function useBoard() {
         useSubscribedBoards,
         useBoardDetail,
         useBoardPosts,
+        useBoardNotices,
         useSubscribeBoard,
         useBoardCategories,
         useCreateBoard,

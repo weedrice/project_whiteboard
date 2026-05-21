@@ -1,5 +1,5 @@
-import { mount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { enableAutoUnmount, mount } from '@vue/test-utils'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import PostEditorSlashMenu from '../PostEditorSlashMenu.vue'
 
@@ -9,7 +9,9 @@ vi.mock('vue-i18n', () => ({
     }),
 }))
 
-const actions = ['heading', 'image', 'quote', 'list', 'link', 'table', 'video', 'codeBlock', 'divider'] as const
+const actions = ['heading', 'quote', 'list', 'link', 'table', 'codeBlock', 'divider'] as const
+
+enableAutoUnmount(afterEach)
 
 function mountMenu(activeIndex = 1) {
     return mount(PostEditorSlashMenu, {
@@ -35,8 +37,6 @@ describe('PostEditorSlashMenu', () => {
             '-1',
             '-1',
             '-1',
-            '-1',
-            '-1',
         ])
         expect(document.activeElement).toBe(buttons[1].element)
 
@@ -48,8 +48,6 @@ describe('PostEditorSlashMenu', () => {
             '-1',
             '-1',
             '0',
-            '-1',
-            '-1',
             '-1',
             '-1',
             '-1',
@@ -71,9 +69,20 @@ describe('PostEditorSlashMenu', () => {
         await menu.trigger('keydown', { key: 'Escape' })
 
         expect(wrapper.emitted('move')).toEqual([[1], [-1]])
-        expect(wrapper.emitted('set-active')?.slice(setActiveOffset)).toEqual([[0], [8]])
-        expect(wrapper.emitted('select')).toEqual([['quote']])
+        expect(wrapper.emitted('set-active')?.slice(setActiveOffset)).toEqual([[0], [6]])
+        expect(wrapper.emitted('select')).toEqual([['list']])
         expect(wrapper.emitted('close')).toHaveLength(1)
+    })
+
+    it('handles document keyboard navigation before the menu receives focus', async () => {
+        const wrapper = mountMenu(1)
+        await nextTick()
+
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }))
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+
+        expect(wrapper.emitted('move')).toEqual([[1]])
+        expect(wrapper.emitted('select')).toEqual([['quote']])
     })
 
     it('emits set-active on hover and focus and select on click', async () => {
@@ -87,6 +96,6 @@ describe('PostEditorSlashMenu', () => {
         await buttons[1].trigger('click')
 
         expect(wrapper.emitted('set-active')?.slice(setActiveOffset)).toEqual([[3], [4]])
-        expect(wrapper.emitted('select')).toEqual([['image']])
+        expect(wrapper.emitted('select')).toEqual([['quote']])
     })
 })

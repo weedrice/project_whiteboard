@@ -58,4 +58,19 @@ class PostContentSummaryExtractorTest {
 
         assertThat(url).isEqualTo("https://www.youtube.com/embed/abc123");
     }
+
+    @Test
+    @DisplayName("요약 생성 시 HTML 블록 사이 텍스트가 붙지 않도록 공백을 보존한다")
+    void extractSummary_preservesSpacingBetweenHtmlBlocks() {
+        Post htmlPost = Post.builder()
+                .title("title")
+                .contents("<p>첫 문단</p><p>둘째 문단</p><ul><li>목록 하나</li><li>목록 둘</li></ul>")
+                .user(post.getUser())
+                .board(post.getBoard())
+                .build();
+
+        String summary = extractor.extractSummary(htmlPost);
+
+        assertThat(summary).isEqualTo("첫 문단 둘째 문단 목록 하나 목록 둘");
+    }
 }

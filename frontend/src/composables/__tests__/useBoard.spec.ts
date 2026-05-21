@@ -132,7 +132,7 @@ describe('useBoard', () => {
         expect((options.enabled as { value: boolean }).value).toBe(false)
     })
 
-    it('fetches board detail and notices with enabled guards', async () => {
+    it('fetches board detail with enabled guards', async () => {
         vi.mocked(boardApi.getBoard).mockResolvedValueOnce({
             data: { data: { boardId: 2, boardUrl: 'free' } },
         } as never)
@@ -146,6 +146,23 @@ describe('useBoard', () => {
         const result = await (options.queryFn as () => Promise<unknown>)()
         expect(result).toEqual({ boardId: 2, boardUrl: 'free' })
         expect(boardApi.getBoard).toHaveBeenCalledWith('free', undefined)
+    })
+
+    it('fetches board notices with enabled guards', async () => {
+        vi.mocked(boardApi.getNotices).mockResolvedValueOnce({
+            data: { data: [{ postId: 11, title: 'Notice' }] },
+        } as never)
+        const { useBoardNotices } = useBoard()
+        const boardUrl = ref('free')
+        const enabled = ref(true)
+
+        useBoardNotices(boardUrl, enabled)
+        const options = mocks.queryOptions.at(-1)!
+        expect(options.queryKey).toEqual(['board', boardUrl, 'notices'])
+        expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
+        const result = await (options.queryFn as () => Promise<unknown>)()
+        expect(result).toEqual([{ postId: 11, title: 'Notice' }])
+        expect(boardApi.getNotices).toHaveBeenCalledWith('free', undefined)
     })
 
     it('fetches board posts through boardApi when not searching', async () => {
