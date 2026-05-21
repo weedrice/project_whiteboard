@@ -459,13 +459,28 @@ class SanctionServiceTest {
     void getSanctionsByTargetUser_appliesStableDefaultSort() {
         PageRequest requestedPageable = PageRequest.of(0, 20);
         PageRequest safePageable = defaultSanctionPageable();
-        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
-        when(sanctionRepository.findByTargetUser(targetUser, safePageable))
+        when(sanctionRepository.findByTargetUser_UserId(2L, safePageable))
                 .thenReturn(new PageImpl<>(List.of(), safePageable, 0));
+        when(userRepository.existsById(2L)).thenReturn(true);
 
         sanctionService.getSanctions(2L, requestedPageable);
 
-        verify(sanctionRepository).findByTargetUser(targetUser, safePageable);
+        verify(sanctionRepository).findByTargetUser_UserId(2L, safePageable);
+    }
+
+    @Test
+    @DisplayName("get sanctions by missing target user preserves USER_NOT_FOUND")
+    void getSanctionsByTargetUser_missingUser_throwsUserNotFound() {
+        PageRequest requestedPageable = PageRequest.of(0, 20);
+        PageRequest safePageable = defaultSanctionPageable();
+        when(sanctionRepository.findByTargetUser_UserId(999L, safePageable))
+                .thenReturn(new PageImpl<>(List.of(), safePageable, 0));
+        when(userRepository.existsById(999L)).thenReturn(false);
+
+        assertThatThrownBy(() -> sanctionService.getSanctions(999L, requestedPageable))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
     }
 
     @Test

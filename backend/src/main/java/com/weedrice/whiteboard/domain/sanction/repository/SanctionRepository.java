@@ -15,7 +15,7 @@ import java.util.Optional;
 
 public interface SanctionRepository extends JpaRepository<Sanction, Long> {
     @EntityGraph(attributePaths = {"targetUser", "admin", "processorUser"})
-    Page<Sanction> findByTargetUser(User targetUser, Pageable pageable);
+    Page<Sanction> findByTargetUser_UserId(Long targetUserId, Pageable pageable);
     @EntityGraph(attributePaths = {"targetUser", "admin", "processorUser"})
     Page<Sanction> findAll(Pageable pageable);
     Optional<Sanction> findFirstByTargetUserAndTypeAndEndDateAfterOrderByEndDateDesc(User targetUser, String type, LocalDateTime now);
