@@ -27,6 +27,9 @@ import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import PostTags from '@/components/tag/PostTags.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { usePost } from '@/composables/usePost'
+import { usePostDetailPermissions } from '@/composables/usePostDetailPermissions'
+import { usePostDetailUiEffects } from '@/composables/usePostDetailUiEffects'
+import { usePostDetailViewModel } from '@/composables/usePostDetailViewModel'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { formatDate } from '@/utils/date'
@@ -63,6 +66,7 @@ const {
   meta: { errorMessage: false },
   requestConfig: { skipGlobalErrorHandler: true }
 })
+const postView = usePostDetailViewModel(post)
 
 const postPageTitle = computed(() => {
   const postTitle = post.value?.title?.trim()
@@ -147,15 +151,20 @@ const error = computed(() => {
   return t('board.postDetail.loadFailed')
 })
 
-const isAuthor = computed(() => {
-  return !!authStore.user && !!post.value && authStore.user.userId === post.value.author.userId
+const currentUserId = computed(() => authStore.user?.userId)
+const isAuthenticated = computed(() => authStore.isAuthenticated)
+const authIsAdmin = computed(() => authStore.isAdmin)
+const {
+  isAuthor,
+  isAgentAuthor,
+  canEdit,
+  canDelete,
+  canReport
+} = usePostDetailPermissions(post, {
+  currentUserId,
+  isAuthenticated,
+  isAdmin: authIsAdmin
 })
-
-const isAgentAuthor = computed(() => post.value?.author?.authorType === 'AGENT')
-const isAdmin = computed(() => authStore.isAdmin)
-const canEdit = computed(() => isAuthor.value && !!post.value)
-const canDelete = computed(() => !!post.value && (isAuthor.value || isAdmin.value || !!post.value.board.isAdmin))
-const canReport = computed(() => authStore.isAuthenticated && !isAuthor.value)
 
 const processedContents = computed(() => {
   if (!post.value?.contents) return ''
@@ -165,26 +174,30 @@ const processedContents = computed(() => {
   return sanitized.replace(/<img(?![^>]*\bloading=)([^>]+)>/gi, '<img loading="lazy"$1>')
 })
 
-const isBlurred = ref(false)
-const timeLeft = ref(5)
-const isLikeAnimating = ref(false)
-const isBookmarkAnimating = ref(false)
 const showReportModal = ref(false)
 const reportReason = ref('')
 const showOverflowMenu = ref(false)
-const showCopyHint = ref(false)
-const showComposerCta = ref(false)
+const {
+  isBlurred,
+  timeLeft,
+  isLikeAnimating,
+  isBookmarkAnimating,
+  showCopyHint,
+  showComposerCta,
+  startBlurTimer,
+  clearBlurTimer,
+  revealSpoiler,
+  triggerLikeAnimation,
+  triggerBookmarkAnimation,
+  showTemporaryCopyHint,
+  setupComposerObserver,
+  disposePostDetailUiEffects
+} = usePostDetailUiEffects()
 
 const contentRef = ref<HTMLElement | null>(null)
 const commentsRef = ref<HTMLElement | null>(null)
 const overflowRef = ref<HTMLElement | null>(null)
 const overflowButtonRef = ref<HTMLElement | null>(null)
-
-let blurTimer: ReturnType<typeof setInterval> | null = null
-let likeAnimationTimer: ReturnType<typeof setTimeout> | null = null
-let bookmarkAnimationTimer: ReturnType<typeof setTimeout> | null = null
-let copyHintTimer: ReturnType<typeof setTimeout> | null = null
-let composerObserver: IntersectionObserver | null = null
 
 const translateOrFallback = (key: string, fallback: string) => {
   const translated = t(key)
@@ -206,28 +219,6 @@ const compactUrl = computed(() => {
     return currentUrl.value
   }
 })
-
-function clearBlurTimer() {
-  if (blurTimer) {
-    clearInterval(blurTimer)
-    blurTimer = null
-  }
-}
-
-function startBlurTimer() {
-  clearBlurTimer()
-  blurTimer = setInterval(() => {
-    timeLeft.value -= 1
-    if (timeLeft.value <= 0) {
-      revealSpoiler()
-    }
-  }, 1000)
-}
-
-function revealSpoiler() {
-  isBlurred.value = false
-  clearBlurTimer()
-}
 
 function buildBoardListRoute(boardUrl: string) {
   return {
@@ -295,28 +286,10 @@ async function handleDelete() {
   })
 }
 
-function triggerLikeAnimation() {
-  isLikeAnimating.value = true
-  if (likeAnimationTimer) clearTimeout(likeAnimationTimer)
-  likeAnimationTimer = setTimeout(() => {
-    isLikeAnimating.value = false
-    likeAnimationTimer = null
-  }, 300)
-}
-
-function triggerBookmarkAnimation() {
-  isBookmarkAnimating.value = true
-  if (bookmarkAnimationTimer) clearTimeout(bookmarkAnimationTimer)
-  bookmarkAnimationTimer = setTimeout(() => {
-    isBookmarkAnimating.value = false
-    bookmarkAnimationTimer = null
-  }, 300)
-}
-
 async function handleLike() {
   if (!authStore.isAuthenticated || !post.value) return
 
-  if (post.value.liked) {
+  if (postView.value?.liked) {
     unlikeMutate(route.params.postId as string | number, {
       onError: (err) => logger.error(t('board.postDetail.likeFailed'), err)
     })
@@ -332,7 +305,7 @@ async function handleLike() {
 async function handleBookmark() {
   if (!authStore.isAuthenticated || !post.value) return
 
-  if (post.value.scrapped) {
+  if (postView.value?.scrapped) {
     unscrapMutate(route.params.postId as string | number, {
       onError: (err) => logger.error(t('board.postDetail.scrapFailed'), err)
     })
@@ -382,12 +355,7 @@ function handleCopyUrl(showToast = true) {
       return
     }
 
-    showCopyHint.value = true
-    if (copyHintTimer) clearTimeout(copyHintTimer)
-    copyHintTimer = setTimeout(() => {
-      showCopyHint.value = false
-      copyHintTimer = null
-    }, 1500)
+    showTemporaryCopyHint()
     ;(document.activeElement as HTMLElement | null)?.blur()
   }).catch((err) => {
     logger.error('Failed to copy URL:', err)
@@ -491,33 +459,6 @@ function goToList() {
   }
 
   router.back()
-}
-
-function setupComposerObserver() {
-  if (composerObserver) {
-    composerObserver.disconnect()
-    composerObserver = null
-  }
-
-  if (typeof window === 'undefined' || window.innerWidth >= 640) {
-    showComposerCta.value = false
-    return
-  }
-
-  const composer = document.getElementById('comment-composer')
-  if (!composer) {
-    showComposerCta.value = false
-    return
-  }
-
-  composerObserver = new IntersectionObserver(([entry]) => {
-    showComposerCta.value = !entry.isIntersecting
-  }, {
-    threshold: 0,
-    rootMargin: '0px 0px -18% 0px'
-  })
-
-  composerObserver.observe(composer)
 }
 
 function closeOverflowMenu() {
@@ -667,23 +608,7 @@ onUnmounted(() => {
   document.removeEventListener('click', handleDocumentClick)
   window.removeEventListener('resize', handleResize)
 
-  clearBlurTimer()
-  if (composerObserver) {
-    composerObserver.disconnect()
-    composerObserver = null
-  }
-  if (likeAnimationTimer) {
-    clearTimeout(likeAnimationTimer)
-    likeAnimationTimer = null
-  }
-  if (bookmarkAnimationTimer) {
-    clearTimeout(bookmarkAnimationTimer)
-    bookmarkAnimationTimer = null
-  }
-  if (copyHintTimer) {
-    clearTimeout(copyHintTimer)
-    copyHintTimer = null
-  }
+  disposePostDetailUiEffects()
 })
 </script>
 
@@ -701,13 +626,13 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <template v-else-if="post">
+      <template v-else-if="post && postView">
         <header class="nv-post-header px-4 py-4 sm:px-6 sm:py-5">
           <div class="flex items-start justify-between gap-4">
             <div class="min-w-0 flex-1 space-y-4">
               <div class="flex items-center justify-between gap-2">
                 <BaseButton
-                  @click="router.push(buildBoardListRoute(post.board.boardUrl))"
+                  @click="router.push(buildBoardListRoute(postView.boardUrl))"
                   variant="ghost"
                   size="sm"
                   class="nv-post-back-btn"
@@ -779,17 +704,17 @@ onUnmounted(() => {
 
               <div class="space-y-3">
                 <div class="nv-post-meta-strip">
-                  <span>{{ post.board.boardName }}</span>
+                  <span>{{ postView.boardName }}</span>
                   <span>&middot;</span>
                   <span>{{ $t('common.post') }}</span>
                 </div>
                 <h1 class="text-2xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)] sm:text-4xl">
-                  {{ post.title }}
+                  {{ postView.title }}
                 </h1>
                 <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[var(--nv-ink-soft)]">
                   <span class="inline-flex items-center gap-1.5">
                     <User class="h-4 w-4" />
-                    <UserMenu :user-id="post.author.userId" :display-name="post.author.displayName" size="inherit" />
+                    <UserMenu :user-id="postView.authorUserId" :display-name="postView.authorDisplayName" size="inherit" />
                     <span
                       v-if="isAgentAuthor"
                       class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"
@@ -799,15 +724,15 @@ onUnmounted(() => {
                   </span>
                   <span class="inline-flex items-center gap-1.5">
                     <Clock class="h-4 w-4" />
-                    {{ formatDate(post.createdAt) }}
+                    {{ formatDate(postView.createdAt) }}
                   </span>
                   <span class="inline-flex items-center gap-1.5">
                     <Eye class="h-4 w-4" />
-                    {{ post.viewCount }}
+                    {{ postView.viewCount }}
                   </span>
                   <span class="inline-flex items-center gap-1.5">
                     <MessageSquare class="h-4 w-4" />
-                    {{ post.commentCount }}
+                    {{ postView.commentCount }}
                   </span>
                 </div>
               </div>
@@ -868,14 +793,14 @@ onUnmounted(() => {
             </div>
 
             <div
-              v-if="post.tags && post.tags.length > 0"
+              v-if="postView.tags.length > 0"
               class="nv-post-tags"
             >
               <p class="nv-post-section-label">{{ $t('board.postDetail.tags') }}</p>
               <PostTags
-                :modelValue="post.tags"
+                :modelValue="postView.tags"
                 :readOnly="true"
-                :boardUrl="post.board.boardUrl"
+                :boardUrl="postView.boardUrl"
                 compact
                 @tag-click="handleTagClick"
               />
@@ -886,22 +811,22 @@ onUnmounted(() => {
                 <button
                   type="button"
                   class="nv-post-action-btn nv-post-action-btn-circle"
-                  :class="{ 'is-active': post.liked }"
+                  :class="{ 'is-active': postView.liked }"
                   :aria-label="$t('common.likes')"
-                  :aria-pressed="post.liked"
+                  :aria-pressed="postView.liked"
                   :title="$t('common.likes')"
                   :disabled="!authStore.isAuthenticated"
                   @click="handleLike"
                 >
                   <ThumbsUp class="h-5 w-5" :class="{ 'fill-current bounce-in': isLikeAnimating }" />
-                  <span class="nv-post-action-count">{{ post.likeCount }}</span>
+                  <span class="nv-post-action-count">{{ postView.likeCount }}</span>
                 </button>
                 <button
                   type="button"
                   class="nv-post-action-btn nv-post-action-btn-circle"
-                  :class="{ 'is-active is-bookmark': post.scrapped }"
+                  :class="{ 'is-active is-bookmark': postView.scrapped }"
                   :aria-label="$t('board.postDetail.bookmark')"
-                  :aria-pressed="post.scrapped"
+                  :aria-pressed="postView.scrapped"
                   :title="$t('board.postDetail.bookmark')"
                   :disabled="!authStore.isAuthenticated"
                   @click="handleBookmark"
@@ -921,14 +846,14 @@ onUnmounted(() => {
             </div>
 
             <section id="comments" ref="commentsRef" class="nv-post-comments">
-              <CommentList :postId="post.postId" :boardUrl="post.board.boardUrl" />
+              <CommentList :postId="postView.postId" :boardUrl="postView.boardUrl" />
             </section>
           </article>
         </div>
       </template>
     </BaseCard>
 
-    <div v-if="post" class="nv-post-board-actions hidden xl:flex" :aria-label="$t('board.postDetail.quickActions')">
+    <div v-if="postView" class="nv-post-board-actions hidden xl:flex" :aria-label="$t('board.postDetail.quickActions')">
       <button
         type="button"
         class="nv-post-board-action"
@@ -976,7 +901,7 @@ onUnmounted(() => {
             {{ $t('report.target') }}
           </label>
           <div class="mt-1 text-sm font-medium text-gray-900 dark:text-white">
-            {{ $t('common.post') }} | {{ post?.title }}
+            {{ $t('common.post') }} | {{ postView?.title }}
           </div>
         </div>
         <div>
