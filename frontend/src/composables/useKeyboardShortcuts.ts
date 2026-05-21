@@ -180,19 +180,29 @@ export interface BoardDetailShortcutHandlers {
     goToWrite: () => void
     toggleSubscribe: () => void
     focusSearch: () => void
-    canWrite: boolean
-    canGoNext: boolean
-    canGoPrev: boolean
+    canWrite: boolean | (() => boolean)
+    canGoNext: boolean | (() => boolean)
+    canGoPrev: boolean | (() => boolean)
+    canToggleSubscribe?: boolean | (() => boolean)
+    shouldIgnoreShortcut?: () => boolean
 }
 
 export function useBoardDetailShortcuts(handlers: BoardDetailShortcutHandlers) {
     const authStore = useAuthStore()
+
+    const resolveGuard = (guard: boolean | (() => boolean) | undefined, defaultValue = false): boolean => {
+        if (typeof guard === 'function') {
+            return guard()
+        }
+        return guard ?? defaultValue
+    }
 
     const handleKeyDown = (event: KeyboardEvent) => {
         const { key, shiftKey, ctrlKey, altKey, metaKey } = event
 
         if (ctrlKey || altKey || metaKey) return
         if (isInputFocused()) return
+        if (handlers.shouldIgnoreShortcut?.()) return
 
         if (shiftKey) {
             if (key === '[' || key === '{') {
@@ -210,14 +220,14 @@ export function useBoardDetailShortcuts(handlers: BoardDetailShortcutHandlers) {
 
         switch (key) {
             case ']':
-                if (handlers.canGoNext) {
+                if (resolveGuard(handlers.canGoNext)) {
                     event.preventDefault()
                     handlers.goToNextPage()
                 }
                 break
 
             case '[':
-                if (handlers.canGoPrev) {
+                if (resolveGuard(handlers.canGoPrev)) {
                     event.preventDefault()
                     handlers.goToPrevPage()
                 }
@@ -225,7 +235,7 @@ export function useBoardDetailShortcuts(handlers: BoardDetailShortcutHandlers) {
 
             case 'n':
             case 'N':
-                if (handlers.canWrite) {
+                if (resolveGuard(handlers.canWrite)) {
                     event.preventDefault()
                     handlers.goToWrite()
                 }
@@ -233,7 +243,7 @@ export function useBoardDetailShortcuts(handlers: BoardDetailShortcutHandlers) {
 
             case 'f':
             case 'F':
-                if (authStore.isAuthenticated) {
+                if (authStore.isAuthenticated && resolveGuard(handlers.canToggleSubscribe, true)) {
                     event.preventDefault()
                     handlers.toggleSubscribe()
                 }
