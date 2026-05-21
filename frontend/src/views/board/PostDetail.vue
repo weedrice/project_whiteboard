@@ -32,10 +32,13 @@ import { useToastStore } from '@/stores/toast'
 import { formatDate } from '@/utils/date'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
 import { isInputFocused } from '@/utils/keyboard'
-import logger from '@/utils/logger'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
 import { normalizeLegacyFileUrls } from '@/utils/fileUrl'
 import { applyImageFallback } from '@/utils/imageFallback'
+import { useCommentScrollFocus } from '@/composables/useCommentScrollFocus'
+import { usePostDetailActions } from '@/composables/usePostDetailActions'
+import { usePostDetailShare } from '@/composables/usePostDetailShare'
+import { useSpoilerReveal } from '@/composables/useSpoilerReveal'
 
 const route = useRoute()
 const router = useRouter()
@@ -165,87 +168,38 @@ const processedContents = computed(() => {
   return sanitized.replace(/<img(?![^>]*\bloading=)([^>]+)>/gi, '<img loading="lazy"$1>')
 })
 
-const isBlurred = ref(false)
-const timeLeft = ref(5)
-const isLikeAnimating = ref(false)
-const isBookmarkAnimating = ref(false)
-const showReportModal = ref(false)
-const reportReason = ref('')
 const showOverflowMenu = ref(false)
-const showCopyHint = ref(false)
-const showComposerCta = ref(false)
 
 const contentRef = ref<HTMLElement | null>(null)
 const commentsRef = ref<HTMLElement | null>(null)
 const overflowRef = ref<HTMLElement | null>(null)
 const overflowButtonRef = ref<HTMLElement | null>(null)
 
-let blurTimer: ReturnType<typeof setInterval> | null = null
-let likeAnimationTimer: ReturnType<typeof setTimeout> | null = null
-let bookmarkAnimationTimer: ReturnType<typeof setTimeout> | null = null
-let copyHintTimer: ReturnType<typeof setTimeout> | null = null
-let composerFocusTimer: number | null = null
-const imageLoadTimeouts = new Map<number, () => void>()
-let composerObserver: IntersectionObserver | null = null
-let isDisposed = false
-
-const translateOrFallback = (key: string, fallback: string) => {
-  const translated = t(key)
-  return translated === key ? fallback : translated
-}
-
-const currentUrl = computed(() => {
-  if (typeof window === 'undefined') return ''
-  return `${window.location.origin}${route.fullPath}`
+const { isBlurred, timeLeft, revealSpoiler, syncSpoilerState } = useSpoilerReveal()
+const {
+  currentUrl,
+  compactUrl,
+  showCopyHint,
+  handleCopyUrl,
+  onUrlBarClick,
+  handleShare
+} = usePostDetailShare({
+  route,
+  post,
+  toastStore,
+  t,
 })
-
-const compactUrl = computed(() => {
-  if (!currentUrl.value) return ''
-
-  try {
-    const url = new URL(currentUrl.value)
-    return `${url.host}${url.pathname}`
-  } catch {
-    return currentUrl.value
-  }
+const {
+  showComposerCta,
+  scrollToCommentComposer,
+  scrollToComments,
+  scrollToCommentsAfterImagesLoad,
+  setupComposerObserver,
+  handleResize
+} = useCommentScrollFocus({
+  contentRef,
+  commentsRef,
 })
-
-function clearBlurTimer() {
-  if (blurTimer) {
-    clearInterval(blurTimer)
-    blurTimer = null
-  }
-}
-
-function clearComposerFocusTimer() {
-  if (composerFocusTimer) {
-    window.clearTimeout(composerFocusTimer)
-    composerFocusTimer = null
-  }
-}
-
-function clearImageLoadTimeoutTimers() {
-  imageLoadTimeouts.forEach((resolve, timer) => {
-    window.clearTimeout(timer)
-    resolve()
-  })
-  imageLoadTimeouts.clear()
-}
-
-function startBlurTimer() {
-  clearBlurTimer()
-  blurTimer = setInterval(() => {
-    timeLeft.value -= 1
-    if (timeLeft.value <= 0) {
-      revealSpoiler()
-    }
-  }, 1000)
-}
-
-function revealSpoiler() {
-  isBlurred.value = false
-  clearBlurTimer()
-}
 
 function buildBoardListRoute(boardUrl: string) {
   return {
@@ -297,226 +251,37 @@ function buildEditRoute() {
   return `/board/${post.value.board.boardUrl}/post/${post.value.postId}/edit`
 }
 
-async function handleDelete() {
-  const isConfirmed = await confirm(t('common.messages.confirmDelete'))
-  if (!isConfirmed) return
-
-  deleteMutate(route.params.postId as string | number, {
-    onSuccess: () => {
-      if (post.value?.board.boardUrl) {
-        router.push(buildBoardListRoute(post.value.board.boardUrl))
-      }
-    },
-    onError: (err) => {
-      logger.error('Failed to delete post:', err)
-    }
-  })
-}
-
-function triggerLikeAnimation() {
-  isLikeAnimating.value = true
-  if (likeAnimationTimer) clearTimeout(likeAnimationTimer)
-  likeAnimationTimer = setTimeout(() => {
-    isLikeAnimating.value = false
-    likeAnimationTimer = null
-  }, 300)
-}
-
-function triggerBookmarkAnimation() {
-  isBookmarkAnimating.value = true
-  if (bookmarkAnimationTimer) clearTimeout(bookmarkAnimationTimer)
-  bookmarkAnimationTimer = setTimeout(() => {
-    isBookmarkAnimating.value = false
-    bookmarkAnimationTimer = null
-  }, 300)
-}
-
-async function handleLike() {
-  if (!authStore.isAuthenticated || !post.value) return
-
-  if (post.value.liked) {
-    unlikeMutate(route.params.postId as string | number, {
-      onError: (err) => logger.error(t('board.postDetail.likeFailed'), err)
-    })
-    return
-  }
-
-  triggerLikeAnimation()
-  likeMutate(route.params.postId as string | number, {
-    onError: (err) => logger.error(t('board.postDetail.likeFailed'), err)
-  })
-}
-
-async function handleBookmark() {
-  if (!authStore.isAuthenticated || !post.value) return
-
-  if (post.value.scrapped) {
-    unscrapMutate(route.params.postId as string | number, {
-      onError: (err) => logger.error(t('board.postDetail.scrapFailed'), err)
-    })
-    return
-  }
-
-  triggerBookmarkAnimation()
-  scrapMutate(route.params.postId as string | number, {
-    onError: (err) => logger.error(t('board.postDetail.scrapFailed'), err)
-  })
-}
-
-function openReportModal() {
-  if (!canReport.value) return
-  showReportModal.value = true
-  reportReason.value = ''
-  showOverflowMenu.value = false
-}
-
-async function submitReport() {
-  if (!reportReason.value.trim()) {
-    toastStore.addToast(t('board.postDetail.reportReasonRequired'), 'error')
-    return
-  }
-
-  reportMutate({
-    targetPostId: route.params.postId as string | number,
-    reason: reportReason.value
-  }, {
-    onSuccess: () => {
-      toastStore.addToast(t('board.postDetail.reportSuccess'), 'success')
-      showReportModal.value = false
-    },
-    onError: (err) => {
-      logger.error('Report failed:', err)
-      toastStore.addToast(t('board.postDetail.reportFailed'), 'error')
-    }
-  })
-}
-
-function handleCopyUrl(showToast = true) {
-  if (!currentUrl.value) return
-
-  navigator.clipboard.writeText(currentUrl.value).then(() => {
-    if (showToast) {
-      toastStore.addToast(t('common.messages.urlCopied'), 'success')
-      return
-    }
-
-    showCopyHint.value = true
-    if (copyHintTimer) clearTimeout(copyHintTimer)
-    copyHintTimer = setTimeout(() => {
-      showCopyHint.value = false
-      copyHintTimer = null
-    }, 1500)
-    ;(document.activeElement as HTMLElement | null)?.blur()
-  }).catch((err) => {
-    logger.error('Failed to copy URL:', err)
-    toastStore.addToast(translateOrFallback('common.messages.processFailed', '二쇱냼 蹂듭궗???ㅽ뙣?덉뒿?덈떎.'), 'error')
-  })
-}
-
-function onUrlBarClick() {
-  if (typeof window !== 'undefined' && window.innerWidth < 640) {
-    handleCopyUrl(false)
-    return
-  }
-
-  handleCopyUrl(true)
-}
-
-function handleShare() {
-  if (navigator.share && post.value) {
-    navigator.share({
-      title: post.value.title,
-      url: currentUrl.value
-    }).catch((err) => {
-      if (err.name !== 'AbortError') {
-        logger.error('Share failed:', err)
-        toastStore.addToast(translateOrFallback('common.messages.processFailed', '怨듭쑀???ㅽ뙣?덉뒿?덈떎.'), 'error')
-      }
-    })
-    return
-  }
-
-  handleCopyUrl()
-}
+const {
+  isLikeAnimating,
+  isBookmarkAnimating,
+  showReportModal,
+  reportReason,
+  handleDelete,
+  handleLike,
+  handleBookmark,
+  openReportModal,
+  submitReport,
+} = usePostDetailActions({
+  post,
+  canReport,
+  authStore,
+  route,
+  router,
+  toastStore,
+  confirm,
+  t,
+  buildBoardListRoute,
+  closeOverflowMenu,
+  deleteMutate,
+  likeMutate,
+  unlikeMutate,
+  scrapMutate,
+  unscrapMutate,
+  reportMutate,
+})
 
 function scrollToTop() {
   window.scrollTo({ top: 0, behavior: 'smooth' })
-}
-
-function scrollToCommentComposer() {
-  if (isDisposed) return
-
-  const composer = document.getElementById('comment-composer')
-  if (!composer) {
-    scrollToComments()
-    return
-  }
-
-  composer.scrollIntoView({ behavior: 'smooth', block: 'start' })
-
-  clearComposerFocusTimer()
-  composerFocusTimer = window.setTimeout(() => {
-    composerFocusTimer = null
-    if (isDisposed) return
-    const textarea = composer.querySelector('textarea') as HTMLTextAreaElement | null
-    textarea?.focus()
-  }, 250)
-}
-
-function scrollToComments() {
-  if (isDisposed) return
-
-  const target = document.getElementById('comment-composer') || commentsRef.value
-  if (!target) return
-
-  const headerOffset = 96
-  const elementPosition = target.getBoundingClientRect().top
-  const offsetPosition = elementPosition + window.scrollY - headerOffset
-
-  window.scrollTo({
-    top: offsetPosition,
-    behavior: 'smooth'
-  })
-}
-
-function waitForImagesInContent(): Promise<void> {
-  if (isDisposed) return Promise.resolve()
-
-  const container = contentRef.value
-  if (!container) return Promise.resolve()
-
-  const images = container.querySelectorAll<HTMLImageElement>('img')
-  if (images.length === 0) return Promise.resolve()
-
-  const imageLoadTimeout = 8000
-  const promises = Array.from(images).map((image) => {
-    if (image.complete) return Promise.resolve()
-    if (image.loading === 'lazy') image.loading = 'eager'
-
-    return Promise.race([
-      new Promise<void>((resolve) => {
-        image.onload = () => resolve()
-        image.onerror = () => resolve()
-      }),
-      new Promise<void>((resolve) => {
-        const resolveTimeout = () => {
-          imageLoadTimeouts.delete(timer)
-          resolve()
-        }
-        const timer = window.setTimeout(resolveTimeout, imageLoadTimeout)
-        imageLoadTimeouts.set(timer, resolveTimeout)
-      })
-    ])
-  })
-
-  return Promise.all(promises).then(() => {})
-}
-
-function scrollToCommentsAfterImagesLoad() {
-  waitForImagesInContent().then(() => {
-    if (isDisposed) return
-    nextTick(() => scrollToComments())
-  })
 }
 
 function goToList() {
@@ -526,35 +291,6 @@ function goToList() {
   }
 
   router.back()
-}
-
-function setupComposerObserver() {
-  if (isDisposed) return
-
-  if (composerObserver) {
-    composerObserver.disconnect()
-    composerObserver = null
-  }
-
-  if (typeof window === 'undefined' || window.innerWidth >= 640) {
-    showComposerCta.value = false
-    return
-  }
-
-  const composer = document.getElementById('comment-composer')
-  if (!composer) {
-    showComposerCta.value = false
-    return
-  }
-
-  composerObserver = new IntersectionObserver(([entry]) => {
-    showComposerCta.value = !entry.isIntersecting
-  }, {
-    threshold: 0,
-    rootMargin: '0px 0px -18% 0px'
-  })
-
-  composerObserver.observe(composer)
 }
 
 function closeOverflowMenu() {
@@ -577,10 +313,6 @@ function handleDocumentClick(event: MouseEvent) {
   }
 
   closeOverflowMenu()
-}
-
-function handleResize() {
-  setupComposerObserver()
 }
 
 const handleKeyDown = (event: KeyboardEvent) => {
@@ -661,14 +393,7 @@ watch(post, (newPost, oldPost) => {
 
   syncBoardListPageForDirectEntry()
 
-  if (newPost.isSpoiler) {
-    isBlurred.value = true
-    timeLeft.value = 5
-    startBlurTimer()
-  } else {
-    isBlurred.value = false
-    clearBlurTimer()
-  }
+  syncSpoilerState(newPost.isSpoiler)
 
   nextTick(() => setupComposerObserver())
 
@@ -692,7 +417,6 @@ watch(post, (newPost, oldPost) => {
 }, { immediate: true })
 
 onMounted(() => {
-  isDisposed = false
   nextTick(() => setupComposerObserver())
 
   document.addEventListener('keydown', handleKeyDown)
@@ -701,30 +425,9 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  isDisposed = true
   document.removeEventListener('keydown', handleKeyDown)
   document.removeEventListener('click', handleDocumentClick)
   window.removeEventListener('resize', handleResize)
-
-  clearBlurTimer()
-  clearComposerFocusTimer()
-  clearImageLoadTimeoutTimers()
-  if (composerObserver) {
-    composerObserver.disconnect()
-    composerObserver = null
-  }
-  if (likeAnimationTimer) {
-    clearTimeout(likeAnimationTimer)
-    likeAnimationTimer = null
-  }
-  if (bookmarkAnimationTimer) {
-    clearTimeout(bookmarkAnimationTimer)
-    bookmarkAnimationTimer = null
-  }
-  if (copyHintTimer) {
-    clearTimeout(copyHintTimer)
-    copyHintTimer = null
-  }
 })
 </script>
 
