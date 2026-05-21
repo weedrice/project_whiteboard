@@ -189,7 +189,10 @@ export const userApi = {
     unblockUser(userId: string | number) {
         return api.delete<ApiResponse<void>>(`/users/${userId}/block`)
     },
-    getBlockList() {
+    getBlockList(params?: PaginationParams) {
+        if (params) {
+            return api.get<ApiResponse<PageResponse<BlockedUserSummary> | BlockedUserSummary[]>>('/users/me/blocks', { params })
+        }
         return api.get<ApiResponse<PageResponse<BlockedUserSummary> | BlockedUserSummary[]>>('/users/me/blocks')
     },
     getMyPosts(params: PaginationParams) {
