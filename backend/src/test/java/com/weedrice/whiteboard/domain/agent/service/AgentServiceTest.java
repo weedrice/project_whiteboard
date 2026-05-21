@@ -155,6 +155,7 @@ class AgentServiceTest {
     private AgentPolicyService agentPolicyService;
     @Mock
     private AgentNoteService agentNoteService;
+    private AgentCommentAccessService agentCommentAccessService;
     private AgentQueryService agentQueryService;
     private AgentQuotaService agentQuotaService;
     private AgentCommandService agentCommandService;
@@ -197,6 +198,10 @@ class AgentServiceTest {
                 commentRepository,
                 sanctionRepository,
                 agentQuotaService);
+        agentCommentAccessService = new AgentCommentAccessService(
+                userBlockService,
+                postAccessPolicy,
+                agentBoardAccessService);
         agentQueryService = new AgentQueryService(
                 boardRepository,
                 boardAiInfoRepository,
@@ -225,6 +230,7 @@ class AgentServiceTest {
                 commentService,
                 agentOwnershipService,
                 agentBoardAccessService,
+                agentCommentAccessService,
                 agentAuditService,
                 agentQuotaService,
                 agentPolicyService,
@@ -2386,6 +2392,113 @@ class AgentServiceTest {
 
         assertThat(response.isAlreadyLiked()).isTrue();
         assertThat(response.getLikeCount()).isEqualTo(4);
+        verify(commentLikeRepository, never()).saveAndFlush(any());
+        verify(commentRepository, never()).incrementLikeCount(anyLong());
+        verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(), any(), any());
+    }
+
+    @Test
+    void likeComment_rejectsSecretPostWhenAgentUserIsNotAuthor() {
+        User author = User.builder().loginId("author").displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 2L);
+        Board board = readableOnlyAgentEnabledBoard(30L);
+        Post secretPost = Post.builder()
+                .board(board)
+                .user(author)
+                .title("Secret post")
+                .contents("content")
+                .isSecret(true)
+                .build();
+        ReflectionTestUtils.setField(secretPost, "postId", 300L);
+        ReflectionTestUtils.setField(secretPost, "isDeleted", false);
+        Comment comment = Comment.builder()
+                .post(secretPost)
+                .user(author)
+                .depth(0)
+                .content("comment")
+                .build();
+        ReflectionTestUtils.setField(comment, "commentId", 300L);
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(commentRepository.findByIdWithRelationsForUpdate(300L)).thenReturn(Optional.of(comment));
+
+        assertThatThrownBy(() -> agentCommandService.likeComment(7L, 300L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+
+        verify(commentLikeRepository, never()).existsById(any());
+        verify(commentLikeRepository, never()).saveAndFlush(any());
+        verify(commentRepository, never()).incrementLikeCount(anyLong());
+        verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(), any(), any());
+    }
+
+    @Test
+    void likeComment_keepsForbiddenWhenAgentCannotReadBoard() {
+        User author = User.builder().loginId("author").displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 2L);
+        Board privateBoard = Board.builder().boardName("Private").boardUrl("private").creator(author).build();
+        ReflectionTestUtils.setField(privateBoard, "boardId", 30L);
+        ReflectionTestUtils.setField(privateBoard, "isActive", true);
+        ReflectionTestUtils.setField(privateBoard, "isPublic", false);
+        ReflectionTestUtils.setField(privateBoard, "agentUseYn", true);
+        Post post = Post.builder()
+                .board(privateBoard)
+                .user(author)
+                .title("Private post")
+                .contents("content")
+                .build();
+        ReflectionTestUtils.setField(post, "postId", 300L);
+        ReflectionTestUtils.setField(post, "isDeleted", false);
+        Comment comment = Comment.builder()
+                .post(post)
+                .user(author)
+                .depth(0)
+                .content("comment")
+                .build();
+        ReflectionTestUtils.setField(comment, "commentId", 300L);
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(commentRepository.findByIdWithRelationsForUpdate(300L)).thenReturn(Optional.of(comment));
+
+        assertThatThrownBy(() -> agentCommandService.likeComment(7L, 300L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        verify(commentLikeRepository, never()).existsById(any());
+        verify(commentLikeRepository, never()).saveAndFlush(any());
+        verify(commentRepository, never()).incrementLikeCount(anyLong());
+        verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(), any(), any());
+    }
+
+    @Test
+    void likeComment_rejectsBlockedPostAuthor() {
+        User author = User.builder().loginId("blocked").displayName("Blocked").build();
+        ReflectionTestUtils.setField(author, "userId", 2L);
+        Post post = Post.builder()
+                .board(writableBoard)
+                .user(author)
+                .title("Blocked author post")
+                .contents("content")
+                .build();
+        ReflectionTestUtils.setField(post, "postId", 300L);
+        ReflectionTestUtils.setField(post, "isDeleted", false);
+        Comment comment = Comment.builder()
+                .post(post)
+                .user(author)
+                .depth(0)
+                .content("comment")
+                .build();
+        ReflectionTestUtils.setField(comment, "commentId", 300L);
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(commentRepository.findByIdWithRelationsForUpdate(300L)).thenReturn(Optional.of(comment));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
+
+        assertThatThrownBy(() -> agentCommandService.likeComment(7L, 300L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+
+        verify(commentLikeRepository, never()).existsById(any());
         verify(commentLikeRepository, never()).saveAndFlush(any());
         verify(commentRepository, never()).incrementLikeCount(anyLong());
         verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(), any(), any());

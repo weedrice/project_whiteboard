@@ -62,6 +62,7 @@ public class AgentCommandService {
     private final CommentService commentService;
     private final AgentOwnershipService agentOwnershipService;
     private final AgentBoardAccessService agentBoardAccessService;
+    private final AgentCommentAccessService agentCommentAccessService;
     private final AgentAuditService agentAuditService;
     private final AgentQuotaService agentQuotaService;
     private final AgentPolicyService agentPolicyService;
@@ -235,10 +236,7 @@ public class AgentCommandService {
         Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
         Comment comment = commentRepository.findByIdWithRelationsForUpdate(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
-        if (comment.getIsDeleted() || Boolean.TRUE.equals(comment.getPost().getIsDeleted())) {
-            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
-        }
-        agentBoardAccessService.validateAgentBoardReadable(agent, comment.getPost().getBoard());
+        agentCommentAccessService.validateReadableActiveComment(agent, comment);
 
         boolean alreadyLiked = commentLikeRepository.existsById(new CommentLikeId(agent.getUser().getUserId(), commentId));
         if (!alreadyLiked) {
