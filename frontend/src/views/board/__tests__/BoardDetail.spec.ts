@@ -1,6 +1,6 @@
-import { defineComponent, h, ref } from 'vue'
-import { mount, RouterLinkStub } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { defineComponent, h, nextTick, ref } from 'vue'
+import { enableAutoUnmount, mount, RouterLinkStub } from '@vue/test-utils'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import BoardDetail from '../BoardDetail.vue'
 
 const {
@@ -141,6 +141,8 @@ vi.mock('@/utils/keyboard', () => ({
 vi.mock('@/utils/errorHandler', () => ({
   isRestrictedResourceError: () => false
 }))
+
+enableAutoUnmount(afterEach)
 
 describe('BoardDetail', () => {
   beforeEach(() => {
@@ -484,6 +486,39 @@ describe('BoardDetail', () => {
     await wrapper.get('[data-testid="sort-proxy"]').trigger('click')
 
     expect(wrapper.get('[data-testid="sort-proxy"]').text()).toBe('likeCount,desc')
+  })
+
+  it('uses the shared board detail shortcuts for write navigation and subscription', async () => {
+    const wrapper = mount(BoardDetail, {
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          RouterView: true,
+          PostList: true,
+          Pagination: true,
+          UserMenu: true,
+          BaseSkeleton: true
+        }
+      }
+    })
+
+    await nextTick()
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'n' }))
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'f' }))
+
+    expect(router.push).toHaveBeenCalledWith('/board/free/write')
+    expect(router.push).toHaveBeenCalledTimes(1)
+    expect(subscribeMutate).toHaveBeenCalledWith({
+      boardUrl: 'free',
+      isSubscribed: false
+    })
+    expect(subscribeMutate).toHaveBeenCalledTimes(1)
+
+    wrapper.unmount()
   })
 
   it('suppresses the current post highlight after create navigation', () => {

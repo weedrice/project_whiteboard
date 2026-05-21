@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ChevronDown, ChevronUp, Megaphone, Search, ShieldCheck, User, X } from 'lucide-vue-next'
 import { useHead } from '@unhead/vue'
@@ -12,12 +12,12 @@ import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import { useBoard } from '@/composables/useBoard'
 import { useBoardListState } from '@/composables/useBoardListState'
+import { useBoardDetailShortcuts } from '@/composables/useKeyboardShortcuts'
 import { useRecentBoards } from '@/composables/useRecentBoards'
 import { useAuthStore } from '@/stores/auth'
 import { canWriteBoardPost, resolveDefaultCategory } from '@/utils/board'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
-import { isInputFocused } from '@/utils/keyboard'
 import { formatRelativeDate } from '@/utils/date'
 import type { PostSummary } from '@/types'
 
@@ -266,69 +266,40 @@ watch([currentListKey, isPostsFetching], ([nextListKey, fetching]) => {
   }
 }, { immediate: true })
 
-const handleKeyDown = (event: KeyboardEvent) => {
-  const { key, shiftKey, ctrlKey, altKey, metaKey } = event
-
-  if (ctrlKey || altKey || metaKey) return
-  if (isInputFocused() || hasInteractiveFocus()) return
-
-  if (shiftKey) {
-    if (key === '[' || key === '{') {
-      event.preventDefault()
-      page.value = 0
-      return
+useBoardDetailShortcuts({
+  goToNextPage: () => {
+    if (page.value < totalPages.value - 1) {
+      page.value++
     }
-    if (key === ']' || key === '}') {
-      event.preventDefault()
-      if (totalPages.value > 0) {
-        page.value = totalPages.value - 1
-      }
+  },
+  goToPrevPage: () => {
+    if (page.value > 0) {
+      page.value--
     }
-    return
-  }
-
-  switch (key) {
-    case ']':
-      if (page.value < totalPages.value - 1) {
-        event.preventDefault()
-        page.value++
-      }
-      break
-    case '[':
-      if (page.value > 0) {
-        event.preventDefault()
-        page.value--
-      }
-      break
-    case 'n':
-    case 'N':
-      if (canWrite.value && board.value) {
-        event.preventDefault()
-        router.push(`/board/${board.value.boardUrl}/write`)
-      }
-      break
-    case 'f':
-    case 'F':
-      if (authStore.isAuthenticated && !isSubscribePending.value) {
-        event.preventDefault()
-        handleSubscribe()
-      }
-      break
-    case '/': {
-      event.preventDefault()
-      const searchInput = document.getElementById(searchInputElementId) as HTMLInputElement | null
-      searchInput?.focus()
-      break
+  },
+  goToFirstPage: () => {
+    page.value = 0
+  },
+  goToLastPage: () => {
+    if (totalPages.value > 0) {
+      page.value = totalPages.value - 1
     }
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('keydown', handleKeyDown)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeyDown)
+  },
+  goToWrite: () => {
+    if (board.value) {
+      router.push(`/board/${board.value.boardUrl}/write`)
+    }
+  },
+  toggleSubscribe: handleSubscribe,
+  focusSearch: () => {
+    const searchInput = document.getElementById(searchInputElementId) as HTMLInputElement | null
+    searchInput?.focus()
+  },
+  canWrite: () => canWrite.value && !!board.value,
+  canGoNext: () => page.value < totalPages.value - 1,
+  canGoPrev: () => page.value > 0,
+  canToggleSubscribe: () => !isSubscribePending.value,
+  shouldIgnoreShortcut: hasInteractiveFocus
 })
 </script>
 
