@@ -87,6 +87,18 @@ export function useUser() {
         return useQuery(createMyAgentsQueryOptions())
     }
 
+    const useMyPoint = (enabled?: Ref<boolean>, userIdentity?: Ref<string | number | null | undefined>) => {
+        return useQuery({
+            queryKey: computed(() => ['user', 'points', 'me', userIdentity?.value ?? 'anonymous']),
+            queryFn: async () => {
+                const { data } = await userApi.getMyPoint()
+                return data.data
+            },
+            enabled: computed(() => enabled?.value ?? true),
+            staleTime: QUERY_STALE_TIME.SHORT,
+        })
+    }
+
     // --- Mutations ---
 
     const useUpdateMyProfile = () => {
@@ -236,6 +248,7 @@ export function useUser() {
         useNotificationSettings,
         useBlockList,
         useMyAgents,
+        useMyPoint,
         useRecentlyViewedPosts,
         useUpdateMyProfile,
         useUpdatePassword,
