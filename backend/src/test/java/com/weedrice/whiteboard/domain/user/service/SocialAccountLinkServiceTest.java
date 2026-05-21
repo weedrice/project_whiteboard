@@ -188,6 +188,49 @@ class SocialAccountLinkServiceTest {
     }
 
     @Test
+    @DisplayName("Concurrent user/provider duplicate insert reuses same provider id link")
+    void linkSocialAccount_reusesExistingUserProviderLinkAfterConcurrentDuplicate() {
+        SocialAccount existingLink = SocialAccount.builder()
+                .user(user)
+                .provider("google")
+                .providerId("google-user-1")
+                .build();
+
+        when(socialAccountRepository.findAllByNormalizedProviderAndProviderId("google", "google-user-1"))
+                .thenReturn(List.of(), List.of());
+        when(socialAccountRepository.findAllByUserAndNormalizedProvider(user, "google"))
+                .thenReturn(List.of(), List.of(existingLink));
+        when(socialAccountRepository.insertSocialAccountIfAbsent(1L, "google", "google-user-1"))
+                .thenReturn(0);
+
+        SocialAccount linkedAccount = socialAccountLinkService.linkSocialAccount(user, "google", "google-user-1");
+
+        assertThat(linkedAccount).isSameAs(existingLink);
+        verify(socialAccountRepository).insertSocialAccountIfAbsent(1L, "google", "google-user-1");
+    }
+
+    @Test
+    @DisplayName("Concurrent user/provider duplicate insert rejects different provider id")
+    void linkSocialAccount_rejectsDifferentProviderIdAfterConcurrentUserProviderDuplicate() {
+        SocialAccount existingLink = SocialAccount.builder()
+                .user(user)
+                .provider("google")
+                .providerId("google-user-2")
+                .build();
+
+        when(socialAccountRepository.findAllByNormalizedProviderAndProviderId("google", "google-user-1"))
+                .thenReturn(List.of(), List.of());
+        when(socialAccountRepository.findAllByUserAndNormalizedProvider(user, "google"))
+                .thenReturn(List.of(), List.of(existingLink));
+        when(socialAccountRepository.insertSocialAccountIfAbsent(1L, "google", "google-user-1"))
+                .thenReturn(0);
+
+        assertThatThrownBy(() -> socialAccountLinkService.linkSocialAccount(user, "google", "google-user-1"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_RESOURCE);
+    }
+
+    @Test
     @DisplayName("Legacy provider casing and spaces are resolved before inserting a new link")
     void linkSocialAccount_reusesLegacyNormalizedProviderLink() {
         SocialAccount existingLink = SocialAccount.builder()

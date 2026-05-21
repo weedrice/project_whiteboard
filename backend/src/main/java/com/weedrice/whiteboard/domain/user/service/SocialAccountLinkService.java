@@ -28,20 +28,9 @@ public class SocialAccountLinkService {
         String normalizedProvider = normalizeProvider(provider);
         String normalizedProviderId = normalizeProviderId(providerId);
 
-        SocialAccount existingByProvider = resolveExistingByProvider(
-                user,
-                normalizedProvider,
-                normalizedProviderId);
-        if (existingByProvider != null) {
-            return existingByProvider;
-        }
-
-        SocialAccount existingByUserProvider = resolveExistingByUserProvider(
-                user,
-                normalizedProvider,
-                normalizedProviderId);
-        if (existingByUserProvider != null) {
-            return existingByUserProvider;
+        SocialAccount existingLink = resolveOptionalLinkConflict(user, normalizedProvider, normalizedProviderId);
+        if (existingLink != null) {
+            return existingLink;
         }
 
         int inserted = socialAccountRepository.insertSocialAccountIfAbsent(
@@ -49,15 +38,23 @@ public class SocialAccountLinkService {
                 normalizedProvider,
                 normalizedProviderId);
         if (inserted == 0) {
-            return resolveDuplicateLink(user, normalizedProvider, normalizedProviderId);
+            return resolveRequiredLinkConflict(user, normalizedProvider, normalizedProviderId);
         }
 
         return socialAccountRepository.findByProviderAndProviderId(normalizedProvider, normalizedProviderId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DUPLICATE_RESOURCE));
     }
 
-    private SocialAccount resolveDuplicateLink(User user, String provider, String providerId) {
-        SocialAccount existingByProvider = resolveExistingByProvider(user, provider, providerId);
+    private SocialAccount resolveOptionalLinkConflict(User user, String provider, String providerId) {
+        return resolveLinkConflict(user, provider, providerId, false);
+    }
+
+    private SocialAccount resolveRequiredLinkConflict(User user, String provider, String providerId) {
+        return resolveLinkConflict(user, provider, providerId, true);
+    }
+
+    private SocialAccount resolveLinkConflict(User user, String provider, String providerId, boolean required) {
+        SocialAccount existingByProvider = resolveExistingByProviderId(user, provider, providerId);
         if (existingByProvider != null) {
             return existingByProvider;
         }
@@ -67,14 +64,17 @@ public class SocialAccountLinkService {
             return existingByUserProvider;
         }
 
-        throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
+        if (required) {
+            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
+        }
+        return null;
     }
 
     private boolean hasSameUser(SocialAccount socialAccount, User user) {
         return Objects.equals(socialAccount.getUser().getUserId(), user.getUserId());
     }
 
-    private SocialAccount resolveExistingByProvider(User user, String provider, String providerId) {
+    private SocialAccount resolveExistingByProviderId(User user, String provider, String providerId) {
         List<SocialAccount> existingAccounts = socialAccountRepository.findAllByNormalizedProviderAndProviderId(
                 provider,
                 providerId);
