@@ -71,6 +71,32 @@ class ErrorLogRepositoryTest {
                         "resolvedAt", "resolvedMemo");
     }
 
+    @Test
+    @DisplayName("aggregateStats returns total unresolved and resolved counts in one query")
+    void aggregateStats_returnsCounts() {
+        persistErrorLog("ERROR1");
+        ErrorLog resolved = persistErrorLog("ERROR2");
+        resolved.resolve(1L, "done");
+        entityManager.flush();
+        entityManager.clear();
+
+        ErrorLogRepository.ErrorLogStats stats = errorLogRepository.aggregateStats();
+
+        assertThat(stats.getTotalCount()).isEqualTo(2L);
+        assertThat(stats.getUnresolvedCount()).isEqualTo(1L);
+        assertThat(stats.getResolvedCount()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("aggregateStats returns zero counts for an empty table")
+    void aggregateStats_empty_returnsZeroCounts() {
+        ErrorLogRepository.ErrorLogStats stats = errorLogRepository.aggregateStats();
+
+        assertThat(stats.getTotalCount()).isZero();
+        assertThat(stats.getUnresolvedCount()).isZero();
+        assertThat(stats.getResolvedCount()).isZero();
+    }
+
     private ErrorLog persistErrorLog(String errorCode) {
         ErrorLog errorLog = ErrorLog.builder()
                 .errorCode(errorCode)
