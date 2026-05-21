@@ -23,16 +23,16 @@ public class AdminDashboardService {
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public DashboardStatsDto getDashboardStats() {
-        long totalUsers = userRepository.countActiveUsersForAdminDashboard();
+        UserRepository.AdminDashboardUserStatsProjection userStats =
+                userRepository.countAdminDashboardUserStats(LocalDateTime.now().minusDays(1));
         long totalPosts = postRepository.countVisiblePostsForAdminDashboard();
         long pendingReports = reportRepository.countByStatus("PENDING");
-        long activeUsers = userRepository.countRecentlyLoggedInActiveUsersForAdminDashboard(LocalDateTime.now().minusDays(1));
 
         return DashboardStatsDto.builder()
-                .totalUsers(totalUsers)
+                .totalUsers(userStats.getTotalUsers())
                 .totalPosts(totalPosts)
                 .pendingReports(pendingReports)
-                .activeUsers(activeUsers)
+                .activeUsers(userStats.getActiveUsers())
                 .build();
     }
 }

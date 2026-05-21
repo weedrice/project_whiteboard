@@ -387,6 +387,10 @@ class UserRepositoryTest {
 
         assertThat(userRepository.countActiveUsersForAdminDashboard()).isEqualTo(5L);
         assertThat(userRepository.countRecentlyLoggedInActiveUsersForAdminDashboard(since)).isEqualTo(1L);
+        UserRepository.AdminDashboardUserStatsProjection dashboardStats =
+                userRepository.countAdminDashboardUserStats(since);
+        assertThat(dashboardStats.getTotalUsers()).isEqualTo(5L);
+        assertThat(dashboardStats.getActiveUsers()).isEqualTo(1L);
         assertThat(userRepository.countRecentlyLoggedInActiveUsersForPublicLanding(since)).isEqualTo(1L);
     }
 
