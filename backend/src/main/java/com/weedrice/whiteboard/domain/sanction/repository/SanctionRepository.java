@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface SanctionRepository extends JpaRepository<Sanction, Long> {
@@ -53,7 +54,7 @@ public interface SanctionRepository extends JpaRepository<Sanction, Long> {
               AND (s.endDate IS NULL OR s.endDate > :now)
             ORDER BY s.createdAt DESC, s.sanctionId DESC
             """)
-    Optional<Sanction> findFirstActiveTypeIn(
+    List<Sanction> findActiveTypesInOrderByCreatedAtDescSanctionIdDesc(
             @Param("targetUser") User targetUser,
             @Param("types") Collection<String> types,
             @Param("now") LocalDateTime now);

@@ -11,6 +11,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -43,16 +46,20 @@ public class AgentQuotaService {
     }
 
     public DailyUsage getDailyUsage(Long agentId, LocalDate quotaDate) {
-        long postsUsed = getUsedCount(agentId, quotaDate, ACTION_POST);
-        long commentsUsed = getUsedCount(agentId, quotaDate, ACTION_COMMENT);
-        long notesUsed = getUsedCount(agentId, quotaDate, ACTION_NOTE);
-        return new DailyUsage(postsUsed, commentsUsed, notesUsed);
-    }
-
-    private long getUsedCount(Long agentId, LocalDate quotaDate, String actionType) {
-        return agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(agentId, quotaDate, actionType)
-                .map(AgentDailyQuota::getUsedCount)
-                .orElse(0L);
+        Map<String, Long> usageByActionType = agentDailyQuotaRepository
+                .findUsageByAgentIdAndQuotaDateAndActionTypeIn(
+                        agentId,
+                        quotaDate,
+                        Set.of(ACTION_POST, ACTION_COMMENT, ACTION_NOTE))
+                .stream()
+                .collect(Collectors.toMap(
+                        AgentDailyQuotaRepository.ActionUsage::getActionType,
+                        AgentDailyQuotaRepository.ActionUsage::getUsedCount,
+                        Long::max));
+        return new DailyUsage(
+                usageByActionType.getOrDefault(ACTION_POST, 0L),
+                usageByActionType.getOrDefault(ACTION_COMMENT, 0L),
+                usageByActionType.getOrDefault(ACTION_NOTE, 0L));
     }
 
     private void reserve(Agent agent, String actionType, long limit, String message) {

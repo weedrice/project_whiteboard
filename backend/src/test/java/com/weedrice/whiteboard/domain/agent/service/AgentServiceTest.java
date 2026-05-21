@@ -243,11 +243,12 @@ class AgentServiceTest {
 
         lenient().when(agentDailyQuotaRepository.findForUpdate(anyLong(), any(LocalDate.class), anyString()))
                 .thenReturn(Optional.empty());
-        lenient().when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(
-                        anyLong(), any(LocalDate.class), anyString()))
-                .thenReturn(Optional.empty());
-        lenient().when(sanctionRepository.findFirstActiveTypeIn(any(), any(), any(LocalDateTime.class)))
-                .thenReturn(Optional.empty());
+        lenient().when(agentDailyQuotaRepository.findUsageByAgentIdAndQuotaDateAndActionTypeIn(
+                        anyLong(), any(LocalDate.class), any()))
+                .thenReturn(List.of());
+        lenient().when(sanctionRepository.findActiveTypesInOrderByCreatedAtDescSanctionIdDesc(
+                        any(), any(), any(LocalDateTime.class)))
+                .thenReturn(List.of());
         lenient().when(agentDailyQuotaRepository.saveAndFlush(any(AgentDailyQuota.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         lenient().when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(any(), anyLong()))
@@ -443,10 +444,11 @@ class AgentServiceTest {
                 any(LocalDateTime.class),
                 any(LocalDateTime.class)))
                 .thenReturn(3L);
-        when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(eq(7L), any(LocalDate.class), eq("POST")))
-                .thenReturn(Optional.of(quota("POST", 49L)));
-        when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(eq(7L), any(LocalDate.class), eq("COMMENT")))
-                .thenReturn(Optional.of(quota("COMMENT", 100L)));
+        when(agentDailyQuotaRepository.findUsageByAgentIdAndQuotaDateAndActionTypeIn(
+                eq(7L),
+                any(LocalDate.class),
+                quotaActionTypes()))
+                .thenReturn(List.of(actionUsage("POST", 49L), actionUsage("COMMENT", 100L)));
 
         AgentStatusResponse response = agentQueryService.getStatus(7L);
 
@@ -617,14 +619,13 @@ class AgentServiceTest {
     @Test
     void getHome_marksCreatePostCapabilityUnavailableWhenPostLimitExhausted() {
         doReturn(agent).when(agentOwnershipService).resolveClaimedAgent(7L);
-        when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(
-                eq(7L), any(LocalDate.class), eq(AgentQuotaService.ACTION_POST)))
-                .thenReturn(Optional.of(AgentDailyQuota.builder()
-                        .agent(agent)
-                        .quotaDate(LocalDate.now())
-                        .actionType(AgentQuotaService.ACTION_POST)
-                        .usedCount(AgentQuotaService.DAILY_AGENT_POST_LIMIT)
-                        .build()));
+        when(agentDailyQuotaRepository.findUsageByAgentIdAndQuotaDateAndActionTypeIn(
+                eq(7L),
+                any(LocalDate.class),
+                quotaActionTypes()))
+                .thenReturn(List.of(actionUsage(
+                        AgentQuotaService.ACTION_POST,
+                        AgentQuotaService.DAILY_AGENT_POST_LIMIT)));
         when(commentRepository.findUnreadAgentPostActivities(eq(7L), any(Pageable.class)))
                 .thenReturn(List.of());
         when(postRepository.findByAgent_AgentIdAndIsDeleted(eq(7L), eq(false), any(Pageable.class)))
@@ -1843,8 +1844,11 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(request, "content", "a".repeat(60));
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
-        when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(eq(7L), any(LocalDate.class), eq("POST")))
-                .thenReturn(Optional.of(quota("POST", 50L)));
+        when(agentDailyQuotaRepository.findUsageByAgentIdAndQuotaDateAndActionTypeIn(
+                eq(7L),
+                any(LocalDate.class),
+                quotaActionTypes()))
+                .thenReturn(List.of(actionUsage("POST", 50L)));
 
         assertThatThrownBy(() -> agentCommandService.createPost(7L, request, null))
                 .isInstanceOf(AgentWriteException.class)
@@ -1865,9 +1869,11 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(request, "content", "b".repeat(25));
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
-        when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(eq(7L), any(LocalDate.class), eq("COMMENT")))
-                .thenReturn(Optional.of(quota("COMMENT", 100L)));
-        when(sanctionRepository.existsActiveTypeIn(eq(user), any(), any(LocalDateTime.class))).thenReturn(false);
+        when(agentDailyQuotaRepository.findUsageByAgentIdAndQuotaDateAndActionTypeIn(
+                eq(7L),
+                any(LocalDate.class),
+                quotaActionTypes()))
+                .thenReturn(List.of(actionUsage("COMMENT", 100L)));
 
         assertThatThrownBy(() -> agentCommandService.createComment(7L, 100L, request, null))
                 .isInstanceOf(AgentWriteException.class)
@@ -1932,9 +1938,16 @@ class AgentServiceTest {
                 .build();
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
-        when(sanctionRepository.findFirstActiveTypeIn(eq(user), any(), any(LocalDateTime.class)))
-                .thenReturn(Optional.of(mute));
-        when(sanctionRepository.existsActiveBan(eq(user), any(LocalDateTime.class))).thenReturn(true);
+        Sanction ban = Sanction.builder()
+                .targetUser(user)
+                .type("BAN")
+                .remark("banned")
+                .startDate(LocalDateTime.now().minusMinutes(1))
+                .endDate(LocalDateTime.now().plusDays(2))
+                .build();
+        when(sanctionRepository.findActiveTypesInOrderByCreatedAtDescSanctionIdDesc(
+                eq(user), any(), any(LocalDateTime.class)))
+                .thenReturn(List.of(mute, ban));
 
         Throwable thrown = catchThrowable(() -> agentCommandService.createPost(7L, request, null));
 
@@ -1942,6 +1955,9 @@ class AgentServiceTest {
         AgentWriteException exception = (AgentWriteException) thrown;
         assertThat(exception.getCode()).isEqualTo("agent_suspended");
         assertThat(exception.getRestrictions().isSuspended()).isTrue();
+        assertThat(exception.getRestrictions().isCanComment()).isFalse();
+        assertThat(exception.getRestrictions().getReason()).isEqualTo("muted");
+        assertThat(exception.getRestrictions().getSuspendedUntil()).isNull();
         verify(boardRepository, never()).findByBoardUrlForUpdate(anyString());
     }
 
@@ -1958,11 +1974,14 @@ class AgentServiceTest {
                 .build();
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
-        when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(eq(7L), any(LocalDate.class), eq("COMMENT")))
-                .thenReturn(Optional.of(quota("COMMENT", 100L)));
-        when(sanctionRepository.findFirstActiveTypeIn(eq(user), any(), any(LocalDateTime.class)))
-                .thenReturn(Optional.of(mute));
-        when(sanctionRepository.existsActiveTypeIn(eq(user), any(), any(LocalDateTime.class))).thenReturn(true);
+        when(agentDailyQuotaRepository.findUsageByAgentIdAndQuotaDateAndActionTypeIn(
+                eq(7L),
+                any(LocalDate.class),
+                quotaActionTypes()))
+                .thenReturn(List.of(actionUsage("COMMENT", 100L)));
+        when(sanctionRepository.findActiveTypesInOrderByCreatedAtDescSanctionIdDesc(
+                eq(user), any(), any(LocalDateTime.class)))
+                .thenReturn(List.of(mute));
 
         Throwable thrown = catchThrowable(() -> agentCommandService.createComment(7L, 100L, request, null));
 
@@ -2599,5 +2618,28 @@ class AgentServiceTest {
                 .actionType(actionType)
                 .usedCount(usedCount)
                 .build();
+    }
+
+    private AgentDailyQuotaRepository.ActionUsage actionUsage(String actionType, long usedCount) {
+        return new TestActionUsage(actionType, usedCount);
+    }
+
+    private Collection<String> quotaActionTypes() {
+        return argThat(actionTypes -> actionTypes != null
+                && actionTypes.containsAll(Set.of("POST", "COMMENT", "NOTE"))
+                && actionTypes.size() == 3);
+    }
+
+    private record TestActionUsage(String actionType, long usedCount)
+            implements AgentDailyQuotaRepository.ActionUsage {
+        @Override
+        public String getActionType() {
+            return actionType;
+        }
+
+        @Override
+        public long getUsedCount() {
+            return usedCount;
+        }
     }
 }

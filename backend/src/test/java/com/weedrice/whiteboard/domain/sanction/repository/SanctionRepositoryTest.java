@@ -66,6 +66,27 @@ class SanctionRepositoryTest {
         assertThat(exists).isTrue();
     }
 
+    @Test
+    @DisplayName("active restriction list includes only active requested types")
+    void findActiveTypesInOrderByCreatedAtDescSanctionIdDesc_returnsActiveRequestedTypesOnly() {
+        TestSanctionActors actors = persistActors();
+        LocalDateTime now = LocalDateTime.now();
+        persistSanction(actors, "BAN", now.minusMinutes(2), now.plusDays(1));
+        persistSanction(actors, "MUTE", now.minusMinutes(1), null);
+        persistSanction(actors, "WARNING", now.minusMinutes(1), null);
+        persistSanction(actors, "BAN", now.minusDays(2), now.minusDays(1));
+        persistSanction(actors, "MUTE", now.plusMinutes(1), now.plusDays(1));
+
+        var restrictions = sanctionRepository.findActiveTypesInOrderByCreatedAtDescSanctionIdDesc(
+                actors.targetUser(),
+                Set.of("BAN", "MUTE"),
+                now);
+
+        assertThat(restrictions)
+                .extracting(Sanction::getType)
+                .containsExactly("MUTE", "BAN");
+    }
+
     private void persistSanction(TestSanctionActors actors, String type, LocalDateTime startDate,
                                  LocalDateTime endDate) {
         entityManager.persist(Sanction.builder()
