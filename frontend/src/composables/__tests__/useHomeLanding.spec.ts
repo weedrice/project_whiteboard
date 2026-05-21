@@ -21,6 +21,22 @@ vi.mock('@tanstack/vue-query', () => ({
 }))
 
 vi.mock('@/api/post', () => ({
+    emptyHomeLanding: () => ({
+        posts: [],
+        latestPosts: [],
+        boards: [],
+        stats: {
+            boardCount: 0,
+            postCount: 0,
+            liveCount: 0,
+            onlineCount: 0,
+            postsToday: 0,
+            postsTodayDeltaPercent: null,
+            activeBoardCount: 0,
+            newMembersLast24Hours: 0,
+            commentsToday: 0,
+        },
+    }),
     postApi: {
         getHomeLanding: vi.fn(),
     },
@@ -101,28 +117,16 @@ describe('useHomeLanding', () => {
         }))
     })
 
-    it('normalizes the previous section-shaped contract during frontend-first rollout', () => {
-        queryData.current = {
-            featuredPost: makePost(11, 'Featured legacy'),
-            editorPicks: [
-                makePost(12, 'Pick legacy 1'),
-                makePost(13, 'Pick legacy 2'),
-                makePost(14, 'Pick legacy 3'),
-            ],
-            trendingPosts: [
-                makePost(15, 'Trend legacy 1'),
-                makePost(16, 'Trend legacy 2'),
-            ],
-            boards: [{ boardId: 1, boardUrl: 'free', boardName: 'Free', subscriberCount: 10, postCount: 24 }],
-            stats: makeStats(),
-        }
+    it('uses the API empty landing fallback before query data is available', () => {
+        queryData.current = null
 
         const landing = useHomeLanding()
 
-        expect(landing.featured.value?.postId).toBe(11)
-        expect(landing.editorPicks.value.map(post => post.postId)).toEqual([12, 13, 14])
-        expect(landing.trending.value.map(post => post.postId)).toEqual([15, 16])
-        expect(landing.liveActivity.value.map(post => post.postId)).toEqual([11, 12, 13, 14, 15, 16])
+        expect(landing.featured.value).toBeNull()
+        expect(landing.editorPicks.value).toEqual([])
+        expect(landing.trending.value).toEqual([])
+        expect(landing.liveActivity.value).toEqual([])
+        expect(landing.stats.value.boardCount).toBe(0)
     })
 
     it('forwards the selected period into the landing query function', async () => {

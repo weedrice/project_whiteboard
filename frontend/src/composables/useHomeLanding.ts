@@ -1,23 +1,15 @@
 import { computed, ref } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
-import { postApi } from '@/api/post'
+import { emptyHomeLanding, postApi } from '@/api/post'
 import { useAuthStore } from '@/stores/auth'
 import { QUERY_STALE_TIME } from '@/utils/constants'
-import type { FeedPost, HomeLandingPeriod, HomeLandingResponse, HomeLandingStats, PostSummary } from '@/types'
+import type { FeedPost, HomeLandingPeriod, PostSummary } from '@/types'
 
 const EDITOR_PICK_START_INDEX = 1
 const EDITOR_PICK_END_INDEX = 4
 const TRENDING_START_INDEX = 4
 const TRENDING_END_INDEX = 10
 const LIVE_ACTIVITY_END_INDEX = 6
-
-type LegacyHomeLandingResponse = Omit<HomeLandingResponse, 'posts'> & {
-    posts?: PostSummary[]
-    latestPosts?: PostSummary[]
-    featuredPost?: PostSummary | null
-    editorPicks?: PostSummary[]
-    trendingPosts?: PostSummary[]
-}
 
 const mapToFeedPost = (post: PostSummary): FeedPost | null => {
     if (
@@ -47,52 +39,6 @@ const mapPosts = (posts: PostSummary[] | undefined): FeedPost[] => {
         .filter((post): post is FeedPost => post != null)
 }
 
-const emptyStats = (): HomeLandingStats => ({
-    boardCount: 0,
-    postCount: 0,
-    liveCount: 0,
-    onlineCount: 0,
-    postsToday: 0,
-    postsTodayDeltaPercent: null,
-    activeBoardCount: 0,
-    newMembersLast24Hours: 0,
-    commentsToday: 0,
-})
-
-const emptyLanding = (): HomeLandingResponse => ({
-    posts: [],
-    latestPosts: [],
-    boards: [],
-    stats: emptyStats(),
-})
-
-const normalizeLanding = (landing: HomeLandingResponse | LegacyHomeLandingResponse | null | undefined): HomeLandingResponse => {
-    if (!landing) {
-        return emptyLanding()
-    }
-
-    if (Array.isArray(landing.posts)) {
-        return {
-            posts: landing.posts,
-            latestPosts: landing.latestPosts ?? [],
-            boards: landing.boards ?? [],
-            stats: landing.stats ?? emptyStats(),
-        }
-    }
-
-    const legacyLanding = landing as LegacyHomeLandingResponse
-    return {
-        posts: [
-            ...(legacyLanding.featuredPost ? [legacyLanding.featuredPost] : []),
-            ...(legacyLanding.editorPicks ?? []),
-            ...(legacyLanding.trendingPosts ?? []),
-        ],
-        latestPosts: legacyLanding.latestPosts ?? [],
-        boards: legacyLanding.boards ?? [],
-        stats: legacyLanding.stats ?? emptyStats(),
-    }
-}
-
 export function useHomeLanding() {
     const authStore = useAuthStore()
     const selectedPeriod = ref<HomeLandingPeriod>('24h')
@@ -111,7 +57,7 @@ export function useHomeLanding() {
         staleTime: QUERY_STALE_TIME.SHORT,
     })
 
-    const landing = computed(() => normalizeLanding(landingQuery.data.value))
+    const landing = computed(() => landingQuery.data.value ?? emptyHomeLanding())
     const isPendingAuthHydration = computed(() => authStore.isAuthenticated && authStore.user == null)
     const isLoading = computed(() => landingQuery.isLoading.value || isPendingAuthHydration.value)
     const sourcePosts = computed(() => landing.value.posts ?? [])

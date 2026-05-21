@@ -75,6 +75,17 @@ describe('postApi', () => {
     })
 
     it('calls post endpoints with correct path and payload', () => {
+        apiMock.get.mockResolvedValue({
+            data: {
+                success: true,
+                data: {
+                    posts: [],
+                    latestPosts: [],
+                    boards: [],
+                    stats: {},
+                },
+            },
+        })
         const postData = { title: 'title', contents: 'body', isNotice: false }
         const updateData = { title: 'updated title', tags: ['a'] }
         const reportData = { targetPostId: 3, reason: 'spam' }
@@ -107,6 +118,28 @@ describe('postApi', () => {
         expect(apiMock.get).toHaveBeenNthCalledWith(3, '/posts/trending', { params: { page: 2, size: 5, period: '24h' } })
         expect(apiMock.get).toHaveBeenNthCalledWith(4, '/home/landing', { params: { period: '7d' } })
         expect(apiMock.post).toHaveBeenNthCalledWith(5, '/reports/posts', reportData)
+    })
+
+    it('normalizes legacy home landing response fields in the API layer', async () => {
+        apiMock.get.mockResolvedValueOnce({
+            data: {
+                success: true,
+                data: {
+                    featuredPost: { postId: 1, title: 'Featured' },
+                    editorPicks: [{ postId: 2, title: 'Pick' }],
+                    trendingPosts: [{ postId: 3, title: 'Trend' }],
+                    boards: [{ boardId: 1, boardUrl: 'free', boardName: 'Free' }],
+                },
+            },
+        })
+
+        const response = await postApi.getHomeLanding()
+
+        expect(apiMock.get).toHaveBeenCalledWith('/home/landing', { params: { period: '24h' } })
+        expect(response.data.data.posts.map(post => post.postId)).toEqual([1, 2, 3])
+        expect(response.data.data.latestPosts).toEqual([])
+        expect(response.data.data.boards).toEqual([{ boardId: 1, boardUrl: 'free', boardName: 'Free' }])
+        expect(response.data.data.stats.boardCount).toBe(0)
     })
 })
 
