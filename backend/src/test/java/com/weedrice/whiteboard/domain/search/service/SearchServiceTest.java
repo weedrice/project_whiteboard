@@ -746,8 +746,7 @@ class SearchServiceTest {
                 .build();
         Page<SearchPersonalization> page = new PageImpl<>(List.of(personalization), normalizedPageable, 1);
 
-        when(searchUserLookupPolicy.resolveRequired(userId)).thenReturn(user);
-        when(searchPersonalizationRepository.findByUserOrderBySearchedAtDesc(eq(user), eq(normalizedPageable)))
+        when(searchPersonalizationRepository.findRecentSearchesByUserId(eq(userId), eq(normalizedPageable)))
                 .thenReturn(page);
 
         // when
@@ -755,7 +754,7 @@ class SearchServiceTest {
 
         // then
         assertThat(response).isNotNull();
-        verify(searchUserLookupPolicy).resolveRequired(userId);
+        verify(searchUserLookupPolicy, never()).validateExists(userId);
     }
 
     @Test
@@ -769,13 +768,37 @@ class SearchServiceTest {
                 Sort.Order.desc("searchedAt"),
                 Sort.Order.desc("logId")));
 
-        when(searchUserLookupPolicy.resolveRequired(userId)).thenReturn(user);
-        when(searchPersonalizationRepository.findByUserOrderBySearchedAtDesc(eq(user), eq(normalizedPageable)))
+        when(searchPersonalizationRepository.findRecentSearchesByUserId(eq(userId), eq(normalizedPageable)))
                 .thenReturn(Page.empty(normalizedPageable));
 
         searchService.getRecentSearches(userId, requestedPageable);
 
-        verify(searchPersonalizationRepository).findByUserOrderBySearchedAtDesc(user, normalizedPageable);
+        verify(searchPersonalizationRepository).findRecentSearchesByUserId(userId, normalizedPageable);
+        verify(searchUserLookupPolicy).validateExists(userId);
+    }
+
+    @Test
+    @DisplayName("최근 검색어 조회 - 결과가 있으면 사용자 존재 검증을 생략한다")
+    void getRecentSearches_skipsUserLookupWhenPageHasContent() {
+        Long userId = 1L;
+        Pageable pageable = PageRequest.of(0, 10);
+        Pageable normalizedPageable = PageRequest.of(0, 10, Sort.by(
+                Sort.Order.desc("searchedAt"),
+                Sort.Order.desc("logId")));
+        SearchPersonalization personalization = SearchPersonalization.builder()
+                .user(user)
+                .keyword("test")
+                .normalizedKeyword("test")
+                .searchedAt(LocalDateTime.of(2026, 4, 22, 9, 0))
+                .build();
+        Page<SearchPersonalization> page = new PageImpl<>(List.of(personalization), normalizedPageable, 1);
+
+        when(searchPersonalizationRepository.findRecentSearchesByUserId(userId, normalizedPageable))
+                .thenReturn(page);
+
+        searchService.getRecentSearches(userId, pageable);
+
+        verify(searchUserLookupPolicy, never()).validateExists(userId);
     }
 
     @Test
@@ -793,6 +816,7 @@ class SearchServiceTest {
         // then
         verify(searchPersonalizationRepository).deleteByLogIdAndUserId(logId, userId);
         verify(searchPersonalizationRepository, never()).findById(anyLong());
+        verify(searchUserLookupPolicy, never()).validateExists(userId);
     }
 
     @Test
@@ -809,6 +833,7 @@ class SearchServiceTest {
 
         verify(searchPersonalizationRepository).deleteByLogIdAndUserId(logId, userId);
         verify(searchPersonalizationRepository, never()).findById(anyLong());
+        verify(searchUserLookupPolicy).validateExists(userId);
     }
 
     @Test
@@ -816,13 +841,26 @@ class SearchServiceTest {
     void deleteAllRecentSearches_success() {
         // given
         Long userId = 1L;
-        when(searchUserLookupPolicy.resolveRequired(userId)).thenReturn(user);
+        when(searchPersonalizationRepository.deleteAllByUserId(userId)).thenReturn(3);
 
         // when
         searchService.deleteAllRecentSearches(userId);
 
         // then
-        verify(searchPersonalizationRepository).deleteByUser(user);
+        verify(searchPersonalizationRepository).deleteAllByUserId(userId);
+        verify(searchUserLookupPolicy, never()).validateExists(userId);
+    }
+
+    @Test
+    @DisplayName("모든 최근 검색어 삭제 - 삭제 행이 없으면 사용자 존재를 확인한다")
+    void deleteAllRecentSearches_validatesUserWhenNothingDeleted() {
+        Long userId = 1L;
+        when(searchPersonalizationRepository.deleteAllByUserId(userId)).thenReturn(0);
+
+        searchService.deleteAllRecentSearches(userId);
+
+        verify(searchPersonalizationRepository).deleteAllByUserId(userId);
+        verify(searchUserLookupPolicy).validateExists(userId);
     }
 
     private SearchStatisticRepository.PopularKeywordProjection popularKeyword(String keyword, Long count) {

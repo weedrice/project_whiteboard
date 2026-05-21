@@ -1,7 +1,6 @@
 package com.weedrice.whiteboard.domain.search.repository;
 
 import com.weedrice.whiteboard.domain.search.entity.SearchPersonalization;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import java.time.LocalDateTime;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -14,10 +13,10 @@ public interface SearchPersonalizationRepository extends JpaRepository<SearchPer
     @Query("""
             SELECT sp
             FROM SearchPersonalization sp
-            WHERE sp.user = :user
+            WHERE sp.user.userId = :userId
             ORDER BY sp.searchedAt DESC, sp.logId DESC
             """)
-    Page<SearchPersonalization> findByUserOrderBySearchedAtDesc(@Param("user") User user, Pageable pageable);
+    Page<SearchPersonalization> findRecentSearchesByUserId(@Param("userId") Long userId, Pageable pageable);
 
     @Modifying
     @Query("""
@@ -65,5 +64,10 @@ public interface SearchPersonalizationRepository extends JpaRepository<SearchPer
             """)
     int deleteByLogIdAndUserId(@Param("logId") Long logId, @Param("userId") Long userId);
 
-    void deleteByUser(User user);
+    @Modifying
+    @Query("""
+            DELETE FROM SearchPersonalization sp
+            WHERE sp.user.userId = :userId
+            """)
+    int deleteAllByUserId(@Param("userId") Long userId);
 }

@@ -13,6 +13,7 @@ import com.weedrice.whiteboard.domain.post.service.PostSummaryAssembler;
 import com.weedrice.whiteboard.domain.search.dto.IntegratedSearchResponse;
 import com.weedrice.whiteboard.domain.search.dto.PopularKeywordDto;
 import com.weedrice.whiteboard.domain.search.dto.SearchPersonalizationResponse;
+import com.weedrice.whiteboard.domain.search.entity.SearchPersonalization;
 import com.weedrice.whiteboard.domain.search.repository.SearchPersonalizationRepository;
 import com.weedrice.whiteboard.domain.search.repository.SearchStatisticRepository;
 import com.weedrice.whiteboard.domain.user.dto.UserSummary;
@@ -143,25 +144,30 @@ public class SearchService {
     }
 
     public SearchPersonalizationResponse getRecentSearches(Long userId, Pageable pageable) {
-        User user = searchUserLookupPolicy.resolveRequired(userId);
         Pageable normalizedPageable = SearchRequestNormalizer.normalizeRecentSearchPageable(pageable);
-        return SearchPersonalizationResponse
-                .from(searchPersonalizationRepository.findByUserOrderBySearchedAtDesc(user, normalizedPageable));
+        Page<SearchPersonalization> recentSearches =
+                searchPersonalizationRepository.findRecentSearchesByUserId(userId, normalizedPageable);
+        if (recentSearches.isEmpty()) {
+            searchUserLookupPolicy.validateExists(userId);
+        }
+        return SearchPersonalizationResponse.from(recentSearches);
     }
 
     @Transactional
     public void deleteRecentSearch(Long userId, Long logId) {
-        searchUserLookupPolicy.validateExists(userId);
         int deletedCount = searchPersonalizationRepository.deleteByLogIdAndUserId(logId, userId);
         if (deletedCount == 0) {
+            searchUserLookupPolicy.validateExists(userId);
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
     }
 
     @Transactional
     public void deleteAllRecentSearches(Long userId) {
-        User user = searchUserLookupPolicy.resolveRequired(userId);
-        searchPersonalizationRepository.deleteByUser(user);
+        int deletedCount = searchPersonalizationRepository.deleteAllByUserId(userId);
+        if (deletedCount == 0) {
+            searchUserLookupPolicy.validateExists(userId);
+        }
     }
 
     public List<PopularKeywordDto> getPopularKeywords(String period, int limit) {
