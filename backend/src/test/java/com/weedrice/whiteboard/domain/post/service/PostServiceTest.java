@@ -19,7 +19,6 @@ import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.feed.event.PostPublishedEvent;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
-import com.weedrice.whiteboard.domain.point.entity.PointHistory;
 import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
 import com.weedrice.whiteboard.domain.point.service.PointService;
@@ -1149,13 +1148,9 @@ class PostServiceTest {
     void deletePost_success() {
         when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
+        when(pointHistoryRepository.sumPositiveAmountByUserAndTypeAndRelatedTypeAndRelatedId(
                 user, "EARN", "POST", 1L))
-                .thenReturn(List.of(
-                        PointHistory.builder().user(user).type("EARN").amount(30).balanceAfter(530)
-                                .relatedType("POST").relatedId(1L).build(),
-                        PointHistory.builder().user(user).type("EARN").amount(20).balanceAfter(550)
-                                .relatedType("POST").relatedId(1L).build()));
+                .thenReturn(50L);
 
         postService.deletePost(1L, 1L);
 
@@ -1171,9 +1166,9 @@ class PostServiceTest {
     void deletePost_withoutRewardHistory_skipsPointRollback() {
         when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
+        when(pointHistoryRepository.sumPositiveAmountByUserAndTypeAndRelatedTypeAndRelatedId(
                 user, "EARN", "POST", 1L))
-                .thenReturn(List.of());
+                .thenReturn(0L);
 
         postService.deletePost(1L, 1L);
 
@@ -3234,9 +3229,9 @@ class PostServiceTest {
 
         when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
+        when(pointHistoryRepository.sumPositiveAmountByUserAndTypeAndRelatedTypeAndRelatedId(
                 user, "EARN", "POST", 1L))
-                .thenReturn(List.of());
+                .thenReturn(0L);
 
         postService.deletePost(1L, 1L);
 
@@ -3257,9 +3252,9 @@ class PostServiceTest {
 
         when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
+        when(pointHistoryRepository.sumPositiveAmountByUserAndTypeAndRelatedTypeAndRelatedId(
                 user, "EARN", "POST", 1L))
-                .thenReturn(List.of());
+                .thenReturn(0L);
 
         postService.deletePost(1L, 1L);
 

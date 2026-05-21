@@ -1,6 +1,5 @@
 package com.weedrice.whiteboard.domain.point.service;
 
-import com.weedrice.whiteboard.domain.point.entity.PointHistory;
 import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
@@ -10,8 +9,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.List;
 
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -84,16 +81,12 @@ class ContentRewardServiceTest {
     @DisplayName("rollbackCreateReward subtracts summed positive earn histories")
     void rollbackCreateReward_positiveEarnHistories_subtractsSummedAmount() {
         User user = User.builder().build();
-        PointHistory first = PointHistory.builder().amount(10).build();
-        PointHistory second = PointHistory.builder().amount(null).build();
-        PointHistory third = PointHistory.builder().amount(-5).build();
-        PointHistory fourth = PointHistory.builder().amount(15).build();
-        when(pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
+        when(pointHistoryRepository.sumPositiveAmountByUserAndTypeAndRelatedTypeAndRelatedId(
                 user,
                 "EARN",
                 "COMMENT",
                 10L))
-                .thenReturn(List.of(first, second, third, fourth));
+                .thenReturn(25L);
 
         org.springframework.test.util.ReflectionTestUtils.setField(user, "userId", 1L);
 
@@ -106,12 +99,12 @@ class ContentRewardServiceTest {
     @DisplayName("rollbackCreateReward skips subtract when no positive earn histories")
     void rollbackCreateReward_noPositiveEarnHistories_skipsSubtract() {
         User user = User.builder().build();
-        when(pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
+        when(pointHistoryRepository.sumPositiveAmountByUserAndTypeAndRelatedTypeAndRelatedId(
                 user,
                 "EARN",
                 "POST",
                 100L))
-                .thenReturn(List.of(PointHistory.builder().amount(0).build()));
+                .thenReturn(0L);
 
         org.springframework.test.util.ReflectionTestUtils.setField(user, "userId", 1L);
 
