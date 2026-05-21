@@ -100,7 +100,7 @@ public class SessionTokenService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
         User user = userRepository.findByIdForUpdate(candidate.getUserId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        RefreshToken refreshToken = refreshTokenRepository.findByTokenIdForUpdate(candidate.getTokenId())
+        RefreshToken refreshToken = refreshTokenRepository.findByTokenHash(refreshTokenHash)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
         if (!Objects.equals(refreshToken.getUser().getUserId(), user.getUserId())
                 || !Objects.equals(refreshToken.getTokenHash(), refreshTokenHash)) {

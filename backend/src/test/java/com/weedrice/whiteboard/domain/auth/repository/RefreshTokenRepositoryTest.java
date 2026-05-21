@@ -78,6 +78,13 @@ class RefreshTokenRepositoryTest {
     }
 
     @Test
+    void findByTokenHash_declaresPessimisticWriteLock() throws NoSuchMethodException {
+        Method method = RefreshTokenRepository.class.getMethod("findByTokenHash", String.class);
+
+        assertThat(method.getAnnotation(Lock.class).value()).isEqualTo(LockModeType.PESSIMISTIC_WRITE);
+    }
+
+    @Test
     void revokeActiveTokensByUserId_revokesOnlyActiveUnexpiredTokens() {
         LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
         persistRefreshToken("active", now.plusHours(1), false);

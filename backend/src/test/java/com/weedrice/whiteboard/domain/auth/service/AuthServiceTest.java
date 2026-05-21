@@ -625,7 +625,7 @@ class AuthServiceTest {
         when(refreshTokenRepository.findRenewalCandidateByTokenHash(oldRefreshTokenHash))
                 .thenReturn(Optional.of(renewalCandidate(10L, 1L)));
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(refreshTokenRepository.findByTokenIdForUpdate(10L)).thenReturn(Optional.of(storedRefreshToken));
+        when(refreshTokenRepository.findByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(storedRefreshToken));
         when(sanctionPolicyService.isUserBanned(user)).thenReturn(false);
         when(jwtTokenProvider.createAccessToken(any(Authentication.class))).thenReturn("new-access-token");
         when(jwtTokenProvider.createRefreshToken(any(Authentication.class))).thenReturn("new-refresh-token");
@@ -640,7 +640,7 @@ class AuthServiceTest {
         var lockOrder = inOrder(refreshTokenRepository, userRepository);
         lockOrder.verify(refreshTokenRepository).findRenewalCandidateByTokenHash(oldRefreshTokenHash);
         lockOrder.verify(userRepository).findByIdForUpdate(1L);
-        lockOrder.verify(refreshTokenRepository).findByTokenIdForUpdate(10L);
+        lockOrder.verify(refreshTokenRepository).findByTokenHash(oldRefreshTokenHash);
         verify(refreshTokenRepository).save(storedRefreshToken);
         verify(refreshTokenRepository).save(argThat(rotatedToken ->
                 rotatedToken != storedRefreshToken
@@ -667,7 +667,7 @@ class AuthServiceTest {
         when(refreshTokenRepository.findRenewalCandidateByTokenHash(oldRefreshTokenHash))
                 .thenReturn(Optional.of(renewalCandidate(10L, 1L)));
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(refreshTokenRepository.findByTokenIdForUpdate(10L)).thenReturn(Optional.of(refreshToken));
+        when(refreshTokenRepository.findByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(refreshToken));
         when(sanctionPolicyService.isUserBanned(user)).thenReturn(true);
 
         BusinessException exception = assertThrows(BusinessException.class,
@@ -696,7 +696,7 @@ class AuthServiceTest {
         when(refreshTokenRepository.findRenewalCandidateByTokenHash(oldRefreshTokenHash))
                 .thenReturn(Optional.of(renewalCandidate(10L, 1L)));
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(refreshTokenRepository.findByTokenIdForUpdate(10L)).thenReturn(Optional.of(refreshToken));
+        when(refreshTokenRepository.findByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(refreshToken));
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> authService.refresh("old-refresh-token"));
@@ -724,7 +724,7 @@ class AuthServiceTest {
         when(refreshTokenRepository.findRenewalCandidateByTokenHash(oldRefreshTokenHash))
                 .thenReturn(Optional.of(renewalCandidate(10L, 1L)));
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(refreshTokenRepository.findByTokenIdForUpdate(10L)).thenReturn(Optional.of(refreshToken));
+        when(refreshTokenRepository.findByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(refreshToken));
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> authService.refresh("old-refresh-token"));
@@ -751,7 +751,7 @@ class AuthServiceTest {
         when(refreshTokenRepository.findRenewalCandidateByTokenHash(oldRefreshTokenHash))
                 .thenReturn(Optional.of(renewalCandidate(10L, 1L)));
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(refreshTokenRepository.findByTokenIdForUpdate(10L)).thenReturn(Optional.of(refreshToken));
+        when(refreshTokenRepository.findByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(refreshToken));
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> authService.refresh("old-refresh-token"));
