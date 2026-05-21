@@ -47,6 +47,7 @@ const { mutate: purchase, isPending: isPurchasing } = useMutation({
     toastStore.addToast(t('emoticon.purchase.success'), 'success')
     queryClient.invalidateQueries({ queryKey: ['emoticon', emoticonId] })
     queryClient.invalidateQueries({ queryKey: ['emoticon', emoticonId, 'purchased'] })
+    queryClient.invalidateQueries({ queryKey: ['user', 'points'] })
   },
   onError: (error: unknown) => {
     const message = extractErrorMessage(error) || t('emoticon.purchase.failed')
