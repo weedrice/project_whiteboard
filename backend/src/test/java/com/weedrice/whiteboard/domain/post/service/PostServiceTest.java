@@ -1318,6 +1318,7 @@ class PostServiceTest {
         verify(postLikeRepository).deleteByUserIdAndPostId(1L, 1L);
         verify(postRepository).findByIdWithRelations(1L);
         verify(postRepository).decrementLikeCount(1L);
+        verify(userRepository).findById(1L);
         assertThat(likeCount).isZero();
     }
 
@@ -1422,6 +1423,7 @@ class PostServiceTest {
         postService.scrapPost(1L, 1L, "My Scrap");
 
         verify(scrapRepository).saveAndFlush(any(Scrap.class));
+        verify(userRepository).findById(1L);
     }
 
     @Test
@@ -1474,6 +1476,7 @@ class PostServiceTest {
 
         verify(postRepository).findByIdWithRelations(1L);
         verify(scrapRepository).deleteByUser_UserIdAndPost_PostId(1L, 1L);
+        verify(userRepository).findById(1L);
     }
 
     @Test
