@@ -69,10 +69,11 @@ export function usePostDetailActions({
     const isConfirmed = await confirm(t('common.messages.confirmDelete'))
     if (!isConfirmed) return
 
+    const boardUrl = post.value?.board.boardUrl
     deleteMutate(route.params.postId as string | number, {
       onSuccess: () => {
-        if (post.value?.board.boardUrl) {
-          router.push(buildBoardListRoute(post.value.board.boardUrl))
+        if (boardUrl) {
+          router.push(buildBoardListRoute(boardUrl))
         }
       },
       onError: (err) => {

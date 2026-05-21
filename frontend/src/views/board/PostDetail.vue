@@ -71,8 +71,8 @@ const {
 const postView = usePostDetailViewModel(post)
 
 const postPageTitle = computed(() => {
-  const postTitle = post.value?.title?.trim()
-  const boardName = post.value?.board?.boardName?.trim()
+  const postTitle = postView.value?.title.trim()
+  const boardName = postView.value?.boardName.trim()
 
   if (postTitle && boardName) {
     return `${postTitle} - ${boardName}`
@@ -93,17 +93,18 @@ const canonicalUrl = computed(() => {
 })
 
 const articleStructuredData = computed(() => {
-  if (!post.value || !canonicalUrl.value) return ''
+  const viewModel = postView.value
+  if (!viewModel || !canonicalUrl.value) return ''
 
   return JSON.stringify({
     '@context': 'https://schema.org',
     '@type': 'Article',
-    headline: post.value.title,
-    datePublished: post.value.createdAt,
-    dateModified: post.value.modifiedAt || post.value.createdAt,
+    headline: viewModel.title,
+    datePublished: viewModel.createdAt,
+    dateModified: post.value?.modifiedAt || viewModel.createdAt,
     author: {
       '@type': 'Person',
-      name: post.value.author.displayName
+      name: viewModel.authorDisplayName
     },
     mainEntityOfPage: canonicalUrl.value,
     url: canonicalUrl.value
@@ -118,7 +119,7 @@ useHead({
   ],
   meta: [
     { name: 'description', content: postDescription },
-    { property: 'og:title', content: computed(() => `${post.value?.title || 'Post'} - ${t('common.appName')}`) },
+    { property: 'og:title', content: computed(() => `${postView.value?.title || 'Post'} - ${t('common.appName')}`) },
     { property: 'og:description', content: postDescription },
     { property: 'og:type', content: 'article' },
     { property: 'og:url', content: canonicalUrl }
@@ -217,7 +218,7 @@ function buildBoardListRoute(boardUrl: string) {
 }
 
 function handleTagClick(tag: string) {
-  const boardUrl = post.value?.board.boardUrl
+  const boardUrl = postView.value?.boardUrl
   if (!boardUrl) return
 
   router.push({
@@ -255,8 +256,9 @@ function syncBoardListPageForDirectEntry() {
 }
 
 function buildEditRoute() {
-  if (!post.value) return '/'
-  return `/board/${post.value.board.boardUrl}/post/${post.value.postId}/edit`
+  const viewModel = postView.value
+  if (!viewModel) return '/'
+  return `/board/${viewModel.boardUrl}/post/${viewModel.postId}/edit`
 }
 
 const {
@@ -290,6 +292,19 @@ const {
 
 function scrollToTop() {
   window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+function findElementByHash(hash: string): HTMLElement | null {
+  if (!hash.startsWith('#')) return null
+
+  const rawId = hash.slice(1)
+  if (!rawId) return null
+
+  try {
+    return document.getElementById(decodeURIComponent(rawId))
+  } catch {
+    return document.getElementById(rawId)
+  }
 }
 
 function scrollToCommentComposer() {
@@ -348,15 +363,25 @@ function waitForImagesInContent(): Promise<void> {
 }
 
 function scrollToCommentsAfterImagesLoad() {
+  const expectedPostId = postView.value?.postId
+  const expectedHash = route.hash
+
   waitForImagesInContent().then(() => {
     if (isPostDetailUiDisposed()) return
-    nextTick(() => scrollToComments())
+    if (expectedPostId !== postView.value?.postId) return
+    if (expectedHash && route.hash !== expectedHash) return
+
+    nextTick(() => {
+      if (isPostDetailUiDisposed()) return
+      if (expectedPostId !== postView.value?.postId) return
+      scrollToComments()
+    })
   })
 }
 
 function goToList() {
-  if (post.value?.board) {
-    router.push(buildBoardListRoute(post.value.board.boardUrl))
+  if (postView.value?.boardUrl) {
+    router.push(buildBoardListRoute(postView.value.boardUrl))
     return
   }
 
@@ -375,7 +400,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
 
   if (shiftKey) {
     if (key === 'S') {
-      if (authStore.isAuthenticated && post.value) {
+      if (authStore.isAuthenticated && postView.value) {
         event.preventDefault()
         handleBookmark()
       }
@@ -398,7 +423,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
       goToList()
       break
     case 'l':
-      if (authStore.isAuthenticated && post.value) {
+      if (authStore.isAuthenticated && postView.value) {
         event.preventDefault()
         handleLike()
       }
@@ -408,7 +433,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
       handleCopyUrl()
       break
     case 'e':
-      if (canEdit.value && post.value) {
+      if (canEdit.value && postView.value) {
         event.preventDefault()
         router.push(buildEditRoute())
       }
@@ -429,7 +454,7 @@ watch(() => route.hash, (newHash) => {
       return
     }
 
-    const element = document.querySelector(newHash)
+    const element = findElementByHash(newHash)
     if (element) {
       element.scrollIntoView({ behavior: 'smooth' })
     }
@@ -462,7 +487,7 @@ watch(post, (newPost, oldPost) => {
 
       window.scrollTo(0, 0)
       if (hash) {
-        const element = document.querySelector(hash)
+        const element = findElementByHash(hash)
         if (element) {
           element.scrollIntoView({ behavior: 'smooth' })
         }

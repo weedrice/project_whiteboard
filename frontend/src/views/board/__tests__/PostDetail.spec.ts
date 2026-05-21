@@ -1,6 +1,5 @@
-﻿import { ref } from 'vue'
+﻿import { defineComponent, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent } from 'vue'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import PostDetail from '../PostDetail.vue'
 
@@ -185,7 +184,7 @@ describe('PostDetail', () => {
     authState.user = { userId: 7 }
 
     postValue.postId = 15
-    postValue.title = '?뚯뒪??湲'
+    postValue.title = '테스트 글'
     postValue.contents = '<h2>첫 섹션</h2><p>본문</p><h3>세부 항목</h3>'
     postValue.viewCount = 12
     postValue.likeCount = 4
@@ -345,6 +344,40 @@ describe('PostDetail', () => {
     expect(wrapper.text()).toContain('common.delete')
   })
 
+  it('uses the original board route after a delete succeeds', async () => {
+    const wrapper = mount(PostDetail, {
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          CommentList: true,
+          PostTags: true,
+          UserMenu: true,
+          BaseModal: true
+        }
+      }
+    })
+
+    await wrapper.get('[aria-label="common.delete"]').trigger('click')
+
+    await vi.waitFor(() => {
+      expect(deleteMutate).toHaveBeenCalled()
+    })
+
+    const [, options] = deleteMutate.mock.calls[0]
+    postValue.board.boardUrl = 'changed'
+    options.onSuccess()
+
+    expect(router.push).toHaveBeenCalledWith({
+      path: '/board/free',
+      query: {
+        page: '2'
+      }
+    })
+  })
+
   it('places the report action to the right of the share button for non-author users', async () => {
     authState.user = { userId: 99 }
 
@@ -484,12 +517,35 @@ describe('PostDetail', () => {
     })
 
     await vi.waitFor(() => {
-      expect(router.replace).toHaveBeenCalledWith({
-        path: '/board/free/post/15',
-        hash: '',
-        query: { page: '4' }
+    expect(router.replace).toHaveBeenCalledWith({
+      path: '/board/free/post/15',
+      hash: '',
+      query: { page: '4' }
       })
     })
+  })
+
+  it('ignores malformed hash values while mounting the post detail', async () => {
+    route.hash = '#%'
+
+    const wrapper = mount(PostDetail, {
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          CommentList: true,
+          PostTags: true,
+          UserMenu: true,
+          BaseModal: true
+        }
+      }
+    })
+
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('.nv-rich-content').exists()).toBe(true)
   })
 
   it('handles tag search navigation in the parent view', async () => {
