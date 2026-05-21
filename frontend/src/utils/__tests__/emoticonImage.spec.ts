@@ -72,6 +72,7 @@ describe('emoticonImage utilities', () => {
     await expect(createEmoticonImagePreview(file)).resolves.toEqual({
       ok: true,
       item: {
+        clientId: expect.any(String),
         file,
         preview: 'blob:ok.png',
         width: 100,
@@ -113,6 +114,7 @@ describe('emoticonImage utilities', () => {
     expect(resizedGifBlob.type).toBe('image/gif')
 
     const uploadFile = await createUploadableEmoticonImageFile({
+      clientId: 'gif-preview',
       file: gif,
       preview: 'blob:animated.gif',
       width: 120,
@@ -143,6 +145,7 @@ describe('emoticonImage utilities', () => {
     nextImageSize = { width: 240, height: 120 }
     const png = new File(['png'], 'big.png', { type: 'image/png' })
     const uploadFile = await createUploadableEmoticonImageFile({
+      clientId: 'png-preview',
       file: png,
       preview: 'blob:big.png',
       width: 240,
@@ -165,6 +168,7 @@ describe('emoticonImage utilities', () => {
 
     const resultPromise = uploadEmoticonImagePreviews(
       files.map((file) => ({
+        clientId: `preview-${file.name}`,
         file,
         preview: `blob:${file.name}`,
         width: 80,

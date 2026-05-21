@@ -69,6 +69,7 @@ describe('useEmoticonImageSelection', () => {
     const file = new File(['image'], 'thumb.png', { type: 'image/png' })
 
     await expect(selectThumbnailImage(file)).resolves.toEqual({
+      clientId: expect.any(String),
       file,
       preview: 'blob:thumb.png',
       width: 100,
@@ -83,6 +84,7 @@ describe('useEmoticonImageSelection', () => {
     const invalid = new File(['text'], 'note.txt', { type: 'text/plain' })
 
     await expect(selectEmoticonImages(asFileList([valid, invalid]), 2)).resolves.toEqual([{
+      clientId: expect.any(String),
       file: valid,
       preview: 'blob:valid.png',
       width: 100,
