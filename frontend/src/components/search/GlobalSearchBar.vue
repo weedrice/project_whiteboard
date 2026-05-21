@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, computed, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { useQueryClient } from '@tanstack/vue-query'
 import { useBoard } from '@/composables/useBoard'
 import { Search, X } from 'lucide-vue-next'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
@@ -11,6 +12,8 @@ import { DEBOUNCE_DELAY } from '@/utils/constants'
 import type { BoardListItem } from '@/types'
 
 const router = useRouter()
+const route = useRoute()
+const queryClient = useQueryClient()
 const { useBoards } = useBoard()
 const { data: boardsData } = useBoards()
 
@@ -81,14 +84,20 @@ const { selectedIndex, handleKeyDown: handleDropdownKeyDown, reset: resetSelecti
 
 // Handle search submission (Full Search)
 const handleSearch = () => {
-  if (searchQuery.value.trim()) {
+  const nextQuery = searchQuery.value.trim()
+  if (nextQuery) {
     showDropdown.value = false
     if (isMobile.value) collapse()
+
+    if (route.name === 'search' && route.query.q === nextQuery) {
+      queryClient.invalidateQueries({ queryKey: ['search', 'integrated'] })
+      return
+    }
+
     router.push({
       name: 'search',
       query: {
-        q: searchQuery.value,
-        t: Date.now().toString() // Force refresh by adding timestamp
+        q: nextQuery
       }
     })
   }
