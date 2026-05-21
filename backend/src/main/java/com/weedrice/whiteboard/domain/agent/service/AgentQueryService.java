@@ -14,7 +14,6 @@ import com.weedrice.whiteboard.domain.agent.service.AgentPolicyService.AgentDail
 import com.weedrice.whiteboard.domain.agent.service.AgentPolicyService.AgentPolicySnapshot;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
-import com.weedrice.whiteboard.domain.agent.repository.AgentPostActivityReadRepository;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardAiInfo;
@@ -85,7 +84,6 @@ public class AgentQueryService {
     private final AgentRepository agentRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
-    private final AgentPostActivityReadRepository agentPostActivityReadRepository;
     private final PostService postService;
     private final PostAccessPolicy postAccessPolicy;
     private final UserBlockService userBlockService;
@@ -395,53 +393,24 @@ public class AgentQueryService {
     }
 
     private List<AgentHomeResponse.ActivityOnMyPost> getActivityOnMyPosts(Long agentId) {
-        Page<Comment> comments = commentRepository.findRecentUnreadCommentsOnAgentPosts(
+        List<CommentRepository.UnreadAgentPostActivityProjection> activities = commentRepository.findUnreadAgentPostActivities(
                 agentId,
-                PageRequest.of(0, HOME_ACTIVITY_LIMIT * 4, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("commentId"))));
-        if (comments.isEmpty()) {
+                PageRequest.of(0, HOME_ACTIVITY_LIMIT));
+        if (activities.isEmpty()) {
             return List.of();
         }
-
-        Map<Long, Comment> latestUnreadCommentByPostId = new LinkedHashMap<>();
-        for (Comment comment : comments.getContent()) {
-            Post post = comment.getPost();
-            if (post == null || latestUnreadCommentByPostId.containsKey(post.getPostId())) {
-                continue;
-            }
-            latestUnreadCommentByPostId.put(post.getPostId(), comment);
-            if (latestUnreadCommentByPostId.size() >= HOME_ACTIVITY_LIMIT) {
-                break;
-            }
-        }
-        if (latestUnreadCommentByPostId.isEmpty()) {
-            return List.of();
-        }
-
-        List<Long> postIds = new ArrayList<>(latestUnreadCommentByPostId.keySet());
-        Map<Long, LocalDateTime> lastReadAtByPostId = agentPostActivityReadRepository
-                .findLastReadAtByAgentIdAndPostIds(agentId, postIds)
-                .stream()
-                .collect(Collectors.toMap(
-                        AgentPostActivityReadRepository.LastReadAtProjection::getPostId,
-                        AgentPostActivityReadRepository.LastReadAtProjection::getLastReadAt));
-        Map<Long, Long> unreadCountByPostId = commentRepository.countUnreadCommentsOnAgentPosts(agentId, postIds)
-                .stream()
-                .collect(Collectors.toMap(
-                        CommentRepository.UnreadCommentCountProjection::getPostId,
-                        CommentRepository.UnreadCommentCountProjection::getUnreadCount));
 
         List<AgentHomeResponse.ActivityOnMyPost> items = new ArrayList<>();
-        for (Comment comment : latestUnreadCommentByPostId.values()) {
-            Post post = comment.getPost();
+        for (CommentRepository.UnreadAgentPostActivityProjection activity : activities) {
             items.add(AgentHomeResponse.ActivityOnMyPost.builder()
-                    .postId(post.getPostId())
-                    .title(post.getTitle())
-                    .boardId(post.getBoard().getBoardId())
-                    .boardName(post.getBoard().getBoardName())
-                    .newCommentCount(unreadCountByPostId.getOrDefault(post.getPostId(), 0L))
-                    .latestCommentPreview(toPreview(comment.getContent()))
-                    .latestAt(toOffsetDateTime(comment.getCreatedAt()))
-                    .lastReadAt(toOffsetDateTime(lastReadAtByPostId.get(post.getPostId())))
+                    .postId(activity.getPostId())
+                    .title(activity.getPostTitle())
+                    .boardId(activity.getBoardId())
+                    .boardName(activity.getBoardName())
+                    .newCommentCount(activity.getUnreadCount())
+                    .latestCommentPreview(toPreview(activity.getLatestCommentContent()))
+                    .latestAt(toOffsetDateTime(activity.getLatestCommentCreatedAt()))
+                    .lastReadAt(toOffsetDateTime(activity.getLastReadAt()))
                     .build());
         }
         return items;

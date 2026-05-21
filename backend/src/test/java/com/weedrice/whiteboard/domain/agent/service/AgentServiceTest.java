@@ -71,6 +71,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -202,7 +203,6 @@ class AgentServiceTest {
                 agentRepository,
                 postRepository,
                 commentRepository,
-                agentPostActivityReadRepository,
                 postService,
                 postAccessPolicy,
                 userBlockService,
@@ -512,34 +512,51 @@ class AgentServiceTest {
     void getHome_returnsCapabilitiesAndOpportunitiesForActiveAgent() {
         doReturn(agent).when(agentOwnershipService).resolveClaimedAgent(7L);
         ReflectionTestUtils.setField(writablePost, "agent", agent);
-        ReflectionTestUtils.setField(writablePost, "createdAt", LocalDateTime.now());
-        User commenter = User.builder().loginId("commenter").displayName("Commenter").build();
-        ReflectionTestUtils.setField(commenter, "userId", 2L);
-        Comment comment = Comment.builder()
-                .post(writablePost)
-                .user(commenter)
-                .depth(0)
-                .content("<p>recent reply</p>")
-                .build();
-        ReflectionTestUtils.setField(comment, "commentId", 301L);
-        ReflectionTestUtils.setField(comment, "createdAt", LocalDateTime.now());
+        LocalDateTime latestAt = LocalDateTime.now();
+        LocalDateTime lastReadAt = latestAt.minusMinutes(5);
 
-        when(commentRepository.findRecentUnreadCommentsOnAgentPosts(eq(7L), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(comment), PageRequest.of(0, 20), 1));
-        when(commentRepository.countUnreadCommentsOnAgentPosts(7L, List.of(100L)))
-                .thenReturn(List.of(new CommentRepository.UnreadCommentCountProjection() {
+        when(commentRepository.findUnreadAgentPostActivities(eq(7L), any(Pageable.class)))
+                .thenReturn(List.of(new CommentRepository.UnreadAgentPostActivityProjection() {
                     @Override
                     public Long getPostId() {
                         return 100L;
                     }
 
                     @Override
+                    public String getPostTitle() {
+                        return "Writable Post";
+                    }
+
+                    @Override
+                    public Long getBoardId() {
+                        return 10L;
+                    }
+
+                    @Override
+                    public String getBoardName() {
+                        return "Writable Board";
+                    }
+
+                    @Override
                     public long getUnreadCount() {
                         return 2L;
                     }
+
+                    @Override
+                    public String getLatestCommentContent() {
+                        return "<p>recent reply</p>";
+                    }
+
+                    @Override
+                    public LocalDateTime getLatestCommentCreatedAt() {
+                        return latestAt;
+                    }
+
+                    @Override
+                    public LocalDateTime getLastReadAt() {
+                        return lastReadAt;
+                    }
                 }));
-        when(agentPostActivityReadRepository.findLastReadAtByAgentIdAndPostIds(7L, List.of(100L)))
-                .thenReturn(List.of());
         when(postRepository.findByAgent_AgentIdAndIsDeleted(eq(7L), eq(false), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 5), 1));
         when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
@@ -572,6 +589,8 @@ class AgentServiceTest {
         AgentHomeResponse.ActivityOnMyPost activity = response.getActivityOnMyPosts().get(0);
         assertThat(activity.getNewCommentCount()).isEqualTo(2L);
         assertThat(activity.getLatestCommentPreview()).isEqualTo("recent reply");
+        assertThat(activity.getLatestAt()).isEqualTo(latestAt.atZone(ZoneId.of("Asia/Seoul")).toOffsetDateTime());
+        assertThat(activity.getLastReadAt()).isEqualTo(lastReadAt.atZone(ZoneId.of("Asia/Seoul")).toOffsetDateTime());
         AgentHomeResponse.Opportunity replyToActivity = response.getOpportunities().stream()
                 .filter(opportunity -> "reply_to_activity".equals(opportunity.getType()))
                 .findFirst()
@@ -581,6 +600,9 @@ class AgentServiceTest {
         assertThat(replyToActivity.getAvailableActions()).extracting(AgentHomeResponse.AvailableAction::getTool)
                 .contains("get_post_comments");
         assertThat(replyToActivity.getAvailableActions().get(0).getParams()).containsEntry("post_id", 100L);
+        ArgumentCaptor<Pageable> activityPageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(commentRepository).findUnreadAgentPostActivities(eq(7L), activityPageableCaptor.capture());
+        assertThat(activityPageableCaptor.getValue().getPageSize()).isEqualTo(5);
         verify(agentOwnershipService).validateAuthenticatedAgent(agent);
         verify(agentOwnershipService, never()).resolveActiveAgent(7L);
         verify(commentRepository, never()).countUnreadCommentsOnAgentPost(anyLong(), anyLong());
@@ -597,8 +619,8 @@ class AgentServiceTest {
                         .actionType(AgentQuotaService.ACTION_POST)
                         .usedCount(AgentQuotaService.DAILY_AGENT_POST_LIMIT)
                         .build()));
-        when(commentRepository.findRecentUnreadCommentsOnAgentPosts(eq(7L), any(Pageable.class)))
-                .thenReturn(Page.empty());
+        when(commentRepository.findUnreadAgentPostActivities(eq(7L), any(Pageable.class)))
+                .thenReturn(List.of());
         when(postRepository.findByAgent_AgentIdAndIsDeleted(eq(7L), eq(false), any(Pageable.class)))
                 .thenReturn(Page.empty());
         when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())

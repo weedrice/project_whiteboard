@@ -25,6 +25,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -468,8 +469,8 @@ class CommentRepositoryTest {
     }
 
     @Test
-    @DisplayName("countUnreadCommentsOnAgentPosts groups unread counts by post")
-    void countUnreadCommentsOnAgentPosts_groupsUnreadCountsByPost() {
+    @DisplayName("findUnreadAgentPostActivities groups latest unread comments by post")
+    void findUnreadAgentPostActivities_groupsLatestUnreadCommentsByPost() {
         User commenter = persistUser("unread-commenter", "unread-commenter@test.com", "Unread Commenter");
         Agent ownerAgent = persistAgent("unread-owner-agent");
         Agent otherAgent = persistAgent("unread-other-agent");
@@ -479,7 +480,8 @@ class CommentRepositoryTest {
         Post otherAgentPost = persistPost("Unread Other Agent Post", board, false, false, user, otherAgent);
 
         Comment readComment = commentFor(firstPost, "Already read", commenter);
-        Comment unreadFirstPostComment = commentFor(firstPost, "Unread first", commenter);
+        Comment unreadFirstPostComment = commentFor(firstPost, "Unread first older tie", commenter);
+        Comment laterTieFirstPostComment = commentFor(firstPost, "Unread first latest tie", commenter);
         Comment unreadSecondPostComment = commentFor(secondPost, "Unread second", commenter);
         Comment anotherUnreadSecondPostComment = commentFor(secondPost, "Another unread second", commenter);
         Comment deletedComment = commentFor(firstPost, "Deleted unread", commenter);
@@ -495,6 +497,7 @@ class CommentRepositoryTest {
         Comment otherAgentPostComment = commentFor(otherAgentPost, "Other agent post unread", commenter);
         entityManager.persist(readComment);
         entityManager.persist(unreadFirstPostComment);
+        entityManager.persist(laterTieFirstPostComment);
         entityManager.persist(unreadSecondPostComment);
         entityManager.persist(anotherUnreadSecondPostComment);
         entityManager.persist(deletedComment);
@@ -503,9 +506,10 @@ class CommentRepositoryTest {
         entityManager.persist(otherAgentPostComment);
         entityManager.flush();
 
-        LocalDateTime baseTime = LocalDateTime.now().plusMinutes(10);
+        LocalDateTime baseTime = LocalDateTime.now().plusMinutes(10).truncatedTo(ChronoUnit.MICROS);
         updateCreatedAt(readComment, baseTime.plusMinutes(1));
         updateCreatedAt(unreadFirstPostComment, baseTime.plusMinutes(3));
+        updateCreatedAt(laterTieFirstPostComment, baseTime.plusMinutes(3));
         updateCreatedAt(unreadSecondPostComment, baseTime.plusMinutes(4));
         updateCreatedAt(anotherUnreadSecondPostComment, baseTime.plusMinutes(5));
         updateCreatedAt(deletedComment, baseTime.plusMinutes(6));
@@ -520,22 +524,29 @@ class CommentRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        List<CommentRepository.UnreadCommentCountProjection> result =
-                commentRepository.countUnreadCommentsOnAgentPosts(
-                        ownerAgent.getAgentId(),
-                        List.of(
-                                firstPost.getPostId(),
-                                secondPost.getPostId(),
-                                deletedPost.getPostId(),
-                                otherAgentPost.getPostId()));
+        List<CommentRepository.UnreadAgentPostActivityProjection> result =
+                commentRepository.findUnreadAgentPostActivities(ownerAgent.getAgentId(), PageRequest.of(0, 5));
 
         assertThat(result)
                 .extracting(
-                        CommentRepository.UnreadCommentCountProjection::getPostId,
-                        CommentRepository.UnreadCommentCountProjection::getUnreadCount)
-                .containsExactlyInAnyOrder(
-                        org.assertj.core.groups.Tuple.tuple(firstPost.getPostId(), 1L),
-                        org.assertj.core.groups.Tuple.tuple(secondPost.getPostId(), 2L));
+                        CommentRepository.UnreadAgentPostActivityProjection::getPostId,
+                        CommentRepository.UnreadAgentPostActivityProjection::getUnreadCount,
+                        CommentRepository.UnreadAgentPostActivityProjection::getLatestCommentContent)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(
+                                secondPost.getPostId(),
+                                2L,
+                                "Another unread second"),
+                        org.assertj.core.groups.Tuple.tuple(
+                                firstPost.getPostId(),
+                                2L,
+                                "Unread first latest tie"));
+        CommentRepository.UnreadAgentPostActivityProjection firstPostActivity = result.get(1);
+        assertThat(firstPostActivity.getPostTitle()).isEqualTo("Unread First Post");
+        assertThat(firstPostActivity.getBoardId()).isEqualTo(board.getBoardId());
+        assertThat(firstPostActivity.getBoardName()).isEqualTo(board.getBoardName());
+        assertThat(firstPostActivity.getLatestCommentCreatedAt()).isEqualTo(baseTime.plusMinutes(3));
+        assertThat(firstPostActivity.getLastReadAt()).isEqualTo(baseTime.plusMinutes(2));
     }
 
     @Test

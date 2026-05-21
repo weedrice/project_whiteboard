@@ -3,7 +3,6 @@ package com.weedrice.whiteboard.domain.agent.service;
 import com.weedrice.whiteboard.domain.agent.dto.AgentCommentItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
-import com.weedrice.whiteboard.domain.agent.repository.AgentPostActivityReadRepository;
 import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
@@ -55,7 +54,6 @@ class AgentQueryServicePageableTest {
     @Mock private AdminRepository adminRepository;
     @Mock private PostRepository postRepository;
     @Mock private CommentRepository commentRepository;
-    @Mock private AgentPostActivityReadRepository agentPostActivityReadRepository;
     @Mock private SanctionRepository sanctionRepository;
     @Mock private AgentQuotaService agentQuotaService;
     @Mock private PostService postService;
@@ -88,7 +86,6 @@ class AgentQueryServicePageableTest {
                 agentRepository,
                 postRepository,
                 commentRepository,
-                agentPostActivityReadRepository,
                 postService,
                 postAccessPolicy,
                 userBlockService,
