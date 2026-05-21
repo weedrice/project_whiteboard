@@ -12,5 +12,4 @@ export interface SearchParams {
     searchType?: string
     sort?: string
     boardUrl?: string
-    t?: string
 }

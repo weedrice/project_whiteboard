@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
+import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { emoticonApi } from '@/api/emoticon'
 import { fileApi } from '@/api/file'
 import { useHead } from '@unhead/vue'
@@ -13,6 +13,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import type { EmoticonImage } from '@/types/emoticon'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { useEmoticonImageSelection } from '@/composables/useEmoticonImageSelection'
+import { useToggleEmoticonVisibility } from '@/composables/useToggleEmoticonVisibility'
 import {
   createUploadableEmoticonImageFile,
   resolveEmoticonTagAddition,
@@ -114,22 +115,7 @@ watch([emoticon, () => authStore.user], ([emoticonData, user]) => {
 })
 
 // 숨김/표시 전환
-const { mutate: toggleVisibility, isPending: isToggling } = useMutation({
-  mutationFn: () => emoticonApi.toggleVisibilityData(emoticonId.value),
-  onSuccess: (updatedEmoticon) => {
-    const isNowActive = updatedEmoticon.isActive
-    toastStore.addToast(
-      isNowActive ? t('emoticon.visibility.showSuccess') : t('emoticon.visibility.hiddenSuccess'),
-      'success'
-    )
-    queryClient.invalidateQueries({ queryKey: ['emoticon', emoticonId] })
-    queryClient.invalidateQueries({ queryKey: ['emoticons'] })
-  },
-  onError: (err: unknown) => {
-    const message = extractErrorMessage(err) || t('emoticon.edit.failed')
-    toastStore.addToast(message, 'error')
-  }
-})
+const { mutate: toggleVisibility, isPending: isToggling } = useToggleEmoticonVisibility(emoticonId)
 
 const handleToggleVisibility = () => {
   if (!emoticon.value) return
