@@ -625,8 +625,6 @@ class BoardServiceTest {
         BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
 
         when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
-        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
-        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
         when(globalConfigService.getConfig(anyString())).thenReturn("500");
         when(boardRepository.saveAndFlush(any(Board.class))).thenReturn(board);
         when(boardCategoryRepository.save(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class)))
@@ -660,8 +658,6 @@ class BoardServiceTest {
         BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
 
         when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
-        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
-        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
         when(globalConfigService.getConfig(anyString())).thenReturn("500");
         when(boardRepository.saveAndFlush(any(Board.class))).thenReturn(board);
         when(boardCategoryRepository.save(any(BoardCategory.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -683,8 +679,6 @@ class BoardServiceTest {
         BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
 
         when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
-        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
-        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
         when(globalConfigService.getConfig("POINT_BOARD_CREATE_COST")).thenReturn("invalid");
         when(boardRepository.saveAndFlush(any(Board.class))).thenReturn(board);
         when(boardCategoryRepository.save(any(BoardCategory.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -707,8 +701,6 @@ class BoardServiceTest {
         BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
 
         when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
-        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
-        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
         when(globalConfigService.getConfig("POINT_BOARD_CREATE_COST")).thenReturn("0");
         when(boardRepository.saveAndFlush(any(Board.class))).thenReturn(board);
         when(boardCategoryRepository.save(any(BoardCategory.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -733,8 +725,6 @@ class BoardServiceTest {
                 null);
 
         when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
-        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
-        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
         when(globalConfigService.getConfig(anyString())).thenReturn("500");
         when(boardRepository.saveAndFlush(any(Board.class))).thenAnswer(invocation -> {
             Board savedBoard = invocation.getArgument(0);
@@ -788,8 +778,6 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(savedBoard, "boardId", 2L);
 
         when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
-        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
-        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
         when(globalConfigService.getConfig(anyString())).thenReturn("500");
         when(boardRepository.saveAndFlush(any(Board.class))).thenReturn(savedBoard);
         when(boardCategoryRepository.save(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class)))
@@ -811,8 +799,6 @@ class BoardServiceTest {
                 null);
 
         when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
-        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
-        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
         when(globalConfigService.getConfig(anyString())).thenReturn("500");
         when(boardRepository.saveAndFlush(any(Board.class))).thenAnswer(invocation -> {
             Board savedBoard = invocation.getArgument(0);
@@ -837,8 +823,6 @@ class BoardServiceTest {
         BoardUpdateRequest request = createBoardUpdateRequest("Updated Board", "updated-board", null);
 
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
-        when(boardRepository.existsByBoardName("Updated Board")).thenReturn(false);
-        when(boardRepository.existsByBoardUrl("updated-board")).thenReturn(false);
         when(boardRepository.saveAndFlush(board)).thenReturn(board);
         when(boardRepository.findByBoardUrl("updated-board")).thenReturn(Optional.of(board));
 
@@ -946,7 +930,6 @@ class BoardServiceTest {
         BoardUpdateRequest request = createBoardUpdateRequest("Test Board", "updated-board", "/api/v1/files/88");
 
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
-        when(boardRepository.existsByBoardUrl("updated-board")).thenReturn(false);
         when(boardRepository.saveAndFlush(board))
                 .thenThrow(new DataIntegrityViolationException(
                         "duplicate key",
@@ -1295,8 +1278,6 @@ class BoardServiceTest {
         BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
 
         when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
-        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
-        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
         when(globalConfigService.getConfig(anyString())).thenReturn("500");
         when(boardRepository.saveAndFlush(any(Board.class))).thenReturn(board);
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
@@ -1321,8 +1302,6 @@ class BoardServiceTest {
         BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
 
         when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
-        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false, true);
-        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
         when(boardRepository.saveAndFlush(any(Board.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate key board_name"));
@@ -1341,8 +1320,6 @@ class BoardServiceTest {
         BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
 
         when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
-        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
-        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false, true);
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
         when(boardRepository.saveAndFlush(any(Board.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate key board_url"));
@@ -1361,8 +1338,6 @@ class BoardServiceTest {
         BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
 
         when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
-        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
-        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
         when(boardRepository.saveAndFlush(any(Board.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate key"));
@@ -1380,8 +1355,6 @@ class BoardServiceTest {
         BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
 
         when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
-        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
-        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
         when(boardRepository.saveAndFlush(any(Board.class)))
                 .thenThrow(new DataIntegrityViolationException(
@@ -1401,8 +1374,6 @@ class BoardServiceTest {
         BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
 
         when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
-        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
-        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
         when(boardRepository.saveAndFlush(any(Board.class)))
                 .thenThrow(new DataIntegrityViolationException(
@@ -1422,8 +1393,6 @@ class BoardServiceTest {
         BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
 
         when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
-        when(boardRepository.existsByBoardName(request.getBoardName())).thenReturn(false);
-        when(boardRepository.existsByBoardUrl(request.getBoardUrl())).thenReturn(false);
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
         when(boardRepository.saveAndFlush(any(Board.class)))
                 .thenThrow(new DataIntegrityViolationException(

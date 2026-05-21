@@ -1,70 +1,21 @@
-import { flushPromises, mount } from '@vue/test-utils'
+import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent } from 'vue'
+import { defineComponent, nextTick, ref, type Ref } from 'vue'
 
-const pageResponse = (content = [{
-  userId: 1,
-  displayName: 'Blocked User',
-  email: 'blocked@example.com',
-}]) => ({
-  success: true,
-  data: {
-    content,
-    totalElements: content.length,
-    totalPages: content.length > 0 ? 2 : 0,
-    size: 20,
-    number: 0,
-    first: true,
-    last: false,
-    empty: content.length === 0,
-  },
-})
+import type BlockListComponent from '../BlockList.vue'
 
-const mocks = vi.hoisted(() => ({
-  getBlockList: vi.fn(),
-  loggerError: vi.fn(),
-}))
+type BlockList = typeof BlockListComponent
+type BlockListParams = { page: number; size: number }
 
-vi.mock('@/api/user', () => ({
-  userApi: {
-    getBlockList: mocks.getBlockList,
-  },
-}))
-
-vi.mock('@/utils/logger', () => ({
-  default: {
-    error: mocks.loggerError,
-  },
-}))
-
-vi.mock('vue-i18n', () => ({
-  createI18n: () => ({
-    global: {
-      t: (key: string) => key,
-    },
-  }),
-  useI18n: () => ({
-    t: (key: string) => key,
-  }),
-}))
-
-import BlockList from '../BlockList.vue'
-
-const BlockButtonStub = defineComponent({
-  name: 'BlockButtonStub',
-  props: {
-    userId: {
-      type: Number,
-      required: true,
-    },
-    initialBlocked: {
-      type: Boolean,
-      required: true,
-    },
-  },
-  emits: ['block-change'],
-  template: '<button data-testid="block-button" @click="$emit(\'block-change\')">unblock</button>',
-})
+let queryState: {
+  data: ReturnType<typeof ref<unknown>>
+  isLoading: ReturnType<typeof ref<boolean>>
+  error: ReturnType<typeof ref<unknown>>
+  refetch: ReturnType<typeof vi.fn>
+}
+let BlockList: BlockList
+let latestParams: Ref<BlockListParams> | undefined
+let loggerError: ReturnType<typeof vi.fn>
 
 const PageSizeSelectorStub = defineComponent({
   name: 'PageSizeSelectorStub',
@@ -79,7 +30,7 @@ const PageSizeSelectorStub = defineComponent({
     },
   },
   emits: ['update:modelValue', 'change'],
-  template: '<button data-testid="size-change" @click="$emit(\'update:modelValue\', 50); $emit(\'change\')">size</button>',
+  template: '<button data-test="size-change" @click="$emit(\'update:modelValue\', 50); $emit(\'change\')">size</button>',
 })
 
 const PaginationStub = defineComponent({
@@ -95,84 +46,126 @@ const PaginationStub = defineComponent({
     },
   },
   emits: ['page-change'],
-  template: '<button data-testid="page-change" @click="$emit(\'page-change\', 1)">{{ currentPage }}/{{ totalPages }}</button>',
+  template: '<button data-test="page-change" @click="$emit(\'page-change\', 1)">{{ currentPage }}/{{ totalPages }}</button>',
 })
 
-const mountBlockList = () => mount(BlockList, {
+const mountList = () => mount(BlockList, {
   global: {
     mocks: {
       $t: (key: string) => key,
     },
     stubs: {
-      BlockButton: BlockButtonStub,
-      PageSizeSelector: PageSizeSelectorStub,
-      Pagination: PaginationStub,
       BaseSkeleton: true,
       EmptyState: true,
+      PageSizeSelector: PageSizeSelectorStub,
+      Pagination: PaginationStub,
+      BlockButton: {
+        emits: ['block-change'],
+        template: '<button data-test="block-button" @click="$emit(\'block-change\', false)">unblock</button>',
+      },
       UserX: true,
     },
   },
 })
 
 describe('BlockList', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    mocks.getBlockList.mockResolvedValue({ data: pageResponse() })
+  beforeEach(async () => {
+    vi.resetModules()
+    latestParams = undefined
+    loggerError = vi.fn()
+    queryState = {
+      data: ref(null),
+      isLoading: ref(false),
+      error: ref(null),
+      refetch: vi.fn(),
+    }
+    vi.doMock('@/composables/useUser', () => ({
+      useUser: () => ({
+        useBlockList: (params?: Ref<BlockListParams>) => {
+          latestParams = params
+          return queryState
+        },
+      }),
+    }))
+    vi.doMock('@/utils/logger', () => ({
+      default: { error: loggerError },
+    }))
+    BlockList = (await import('../BlockList.vue')).default
   })
 
-  it('fetches the first page with page and size params', async () => {
-    mountBlockList()
-    await flushPromises()
+  it('renders users from the paged block list query cache', () => {
+    queryState.data.value = {
+      content: [
+        { userId: 1, displayName: 'Ada', email: 'ada@example.com' },
+        { userId: 2, displayName: 'Grace', email: 'grace@example.com' },
+      ],
+      totalElements: 2,
+      totalPages: 3,
+    }
 
-    expect(mocks.getBlockList).toHaveBeenCalledWith({ page: 0, size: 20 })
+    const wrapper = mountList()
+
+    expect(wrapper.text()).toContain('Ada')
+    expect(wrapper.text()).toContain('Grace')
+    expect(wrapper.text()).toContain('총 2건')
+    expect(wrapper.get('[data-test="page-change"]').text()).toContain('0/3')
+    expect(wrapper.findAll('[data-test="block-button"]')).toHaveLength(2)
   })
 
-  it('updates page and resets page when page size changes', async () => {
-    const wrapper = mountBlockList()
-    await flushPromises()
+  it('supports legacy array payloads from the block list query cache', () => {
+    queryState.data.value = [
+      { userId: 1, displayName: 'Ada', email: 'ada@example.com' },
+    ]
 
-    await wrapper.get('[data-testid="page-change"]').trigger('click')
-    await flushPromises()
-    expect(mocks.getBlockList).toHaveBeenLastCalledWith({ page: 1, size: 20 })
+    const wrapper = mountList()
 
-    await wrapper.get('[data-testid="size-change"]').trigger('click')
-    await flushPromises()
-    expect(mocks.getBlockList).toHaveBeenLastCalledWith({ page: 0, size: 50 })
+    expect(wrapper.text()).toContain('Ada')
+    expect(wrapper.text()).toContain('총 1건')
+    expect(wrapper.get('[data-test="page-change"]').text()).toContain('0/1')
   })
 
-  it('renders PageResponse content and supports legacy array payloads', async () => {
-    const wrapper = mountBlockList()
-    await flushPromises()
+  it('updates query params when page or page size changes', async () => {
+    queryState.data.value = {
+      content: [{ userId: 1, displayName: 'Ada', email: 'ada@example.com' }],
+      totalElements: 1,
+      totalPages: 2,
+    }
+    const wrapper = mountList()
 
-    expect(wrapper.text()).toContain('Blocked User')
+    expect(latestParams?.value).toEqual({ page: 0, size: 20 })
 
-    mocks.getBlockList.mockResolvedValueOnce({
-      data: {
-        success: true,
-        data: [{
-          userId: 2,
-          displayName: 'Legacy User',
-          email: 'legacy@example.com',
-        }],
-      },
-    })
+    await wrapper.get('[data-test="page-change"]').trigger('click')
+    expect(latestParams?.value).toEqual({ page: 1, size: 20 })
 
-    await wrapper.get('[data-testid="page-change"]').trigger('click')
-    await flushPromises()
-
-    expect(wrapper.text()).toContain('Legacy User')
+    await wrapper.get('[data-test="size-change"]').trigger('click')
+    expect(latestParams?.value).toEqual({ page: 0, size: 50 })
   })
 
-  it('moves to the previous page before refreshing the last item on a page', async () => {
-    const wrapper = mountBlockList()
-    await flushPromises()
+  it('moves to the previous page after the last visible user is unblocked without manual refetch', async () => {
+    queryState.data.value = {
+      content: [{ userId: 1, displayName: 'Ada', email: 'ada@example.com' }],
+      totalElements: 21,
+      totalPages: 2,
+    }
+    const wrapper = mountList()
 
-    await wrapper.get('[data-testid="page-change"]').trigger('click')
-    await flushPromises()
+    await wrapper.get('[data-test="page-change"]').trigger('click')
+    expect(latestParams?.value).toEqual({ page: 1, size: 20 })
 
-    await wrapper.get('[data-testid="block-button"]').trigger('click')
-    await flushPromises()
+    await wrapper.get('[data-test="block-button"]').trigger('click')
 
-    expect(mocks.getBlockList).toHaveBeenLastCalledWith({ page: 0, size: 20 })
+    expect(latestParams?.value).toEqual({ page: 0, size: 20 })
+    expect(queryState.refetch).not.toHaveBeenCalled()
+  })
+
+  it('logs query errors from the block list query', async () => {
+    const wrapper = mountList()
+    const error = new Error('load failed')
+
+    queryState.error.value = error
+    await nextTick()
+
+    expect(loggerError).toHaveBeenCalledWith('Failed to fetch blocked users:', error)
+    wrapper.unmount()
   })
 })

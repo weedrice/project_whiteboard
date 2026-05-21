@@ -52,11 +52,11 @@ export function useUser() {
         })
     }
 
-    const useBlockList = () => {
+    const useBlockList = (params?: Ref<PaginationParams>) => {
         return useQuery({
-            queryKey: ['user', 'blocks'],
+            queryKey: computed(() => ['user', 'blocks', params?.value ?? {}]),
             queryFn: async () => {
-                const { data } = await userApi.getBlockList()
+                const { data } = await userApi.getBlockList(params?.value)
                 return data.data
             },
         })

@@ -11,6 +11,7 @@ import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { DEFAULT_EMOTICON_IMAGE_URL, applyImageFallback } from '@/utils/imageFallback'
+import { useToggleEmoticonVisibility } from '@/composables/useToggleEmoticonVisibility'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -97,22 +98,8 @@ const handlePurchase = () => {
 }
 
 // 숨김/표시 전환 mutation
-const { mutate: toggleVisibility, isPending: isToggling } = useMutation({
-  mutationFn: () => emoticonApi.toggleVisibilityData(emoticonId.value),
-  onSuccess: (updatedEmoticon) => {
-    const isNowActive = updatedEmoticon.isActive
-    toastStore.addToast(
-      isNowActive ? t('emoticon.visibility.showSuccess') : t('emoticon.visibility.hiddenSuccess'),
-      'success'
-    )
-    queryClient.invalidateQueries({ queryKey: ['emoticon', emoticonId] })
-    queryClient.invalidateQueries({ queryKey: ['emoticon', emoticonId, 'purchased'] })
-    queryClient.invalidateQueries({ queryKey: ['emoticons'] })
-  },
-  onError: (err: unknown) => {
-    const message = extractErrorMessage(err) || t('emoticon.edit.failed')
-    toastStore.addToast(message, 'error')
-  }
+const { mutate: toggleVisibility, isPending: isToggling } = useToggleEmoticonVisibility(emoticonId, {
+  invalidatePurchaseStatus: true
 })
 
 const handleToggleVisibility = () => {

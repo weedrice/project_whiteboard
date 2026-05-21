@@ -41,7 +41,7 @@
               </div>
             </div>
             <div class="flex-shrink-0 min-h-[44px] sm:min-h-0 flex items-center">
-              <BlockButton :userId="user.userId" :initialBlocked="true" @block-change="refreshList" />
+              <BlockButton :userId="user.userId" :initialBlocked="true" @block-change="handleBlockChange" />
             </div>
           </div>
         </li>
@@ -56,67 +56,58 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { userApi, type BlockedUserSummary } from '@/api/user'
+import { computed, ref, watch } from 'vue'
+import type { BlockedUserSummary } from '@/api/user'
 import BlockButton from '@/components/user/BlockButton.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import { UserX } from 'lucide-vue-next'
-import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
+import { useUser } from '@/composables/useUser'
 
-const { t } = useI18n()
-
-const blockedUsers = ref<BlockedUserSummary[]>([])
-const loading = ref(false)
+const { useBlockList } = useUser()
 const page = ref(0)
 const size = ref(20)
-const totalPages = ref(0)
-const totalElements = ref(0)
+const blockListParams = computed(() => ({ page: page.value, size: size.value }))
+const { data: blockListData, isLoading: loading, error } = useBlockList(blockListParams)
 
-const fetchBlockedUsers = async () => {
-  loading.value = true
-  try {
-    const { data } = await userApi.getBlockList({ page: page.value, size: size.value })
-    if (data.success) {
-      const payload = data.data
-      if (Array.isArray(payload)) {
-        blockedUsers.value = payload
-        totalElements.value = payload.length
-        totalPages.value = payload.length > 0 ? 1 : 0
-      } else {
-        blockedUsers.value = payload.content
-        totalElements.value = payload.totalElements
-        totalPages.value = payload.totalPages
-      }
-    }
-  } catch (error: unknown) {
-    logger.error('Failed to fetch blocked users:', error)
-  } finally {
-    loading.value = false
-  }
-}
+const blockedUsers = computed<BlockedUserSummary[]>(() => {
+  const payload = blockListData.value
+  if (!payload) return []
+  return Array.isArray(payload) ? payload : payload.content
+})
+
+const totalElements = computed(() => {
+  const payload = blockListData.value
+  if (!payload) return 0
+  return Array.isArray(payload) ? payload.length : payload.totalElements
+})
+
+const totalPages = computed(() => {
+  const payload = blockListData.value
+  if (!payload) return 0
+  return Array.isArray(payload) ? (payload.length > 0 ? 1 : 0) : payload.totalPages
+})
 
 const handlePageChange = (nextPage: number) => {
   page.value = nextPage
-  fetchBlockedUsers()
 }
 
 const handleSizeChange = () => {
   page.value = 0
-  fetchBlockedUsers()
 }
 
-const refreshList = async () => {
+const handleBlockChange = () => {
   if (page.value > 0 && blockedUsers.value.length === 1) {
     page.value -= 1
   }
-  await fetchBlockedUsers()
 }
 
-onMounted(() => {
-  fetchBlockedUsers()
+watch(error, (value) => {
+  if (value) {
+    logger.error('Failed to fetch blocked users:', value)
+  }
 })
 </script>

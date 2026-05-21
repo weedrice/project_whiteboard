@@ -50,9 +50,16 @@ export function useMyPageDashboardResource() {
 
   async function fetchMyProfile() {
     try {
-      const { data } = await userApi.getMyProfile()
-      if (data.success) {
-        profile.value = data.data
+      const data = await queryClient.fetchQuery({
+        queryKey: ['user', 'me'],
+        queryFn: async () => {
+          const { data } = await userApi.getMyProfile()
+          return data.success ? data.data : null
+        },
+        staleTime: QUERY_STALE_TIME.MEDIUM
+      })
+      if (data) {
+        profile.value = data
       } else {
         markLoadFailed()
       }
@@ -85,14 +92,22 @@ export function useMyPageDashboardResource() {
 
   async function fetchMyPosts() {
     try {
-      const { data } = await userApi.getMyPosts({
+      const params = {
         page: myPostsCurrentPage.value,
         size: myPostsSize.value,
         sort: myPostsSort.value
+      }
+      const data = await queryClient.fetchQuery({
+        queryKey: ['user', 'me', 'posts', params],
+        queryFn: async () => {
+          const { data } = await userApi.getMyPosts(params)
+          return data.success ? data.data : null
+        },
+        staleTime: QUERY_STALE_TIME.SHORT
       })
-      if (data.success) {
-        myPosts.value = data.data.content
-        myPostsTotalCount.value = data.data.totalElements
+      if (data) {
+        myPosts.value = data.content
+        myPostsTotalCount.value = data.totalElements
       } else {
         markLoadFailed()
       }
@@ -104,13 +119,21 @@ export function useMyPageDashboardResource() {
 
   async function fetchMyComments() {
     try {
-      const { data } = await userApi.getMyComments({
+      const params = {
         page: myCommentsCurrentPage.value,
         size: myCommentsSize.value
+      }
+      const data = await queryClient.fetchQuery({
+        queryKey: ['user', 'me', 'comments', params],
+        queryFn: async () => {
+          const { data } = await userApi.getMyComments(params)
+          return data.success ? data.data : null
+        },
+        staleTime: QUERY_STALE_TIME.SHORT
       })
-      if (data.success) {
-        myComments.value = data.data.content
-        myCommentsTotalCount.value = data.data.totalElements
+      if (data) {
+        myComments.value = data.content
+        myCommentsTotalCount.value = data.totalElements
       } else {
         markLoadFailed()
       }

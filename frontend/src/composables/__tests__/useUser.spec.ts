@@ -137,7 +137,7 @@ describe('useUser', () => {
 
         useBlockList()
         options = mocks.queryOptions.at(-1)!
-        expect(options.queryKey).toEqual(['user', 'blocks'])
+        expect((options.queryKey as { value: unknown[] }).value).toEqual(['user', 'blocks', {}])
         result = await (options.queryFn as () => Promise<unknown>)()
         expect(result).toEqual([{ userId: 100 }])
 
