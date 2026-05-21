@@ -21,12 +21,26 @@ public class RefreshTokenLifecycleService {
 
     @Transactional
     public void revokeActiveRefreshTokens(User user) {
+        Long userId = validateRefreshTokenRevocationTarget(user);
+        userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        revokeActiveTokens(userId);
+    }
+
+    @Transactional
+    public void revokeActiveRefreshTokensForLockedUser(User user) {
+        Long userId = validateRefreshTokenRevocationTarget(user);
+        revokeActiveTokens(userId);
+    }
+
+    private Long validateRefreshTokenRevocationTarget(User user) {
         if (user == null || user.getUserId() == null) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
-        Long userId = user.getUserId();
-        userRepository.findByIdForUpdate(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        return user.getUserId();
+    }
+
+    private void revokeActiveTokens(Long userId) {
         refreshTokenRepository.revokeActiveTokensByUserId(userId, LocalDateTime.now());
     }
 }
