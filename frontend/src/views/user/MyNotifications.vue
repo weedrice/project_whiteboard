@@ -9,11 +9,13 @@ import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
+import { useNotificationListState } from '@/composables/useNotificationListState'
 import { formatDate } from '@/utils/date'
 import type { Notification } from '@/types'
 
 const { t } = useI18n()
-const { useNotifications, useMarkAllAsRead } = useNotification()
+const { useMarkAllAsRead } = useNotification()
 const { navigateFromNotification } = useNotificationNavigation({ showCommentFailureToast: true })
 
 const page = ref(0)
@@ -24,11 +26,10 @@ const params = computed(() => ({
   size: size.value
 }))
 
-const { data: notificationsData, isLoading } = useNotifications(params)
+const { isLoading, isError, error, refetch, notifications, totalPages } = useNotificationListState(params)
 const { mutate: markAllAsRead } = useMarkAllAsRead()
 
-const notifications = computed(() => notificationsData.value?.content || [])
-const totalPages = computed(() => notificationsData.value?.totalPages || 0)
+const errorMessage = computed(() => error.value instanceof Error ? error.value.message : t('common.messages.loadFailed'))
 
 function handlePageChange(newPage: number) {
   page.value = newPage
@@ -75,6 +76,13 @@ async function handleNotificationClick(notification: Notification) {
           <BaseSkeleton width="48px" height="16px" rounded="rounded-full" />
         </div>
       </div>
+
+      <ErrorState
+        v-else-if="isError"
+        :message="errorMessage"
+        :show-retry="true"
+        @retry="refetch"
+      />
 
       <EmptyState v-else-if="notifications.length === 0" :title="$t('notification.empty')" :icon="Bell" />
 
