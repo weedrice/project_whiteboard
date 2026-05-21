@@ -1,6 +1,5 @@
 package com.weedrice.whiteboard.domain.common.service;
 
-import com.weedrice.whiteboard.domain.common.entity.CommonCode;
 import com.weedrice.whiteboard.domain.common.entity.CommonCodeDetail;
 import com.weedrice.whiteboard.domain.common.repository.CommonCodeDetailRepository;
 import com.weedrice.whiteboard.domain.common.repository.CommonCodeRepository;
@@ -19,9 +18,11 @@ public class CommonCodeReader {
     private final CommonCodeDetailRepository commonCodeDetailRepository;
 
     public List<CommonCodeDetail> findActiveDetails(String typeCode) {
-        CommonCode commonCode = commonCodeRepository.findById(typeCode)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-        return commonCodeDetailRepository.findByCommonCodeAndIsActiveOrderBySortOrderAscCodeValueAsc(
-                commonCode, true);
+        List<CommonCodeDetail> details = commonCodeDetailRepository
+                .findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAscCodeValueAsc(typeCode, true);
+        if (!details.isEmpty() || commonCodeRepository.existsById(typeCode)) {
+            return details;
+        }
+        throw new BusinessException(ErrorCode.NOT_FOUND);
     }
 }
