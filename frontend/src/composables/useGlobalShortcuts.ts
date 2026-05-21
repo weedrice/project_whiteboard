@@ -145,24 +145,27 @@ export function useGlobalShortcuts() {
 
     document.addEventListener('keydown', gKeyHandler)
 
-    // cleanup을 위해 저장
-    onUnmounted(() => {
+    return () => {
       document.removeEventListener('keydown', gKeyHandler)
       // gKeyTimer cleanup
       if (gKeyTimer) {
         clearTimeout(gKeyTimer)
         gKeyTimer = null
       }
-    })
+    }
   }
+
+  let cleanupDefaultShortcuts: (() => void) | null = null
 
   onMounted(() => {
     document.addEventListener('keydown', handleKeyDown)
-    registerDefaultShortcuts()
+    cleanupDefaultShortcuts = registerDefaultShortcuts()
   })
 
   onUnmounted(() => {
     document.removeEventListener('keydown', handleKeyDown)
+    cleanupDefaultShortcuts?.()
+    cleanupDefaultShortcuts = null
     clearShortcuts()
   })
 
