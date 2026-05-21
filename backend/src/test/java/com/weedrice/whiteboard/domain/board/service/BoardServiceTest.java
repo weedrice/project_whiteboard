@@ -171,7 +171,8 @@ class BoardServiceTest {
                 boardRepository,
                 boardSubscriptionRepository,
                 new UserWritableResolver(userRepository, sanctionService),
-                boardAccessPolicy);
+                boardAccessPolicy,
+                new BoardSubscriptionWritePolicy(boardSubscriptionRepository));
         BoardCategoryService categoryService = new BoardCategoryService(
                 boardRepository,
                 boardCategoryRepository,
@@ -462,6 +463,7 @@ class BoardServiceTest {
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> boardService.subscribeBoard(userId, boardUrl));
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.ALREADY_SUBSCRIBED);
+        verify(boardSubscriptionRepository, never()).saveAndFlush(any(BoardSubscription.class));
     }
 
     @Test
@@ -480,7 +482,6 @@ class BoardServiceTest {
                 () -> boardService.subscribeBoard(userId, boardUrl));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.ALREADY_SUBSCRIBED);
-        verify(boardSubscriptionRepository, never()).existsByUserAndBoard(any(), any());
     }
 
     @Test
@@ -504,7 +505,6 @@ class BoardServiceTest {
                 () -> boardService.subscribeBoard(userId, boardUrl));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
-        verify(boardSubscriptionRepository, never()).existsByUserAndBoard(any(), any());
     }
 
     @Test
