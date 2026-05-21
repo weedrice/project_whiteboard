@@ -12,6 +12,14 @@ type CategoryContext = {
 type CategoryWriteContext = {
   minWriteRole?: string | null
 }
+type BoardRequiredFields = {
+  boardName?: string | null
+  boardUrl?: string | null
+}
+
+export function hasRequiredBoardFields(board: BoardRequiredFields): boolean {
+  return Boolean(board.boardName && board.boardUrl)
+}
 
 export function isGeneralCategoryName(name?: string | null): boolean {
   const normalized = name?.trim().toLowerCase()

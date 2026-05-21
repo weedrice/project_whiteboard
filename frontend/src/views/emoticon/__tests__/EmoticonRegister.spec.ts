@@ -88,13 +88,14 @@ const setValidForm = (wrapper: ReturnType<typeof mountRegister>) => {
   const vm = wrapper.vm as unknown as {
     emoticonName: string
     thumbnailFile: File
-    emoticonPreviews: Array<{ file: File; preview: string; width: number; height: number }>
+    emoticonPreviews: Array<{ clientId: string; file: File; preview: string; width: number; height: number }>
     tags: string[]
   }
 
   vm.emoticonName = 'Test pack'
   vm.thumbnailFile = new File(['thumb'], 'thumb.png', { type: 'image/png' })
   vm.emoticonPreviews = [{
+    clientId: 'preview-image',
     file: new File(['image'], 'image.png', { type: 'image/png' }),
     preview: 'blob:image.png',
     width: 80,

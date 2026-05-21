@@ -33,12 +33,33 @@ const thumbnailFile = ref<File | null>(null)
 const thumbnailPreview = ref<string | null>(null)
 const emoticonPreviews = ref<EmoticonImagePreview[]>([])
 const tagInput = ref('')
-const tags = ref<string[]>([])
 const isSubmitting = ref(false)
 const uploadProgress = ref({ current: 0, total: 0 })
 const uploadControllers = new Set<AbortController>()
 let submitRunId = 0
 let isComponentUnmounted = false
+let tagSequence = 0
+
+interface EmoticonTagItem {
+  clientId: string
+  value: string
+}
+
+const createTagItem = (value: string): EmoticonTagItem => {
+  tagSequence += 1
+  return {
+    clientId: `emoticon-tag-${tagSequence}`,
+    value
+  }
+}
+
+const tagItems = ref<EmoticonTagItem[]>([])
+const tags = computed<string[]>({
+  get: () => tagItems.value.map((item) => item.value),
+  set: (values) => {
+    tagItems.value = values.map(createTagItem)
+  }
+})
 
 // 파일 입력 refs
 const thumbnailInput = ref<HTMLInputElement | null>(null)
@@ -133,8 +154,9 @@ const handleEmoticonSelect = async (event: Event) => {
 }
 
 // 이모티콘 이미지 제거
-const removeEmoticonImage = (index: number) => {
-  const item = emoticonPreviews.value[index]
+const removeEmoticonImage = (clientId: string) => {
+  const index = emoticonPreviews.value.findIndex((item) => item.clientId === clientId)
+  const item = index >= 0 ? emoticonPreviews.value[index] : null
   if (item) {
     revokeEmoticonPreviewUrl(item.preview)
     emoticonPreviews.value.splice(index, 1)
@@ -147,14 +169,17 @@ const addTag = () => {
   if (result.error === 'maxTags') {
     toastStore.addToast(t('emoticon.validation.maxTags'), 'error')
   } else if (result.tag) {
-    tags.value.push(result.tag)
+    tagItems.value.push(createTagItem(result.tag))
   }
   tagInput.value = ''
 }
 
 // 태그 제거
-const removeTag = (index: number) => {
-  tags.value.splice(index, 1)
+const removeTag = (clientId: string) => {
+  const index = tagItems.value.findIndex((item) => item.clientId === clientId)
+  if (index >= 0) {
+    tagItems.value.splice(index, 1)
+  }
 }
 
 // 폼 유효성 검사
@@ -374,7 +399,7 @@ const goToList = () => {
         <div class="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2 mb-4">
           <div
             v-for="(item, index) in emoticonPreviews"
-            :key="index"
+            :key="item.clientId"
             class="relative"
           >
             <img
@@ -385,7 +410,7 @@ const goToList = () => {
             />
             <button
               type="button"
-              @click="removeEmoticonImage(index)"
+              @click="removeEmoticonImage(item.clientId)"
               class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 text-xs"
             >
               <X class="w-3 h-3" />
@@ -437,14 +462,14 @@ const goToList = () => {
 
         <div v-if="tags.length > 0" class="flex flex-wrap gap-2">
           <span
-            v-for="(tag, index) in tags"
-            :key="index"
+            v-for="tagItem in tagItems"
+            :key="tagItem.clientId"
             class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300"
           >
-            #{{ tag }}
+            #{{ tagItem.value }}
             <button
               type="button"
-              @click="removeTag(index)"
+              @click="removeTag(tagItem.clientId)"
               class="ml-1 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-200"
             >
               <X class="w-3 h-3" />
