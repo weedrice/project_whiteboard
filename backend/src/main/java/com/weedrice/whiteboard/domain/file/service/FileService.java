@@ -419,7 +419,16 @@ public class FileService {
 
     @Transactional
     public String replaceUserProfileImage(Long profileImageId, Long ownerUserId, Long userId) {
-        lockUserProfileTarget(userId);
+        User lockedUser = lockUserProfileTarget(userId);
+        return replaceUserProfileImageForLockedUser(profileImageId, ownerUserId, lockedUser);
+    }
+
+    @Transactional
+    public String replaceUserProfileImageForLockedUser(Long profileImageId, Long ownerUserId, User lockedUser) {
+        if (lockedUser == null || lockedUser.getUserId() == null) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        }
+        Long userId = lockedUser.getUserId();
         associateFileWithEntity(profileImageId, ownerUserId, userId, RELATED_TYPE_USER_PROFILE);
 
         keepOnlySelectedActiveFile(profileImageId, userId, RELATED_TYPE_USER_PROFILE);
@@ -437,8 +446,8 @@ public class FileService {
         return FileUrlResolver.resolve(boardIconFileId);
     }
 
-    private void lockUserProfileTarget(Long userId) {
-        userRepository.findByIdForUpdate(userId)
+    private User lockUserProfileTarget(Long userId) {
+        return userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 

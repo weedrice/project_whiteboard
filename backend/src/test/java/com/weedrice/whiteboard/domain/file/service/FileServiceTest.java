@@ -510,6 +510,47 @@ class FileServiceTest {
         assertThat(profileImageUrl).isEqualTo("/api/v1/files/100");
         assertThat(previousProfileFile.getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_DELETE);
         assertThat(newProfileFile.getStorageStatus()).isEqualTo(FileStorageStatus.ACTIVE);
+        verify(userRepository).findByIdForUpdate(1L);
+    }
+
+    @Test
+    @DisplayName("이미 사용자 잠금을 확보한 프로필 이미지 교체는 사용자 잠금을 반복하지 않는다")
+    void replaceUserProfileImageForLockedUser_skipsUserLock() {
+        User uploader = User.builder().build();
+        ReflectionTestUtils.setField(uploader, "userId", 1L);
+
+        File newProfileFile = File.builder()
+                .filePath("new-profile.jpg")
+                .originalName("new-profile.jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .build();
+        ReflectionTestUtils.setField(newProfileFile, "fileId", 100L);
+
+        File previousProfileFile = File.builder()
+                .filePath("old-profile.jpg")
+                .originalName("old-profile.jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .relatedId(1L)
+                .relatedType(FileService.RELATED_TYPE_USER_PROFILE)
+                .build();
+        ReflectionTestUtils.setField(previousProfileFile, "fileId", 77L);
+
+        when(fileRepository.findByFileIdAndStorageStatus(100L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(newProfileFile));
+        when(fileRepository.associateIfUnassociated(100L, 1L, 1L, FileService.RELATED_TYPE_USER_PROFILE)).thenReturn(1);
+        when(fileRepository.findActiveByRelatedIdAndRelatedTypeForUpdate(
+                1L,
+                FileService.RELATED_TYPE_USER_PROFILE)).thenReturn(List.of(newProfileFile, previousProfileFile));
+
+        String profileImageUrl = fileService.replaceUserProfileImageForLockedUser(100L, 1L, uploader);
+
+        assertThat(profileImageUrl).isEqualTo("/api/v1/files/100");
+        assertThat(previousProfileFile.getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_DELETE);
+        assertThat(newProfileFile.getStorageStatus()).isEqualTo(FileStorageStatus.ACTIVE);
+        verify(userRepository, never()).findByIdForUpdate(any());
     }
 
     @Test

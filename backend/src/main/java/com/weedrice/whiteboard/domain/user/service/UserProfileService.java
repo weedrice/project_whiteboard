@@ -109,7 +109,9 @@ public class UserProfileService {
 
     @Transactional
     public UpdateProfileResponse updateMyProfile(Long userId, String displayName, Long profileImageId) {
-        User user = userWritableResolver.resolve(userId);
+        User user = profileImageId == null
+                ? userWritableResolver.resolve(userId)
+                : userWritableResolver.resolveForUpdate(userId);
         String oldDisplayName = user.getDisplayName();
         String normalizedDisplayName = normalizeDisplayName(displayName);
 
@@ -123,7 +125,10 @@ public class UserProfileService {
         }
 
         if (profileImageId != null) {
-            user.updateProfileImage(fileService.replaceUserProfileImage(profileImageId, userId, user.getUserId()));
+            user.updateProfileImage(fileService.replaceUserProfileImageForLockedUser(
+                    profileImageId,
+                    userId,
+                    user));
         }
 
         return new UpdateProfileResponse(user.getUserId(), user.getDisplayName(), user.getProfileImageUrl());
