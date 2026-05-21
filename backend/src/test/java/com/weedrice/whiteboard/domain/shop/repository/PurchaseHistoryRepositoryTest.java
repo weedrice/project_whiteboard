@@ -54,7 +54,7 @@ class PurchaseHistoryRepositoryTest {
 
     @Test
     @DisplayName("구매 이력 조회는 생성 시각이 같으면 purchaseId 내림차순으로 정렬한다")
-    void findByUserOrderByCreatedAtDescPurchaseIdDesc_ordersByPurchaseIdWhenCreatedAtTies() {
+    void findByUser_UserIdOrderByCreatedAtDescPurchaseIdDesc_ordersByPurchaseIdWhenCreatedAtTies() {
         PurchaseHistory first = persistPurchaseHistory(100);
         PurchaseHistory second = persistPurchaseHistory(200);
         LocalDateTime sameCreatedAt = LocalDateTime.now().minusMinutes(1);
@@ -63,8 +63,8 @@ class PurchaseHistoryRepositoryTest {
         updateCreatedAt(second, sameCreatedAt);
         entityManager.clear();
 
-        Page<PurchaseHistory> result = purchaseHistoryRepository.findByUserOrderByCreatedAtDescPurchaseIdDesc(
-                user,
+        Page<PurchaseHistory> result = purchaseHistoryRepository.findByUser_UserIdOrderByCreatedAtDescPurchaseIdDesc(
+                user.getUserId(),
                 PageRequest.of(0, 10));
 
         assertThat(result.getContent())

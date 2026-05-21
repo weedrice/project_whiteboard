@@ -225,7 +225,7 @@ class ShopServiceTest {
         @DisplayName("Purchases an active item by type and target without itemId lookup")
         void purchaseActiveItemByTarget_success() {
             when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-            when(shopItemRepository.findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 10L))
+            when(shopItemRepository.findTop2ByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 10L))
                     .thenReturn(List.of(emoticonItem));
             when(shopEntitlementCapabilityRegistry.supports(emoticonItem)).thenReturn(true);
             when(shopEntitlementCapabilityRegistry.supportsValidatedPurchasePreparation(emoticonItem)).thenReturn(true);
@@ -243,7 +243,7 @@ class ShopServiceTest {
 
             assertThat(purchaseId).isEqualTo(1L);
             verify(shopItemRepository, never()).findById(anyLong());
-            verify(shopItemRepository).findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 10L);
+            verify(shopItemRepository).findTop2ByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 10L);
             verify(shopEntitlementCapabilityRegistry, never()).validateConfiguration(any());
             verify(shopEntitlementCapabilityRegistry, never()).preparePurchase(anyLong(), any());
             verify(shopEntitlementCapabilityRegistry, never()).preparePurchase(any(User.class), any(ShopItem.class));
@@ -259,7 +259,7 @@ class ShopServiceTest {
                     .itemType("EMOTICON")
                     .targetId(10L)
                     .build();
-            when(shopItemRepository.findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 10L))
+            when(shopItemRepository.findTop2ByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 10L))
                     .thenReturn(List.of(emoticonItem, duplicate));
 
             assertThatThrownBy(() -> shopService.purchaseActiveItemByTarget(1L, "EMOTICON", 10L))
@@ -283,7 +283,7 @@ class ShopServiceTest {
         @Test
         @DisplayName("Rejects active target purchases when no active item exists before locking the user")
         void purchaseActiveItemByTarget_missingItem_throwsItemNotAvailableBeforeUserLock() {
-            when(shopItemRepository.findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 10L))
+            when(shopItemRepository.findTop2ByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 10L))
                     .thenReturn(List.of());
 
             assertThatThrownBy(() -> shopService.purchaseActiveItemByTarget(1L, "EMOTICON", 10L))
@@ -305,7 +305,7 @@ class ShopServiceTest {
         @Test
         @DisplayName("Blocks banned users after resolving a unique active target item")
         void purchaseActiveItemByTarget_bannedUser_throwsUserNotActive() {
-            when(shopItemRepository.findByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 10L))
+            when(shopItemRepository.findTop2ByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 10L))
                     .thenReturn(List.of(emoticonItem));
             when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
             doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
@@ -619,8 +619,7 @@ class ShopServiceTest {
         Pageable expectedPageable = PageRequest.of(0, 20, Sort.by(
                 Sort.Order.desc("createdAt"),
                 Sort.Order.desc("purchaseId")));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(purchaseHistoryRepository.findByUserOrderByCreatedAtDescPurchaseIdDesc(user, expectedPageable))
+        when(purchaseHistoryRepository.findByUser_UserIdOrderByCreatedAtDescPurchaseIdDesc(1L, expectedPageable))
                 .thenReturn(new PageImpl<>(List.of(purchaseHistory), expectedPageable, 1));
 
         PurchaseHistoryResponse response = shopService.getPurchaseHistories(1L, pageable);
@@ -637,14 +636,31 @@ class ShopServiceTest {
         Pageable expectedPageable = PageRequest.of(2, 100, Sort.by(
                 Sort.Order.desc("createdAt"),
                 Sort.Order.desc("purchaseId")));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(purchaseHistoryRepository.findByUserOrderByCreatedAtDescPurchaseIdDesc(user, expectedPageable))
+        when(purchaseHistoryRepository.findByUser_UserIdOrderByCreatedAtDescPurchaseIdDesc(1L, expectedPageable))
                 .thenReturn(new PageImpl<>(List.of(), expectedPageable, 0));
+        when(userRepository.existsById(1L)).thenReturn(true);
 
         PurchaseHistoryResponse response = shopService.getPurchaseHistories(1L, requested);
 
         assertThat(response.getContent()).isEmpty();
-        verify(purchaseHistoryRepository).findByUserOrderByCreatedAtDescPurchaseIdDesc(user, expectedPageable);
+        verify(purchaseHistoryRepository).findByUser_UserIdOrderByCreatedAtDescPurchaseIdDesc(1L, expectedPageable);
+    }
+
+    @Test
+    @DisplayName("Purchase histories preserve USER_NOT_FOUND for a missing user")
+    void getPurchaseHistories_missingUser_throwsUserNotFound() {
+        Pageable requested = PageRequest.of(0, 20);
+        Pageable expectedPageable = PageRequest.of(0, 20, Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("purchaseId")));
+        when(purchaseHistoryRepository.findByUser_UserIdOrderByCreatedAtDescPurchaseIdDesc(999L, expectedPageable))
+                .thenReturn(new PageImpl<>(List.of(), expectedPageable, 0));
+        when(userRepository.existsById(999L)).thenReturn(false);
+
+        assertThatThrownBy(() -> shopService.getPurchaseHistories(999L, requested))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
     }
 
     @Test

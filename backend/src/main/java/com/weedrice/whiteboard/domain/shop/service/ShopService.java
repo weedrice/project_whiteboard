@@ -85,7 +85,10 @@ public class ShopService {
     }
 
     public ShopItem resolveSingleActiveItemByTarget(String itemType, Long targetId) {
-        List<ShopItem> items = shopItemRepository.findByIsActiveAndItemTypeAndTargetId(true, itemType, targetId);
+        List<ShopItem> items = shopItemRepository.findTop2ByIsActiveAndItemTypeAndTargetId(
+                true,
+                itemType,
+                targetId);
         if (items.size() != 1) {
             throw new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE);
         }
@@ -151,11 +154,14 @@ public class ShopService {
     }
 
     public PurchaseHistoryResponse getPurchaseHistories(Long userId, Pageable pageable) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         Pageable effectivePageable = normalizePurchaseHistoryPageable(pageable);
-        return PurchaseHistoryResponse.from(
-                purchaseHistoryRepository.findByUserOrderByCreatedAtDescPurchaseIdDesc(user, effectivePageable));
+        Page<PurchaseHistory> histories = purchaseHistoryRepository.findByUser_UserIdOrderByCreatedAtDescPurchaseIdDesc(
+                userId,
+                effectivePageable);
+        if (histories.isEmpty() && !userRepository.existsById(userId)) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        }
+        return PurchaseHistoryResponse.from(histories);
     }
 
     private ShopItemResponse emptyShopItems(Pageable pageable) {
