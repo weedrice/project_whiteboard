@@ -56,4 +56,40 @@ describe('useUserMenuPosition', () => {
 
         wrapper.unmount()
     })
+
+    it('does not bind viewport listeners if closed before next tick settles', async () => {
+        const addEventListener = vi.spyOn(window, 'addEventListener')
+        const button = document.createElement('button')
+        const dropdown = document.createElement('div')
+        const isOpen = ref(false)
+
+        button.getBoundingClientRect = vi.fn(() => ({
+            x: 20,
+            y: 30,
+            width: 80,
+            height: 20,
+            top: 30,
+            right: 100,
+            bottom: 50,
+            left: 20,
+            toJSON: () => undefined,
+        }))
+
+        const wrapper = mount(defineComponent({
+            setup() {
+                useUserMenuPosition(ref(button), ref(dropdown), isOpen)
+                return () => h('div')
+            },
+        }))
+
+        isOpen.value = true
+        isOpen.value = false
+        await nextTick()
+        await nextTick()
+
+        expect(addEventListener).not.toHaveBeenCalledWith('resize', expect.any(Function))
+        expect(addEventListener).not.toHaveBeenCalledWith('scroll', expect.any(Function), true)
+
+        wrapper.unmount()
+    })
 })

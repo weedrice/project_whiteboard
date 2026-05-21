@@ -59,6 +59,7 @@ export function useUserMenuPosition(
         }
 
         await nextTick()
+        if (!isOpen.value) return
         updateDropdownPosition()
         bindViewportListeners()
     })

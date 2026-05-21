@@ -156,6 +156,7 @@ async function openDropdown() {
   isDropdownOpen.value = true
   resetMenuSelection()
   await nextTick()
+  if (!isDropdownOpen.value) return
   updateDropdownPosition()
   trapFocus()
 }
