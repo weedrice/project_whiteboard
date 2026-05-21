@@ -7,7 +7,7 @@ import type { FeedPost, HomeLandingPeriod, PostSummary } from '@/types'
 
 const EDITOR_PICK_START_INDEX = 1
 const EDITOR_PICK_END_INDEX = 4
-const TRENDING_START_INDEX = 4
+const TRENDING_START_INDEX = 1
 const TRENDING_END_INDEX = 10
 const LIVE_ACTIVITY_END_INDEX = 6
 

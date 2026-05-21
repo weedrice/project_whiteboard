@@ -106,7 +106,7 @@ describe('useHomeLanding', () => {
         expect(landing.isError.value).toBe(false)
         expect(landing.featured.value?.postId).toBe(1)
         expect(landing.editorPicks.value.map(post => post.postId)).toEqual([2, 3, 4])
-        expect(landing.trending.value.map(post => post.postId)).toEqual([5, 6])
+        expect(landing.trending.value.map(post => post.postId)).toEqual([2, 3, 4, 5, 6])
         expect(landing.liveActivity.value.map(post => post.postId)).toEqual([21, 20])
         expect(landing.posts.value.map(post => post.postId)).toEqual([1, 2, 3, 4, 5, 6])
         expect(landing.spotlightBoards.value[0]?.boardUrl).toBe('free')

@@ -402,6 +402,11 @@ export interface BoardMessages {
       author: string
       tag: string
     }
+    notices: {
+      title: string
+      more: string
+      collapse: string
+    }
     defaultAdminName: string
   }
   form: {

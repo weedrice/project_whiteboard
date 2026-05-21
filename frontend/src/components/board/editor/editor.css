@@ -29,6 +29,14 @@
   padding: 0 0.8rem;
 }
 
+.tiptap-toolbar-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
 .tiptap-toolbar-group {
   align-items: center;
   background: color-mix(in srgb, var(--nv-surface) 88%, transparent);
@@ -37,6 +45,11 @@
   display: inline-flex;
   gap: 0.15rem;
   padding: 0.2rem;
+}
+
+.tiptap-toolbar-group--format {
+  flex-wrap: wrap;
+  max-width: 100%;
 }
 
 .image-upload-status {
@@ -163,6 +176,38 @@
   margin: 0.25em 0;
 }
 
+.tiptap-editor-wrap .ProseMirror blockquote {
+  border-left: 3px solid color-mix(in srgb, var(--nv-accent) 38%, var(--nv-line));
+  color: var(--nv-ink-soft);
+  margin: 0.75em 0;
+  padding: 0.35em 0 0.35em 0.85em;
+  background: color-mix(in srgb, var(--nv-accent) 6%, transparent);
+}
+
+.tiptap-editor-wrap .ProseMirror blockquote p {
+  margin: 0.25em 0;
+}
+
+.tiptap-editor-wrap .ProseMirror pre {
+  background: var(--nv-surface-2);
+  border: 1px solid var(--nv-line);
+  border-radius: 0.85rem;
+  color: var(--nv-ink);
+  font-family: 'JetBrains Mono', monospace;
+  margin: 0.75em 0;
+  overflow-x: auto;
+  padding: 0.85rem 1rem;
+}
+
+.tiptap-editor-wrap .ProseMirror pre code {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font-size: 0.9em;
+  padding: 0;
+  white-space: pre;
+}
+
 .tiptap-editor-wrap .ProseMirror table {
   width: 100%;
   border-collapse: collapse;
@@ -255,8 +300,7 @@
   box-shadow: var(--nv-shadow-soft);
 }
 
-.slash-popover,
-.advanced-popover {
+.slash-popover {
   width: min(90vw, 440px);
 }
 

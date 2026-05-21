@@ -175,7 +175,7 @@ describe('PostEditorTipTap TipTap extension integration', () => {
 
     it('inserts slash-menu equivalent block commands through the same editor command path', () => {
         editor = createEditor('<p>Quote target</p>')
-        expect(editor.chain().focus().toggleBlockquote().run()).toBe(true)
+        expect(editor.chain().focus().setBlockquote().run()).toBe(true)
         expect(parseHTML(editor.getHTML()).querySelector('blockquote p')?.textContent).toBe('Quote target')
 
         editor.commands.setContent('<p>List target</p>')

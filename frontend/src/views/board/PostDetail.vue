@@ -10,9 +10,10 @@ import {
   Eye,
   List,
   MessageSquare,
-  MoreHorizontal,
+  Pencil,
   Share2,
   ThumbsUp,
+  Trash2,
   User
 } from 'lucide-vue-next'
 import { useHead } from '@unhead/vue'
@@ -27,6 +28,11 @@ import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import PostTags from '@/components/tag/PostTags.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { usePost } from '@/composables/usePost'
+import { usePostDetailPermissions } from '@/composables/usePostDetailPermissions'
+import { usePostDetailActions } from '@/composables/usePostDetailActions'
+import { usePostDetailShare } from '@/composables/usePostDetailShare'
+import { usePostDetailUiEffects } from '@/composables/usePostDetailUiEffects'
+import { usePostDetailViewModel } from '@/composables/usePostDetailViewModel'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { formatDate } from '@/utils/date'
@@ -35,10 +41,6 @@ import { isInputFocused } from '@/utils/keyboard'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
 import { normalizeLegacyFileUrls } from '@/utils/fileUrl'
 import { applyImageFallback } from '@/utils/imageFallback'
-import { useCommentScrollFocus } from '@/composables/useCommentScrollFocus'
-import { usePostDetailActions } from '@/composables/usePostDetailActions'
-import { usePostDetailShare } from '@/composables/usePostDetailShare'
-import { useSpoilerReveal } from '@/composables/useSpoilerReveal'
 
 const route = useRoute()
 const router = useRouter()
@@ -66,6 +68,7 @@ const {
   meta: { errorMessage: false },
   requestConfig: { skipGlobalErrorHandler: true }
 })
+const postView = usePostDetailViewModel(post)
 
 const postPageTitle = computed(() => {
   const postTitle = post.value?.title?.trim()
@@ -150,15 +153,20 @@ const error = computed(() => {
   return t('board.postDetail.loadFailed')
 })
 
-const isAuthor = computed(() => {
-  return !!authStore.user && !!post.value && authStore.user.userId === post.value.author.userId
+const currentUserId = computed(() => authStore.user?.userId)
+const isAuthenticated = computed(() => authStore.isAuthenticated)
+const authIsAdmin = computed(() => authStore.isAdmin)
+const {
+  isAuthor,
+  isAgentAuthor,
+  canEdit,
+  canDelete,
+  canReport
+} = usePostDetailPermissions(post, {
+  currentUserId,
+  isAuthenticated,
+  isAdmin: authIsAdmin
 })
-
-const isAgentAuthor = computed(() => post.value?.author?.authorType === 'AGENT')
-const isAdmin = computed(() => authStore.isAdmin)
-const canEdit = computed(() => isAuthor.value && !!post.value)
-const canDelete = computed(() => !!post.value && (isAuthor.value || isAdmin.value || !!post.value.board.isAdmin))
-const canReport = computed(() => authStore.isAuthenticated && !isAuthor.value)
 
 const processedContents = computed(() => {
   if (!post.value?.contents) return ''
@@ -168,14 +176,24 @@ const processedContents = computed(() => {
   return sanitized.replace(/<img(?![^>]*\bloading=)([^>]+)>/gi, '<img loading="lazy"$1>')
 })
 
-const showOverflowMenu = ref(false)
+const {
+  isBlurred,
+  timeLeft,
+  showComposerCta,
+  markPostDetailUiMounted,
+  isPostDetailUiDisposed,
+  startBlurTimer,
+  clearBlurTimer,
+  revealSpoiler,
+  scheduleComposerFocus,
+  trackImageLoadTimeout,
+  setupComposerObserver,
+  disposePostDetailUiEffects
+} = usePostDetailUiEffects()
 
 const contentRef = ref<HTMLElement | null>(null)
 const commentsRef = ref<HTMLElement | null>(null)
-const overflowRef = ref<HTMLElement | null>(null)
-const overflowButtonRef = ref<HTMLElement | null>(null)
 
-const { isBlurred, timeLeft, revealSpoiler, syncSpoilerState } = useSpoilerReveal()
 const {
   currentUrl,
   compactUrl,
@@ -189,22 +207,12 @@ const {
   toastStore,
   t,
 })
-const {
-  showComposerCta,
-  scrollToCommentComposer,
-  scrollToComments,
-  scrollToCommentsAfterImagesLoad,
-  setupComposerObserver,
-  handleResize
-} = useCommentScrollFocus({
-  contentRef,
-  commentsRef,
-})
 
 function buildBoardListRoute(boardUrl: string) {
+  const { fromCreate, ...query } = route.query
   return {
     path: `/board/${boardUrl}`,
-    query: route.query
+    query
   }
 }
 
@@ -271,7 +279,7 @@ const {
   confirm,
   t,
   buildBoardListRoute,
-  closeOverflowMenu,
+  closeOverflowMenu: () => {},
   deleteMutate,
   likeMutate,
   unlikeMutate,
@@ -284,6 +292,68 @@ function scrollToTop() {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
+function scrollToCommentComposer() {
+  if (isPostDetailUiDisposed()) return
+
+  const composer = document.getElementById('comment-composer')
+  if (!composer) {
+    scrollToComments()
+    return
+  }
+
+  composer.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  scheduleComposerFocus(composer)
+}
+
+function scrollToComments() {
+  if (isPostDetailUiDisposed()) return
+
+  const target = document.getElementById('comment-composer') || commentsRef.value
+  if (!target) return
+
+  const headerOffset = 96
+  const elementPosition = target.getBoundingClientRect().top
+  const offsetPosition = elementPosition + window.scrollY - headerOffset
+
+  window.scrollTo({
+    top: offsetPosition,
+    behavior: 'smooth'
+  })
+}
+
+function waitForImagesInContent(): Promise<void> {
+  if (isPostDetailUiDisposed()) return Promise.resolve()
+
+  const container = contentRef.value
+  if (!container) return Promise.resolve()
+
+  const images = container.querySelectorAll<HTMLImageElement>('img')
+  if (images.length === 0) return Promise.resolve()
+
+  const imageLoadTimeout = 8000
+  const promises = Array.from(images).map((image) => {
+    if (image.complete) return Promise.resolve()
+    if (image.loading === 'lazy') image.loading = 'eager'
+
+    return Promise.race([
+      new Promise<void>((resolve) => {
+        image.onload = () => resolve()
+        image.onerror = () => resolve()
+      }),
+      new Promise<void>((resolve) => trackImageLoadTimeout(resolve, imageLoadTimeout))
+    ])
+  })
+
+  return Promise.all(promises).then(() => {})
+}
+
+function scrollToCommentsAfterImagesLoad() {
+  waitForImagesInContent().then(() => {
+    if (isPostDetailUiDisposed()) return
+    nextTick(() => scrollToComments())
+  })
+}
+
 function goToList() {
   if (post.value?.board) {
     router.push(buildBoardListRoute(post.value.board.boardUrl))
@@ -293,26 +363,8 @@ function goToList() {
   router.back()
 }
 
-function closeOverflowMenu() {
-  showOverflowMenu.value = false
-}
-
-function toggleOverflowMenu() {
-  showOverflowMenu.value = !showOverflowMenu.value
-}
-
-function handleDocumentClick(event: MouseEvent) {
-  if (!showOverflowMenu.value) return
-
-  const target = event.target as Node | null
-  if (
-    overflowRef.value?.contains(target) ||
-    overflowButtonRef.value?.contains(target)
-  ) {
-    return
-  }
-
-  closeOverflowMenu()
+function handleResize() {
+  setupComposerObserver()
 }
 
 const handleKeyDown = (event: KeyboardEvent) => {
@@ -363,11 +415,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
       break
     case 'Escape':
       event.preventDefault()
-      if (showOverflowMenu.value) {
-        closeOverflowMenu()
-      } else {
-        goToList()
-      }
+      goToList()
       break
   }
 }
@@ -393,7 +441,14 @@ watch(post, (newPost, oldPost) => {
 
   syncBoardListPageForDirectEntry()
 
-  syncSpoilerState(newPost.isSpoiler)
+  if (newPost.isSpoiler) {
+    isBlurred.value = true
+    timeLeft.value = 5
+    startBlurTimer()
+  } else {
+    isBlurred.value = false
+    clearBlurTimer()
+  }
 
   nextTick(() => setupComposerObserver())
 
@@ -417,17 +472,18 @@ watch(post, (newPost, oldPost) => {
 }, { immediate: true })
 
 onMounted(() => {
+  markPostDetailUiMounted()
   nextTick(() => setupComposerObserver())
 
   document.addEventListener('keydown', handleKeyDown)
-  document.addEventListener('click', handleDocumentClick)
   window.addEventListener('resize', handleResize)
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown)
-  document.removeEventListener('click', handleDocumentClick)
   window.removeEventListener('resize', handleResize)
+
+  disposePostDetailUiEffects()
 })
 </script>
 
@@ -445,13 +501,13 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <template v-else-if="post">
+      <template v-else-if="post && postView">
         <header class="nv-post-header px-4 py-4 sm:px-6 sm:py-5">
           <div class="flex items-start justify-between gap-4">
             <div class="min-w-0 flex-1 space-y-4">
               <div class="flex items-center justify-between gap-2">
                 <BaseButton
-                  @click="router.push(buildBoardListRoute(post.board.boardUrl))"
+                  @click="router.push(buildBoardListRoute(postView.boardUrl))"
                   variant="ghost"
                   size="sm"
                   class="nv-post-back-btn"
@@ -460,80 +516,45 @@ onUnmounted(() => {
                   <span class="hidden sm:inline">{{ $t('board.postDetail.toList') }}</span>
                 </BaseButton>
 
-                <div class="relative flex min-w-0 items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    class="nv-post-icon-btn"
-                    :aria-label="$t('common.share')"
-                    @click="handleShare"
+                <div
+                  v-if="canEdit || canDelete"
+                  class="flex min-w-0 items-center justify-end gap-2"
+                >
+                  <router-link
+                    v-if="canEdit"
+                    :to="buildEditRoute()"
+                    class="nv-post-header-action"
+                    :aria-label="$t('common.edit')"
                   >
-                    <Share2 class="h-4 w-4" />
+                    <Pencil class="h-4 w-4" />
+                    <span>{{ $t('common.edit') }}</span>
+                  </router-link>
+                  <button
+                    v-if="canDelete"
+                    type="button"
+                    class="nv-post-header-action is-danger"
+                    :aria-label="$t('common.delete')"
+                    @click="handleDelete"
+                  >
+                    <Trash2 class="h-4 w-4" />
+                    <span>{{ $t('common.delete') }}</span>
                   </button>
-
-                  <div class="relative">
-                    <button
-                      ref="overflowButtonRef"
-                      type="button"
-                      class="nv-post-icon-btn"
-                      :aria-expanded="showOverflowMenu"
-                      aria-haspopup="menu"
-                      :aria-label="$t('board.postDetail.moreActions')"
-                      @click="toggleOverflowMenu"
-                    >
-                      <MoreHorizontal class="h-4 w-4" />
-                    </button>
-
-                    <div
-                      v-if="showOverflowMenu"
-                      ref="overflowRef"
-                      class="nv-post-overflow"
-                      role="menu"
-                    >
-                      <router-link
-                        v-if="canEdit"
-                        :to="buildEditRoute()"
-                        class="nv-post-overflow-item"
-                        role="menuitem"
-                        @click="closeOverflowMenu"
-                      >
-                        {{ $t('common.edit') }}
-                      </router-link>
-                      <button
-                        v-if="canDelete"
-                        type="button"
-                        class="nv-post-overflow-item"
-                        role="menuitem"
-                        @click="closeOverflowMenu(); handleDelete()"
-                      >
-                        {{ $t('common.delete') }}
-                      </button>
-                      <button
-                        v-if="canReport"
-                        type="button"
-                        class="nv-post-overflow-item"
-                        role="menuitem"
-                        @click="openReportModal"
-                      >
-                        {{ $t('common.report') }}
-                      </button>
-                    </div>
-                  </div>
                 </div>
               </div>
 
               <div class="space-y-3">
                 <div class="nv-post-meta-strip">
-                  <span>{{ post.board.boardName }}</span>
+                  <span>{{ postView.boardName }}</span>
                   <span>&middot;</span>
                   <span>{{ $t('common.post') }}</span>
                 </div>
                 <h1 class="text-2xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)] sm:text-4xl">
-                  {{ post.title }}
+                  {{ postView.title }}
                 </h1>
                 <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[var(--nv-ink-soft)]">
                   <span class="inline-flex items-center gap-1.5">
                     <User class="h-4 w-4" />
-                    <UserMenu :user-id="post.author.userId" :display-name="post.author.displayName" size="inherit" />
+                    <UserMenu :user-id="postView.authorUserId" :display-name="postView.authorDisplayName" size="inherit" />
                     <span
                       v-if="isAgentAuthor"
                       class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"
@@ -543,15 +564,15 @@ onUnmounted(() => {
                   </span>
                   <span class="inline-flex items-center gap-1.5">
                     <Clock class="h-4 w-4" />
-                    {{ formatDate(post.createdAt) }}
+                    {{ formatDate(postView.createdAt) }}
                   </span>
                   <span class="inline-flex items-center gap-1.5">
                     <Eye class="h-4 w-4" />
-                    {{ post.viewCount }}
+                    {{ postView.viewCount }}
                   </span>
                   <span class="inline-flex items-center gap-1.5">
                     <MessageSquare class="h-4 w-4" />
-                    {{ post.commentCount }}
+                    {{ postView.commentCount }}
                   </span>
                 </div>
               </div>
@@ -588,7 +609,7 @@ onUnmounted(() => {
             <div class="nv-post-article relative overflow-hidden">
               <div
                 ref="contentRef"
-                class="ql-editor prose prose-sm max-w-none text-sm text-[var(--nv-ink)] sm:prose-base dark:prose-invert sm:text-base"
+                class="ql-editor nv-rich-content prose prose-sm max-w-none sm:prose-base dark:prose-invert"
                 :class="{ 'blur-md select-none': isBlurred }"
                 v-html="processedContents"
                 @error.capture="applyImageFallback"
@@ -612,14 +633,14 @@ onUnmounted(() => {
             </div>
 
             <div
-              v-if="post.tags && post.tags.length > 0"
+              v-if="postView.tags.length > 0"
               class="nv-post-tags"
             >
               <p class="nv-post-section-label">{{ $t('board.postDetail.tags') }}</p>
               <PostTags
-                :modelValue="post.tags"
+                :modelValue="postView.tags"
                 :readOnly="true"
-                :boardUrl="post.board.boardUrl"
+                :boardUrl="postView.boardUrl"
                 compact
                 @tag-click="handleTagClick"
               />
@@ -630,22 +651,22 @@ onUnmounted(() => {
                 <button
                   type="button"
                   class="nv-post-action-btn nv-post-action-btn-circle"
-                  :class="{ 'is-active': post.liked }"
+                  :class="{ 'is-active': postView.liked }"
                   :aria-label="$t('common.likes')"
-                  :aria-pressed="post.liked"
+                  :aria-pressed="postView.liked"
                   :title="$t('common.likes')"
                   :disabled="!authStore.isAuthenticated"
                   @click="handleLike"
                 >
                   <ThumbsUp class="h-5 w-5" :class="{ 'fill-current bounce-in': isLikeAnimating }" />
-                  <span class="nv-post-action-count">{{ post.likeCount }}</span>
+                  <span class="nv-post-action-count">{{ postView.likeCount }}</span>
                 </button>
                 <button
                   type="button"
                   class="nv-post-action-btn nv-post-action-btn-circle"
-                  :class="{ 'is-active is-bookmark': post.scrapped }"
+                  :class="{ 'is-active is-bookmark': postView.scrapped }"
                   :aria-label="$t('board.postDetail.bookmark')"
-                  :aria-pressed="post.scrapped"
+                  :aria-pressed="postView.scrapped"
                   :title="$t('board.postDetail.bookmark')"
                   :disabled="!authStore.isAuthenticated"
                   @click="handleBookmark"
@@ -661,18 +682,28 @@ onUnmounted(() => {
                 >
                   <Share2 class="h-5 w-5" />
                 </button>
+                <button
+                  v-if="canReport"
+                  type="button"
+                  class="nv-post-action-btn nv-post-action-btn-circle is-report"
+                  :aria-label="$t('common.report')"
+                  :title="$t('common.report')"
+                  @click="openReportModal"
+                >
+                  <AlertTriangle class="h-5 w-5" />
+                </button>
               </div>
             </div>
 
             <section id="comments" ref="commentsRef" class="nv-post-comments">
-              <CommentList :postId="post.postId" :boardUrl="post.board.boardUrl" />
+              <CommentList :postId="postView.postId" :boardUrl="postView.boardUrl" />
             </section>
           </article>
         </div>
       </template>
     </BaseCard>
 
-    <div v-if="post" class="nv-post-board-actions hidden xl:flex" :aria-label="$t('board.postDetail.quickActions')">
+    <div v-if="postView" class="nv-post-board-actions hidden xl:flex" :aria-label="$t('board.postDetail.quickActions')">
       <button
         type="button"
         class="nv-post-board-action"
@@ -720,7 +751,7 @@ onUnmounted(() => {
             {{ $t('report.target') }}
           </label>
           <div class="mt-1 text-sm font-medium text-gray-900 dark:text-white">
-            {{ $t('common.post') }} | {{ post?.title }}
+            {{ $t('common.post') }} | {{ postView?.title }}
           </div>
         </div>
         <div>
@@ -773,51 +804,34 @@ onUnmounted(() => {
   gap: 0.375rem;
 }
 
-.nv-post-icon-btn {
+.nv-post-header-action {
   align-items: center;
   background: var(--nv-surface);
   border: 1px solid var(--nv-line);
   border-radius: 9999px;
   color: var(--nv-ink-soft);
   display: inline-flex;
-  height: 2.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  gap: 0.35rem;
+  min-height: 2.5rem;
   justify-content: center;
+  padding: 0.55rem 0.8rem;
   transition: background-color 0.2s ease, color 0.2s ease;
-  width: 2.5rem;
 }
 
-.nv-post-icon-btn:hover {
+.nv-post-header-action:hover {
   background: var(--nv-surface-2);
   color: var(--nv-ink);
 }
 
-.nv-post-overflow {
-  background: var(--nv-surface);
-  border: 1px solid var(--nv-line);
-  border-radius: 1.25rem;
-  box-shadow: var(--nv-shadow-popup);
-  min-width: 10rem;
-  padding: 0.4rem;
-  position: absolute;
-  right: 0;
-  top: calc(100% + 0.5rem);
-  z-index: 30;
+.nv-post-header-action.is-danger {
+  color: var(--nv-danger);
 }
 
-.nv-post-overflow-item {
-  align-items: center;
-  border-radius: 0.95rem;
-  color: var(--nv-ink);
-  display: flex;
-  font-size: 0.9rem;
-  justify-content: flex-start;
-  padding: 0.7rem 0.9rem;
-  transition: background-color 0.2s ease;
-  width: 100%;
-}
-
-.nv-post-overflow-item:hover {
-  background: var(--nv-surface-2);
+.nv-post-header-action.is-danger:hover {
+  background: color-mix(in srgb, var(--nv-danger) 10%, var(--nv-surface));
+  color: var(--nv-danger);
 }
 
 .nv-post-copy-hint {
@@ -1003,6 +1017,10 @@ onUnmounted(() => {
 
 .nv-post-action-btn.is-bookmark {
   color: #bb7a00;
+}
+
+.nv-post-action-btn.is-report {
+  color: var(--nv-danger);
 }
 
 .nv-post-action-btn-circle {

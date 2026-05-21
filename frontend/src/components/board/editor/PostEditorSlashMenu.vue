@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { nextTick, onMounted, ref, watch, type ComponentPublicInstance } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch, type ComponentPublicInstance } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-type SlashAction = 'heading' | 'image' | 'quote' | 'list' | 'link' | 'table' | 'video' | 'codeBlock' | 'divider'
+type SlashAction = 'heading' | 'quote' | 'list' | 'link' | 'table' | 'codeBlock' | 'divider'
 
 const props = defineProps<{
   actions: SlashAction[]
@@ -20,12 +20,10 @@ const { t } = useI18n()
 
 const actionLabels: Record<SlashAction, string> = {
   heading: 'board.writePost.toolbar.heading',
-  image: 'board.writePost.toolbar.image',
   quote: 'board.writePost.toolbar.quote',
   list: 'board.writePost.toolbar.list',
   link: 'board.writePost.toolbar.link',
   table: 'board.writePost.toolbar.tableDialog',
-  video: 'board.writePost.toolbar.video',
   codeBlock: 'board.writePost.toolbar.codeBlock',
   divider: 'board.writePost.toolbar.divider',
 }
@@ -53,7 +51,12 @@ watch(() => props.activeIndex, () => {
 })
 
 onMounted(() => {
+  document.addEventListener('keydown', onDocumentKeydown)
   void focusActiveItem()
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', onDocumentKeydown)
 })
 
 function onKeydown(event: KeyboardEvent) {
@@ -88,10 +91,15 @@ function onKeydown(event: KeyboardEvent) {
     emit('set-active', props.actions.length - 1)
   }
 }
+
+function onDocumentKeydown(event: KeyboardEvent) {
+  onKeydown(event)
+}
 </script>
 
 <template>
   <div
+    data-editor-slash-menu
     class="grid gap-2"
     role="menu"
     @keydown.stop="onKeydown"

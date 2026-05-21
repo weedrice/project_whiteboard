@@ -13,6 +13,24 @@ describe('feedPreview', () => {
         expect(html).not.toContain('<script')
     })
 
+    it('keeps blockquote markup in feed body previews', () => {
+        const html = getFeedBodyHtml({
+            contentsExcerpt: '<blockquote><p>Quoted</p></blockquote>',
+        })
+
+        expect(html).toContain('<blockquote>')
+        expect(html).toContain('<p>Quoted</p>')
+    })
+
+    it('wraps plain text previews with paragraph and line break markup', () => {
+        const html = getFeedBodyHtml({
+            contentsExcerpt: undefined,
+            summary: 'First line\nSecond line\n\nNext paragraph',
+        })
+
+        expect(html).toBe('<p>First line<br>Second line</p><p>Next paragraph</p>')
+    })
+
     it('returns media preview metadata for image and video posts', () => {
         expect(getFeedMediaPreview({
             firstMediaType: 'video',

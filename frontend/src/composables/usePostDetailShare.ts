@@ -90,7 +90,7 @@ export function usePostDetailShare({
       }).catch((err) => {
         if (err.name !== 'AbortError') {
           logger.error('Share failed:', err)
-          toastStore.addToast(translateOrFallback('common.messages.processFailed', '怨듭쑀???ㅽ뙣?덉뒿?덈떎.'), 'error')
+          toastStore.addToast(translateOrFallback('common.messages.processFailed', '공유에 실패했습니다.'), 'error')
         }
       })
       return

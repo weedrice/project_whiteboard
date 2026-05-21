@@ -13,7 +13,6 @@ import { TableKit } from '@tiptap/extension-table'
 import HorizontalRule from '@tiptap/extension-horizontal-rule'
 import { FontSize, LineHeight } from '@tiptap/extension-text-style'
 import { Video } from '@/extensions/tiptap-video'
-import PostEditorAdvancedPopover from '@/components/board/editor/PostEditorAdvancedPopover.vue'
 import PostEditorColorPopover from '@/components/board/editor/PostEditorColorPopover.vue'
 import PostEditorImageAltPopover from '@/components/board/editor/PostEditorImageAltPopover.vue'
 import PostEditorLinkPopover from '@/components/board/editor/PostEditorLinkPopover.vue'
@@ -43,7 +42,7 @@ const emit = defineEmits<{
   (e: 'file-uploaded', fileId: number): void
 }>()
 
-type SlashAction = 'heading' | 'image' | 'quote' | 'list' | 'link' | 'table' | 'video' | 'codeBlock' | 'divider'
+type SlashAction = 'heading' | 'quote' | 'list' | 'link' | 'table' | 'codeBlock' | 'divider'
 type UploadedEditorImage = { url: string; fileId?: number }
 
 const { t } = useI18n()
@@ -53,7 +52,6 @@ const fileIds = ref<number[]>([])
 const showColorPanel = ref(false)
 const showLinkPopover = ref(false)
 const showTablePopover = ref(false)
-const showAdvancedMenu = ref(false)
 const showSlashMenu = ref(false)
 const showImageAltPopover = ref(false)
 const linkUrl = ref('')
@@ -67,21 +65,19 @@ const imageInput = ref<HTMLInputElement | null>(null)
 const isDraggingImage = ref(false)
 const slashActiveIndex = ref(0)
 const slashPopoverRef = ref<HTMLElement | null>(null)
-const advancedPopoverRef = ref<HTMLElement | null>(null)
 const colorPanelRef = ref<HTMLElement | null>(null)
 const linkPopoverRef = ref<HTMLElement | null>(null)
 const tablePopoverRef = ref<HTMLElement | null>(null)
 const imageAltPopoverRef = ref<HTMLElement | null>(null)
 const colorTriggerElement = ref<HTMLElement | null>(null)
+const editorImagePreviewUrls = new Set<string>()
 
 const { isUploadingImage, validateImageFile, uploadImage, abortImageUpload, isAbortUploadError } = useEditorImageUpload()
 usePopoverFocus(slashPopoverRef, showSlashMenu)
-usePopoverFocus(advancedPopoverRef, showAdvancedMenu)
 usePopoverFocus(linkPopoverRef, showLinkPopover)
 usePopoverFocus(tablePopoverRef, showTablePopover)
 usePopoverFocus(imageAltPopoverRef, showImageAltPopover)
 const slashPosition = useAnchoredPopover(slashPopoverRef, showSlashMenu)
-const advancedPosition = useAnchoredPopover(advancedPopoverRef, showAdvancedMenu)
 const colorPosition = useAnchoredPopover(colorPanelRef, showColorPanel)
 const linkPosition = useAnchoredPopover(linkPopoverRef, showLinkPopover)
 const tablePosition = useAnchoredPopover(tablePopoverRef, showTablePopover)
@@ -90,8 +86,8 @@ const imageUploadQueue = useEditorImageUploadQueue<UploadedEditorImage>({
   validate: validateImageFile,
   upload: uploadImage,
   isAbort: isAbortUploadError,
-  onUploaded: (uploaded) => {
-    insertUploadedImage(uploaded)
+  onUploaded: (uploaded, file) => {
+    insertUploadedImage(uploaded, file)
   },
   onFailed: (error) => {
     logger.error('Image upload failed:', error)
@@ -134,7 +130,7 @@ const colorLabelKeys = [
   'blue', 'purple', 'pink', 'teal',
   'white', 'dark', 'slate', 'paleGray',
 ]
-const slashActions: SlashAction[] = ['heading', 'image', 'quote', 'list', 'link', 'table', 'video', 'codeBlock', 'divider']
+const slashActions: SlashAction[] = ['heading', 'quote', 'list', 'link', 'table', 'codeBlock', 'divider']
 const fontSizes = ['12px', '14px', '16px', '18px', '24px']
 const lineHeights = ['1', '1.25', '1.5', '1.75', '2']
 
@@ -143,7 +139,7 @@ const editor = useEditor({
   editable: true,
   editorProps: {
     attributes: {
-      class: 'prose prose-sm dark:prose-invert max-w-none min-h-[280px] px-4 py-4 focus:outline-none',
+      class: 'nv-rich-content prose prose-sm dark:prose-invert max-w-none min-h-[280px] px-4 py-4 focus:outline-none',
     },
     handleDOMEvents: {
       click: (_view, event) => {
@@ -241,7 +237,6 @@ const currentTextColor = computed(() => editor.value?.getAttributes('textStyle')
 const isDefaultColor = computed(() => !currentTextColor.value)
 const currentFontSize = computed(() => editor.value?.getAttributes('textStyle').fontSize || '')
 const currentLineHeight = computed(() => editor.value?.getAttributes('textStyle').lineHeight || '')
-const currentHighlightColor = computed(() => editor.value?.getAttributes('highlight').color || '#fef08a')
 const hasImageUploadError = computed(() => imageUploadQueue.failedCount.value > 0)
 const failedImageCount = computed(() => imageUploadQueue.failedCount.value)
 const failedImageFiles = computed(() => imageUploadQueue.failedItems.value.map((item) => item.file))
@@ -262,8 +257,10 @@ const colorPresetLabels = computed(() => Object.fromEntries(
 ))
 
 function closeFloatingMenus() {
-  showAdvancedMenu.value = false
   showSlashMenu.value = false
+  showColorPanel.value = false
+  colorPosition.clearAnchor()
+  colorTriggerElement.value = null
 }
 
 function openSlashMenu(anchor?: HTMLElement) {
@@ -304,6 +301,8 @@ function toggleColorPanel(anchor?: HTMLElement) {
     closeColorPanel(anchor)
     return
   }
+  showSlashMenu.value = false
+  slashPosition.clearAnchor()
   colorTriggerElement.value = anchor ?? null
   colorPosition.setAnchor(anchor)
   showColorPanel.value = true
@@ -316,20 +315,6 @@ function closeColorPanel(focusTarget = colorTriggerElement.value) {
   if (focusTarget instanceof HTMLElement) {
     focusTarget.focus()
   }
-}
-
-function openAdvancedMenu(anchor?: HTMLElement) {
-  closeFloatingMenus()
-  advancedPosition.setAnchor(anchor)
-  showAdvancedMenu.value = true
-}
-
-function toggleAdvancedMenu(anchor?: HTMLElement) {
-  if (showAdvancedMenu.value) {
-    showAdvancedMenu.value = false
-    return
-  }
-  openAdvancedMenu(anchor)
 }
 
 function openLinkPopover(anchor?: HTMLElement) {
@@ -521,18 +506,21 @@ function reportImageValidationError(validationError: 'type' | 'size') {
   toastStore.addToast(t('common.messages.fileSizeExceeded'), 'warning')
 }
 
-function insertUploadedImage(uploaded: { url: string; fileId?: number }) {
+function insertUploadedImage(uploaded: { url: string; fileId?: number }, file: File) {
   if (typeof uploaded.fileId === 'number') {
     fileIds.value.push(uploaded.fileId)
     emit('file-uploaded', uploaded.fileId)
   }
-  const serverAttributes = typeof uploaded.fileId === 'number'
-    ? ` data-file-id="${uploaded.fileId}"`
-    : ''
-  editor.value?.chain().focus().insertContent(`<img src="${escapeHtmlAttr(uploaded.url)}"${serverAttributes}>`).run()
+  const previewUrl = URL.createObjectURL(file)
+  editorImagePreviewUrls.add(previewUrl)
+  const serverAttributes = [
+    typeof uploaded.fileId === 'number' ? `data-file-id="${uploaded.fileId}"` : '',
+    `data-server-src="${escapeHtmlAttr(uploaded.url)}"`,
+  ].filter(Boolean).join(' ')
+  editor.value?.chain().focus().insertContent(`<img src="${escapeHtmlAttr(previewUrl)}" ${serverAttributes}>`).run()
   const editorRoot = editor.value?.view.dom
   const image = Array.from(editorRoot?.querySelectorAll('img') ?? [])
-    .find((candidate) => candidate.getAttribute('src') === uploaded.url)
+    .find((candidate) => candidate.getAttribute('src') === previewUrl)
   if (image instanceof HTMLImageElement) {
     openImageAltPopover(image, '')
   }
@@ -643,11 +631,8 @@ function applySlashAction(action: SlashAction) {
     case 'heading':
       editor.value?.chain().focus().toggleHeading({ level: 2 }).run()
       break
-    case 'image':
-      triggerImageUpload()
-      break
     case 'quote':
-      editor.value?.chain().focus().toggleBlockquote().run()
+      editor.value?.chain().focus().setBlockquote().run()
       break
     case 'list':
       applyBulletList()
@@ -657,9 +642,6 @@ function applySlashAction(action: SlashAction) {
       break
     case 'table':
       openTablePopover()
-      break
-    case 'video':
-      emit('open-video')
       break
     case 'codeBlock':
       editor.value?.chain().focus().toggleCodeBlock().run()
@@ -689,10 +671,6 @@ function applyLineHeight(value: string) {
   editor.value.chain().focus().unsetLineHeight().run()
 }
 
-function applyHighlightColor(value: string) {
-  editor.value?.chain().focus().setHighlight({ color: value }).run()
-}
-
 function applyHorizontalRule() {
   editor.value?.chain().focus().setHorizontalRule().run()
 }
@@ -713,6 +691,8 @@ defineExpose({
 })
 
 onBeforeUnmount(() => {
+  editorImagePreviewUrls.forEach((url) => URL.revokeObjectURL(url))
+  editorImagePreviewUrls.clear()
   editor.value?.destroy()
 })
 </script>
@@ -730,8 +710,17 @@ onBeforeUnmount(() => {
       :image-upload-queue-count="imageUploadQueueCount"
       :failed-image-count="failedImageCount"
       :failed-image-files="failedImageFiles"
+      :font-sizes="fontSizes"
+      :line-heights="lineHeights"
+      :current-font-size="currentFontSize"
+      :current-line-height="currentLineHeight"
+      :current-text-color="currentTextColor"
+      :is-default-color="isDefaultColor"
+      :is-dark="themeStore.isDark"
       :show-slash-menu="showSlashMenu"
-      :show-advanced-menu="showAdvancedMenu"
+      :show-table-popover="showTablePopover"
+      :show-color-panel="showColorPanel"
+      :active-text-align="activeTextAlign"
       @toggle-bold="editor.chain().focus().toggleBold().run()"
       @toggle-italic="editor.chain().focus().toggleItalic().run()"
       @toggle-underline="editor.chain().focus().toggleUnderline().run()"
@@ -743,8 +732,14 @@ onBeforeUnmount(() => {
       @save-list-selection="saveListSelection"
       @bullet-list="applyBulletList"
       @ordered-list="applyOrderedList"
+      @font-size="applyFontSize"
+      @line-height="applyLineHeight"
+      @custom-text-color="setPresetColor"
+      @toggle-color-panel="toggleColorPanel"
+      @align="setTextAlign"
       @toggle-slash-menu="toggleSlashMenu"
-      @toggle-advanced-menu="toggleAdvancedMenu"
+      @open-table="openTablePopover"
+      @horizontal-rule="applyHorizontalRule"
       @retry-image-upload="retryImageUpload"
       @retry-failed-image-upload="retryFailedImageUpload"
       @cancel-image-upload="cancelImageUpload"
@@ -772,45 +767,17 @@ onBeforeUnmount(() => {
     </Teleport>
 
     <Teleport to="body">
-      <div v-if="showAdvancedMenu" class="link-popover-mask" @click.self="showAdvancedMenu = false" @keydown.enter.stop @keydown.escape.stop.prevent="showAdvancedMenu = false">
-        <div id="editor-advanced-dialog" ref="advancedPopoverRef" class="link-popover advanced-popover" :style="advancedPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-advanced-dialog-title">
-          <div class="mb-3">
-            <p class="text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">{{ t('board.writePost.toolbar.advanced') }}</p>
-            <h3 id="editor-advanced-dialog-title" class="text-base font-semibold text-[var(--nv-ink)]">{{ t('board.writePost.toolbar.formattingTools') }}</h3>
-          </div>
-          <PostEditorAdvancedPopover
-            :font-sizes="fontSizes"
-            :line-heights="lineHeights"
-            :current-font-size="currentFontSize"
-            :current-line-height="currentLineHeight"
-            :current-highlight-color="currentHighlightColor"
-            :current-text-color="currentTextColor"
-            :is-default-color="isDefaultColor"
-            :is-dark="themeStore.isDark"
-            :show-color-panel="showColorPanel"
-            :show-table-popover="showTablePopover"
-            :active-text-align="activeTextAlign"
-            @font-size="applyFontSize"
-            @line-height="applyLineHeight"
-            @highlight-color="applyHighlightColor"
-            @toggle-color-panel="toggleColorPanel"
-            @open-table="openTablePopover"
-            @horizontal-rule="applyHorizontalRule"
-            @align="setTextAlign"
-          />
-          <div v-if="showColorPanel" id="editor-color-dialog" ref="colorPanelRef" class="color-panel" :style="colorPosition.popoverStyle.value" role="dialog" aria-labelledby="editor-color-dialog-title" @keydown.enter.stop @keydown.escape.stop.prevent="closeColorPanel()">
-            <p id="editor-color-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.textColor') }}</p>
-            <PostEditorColorPopover
-              :colors="colorPresets"
-              :labels="colorPresetLabels"
-              :current-text-color="currentTextColor"
-              :is-default-color="isDefaultColor"
-              @default-color="setDefaultColor"
-              @preset-color="setPresetColor"
-              @custom-color="setPresetColor"
-            />
-          </div>
-        </div>
+      <div v-if="showColorPanel" id="editor-color-dialog" ref="colorPanelRef" class="color-panel" :style="colorPosition.popoverStyle.value" role="dialog" aria-labelledby="editor-color-dialog-title" @keydown.enter.stop @keydown.escape.stop.prevent="closeColorPanel()">
+        <p id="editor-color-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.textColor') }}</p>
+        <PostEditorColorPopover
+          :colors="colorPresets"
+          :labels="colorPresetLabels"
+          :current-text-color="currentTextColor"
+          :is-default-color="isDefaultColor"
+          @default-color="setDefaultColor"
+          @preset-color="setPresetColor"
+          @custom-color="setPresetColor"
+        />
       </div>
     </Teleport>
 

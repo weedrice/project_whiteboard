@@ -2,7 +2,7 @@ name: noviis
 
 services:
   postgres:
-    image: postgres:16-alpine
+    image: ${POSTGRES_IMAGE:-pgvector/pgvector:0.8.2-pg16-trixie}
     container_name: noviis-postgres
     restart: unless-stopped
     environment:

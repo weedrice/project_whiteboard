@@ -35,6 +35,11 @@ export const board: BoardMessages = {
       author: '작성자',
       tag: '태그',
     },
+    notices: {
+      title: '공지사항',
+      more: '더보기',
+      collapse: '접기',
+    },
     defaultAdminName: '관리자',
   },
   form: {
@@ -308,6 +313,11 @@ export const boardEn: BoardMessages = {
       content: 'Content',
       author: 'Author',
       tag: 'Tag',
+    },
+    notices: {
+      title: 'Notices',
+      more: 'More',
+      collapse: 'Collapse',
     },
     defaultAdminName: 'Admin',
   },

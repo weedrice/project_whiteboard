@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import org.jsoup.Jsoup;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -12,7 +13,7 @@ import java.util.regex.Pattern;
 public class PostContentSummaryExtractor {
 
     String extractSummary(Post post) {
-        String summary = post.getContents().replaceAll("<[^>]*>", "").trim();
+        String summary = Jsoup.parse(post.getContents()).text().trim();
         if (summary.length() > 1000) {
             return summary.substring(0, 1000);
         }
