@@ -97,7 +97,6 @@ class AuthServiceTest {
     @Mock private EntityManager entityManager;
     @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
     @Mock private UserPrivilegeCleanupService userPrivilegeCleanupService;
-    @Mock private EmailEligibilityService emailEligibilityService;
 
     private AuthService authService;
     private User user;
@@ -131,9 +130,9 @@ class AuthServiceTest {
                 passwordResetTokenOrchestrationService, transactionTemplate, authAccountEligibilityPolicy);
         SignupService signupService = new SignupService(
                 userRepository, pointService, userSettingsRepository,
-                socialAccountLinkService, verificationCodeService, emailEligibilityService, globalConfigService,
+                socialAccountLinkService, verificationCodeService, globalConfigService,
                 entityManager, refreshTokenLifecycleService, userPrivilegeCleanupService, passwordHistoryPolicy,
-                authAccountEligibilityPolicy);
+                authAccountEligibilityPolicy, new AccountUniquenessPolicy(userRepository));
         authService = new AuthService(
                 signupService,
                 sessionTokenService,
@@ -261,8 +260,7 @@ class AuthServiceTest {
     @DisplayName("회원가입 실패 - 중복 이메일")
     void signup_fail_duplicateEmail() {
         SignupRequest request = signupRequest();
-        doThrow(new BusinessException(ErrorCode.DUPLICATE_EMAIL))
-                .when(emailEligibilityService).validateSignupEmail(request.getEmail());
+        when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(user));
 
         BusinessException exception = assertThrows(BusinessException.class, () -> authService.signup(request));
 

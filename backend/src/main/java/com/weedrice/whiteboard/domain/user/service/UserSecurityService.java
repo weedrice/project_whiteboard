@@ -1,8 +1,8 @@
 package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
+import com.weedrice.whiteboard.domain.auth.service.AccountUniquenessPolicy;
 import com.weedrice.whiteboard.domain.auth.service.AuthEmailNormalizer;
-import com.weedrice.whiteboard.domain.auth.service.EmailEligibilityService;
 import com.weedrice.whiteboard.domain.auth.service.RefreshTokenLifecycleService;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -26,7 +26,7 @@ public class UserSecurityService {
     private final PasswordHistoryPolicy passwordHistoryPolicy;
     private final RefreshTokenLifecycleService refreshTokenLifecycleService;
     private final VerificationCodeService verificationCodeService;
-    private final EmailEligibilityService emailEligibilityService;
+    private final AccountUniquenessPolicy accountUniquenessPolicy;
     private final EntityManager entityManager;
     private final UserWritableResolver userWritableResolver;
 
@@ -53,7 +53,7 @@ public class UserSecurityService {
         String normalizedCurrentEmail = AuthEmailNormalizer.normalize(user.getEmail());
 
         if (!normalizedCurrentEmail.equals(normalizedEmail)) {
-            emailEligibilityService.validateChangeEmail(normalizedEmail, user);
+            accountUniquenessPolicy.validateChangeEmailAvailable(normalizedEmail, user);
         }
 
         verificationCodeService.validateVerificationTicket(
@@ -70,12 +70,7 @@ public class UserSecurityService {
             userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException ex) {
             entityManager.clear();
-            if (userRepository.findByEmail(normalizedEmail)
-                    .filter(other -> !other.getUserId().equals(user.getUserId()))
-                    .isPresent()) {
-                throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
-            }
-            throw ex;
+            throw accountUniquenessPolicy.resolveChangeEmailConflict(normalizedEmail, user.getUserId(), ex);
         }
         verificationCodeService.consumeValidatedVerificationTicket(
                 normalizedEmail,

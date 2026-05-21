@@ -38,28 +38,24 @@ public class SignupService {
     private final UserSettingsRepository userSettingsRepository;
     private final SocialAccountLinkService socialAccountLinkService;
     private final VerificationCodeService verificationCodeService;
-    private final EmailEligibilityService emailEligibilityService;
     private final GlobalConfigService globalConfigService;
     private final EntityManager entityManager;
     private final RefreshTokenLifecycleService refreshTokenLifecycleService;
     private final UserPrivilegeCleanupService userPrivilegeCleanupService;
     private final PasswordHistoryPolicy passwordHistoryPolicy;
     private final AuthAccountEligibilityPolicy authAccountEligibilityPolicy;
+    private final AccountUniquenessPolicy accountUniquenessPolicy;
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
         String normalizedEmail = AuthEmailNormalizer.normalize(request.getEmail());
-        emailEligibilityService.validateSignupEmail(normalizedEmail);
 
-        var reregisterableUser = userRepository.findByEmail(normalizedEmail)
-                .filter(existingUser -> "DELETED".equals(existingUser.getStatus()));
+        var reregisterableUser = accountUniquenessPolicy.findReregisterableSignupUser(normalizedEmail);
         if (reregisterableUser.isPresent()) {
             return reregister(reregisterableUser.get(), request, normalizedEmail);
         }
 
-        if (userRepository.existsByLoginId(request.getLoginId())) {
-            throw new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID);
-        }
+        accountUniquenessPolicy.validateLoginIdAvailable(request.getLoginId());
 
         verificationCodeService.consumeVerificationTicket(
                 normalizedEmail,
@@ -184,13 +180,7 @@ public class SignupService {
 
     private RuntimeException resolveSignupConflict(SignupRequest request, String normalizedEmail,
             DataIntegrityViolationException ex) {
-        if (userRepository.findByEmail(normalizedEmail).isPresent()) {
-            return new BusinessException(ErrorCode.DUPLICATE_EMAIL);
-        }
-        if (userRepository.existsByLoginId(request.getLoginId())) {
-            return new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID);
-        }
-        return ex;
+        return accountUniquenessPolicy.resolveSignupConflict(normalizedEmail, request.getLoginId(), ex);
     }
 
     private void saveSocialAccountIfPresent(User user, SignupRequest request) {
