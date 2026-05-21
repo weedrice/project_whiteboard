@@ -5,7 +5,7 @@ import { useThemeStore } from '@/stores/theme'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
 import i18n from '@/i18n'
-import { Storage } from '@/utils/storage'
+import { clearStoredAuthTokens, getStoredAccessToken, persistAccessToken } from '@/utils/authTokenStorage'
 import type { User, LoginCredentials } from '@/types'
 import type { AxiosRequestConfig } from 'axios'
 
@@ -13,10 +13,34 @@ import type { AxiosRequestConfig } from 'axios'
 
 export const useAuthStore = defineStore('auth', () => {
     const user = ref<User | null>(null)
-    const accessToken = ref<string | null>(Storage.getString('accessToken'))
+    const accessToken = ref<string | null>(getStoredAccessToken())
     const isAuthenticated = computed(() => !!accessToken.value)
     const themeStore = useThemeStore()
     const toastStore = useToastStore()
+
+    function syncThemeFromUser(userData: User | null) {
+        if (userData?.theme) {
+            themeStore.setTheme(userData.theme)
+        }
+    }
+
+    function applyAuthenticatedSession(token: string, userData: User) {
+        accessToken.value = token
+        user.value = userData
+        persistAccessToken(token)
+        syncThemeFromUser(userData)
+    }
+
+    function clearSessionState() {
+        accessToken.value = null
+        user.value = null
+        clearStoredAuthTokens()
+    }
+
+    async function handleSanctionedSession() {
+        toastStore.addToast(i18n.global.t('user.sanctioned'), 'error')
+        await logout()
+    }
 
     async function login(credentials: LoginCredentials): Promise<boolean> {
         try {
@@ -24,16 +48,7 @@ export const useAuthStore = defineStore('auth', () => {
             if (data.success) {
                 const { accessToken: token, user: userData } = data.data
 
-                accessToken.value = token
-                user.value = userData
-
-                Storage.setString('accessToken', token)
-                Storage.remove('refreshToken')
-
-                // Set theme from user settings
-                if (userData.theme) {
-                    themeStore.setTheme(userData.theme)
-                }
+                applyAuthenticatedSession(token, userData)
 
                 return true
             }
@@ -50,25 +65,16 @@ export const useAuthStore = defineStore('auth', () => {
         } catch (error: unknown) {
             logger.error('Logout failed:', error)
         } finally {
-            accessToken.value = null
-            user.value = null
-            Storage.remove('accessToken')
-            Storage.remove('refreshToken')
+            clearSessionState()
             // themeStore.setTheme('LIGHT') // Reset to default on logout -> Removed to persist theme
         }
     }
 
-    async function handleSanctionedSession() {
-        toastStore.addToast(i18n.global.t('user.sanctioned'), 'error')
-        await logout()
-    }
-
     async function fetchUser(config?: AxiosRequestConfig): Promise<boolean> {
         // Double check token existence
-        const token = Storage.getString('accessToken')
+        const token = getStoredAccessToken()
         if (!token) {
-            accessToken.value = null
-            user.value = null
+            clearSessionState()
             return false
         }
 
@@ -85,10 +91,7 @@ export const useAuthStore = defineStore('auth', () => {
                     return false
                 }
 
-                // Sync theme from server
-                if (user.value?.theme) {
-                    themeStore.setTheme(user.value.theme)
-                }
+                syncThemeFromUser(user.value)
 
                 return true
             }
@@ -104,8 +107,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     function setTokens(token: string) {
         accessToken.value = token
-        Storage.setString('accessToken', token)
-        Storage.remove('refreshToken')
+        persistAccessToken(token)
     }
 
     return {
