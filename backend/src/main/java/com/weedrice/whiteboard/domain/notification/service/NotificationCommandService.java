@@ -75,9 +75,6 @@ class NotificationCommandService {
         if (updatedRows > 0) {
             return;
         }
-        if (notificationRepository.existsByNotificationIdAndUser_UserId(notificationId, userId)) {
-            return;
-        }
         throw new BusinessException(ErrorCode.NOT_FOUND);
     }
 

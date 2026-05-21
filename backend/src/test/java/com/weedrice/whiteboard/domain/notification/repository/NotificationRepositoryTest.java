@@ -131,6 +131,25 @@ class NotificationRepositoryTest {
     }
 
     @Test
+    @DisplayName("Already read owned notification returns success for single read")
+    void markReadByNotificationIdAndUserId_alreadyReadOwnedNotification() {
+        notification.read();
+        entityManager.flush();
+        entityManager.clear();
+
+        int updatedRows = notificationRepository.markReadByNotificationIdAndUserId(
+                notification.getNotificationId(),
+                user.getUserId());
+        entityManager.flush();
+        entityManager.clear();
+
+        Notification found = entityManager.find(Notification.class, notification.getNotificationId());
+
+        assertThat(updatedRows).isEqualTo(1);
+        assertThat(found.getIsRead()).isTrue();
+    }
+
+    @Test
     @DisplayName("사용자 ID 기반 전체 읽음 처리는 대상 사용자 알림만 수정한다")
     void readAllByUserId_success() {
         Notification otherNotification = Notification.builder()
@@ -153,17 +172,6 @@ class NotificationRepositoryTest {
         assertThat(updatedRows).isEqualTo(1);
         assertThat(found.getIsRead()).isTrue();
         assertThat(otherFound.getIsRead()).isFalse();
-    }
-
-    @Test
-    @DisplayName("알림 소유자 존재 여부 조회 성공")
-    void existsByNotificationIdAndUserId_success() {
-        assertThat(notificationRepository.existsByNotificationIdAndUser_UserId(
-                notification.getNotificationId(),
-                user.getUserId())).isTrue();
-        assertThat(notificationRepository.existsByNotificationIdAndUser_UserId(
-                notification.getNotificationId(),
-                otherUser.getUserId())).isFalse();
     }
 
     private Notification persistNotification(String content) {
