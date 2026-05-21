@@ -29,17 +29,22 @@ class EmoticonServiceConfig {
     }
 
     @Bean
+    EmoticonDeletePolicy emoticonDeletePolicy(EmoticonPurchaseRepository emoticonPurchaseRepository) {
+        return new EmoticonDeletePolicy(emoticonPurchaseRepository);
+    }
+
+    @Bean
     EmoticonCommandService emoticonCommandService(EmoticonMasterRepository emoticonMasterRepository,
-                                                   EmoticonImageRepository emoticonImageRepository,
-                                                   EmoticonPurchaseRepository emoticonPurchaseRepository,
-                                                   UserWritableResolver userWritableResolver,
-                                                   EmoticonAttachmentHelper attachmentHelper) {
+                                                    EmoticonImageRepository emoticonImageRepository,
+                                                    UserWritableResolver userWritableResolver,
+                                                    EmoticonAttachmentHelper attachmentHelper,
+                                                    EmoticonDeletePolicy deletePolicy) {
         return new EmoticonCommandService(
                 emoticonMasterRepository,
                 emoticonImageRepository,
-                emoticonPurchaseRepository,
                 userWritableResolver,
                 attachmentHelper,
+                deletePolicy,
                 EMOTICON_THUMBNAIL,
                 EMOTICON_IMAGE);
     }
