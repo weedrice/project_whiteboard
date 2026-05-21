@@ -16,6 +16,7 @@ import type {
     UserPoint,
 } from '@/types'
 import type { AxiosResponse } from 'axios'
+import { normalizePageResponse, type PageResponseRaw } from '@/utils/pageResponse'
 
 export interface UserProfile {
     userId: number;
@@ -69,34 +70,8 @@ export interface UserAgentListResponse {
     agents: UserAgent[]
 }
 
-function toPageResponse<T>(response: {
-    content: T[]
-    page?: number
-    number?: number
-    size: number
-    totalElements: number
-    totalPages: number
-    hasNext?: boolean
-    hasPrevious?: boolean
-    last?: boolean
-    first?: boolean
-    empty?: boolean
-}): PageResponse<T> {
-    const pageNumber = response.number ?? response.page ?? 0
-    return {
-        content: response.content,
-        totalElements: response.totalElements,
-        totalPages: response.totalPages,
-        size: response.size,
-        number: pageNumber,
-        first: response.first ?? (pageNumber === 0),
-        last: response.last ?? (!response.hasNext),
-        empty: response.empty ?? (response.content.length === 0),
-    }
-}
-
 export function toScrapPostSummaryPage(response: ScrapListResponse): PageResponse<PostSummary> {
-    return toPageResponse({
+    return normalizePageResponse({
         ...response,
         content: response.content.map(({ post }) => ({
             postId: post.postId,
@@ -189,7 +164,10 @@ export const userApi = {
     unblockUser(userId: string | number) {
         return api.delete<ApiResponse<void>>(`/users/${userId}/block`)
     },
-    getBlockList() {
+    getBlockList(params?: PaginationParams) {
+        if (params) {
+            return api.get<ApiResponse<PageResponse<BlockedUserSummary> | BlockedUserSummary[]>>('/users/me/blocks', { params })
+        }
         return api.get<ApiResponse<PageResponse<BlockedUserSummary> | BlockedUserSummary[]>>('/users/me/blocks')
     },
     getMyPosts(params: PaginationParams) {
@@ -216,6 +194,9 @@ export const userApi = {
     },
     getMyPointHistories(params: PaginationParams) {
         return api.get<ApiResponse<PointHistoryResponse>>('/points/me/history', { params })
-            .then((response) => mapApiPageResponse<PointHistoryResponse, PointHistory>(response, toPageResponse))
+            .then((response) => mapApiPageResponse<PointHistoryResponse, PointHistory>(
+                response,
+                (source) => normalizePageResponse(source as PageResponseRaw<PointHistory>)
+            ))
     }
 }
