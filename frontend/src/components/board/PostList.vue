@@ -11,6 +11,12 @@ import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import { formatRelativeDate } from '@/utils/date'
 import { formatUserDisplayName } from '@/utils/userDisplay'
 
+type ResolvePostRoute = (
+  post: PostSummary,
+  boardUrl: string,
+  linkQuery: LocationQueryRaw | undefined
+) => RouteLocationRaw | null | undefined
+
 const props = withDefaults(defineProps<{
   posts: PostSummary[]
   loading?: boolean
@@ -18,6 +24,7 @@ const props = withDefaults(defineProps<{
   currentSort?: string
   currentPostId?: string
   linkQuery?: LocationQueryRaw
+  resolvePostRoute?: ResolvePostRoute
   showBoardName?: boolean
   hideNoColumn?: boolean
   interceptInquiry?: boolean
@@ -67,11 +74,38 @@ function hasValidBoardTarget(item: PostSummary): boolean {
   return getResolvedBoardUrl(item).length > 0
 }
 
-function getPostLink(item: PostSummary): RouteLocationRaw {
+function resolveDefaultPostRoute(item: PostSummary, boardUrl: string): RouteLocationRaw {
   return {
-    path: `/board/${getResolvedBoardUrl(item)}/post/${item.postId}`,
+    path: `/board/${boardUrl}/post/${item.postId}`,
     query: props.linkQuery
   }
+}
+
+function resolvePostRouteTarget(item: PostSummary): RouteLocationRaw | null {
+  const boardUrl = getResolvedBoardUrl(item)
+  if (!boardUrl) return null
+  if (props.resolvePostRoute) {
+    return props.resolvePostRoute(item, boardUrl, props.linkQuery) ?? null
+  }
+  return resolveDefaultPostRoute(item, boardUrl)
+}
+
+const postRouteTargets = computed(() => {
+  const routes = new Map<PostSummary, RouteLocationRaw | null>()
+  props.posts.forEach((item) => {
+    routes.set(item, resolvePostRouteTarget(item))
+  })
+  return routes
+})
+
+function getPostLink(item: PostSummary): RouteLocationRaw | null {
+  return postRouteTargets.value.has(item)
+    ? postRouteTargets.value.get(item) ?? null
+    : resolvePostRouteTarget(item)
+}
+
+function hasPostRouteTarget(item: PostSummary): boolean {
+  return getPostLink(item) !== null
 }
 
 function isInquiryPost(item: PostSummary): boolean {
@@ -148,13 +182,13 @@ function onBoardClick(event: Event, item: PostSummary) {
 
 function getInteractiveTag(item: PostSummary): 'button' | 'router-link' | 'div' {
   if (shouldInterceptInquiry(item)) return 'button'
-  if (hasValidBoardTarget(item)) return 'router-link'
+  if (hasPostRouteTarget(item)) return 'router-link'
   return 'div'
 }
 
 function getTitleTag(item: PostSummary): 'button' | 'router-link' | 'span' {
   if (shouldInterceptInquiry(item)) return 'button'
-  if (hasValidBoardTarget(item)) return 'router-link'
+  if (hasPostRouteTarget(item)) return 'router-link'
   return 'span'
 }
 
