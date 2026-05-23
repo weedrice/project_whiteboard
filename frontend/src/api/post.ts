@@ -106,6 +106,6 @@ export const postApi = {
     deleteDraft: (draftId: string | number) => api.delete<ApiResponse<void>>(`/drafts/${draftId}`),
 
     // Report post
-    reportPost: (data: ReportData) => api.post<ApiResponse<void>>('/reports/posts', data),
+    reportPost: (data: ReportData) => api.post<ApiResponse<number>>('/reports/posts', data),
 }
 

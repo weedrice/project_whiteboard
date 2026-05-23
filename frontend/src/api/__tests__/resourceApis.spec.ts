@@ -20,6 +20,7 @@ import { emoticonApi } from '../emoticon'
 import { adApi } from '../ad'
 import { notificationApi } from '../notification'
 import { codeApi } from '../code'
+import { reportApi } from '../report'
 
 describe('boardApi', () => {
     beforeEach(() => {
@@ -107,6 +108,34 @@ describe('postApi', () => {
         expect(apiMock.get).toHaveBeenNthCalledWith(3, '/posts/trending', { params: { page: 2, size: 5, period: '24h' } })
         expect(apiMock.get).toHaveBeenNthCalledWith(4, '/home/landing', { params: { period: '7d' } })
         expect(apiMock.post).toHaveBeenNthCalledWith(5, '/reports/posts', reportData)
+    })
+})
+
+describe('reportApi', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('calls report endpoints with correct path and payload', () => {
+        reportApi.reportUser(7, 'abuse', '/users/7')
+        reportApi.reportPost(11, 'spam')
+        reportApi.reportComment(13, 'off-topic')
+        reportApi.getMyReports({ page: 1, size: 10 })
+
+        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/reports/users', {
+            targetUserId: 7,
+            reason: 'abuse',
+            link: '/users/7',
+        })
+        expect(apiMock.post).toHaveBeenNthCalledWith(2, '/reports/posts', {
+            targetPostId: 11,
+            reason: 'spam',
+        })
+        expect(apiMock.post).toHaveBeenNthCalledWith(3, '/reports/comments', {
+            targetCommentId: 13,
+            reason: 'off-topic',
+        })
+        expect(apiMock.get).toHaveBeenCalledWith('/reports/me', { params: { page: 1, size: 10 } })
     })
 })
 
