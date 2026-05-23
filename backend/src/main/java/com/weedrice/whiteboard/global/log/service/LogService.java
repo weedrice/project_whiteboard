@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.global.log.service;
 
 import com.weedrice.whiteboard.domain.user.entity.Role;
+import com.weedrice.whiteboard.global.common.util.ClientMetadataNormalizer;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.log.entity.Log;
 import com.weedrice.whiteboard.global.log.repository.LogRepository;
@@ -37,7 +38,7 @@ public class LogService {
         Log log = Log.builder()
                 .userId(userId)
                 .actionType(actionType)
-                .ipAddress(ipAddress)
+                .ipAddress(ClientMetadataNormalizer.normalizeIpAddress(ipAddress))
                 .details(details)
                 .build();
         logRepository.save(log);

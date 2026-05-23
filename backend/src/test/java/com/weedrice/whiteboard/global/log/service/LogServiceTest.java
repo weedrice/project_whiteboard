@@ -46,9 +46,11 @@ class LogServiceTest {
     void saveLog_params() {
         when(logRepository.save(any(Log.class))).thenAnswer(i -> i.getArgument(0));
 
-        logService.saveLog(1L, "TEST", "127.0.0.1", "details");
+        logService.saveLog(1L, "TEST", " 127.0.0.1, 10.0.0.1 ", "details");
 
-        verify(logRepository).save(any(Log.class));
+        ArgumentCaptor<Log> logCaptor = ArgumentCaptor.forClass(Log.class);
+        verify(logRepository).save(logCaptor.capture());
+        assertThat(logCaptor.getValue().getIpAddress()).isEqualTo("127.0.0.1");
     }
 
     @Test
