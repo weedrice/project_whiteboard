@@ -1,4 +1,8 @@
-import { ref, watch, onUnmounted, type Ref } from 'vue'
+import { onScopeDispose, ref, watch, type Ref } from 'vue'
+
+export type DebouncedFunction<T extends (...args: any[]) => any> = ((...args: Parameters<T>) => void) & {
+    cancel: () => void
+}
 
 /**
  * 디바운싱을 위한 composable
@@ -33,11 +37,12 @@ export function useDebounce<T>(value: Ref<T>, delay: number = 300): Ref<T> {
         }, delay)
     }, { immediate: true })
 
-    onUnmounted(() => {
+    onScopeDispose(() => {
         if (timeoutId) {
             clearTimeout(timeoutId)
+            timeoutId = null
         }
-    })
+    }, true)
 
     return debounced
 }
@@ -62,17 +67,26 @@ export function useDebounce<T>(value: Ref<T>, delay: number = 300): Ref<T> {
 export function useDebounceFn<T extends (...args: any[]) => any>(
     fn: T,
     delay: number = 300
-): (...args: Parameters<T>) => void {
+): DebouncedFunction<T> {
     let timeoutId: ReturnType<typeof setTimeout> | null = null
 
-    return (...args: Parameters<T>) => {
+    const cancel = () => {
         if (timeoutId) {
             clearTimeout(timeoutId)
+            timeoutId = null
         }
+    }
 
+    const debounced = ((...args: Parameters<T>) => {
+        cancel()
         timeoutId = setTimeout(() => {
             fn(...args)
             timeoutId = null
         }, delay)
-    }
+    }) as DebouncedFunction<T>
+
+    debounced.cancel = cancel
+    onScopeDispose(cancel, true)
+
+    return debounced
 }
