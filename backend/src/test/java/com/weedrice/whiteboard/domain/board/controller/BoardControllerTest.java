@@ -274,6 +274,19 @@ class BoardControllerTest {
     }
 
     @Test
+    @DisplayName("게시판 관리자 이양은 잘못된 loginId 형식을 거부한다")
+    void transferBoardManager_rejectsInvalidLoginId() throws Exception {
+        mockMvc.perform(put("/api/v1/boards/{boardUrl}/manager", "free")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"loginId\":\"bad-id!\"}")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest());
+
+        verify(boardApplicationService, never()).transferBoardManagerDetail(any(), any(), any());
+    }
+
+    @Test
     @DisplayName("게시판 관리자 후보 조회 성공")
     void getBoardManagerCandidates_returnsSuccess() throws Exception {
         String boardUrl = "free";
