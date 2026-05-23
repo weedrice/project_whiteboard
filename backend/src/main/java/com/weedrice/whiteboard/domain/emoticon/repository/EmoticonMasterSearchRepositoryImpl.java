@@ -15,6 +15,8 @@ import java.util.Map;
 
 public class EmoticonMasterSearchRepositoryImpl implements EmoticonMasterSearchRepository {
 
+    private static final char LIKE_ESCAPE = '!';
+
     @PersistenceContext
     private EntityManager entityManager;
 
@@ -46,7 +48,6 @@ public class EmoticonMasterSearchRepositoryImpl implements EmoticonMasterSearchR
 
     private NativeSearchQueryParts buildQueryParts(EmoticonSearchCondition condition) {
         Map<String, Object> params = new LinkedHashMap<>();
-        params.put("keyword", condition.keyword());
 
         String fromClause = switch (condition.searchType()) {
             case CREATOR -> " FROM emoticon_masters em JOIN users u ON em.creator_id = u.user_id";
@@ -55,17 +56,18 @@ public class EmoticonMasterSearchRepositoryImpl implements EmoticonMasterSearchR
         };
 
         String keywordClause = switch (condition.searchType()) {
-            case NAME -> "LOWER(em.name) LIKE LOWER(CONCAT('%', :keyword, '%'))";
-            case CREATOR -> "LOWER(u.display_name) LIKE LOWER(CONCAT('%', :keyword, '%'))";
+            case NAME -> "LOWER(em.name) LIKE LOWER(:keywordPattern) ESCAPE '!'";
+            case CREATOR -> "LOWER(u.display_name) LIKE LOWER(:keywordPattern) ESCAPE '!'";
             case TAG -> ":keyword = ANY(em.tags)";
             case ALL -> """
                     (
-                        LOWER(em.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                        OR LOWER(u.display_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                        LOWER(em.name) LIKE LOWER(:keywordPattern) ESCAPE '!'
+                        OR LOWER(u.display_name) LIKE LOWER(:keywordPattern) ESCAPE '!'
                         OR :keyword = ANY(em.tags)
                     )
                     """;
         };
+        applyKeywordParams(params, condition);
 
         String projection = condition.searchType() == EmoticonSearchCondition.SearchType.ALL
                 ? "SELECT DISTINCT em.*"
@@ -98,6 +100,31 @@ public class EmoticonMasterSearchRepositoryImpl implements EmoticonMasterSearchR
 
     private void applyParameters(Query query, Map<String, Object> params) {
         params.forEach(query::setParameter);
+    }
+
+    private void applyKeywordParams(Map<String, Object> params, EmoticonSearchCondition condition) {
+        if (condition.searchType() == EmoticonSearchCondition.SearchType.TAG
+                || condition.searchType() == EmoticonSearchCondition.SearchType.ALL) {
+            params.put("keyword", condition.keyword());
+        }
+        if (condition.searchType() != EmoticonSearchCondition.SearchType.TAG) {
+            params.put("keywordPattern", toLikePattern(condition.keyword()));
+        }
+    }
+
+    private String toLikePattern(String keyword) {
+        String normalizedKeyword = keyword == null ? "" : keyword;
+        StringBuilder builder = new StringBuilder(normalizedKeyword.length() + 2);
+        builder.append('%');
+        for (int i = 0; i < normalizedKeyword.length(); i++) {
+            char ch = normalizedKeyword.charAt(i);
+            if (ch == LIKE_ESCAPE || ch == '%' || ch == '_') {
+                builder.append(LIKE_ESCAPE);
+            }
+            builder.append(ch);
+        }
+        builder.append('%');
+        return builder.toString();
     }
 
     private record NativeSearchQueryParts(

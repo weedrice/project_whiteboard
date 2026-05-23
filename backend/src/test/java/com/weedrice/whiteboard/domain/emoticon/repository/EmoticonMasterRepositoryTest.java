@@ -16,6 +16,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -107,6 +108,18 @@ class EmoticonMasterRepositoryTest {
     }
 
     @Test
+    void findByKeyword_escapesLikeWildcards() throws NoSuchMethodException {
+        var method = EmoticonMasterRepository.class.getMethod("findByKeyword", String.class, Pageable.class);
+
+        Query query = method.getAnnotation(Query.class);
+
+        assertThat(query).isNotNull();
+        assertThat(query.value())
+                .contains("REPLACE(REPLACE(REPLACE(:keyword, '!', '!!'), '%', '!%'), '_', '!_')")
+                .contains("ESCAPE '!'");
+    }
+
+    @Test
     @DisplayName("custom search keeps tag ANY condition and popular ordering")
     void searchActive_tagPopular_buildsExpectedNativeQuery() {
         EntityManager entityManager = mock(EntityManager.class);
@@ -152,6 +165,7 @@ class EmoticonMasterRepositoryTest {
         ReflectionTestUtils.setField(repository, "entityManager", entityManager);
 
         when(entityManager.createNativeQuery(org.mockito.ArgumentMatchers.anyString())).thenReturn(countQuery);
+        when(countQuery.setParameter(anyString(), org.mockito.ArgumentMatchers.any())).thenReturn(countQuery);
         when(countQuery.setParameter("keyword", "키워드")).thenReturn(countQuery);
         when(countQuery.getSingleResult()).thenReturn(0L);
 
@@ -168,8 +182,8 @@ class EmoticonMasterRepositoryTest {
         assertThat(countSql.getValue())
                 .contains("COUNT(DISTINCT em.emoticon_id)")
                 .contains("LEFT JOIN users u ON em.creator_id = u.user_id")
-                .contains("LOWER(em.name) LIKE LOWER(CONCAT('%', :keyword, '%'))")
-                .contains("LOWER(u.display_name) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+                .contains("LOWER(em.name) LIKE LOWER(:keywordPattern) ESCAPE '!'")
+                .contains("LOWER(u.display_name) LIKE LOWER(:keywordPattern) ESCAPE '!'")
                 .contains(":keyword = ANY(em.tags)");
     }
 
@@ -183,11 +197,13 @@ class EmoticonMasterRepositoryTest {
         ReflectionTestUtils.setField(repository, "entityManager", entityManager);
 
         when(entityManager.createNativeQuery(org.mockito.ArgumentMatchers.anyString())).thenReturn(countQuery);
+        when(countQuery.setParameter(anyString(), org.mockito.ArgumentMatchers.any())).thenReturn(countQuery);
         when(entityManager.createNativeQuery(org.mockito.ArgumentMatchers.anyString(), eq(EmoticonMaster.class)))
                 .thenReturn(contentQuery);
         when(countQuery.setParameter("keyword", "테스트")).thenReturn(countQuery);
         when(countQuery.getSingleResult()).thenReturn(1L);
         when(contentQuery.setParameter("keyword", "테스트")).thenReturn(contentQuery);
+        when(contentQuery.setParameter(anyString(), org.mockito.ArgumentMatchers.any())).thenReturn(contentQuery);
         when(contentQuery.getResultList()).thenReturn(List.of());
 
         repository.searchActive(
@@ -199,6 +215,34 @@ class EmoticonMasterRepositoryTest {
 
         verify(contentQuery, org.mockito.Mockito.never()).setFirstResult(anyInt());
         verify(contentQuery, org.mockito.Mockito.never()).setMaxResults(anyInt());
+    }
+
+    @Test
+    void searchActive_nameEscapesLikeWildcardKeyword() {
+        EntityManager entityManager = mock(EntityManager.class);
+        jakarta.persistence.Query countQuery = mock(jakarta.persistence.Query.class);
+        jakarta.persistence.Query contentQuery = mock(jakarta.persistence.Query.class);
+        EmoticonMasterSearchRepositoryImpl repository = new EmoticonMasterSearchRepositoryImpl();
+        ReflectionTestUtils.setField(repository, "entityManager", entityManager);
+
+        when(entityManager.createNativeQuery(org.mockito.ArgumentMatchers.anyString())).thenReturn(countQuery);
+        when(entityManager.createNativeQuery(org.mockito.ArgumentMatchers.anyString(), eq(EmoticonMaster.class)))
+                .thenReturn(contentQuery);
+        when(countQuery.setParameter(anyString(), org.mockito.ArgumentMatchers.any())).thenReturn(countQuery);
+        when(countQuery.getSingleResult()).thenReturn(1L);
+        when(contentQuery.setParameter(anyString(), org.mockito.ArgumentMatchers.any())).thenReturn(contentQuery);
+        when(contentQuery.getResultList()).thenReturn(List.of());
+
+        repository.searchActive(
+                new EmoticonSearchCondition(
+                        "%_!",
+                        EmoticonSearchCondition.SearchType.NAME,
+                        EmoticonSearchCondition.SortType.LATEST),
+                Pageable.unpaged());
+
+        ArgumentCaptor<Object> keywordPattern = ArgumentCaptor.forClass(Object.class);
+        verify(contentQuery).setParameter(eq("keywordPattern"), keywordPattern.capture());
+        assertThat(keywordPattern.getValue()).isEqualTo("%!%!_!!%");
     }
 
     @Test

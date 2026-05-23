@@ -41,7 +41,7 @@ public interface EmoticonMasterRepository extends JpaRepository<EmoticonMaster, 
     Page<EmoticonMaster> findByTag(@Param("tag") String tag, Pageable pageable);
 
     @EntityGraph(attributePaths = "creator")
-    @Query("SELECT e FROM EmoticonMaster e WHERE e.isActive = 'Y' AND LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) ORDER BY e.createdAt DESC")
+    @Query("SELECT e FROM EmoticonMaster e WHERE e.isActive = 'Y' AND LOWER(e.name) LIKE LOWER(CONCAT('%', REPLACE(REPLACE(REPLACE(:keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) ESCAPE '!' ORDER BY e.createdAt DESC")
     Page<EmoticonMaster> findByKeyword(@Param("keyword") String keyword, Pageable pageable);
 
     @Query("SELECT e FROM EmoticonMaster e LEFT JOIN FETCH e.images LEFT JOIN FETCH e.creator WHERE e.emoticonId = :emoticonId")
