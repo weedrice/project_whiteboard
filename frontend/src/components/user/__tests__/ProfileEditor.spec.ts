@@ -235,4 +235,32 @@ describe('ProfileEditor', () => {
 
     expect(registerButton.attributes('disabled')).toBeDefined()
   })
+
+  it('uses localized messages when suspending an active agent', async () => {
+    mocks.agentsData.value = {
+      agents: [
+        {
+          agentId: 7,
+          name: 'Agent Seven',
+          description: '',
+          status: 'ACTIVE',
+          createdAt: '2026-04-22T10:00:00',
+        },
+      ],
+    }
+    mocks.suspendMyAgent.mockResolvedValue({ success: true })
+
+    const wrapper = mountProfileEditor()
+    await findButtonByText(wrapper, 'user.profile.agentSuspend').trigger('click')
+    await flushPromises()
+
+    expect(mocks.confirm).toHaveBeenCalledWith(
+      'user.profile.agentSuspendConfirmMessage',
+      'user.profile.agentSuspendConfirmTitle',
+      'user.profile.agentSuspend',
+      'common.cancel',
+    )
+    expect(mocks.suspendMyAgent).toHaveBeenCalledWith(7)
+    expect(mocks.addToast).toHaveBeenCalledWith('user.profile.agentSuspendSuccess', 'success')
+  })
 })

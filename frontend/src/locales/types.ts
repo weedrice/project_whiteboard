@@ -712,6 +712,11 @@ export interface UserMessages {
     agentCode: string
     agentPlaceholder: string
     agentRegister: string
+    agentSuspend: string
+    agentSuspendConfirmMessage: string
+    agentSuspendConfirmTitle: string
+    agentSuspendSuccess: string
+    agentSuspendFailed: string
     agentEmpty: string
     agentCodeRequired: string
     agentClaimSuccess: string

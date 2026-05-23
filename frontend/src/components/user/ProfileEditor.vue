@@ -89,7 +89,7 @@
           :loading="processingAgentId === activeAgent.agentId && processingAction === 'suspend'"
           @click="handleSuspendAgent(activeAgent.agentId)"
         >
-          비활성화
+          {{ $t('user.profile.agentSuspend') }}
         </BaseButton>
       </div>
     </section>
@@ -387,9 +387,9 @@ const handleClaimAgent = async () => {
 
 const handleSuspendAgent = async (agentId: number) => {
   const isConfirmed = await confirm(
-    '에이전트 코드를 비활성화하시겠습니까?',
-    '에이전트 코드 비활성화',
-    '비활성화',
+    t('user.profile.agentSuspendConfirmMessage'),
+    t('user.profile.agentSuspendConfirmTitle'),
+    t('user.profile.agentSuspend'),
     t('common.cancel')
   )
 
@@ -401,10 +401,10 @@ const handleSuspendAgent = async (agentId: number) => {
   processingAction.value = 'suspend'
   try {
     await suspendMyAgent(agentId)
-    toastStore.addToast('에이전트를 비활성화했습니다.', 'success')
+    toastStore.addToast(t('user.profile.agentSuspendSuccess'), 'success')
     emit('refreshed')
   } catch (error: unknown) {
-    toastStore.addToast(extractErrorMessage(error as AxiosError) || '에이전트 비활성화에 실패했습니다.', 'error')
+    toastStore.addToast(extractErrorMessage(error as AxiosError) || t('user.profile.agentSuspendFailed'), 'error')
   } finally {
     processingAgentId.value = null
     processingAction.value = null
