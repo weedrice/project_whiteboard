@@ -320,7 +320,7 @@ describe('PostList', () => {
       }
     })
 
-    expect(wrapper.text()).toContain('Answered')
+    expect(wrapper.text()).toContain('board.inquiryStatus.answered')
   })
 
   it('renders deleted users with a fallback label when the display name is missing', () => {
