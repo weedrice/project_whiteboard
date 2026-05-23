@@ -1,5 +1,5 @@
 <template>
-  <nav v-if="totalPages >= 1" class="flex items-center justify-center gap-0.5 sm:space-x-1 text-xs sm:text-sm flex-wrap" aria-label="Pagination">
+  <nav v-if="totalPages >= 1" class="flex items-center justify-center gap-0.5 sm:space-x-1 text-xs sm:text-sm flex-wrap" :aria-label="$t('common.pagination')">
     <template v-if="hasLinkBuilder">
       <router-link v-if="currentPage > 0" :to="buildLink(currentPage - 1)" :class="navButtonClass">
         {{ $t('common.previous') }}
@@ -10,7 +10,7 @@
 
       <template v-for="(page, index) in displayedPages" :key="getPageKey(page, index)">
         <span v-if="page === '...'" class="px-2 sm:px-3 py-2 sm:py-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400 min-h-[44px] sm:min-h-0 flex items-center">...</span>
-        <span v-else-if="currentPage === (page as number) - 1" :class="activePageClass">
+        <span v-else-if="currentPage === (page as number) - 1" :class="activePageClass" aria-current="page">
           {{ page }}
         </span>
         <router-link v-else :to="buildLink((page as number) - 1)" :class="pageLinkClass">
@@ -36,6 +36,7 @@
         <span v-if="page === '...'" class="px-2 sm:px-3 py-2 sm:py-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400 min-h-[44px] sm:min-h-0 flex items-center">...</span>
         <BaseButton v-else @click="$emit('page-change', (page as number) - 1)"
           :variant="currentPage === (page as number) - 1 ? 'primary' : 'secondary'"
+          :aria-current="currentPage === (page as number) - 1 ? 'page' : undefined"
           size="sm"
           :class="[currentPage === (page as number) - 1 ? 'z-10' : '', 'min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 touch-manipulation']">
           {{ page }}

@@ -28,6 +28,19 @@ describe('Pagination', () => {
         expect(buttons.length).toBe(7)
     })
 
+    it('labels pagination navigation and marks the current page', () => {
+        const wrapper = mount(Pagination, {
+            props: {
+                currentPage: 1,
+                totalPages: 5
+            },
+            global: globalMountOptions
+        })
+
+        expect(wrapper.find('nav').attributes('aria-label')).toBe('common.pagination')
+        expect(wrapper.find('[aria-current="page"]').text()).toBe('2')
+    })
+
     it('emits page-change event on click', async () => {
         const wrapper = mount(Pagination, {
             props: {

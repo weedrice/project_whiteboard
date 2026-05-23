@@ -23,6 +23,7 @@ export interface CommonMessages {
   user: string
   previous: string
   next: string
+  pagination: string
   back: string
   return: string
   or: string
