@@ -401,6 +401,19 @@ class PostControllerTest {
         }
 
         @Test
+        @DisplayName("조회 기록 업데이트 - 하루를 초과하는 체류 시간은 400")
+        void updateViewHistory_excessiveDuration_validationFailure() throws Exception {
+            Long postId = 1L;
+            ViewHistoryRequest request = new ViewHistoryRequest(100L, ViewHistoryRequest.MAX_DURATION_MS + 1);
+
+            mockMvc.perform(put("/api/v1/posts/{postId}/history", postId)
+                    .with(user(customUserDetails))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
         @DisplayName("조회 기록 업데이트 - 비인증 사용자는 401")
         void updateViewHistory_unauthorized() throws Exception {
             Long postId = 1L;

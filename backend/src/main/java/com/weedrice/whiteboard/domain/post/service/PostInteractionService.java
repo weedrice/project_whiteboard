@@ -50,7 +50,6 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class PostInteractionService {
 
-    private static final long MAX_VIEW_DURATION_MS = 86_400_000L;
     private static final int DEFAULT_SCRAP_PAGE_SIZE = 20;
     private static final Sort DEFAULT_SCRAP_SORT = Sort.by(
             Sort.Order.desc("createdAt"),
@@ -294,7 +293,7 @@ public class PostInteractionService {
         if (durationMs == null) {
             return 0L;
         }
-        if (durationMs < 0 || durationMs > MAX_VIEW_DURATION_MS) {
+        if (durationMs < 0 || durationMs > ViewHistoryRequest.MAX_DURATION_MS) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         return durationMs;
