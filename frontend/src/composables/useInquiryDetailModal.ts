@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { postApi } from '@/api/post'
+import { useConfirm } from '@/composables/useConfirm'
 import { useToastStore } from '@/stores/toast'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import type { Post } from '@/types'
@@ -8,6 +9,7 @@ import type { Post } from '@/types'
 export function useInquiryDetailModal(refreshPosts: () => Promise<void> | void) {
   const { t } = useI18n()
   const toastStore = useToastStore()
+  const { confirm } = useConfirm()
 
   const isInquiryDetailOpen = ref(false)
   const selectedInquiryPost = ref<Post | null>(null)
@@ -51,9 +53,8 @@ export function useInquiryDetailModal(refreshPosts: () => Promise<void> | void) 
   async function deleteInquiryPost() {
     const post = selectedInquiryPost.value
     if (!post) return
-    if (!window.confirm('문의를 삭제하시겠습니까?')) {
-      return
-    }
+    const isConfirmed = await confirm(t('common.messages.confirmDelete'))
+    if (!isConfirmed) return
 
     isDeletingInquiry.value = true
     try {

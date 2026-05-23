@@ -2,8 +2,11 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { useInquiryDetailModal } from '../useInquiryDetailModal'
 import { postApi } from '@/api/post'
 
-const toastMock = vi.hoisted(() => ({
-  addToast: vi.fn()
+const { toastMock, confirmMock } = vi.hoisted(() => ({
+  toastMock: {
+    addToast: vi.fn()
+  },
+  confirmMock: vi.fn()
 }))
 
 vi.mock('vue-i18n', async (importOriginal) => {
@@ -27,10 +30,16 @@ vi.mock('@/stores/toast', () => ({
   useToastStore: () => toastMock
 }))
 
+vi.mock('@/composables/useConfirm', () => ({
+  useConfirm: () => ({
+    confirm: confirmMock
+  })
+}))
+
 describe('useInquiryDetailModal', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    confirmMock.mockResolvedValue(true)
   })
 
   it('loads inquiry detail without incrementing view count', async () => {
@@ -55,8 +64,21 @@ describe('useInquiryDetailModal', () => {
 
     await modal.deleteInquiryPost()
 
+    expect(confirmMock).toHaveBeenCalledWith('common.messages.confirmDelete')
     expect(postApi.deletePost).toHaveBeenCalledWith(12)
     expect(refreshPosts).toHaveBeenCalledTimes(2)
     expect(toastMock.addToast).toHaveBeenCalledWith('common.messages.deleteSuccess', 'success')
+  })
+
+  it('does not delete an inquiry when confirm is cancelled', async () => {
+    confirmMock.mockResolvedValue(false)
+    const refreshPosts = vi.fn()
+    const modal = useInquiryDetailModal(refreshPosts)
+    modal.selectedInquiryPost.value = { postId: 13 } as never
+
+    await modal.deleteInquiryPost()
+
+    expect(postApi.deletePost).not.toHaveBeenCalled()
+    expect(refreshPosts).not.toHaveBeenCalled()
   })
 })
