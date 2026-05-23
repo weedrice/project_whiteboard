@@ -35,6 +35,8 @@ const isHome = computed(() => route.name === 'home')
 const isBoards = computed(() => route.name === 'all-boards' || route.name === 'board-detail' || route.name === 'post-detail')
 const isNotifications = computed(() => route.name === 'MyNotifications')
 const isProfile = computed(() => {
+  if (route.name === 'MyNotifications') return false
+
   return String(route.name ?? '').startsWith('My')
     || route.name === 'mypage'
     || route.name === 'SubscribedBoards'
@@ -54,29 +56,30 @@ const navigateOrLogin = async (path: string) => {
 <template>
   <div v-if="!hidden" class="sm:hidden">
     <nav class="nv-mobile-nav" :aria-label="t('layout.mobileNav.ariaLabel')">
-      <button type="button" class="nv-mobile-nav-item" :class="{ 'is-active': isHome }" @click="navigateOrLogin('/')">
-        <Home class="h-5 w-5" />
+      <button type="button" class="nv-mobile-nav-item" :class="{ 'is-active': isHome }" :aria-current="isHome ? 'page' : undefined" @click="navigateOrLogin('/')">
+        <Home class="h-5 w-5" aria-hidden="true" />
         <span>{{ $t('layout.mobileNav.home') }}</span>
       </button>
-      <button type="button" class="nv-mobile-nav-item" :class="{ 'is-active': isBoards }" @click="navigateOrLogin('/boards')">
-        <Layers3 class="h-5 w-5" />
+      <button type="button" class="nv-mobile-nav-item" :class="{ 'is-active': isBoards }" :aria-current="isBoards ? 'page' : undefined" @click="navigateOrLogin('/boards')">
+        <Layers3 class="h-5 w-5" aria-hidden="true" />
         <span>{{ $t('layout.mobileNav.boards') }}</span>
       </button>
       <button ref="fabButtonRef" type="button" class="nv-mobile-nav-fab" @click="openWriteSheet" :aria-label="t('layout.mobileNav.createPost')">
-        <PenSquare class="h-5 w-5" />
+        <PenSquare class="h-5 w-5" aria-hidden="true" />
       </button>
       <button
         type="button"
         class="nv-mobile-nav-item relative"
         :class="{ 'is-active': isNotifications }"
+        :aria-current="isNotifications ? 'page' : undefined"
         @click="navigateOrLogin('/mypage/notifications')"
       >
-        <Bell class="h-5 w-5" />
+        <Bell class="h-5 w-5" aria-hidden="true" />
         <span>{{ $t('layout.mobileNav.alerts') }}</span>
-        <span v-if="authStore.isAuthenticated && unreadCount && unreadCount > 0" class="nv-mobile-nav-dot" />
+        <span v-if="authStore.isAuthenticated && unreadCount && unreadCount > 0" class="nv-mobile-nav-dot" aria-hidden="true" />
       </button>
-      <button type="button" class="nv-mobile-nav-item" :class="{ 'is-active': isProfile }" @click="navigateOrLogin('/mypage')">
-        <UserRound class="h-5 w-5" />
+      <button type="button" class="nv-mobile-nav-item" :class="{ 'is-active': isProfile }" :aria-current="isProfile ? 'page' : undefined" @click="navigateOrLogin('/mypage')">
+        <UserRound class="h-5 w-5" aria-hidden="true" />
         <span>{{ $t('layout.mobileNav.my') }}</span>
       </button>
     </nav>

@@ -29,9 +29,10 @@ const commitHash = __COMMIT_HASH__
               size="sm"
               class="min-h-[36px] min-w-[36px] p-0 rounded-full touch-manipulation flex items-center justify-center shrink-0"
               :title="themeStore.isDark ? $t('common.footer.switchToLight') : $t('common.footer.switchToDark')"
+              :aria-label="themeStore.isDark ? $t('common.footer.switchToLight') : $t('common.footer.switchToDark')"
             >
-              <Sun v-if="themeStore.isDark" class="h-5 w-5" />
-              <Moon v-else class="h-5 w-5" />
+              <Sun v-if="themeStore.isDark" class="h-5 w-5" aria-hidden="true" />
+              <Moon v-else class="h-5 w-5" aria-hidden="true" />
             </BaseButton>
           </div>
 

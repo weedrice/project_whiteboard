@@ -23,7 +23,7 @@ const hasBoards = computed(() => recentBoards.value.length > 0)
                         <span class="recent-board-name">{{ board.boardName }}</span>
                         <button class="recent-board-remove" @click.prevent.stop="removeRecentBoard(board.boardUrl)"
                             :aria-label="`${board.boardName} 제거`">
-                            <X class="h-3 w-3" />
+                            <X class="h-3 w-3" aria-hidden="true" />
                         </button>
                     </router-link>
                 </div>

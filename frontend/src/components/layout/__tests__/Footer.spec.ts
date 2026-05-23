@@ -64,4 +64,19 @@ describe('Footer', () => {
 
         expect(toggleThemePreference).toHaveBeenCalled()
     })
+
+    it('labels the theme toggle button without exposing the icon', () => {
+        const wrapper = mount(Footer, {
+            global: {
+                plugins: [router],
+                mocks: {
+                    $t: (msg: string) => msg
+                }
+            }
+        })
+
+        const button = wrapper.get('button')
+        expect(button.attributes('aria-label')).toBe('common.footer.switchToDark')
+        expect(button.find('svg').attributes('aria-hidden')).toBe('true')
+    })
 })
