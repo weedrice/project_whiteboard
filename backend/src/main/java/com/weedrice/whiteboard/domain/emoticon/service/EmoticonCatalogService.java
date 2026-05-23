@@ -94,7 +94,7 @@ class EmoticonCatalogService {
         LocalDateTime startDate;
         LocalDateTime now = LocalDateTime.now();
 
-        switch (period.toLowerCase()) {
+        switch (normalizePeriod(period)) {
             case "weekly":
                 startDate = now.minusDays(7);
                 break;
@@ -134,11 +134,18 @@ class EmoticonCatalogService {
     }
 
     private boolean isPopularSort(String sortBy) {
-        return SORT_BY_POPULAR.equalsIgnoreCase(sortBy);
+        return sortBy != null && SORT_BY_POPULAR.equalsIgnoreCase(sortBy.trim());
     }
 
     private boolean isOldestSort(String sortBy) {
-        return SORT_BY_OLDEST.equalsIgnoreCase(sortBy);
+        return sortBy != null && SORT_BY_OLDEST.equalsIgnoreCase(sortBy.trim());
+    }
+
+    private String normalizePeriod(String period) {
+        if (period == null || period.isBlank()) {
+            return "daily";
+        }
+        return period.trim().toLowerCase(Locale.ROOT);
     }
 
     private String normalizeSearchType(String searchType) {

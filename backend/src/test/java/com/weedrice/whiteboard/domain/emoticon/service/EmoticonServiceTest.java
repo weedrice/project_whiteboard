@@ -179,6 +179,16 @@ class EmoticonServiceTest {
         }
 
         @Test
+        void getActiveEmoticons_trimsSortBy() {
+            Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
+            when(emoticonMasterRepository.findAllActiveOrderByPurchaseCount(any(Pageable.class))).thenReturn(page);
+
+            emoticonService.getActiveEmoticons(PageRequest.of(0, 20), " popular ");
+
+            verify(emoticonMasterRepository).findAllActiveOrderByPurchaseCount(any(Pageable.class));
+        }
+
+        @Test
         @DisplayName("인기 이모티콘 조회 - daily")
         void getPopularEmoticons_daily() {
             when(emoticonMasterRepository.findPopularEmoticons(any(), eq(5)))
@@ -211,6 +221,17 @@ class EmoticonServiceTest {
 
             emoticonService.getPopularEmoticons("unknown");
             emoticonService.getPopularEmoticons("");
+
+            verify(emoticonMasterRepository, times(2)).findPopularEmoticons(any(), eq(5));
+        }
+
+        @Test
+        void getPopularEmoticons_defaultsNullAndTrimsPeriod() {
+            when(emoticonMasterRepository.findPopularEmoticons(any(), eq(5)))
+                    .thenReturn(List.of(emoticonMaster));
+
+            emoticonService.getPopularEmoticons(null);
+            emoticonService.getPopularEmoticons(" weekly ");
 
             verify(emoticonMasterRepository, times(2)).findPopularEmoticons(any(), eq(5));
         }
