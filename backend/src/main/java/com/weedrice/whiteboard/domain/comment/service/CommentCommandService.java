@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.comment.service;
 
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
+import com.weedrice.whiteboard.domain.comment.constant.CommentConstraints;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.entity.CommentLike;
 import com.weedrice.whiteboard.domain.comment.entity.CommentVersion;
@@ -32,7 +33,6 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class CommentCommandService {
 
-    private static final int MAX_COMMENT_CONTENT_LENGTH = 1000;
     private static final int MAX_COMMENT_DEPTH = 5;
 
     private final CommentRepository commentRepository;
@@ -282,7 +282,7 @@ public class CommentCommandService {
     private String sanitizeCommentContent(String content) {
         String sanitizedContent = InputSanitizer.stripHtml(content);
         if (sanitizedContent == null || sanitizedContent.isBlank()
-                || sanitizedContent.length() > MAX_COMMENT_CONTENT_LENGTH) {
+                || sanitizedContent.length() > CommentConstraints.MAX_CONTENT_LENGTH) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         return sanitizedContent;
