@@ -28,7 +28,7 @@ public class SensitiveDataMaskingFilter extends Filter<ILoggingEvent> {
         Pattern.compile("(?i)([\"']?token[\"']?\\s*[:=]\\s*[\"']?)([^\"'\\s,}]+)", Pattern.CASE_INSENSITIVE),
         Pattern.compile("(?i)([\"']?accessToken[\"']?\\s*[:=]\\s*[\"']?)([^\"'\\s,}]+)", Pattern.CASE_INSENSITIVE),
         Pattern.compile("(?i)([\"']?refreshToken[\"']?\\s*[:=]\\s*[\"']?)([^\"'\\s,}]+)", Pattern.CASE_INSENSITIVE),
-        Pattern.compile("(?i)(Bearer\\s+)([A-Za-z0-9\\-_]+)", Pattern.CASE_INSENSITIVE),
+        Pattern.compile("(?i)(Bearer\\s+)([A-Za-z0-9._~+/=\\-]+)", Pattern.CASE_INSENSITIVE),
         
         // API 키
         Pattern.compile("(?i)([\"']?apiKey[\"']?\\s*[:=]\\s*[\"']?)([^\"'\\s,}]+)", Pattern.CASE_INSENSITIVE),

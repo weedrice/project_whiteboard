@@ -11,26 +11,40 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SensitiveDataMaskingFilterTest {
 
     @Test
-    @DisplayName("필터 생성 및 decide 메서드 테스트")
+    @DisplayName("filter returns neutral for normal messages")
     void decide() {
         SensitiveDataMaskingFilter filter = new SensitiveDataMaskingFilter();
         ILoggingEvent event = Mockito.mock(ILoggingEvent.class);
         Mockito.when(event.getFormattedMessage()).thenReturn("Normal message");
 
         FilterReply reply = filter.decide(event);
+
         assertThat(reply).isEqualTo(FilterReply.NEUTRAL);
     }
 
     @Test
-    @DisplayName("민감 정보 마스킹 테스트")
-    void maskSensitiveData() {
-        // SensitiveDataMaskingFilter 내부 로직이 로그 메시지를 변경하는 방식이라면
-        // decide 메서드 내에서 message를 가로채서 변경해야 하는데, 
-        // Logback Filter는 Reply만 반환하고 메시지 변경은 Converter 등이 담당하는 경우가 많습니다.
-        // 하지만 요청하신 내용이 Filter의 생성자와 decide이므로 기본 동작을 확인합니다.
-        
-        SensitiveDataMaskingFilter filter = new SensitiveDataMaskingFilter();
-        filter.start();
-        assertThat(filter.isStarted()).isTrue();
+    void maskSensitiveData_masksFieldStyleSecrets() {
+        String message = "password=secret pwd=short passwd=legacy token=raw accessToken=access "
+                + "refreshToken=refresh apiKey=api accessKey=access-key secretKey=secret-key secret=plain";
+
+        String masked = SensitiveDataMaskingFilter.maskSensitiveData(message);
+
+        assertThat(masked).doesNotContain("password=secret", "pwd=short", "passwd=legacy", "token=raw",
+                "accessToken=access", "refreshToken=refresh", "apiKey=api", "accessKey=access-key",
+                "secretKey=secret-key", "secret=plain");
+        assertThat(masked).contains("password=***MASKED***", "pwd=***MASKED***", "passwd=***MASKED***",
+                "token=***MASKED***", "accessToken=***MASKED***", "refreshToken=***MASKED***",
+                "apiKey=***MASKED***", "accessKey=***MASKED***", "secretKey=***MASKED***",
+                "secret=***MASKED***");
+    }
+
+    @Test
+    void maskSensitiveData_masksEntireDottedBearerToken() {
+        String jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.signature";
+
+        String masked = SensitiveDataMaskingFilter.maskSensitiveData("Authorization: Bearer " + jwt);
+
+        assertThat(masked).isEqualTo("Authorization: Bearer ***MASKED***");
+        assertThat(masked).doesNotContain("eyJhbGciOiJIUzI1NiJ9", "eyJzdWIiOiIxMjMifQ", "signature");
     }
 }
