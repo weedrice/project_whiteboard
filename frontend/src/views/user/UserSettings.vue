@@ -29,6 +29,8 @@ const { mutateAsync: updateNotificationSettings, isPending: isUpdatingNotificati
 const loading = computed(() => isSettingsLoading.value || isNotifLoading.value)
 const savingGeneral = computed(() => isUpdatingSettings.value)
 const savingNotifications = computed(() => isUpdatingNotifications.value)
+const canSaveGeneral = computed(() => isGeneralDirty.value && !savingGeneral.value)
+const canSaveNotifications = computed(() => isNotificationsDirty.value && !savingNotifications.value)
 const generalMessage = ref('')
 const generalIsError = ref(false)
 const notificationMessage = ref('')
@@ -105,6 +107,10 @@ watch(() => themeStore.isDark, (isDark) => {
 })
 
 const saveGeneralSettings = async () => {
+  if (!canSaveGeneral.value) {
+    return
+  }
+
   generalMessage.value = ''
   generalIsError.value = false
   try {
@@ -126,6 +132,10 @@ const saveGeneralSettings = async () => {
 }
 
 const saveNotificationSettings = async () => {
+  if (!canSaveNotifications.value) {
+    return
+  }
+
   notificationMessage.value = ''
   notificationIsError.value = false
   try {
@@ -191,7 +201,7 @@ const saveNotificationSettings = async () => {
             >
               {{ generalMessage }}
             </p>
-            <BaseButton @click="saveGeneralSettings" :loading="savingGeneral">
+            <BaseButton @click="saveGeneralSettings" :loading="savingGeneral" :disabled="!canSaveGeneral">
               {{ savingGeneral ? $t('user.settings.saving') : $t('user.settings.save') }}
             </BaseButton>
           </div>
@@ -231,7 +241,11 @@ const saveNotificationSettings = async () => {
             >
               {{ notificationMessage }}
             </p>
-            <BaseButton @click="saveNotificationSettings" :loading="savingNotifications">
+            <BaseButton
+              @click="saveNotificationSettings"
+              :loading="savingNotifications"
+              :disabled="!canSaveNotifications"
+            >
               {{ savingNotifications ? $t('user.settings.saving') : $t('user.settings.save') }}
             </BaseButton>
           </div>

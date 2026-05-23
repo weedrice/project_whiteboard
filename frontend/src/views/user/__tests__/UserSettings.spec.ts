@@ -79,6 +79,7 @@ const BaseButtonStub = defineComponent({
   name: 'BaseButton',
   props: {
     loading: { type: Boolean, default: false },
+    disabled: { type: Boolean, default: false },
   },
   emits: ['click'],
   setup(props, { emit, slots }) {
@@ -87,6 +88,7 @@ const BaseButtonStub = defineComponent({
         'button',
         {
           type: 'button',
+          disabled: props.disabled,
           'data-loading': String(props.loading),
           onClick: () => emit('click'),
         },
@@ -203,6 +205,22 @@ describe('UserSettings', () => {
     expect((wrapper.get('#notification-like').element as HTMLInputElement).checked).toBe(false)
     expect((wrapper.get('#notification-comment').element as HTMLInputElement).checked).toBe(true)
     expect((wrapper.get('#notification-reply').element as HTMLInputElement).checked).toBe(true)
+  })
+
+  it('enables save buttons only after each section changes', async () => {
+    const wrapper = mountUserSettings()
+    await nextTick()
+
+    const buttons = wrapper.findAll('button')
+    expect(buttons[0].attributes('disabled')).toBeDefined()
+    expect(buttons[1].attributes('disabled')).toBeDefined()
+
+    await wrapper.findAll('select')[0].setValue('DARK')
+    expect(buttons[0].attributes('disabled')).toBeUndefined()
+    expect(buttons[1].attributes('disabled')).toBeDefined()
+
+    await wrapper.get('#notification-like').setValue(true)
+    expect(buttons[1].attributes('disabled')).toBeUndefined()
   })
 
   it('saves only general settings from the general section', async () => {
