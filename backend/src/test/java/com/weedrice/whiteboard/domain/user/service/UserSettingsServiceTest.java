@@ -453,6 +453,18 @@ class UserSettingsServiceTest {
     }
 
     @Test
+    @DisplayName("Bulk notification settings update fails for empty request list")
+    void updateNotificationSettings_emptyRequests_throwsInvalidInput() {
+        assertThatThrownBy(() -> userSettingsService.updateNotificationSettings(1L, List.of()))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(userRepository, never()).findByIdForUpdate(any());
+        verify(userNotificationSettingsRepository, never()).saveAllAndFlush(any());
+    }
+
+    @Test
     @DisplayName("Bulk notification settings update fails for null request item")
     void updateNotificationSettings_nullRequestItem_throwsInvalidInput() {
         assertThatThrownBy(() -> userSettingsService.updateNotificationSettings(1L, Collections.singletonList(null)))

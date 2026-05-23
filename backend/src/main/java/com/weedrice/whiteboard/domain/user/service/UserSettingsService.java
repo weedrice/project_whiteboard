@@ -243,7 +243,7 @@ public class UserSettingsService {
         }
 
         private void validateNotificationSettingRequests(List<UpdateNotificationSettingItem> requests) {
-                if (requests == null || requests.stream().anyMatch(Objects::isNull)) {
+                if (requests == null || requests.isEmpty() || requests.stream().anyMatch(Objects::isNull)) {
                         throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
                 }
         }
