@@ -27,6 +27,9 @@ export const board: BoardMessages = {
   invalidUrl: '잘못된 게시판 URL입니다.',
   detail: {
     searchPlaceholder: '게시판에서 검색',
+    filterLabel: '게시판 필터',
+    searchScopeLabel: '검색 범위',
+    clearSearch: '검색어 지우기',
     filter: {
       all: '전체글',
       concept: '개념글',
@@ -310,6 +313,9 @@ export const boardEn: BoardMessages = {
   detail: {
     ...board.detail,
     searchPlaceholder: 'Search this board',
+    filterLabel: 'Board filters',
+    searchScopeLabel: 'Search scope',
+    clearSearch: 'Clear search',
     filter: {
       all: 'All posts',
       concept: 'Concept',

@@ -513,7 +513,7 @@ onUnmounted(() => {
         </div>
 
         <div class="nv-board-toolbar-sticky px-4 py-3 sm:px-5">
-          <div class="nv-board-filter-rail" aria-label="Category filters">
+          <div class="nv-board-filter-rail" :aria-label="t('board.detail.filterLabel')">
             <div class="nv-board-filter-track">
               <button
                 type="button"
@@ -561,7 +561,7 @@ onUnmounted(() => {
         <div class="border-t border-[var(--nv-line)] px-4 py-4 sm:px-5">
           <div class="nv-board-search-row">
             <div class="nv-board-search-group">
-              <select v-model="searchType" class="nv-board-search-select" aria-label="Search scope">
+              <select v-model="searchType" class="nv-board-search-select" :aria-label="t('board.detail.searchScopeLabel')">
                 <option value="TITLE_CONTENT">{{ $t('board.detail.searchType.titleContent') }}</option>
                 <option value="TITLE">{{ $t('board.detail.searchType.title') }}</option>
                 <option value="CONTENT">{{ $t('board.detail.searchType.content') }}</option>
@@ -586,7 +586,7 @@ onUnmounted(() => {
                     <button
                       v-if="isSearching || searchQuery"
                       type="button"
-                      :aria-label="t('layout.recentBoards.clear')"
+                      :aria-label="t('board.detail.clearSearch')"
                       class="flex cursor-pointer items-center text-[var(--nv-muted)] hover:text-[var(--nv-ink)]"
                       @click="clearSearch"
                     >

@@ -395,6 +395,9 @@ export interface BoardMessages {
   invalidUrl: string
   detail: {
     searchPlaceholder: string
+    filterLabel: string
+    searchScopeLabel: string
+    clearSearch: string
     filter: {
       all: string
       concept: string

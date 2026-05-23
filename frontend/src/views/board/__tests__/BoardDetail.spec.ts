@@ -195,6 +195,7 @@ describe('BoardDetail', () => {
     expect(wrapper.text()).not.toContain('\uC77C\uBC18')
     expect(wrapper.html()).toContain('nv-board-header-panel')
     expect(wrapper.html()).toContain('nv-board-toolbar-sticky')
+    expect(wrapper.get('.nv-board-filter-rail').attributes('aria-label')).toBe('board.detail.filterLabel')
 
     const allButton = wrapper.findAll('button').find((button) => button.text() === 'board.detail.filter.all')
     expect(allButton?.attributes('aria-pressed')).toBe('true')
@@ -271,12 +272,13 @@ describe('BoardDetail', () => {
     })
 
     const searchInput = wrapper.find('#board-search-input')
-    const searchSelect = wrapper.find('select[aria-label="Search scope"]')
+    const searchSelect = wrapper.find('select[aria-label="board.detail.searchScopeLabel"]')
     const searchButton = wrapper.findAll('button').find((button) => button.text() === 'search.doSearch')
     const searchWriteLink = wrapper.find('.nv-board-search-write-btn')
 
     await searchInput.setValue('vue')
     await searchSelect.setValue('TITLE')
+    expect(wrapper.find('button[aria-label="board.detail.clearSearch"]').exists()).toBe(true)
     await searchButton?.trigger('click')
 
     expect(searchSelect.classes()).toContain('nv-board-search-select')
