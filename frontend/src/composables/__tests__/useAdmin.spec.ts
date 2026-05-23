@@ -253,6 +253,7 @@ describe('useAdmin', () => {
 
             expect(adminApi.updateUserStatus).toHaveBeenCalledWith(1, 'ACTIVE')
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'users'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'users', 'detail'] })
         })
 
         it('useSanctionUser calls adminApi.sanctionUser', async () => {
@@ -264,6 +265,8 @@ describe('useAdmin', () => {
             await mutation.mutateAsync({ targetUserId: 1, type: 'BAN', remark: 'Violation' })
 
             expect(adminApi.sanctionUser).toHaveBeenCalledWith({ targetUserId: 1, type: 'BAN', remark: 'Violation' })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'users'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'users', 'detail'] })
         })
 
         it('admin user detail queries forward user-specific params', async () => {

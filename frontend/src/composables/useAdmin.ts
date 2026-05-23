@@ -163,7 +163,10 @@ export function useAdmin() {
     const useUpdateUserStatus = () => {
         return useMutation({
             mutationFn: ({ userId, status }: { userId: string | number, status: string }) => adminApi.updateUserStatus(userId, status),
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
+            onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
+                queryClient.invalidateQueries({ queryKey: ['admin', 'users', 'detail'] })
+            }
         })
     }
 
@@ -221,7 +224,10 @@ export function useAdmin() {
     const useSanctionUser = () => {
         return useMutation({
             mutationFn: (data: SanctionData) => adminApi.sanctionUser(data),
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
+            onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
+                queryClient.invalidateQueries({ queryKey: ['admin', 'users', 'detail'] })
+            }
         })
     }
 
