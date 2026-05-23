@@ -55,9 +55,9 @@ public class FileStorageService {
             RequestBody requestBody = RequestBody.fromInputStream(file.getInputStream(), file.getSize());
             s3Client.putObject(putOb, requestBody);
         } catch (IOException ex) {
-            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "S3 file upload failed: " + ex.getMessage());
+            throw new BusinessException(ErrorCode.FILE_UPLOAD_ERROR);
         } catch (Exception ex) {
-            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "S3 service error: " + ex.getMessage());
+            throw new BusinessException(ErrorCode.FILE_UPLOAD_ERROR);
         }
     }
 
@@ -69,16 +69,16 @@ public class FileStorageService {
                     .build();
             return s3Client.getObject(getOb);
         } catch (NoSuchKeyException ex) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "S3 file load failed: " + fileName);
+            throw new BusinessException(ErrorCode.NOT_FOUND);
         } catch (S3Exception ex) {
             if (ex.statusCode() == 404) {
-                throw new BusinessException(ErrorCode.NOT_FOUND, "S3 file load failed: " + fileName);
+                throw new BusinessException(ErrorCode.NOT_FOUND);
             }
-            throw new BusinessException(ErrorCode.FILE_LOAD_ERROR, "S3 file load failed: " + fileName);
+            throw new BusinessException(ErrorCode.FILE_LOAD_ERROR);
         } catch (SdkClientException ex) {
-            throw new BusinessException(ErrorCode.FILE_LOAD_ERROR, "S3 file load failed: " + fileName);
+            throw new BusinessException(ErrorCode.FILE_LOAD_ERROR);
         } catch (Exception ex) {
-            throw new BusinessException(ErrorCode.FILE_LOAD_ERROR, "S3 file load failed: " + fileName);
+            throw new BusinessException(ErrorCode.FILE_LOAD_ERROR);
         }
     }
 
@@ -102,8 +102,7 @@ public class FileStorageService {
                     .build();
             s3Client.deleteObject(deleteOb);
         } catch (Exception ex) {
-            throw new BusinessException(ErrorCode.FILE_DELETE_ERROR,
-                    "S3 file delete failed: " + fileName + ", " + ex.getMessage());
+            throw new BusinessException(ErrorCode.FILE_DELETE_ERROR);
         }
     }
 }

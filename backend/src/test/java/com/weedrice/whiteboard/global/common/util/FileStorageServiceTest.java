@@ -78,7 +78,9 @@ class FileStorageServiceTest {
         // when & then
         assertThatThrownBy(() -> fileStorageService.storeFile(file, "text/plain"))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INTERNAL_SERVER_ERROR);
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FILE_UPLOAD_ERROR)
+                .hasMessage(ErrorCode.FILE_UPLOAD_ERROR.getMessage())
+                .hasMessageNotContaining("S3 Error");
     }
 
     @Test
@@ -137,7 +139,9 @@ class FileStorageServiceTest {
 
         assertThatThrownBy(() -> fileStorageService.loadFile(fileName))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FILE_LOAD_ERROR);
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FILE_LOAD_ERROR)
+                .hasMessage(ErrorCode.FILE_LOAD_ERROR.getMessage())
+                .hasMessageNotContaining(fileName);
     }
 
     @Test
@@ -189,5 +193,18 @@ class FileStorageServiceTest {
         // then
         assertThat(thrown).isNull();
         verify(s3Client).deleteObject(any(DeleteObjectRequest.class));
+    }
+
+    @Test
+    void deleteFileOrThrow_hidesStorageDetails() {
+        String fileName = "secret/path/fail.txt";
+        when(s3Client.deleteObject(any(DeleteObjectRequest.class))).thenThrow(new RuntimeException("S3 Delete Error"));
+
+        assertThatThrownBy(() -> fileStorageService.deleteFileOrThrow(fileName))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FILE_DELETE_ERROR)
+                .hasMessage(ErrorCode.FILE_DELETE_ERROR.getMessage())
+                .hasMessageNotContaining(fileName)
+                .hasMessageNotContaining("S3 Delete Error");
     }
 }
