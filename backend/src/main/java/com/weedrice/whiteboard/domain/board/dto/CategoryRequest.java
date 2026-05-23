@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.board.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -16,6 +17,7 @@ public class CategoryRequest {
     private String name;
 
     @NotNull
+    @Min(0)
     private Integer sortOrder;
 
     @Size(max = 20)

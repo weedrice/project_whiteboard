@@ -367,6 +367,21 @@ class BoardControllerTest {
     }
 
     @Test
+    @DisplayName("카테고리 생성은 음수 sortOrder를 거부한다")
+    void createCategory_negativeSortOrder_badRequest() throws Exception {
+        mockMvc.perform(post("/api/v1/boards/{boardUrl}/categories", "free")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Cat","sortOrder":-1,"minWriteRole":"USER"}
+                                """)
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest());
+
+        verify(boardService, never()).createCategory(any(), any(), any());
+    }
+
+    @Test
     @DisplayName("카테고리 수정 시 잘못된 최소 작성 권한은 400")
     void updateCategory_invalidMinWriteRole_badRequest() throws Exception {
         mockMvc.perform(put("/api/v1/boards/categories/{categoryId}", 1L)
@@ -377,6 +392,21 @@ class BoardControllerTest {
                         .with(user(customUserDetails))
                         .with(csrf()))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("카테고리 수정은 음수 sortOrder를 거부한다")
+    void updateCategory_negativeSortOrder_badRequest() throws Exception {
+        mockMvc.perform(put("/api/v1/boards/categories/{categoryId}", 1L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Cat","sortOrder":-1,"minWriteRole":"USER"}
+                                """)
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest());
+
+        verify(boardService, never()).updateCategory(any(), any(), any());
     }
 
     @Test
