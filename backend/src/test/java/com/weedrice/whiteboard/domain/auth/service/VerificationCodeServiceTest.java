@@ -173,6 +173,29 @@ class VerificationCodeServiceTest {
     }
 
     @Test
+    void sendVerificationCode_rejectsNullPurposeBeforeDelivery() {
+        assertThatThrownBy(() -> verificationCodeService.sendVerificationCode("test@example.com", null, null))
+                .isInstanceOfSatisfying(BusinessException.class, businessException -> {
+                    assertThat(businessException.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
+                    assertThat(businessException.getMessage()).isEqualTo("purpose is required");
+                });
+
+        assertThat(verificationCodes).isEmpty();
+        verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void verifyCode_rejectsNullPurposeBeforeLookup() {
+        assertThatThrownBy(() -> verificationCodeService.verifyCode("test@example.com", "123456", null))
+                .isInstanceOfSatisfying(BusinessException.class, businessException -> {
+                    assertThat(businessException.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
+                    assertThat(businessException.getMessage()).isEqualTo("purpose is required");
+                });
+
+        verify(verificationCodeRepository, never()).findLatestSentByEmailAndPurposeForUpdate(anyString(), anyString());
+    }
+
+    @Test
     @DisplayName("인증 코드 발송은 같은 이메일과 목적의 60초 이내 재시도를 제한한다")
     void sendVerificationCode_rejectsCooldownAttempt() {
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.empty());
