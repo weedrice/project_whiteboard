@@ -191,7 +191,7 @@ function getSubscriptionStateLabel(reason?: string | null) {
 
         <div v-if="activeTab === 'posts'" class="space-y-2">
           <div v-if="isPostsLoading" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">로딩 중...</div>
-          <div v-else-if="!userPosts?.content?.length" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">데이터가 없습니다.</div>
+          <div v-else-if="!userPosts?.content?.length" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">작성한 글이 없습니다.</div>
           <div v-else class="max-h-72 space-y-2 overflow-y-auto pr-1">
             <div v-for="post in userPosts.content" :key="post.postId" class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
               <div class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ post.title }}</div>
@@ -222,7 +222,7 @@ function getSubscriptionStateLabel(reason?: string | null) {
 
         <div v-else-if="activeTab === 'comments'" class="space-y-2">
           <div v-if="isCommentsLoading" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">로딩 중...</div>
-          <div v-else-if="!userComments?.content?.length" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">데이터가 없습니다.</div>
+          <div v-else-if="!userComments?.content?.length" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">작성한 댓글이 없습니다.</div>
           <div v-else class="max-h-72 space-y-2 overflow-y-auto pr-1">
             <div v-for="comment in userComments.content" :key="comment.commentId" class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
               <div class="mb-2 flex flex-wrap gap-1">
@@ -253,7 +253,7 @@ function getSubscriptionStateLabel(reason?: string | null) {
 
         <div v-else class="space-y-2">
           <div v-if="isSubscriptionsLoading" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">로딩 중...</div>
-          <div v-else-if="!userSubscriptions?.content?.length" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">데이터가 없습니다.</div>
+          <div v-else-if="!userSubscriptions?.content?.length" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">구독한 게시판이 없습니다.</div>
             <div v-else class="max-h-72 space-y-2 overflow-y-auto pr-1">
               <div v-for="board in userSubscriptions.content" :key="board.boardId" class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
                 <div class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ board.boardName }}</div>
