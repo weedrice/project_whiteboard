@@ -9,6 +9,7 @@ import { ArrowLeft, ShoppingCart, Tag, Calendar, User, TrendingUp, Pencil, EyeOf
 import { useToastStore } from '@/stores/toast'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import { useConfirm } from '@/composables/useConfirm'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { DEFAULT_EMOTICON_IMAGE_URL, applyImageFallback } from '@/utils/imageFallback'
 
@@ -18,6 +19,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const queryClient = useQueryClient()
 const toastStore = useToastStore()
+const { confirm } = useConfirm()
 
 const emoticonId = computed(() => Number(route.params.emoticonId))
 
@@ -89,11 +91,12 @@ const goToEdit = () => {
 }
 
 // 구매 처리
-const handlePurchase = () => {
+const handlePurchase = async () => {
   if (!canPurchase.value) return
-  if (confirm(t('emoticon.purchase.confirm'))) {
-    purchase()
-  }
+  const isConfirmed = await confirm(t('emoticon.purchase.confirm'))
+  if (!isConfirmed) return
+
+  purchase()
 }
 
 // 숨김/표시 전환 mutation
@@ -115,12 +118,13 @@ const { mutate: toggleVisibility, isPending: isToggling } = useMutation({
   }
 })
 
-const handleToggleVisibility = () => {
+const handleToggleVisibility = async () => {
   if (!emoticon.value) return
   const verb = emoticon.value.isActive ? t('emoticon.visibility.hideConfirm') : t('emoticon.visibility.showConfirm')
-  if (confirm(verb)) {
-    toggleVisibility()
-  }
+  const isConfirmed = await confirm(verb)
+  if (!isConfirmed) return
+
+  toggleVisibility()
 }
 
 // 날짜 포맷

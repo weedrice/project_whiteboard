@@ -16,6 +16,8 @@ const mocks = vi.hoisted(() => ({
   updateEmoticon: vi.fn(),
   uploadFile: vi.fn(),
   addToast: vi.fn(),
+  confirm: vi.fn(),
+  toggleVisibility: vi.fn(),
   selectEmoticonImages: vi.fn(),
   createUploadableEmoticonImageFile: vi.fn(),
 }))
@@ -48,7 +50,7 @@ vi.mock('@tanstack/vue-query', () => ({
     isLoading: ref(false),
   })),
   useMutation: vi.fn(() => ({
-    mutate: vi.fn(),
+    mutate: mocks.toggleVisibility,
     isPending: ref(false),
   })),
   useQueryClient: () => ({
@@ -62,7 +64,7 @@ vi.mock('@/api/emoticon', () => ({
     deleteImage: mocks.deleteImage,
     addImage: mocks.addImage,
     updateEmoticon: mocks.updateEmoticon,
-    toggleVisibility: vi.fn(),
+    toggleVisibilityData: vi.fn(),
   },
 }))
 
@@ -89,6 +91,12 @@ vi.mock('@/composables/useEmoticonImageSelection', () => ({
   useEmoticonImageSelection: () => ({
     selectThumbnailImage: vi.fn(),
     selectEmoticonImages: mocks.selectEmoticonImages,
+  }),
+}))
+
+vi.mock('@/composables/useConfirm', () => ({
+  useConfirm: () => ({
+    confirm: mocks.confirm,
   }),
 }))
 
@@ -129,6 +137,7 @@ const baseButtonStub = {
 describe('EmoticonEdit', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.confirm.mockResolvedValue(true)
     mocks.deleteImage.mockResolvedValue({ data: { success: true } })
     mocks.addImage.mockResolvedValue({ data: { success: true } })
     mocks.updateEmoticon.mockResolvedValue({ data: { success: true } })
@@ -241,5 +250,62 @@ describe('EmoticonEdit', () => {
     expect(mocks.addImage).not.toHaveBeenCalled()
     expect(mocks.updateEmoticon).not.toHaveBeenCalled()
     expect(mocks.addToast).toHaveBeenCalledWith('emoticon.edit.failed', 'error')
+  })
+
+  it('does not toggle visibility when confirm is cancelled', async () => {
+    mocks.confirm.mockResolvedValue(false)
+
+    const wrapper = mount(EmoticonEdit, {
+      global: {
+        mocks: {
+          $t: (key: string) => key,
+        },
+        stubs: {
+          BaseButton: baseButtonStub,
+          ArrowLeft: true,
+          Upload: true,
+          X: true,
+          Plus: true,
+          EyeOff: true,
+          Eye: true,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const visibilityButton = wrapper.findAll('button').find((button) => button.text() === 'emoticon.visibility.hide')
+    await visibilityButton?.trigger('click')
+    await flushPromises()
+
+    expect(mocks.confirm).toHaveBeenCalledWith('emoticon.visibility.hideConfirm')
+    expect(mocks.toggleVisibility).not.toHaveBeenCalled()
+  })
+
+  it('toggles visibility when confirm is accepted', async () => {
+    const wrapper = mount(EmoticonEdit, {
+      global: {
+        mocks: {
+          $t: (key: string) => key,
+        },
+        stubs: {
+          BaseButton: baseButtonStub,
+          ArrowLeft: true,
+          Upload: true,
+          X: true,
+          Plus: true,
+          EyeOff: true,
+          Eye: true,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const visibilityButton = wrapper.findAll('button').find((button) => button.text() === 'emoticon.visibility.hide')
+    await visibilityButton?.trigger('click')
+    await flushPromises()
+
+    expect(mocks.toggleVisibility).toHaveBeenCalledTimes(1)
   })
 })

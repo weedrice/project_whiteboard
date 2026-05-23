@@ -10,6 +10,7 @@ import { useToastStore } from '@/stores/toast'
 import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import { useConfirm } from '@/composables/useConfirm'
 import type { EmoticonImage } from '@/types/emoticon'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { useEmoticonImageSelection } from '@/composables/useEmoticonImageSelection'
@@ -28,6 +29,7 @@ const toastStore = useToastStore()
 const authStore = useAuthStore()
 const queryClient = useQueryClient()
 const { selectThumbnailImage, selectEmoticonImages } = useEmoticonImageSelection(t, toastStore)
+const { confirm } = useConfirm()
 
 const emoticonId = computed(() => Number(route.params.emoticonId))
 
@@ -131,12 +133,13 @@ const { mutate: toggleVisibility, isPending: isToggling } = useMutation({
   }
 })
 
-const handleToggleVisibility = () => {
+const handleToggleVisibility = async () => {
   if (!emoticon.value) return
   const verb = emoticon.value.isActive ? t('emoticon.visibility.hideConfirm') : t('emoticon.visibility.showConfirm')
-  if (confirm(verb)) {
-    toggleVisibility()
-  }
+  const isConfirmed = await confirm(verb)
+  if (!isConfirmed) return
+
+  toggleVisibility()
 }
 
 const SUPPORTED_IMAGE_ACCEPT = SUPPORTED_EMOTICON_IMAGE_ACCEPT
