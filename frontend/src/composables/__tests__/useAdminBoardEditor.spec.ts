@@ -92,4 +92,22 @@ describe('useAdminBoardEditor', () => {
     })
     expect(toastMock.addToast).toHaveBeenCalledWith('common.messages.saveSuccess', 'success')
   })
+
+  it('keeps the selected board when unsaved changes are not confirmed', async () => {
+    confirmMock.mockResolvedValue(false)
+    const boardsData = ref([
+      createBoard({ boardId: 1, boardName: 'First', boardUrl: 'first', sortOrder: 1 }),
+      createBoard({ boardId: 2, boardName: 'Second', boardUrl: 'second', sortOrder: 2 })
+    ])
+    const updateBoard = vi.fn().mockResolvedValue(undefined)
+
+    const editor = useAdminBoardEditor({ boardsData, updateBoard })
+    await nextTick()
+
+    editor.form.boardName = 'Unsaved'
+    await editor.selectBoard(boardsData.value[1])
+
+    expect(confirmMock).toHaveBeenCalledWith('admin.boards.messages.confirmDiscardChanges')
+    expect(editor.selectedBoardId.value).toBe(1)
+  })
 })

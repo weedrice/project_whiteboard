@@ -235,6 +235,7 @@ export const admin: AdminMessages = {
       updateFailed: '게시판 수정 실패',
       deleteFailed: '게시판 삭제 실패',
       confirmDelete: '정말 이 게시판을 삭제하시겠습니까?',
+      confirmDiscardChanges: '저장하지 않은 변경사항이 있습니다. 이동하시겠습니까?',
     },
   },
   errorLogs: {

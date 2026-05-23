@@ -177,7 +177,7 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
     if (selectedBoardId.value === board.boardId) return
 
     if (hasUnsavedChanges.value) {
-      const isConfirmed = await confirm('저장하지 않은 변경사항이 있습니다. 이동하시겠습니까?')
+      const isConfirmed = await confirm(t('admin.boards.messages.confirmDiscardChanges'))
       if (!isConfirmed) return
     }
 

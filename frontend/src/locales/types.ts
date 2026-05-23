@@ -1118,6 +1118,7 @@ export interface AdminMessages {
       updateFailed: string
       deleteFailed: string
       confirmDelete: string
+      confirmDiscardChanges: string
     }
   }
   errorLogs: {
