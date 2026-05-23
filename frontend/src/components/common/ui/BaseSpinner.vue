@@ -18,7 +18,7 @@ const sizeClasses = {
 
 const instance = getCurrentInstance()
 const loadingLabel = computed(() => {
-    const translate = instance?.proxy?.$t
+    const translate = instance?.appContext.config.globalProperties.$t
     return typeof translate === 'function' ? translate('common.loading') : 'Loading...'
 })
 </script>

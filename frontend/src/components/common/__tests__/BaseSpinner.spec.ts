@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
+import type { ComponentCustomProperties } from 'vue'
 import BaseSpinner from '../ui/BaseSpinner.vue'
+
+const globalProperties = {
+    $t: (key: string) => key
+} as unknown as ComponentCustomProperties & Record<string, unknown>
 
 describe('BaseSpinner', () => {
     it('renders default size and color classes', () => {
         const wrapper = mount(BaseSpinner, {
             global: {
-                mocks: {
-                    $t: (key: string) => key
+                config: {
+                    globalProperties
                 }
             }
         })
@@ -26,8 +31,8 @@ describe('BaseSpinner', () => {
                 color: 'text-red-500',
             },
             global: {
-                mocks: {
-                    $t: (key: string) => key
+                config: {
+                    globalProperties
                 }
             }
         })
