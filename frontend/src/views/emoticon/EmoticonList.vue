@@ -344,7 +344,7 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
         <div class="w-full sm:w-auto flex justify-center shrink-0">
           <div class="list-search-row">
             <div class="list-search-group">
-              <select v-model="searchType" class="list-search-select-inline">
+              <select v-model="searchType" class="list-search-select-inline" :aria-label="$t('emoticon.search.typeLabel')">
                 <option value="ALL">전체</option>
                 <option value="NAME">이름</option>
                 <option value="CREATOR">등록자</option>
@@ -366,7 +366,7 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
                       v-if="isSearching"
                       type="button"
                       @click="clearSearch"
-                      aria-label="Clear search"
+                      :aria-label="$t('emoticon.search.clear')"
                       class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-pointer"
                     >
                       <X class="h-5 w-5" />

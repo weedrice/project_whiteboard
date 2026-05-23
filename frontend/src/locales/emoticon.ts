@@ -31,6 +31,10 @@ export const emoticon: EmoticonMessages = {
     created: '노비콘이 등록되었습니다!',
     failed: '등록에 실패했습니다.',
   },
+  search: {
+    typeLabel: '노비콘 검색 범위',
+    clear: '검색어 지우기',
+  },
   validation: {
     imageOnly: '이미지 파일만 업로드 가능합니다.',
     imageLoadFailed: '이미지를 로드할 수 없습니다.',

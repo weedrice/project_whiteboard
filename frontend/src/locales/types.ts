@@ -864,6 +864,10 @@ export interface EmoticonMessages {
     created: string
     failed: string
   }
+  search: {
+    typeLabel: string
+    clear: string
+  }
   validation: {
     imageOnly: string
     imageLoadFailed: string

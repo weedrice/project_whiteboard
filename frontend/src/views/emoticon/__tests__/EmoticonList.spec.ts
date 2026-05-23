@@ -67,6 +67,9 @@ import EmoticonList from '../EmoticonList.vue'
 
 const mountList = () => mount(EmoticonList, {
   global: {
+    mocks: {
+      $t: (key: string) => key,
+    },
     stubs: {
       RouterLink: true,
       BaseButton: {
@@ -115,6 +118,12 @@ describe('EmoticonList', () => {
     expect(wrapper.text()).toContain('최신순')
     expect(wrapper.text()).toContain('오래된순')
     expect(wrapper.text()).toContain('판매순')
+  })
+
+  it('labels the search type selector for assistive technology', () => {
+    const wrapper = mountList()
+
+    expect(wrapper.get('select').attributes('aria-label')).toBe('emoticon.search.typeLabel')
   })
 
   it('passes oldest sortBy to the list query after selecting oldest', async () => {
