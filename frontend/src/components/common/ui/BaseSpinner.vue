@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed, getCurrentInstance } from 'vue'
+
 withDefaults(defineProps<{
     size?: 'sm' | 'md' | 'lg' | 'xl'
     color?: string
@@ -13,13 +15,19 @@ const sizeClasses = {
     lg: 'h-12 w-12 border-4',
     xl: 'h-16 w-16 border-4'
 }
+
+const instance = getCurrentInstance()
+const loadingLabel = computed(() => {
+    const translate = instance?.proxy?.$t
+    return typeof translate === 'function' ? translate('common.loading') : 'Loading...'
+})
 </script>
 
 <template>
     <div class="flex justify-center items-center">
         <div class="animate-spin rounded-full border-t-transparent"
             :class="[sizeClasses[size], color, 'border-current']" role="status">
-            <span class="sr-only">{{ $t('common.loading') }}</span>
+            <span class="sr-only">{{ loadingLabel }}</span>
         </div>
     </div>
 </template>
