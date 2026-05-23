@@ -141,8 +141,33 @@ describe('usePost', () => {
         expect((query.enabled as ReturnType<typeof computed>).value).toBe(true)
 
         const result = await (query.queryFn as () => Promise<unknown>)()
-        expect(result).toEqual({ postId: 1, title: 'Test Post' })
+        expect(result).toEqual({ postId: 1, title: 'Test Post', liked: false, scrapped: false })
         expect(postApi.getPost).toHaveBeenCalledWith(1, { params: { incrementView: true } })
+    })
+
+    it('normalizes post detail reaction aliases from the API response', async () => {
+        vi.mocked(postApi.getPost).mockResolvedValueOnce({
+            data: {
+                data: {
+                    postId: 1,
+                    title: 'Alias Post',
+                    isLiked: true,
+                    isScrapped: true,
+                },
+            },
+        } as never)
+
+        const { usePostDetail } = usePost()
+        usePostDetail(ref(1))
+
+        const query = mocks.queryOptions.at(-1)!
+        const result = await (query.queryFn as () => Promise<unknown>)()
+
+        expect(result).toMatchObject({
+            postId: 1,
+            liked: true,
+            scrapped: true,
+        })
     })
 
     it('disables post detail query when postId is falsy', () => {

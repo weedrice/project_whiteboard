@@ -4,6 +4,19 @@ import { computed, type Ref } from 'vue'
 import type { Post } from '@/types'
 import type { AxiosRequestConfig } from 'axios'
 
+type PostReactionAlias = Post & {
+    isLiked?: boolean
+    isScrapped?: boolean
+}
+
+function normalizePostReactionFlags(post: PostReactionAlias): Post {
+    return {
+        ...post,
+        liked: post.liked ?? post.isLiked ?? false,
+        scrapped: post.scrapped ?? post.isScrapped ?? false,
+    }
+}
+
 export function usePost() {
     const queryClient = useQueryClient()
 
@@ -132,7 +145,7 @@ export function usePost() {
                         ...(requestConfig?.params || {})
                     }
                 })
-                return data.data
+                return normalizePostReactionFlags(data.data as PostReactionAlias)
             },
             enabled: computed(() => !!postId.value),
             ...queryOptions
