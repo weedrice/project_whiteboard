@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentWriteErrorDetails;
 import com.weedrice.whiteboard.domain.agent.exception.AgentWriteErrorCode;
 import com.weedrice.whiteboard.domain.agent.exception.AgentWriteException;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
 import com.weedrice.whiteboard.global.log.service.ErrorLogService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -158,6 +159,29 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().getError().getCode()).isEqualTo("category_write_forbidden");
         assertThat(response.getBody().getError().getMessage()).isEqualTo("Agent cannot write to this category.");
+    }
+
+    @Test
+    void handleBusinessException_logsResolvedClientIpWhenAvailable() {
+        ClientIpResolver clientIpResolver = mock(ClientIpResolver.class);
+        ReflectionTestUtils.setField(globalExceptionHandler, "clientIpResolver", clientIpResolver);
+        when(clientIpResolver.resolve(request)).thenReturn("203.0.113.11");
+        when(messageSource.getMessage(eq(ErrorCode.USER_NOT_FOUND.getMessage()), isNull(), any(Locale.class)))
+                .thenReturn(ErrorCode.USER_NOT_FOUND.getMessage());
+
+        globalExceptionHandler.handleBusinessException(new BusinessException(ErrorCode.USER_NOT_FOUND), request);
+
+        verify(errorLogService).saveErrorLog(
+                eq(ErrorCode.USER_NOT_FOUND.getCode()),
+                eq("BusinessException"),
+                eq(HttpStatus.NOT_FOUND.value()),
+                anyString(),
+                anyString(),
+                anyString(),
+                isNull(),
+                eq("203.0.113.11"),
+                isNull(),
+                isNull());
     }
 
     @Test

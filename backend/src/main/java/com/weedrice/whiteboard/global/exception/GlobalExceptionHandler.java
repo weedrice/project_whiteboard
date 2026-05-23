@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.global.exception;
 import com.weedrice.whiteboard.domain.agent.exception.AgentWriteErrorCode;
 import com.weedrice.whiteboard.domain.agent.exception.AgentWriteException;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
 import com.weedrice.whiteboard.global.common.util.ClientUtils;
 import com.weedrice.whiteboard.global.log.service.ErrorLogService;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
@@ -65,6 +66,9 @@ public class GlobalExceptionHandler {
 
     @Autowired(required = false)
     private ErrorLogService errorLogService;
+
+    @Autowired(required = false)
+    private ClientIpResolver clientIpResolver;
 
     @ExceptionHandler(AgentWriteException.class)
     public ResponseEntity<ApiResponse<Object>> handleAgentWriteException(AgentWriteException e,
@@ -266,7 +270,7 @@ public class GlobalExceptionHandler {
             }
 
             Long userId = getCurrentUserId();
-            String ipAddress = ClientUtils.getIp(request);
+            String ipAddress = resolveClientIp(request);
             String userAgent = request.getHeader("User-Agent");
 
             errorLogService.saveErrorLog(
@@ -277,6 +281,13 @@ public class GlobalExceptionHandler {
             // 에러 로그 저장 실패 시 원래 응답에 영향을 주지 않도록 로그만 남김
             log.error("Failed to save error log to DB", ex);
         }
+    }
+
+    private String resolveClientIp(HttpServletRequest request) {
+        if (clientIpResolver != null) {
+            return clientIpResolver.resolve(request);
+        }
+        return ClientUtils.getIp(request);
     }
 
     /**

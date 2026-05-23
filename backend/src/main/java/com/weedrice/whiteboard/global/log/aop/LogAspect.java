@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.global.log.aop;
 
 import com.weedrice.whiteboard.global.log.service.LogService;
+import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
 import com.weedrice.whiteboard.global.common.util.ClientUtils;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
@@ -10,6 +11,7 @@ import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -26,6 +28,9 @@ public class LogAspect {
 
     private final LogService logService;
 
+    @Autowired(required = false)
+    private ClientIpResolver clientIpResolver;
+
     @Before("execution(* com.weedrice.whiteboard.domain..*Controller.*(..))")
     public void logBefore(JoinPoint joinPoint) {
         try {
@@ -34,7 +39,7 @@ public class LogAspect {
             String actionType = method.getName(); // 메서드 이름을 액션 타입으로 사용
 
             HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
-            String ipAddress = ClientUtils.getIp(request);
+            String ipAddress = resolveClientIp(request);
 
             Long userId = null;
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -53,5 +58,12 @@ public class LogAspect {
         } catch (Exception e) {
             log.error("AOP Log-saving failed", e);
         }
+    }
+
+    private String resolveClientIp(HttpServletRequest request) {
+        if (clientIpResolver != null) {
+            return clientIpResolver.resolve(request);
+        }
+        return ClientUtils.getIp(request);
     }
 }

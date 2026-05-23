@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.global.log.aop;
 
+import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
 import com.weedrice.whiteboard.global.log.service.LogService;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.aspectj.lang.JoinPoint;
@@ -18,6 +19,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
@@ -110,6 +112,22 @@ class LogAspectTest {
 
         // then
         verify(logService).saveLog(eq(null), eq(expectedActionType), eq("127.0.0.1"), anyString());
+    }
+
+    @Test
+    void logBefore_usesClientIpResolverWhenAvailable() {
+        Method mockMethod = mock(Method.class);
+        when(mockMethod.getName()).thenReturn("testControllerMethod");
+        when(joinPoint.getSignature()).thenReturn(methodSignature);
+        when(methodSignature.getMethod()).thenReturn(mockMethod);
+
+        ClientIpResolver clientIpResolver = mock(ClientIpResolver.class);
+        when(clientIpResolver.resolve(request)).thenReturn("203.0.113.10");
+        ReflectionTestUtils.setField(logAspect, "clientIpResolver", clientIpResolver);
+
+        logAspect.logBefore(joinPoint);
+
+        verify(logService).saveLog(eq(null), eq("testControllerMethod"), eq("203.0.113.10"), anyString());
     }
 
     @Test
