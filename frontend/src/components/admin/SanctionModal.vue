@@ -3,7 +3,9 @@
     <form @submit.prevent="submitSanction" class="space-y-4">
       <div>
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.sanction.userLabel') }}</label>
-        <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ user?.displayName || user?.nickname }} ({{ user?.email }})</p>
+        <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+          {{ sanctionTargetName }}<span v-if="user?.email"> ({{ user.email }})</span>
+        </p>
       </div>
 
       <div>
@@ -36,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { computed, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -67,6 +69,8 @@ const emit = defineEmits<{ (e: 'close'): void; (e: 'sanctioned'): void }>()
 const toastStore = useToastStore()
 const { useSanctionUser } = useAdmin()
 const { mutateAsync: sanctionUser, isPending: loading } = useSanctionUser()
+
+const sanctionTargetName = computed(() => props.user?.displayName || props.user?.nickname || props.user?.name || t('common.messages.unknown'))
 
 const form = reactive({
   reason: 'SPAM',
