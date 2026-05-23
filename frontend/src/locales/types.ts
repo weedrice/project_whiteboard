@@ -880,6 +880,7 @@ export interface AdminMessages {
     users: string
     admins: string
     boards: string
+    inquiries: string
     reports: string
     security: string
     settings: string
@@ -1017,6 +1018,28 @@ export interface AdminMessages {
       confirmReject: string
       rejected: string
       rejectFailed: string
+    }
+  }
+  inquiries: {
+    title: string
+    description: string
+    empty: string
+    total: string
+    refreshing: string
+    sort: {
+      label: string
+      latest: string
+      oldest: string
+    }
+    table: {
+      summary: string
+    }
+    status: {
+      answered: string
+      pending: string
+    }
+    detail: {
+      title: string
     }
   }
   security: {

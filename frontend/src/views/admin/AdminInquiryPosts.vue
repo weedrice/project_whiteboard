@@ -85,7 +85,7 @@ function getSummary(post: PostSummary) {
 }
 
 function getInquiryStatusLabel(post: PostSummary) {
-  return post.inquiryAnswered ? '답변 완료' : '답변 대기'
+  return post.inquiryAnswered ? t('admin.inquiries.status.answered') : t('admin.inquiries.status.pending')
 }
 
 function openDetail(postId: number) {
@@ -102,18 +102,18 @@ function closeDetail() {
   <div>
     <div class="sm:flex sm:items-center sm:justify-between">
       <div class="sm:flex-auto">
-        <h1 class="text-xl font-semibold text-gray-900 dark:text-white">문의 게시글 조회</h1>
-        <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">문의 게시판에 등록된 글을 확인하고 댓글로 답변할 수 있습니다.</p>
+        <h1 class="text-xl font-semibold text-gray-900 dark:text-white">{{ t('admin.inquiries.title') }}</h1>
+        <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">{{ t('admin.inquiries.description') }}</p>
       </div>
       <div class="mt-3 flex items-center gap-2 sm:mt-0">
-        <label for="inquiry-sort" class="text-sm text-gray-600 dark:text-gray-300">정렬</label>
+        <label for="inquiry-sort" class="text-sm text-gray-600 dark:text-gray-300">{{ t('admin.inquiries.sort.label') }}</label>
         <select
           id="inquiry-sort"
           v-model="sort"
           class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
         >
-          <option value="createdAt,desc">최신순</option>
-          <option value="createdAt,asc">오래된순</option>
+          <option value="createdAt,desc">{{ t('admin.inquiries.sort.latest') }}</option>
+          <option value="createdAt,asc">{{ t('admin.inquiries.sort.oldest') }}</option>
         </select>
       </div>
     </div>
@@ -131,17 +131,17 @@ function closeDetail() {
         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead class="bg-gray-50 dark:bg-gray-900/30">
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">제목</th>
-              <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">내용</th>
-              <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">작성자</th>
-              <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">작성일</th>
-              <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">상태</th>
+              <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">{{ t('common.title') }}</th>
+              <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">{{ t('admin.inquiries.table.summary') }}</th>
+              <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">{{ t('common.author') }}</th>
+              <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">{{ t('common.createdAt') }}</th>
+              <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">{{ t('common.status') }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
             <tr v-if="posts.length === 0">
               <td colspan="5" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                등록된 문의가 없습니다.
+                {{ t('admin.inquiries.empty') }}
               </td>
             </tr>
             <tr
@@ -179,15 +179,15 @@ function closeDetail() {
     </div>
 
     <div class="mt-3 flex items-center justify-between">
-      <p class="text-sm text-gray-600 dark:text-gray-300">총 {{ totalElements }}건</p>
-      <p v-if="isFetching" class="text-xs text-gray-500 dark:text-gray-400">갱신 중...</p>
+      <p class="text-sm text-gray-600 dark:text-gray-300">{{ t('admin.inquiries.total', { count: totalElements }) }}</p>
+      <p v-if="isFetching" class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.inquiries.refreshing') }}</p>
     </div>
 
     <div class="mt-4">
       <Pagination :current-page="page" :total-pages="totalPages" @page-change="handlePageChange" />
     </div>
 
-    <BaseModal :isOpen="selectedPostId !== null" title="문의 상세" size="2xl" mobile-full @close="closeDetail">
+    <BaseModal :isOpen="selectedPostId !== null" :title="t('admin.inquiries.detail.title')" size="2xl" mobile-full @close="closeDetail">
       <div class="space-y-4 p-2 sm:p-4">
         <div v-if="isDetailLoading || isDetailFetching" class="flex items-center justify-center py-10">
           <BaseSpinner size="lg" />
@@ -201,8 +201,8 @@ function closeDetail() {
           <div class="space-y-2 border-b border-gray-200 pb-3 dark:border-gray-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ selectedPost.title }}</h2>
             <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-              <span>작성자 {{ selectedPost.author?.displayName || '-' }}</span>
-              <span>작성일 {{ formatDate(selectedPost.createdAt) }}</span>
+              <span>{{ t('common.author') }} {{ selectedPost.author?.displayName || '-' }}</span>
+              <span>{{ t('common.createdAt') }} {{ formatDate(selectedPost.createdAt) }}</span>
             </div>
           </div>
 

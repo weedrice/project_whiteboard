@@ -9,6 +9,7 @@ export const admin: AdminMessages = {
     users: '사용자 관리',
     admins: '관리자 관리',
     boards: '게시판 관리',
+    inquiries: '문의 조회',
     reports: '신고 관리',
     security: '보안 설정',
     settings: '전역 설정',
@@ -146,6 +147,28 @@ export const admin: AdminMessages = {
       confirmReject: '신고를 반려하시겠습니까?',
       rejected: '신고가 반려되었습니다.',
       rejectFailed: '반려 실패',
+    },
+  },
+  inquiries: {
+    title: '문의 게시글 조회',
+    description: '문의 게시판에 등록된 글을 확인하고 댓글로 답변할 수 있습니다.',
+    empty: '등록된 문의가 없습니다.',
+    total: '총 {count}건',
+    refreshing: '갱신 중...',
+    sort: {
+      label: '정렬',
+      latest: '최신순',
+      oldest: '오래된순',
+    },
+    table: {
+      summary: '내용',
+    },
+    status: {
+      answered: '답변 완료',
+      pending: '답변 대기',
+    },
+    detail: {
+      title: '문의 상세',
     },
   },
   security: {
