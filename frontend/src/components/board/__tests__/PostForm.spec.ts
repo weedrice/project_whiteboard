@@ -98,6 +98,7 @@ const BaseButtonStub = defineComponent({
     name: 'BaseButton',
     props: {
         type: { type: String, default: 'button' },
+        disabled: { type: Boolean, default: false },
     },
     emits: ['click'],
     setup(props, { emit, slots }) {
@@ -106,6 +107,7 @@ const BaseButtonStub = defineComponent({
                 'button',
                 {
                     type: props.type,
+                    disabled: props.disabled,
                     onClick: () => emit('click'),
                 },
                 slots.default?.(),
@@ -213,11 +215,26 @@ const BaseSpinnerStub = defineComponent({
     },
 })
 
+const BaseModalStub = defineComponent({
+    name: 'BaseModal',
+    props: {
+        isOpen: { type: Boolean, default: false },
+        title: { type: String, default: '' },
+    },
+    setup(props, { slots }) {
+        return () =>
+            props.isOpen
+                ? h('section', [h('h2', props.title), slots.default?.(), slots.footer?.()])
+                : null
+    },
+})
+
 const stubs = {
     BaseInput: BaseInputStub,
     BaseSelect: BaseSelectStub,
     BaseCheckbox: BaseCheckboxStub,
     BaseButton: BaseButtonStub,
+    BaseModal: BaseModalStub,
     BaseSpinner: BaseSpinnerStub,
     PostTags: PostTagsStub,
     EmoticonPicker: EmoticonPickerStub,
@@ -286,6 +303,14 @@ const setBoardCategories = (categories: TestCategory[]) => {
         ...(boardRef.value ?? {}),
         categories,
     }
+}
+
+const findButtonByText = (wrapper: ReturnType<typeof mount>, text: string) => {
+    const button = wrapper.findAll('button').find((candidate) => candidate.text().includes(text))
+    if (!button) {
+        throw new Error(`Button not found: ${text}`)
+    }
+    return button
 }
 
 describe('PostForm', () => {
@@ -363,6 +388,35 @@ describe('PostForm', () => {
 
         expect(createWrapper.text()).toContain('board.writePost.createTitle')
         expect(editWrapper.text()).toContain('board.writePost.editTitle')
+    })
+
+    it('opens the preview modal from the header action', async () => {
+        const wrapper = mountPostForm('create')
+
+        await wrapper.get('#title').setValue('Preview title')
+        await wrapper.get('[data-testid="editor-input"]').setValue('<p>Preview body</p>')
+        await findButtonByText(wrapper, 'board.writePost.actions.preview').trigger('click')
+        await nextTick()
+
+        expect(wrapper.text()).toContain('board.writePost.preview.title')
+        expect(wrapper.text()).toContain('Preview title')
+        expect(wrapper.text()).toContain('Preview body')
+    })
+
+    it('saves a draft from the header action when drafts are enabled', async () => {
+        vi.mocked(useAuthStore).mockReturnValue({
+            isAuthenticated: true,
+            user: { userId: 1, role: 'USER' },
+        } as any)
+        const wrapper = mountPostForm('create')
+
+        await wrapper.get('#title').setValue('Draft title')
+        await wrapper.get('[data-testid="editor-input"]').setValue('Draft body')
+        await findButtonByText(wrapper, 'board.writePost.actions.saveDraft').trigger('click')
+        await flushPromises()
+
+        expect(mockSaveDraftMutateAsync).toHaveBeenCalled()
+        expect(mockAddToast).toHaveBeenCalledWith('board.writePost.draftStatus.saved', 'success')
     })
 
     it('renders overridden create title when provided', async () => {

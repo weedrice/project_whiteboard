@@ -609,6 +609,19 @@ defineExpose({
           <BaseButton type="button" variant="secondary" size="sm" @click="handleCancel">
             {{ $t('common.cancel') }}
           </BaseButton>
+          <BaseButton type="button" variant="secondary" size="sm" @click="showPreview = true">
+            {{ $t('board.writePost.actions.preview') }}
+          </BaseButton>
+          <BaseButton
+            v-if="draftEnabled"
+            type="button"
+            variant="secondary"
+            size="sm"
+            :disabled="isSavingDraft"
+            @click="handleSaveDraft"
+          >
+            {{ isSavingDraft ? $t('board.writePost.draftStatus.saving') : $t('board.writePost.actions.saveDraft') }}
+          </BaseButton>
           <BaseButton type="button" variant="primary" size="sm" :loading="isSubmitting" @click="handleSubmit">
             {{ submitLabel }}
           </BaseButton>
