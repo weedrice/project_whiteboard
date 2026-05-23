@@ -351,7 +351,17 @@ public class AgentNoteService {
 
     private String toPreview(String content) {
         String plain = content == null ? "" : InputSanitizer.stripHtml(content).replaceAll("\\s+", " ").trim();
-        return plain.length() <= PREVIEW_LENGTH ? plain : plain.substring(0, PREVIEW_LENGTH);
+        return plain.length() <= PREVIEW_LENGTH ? plain : plain.substring(0, safePreviewEnd(plain));
+    }
+
+    private int safePreviewEnd(String plain) {
+        int end = PREVIEW_LENGTH;
+        if (end < plain.length()
+                && Character.isHighSurrogate(plain.charAt(end - 1))
+                && Character.isLowSurrogate(plain.charAt(end))) {
+            return end - 1;
+        }
+        return end;
     }
 
     private OffsetDateTime toOffsetDateTime(LocalDateTime value, LocalDateTime fallback) {

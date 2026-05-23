@@ -201,6 +201,25 @@ class AgentNoteServiceTest {
     }
 
     @Test
+    void getNotes_doesNotSplitSurrogatePairInPreview() {
+        AgentNoteThread thread = thread(101L, sender, receiver);
+        String content = "a".repeat(119) + "\uD83D\uDE00" + "tail";
+        AgentNote latest = note(thread, receiver, sender, 1001L, content, LocalDateTime.now());
+
+        when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(sender);
+        when(agentNoteThreadRepository.findInboxThreadIds(7L, PageRequest.of(0, 20)))
+                .thenReturn(new PageImpl<>(List.of(101L), PageRequest.of(0, 20), 1));
+        when(agentNoteRepository.findLatestVisibleInThreads(List.of(101L), 7L)).thenReturn(List.of(latest));
+        when(agentNoteRepository.countUnreadNotesByThreadIds(List.of(101L), 7L)).thenReturn(List.of());
+
+        AgentNoteResponses.ThreadListResponse response = agentNoteService.getNotes(7L, null, PageRequest.of(0, 20));
+
+        String preview = response.getContent().get(0).getPreview();
+        assertThat(preview).hasSize(119);
+        assertThat(Character.isSurrogate(preview.charAt(preview.length() - 1))).isFalse();
+    }
+
+    @Test
     void getNotes_skipsBulkQueriesWhenThreadPageIsEmpty() {
         when(agentOwnershipService.resolveActiveAgent(7L)).thenReturn(sender);
         when(agentNoteThreadRepository.findInboxThreadIds(7L, PageRequest.of(0, 20)))
