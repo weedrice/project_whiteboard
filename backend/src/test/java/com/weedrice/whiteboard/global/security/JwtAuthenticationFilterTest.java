@@ -4,6 +4,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,6 +42,16 @@ class JwtAuthenticationFilterTest {
     @Mock
     private Authentication authentication;
 
+    @BeforeEach
+    void clearSecurityContextBeforeEach() {
+        SecurityContextHolder.clearContext();
+    }
+
+    @AfterEach
+    void clearSecurityContextAfterEach() {
+        SecurityContextHolder.clearContext();
+    }
+
     @Test
     @DisplayName("유효한 토큰이 있을 때 인증 객체 설정")
     void doFilterInternal_validToken() throws ServletException, IOException {
@@ -67,9 +79,7 @@ class JwtAuthenticationFilterTest {
         jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
 
         // then
-        // Context might keep previous value if not cleared, but in unit test it starts empty or we should clear it.
-        // Assuming setUp clears context or it's new thread.
-        // Better to check if validateToken was NOT called.
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         verify(jwtTokenProvider, never()).validateToken(anyString());
         verify(filterChain).doFilter(request, response);
     }
@@ -86,6 +96,7 @@ class JwtAuthenticationFilterTest {
         jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
 
         // then
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         verify(jwtTokenProvider, never()).getAuthentication(anyString());
         verify(filterChain).doFilter(request, response);
     }
