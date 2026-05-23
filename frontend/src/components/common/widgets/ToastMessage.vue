@@ -55,10 +55,11 @@ const iconColors: Record<Toast['type'], string> = {
         <div class="ml-4 flex flex-shrink-0">
           <button
             type="button"
+            :aria-label="$t('common.close')"
             class="inline-flex rounded-md bg-transparent text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
             @click="emit('close')"
           >
-            <span class="sr-only">Close</span>
+            <span class="sr-only">{{ $t('common.close') }}</span>
             <X class="h-5 w-5" aria-hidden="true" />
           </button>
         </div>

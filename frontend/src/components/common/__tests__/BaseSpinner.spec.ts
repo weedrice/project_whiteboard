@@ -4,12 +4,19 @@ import BaseSpinner from '../ui/BaseSpinner.vue'
 
 describe('BaseSpinner', () => {
     it('renders default size and color classes', () => {
-        const wrapper = mount(BaseSpinner)
+        const wrapper = mount(BaseSpinner, {
+            global: {
+                mocks: {
+                    $t: (key: string) => key
+                }
+            }
+        })
         const spinner = wrapper.get('[role="status"]')
 
         expect(spinner.classes()).toContain('h-8')
         expect(spinner.classes()).toContain('w-8')
         expect(spinner.classes()).toContain('text-indigo-600')
+        expect(wrapper.text()).toContain('common.loading')
     })
 
     it('applies custom size and color classes', () => {
@@ -18,6 +25,11 @@ describe('BaseSpinner', () => {
                 size: 'lg',
                 color: 'text-red-500',
             },
+            global: {
+                mocks: {
+                    $t: (key: string) => key
+                }
+            }
         })
         const spinner = wrapper.get('[role="status"]')
 

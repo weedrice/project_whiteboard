@@ -19,7 +19,7 @@ const sizeClasses = {
     <div class="flex justify-center items-center">
         <div class="animate-spin rounded-full border-t-transparent"
             :class="[sizeClasses[size], color, 'border-current']" role="status">
-            <span class="sr-only">Loading...</span>
+            <span class="sr-only">{{ $t('common.loading') }}</span>
         </div>
     </div>
 </template>
