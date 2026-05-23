@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 @Service
@@ -46,18 +47,19 @@ public class ShopService {
 
     public ShopItemResponse getShopItems(String itemType, Pageable pageable) {
         Pageable effectivePageable = normalizeShopItemPageable(pageable);
+        String normalizedItemType = normalizeItemType(itemType);
         Set<String> supportedItemTypes = shopEntitlementCapabilityRegistry.getSupportedItemTypes();
         if (supportedItemTypes.isEmpty()) {
             return emptyShopItems(effectivePageable);
         }
 
-        if (itemType != null && !itemType.isEmpty() && !shopEntitlementCapabilityRegistry.supports(itemType)) {
+        if (normalizedItemType != null && !shopEntitlementCapabilityRegistry.supports(normalizedItemType)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
         Page<ShopItem> items;
-        if (itemType != null && !itemType.isEmpty()) {
-            items = shopItemRepository.findByIsActiveAndItemType(true, itemType, effectivePageable);
+        if (normalizedItemType != null) {
+            items = shopItemRepository.findByIsActiveAndItemType(true, normalizedItemType, effectivePageable);
         } else {
             items = shopItemRepository.findByIsActiveAndItemTypeIn(true, supportedItemTypes, effectivePageable);
         }
@@ -79,7 +81,7 @@ public class ShopService {
 
     @Transactional
     public Long purchaseActiveItemByTarget(Long userId, String itemType, Long targetId) {
-        ShopItem item = resolveSingleActiveItemByTarget(itemType, targetId);
+        ShopItem item = resolveSingleActiveItemByTarget(normalizeItemType(itemType), targetId);
         User user = resolvePurchasingUser(userId);
         return purchaseItem(user, item);
     }
@@ -175,5 +177,12 @@ public class ShopService {
             return PageRequestUtils.of(0, DEFAULT_PURCHASE_HISTORY_PAGE_SIZE, DEFAULT_PURCHASE_HISTORY_SORT);
         }
         return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), DEFAULT_PURCHASE_HISTORY_SORT);
+    }
+
+    private String normalizeItemType(String itemType) {
+        if (itemType == null || itemType.isBlank()) {
+            return null;
+        }
+        return itemType.trim().toUpperCase(Locale.ROOT);
     }
 }

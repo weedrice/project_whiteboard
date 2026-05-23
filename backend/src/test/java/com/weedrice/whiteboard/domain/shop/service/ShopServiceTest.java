@@ -123,6 +123,23 @@ class ShopServiceTest {
         }
 
         @Test
+        @DisplayName("Normalizes a supported item type filter")
+        void getShopItems_supportedType_normalizesFilter() {
+            Pageable pageable = PageRequest.of(0, 20);
+            Pageable expectedPageable = PageRequest.of(0, 20, Sort.by(Sort.Order.asc("itemId")));
+            when(shopEntitlementCapabilityRegistry.getSupportedItemTypes()).thenReturn(Set.of("EMOTICON"));
+            when(shopEntitlementCapabilityRegistry.supports("EMOTICON")).thenReturn(true);
+            when(shopItemRepository.findByIsActiveAndItemType(true, "EMOTICON", expectedPageable))
+                    .thenReturn(new PageImpl<>(List.of(emoticonItem), expectedPageable, 1));
+
+            ShopItemResponse response = shopService.getShopItems(" emoticon ", pageable);
+
+            assertThat(response.getContent()).hasSize(1);
+            verify(shopEntitlementCapabilityRegistry).supports("EMOTICON");
+            verify(shopItemRepository).findByIsActiveAndItemType(true, "EMOTICON", expectedPageable);
+        }
+
+        @Test
         @DisplayName("Returns empty when there is no supported handler")
         void getShopItems_withoutSupportedHandlers_returnsEmpty() {
             Pageable pageable = PageRequest.of(0, 20);
@@ -148,6 +165,23 @@ class ShopServiceTest {
             ShopItemResponse response = shopService.getShopItems(null, pageable);
 
             assertThat(response.getContent()).hasSize(2);
+            verify(shopItemRepository).findByIsActiveAndItemTypeIn(true, supportedTypes, expectedPageable);
+        }
+
+        @Test
+        @DisplayName("Treats a blank item type filter as absent")
+        void getShopItems_blankType_usesSupportedTypes() {
+            Pageable pageable = PageRequest.of(0, 20);
+            Pageable expectedPageable = PageRequest.of(0, 20, Sort.by(Sort.Order.asc("itemId")));
+            Set<String> supportedTypes = Set.of("EMOTICON", "DECORATION");
+            when(shopEntitlementCapabilityRegistry.getSupportedItemTypes()).thenReturn(supportedTypes);
+            when(shopItemRepository.findByIsActiveAndItemTypeIn(true, supportedTypes, expectedPageable))
+                    .thenReturn(new PageImpl<>(List.of(emoticonItem, decorationItem), expectedPageable, 2));
+
+            ShopItemResponse response = shopService.getShopItems("   ", pageable);
+
+            assertThat(response.getContent()).hasSize(2);
+            verify(shopEntitlementCapabilityRegistry, never()).supports(anyString());
             verify(shopItemRepository).findByIsActiveAndItemTypeIn(true, supportedTypes, expectedPageable);
         }
 
@@ -239,7 +273,7 @@ class ShopServiceTest {
             ReflectionTestUtils.setField(savedPurchaseHistory, "purchaseId", 1L);
             when(purchaseHistoryRepository.save(any(PurchaseHistory.class))).thenReturn(savedPurchaseHistory);
 
-            Long purchaseId = shopService.purchaseActiveItemByTarget(1L, "EMOTICON", 10L);
+            Long purchaseId = shopService.purchaseActiveItemByTarget(1L, " emoticon ", 10L);
 
             assertThat(purchaseId).isEqualTo(1L);
             verify(shopItemRepository, never()).findById(anyLong());
