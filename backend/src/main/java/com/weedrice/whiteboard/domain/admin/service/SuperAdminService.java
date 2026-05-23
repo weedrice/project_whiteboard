@@ -8,7 +8,6 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -26,8 +25,9 @@ public class SuperAdminService {
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
-    public SuperAdminUpdateResponse createSuperAdmin(@NotNull String loginId) {
-        User user = userRepository.findByLoginId(loginId)
+    public SuperAdminUpdateResponse createSuperAdmin(String loginId) {
+        String normalizedLoginId = normalizeLoginId(loginId);
+        User user = userRepository.findByLoginId(normalizedLoginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         if (Boolean.TRUE.equals(user.getIsSuperAdmin())) {
@@ -43,8 +43,9 @@ public class SuperAdminService {
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
-    public SuperAdminUpdateResponse deactivateSuperAdmin(@NotNull String loginId) {
-        User user = userRepository.findByLoginId(loginId)
+    public SuperAdminUpdateResponse deactivateSuperAdmin(String loginId) {
+        String normalizedLoginId = normalizeLoginId(loginId);
+        User user = userRepository.findByLoginId(normalizedLoginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         if (!Boolean.TRUE.equals(user.getIsSuperAdmin())) {
@@ -65,6 +66,13 @@ public class SuperAdminService {
 
     private List<User> getUsableSuperAdmins() {
         return userRepository.findUsableSuperAdmins();
+    }
+
+    private String normalizeLoginId(String loginId) {
+        if (loginId == null || loginId.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return loginId.trim();
     }
 
 }

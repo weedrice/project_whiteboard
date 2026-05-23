@@ -51,6 +51,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -162,6 +163,19 @@ class AdminControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.loginId").value("admin"));
+    }
+
+    @Test
+    @DisplayName("Super Admin 활성화는 공백 loginId를 거부한다")
+    void activeSuperAdmin_rejectsBlankLoginId() throws Exception {
+        mockMvc.perform(put("/api/v1/admin/super/active")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"loginId\":\"   \"}")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest());
+
+        verify(superAdminService, never()).createSuperAdmin(any());
     }
 
     @Test

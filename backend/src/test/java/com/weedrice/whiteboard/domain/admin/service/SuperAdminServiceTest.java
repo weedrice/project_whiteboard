@@ -53,10 +53,21 @@ class SuperAdminServiceTest {
         when(userRepository.findByLoginId("target")).thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        SuperAdminUpdateResponse response = superAdminService.createSuperAdmin("target");
+        SuperAdminUpdateResponse response = superAdminService.createSuperAdmin(" target ");
 
         assertThat(response.isSuperAdmin()).isTrue();
         assertThat(response.getLoginId()).isEqualTo("target");
+    }
+
+    @Test
+    @DisplayName("createSuperAdmin rejects blank loginId")
+    void createSuperAdmin_blankLoginId_invalidInput() {
+        assertThatThrownBy(() -> superAdminService.createSuperAdmin("   "))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
+
+        verify(userRepository, never()).findByLoginId(any());
     }
 
     @Test
@@ -92,7 +103,7 @@ class SuperAdminServiceTest {
         when(userRepository.findByLoginId("target")).thenReturn(Optional.of(target));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        SuperAdminUpdateResponse response = superAdminService.deactivateSuperAdmin("target");
+        SuperAdminUpdateResponse response = superAdminService.deactivateSuperAdmin(" target ");
 
         assertThat(response.isSuperAdmin()).isFalse();
         assertThat(response.getLoginId()).isEqualTo("target");
