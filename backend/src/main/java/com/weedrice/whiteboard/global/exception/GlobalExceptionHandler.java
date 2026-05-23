@@ -24,6 +24,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -188,6 +189,24 @@ public class GlobalExceptionHandler {
                 e.getValue());
 
         saveErrorLog(ErrorCode.VALIDATION_ERROR.getCode(), "MethodArgumentTypeMismatchException",
+                HttpStatus.BAD_REQUEST.value(), message, request, null);
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ErrorCode.VALIDATION_ERROR.getCode(), message));
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingServletRequestParameterException(
+            MissingServletRequestParameterException e,
+            HttpServletRequest request) {
+        String message = messageSource.getMessage("error.common.validationFailedSummary", null,
+                LocaleContextHolder.getLocale());
+
+        log.warn("[{}] Missing request parameter: {} ({})", request.getRequestURI(), e.getParameterName(),
+                e.getParameterType());
+
+        saveErrorLog(ErrorCode.VALIDATION_ERROR.getCode(), "MissingServletRequestParameterException",
                 HttpStatus.BAD_REQUEST.value(), message, request, null);
 
         return ResponseEntity

@@ -26,6 +26,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.Collections;
@@ -351,6 +352,35 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().isSuccess()).isFalse();
         assertThat(response.getBody().getError().getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR.getCode());
+    }
+
+    @Test
+    @DisplayName("필수 요청 파라미터 누락 예외는 400으로 처리")
+    void handleMissingServletRequestParameterException() {
+        MissingServletRequestParameterException ex =
+                new MissingServletRequestParameterException("q", "String");
+        when(messageSource.getMessage(eq("error.common.validationFailedSummary"), isNull(), any(Locale.class)))
+                .thenReturn("Validation failed.");
+
+        ResponseEntity<ApiResponse<Void>> response =
+                globalExceptionHandler.handleMissingServletRequestParameterException(ex, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().isSuccess()).isFalse();
+        assertThat(response.getBody().getError().getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR.getCode());
+        assertThat(response.getBody().getError().getMessage()).isEqualTo("Validation failed.");
+        verify(errorLogService).saveErrorLog(
+                eq(ErrorCode.VALIDATION_ERROR.getCode()),
+                eq("MissingServletRequestParameterException"),
+                eq(HttpStatus.BAD_REQUEST.value()),
+                eq("Validation failed."),
+                anyString(),
+                anyString(),
+                isNull(),
+                anyString(),
+                isNull(),
+                isNull());
     }
 
     @Test
