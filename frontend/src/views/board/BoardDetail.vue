@@ -13,6 +13,7 @@ import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import { useBoard } from '@/composables/useBoard'
 import { useBoardListState } from '@/composables/useBoardListState'
 import { useRecentBoards } from '@/composables/useRecentBoards'
+import { useConfirm } from '@/composables/useConfirm'
 import { useAuthStore } from '@/stores/auth'
 import { canWriteBoardPost, resolveDefaultCategory } from '@/utils/board'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
@@ -49,6 +50,7 @@ const {
 
 const { useBoardDetail, useBoardPosts, useBoardNotices, useSubscribeBoard } = useBoard()
 const { addRecentBoard } = useRecentBoards()
+const { confirm } = useConfirm()
 
 const boardUrl = computed(() => route.params.boardUrl as string)
 const currentPostId = computed(() => route.params.postId as string | undefined)
@@ -201,9 +203,12 @@ function getNoticeRoute(notice: PostSummary) {
   }
 }
 
-function handleSubscribe() {
+async function handleSubscribe() {
   if (!board.value || isSubscribePending.value) return
-  if (board.value.isSubscribed && !window.confirm(t('user.subscriptions.unsubscribeConfirm'))) return
+  if (board.value.isSubscribed) {
+    const isConfirmed = await confirm(t('user.subscriptions.unsubscribeConfirm'))
+    if (!isConfirmed) return
+  }
 
   subscribeMutate({
     boardUrl: board.value.boardUrl,

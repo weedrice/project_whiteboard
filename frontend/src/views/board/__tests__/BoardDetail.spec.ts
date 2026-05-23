@@ -7,6 +7,7 @@ const {
   route,
   router,
   addRecentBoard,
+  confirmMock,
   subscribeMutate,
   boardPayload,
   postsPayload,
@@ -27,6 +28,7 @@ const {
     push: vi.fn()
   },
   addRecentBoard: vi.fn(),
+  confirmMock: vi.fn(),
   subscribeMutate: vi.fn(),
   boardPayload: {
     boardId: 1,
@@ -101,6 +103,12 @@ vi.mock('@/composables/useRecentBoards', () => ({
   })
 }))
 
+vi.mock('@/composables/useConfirm', () => ({
+  useConfirm: () => ({
+    confirm: confirmMock
+  })
+}))
+
 vi.mock('@/composables/useBoard', () => ({
   useBoard: () => ({
     useBoardDetail: () => ({
@@ -158,6 +166,8 @@ describe('BoardDetail', () => {
     router.replace.mockReset()
     router.push.mockReset()
     addRecentBoard.mockReset()
+    confirmMock.mockReset()
+    confirmMock.mockResolvedValue(true)
     subscribeMutate.mockReset()
   })
 
@@ -589,5 +599,68 @@ describe('BoardDetail', () => {
 
     expect(wrapper.text()).toContain('Old notice')
     expect(moreButton.attributes('aria-expanded')).toBe('true')
+  })
+
+  it('does not unsubscribe when the app confirm is cancelled', async () => {
+    boardState.value = {
+      ...boardPayload,
+      isSubscribed: true
+    }
+    confirmMock.mockResolvedValue(false)
+
+    const wrapper = mount(BoardDetail, {
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          RouterView: true,
+          PostList: true,
+          Pagination: true,
+          UserMenu: true,
+          BaseSkeleton: true
+        }
+      }
+    })
+
+    const subscribeButton = wrapper.findAll('button').find((button) => button.text() === 'common.unsubscribe')
+    await subscribeButton?.trigger('click')
+    await Promise.resolve()
+
+    expect(confirmMock).toHaveBeenCalledWith('user.subscriptions.unsubscribeConfirm')
+    expect(subscribeMutate).not.toHaveBeenCalled()
+  })
+
+  it('unsubscribes after the app confirm is accepted', async () => {
+    boardState.value = {
+      ...boardPayload,
+      isSubscribed: true
+    }
+
+    const wrapper = mount(BoardDetail, {
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          RouterView: true,
+          PostList: true,
+          Pagination: true,
+          UserMenu: true,
+          BaseSkeleton: true
+        }
+      }
+    })
+
+    const subscribeButton = wrapper.findAll('button').find((button) => button.text() === 'common.unsubscribe')
+    await subscribeButton?.trigger('click')
+    await Promise.resolve()
+
+    expect(subscribeMutate).toHaveBeenCalledWith({
+      boardUrl: 'free',
+      isSubscribed: true
+    })
   })
 })
