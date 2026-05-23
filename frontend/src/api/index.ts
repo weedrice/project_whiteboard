@@ -3,7 +3,7 @@ import i18n from '@/i18n'
 import router from '@/router'
 import { Storage } from '@/utils/storage'
 import { API } from '@/utils/constants'
-import { normalizeApiErrorMessage } from '@/utils/errorHandler'
+import { isValidationErrors, normalizeApiErrorMessage } from '@/utils/errorHandler'
 
 const { t } = i18n.global
 
@@ -172,11 +172,10 @@ const handleApiError = (error: AxiosError, toastStore: ToastStore) => {
             case 400:
                 // Validation 에러인 경우 details가 있을 수 있음
                 // Validation 에러는 필드별로 표시되므로 여기서는 요약 메시지만 표시
-                if (apiError?.details && typeof apiError.details === 'object') {
+                if (isValidationErrors(apiError?.details)) {
                     // Validation 에러의 경우 첫 번째 필드의 첫 번째 에러만 토스트로 표시
-                    const validationErrors = apiError.details as ValidationErrors
-                    const firstField = Object.keys(validationErrors)[0]
-                    const firstError = firstField ? validationErrors[firstField]?.[0] : null
+                    const firstField = Object.keys(apiError.details)[0]
+                    const firstError = firstField ? apiError.details[firstField]?.[0] : null
                     toastStore.addToast(
                         firstError || message || t('common.messages.badRequest'),
                         'error',

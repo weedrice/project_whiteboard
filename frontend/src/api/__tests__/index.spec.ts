@@ -475,6 +475,28 @@ describe('API Interceptors', () => {
         expect(mocks.mockAddToast).toHaveBeenCalledWith('validation-empty', 'error', 3000, 'top-center')
     })
 
+    it('falls back to the response message when 400 details are not validation arrays', async () => {
+        const { responseRejected } = await loadApiModule()
+        const error = {
+            message: 'request failed',
+            config: { headers: {} },
+            response: {
+                status: 400,
+                data: {
+                    error: {
+                        message: 'validation-malformed',
+                        details: {
+                            title: 'required',
+                        },
+                    },
+                },
+            },
+        } as any
+
+        await expect(responseRejected(error)).rejects.toBe(error)
+        expect(mocks.mockAddToast).toHaveBeenCalledWith('validation-malformed', 'error', 3000, 'top-center')
+    })
+
     it('shows normalized network message when request error is not retryable', async () => {
         const { responseRejected } = await loadApiModule()
         const error = {

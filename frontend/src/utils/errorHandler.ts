@@ -43,6 +43,16 @@ interface ApiErrorResponse {
     details?: ValidationErrors | Record<string, unknown>
 }
 
+export function isValidationErrors(details: unknown): details is ValidationErrors {
+    if (!details || typeof details !== 'object' || Array.isArray(details)) {
+        return false
+    }
+
+    return Object.values(details).every((errors) =>
+        Array.isArray(errors) && errors.every((error) => typeof error === 'string')
+    )
+}
+
 /**
  * Axios 에러에서 Validation 에러를 추출합니다.
  * @param error Axios 에러 객체
@@ -57,8 +67,8 @@ export function extractValidationErrors(error: AxiosError): ValidationErrors | n
     const apiError = errorData?.error || errorData
 
     // Validation 에러인지 확인 (details가 있고 객체 형태인 경우)
-    if (apiError?.details && typeof apiError.details === 'object' && !Array.isArray(apiError.details)) {
-        return apiError.details as ValidationErrors
+    if (isValidationErrors(apiError?.details)) {
+        return apiError.details
     }
 
     return null

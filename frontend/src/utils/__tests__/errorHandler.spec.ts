@@ -8,6 +8,7 @@ import {
     extractValidationErrors,
     getFieldError,
     isRestrictedResourceError,
+    isValidationErrors,
     normalizeApiErrorMessage,
 } from '@/utils/errorHandler'
 
@@ -62,6 +63,26 @@ describe('errorHandler', () => {
         expect(extractValidationErrors(noResponseError)).toBeNull()
         expect(extractValidationErrors(invalidDetailsError)).toBeNull()
         expect(extractValidationErrors(rootDetailsError)).toEqual({ name: ['required'] })
+    })
+
+    it('rejects malformed validation details instead of treating arbitrary objects as field errors', () => {
+        const malformedDetailsError = {
+            response: {
+                data: {
+                    error: {
+                        details: {
+                            title: 'required',
+                            count: [1],
+                        },
+                    },
+                },
+            },
+        } as AxiosError
+
+        expect(isValidationErrors({ title: ['required'] })).toBe(true)
+        expect(isValidationErrors({ title: 'required' })).toBe(false)
+        expect(isValidationErrors(['required'])).toBe(false)
+        expect(extractValidationErrors(malformedDetailsError)).toBeNull()
     })
 
     it('extracts message and structured error response safely', () => {
