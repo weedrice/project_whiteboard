@@ -1,7 +1,7 @@
 <template>
   <div class="text-center py-12">
     <div class="mx-auto h-12 w-12 text-red-400 dark:text-red-500 mb-4">
-      <component :is="icon" class="h-full w-full" />
+      <component :is="icon" class="h-full w-full" aria-hidden="true" />
     </div>
     <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
       {{ title || $t('common.error.title') }}
