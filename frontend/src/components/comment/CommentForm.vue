@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useComment } from '@/composables/useComment'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
@@ -37,10 +37,10 @@ const { useCreateComment, useUpdateComment } = useComment()
 const { mutate: createComment, isPending: isCreating } = useCreateComment()
 const { mutate: updateComment, isPending: isUpdating } = useUpdateComment()
 
-import { computed } from 'vue'
-
 const content = ref(props.initialContent)
 const isSubmitting = computed(() => isCreating.value || isUpdating.value)
+const trimmedContent = computed(() => content.value.trim())
+const canSubmit = computed(() => !!trimmedContent.value && !isSubmitting.value)
 const showEmoticonPicker = ref(false)
 
 // 이모티콘 선택 시 바로 댓글 등록
@@ -69,11 +69,11 @@ const handleEmoticonSelect = (image: EmoticonImage) => {
 }
 
 async function handleSubmit() {
-  if (!content.value.trim() || isSubmitting.value) return
+  if (!canSubmit.value) return
 
   if (props.commentId) {
     // Update existing comment
-    updateComment({ commentId: props.commentId, data: { content: content.value } }, {
+    updateComment({ commentId: props.commentId, data: { content: trimmedContent.value } }, {
       onSuccess: () => {
         emit('success')
       },
@@ -85,7 +85,7 @@ async function handleSubmit() {
   } else {
     // Create new comment
     const payload: CommentPayload = {
-      content: content.value,
+      content: trimmedContent.value,
       parentId: props.parentId ? Number(props.parentId) : null
     }
     createComment({ postId: props.postId, data: payload }, {
@@ -134,7 +134,7 @@ async function handleSubmit() {
         <BaseButton v-if="parentId" type="button" @click="emit('cancel')" variant="secondary" size="sm" class="mr-3">
           {{ $t('common.cancel') }}
         </BaseButton>
-        <BaseButton type="submit" :loading="isSubmitting" variant="primary" size="sm">
+        <BaseButton type="submit" :loading="isSubmitting" :disabled="!canSubmit" variant="primary" size="sm">
           {{ isSubmitting ? $t('comment.posting') : (parentId ? $t('comment.reply') : $t('common.submit')) }}
         </BaseButton>
       </div>
