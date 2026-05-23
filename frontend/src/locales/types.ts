@@ -1098,6 +1098,12 @@ export interface AdminMessages {
     description: string
     addTitle: string
     editTitle: string
+    iconEmpty: string
+    iconUrlEmpty: string
+    chooseFile: string
+    managerTitle: string
+    chooseManager: string
+    userSelectTitle: string
     table: {
       desc: string
       active: string

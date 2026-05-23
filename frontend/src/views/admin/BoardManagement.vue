@@ -151,7 +151,7 @@
                       alt="icon"
                       class="h-full w-full object-contain"
                     />
-                    <span v-else class="text-[11px] text-gray-400 dark:text-gray-500">N/A</span>
+                    <span v-else class="text-[11px] text-gray-400 dark:text-gray-500">{{ $t('admin.boards.iconEmpty') }}</span>
                   </div>
 
                   <div class="flex-1 min-w-0 space-y-2 pt-1">
@@ -159,7 +159,7 @@
                       class="break-all text-sm leading-5"
                       :class="form.iconUrl ? 'text-gray-700 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'"
                     >
-                      {{ form.iconUrl || '데이터가 없습니다.' }}
+                      {{ form.iconUrl || $t('admin.boards.iconUrlEmpty') }}
                     </p>
 
                     <div class="flex items-center">
@@ -170,14 +170,14 @@
                         accept="image/*"
                         class="hidden"
                       />
-                      <BaseButton type="button" variant="secondary" size="sm" @click="chooseIconFile">파일 선택</BaseButton>
+                      <BaseButton type="button" variant="secondary" size="sm" @click="chooseIconFile">{{ $t('admin.boards.chooseFile') }}</BaseButton>
                     </div>
                   </div>
                 </div>
               </div>
 
               <div class="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">게시판 관리자</h3>
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $t('admin.boards.managerTitle') }}</h3>
                 <div v-if="isBoardManagerLoading" class="mt-3 flex justify-center">
                   <BaseSpinner />
                 </div>
@@ -186,7 +186,7 @@
                     {{ currentManagerLabel }}
                   </p>
                   <BaseButton @click="openManagerModal('single')" :disabled="isAssigningManager">
-                    {{ isAssigningManager ? $t('common.messages.saving') : '관리자 선택' }}
+                    {{ isAssigningManager ? $t('common.messages.saving') : $t('admin.boards.chooseManager') }}
                   </BaseButton>
                 </div>
               </div>
@@ -235,7 +235,7 @@
 
     <UserSelectModal
       :isOpen="isManagerModalOpen"
-      title="사용자 선택"
+      :title="$t('admin.boards.userSelectTitle')"
       :selectionMode="managerSelectionMode"
       @close="closeManagerModal"
       @confirm="confirmManagerSelection"

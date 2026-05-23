@@ -215,6 +215,12 @@ export const admin: AdminMessages = {
     description: '전체 게시판을 조회하고 관리합니다.',
     addTitle: '새 게시판 만들기',
     editTitle: '게시판 수정',
+    iconEmpty: '아이콘 없음',
+    iconUrlEmpty: '등록된 아이콘 URL이 없습니다.',
+    chooseFile: '파일 선택',
+    managerTitle: '게시판 관리자',
+    chooseManager: '관리자 선택',
+    userSelectTitle: '사용자 선택',
     table: {
       desc: '설명',
       active: '상태',
