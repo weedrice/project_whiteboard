@@ -452,6 +452,15 @@ class SearchControllerTest {
     }
 
     @Test
+    @DisplayName("최근 검색어 조회는 인증 사용자가 필요하다")
+    void getRecentSearches_requiresAuthenticatedUser() throws Exception {
+        mockMvc.perform(get("/api/v1/search/recent")
+                .with(anonymous()))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
     @DisplayName("최근 검색어 삭제 성공")
     void deleteRecentSearch_returnsSuccess() throws Exception {
         // given

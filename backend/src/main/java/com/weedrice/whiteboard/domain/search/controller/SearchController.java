@@ -10,6 +10,8 @@ import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchService;
 import com.weedrice.whiteboard.domain.search.service.SearchService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -81,19 +83,26 @@ public class SearchController {
     public ApiResponse<SearchPersonalizationResponse> getRecentSearches(
             Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(searchService.getRecentSearches(userDetails.getUserId(), pageable));
+        return ApiResponse.success(searchService.getRecentSearches(currentUserId(userDetails), pageable));
     }
 
     @DeleteMapping("/recent/{logId}")
     public ApiResponse<Void> deleteRecentSearch(@PathVariable Long logId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        searchService.deleteRecentSearch(userDetails.getUserId(), logId);
+        searchService.deleteRecentSearch(currentUserId(userDetails), logId);
         return ApiResponse.success(null);
     }
 
     @DeleteMapping("/recent")
     public ApiResponse<Void> deleteAllRecentSearches(@AuthenticationPrincipal CustomUserDetails userDetails) {
-        searchService.deleteAllRecentSearches(userDetails.getUserId());
+        searchService.deleteAllRecentSearches(currentUserId(userDetails));
         return ApiResponse.success(null);
+    }
+
+    private Long currentUserId(CustomUserDetails userDetails) {
+        if (userDetails == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        return userDetails.getUserId();
     }
 }
