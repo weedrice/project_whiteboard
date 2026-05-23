@@ -25,9 +25,10 @@ const params = computed(() => ({
 }))
 
 const { data: notificationsData, isLoading } = useNotifications(params)
-const { mutate: markAllAsRead } = useMarkAllAsRead()
+const { mutate: markAllAsRead, isPending: isMarkingAllAsRead } = useMarkAllAsRead()
 
 const notifications = computed(() => notificationsData.value?.content || [])
+const hasUnreadNotifications = computed(() => notifications.value.some((notification) => !notification.isRead))
 const totalPages = computed(() => notificationsData.value?.totalPages || 0)
 
 function handlePageChange(newPage: number) {
@@ -40,6 +41,14 @@ function handleSizeChange() {
 
 async function handleNotificationClick(notification: Notification) {
   await navigateFromNotification(notification)
+}
+
+function handleMarkAllAsRead() {
+  if (!hasUnreadNotifications.value || isMarkingAllAsRead.value) {
+    return
+  }
+
+  markAllAsRead()
 }
 </script>
 
@@ -57,8 +66,13 @@ async function handleNotificationClick(notification: Notification) {
           <div class="hidden sm:block">
             <PageSizeSelector v-model="size" @change="handleSizeChange" />
           </div>
-          <BaseButton @click="() => markAllAsRead()" size="sm" variant="secondary"
-            class="min-h-[36px] sm:min-h-0 text-xs sm:text-sm">
+          <BaseButton
+            @click="handleMarkAllAsRead"
+            size="sm"
+            variant="secondary"
+            :disabled="!hasUnreadNotifications || isMarkingAllAsRead"
+            class="min-h-[36px] sm:min-h-0 text-xs sm:text-sm"
+          >
             <Check class="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 text-green-500" />
             <span class="sm:hidden">{{ $t('notification.markAllReadShort') || $t('notification.markAllRead') }}</span>
             <span class="hidden sm:inline">{{ $t('notification.markAllRead') }}</span>

@@ -18,13 +18,22 @@ const params = ref<NotificationParams>({ page: 0, size: 20 })
 
 // Trigger fetch via useQuery
 const { data: notificationsData, isLoading } = useNotifications(params)
-const { mutate: markAllAsRead } = useMarkAllAsRead()
+const { mutate: markAllAsRead, isPending: isMarkingAllAsRead } = useMarkAllAsRead()
 
 // Use query data
 const notifications = computed<Notification[]>(() => notificationsData.value?.content || [])
+const hasUnreadNotifications = computed(() => notifications.value.some((notification) => !notification.isRead))
 
 async function handleNotificationClick(notification: Notification) {
   await navigateFromNotification(notification)
+}
+
+function handleMarkAllAsRead() {
+  if (!hasUnreadNotifications.value || isMarkingAllAsRead.value) {
+    return
+  }
+
+  markAllAsRead()
 }
 </script>
 
@@ -33,8 +42,13 @@ async function handleNotificationClick(notification: Notification) {
     class="origin-top-right absolute right-0 mt-2 w-80 rounded-md shadow-lg py-1 bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none z-50 transition-colors duration-200">
     <div class="px-4 py-2 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
       <h3 class="text-sm font-medium text-gray-900 dark:text-white">{{ $t('common.notifications') }}</h3>
-      <BaseButton @click="() => markAllAsRead()" variant="ghost" size="sm"
-        class="text-xs text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 flex items-center p-0">
+      <BaseButton
+        @click="handleMarkAllAsRead"
+        variant="ghost"
+        size="sm"
+        :disabled="!hasUnreadNotifications || isMarkingAllAsRead"
+        class="text-xs text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 flex items-center p-0"
+      >
         <Check class="h-3 w-3 mr-1" />
         {{ $t('notification.markAllRead') }}
       </BaseButton>
