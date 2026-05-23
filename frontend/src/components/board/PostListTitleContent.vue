@@ -56,7 +56,7 @@ const isInquiryPost = (post: PostSummary, boardUrl?: string) => (
     class="nv-post-badge"
     :class="post.inquiryAnswered ? 'nv-post-badge-success' : 'nv-post-badge-warn'"
   >
-    {{ post.inquiryAnswered ? 'Answered' : 'Pending' }}
+    {{ post.inquiryAnswered ? t('board.inquiryStatus.answered') : t('board.inquiryStatus.pending') }}
   </span>
   <span :class="['nv-post-title-text', truncateTitle ? 'truncate' : 'min-w-0 flex-1 break-words']">
     {{ post.title }}

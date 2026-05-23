@@ -385,6 +385,10 @@ export interface BoardMessages {
     likes: string
     viewAllComments: string
   }
+  inquiryStatus: {
+    answered: string
+    pending: string
+  }
   createBoard: string
   loadFailed: string
   invalidUrl: string

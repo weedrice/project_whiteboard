@@ -46,7 +46,7 @@ describe('PostListTitleContent', () => {
       }
     })
 
-    expect(wrapper.text()).toContain('Answered')
+    expect(wrapper.text()).toContain('board.inquiryStatus.answered')
   })
 
   it('suppresses the general category badge but keeps real categories', () => {

@@ -18,6 +18,10 @@ export const board: BoardMessages = {
     likes: '좋아요 {count}개',
     viewAllComments: '댓글 {count}개 모두 보기',
   },
+  inquiryStatus: {
+    answered: '답변 완료',
+    pending: '답변 대기',
+  },
   createBoard: '게시판 만들기',
   loadFailed: '게시판 정보를 불러오지 못했습니다.',
   invalidUrl: '잘못된 게시판 URL입니다.',
@@ -295,6 +299,10 @@ export const boardEn: BoardMessages = {
   feed: {
     likes: '{count} likes',
     viewAllComments: 'View all {count} comments',
+  },
+  inquiryStatus: {
+    answered: 'Answered',
+    pending: 'Pending',
   },
   createBoard: 'Create board',
   loadFailed: 'Failed to load board information.',
