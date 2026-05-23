@@ -752,6 +752,24 @@ class PostControllerTest {
         }
 
         @Test
+        @DisplayName("임시글 저장은 잘못된 boardUrl을 거부한다")
+        void saveDraft_rejectsInvalidBoardUrl() throws Exception {
+            PostDraftRequest request = PostDraftRequest.builder()
+                    .boardUrl("Free Board")
+                    .title("Title")
+                    .contents("Content")
+                    .build();
+            clearInvocations(postService);
+
+            mockMvc.perform(post("/api/v1/drafts").with(user(customUserDetails))
+                    .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false));
+
+            verify(postService, never()).saveDraftPost(anyLong(), any());
+        }
+
+        @Test
         @DisplayName("임시저장 삭제")
         void deleteDraft_success() throws Exception {
             doNothing().when(postService).deleteDraftPost(anyLong(), eq(1L));

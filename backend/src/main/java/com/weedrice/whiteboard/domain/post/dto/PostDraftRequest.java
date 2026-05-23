@@ -1,7 +1,8 @@
 package com.weedrice.whiteboard.domain.post.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -17,7 +18,9 @@ import java.util.List;
 @AllArgsConstructor
 public class PostDraftRequest {
     private Long draftId;
-    @NotNull
+    @NotBlank
+    @Size(max = 100)
+    @Pattern(regexp = "^[a-z0-9_]+$", message = "{validation.board.url.pattern}")
     private String boardUrl;
     private String title;
     @Size(max = 100000, message = "본문은 100,000자를 초과할 수 없습니다")
