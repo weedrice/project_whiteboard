@@ -28,7 +28,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
@@ -270,8 +272,10 @@ class GlobalExceptionHandlerTest {
     void handleValidationExceptions() {
         // given
         BindingResult bindingResult = mock(BindingResult.class);
-        FieldError fieldError = new FieldError("objectName", "fieldName", null, false, null, null, "must not be null");
-        when(bindingResult.getFieldErrors()).thenReturn(Collections.singletonList(fieldError));
+        FieldError titleError = new FieldError("objectName", "title", null, false, null, null, "must not be null");
+        FieldError contentError = new FieldError("objectName", "content", null, false, null, null, "must not be blank");
+        FieldError titleSizeError = new FieldError("objectName", "title", null, false, null, null, "size must be valid");
+        when(bindingResult.getFieldErrors()).thenReturn(List.of(titleError, contentError, titleSizeError));
         when(messageSource.getMessage(eq("error.common.validationFailedSummaryFields"), any(), any(Locale.class)))
                 .thenReturn("Validation failed");
         MethodArgumentNotValidException ex = new MethodArgumentNotValidException(mock(MethodParameter.class), bindingResult);
@@ -285,6 +289,10 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().isSuccess()).isFalse();
         assertThat(response.getBody().getError().getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR.getCode());
         assertThat(response.getBody().getError().getMessage()).contains("Validation failed");
+        @SuppressWarnings("unchecked")
+        Map<String, List<String>> details = (Map<String, List<String>>) response.getBody().getError().getDetails();
+        assertThat(details.keySet()).containsExactly("title", "content");
+        assertThat(details.get("title")).containsExactly("must not be null", "size must be valid");
     }
 
     @Test

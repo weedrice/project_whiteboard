@@ -30,7 +30,11 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -120,12 +124,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Object>> handleValidationExceptions(MethodArgumentNotValidException e,
             HttpServletRequest request) {
         // 모든 필드 에러를 수집
-        java.util.Map<String, java.util.List<String>> errors = new java.util.HashMap<>();
+        Map<String, List<String>> errors = new LinkedHashMap<>();
 
         e.getBindingResult().getFieldErrors().forEach(error -> {
             String field = error.getField();
             String message = error.getDefaultMessage();
-            errors.computeIfAbsent(field, k -> new java.util.ArrayList<>()).add(message);
+            errors.computeIfAbsent(field, k -> new ArrayList<>()).add(message);
         });
 
         // 필드 에러가 없는 경우 (글로벌 에러)
@@ -133,7 +137,7 @@ public class GlobalExceptionHandler {
             e.getBindingResult().getGlobalErrors().forEach(error -> {
                 String objectName = error.getObjectName();
                 String message = error.getDefaultMessage();
-                errors.computeIfAbsent(objectName, k -> new java.util.ArrayList<>()).add(message);
+                errors.computeIfAbsent(objectName, k -> new ArrayList<>()).add(message);
             });
         }
 
