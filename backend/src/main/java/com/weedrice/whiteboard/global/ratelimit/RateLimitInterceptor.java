@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.global.ratelimit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
@@ -9,7 +10,6 @@ import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import io.github.bucket4j.Bucket;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.lang.NonNull;
@@ -25,7 +25,6 @@ import java.util.Map;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class RateLimitInterceptor implements HandlerInterceptor {
 
     private final Map<String, Bucket> userBuckets;
@@ -33,13 +32,25 @@ public class RateLimitInterceptor implements HandlerInterceptor {
     private final ObjectMapper objectMapper;
     private final MessageSource messageSource;
     private final ClientIpResolver clientIpResolver;
+    private final Cache<String, Bucket> ipBucketCache;
 
-    // Bounded IP bucket cache to prevent unbounded memory usage.
-    private final Map<String, Bucket> ipBuckets = Caffeine.newBuilder()
-            .maximumSize(20_000)
-            .expireAfterAccess(Duration.ofHours(2))
-            .<String, Bucket>build()
-            .asMap();
+    public RateLimitInterceptor(
+            Map<String, Bucket> userBuckets,
+            RateLimitConfig rateLimitConfig,
+            ObjectMapper objectMapper,
+            MessageSource messageSource,
+            ClientIpResolver clientIpResolver,
+            RateLimitProperties properties) {
+        this.userBuckets = userBuckets;
+        this.rateLimitConfig = rateLimitConfig;
+        this.objectMapper = objectMapper;
+        this.messageSource = messageSource;
+        this.clientIpResolver = clientIpResolver;
+        this.ipBucketCache = Caffeine.newBuilder()
+                .maximumSize(properties.getBucketCacheMaxSize())
+                .expireAfterAccess(Duration.ofMinutes(properties.getBucketCacheTtlMinutes()))
+                .<String, Bucket>build();
+    }
 
     @Override
     public boolean preHandle(@NonNull HttpServletRequest request,
@@ -66,7 +77,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
                 && !"/api/v1/auth/refresh".equals(path)
                 && !"/api/v1/auth/logout".equals(path)) {
             String authIpKey = "auth:" + clientIp;
-            return ipBuckets.computeIfAbsent(authIpKey, k -> rateLimitConfig.createAuthBucket());
+            return ipBucketCache.asMap().computeIfAbsent(authIpKey, k -> rateLimitConfig.createAuthBucket());
         }
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -76,7 +87,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             return userBuckets.computeIfAbsent("user:" + userId, k -> rateLimitConfig.createUserBucket());
         }
 
-        return ipBuckets.computeIfAbsent("api:" + clientIp, k -> rateLimitConfig.createApiBucket());
+        return ipBucketCache.asMap().computeIfAbsent("api:" + clientIp, k -> rateLimitConfig.createApiBucket());
     }
 
     private boolean shouldSkipRateLimit(String path) {
