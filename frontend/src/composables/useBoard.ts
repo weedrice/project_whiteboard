@@ -193,9 +193,13 @@ export function useBoard() {
                 const { data: response } = await boardApi.updateBoard(boardUrl, data)
                 return response.data
             },
-            onSuccess: (_, { boardUrl }) => {
+            onSuccess: (updatedBoard, { boardUrl, data }) => {
                 // Invalidate board details, boards list, and subscriptions
                 queryClient.invalidateQueries({ queryKey: ['board', boardUrl] })
+                const updatedBoardUrl = updatedBoard?.boardUrl ?? data.boardUrl
+                if (updatedBoardUrl && updatedBoardUrl !== boardUrl) {
+                    queryClient.invalidateQueries({ queryKey: ['board', updatedBoardUrl] })
+                }
                 queryClient.invalidateQueries({ queryKey: ['boards'] })
                 queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
             }

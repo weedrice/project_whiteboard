@@ -365,6 +365,21 @@ describe('useBoard', () => {
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards', 'subscriptions'] })
     })
 
+    it('invalidates old and new board detail caches when board URL changes', async () => {
+        vi.mocked(boardApi.updateBoard).mockResolvedValueOnce({
+            data: { data: { boardId: 4, boardUrl: 'new-free', boardName: 'updated' } },
+        } as never)
+
+        const { useUpdateBoard } = useBoard()
+        const mutation = useUpdateBoard()
+        await mutation.mutateAsync({ boardUrl: 'free', data: { boardName: 'updated', boardUrl: 'new-free' } })
+
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'free'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'new-free'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards', 'subscriptions'] })
+    })
+
     it('transfers board manager and invalidates detail plus lists', async () => {
         vi.mocked(boardApi.updateBoardManager).mockResolvedValueOnce({
             data: { data: { boardId: 4, boardUrl: 'free', adminDisplayName: 'manager' } },
