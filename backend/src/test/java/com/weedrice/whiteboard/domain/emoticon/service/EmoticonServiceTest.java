@@ -697,7 +697,7 @@ class EmoticonServiceTest {
         @DisplayName("이모티콘 수정 성공 - 소유자")
         void updateEmoticon_success() {
             EmoticonUpdateRequest request = EmoticonUpdateRequest.builder()
-                    .name("수정된 이름")
+                    .name(" 수정된 이름 ")
                     .thumbnailFileId(20L)
                     .tags(List.of("새태그"))
                     .build();
@@ -711,6 +711,23 @@ class EmoticonServiceTest {
             assertThat(emoticonMaster.getName()).isEqualTo("수정된 이름");
             assertThat(emoticonMaster.getThumbnailUrl()).isEqualTo("/api/v1/files/20");
             verify(emoticonMasterRepository).findById(1L);
+        }
+
+        @Test
+        @DisplayName("emoticon update rejects blank name")
+        void updateEmoticon_blankName_invalidInput() {
+            when(emoticonMasterRepository.findById(1L)).thenReturn(Optional.of(emoticonMaster));
+            EmoticonUpdateRequest request = EmoticonUpdateRequest.builder().name("   ").build();
+            String previousName = emoticonMaster.getName();
+
+            givenWritableUser();
+
+            assertThatThrownBy(() -> emoticonService.updateEmoticon(1L, 1L, request))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                            .isEqualTo(ErrorCode.VALIDATION_ERROR));
+
+            assertThat(emoticonMaster.getName()).isEqualTo(previousName);
         }
 
         @Test

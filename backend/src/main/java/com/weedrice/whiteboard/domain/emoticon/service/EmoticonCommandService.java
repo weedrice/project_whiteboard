@@ -121,11 +121,22 @@ class EmoticonCommandService {
         }
 
         master.update(
-                request.getName() != null ? request.getName() : master.getName(),
+                normalizeUpdateName(request.getName(), master.getName()),
                 thumbnailUrl,
                 request.getTags() != null ? request.getTags() : master.getTags());
 
         return EmoticonMasterDto.from(master);
+    }
+
+    private String normalizeUpdateName(String requestedName, String currentName) {
+        if (requestedName == null) {
+            return currentName;
+        }
+        String normalizedName = requestedName.trim();
+        if (normalizedName.isBlank()) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+        return normalizedName;
     }
 
     EmoticonMasterDto toggleVisibility(Long userId, Long emoticonId) {
