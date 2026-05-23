@@ -19,6 +19,8 @@ import java.time.LocalDateTime;
         @Index(name = "idx_message_queue_user", columnList = "target_user_id")
 })
 public class MessageQueue extends BaseTimeEntity {
+    public static final String DELIVERY_METHOD_EMAIL = "EMAIL";
+
     public static final String STATUS_PENDING = "PENDING";
     public static final String STATUS_PROCESSING = "PROCESSING";
     public static final String STATUS_SENT = "SENT";

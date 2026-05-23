@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.mqueue.scheduler;
 
 import com.weedrice.whiteboard.domain.mqueue.MessageQueuePolicy;
+import com.weedrice.whiteboard.domain.mqueue.entity.MessageQueue;
 import com.weedrice.whiteboard.domain.mqueue.repository.MessageQueueRepository;
 import com.weedrice.whiteboard.domain.mqueue.service.MqueueService;
 import lombok.RequiredArgsConstructor;
@@ -38,7 +39,10 @@ public class MqueueScheduler {
                 50,
                 Sort.by(Sort.Order.asc("requestedAt"), Sort.Order.asc("queueId")));
         List<Long> pendingQueueIds = messageQueueRepository.findPendingQueueIdsByStatusAndRetryCountLessThanAndDeliveryMethod(
-                "PENDING", MessageQueuePolicy.MAX_RETRY_COUNT, "EMAIL", pendingPageRequest);
+                MessageQueue.STATUS_PENDING,
+                MessageQueuePolicy.MAX_RETRY_COUNT,
+                MessageQueue.DELIVERY_METHOD_EMAIL,
+                pendingPageRequest);
 
         for (Long queueId : pendingQueueIds) {
             LocalDateTime claimedAt = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);

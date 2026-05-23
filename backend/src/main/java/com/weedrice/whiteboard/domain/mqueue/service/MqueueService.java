@@ -32,7 +32,7 @@ public class MqueueService {
     public void queueEmail(User user, String content) {
         MessageQueue message = MessageQueue.builder()
                 .targetUser(user)
-                .deliveryMethod("EMAIL")
+                .deliveryMethod(MessageQueue.DELIVERY_METHOD_EMAIL)
                 .content(content)
                 .build();
         messageQueueRepository.save(message);
