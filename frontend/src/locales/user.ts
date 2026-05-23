@@ -62,6 +62,9 @@ export const user: UserMessages = {
   recentViewed: {
     empty: '최근 읽은 글이 없습니다.',
   },
+  inquiryDetail: {
+    title: '문의 상세',
+  },
   settings: {
     title: '설정',
     general: '일반 설정',

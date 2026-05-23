@@ -739,6 +739,9 @@ export interface UserMessages {
   recentViewed: {
     empty: string
   }
+  inquiryDetail: {
+    title: string
+  }
   settings: {
     title: string
     general: string

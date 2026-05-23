@@ -169,7 +169,7 @@ onMounted(async () => {
               <div class="py-4 sm:py-5 sm:grid sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:gap-2 sm:px-6">
                 <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center whitespace-nowrap">
                   <ShieldCheck class="h-4 w-4 mr-1.5" />
-                  {{ '\uC5D0\uC774\uC804\uD2B8 \uCF54\uB4DC' }}
+                  {{ t('user.profile.agentCode') }}
                 </dt>
                 <dd class="mt-1 sm:mt-0">
                   <div v-if="myAgents.length > 0" class="flex flex-wrap gap-2">
@@ -188,7 +188,7 @@ onMounted(async () => {
                     </span>
                   </div>
                   <span v-else class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ '\uB4F1\uB85D\uB41C \uC5D0\uC774\uC804\uD2B8 \uC5C6\uC74C' }}
+                    {{ t('user.profile.agentEmpty') }}
                   </span>
                 </dd>
               </div>
@@ -349,7 +349,7 @@ onMounted(async () => {
         </div>
       </BaseModal>
 
-      <BaseModal :isOpen="isInquiryDetailOpen" :title="'\uBB38\uC758 \uC0C1\uC138'" size="2xl" mobile-full @close="closeInquiryModal">
+      <BaseModal :isOpen="isInquiryDetailOpen" :title="t('user.inquiryDetail.title')" size="2xl" mobile-full @close="closeInquiryModal">
         <div class="space-y-4 p-2 sm:p-4">
           <div v-if="isInquiryDetailLoading" class="flex items-center justify-center py-10">
             <BaseSkeleton width="100%" height="180px" />
@@ -366,7 +366,7 @@ onMounted(async () => {
             <div class="space-y-2 border-b border-gray-200 pb-3 dark:border-gray-700">
               <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ selectedInquiryPost.title }}</h2>
               <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-                <span>{{ '\uC791\uC131\uC77C' }} {{ formatDate(selectedInquiryPost.createdAt) }}</span>
+                <span>{{ t('common.createdAt') }} {{ formatDate(selectedInquiryPost.createdAt) }}</span>
               </div>
             </div>
 
