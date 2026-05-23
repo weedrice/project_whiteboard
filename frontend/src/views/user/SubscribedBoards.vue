@@ -83,6 +83,7 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { useQueryClient } from '@tanstack/vue-query'
 import { userApi } from '@/api/user'
 import { boardApi } from '@/api/board'
 import { useI18n } from 'vue-i18n'
@@ -98,6 +99,7 @@ import type { SubscriptionBoardListItem } from '@/types'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
+const queryClient = useQueryClient()
 const { confirm } = useConfirm()
 const { handleSilentError, handleError } = useErrorHandler()
 const accessibleBoards = ref<SubscriptionBoardListItem[]>([])
@@ -120,6 +122,11 @@ function isAccessibleSubscription(board: SubscriptionBoardListItem) {
 
 function canReorderSubscription(board: SubscriptionBoardListItem) {
     return isAccessibleSubscription(board) && board.isActive !== false
+}
+
+function invalidateSubscriptionCaches() {
+    queryClient.invalidateQueries({ queryKey: ['boards'] })
+    queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
 }
 
 async function fetchAllSubscriptions() {
@@ -179,6 +186,7 @@ async function handleUnsubscribe(board: SubscriptionBoardListItem) {
         const { data } = await boardApi.unsubscribeBoard(board.boardUrl)
         if (data.success) {
             toastStore.addToast(t('user.subscriptions.unsubscribeSuccess'), 'success')
+            invalidateSubscriptionCaches()
             await fetchSubscriptions()
         }
     } catch (error) {
@@ -190,6 +198,7 @@ async function handleDragEnd() {
     const boardUrls = accessibleBoards.value.map(board => board.boardUrl)
     try {
         await boardApi.updateSubscriptionOrder(boardUrls)
+        invalidateSubscriptionCaches()
     } catch (error) {
         handleSilentError(error, 'Failed to update subscription order')
         // Revert order if failed (optional, but good UX)
