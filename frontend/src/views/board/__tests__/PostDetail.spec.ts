@@ -14,7 +14,8 @@ const {
   unlikeMutate,
   scrapMutate,
   unscrapMutate,
-  reportMutate
+  reportMutate,
+  toastAdd
 } = vi.hoisted(() => ({
   route: {
     params: { postId: '15' },
@@ -69,7 +70,8 @@ const {
   unlikeMutate: vi.fn(),
   scrapMutate: vi.fn(),
   unscrapMutate: vi.fn(),
-  reportMutate: vi.fn()
+  reportMutate: vi.fn(),
+  toastAdd: vi.fn()
 }))
 
 vi.mock('vue-router', async (importOriginal) => {
@@ -101,7 +103,7 @@ vi.mock('@/stores/auth', () => ({
 
 vi.mock('@/stores/toast', () => ({
   useToastStore: () => ({
-    addToast: vi.fn()
+    addToast: toastAdd
   })
 }))
 
@@ -178,6 +180,7 @@ describe('PostDetail', () => {
     router.push.mockReset()
     router.replace.mockReset()
     router.back.mockReset()
+    toastAdd.mockReset()
     route.query = { page: '2' }
     route.fullPath = '/board/free/post/15?page=2'
     authState.isAuthenticated = true
@@ -287,6 +290,36 @@ describe('PostDetail', () => {
     expect(content.find('h2').text()).toBe('제목 블록')
     expect(content.find('blockquote p').text()).toBe('인용문')
     expect(content.find('pre code').text()).toBe('const value = 1')
+  })
+
+  it('shows a readable fallback when URL copy fails', async () => {
+    vi.stubGlobal('navigator', {
+      clipboard: {
+        writeText: vi.fn().mockRejectedValue(new Error('copy failed'))
+      },
+      share: vi.fn().mockResolvedValue(undefined)
+    })
+
+    const wrapper = mount(PostDetail, {
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          CommentList: true,
+          PostTags: true,
+          UserMenu: true,
+          BaseModal: true
+        }
+      }
+    })
+
+    await wrapper.find('.nv-post-url-chip').trigger('click')
+
+    await vi.waitFor(() => {
+      expect(toastAdd).toHaveBeenCalledWith('주소 복사에 실패했습니다.', 'error')
+    })
   })
 
   it('navigates back to the board route from the list action even when the list is already mounted', async () => {
