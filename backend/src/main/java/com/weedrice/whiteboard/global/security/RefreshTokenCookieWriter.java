@@ -72,10 +72,14 @@ public class RefreshTokenCookieWriter {
         if (request == null) {
             return true;
         }
+        if (request.isSecure()) {
+            return true;
+        }
         String forwardedProto = request.getHeader("X-Forwarded-Proto");
         if (StringUtils.hasText(forwardedProto)) {
-            return "https".equalsIgnoreCase(forwardedProto);
+            String firstForwardedProto = forwardedProto.split(",", 2)[0].trim();
+            return "https".equalsIgnoreCase(firstForwardedProto);
         }
-        return request.isSecure();
+        return false;
     }
 }

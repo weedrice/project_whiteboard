@@ -51,4 +51,29 @@ class RefreshTokenCookieWriterTest {
                         && header.contains("Max-Age=0")
                         && header.contains("Secure"));
     }
+
+    @Test
+    void writeRefreshTokenCookie_keepsSecureFlagWhenSecureRequestHasForwardedHttp() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setSecure(true);
+        request.addHeader("X-Forwarded-Proto", "http");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        writer.writeRefreshTokenCookie(response, "refresh-token", request);
+
+        assertThat(response.getHeaders("Set-Cookie"))
+                .allMatch(header -> header.contains("Secure"));
+    }
+
+    @Test
+    void writeRefreshTokenCookie_usesFirstForwardedProtoValue() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("X-Forwarded-Proto", "https, http");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        writer.writeRefreshTokenCookie(response, "refresh-token", request);
+
+        assertThat(response.getHeaders("Set-Cookie"))
+                .allMatch(header -> header.contains("Secure"));
+    }
 }
