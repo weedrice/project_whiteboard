@@ -127,4 +127,31 @@ describe('EmoticonRegister', () => {
     expect(wrapper.get('label[for="emoticon-register-image-input"]').attributes('for')).toBe('emoticon-register-image-input')
     expect(wrapper.get('#emoticon-register-image-input').attributes('disabled')).toBeDefined()
   })
+
+  it('labels icon-only image and tag action buttons', async () => {
+    const wrapper = mountRegister()
+
+    await flushPromises()
+
+    const vm = wrapper.vm as unknown as {
+      thumbnailPreview: string
+      emoticonPreviews: Array<{ file: File; preview: string; width: number; height: number }>
+      tags: string[]
+    }
+    vm.thumbnailPreview = 'blob:thumbnail.png'
+    vm.emoticonPreviews = [{
+      file: new File(['image'], 'one.png', { type: 'image/png' }),
+      preview: 'blob:one.png',
+      width: 80,
+      height: 80,
+    }]
+    vm.tags = ['cute']
+    await flushPromises()
+
+    const deleteButtons = wrapper.findAll('button[aria-label="common.delete"]')
+    expect(deleteButtons).toHaveLength(2)
+    expect(deleteButtons.every((button) => button.attributes('title') === 'common.delete')).toBe(true)
+    expect(wrapper.get('button[aria-label="common.add"]').attributes('title')).toBe('common.add')
+    expect(wrapper.get('button[aria-label="board.tags.remove"]').attributes('title')).toBe('board.tags.remove')
+  })
 })

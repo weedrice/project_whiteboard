@@ -224,6 +224,8 @@ const goToList = () => {
               <button
                 type="button"
                 @click="removeThumbnail"
+                :aria-label="$t('common.delete')"
+                :title="$t('common.delete')"
                 class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600"
               >
                 <X class="w-4 h-4" />
@@ -286,6 +288,8 @@ const goToList = () => {
             <button
               type="button"
               @click="removeEmoticonImage(index)"
+              :aria-label="$t('common.delete')"
+              :title="$t('common.delete')"
               class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 text-xs"
             >
               <X class="w-3 h-3" />
@@ -308,6 +312,8 @@ const goToList = () => {
             <button
               type="button"
               @click="emoticonInput?.click()"
+              :aria-label="$t('common.add')"
+              :title="$t('common.add')"
               class="w-full aspect-square border-2 border-dashed border-gray-300 dark:border-gray-600 rounded flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 hover:border-indigo-500 hover:text-indigo-500 transition-colors"
               style="width: 100px; height: 100px;"
             >
@@ -351,6 +357,8 @@ const goToList = () => {
             <button
               type="button"
               @click="removeTag(index)"
+              :aria-label="$t('board.tags.remove')"
+              :title="$t('board.tags.remove')"
               class="ml-1 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-200"
             >
               <X class="w-3 h-3" />

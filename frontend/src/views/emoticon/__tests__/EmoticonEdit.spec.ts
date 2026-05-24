@@ -269,7 +269,7 @@ describe('EmoticonEdit', () => {
     await fileInput.trigger('change')
     await flushPromises()
 
-    await wrapper.find('button[title="삭제"]').trigger('click')
+    await wrapper.find('button[aria-label="common.delete"]').trigger('click')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
@@ -383,5 +383,35 @@ describe('EmoticonEdit', () => {
     await flushPromises()
 
     expect(mocks.toggleVisibility).toHaveBeenCalledTimes(1)
+  })
+
+  it('labels icon-only image and tag action buttons', async () => {
+    const wrapper = mount(EmoticonEdit, {
+      global: {
+        mocks: {
+          $t: (key: string) => key,
+        },
+        stubs: {
+          BaseButton: baseButtonStub,
+          ArrowLeft: true,
+          Upload: true,
+          X: true,
+          Plus: true,
+          EyeOff: true,
+          Eye: true,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.get('button[aria-label="common.edit"]').attributes('title')).toBe('common.edit')
+    expect(wrapper.get('button[aria-label="common.add"]').attributes('title')).toBe('common.add')
+    expect(wrapper.get('button[aria-label="board.tags.remove"]').attributes('title')).toBe('board.tags.remove')
+
+    await wrapper.get('button[aria-label="common.delete"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('button[aria-label="common.cancel"]').attributes('title')).toBe('common.cancel')
   })
 })

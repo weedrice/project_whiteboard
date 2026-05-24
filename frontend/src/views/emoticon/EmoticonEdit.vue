@@ -446,8 +446,9 @@ const goToDetail = () => {
               </div>
               <input id="emoticon-thumbnail-input" ref="thumbnailInput" type="file" name="thumbnailImage" :accept="SUPPORTED_IMAGE_ACCEPT" @change="handleThumbnailSelect" class="hidden" />
               <button type="button" @click="changeThumbnail"
+                :aria-label="$t('common.edit')"
                 class="absolute -bottom-2 -right-2 w-8 h-8 bg-indigo-500 text-white rounded-full flex items-center justify-center hover:bg-indigo-600 shadow-md"
-                title="썸네일 변경">
+                :title="$t('common.edit')">
                 <Upload class="w-4 h-4" />
               </button>
             </div>
@@ -484,13 +485,15 @@ const goToDetail = () => {
               style="width: 100px; height: 100px;" />
             <button v-if="!imagesToDelete.includes(image.imageId)" type="button"
               @click="markImageForDeletion(image.imageId)"
+              :aria-label="$t('common.delete')"
               class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 text-xs"
-              title="삭제">
+              :title="$t('common.delete')">
               <X class="w-3 h-3" />
             </button>
             <button v-else type="button" @click="unmarkImageForDeletion(image.imageId)"
+              :aria-label="$t('common.cancel')"
               class="absolute -top-1 -right-1 w-5 h-5 bg-gray-500 text-white rounded-full flex items-center justify-center hover:bg-gray-600 text-xs"
-              title="삭제 취소">
+              :title="$t('common.cancel')">
               <Plus class="w-3 h-3" />
             </button>
           </div>
@@ -501,6 +504,8 @@ const goToDetail = () => {
               class="w-full aspect-square object-contain bg-green-50 dark:bg-green-900/20 rounded border-2 border-green-400"
               style="width: 100px; height: 100px;" />
             <button type="button" @click="removeNewEmoticonImage(index)"
+              :aria-label="$t('common.delete')"
+              :title="$t('common.delete')"
               class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 text-xs">
               <X class="w-3 h-3" />
             </button>
@@ -511,6 +516,8 @@ const goToDetail = () => {
             class="hidden" />
           <div v-if="totalImageCount < 100">
             <button type="button" @click="emoticonInput?.click()"
+              :aria-label="$t('common.add')"
+              :title="$t('common.add')"
               class="w-full aspect-square border-2 border-dashed border-gray-300 dark:border-gray-600 rounded flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 hover:border-indigo-500 hover:text-indigo-500 transition-colors"
               style="width: 100px; height: 100px;">
               <Plus class="w-6 h-6" />
@@ -549,6 +556,8 @@ const goToDetail = () => {
             class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">
             #{{ tag }}
             <button type="button" @click="removeTag(index)"
+              :aria-label="$t('board.tags.remove')"
+              :title="$t('board.tags.remove')"
               class="ml-1 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-200">
               <X class="w-3 h-3" />
             </button>
