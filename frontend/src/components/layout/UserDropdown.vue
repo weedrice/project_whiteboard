@@ -24,6 +24,7 @@ const emit = defineEmits<{
 
 const points = ref(0)
 const dropdownRef = ref<HTMLElement | null>(null)
+const menuId = 'user-dropdown-menu'
 
 const toggleDropdown = () => {
   emit('toggle')
@@ -116,7 +117,11 @@ onUnmounted(() => {
 
 <template>
   <div class="relative" ref="dropdownRef">
-    <button @click.stop="toggleDropdown"
+    <button type="button" @click.stop="toggleDropdown"
+      aria-label="사용자 메뉴"
+      aria-haspopup="menu"
+      :aria-expanded="isOpen ? 'true' : 'false'"
+      :aria-controls="isOpen ? menuId : undefined"
       class="flex items-center justify-center sm:justify-start space-x-2 text-xs sm:text-sm text-gray-700 dark:text-gray-200 hover:text-indigo-600 dark:hover:text-indigo-400 focus:outline-none min-h-[40px] min-w-[40px] sm:min-h-0 sm:min-w-0 rounded-md active:bg-gray-100 dark:active:bg-gray-700 touch-manipulation">
       <div
         class="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold overflow-hidden border border-gray-200 dark:border-gray-600 flex-shrink-0">
@@ -131,6 +136,8 @@ onUnmounted(() => {
     </button>
 
     <div v-if="isOpen"
+      :id="menuId"
+      role="menu"
       class="origin-top-right absolute right-0 mt-2 w-[min(16rem,92vw)] sm:w-64 rounded-md shadow-lg py-1 bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 dark:ring-gray-700 focus:outline-none z-50">
       <!-- User Info -->
       <div class="px-3 py-2.5 sm:py-3 border-b border-gray-100 dark:border-gray-700">
