@@ -1,9 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useThemeStore } from '../theme'
 
+vi.mock('@/utils/logger', () => ({
+    default: {
+        error: vi.fn(),
+        warn: vi.fn(),
+    },
+}))
+
 describe('Theme Store', () => {
     let store: ReturnType<typeof useThemeStore>
+    const localStoragePrototype = Object.getPrototypeOf(window.localStorage)
 
     beforeEach(() => {
         // Reset localStorage
@@ -12,6 +20,10 @@ describe('Theme Store', () => {
 
         setActivePinia(createPinia())
         store = useThemeStore()
+    })
+
+    afterEach(() => {
+        vi.restoreAllMocks()
     })
 
     describe('initialization', () => {
@@ -32,6 +44,18 @@ describe('Theme Store', () => {
             setActivePinia(createPinia())
             store = useThemeStore()
 
+            expect(store.isDark).toBe(false)
+        })
+
+        it('falls back to system preference when localStorage read is blocked', () => {
+            vi.spyOn(localStoragePrototype, 'getItem').mockImplementation(() => {
+                throw new Error('localStorage blocked')
+            })
+            setActivePinia(createPinia())
+
+            expect(() => {
+                store = useThemeStore()
+            }).not.toThrow()
             expect(store.isDark).toBe(false)
         })
     })
@@ -85,6 +109,17 @@ describe('Theme Store', () => {
             store.setTheme('LIGHT')
             await new Promise(resolve => setTimeout(resolve, 0))
             expect(localStorage.getItem('theme')).toBe('light')
+        })
+
+        it('does not throw when localStorage write is blocked', async () => {
+            vi.spyOn(localStoragePrototype, 'setItem').mockImplementation(() => {
+                throw new Error('localStorage blocked')
+            })
+
+            expect(() => store.setTheme('DARK')).not.toThrow()
+            await new Promise(resolve => setTimeout(resolve, 0))
+
+            expect(store.isDark).toBe(true)
         })
     })
 })

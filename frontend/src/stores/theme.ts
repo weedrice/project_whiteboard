@@ -1,9 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
+import { Storage } from '@/utils/storage'
 
 export const useThemeStore = defineStore('theme', () => {
     // Initialize theme: localStorage -> System Preference -> Light
-    const storedTheme = localStorage.getItem('theme')
+    const storedTheme = Storage.getString('theme')
     const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches
     const isDark = ref(storedTheme === 'dark' || (!storedTheme && systemDark))
 
@@ -22,10 +23,10 @@ export const useThemeStore = defineStore('theme', () => {
     watch(isDark, (val) => {
         if (val) {
             document.documentElement.classList.add('dark')
-            localStorage.setItem('theme', 'dark')
+            Storage.setString('theme', 'dark')
         } else {
             document.documentElement.classList.remove('dark')
-            localStorage.setItem('theme', 'light')
+            Storage.setString('theme', 'light')
         }
     }, { immediate: true })
 
