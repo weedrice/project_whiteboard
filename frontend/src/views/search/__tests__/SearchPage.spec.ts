@@ -113,6 +113,7 @@ describe('SearchPage', () => {
   it('shows a search prompt instead of no results before a query is provided', () => {
     const wrapper = mountPage()
 
+    expect(wrapper.get('h1').text()).toBe('search.results')
     expect(wrapper.find('[data-testid="empty-state"]').text()).toBe('search.placeholder')
     expect(wrapper.find('[data-testid="empty-state"]').attributes('data-description')).toBeUndefined()
   })

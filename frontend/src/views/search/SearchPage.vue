@@ -4,7 +4,7 @@
       <!-- Main Content -->
       <div class="flex-1">
         <div class="mb-6">
-          <h2 class="text-2xl font-bold text-gray-900 dark:text-white">{{ $t('search.results') }}</h2>
+          <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ $t('search.results') }}</h1>
           <p v-if="searchQuery" class="mt-2 text-gray-600 dark:text-gray-400">
             {{ $t('search.query') }}: <span class="font-semibold text-indigo-600 dark:text-indigo-400">"{{ searchQuery
             }}"</span>
