@@ -124,6 +124,11 @@ const updateNotificationSettings = vi.fn()
 const setTheme = vi.fn()
 const mountedWrappers: Array<ReturnType<typeof mount>> = []
 
+const flushPromises = async () => {
+  await Promise.resolve()
+  await Promise.resolve()
+}
+
 const mountUserSettings = () => {
   const wrapper = mount(UserSettings, {
     global: {
@@ -244,6 +249,23 @@ describe('UserSettings', () => {
     expect(updateNotificationSettings).not.toHaveBeenCalled()
     expect(setTheme).toHaveBeenCalledWith('DARK')
     expect(wrapper.text()).toContain('user.settings.saved')
+    const message = wrapper.findAll('p').find((item) => item.text() === 'user.settings.saved')
+    expect(message?.attributes('role')).toBe('status')
+    expect(message?.attributes('aria-live')).toBe('polite')
+  })
+
+  it('announces general settings save failures as alerts', async () => {
+    updateSettings.mockRejectedValueOnce(new Error('save failed'))
+    const wrapper = mountUserSettings()
+    await nextTick()
+
+    await wrapper.findAll('select')[0].setValue('DARK')
+    await wrapper.findAll('button')[0].trigger('click')
+    await flushPromises()
+
+    const message = wrapper.findAll('p').find((item) => item.text() === 'user.settings.failed')
+    expect(message?.attributes('role')).toBe('alert')
+    expect(message?.attributes('aria-live')).toBeUndefined()
   })
 
   it('saves notification settings through the bulk endpoint payload', async () => {
@@ -268,6 +290,9 @@ describe('UserSettings', () => {
       ],
     })
     expect(wrapper.text()).toContain('user.settings.saved')
+    const message = wrapper.findAll('p').find((item) => item.text() === 'user.settings.saved')
+    expect(message?.attributes('role')).toBe('status')
+    expect(message?.attributes('aria-live')).toBe('polite')
   })
 
   it('does not overwrite dirty notification form state on refetch', async () => {

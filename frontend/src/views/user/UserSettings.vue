@@ -197,6 +197,8 @@ const saveNotificationSettings = async () => {
             <p
               v-if="generalMessage"
               class="mr-4 text-sm flex items-center"
+              :role="generalIsError ? 'alert' : 'status'"
+              :aria-live="generalIsError ? undefined : 'polite'"
               :class="generalIsError ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'"
             >
               {{ generalMessage }}
@@ -237,6 +239,8 @@ const saveNotificationSettings = async () => {
             <p
               v-if="notificationMessage"
               class="mr-4 text-sm flex items-center"
+              :role="notificationIsError ? 'alert' : 'status'"
+              :aria-live="notificationIsError ? undefined : 'polite'"
               :class="notificationIsError ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'"
             >
               {{ notificationMessage }}
