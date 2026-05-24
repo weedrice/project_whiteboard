@@ -68,14 +68,19 @@ const BaseInputStub = defineComponent({
   name: 'BaseInput',
   props: {
     modelValue: { type: String, default: '' },
+    label: { type: String, default: '' },
+    hideLabel: { type: Boolean, default: false },
   },
   emits: ['update:modelValue'],
   setup(props, { emit }) {
     return () =>
-      h('input', {
-        value: props.modelValue,
-        onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLInputElement).value),
-      })
+      h('div', [
+        props.label ? h('label', { class: props.hideLabel ? 'sr-only' : '' }, props.label) : null,
+        h('input', {
+          value: props.modelValue,
+          onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLInputElement).value),
+        }),
+      ])
   },
 })
 
@@ -83,18 +88,23 @@ const BaseSelectStub = defineComponent({
   name: 'BaseSelect',
   props: {
     modelValue: { type: String, default: '' },
+    label: { type: String, default: '' },
+    hideLabel: { type: Boolean, default: false },
   },
   emits: ['update:modelValue'],
   setup(props, { emit, slots }) {
     return () =>
-      h(
-        'select',
-        {
-          value: props.modelValue,
-          onChange: (event: Event) => emit('update:modelValue', (event.target as HTMLSelectElement).value),
-        },
-        slots.default?.(),
-      )
+      h('div', [
+        props.label ? h('label', { class: props.hideLabel ? 'sr-only' : '' }, props.label) : null,
+        h(
+          'select',
+          {
+            value: props.modelValue,
+            onChange: (event: Event) => emit('update:modelValue', (event.target as HTMLSelectElement).value),
+          },
+          slots.default?.(),
+        ),
+      ])
   },
 })
 
@@ -147,6 +157,14 @@ describe('CategoryManager', () => {
     expect(wrapper.find('button[aria-label="board.category.add"]').exists()).toBe(true)
     expect(wrapper.findAll('button[aria-label="board.category.edit"]')).toHaveLength(2)
     expect(wrapper.find('button[aria-label="board.category.delete"]').exists()).toBe(true)
+  })
+
+  it('keeps hidden labels on category name and role fields', () => {
+    const wrapper = mountCategoryManager()
+    const labels = wrapper.findAll('label')
+
+    expect(labels.some((label) => label.text() === 'board.category.placeholder.new' && label.classes().includes('sr-only'))).toBe(true)
+    expect(labels.some((label) => label.text() === 'common.role' && label.classes().includes('sr-only'))).toBe(true)
   })
 
   it('labels save and cancel actions while editing a category', () => {

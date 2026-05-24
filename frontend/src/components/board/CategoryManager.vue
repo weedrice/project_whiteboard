@@ -48,9 +48,9 @@ onMounted(fetchCategories)
 
     <!-- Add Category -->
     <form @submit.prevent="handleAdd" class="flex gap-2">
-      <BaseInput v-model="newCategoryName" :placeholder="$t('board.category.placeholder.new')" hideLabel
+      <BaseInput v-model="newCategoryName" :label="$t('board.category.placeholder.new')" :placeholder="$t('board.category.placeholder.new')" hideLabel
         inputClass="dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:placeholder-gray-400" class="flex-1" />
-      <BaseSelect v-model="newCategoryRole" class="w-32"
+      <BaseSelect v-model="newCategoryRole" :label="$t('common.role')" class="w-32" hideLabel
         inputClass="dark:bg-gray-700 dark:text-white dark:border-gray-600">
         <option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option>
       </BaseSelect>
@@ -77,7 +77,7 @@ onMounted(fetchCategories)
           <span class="text-sm text-gray-900 dark:text-gray-200 font-medium">{{ defaultCategory.name }} {{
             $t('board.category.default') }}</span>
           <div class="ml-auto flex items-center gap-2">
-            <BaseSelect v-model="editingRole" class="w-32"
+            <BaseSelect v-model="editingRole" :label="$t('common.role')" class="w-32" hideLabel
               inputClass="dark:bg-gray-700 dark:text-white dark:border-gray-600">
               <option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option>
             </BaseSelect>
@@ -123,10 +123,10 @@ onMounted(fetchCategories)
           </div>
 
           <div v-if="editingId === category.categoryId" class="flex-1 flex items-center gap-2">
-            <BaseInput v-model="editingName" hideLabel
+            <BaseInput v-model="editingName" :label="$t('board.category.placeholder.new')" hideLabel
               inputClass="dark:bg-gray-700 dark:text-white dark:border-gray-600" class="w-full" />
             <div class="ml-auto flex items-center gap-2">
-              <BaseSelect v-model="editingRole" class="w-32"
+              <BaseSelect v-model="editingRole" :label="$t('common.role')" class="w-32" hideLabel
                 inputClass="dark:bg-gray-700 dark:text-white dark:border-gray-600">
                 <option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option>
               </BaseSelect>
