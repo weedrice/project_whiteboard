@@ -64,9 +64,9 @@ function handleMarkAllAsRead() {
         {{ $t('notification.empty') }}
       </div>
 
-      <a v-for="notification in notifications" :key="notification.notificationId" href="#"
-        @click.prevent="handleNotificationClick(notification)"
-        class="block px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-150 ease-in-out border-b border-gray-50 dark:border-gray-700 last:border-0"
+      <button v-for="notification in notifications" :key="notification.notificationId" type="button"
+        @click="handleNotificationClick(notification)"
+        class="block w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-150 ease-in-out border-b border-gray-50 dark:border-gray-700 last:border-0"
         :class="{ 'bg-blue-50 dark:bg-blue-900/20': !notification.isRead }">
         <div class="flex items-start">
           <div class="flex-shrink-0">
@@ -91,7 +91,7 @@ function handleMarkAllAsRead() {
             <span class="inline-block h-2 w-2 rounded-full bg-indigo-600 dark:bg-indigo-400"></span>
           </div>
         </div>
-      </a>
+      </button>
     </div>
 
     <div class="px-4 py-2 border-t border-gray-100 dark:border-gray-700 text-center">

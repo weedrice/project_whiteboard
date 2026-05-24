@@ -105,4 +105,20 @@ describe('NotificationDropdown', () => {
 
     expect(markAllAsRead).toHaveBeenCalledTimes(1)
   })
+
+  it('uses a button for notification items and navigates without hash links', async () => {
+    const notification = makeNotification(false)
+    notificationsData.value = { content: [notification] }
+    const wrapper = mountDropdown()
+
+    const item = wrapper.findAll('button').find((button) => button.text().includes(notification.message))
+
+    expect(item).toBeTruthy()
+    expect(item?.attributes('type')).toBe('button')
+    expect(item?.attributes('href')).toBeUndefined()
+
+    await item!.trigger('click')
+
+    expect(navigateFromNotification).toHaveBeenCalledWith(notification)
+  })
 })
