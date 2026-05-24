@@ -304,7 +304,8 @@ onMounted(async () => {
             </label>
             <div class="flex gap-2 items-end">
               <div class="flex-1 min-w-0">
-                <BaseInput v-model="emailVerification.email" :placeholder="t('auth.emailPlaceholder')"
+                <BaseInput id="email-verification-email" v-model="emailVerification.email" name="emailVerificationEmail"
+                  autocomplete="email" :label="t('user.profile.email')" :placeholder="t('auth.emailPlaceholder')"
                   :disabled="emailVerification.isCodeSent" inputClass="h-11 min-h-[44px]" hideLabel
                   :error="emailVerification.email.trim() && !isValidEmail(emailVerification.email) ? t('auth.validation.emailFormat') : ''"
                   hideErrorText />
@@ -329,8 +330,9 @@ onMounted(async () => {
           <!-- Code Input area -->
           <div v-if="emailVerification.isCodeSent" class="space-y-4">
             <div class="relative">
-              <BaseInput v-model="emailVerification.code" :placeholder="t('auth.codePlaceholder')" hideLabel
-                :disabled="emailVerification.timeLeft <= 0">
+              <BaseInput id="email-verification-code" v-model="emailVerification.code" name="emailVerificationCode"
+                inputmode="numeric" autocomplete="one-time-code" :label="t('auth.codePlaceholder')"
+                :placeholder="t('auth.codePlaceholder')" hideLabel :disabled="emailVerification.timeLeft <= 0">
                 <template #prefix>
                   <ShieldCheck class="h-5 w-5 text-gray-400" />
                 </template>
