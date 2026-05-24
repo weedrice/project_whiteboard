@@ -59,20 +59,24 @@ const BaseSelectStub = defineComponent({
     name: 'BaseSelect',
     props: {
         id: { type: String, default: '' },
+        label: { type: String, default: '' },
         modelValue: { type: [String, Number], default: '' },
     },
     emits: ['update:modelValue'],
     setup(props, { emit, slots }) {
         return () =>
-            h(
-                'select',
-                {
-                    id: props.id,
-                    value: props.modelValue as string | number,
-                    onChange: (event: Event) => emit('update:modelValue', (event.target as HTMLSelectElement).value),
-                },
-                slots.default?.(),
-            )
+            h('div', [
+                props.label ? h('label', { for: props.id }, props.label) : null,
+                h(
+                    'select',
+                    {
+                        id: props.id,
+                        value: props.modelValue as string | number,
+                        onChange: (event: Event) => emit('update:modelValue', (event.target as HTMLSelectElement).value),
+                    },
+                    slots.default?.(),
+                ),
+            ])
     },
 })
 
@@ -1187,6 +1191,19 @@ describe('PostForm', () => {
         expect(wrapper.get('label[for="post-tags-input-desktop"]').attributes('for')).toBe('post-tags-input-desktop')
         expect(mobileTagInput.attributes('id')).toBe('post-tags-input-mobile')
         expect(desktopTagInput.attributes('id')).toBe('post-tags-input-desktop')
+    })
+
+    it('connects mobile and desktop category labels to unique selects', () => {
+        const wrapper = mountPostForm('create')
+        const mobileCategorySelect = wrapper.get('#category-mobile')
+        const desktopCategorySelect = wrapper.get('#category')
+
+        expect(wrapper.findAll('#category-mobile')).toHaveLength(1)
+        expect(wrapper.findAll('#category')).toHaveLength(1)
+        expect(wrapper.get('label[for="category-mobile"]').text()).toBe('common.category')
+        expect(wrapper.get('label[for="category"]').text()).toBe('common.category')
+        expect(mobileCategorySelect.element.tagName).toBe('SELECT')
+        expect(desktopCategorySelect.element.tagName).toBe('SELECT')
     })
 
     it('omits categoryId when edit payload category is empty string', async () => {

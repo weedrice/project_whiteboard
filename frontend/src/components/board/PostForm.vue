@@ -641,7 +641,7 @@ defineExpose({
           <div class="nv-compose-main-card rounded-2xl border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)] sm:p-5">
             <div class="mb-4 flex flex-wrap items-center gap-2 lg:hidden">
               <div v-if="!props.hideCategory && filteredCategories.length > 0" class="min-w-[10rem] flex-1">
-                <BaseSelect id="category" v-model="form.categoryId" :label="$t('common.category')">
+                <BaseSelect id="category-mobile" v-model="form.categoryId" :label="$t('common.category')">
                   <option value="" disabled>{{ $t('board.writePost.selectCategory') }}</option>
                   <option
                     v-for="cat in filteredCategories"
