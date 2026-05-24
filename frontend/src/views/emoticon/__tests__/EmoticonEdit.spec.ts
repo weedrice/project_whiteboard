@@ -165,6 +165,49 @@ describe('EmoticonEdit', () => {
     ])
   })
 
+  it('connects edit form labels to named controls', async () => {
+    const wrapper = mount(EmoticonEdit, {
+      global: {
+        mocks: {
+          $t: (key: string) => key,
+        },
+        stubs: {
+          BaseButton: baseButtonStub,
+          ArrowLeft: true,
+          Upload: true,
+          X: true,
+          Plus: true,
+          EyeOff: true,
+          Eye: true,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.get('label[for="emoticon-thumbnail-input"]').attributes('for')).toBe('emoticon-thumbnail-input')
+    expect(wrapper.get('#emoticon-thumbnail-input').attributes()).toMatchObject({
+      name: 'thumbnailImage',
+      type: 'file',
+    })
+    expect(wrapper.get('label[for="emoticon-name-input"]').attributes('for')).toBe('emoticon-name-input')
+    expect(wrapper.get('#emoticon-name-input').attributes()).toMatchObject({
+      name: 'emoticonName',
+      autocomplete: 'off',
+    })
+    expect(wrapper.get('label[for="emoticon-image-input"]').attributes('for')).toBe('emoticon-image-input')
+    expect(wrapper.get('#emoticon-image-input').attributes()).toMatchObject({
+      name: 'emoticonImages',
+      multiple: '',
+      type: 'file',
+    })
+    expect(wrapper.get('label[for="emoticon-tag-input"]').attributes('for')).toBe('emoticon-tag-input')
+    expect(wrapper.get('#emoticon-tag-input').attributes()).toMatchObject({
+      name: 'emoticonTag',
+      autocomplete: 'off',
+    })
+  })
+
   it('deletes selected images before uploading files and adds new images in selection order', async () => {
     const wrapper = mount(EmoticonEdit, {
       global: {

@@ -430,7 +430,7 @@ const goToDetail = () => {
         <div class="flex flex-col md:flex-row gap-6">
           <!-- 썸네일 -->
           <div class="order-2 md:order-1 shrink-0">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label for="emoticon-thumbnail-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               썸네일 이미지 <span class="text-red-500">*</span>
             </label>
             <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">대표 이미지로 노비콘 목록에 표시됩니다. 500x500px 이하의 이미지만 업로드
@@ -444,7 +444,7 @@ const goToDetail = () => {
                 class="w-32 h-32 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center text-gray-400">
                 No Image
               </div>
-              <input ref="thumbnailInput" type="file" :accept="SUPPORTED_IMAGE_ACCEPT" @change="handleThumbnailSelect" class="hidden" />
+              <input id="emoticon-thumbnail-input" ref="thumbnailInput" type="file" name="thumbnailImage" :accept="SUPPORTED_IMAGE_ACCEPT" @change="handleThumbnailSelect" class="hidden" />
               <button type="button" @click="changeThumbnail"
                 class="absolute -bottom-2 -right-2 w-8 h-8 bg-indigo-500 text-white rounded-full flex items-center justify-center hover:bg-indigo-600 shadow-md"
                 title="썸네일 변경">
@@ -455,10 +455,10 @@ const goToDetail = () => {
 
           <!-- 이모티콘 이름 -->
           <div class="order-1 md:order-2 flex-1">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label for="emoticon-name-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               이모티콘 이름 <span class="text-red-500">*</span>
             </label>
-            <input v-model="emoticonName" type="text" maxlength="100" placeholder="이모티콘 이름을 입력하세요"
+            <input id="emoticon-name-input" v-model="emoticonName" type="text" name="emoticonName" autocomplete="off" maxlength="100" placeholder="이모티콘 이름을 입력하세요"
               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
           </div>
         </div>
@@ -466,7 +466,7 @@ const goToDetail = () => {
 
       <!-- 이모티콘 이미지 -->
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        <label for="emoticon-image-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           이모티콘 이미지 <span class="text-red-500">*</span>
           <span class="text-xs font-normal text-gray-500 ml-2">({{ totalImageCount }}/100개)</span>
         </label>
@@ -508,7 +508,7 @@ const goToDetail = () => {
 
           <!-- 추가 버튼 -->
           <div v-if="totalImageCount < 100">
-            <input ref="emoticonInput" type="file" :accept="SUPPORTED_IMAGE_ACCEPT" multiple @change="handleEmoticonSelect"
+            <input id="emoticon-image-input" ref="emoticonInput" type="file" name="emoticonImages" :accept="SUPPORTED_IMAGE_ACCEPT" multiple @change="handleEmoticonSelect"
               class="hidden" />
             <button type="button" @click="emoticonInput?.click()"
               class="w-full aspect-square border-2 border-dashed border-gray-300 dark:border-gray-600 rounded flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 hover:border-indigo-500 hover:text-indigo-500 transition-colors"
@@ -530,14 +530,14 @@ const goToDetail = () => {
 
       <!-- 태그 입력 -->
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        <label for="emoticon-tag-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           태그
           <span class="text-xs font-normal text-gray-500 ml-2">({{ tags.length }}/10개)</span>
         </label>
         <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">검색에 사용될 태그를 입력하세요.</p>
 
         <div class="flex gap-2 mb-4">
-          <input v-model="tagInput" @keydown.enter.prevent="addTag" type="text" placeholder="태그 입력 후 Enter"
+          <input id="emoticon-tag-input" v-model="tagInput" name="emoticonTag" autocomplete="off" @keydown.enter.prevent="addTag" type="text" placeholder="태그 입력 후 Enter"
             class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
           <BaseButton type="button" @click="addTag" variant="secondary">
             추가
