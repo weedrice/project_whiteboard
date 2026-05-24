@@ -259,7 +259,13 @@ const columns = computed(() => [
         <div class="flex flex-wrap items-end gap-3">
           <div class="w-80 max-w-full">
             <label class="mb-1 block text-xs text-gray-500 dark:text-gray-400">사용자 검색</label>
-            <BaseInput v-model="filterForm.q" :placeholder="t('admin.users.searchPlaceholder')" hideLabel @keyup.enter="applyFilters">
+            <BaseInput
+              v-model="filterForm.q"
+              :label="t('admin.users.searchPlaceholder')"
+              :placeholder="t('admin.users.searchPlaceholder')"
+              hideLabel
+              @keyup.enter="applyFilters"
+            >
               <template #prefix>
                 <Search class="h-5 w-5 text-gray-400 dark:text-gray-500" aria-hidden="true" />
               </template>

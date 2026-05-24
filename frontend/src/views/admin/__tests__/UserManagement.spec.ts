@@ -77,15 +77,20 @@ const iconStub = defineComponent({
 const BaseInputStub = defineComponent({
     props: {
         modelValue: String,
+        label: String,
         placeholder: String,
+        hideLabel: Boolean,
     },
     emits: ['update:modelValue'],
     setup(props, { emit }) {
-        return () => h('input', {
-            value: props.modelValue,
-            placeholder: props.placeholder,
-            onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLInputElement).value),
-        })
+        return () => h('div', [
+            props.label ? h('label', { class: props.hideLabel ? 'sr-only' : '' }, props.label) : null,
+            h('input', {
+                value: props.modelValue,
+                placeholder: props.placeholder,
+                onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLInputElement).value),
+            }),
+        ])
     },
 })
 
@@ -123,5 +128,23 @@ describe('UserManagement', () => {
         expect(modal.attributes('data-open')).toBe('true')
         expect(modal.attributes('data-user-id')).toBe('7')
         expect(mocks.updateUserStatus).not.toHaveBeenCalled()
+    })
+
+    it('keeps a hidden label on the user search field', () => {
+        const wrapper = mount(UserManagement, {
+            global: {
+                stubs: {
+                    Search: iconStub,
+                    BaseInput: BaseInputStub,
+                    BaseBadge: BaseBadgeStub,
+                    UserDetailModal: UserDetailModalStub,
+                },
+            },
+        })
+
+        const label = wrapper.get('label.sr-only')
+
+        expect(label.text()).toBe('사용자 검색')
+        expect(wrapper.get('input[placeholder="사용자 검색"]').attributes('placeholder')).toBe('사용자 검색')
     })
 })
