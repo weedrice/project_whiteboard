@@ -279,13 +279,15 @@ async function copyStackTrace() {
                         <td class="text-xs">{{ formatDate(log.createdAt) }}</td>
                         <td>
                             <div class="action-buttons">
-                                <button @click="openDetailModal(log)" class="btn-icon"
-                                    :title="t('admin.errorLogs.actions.viewDetail')">
-                                    <Eye class="w-4 h-4" />
+                                <button type="button" @click="openDetailModal(log)" class="btn-icon"
+                                    :title="t('admin.errorLogs.actions.viewDetail')"
+                                    :aria-label="t('admin.errorLogs.actions.viewDetail')">
+                                    <Eye class="w-4 h-4" aria-hidden="true" />
                                 </button>
-                                <button v-if="log.isResolved === 'N'" @click="openResolveModal(log)"
-                                    class="btn-icon btn-icon--resolve" :title="t('admin.errorLogs.actions.resolve')">
-                                    <CheckCircle class="w-4 h-4" />
+                                <button v-if="log.isResolved === 'N'" type="button" @click="openResolveModal(log)"
+                                    class="btn-icon btn-icon--resolve" :title="t('admin.errorLogs.actions.resolve')"
+                                    :aria-label="t('admin.errorLogs.actions.resolve')">
+                                    <CheckCircle class="w-4 h-4" aria-hidden="true" />
                                 </button>
                             </div>
                         </td>
@@ -303,12 +305,12 @@ async function copyStackTrace() {
                 총 {{ totalElements }}건 ({{ page + 1 }} / {{ totalPages }} 페이지)
             </div>
             <div class="pagination-buttons">
-                <button @click="page = Math.max(0, page - 1)" :disabled="page === 0" class="btn-page">
-                    <ChevronLeft class="w-4 h-4" />
+                <button type="button" @click="page = Math.max(0, page - 1)" :disabled="page === 0" class="btn-page" aria-label="이전 페이지">
+                    <ChevronLeft class="w-4 h-4" aria-hidden="true" />
                 </button>
-                <button @click="page = Math.min(totalPages - 1, page + 1)" :disabled="page >= totalPages - 1"
-                    class="btn-page">
-                    <ChevronRight class="w-4 h-4" />
+                <button type="button" @click="page = Math.min(totalPages - 1, page + 1)" :disabled="page >= totalPages - 1"
+                    class="btn-page" aria-label="다음 페이지">
+                    <ChevronRight class="w-4 h-4" aria-hidden="true" />
                 </button>
             </div>
         </div>
@@ -319,8 +321,8 @@ async function copyStackTrace() {
                 <div class="modal-content modal-content--lg">
                     <div class="modal-header">
                         <h3>{{ t('admin.errorLogs.detail.title') }}</h3>
-                        <button @click="closeDetailModal" class="btn-close">
-                            <X class="w-5 h-5" />
+                        <button type="button" @click="closeDetailModal" class="btn-close" aria-label="상세 모달 닫기">
+                            <X class="w-5 h-5" aria-hidden="true" />
                         </button>
                     </div>
                     <div class="modal-body">
@@ -430,8 +432,8 @@ async function copyStackTrace() {
                 <div class="modal-content">
                     <div class="modal-header">
                         <h3>{{ t('admin.errorLogs.actions.resolve') }}</h3>
-                        <button @click="closeResolveModal" class="btn-close">
-                            <X class="w-5 h-5" />
+                        <button type="button" @click="closeResolveModal" class="btn-close" aria-label="확인 처리 모달 닫기">
+                            <X class="w-5 h-5" aria-hidden="true" />
                         </button>
                     </div>
                     <div class="modal-body">

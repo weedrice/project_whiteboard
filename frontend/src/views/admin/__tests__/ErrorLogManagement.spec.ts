@@ -341,6 +341,17 @@ describe('ErrorLogManagement', () => {
             expect(detailButtons.length).toBeGreaterThanOrEqual(2)
         })
 
+        it('아이콘 전용 버튼에 접근 가능한 이름과 button 타입이 있다', () => {
+            const detailButton = wrapper.get('.btn-icon')
+            const resolveButton = wrapper.get('.btn-icon--resolve')
+
+            expect(detailButton.attributes('type')).toBe('button')
+            expect(detailButton.attributes('aria-label')).toBe('상세 보기')
+            expect(detailButton.get('svg').attributes('aria-hidden')).toBe('true')
+            expect(resolveButton.attributes('type')).toBe('button')
+            expect(resolveButton.attributes('aria-label')).toBe('확인 처리')
+        })
+
         it('상세 보기 버튼 클릭 시 상세 API 결과의 스택 트레이스를 모달에 표시한다', async () => {
             const detailButtons = wrapper.findAll('.btn-icon')
 
@@ -351,11 +362,21 @@ describe('ErrorLogManagement', () => {
             expect(mockFetchErrorLogDetail).toHaveBeenCalledWith(1)
             expect(wrapper.text()).toContain('java.lang.NullPointerException...')
             expect(wrapper.find('.btn-copy-stack-trace').exists()).toBe(true)
+            expect(wrapper.get('.btn-close').attributes('type')).toBe('button')
+            expect(wrapper.get('.btn-close').attributes('aria-label')).toBe('상세 모달 닫기')
         })
 
         it('미확인 행에만 확인 처리 버튼이 있다', () => {
             const resolveButtons = wrapper.findAll('.btn-icon--resolve')
             expect(resolveButtons).toHaveLength(1) // errorLogId 1만 미확인
+        })
+
+        it('확인 처리 모달 닫기 버튼에 접근 가능한 이름이 있다', async () => {
+            await wrapper.get('.btn-icon--resolve').trigger('click')
+            await nextTick()
+
+            expect(wrapper.get('.btn-close').attributes('type')).toBe('button')
+            expect(wrapper.get('.btn-close').attributes('aria-label')).toBe('확인 처리 모달 닫기')
         })
     })
 
@@ -374,6 +395,15 @@ describe('ErrorLogManagement', () => {
         it('첫 페이지에서 이전 버튼이 비활성화된다', () => {
             const prevButton = wrapper.findAll('.btn-page')[0]
             expect((prevButton.element as HTMLButtonElement).disabled).toBe(true)
+        })
+
+        it('페이지 이동 버튼에 접근 가능한 이름이 있다', () => {
+            const [prevButton, nextButton] = wrapper.findAll('.btn-page')
+
+            expect(prevButton.attributes('type')).toBe('button')
+            expect(prevButton.attributes('aria-label')).toBe('이전 페이지')
+            expect(nextButton.attributes('type')).toBe('button')
+            expect(nextButton.attributes('aria-label')).toBe('다음 페이지')
         })
     })
 
