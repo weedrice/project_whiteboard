@@ -19,6 +19,8 @@
         </div>
       </div>
 
+      <ErrorState v-else-if="errorMessage" :message="errorMessage" show-retry @retry="fetchBlockedUsers" />
+
       <EmptyState v-else-if="blockedUsers.length === 0" :title="$t('user.blockList.empty')" :icon="UserX" />
 
       <ul v-else role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -52,6 +54,7 @@ import { userApi, type BlockedUserSummary } from '@/api/user'
 import BlockButton from '@/components/user/BlockButton.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import { UserX } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
@@ -60,9 +63,11 @@ const { t } = useI18n()
 
 const blockedUsers = ref<BlockedUserSummary[]>([])
 const loading = ref(false)
+const errorMessage = ref('')
 
 const fetchBlockedUsers = async () => {
   loading.value = true
+  errorMessage.value = ''
   try {
     const { data } = await userApi.getBlockList()
     if (data.success) {
@@ -70,9 +75,12 @@ const fetchBlockedUsers = async () => {
       blockedUsers.value = Array.isArray(payload)
         ? payload
         : payload.content
+    } else {
+      errorMessage.value = t('common.messages.loadFailed')
     }
   } catch (error: unknown) {
     logger.error('Failed to fetch blocked users:', error)
+    errorMessage.value = t('common.messages.loadFailed')
   } finally {
     loading.value = false
   }
