@@ -106,7 +106,8 @@ async function handleLogin() {
       <div class="space-y-4 w-[80%] mx-auto">
         <div>
           <BaseInput id="login-id" v-model="loginId" name="loginId" type="text" required
-            :placeholder="$t('auth.placeholders.loginId')" :label="$t('common.loginId')" hideLabel>
+            autocomplete="username" :placeholder="$t('auth.placeholders.loginId')" :label="$t('common.loginId')"
+            hideLabel>
             <template #prefix>
               <User class="h-5 w-5 text-gray-400" />
             </template>
@@ -114,7 +115,8 @@ async function handleLogin() {
         </div>
         <div>
           <BaseInput id="password" v-model="password" name="password" type="password" required
-            :placeholder="$t('auth.placeholders.password')" :label="$t('common.password')" hideLabel>
+            autocomplete="current-password" :placeholder="$t('auth.placeholders.password')"
+            :label="$t('common.password')" hideLabel>
             <template #prefix>
               <Lock class="h-5 w-5 text-gray-400" />
             </template>
@@ -151,6 +153,7 @@ async function handleLogin() {
 
         <div class="mt-6 grid grid-cols-3 gap-3">
           <a href="/oauth2/authorization/google"
+            aria-label="Google 로그인"
             class="flex justify-center items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600 transition-colors duration-200">
             <span class="sr-only">Google</span>
             <svg class="h-5 w-5" viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
@@ -167,6 +170,7 @@ async function handleLogin() {
             </svg>
           </a>
           <a href="/oauth2/authorization/discord"
+            aria-label="Discord 로그인"
             class="flex justify-center items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600 transition-colors duration-200">
             <span class="sr-only">Discord</span>
             <svg class="h-5 w-5 text-[#5865F2]" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -175,6 +179,7 @@ async function handleLogin() {
             </svg>
           </a>
           <a href="/oauth2/authorization/github"
+            aria-label="GitHub 로그인"
             class="flex justify-center items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600 transition-colors duration-200">
             <span class="sr-only">GitHub</span>
             <svg class="h-5 w-5 text-gray-900 dark:text-white" fill="currentColor" viewBox="0 0 24 24"

@@ -94,4 +94,14 @@ describe('LoginPage', () => {
     expect(mocks.router.push).not.toHaveBeenCalled()
     expect(mocks.toastStore.addToast).toHaveBeenCalledWith('auth.loginFailed', 'error', 3000, 'top-center')
   })
+
+  it('exposes credential autocomplete hints and descriptive social login labels', () => {
+    const wrapper = mountLoginPage()
+
+    expect(wrapper.get('#login-id').attributes('autocomplete')).toBe('username')
+    expect(wrapper.get('#password').attributes('autocomplete')).toBe('current-password')
+    expect(wrapper.get('a[aria-label="Google 로그인"]').attributes('href')).toBe('/oauth2/authorization/google')
+    expect(wrapper.get('a[aria-label="Discord 로그인"]').attributes('href')).toBe('/oauth2/authorization/discord')
+    expect(wrapper.get('a[aria-label="GitHub 로그인"]').attributes('href')).toBe('/oauth2/authorization/github')
+  })
 })
