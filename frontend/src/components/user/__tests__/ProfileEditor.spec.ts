@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   suspendMyAgent: vi.fn(),
   activateMyAgent: vi.fn(),
   updateProfile: vi.fn(),
+  uploadFile: vi.fn(),
   deleteAccount: vi.fn(),
   confirm: vi.fn(),
   addToast: vi.fn(),
@@ -90,7 +91,7 @@ vi.mock('@/stores/toast', () => ({
 
 vi.mock('@/api/file', () => ({
   fileApi: {
-    uploadFile: vi.fn(),
+    uploadFile: mocks.uploadFile,
   },
 }))
 
@@ -178,6 +179,13 @@ describe('ProfileEditor', () => {
     mocks.user.isEmailVerified = true
     mocks.activateMyAgent.mockResolvedValue({ success: true })
     mocks.claimAgent.mockResolvedValue({ success: true })
+    mocks.updateProfile.mockResolvedValue({ success: true })
+    mocks.uploadFile.mockResolvedValue({
+      data: {
+        success: true,
+        data: { fileId: 11 },
+      },
+    })
     mocks.confirm.mockResolvedValue(true)
   })
 
@@ -262,5 +270,25 @@ describe('ProfileEditor', () => {
     )
     expect(mocks.suspendMyAgent).toHaveBeenCalledWith(7)
     expect(mocks.addToast).toHaveBeenCalledWith('user.profile.agentSuspendSuccess', 'success')
+  })
+
+  it('stops profile update when profile image upload envelope fails', async () => {
+    mocks.uploadFile.mockResolvedValue({
+      data: {
+        success: false,
+        data: null,
+      },
+    })
+    const wrapper = mountProfileEditor()
+    ;(wrapper.vm as unknown as { selectedFile: File }).selectedFile = new File(['avatar'], 'avatar.png', {
+      type: 'image/png',
+    })
+
+    await findButtonByText(wrapper, 'common.save').trigger('click')
+    await flushPromises()
+
+    expect(mocks.uploadFile).toHaveBeenCalled()
+    expect(mocks.updateProfile).not.toHaveBeenCalled()
+    expect(mocks.addToast).toHaveBeenCalledWith('common.messages.uploadFailed', 'error')
   })
 })

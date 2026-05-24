@@ -317,9 +317,12 @@ const updateProfile = async () => {
     if (selectedFile.value) {
       const uploadRes = await fileApi.uploadFile(selectedFile.value)
 
-      if (uploadRes.data.success) {
-        profileImageId = uploadRes.data.data.fileId
+      if (!uploadRes.data.success || !uploadRes.data.data?.fileId) {
+        toastStore.addToast(t('common.messages.uploadFailed'), 'error')
+        return
       }
+
+      profileImageId = uploadRes.data.data.fileId
     }
 
     const payload: UserUpdatePayload = {
