@@ -9,6 +9,27 @@
             {{ $t('search.query') }}: <span class="font-semibold text-indigo-600 dark:text-indigo-400">"{{ searchQuery
             }}"</span>
           </p>
+
+          <form class="mt-4 flex flex-col gap-2 sm:flex-row" role="search" @submit.prevent="handleSearchSubmit">
+            <BaseInput
+              id="search-page-query"
+              v-model="searchInput"
+              name="searchPageQuery"
+              autocomplete="off"
+              :label="$t('search.placeholder')"
+              :placeholder="$t('search.placeholder')"
+              inputClass="h-11"
+              hideLabel
+            />
+            <BaseButton
+              type="submit"
+              variant="secondary"
+              class="h-11 shrink-0"
+              :disabled="!searchInput.trim()"
+            >
+              {{ $t('search.doSearch', { query: searchInput.trim() }) }}
+            </BaseButton>
+          </form>
         </div>
 
         <div v-if="isLoading" class="text-center py-10">
@@ -61,17 +82,21 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useSearch } from '@/composables/useSearch'
 import PostList from '@/components/board/PostList.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
 import { Search, Layout } from 'lucide-vue-next'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
 
 const route = useRoute()
+const router = useRouter()
 const { useIntegratedSearch } = useSearch()
+const searchInput = ref('')
 
 const firstQueryValue = (value: unknown): string => {
   if (Array.isArray(value)) {
@@ -101,4 +126,21 @@ const posts = computed(() => searchData.value?.posts?.content || [])
 const boards = computed(() => searchData.value?.boards || [])
 const searchQuery = computed(() => query.value)
 const hasSearchQuery = computed(() => searchQuery.value.length > 0)
+
+watch(query, (value) => {
+  searchInput.value = value
+}, { immediate: true })
+
+function handleSearchSubmit() {
+  const q = searchInput.value.trim()
+  if (!q) return
+
+  router.push({
+    name: 'search',
+    query: {
+      q,
+      t: Date.now().toString()
+    }
+  })
+}
 </script>

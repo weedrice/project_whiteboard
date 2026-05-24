@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const routeState = vi.hoisted(() => ({
   query: {} as Record<string, unknown>,
+  routerPush: vi.fn(),
 }))
 
 const searchState = vi.hoisted(() => ({
@@ -17,6 +18,7 @@ const searchState = vi.hoisted(() => ({
 
 vi.mock('vue-router', () => ({
   useRoute: () => routeState,
+  useRouter: () => ({ push: routeState.routerPush }),
 }))
 
 vi.mock('@/composables/useSearch', () => ({
@@ -73,6 +75,7 @@ describe('SearchPage', () => {
       boards: [],
     }
     searchState.isLoading = false
+    routeState.routerPush.mockClear()
   })
 
   const mountPage = () => mount(SearchPage, {
@@ -114,8 +117,28 @@ describe('SearchPage', () => {
     const wrapper = mountPage()
 
     expect(wrapper.get('h1').text()).toBe('search.results')
+    expect(wrapper.get('label[for="search-page-query"]').text()).toBe('search.placeholder')
+    expect(wrapper.get('#search-page-query').attributes()).toMatchObject({
+      name: 'searchPageQuery',
+      autocomplete: 'off',
+    })
     expect(wrapper.find('[data-testid="empty-state"]').text()).toBe('search.placeholder')
     expect(wrapper.find('[data-testid="empty-state"]').attributes('data-description')).toBeUndefined()
+  })
+
+  it('submits page-local searches through the search route', async () => {
+    const wrapper = mountPage()
+
+    await wrapper.get('#search-page-query').setValue('  local query  ')
+    await wrapper.get('form[role="search"]').trigger('submit.prevent')
+
+    expect(routeState.routerPush).toHaveBeenCalledWith({
+      name: 'search',
+      query: {
+        q: 'local query',
+        t: expect.any(String),
+      },
+    })
   })
 
   it('falls back to keyword and tag query names used by search entry components', () => {
