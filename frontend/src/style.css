@@ -486,13 +486,20 @@ html {
     text-decoration: none;
   }
 
+  .recent-board-link {
+    @apply inline-flex items-center gap-1.5 min-w-0;
+    color: inherit;
+    text-decoration: none;
+  }
+
   .recent-board-chip:hover {
     background: var(--nv-accent-bg);
     border-color: color-mix(in srgb, var(--nv-accent) 24%, var(--nv-line));
     color: var(--nv-accent);
   }
 
-  .recent-board-chip:focus-visible {
+  .recent-board-chip:focus-visible,
+  .recent-board-link:focus-visible {
     outline: 2px solid color-mix(in srgb, var(--nv-accent) 65%, transparent);
     outline-offset: 2px;
   }

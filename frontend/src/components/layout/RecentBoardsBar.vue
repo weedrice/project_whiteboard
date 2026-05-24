@@ -15,19 +15,20 @@ const hasBoards = computed(() => recentBoards.value.length > 0)
             <div class="recent-boards-inner">
                 <span class="recent-boards-label">{{ $t('layout.recentBoards.title') }}</span>
                 <div class="recent-boards-list">
-                    <router-link v-for="board in recentBoards" :key="board.boardUrl" :to="`/board/${board.boardUrl}`"
-                        class="recent-board-chip">
+                    <div v-for="board in recentBoards" :key="board.boardUrl" class="recent-board-chip">
+                        <router-link :to="`/board/${board.boardUrl}`" class="recent-board-link">
                         <img v-if="board.iconUrl" :src="getOptimizedBoardIconUrl(board.iconUrl, 24)"
                             class="recent-board-icon" alt="" @error="handleImageError($event)" />
                         <span v-else class="recent-board-icon-fallback">{{ board.boardName[0] }}</span>
                         <span class="recent-board-name">{{ board.boardName }}</span>
-                        <button class="recent-board-remove" @click.prevent.stop="removeRecentBoard(board.boardUrl)"
+                        </router-link>
+                        <button type="button" class="recent-board-remove" @click.stop="removeRecentBoard(board.boardUrl)"
                             :aria-label="`${board.boardName} 제거`">
                             <X class="h-3 w-3" aria-hidden="true" />
                         </button>
-                    </router-link>
+                    </div>
                 </div>
-                <button v-if="recentBoards.length > 1" class="recent-boards-clear" @click="clearRecentBoards">
+                <button v-if="recentBoards.length > 1" type="button" class="recent-boards-clear" @click="clearRecentBoards">
                     {{ $t('layout.recentBoards.clear') }}
                 </button>
             </div>
