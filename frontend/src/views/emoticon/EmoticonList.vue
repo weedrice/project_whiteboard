@@ -362,6 +362,7 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
                 <BaseInput
                   v-model="searchInput"
                   @keyup.enter="handleSearch"
+                  label="노비콘 검색어"
                   placeholder="검색어를 입력하세요"
                   inputClass="list-search-input"
                   hideLabel

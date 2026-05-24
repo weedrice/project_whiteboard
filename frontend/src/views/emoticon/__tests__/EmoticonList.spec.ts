@@ -1,4 +1,5 @@
 import { mount } from '@vue/test-utils'
+import { defineComponent, h } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => {
@@ -65,6 +66,23 @@ vi.mock('@unhead/vue', () => ({
 
 import EmoticonList from '../EmoticonList.vue'
 
+const BaseInputStub = defineComponent({
+  props: {
+    modelValue: String,
+    label: String,
+    hideLabel: Boolean,
+    placeholder: String,
+  },
+  setup(props, { slots }) {
+    return () => h('label', { class: props.hideLabel ? 'sr-only' : '' }, [
+      props.label,
+      slots.prefix?.(),
+      h('input', { value: props.modelValue, placeholder: props.placeholder }),
+      slots.suffix?.(),
+    ])
+  },
+})
+
 const mountList = () => mount(EmoticonList, {
   global: {
     mocks: {
@@ -75,16 +93,7 @@ const mountList = () => mount(EmoticonList, {
       BaseButton: {
         template: '<button type="button"><slot /></button>',
       },
-      BaseInput: {
-        props: ['modelValue'],
-        template: `
-          <label>
-            <slot name="prefix" />
-            <input :value="modelValue" />
-            <slot name="suffix" />
-          </label>
-        `,
-      },
+      BaseInput: BaseInputStub,
     },
   },
 })
@@ -124,6 +133,14 @@ describe('EmoticonList', () => {
     const wrapper = mountList()
 
     expect(wrapper.get('select').attributes('aria-label')).toBe('emoticon.search.typeLabel')
+  })
+
+  it('keeps a hidden label on the keyword search field', () => {
+    const wrapper = mountList()
+    const label = wrapper.get('label.sr-only')
+
+    expect(label.text()).toContain('노비콘 검색어')
+    expect(wrapper.get('input[placeholder="검색어를 입력하세요"]').attributes('placeholder')).toBe('검색어를 입력하세요')
   })
 
   it('marks toggle buttons with aria-pressed state', () => {
