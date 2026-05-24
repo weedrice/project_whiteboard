@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { User, Mail, Calendar, FileText, CheckCircle, XCircle, Clock, MessageSquare, ShieldCheck } from 'lucide-vue-next'
 import PostList from '@/components/board/PostList.vue'
@@ -18,6 +18,7 @@ import { getOptimizedProfileImageUrl, handleImageError } from '@/utils/image'
 import { formatDate } from '@/utils/date'
 import { renderCommentContentHtml } from '@/utils/commentContent'
 import { applyImageFallback } from '@/utils/imageFallback'
+import { renderPostContentHtml } from '@/utils/postContentHtml'
 
 const { t } = useI18n()
 
@@ -65,6 +66,10 @@ const {
   closeInquiryModal,
   deleteInquiryPost
 } = useInquiryDetailModal(fetchMyPosts)
+
+const selectedInquiryPostContentsHtml = computed(() =>
+  renderPostContentHtml(selectedInquiryPost.value?.contents)
+)
 
 
 const {
@@ -371,7 +376,7 @@ onMounted(async () => {
             </div>
 
             <div class="max-h-[60vh] overflow-y-auto rounded-md bg-gray-50 p-4 text-sm text-gray-800 dark:bg-gray-900/30 dark:text-gray-200">
-              <div v-if="selectedInquiryPost.contents" class="break-words leading-6" v-html="selectedInquiryPost.contents" @error.capture="applyImageFallback" />
+              <div v-if="selectedInquiryPostContentsHtml" class="break-words leading-6" v-html="selectedInquiryPostContentsHtml" @error.capture="applyImageFallback" />
               <div v-else>-</div>
             </div>
 

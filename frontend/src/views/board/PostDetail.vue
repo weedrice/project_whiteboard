@@ -34,9 +34,8 @@ import { formatDate } from '@/utils/date'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
 import { isInputFocused } from '@/utils/keyboard'
 import logger from '@/utils/logger'
-import { sanitizeQuillHtml } from '@/utils/sanitize'
-import { normalizeLegacyFileUrls } from '@/utils/fileUrl'
 import { applyImageFallback } from '@/utils/imageFallback'
+import { renderPostContentHtml } from '@/utils/postContentHtml'
 
 const route = useRoute()
 const router = useRouter()
@@ -159,11 +158,7 @@ const canDelete = computed(() => !!post.value && (isAuthor.value || isAdmin.valu
 const canReport = computed(() => authStore.isAuthenticated && !isAuthor.value)
 
 const processedContents = computed(() => {
-  if (!post.value?.contents) return ''
-  const normalizedContents = normalizeLegacyFileUrls(post.value.contents)
-    .replace(/<p>\s*<\/p>/gi, '<p><br></p>')
-  const sanitized = sanitizeQuillHtml(normalizedContents)
-  return sanitized.replace(/<img(?![^>]*\bloading=)([^>]+)>/gi, '<img loading="lazy"$1>')
+  return renderPostContentHtml(post.value?.contents)
 })
 
 const isBlurred = ref(false)

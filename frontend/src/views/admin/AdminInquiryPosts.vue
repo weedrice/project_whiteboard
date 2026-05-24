@@ -9,6 +9,7 @@ import Pagination from '@/components/common/ui/Pagination.vue'
 import CommentList from '@/components/comment/CommentList.vue'
 import { useI18n } from 'vue-i18n'
 import type { Post, PostSummary } from '@/types'
+import { renderPostContentHtml } from '@/utils/postContentHtml'
 
 const { t } = useI18n()
 const queryClient = useQueryClient()
@@ -56,6 +57,7 @@ const {
 const posts = computed(() => (data.value?.content || []) as PostSummary[])
 const totalPages = computed(() => data.value?.totalPages || 0)
 const totalElements = computed(() => data.value?.totalElements || 0)
+const selectedPostContentsHtml = computed(() => renderPostContentHtml(selectedPost.value?.contents))
 
 function handlePageChange(nextPage: number) {
   page.value = nextPage
@@ -207,7 +209,7 @@ function closeDetail() {
           </div>
 
           <div class="max-h-[60vh] overflow-y-auto rounded-md bg-gray-50 p-4 text-sm text-gray-800 dark:bg-gray-900/30 dark:text-gray-200">
-            <div v-if="selectedPost.contents" class="break-words leading-6" v-html="selectedPost.contents" />
+            <div v-if="selectedPostContentsHtml" class="break-words leading-6" v-html="selectedPostContentsHtml" />
             <div v-else>-</div>
           </div>
 
