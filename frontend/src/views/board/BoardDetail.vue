@@ -513,7 +513,7 @@ onUnmounted(() => {
         </div>
 
         <div class="nv-board-toolbar-sticky px-4 py-3 sm:px-5">
-          <div class="nv-board-filter-rail" :aria-label="t('board.detail.filterLabel')">
+          <div class="nv-board-filter-rail" role="group" :aria-label="t('board.detail.filterLabel')">
             <div class="nv-board-filter-track">
               <button
                 type="button"

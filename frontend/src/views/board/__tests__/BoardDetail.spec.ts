@@ -195,6 +195,7 @@ describe('BoardDetail', () => {
     expect(wrapper.text()).not.toContain('\uC77C\uBC18')
     expect(wrapper.html()).toContain('nv-board-header-panel')
     expect(wrapper.html()).toContain('nv-board-toolbar-sticky')
+    expect(wrapper.get('.nv-board-filter-rail').attributes('role')).toBe('group')
     expect(wrapper.get('.nv-board-filter-rail').attributes('aria-label')).toBe('board.detail.filterLabel')
 
     const allButton = wrapper.findAll('button').find((button) => button.text() === 'board.detail.filter.all')
