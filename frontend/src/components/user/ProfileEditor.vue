@@ -6,6 +6,7 @@
           <button
             type="button"
             class="shrink-0 border-2 border-gray-200 dark:border-gray-700 rounded-full overflow-hidden h-16 w-16 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            :aria-label="$t('user.profile.choosePhoto')"
             @click="fileInputRef?.click()"
           >
             <img
@@ -29,7 +30,16 @@
           >
             {{ $t('user.profile.choosePhoto') }}
           </button>
-          <input ref="fileInputRef" type="file" class="sr-only" accept="image/*" @change="handleFileChange" />
+          <input
+            id="profile-photo-input"
+            ref="fileInputRef"
+            type="file"
+            name="profileImage"
+            class="sr-only"
+            accept="image/*"
+            :aria-label="$t('user.profile.choosePhoto')"
+            @change="handleFileChange"
+          />
         </div>
         <div class="flex-1 w-full min-w-0">
           <BaseInput

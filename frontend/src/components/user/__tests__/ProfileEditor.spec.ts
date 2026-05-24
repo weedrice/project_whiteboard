@@ -244,6 +244,17 @@ describe('ProfileEditor', () => {
     expect(registerButton.attributes('disabled')).toBeDefined()
   })
 
+  it('labels profile photo upload controls', () => {
+    const wrapper = mountProfileEditor()
+
+    expect(wrapper.get('button[aria-label="user.profile.choosePhoto"]').attributes('type')).toBe('button')
+    expect(wrapper.get('#profile-photo-input').attributes()).toMatchObject({
+      name: 'profileImage',
+      accept: 'image/*',
+      'aria-label': 'user.profile.choosePhoto',
+    })
+  })
+
   it('uses localized messages when suspending an active agent', async () => {
     mocks.agentsData.value = {
       agents: [
