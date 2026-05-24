@@ -169,6 +169,8 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
           <button
             v-for="(label, period) in periodLabels"
             :key="period"
+            type="button"
+            :aria-pressed="popularPeriod === period"
             @click="popularPeriod = period as 'daily' | 'weekly' | 'monthly'"
             :class="[
               'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
@@ -199,34 +201,36 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
         </div>
       </div>
       <div v-else-if="popularEmoticons && popularEmoticons.length > 0" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        <div
+        <button
           v-for="(emoticon, index) in popularEmoticons"
           :key="emoticon.emoticonId"
+          type="button"
+          :aria-label="emoticon.name"
           @click="goToDetail(emoticon.emoticonId)"
-          class="relative bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+          class="relative w-full bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden cursor-pointer text-left hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-shadow"
         >
           <!-- 순위 뱃지 -->
-          <div class="absolute top-2 left-2 z-10 w-6 h-6 bg-indigo-600 text-white text-xs font-bold rounded-full flex items-center justify-center">
+          <span class="absolute top-2 left-2 z-10 w-6 h-6 bg-indigo-600 text-white text-xs font-bold rounded-full flex items-center justify-center">
             {{ index + 1 }}
-          </div>
+          </span>
           <!-- 썸네일 -->
-          <div class="aspect-square bg-gray-100 dark:bg-gray-700">
+          <span class="block aspect-square bg-gray-100 dark:bg-gray-700">
             <img
               :src="emoticon.thumbnailUrl || DEFAULT_EMOTICON_IMAGE_URL"
               :alt="emoticon.name"
               class="w-full h-full object-contain"
               @error="applyImageFallback"
             />
-          </div>
+          </span>
           <!-- 정보 -->
-          <div class="p-3">
-            <h3 class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ emoticon.name }}</h3>
-            <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ emoticon.creatorName }}</p>
-            <p class="text-xs text-indigo-600 dark:text-indigo-400 mt-1">
+          <span class="block p-3">
+            <span class="block text-sm font-medium text-gray-900 dark:text-white truncate">{{ emoticon.name }}</span>
+            <span class="block text-xs text-gray-500 dark:text-gray-400 truncate">{{ emoticon.creatorName }}</span>
+            <span class="block text-xs text-indigo-600 dark:text-indigo-400 mt-1">
               판매 {{ emoticon.purchaseCount?.toLocaleString() || 0 }}회
-            </p>
-          </div>
-        </div>
+            </span>
+          </span>
+        </button>
       </div>
       <div v-else class="text-center py-8 text-gray-500 dark:text-gray-400">
         인기 노비콘이 없습니다.
@@ -243,6 +247,8 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
           <button
             v-for="option in sortOptions"
             :key="option.value"
+            type="button"
+            :aria-pressed="sortBy === option.value"
             @click="changeSortBy(option.value)"
             :class="[
               'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
@@ -272,30 +278,32 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
         </div>
       </div>
       <div v-else-if="emoticons.length > 0" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        <div
+        <button
           v-for="emoticon in emoticons"
           :key="emoticon.emoticonId"
+          type="button"
+          :aria-label="emoticon.name"
           @click="goToDetail(emoticon.emoticonId)"
-          class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+          class="w-full bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden cursor-pointer text-left hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-shadow"
         >
           <!-- 썸네일 -->
-          <div class="aspect-square bg-gray-100 dark:bg-gray-700">
+          <span class="block aspect-square bg-gray-100 dark:bg-gray-700">
             <img
               :src="emoticon.thumbnailUrl || DEFAULT_EMOTICON_IMAGE_URL"
               :alt="emoticon.name"
               class="w-full h-full object-contain"
               @error="applyImageFallback"
             />
-          </div>
+          </span>
           <!-- 정보 -->
-          <div class="p-3">
-            <h3 class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ emoticon.name }}</h3>
-            <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ emoticon.creatorName }}</p>
-            <p class="text-xs text-indigo-600 dark:text-indigo-400 mt-1">
+          <span class="block p-3">
+            <span class="block text-sm font-medium text-gray-900 dark:text-white truncate">{{ emoticon.name }}</span>
+            <span class="block text-xs text-gray-500 dark:text-gray-400 truncate">{{ emoticon.creatorName }}</span>
+            <span class="block text-xs text-indigo-600 dark:text-indigo-400 mt-1">
               판매 {{ emoticon.purchaseCount?.toLocaleString() || 0 }}회
-            </p>
-          </div>
-        </div>
+            </span>
+          </span>
+        </button>
       </div>
       <div v-else class="text-center py-12 text-gray-500 dark:text-gray-400">
         등록된 노비콘이 없습니다.

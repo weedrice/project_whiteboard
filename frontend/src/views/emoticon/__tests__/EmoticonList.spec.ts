@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => {
   const getPopularEmoticons = vi.fn()
   const push = vi.fn()
   const listPage = {
-    content: [],
+    content: [] as Array<Record<string, unknown>>,
     totalPages: 0,
     totalElements: 0,
   }
@@ -124,6 +124,38 @@ describe('EmoticonList', () => {
     const wrapper = mountList()
 
     expect(wrapper.get('select').attributes('aria-label')).toBe('emoticon.search.typeLabel')
+  })
+
+  it('marks toggle buttons with aria-pressed state', () => {
+    const wrapper = mountList()
+
+    expect(wrapper.findAll('button[aria-pressed="true"]').length).toBeGreaterThan(0)
+    expect(wrapper.findAll('button[aria-pressed="false"]').length).toBeGreaterThan(0)
+  })
+
+  it('renders emoticon cards as labelled buttons and navigates on click', async () => {
+    mocks.listPage.content = [
+      {
+        emoticonId: 42,
+        name: 'Happy Novi',
+        creatorName: 'Noviis',
+        thumbnailUrl: '',
+        purchaseCount: 7,
+      },
+    ]
+    mocks.listPage.totalElements = 1
+
+    const wrapper = mountList()
+    const cardButton = wrapper.get('button[aria-label="Happy Novi"]')
+
+    expect(cardButton.text()).toContain('Happy Novi')
+
+    await cardButton.trigger('click')
+
+    expect(mocks.push).toHaveBeenCalledWith({
+      name: 'emoticon-detail',
+      params: { emoticonId: 42 },
+    })
   })
 
   it('passes oldest sortBy to the list query after selecting oldest', async () => {
