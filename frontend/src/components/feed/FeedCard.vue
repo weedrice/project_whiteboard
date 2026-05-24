@@ -134,6 +134,7 @@ const isSpoiler = computed(() => isFeedSpoiler(props.post))
         variant="ghost"
         size="sm"
         class="min-w-0 flex-1 justify-center"
+        :aria-label="`좋아요 ${post.likeCount}개`"
         :class="{ 'text-indigo-600 dark:text-indigo-400': post.liked, 'text-gray-500 dark:text-gray-400': !post.liked }"
       >
         <ThumbsUp class="mr-1.5 h-4 w-4" :class="{ 'fill-current': post.liked }" />
@@ -145,6 +146,7 @@ const isSpoiler = computed(() => isFeedSpoiler(props.post))
         variant="ghost"
         size="sm"
         class="flex-1 justify-center text-gray-500 dark:text-gray-400"
+        :aria-label="`댓글 ${post.commentCount}개 보기`"
       >
         <MessageSquare class="mr-1.5 h-4 w-4" />
         <span>{{ post.commentCount }}</span>
