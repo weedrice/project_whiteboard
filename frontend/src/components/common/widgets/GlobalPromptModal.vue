@@ -13,7 +13,7 @@ const promptStore = usePromptStore()
             <p class="text-sm text-gray-500 dark:text-gray-400">
                 {{ promptStore.message }}
             </p>
-            <BaseInput v-model="promptStore.inputValue" :placeholder="promptStore.placeholder" hideLabel
+            <BaseInput v-model="promptStore.inputValue" :label="promptStore.placeholder || promptStore.title" :placeholder="promptStore.placeholder" hideLabel
                 @keyup.enter="promptStore.confirm" />
         </div>
         <template #footer>
