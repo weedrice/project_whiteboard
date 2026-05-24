@@ -41,6 +41,7 @@ const BaseTextareaStub = defineComponent({
   props: {
     modelValue: { type: String, default: '' },
     id: { type: String, default: '' },
+    name: { type: String, default: '' },
     label: { type: String, default: '' },
     hideLabel: { type: Boolean, default: false },
   },
@@ -51,6 +52,7 @@ const BaseTextareaStub = defineComponent({
         props.label ? h('label', { for: props.id, class: props.hideLabel ? 'sr-only' : '' }, props.label) : null,
         h('textarea', {
           id: props.id,
+          name: props.name,
           value: props.modelValue,
           onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLTextAreaElement).value),
         }),
@@ -113,6 +115,31 @@ describe('CommentForm', () => {
     expect(commentWrapper.get('label').text()).toBe('comment.writeComment')
     expect(replyWrapper.get('label').classes()).toContain('sr-only')
     expect(replyWrapper.get('label').text()).toBe('comment.writeReply')
+  })
+
+  it('uses context-specific textarea ids and names', () => {
+    const commentWrapper = mountCommentForm({ postId: 'board/post:10' })
+    const replyWrapper = mountCommentForm({ parentId: 20 })
+    const editWrapper = mountCommentForm({ commentId: 30, initialContent: 'before' })
+
+    expect(commentWrapper.get('textarea').attributes()).toMatchObject({
+      id: 'comment-new-board-post-10',
+      name: 'comment-content',
+    })
+    expect(replyWrapper.get('textarea').attributes('id')).toBe('comment-reply-20')
+    expect(editWrapper.get('textarea').attributes('id')).toBe('comment-edit-30')
+  })
+
+  it('labels the emoticon toggle button and exposes pressed state', async () => {
+    const wrapper = mountCommentForm()
+    const button = wrapper.get('button[aria-label="board.writePost.toolbar.emoticon"]')
+
+    expect(button.attributes('aria-pressed')).toBe('false')
+    expect(button.attributes('title')).toBe('board.writePost.toolbar.emoticon')
+
+    await button.trigger('click')
+
+    expect(button.attributes('aria-pressed')).toBe('true')
   })
 
   it('keeps submit disabled and skips mutation for whitespace-only content', async () => {

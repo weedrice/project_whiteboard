@@ -42,6 +42,19 @@ const isSubmitting = computed(() => isCreating.value || isUpdating.value)
 const trimmedContent = computed(() => content.value.trim())
 const canSubmit = computed(() => !!trimmedContent.value && !isSubmitting.value)
 const showEmoticonPicker = ref(false)
+const idSegment = (value: number | string) => String(value).replace(/[^a-zA-Z0-9_-]/g, '-')
+const textareaId = computed(() => {
+  if (props.commentId) {
+    return `comment-edit-${idSegment(props.commentId)}`
+  }
+
+  if (props.parentId) {
+    return `comment-reply-${idSegment(props.parentId)}`
+  }
+
+  return `comment-new-${idSegment(props.postId)}`
+})
+const emoticonButtonLabel = computed(() => t('board.writePost.toolbar.emoticon'))
 
 // 이모티콘 선택 시 바로 댓글 등록
 const handleEmoticonSelect = (image: EmoticonImage) => {
@@ -105,7 +118,7 @@ async function handleSubmit() {
 <template>
   <form @submit.prevent="handleSubmit" class="mt-3 sm:mt-4 text-sm sm:text-base">
     <div class="relative">
-      <BaseTextarea id="comment" v-model="content" rows="3" maxlength="1000"
+      <BaseTextarea :id="textareaId" v-model="content" rows="3" maxlength="1000" name="comment-content"
         :label="parentId ? $t('comment.writeReply') : $t('comment.writeComment')"
         :placeholder="parentId ? $t('comment.writeReply') : $t('comment.writeComment')" required hideLabel />
       
@@ -125,7 +138,9 @@ async function handleSubmit() {
           @click="showEmoticonPicker = !showEmoticonPicker"
           class="inline-flex items-center justify-center px-2 py-1.5 sm:px-3 sm:py-1.5 text-xs sm:text-sm text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           :class="{ 'text-indigo-600 dark:text-indigo-400 bg-gray-100 dark:bg-gray-700': showEmoticonPicker }"
-          title="노비콘"
+          :aria-label="emoticonButtonLabel"
+          :aria-pressed="showEmoticonPicker"
+          :title="emoticonButtonLabel"
         >
           <Smile class="w-4 h-4 sm:w-5 sm:h-5" />
         </button>
