@@ -1,4 +1,4 @@
-import { flushPromises, mount } from '@vue/test-utils'
+import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils'
 import { defineComponent, h } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import SubscribedBoards from '../SubscribedBoards.vue'
@@ -103,6 +103,7 @@ function mountView() {
                 BaseSkeleton: true,
                 EmptyState: true,
                 draggable: DraggableStub,
+                RouterLink: RouterLinkStub,
                 Users: true,
                 Menu: true
             }
@@ -141,5 +142,15 @@ describe('SubscribedBoards', () => {
         expect(boardApi.updateSubscriptionOrder).toHaveBeenCalledWith(['free'])
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards'] })
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards', 'subscriptions'] })
+    })
+
+    it('renders accessible subscriptions as real board links', async () => {
+        const wrapper = mountView()
+        await flushPromises()
+
+        const link = wrapper.getComponent(RouterLinkStub)
+
+        expect(link.props('to')).toBe('/board/free')
+        expect(link.attributes('aria-label')).toBe('Free')
     })
 })

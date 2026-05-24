@@ -30,16 +30,25 @@
                 <template #item="{ element: board }">
                     <li
                         class="px-3 py-3 sm:px-6 sm:py-4 hover:bg-gray-50 dark:hover:bg-gray-700 flex flex-row items-center justify-between gap-2 sm:gap-3 bg-white dark:bg-gray-800 transition-colors duration-200">
-                        <div
+                        <router-link
+                            v-if="isAccessibleSubscription(board)"
+                            :to="`/board/${board.boardUrl}`"
                             class="flex items-center flex-1 min-w-0"
-                            :class="isAccessibleSubscription(board) ? 'cursor-pointer' : 'cursor-default'"
-                            @click="isAccessibleSubscription(board) ? $router.push(`/board/${board.boardUrl}`) : undefined">
+                            :aria-label="board.boardName || $t('user.subscriptions.unavailableBoard')">
                             <div
                                 v-if="!isMobile && isAccessibleSubscription(board)"
                                 class="handle mr-3 sm:mr-4 p-2 -m-2 cursor-move text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
-                                @click.stop>
+                                @click.prevent.stop>
                                 <Menu class="h-5 w-5" />
                             </div>
+                            <div class="flex-1 min-w-0 py-1 sm:py-0">
+                                <div class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">{{
+                                    board.boardName || $t('user.subscriptions.unavailableBoard') }}</div>
+                                <p class="mt-0.5 sm:mt-1 text-xs sm:text-sm text-gray-500 dark:text-gray-400 line-clamp-1 sm:line-clamp-2">{{
+                                    board.description || $t('user.subscriptions.unavailableBoardDescription') }}</p>
+                            </div>
+                        </router-link>
+                        <div v-else class="flex items-center flex-1 min-w-0 cursor-default">
                             <div class="flex-1 min-w-0 py-1 sm:py-0">
                                 <div class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">{{
                                     board.boardName || $t('user.subscriptions.unavailableBoard') }}</div>
