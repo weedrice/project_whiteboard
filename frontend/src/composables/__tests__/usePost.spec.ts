@@ -190,7 +190,7 @@ describe('usePost', () => {
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'free', 'posts'] })
     })
 
-    it('invalidates post detail after update', async () => {
+    it('invalidates related post caches after update', async () => {
         vi.mocked(postApi.updatePost).mockResolvedValueOnce({ data: { postId: 1 } } as never)
 
         const { useUpdatePost } = usePost()
@@ -199,6 +199,10 @@ describe('usePost', () => {
 
         expect(postApi.updatePost).toHaveBeenCalledWith(1, { title: 'updated' })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['post', 1] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['posts'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+            predicate: expect.any(Function),
+        })
     })
 
     it('invalidates board queries after delete', async () => {

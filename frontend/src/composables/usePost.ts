@@ -171,7 +171,7 @@ export function usePost() {
                 return await postApi.updatePost(postId, data)
             },
             onSuccess: (_, { postId }) => {
-                queryClient.invalidateQueries({ queryKey: ['post', postId] })
+                invalidatePostCaches(postId)
             }
         })
     }
