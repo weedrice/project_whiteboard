@@ -40,14 +40,21 @@ const BaseTextareaStub = defineComponent({
   name: 'BaseTextarea',
   props: {
     modelValue: { type: String, default: '' },
+    id: { type: String, default: '' },
+    label: { type: String, default: '' },
+    hideLabel: { type: Boolean, default: false },
   },
   emits: ['update:modelValue'],
   setup(props, { emit }) {
     return () =>
-      h('textarea', {
-        value: props.modelValue,
-        onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLTextAreaElement).value),
-      })
+      h('div', [
+        props.label ? h('label', { for: props.id, class: props.hideLabel ? 'sr-only' : '' }, props.label) : null,
+        h('textarea', {
+          id: props.id,
+          value: props.modelValue,
+          onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLTextAreaElement).value),
+        }),
+      ])
   },
 })
 
@@ -96,6 +103,16 @@ describe('CommentForm', () => {
     vi.clearAllMocks()
     isCreating.value = false
     isUpdating.value = false
+  })
+
+  it('keeps a hidden textarea label for new comments and replies', () => {
+    const commentWrapper = mountCommentForm()
+    const replyWrapper = mountCommentForm({ parentId: 20 })
+
+    expect(commentWrapper.get('label').classes()).toContain('sr-only')
+    expect(commentWrapper.get('label').text()).toBe('comment.writeComment')
+    expect(replyWrapper.get('label').classes()).toContain('sr-only')
+    expect(replyWrapper.get('label').text()).toBe('comment.writeReply')
   })
 
   it('keeps submit disabled and skips mutation for whitespace-only content', async () => {
