@@ -250,6 +250,7 @@ describe('PostDetail', () => {
 
     expect(urlChip.exists()).toBe(true)
     expect(boardActions.exists()).toBe(true)
+    expect(boardActions.attributes('role')).toBe('navigation')
     expect(boardActions.attributes('aria-label')).toBe('board.postDetail.quickActions')
     expect(urlChip.text()).toContain('/board/free/post/15')
     await urlChip.trigger('click')

@@ -909,7 +909,12 @@ onUnmounted(() => {
       </template>
     </BaseCard>
 
-    <div v-if="post" class="nv-post-board-actions hidden xl:flex" :aria-label="$t('board.postDetail.quickActions')">
+    <div
+      v-if="post"
+      class="nv-post-board-actions hidden xl:flex"
+      role="navigation"
+      :aria-label="$t('board.postDetail.quickActions')"
+    >
       <button
         type="button"
         class="nv-post-board-action"
