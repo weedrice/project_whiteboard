@@ -1,14 +1,14 @@
 <template>
     <Transition name="slide-down">
-        <div v-if="isOffline" class="network-status offline">
+        <div v-if="isOffline" class="network-status offline" role="status" aria-live="polite">
             <div class="network-status-content">
-                <span class="network-status-icon">📡</span>
+                <span class="network-status-icon" aria-hidden="true">📡</span>
                 <span class="network-status-message">{{ t('common.network.offline') }}</span>
             </div>
         </div>
-        <div v-else-if="wasOffline" class="network-status online">
+        <div v-else-if="wasOffline" class="network-status online" role="status" aria-live="polite">
             <div class="network-status-content">
-                <span class="network-status-icon">✅</span>
+                <span class="network-status-icon" aria-hidden="true">✅</span>
                 <span class="network-status-message">{{ t('common.network.online') }}</span>
             </div>
         </div>
