@@ -188,6 +188,8 @@ describe('EmoticonPicker', () => {
 
         expect(mocks.getEmoticon).toHaveBeenCalledWith(10)
         expect(wrapper.findAll('.image-btn')).toHaveLength(2)
+        expect(wrapper.get('.back-btn').attributes('type')).toBe('button')
+        expect(wrapper.get('.back-btn').attributes('aria-label')).toBe('이모티콘 목록으로 돌아가기')
 
         await wrapper.findAll('.image-btn')[0].trigger('click')
         expect(wrapper.emitted('select')?.[0]?.[0]).toEqual({
@@ -275,6 +277,8 @@ describe('EmoticonPicker', () => {
         await wrapper.get('.close-btn').trigger('click')
         await wrapper.get('.emoticon-picker-backdrop').trigger('click')
         expect(wrapper.emitted('close')).toHaveLength(2)
+        expect(wrapper.get('.close-btn').attributes('type')).toBe('button')
+        expect(wrapper.get('.close-btn').attributes('aria-label')).toBe('이모티콘 선택기 닫기')
 
         await wrapper.setProps({ show: false })
         await wrapper.setProps({ show: true })

@@ -110,13 +110,13 @@ watch(() => props.show, (newVal) => {
   <div v-if="show" class="emoticon-picker" @click.stop>
     <!-- 헤더 -->
     <div class="picker-header">
-      <button v-if="selectedEmoticonId" @click="goBack" class="back-btn">
+      <button v-if="selectedEmoticonId" type="button" aria-label="이모티콘 목록으로 돌아가기" @click="goBack" class="back-btn">
         <ArrowLeft class="w-4 h-4" />
       </button>
       <span class="header-title">
         {{ selectedEmoticon?.name || '노비콘' }}
       </span>
-      <button @click="close" class="close-btn">
+      <button type="button" aria-label="이모티콘 선택기 닫기" @click="close" class="close-btn">
         <X class="w-4 h-4" />
       </button>
     </div>
