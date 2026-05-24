@@ -40,6 +40,9 @@ const createEditor = (content = '') => new Editor({
     extensions: [
         StarterKit.configure({
             heading: { levels: [1, 2, 3, 4, 5, 6] },
+            horizontalRule: false,
+            link: false,
+            underline: false,
         }),
         Underline,
         TextStyle,
@@ -83,6 +86,13 @@ describe('PostEditorTipTap TipTap extension integration', () => {
     afterEach(() => {
         editor?.destroy()
         editor = null
+    })
+
+    it('registers each extension name only once', () => {
+        editor = createEditor()
+        const names = editor.extensionManager.extensions.map((extension) => extension.name)
+
+        expect(names).toHaveLength(new Set(names).size)
     })
 
     it('serializes link marks with the configured anchor attributes', () => {
