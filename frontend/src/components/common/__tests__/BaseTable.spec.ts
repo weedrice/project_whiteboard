@@ -27,6 +27,22 @@ describe('BaseTable', () => {
         expect(spans[1].text()).toBe('Title')
     })
 
+    it('announces the default loading state to assistive technologies', () => {
+        const wrapper = mount(BaseTable, {
+            props: {
+                columns: [{ key: 'title', label: 'Title' }],
+                items: [],
+                loading: true,
+            },
+        })
+
+        const status = wrapper.get('[role="status"]')
+
+        expect(status.attributes('aria-live')).toBe('polite')
+        expect(status.text()).toContain('Loading...')
+        expect(status.get('.nv-base-table-spinner').attributes('aria-hidden')).toBe('true')
+    })
+
     it('uses stable fallback row keys before falling back to index', async () => {
         const StatefulCell = defineComponent({
             props: {
