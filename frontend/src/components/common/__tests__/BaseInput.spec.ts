@@ -13,6 +13,21 @@ describe('BaseInput', () => {
         expect(wrapper.find('label').text()).toBe('Test Label')
     })
 
+    it('keeps a screen-reader-only label when hideLabel is true', () => {
+        const wrapper = mount(BaseInput, {
+            props: {
+                id: 'hidden-label-input',
+                label: 'Hidden Label',
+                hideLabel: true,
+            },
+        })
+
+        const label = wrapper.get('label')
+        expect(label.text()).toBe('Hidden Label')
+        expect(label.attributes('for')).toBe('hidden-label-input')
+        expect(label.classes()).toContain('sr-only')
+    })
+
     it('emits update:modelValue on input', async () => {
         const wrapper = mount(BaseInput, {
             props: {

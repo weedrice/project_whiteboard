@@ -1,7 +1,10 @@
 <template>
   <div class="flex flex-col gap-1" :class="$attrs.class as string" :style="$attrs.style as any">
-    <label v-if="label && !hideLabel" :for="id" class="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-200"
-      :class="labelClass">
+    <label
+      v-if="label"
+      :for="id"
+      :class="hideLabel ? 'sr-only' : ['text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-200', labelClass]"
+    >
       {{ label }}
     </label>
     <div class="relative">
