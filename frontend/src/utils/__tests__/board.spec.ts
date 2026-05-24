@@ -4,6 +4,7 @@ import {
   canWriteCategory,
   isDefaultCategory,
   isGeneralCategoryName,
+  normalizeBoardUrlInput,
   resolveDefaultCategory
 } from '../board'
 
@@ -12,6 +13,11 @@ describe('board utils', () => {
     expect(isGeneralCategoryName('\uC77C\uBC18')).toBe(true)
     expect(isGeneralCategoryName('general')).toBe(true)
     expect(isGeneralCategoryName('qna')).toBe(false)
+  })
+
+  it('normalizes board URL input to lowercase letters and underscores only', () => {
+    expect(normalizeBoardUrlInput('Free_BOARD_123-\uD55C\uAE00')).toBe('free_board_')
+    expect(normalizeBoardUrlInput(null)).toBe('')
   })
 
   it('uses explicit default category flags before legacy name fallback', () => {

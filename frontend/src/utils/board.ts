@@ -1,5 +1,6 @@
 import type { BoardDetail } from '@/types'
 
+const BOARD_URL_DISALLOWED_INPUT_PATTERN = /[^a-z_]/g
 const GENERAL_CATEGORY_NAMES = new Set(['일반', 'general'])
 
 type BoardWriteContext = Pick<BoardDetail, 'categories' | 'isAdmin'>
@@ -16,6 +17,10 @@ type CategoryWriteContext = {
 export function isGeneralCategoryName(name?: string | null): boolean {
   const normalized = name?.trim().toLowerCase()
   return normalized ? GENERAL_CATEGORY_NAMES.has(normalized) : false
+}
+
+export function normalizeBoardUrlInput(value?: string | number | null): string {
+  return String(value ?? '').toLowerCase().replace(BOARD_URL_DISALLOWED_INPUT_PATTERN, '')
 }
 
 export function isDefaultCategory(category?: CategoryContext | null): boolean {

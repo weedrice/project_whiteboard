@@ -132,4 +132,41 @@ describe('BoardForm', () => {
     const submit = wrapper.emitted('submit')?.[0]?.[0] as { agentUseYn: boolean }
     expect(submit.agentUseYn).toBe(false)
   })
+
+  it('keeps board URL input to lowercase letters and underscores on create', async () => {
+    const wrapper = mount(BoardForm, {
+      props: {
+        initialData: {
+          boardName: 'Board',
+          boardUrl: '',
+          description: '',
+          iconUrl: '',
+          sortOrder: 0,
+          allowNsfw: false,
+          isPublic: true,
+          agentUseYn: false,
+          guidePrompt: '',
+        },
+      },
+      global: {
+        mocks: {
+          $t: (key: string) => key,
+        },
+        stubs: {
+          BaseInput: BaseInputStub,
+          BaseTextarea: BaseTextareaStub,
+          BaseCheckbox: BaseCheckboxStub,
+          BaseButton: BaseButtonStub,
+        },
+      },
+    })
+
+    const textInputs = wrapper.findAll('input')
+      .filter((input) => input.attributes('type') !== 'file' && input.attributes('type') !== 'checkbox')
+    await textInputs[1].setValue('Free_BOARD_123-\uD55C\uAE00')
+    await wrapper.find('form').trigger('submit.prevent')
+
+    const submit = wrapper.emitted('submit')?.[0]?.[0] as { boardUrl: string }
+    expect(submit.boardUrl).toBe('free_board_')
+  })
 })

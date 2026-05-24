@@ -209,7 +209,7 @@
     <BaseModal :isOpen="isModalOpen" :title="$t('admin.boards.addTitle')" @close="closeModal">
       <div class="p-4 space-y-4">
         <BaseInput v-model="createForm.boardName" :label="$t('board.form.name')" :placeholder="$t('board.form.placeholder.name')" />
-        <BaseInput v-model="createForm.boardUrl" :label="$t('board.form.url')" :placeholder="$t('board.form.placeholder.url')" />
+        <BaseInput v-model="createForm.boardUrl" :label="$t('board.form.url')" :placeholder="$t('board.form.placeholder.url')" pattern="[a-z_]*" />
         <BaseTextarea v-model="createForm.description" :label="$t('board.form.description')" :placeholder="$t('board.form.placeholder.desc')" rows="3" />
         <BaseCheckbox
           v-model="createForm.agentUseYn"
@@ -244,7 +244,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import draggable from 'vuedraggable'
 import { GripVertical } from 'lucide-vue-next'
 import { useAdmin } from '@/composables/useAdmin'
@@ -260,6 +260,7 @@ import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import UserSelectModal from '@/components/common/widgets/UserSelectModal.vue'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
+import { normalizeBoardUrlInput } from '@/utils/board'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -338,6 +339,13 @@ function openCreateModal() {
 function closeModal() {
   isModalOpen.value = false
 }
+
+watch(() => createForm.boardUrl, (boardUrl) => {
+  const normalizedBoardUrl = normalizeBoardUrlInput(boardUrl)
+  if (boardUrl !== normalizedBoardUrl) {
+    createForm.boardUrl = normalizedBoardUrl
+  }
+})
 
 async function handleCreateBoard() {
   if (!createForm.boardName || !createForm.boardUrl) {

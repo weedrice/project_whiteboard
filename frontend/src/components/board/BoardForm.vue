@@ -12,6 +12,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useConfigStore } from '@/stores/config'
 import { useFormSubmit } from '@/composables/useFormSubmit'
 import { useErrorHandler } from '@/composables/useErrorHandler'
+import { normalizeBoardUrlInput } from '@/utils/board'
 
 interface BoardData {
   boardName: string
@@ -140,6 +141,15 @@ async function handleSubmit() {
 
 const isSubmitting = computed(() => props.isSubmitting || localIsSubmitting.value)
 
+watch(() => form.value.boardUrl, (boardUrl) => {
+  if (props.isEdit) return
+
+  const normalizedBoardUrl = normalizeBoardUrlInput(boardUrl)
+  if (boardUrl !== normalizedBoardUrl) {
+    form.value.boardUrl = normalizedBoardUrl
+  }
+})
+
 // Cleanup preview image URL
 watch(previewImage, (newUrl, oldUrl) => {
   // 이전 URL 정리 (blob: URL인 경우만)
@@ -197,7 +207,7 @@ onUnmounted(() => {
 
       <div class="sm:col-span-6">
         <BaseInput :label="$t('board.form.url')" v-model="form.boardUrl" type="text" required :disabled="isEdit"
-          :placeholder="$t('board.form.placeholder.url')" labelClass="text-base" />
+          :placeholder="$t('board.form.placeholder.url')" labelClass="text-base" pattern="[a-z_]*" />
       </div>
 
       <div class="sm:col-span-6">
