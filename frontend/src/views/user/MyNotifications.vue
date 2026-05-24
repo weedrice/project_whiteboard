@@ -9,6 +9,7 @@ import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import { formatDate } from '@/utils/date'
 import type { Notification } from '@/types'
 
@@ -24,7 +25,7 @@ const params = computed(() => ({
   size: size.value
 }))
 
-const { data: notificationsData, isLoading } = useNotifications(params)
+const { data: notificationsData, isLoading, isError, refetch } = useNotifications(params)
 const { mutate: markAllAsRead, isPending: isMarkingAllAsRead } = useMarkAllAsRead()
 
 const notifications = computed(() => notificationsData.value?.content || [])
@@ -89,6 +90,13 @@ function handleMarkAllAsRead() {
           <BaseSkeleton width="48px" height="16px" rounded="rounded-full" />
         </div>
       </div>
+
+      <ErrorState
+        v-else-if="isError"
+        :message="$t('common.messages.loadFailed')"
+        show-retry
+        @retry="refetch"
+      />
 
       <EmptyState v-else-if="notifications.length === 0" :title="$t('notification.empty')" :icon="Bell" />
 

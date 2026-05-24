@@ -6,7 +6,9 @@ import type { Notification, PageResponse } from '@/types'
 
 const notificationsData = ref<PageResponse<Notification> | null>(null)
 const isLoading = ref(false)
+const isError = ref(false)
 const isMarkingAllAsRead = ref(false)
+const refetchNotifications = vi.fn()
 const markAllAsRead = vi.fn()
 const navigateFromNotification = vi.fn()
 
@@ -16,7 +18,7 @@ vi.mock('vue-i18n', () => ({
 
 vi.mock('@/composables/useNotification', () => ({
   useNotification: () => ({
-    useNotifications: () => ({ data: notificationsData, isLoading }),
+    useNotifications: () => ({ data: notificationsData, isLoading, isError, refetch: refetchNotifications }),
     useMarkAllAsRead: () => ({ mutate: markAllAsRead, isPending: isMarkingAllAsRead }),
   }),
 }))
@@ -45,6 +47,20 @@ const BaseButtonStub = defineComponent({
         },
         slots.default?.(),
       )
+  },
+})
+
+const ErrorStateStub = defineComponent({
+  name: 'ErrorState',
+  props: {
+    message: String,
+    showRetry: Boolean,
+  },
+  emits: ['retry'],
+  setup(props, { emit }) {
+    return () => h('div', { 'data-testid': 'error-state', 'data-message': props.message }, [
+      props.showRetry ? h('button', { onClick: () => emit('retry') }, 'retry') : null,
+    ])
   },
 })
 
@@ -85,6 +101,7 @@ const mountMyNotifications = () =>
         Bell: true,
         Check: true,
         EmptyState: true,
+        ErrorState: ErrorStateStub,
         PageSizeSelector: true,
         Pagination: true,
       },
@@ -95,6 +112,7 @@ describe('MyNotifications', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     isLoading.value = false
+    isError.value = false
     isMarkingAllAsRead.value = false
     notificationsData.value = makePage([])
   })
@@ -119,5 +137,17 @@ describe('MyNotifications', () => {
     await button.trigger('click')
 
     expect(markAllAsRead).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows error state and retries notification loading', async () => {
+    isError.value = true
+    notificationsData.value = makePage([])
+    const wrapper = mountMyNotifications()
+
+    expect(wrapper.get('[data-testid="error-state"]').attributes('data-message')).toBe('common.messages.loadFailed')
+    await wrapper.get('[data-testid="error-state"] button').trigger('click')
+
+    expect(refetchNotifications).toHaveBeenCalledTimes(1)
+    expect(wrapper.findComponent({ name: 'EmptyState' }).exists()).toBe(false)
   })
 })
