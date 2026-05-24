@@ -70,6 +70,9 @@ async function handleResetPassword() {
     </div>
 
     <div v-if="!token" class="w-[80%] mx-auto text-center">
+      <h1 class="mb-3 text-2xl font-bold text-gray-900 dark:text-white">
+        {{ t('auth.resetPasswordTitle') }}
+      </h1>
       <p class="text-gray-600 dark:text-gray-300">{{ t('auth.invalidResetLink') }}</p>
       <BaseButton variant="primary" class="mt-6 w-full" @click="router.push('/login')">
         {{ t('auth.login') }}
@@ -78,15 +81,17 @@ async function handleResetPassword() {
 
     <div v-else class="w-[80%] mx-auto space-y-6">
       <div class="text-center mb-8">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
           {{ t('auth.resetPasswordTitle') }}
-        </h2>
+        </h1>
       </div>
 
       <BaseInput
         id="new-password"
         v-model="newPassword"
         type="password"
+        name="new-password"
+        autocomplete="new-password"
         :placeholder="t('auth.newPassword')"
         :label="t('auth.newPassword')"
         hideLabel
@@ -100,6 +105,8 @@ async function handleResetPassword() {
         id="confirm-password"
         v-model="confirmPassword"
         type="password"
+        name="confirm-password"
+        autocomplete="new-password"
         :placeholder="t('auth.newPasswordConfirm')"
         :label="t('auth.newPasswordConfirm')"
         hideLabel
