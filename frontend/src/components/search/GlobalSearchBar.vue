@@ -19,6 +19,8 @@ const debouncedSearchQuery = useDebounce(searchQuery, DEBOUNCE_DELAY.SEARCH)
 const showDropdown = ref(false)
 const searchContainer = ref<HTMLElement | null>(null)
 const searchInputRef = ref<HTMLInputElement | null>(null)
+const searchInputId = 'global-search-input'
+const searchListboxId = 'global-search-board-results'
 
 // 모바일(640px 미만): 돋보기만 보이다가 클릭 시 검색 바 확장
 const isMobile = ref(typeof window !== 'undefined' && window.innerWidth < 640)
@@ -60,6 +62,11 @@ const filteredBoards = computed(() => {
     board.boardName.toLowerCase().includes(query)
   )
 })
+const activeDescendantId = computed(() => (
+  selectedIndex.value >= 0 && filteredBoards.value[selectedIndex.value]
+    ? `${searchListboxId}-${filteredBoards.value[selectedIndex.value].boardUrl}`
+    : undefined
+))
 
 // 키보드 네비게이션
 const { selectedIndex, handleKeyDown: handleDropdownKeyDown, reset: resetSelection, setSelectedIndex } = useKeyboardNavigation(
@@ -191,10 +198,17 @@ onUnmounted(() => {
       <div class="relative flex-1 min-w-0">
         <BaseInput
           ref="searchInputRef"
+          :id="searchInputId"
           v-model="searchQuery"
           @keydown="handleInputKeyDown"
           @focus="showDropdown = !!searchQuery.trim()"
+          :label="$t('search.placeholder')"
           :placeholder="$t('search.placeholder')"
+          role="combobox"
+          :aria-expanded="showDropdown ? 'true' : 'false'"
+          :aria-controls="searchListboxId"
+          :aria-activedescendant="activeDescendantId"
+          autocomplete="off"
           inputClass="nv-global-search-input w-full min-w-0 rounded-full pl-9 pr-4 py-2 text-sm"
           hideLabel>
           <template #prefix>
@@ -222,8 +236,9 @@ onUnmounted(() => {
           <div class="nv-global-search-section nv-global-search-section-text px-3 py-2 text-xs font-semibold">
             {{ $t('search.boards') }}
           </div>
-          <ul role="listbox" aria-label="Board search results">
+          <ul :id="searchListboxId" role="listbox" aria-label="Board search results">
             <li v-for="(board, index) in filteredBoards" :key="board.boardUrl" @click="selectBoard(board.boardUrl)"
+              :id="`${searchListboxId}-${board.boardUrl}`"
               @mouseenter="setSelectedIndex(index)" :class="[
                 'nv-global-search-option px-4 py-2 cursor-pointer flex items-center space-x-3',
                 { 'nv-global-search-option-selected': index === selectedIndex }
@@ -251,8 +266,9 @@ onUnmounted(() => {
         <div class="nv-global-search-section nv-global-search-section-text px-3 py-2 text-xs font-semibold">
           {{ $t('search.boards') }}
         </div>
-        <ul role="listbox" aria-label="Board search results">
+        <ul :id="searchListboxId" role="listbox" aria-label="Board search results">
           <li v-for="(board, index) in filteredBoards" :key="board.boardUrl" @click="selectBoard(board.boardUrl)"
+            :id="`${searchListboxId}-${board.boardUrl}`"
             @mouseenter="setSelectedIndex(index)" :class="[
               'nv-global-search-option px-4 py-2 cursor-pointer flex items-center space-x-3',
               { 'nv-global-search-option-selected': index === selectedIndex }
