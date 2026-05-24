@@ -64,7 +64,16 @@ const navigateOrLogin = async (path: string) => {
         <Layers3 class="h-5 w-5" aria-hidden="true" />
         <span>{{ $t('layout.mobileNav.boards') }}</span>
       </button>
-      <button ref="fabButtonRef" type="button" class="nv-mobile-nav-fab" @click="openWriteSheet" :aria-label="t('layout.mobileNav.createPost')">
+      <button
+        ref="fabButtonRef"
+        type="button"
+        class="nv-mobile-nav-fab"
+        aria-haspopup="dialog"
+        aria-controls="mobile-write-sheet"
+        :aria-expanded="showWriteSheet ? 'true' : 'false'"
+        :aria-label="t('layout.mobileNav.createPost')"
+        @click="openWriteSheet"
+      >
         <PenSquare class="h-5 w-5" aria-hidden="true" />
       </button>
       <button
@@ -87,6 +96,7 @@ const navigateOrLogin = async (path: string) => {
     <Teleport to="body">
       <div v-if="showWriteSheet" class="fixed inset-0 z-[90] bg-black/40 backdrop-blur-[1px]" @click="closeWriteSheet">
         <div
+          id="mobile-write-sheet"
           ref="sheetRef"
           class="nv-mobile-sheet"
           role="dialog"
