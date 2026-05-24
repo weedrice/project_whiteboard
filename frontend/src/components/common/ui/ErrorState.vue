@@ -41,7 +41,7 @@ withDefaults(defineProps<{
   showRetry?: boolean
   showGoHome?: boolean
 }>(), {
-  icon: AlertCircle,
+  icon: () => AlertCircle,
   showRetry: false,
   showGoHome: false
 })

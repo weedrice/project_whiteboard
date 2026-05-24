@@ -11,6 +11,18 @@ const messages: Record<string, string> = {
 }
 
 describe('ErrorState', () => {
+  it('renders the default icon without invoking it as a prop factory', () => {
+    const wrapper = mount(ErrorState, {
+      global: {
+        mocks: {
+          $t: (key: string) => messages[key] ?? key
+        }
+      }
+    })
+
+    expect(wrapper.find('svg').exists()).toBe(true)
+  })
+
   it('renders default localized copy and action buttons', () => {
     const TestIcon = markRaw(defineComponent({
       setup: () => () => h('svg')
