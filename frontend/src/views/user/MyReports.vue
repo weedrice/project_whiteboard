@@ -6,6 +6,7 @@ import Pagination from '@/components/common/ui/Pagination.vue'
 import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import { Flag } from 'lucide-vue-next'
 import type { MyReport } from '@/types'
 import { usePagination } from '@/composables/usePagination'
@@ -21,6 +22,7 @@ const {
   page,
   size,
   totalPages,
+  error,
   fetch: fetchReports,
   handlePageChange,
   handleSizeChange
@@ -56,6 +58,7 @@ onMounted(() => {
           <BaseSkeleton width="60px" height="24px" rounded="rounded-full" />
         </div>
       </div>
+      <ErrorState v-else-if="error" :message="error" show-retry @retry="fetchReports" />
       <EmptyState v-else-if="reports.length === 0" :title="$t('user.reportList.empty')" :icon="Flag" />
       <ul v-else role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
         <li v-for="report in reports" :key="report.reportId"

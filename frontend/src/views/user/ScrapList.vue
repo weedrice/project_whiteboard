@@ -6,6 +6,7 @@ import Pagination from '@/components/common/ui/Pagination.vue'
 import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import { Bookmark } from 'lucide-vue-next'
 import type { PostSummary } from '@/types'
 import { usePagination } from '@/composables/usePagination'
@@ -16,6 +17,7 @@ const {
   page,
   size,
   totalPages,
+  error,
   fetch: fetchScraps,
   handlePageChange,
   handleSizeChange
@@ -53,6 +55,7 @@ onMounted(() => {
           </div>
         </div>
       </div>
+      <ErrorState v-else-if="error" :message="error" show-retry @retry="fetchScraps" />
       <EmptyState v-else-if="scraps.length === 0" :title="$t('user.scrapList.empty')" :icon="Bookmark" />
       <div v-else>
         <PostList

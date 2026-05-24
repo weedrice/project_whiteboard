@@ -8,6 +8,7 @@ import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import { Coins } from 'lucide-vue-next'
 import { usePagination } from '@/composables/usePagination'
 
@@ -17,6 +18,7 @@ const {
   page,
   size,
   totalPages,
+  error,
   fetch: fetchHistory,
   handlePageChange,
   handleSizeChange
@@ -52,6 +54,7 @@ onMounted(() => {
           <BaseSkeleton width="48px" height="20px" rounded="rounded-full" />
         </div>
       </div>
+      <ErrorState v-else-if="error" :message="error" show-retry @retry="fetchHistory" />
       <EmptyState v-else-if="history.length === 0" :title="$t('user.pointsHistory.empty')" :icon="Coins" />
       <ul v-else role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
         <li v-for="item in history" :key="item.historyId"
