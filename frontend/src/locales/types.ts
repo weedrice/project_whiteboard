@@ -470,6 +470,11 @@ export interface BoardMessages {
     updateFailed: string
     orderFailed: string
     default: string
+    add: string
+    save: string
+    cancel: string
+    edit: string
+    delete: string
   }
   postDetail: {
     back: string

@@ -54,8 +54,8 @@ onMounted(fetchCategories)
         inputClass="dark:bg-gray-700 dark:text-white dark:border-gray-600">
         <option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option>
       </BaseSelect>
-      <BaseButton type="submit" variant="primary" class="px-3">
-        <Plus class="h-4 w-4" />
+      <BaseButton type="submit" variant="primary" class="px-3" :aria-label="$t('board.category.add')">
+        <Plus class="h-4 w-4" aria-hidden="true" />
       </BaseButton>
     </form>
 
@@ -70,7 +70,7 @@ onMounted(fetchCategories)
       <!-- Default Category (Static) -->
       <div v-if="defaultCategory" class="px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-900/50">
         <div class="flex items-center text-gray-400 dark:text-gray-500 cursor-not-allowed p-1 mr-3">
-          <GripVertical class="h-4 w-4" />
+          <GripVertical class="h-4 w-4" aria-hidden="true" />
         </div>
 
         <div v-if="editingId === defaultCategory.categoryId" class="flex-1 flex items-center gap-2">
@@ -82,12 +82,14 @@ onMounted(fetchCategories)
               <option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option>
             </BaseSelect>
             <BaseButton @click="saveEdit(defaultCategory)" variant="ghost" size="sm"
+              :aria-label="$t('board.category.save')"
               class="p-1 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300">
-              <Check class="h-4 w-4" />
+              <Check class="h-4 w-4" aria-hidden="true" />
             </BaseButton>
             <BaseButton @click="cancelEdit" variant="ghost" size="sm"
+              :aria-label="$t('board.category.cancel')"
               class="p-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
-              <X class="h-4 w-4" />
+              <X class="h-4 w-4" aria-hidden="true" />
             </BaseButton>
           </div>
         </div>
@@ -101,8 +103,9 @@ onMounted(fetchCategories)
                   defaultCategory.minWriteRole || 'USER' }}</span>
           </div>
           <BaseButton @click="startEdit(defaultCategory)" variant="ghost" size="sm"
+            :aria-label="$t('board.category.edit')"
             class="p-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
-            <Edit2 class="h-4 w-4" />
+            <Edit2 class="h-4 w-4" aria-hidden="true" />
           </BaseButton>
         </div>
       </div>
@@ -115,7 +118,7 @@ onMounted(fetchCategories)
           <div class="flex items-center">
             <div draggable="true" @dragstart="onDragStart($event, index)"
               class="mr-3 cursor-move text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
-              <GripVertical class="h-4 w-4" />
+              <GripVertical class="h-4 w-4" aria-hidden="true" />
             </div>
           </div>
 
@@ -128,12 +131,14 @@ onMounted(fetchCategories)
                 <option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option>
               </BaseSelect>
               <BaseButton @click="saveEdit(category)" variant="ghost" size="sm"
+                :aria-label="$t('board.category.save')"
                 class="p-1 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300">
-                <Check class="h-4 w-4" />
+                <Check class="h-4 w-4" aria-hidden="true" />
               </BaseButton>
               <BaseButton @click="cancelEdit" variant="ghost" size="sm"
+                :aria-label="$t('board.category.cancel')"
                 class="p-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
-                <X class="h-4 w-4" />
+                <X class="h-4 w-4" aria-hidden="true" />
               </BaseButton>
             </div>
           </div>
@@ -146,12 +151,14 @@ onMounted(fetchCategories)
             </div>
             <div class="flex items-center gap-2">
               <BaseButton @click="startEdit(category)" variant="ghost" size="sm"
+                :aria-label="$t('board.category.edit')"
                 class="p-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
-                <Edit2 class="h-4 w-4" />
+                <Edit2 class="h-4 w-4" aria-hidden="true" />
               </BaseButton>
               <BaseButton @click="handleDelete(category.categoryId)" variant="ghost" size="sm"
+                :aria-label="$t('board.category.delete')"
                 class="p-1 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300">
-                <Trash2 class="h-4 w-4" />
+                <Trash2 class="h-4 w-4" aria-hidden="true" />
               </BaseButton>
             </div>
           </div>

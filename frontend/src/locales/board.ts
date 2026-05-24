@@ -102,6 +102,11 @@ export const board: BoardMessages = {
     updateFailed: '카테고리 수정에 실패했습니다.',
     orderFailed: '카테고리 순서 변경에 실패했습니다.',
     default: '(기본)',
+    add: '카테고리 추가',
+    save: '카테고리 저장',
+    cancel: '카테고리 편집 취소',
+    edit: '카테고리 편집',
+    delete: '카테고리 삭제',
   },
   postDetail: {
     back: '뒤로 가기',
@@ -389,6 +394,11 @@ export const boardEn: BoardMessages = {
     updateFailed: 'Failed to update category.',
     orderFailed: 'Failed to reorder categories.',
     default: '(Default)',
+    add: 'Add category',
+    save: 'Save category',
+    cancel: 'Cancel category edit',
+    edit: 'Edit category',
+    delete: 'Delete category',
   },
   postDetail: {
     ...board.postDetail,
