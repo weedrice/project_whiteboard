@@ -115,8 +115,9 @@ const {
           <div v-if="verification.isCodeSent && !verification.isVerified"
             class="flex gap-2 items-start mt-4 animate-fade-in-down">
             <div class="flex-grow relative">
-              <BaseInput v-model="verification.code" :placeholder="t('auth.codePlaceholder')" hideLabel
-                :disabled="verification.timeLeft <= 0">
+              <BaseInput id="signup-verification-code" v-model="verification.code" name="verificationCode"
+                inputmode="numeric" autocomplete="one-time-code" :placeholder="t('auth.codePlaceholder')"
+                :label="t('auth.codePlaceholder')" hideLabel :disabled="verification.timeLeft <= 0">
                 <template #prefix>
                   <CheckCircle class="h-5 w-5 text-gray-400" />
                 </template>
