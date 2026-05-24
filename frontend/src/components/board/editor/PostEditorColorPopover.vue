@@ -18,7 +18,13 @@ const { t } = useI18n()
 </script>
 
 <template>
-  <button type="button" class="color-panel-default" :class="{ 'color-panel-default--active': isDefaultColor }" @click="emit('default-color')">
+  <button
+    type="button"
+    class="color-panel-default"
+    :class="{ 'color-panel-default--active': isDefaultColor }"
+    :aria-pressed="isDefaultColor"
+    @click="emit('default-color')"
+  >
     <span class="color-panel-default-swatch">
       <span class="color-panel-default-light" />
       <span class="color-panel-default-dark" />
@@ -35,6 +41,7 @@ const { t } = useI18n()
       :style="{ backgroundColor: color }"
       :title="labels[color] ?? color"
       :aria-label="labels[color] ?? color"
+      :aria-pressed="currentTextColor === color"
       @click="emit('preset-color', color)"
     />
   </div>
@@ -42,10 +49,12 @@ const { t } = useI18n()
     <label for="editor-custom-text-color" class="color-panel-custom-label">{{ t('board.writePost.toolbar.customColor') }}</label>
     <input
       id="editor-custom-text-color"
+      name="editorCustomTextColor"
       type="color"
       :value="currentTextColor || '#000000'"
       class="color-panel-custom-input"
       :aria-label="t('board.writePost.toolbar.customColor')"
+      autocomplete="off"
       @input="emit('custom-color', ($event.target as HTMLInputElement).value)"
     >
   </div>
