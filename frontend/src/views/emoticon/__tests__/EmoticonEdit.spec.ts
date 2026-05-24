@@ -201,11 +201,44 @@ describe('EmoticonEdit', () => {
       multiple: '',
       type: 'file',
     })
+    expect(wrapper.get('#emoticon-image-input').attributes('disabled')).toBeUndefined()
     expect(wrapper.get('label[for="emoticon-tag-input"]').attributes('for')).toBe('emoticon-tag-input')
     expect(wrapper.get('#emoticon-tag-input').attributes()).toMatchObject({
       name: 'emoticonTag',
       autocomplete: 'off',
     })
+  })
+
+  it('keeps the image file input labelled when the image limit is reached', async () => {
+    const wrapper = mount(EmoticonEdit, {
+      global: {
+        mocks: {
+          $t: (key: string) => key,
+        },
+        stubs: {
+          BaseButton: baseButtonStub,
+          ArrowLeft: true,
+          Upload: true,
+          X: true,
+          Plus: true,
+          EyeOff: true,
+          Eye: true,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    ;(wrapper.vm as unknown as { existingImages: Array<{ imageId: number; emoticonId: number; imageUrl: string; sortOrder: number }> }).existingImages = Array.from({ length: 100 }, (_, index) => ({
+      imageId: index + 1,
+      emoticonId: 7,
+      imageUrl: `https://cdn.example.com/${index + 1}.png`,
+      sortOrder: index,
+    }))
+    await flushPromises()
+
+    expect(wrapper.get('label[for="emoticon-image-input"]').attributes('for')).toBe('emoticon-image-input')
+    expect(wrapper.get('#emoticon-image-input').attributes('disabled')).toBeDefined()
   })
 
   it('deletes selected images before uploading files and adds new images in selection order', async () => {

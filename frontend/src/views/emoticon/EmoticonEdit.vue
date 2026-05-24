@@ -507,9 +507,9 @@ const goToDetail = () => {
           </div>
 
           <!-- 추가 버튼 -->
+          <input id="emoticon-image-input" ref="emoticonInput" type="file" name="emoticonImages" :accept="SUPPORTED_IMAGE_ACCEPT" multiple :disabled="totalImageCount >= 100" @change="handleEmoticonSelect"
+            class="hidden" />
           <div v-if="totalImageCount < 100">
-            <input id="emoticon-image-input" ref="emoticonInput" type="file" name="emoticonImages" :accept="SUPPORTED_IMAGE_ACCEPT" multiple @change="handleEmoticonSelect"
-              class="hidden" />
             <button type="button" @click="emoticonInput?.click()"
               class="w-full aspect-square border-2 border-dashed border-gray-300 dark:border-gray-600 rounded flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 hover:border-indigo-500 hover:text-indigo-500 transition-colors"
               style="width: 100px; height: 100px;">
