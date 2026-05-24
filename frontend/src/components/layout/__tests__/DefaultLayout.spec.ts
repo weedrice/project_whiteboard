@@ -6,6 +6,10 @@ const routeState = ref({ name: 'home' as string | null })
 const routerPush = vi.fn()
 const logout = vi.fn()
 const toggleThemePreference = vi.hoisted(() => vi.fn())
+const authState = vi.hoisted(() => ({
+    isAuthenticated: false,
+    user: null as null | Record<string, unknown>,
+}))
 
 vi.mock('vue-router', () => ({
     createRouter: vi.fn(() => ({
@@ -35,8 +39,8 @@ vi.mock('lucide-vue-next', () => ({
 
 vi.mock('@/stores/auth', () => ({
     useAuthStore: () => ({
-        isAuthenticated: false,
-        user: null,
+        isAuthenticated: authState.isAuthenticated,
+        user: authState.user,
         logout,
     }),
 }))
@@ -95,6 +99,8 @@ describe('DefaultLayout', () => {
         vi.clearAllMocks()
         toggleThemePreference.mockClear()
         routeState.value = { name: 'home' }
+        authState.isAuthenticated = false
+        authState.user = null
         Object.defineProperty(window, 'matchMedia', {
             writable: true,
             value: vi.fn().mockImplementation(() => ({
@@ -135,5 +141,39 @@ describe('DefaultLayout', () => {
         window.dispatchEvent(new CustomEvent('noviis:editor-focus-change', { detail: false }))
         await nextTick()
         expect(wrapper.get('[data-testid="mobile-bottom-nav"]').attributes('data-hidden')).toBe('false')
+    })
+
+    it('announces notification dropdown expanded state and panel relationship', async () => {
+        authState.isAuthenticated = true
+        authState.user = { displayName: 'Tester' }
+
+        const wrapper = mount(DefaultLayout, {
+            global: {
+                stubs: {
+                    'router-link': true,
+                    'router-view': true,
+                    NotificationDropdown: true,
+                    UserDropdown: true,
+                    BoardDropdown: true,
+                    Footer: true,
+                    GlobalSearchBar: true,
+                    KeyboardShortcutsModal: true,
+                    RecentBoardsBar: true,
+                    MobileBottomNav: MobileBottomNavStub,
+                },
+                mocks: {
+                    $t: (key: string) => key,
+                },
+            },
+        })
+
+        const notificationButton = wrapper.get('button[aria-label="Open notifications"]')
+        expect(notificationButton.attributes('aria-expanded')).toBe('false')
+        expect(notificationButton.attributes('aria-controls')).toBe('notification-dropdown-panel')
+
+        await notificationButton.trigger('click')
+
+        expect(notificationButton.attributes('aria-expanded')).toBe('true')
+        expect(wrapper.find('#notification-dropdown-panel').exists()).toBe(true)
     })
 })

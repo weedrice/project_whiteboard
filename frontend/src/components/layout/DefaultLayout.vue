@@ -285,13 +285,15 @@ const goToNotificationsPage = async () => {
               type="button"
               class="nv-shell-icon-button"
               aria-label="Open notifications"
+              aria-controls="notification-dropdown-panel"
+              :aria-expanded="isNotificationOpen"
               @click.stop="toggleNotification"
             >
               <Bell class="h-5 w-5" />
               <span v-if="unreadCount && unreadCount > 0" class="nv-shell-dot" />
             </button>
 
-            <div v-if="isNotificationOpen" class="absolute right-0 z-50 mt-3 w-80">
+            <div v-if="isNotificationOpen" id="notification-dropdown-panel" class="absolute right-0 z-50 mt-3 w-80">
               <NotificationDropdown />
             </div>
           </div>
