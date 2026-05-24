@@ -105,24 +105,24 @@ const columns = [
     <div class="mt-8">
       <BaseTable :columns="columns" :items="configs" row-key="key" :loading="isLoading" :emptyText="t('common.noData')">
         <template #cell-description="{ item }">
-          <BaseInput v-model="item.description" hideLabel
+          <BaseInput v-model="item.description" :label="`${item.key} ${t('common.description')}`" hideLabel
             inputClass="block w-full border-0 p-0 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-500 focus:ring-0 sm:text-sm bg-transparent shadow-none" />
         </template>
 
         <template #cell-value="{ item }">
-          <BaseInput v-model="item.value" hideLabel
+          <BaseInput v-model="item.value" :label="`${item.key} ${t('common.value')}`" hideLabel
             inputClass="block w-full border-0 p-0 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-500 focus:ring-0 sm:text-sm bg-transparent shadow-none" />
         </template>
 
         <template #cell-actions="{ item }">
           <div class="flex justify-end space-x-2">
-            <BaseButton @click="handleSave(item)" variant="ghost" size="sm" :title="t('common.save')"
+            <BaseButton @click="handleSave(item)" variant="ghost" size="sm" :title="t('common.save')" :aria-label="t('common.save')"
               class="p-1 text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
-              <Save class="h-4 w-4" />
+              <Save class="h-4 w-4" aria-hidden="true" />
             </BaseButton>
-            <BaseButton @click="handleDelete(item.key)" variant="ghost" size="sm" :title="t('common.delete')"
+            <BaseButton @click="handleDelete(item.key)" variant="ghost" size="sm" :title="t('common.delete')" :aria-label="t('common.delete')"
               class="p-1 text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">
-              <Trash2 class="h-4 w-4" />
+              <Trash2 class="h-4 w-4" aria-hidden="true" />
             </BaseButton>
           </div>
         </template>
