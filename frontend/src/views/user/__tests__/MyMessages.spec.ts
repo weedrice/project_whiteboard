@@ -184,6 +184,8 @@ describe('MyMessages', () => {
         const receivedButton = wrapper.findAll('button').find((button) => button.text() === 'user.message.received')
         const sentButton = wrapper.findAll('button').find((button) => button.text() === 'user.message.sent')
 
+        expect(wrapper.get('h1').text()).toContain('user.message.boxTitle')
+        expect(wrapper.get('[role="group"]').attributes('aria-label')).toBe('user.message.boxTitle')
         expect(receivedButton?.attributes('aria-pressed')).toBe('true')
         expect(sentButton?.attributes('aria-pressed')).toBe('false')
         expect(messageOpenButtons(wrapper)[0].attributes('aria-label')).toBe('user.message.openMessage')

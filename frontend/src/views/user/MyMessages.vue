@@ -3,10 +3,10 @@
         <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
             <div class="px-4 py-4 sm:py-5 sm:px-6 flex flex-col gap-3 border-b border-gray-200 dark:border-gray-700">
                 <div class="flex flex-row justify-between items-center gap-2">
-                    <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white flex items-center min-w-0">
+                    <h1 class="text-lg leading-6 font-medium text-gray-900 dark:text-white flex items-center min-w-0">
                         <Mail class="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400 flex-shrink-0" />
                         {{ $t('user.message.boxTitle') }}
-                    </h3>
+                    </h1>
                     <div class="flex items-center gap-2 flex-shrink-0">
                         <div class="hidden sm:block">
                             <PageSizeSelector v-model="size" @change="handleSizeChange" />
@@ -17,7 +17,11 @@
                         </BaseButton>
                     </div>
                 </div>
-                <span class="isolate inline-flex rounded-lg sm:rounded-md shadow-sm w-full sm:w-auto" role="group">
+                <span
+                    class="isolate inline-flex rounded-lg sm:rounded-md shadow-sm w-full sm:w-auto"
+                    role="group"
+                    :aria-label="$t('user.message.boxTitle')"
+                >
                     <button type="button" :aria-pressed="viewType === 'received'" @click="changeViewType('received')"
                         class="flex-1 sm:flex-initial relative inline-flex items-center justify-center rounded-l-lg sm:rounded-l-md px-3 py-2.5 sm:py-2 text-sm font-medium ring-1 ring-inset min-h-[44px] sm:min-h-0 focus:z-10"
                         :class="viewType === 'received'
