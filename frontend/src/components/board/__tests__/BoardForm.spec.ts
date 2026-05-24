@@ -92,6 +92,39 @@ const BaseButtonStub = defineComponent({
 })
 
 describe('BoardForm', () => {
+  it('keeps icon upload text inside the label and describes preview image', () => {
+    const wrapper = mount(BoardForm, {
+      props: {
+        initialData: {
+          boardName: 'Board',
+          boardUrl: 'board',
+          description: '',
+          iconUrl: '/icon.png',
+          sortOrder: 0,
+          allowNsfw: false,
+          isPublic: true,
+          agentUseYn: false,
+          guidePrompt: '',
+        },
+      },
+      global: {
+        mocks: {
+          $t: (key: string) => key,
+        },
+        stubs: {
+          BaseInput: BaseInputStub,
+          BaseTextarea: BaseTextareaStub,
+          BaseCheckbox: BaseCheckboxStub,
+          BaseButton: BaseButtonStub,
+        },
+      },
+    })
+
+    const label = wrapper.get('label[for="icon-upload"]')
+    expect(label.text()).toContain('board.form.iconImage')
+    expect(wrapper.get('img').attributes('alt')).toBe('board.form.iconImage')
+  })
+
   it('disables agent use when board is private', async () => {
     const wrapper = mount(BoardForm, {
       props: {
