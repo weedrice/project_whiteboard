@@ -14,6 +14,9 @@ describe('BaseSelect', () => {
 
         expect(wrapper.find('label[for="test-select"]').text()).toBe('Category')
         expect(wrapper.find('p.text-red-600').text()).toBe('Required')
+        expect(wrapper.get('select').attributes('aria-invalid')).toBe('true')
+        expect(wrapper.get('select').attributes('aria-describedby')).toBe('test-select-error')
+        expect(wrapper.get('#test-select-error').attributes('role')).toBe('alert')
     })
 
     it('normalizes primitive options and emits updated value', async () => {
@@ -68,13 +71,17 @@ describe('BaseSelect', () => {
     it('supports disabled and hideLabel props', () => {
         const wrapper = mount(BaseSelect, {
             props: {
+                id: 'hidden-select',
                 label: 'Hidden',
                 hideLabel: true,
                 disabled: true,
             },
         })
 
-        expect(wrapper.find('label').exists()).toBe(false)
+        const label = wrapper.get('label')
+        expect(label.text()).toBe('Hidden')
+        expect(label.attributes('for')).toBe('hidden-select')
+        expect(label.classes()).toContain('sr-only')
         expect(wrapper.find('select').attributes('disabled')).toBeDefined()
     })
 

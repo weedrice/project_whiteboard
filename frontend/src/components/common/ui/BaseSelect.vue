@@ -1,11 +1,17 @@
 <template>
     <div class="flex flex-col gap-1" :class="$attrs.class">
-        <label v-if="label && !hideLabel" :for="id" class="text-sm font-medium text-gray-700 dark:text-gray-200"
-            :class="labelClass">
+        <label
+            v-if="label"
+            :for="id"
+            :class="hideLabel ? 'sr-only' : ['text-sm font-medium text-gray-700 dark:text-gray-200', labelClass]"
+        >
             {{ label }}
         </label>
         <select v-bind="{ ...$attrs, class: undefined }" :id="id" :value="modelValue" @change="updateValue"
-            :disabled="disabled" class="input-base" :class="[
+            :disabled="disabled"
+            :aria-invalid="error ? 'true' : undefined"
+            :aria-describedby="error ? `${id}-error` : undefined"
+            class="input-base" :class="[
                 { 'border-red-500 focus:border-red-500 focus:ring-red-500': error },
                 inputClass
             ]">
@@ -17,7 +23,7 @@
             </template>
             <slot v-else></slot>
         </select>
-        <p v-if="error" class="text-sm text-red-600 dark:text-red-400">{{ error }}</p>
+        <p v-if="error" :id="`${id}-error`" class="text-sm text-red-600 dark:text-red-400" role="alert">{{ error }}</p>
     </div>
 </template>
 
