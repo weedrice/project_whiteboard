@@ -159,13 +159,16 @@ const handleResetPassword = async () => {
 
         <div class="w-[80%] mx-auto">
             <!-- Tabs -->
-            <div class="flex border-b border-gray-200 dark:border-gray-700 mb-6">
+            <div class="flex border-b border-gray-200 dark:border-gray-700 mb-6" role="tablist"
+                :aria-label="t('auth.findAccount')">
                 <BaseButton @click="switchTab('id')" variant="ghost" class="flex-1 rounded-b-none border-b-2"
+                    role="tab" :aria-selected="activeTab === 'id'"
                     :class="activeTab === 'id' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'">
                     <User class="w-4 h-4 mr-2" />
                     {{ t('auth.findId') }}
                 </BaseButton>
                 <BaseButton @click="switchTab('password')" variant="ghost" class="flex-1 rounded-b-none border-b-2"
+                    role="tab" :aria-selected="activeTab === 'password'"
                     :class="activeTab === 'password' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'">
                     <Key class="w-4 h-4 mr-2" />
                     {{ t('auth.findPassword') }}
@@ -179,7 +182,8 @@ const handleResetPassword = async () => {
                     <div class="space-y-4">
                         <div class="flex gap-2 items-end">
                             <div class="flex-grow">
-                                <BaseInput v-model="form.email" type="email" :label="t('auth.email')"
+                                <BaseInput id="find-account-email" v-model="form.email" name="email" type="email"
+                                    autocomplete="email" :label="t('auth.email')"
                                     :placeholder="t('auth.placeholders.email')" :disabled="status.loading" hideLabel>
                                     <template #prefix>
                                         <Mail class="h-5 w-5 text-gray-400" />
@@ -195,7 +199,9 @@ const handleResetPassword = async () => {
                         <div v-if="status.isCodeSent && !status.isVerified"
                             class="flex gap-2 items-end animate-fade-in-down">
                             <div class="flex-grow">
-                                <BaseInput v-model="form.code" :placeholder="t('auth.codePlaceholder')" hideLabel>
+                                <BaseInput id="find-account-verification-code" v-model="form.code"
+                                    name="verificationCode" inputmode="numeric" autocomplete="one-time-code"
+                                    :placeholder="t('auth.codePlaceholder')" :label="t('auth.codePlaceholder')" hideLabel>
                                     <template #prefix>
                                         <CheckCircle class="h-5 w-5 text-gray-400" />
                                     </template>
@@ -221,9 +227,10 @@ const handleResetPassword = async () => {
 
                 <!-- Step 2: Reset Password (Find Password) -->
                 <div v-if="activeTab === 'password' && status.isVerified" class="space-y-6 animate-fade-in">
-                    <BaseInput v-model="form.newPassword" type="password" :label="t('auth.newPassword')" required />
-                    <BaseInput v-model="form.confirmPassword" type="password" :label="t('auth.newPasswordConfirm')"
-                        required />
+                    <BaseInput id="find-account-new-password" v-model="form.newPassword" name="newPassword"
+                        type="password" autocomplete="new-password" :label="t('auth.newPassword')" required />
+                    <BaseInput id="find-account-confirm-password" v-model="form.confirmPassword" name="confirmPassword"
+                        type="password" autocomplete="new-password" :label="t('auth.newPasswordConfirm')" required />
                     <BaseButton @click="handleResetPassword" :loading="status.loading" full-width variant="primary">
                         {{ t('auth.resetPassword') }}
                     </BaseButton>
