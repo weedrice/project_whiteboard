@@ -49,6 +49,17 @@ describe('PostEditorLinkPopover', () => {
         const wrapper = mountPopover()
         const inputs = wrapper.findAll('.link-popover-input')
 
+        expect(wrapper.get('label[for="editor-link-url"]').text()).toBe('board.writePost.linkUrlPrompt')
+        expect(wrapper.get('#editor-link-url').attributes()).toMatchObject({
+            name: 'editorLinkUrl',
+            inputmode: 'url',
+            autocomplete: 'off',
+        })
+        expect(wrapper.get('label[for="editor-link-text"]').text()).toBe('board.writePost.linkDisplayText')
+        expect(wrapper.get('#editor-link-text').attributes()).toMatchObject({
+            name: 'editorLinkText',
+            autocomplete: 'off',
+        })
         expect((inputs[0].element as HTMLInputElement).value).toBe('https://example.com')
         expect((inputs[1].element as HTMLInputElement).value).toBe('Example')
 

@@ -32,12 +32,15 @@ function apply() {
       id="editor-image-alt"
       v-model="localAlt"
       type="text"
+      name="editorImageAlt"
+      autocomplete="off"
+      aria-describedby="editor-image-alt-help"
       class="link-popover-input"
       :placeholder="t('board.writePost.imageAlt.placeholder')"
       @keydown.enter.stop.prevent="apply"
       @keydown.escape.stop.prevent="emit('close')"
     >
-    <p class="image-alt-help">{{ t('board.writePost.imageAlt.help') }}</p>
+    <p id="editor-image-alt-help" class="image-alt-help">{{ t('board.writePost.imageAlt.help') }}</p>
   </div>
   <div class="link-popover-actions">
     <BaseButton type="button" variant="secondary" size="sm" @click="emit('close')">
