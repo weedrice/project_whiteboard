@@ -341,7 +341,12 @@ describe('PostEditorTipTap', () => {
         await selects[0].setValue('')
         await selects[1].setValue('')
 
-        await wrapper.get('.tiptap-color-input').setValue('#22c55e')
+        const colorInput = wrapper.get('.tiptap-color-input')
+        expect(colorInput.attributes()).toMatchObject({
+            name: 'editorToolbarTextColor',
+            autocomplete: 'off',
+        })
+        await colorInput.setValue('#22c55e')
         await wrapper.get('.tiptap-color-trigger').trigger('click')
         await wrapper.findAll('.color-panel-swatch')[0].trigger('click')
         await wrapper.get('.tiptap-color-trigger').trigger('click')
