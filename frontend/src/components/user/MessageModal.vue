@@ -42,6 +42,8 @@ const messageContent = ref('')
 const isSendingMessage = ref(false)
 
 const handleSendMessage = async () => {
+    if (isSendingMessage.value) return
+
     if (!messageContent.value.trim()) {
         toastStore.addToast(t('user.message.inputContent'), 'warning')
         return
