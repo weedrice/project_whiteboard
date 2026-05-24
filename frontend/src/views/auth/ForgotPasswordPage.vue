@@ -84,9 +84,11 @@ const {
 
     <div v-if="!isSent" class="w-[80%] mx-auto space-y-6">
       <BaseInput
-        id="email"
+        id="forgot-password-email"
         v-model="form.email"
+        name="email"
         type="email"
+        autocomplete="email"
         :placeholder="t('auth.placeholders.email')"
         :label="t('auth.email')"
         :disabled="isCodeSent"
@@ -110,9 +112,12 @@ const {
 
       <div v-if="isCodeSent" class="space-y-4">
         <BaseInput
-          id="verification-code"
+          id="forgot-password-verification-code"
           v-model="form.code"
+          name="verificationCode"
           type="text"
+          inputmode="numeric"
+          autocomplete="one-time-code"
           :placeholder="t('auth.codePlaceholder')"
           :label="t('auth.codePlaceholder')"
           hideLabel
