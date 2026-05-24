@@ -561,7 +561,13 @@ onUnmounted(() => {
         <div class="border-t border-[var(--nv-line)] px-4 py-4 sm:px-5">
           <div class="nv-board-search-row">
             <div class="nv-board-search-group">
-              <select v-model="searchType" class="nv-board-search-select" :aria-label="t('board.detail.searchScopeLabel')">
+              <select
+                id="board-search-type"
+                v-model="searchType"
+                name="searchType"
+                class="nv-board-search-select"
+                :aria-label="t('board.detail.searchScopeLabel')"
+              >
                 <option value="TITLE_CONTENT">{{ $t('board.detail.searchType.titleContent') }}</option>
                 <option value="TITLE">{{ $t('board.detail.searchType.title') }}</option>
                 <option value="CONTENT">{{ $t('board.detail.searchType.content') }}</option>
@@ -572,6 +578,8 @@ onUnmounted(() => {
                 <BaseInput
                   :id="searchInputElementId"
                   v-model="searchQuery"
+                  name="searchQuery"
+                  autocomplete="off"
                   :label="$t('board.detail.searchPlaceholder')"
                   :aria-label="$t('board.detail.searchPlaceholder')"
                   :placeholder="$t('board.detail.searchPlaceholder')"

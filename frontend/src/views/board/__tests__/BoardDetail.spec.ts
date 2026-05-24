@@ -282,6 +282,10 @@ describe('BoardDetail', () => {
     await searchButton?.trigger('click')
 
     expect(searchSelect.classes()).toContain('nv-board-search-select')
+    expect(searchSelect.attributes('id')).toBe('board-search-type')
+    expect(searchSelect.attributes('name')).toBe('searchType')
+    expect(searchInput.attributes('name')).toBe('searchQuery')
+    expect(searchInput.attributes('autocomplete')).toBe('off')
     expect(searchButton?.classes()).toContain('nv-board-search-btn')
     expect(searchWriteLink.exists()).toBe(true)
     expect(searchWriteLink.classes()).toContain('nv-board-write-btn')
