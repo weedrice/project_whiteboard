@@ -170,13 +170,13 @@ const columns = computed(() => [
   { key: 'profile', label: '프로필', width: '7%', align: 'center' as const },
   { key: 'loginId', label: getSortLabel(t('common.loginId'), 'loginId'), width: '10%', sortable: true },
   { key: 'displayName', label: getSortLabel(t('common.displayName'), 'displayName'), width: '11%', sortable: true },
-  { key: 'email', label: t('common.email'), width: '16%' },
+  { key: 'email', label: t('common.email'), width: '14%' },
   { key: 'isEmailVerified', label: getSortLabel('이메일 인증', 'isEmailVerified'), width: '8%', sortable: true, align: 'center' as const },
   { key: 'isSuperAdmin', label: getSortLabel('슈퍼관리자', 'isSuperAdmin'), width: '8%', sortable: true, align: 'center' as const },
   { key: 'status', label: getSortLabel(t('admin.users.table.status'), 'status'), width: '8%', sortable: true, align: 'center' as const },
-  { key: 'lastLoginAt', label: getSortLabel('최근 로그인', 'lastLoginAt'), width: '10%', sortable: true },
-  { key: 'createdAt', label: getSortLabel(t('admin.users.table.joinedAt'), 'createdAt'), width: '10%', sortable: true },
-  { key: 'actions', label: '', align: 'right' as const, width: '7%' }
+  { key: 'lastLoginAt', label: getSortLabel('최근 로그인', 'lastLoginAt'), width: '9%', sortable: true },
+  { key: 'createdAt', label: getSortLabel(t('admin.users.table.joinedAt'), 'createdAt'), width: '9%', sortable: true },
+  { key: 'actions', label: '', align: 'right' as const, width: '10%' }
 ])
 </script>
 
@@ -337,10 +337,19 @@ const columns = computed(() => [
         </template>
 
         <template #cell-actions="{ item }">
-          <div class="flex justify-end">
+          <div class="flex justify-end gap-1">
+            <BaseButton
+              variant="ghost"
+              size="sm"
+              class="p-1"
+              :aria-label="`${item.displayName || item.loginId} 상세 보기`"
+              @click.stop="openDetailModal(item)"
+            >
+              상세
+            </BaseButton>
             <BaseButton
               v-if="canChangeStatus(item.status)"
-              @click="handleStatusChange(item, getNextStatus(item.status))"
+              @click.stop="handleStatusChange(item, getNextStatus(item.status))"
               variant="ghost"
               size="sm"
               class="p-1"
