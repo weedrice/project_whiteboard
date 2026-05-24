@@ -111,6 +111,12 @@ describe('EmoticonPicker', () => {
         mocks.purchasedEmoticons.value = undefined
         const wrapper = mountPicker(true)
 
+        expect(wrapper.get('.emoticon-picker').attributes()).toMatchObject({
+            role: 'dialog',
+            'aria-modal': 'true',
+            'aria-labelledby': 'emoticon-picker-title',
+        })
+        expect(wrapper.get('.search-input').attributes('aria-label')).toBe('노비콘 검색')
         expect(wrapper.find('.empty-state').exists()).toBe(true)
     })
 
@@ -190,6 +196,8 @@ describe('EmoticonPicker', () => {
         expect(wrapper.findAll('.image-btn')).toHaveLength(2)
         expect(wrapper.get('.back-btn').attributes('type')).toBe('button')
         expect(wrapper.get('.back-btn').attributes('aria-label')).toBe('이모티콘 목록으로 돌아가기')
+        expect(wrapper.get('.image-btn').attributes('type')).toBe('button')
+        expect(wrapper.get('.image-btn').attributes('aria-label')).toBe('PackOne 이미지 선택')
 
         await wrapper.findAll('.image-btn')[0].trigger('click')
         expect(wrapper.emitted('select')?.[0]?.[0]).toEqual({

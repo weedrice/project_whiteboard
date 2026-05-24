@@ -107,13 +107,20 @@ watch(() => props.show, (newVal) => {
 <template>
   <!-- 팝업 밖 클릭 시 닫기 위한 투명 백드롭 -->
   <div v-if="show" class="emoticon-picker-backdrop" @click="close" aria-hidden="true" />
-  <div v-if="show" class="emoticon-picker" @click.stop>
+  <div
+    v-if="show"
+    class="emoticon-picker"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="emoticon-picker-title"
+    @click.stop
+  >
     <!-- 헤더 -->
     <div class="picker-header">
       <button v-if="selectedEmoticonId" type="button" aria-label="이모티콘 목록으로 돌아가기" @click="goBack" class="back-btn">
         <ArrowLeft class="w-4 h-4" />
       </button>
-      <span class="header-title">
+      <span id="emoticon-picker-title" class="header-title">
         {{ selectedEmoticon?.name || '노비콘' }}
       </span>
       <button type="button" aria-label="이모티콘 선택기 닫기" @click="close" class="close-btn">
@@ -131,8 +138,14 @@ watch(() => props.show, (newVal) => {
         </div>
         <!-- 이미지 그리드 -->
         <div v-else-if="selectedEmoticon" class="images-grid">
-          <button v-for="image in selectedImages" :key="image.imageId" @click="handleImageClick(image)"
-            class="image-btn">
+          <button
+            v-for="image in selectedImages"
+            :key="image.imageId"
+            type="button"
+            :aria-label="`${selectedEmoticon.name} 이미지 선택`"
+            @click="handleImageClick(image)"
+            class="image-btn"
+          >
             <img :src="image.imageUrl || DEFAULT_EMOTICON_IMAGE_URL" :alt="selectedEmoticon.name" @error="applyImageFallback" />
           </button>
         </div>
@@ -144,7 +157,7 @@ watch(() => props.show, (newVal) => {
         <div class="search-area">
           <div class="relative">
             <Search class="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input v-model="searchKeyword" type="text" placeholder="검색..." class="search-input" />
+            <input v-model="searchKeyword" type="text" aria-label="노비콘 검색" placeholder="검색..." class="search-input" />
           </div>
         </div>
 
@@ -162,7 +175,7 @@ watch(() => props.show, (newVal) => {
 
         <!-- 이모티콘 목록 -->
         <div v-else class="emoticons-grid">
-          <button v-for="emoticon in filteredEmoticons" :key="emoticon.emoticonId"
+          <button v-for="emoticon in filteredEmoticons" :key="emoticon.emoticonId" type="button"
             @click="handleEmoticonClick(emoticon)" class="emoticon-btn">
             <img
               :src="emoticon.thumbnailUrl || emoticon.images?.[0]?.imageUrl || DEFAULT_EMOTICON_IMAGE_URL"
