@@ -7,7 +7,11 @@
   >
     <div class="p-4 space-y-4">
       <BaseInput
+        id="user-select-search"
         v-model="searchQuery"
+        name="userSelectSearch"
+        autocomplete="off"
+        :label="$t('admin.users.searchPlaceholder')"
         :placeholder="$t('admin.users.searchPlaceholder')"
         hideLabel
       >

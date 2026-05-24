@@ -64,9 +64,20 @@ const mountModal = (props: {
         template: '<div v-if="isOpen"><slot /></div>',
       },
       BaseInput: {
-        props: ['modelValue'],
+        props: ['modelValue', 'id', 'name', 'label', 'autocomplete', 'hideLabel'],
         emits: ['update:modelValue'],
-        template: '<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+        template: `
+          <div>
+            <label v-if="label" :for="id" :class="{ 'sr-only': hideLabel }">{{ label }}</label>
+            <input
+              :id="id"
+              :name="name"
+              :autocomplete="autocomplete"
+              :value="modelValue"
+              @input="$emit('update:modelValue', $event.target.value)"
+            />
+          </div>
+        `,
       },
       BaseButton: {
         template: '<button><slot /></button>',
@@ -89,6 +100,11 @@ describe('UserSelectModal', () => {
 
     expect(mocks.adminCalls.at(-1)?.enabled.value).toBe(true)
     expect(mocks.boardCalls.at(-1)?.enabled.value).toBe(false)
+    expect(wrapper.get('label[for="user-select-search"]').text()).toBe('admin.users.searchPlaceholder')
+    expect(wrapper.get('#user-select-search').attributes()).toMatchObject({
+      name: 'userSelectSearch',
+      autocomplete: 'off',
+    })
     expect(wrapper.text()).toContain('admin-user')
     expect(wrapper.text()).toContain('common.email')
   })
