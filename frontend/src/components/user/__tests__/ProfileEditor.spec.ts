@@ -125,14 +125,23 @@ const baseButtonStub = {
 const baseInputStub = {
   props: {
     modelValue: String,
+    id: String,
+    name: String,
+    label: String,
+    autocomplete: String,
     disabled: Boolean,
     error: String,
     placeholder: String,
+    hideLabel: Boolean,
   },
   emits: ['update:modelValue'],
   template: `
     <div>
+      <label v-if="label" :for="id" :class="{ 'sr-only': hideLabel }">{{ label }}</label>
       <input
+        :id="id"
+        :name="name"
+        :autocomplete="autocomplete"
         :value="modelValue"
         :disabled="disabled"
         :placeholder="placeholder"
@@ -242,6 +251,16 @@ describe('ProfileEditor', () => {
     const registerButton = findButtonByText(wrapper, 'user.profile.agentRegister')
 
     expect(registerButton.attributes('disabled')).toBeDefined()
+  })
+
+  it('labels the agent code input', () => {
+    const wrapper = mountProfileEditor()
+
+    expect(wrapper.get('label[for="agent-token"]').text()).toBe('user.profile.agentPlaceholder')
+    expect(wrapper.get('#agent-token').attributes()).toMatchObject({
+      name: 'agentToken',
+      autocomplete: 'off',
+    })
   })
 
   it('labels profile photo upload controls', () => {

@@ -73,7 +73,11 @@
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div class="flex-1">
           <BaseInput
+            id="agent-token"
             v-model="agentToken"
+            name="agentToken"
+            autocomplete="off"
+            :label="$t('user.profile.agentPlaceholder')"
             :placeholder="$t('user.profile.agentPlaceholder')"
             :error="agentError"
             :disabled="isClaiming || isAgentListPending || !isEmailVerified || !!activeAgent"
