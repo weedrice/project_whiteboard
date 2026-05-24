@@ -806,6 +806,8 @@ export interface UserMessages {
     to: string
     reply: string
     replyTitle: string
+    selectMessage: string
+    openMessage: string
   }
   block: {
     confirm: string

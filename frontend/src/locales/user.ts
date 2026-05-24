@@ -120,6 +120,8 @@ export const user: UserMessages = {
     to: '받는 사람',
     reply: '답장',
     replyTitle: '답장 보내기',
+    selectMessage: '{name} 쪽지 선택',
+    openMessage: '{name} 쪽지 열기',
   },
   block: {
     confirm: '{name}님을 차단하시겠습니까?',

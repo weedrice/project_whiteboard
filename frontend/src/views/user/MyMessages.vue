@@ -18,14 +18,14 @@
                     </div>
                 </div>
                 <span class="isolate inline-flex rounded-lg sm:rounded-md shadow-sm w-full sm:w-auto" role="group">
-                    <button type="button" @click="changeViewType('received')"
+                    <button type="button" :aria-pressed="viewType === 'received'" @click="changeViewType('received')"
                         class="flex-1 sm:flex-initial relative inline-flex items-center justify-center rounded-l-lg sm:rounded-l-md px-3 py-2.5 sm:py-2 text-sm font-medium ring-1 ring-inset min-h-[44px] sm:min-h-0 focus:z-10"
                         :class="viewType === 'received'
                             ? 'bg-indigo-600 text-white ring-indigo-600 hover:bg-indigo-700'
                             : 'bg-white text-gray-900 ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-700'">
                         {{ $t('user.message.received') }}
                     </button>
-                    <button type="button" @click="changeViewType('sent')"
+                    <button type="button" :aria-pressed="viewType === 'sent'" @click="changeViewType('sent')"
                         class="flex-1 sm:flex-initial relative -ml-px inline-flex items-center justify-center rounded-r-lg sm:rounded-r-md px-3 py-2.5 sm:py-2 text-sm font-medium ring-1 ring-inset min-h-[44px] sm:min-h-0 focus:z-10"
                         :class="viewType === 'sent'
                             ? 'bg-indigo-600 text-white ring-indigo-600 hover:bg-indigo-700'
@@ -63,12 +63,22 @@
 
             <ul v-else class="divide-y divide-gray-200 dark:divide-gray-700">
                 <li v-for="msg in messages" :key="msg.messageId"
-                    class="p-3 sm:p-4 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer flex items-start transition-colors duration-200 min-h-[52px] active:bg-gray-100 dark:active:bg-gray-600"
-                    @click="openMessage(msg)">
+                    class="p-3 sm:p-4 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-stretch transition-colors duration-200 min-h-[52px] active:bg-gray-100 dark:active:bg-gray-600">
                     <div class="flex items-center justify-center h-full mr-3 sm:mr-4 p-2 -ml-1 cursor-pointer flex-shrink-0" @click.stop>
-                        <BaseCheckbox :value="msg.messageId" v-model="selectedMessages" />
+                        <BaseCheckbox
+                            :id="`message-${msg.messageId}-select`"
+                            :value="msg.messageId"
+                            v-model="selectedMessages"
+                            :label="$t('user.message.selectMessage', { name: msg.partner.displayName })"
+                            label-class="sr-only"
+                        />
                     </div>
-                    <div class="flex-1 min-w-0">
+                    <button
+                        type="button"
+                        class="flex-1 min-w-0 text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 rounded-md"
+                        :aria-label="$t('user.message.openMessage', { name: msg.partner.displayName })"
+                        @click="openMessage(msg)"
+                    >
                         <div class="flex justify-between items-baseline gap-2">
                             <div class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">
                                 {{ msg.partner.displayName }}
@@ -81,7 +91,7 @@
                             :class="{ 'font-bold': viewType === 'received' && !msg.isRead }">
                             {{ msg.content }}
                         </p>
-                    </div>
+                    </button>
                 </li>
             </ul>
 

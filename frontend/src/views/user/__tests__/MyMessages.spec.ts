@@ -57,9 +57,9 @@ const baseModalStub = {
 }
 
 const baseCheckboxStub = {
-    props: ['value', 'modelValue'],
+    props: ['id', 'value', 'modelValue', 'label', 'labelClass'],
     emits: ['update:modelValue'],
-    template: '<input type="checkbox" />',
+    template: '<label :class="labelClass"><input :id="id" type="checkbox" />{{ label }}</label>',
 }
 
 const errorStateStub = {
@@ -78,6 +78,8 @@ function deferred<T>() {
     })
     return { promise, resolve, reject }
 }
+
+const messageOpenButtons = (wrapper: ReturnType<typeof mount>) => wrapper.findAll('li > button')
 
 describe('MyMessages', () => {
     beforeEach(() => {
@@ -135,7 +137,7 @@ describe('MyMessages', () => {
         const wrapper = mountMyMessages()
 
         await flushPromises()
-        await wrapper.find('li').trigger('click')
+        await messageOpenButtons(wrapper)[0].trigger('click')
         await flushPromises()
 
         expect(messageApi.getMessage).toHaveBeenCalledWith(5, expect.objectContaining({ skipGlobalErrorHandler: true }))
@@ -155,6 +157,37 @@ describe('MyMessages', () => {
         expect(errorState.exists()).toBe(true)
         expect(errorState.text()).toBe('common.messages.loadFailed')
         expect(wrapper.findComponent({ name: 'EmptyState' }).exists()).toBe(false)
+    })
+
+    it('exposes mailbox view and message row controls to assistive technology', async () => {
+        messageApi.getReceivedMessages.mockResolvedValue({
+            data: {
+                success: true,
+                data: {
+                    content: [
+                        {
+                            messageId: 5,
+                            content: 'hello',
+                            partner: { userId: 2, displayName: 'Other' },
+                            isRead: true,
+                            createdAt: '2026-04-16T11:00:00',
+                        },
+                    ],
+                    totalPages: 1,
+                }
+            }
+        })
+
+        const wrapper = mountMyMessages()
+        await flushPromises()
+
+        const receivedButton = wrapper.findAll('button').find((button) => button.text() === 'user.message.received')
+        const sentButton = wrapper.findAll('button').find((button) => button.text() === 'user.message.sent')
+
+        expect(receivedButton?.attributes('aria-pressed')).toBe('true')
+        expect(sentButton?.attributes('aria-pressed')).toBe('false')
+        expect(messageOpenButtons(wrapper)[0].attributes('aria-label')).toBe('user.message.openMessage')
+        expect(wrapper.get('label.sr-only').text()).toBe('user.message.selectMessage')
     })
 
     it('ignores stale detail responses when another message is selected first', async () => {
@@ -214,7 +247,7 @@ describe('MyMessages', () => {
 
         await flushPromises()
 
-        const messages = wrapper.findAll('li')
+        const messages = messageOpenButtons(wrapper)
         await messages[0].trigger('click')
         await messages[1].trigger('click')
 
@@ -275,7 +308,7 @@ describe('MyMessages', () => {
         const wrapper = mountMyMessages()
 
         await flushPromises()
-        await wrapper.find('li').trigger('click')
+        await messageOpenButtons(wrapper)[0].trigger('click')
         await flushPromises()
 
         expect(messageApi.getReceivedMessages).toHaveBeenCalledTimes(2)
@@ -327,7 +360,7 @@ describe('MyMessages', () => {
         const wrapper = mountMyMessages()
 
         await flushPromises()
-        await wrapper.find('li').trigger('click')
+        await messageOpenButtons(wrapper)[0].trigger('click')
         await flushPromises()
 
         expect(messageApi.getReceivedMessages).toHaveBeenCalledTimes(2)
@@ -373,8 +406,8 @@ describe('MyMessages', () => {
         const wrapper = mountMyMessages()
 
         await flushPromises()
-        await wrapper.findAll('li')[0].trigger('click')
-        await wrapper.findAll('li')[1].trigger('click')
+        await messageOpenButtons(wrapper)[0].trigger('click')
+        await messageOpenButtons(wrapper)[1].trigger('click')
 
         resolvers.get(6)?.({
             data: {
@@ -447,9 +480,9 @@ describe('MyMessages', () => {
         const wrapper = mountMyMessages()
 
         await flushPromises()
-        await wrapper.findAll('li')[0].trigger('click')
+        await messageOpenButtons(wrapper)[0].trigger('click')
         await flushPromises()
-        await wrapper.findAll('li')[1].trigger('click')
+        await messageOpenButtons(wrapper)[1].trigger('click')
         await flushPromises()
 
         resolveFirstRead?.({ data: { success: true } })
