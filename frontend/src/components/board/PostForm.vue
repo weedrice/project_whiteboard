@@ -760,10 +760,10 @@ defineExpose({
             </div>
 
             <div v-if="!props.hideTags" class="mt-5 lg:hidden">
-              <label for="tags" class="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
+              <label for="post-tags-input-mobile" class="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
                 {{ $t('common.tags') }}
               </label>
-              <PostTags v-model="form.tags" />
+              <PostTags v-model="form.tags" input-id="post-tags-input-mobile" />
             </div>
           </div>
         </section>
@@ -790,10 +790,10 @@ defineExpose({
             </div>
 
             <div v-if="!props.hideTags" class="nv-compose-side-section mb-4 hidden lg:block">
-              <label for="tags" class="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
+              <label for="post-tags-input-desktop" class="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
                 {{ $t('common.tags') }}
               </label>
-              <PostTags v-model="form.tags" />
+              <PostTags v-model="form.tags" input-id="post-tags-input-desktop" />
             </div>
 
             <div class="nv-compose-side-section space-y-3">

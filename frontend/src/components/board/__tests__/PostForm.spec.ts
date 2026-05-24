@@ -117,18 +117,25 @@ const BaseButtonStub = defineComponent({
 
 const PostTagsStub = defineComponent({
     name: 'PostTags',
+    props: {
+        inputId: { type: String, default: 'post-tags-input' },
+    },
     emits: ['update:modelValue'],
-    setup(_props, { emit }) {
+    setup(props, { emit }) {
         return () =>
-            h(
-                'button',
-                {
-                    type: 'button',
-                    'data-testid': 'set-tags',
-                    onClick: () => emit('update:modelValue', ['alpha', 'beta']),
-                },
-                'set-tags',
-            )
+            h('div', [
+                h('label', { for: props.inputId }, 'tags'),
+                h('input', { id: props.inputId }),
+                h(
+                    'button',
+                    {
+                        type: 'button',
+                        'data-testid': 'set-tags',
+                        onClick: () => emit('update:modelValue', ['alpha', 'beta']),
+                    },
+                    'set-tags',
+                ),
+            ])
     },
 })
 
@@ -1167,6 +1174,19 @@ describe('PostForm', () => {
 
         expect(wrapper.findAll('.nv-compose-side-card').length).toBeGreaterThanOrEqual(2)
         expect(wrapper.find('aside').classes()).toContain('lg:sticky')
+    })
+
+    it('connects mobile and desktop tag labels to unique inputs', () => {
+        const wrapper = mountPostForm('create')
+        const mobileTagInput = wrapper.get('#post-tags-input-mobile')
+        const desktopTagInput = wrapper.get('#post-tags-input-desktop')
+
+        expect(wrapper.findAll('#post-tags-input-mobile')).toHaveLength(1)
+        expect(wrapper.findAll('#post-tags-input-desktop')).toHaveLength(1)
+        expect(wrapper.get('label[for="post-tags-input-mobile"]').attributes('for')).toBe('post-tags-input-mobile')
+        expect(wrapper.get('label[for="post-tags-input-desktop"]').attributes('for')).toBe('post-tags-input-desktop')
+        expect(mobileTagInput.attributes('id')).toBe('post-tags-input-mobile')
+        expect(desktopTagInput.attributes('id')).toBe('post-tags-input-desktop')
     })
 
     it('omits categoryId when edit payload category is empty string', async () => {

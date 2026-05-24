@@ -30,6 +30,16 @@ describe('PostTags', () => {
         expect((input.element as HTMLInputElement).value).toBe('')
     })
 
+    it('labels the writable tag input', () => {
+        const wrapper = mountPostTags({ inputId: 'custom-tag-input' })
+
+        expect(wrapper.get('label[for="custom-tag-input"]').text()).toBe('board.tags.placeholder')
+        expect(wrapper.get('#custom-tag-input').attributes()).toMatchObject({
+            name: 'postTag',
+            autocomplete: 'off',
+        })
+    })
+
     it('does not emit for empty or duplicate tags', async () => {
         const wrapper = mountPostTags({ modelValue: ['alpha'] })
         const input = wrapper.find('input')
