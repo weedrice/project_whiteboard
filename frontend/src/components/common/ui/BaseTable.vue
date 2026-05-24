@@ -64,7 +64,7 @@ const getAriaSort = (column: TableColumn): 'ascending' | 'descending' | 'none' |
 
 const getSortIndicator = (column: TableColumn): string => {
     if (props.currentSortKey !== column.key) {
-        return '-'
+        return ''
     }
 
     return props.currentSortDirection === 'asc' ? '^' : 'v'

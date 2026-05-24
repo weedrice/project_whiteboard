@@ -27,6 +27,29 @@ describe('BaseTable', () => {
         expect(spans[1].text()).toBe('Title')
     })
 
+    it('does not show a visual placeholder for inactive sortable headers', () => {
+        const wrapper = mount(BaseTable, {
+            props: {
+                columns: [
+                    {
+                        key: 'title',
+                        label: 'Title',
+                        sortable: true
+                    }
+                ],
+                items: [],
+                currentSortKey: 'createdAt',
+                currentSortDirection: 'desc'
+            }
+        })
+
+        const spans = wrapper.find('.nv-base-table-header-button').findAll('span')
+
+        expect(wrapper.get('th').attributes('aria-sort')).toBe('none')
+        expect(spans[0].text()).toBe('')
+        expect(spans[1].text()).toBe('Title')
+    })
+
     it('announces the default loading state to assistive technologies', () => {
         const wrapper = mount(BaseTable, {
             props: {
