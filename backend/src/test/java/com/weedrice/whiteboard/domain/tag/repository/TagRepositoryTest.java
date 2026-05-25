@@ -106,6 +106,19 @@ class TagRepositoryTest {
     }
 
     @Test
+    @DisplayName("누락 태그 목록을 insert-ignore로 배치 생성한다")
+    void insertIgnoreAll_createsOnlyMissingTags() {
+        int inserted = tagRepository.insertIgnoreAll(List.of("test-tag", "batch-tag-a", "batch-tag-b"));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(inserted).isEqualTo(2);
+        assertThat(tagRepository.findByTagNameIn(List.of("test-tag", "batch-tag-a", "batch-tag-b")))
+                .extracting(Tag::getTagName)
+                .containsExactlyInAnyOrder("test-tag", "batch-tag-a", "batch-tag-b");
+    }
+
+    @Test
     @DisplayName("tag id 컬렉션으로 게시글 수를 증가시킨다")
     void incrementPostCountIn_success() {
         int updated = tagRepository.incrementPostCountIn(List.of(tag.getTagId()));

@@ -60,9 +60,10 @@ class RecentSearchPersistenceTest {
     }
 
     @Test
-    @DisplayName("최근 검색 조회는 searchedAt 동률일 때 logId 내림차순으로 정렬된다")
-    void findByUserOrderBySearchedAtDesc_ordersBySearchedAtAndLogIdDesc() {
+    @DisplayName("최근 검색 조회는 userId로 필터링하고 searchedAt 동률일 때 logId 내림차순으로 정렬된다")
+    void findRecentSearchesByUserId_filtersByUserIdAndOrdersBySearchedAtAndLogIdDesc() {
         User user = persistUser("order-user", "order-user@test.com");
+        User otherUser = persistUser("other-user", "other-user@test.com");
         LocalDateTime searchedAt = LocalDateTime.of(2026, 4, 22, 12, 0);
 
         SearchPersonalization first = searchPersonalizationRepository.saveAndFlush(SearchPersonalization.builder()
@@ -77,14 +78,57 @@ class RecentSearchPersistenceTest {
                 .normalizedKeyword("beta")
                 .searchedAt(searchedAt)
                 .build());
+        searchPersonalizationRepository.saveAndFlush(SearchPersonalization.builder()
+                .user(otherUser)
+                .keyword("other")
+                .normalizedKeyword("other")
+                .searchedAt(searchedAt.plusMinutes(1))
+                .build());
 
         entityManager.clear();
 
-        var page = searchPersonalizationRepository.findByUserOrderBySearchedAtDesc(user, PageRequest.of(0, 10));
+        var page = searchPersonalizationRepository.findRecentSearchesByUserId(
+                user.getUserId(),
+                PageRequest.of(0, 10));
 
         assertThat(page.getContent())
                 .extracting(SearchPersonalization::getLogId)
                 .containsExactly(second.getLogId(), first.getLogId());
+    }
+
+    @Test
+    @DisplayName("최근 검색 전체 삭제는 userId에 해당하는 행만 삭제한다")
+    void deleteAllByUserId_deletesOnlyMatchingUserRows() {
+        User user = persistUser("delete-user", "delete-user@test.com");
+        User otherUser = persistUser("delete-other-user", "delete-other-user@test.com");
+        LocalDateTime searchedAt = LocalDateTime.of(2026, 4, 22, 12, 0);
+        searchPersonalizationRepository.saveAndFlush(SearchPersonalization.builder()
+                .user(user)
+                .keyword("alpha")
+                .normalizedKeyword("alpha")
+                .searchedAt(searchedAt)
+                .build());
+        SearchPersonalization other = searchPersonalizationRepository.saveAndFlush(SearchPersonalization.builder()
+                .user(otherUser)
+                .keyword("other")
+                .normalizedKeyword("other")
+                .searchedAt(searchedAt)
+                .build());
+
+        int deletedCount = searchPersonalizationRepository.deleteAllByUserId(user.getUserId());
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(deletedCount).isEqualTo(1);
+        assertThat(searchPersonalizationRepository.findRecentSearchesByUserId(
+                user.getUserId(),
+                PageRequest.of(0, 10)).getContent())
+                .isEmpty();
+        assertThat(searchPersonalizationRepository.findRecentSearchesByUserId(
+                otherUser.getUserId(),
+                PageRequest.of(0, 10)).getContent())
+                .extracting(SearchPersonalization::getLogId)
+                .containsExactly(other.getLogId());
     }
 
     private User persistUser(String loginId, String email) {

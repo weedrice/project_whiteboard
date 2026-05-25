@@ -34,6 +34,12 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
         Long getOnlineCount();
     }
 
+    interface AdminDashboardUserStatsProjection {
+        Long getTotalUsers();
+
+        Long getActiveUsers();
+    }
+
     interface ReportTargetMetadataProjection {
         Long getTargetId();
 
@@ -87,6 +93,16 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
               AND u.lastLoginAt > :since
             """)
     long countRecentlyLoggedInActiveUsersForAdminDashboard(@Param("since") LocalDateTime since);
+
+    @Query("""
+            SELECT
+                COUNT(u) AS totalUsers,
+                COALESCE(SUM(CASE WHEN u.lastLoginAt > :since THEN 1L ELSE 0L END), 0L) AS activeUsers
+            FROM User u
+            WHERE u.status = 'ACTIVE'
+              AND u.deletedAt IS NULL
+            """)
+    AdminDashboardUserStatsProjection countAdminDashboardUserStats(@Param("since") LocalDateTime since);
 
     @Query("""
             SELECT COUNT(u)

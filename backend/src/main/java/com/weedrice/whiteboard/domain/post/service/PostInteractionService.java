@@ -154,7 +154,7 @@ public class PostInteractionService {
     public int likePost(@NonNull Long userId, Long actorAgentId, @NonNull Long postId) {
         User user = userWritableResolver.resolve(userId);
         Agent actorAgent = agentOwnershipService.resolveOwnedActiveAgent(userId, actorAgentId);
-        Post post = getReadablePost(postId, postReadContextResolver.resolveForResolvedUser(user));
+        Post post = getReadablePostForResolvedUser(postId, user);
         return likeResolvedPost(user, actorAgent, post);
     }
 
@@ -200,8 +200,8 @@ public class PostInteractionService {
 
     @Transactional
     public int unlikePost(@NonNull Long userId, @NonNull Long postId) {
-        userWritableResolver.resolve(userId);
-        getPostById(postId, userId, false);
+        User user = userWritableResolver.resolve(userId);
+        getReadablePostForResolvedUser(postId, user);
 
         int deletedCount = postLikeRepository.deleteByUserIdAndPostId(userId, postId);
         if (deletedCount == 0) {
@@ -216,7 +216,7 @@ public class PostInteractionService {
     public void scrapPost(@NonNull Long userId, @NonNull Long postId, String remark) {
         String normalizedRemark = normalizeScrapRemark(remark);
         User user = userWritableResolver.resolve(userId);
-        Post post = getPostById(postId, userId, false);
+        Post post = getReadablePostForResolvedUser(postId, user);
 
         Scrap scrap = Scrap.builder()
                 .user(user)
@@ -230,8 +230,8 @@ public class PostInteractionService {
 
     @Transactional
     public void unscrapPost(@NonNull Long userId, @NonNull Long postId) {
-        userWritableResolver.resolve(userId);
-        getPostById(postId, userId, false);
+        User user = userWritableResolver.resolve(userId);
+        getReadablePostForResolvedUser(postId, user);
         long deletedCount = scrapRepository.deleteByUser_UserIdAndPost_PostId(userId, postId);
         if (deletedCount == 0) {
             throw new BusinessException(ErrorCode.NOT_SCRAPED);
@@ -344,6 +344,10 @@ public class PostInteractionService {
         PostReadContext enrichedContext = postReadContextResolver.withAdminBoardIds(context, List.of(post.getBoard()));
         validateReadable(post, enrichedContext);
         return post;
+    }
+
+    private Post getReadablePostForResolvedUser(@NonNull Long postId, User user) {
+        return getReadablePost(postId, postReadContextResolver.resolveForResolvedUser(user));
     }
 
     private void validateReadable(Post post, PostReadContext context) {

@@ -16,6 +16,7 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -109,27 +110,46 @@ public class FeedService {
         logUnresolvedPostFeeds(firstFeedPage, currentSummariesById, userId);
 
         FeedFilterResult filterResult = excludeUnresolvedPostFeeds(firstFeedPage, currentSummariesById);
+        Page<UserFeed> resolvedPage = toResolvedPage(firstFeedPage, filterResult);
 
-        return new ResolvedFeedPage(firstFeedPage, filterResult.feeds(), postSummariesById);
+        return new ResolvedFeedPage(resolvedPage, filterResult.feeds(), postSummariesById);
     }
 
     private FeedFilterResult excludeUnresolvedPostFeeds(Page<UserFeed> feedPage,
                                                         Map<Long, PostSummary> postSummariesById) {
         List<UserFeed> feeds = new ArrayList<>();
+        int excludedCount = 0;
         for (UserFeed feed : feedPage.getContent()) {
             if (FeedGenerationService.CONTENT_TYPE_POST.equals(feed.getContentType())
                     && !postSummariesById.containsKey(feed.getContentId())) {
+                excludedCount++;
                 continue;
             }
             feeds.add(feed);
         }
-        return new FeedFilterResult(feeds);
+        return new FeedFilterResult(feeds, excludedCount);
+    }
+
+    private Page<UserFeed> toResolvedPage(Page<UserFeed> feedPage, FeedFilterResult filterResult) {
+        if (filterResult.excludedCount() == 0) {
+            return feedPage;
+        }
+        long totalElements = resolveFilteredTotalElements(feedPage, filterResult);
+        return new PageImpl<>(filterResult.feeds(), feedPage.getPageable(), totalElements);
+    }
+
+    private long resolveFilteredTotalElements(Page<UserFeed> feedPage, FeedFilterResult filterResult) {
+        if (feedPage.hasNext()) {
+            return feedPage.getTotalElements();
+        }
+        long offset = feedPage.getPageable().isPaged() ? feedPage.getPageable().getOffset() : 0L;
+        return offset + filterResult.feeds().size();
     }
 
     private record ResolvedFeedPage(Page<UserFeed> page, List<UserFeed> feeds,
                                     Map<Long, PostSummary> postSummariesById) {
     }
 
-    private record FeedFilterResult(List<UserFeed> feeds) {
+    private record FeedFilterResult(List<UserFeed> feeds, int excludedCount) {
     }
 }

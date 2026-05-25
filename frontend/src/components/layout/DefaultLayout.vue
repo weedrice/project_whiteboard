@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Bell } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { useKeyboardStore } from '@/stores/keyboard'
-import { useNotification } from '@/composables/useNotification'
+import { useNotificationStream } from '@/composables/useNotificationStream'
+import { useShellDropdowns } from '@/composables/useShellDropdowns'
+import { useShellShortcuts } from '@/composables/useShellShortcuts'
+import { useShellViewport } from '@/composables/useShellViewport'
 import { useThemePreference } from '@/composables/useThemePreference'
 import NotificationDropdown from '@/components/notification/NotificationDropdown.vue'
 import UserDropdown from '@/components/layout/UserDropdown.vue'
@@ -15,7 +18,6 @@ import GlobalSearchBar from '@/components/search/GlobalSearchBar.vue'
 import KeyboardShortcutsModal from '@/components/common/KeyboardShortcutsModal.vue'
 import RecentBoardsBar from '@/components/layout/RecentBoardsBar.vue'
 import MobileBottomNav from '@/components/layout/MobileBottomNav.vue'
-import { isInputFocused } from '@/utils/keyboard'
 
 import logoLight from '@/assets/noviis_logo.webp'
 import logoDark from '@/assets/noviis_logo_dark.webp'
@@ -25,29 +27,30 @@ const route = useRoute()
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
 const keyboardStore = useKeyboardStore()
-const { useUnreadCount, connectToSse, closeSse } = useNotification()
 const { toggleTheme } = useThemePreference()
 
 const logoSrc = computed(() => (themeStore.isDark ? logoDark : logoLight))
 
-const isNotificationOpen = ref(false)
-const activeDropdown = ref<string | null>(null)
-const isMobile = ref(typeof window !== 'undefined' && window.innerWidth < 640)
-
-const { data: unreadCount } = useUnreadCount()
-
-watch(
-  () => authStore.isAuthenticated,
-  (isAuthenticated) => {
-    if (isAuthenticated) {
-      connectToSse()
-      return
-    }
-
-    closeSse()
-  },
-  { immediate: true }
-)
+const { unreadCount } = useNotificationStream(() => authStore.isAuthenticated)
+const {
+  isNotificationOpen,
+  activeDropdown,
+  closeAllDropdowns,
+  toggleNotification,
+  setActiveDropdown,
+  handleClickOutside
+} = useShellDropdowns(keyboardStore)
+const { isMobile, isEditorFocused } = useShellViewport(keyboardStore)
+const { handleKeyDown } = useShellShortcuts({
+  authStore,
+  keyboardStore,
+  router,
+  isMobile,
+  hasOpenDropdown: () => !!activeDropdown.value || isNotificationOpen.value,
+  closeAllDropdowns,
+  setActiveDropdown,
+  toggleTheme
+})
 
 const isAuthRoute = computed(() => {
   return ['login', 'signup', 'find-account', 'forgot-password', 'reset-password', 'oauth-callback'].includes(String(route.name ?? ''))
@@ -55,164 +58,15 @@ const isAuthRoute = computed(() => {
 const isAdminRoute = computed(() => String(route.name ?? '').startsWith('Admin'))
 const showRecentBoardsBar = computed(() => !isAuthRoute.value && !isAdminRoute.value)
 const showMobileBottomNav = computed(() => !isAuthRoute.value && !isAdminRoute.value)
-const isEditorFocused = ref(false)
-
-const closeAllDropdowns = () => {
-  isNotificationOpen.value = false
-  activeDropdown.value = null
-  keyboardStore.closeDropdown()
-}
-
-const toggleNotification = () => {
-  if (isNotificationOpen.value) {
-    closeAllDropdowns()
-    return
-  }
-
-  closeAllDropdowns()
-  isNotificationOpen.value = true
-  activeDropdown.value = 'notification'
-  keyboardStore.setOpenDropdown('notification', [])
-}
-
-const setActiveDropdown = (name: string) => {
-  if (activeDropdown.value === name) {
-    closeAllDropdowns()
-    return
-  }
-
-  isNotificationOpen.value = false
-  activeDropdown.value = name
-}
-
-const handleClickOutside = () => {
-  if (activeDropdown.value || isNotificationOpen.value) {
-    closeAllDropdowns()
-  }
-}
-
-const handleKeyDown = async (event: KeyboardEvent) => {
-  const { key, shiftKey, ctrlKey, altKey, metaKey } = event
-
-  if (key === 'Escape') {
-    if (activeDropdown.value || isNotificationOpen.value) {
-      event.preventDefault()
-      closeAllDropdowns()
-      return
-    }
-
-    if (keyboardStore.isShortcutsModalOpen) {
-      event.preventDefault()
-      keyboardStore.closeShortcutsModal()
-    }
-    return
-  }
-
-  if (keyboardStore.isShortcutsModalOpen) return
-  if (activeDropdown.value || isNotificationOpen.value) return
-  if (isInputFocused()) return
-
-  if (ctrlKey || metaKey) {
-    if (key === 'k' || key === 'K') {
-      event.preventDefault()
-      await router.push('/search')
-    }
-    return
-  }
-
-  if (altKey) {
-    if ((key === 'n' || key === 'N') && authStore.isAuthenticated) {
-      event.preventDefault()
-      await router.push('/mypage/notifications')
-    }
-    return
-  }
-
-  if (shiftKey) {
-    if (key === 'B') {
-      event.preventDefault()
-      await router.push('/boards')
-      return
-    }
-
-    if ((key === '/' || key === '?') && !isMobile.value) {
-      event.preventDefault()
-      keyboardStore.toggleShortcutsModal()
-    }
-    return
-  }
-
-  switch (key) {
-    case 's':
-      if (authStore.isAuthenticated) {
-        event.preventDefault()
-        setActiveDropdown('subscription')
-      }
-      break
-    case 'b':
-      event.preventDefault()
-      setActiveDropdown('all')
-      break
-    case 'h':
-      event.preventDefault()
-      await router.push('/')
-      break
-    case 'm':
-      if (authStore.isAuthenticated) {
-        event.preventDefault()
-        setActiveDropdown('user')
-      }
-      break
-    case 'd':
-      event.preventDefault()
-      toggleTheme()
-      break
-    case 'q':
-      if (authStore.isAuthenticated) {
-        event.preventDefault()
-        await authStore.logout()
-        await router.push('/')
-      }
-      break
-  }
-}
-
-const mediaQuery = typeof window !== 'undefined' ? window.matchMedia('(max-width: 639px)') : null
-
-const updateIsMobile = () => {
-  if (!mediaQuery) return
-
-  isMobile.value = mediaQuery.matches
-  if (mediaQuery.matches) {
-    keyboardStore.closeShortcutsModal()
-  }
-}
-
-const handleEditorFocusChange = (event: Event) => {
-  const customEvent = event as CustomEvent<boolean>
-  isEditorFocused.value = Boolean(customEvent.detail)
-}
 
 onMounted(() => {
-  if (mediaQuery) {
-    isMobile.value = mediaQuery.matches
-    mediaQuery.addEventListener('change', updateIsMobile)
-  }
-
   document.addEventListener('click', handleClickOutside)
   document.addEventListener('keydown', handleKeyDown)
-  window.addEventListener('noviis:editor-focus-change', handleEditorFocusChange as EventListener)
 })
 
 onUnmounted(() => {
-  if (mediaQuery) {
-    mediaQuery.removeEventListener('change', updateIsMobile)
-  }
-
-  closeSse()
   document.removeEventListener('click', handleClickOutside)
   document.removeEventListener('keydown', handleKeyDown)
-  window.removeEventListener('noviis:editor-focus-change', handleEditorFocusChange as EventListener)
 })
 
 const skipToMainContent = (event: Event) => {

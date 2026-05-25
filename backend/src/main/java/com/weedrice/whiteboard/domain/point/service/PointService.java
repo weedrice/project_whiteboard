@@ -46,17 +46,18 @@ public class PointService {
         private final SanctionService sanctionService;
 
         public UserPointResponse getUserPoint(@NonNull Long userId) {
-                ensureUserExists(userId);
                 return userPointRepository.findByUserId(userId)
                                 .map(UserPointResponse::from)
-                                .orElseGet(() -> UserPointResponse.builder()
-                                                .currentPoint(0)
-                                                .build());
+                                .orElseGet(() -> {
+                                        ensureUserExists(userId);
+                                        return UserPointResponse.builder()
+                                                        .currentPoint(0)
+                                                        .build();
+                                });
         }
 
         public PointHistoryResponse getPointHistories(@NonNull Long userId, String type, Pageable pageable) {
                 String normalizedType = normalizeHistoryType(type);
-                ensureUserExists(userId);
                 Pageable safePageable = normalizeHistoryPageable(pageable);
                 Page<PointHistory> historyPage;
                 if (normalizedType != null) {
@@ -67,6 +68,9 @@ public class PointService {
                 } else {
                         historyPage = pointHistoryRepository.findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(userId,
                                         safePageable);
+                }
+                if (historyPage.isEmpty()) {
+                        ensureUserExists(userId);
                 }
                 return PointHistoryResponse.from(historyPage);
         }

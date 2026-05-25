@@ -97,7 +97,6 @@ class AuthServiceTest {
     @Mock private EntityManager entityManager;
     @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
     @Mock private UserPrivilegeCleanupService userPrivilegeCleanupService;
-    @Mock private EmailEligibilityService emailEligibilityService;
 
     private AuthService authService;
     private User user;
@@ -131,9 +130,9 @@ class AuthServiceTest {
                 passwordResetTokenOrchestrationService, transactionTemplate, authAccountEligibilityPolicy);
         SignupService signupService = new SignupService(
                 userRepository, pointService, userSettingsRepository,
-                socialAccountLinkService, verificationCodeService, emailEligibilityService, globalConfigService,
+                socialAccountLinkService, verificationCodeService, globalConfigService,
                 entityManager, refreshTokenLifecycleService, userPrivilegeCleanupService, passwordHistoryPolicy,
-                authAccountEligibilityPolicy);
+                authAccountEligibilityPolicy, new AccountUniquenessPolicy(userRepository));
         authService = new AuthService(
                 signupService,
                 sessionTokenService,
@@ -261,8 +260,7 @@ class AuthServiceTest {
     @DisplayName("회원가입 실패 - 중복 이메일")
     void signup_fail_duplicateEmail() {
         SignupRequest request = signupRequest();
-        doThrow(new BusinessException(ErrorCode.DUPLICATE_EMAIL))
-                .when(emailEligibilityService).validateSignupEmail(request.getEmail());
+        when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(user));
 
         BusinessException exception = assertThrows(BusinessException.class, () -> authService.signup(request));
 
@@ -627,7 +625,7 @@ class AuthServiceTest {
         when(refreshTokenRepository.findRenewalCandidateByTokenHash(oldRefreshTokenHash))
                 .thenReturn(Optional.of(renewalCandidate(10L, 1L)));
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(refreshTokenRepository.findByTokenIdForUpdate(10L)).thenReturn(Optional.of(storedRefreshToken));
+        when(refreshTokenRepository.findByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(storedRefreshToken));
         when(sanctionPolicyService.isUserBanned(user)).thenReturn(false);
         when(jwtTokenProvider.createAccessToken(any(Authentication.class))).thenReturn("new-access-token");
         when(jwtTokenProvider.createRefreshToken(any(Authentication.class))).thenReturn("new-refresh-token");
@@ -642,7 +640,7 @@ class AuthServiceTest {
         var lockOrder = inOrder(refreshTokenRepository, userRepository);
         lockOrder.verify(refreshTokenRepository).findRenewalCandidateByTokenHash(oldRefreshTokenHash);
         lockOrder.verify(userRepository).findByIdForUpdate(1L);
-        lockOrder.verify(refreshTokenRepository).findByTokenIdForUpdate(10L);
+        lockOrder.verify(refreshTokenRepository).findByTokenHash(oldRefreshTokenHash);
         verify(refreshTokenRepository).save(storedRefreshToken);
         verify(refreshTokenRepository).save(argThat(rotatedToken ->
                 rotatedToken != storedRefreshToken
@@ -669,7 +667,7 @@ class AuthServiceTest {
         when(refreshTokenRepository.findRenewalCandidateByTokenHash(oldRefreshTokenHash))
                 .thenReturn(Optional.of(renewalCandidate(10L, 1L)));
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(refreshTokenRepository.findByTokenIdForUpdate(10L)).thenReturn(Optional.of(refreshToken));
+        when(refreshTokenRepository.findByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(refreshToken));
         when(sanctionPolicyService.isUserBanned(user)).thenReturn(true);
 
         BusinessException exception = assertThrows(BusinessException.class,
@@ -698,7 +696,7 @@ class AuthServiceTest {
         when(refreshTokenRepository.findRenewalCandidateByTokenHash(oldRefreshTokenHash))
                 .thenReturn(Optional.of(renewalCandidate(10L, 1L)));
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(refreshTokenRepository.findByTokenIdForUpdate(10L)).thenReturn(Optional.of(refreshToken));
+        when(refreshTokenRepository.findByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(refreshToken));
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> authService.refresh("old-refresh-token"));
@@ -726,7 +724,7 @@ class AuthServiceTest {
         when(refreshTokenRepository.findRenewalCandidateByTokenHash(oldRefreshTokenHash))
                 .thenReturn(Optional.of(renewalCandidate(10L, 1L)));
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(refreshTokenRepository.findByTokenIdForUpdate(10L)).thenReturn(Optional.of(refreshToken));
+        when(refreshTokenRepository.findByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(refreshToken));
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> authService.refresh("old-refresh-token"));
@@ -753,7 +751,7 @@ class AuthServiceTest {
         when(refreshTokenRepository.findRenewalCandidateByTokenHash(oldRefreshTokenHash))
                 .thenReturn(Optional.of(renewalCandidate(10L, 1L)));
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(refreshTokenRepository.findByTokenIdForUpdate(10L)).thenReturn(Optional.of(refreshToken));
+        when(refreshTokenRepository.findByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(refreshToken));
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> authService.refresh("old-refresh-token"));

@@ -2,6 +2,7 @@ import api from './index'
 import type { ApiResponse, Notification, PageResponse } from '@/types'
 import type { AxiosResponse } from 'axios'
 import { API } from '@/utils/constants'
+import { normalizePageResponse, type PageResponseRaw } from '@/utils/pageResponse'
 
 export interface NotificationParams {
     page?: number;
@@ -38,7 +39,7 @@ export interface NotificationRaw {
     targetUrl?: string;
 }
 
-interface NotificationPageRaw extends Partial<PageResponse<NotificationRaw>> {
+interface NotificationPageRaw extends PageResponseRaw<NotificationRaw> {
     page?: number;
     hasNext?: boolean;
     hasPrevious?: boolean;
@@ -64,31 +65,13 @@ export function normalizeNotification(raw: NotificationRaw): Notification {
 }
 
 function normalizeNotificationPage(raw: NotificationPageRaw): PageResponse<Notification> {
-    const content = (raw.content || []).map(normalizeNotification)
-    const number = typeof raw.number === 'number'
-        ? raw.number
-        : (typeof raw.page === 'number' ? raw.page : 0)
-    const size = typeof raw.size === 'number' ? raw.size : content.length
-    const totalElements = typeof raw.totalElements === 'number' ? raw.totalElements : content.length
-    const totalPages = typeof raw.totalPages === 'number'
-        ? raw.totalPages
-        : (size > 0 ? Math.max(1, Math.ceil(totalElements / size)) : (content.length > 0 ? 1 : 0))
-    const first = typeof raw.first === 'boolean' ? raw.first : number <= 0
-    const last = typeof raw.last === 'boolean'
-        ? raw.last
-        : (typeof raw.hasNext === 'boolean' ? !raw.hasNext : totalPages <= 1 || number >= totalPages - 1)
-    const empty = typeof raw.empty === 'boolean' ? raw.empty : content.length === 0
-
-    return {
-        content,
-        totalElements,
-        totalPages,
-        size,
-        number,
-        first,
-        last,
-        empty,
-    }
+    return normalizePageResponse({
+        ...raw,
+        content: (raw.content || []).map(normalizeNotification),
+    }, {
+        fallbackTotalPages: ({ size, totalElements, contentLength }) =>
+            size > 0 ? Math.max(1, Math.ceil(totalElements / size)) : (contentLength > 0 ? 1 : 0),
+    })
 }
 
 export function getNotificationStreamUrl(): string {

@@ -2,7 +2,7 @@ package com.weedrice.whiteboard.domain.admin.controller;
 
 import com.weedrice.whiteboard.domain.admin.dto.*;
 
-import com.weedrice.whiteboard.domain.admin.service.AdminAssignmentService;
+import com.weedrice.whiteboard.domain.admin.service.AdminAssignmentFacade;
 import com.weedrice.whiteboard.domain.admin.service.AdminDashboardService;
 import com.weedrice.whiteboard.domain.admin.service.AdminReadService;
 import com.weedrice.whiteboard.domain.admin.service.IpBlockService;
@@ -39,7 +39,7 @@ import java.util.List;
 @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
 public class AdminController {
 
-    private final AdminAssignmentService adminAssignmentService;
+    private final AdminAssignmentFacade adminAssignmentFacade;
     private final AdminReadService adminReadService;
     private final AdminDashboardService adminDashboardService;
     private final SuperAdminService superAdminService;
@@ -95,7 +95,7 @@ public class AdminController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<AdminResponse> createAdmin(@Valid @RequestBody AdminCreateRequest request) {
         return ApiResponse
-                .success(adminAssignmentService.createAdmin(request.getLoginId(), request.getBoardId(), request.getRole()));
+                .success(adminAssignmentFacade.createAdmin(request.getLoginId(), request.getBoardId(), request.getRole()));
     }
 
     /**
@@ -117,7 +117,7 @@ public class AdminController {
      */
     @PutMapping("/admins/{adminId}/deactivate")
     public ApiResponse<Void> deactivateAdmin(@PathVariable Long adminId) {
-        adminAssignmentService.deactivateAdmin(adminId);
+        adminAssignmentFacade.deactivateAdmin(adminId);
         return ApiResponse.success(null);
     }
 
@@ -129,19 +129,19 @@ public class AdminController {
      */
     @PutMapping("/admins/{adminId}/activate")
     public ApiResponse<Void> activateAdmin(@PathVariable Long adminId) {
-        adminAssignmentService.activateAdmin(adminId);
+        adminAssignmentFacade.activateAdmin(adminId);
         return ApiResponse.success(null);
     }
 
     @GetMapping("/boards/{boardId}/manager")
     public ApiResponse<AdminResponse> getBoardManager(@PathVariable Long boardId) {
-        return ApiResponse.success(adminAssignmentService.getBoardManager(boardId));
+        return ApiResponse.success(adminAssignmentFacade.getBoardManager(boardId));
     }
 
     @PutMapping("/boards/{boardId}/manager")
     public ApiResponse<AdminResponse> replaceBoardManager(@PathVariable Long boardId,
             @Valid @RequestBody BoardManagerUpdateRequest request) {
-        return ApiResponse.success(adminAssignmentService.replaceBoardManager(boardId, request.getLoginId()));
+        return ApiResponse.success(adminAssignmentFacade.replaceBoardManager(boardId, request.getLoginId()));
     }
 
     /**

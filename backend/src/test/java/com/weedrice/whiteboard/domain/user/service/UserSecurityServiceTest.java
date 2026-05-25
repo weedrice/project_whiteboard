@@ -1,7 +1,7 @@
 package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
-import com.weedrice.whiteboard.domain.auth.service.EmailEligibilityService;
+import com.weedrice.whiteboard.domain.auth.service.AccountUniquenessPolicy;
 import com.weedrice.whiteboard.domain.auth.service.RefreshTokenLifecycleService;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
@@ -46,7 +46,7 @@ class UserSecurityServiceTest {
     @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
     @Mock private SanctionService sanctionService;
     @Mock private VerificationCodeService verificationCodeService;
-    @Mock private EmailEligibilityService emailEligibilityService;
+    @Mock private AccountUniquenessPolicy accountUniquenessPolicy;
     @Mock private EntityManager entityManager;
 
     @BeforeEach
@@ -60,7 +60,7 @@ class UserSecurityServiceTest {
                 passwordHistoryPolicy,
                 refreshTokenLifecycleService,
                 verificationCodeService,
-                emailEligibilityService,
+                accountUniquenessPolicy,
                 entityManager,
                 userWritableResolver);
     }
@@ -113,8 +113,8 @@ class UserSecurityServiceTest {
         userSecurityService.verifyAndChangeEmail(1L, "next@example.com", "123456");
 
         assertThat(user.getEmail()).isEqualTo("next@example.com");
-        var inOrder = inOrder(emailEligibilityService, verificationCodeService, userRepository);
-        inOrder.verify(emailEligibilityService).validateChangeEmail("next@example.com", user);
+        var inOrder = inOrder(accountUniquenessPolicy, verificationCodeService, userRepository);
+        inOrder.verify(accountUniquenessPolicy).validateChangeEmailAvailable("next@example.com", user);
         inOrder.verify(verificationCodeService).validateVerificationTicket(
                 "next@example.com",
                 VerificationPurpose.CHANGE_EMAIL,
@@ -138,7 +138,7 @@ class UserSecurityServiceTest {
         userSecurityService.verifyAndChangeEmail(1L, " Next@Example.COM ", "123456");
 
         assertThat(user.getEmail()).isEqualTo("next@example.com");
-        verify(emailEligibilityService).validateChangeEmail("next@example.com", user);
+        verify(accountUniquenessPolicy).validateChangeEmailAvailable("next@example.com", user);
         verify(verificationCodeService).validateVerificationTicket(
                 "next@example.com",
                 VerificationPurpose.CHANGE_EMAIL,
@@ -154,12 +154,11 @@ class UserSecurityServiceTest {
     void verifyAndChangeEmail_duplicateEmailOnFlush() {
         User user = User.builder().email("current@example.com").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
-        User other = User.builder().email("next@example.com").build();
-        ReflectionTestUtils.setField(other, "userId", 2L);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userRepository.findByEmail("next@example.com")).thenReturn(Optional.of(other));
         when(userRepository.saveAndFlush(user)).thenThrow(new DataIntegrityViolationException("duplicate email"));
+        when(accountUniquenessPolicy.resolveChangeEmailConflict(anyString(), any(), any(DataIntegrityViolationException.class)))
+                .thenReturn(new BusinessException(ErrorCode.DUPLICATE_EMAIL));
 
         assertThatThrownBy(() -> userSecurityService.verifyAndChangeEmail(1L, "next@example.com", "123456"))
                 .isInstanceOf(BusinessException.class)

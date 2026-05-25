@@ -110,4 +110,20 @@ describe('useAdminBoardEditor', () => {
     expect(confirmMock).toHaveBeenCalledWith('admin.boards.messages.confirmDiscardChanges')
     expect(editor.selectedBoardId.value).toBe(1)
   })
+
+  it('blocks saving and shows the shared validation toast when required fields are missing', async () => {
+    const boardsData = ref([
+      createBoard({ boardId: 10, boardName: 'Old', boardUrl: 'old-url', sortOrder: 1 })
+    ])
+    const updateBoard = vi.fn().mockResolvedValue(undefined)
+
+    const editor = useAdminBoardEditor({ boardsData, updateBoard })
+    await nextTick()
+
+    editor.form.boardName = ''
+    await editor.handleSaveChanges()
+
+    expect(updateBoard).not.toHaveBeenCalled()
+    expect(toastMock.addToast).toHaveBeenCalledWith('board.writePost.validation', 'warning')
+  })
 })

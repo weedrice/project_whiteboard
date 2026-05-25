@@ -5,6 +5,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.weedrice.whiteboard.domain.mqueue.entity.MessageQueue;
 import com.weedrice.whiteboard.domain.mqueue.repository.MessageQueueRepository;
+import com.weedrice.whiteboard.domain.mqueue.repository.MessageQueueRepository.EmailDispatchProjection;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.email.EmailService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -77,6 +78,25 @@ class MqueueServiceTest {
         assertThat(message.getStatus()).isEqualTo("SENT");
         assertThat(message.getProcessingStartedAt()).isNull();
         assertThat(message.getSendAttemptConfirmedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("sendEmail dispatch projection skips initial entity fetch")
+    void sendEmail_dispatchProjectionSkipsInitialFetch() {
+        LocalDateTime leaseStartedAt = LocalDateTime.now();
+        MessageQueue message = processingMessage(User.builder().email("user@test.com").build(), leaseStartedAt);
+        EmailDispatchProjection dispatch = emailDispatch(1L, "user@test.com", "<p>Hello</p>");
+        mockLeaseRenewal(1L, leaseStartedAt, message);
+        mockSendAttemptRecording(1L);
+        when(messageQueueRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(message));
+        mockTransactionCallback();
+
+        mqueueService.sendEmail(dispatch, leaseStartedAt);
+
+        verify(messageQueueRepository, never()).findByIdWithTargetUser(any());
+        verify(emailService).sendEmail("user@test.com", "[noviIs] Notification", "<p>Hello</p>");
+        verify(messageQueueRepository).save(message);
+        assertThat(message.getStatus()).isEqualTo("SENT");
     }
 
     @Test
@@ -324,5 +344,24 @@ class MqueueServiceTest {
         ReflectionTestUtils.setField(message, "status", "PROCESSING");
         ReflectionTestUtils.setField(message, "processingStartedAt", processingStartedAt);
         return message;
+    }
+
+    private EmailDispatchProjection emailDispatch(Long queueId, String targetEmail, String content) {
+        return new EmailDispatchProjection() {
+            @Override
+            public Long getQueueId() {
+                return queueId;
+            }
+
+            @Override
+            public String getTargetEmail() {
+                return targetEmail;
+            }
+
+            @Override
+            public String getContent() {
+                return content;
+            }
+        };
     }
 }

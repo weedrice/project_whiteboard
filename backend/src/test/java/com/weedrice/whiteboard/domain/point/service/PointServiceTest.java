@@ -332,7 +332,6 @@ class PointServiceTest {
         // given
         Long userId = 1L;
         userPoint.addPoint(500);
-        when(userRepository.existsById(userId)).thenReturn(true);
         when(userPointRepository.findByUserId(userId)).thenReturn(Optional.of(userPoint));
 
         // when
@@ -342,6 +341,7 @@ class PointServiceTest {
         assertThat(response).isNotNull();
         assertThat(response.getCurrentPoint()).isEqualTo(500);
         verify(userPointRepository).findByUserId(userId);
+        verify(userRepository, never()).existsById(userId);
     }
 
     @Test
@@ -354,6 +354,19 @@ class PointServiceTest {
         com.weedrice.whiteboard.domain.point.dto.UserPointResponse response = pointService.getUserPoint(userId);
 
         assertThat(response.getCurrentPoint()).isZero();
+    }
+
+    @Test
+    @DisplayName("포인트 지갑이 없고 사용자도 없으면 사용자 없음으로 거절한다")
+    void getUserPoint_missingUser_throwsUserNotFound() {
+        Long userId = 1L;
+        when(userPointRepository.findByUserId(userId)).thenReturn(Optional.empty());
+        when(userRepository.existsById(userId)).thenReturn(false);
+
+        assertThatThrownBy(() -> pointService.getUserPoint(userId))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
     }
 
     @Test
@@ -384,7 +397,6 @@ class PointServiceTest {
         org.springframework.data.domain.Page<com.weedrice.whiteboard.domain.point.entity.PointHistory> historyPage = new org.springframework.data.domain.PageImpl<>(
                 java.util.Collections.singletonList(history), pageable, 1);
 
-        when(userRepository.existsById(userId)).thenReturn(true);
         when(pointHistoryRepository.findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(userId, pageable))
                 .thenReturn(historyPage);
 
@@ -393,7 +405,7 @@ class PointServiceTest {
 
         // then
         assertThat(response).isNotNull();
-        verify(userRepository).existsById(userId);
+        verify(userRepository, never()).existsById(userId);
     }
 
     @Test
@@ -401,6 +413,8 @@ class PointServiceTest {
     void getPointHistories_rejectsMissingUser() {
         Long userId = 1L;
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+        when(pointHistoryRepository.findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(userId, pageable))
+                .thenReturn(org.springframework.data.domain.Page.empty(pageable));
         when(userRepository.existsById(userId)).thenReturn(false);
 
         assertThatThrownBy(() -> pointService.getPointHistories(userId, null, pageable))
@@ -408,7 +422,7 @@ class PointServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
 
-        verify(pointHistoryRepository, never()).findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(any(), any());
+        verify(pointHistoryRepository).findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(userId, pageable);
         verify(pointHistoryRepository, never())
                 .findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc(any(), any(), any());
     }
@@ -461,7 +475,6 @@ class PointServiceTest {
         org.springframework.data.domain.Page<com.weedrice.whiteboard.domain.point.entity.PointHistory> historyPage = new org.springframework.data.domain.PageImpl<>(
                 java.util.Collections.singletonList(history), pageable, 1);
 
-        when(userRepository.existsById(userId)).thenReturn(true);
         when(pointHistoryRepository.findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc(userId, type, pageable))
                 .thenReturn(historyPage);
 

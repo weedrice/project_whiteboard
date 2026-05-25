@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.emoticon.service;
 
 import com.weedrice.whiteboard.domain.shop.entity.ShopItem;
 import com.weedrice.whiteboard.domain.shop.service.ShopEntitlementHandler;
+import com.weedrice.whiteboard.domain.user.entity.User;
 import org.springframework.stereotype.Component;
 
 import java.util.Set;
@@ -44,6 +45,16 @@ class EmoticonShopEntitlementHandler implements ShopEntitlementHandler {
         return new EmoticonPurchasePreparation(
                 emoticonEntitlementGrantService.prepareConfiguredGrant(
                         userId,
+                        item.getTargetId(),
+                        afterConfigurationValidation),
+                item.getPrice());
+    }
+
+    @Override
+    public PurchasePreparation prepareValidatedPurchase(User user, ShopItem item, Runnable afterConfigurationValidation) {
+        return new EmoticonPurchasePreparation(
+                emoticonEntitlementGrantService.prepareConfiguredGrant(
+                        user,
                         item.getTargetId(),
                         afterConfigurationValidation),
                 item.getPrice());

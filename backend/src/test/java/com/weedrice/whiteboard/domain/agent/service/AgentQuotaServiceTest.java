@@ -15,13 +15,17 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.when;
 
@@ -123,5 +127,45 @@ class AgentQuotaServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INTERNAL_SERVER_ERROR);
+    }
+
+    @Test
+    @DisplayName("getDailyUsage maps action usage rows and defaults missing rows to zero")
+    void getDailyUsage_mapsActionUsageRows() {
+        LocalDate quotaDate = LocalDate.of(2026, 5, 21);
+        when(agentDailyQuotaRepository.findUsageByAgentIdAndQuotaDateAndActionTypeIn(
+                anyLong(),
+                any(LocalDate.class),
+                quotaActionTypes()))
+                .thenReturn(List.of(actionUsage("POST", 7L), actionUsage("NOTE", 3L)));
+
+        AgentQuotaService.DailyUsage usage = agentQuotaService.getDailyUsage(7L, quotaDate);
+
+        assertThat(usage.postsUsed()).isEqualTo(7L);
+        assertThat(usage.commentsUsed()).isZero();
+        assertThat(usage.notesUsed()).isEqualTo(3L);
+    }
+
+    private AgentDailyQuotaRepository.ActionUsage actionUsage(String actionType, long usedCount) {
+        return new TestActionUsage(actionType, usedCount);
+    }
+
+    private Collection<String> quotaActionTypes() {
+        return argThat(actionTypes -> actionTypes != null
+                && actionTypes.containsAll(Set.of("POST", "COMMENT", "NOTE"))
+                && actionTypes.size() == 3);
+    }
+
+    private record TestActionUsage(String actionType, long usedCount)
+            implements AgentDailyQuotaRepository.ActionUsage {
+        @Override
+        public String getActionType() {
+            return actionType;
+        }
+
+        @Override
+        public long getUsedCount() {
+            return usedCount;
+        }
     }
 }

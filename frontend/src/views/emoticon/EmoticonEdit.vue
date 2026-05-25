@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
+import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { emoticonApi } from '@/api/emoticon'
 import { fileApi } from '@/api/file'
 import { useHead } from '@unhead/vue'
@@ -14,6 +14,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import type { EmoticonImage } from '@/types/emoticon'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { useEmoticonImageSelection } from '@/composables/useEmoticonImageSelection'
+import { useToggleEmoticonVisibility } from '@/composables/useToggleEmoticonVisibility'
 import {
   createUploadableEmoticonImageFile,
   resolveEmoticonTagAddition,
@@ -55,11 +56,32 @@ const newEmoticonPreviews = ref<EmoticonImagePreview[]>([])
 const existingImages = ref<EmoticonImage[]>([])
 const imagesToDelete = ref<number[]>([])
 const tagInput = ref('')
-const tags = ref<string[]>([])
 const isSubmitting = ref(false)
 const uploadProgress = ref({ current: 0, total: 0 })
 const uploadControllers = new Set<AbortController>()
 let isComponentUnmounted = false
+let tagSequence = 0
+
+interface EmoticonTagItem {
+  clientId: string
+  value: string
+}
+
+const createTagItem = (value: string): EmoticonTagItem => {
+  tagSequence += 1
+  return {
+    clientId: `emoticon-tag-${tagSequence}`,
+    value
+  }
+}
+
+const tagItems = ref<EmoticonTagItem[]>([])
+const tags = computed<string[]>({
+  get: () => tagItems.value.map((item) => item.value),
+  set: (values) => {
+    tagItems.value = values.map(createTagItem)
+  }
+})
 
 // 파일 입력 refs
 const thumbnailInput = ref<HTMLInputElement | null>(null)
@@ -116,22 +138,7 @@ watch([emoticon, () => authStore.user], ([emoticonData, user]) => {
 })
 
 // 숨김/표시 전환
-const { mutate: toggleVisibility, isPending: isToggling } = useMutation({
-  mutationFn: () => emoticonApi.toggleVisibilityData(emoticonId.value),
-  onSuccess: (updatedEmoticon) => {
-    const isNowActive = updatedEmoticon.isActive
-    toastStore.addToast(
-      isNowActive ? t('emoticon.visibility.showSuccess') : t('emoticon.visibility.hiddenSuccess'),
-      'success'
-    )
-    queryClient.invalidateQueries({ queryKey: ['emoticon', emoticonId] })
-    queryClient.invalidateQueries({ queryKey: ['emoticons'] })
-  },
-  onError: (err: unknown) => {
-    const message = extractErrorMessage(err) || t('emoticon.edit.failed')
-    toastStore.addToast(message, 'error')
-  }
-})
+const { mutate: toggleVisibility, isPending: isToggling } = useToggleEmoticonVisibility(emoticonId)
 
 const handleToggleVisibility = async () => {
   if (!emoticon.value) return
@@ -205,8 +212,9 @@ const unmarkImageForDeletion = (imageId: number) => {
 }
 
 // 새 이미지 제거
-const removeNewEmoticonImage = (index: number) => {
-  const item = newEmoticonPreviews.value[index]
+const removeNewEmoticonImage = (clientId: string) => {
+  const index = newEmoticonPreviews.value.findIndex((item) => item.clientId === clientId)
+  const item = index >= 0 ? newEmoticonPreviews.value[index] : null
   if (item) {
     revokeEmoticonPreviewUrl(item.preview)
     newEmoticonPreviews.value.splice(index, 1)
@@ -219,14 +227,17 @@ const addTag = () => {
   if (result.error === 'maxTags') {
     toastStore.addToast(t('emoticon.validation.maxTags'), 'error')
   } else if (result.tag) {
-    tags.value.push(result.tag)
+    tagItems.value.push(createTagItem(result.tag))
   }
   tagInput.value = ''
 }
 
 // 태그 제거
-const removeTag = (index: number) => {
-  tags.value.splice(index, 1)
+const removeTag = (clientId: string) => {
+  const index = tagItems.value.findIndex((item) => item.clientId === clientId)
+  if (index >= 0) {
+    tagItems.value.splice(index, 1)
+  }
 }
 
 // 총 이미지 개수 계산
@@ -499,11 +510,11 @@ const goToDetail = () => {
           </div>
 
           <!-- 새로 추가할 이미지 -->
-          <div v-for="(item, index) in newEmoticonPreviews" :key="'new-' + index" class="relative">
+          <div v-for="(item, index) in newEmoticonPreviews" :key="item.clientId" class="relative">
             <img :src="item.preview" :alt="`새 이모티콘 ${index + 1}`"
               class="w-full aspect-square object-contain bg-green-50 dark:bg-green-900/20 rounded border-2 border-green-400"
               style="width: 100px; height: 100px;" />
-            <button type="button" @click="removeNewEmoticonImage(index)"
+            <button type="button" @click="removeNewEmoticonImage(item.clientId)"
               :aria-label="$t('common.delete')"
               :title="$t('common.delete')"
               class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 text-xs">
@@ -552,10 +563,10 @@ const goToDetail = () => {
         </div>
 
         <div v-if="tags.length > 0" class="flex flex-wrap gap-2">
-          <span v-for="(tag, index) in tags" :key="index"
+          <span v-for="tagItem in tagItems" :key="tagItem.clientId"
             class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">
-            #{{ tag }}
-            <button type="button" @click="removeTag(index)"
+            #{{ tagItem.value }}
+            <button type="button" @click="removeTag(tagItem.clientId)"
               :aria-label="$t('board.tags.remove')"
               :title="$t('board.tags.remove')"
               class="ml-1 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-200">

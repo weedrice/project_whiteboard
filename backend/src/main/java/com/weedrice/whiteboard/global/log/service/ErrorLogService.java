@@ -119,14 +119,12 @@ public class ErrorLogService {
     @Transactional(readOnly = true)
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public ErrorLogStatsResponse getErrorLogStats() {
-        long totalCount = errorLogRepository.count();
-        long unresolvedCount = errorLogRepository.countByIsResolved("N");
-        long resolvedCount = errorLogRepository.countByIsResolved("Y");
+        ErrorLogRepository.ErrorLogStats stats = errorLogRepository.aggregateStats();
 
         return ErrorLogStatsResponse.builder()
-                .totalCount(totalCount)
-                .unresolvedCount(unresolvedCount)
-                .resolvedCount(resolvedCount)
+                .totalCount(stats.getTotalCount())
+                .unresolvedCount(stats.getUnresolvedCount())
+                .resolvedCount(stats.getResolvedCount())
                 .build();
     }
 

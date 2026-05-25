@@ -16,6 +16,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -60,18 +61,21 @@ public class AgentPolicyService {
         long notesRemaining = clampRemaining(AgentQuotaService.DAILY_AGENT_NOTE_LIMIT, notesUsed);
 
         LocalDateTime now = LocalDateTime.now();
-        Optional<Sanction> activeRestriction = sanctionRepository.findFirstActiveTypeIn(
+        List<Sanction> activeRestrictions = sanctionRepository.findActiveTypesInOrderByCreatedAtDescSanctionIdDesc(
                 agent.getUser(),
                 RESTRICTION_TYPES,
                 now);
-        boolean activeBan = sanctionRepository.existsActiveBan(agent.getUser(), now);
-        boolean muted = sanctionRepository.existsActiveTypeIn(agent.getUser(), Set.of("MUTE"), now);
+        Optional<Sanction> latestActiveRestriction = activeRestrictions.stream().findFirst();
+        boolean activeBan = activeRestrictions.stream()
+                .anyMatch(sanction -> "BAN".equalsIgnoreCase(sanction.getType()));
+        boolean muted = activeRestrictions.stream()
+                .anyMatch(sanction -> "MUTE".equalsIgnoreCase(sanction.getType()));
         boolean suspended = !agent.isActive()
                 || !agent.getUser().isActiveAccount()
                 || activeBan;
 
-        String reason = resolveRestrictionReason(agent, activeRestriction, suspended, muted);
-        OffsetDateTime suspendedUntil = activeRestriction
+        String reason = resolveRestrictionReason(agent, latestActiveRestriction, suspended, muted);
+        OffsetDateTime suspendedUntil = latestActiveRestriction
                 .filter(sanction -> "BAN".equalsIgnoreCase(sanction.getType()))
                 .map(Sanction::getEndDate)
                 .map(this::toOffsetDateTime)

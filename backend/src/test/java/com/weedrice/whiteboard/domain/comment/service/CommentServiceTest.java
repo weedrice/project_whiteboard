@@ -14,7 +14,6 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentVersionRepository;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
-import com.weedrice.whiteboard.domain.point.entity.PointHistory;
 import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
 import com.weedrice.whiteboard.domain.point.service.PointService;
@@ -1685,20 +1684,12 @@ class CommentServiceTest {
         when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.decrementCommentCount(1L)).thenReturn(1);
-        when(pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
+        when(pointHistoryRepository.sumPositiveAmountByUserAndTypeAndRelatedTypeAndRelatedId(
                 user,
                 "EARN",
                 "COMMENT",
                 10L))
-                .thenReturn(List.of(PointHistory.builder()
-                        .user(user)
-                        .type("EARN")
-                        .amount(10)
-                        .balanceAfter(100)
-                        .description("댓글 작성")
-                        .relatedId(10L)
-                        .relatedType("COMMENT")
-                        .build()));
+                .thenReturn(10L);
 
         commentService.deleteComment(1L, 10L);
 
@@ -1744,30 +1735,12 @@ class CommentServiceTest {
         when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.decrementCommentCount(1L)).thenReturn(1);
-        when(pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
+        when(pointHistoryRepository.sumPositiveAmountByUserAndTypeAndRelatedTypeAndRelatedId(
                 user,
                 "EARN",
                 "COMMENT",
                 10L))
-                .thenReturn(List.of(
-                        PointHistory.builder()
-                                .user(user)
-                                .type("EARN")
-                                .amount(10)
-                                .balanceAfter(100)
-                                .description("댓글 작성")
-                                .relatedId(10L)
-                                .relatedType("COMMENT")
-                                .build(),
-                        PointHistory.builder()
-                                .user(user)
-                                .type("EARN")
-                                .amount(5)
-                                .balanceAfter(105)
-                                .description("댓글 작성")
-                                .relatedId(10L)
-                                .relatedType("COMMENT")
-                                .build()));
+                .thenReturn(15L);
 
         commentService.deleteComment(1L, 10L);
 
@@ -1790,12 +1763,12 @@ class CommentServiceTest {
         when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.decrementCommentCount(1L)).thenReturn(1);
-        when(pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
+        when(pointHistoryRepository.sumPositiveAmountByUserAndTypeAndRelatedTypeAndRelatedId(
                 user,
                 "EARN",
                 "COMMENT",
                 10L))
-                .thenReturn(List.of());
+                .thenReturn(0L);
 
         commentService.deleteComment(1L, 10L);
 

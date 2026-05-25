@@ -46,6 +46,8 @@ const {
   myCommentsSize,
   isLoading,
   error,
+  myPostsError,
+  myCommentsError,
   fetchMyProfile,
   fetchMyAgents,
   fetchMyPosts,
@@ -227,6 +229,12 @@ onMounted(async () => {
             <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">{{ $t('user.myPosts') }}</h3>
           </div>
 
+          <div
+            v-if="myPostsError"
+            class="mx-4 mt-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
+          >
+            {{ myPostsError }}
+          </div>
           <div v-if="myPosts.length > 0">
             <PostList :posts="myPosts" :totalCount="myPostsTotalCount" :page="myPostsCurrentPage" :size="myPostsSize"
               :current-sort="myPostsSort" :show-board-name="true" :intercept-inquiry="true"
@@ -246,6 +254,12 @@ onMounted(async () => {
             <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">{{ $t('user.myComments') }}</h3>
           </div>
 
+          <div
+            v-if="myCommentsError"
+            class="mx-4 mt-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
+          >
+            {{ myCommentsError }}
+          </div>
           <div v-if="myCommentItems.length > 0">
             <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
               <li v-for="comment in myCommentItems" :key="comment.commentId"

@@ -41,6 +41,19 @@ public interface MessageQueueRepository extends JpaRepository<MessageQueue, Long
     @Query("select m from MessageQueue m where m.queueId = :queueId")
     Optional<MessageQueue> findByIdWithTargetUser(@Param("queueId") Long queueId);
 
+    @Query("""
+            select m.queueId as queueId,
+                   u.email as targetEmail,
+                   m.content as content
+            from MessageQueue m
+            join m.targetUser u
+            where m.queueId in :queueIds
+              and m.status = 'PROCESSING'
+              and m.deliveryMethod = 'EMAIL'
+              and m.sendAttemptId is null
+            """)
+    List<EmailDispatchProjection> findEmailDispatchesByQueueIdIn(@Param("queueIds") List<Long> queueIds);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select m from MessageQueue m where m.queueId = :queueId")
     Optional<MessageQueue> findByIdForUpdate(@Param("queueId") Long queueId);
@@ -139,4 +152,12 @@ public interface MessageQueueRepository extends JpaRepository<MessageQueue, Long
     int markDeliveredUnconfirmedIfCurrent(@Param("queueId") Long queueId,
                                           @Param("expectedProcessingStartedAt") LocalDateTime expectedProcessingStartedAt,
                                           @Param("uncertainAt") LocalDateTime uncertainAt);
+
+    interface EmailDispatchProjection {
+        Long getQueueId();
+
+        String getTargetEmail();
+
+        String getContent();
+    }
 }

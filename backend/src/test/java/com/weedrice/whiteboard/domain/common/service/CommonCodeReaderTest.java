@@ -15,7 +15,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -57,40 +56,44 @@ class CommonCodeReaderTest {
     @Test
     @DisplayName("공통 코드가 있으면 active 상세 목록을 조회한다")
     void findActiveDetails_success() {
-        when(commonCodeRepository.findById("TEST_TYPE")).thenReturn(Optional.of(commonCode));
-        when(commonCodeDetailRepository.findByCommonCodeAndIsActiveOrderBySortOrderAscCodeValueAsc(
-                commonCode, true)).thenReturn(List.of(commonCodeDetail));
+        when(commonCodeDetailRepository.findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAscCodeValueAsc(
+                "TEST_TYPE", true)).thenReturn(List.of(commonCodeDetail));
 
         List<CommonCodeDetail> result = commonCodeReader.findActiveDetails("TEST_TYPE");
 
         assertThat(result).containsExactly(commonCodeDetail);
-        verify(commonCodeRepository).findById("TEST_TYPE");
-        verify(commonCodeDetailRepository).findByCommonCodeAndIsActiveOrderBySortOrderAscCodeValueAsc(
-                commonCode, true);
+        verify(commonCodeRepository, never()).existsById("TEST_TYPE");
+        verify(commonCodeRepository, never()).findById(any());
+        verify(commonCodeDetailRepository).findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAscCodeValueAsc(
+                "TEST_TYPE", true);
     }
 
     @Test
     @DisplayName("공통 코드가 있으면 상세가 없어도 빈 목록을 반환한다")
     void findActiveDetails_existingTypeWithoutDetails_returnsEmptyList() {
-        when(commonCodeRepository.findById("EMPTY_TYPE")).thenReturn(Optional.of(commonCode));
-        when(commonCodeDetailRepository.findByCommonCodeAndIsActiveOrderBySortOrderAscCodeValueAsc(
-                commonCode, true)).thenReturn(List.of());
+        when(commonCodeDetailRepository.findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAscCodeValueAsc(
+                "EMPTY_TYPE", true)).thenReturn(List.of());
+        when(commonCodeRepository.existsById("EMPTY_TYPE")).thenReturn(true);
 
         List<CommonCodeDetail> result = commonCodeReader.findActiveDetails("EMPTY_TYPE");
 
         assertThat(result).isEmpty();
+        verify(commonCodeRepository).existsById("EMPTY_TYPE");
+        verify(commonCodeRepository, never()).findById(any());
     }
 
     @Test
     @DisplayName("공통 코드가 없으면 NOT_FOUND를 반환한다")
     void findActiveDetails_missingType_throwsNotFound() {
-        when(commonCodeRepository.findById("MISSING_TYPE")).thenReturn(Optional.empty());
+        when(commonCodeDetailRepository.findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAscCodeValueAsc(
+                "MISSING_TYPE", true)).thenReturn(List.of());
+        when(commonCodeRepository.existsById("MISSING_TYPE")).thenReturn(false);
 
         assertThatThrownBy(() -> commonCodeReader.findActiveDetails("MISSING_TYPE"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
 
-        verify(commonCodeDetailRepository, never())
-                .findByCommonCodeAndIsActiveOrderBySortOrderAscCodeValueAsc(any(), any());
+        verify(commonCodeRepository).existsById("MISSING_TYPE");
+        verify(commonCodeRepository, never()).findById(any());
     }
 }

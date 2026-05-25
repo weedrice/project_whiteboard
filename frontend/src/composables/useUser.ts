@@ -14,20 +14,31 @@ interface PaginationParams {
     size?: number
 }
 
+export const createMyProfileQueryOptions = () => ({
+    queryKey: ['user', 'me'] as const,
+    queryFn: async () => {
+        const { data } = await userApi.getMyProfile()
+        return data.data
+    },
+    staleTime: QUERY_STALE_TIME.MEDIUM,
+})
+
+export const createMyAgentsQueryOptions = () => ({
+    queryKey: ['user', 'agents'] as const,
+    queryFn: async () => {
+        const { data } = await userApi.getMyAgents()
+        return data.data
+    },
+    staleTime: QUERY_STALE_TIME.MEDIUM,
+})
+
 export function useUser() {
     const queryClient = useQueryClient()
 
     // --- Queries ---
 
     const useMyProfile = () => {
-        return useQuery({
-            queryKey: ['user', 'me'],
-            queryFn: async () => {
-                const { data } = await userApi.getMyProfile()
-                return data.data
-            },
-            staleTime: QUERY_STALE_TIME.MEDIUM, // 5 minutes
-        })
+        return useQuery(createMyProfileQueryOptions())
     }
 
     const useUserProfile = (userId: Ref<string | number>) => {
@@ -52,11 +63,11 @@ export function useUser() {
         })
     }
 
-    const useBlockList = () => {
+    const useBlockList = (params?: Ref<PaginationParams>) => {
         return useQuery({
-            queryKey: ['user', 'blocks'],
+            queryKey: computed(() => ['user', 'blocks', params?.value ?? {}]),
             queryFn: async () => {
-                const { data } = await userApi.getBlockList()
+                const { data } = await userApi.getBlockList(params?.value)
                 return data.data
             },
         })
@@ -73,13 +84,18 @@ export function useUser() {
     }
 
     const useMyAgents = () => {
+        return useQuery(createMyAgentsQueryOptions())
+    }
+
+    const useMyPoint = (enabled?: Ref<boolean>, userIdentity?: Ref<string | number | null | undefined>) => {
         return useQuery({
-            queryKey: ['user', 'agents'],
+            queryKey: computed(() => ['user', 'points', 'me', userIdentity?.value ?? 'anonymous']),
             queryFn: async () => {
-                const { data } = await userApi.getMyAgents()
+                const { data } = await userApi.getMyPoint()
                 return data.data
             },
-            staleTime: QUERY_STALE_TIME.MEDIUM,
+            enabled: computed(() => enabled?.value ?? true),
+            staleTime: QUERY_STALE_TIME.SHORT,
         })
     }
 
@@ -232,6 +248,7 @@ export function useUser() {
         useNotificationSettings,
         useBlockList,
         useMyAgents,
+        useMyPoint,
         useRecentlyViewedPosts,
         useUpdateMyProfile,
         useUpdatePassword,

@@ -53,6 +53,7 @@ vi.mock('@/api/user', () => ({
         getBlockList: vi.fn(),
         getNotificationSettings: vi.fn(),
         getMyAgents: vi.fn(),
+        getMyPoint: vi.fn(),
         updateMyProfile: vi.fn(),
         updatePassword: vi.fn(),
         deleteAccount: vi.fn(),
@@ -137,7 +138,7 @@ describe('useUser', () => {
 
         useBlockList()
         options = mocks.queryOptions.at(-1)!
-        expect(options.queryKey).toEqual(['user', 'blocks'])
+        expect((options.queryKey as { value: unknown[] }).value).toEqual(['user', 'blocks', {}])
         result = await (options.queryFn as () => Promise<unknown>)()
         expect(result).toEqual([{ userId: 100 }])
 
@@ -176,6 +177,29 @@ describe('useUser', () => {
         result = await (options.queryFn as () => Promise<unknown>)()
         expect(userApi.getRecentlyViewedPosts).toHaveBeenNthCalledWith(2, { page: 1, size: 20 })
         expect(result).toEqual({ content: [{ postId: 2 }] })
+    })
+
+    it('fetches my points with user-scoped query key and enabled guard', async () => {
+        vi.mocked(userApi.getMyPoint).mockResolvedValueOnce({
+            data: { data: { currentPoint: 12345 } },
+        } as never)
+
+        const { useMyPoint } = useUser()
+        const enabled = ref(false)
+        const userIdentity = ref(7)
+        useMyPoint(enabled, userIdentity)
+        const options = mocks.queryOptions.at(-1)!
+
+        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual(['user', 'points', 'me', 7])
+        expect((options.enabled as ReturnType<typeof computed>).value).toBe(false)
+        expect(options.staleTime).toBe(QUERY_STALE_TIME.SHORT)
+
+        enabled.value = true
+        expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
+
+        const result = await (options.queryFn as () => Promise<unknown>)()
+        expect(result).toEqual({ currentPoint: 12345 })
+        expect(userApi.getMyPoint).toHaveBeenCalled()
     })
 
     it('updates profile and invalidates my profile cache', async () => {

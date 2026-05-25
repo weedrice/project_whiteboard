@@ -45,6 +45,13 @@ class SemanticSearchJobServiceTest {
     }
 
     @Test
+    void enqueueAll_delegatesToRepository() {
+        jobService.enqueueAll("POST", List.of(1L, 2L), SemanticSearchIndexAction.UPSERT);
+
+        verify(jobRepository).enqueueAll("POST", List.of(1L, 2L), SemanticSearchIndexAction.UPSERT);
+    }
+
+    @Test
     void processPendingJobs_skipsWhenDisabled() {
         properties.setEnabled(false);
 
@@ -71,8 +78,7 @@ class SemanticSearchJobServiceTest {
         int count = jobService.enqueuePostComments(10L);
 
         assertThat(count).isEqualTo(2);
-        verify(jobRepository).enqueue("COMMENT", 101L, SemanticSearchIndexAction.UPSERT);
-        verify(jobRepository).enqueue("COMMENT", 102L, SemanticSearchIndexAction.UPSERT);
+        verify(jobRepository).enqueueAll("COMMENT", List.of(101L, 102L), SemanticSearchIndexAction.UPSERT);
     }
 
     @Test
@@ -83,9 +89,8 @@ class SemanticSearchJobServiceTest {
         int count = jobService.enqueueBoardContent(20L);
 
         assertThat(count).isEqualTo(3);
-        verify(jobRepository).enqueue("POST", 201L, SemanticSearchIndexAction.UPSERT);
-        verify(jobRepository).enqueue("COMMENT", 301L, SemanticSearchIndexAction.UPSERT);
-        verify(jobRepository).enqueue("COMMENT", 302L, SemanticSearchIndexAction.UPSERT);
+        verify(jobRepository).enqueueAll("POST", List.of(201L), SemanticSearchIndexAction.UPSERT);
+        verify(jobRepository).enqueueAll("COMMENT", List.of(301L, 302L), SemanticSearchIndexAction.UPSERT);
     }
 
     @Test

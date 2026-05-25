@@ -96,12 +96,13 @@ class EmoticonServiceTest {
 
         EmoticonAttachmentHelper attachmentHelper = new EmoticonAttachmentHelper(fileService);
         EmoticonCatalogService catalogService = new EmoticonCatalogService(emoticonMasterRepository, userRepository);
+        EmoticonDeletePolicy deletePolicy = new EmoticonDeletePolicy(emoticonPurchaseRepository);
         EmoticonCommandService commandService = new EmoticonCommandService(
                 emoticonMasterRepository,
                 emoticonImageRepository,
-                emoticonPurchaseRepository,
                 userWritableResolver,
                 attachmentHelper,
+                deletePolicy,
                 "EMOTICON_THUMBNAIL",
                 "EMOTICON_IMAGE");
         EmoticonPurchaseService purchaseService = new EmoticonPurchaseService(

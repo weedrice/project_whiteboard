@@ -16,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Pageable;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -26,6 +27,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -52,19 +54,21 @@ class AdServiceTest {
     }
 
     @Test
-    @DisplayName("광고 조회는 impression count 를 증가시키지 않는다")
+    @DisplayName("광고 조회는 impression count를 증가시키지 않는다")
     void getAd_success() {
         String placement = "HEADER";
         Ad ad = buildActiveAd(placement, FIXED_NOW.plusDays(1));
-        when(adRepository.findActiveIdsByPlacement(placement, FIXED_NOW)).thenReturn(List.of(1L));
-        when(adRepository.findActiveById(1L, FIXED_NOW)).thenReturn(Optional.of(ad));
+        when(adRepository.countActiveByPlacement(placement, FIXED_NOW)).thenReturn(1L);
+        when(adRepository.findActiveByPlacement(eq(placement), eq(FIXED_NOW), any(Pageable.class)))
+                .thenReturn(List.of(ad));
 
         Ad result = adService.getAd(placement);
 
         assertThat(result).isSameAs(ad);
         assertThat(ad.getImpressionCount()).isZero();
-        verify(adRepository).findActiveIdsByPlacement(placement, FIXED_NOW);
-        verify(adRepository).findActiveById(1L, FIXED_NOW);
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(adRepository).findActiveByPlacement(eq(placement), eq(FIXED_NOW), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(1);
     }
 
     @Test
@@ -72,65 +76,68 @@ class AdServiceTest {
     void getAd_includesOpenEndedAd() {
         String placement = "HEADER";
         Ad ad = buildActiveAd(placement, null);
-        when(adRepository.findActiveIdsByPlacement(placement, FIXED_NOW)).thenReturn(List.of(1L));
-        when(adRepository.findActiveById(1L, FIXED_NOW)).thenReturn(Optional.of(ad));
+        when(adRepository.countActiveByPlacement(placement, FIXED_NOW)).thenReturn(1L);
+        when(adRepository.findActiveByPlacement(eq(placement), eq(FIXED_NOW), any(Pageable.class)))
+                .thenReturn(List.of(ad));
 
         Ad result = adService.getAd(placement);
 
         assertThat(result).isSameAs(ad);
-        verify(adRepository).findActiveIdsByPlacement(placement, FIXED_NOW);
-        verify(adRepository).findActiveById(1L, FIXED_NOW);
+        verify(adRepository).countActiveByPlacement(placement, FIXED_NOW);
+        verify(adRepository).findActiveByPlacement(eq(placement), eq(FIXED_NOW), any(Pageable.class));
     }
 
     @Test
     @DisplayName("활성 광고가 없으면 후보 조회 없이 null을 반환한다")
     void getAd_noActiveAds_returnsNull() {
-        when(adRepository.findActiveIdsByPlacement("HEADER", FIXED_NOW)).thenReturn(List.of());
+        when(adRepository.countActiveByPlacement("HEADER", FIXED_NOW)).thenReturn(0L);
 
         Ad result = adService.getAd("HEADER");
 
         assertThat(result).isNull();
-        verify(adRepository).findActiveIdsByPlacement("HEADER", FIXED_NOW);
+        verify(adRepository).countActiveByPlacement("HEADER", FIXED_NOW);
+        verify(adRepository, never()).findActiveByPlacement(any(), any(), any());
         verify(adRepository, never()).findActiveById(any(), any());
     }
 
     @Test
-    @DisplayName("ID projection 후보가 재검증에서 모두 제외되면 null을 반환한다")
-    void getAd_returnsNullWhenProjectedIdsAreNoLongerActive() {
+    @DisplayName("count 이후 후보가 사라지면 활성 후보 수를 다시 조회한다")
+    void getAd_returnsNullWhenPagedCandidateIsNoLongerActive() {
         String placement = "HEADER";
-        when(adRepository.findActiveIdsByPlacement(placement, FIXED_NOW))
-                .thenReturn(List.of(1L))
+        when(adRepository.countActiveByPlacement(placement, FIXED_NOW))
+                .thenReturn(1L)
+                .thenReturn(0L);
+        when(adRepository.findActiveByPlacement(eq(placement), eq(FIXED_NOW), any(Pageable.class)))
                 .thenReturn(List.of());
-        when(adRepository.findActiveById(1L, FIXED_NOW)).thenReturn(Optional.empty());
 
         Ad result = adService.getAd(placement);
 
         assertThat(result).isNull();
-        verify(adRepository, times(2)).findActiveIdsByPlacement(placement, FIXED_NOW);
-        verify(adRepository).findActiveById(1L, FIXED_NOW);
+        verify(adRepository, times(2)).countActiveByPlacement(placement, FIXED_NOW);
+        verify(adRepository).findActiveByPlacement(eq(placement), eq(FIXED_NOW), any(Pageable.class));
     }
 
     @Test
-    @DisplayName("ID projection 후보가 사라지면 활성 ID를 다시 조회한다")
-    void getAd_reloadsActiveIdsWhenProjectedIdsAreNoLongerActive() {
+    @DisplayName("count 이후 후보가 사라져도 남은 활성 후보를 다시 조회한다")
+    void getAd_reloadsActiveCandidateWhenPagedCandidateIsNoLongerActive() {
         String placement = "HEADER";
         Ad refreshedAd = buildActiveAd(placement, null);
-        when(adRepository.findActiveIdsByPlacement(placement, FIXED_NOW))
-                .thenReturn(List.of(1L))
-                .thenReturn(List.of(2L));
-        when(adRepository.findActiveById(1L, FIXED_NOW)).thenReturn(Optional.empty());
-        when(adRepository.findActiveById(2L, FIXED_NOW)).thenReturn(Optional.of(refreshedAd));
+        when(adRepository.countActiveByPlacement(placement, FIXED_NOW))
+                .thenReturn(2L)
+                .thenReturn(1L);
+        when(adRepository.findActiveByPlacement(eq(placement), eq(FIXED_NOW), any(Pageable.class)))
+                .thenReturn(List.of())
+                .thenReturn(List.of(refreshedAd));
 
         Ad result = adService.getAd(placement);
 
         assertThat(result).isSameAs(refreshedAd);
-        verify(adRepository, times(2)).findActiveIdsByPlacement(placement, FIXED_NOW);
-        verify(adRepository).findActiveById(1L, FIXED_NOW);
-        verify(adRepository).findActiveById(2L, FIXED_NOW);
+        verify(adRepository, times(2)).countActiveByPlacement(placement, FIXED_NOW);
+        verify(adRepository, times(2)).findActiveByPlacement(eq(placement), eq(FIXED_NOW), any(Pageable.class));
     }
 
     @Test
-    @DisplayName("impression 기록은 활성 광고에만 반영된다")
+    @DisplayName("impression 기록은 활성 광고에만 반영한다")
     void recordAdImpression_success() {
         when(adRepository.incrementImpressionCountForActive(1L, FIXED_NOW)).thenReturn(1);
 
@@ -140,7 +147,7 @@ class AdServiceTest {
     }
 
     @Test
-    @DisplayName("비활성 또는 만료 광고의 impression 은 기록하지 않는다")
+    @DisplayName("비활성 또는 만료 광고에는 impression을 기록하지 않는다")
     void recordAdImpression_inactiveAd_throwsAdNotFound() {
         when(adRepository.incrementImpressionCountForActive(1L, FIXED_NOW)).thenReturn(0);
 
@@ -150,7 +157,7 @@ class AdServiceTest {
     }
 
     @Test
-    @DisplayName("click 기록은 활성 광고일 때만 저장하고 targetUrl 을 반환한다")
+    @DisplayName("click 기록은 활성 광고에 대해서만 저장하고 targetUrl을 반환한다")
     void recordAdClick_success() {
         Ad ad = buildActiveAd("HEADER", FIXED_NOW.plusDays(1));
         when(adRepository.findActiveById(1L, FIXED_NOW)).thenReturn(Optional.of(ad));
@@ -227,7 +234,7 @@ class AdServiceTest {
     }
 
     @Test
-    @DisplayName("click 기록 IP는 45자를 초과하면 절삭된다")
+    @DisplayName("click 기록 IP가 45자를 초과하면 잘라낸다")
     void recordAdClick_truncatesLongIpAddress() {
         Ad ad = buildActiveAd("HEADER", FIXED_NOW.plusDays(1));
         when(adRepository.findActiveById(1L, FIXED_NOW)).thenReturn(Optional.of(ad));
@@ -241,7 +248,7 @@ class AdServiceTest {
     }
 
     @Test
-    @DisplayName("click count 증가가 실패하면 로그를 저장하지 않고 AD_NOT_FOUND 를 반환한다")
+    @DisplayName("click count 증가가 실패하면 로그를 저장하지 않고 AD_NOT_FOUND를 반환한다")
     void recordAdClick_incrementFailure_throwsAdNotFound() {
         Ad ad = buildActiveAd("HEADER", FIXED_NOW.plusDays(1));
         when(adRepository.findActiveById(1L, FIXED_NOW)).thenReturn(Optional.of(ad));
@@ -269,7 +276,7 @@ class AdServiceTest {
 
     private Ad buildActiveAd(String placement, LocalDateTime endDate) {
         return Ad.builder()
-                .adName("Header Ad")
+                .adName("Ad")
                 .imageUrl("https://cdn.test/ad.png")
                 .placement(placement)
                 .targetUrl("https://example.com")
@@ -282,9 +289,8 @@ class AdServiceTest {
         return User.builder()
                 .loginId("user")
                 .password("password")
-                .email("user@test.com")
-                .displayName("User")
+                .email("user@example.com")
+                .displayName("user")
                 .build();
     }
-
 }

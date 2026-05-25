@@ -19,9 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 class ReportCommandService {
 
-    private static final String PENDING_REPORT_DUPLICATE_INDEX = "uq_reports_pending_user_target";
-    private static final String LEGACY_REPORT_DUPLICATE_CONSTRAINT = "uk_reports_user_target";
-
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
     private final ReportTargetValidator reportTargetValidator;
@@ -38,10 +35,7 @@ class ReportCommandService {
         String normalizedRemark = ReportRemarkNormalizer.normalize(remark);
         String normalizedContents = normalizeContents(contents);
 
-        if (reportRepository.existsByReporterAndTargetTypeAndTargetIdAndStatus(
-                reporter, normalizedTargetType, targetId, Report.STATUS_PENDING)) {
-            throw new BusinessException(ErrorCode.ALREADY_REPORTED);
-        }
+        ReportDuplicatePolicy.validateNoPendingDuplicate(reportRepository, reporter, normalizedTargetType, targetId);
 
         reportTargetValidator.validate(normalizedTargetType, targetId, reporter);
 
@@ -56,8 +50,8 @@ class ReportCommandService {
         try {
             return reportRepository.saveAndFlush(report).getReportId();
         } catch (DataIntegrityViolationException ex) {
-            if (isDuplicateReportConflict(ex)) {
-                throw new BusinessException(ErrorCode.ALREADY_REPORTED);
+            if (ReportDuplicatePolicy.isDuplicateConflict(ex)) {
+                throw ReportDuplicatePolicy.alreadyReported();
             }
             throw ex;
         }
@@ -88,16 +82,4 @@ class ReportCommandService {
         return normalizedContents;
     }
 
-    private boolean isDuplicateReportConflict(DataIntegrityViolationException exception) {
-        Throwable current = exception;
-        while (current != null) {
-            String message = current.getMessage();
-            if (message != null && (message.contains(PENDING_REPORT_DUPLICATE_INDEX)
-                    || message.contains(LEGACY_REPORT_DUPLICATE_CONSTRAINT))) {
-                return true;
-            }
-            current = current.getCause();
-        }
-        return false;
-    }
 }

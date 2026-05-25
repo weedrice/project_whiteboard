@@ -13,6 +13,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
@@ -48,7 +49,7 @@ class UserLifecycleServiceTest {
         assertThat(user.getStatus()).isEqualTo("SUSPENDED");
         verify(userRepository).findByIdForUpdate(1L);
         verify(userPrivilegeCleanupService).removeOperationalPrivileges(user);
-        verify(refreshTokenLifecycleService).revokeActiveRefreshTokens(user);
+        verify(refreshTokenLifecycleService).revokeActiveRefreshTokensForLockedUser(user);
         verify(agentLifecycleService).suspendAllForUser(user);
     }
 
@@ -62,8 +63,25 @@ class UserLifecycleServiceTest {
 
         assertThat(user.getStatus()).isEqualTo("SUSPENDED");
         verify(userPrivilegeCleanupService).removeOperationalPrivileges(user, 9L);
-        verify(refreshTokenLifecycleService).revokeActiveRefreshTokens(user);
+        verify(refreshTokenLifecycleService).revokeActiveRefreshTokensForLockedUser(user);
         verify(agentLifecycleService).suspendAllForUser(user);
+    }
+
+    @Test
+    @DisplayName("public suspendUser locks user before revoking operational access")
+    void suspendUser_locksUserBeforeRevokingOperationalAccess() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+
+        userLifecycleService.suspendUser(user);
+
+        assertThat(user.getStatus()).isEqualTo("SUSPENDED");
+        var inOrder = inOrder(userRepository, userPrivilegeCleanupService, refreshTokenLifecycleService, agentLifecycleService);
+        inOrder.verify(userRepository).findByIdForUpdate(1L);
+        inOrder.verify(userPrivilegeCleanupService).removeOperationalPrivileges(user);
+        inOrder.verify(refreshTokenLifecycleService).revokeActiveRefreshTokensForLockedUser(user);
+        inOrder.verify(agentLifecycleService).suspendAllForUser(user);
     }
 
     @Test
@@ -80,7 +98,7 @@ class UserLifecycleServiceTest {
                 .isEqualTo(ErrorCode.FORBIDDEN);
 
         assertThat(user.getStatus()).isEqualTo("ACTIVE");
-        verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(user);
+        verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokensForLockedUser(user);
         verify(agentLifecycleService, never()).suspendAllForUser(user);
     }
 
@@ -96,7 +114,7 @@ class UserLifecycleServiceTest {
         verify(userRepository).findByIdForUpdate(1L);
         var inOrder = inOrder(userPrivilegeCleanupService, refreshTokenLifecycleService, agentLifecycleService);
         inOrder.verify(userPrivilegeCleanupService).removeOperationalPrivileges(user);
-        inOrder.verify(refreshTokenLifecycleService).revokeActiveRefreshTokens(user);
+        inOrder.verify(refreshTokenLifecycleService).revokeActiveRefreshTokensForLockedUser(user);
         inOrder.verify(agentLifecycleService).suspendAllForUser(user);
     }
 
@@ -114,7 +132,7 @@ class UserLifecycleServiceTest {
                 .isEqualTo(ErrorCode.FORBIDDEN);
 
         assertThat(user.getStatus()).isEqualTo("ACTIVE");
-        verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(user);
+        verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokensForLockedUser(user);
         verify(agentLifecycleService, never()).suspendAllForUser(user);
     }
 
@@ -131,7 +149,7 @@ class UserLifecycleServiceTest {
 
         assertThat(user.getStatus()).isEqualTo("ACTIVE");
         verify(userRepository).findByIdForUpdate(1L);
-        verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(user);
+        verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokensForLockedUser(user);
         verify(agentLifecycleService, never()).suspendAllForUser(user);
     }
 

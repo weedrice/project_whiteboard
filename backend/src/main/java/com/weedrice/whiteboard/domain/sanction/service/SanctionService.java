@@ -74,9 +74,10 @@ public class SanctionService {
 
         Page<Sanction> sanctions;
         if (targetUserId != null) {
-            User targetUser = userRepository.findById(targetUserId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-            sanctions = sanctionRepository.findByTargetUser(targetUser, safePageable);
+            sanctions = sanctionRepository.findByTargetUser_UserId(targetUserId, safePageable);
+            if (sanctions.isEmpty() && !userRepository.existsById(targetUserId)) {
+                throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+            }
         } else {
             sanctions = sanctionRepository.findAll(safePageable);
         }

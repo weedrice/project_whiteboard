@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.Collection;
 import java.util.List;
 
 @Slf4j
@@ -30,9 +31,14 @@ public class SemanticSearchJobService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void enqueueAll(String contentType, Collection<Long> contentIds, SemanticSearchIndexAction action) {
+        jobRepository.enqueueAll(contentType, contentIds, action);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int enqueuePostComments(Long postId) {
         List<Long> commentIds = jobRepository.findActiveCommentIdsByPostId(postId);
-        commentIds.forEach(commentId -> jobRepository.enqueue("COMMENT", commentId, SemanticSearchIndexAction.UPSERT));
+        jobRepository.enqueueAll("COMMENT", commentIds, SemanticSearchIndexAction.UPSERT);
         return commentIds.size();
     }
 
@@ -40,8 +46,8 @@ public class SemanticSearchJobService {
     public int enqueueBoardContent(Long boardId) {
         List<Long> postIds = jobRepository.findActivePostIdsByBoardId(boardId);
         List<Long> commentIds = jobRepository.findActiveCommentIdsByBoardId(boardId);
-        postIds.forEach(postId -> jobRepository.enqueue("POST", postId, SemanticSearchIndexAction.UPSERT));
-        commentIds.forEach(commentId -> jobRepository.enqueue("COMMENT", commentId, SemanticSearchIndexAction.UPSERT));
+        jobRepository.enqueueAll("POST", postIds, SemanticSearchIndexAction.UPSERT);
+        jobRepository.enqueueAll("COMMENT", commentIds, SemanticSearchIndexAction.UPSERT);
         return postIds.size() + commentIds.size();
     }
 

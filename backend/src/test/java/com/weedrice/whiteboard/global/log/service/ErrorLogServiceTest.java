@@ -400,9 +400,7 @@ class ErrorLogServiceTest {
     @DisplayName("에러 로그 통계 조회 성공")
     void getErrorLogStats_success() {
         // given
-        when(errorLogRepository.count()).thenReturn(100L);
-        when(errorLogRepository.countByIsResolved("N")).thenReturn(30L);
-        when(errorLogRepository.countByIsResolved("Y")).thenReturn(70L);
+        when(errorLogRepository.aggregateStats()).thenReturn(errorLogStats(100L, 30L, 70L));
 
         // when
         ErrorLogStatsResponse stats = errorLogService.getErrorLogStats();
@@ -417,9 +415,7 @@ class ErrorLogServiceTest {
     @DisplayName("에러 로그 통계 조회 - 빈 데이터")
     void getErrorLogStats_empty() {
         // given
-        when(errorLogRepository.count()).thenReturn(0L);
-        when(errorLogRepository.countByIsResolved("N")).thenReturn(0L);
-        when(errorLogRepository.countByIsResolved("Y")).thenReturn(0L);
+        when(errorLogRepository.aggregateStats()).thenReturn(errorLogStats(0L, 0L, 0L));
 
         // when
         ErrorLogStatsResponse stats = errorLogService.getErrorLogStats();
@@ -428,5 +424,24 @@ class ErrorLogServiceTest {
         assertThat(stats.getTotalCount()).isEqualTo(0L);
         assertThat(stats.getUnresolvedCount()).isEqualTo(0L);
         assertThat(stats.getResolvedCount()).isEqualTo(0L);
+    }
+
+    private ErrorLogRepository.ErrorLogStats errorLogStats(long totalCount, long unresolvedCount, long resolvedCount) {
+        return new ErrorLogRepository.ErrorLogStats() {
+            @Override
+            public long getTotalCount() {
+                return totalCount;
+            }
+
+            @Override
+            public long getUnresolvedCount() {
+                return unresolvedCount;
+            }
+
+            @Override
+            public long getResolvedCount() {
+                return resolvedCount;
+            }
+        };
     }
 }

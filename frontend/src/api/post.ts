@@ -1,10 +1,11 @@
 import api from './index'
-import type { AxiosRequestConfig } from 'axios'
+import type { AxiosRequestConfig, AxiosResponse } from 'axios'
 import type {
     ApiResponse,
     DraftPost,
     HomeLandingPeriod,
     HomeLandingResponse,
+    HomeLandingStats,
     PageResponse,
     Post,
     PostSummary
@@ -64,6 +65,78 @@ export type BackendPageResponse<T> = Partial<PageResponse<T>> & {
     hasPrevious?: boolean
 }
 
+export type LegacyHomeLandingResponse = Omit<HomeLandingResponse, 'posts'> & {
+    posts?: PostSummary[]
+    latestPosts?: PostSummary[]
+    featuredPost?: PostSummary | null
+    editorPicks?: PostSummary[]
+    trendingPosts?: PostSummary[]
+}
+
+const emptyStats = (): HomeLandingStats => ({
+    boardCount: 0,
+    postCount: 0,
+    liveCount: 0,
+    onlineCount: 0,
+    postsToday: 0,
+    postsTodayDeltaPercent: null,
+    activeBoardCount: 0,
+    newMembersLast24Hours: 0,
+    commentsToday: 0,
+})
+
+export const emptyHomeLanding = (): HomeLandingResponse => ({
+    posts: [],
+    latestPosts: [],
+    boards: [],
+    stats: emptyStats(),
+})
+
+export const normalizeHomeLandingResponse = (
+    landing: HomeLandingResponse | LegacyHomeLandingResponse | null | undefined
+): HomeLandingResponse => {
+    if (!landing) {
+        return emptyHomeLanding()
+    }
+
+    if (Array.isArray(landing.posts)) {
+        return {
+            posts: landing.posts,
+            latestPosts: landing.latestPosts ?? [],
+            boards: landing.boards ?? [],
+            stats: landing.stats ?? emptyStats(),
+        }
+    }
+
+    const legacyLanding = landing as LegacyHomeLandingResponse
+    return {
+        posts: [
+            ...(legacyLanding.featuredPost ? [legacyLanding.featuredPost] : []),
+            ...(legacyLanding.editorPicks ?? []),
+            ...(legacyLanding.trendingPosts ?? []),
+        ],
+        latestPosts: legacyLanding.latestPosts ?? [],
+        boards: legacyLanding.boards ?? [],
+        stats: legacyLanding.stats ?? emptyStats(),
+    }
+}
+
+function mapHomeLandingResponse(
+    response: AxiosResponse<ApiResponse<HomeLandingResponse | LegacyHomeLandingResponse>>
+): AxiosResponse<ApiResponse<HomeLandingResponse>> {
+    if (!response.data.success) {
+        return response as AxiosResponse<ApiResponse<HomeLandingResponse>>
+    }
+
+    return {
+        ...response,
+        data: {
+            ...response.data,
+            data: normalizeHomeLandingResponse(response.data.data),
+        },
+    }
+}
+
 export const postApi = {
     // Create a new post
     createPost: (boardUrl: string, data: PostCreateData) => api.post<ApiResponse<number>>(`/boards/${boardUrl}/posts`, data),
@@ -96,9 +169,9 @@ export const postApi = {
     getTrendingPosts: (page: number = 0, size: number = 10, period: HomeLandingPeriod = '24h') => api.get<ApiResponse<BackendPageResponse<PostSummary>>>('/posts/trending', { params: { page, size, period } }),
 
     // Get home landing data
-    getHomeLanding: (period: HomeLandingPeriod = '24h') => api.get<ApiResponse<HomeLandingResponse>>('/home/landing', {
+    getHomeLanding: (period: HomeLandingPeriod = '24h') => api.get<ApiResponse<HomeLandingResponse | LegacyHomeLandingResponse>>('/home/landing', {
         params: { period }
-    }),
+    }).then(mapHomeLandingResponse),
 
     // Draft APIs
     getDraft: (draftId: string | number) => api.get<ApiResponse<DraftPost>>(`/drafts/${draftId}`),

@@ -139,11 +139,7 @@ function invalidateSubscriptionCaches() {
 }
 
 async function fetchAllSubscriptions() {
-    const boards: SubscriptionBoardListItem[] = []
-    let page = 0
-    let totalPages = 1
-
-    while (page < totalPages) {
+    const fetchPage = async (page: number) => {
         const { data } = await userApi.getMySubscriptions({
             page,
             size: subscriptionsPageSize,
@@ -154,12 +150,27 @@ async function fetchAllSubscriptions() {
             return null
         }
 
-        boards.push(...data.data.content)
-        totalPages = data.data.totalPages
-        page += 1
+        return data.data
     }
 
-    return boards
+    const firstPage = await fetchPage(0)
+    if (firstPage === null) {
+        return null
+    }
+
+    const remainingPages = Array.from(
+        { length: Math.max(firstPage.totalPages - 1, 0) },
+        (_, index) => index + 1
+    )
+    const remainingResults = await Promise.all(remainingPages.map(fetchPage))
+    if (remainingResults.some((page) => page === null)) {
+        return null
+    }
+
+    return [
+        ...firstPage.content,
+        ...remainingResults.flatMap(page => page?.content ?? [])
+    ]
 }
 
 async function fetchSubscriptions() {

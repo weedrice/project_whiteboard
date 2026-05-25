@@ -7,7 +7,6 @@ import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonImage;
 import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonMaster;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepository;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
-import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonPurchaseRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -23,24 +22,24 @@ class EmoticonCommandService {
 
     private final EmoticonMasterRepository emoticonMasterRepository;
     private final EmoticonImageRepository emoticonImageRepository;
-    private final EmoticonPurchaseRepository emoticonPurchaseRepository;
     private final UserWritableResolver userWritableResolver;
     private final EmoticonAttachmentHelper attachmentHelper;
+    private final EmoticonDeletePolicy deletePolicy;
     private final String emoticonThumbnailType;
     private final String emoticonImageType;
 
     EmoticonCommandService(EmoticonMasterRepository emoticonMasterRepository,
                             EmoticonImageRepository emoticonImageRepository,
-                            EmoticonPurchaseRepository emoticonPurchaseRepository,
                             UserWritableResolver userWritableResolver,
                             EmoticonAttachmentHelper attachmentHelper,
+                            EmoticonDeletePolicy deletePolicy,
                             String emoticonThumbnailType,
                             String emoticonImageType) {
         this.emoticonMasterRepository = emoticonMasterRepository;
         this.emoticonImageRepository = emoticonImageRepository;
-        this.emoticonPurchaseRepository = emoticonPurchaseRepository;
         this.userWritableResolver = userWritableResolver;
         this.attachmentHelper = attachmentHelper;
+        this.deletePolicy = deletePolicy;
         this.emoticonThumbnailType = emoticonThumbnailType;
         this.emoticonImageType = emoticonImageType;
     }
@@ -160,9 +159,7 @@ class EmoticonCommandService {
 
         validateWritableOwner(master, userId);
 
-        if (emoticonPurchaseRepository.existsByEmoticon_EmoticonId(emoticonId)) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "구매 이력이 있는 이모티콘은 삭제할 수 없습니다.");
-        }
+        deletePolicy.validateDeletable(emoticonId);
 
         Long masterId = master.getEmoticonId();
         String thumbnailUrl = master.getThumbnailUrl();
@@ -176,7 +173,7 @@ class EmoticonCommandService {
             emoticonMasterRepository.delete(master);
             emoticonMasterRepository.flush();
         } catch (DataIntegrityViolationException e) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "구매 이력이 있는 이모티콘은 삭제할 수 없습니다.");
+            throw deletePolicy.purchaseHistoryDeleteBlocked();
         }
 
         attachmentHelper.deleteAssociatedFile(thumbnailUrl, masterId, emoticonThumbnailType);

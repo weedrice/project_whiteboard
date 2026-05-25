@@ -117,8 +117,7 @@ const query = computed(() => (
 const params = computed(() => ({
   q: query.value,
   page: 0,
-  size: 20,
-  t: route.query.t as string | undefined // Include timestamp to force refetch
+  size: 20
 }))
 
 const { data: searchData, isLoading } = useIntegratedSearch(params)

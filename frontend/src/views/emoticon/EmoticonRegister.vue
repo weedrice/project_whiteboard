@@ -33,10 +33,33 @@ const thumbnailFile = ref<File | null>(null)
 const thumbnailPreview = ref<string | null>(null)
 const emoticonPreviews = ref<EmoticonImagePreview[]>([])
 const tagInput = ref('')
-const tags = ref<string[]>([])
 const isSubmitting = ref(false)
 const uploadProgress = ref({ current: 0, total: 0 })
+const uploadControllers = new Set<AbortController>()
 let submitRunId = 0
+let isComponentUnmounted = false
+let tagSequence = 0
+
+interface EmoticonTagItem {
+  clientId: string
+  value: string
+}
+
+const createTagItem = (value: string): EmoticonTagItem => {
+  tagSequence += 1
+  return {
+    clientId: `emoticon-tag-${tagSequence}`,
+    value
+  }
+}
+
+const tagItems = ref<EmoticonTagItem[]>([])
+const tags = computed<string[]>({
+  get: () => tagItems.value.map((item) => item.value),
+  set: (values) => {
+    tagItems.value = values.map(createTagItem)
+  }
+})
 
 // 파일 입력 refs
 const thumbnailInput = ref<HTMLInputElement | null>(null)
@@ -44,7 +67,46 @@ const emoticonInput = ref<HTMLInputElement | null>(null)
 
 const SUPPORTED_IMAGE_ACCEPT = SUPPORTED_EMOTICON_IMAGE_ACCEPT
 
+const createUploadCancelledError = () => new DOMException('Upload has been cancelled', 'AbortError')
+
+const isUploadCancelledError = (error: unknown) => {
+  if (!isComponentUnmounted) {
+    return false
+  }
+
+  if (error instanceof DOMException && error.name === 'AbortError') {
+    return true
+  }
+
+  if (typeof error !== 'object' || error === null) {
+    return false
+  }
+
+  const maybeCancelledError = error as { code?: string; name?: string }
+  return maybeCancelledError.code === 'ERR_CANCELED' || maybeCancelledError.name === 'AbortError'
+}
+
+const assertSubmitActive = (runId: number) => {
+  if (isComponentUnmounted || submitRunId !== runId) {
+    throw createUploadCancelledError()
+  }
+}
+
+const abortPendingUploads = () => {
+  uploadControllers.forEach((controller) => controller.abort())
+  uploadControllers.clear()
+}
+
+const createUploadController = () => {
+  const controller = new AbortController()
+  uploadControllers.add(controller)
+  return controller
+}
+
 onUnmounted(() => {
+  isComponentUnmounted = true
+  submitRunId += 1
+  abortPendingUploads()
   revokeEmoticonPreviewUrl(thumbnailPreview.value)
   emoticonPreviews.value.forEach((item) => {
     revokeEmoticonPreviewUrl(item.preview)
@@ -92,8 +154,9 @@ const handleEmoticonSelect = async (event: Event) => {
 }
 
 // 이모티콘 이미지 제거
-const removeEmoticonImage = (index: number) => {
-  const item = emoticonPreviews.value[index]
+const removeEmoticonImage = (clientId: string) => {
+  const index = emoticonPreviews.value.findIndex((item) => item.clientId === clientId)
+  const item = index >= 0 ? emoticonPreviews.value[index] : null
   if (item) {
     revokeEmoticonPreviewUrl(item.preview)
     emoticonPreviews.value.splice(index, 1)
@@ -106,14 +169,17 @@ const addTag = () => {
   if (result.error === 'maxTags') {
     toastStore.addToast(t('emoticon.validation.maxTags'), 'error')
   } else if (result.tag) {
-    tags.value.push(result.tag)
+    tagItems.value.push(createTagItem(result.tag))
   }
   tagInput.value = ''
 }
 
 // 태그 제거
-const removeTag = (index: number) => {
-  tags.value.splice(index, 1)
+const removeTag = (clientId: string) => {
+  const index = tagItems.value.findIndex((item) => item.clientId === clientId)
+  if (index >= 0) {
+    tagItems.value.splice(index, 1)
+  }
 }
 
 // 폼 유효성 검사
@@ -132,40 +198,104 @@ const handleSubmit = async () => {
 
   try {
     // 1. 썸네일 업로드
-    const thumbnailResponse = await fileApi.uploadFile(thumbnailFile.value!)
-    const thumbnailFileId = thumbnailResponse.data.data.fileId
+    const submitSnapshot = {
+      thumbnail: thumbnailFile.value!,
+      previews: [...emoticonPreviews.value],
+      name: emoticonName.value.trim(),
+      tags: [...tags.value],
+    }
 
     // 2. 이모티콘 이미지 업로드 (리사이징 적용)
-    uploadProgress.value = { current: 0, total: emoticonPreviews.value.length }
-    const imageFileIds = await uploadEmoticonImagePreviews(
-      emoticonPreviews.value,
-      async (uploadFile) => {
-        const response = await fileApi.uploadFile(uploadFile)
+    uploadProgress.value = { current: 0, total: submitSnapshot.previews.length }
+
+    let uploadFailed = false
+    let submitFailure: unknown = null
+    const failSubmit = (error: unknown) => {
+      submitFailure ??= error
+      uploadFailed = true
+      abortPendingUploads()
+    }
+
+    const uploadThumbnail = async () => {
+      assertSubmitActive(currentRunId)
+      const controller = createUploadController()
+
+      try {
+        const response = await fileApi.uploadFile(submitSnapshot.thumbnail, {
+          signal: controller.signal,
+          skipGlobalErrorHandler: true
+        })
+        assertSubmitActive(currentRunId)
         return response.data.data.fileId
+      } catch (error) {
+        failSubmit(error)
+        throw error
+      } finally {
+        uploadControllers.delete(controller)
+      }
+    }
+
+    const uploadImages = async () => uploadEmoticonImagePreviews(
+      submitSnapshot.previews,
+      async (uploadFile) => {
+        if (uploadFailed) {
+          throw createUploadCancelledError()
+        }
+
+        assertSubmitActive(currentRunId)
+        const controller = createUploadController()
+
+        try {
+          const response = await fileApi.uploadFile(uploadFile, {
+            signal: controller.signal,
+            skipGlobalErrorHandler: true
+          })
+          assertSubmitActive(currentRunId)
+          return response.data.data.fileId
+        } catch (error) {
+          failSubmit(error)
+          throw error
+        } finally {
+          uploadControllers.delete(controller)
+        }
       },
       (current) => {
-        if (submitRunId === currentRunId) {
+        if (!isComponentUnmounted && submitRunId === currentRunId) {
           uploadProgress.value.current = current
         }
       }
     )
 
+    const [thumbnailFileId, imageFileIds] = await Promise.all([
+      uploadThumbnail(),
+      uploadImages().catch((error) => {
+        failSubmit(error)
+        throw error
+      })
+    ]).catch((error) => {
+      throw submitFailure ?? error
+    })
+    assertSubmitActive(currentRunId)
+
     // 3. 이모티콘 생성
     await emoticonApi.createEmoticon({
-      name: emoticonName.value.trim(),
+      name: submitSnapshot.name,
       thumbnailFileId,
-      tags: tags.value,
+      tags: submitSnapshot.tags,
       imageFileIds
     })
+    assertSubmitActive(currentRunId)
 
     toastStore.addToast(t('emoticon.register.created'), 'success')
     router.push({ name: 'emoticon-list' })
   } catch (error: unknown) {
-    const message = extractErrorMessage(error) || t('emoticon.register.failed')
-    toastStore.addToast(message, 'error')
+    if (!isComponentUnmounted && !isUploadCancelledError(error)) {
+      const message = extractErrorMessage(error) || t('emoticon.register.failed')
+      toastStore.addToast(message, 'error')
+    }
   } finally {
-    isSubmitting.value = false
-    if (submitRunId === currentRunId) {
+    if (!isComponentUnmounted && submitRunId === currentRunId) {
+      isSubmitting.value = false
       submitRunId += 1
       uploadProgress.value = { current: 0, total: 0 }
     }
@@ -276,7 +406,7 @@ const goToList = () => {
         <div class="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2 mb-4">
           <div
             v-for="(item, index) in emoticonPreviews"
-            :key="index"
+            :key="item.clientId"
             class="relative"
           >
             <img
@@ -287,7 +417,7 @@ const goToList = () => {
             />
             <button
               type="button"
-              @click="removeEmoticonImage(index)"
+              @click="removeEmoticonImage(item.clientId)"
               :aria-label="$t('common.delete')"
               :title="$t('common.delete')"
               class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 text-xs"
@@ -349,14 +479,14 @@ const goToList = () => {
 
         <div v-if="tags.length > 0" class="flex flex-wrap gap-2">
           <span
-            v-for="(tag, index) in tags"
-            :key="index"
+            v-for="tagItem in tagItems"
+            :key="tagItem.clientId"
             class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300"
           >
-            #{{ tag }}
+            #{{ tagItem.value }}
             <button
               type="button"
-              @click="removeTag(index)"
+              @click="removeTag(tagItem.clientId)"
               :aria-label="$t('board.tags.remove')"
               :title="$t('board.tags.remove')"
               class="ml-1 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-200"

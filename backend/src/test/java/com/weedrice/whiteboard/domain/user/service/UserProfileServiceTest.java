@@ -178,13 +178,14 @@ class UserProfileServiceTest {
     void updateMyProfile_imageChange() {
         User user = User.builder().displayName("Name").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(fileService.replaceUserProfileImage(100L, 1L, 1L)).thenReturn("/api/v1/files/100");
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(fileService.replaceUserProfileImageForLockedUser(100L, 1L, user)).thenReturn("/api/v1/files/100");
 
         UpdateProfileResponse response = userProfileService.updateMyProfile(1L, null, 100L);
 
         assertThat(response.getProfileImageUrl()).isEqualTo("/api/v1/files/100");
-        verify(fileService).replaceUserProfileImage(100L, 1L, 1L);
+        verify(fileService).replaceUserProfileImageForLockedUser(100L, 1L, user);
+        verify(userRepository, never()).findById(1L);
     }
 
     @Test
@@ -202,6 +203,7 @@ class UserProfileServiceTest {
         verify(displayNameHistoryRepository).save(historyCaptor.capture());
         assertThat(historyCaptor.getValue().getPreviousName()).isEqualTo("Old Name");
         assertThat(historyCaptor.getValue().getNewName()).isEqualTo("New Name");
+        verify(userRepository, never()).findByIdForUpdate(1L);
     }
 
     @Test

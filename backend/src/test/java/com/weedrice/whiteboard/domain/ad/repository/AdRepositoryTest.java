@@ -8,10 +8,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -26,29 +26,42 @@ class AdRepositoryTest {
     private AdRepository adRepository;
 
     @Test
-    @DisplayName("활성 광고 조회는 오픈엔드 광고를 포함하고 만료 광고를 제외한다")
-    void findActiveIdsByPlacement_includesOpenEndedAndExcludesExpired() {
+    @DisplayName("활성 광고 count는 오픈엔드 광고를 포함하고 만료 광고를 제외한다")
+    void countActiveByPlacement_includesOpenEndedAndExcludesExpired() {
         LocalDateTime now = LocalDateTime.now();
-        Ad openEndedAd = persistAd("TOP", now.minusDays(1), null, true);
+        persistAd("TOP", now.minusDays(1), null, true);
         persistAd("TOP", now.minusDays(2), now.minusMinutes(1), true);
         persistAd("TOP", now.plusMinutes(1), now.plusDays(1), true);
         persistAd("TOP", now.minusDays(1), now.plusDays(1), false);
 
-        List<Long> activeAdIds = adRepository.findActiveIdsByPlacement("TOP", now);
+        long activeAdCount = adRepository.countActiveByPlacement("TOP", now);
 
-        assertThat(activeAdIds).containsExactly(openEndedAd.getAdId());
+        assertThat(activeAdCount).isEqualTo(1);
     }
 
     @Test
-    @DisplayName("활성 광고 ID 조회는 adId 오름차순 후보 목록을 반환한다")
-    void findActiveIdsByPlacement_returnsOrderedCandidateIds() {
+    @DisplayName("활성 광고 후보 조회는 adId 오름차순 후보 목록을 반환한다")
+    void findActiveByPlacement_returnsOrderedCandidates() {
         LocalDateTime now = LocalDateTime.now();
         Ad firstAd = persistAd("TOP", now.minusDays(1), null, true);
         Ad secondAd = persistAd("TOP", now.minusDays(1), null, true);
 
-        List<Long> activeAdIds = adRepository.findActiveIdsByPlacement("TOP", now);
+        var activeAds = adRepository.findActiveByPlacement("TOP", now, PageRequest.of(0, 2));
 
-        assertThat(activeAdIds).containsExactly(firstAd.getAdId(), secondAd.getAdId());
+        assertThat(activeAds).containsExactly(firstAd, secondAd);
+    }
+
+    @Test
+    @DisplayName("활성 광고 후보 조회는 pageable offset을 적용한다")
+    void findActiveByPlacement_appliesPageableOffset() {
+        LocalDateTime now = LocalDateTime.now();
+        persistAd("TOP", now.minusDays(1), null, true);
+        Ad secondAd = persistAd("TOP", now.minusDays(1), null, true);
+        persistAd("TOP", now.minusDays(1), null, true);
+
+        var activeAds = adRepository.findActiveByPlacement("TOP", now, PageRequest.of(1, 1));
+
+        assertThat(activeAds).containsExactly(secondAd);
     }
 
     @Test
@@ -61,16 +74,17 @@ class AdRepositoryTest {
     }
 
     @Test
-    @DisplayName("활성 광고 ID 조회는 시작 포함과 종료 제외 경계를 적용한다")
-    void findActiveIdsByPlacement_appliesStartInclusiveAndEndExclusiveBoundary() {
+    @DisplayName("활성 광고 후보 조회는 시작 포함과 종료 제외 경계를 적용한다")
+    void activePlacementQueries_applyStartInclusiveAndEndExclusiveBoundary() {
         LocalDateTime now = LocalDateTime.of(2026, 4, 29, 10, 0);
-        Ad startsNow = persistAd("TOP", now, now.plusHours(1), true);
-        Ad endsNow = persistAd("TOP", now.minusHours(1), now, true);
+        persistAd("TOP", now, now.plusHours(1), true);
+        persistAd("TOP", now.minusHours(1), now, true);
 
-        List<Long> activeAdIds = adRepository.findActiveIdsByPlacement("TOP", now);
+        long activeAdCount = adRepository.countActiveByPlacement("TOP", now);
+        var activeAds = adRepository.findActiveByPlacement("TOP", now, PageRequest.of(0, 1));
 
-        assertThat(activeAdIds).containsExactly(startsNow.getAdId());
-        assertThat(activeAdIds).doesNotContain(endsNow.getAdId());
+        assertThat(activeAdCount).isEqualTo(1);
+        assertThat(activeAds).extracting(Ad::getStartDate).containsExactly(now);
     }
 
     @Test

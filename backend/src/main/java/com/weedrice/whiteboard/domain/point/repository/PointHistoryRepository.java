@@ -5,8 +5,8 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-
-import java.util.List;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface PointHistoryRepository extends JpaRepository<PointHistory, Long> {
     Page<PointHistory> findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(Long userId, Pageable pageable);
@@ -19,9 +19,18 @@ public interface PointHistoryRepository extends JpaRepository<PointHistory, Long
             String type,
             String relatedType,
             Long relatedId);
-    List<PointHistory> findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
-            User user,
-            String type,
-            String relatedType,
-            Long relatedId);
+    @Query("""
+            SELECT COALESCE(SUM(ph.amount), 0)
+            FROM PointHistory ph
+            WHERE ph.user = :user
+              AND ph.type = :type
+              AND ph.relatedType = :relatedType
+              AND ph.relatedId = :relatedId
+              AND ph.amount > 0
+            """)
+    long sumPositiveAmountByUserAndTypeAndRelatedTypeAndRelatedId(
+            @Param("user") User user,
+            @Param("type") String type,
+            @Param("relatedType") String relatedType,
+            @Param("relatedId") Long relatedId);
 }

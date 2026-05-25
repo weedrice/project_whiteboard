@@ -4,11 +4,28 @@ import { defineComponent, h, nextTick, ref } from 'vue'
 
 const routeState = ref({ name: 'home' as string | null })
 const routerPush = vi.fn()
-const logout = vi.fn()
 const toggleThemePreference = vi.hoisted(() => vi.fn())
-const authState = vi.hoisted(() => ({
-    isAuthenticated: false,
-    user: null as null | Record<string, unknown>,
+const authMocks = vi.hoisted(() => {
+    const logout = vi.fn()
+    return {
+        logout,
+        authStore: {
+            isAuthenticated: false,
+            user: null as null | Record<string, unknown>,
+            logout,
+        },
+    }
+})
+const keyboardStore = vi.hoisted(() => ({
+    isShortcutsModalOpen: false,
+    closeDropdown: vi.fn(),
+    setOpenDropdown: vi.fn(),
+    closeShortcutsModal: vi.fn(),
+    toggleShortcutsModal: vi.fn(),
+}))
+const notificationMocks = vi.hoisted(() => ({
+    connectToSse: vi.fn(),
+    closeSse: vi.fn(),
 }))
 
 vi.mock('vue-router', () => ({
@@ -38,11 +55,7 @@ vi.mock('lucide-vue-next', () => ({
 }))
 
 vi.mock('@/stores/auth', () => ({
-    useAuthStore: () => ({
-        isAuthenticated: authState.isAuthenticated,
-        user: authState.user,
-        logout,
-    }),
+    useAuthStore: () => authMocks.authStore,
 }))
 
 vi.mock('@/stores/theme', () => ({
@@ -58,20 +71,14 @@ vi.mock('@/composables/useThemePreference', () => ({
 }))
 
 vi.mock('@/stores/keyboard', () => ({
-    useKeyboardStore: () => ({
-        isShortcutsModalOpen: false,
-        closeDropdown: vi.fn(),
-        setOpenDropdown: vi.fn(),
-        closeShortcutsModal: vi.fn(),
-        toggleShortcutsModal: vi.fn(),
-    }),
+    useKeyboardStore: () => keyboardStore,
 }))
 
 vi.mock('@/composables/useNotification', () => ({
     useNotification: () => ({
         useUnreadCount: () => ({ data: ref(0) }),
-        connectToSse: vi.fn(),
-        closeSse: vi.fn(),
+        connectToSse: notificationMocks.connectToSse,
+        closeSse: notificationMocks.closeSse,
     }),
 }))
 
@@ -98,9 +105,10 @@ describe('DefaultLayout', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         toggleThemePreference.mockClear()
+        authMocks.authStore.isAuthenticated = false
+        authMocks.authStore.user = null
+        keyboardStore.isShortcutsModalOpen = false
         routeState.value = { name: 'home' }
-        authState.isAuthenticated = false
-        authState.user = null
         Object.defineProperty(window, 'matchMedia', {
             writable: true,
             value: vi.fn().mockImplementation(() => ({
@@ -141,11 +149,78 @@ describe('DefaultLayout', () => {
         window.dispatchEvent(new CustomEvent('noviis:editor-focus-change', { detail: false }))
         await nextTick()
         expect(wrapper.get('[data-testid="mobile-bottom-nav"]').attributes('data-hidden')).toBe('false')
+
+        wrapper.unmount()
+    })
+
+    it('opens and closes the notification stream with the layout lifecycle', () => {
+        authMocks.authStore.isAuthenticated = true
+
+        const wrapper = mount(DefaultLayout, {
+            global: {
+                stubs: {
+                    'router-link': true,
+                    'router-view': true,
+                    NotificationDropdown: true,
+                    UserDropdown: true,
+                    BoardDropdown: true,
+                    Footer: true,
+                    GlobalSearchBar: true,
+                    KeyboardShortcutsModal: true,
+                    RecentBoardsBar: true,
+                    MobileBottomNav: MobileBottomNavStub,
+                },
+                mocks: {
+                    $t: (key: string) => key,
+                },
+            },
+        })
+
+        expect(notificationMocks.connectToSse).toHaveBeenCalledTimes(1)
+
+        wrapper.unmount()
+
+        expect(notificationMocks.closeSse).toHaveBeenCalled()
+    })
+
+    it('keeps global keyboard shortcuts wired through the extracted handler', async () => {
+        const wrapper = mount(DefaultLayout, {
+            global: {
+                stubs: {
+                    'router-link': true,
+                    'router-view': true,
+                    NotificationDropdown: true,
+                    UserDropdown: true,
+                    BoardDropdown: true,
+                    Footer: true,
+                    GlobalSearchBar: true,
+                    KeyboardShortcutsModal: true,
+                    RecentBoardsBar: true,
+                    MobileBottomNav: MobileBottomNavStub,
+                },
+                mocks: {
+                    $t: (key: string) => key,
+                },
+            },
+        })
+
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))
+        await nextTick()
+
+        expect(routerPush).toHaveBeenCalledWith('/search')
+
+        wrapper.unmount()
+        routerPush.mockClear()
+
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'h' }))
+        await nextTick()
+
+        expect(routerPush).not.toHaveBeenCalled()
     })
 
     it('announces notification dropdown expanded state and panel relationship', async () => {
-        authState.isAuthenticated = true
-        authState.user = { displayName: 'Tester' }
+        authMocks.authStore.isAuthenticated = true
+        authMocks.authStore.user = { displayName: 'Tester' }
 
         const wrapper = mount(DefaultLayout, {
             global: {

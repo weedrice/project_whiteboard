@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.shop.service;
 
 import com.weedrice.whiteboard.domain.shop.entity.ShopItem;
+import com.weedrice.whiteboard.domain.user.entity.User;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -38,9 +39,19 @@ public class ShopEntitlementCapabilityRegistry {
         return new PreparedPurchase(handler, handler.preparePurchase(userId, item));
     }
 
+    public PreparedPurchase preparePurchase(User user, ShopItem item) {
+        ShopEntitlementHandler handler = findRequiredHandler(item.getItemType());
+        return new PreparedPurchase(handler, handler.preparePurchase(user, item));
+    }
+
     public PreparedPurchase prepareValidatedPurchase(Long userId, ShopItem item, Runnable afterConfigurationValidation) {
         ShopEntitlementHandler handler = findRequiredHandler(item.getItemType());
         return new PreparedPurchase(handler, handler.prepareValidatedPurchase(userId, item, afterConfigurationValidation));
+    }
+
+    public PreparedPurchase prepareValidatedPurchase(User user, ShopItem item, Runnable afterConfigurationValidation) {
+        ShopEntitlementHandler handler = findRequiredHandler(item.getItemType());
+        return new PreparedPurchase(handler, handler.prepareValidatedPurchase(user, item, afterConfigurationValidation));
     }
 
     public void grant(PreparedPurchase preparedPurchase) {

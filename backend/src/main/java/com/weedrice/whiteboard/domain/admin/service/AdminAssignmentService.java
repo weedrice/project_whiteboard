@@ -11,7 +11,6 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,7 +24,6 @@ public class AdminAssignmentService {
     private final BoardManagerAssignmentService boardManagerAssignmentService;
     private final OperationalPrivilegeRevocationGuard privilegeRevocationGuard;
 
-    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
     public AdminResponse createAdmin(String loginId, Long boardId, AdminRole role) {
         if (boardId == null) {
@@ -68,7 +66,6 @@ public class AdminAssignmentService {
         return saveAndMapDuplicate(admin);
     }
 
-    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional(readOnly = true)
     public AdminResponse getBoardManager(Long boardId) {
         Board board = boardRepository.findById(boardId)
@@ -79,13 +76,11 @@ public class AdminAssignmentService {
                 .orElse(null);
     }
 
-    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
     public AdminResponse replaceBoardManager(Long boardId, String loginId) {
         return createAdmin(loginId, boardId, AdminRole.BOARD_ADMIN);
     }
 
-    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
     public void deactivateAdmin(Long adminId) {
         Admin admin = adminRepository.findById(adminId)
@@ -96,7 +91,6 @@ public class AdminAssignmentService {
         admin.deactivate();
     }
 
-    @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
     public void activateAdmin(Long adminId) {
         Admin admin = adminRepository.findById(adminId)

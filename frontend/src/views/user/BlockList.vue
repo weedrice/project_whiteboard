@@ -1,12 +1,16 @@
 <template>
   <div class="max-w-4xl mx-auto py-4 sm:py-6 md:py-8 px-4 sm:px-6 lg:px-8">
     <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
-      <div class="px-4 py-4 sm:py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex items-center">
-        <UserX class="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400 flex-shrink-0" />
-        <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">{{ $t('user.blockList.title') }}</h3>
+      <div
+        class="px-4 py-4 sm:py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex items-center">
+          <UserX class="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+          <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">{{ $t('user.blockList.title') }}</h3>
+        </div>
+        <PageSizeSelector v-model="size" :options="[20, 50, 100]" @change="handleSizeChange" />
       </div>
 
-      <div v-if="loading" class="divide-y divide-gray-200 dark:divide-gray-700">
+      <div v-if="loading && blockedUsers.length === 0" class="divide-y divide-gray-200 dark:divide-gray-700">
         <div v-for="i in 5" :key="i" class="px-4 py-4 sm:px-6 flex items-center justify-between">
           <div class="flex items-center">
             <BaseSkeleton width="2.5rem" height="2.5rem" rounded="rounded-full" className="mr-4" />
@@ -39,58 +43,80 @@
               </div>
             </div>
             <div class="flex-shrink-0 min-h-[44px] sm:min-h-0 flex items-center">
-              <BlockButton :userId="user.userId" :initialBlocked="true" @block-change="refreshList" />
+              <BlockButton :userId="user.userId" :initialBlocked="true" @block-change="handleBlockChange" />
             </div>
           </div>
         </li>
       </ul>
+
+      <div v-if="blockedUsers.length > 0" class="bg-gray-50 dark:bg-gray-900/50 px-4 py-4 sm:px-6">
+        <div class="mb-3 text-center text-sm text-gray-600 dark:text-gray-300">총 {{ totalElements }}건</div>
+        <Pagination :current-page="page" :total-pages="totalPages" @page-change="handlePageChange" />
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { userApi, type BlockedUserSummary } from '@/api/user'
+import { computed, ref, watch } from 'vue'
+import type { BlockedUserSummary } from '@/api/user'
 import BlockButton from '@/components/user/BlockButton.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
+import Pagination from '@/components/common/ui/Pagination.vue'
+import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import { UserX } from 'lucide-vue-next'
-import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
+import { useUser } from '@/composables/useUser'
 
-const { t } = useI18n()
+const { useBlockList } = useUser()
+const page = ref(0)
+const size = ref(20)
+const blockListParams = computed(() => ({ page: page.value, size: size.value }))
+const { data: blockListData, isLoading: loading, error, refetch } = useBlockList(blockListParams)
 
-const blockedUsers = ref<BlockedUserSummary[]>([])
-const loading = ref(false)
-const errorMessage = ref('')
+const blockedUsers = computed<BlockedUserSummary[]>(() => {
+  const payload = blockListData.value
+  if (!payload) return []
+  return Array.isArray(payload) ? payload : payload.content
+})
 
-const fetchBlockedUsers = async () => {
-  loading.value = true
-  errorMessage.value = ''
-  try {
-    const { data } = await userApi.getBlockList()
-    if (data.success) {
-      const payload = data.data
-      blockedUsers.value = Array.isArray(payload)
-        ? payload
-        : payload.content
-    } else {
-      errorMessage.value = t('common.messages.loadFailed')
-    }
-  } catch (error: unknown) {
-    logger.error('Failed to fetch blocked users:', error)
-    errorMessage.value = t('common.messages.loadFailed')
-  } finally {
-    loading.value = false
+const totalElements = computed(() => {
+  const payload = blockListData.value
+  if (!payload) return 0
+  return Array.isArray(payload) ? payload.length : payload.totalElements
+})
+
+const totalPages = computed(() => {
+  const payload = blockListData.value
+  if (!payload) return 0
+  return Array.isArray(payload) ? (payload.length > 0 ? 1 : 0) : payload.totalPages
+})
+
+const handlePageChange = (nextPage: number) => {
+  page.value = nextPage
+}
+
+const handleSizeChange = () => {
+  page.value = 0
+}
+
+const errorMessage = computed(() => error.value ? '차단 목록을 불러오지 못했습니다.' : '')
+
+const fetchBlockedUsers = () => {
+  refetch()
+}
+
+const handleBlockChange = () => {
+  if (page.value > 0 && blockedUsers.value.length === 1) {
+    page.value -= 1
   }
 }
 
-const refreshList = () => {
-  fetchBlockedUsers()
-}
-
-onMounted(() => {
-  fetchBlockedUsers()
+watch(error, (value) => {
+  if (value) {
+    logger.error('Failed to fetch blocked users:', value)
+  }
 })
 </script>

@@ -2,6 +2,7 @@ import { computed, reactive, ref, watch, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToastStore } from '@/stores/toast'
+import { hasRequiredBoardFields } from '@/utils/board'
 import type { AdminBoard, BoardUpdateData } from '@/types'
 
 type UpdateBoardPayload = {
@@ -239,7 +240,7 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
   async function handleSaveChanges() {
     if (!selectedBoard.value) return
 
-    if (!form.boardName || !form.boardUrl) {
+    if (!hasRequiredBoardFields(form)) {
       toastStore.addToast(t('board.writePost.validation'), 'warning')
       return
     }

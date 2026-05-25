@@ -71,6 +71,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -154,6 +155,7 @@ class AgentServiceTest {
     private AgentPolicyService agentPolicyService;
     @Mock
     private AgentNoteService agentNoteService;
+    private AgentCommentAccessService agentCommentAccessService;
     private AgentQueryService agentQueryService;
     private AgentQuotaService agentQuotaService;
     private AgentCommandService agentCommandService;
@@ -196,13 +198,16 @@ class AgentServiceTest {
                 commentRepository,
                 sanctionRepository,
                 agentQuotaService);
+        agentCommentAccessService = new AgentCommentAccessService(
+                userBlockService,
+                postAccessPolicy,
+                agentBoardAccessService);
         agentQueryService = new AgentQueryService(
                 boardRepository,
                 boardAiInfoRepository,
                 agentRepository,
                 postRepository,
                 commentRepository,
-                agentPostActivityReadRepository,
                 postService,
                 postAccessPolicy,
                 userBlockService,
@@ -225,6 +230,7 @@ class AgentServiceTest {
                 commentService,
                 agentOwnershipService,
                 agentBoardAccessService,
+                agentCommentAccessService,
                 agentAuditService,
                 agentQuotaService,
                 agentPolicyService,
@@ -237,11 +243,12 @@ class AgentServiceTest {
 
         lenient().when(agentDailyQuotaRepository.findForUpdate(anyLong(), any(LocalDate.class), anyString()))
                 .thenReturn(Optional.empty());
-        lenient().when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(
-                        anyLong(), any(LocalDate.class), anyString()))
-                .thenReturn(Optional.empty());
-        lenient().when(sanctionRepository.findFirstActiveTypeIn(any(), any(), any(LocalDateTime.class)))
-                .thenReturn(Optional.empty());
+        lenient().when(agentDailyQuotaRepository.findUsageByAgentIdAndQuotaDateAndActionTypeIn(
+                        anyLong(), any(LocalDate.class), any()))
+                .thenReturn(List.of());
+        lenient().when(sanctionRepository.findActiveTypesInOrderByCreatedAtDescSanctionIdDesc(
+                        any(), any(), any(LocalDateTime.class)))
+                .thenReturn(List.of());
         lenient().when(agentDailyQuotaRepository.saveAndFlush(any(AgentDailyQuota.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         lenient().when(commentRepository.findDistinctPostIdsByPost_PostIdInAndAgent_AgentIdAndIsDeletedFalse(any(), anyLong()))
@@ -437,10 +444,11 @@ class AgentServiceTest {
                 any(LocalDateTime.class),
                 any(LocalDateTime.class)))
                 .thenReturn(3L);
-        when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(eq(7L), any(LocalDate.class), eq("POST")))
-                .thenReturn(Optional.of(quota("POST", 49L)));
-        when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(eq(7L), any(LocalDate.class), eq("COMMENT")))
-                .thenReturn(Optional.of(quota("COMMENT", 100L)));
+        when(agentDailyQuotaRepository.findUsageByAgentIdAndQuotaDateAndActionTypeIn(
+                eq(7L),
+                any(LocalDate.class),
+                quotaActionTypes()))
+                .thenReturn(List.of(actionUsage("POST", 49L), actionUsage("COMMENT", 100L)));
 
         AgentStatusResponse response = agentQueryService.getStatus(7L);
 
@@ -512,34 +520,51 @@ class AgentServiceTest {
     void getHome_returnsCapabilitiesAndOpportunitiesForActiveAgent() {
         doReturn(agent).when(agentOwnershipService).resolveClaimedAgent(7L);
         ReflectionTestUtils.setField(writablePost, "agent", agent);
-        ReflectionTestUtils.setField(writablePost, "createdAt", LocalDateTime.now());
-        User commenter = User.builder().loginId("commenter").displayName("Commenter").build();
-        ReflectionTestUtils.setField(commenter, "userId", 2L);
-        Comment comment = Comment.builder()
-                .post(writablePost)
-                .user(commenter)
-                .depth(0)
-                .content("<p>recent reply</p>")
-                .build();
-        ReflectionTestUtils.setField(comment, "commentId", 301L);
-        ReflectionTestUtils.setField(comment, "createdAt", LocalDateTime.now());
+        LocalDateTime latestAt = LocalDateTime.now();
+        LocalDateTime lastReadAt = latestAt.minusMinutes(5);
 
-        when(commentRepository.findRecentUnreadCommentsOnAgentPosts(eq(7L), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(comment), PageRequest.of(0, 20), 1));
-        when(commentRepository.countUnreadCommentsOnAgentPosts(7L, List.of(100L)))
-                .thenReturn(List.of(new CommentRepository.UnreadCommentCountProjection() {
+        when(commentRepository.findUnreadAgentPostActivities(eq(7L), any(Pageable.class)))
+                .thenReturn(List.of(new CommentRepository.UnreadAgentPostActivityProjection() {
                     @Override
                     public Long getPostId() {
                         return 100L;
                     }
 
                     @Override
+                    public String getPostTitle() {
+                        return "Writable Post";
+                    }
+
+                    @Override
+                    public Long getBoardId() {
+                        return 10L;
+                    }
+
+                    @Override
+                    public String getBoardName() {
+                        return "Writable Board";
+                    }
+
+                    @Override
                     public long getUnreadCount() {
                         return 2L;
                     }
+
+                    @Override
+                    public String getLatestCommentContent() {
+                        return "<p>recent reply</p>";
+                    }
+
+                    @Override
+                    public LocalDateTime getLatestCommentCreatedAt() {
+                        return latestAt;
+                    }
+
+                    @Override
+                    public LocalDateTime getLastReadAt() {
+                        return lastReadAt;
+                    }
                 }));
-        when(agentPostActivityReadRepository.findLastReadAtByAgentIdAndPostIds(7L, List.of(100L)))
-                .thenReturn(List.of());
         when(postRepository.findByAgent_AgentIdAndIsDeleted(eq(7L), eq(false), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(writablePost), PageRequest.of(0, 5), 1));
         when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
@@ -572,6 +597,8 @@ class AgentServiceTest {
         AgentHomeResponse.ActivityOnMyPost activity = response.getActivityOnMyPosts().get(0);
         assertThat(activity.getNewCommentCount()).isEqualTo(2L);
         assertThat(activity.getLatestCommentPreview()).isEqualTo("recent reply");
+        assertThat(activity.getLatestAt()).isEqualTo(latestAt.atZone(ZoneId.of("Asia/Seoul")).toOffsetDateTime());
+        assertThat(activity.getLastReadAt()).isEqualTo(lastReadAt.atZone(ZoneId.of("Asia/Seoul")).toOffsetDateTime());
         AgentHomeResponse.Opportunity replyToActivity = response.getOpportunities().stream()
                 .filter(opportunity -> "reply_to_activity".equals(opportunity.getType()))
                 .findFirst()
@@ -581,6 +608,9 @@ class AgentServiceTest {
         assertThat(replyToActivity.getAvailableActions()).extracting(AgentHomeResponse.AvailableAction::getTool)
                 .contains("get_post_comments");
         assertThat(replyToActivity.getAvailableActions().get(0).getParams()).containsEntry("post_id", 100L);
+        ArgumentCaptor<Pageable> activityPageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(commentRepository).findUnreadAgentPostActivities(eq(7L), activityPageableCaptor.capture());
+        assertThat(activityPageableCaptor.getValue().getPageSize()).isEqualTo(5);
         verify(agentOwnershipService).validateAuthenticatedAgent(agent);
         verify(agentOwnershipService, never()).resolveActiveAgent(7L);
         verify(commentRepository, never()).countUnreadCommentsOnAgentPost(anyLong(), anyLong());
@@ -589,16 +619,15 @@ class AgentServiceTest {
     @Test
     void getHome_marksCreatePostCapabilityUnavailableWhenPostLimitExhausted() {
         doReturn(agent).when(agentOwnershipService).resolveClaimedAgent(7L);
-        when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(
-                eq(7L), any(LocalDate.class), eq(AgentQuotaService.ACTION_POST)))
-                .thenReturn(Optional.of(AgentDailyQuota.builder()
-                        .agent(agent)
-                        .quotaDate(LocalDate.now())
-                        .actionType(AgentQuotaService.ACTION_POST)
-                        .usedCount(AgentQuotaService.DAILY_AGENT_POST_LIMIT)
-                        .build()));
-        when(commentRepository.findRecentUnreadCommentsOnAgentPosts(eq(7L), any(Pageable.class)))
-                .thenReturn(Page.empty());
+        when(agentDailyQuotaRepository.findUsageByAgentIdAndQuotaDateAndActionTypeIn(
+                eq(7L),
+                any(LocalDate.class),
+                quotaActionTypes()))
+                .thenReturn(List.of(actionUsage(
+                        AgentQuotaService.ACTION_POST,
+                        AgentQuotaService.DAILY_AGENT_POST_LIMIT)));
+        when(commentRepository.findUnreadAgentPostActivities(eq(7L), any(Pageable.class)))
+                .thenReturn(List.of());
         when(postRepository.findByAgent_AgentIdAndIsDeleted(eq(7L), eq(false), any(Pageable.class)))
                 .thenReturn(Page.empty());
         when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
@@ -1739,6 +1768,58 @@ class AgentServiceTest {
     }
 
     @Test
+    void createComment_forbiddenWhenPostCategoryRequiresHigherRole() {
+        AgentCommentCreateRequest request = new AgentCommentCreateRequest();
+        ReflectionTestUtils.setField(request, "content", "b".repeat(25));
+        BoardCategory restrictedCategory = defaultCategory(writableBoard, Role.SUPER_ADMIN);
+        Post restrictedPost = Post.builder()
+                .board(writableBoard)
+                .user(user)
+                .category(restrictedCategory)
+                .title("Restricted post")
+                .contents("content")
+                .build();
+        ReflectionTestUtils.setField(restrictedPost, "postId", 100L);
+        ReflectionTestUtils.setField(restrictedPost, "isDeleted", false);
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(postService.getPostById(100L, 1L, false)).thenReturn(restrictedPost);
+
+        assertThatThrownBy(() -> agentCommandService.createComment(7L, 100L, request, null))
+                .isInstanceOf(AgentWriteException.class)
+                .hasFieldOrPropertyWithValue("code", "category_write_forbidden");
+
+        verify(agentDailyQuotaRepository, never()).findForUpdate(anyLong(), any(LocalDate.class), anyString());
+        verify(commentService, never()).createCommentAsAgent(anyLong(), anyLong(), anyLong(), any(), any(), any());
+    }
+
+    @Test
+    void createComment_withCategoryKeepsBoardForbiddenWhenBoardIsNotWritable() {
+        AgentCommentCreateRequest request = new AgentCommentCreateRequest();
+        ReflectionTestUtils.setField(request, "content", "b".repeat(25));
+        BoardCategory category = defaultCategory(blockedBoard, Role.USER);
+        Post post = Post.builder()
+                .board(blockedBoard)
+                .user(user)
+                .category(category)
+                .title("Blocked post")
+                .contents("content")
+                .build();
+        ReflectionTestUtils.setField(post, "postId", 200L);
+        ReflectionTestUtils.setField(post, "isDeleted", false);
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(postService.getPostById(200L, 1L, false)).thenReturn(post);
+
+        assertThatThrownBy(() -> agentCommandService.createComment(7L, 200L, request, null))
+                .isInstanceOf(AgentWriteException.class)
+                .hasFieldOrPropertyWithValue("code", "board_write_forbidden");
+
+        verify(agentDailyQuotaRepository, never()).findForUpdate(anyLong(), any(LocalDate.class), anyString());
+        verify(commentService, never()).createCommentAsAgent(anyLong(), anyLong(), anyLong(), any(), any(), any());
+    }
+
+    @Test
     void likePost_forbiddenWhenReadableBoardIsNotWritable() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(postService.getPostById(100L, 1L, false)).thenReturn(writablePost);
@@ -1763,8 +1844,11 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(request, "content", "a".repeat(60));
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
-        when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(eq(7L), any(LocalDate.class), eq("POST")))
-                .thenReturn(Optional.of(quota("POST", 50L)));
+        when(agentDailyQuotaRepository.findUsageByAgentIdAndQuotaDateAndActionTypeIn(
+                eq(7L),
+                any(LocalDate.class),
+                quotaActionTypes()))
+                .thenReturn(List.of(actionUsage("POST", 50L)));
 
         assertThatThrownBy(() -> agentCommandService.createPost(7L, request, null))
                 .isInstanceOf(AgentWriteException.class)
@@ -1785,9 +1869,11 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(request, "content", "b".repeat(25));
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
-        when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(eq(7L), any(LocalDate.class), eq("COMMENT")))
-                .thenReturn(Optional.of(quota("COMMENT", 100L)));
-        when(sanctionRepository.existsActiveTypeIn(eq(user), any(), any(LocalDateTime.class))).thenReturn(false);
+        when(agentDailyQuotaRepository.findUsageByAgentIdAndQuotaDateAndActionTypeIn(
+                eq(7L),
+                any(LocalDate.class),
+                quotaActionTypes()))
+                .thenReturn(List.of(actionUsage("COMMENT", 100L)));
 
         assertThatThrownBy(() -> agentCommandService.createComment(7L, 100L, request, null))
                 .isInstanceOf(AgentWriteException.class)
@@ -1852,9 +1938,16 @@ class AgentServiceTest {
                 .build();
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
-        when(sanctionRepository.findFirstActiveTypeIn(eq(user), any(), any(LocalDateTime.class)))
-                .thenReturn(Optional.of(mute));
-        when(sanctionRepository.existsActiveBan(eq(user), any(LocalDateTime.class))).thenReturn(true);
+        Sanction ban = Sanction.builder()
+                .targetUser(user)
+                .type("BAN")
+                .remark("banned")
+                .startDate(LocalDateTime.now().minusMinutes(1))
+                .endDate(LocalDateTime.now().plusDays(2))
+                .build();
+        when(sanctionRepository.findActiveTypesInOrderByCreatedAtDescSanctionIdDesc(
+                eq(user), any(), any(LocalDateTime.class)))
+                .thenReturn(List.of(mute, ban));
 
         Throwable thrown = catchThrowable(() -> agentCommandService.createPost(7L, request, null));
 
@@ -1862,6 +1955,9 @@ class AgentServiceTest {
         AgentWriteException exception = (AgentWriteException) thrown;
         assertThat(exception.getCode()).isEqualTo("agent_suspended");
         assertThat(exception.getRestrictions().isSuspended()).isTrue();
+        assertThat(exception.getRestrictions().isCanComment()).isFalse();
+        assertThat(exception.getRestrictions().getReason()).isEqualTo("muted");
+        assertThat(exception.getRestrictions().getSuspendedUntil()).isNull();
         verify(boardRepository, never()).findByBoardUrlForUpdate(anyString());
     }
 
@@ -1878,11 +1974,14 @@ class AgentServiceTest {
                 .build();
 
         when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
-        when(agentDailyQuotaRepository.findByAgentIdAndQuotaDateAndActionType(eq(7L), any(LocalDate.class), eq("COMMENT")))
-                .thenReturn(Optional.of(quota("COMMENT", 100L)));
-        when(sanctionRepository.findFirstActiveTypeIn(eq(user), any(), any(LocalDateTime.class)))
-                .thenReturn(Optional.of(mute));
-        when(sanctionRepository.existsActiveTypeIn(eq(user), any(), any(LocalDateTime.class))).thenReturn(true);
+        when(agentDailyQuotaRepository.findUsageByAgentIdAndQuotaDateAndActionTypeIn(
+                eq(7L),
+                any(LocalDate.class),
+                quotaActionTypes()))
+                .thenReturn(List.of(actionUsage("COMMENT", 100L)));
+        when(sanctionRepository.findActiveTypesInOrderByCreatedAtDescSanctionIdDesc(
+                eq(user), any(), any(LocalDateTime.class)))
+                .thenReturn(List.of(mute));
 
         Throwable thrown = catchThrowable(() -> agentCommandService.createComment(7L, 100L, request, null));
 
@@ -2126,6 +2225,35 @@ class AgentServiceTest {
     }
 
     @Test
+    void createReply_forbiddenWhenParentPostCategoryRequiresHigherRole() {
+        AgentCommentCreateRequest request = new AgentCommentCreateRequest();
+        ReflectionTestUtils.setField(request, "content", "reply");
+        BoardCategory restrictedCategory = defaultCategory(writableBoard, Role.SUPER_ADMIN);
+        Post restrictedPost = Post.builder()
+                .board(writableBoard)
+                .user(user)
+                .category(restrictedCategory)
+                .title("Restricted post")
+                .contents("content")
+                .build();
+        ReflectionTestUtils.setField(restrictedPost, "postId", 100L);
+        ReflectionTestUtils.setField(restrictedPost, "isDeleted", false);
+        Comment parentComment = Comment.builder().post(restrictedPost).user(user).content("parent").build();
+        ReflectionTestUtils.setField(parentComment, "commentId", 500L);
+        ReflectionTestUtils.setField(parentComment, "isDeleted", false);
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(commentRepository.findByIdWithRelationsForUpdate(500L)).thenReturn(Optional.of(parentComment));
+
+        assertThatThrownBy(() -> agentCommandService.createReply(7L, 500L, request, null))
+                .isInstanceOf(AgentWriteException.class)
+                .hasFieldOrPropertyWithValue("code", "category_write_forbidden");
+
+        verify(agentDailyQuotaRepository, never()).findForUpdate(anyLong(), any(LocalDate.class), anyString());
+        verify(commentService, never()).createCommentAsAgent(anyLong(), anyLong(), anyLong(), anyLong(), any(), any());
+    }
+
+    @Test
     void deletePost_success() {
         Post agentPost = agentPost(101L, agent, false);
 
@@ -2288,6 +2416,113 @@ class AgentServiceTest {
         verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(), any(), any());
     }
 
+    @Test
+    void likeComment_rejectsSecretPostWhenAgentUserIsNotAuthor() {
+        User author = User.builder().loginId("author").displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 2L);
+        Board board = readableOnlyAgentEnabledBoard(30L);
+        Post secretPost = Post.builder()
+                .board(board)
+                .user(author)
+                .title("Secret post")
+                .contents("content")
+                .isSecret(true)
+                .build();
+        ReflectionTestUtils.setField(secretPost, "postId", 300L);
+        ReflectionTestUtils.setField(secretPost, "isDeleted", false);
+        Comment comment = Comment.builder()
+                .post(secretPost)
+                .user(author)
+                .depth(0)
+                .content("comment")
+                .build();
+        ReflectionTestUtils.setField(comment, "commentId", 300L);
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(commentRepository.findByIdWithRelationsForUpdate(300L)).thenReturn(Optional.of(comment));
+
+        assertThatThrownBy(() -> agentCommandService.likeComment(7L, 300L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+
+        verify(commentLikeRepository, never()).existsById(any());
+        verify(commentLikeRepository, never()).saveAndFlush(any());
+        verify(commentRepository, never()).incrementLikeCount(anyLong());
+        verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(), any(), any());
+    }
+
+    @Test
+    void likeComment_keepsForbiddenWhenAgentCannotReadBoard() {
+        User author = User.builder().loginId("author").displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 2L);
+        Board privateBoard = Board.builder().boardName("Private").boardUrl("private").creator(author).build();
+        ReflectionTestUtils.setField(privateBoard, "boardId", 30L);
+        ReflectionTestUtils.setField(privateBoard, "isActive", true);
+        ReflectionTestUtils.setField(privateBoard, "isPublic", false);
+        ReflectionTestUtils.setField(privateBoard, "agentUseYn", true);
+        Post post = Post.builder()
+                .board(privateBoard)
+                .user(author)
+                .title("Private post")
+                .contents("content")
+                .build();
+        ReflectionTestUtils.setField(post, "postId", 300L);
+        ReflectionTestUtils.setField(post, "isDeleted", false);
+        Comment comment = Comment.builder()
+                .post(post)
+                .user(author)
+                .depth(0)
+                .content("comment")
+                .build();
+        ReflectionTestUtils.setField(comment, "commentId", 300L);
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(commentRepository.findByIdWithRelationsForUpdate(300L)).thenReturn(Optional.of(comment));
+
+        assertThatThrownBy(() -> agentCommandService.likeComment(7L, 300L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        verify(commentLikeRepository, never()).existsById(any());
+        verify(commentLikeRepository, never()).saveAndFlush(any());
+        verify(commentRepository, never()).incrementLikeCount(anyLong());
+        verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(), any(), any());
+    }
+
+    @Test
+    void likeComment_rejectsBlockedPostAuthor() {
+        User author = User.builder().loginId("blocked").displayName("Blocked").build();
+        ReflectionTestUtils.setField(author, "userId", 2L);
+        Post post = Post.builder()
+                .board(writableBoard)
+                .user(author)
+                .title("Blocked author post")
+                .contents("content")
+                .build();
+        ReflectionTestUtils.setField(post, "postId", 300L);
+        ReflectionTestUtils.setField(post, "isDeleted", false);
+        Comment comment = Comment.builder()
+                .post(post)
+                .user(author)
+                .depth(0)
+                .content("comment")
+                .build();
+        ReflectionTestUtils.setField(comment, "commentId", 300L);
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(commentRepository.findByIdWithRelationsForUpdate(300L)).thenReturn(Optional.of(comment));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
+
+        assertThatThrownBy(() -> agentCommandService.likeComment(7L, 300L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+
+        verify(commentLikeRepository, never()).existsById(any());
+        verify(commentLikeRepository, never()).saveAndFlush(any());
+        verify(commentRepository, never()).incrementLikeCount(anyLong());
+        verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(), any(), any());
+    }
+
     private BoardCategory defaultCategory(Board board, String minWriteRole) {
         BoardCategory category = BoardCategory.builder()
                 .board(board)
@@ -2383,5 +2618,28 @@ class AgentServiceTest {
                 .actionType(actionType)
                 .usedCount(usedCount)
                 .build();
+    }
+
+    private AgentDailyQuotaRepository.ActionUsage actionUsage(String actionType, long usedCount) {
+        return new TestActionUsage(actionType, usedCount);
+    }
+
+    private Collection<String> quotaActionTypes() {
+        return argThat(actionTypes -> actionTypes != null
+                && actionTypes.containsAll(Set.of("POST", "COMMENT", "NOTE"))
+                && actionTypes.size() == 3);
+    }
+
+    private record TestActionUsage(String actionType, long usedCount)
+            implements AgentDailyQuotaRepository.ActionUsage {
+        @Override
+        public String getActionType() {
+            return actionType;
+        }
+
+        @Override
+        public long getUsedCount() {
+            return usedCount;
+        }
     }
 }

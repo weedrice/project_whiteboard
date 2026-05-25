@@ -16,6 +16,7 @@ export function useInquiryDetailModal(refreshPosts: () => Promise<void> | void) 
   const isInquiryDetailLoading = ref(false)
   const inquiryDetailError = ref('')
   const isDeletingInquiry = ref(false)
+  let inquiryDetailRequestId = 0
 
   function isInquiryPostItem(post: { boardUrl?: string | number }): boolean {
     return String(post.boardUrl || '').toLowerCase() === 'inquiry'
@@ -30,23 +31,30 @@ export function useInquiryDetailModal(refreshPosts: () => Promise<void> | void) 
     selectedInquiryPost.value = null
     inquiryDetailError.value = ''
     isInquiryDetailLoading.value = true
+    const requestId = ++inquiryDetailRequestId
 
     try {
       const { data } = await postApi.getPost(post.postId, { params: { incrementView: false } })
-      if (data.success) {
+      if (requestId === inquiryDetailRequestId && data.success) {
         selectedInquiryPost.value = data.data
       }
     } catch (err: unknown) {
-      inquiryDetailError.value = extractErrorMessage(err) || t('common.messages.loadFailed')
+      if (requestId === inquiryDetailRequestId) {
+        inquiryDetailError.value = extractErrorMessage(err) || t('common.messages.loadFailed')
+      }
     } finally {
-      isInquiryDetailLoading.value = false
+      if (requestId === inquiryDetailRequestId) {
+        isInquiryDetailLoading.value = false
+      }
     }
   }
 
   function closeInquiryModal() {
+    inquiryDetailRequestId += 1
     isInquiryDetailOpen.value = false
     selectedInquiryPost.value = null
     inquiryDetailError.value = ''
+    isInquiryDetailLoading.value = false
     void refreshPosts()
   }
 

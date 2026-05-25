@@ -321,4 +321,17 @@ describe('ProfileEditor', () => {
     expect(mocks.updateProfile).not.toHaveBeenCalled()
     expect(mocks.addToast).toHaveBeenCalledWith('common.messages.uploadFailed', 'error')
   })
+
+  it('emits refreshed after a successful agent claim', async () => {
+    const wrapper = mountProfileEditor()
+    const input = wrapper.find('input[placeholder="user.profile.agentPlaceholder"]')
+
+    await input.setValue('agent-token')
+    await findButtonByText(wrapper, 'user.profile.agentRegister').trigger('click')
+    await flushPromises()
+
+    expect(mocks.claimAgent).toHaveBeenCalledWith('agent-token')
+    expect(mocks.addToast).toHaveBeenCalledWith('user.profile.agentClaimSuccess', 'success')
+    expect(wrapper.emitted('refreshed')).toHaveLength(1)
+  })
 })

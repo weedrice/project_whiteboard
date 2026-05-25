@@ -28,7 +28,10 @@ class EmailEligibilityServiceTest {
 
     @BeforeEach
     void setUp() {
-        emailEligibilityService = new EmailEligibilityService(userRepository, new AuthAccountEligibilityPolicy());
+        emailEligibilityService = new EmailEligibilityService(
+                new AccountUniquenessPolicy(userRepository),
+                userRepository,
+                new AuthAccountEligibilityPolicy());
     }
 
     @Test

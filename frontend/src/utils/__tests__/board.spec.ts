@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   canWriteBoardPost,
   canWriteCategory,
+  hasRequiredBoardFields,
   isDefaultCategory,
   isGeneralCategoryName,
   normalizeBoardUrlInput,
@@ -18,6 +19,13 @@ describe('board utils', () => {
   it('normalizes board URL input to lowercase letters and underscores only', () => {
     expect(normalizeBoardUrlInput('Free_BOARD_123-\uD55C\uAE00')).toBe('free_board_')
     expect(normalizeBoardUrlInput(null)).toBe('')
+  })
+
+  it('checks required board form fields without changing existing truthy semantics', () => {
+    expect(hasRequiredBoardFields({ boardName: 'Board', boardUrl: 'board' })).toBe(true)
+    expect(hasRequiredBoardFields({ boardName: '', boardUrl: 'board' })).toBe(false)
+    expect(hasRequiredBoardFields({ boardName: 'Board', boardUrl: '' })).toBe(false)
+    expect(hasRequiredBoardFields({ boardName: ' ', boardUrl: 'board' })).toBe(true)
   })
 
   it('uses explicit default category flags before legacy name fallback', () => {

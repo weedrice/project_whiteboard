@@ -6,6 +6,8 @@ import { useToastStore } from '@/stores/toast'
 import ReportList from '@/components/admin/ReportList.vue'
 import ReportDetailModal from '@/components/admin/ReportDetailModal.vue'
 import SanctionModal from '@/components/admin/SanctionModal.vue'
+import Pagination from '@/components/common/ui/Pagination.vue'
+import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import type { Report } from '@/types'
 
@@ -25,6 +27,17 @@ const { data: reportsData, isLoading, refetch } = useReports(params)
 const { mutateAsync: resolveReport } = useResolveReport()
 
 const reports = computed(() => reportsData.value?.content || [])
+const totalPages = computed(() => reportsData.value?.totalPages || 0)
+const totalElements = computed(() => reportsData.value?.totalElements || 0)
+const currentPage = computed(() => reportsData.value?.number ?? page.value)
+
+function handlePageChange(nextPage: number) {
+  page.value = nextPage
+}
+
+function handleSizeChange() {
+  page.value = 0
+}
 
 const isModalOpen = ref(false)
 const selectedUser = ref<{
@@ -95,8 +108,20 @@ async function handleReject(report: Report) {
       </div>
     </div>
 
+    <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <p class="text-sm text-gray-600 dark:text-gray-300">총 {{ totalElements }}건</p>
+      <div class="flex items-center gap-3">
+        <span v-if="isLoading" class="text-xs text-gray-500 dark:text-gray-400">{{ t('common.loading') }}</span>
+        <PageSizeSelector v-model="size" :options="[20, 50, 100]" @change="handleSizeChange" />
+      </div>
+    </div>
+
     <ReportList :reports="reports" @resolve="handleResolve" @reject="handleReject" @sanction="openSanctionModal"
       @viewDetail="openDetailModal" />
+
+    <div class="mt-4">
+      <Pagination :current-page="currentPage" :total-pages="totalPages" @page-change="handlePageChange" />
+    </div>
 
     <ReportDetailModal :isOpen="isDetailModalOpen" :report="selectedReport" @close="isDetailModalOpen = false" />
 

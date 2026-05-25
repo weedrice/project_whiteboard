@@ -58,7 +58,6 @@ class UserBlockServiceTest {
 
         when(userWritableResolver.resolve(1L)).thenReturn(blocker);
         when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(2L, User.STATUS_ACTIVE)).thenReturn(Optional.of(blocked));
-        when(userBlockRepository.existsByUserAndTarget(blocker, blocked)).thenReturn(false);
         when(userBlockRepository.saveAndFlush(any(UserBlock.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         userBlockService.blockUser(1L, 2L);
@@ -99,25 +98,6 @@ class UserBlockServiceTest {
 
         when(userWritableResolver.resolve(1L)).thenReturn(blocker);
         when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(2L, User.STATUS_ACTIVE)).thenReturn(Optional.of(blocked));
-        when(userBlockRepository.existsByUserAndTarget(blocker, blocked)).thenReturn(true);
-
-        assertThatThrownBy(() -> userBlockService.blockUser(1L, 2L))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.ALREADY_BLOCKED);
-    }
-
-    @Test
-    @DisplayName("사용자 차단 실패 - 저장 시 중복 키면 ALREADY_BLOCKED")
-    void blockUser_duplicateKeyTranslated() {
-        User blocker = User.builder().build();
-        ReflectionTestUtils.setField(blocker, "userId", 1L);
-        User blocked = User.builder().build();
-        ReflectionTestUtils.setField(blocked, "userId", 2L);
-
-        when(userWritableResolver.resolve(1L)).thenReturn(blocker);
-        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(2L, User.STATUS_ACTIVE)).thenReturn(Optional.of(blocked));
-        when(userBlockRepository.existsByUserAndTarget(blocker, blocked)).thenReturn(false);
         when(userBlockRepository.saveAndFlush(any(UserBlock.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate"));
 

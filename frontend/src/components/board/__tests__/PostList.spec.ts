@@ -79,6 +79,80 @@ describe('PostList', () => {
     })
   })
 
+  it('uses an injected post route resolver when provided', () => {
+    const wrapper = mount(PostList, {
+      props: {
+        posts: [
+          createPost({
+            postId: 102,
+            boardUrl: 'free',
+            title: 'Injected route',
+          })
+        ],
+        linkQuery: {
+          page: '2'
+        },
+        resolvePostRoute: (post, boardUrl, linkQuery) => ({
+          name: 'post-detail',
+          params: {
+            boardUrl,
+            postId: post.postId
+          },
+          query: linkQuery
+        })
+      },
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          BaseTable: true,
+          UserMenu: true
+        }
+      }
+    })
+
+    expect(wrapper.findComponent(RouterLinkStub).props('to')).toEqual({
+      name: 'post-detail',
+      params: {
+        boardUrl: 'free',
+        postId: 102
+      },
+      query: {
+        page: '2'
+      }
+    })
+  })
+
+  it('keeps posts non-interactive when the injected route resolver returns null', () => {
+    const wrapper = mount(PostList, {
+      props: {
+        posts: [
+          createPost({
+            postId: 103,
+            boardUrl: 'free',
+            title: 'Suppressed route',
+          })
+        ],
+        resolvePostRoute: () => null
+      },
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          BaseTable: true,
+          UserMenu: true
+        }
+      }
+    })
+
+    expect(wrapper.findComponent(RouterLinkStub).exists()).toBe(false)
+    expect(wrapper.text()).toContain('Suppressed route')
+  })
+
   it('uses the noviis column order on desktop', () => {
     const BaseTableStub = defineComponent({
       name: 'BaseTable',

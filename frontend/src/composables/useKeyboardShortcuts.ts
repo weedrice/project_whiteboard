@@ -1,5 +1,5 @@
 import { onMounted, onUnmounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useKeyboardStore } from '@/stores/keyboard'
 import { useAuthStore } from '@/stores/auth'
 import { useThemePreference } from '@/composables/useThemePreference'
@@ -11,6 +11,8 @@ export interface KeyboardShortcutHandlers {
     toggleAllBoardsDropdown?: () => void
     toggleUserDropdown?: () => void
     toggleNotificationDropdown?: () => void
+    logout?: () => void | Promise<void>
+    isDropdownOpen?: () => boolean
     // 현재 드롭다운 닫기
     closeCurrentDropdown?: () => void
 }
@@ -21,16 +23,16 @@ export interface KeyboardShortcutHandlers {
  */
 export function useKeyboardShortcuts(handlers: KeyboardShortcutHandlers = {}) {
     const router = useRouter()
-    const route = useRoute()
     const keyboardStore = useKeyboardStore()
     const authStore = useAuthStore()
     const { toggleTheme } = useThemePreference()
 
     const handleKeyDown = (event: KeyboardEvent) => {
         const { key, shiftKey, ctrlKey, altKey, metaKey } = event
+        const isDropdownOpen = keyboardStore.isDropdownOpen || Boolean(handlers.isDropdownOpen?.())
 
         // 드롭다운 열린 상태에서는 특수 처리
-        if (keyboardStore.isDropdownOpen) {
+        if (isDropdownOpen) {
             // ESC로 드롭다운 닫기
             if (key === 'Escape') {
                 event.preventDefault()
@@ -40,12 +42,6 @@ export function useKeyboardShortcuts(handlers: KeyboardShortcutHandlers = {}) {
             }
 
             // 숫자키로 항목 선택
-            if (key >= '0' && key <= '9' && !ctrlKey && !altKey && !metaKey) {
-                event.preventDefault()
-                keyboardStore.selectItemByNumberKey(key)
-                return
-            }
-
             // 드롭다운 열린 상태에서는 다른 단축키 무시
             return
         }
@@ -56,6 +52,8 @@ export function useKeyboardShortcuts(handlers: KeyboardShortcutHandlers = {}) {
             keyboardStore.closeShortcutsModal()
             return
         }
+
+        if (keyboardStore.isShortcutsModalOpen) return
 
         // 입력 필드에서는 대부분의 단축키 비활성화
         // 예외: Ctrl+Enter, Esc
@@ -99,19 +97,16 @@ export function useKeyboardShortcuts(handlers: KeyboardShortcutHandlers = {}) {
                 router.push('/boards')
                 return
             }
+            if ((key === '/' || key === '?') && window.innerWidth >= 640) {
+                event.preventDefault()
+                keyboardStore.toggleShortcutsModal()
+                return
+            }
             return
         }
 
         // 단일 키
         switch (key) {
-            case '?':
-                // 모바일(640px 미만)에서는 단축키 도움말 숨김
-                if (window.innerWidth >= 640) {
-                    event.preventDefault()
-                    keyboardStore.toggleShortcutsModal()
-                }
-                break
-
             case 's':
             case 'S':
                 // 구독 게시판 드롭다운 (로그인 시)
@@ -141,16 +136,17 @@ export function useKeyboardShortcuts(handlers: KeyboardShortcutHandlers = {}) {
                 }
                 break
 
-            case 'k':
-                // 검색 페이지
-                event.preventDefault()
-                router.push('/search')
-                break
-
             case 'd':
                 // 다크모드 토글
                 event.preventDefault()
                 toggleTheme()
+                break
+
+            case 'q':
+                if (authStore.isAuthenticated) {
+                    event.preventDefault()
+                    void handlers.logout?.()
+                }
                 break
         }
     }
@@ -180,19 +176,29 @@ export interface BoardDetailShortcutHandlers {
     goToWrite: () => void
     toggleSubscribe: () => void
     focusSearch: () => void
-    canWrite: boolean
-    canGoNext: boolean
-    canGoPrev: boolean
+    canWrite: boolean | (() => boolean)
+    canGoNext: boolean | (() => boolean)
+    canGoPrev: boolean | (() => boolean)
+    canToggleSubscribe?: boolean | (() => boolean)
+    shouldIgnoreShortcut?: () => boolean
 }
 
 export function useBoardDetailShortcuts(handlers: BoardDetailShortcutHandlers) {
     const authStore = useAuthStore()
+
+    const resolveGuard = (guard: boolean | (() => boolean) | undefined, defaultValue = false): boolean => {
+        if (typeof guard === 'function') {
+            return guard()
+        }
+        return guard ?? defaultValue
+    }
 
     const handleKeyDown = (event: KeyboardEvent) => {
         const { key, shiftKey, ctrlKey, altKey, metaKey } = event
 
         if (ctrlKey || altKey || metaKey) return
         if (isInputFocused()) return
+        if (handlers.shouldIgnoreShortcut?.()) return
 
         if (shiftKey) {
             if (key === '[' || key === '{') {
@@ -210,14 +216,14 @@ export function useBoardDetailShortcuts(handlers: BoardDetailShortcutHandlers) {
 
         switch (key) {
             case ']':
-                if (handlers.canGoNext) {
+                if (resolveGuard(handlers.canGoNext)) {
                     event.preventDefault()
                     handlers.goToNextPage()
                 }
                 break
 
             case '[':
-                if (handlers.canGoPrev) {
+                if (resolveGuard(handlers.canGoPrev)) {
                     event.preventDefault()
                     handlers.goToPrevPage()
                 }
@@ -225,7 +231,7 @@ export function useBoardDetailShortcuts(handlers: BoardDetailShortcutHandlers) {
 
             case 'n':
             case 'N':
-                if (handlers.canWrite) {
+                if (resolveGuard(handlers.canWrite)) {
                     event.preventDefault()
                     handlers.goToWrite()
                 }
@@ -233,7 +239,7 @@ export function useBoardDetailShortcuts(handlers: BoardDetailShortcutHandlers) {
 
             case 'f':
             case 'F':
-                if (authStore.isAuthenticated) {
+                if (authStore.isAuthenticated && resolveGuard(handlers.canToggleSubscribe, true)) {
                     event.preventDefault()
                     handlers.toggleSubscribe()
                 }

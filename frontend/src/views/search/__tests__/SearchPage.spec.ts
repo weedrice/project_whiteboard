@@ -98,7 +98,6 @@ describe('SearchPage', () => {
       q: ' vue ',
       keyword: 'ignored',
       tag: 'ignored-tag',
-      t: '123',
     }
 
     const wrapper = mountPage()
@@ -107,7 +106,6 @@ describe('SearchPage', () => {
       q: 'vue',
       page: 0,
       size: 20,
-      t: '123',
     })
     expect(wrapper.text()).toContain('"vue"')
     expect(wrapper.find('[data-testid="empty-state"]').attributes('data-description')).toBe('search.noResultsFor:vue')

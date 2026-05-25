@@ -1,6 +1,5 @@
 package com.weedrice.whiteboard.domain.point.service;
 
-import com.weedrice.whiteboard.domain.point.entity.PointHistory;
 import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
@@ -54,15 +53,11 @@ public class ContentRewardService {
     }
 
     private int getCreateRewardAmount(User user, Long relatedId, ContentRewardPolicy policy) {
-        return pointHistoryRepository.findByUserAndTypeAndRelatedTypeAndRelatedIdOrderByCreatedAtAsc(
-                        user,
-                        EARN_TYPE,
-                        policy.getRelatedType(),
-                        relatedId)
-                .stream()
-                .map(PointHistory::getAmount)
-                .filter(amount -> amount != null && amount > 0)
-                .mapToInt(Integer::intValue)
-                .sum();
+        long rewardedAmount = pointHistoryRepository.sumPositiveAmountByUserAndTypeAndRelatedTypeAndRelatedId(
+                user,
+                EARN_TYPE,
+                policy.getRelatedType(),
+                relatedId);
+        return Math.toIntExact(rewardedAmount);
     }
 }

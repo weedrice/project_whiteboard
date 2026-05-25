@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.mqueue.service;
 import com.weedrice.whiteboard.domain.mqueue.MessageQueuePolicy;
 import com.weedrice.whiteboard.domain.mqueue.entity.MessageQueue;
 import com.weedrice.whiteboard.domain.mqueue.repository.MessageQueueRepository;
+import com.weedrice.whiteboard.domain.mqueue.repository.MessageQueueRepository.EmailDispatchProjection;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.email.EmailService;
 import lombok.RequiredArgsConstructor;
@@ -44,7 +45,19 @@ public class MqueueService {
         if (message == null || !isCurrentLease(message, claimedAt)) {
             return;
         }
+        sendEmail(new EmailDispatchCommand(queueId, message.getTargetUser().getEmail(), message.getContent()), claimedAt);
+    }
 
+    @Async("taskExecutor")
+    public void sendEmail(EmailDispatchProjection dispatch, LocalDateTime claimedAt) {
+        if (dispatch == null || dispatch.getQueueId() == null) {
+            return;
+        }
+        sendEmail(new EmailDispatchCommand(dispatch.getQueueId(), dispatch.getTargetEmail(), dispatch.getContent()), claimedAt);
+    }
+
+    private void sendEmail(EmailDispatchCommand dispatch, LocalDateTime claimedAt) {
+        Long queueId = dispatch.queueId();
         LocalDateTime renewedAt = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
         int renewed = messageQueueRepository.renewProcessingLeaseIfCurrent(queueId, claimedAt, renewedAt);
         if (renewed != 1) {
@@ -68,7 +81,7 @@ public class MqueueService {
 
         try {
             log.info("Email sending attempt: queueId={}", queueId);
-            emailService.sendEmail(message.getTargetUser().getEmail(), EMAIL_SUBJECT, message.getContent());
+            emailService.sendEmail(dispatch.targetEmail(), EMAIL_SUBJECT, dispatch.content());
             sentSuccessfully = true;
             log.info("Email sent successfully: queueId={}", queueId);
         } catch (Exception e) {
@@ -164,6 +177,9 @@ public class MqueueService {
     private boolean isCurrentLease(MessageQueue current, LocalDateTime leaseStartedAt) {
         return MessageQueue.STATUS_PROCESSING.equals(current.getStatus())
                 && Objects.equals(current.getProcessingStartedAt(), leaseStartedAt);
+    }
+
+    private record EmailDispatchCommand(Long queueId, String targetEmail, String content) {
     }
 
 }

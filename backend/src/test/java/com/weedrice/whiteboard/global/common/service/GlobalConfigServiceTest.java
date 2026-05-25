@@ -6,9 +6,9 @@ import com.weedrice.whiteboard.global.common.repository.GlobalConfigRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.cache.Cache;
@@ -31,7 +31,6 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class GlobalConfigServiceTest {
 
-    @InjectMocks
     private GlobalConfigService globalConfigService;
 
     @Mock
@@ -45,6 +44,15 @@ class GlobalConfigServiceTest {
 
     @Mock
     private GlobalConfigAdminGuard adminGuard;
+
+    @BeforeEach
+    void setUp() {
+        globalConfigService = new GlobalConfigService(
+                globalConfigRepository,
+                cacheManager,
+                adminGuard,
+                new GlobalConfigDuplicatePolicy(globalConfigRepository));
+    }
 
     @Test
     @DisplayName("getConfig returns config value")

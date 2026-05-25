@@ -10,9 +10,16 @@ import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
 
 import java.time.LocalDate;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface AgentDailyQuotaRepository extends JpaRepository<AgentDailyQuota, Long> {
+
+    interface ActionUsage {
+        String getActionType();
+        long getUsedCount();
+    }
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
@@ -28,16 +35,17 @@ public interface AgentDailyQuotaRepository extends JpaRepository<AgentDailyQuota
             @Param("actionType") String actionType);
 
     @Query("""
-            SELECT quota
+            SELECT quota.actionType AS actionType,
+                   quota.usedCount AS usedCount
             FROM AgentDailyQuota quota
             WHERE quota.agent.agentId = :agentId
               AND quota.quotaDate = :quotaDate
-              AND quota.actionType = :actionType
+              AND quota.actionType IN :actionTypes
             """)
-    Optional<AgentDailyQuota> findByAgentIdAndQuotaDateAndActionType(
+    List<ActionUsage> findUsageByAgentIdAndQuotaDateAndActionTypeIn(
             @Param("agentId") Long agentId,
             @Param("quotaDate") LocalDate quotaDate,
-            @Param("actionType") String actionType);
+            @Param("actionTypes") Collection<String> actionTypes);
 
     @Modifying
     @Query(value = """

@@ -18,6 +18,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -65,6 +66,16 @@ class RefreshTokenLifecycleServiceTest {
         refreshTokenLifecycleService.revokeActiveRefreshTokens(user);
 
         ArgumentCaptor<LocalDateTime> nowCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(refreshTokenRepository).revokeActiveTokensByUserId(eq(1L), nowCaptor.capture());
+        assertThat(nowCaptor.getValue()).isBeforeOrEqualTo(LocalDateTime.now());
+    }
+
+    @Test
+    void revokeActiveRefreshTokensForLockedUser_bulkRevokesWithoutLockingUserAgain() {
+        refreshTokenLifecycleService.revokeActiveRefreshTokensForLockedUser(user);
+
+        ArgumentCaptor<LocalDateTime> nowCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(userRepository, never()).findByIdForUpdate(1L);
         verify(refreshTokenRepository).revokeActiveTokensByUserId(eq(1L), nowCaptor.capture());
         assertThat(nowCaptor.getValue()).isBeforeOrEqualTo(LocalDateTime.now());
     }

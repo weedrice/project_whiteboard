@@ -10,11 +10,12 @@ import EmptyState from '@/components/common/ui/EmptyState.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
+import { useNotificationListState } from '@/composables/useNotificationListState'
 import { formatDate } from '@/utils/date'
 import type { Notification } from '@/types'
 
 const { t } = useI18n()
-const { useNotifications, useMarkAllAsRead } = useNotification()
+const { useMarkAllAsRead } = useNotification()
 const { navigateFromNotification } = useNotificationNavigation({ showCommentFailureToast: true })
 
 const page = ref(0)
@@ -25,12 +26,11 @@ const params = computed(() => ({
   size: size.value
 }))
 
-const { data: notificationsData, isLoading, isError, refetch } = useNotifications(params)
+const { isLoading, isError, error, refetch, notifications, totalPages } = useNotificationListState(params)
 const { mutate: markAllAsRead, isPending: isMarkingAllAsRead } = useMarkAllAsRead()
 
-const notifications = computed(() => notificationsData.value?.content || [])
 const hasUnreadNotifications = computed(() => notifications.value.some((notification) => !notification.isRead))
-const totalPages = computed(() => notificationsData.value?.totalPages || 0)
+const errorMessage = computed(() => error.value instanceof Error ? error.value.message : t('common.messages.loadFailed'))
 
 function handlePageChange(newPage: number) {
   page.value = newPage
@@ -93,8 +93,8 @@ function handleMarkAllAsRead() {
 
       <ErrorState
         v-else-if="isError"
-        :message="$t('common.messages.loadFailed')"
-        show-retry
+        :message="errorMessage"
+        :show-retry="true"
         @retry="refetch"
       />
 

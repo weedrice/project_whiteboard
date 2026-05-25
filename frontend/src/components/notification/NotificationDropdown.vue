@@ -7,22 +7,22 @@ import type { NotificationParams } from '@/api/notification'
 import type { Notification } from '@/types'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import { useNotificationListState } from '@/composables/useNotificationListState'
 import { formatTimeAgo } from '@/utils/date'
 
 const { t } = useI18n()
-const { useNotifications, useMarkAllAsRead } = useNotification()
+const { useMarkAllAsRead } = useNotification()
 const { navigateFromNotification } = useNotificationNavigation()
 
 // Default params for dropdown
 const params = ref<NotificationParams>({ page: 0, size: 20 })
 
 // Trigger fetch via useQuery
-const { data: notificationsData, isLoading } = useNotifications(params)
+const { isLoading, isError, error, refetch, notifications } = useNotificationListState(params)
 const { mutate: markAllAsRead, isPending: isMarkingAllAsRead } = useMarkAllAsRead()
 
-// Use query data
-const notifications = computed<Notification[]>(() => notificationsData.value?.content || [])
 const hasUnreadNotifications = computed(() => notifications.value.some((notification) => !notification.isRead))
+const errorMessage = computed(() => error.value instanceof Error ? error.value.message : t('common.messages.loadFailed'))
 
 async function handleNotificationClick(notification: Notification) {
   await navigateFromNotification(notification)
@@ -57,6 +57,13 @@ function handleMarkAllAsRead() {
     <div class="notification-scroll max-h-96 overflow-y-auto">
       <div v-if="isLoading && notifications.length === 0" class="px-4 py-4 text-center">
         <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600 mx-auto"></div>
+      </div>
+
+      <div v-else-if="isError" class="space-y-3 px-4 py-4 text-center text-sm text-red-600 dark:text-red-400">
+        <p>{{ errorMessage }}</p>
+        <BaseButton type="button" variant="secondary" size="sm" @click="() => refetch()">
+          {{ $t('common.retry') }}
+        </BaseButton>
       </div>
 
       <div v-else-if="notifications.length === 0"

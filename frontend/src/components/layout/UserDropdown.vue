@@ -4,13 +4,13 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useKeyboardStore, type DropdownItem } from '@/stores/keyboard'
 import { User, LogOut, CreditCard, FileText, Clock, AlertTriangle, PlusSquare, ChevronDown, Bell, LayoutDashboard, Mail, Star, Slash, Smile } from 'lucide-vue-next'
-import { userApi } from '@/api/user'
-import logger from '@/utils/logger'
+import { useUser } from '@/composables/useUser'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const keyboardStore = useKeyboardStore()
+const { useMyPoint } = useUser()
 
 const props = withDefaults(defineProps<{
   isOpen?: boolean
@@ -22,23 +22,15 @@ const emit = defineEmits<{
   (e: 'toggle'): void
 }>()
 
-const points = ref(0)
 const dropdownRef = ref<HTMLElement | null>(null)
 const menuId = 'user-dropdown-menu'
+const shouldFetchPoints = computed(() => props.isOpen && authStore.isAuthenticated)
+const pointQueryIdentity = computed(() => authStore.user?.userId ?? authStore.user?.loginId ?? null)
+const { data: pointData } = useMyPoint(shouldFetchPoints, pointQueryIdentity)
+const points = computed(() => pointData.value?.currentPoint ?? 0)
 
 const toggleDropdown = () => {
   emit('toggle')
-}
-
-const fetchPoints = async () => {
-  try {
-    const { data } = await userApi.getMyPoint()
-    if (data.success) {
-      points.value = data.data.currentPoint
-    }
-  } catch (error) {
-    logger.error('Failed to fetch points:', error)
-  }
 }
 
 const handleLogout = async () => {
@@ -69,7 +61,6 @@ const navigateTo = (route: string) => {
 // 드롭다운 열릴 때 keyboard store에 항목 등록
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
-    fetchPoints()
     const dropdownItems: DropdownItem[] = menuItems.value.map((item) => ({
       label: item.label,
       action: () => navigateTo(item.route),

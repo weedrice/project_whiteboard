@@ -1,6 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 
 const mocks = vi.hoisted(() => ({
   route: {
@@ -151,12 +151,14 @@ describe('EmoticonEdit', () => {
     }))
     mocks.selectEmoticonImages.mockResolvedValue([
       {
+        clientId: 'new-preview-a',
         file: new File(['a'], 'new-a.png', { type: 'image/png' }),
         preview: 'blob:new-a.png',
         width: 80,
         height: 80,
       },
       {
+        clientId: 'new-preview-b',
         file: new File(['b'], 'new-b.png', { type: 'image/png' }),
         preview: 'blob:new-b.png',
         width: 80,
@@ -413,5 +415,44 @@ describe('EmoticonEdit', () => {
     await flushPromises()
 
     expect(wrapper.get('button[aria-label="common.cancel"]').attributes('title')).toBe('common.cancel')
+  })
+
+  it('keeps stable tag identities when deleting duplicate tags', async () => {
+    const wrapper = mount(EmoticonEdit, {
+      global: {
+        mocks: {
+          $t: (key: string) => key,
+        },
+        stubs: {
+          BaseButton: baseButtonStub,
+          ArrowLeft: true,
+          Upload: true,
+          X: true,
+          Plus: true,
+          EyeOff: true,
+          Eye: true,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const vm = wrapper.vm as unknown as {
+      tags: string[]
+      tagItems: Array<{ clientId: string; value: string }>
+      removeTag: (clientId: string) => void
+    }
+    vm.tags = ['same', 'same', 'tail']
+    await nextTick()
+
+    const firstTagId = vm.tagItems[0].clientId
+    const secondTagId = vm.tagItems[1].clientId
+
+    vm.removeTag(secondTagId)
+    await nextTick()
+
+    expect(vm.tags).toEqual(['same', 'tail'])
+    expect(vm.tagItems[0].clientId).toBe(firstTagId)
+    expect(vm.tagItems[1].value).toBe('tail')
   })
 })

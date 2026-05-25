@@ -51,7 +51,7 @@ public class SemanticSearchBackfillService {
                 ORDER BY p.created_at ASC, p.post_id ASC
                 LIMIT ?
                 """, Long.class, limit);
-        postIds.forEach(postId -> jobService.enqueue("POST", postId, SemanticSearchIndexAction.UPSERT));
+        jobService.enqueueAll("POST", postIds, SemanticSearchIndexAction.UPSERT);
         return postIds.size();
     }
 
@@ -76,7 +76,7 @@ public class SemanticSearchBackfillService {
                 ORDER BY c.created_at ASC, c.comment_id ASC
                 LIMIT ?
                 """, Long.class, limit);
-        commentIds.forEach(commentId -> jobService.enqueue("COMMENT", commentId, SemanticSearchIndexAction.UPSERT));
+        jobService.enqueueAll("COMMENT", commentIds, SemanticSearchIndexAction.UPSERT);
         return commentIds.size();
     }
 }

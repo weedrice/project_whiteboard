@@ -47,6 +47,36 @@ class CommonCodeDetailRepositoryTest {
                 .containsExactly("C", "A", "B");
     }
 
+    @Test
+    @DisplayName("typeCode direct active details are ordered by sortOrder then codeValue")
+    void findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAscCodeValueAsc_ordersBySortOrderAndCodeValue() {
+        CommonCode commonCode = CommonCode.builder()
+                .typeCode("DIRECT_TYPE")
+                .typeName("Direct Type")
+                .build();
+        CommonCode otherCode = CommonCode.builder()
+                .typeCode("OTHER_TYPE")
+                .typeName("Other Type")
+                .build();
+        entityManager.persist(commonCode);
+        entityManager.persist(otherCode);
+
+        entityManager.persist(detail(commonCode, "B", "B Name", 1, true));
+        entityManager.persist(detail(commonCode, "A", "A Name", 1, true));
+        entityManager.persist(detail(commonCode, "C", "C Name", 0, true));
+        entityManager.persist(detail(commonCode, "D", "D Name", 0, false));
+        entityManager.persist(detail(otherCode, "E", "E Name", 0, true));
+        entityManager.flush();
+        entityManager.clear();
+
+        var result = commonCodeDetailRepository
+                .findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAscCodeValueAsc("DIRECT_TYPE", true);
+
+        assertThat(result)
+                .extracting(CommonCodeDetail::getCodeValue)
+                .containsExactly("C", "A", "B");
+    }
+
     private CommonCodeDetail detail(CommonCode commonCode, String codeValue, String codeName,
             Integer sortOrder, Boolean isActive) {
         return CommonCodeDetail.builder()

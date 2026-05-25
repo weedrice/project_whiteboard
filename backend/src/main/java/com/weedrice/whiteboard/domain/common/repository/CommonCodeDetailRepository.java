@@ -11,5 +11,8 @@ public interface CommonCodeDetailRepository extends JpaRepository<CommonCodeDeta
     List<CommonCodeDetail> findByCommonCodeAndIsActiveOrderBySortOrderAscCodeValueAsc(
             CommonCode commonCode, Boolean isActive);
 
+    List<CommonCodeDetail> findByCommonCode_TypeCodeAndIsActiveOrderBySortOrderAscCodeValueAsc(
+            String typeCode, Boolean isActive);
+
     Optional<CommonCodeDetail> findByCommonCode_TypeCodeAndCodeValue(String typeCode, String codeValue);
 }

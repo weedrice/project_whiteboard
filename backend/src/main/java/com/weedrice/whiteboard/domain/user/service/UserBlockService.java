@@ -41,10 +41,6 @@ public class UserBlockService {
         User target = userRepository.findByUserIdAndStatusAndDeletedAtIsNull(targetUserId, User.STATUS_ACTIVE)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        if (userBlockRepository.existsByUserAndTarget(user, target)) {
-            throw new BusinessException(ErrorCode.ALREADY_BLOCKED);
-        }
-
         UserBlock userBlock = UserBlock.builder()
                 .user(user)
                 .target(target)

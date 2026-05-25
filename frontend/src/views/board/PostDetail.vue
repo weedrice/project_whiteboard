@@ -28,12 +28,16 @@ import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import PostTags from '@/components/tag/PostTags.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { usePost } from '@/composables/usePost'
+import { usePostDetailPermissions } from '@/composables/usePostDetailPermissions'
+import { usePostDetailActions } from '@/composables/usePostDetailActions'
+import { usePostDetailShare } from '@/composables/usePostDetailShare'
+import { usePostDetailUiEffects } from '@/composables/usePostDetailUiEffects'
+import { usePostDetailViewModel } from '@/composables/usePostDetailViewModel'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { formatDate } from '@/utils/date'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
 import { isInputFocused } from '@/utils/keyboard'
-import logger from '@/utils/logger'
 import { applyImageFallback } from '@/utils/imageFallback'
 import { renderPostContentHtml } from '@/utils/postContentHtml'
 
@@ -63,10 +67,11 @@ const {
   meta: { errorMessage: false },
   requestConfig: { skipGlobalErrorHandler: true }
 })
+const postView = usePostDetailViewModel(post)
 
 const postPageTitle = computed(() => {
-  const postTitle = post.value?.title?.trim()
-  const boardName = post.value?.board?.boardName?.trim()
+  const postTitle = postView.value?.title.trim()
+  const boardName = postView.value?.boardName.trim()
 
   if (postTitle && boardName) {
     return `${postTitle} - ${boardName}`
@@ -87,17 +92,18 @@ const canonicalUrl = computed(() => {
 })
 
 const articleStructuredData = computed(() => {
-  if (!post.value || !canonicalUrl.value) return ''
+  const viewModel = postView.value
+  if (!viewModel || !canonicalUrl.value) return ''
 
   return JSON.stringify({
     '@context': 'https://schema.org',
     '@type': 'Article',
-    headline: post.value.title,
-    datePublished: post.value.createdAt,
-    dateModified: post.value.modifiedAt || post.value.createdAt,
+    headline: viewModel.title,
+    datePublished: viewModel.createdAt,
+    dateModified: post.value?.modifiedAt || viewModel.createdAt,
     author: {
       '@type': 'Person',
-      name: post.value.author.displayName
+      name: viewModel.authorDisplayName
     },
     mainEntityOfPage: canonicalUrl.value,
     url: canonicalUrl.value
@@ -112,7 +118,7 @@ useHead({
   ],
   meta: [
     { name: 'description', content: postDescription },
-    { property: 'og:title', content: computed(() => `${post.value?.title || 'Post'} - ${t('common.appName')}`) },
+    { property: 'og:title', content: computed(() => `${postView.value?.title || 'Post'} - ${t('common.appName')}`) },
     { property: 'og:description', content: postDescription },
     { property: 'og:type', content: 'article' },
     { property: 'og:url', content: canonicalUrl }
@@ -147,98 +153,56 @@ const error = computed(() => {
   return t('board.postDetail.loadFailed')
 })
 
-const isAuthor = computed(() => {
-  return !!authStore.user && !!post.value && authStore.user.userId === post.value.author.userId
+const currentUserId = computed(() => authStore.user?.userId)
+const isAuthenticated = computed(() => authStore.isAuthenticated)
+const authIsAdmin = computed(() => authStore.isAdmin)
+const {
+  isAuthor,
+  isAgentAuthor,
+  canEdit,
+  canDelete,
+  canReport
+} = usePostDetailPermissions(post, {
+  currentUserId,
+  isAuthenticated,
+  isAdmin: authIsAdmin
 })
-
-const isAgentAuthor = computed(() => post.value?.author?.authorType === 'AGENT')
-const isAdmin = computed(() => authStore.isAdmin)
-const canEdit = computed(() => isAuthor.value && !!post.value)
-const canDelete = computed(() => !!post.value && (isAuthor.value || isAdmin.value || !!post.value.board.isAdmin))
-const canReport = computed(() => authStore.isAuthenticated && !isAuthor.value)
 
 const processedContents = computed(() => {
   return renderPostContentHtml(post.value?.contents)
 })
 
-const isBlurred = ref(false)
-const timeLeft = ref(5)
-const isLikeAnimating = ref(false)
-const isBookmarkAnimating = ref(false)
-const showReportModal = ref(false)
-const reportReason = ref('')
-const showCopyHint = ref(false)
-const showComposerCta = ref(false)
+const {
+  isBlurred,
+  timeLeft,
+  showComposerCta,
+  markPostDetailUiMounted,
+  isPostDetailUiDisposed,
+  startBlurTimer,
+  clearBlurTimer,
+  revealSpoiler,
+  scheduleComposerFocus,
+  trackImageLoadTimeout,
+  setupComposerObserver,
+  disposePostDetailUiEffects
+} = usePostDetailUiEffects()
 
 const contentRef = ref<HTMLElement | null>(null)
 const commentsRef = ref<HTMLElement | null>(null)
 
-let blurTimer: ReturnType<typeof setInterval> | null = null
-let likeAnimationTimer: ReturnType<typeof setTimeout> | null = null
-let bookmarkAnimationTimer: ReturnType<typeof setTimeout> | null = null
-let copyHintTimer: ReturnType<typeof setTimeout> | null = null
-let composerFocusTimer: number | null = null
-const imageLoadTimeouts = new Map<number, () => void>()
-let composerObserver: IntersectionObserver | null = null
-let isDisposed = false
-
-const translateOrFallback = (key: string, fallback: string) => {
-  const translated = t(key)
-  return translated === key ? fallback : translated
-}
-
-const currentUrl = computed(() => {
-  if (typeof window === 'undefined') return ''
-  return `${window.location.origin}${route.fullPath}`
+const {
+  currentUrl,
+  compactUrl,
+  showCopyHint,
+  handleCopyUrl,
+  onUrlBarClick,
+  handleShare
+} = usePostDetailShare({
+  route,
+  post,
+  toastStore,
+  t,
 })
-
-const compactUrl = computed(() => {
-  if (!currentUrl.value) return ''
-
-  try {
-    const url = new URL(currentUrl.value)
-    return `${url.host}${url.pathname}`
-  } catch {
-    return currentUrl.value
-  }
-})
-
-function clearBlurTimer() {
-  if (blurTimer) {
-    clearInterval(blurTimer)
-    blurTimer = null
-  }
-}
-
-function clearComposerFocusTimer() {
-  if (composerFocusTimer) {
-    window.clearTimeout(composerFocusTimer)
-    composerFocusTimer = null
-  }
-}
-
-function clearImageLoadTimeoutTimers() {
-  imageLoadTimeouts.forEach((resolve, timer) => {
-    window.clearTimeout(timer)
-    resolve()
-  })
-  imageLoadTimeouts.clear()
-}
-
-function startBlurTimer() {
-  clearBlurTimer()
-  blurTimer = setInterval(() => {
-    timeLeft.value -= 1
-    if (timeLeft.value <= 0) {
-      revealSpoiler()
-    }
-  }, 1000)
-}
-
-function revealSpoiler() {
-  isBlurred.value = false
-  clearBlurTimer()
-}
 
 function buildBoardListRoute(boardUrl: string) {
   const { fromCreate, ...query } = route.query
@@ -249,7 +213,7 @@ function buildBoardListRoute(boardUrl: string) {
 }
 
 function handleTagClick(tag: string) {
-  const boardUrl = post.value?.board.boardUrl
+  const boardUrl = postView.value?.boardUrl
   if (!boardUrl) return
 
   router.push({
@@ -287,157 +251,59 @@ function syncBoardListPageForDirectEntry() {
 }
 
 function buildEditRoute() {
-  if (!post.value) return '/'
-  return `/board/${post.value.board.boardUrl}/post/${post.value.postId}/edit`
+  const viewModel = postView.value
+  if (!viewModel) return '/'
+  return `/board/${viewModel.boardUrl}/post/${viewModel.postId}/edit`
 }
 
-async function handleDelete() {
-  const isConfirmed = await confirm(t('common.messages.confirmDelete'))
-  if (!isConfirmed) return
-
-  deleteMutate(route.params.postId as string | number, {
-    onSuccess: () => {
-      if (post.value?.board.boardUrl) {
-        router.push(buildBoardListRoute(post.value.board.boardUrl))
-      }
-    },
-    onError: (err) => {
-      logger.error('Failed to delete post:', err)
-    }
-  })
-}
-
-function triggerLikeAnimation() {
-  isLikeAnimating.value = true
-  if (likeAnimationTimer) clearTimeout(likeAnimationTimer)
-  likeAnimationTimer = setTimeout(() => {
-    isLikeAnimating.value = false
-    likeAnimationTimer = null
-  }, 300)
-}
-
-function triggerBookmarkAnimation() {
-  isBookmarkAnimating.value = true
-  if (bookmarkAnimationTimer) clearTimeout(bookmarkAnimationTimer)
-  bookmarkAnimationTimer = setTimeout(() => {
-    isBookmarkAnimating.value = false
-    bookmarkAnimationTimer = null
-  }, 300)
-}
-
-async function handleLike() {
-  if (!authStore.isAuthenticated || !post.value) return
-
-  if (post.value.liked) {
-    unlikeMutate(route.params.postId as string | number, {
-      onError: (err) => logger.error(t('board.postDetail.likeFailed'), err)
-    })
-    return
-  }
-
-  triggerLikeAnimation()
-  likeMutate(route.params.postId as string | number, {
-    onError: (err) => logger.error(t('board.postDetail.likeFailed'), err)
-  })
-}
-
-async function handleBookmark() {
-  if (!authStore.isAuthenticated || !post.value) return
-
-  if (post.value.scrapped) {
-    unscrapMutate(route.params.postId as string | number, {
-      onError: (err) => logger.error(t('board.postDetail.scrapFailed'), err)
-    })
-    return
-  }
-
-  triggerBookmarkAnimation()
-  scrapMutate(route.params.postId as string | number, {
-    onError: (err) => logger.error(t('board.postDetail.scrapFailed'), err)
-  })
-}
-
-function openReportModal() {
-  if (!canReport.value) return
-  showReportModal.value = true
-  reportReason.value = ''
-}
-
-async function submitReport() {
-  if (!reportReason.value.trim()) {
-    toastStore.addToast(t('board.postDetail.reportReasonRequired'), 'error')
-    return
-  }
-
-  reportMutate({
-    targetPostId: route.params.postId as string | number,
-    reason: reportReason.value
-  }, {
-    onSuccess: () => {
-      toastStore.addToast(t('board.postDetail.reportSuccess'), 'success')
-      showReportModal.value = false
-    },
-    onError: (err) => {
-      logger.error('Report failed:', err)
-      toastStore.addToast(t('board.postDetail.reportFailed'), 'error')
-    }
-  })
-}
-
-function handleCopyUrl(showToast = true) {
-  if (!currentUrl.value) return
-
-  navigator.clipboard.writeText(currentUrl.value).then(() => {
-    if (showToast) {
-      toastStore.addToast(t('common.messages.urlCopied'), 'success')
-      return
-    }
-
-    showCopyHint.value = true
-    if (copyHintTimer) clearTimeout(copyHintTimer)
-    copyHintTimer = setTimeout(() => {
-      showCopyHint.value = false
-      copyHintTimer = null
-    }, 1500)
-    ;(document.activeElement as HTMLElement | null)?.blur()
-  }).catch((err) => {
-    logger.error('Failed to copy URL:', err)
-    toastStore.addToast(translateOrFallback('common.messages.processFailed', '주소 복사에 실패했습니다.'), 'error')
-  })
-}
-
-function onUrlBarClick() {
-  if (typeof window !== 'undefined' && window.innerWidth < 640) {
-    handleCopyUrl(false)
-    return
-  }
-
-  handleCopyUrl(true)
-}
-
-function handleShare() {
-  if (navigator.share && post.value) {
-    navigator.share({
-      title: post.value.title,
-      url: currentUrl.value
-    }).catch((err) => {
-      if (err.name !== 'AbortError') {
-        logger.error('Share failed:', err)
-        toastStore.addToast(translateOrFallback('common.messages.processFailed', '공유에 실패했습니다.'), 'error')
-      }
-    })
-    return
-  }
-
-  handleCopyUrl()
-}
+const {
+  isLikeAnimating,
+  isBookmarkAnimating,
+  showReportModal,
+  reportReason,
+  handleDelete,
+  handleLike,
+  handleBookmark,
+  openReportModal,
+  submitReport,
+} = usePostDetailActions({
+  post,
+  canReport,
+  authStore,
+  route,
+  router,
+  toastStore,
+  confirm,
+  t,
+  buildBoardListRoute,
+  closeOverflowMenu: () => {},
+  deleteMutate,
+  likeMutate,
+  unlikeMutate,
+  scrapMutate,
+  unscrapMutate,
+  reportMutate,
+})
 
 function scrollToTop() {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
+function findElementByHash(hash: string): HTMLElement | null {
+  if (!hash.startsWith('#')) return null
+
+  const rawId = hash.slice(1)
+  if (!rawId) return null
+
+  try {
+    return document.getElementById(decodeURIComponent(rawId))
+  } catch {
+    return document.getElementById(rawId)
+  }
+}
+
 function scrollToCommentComposer() {
-  if (isDisposed) return
+  if (isPostDetailUiDisposed()) return
 
   const composer = document.getElementById('comment-composer')
   if (!composer) {
@@ -446,18 +312,11 @@ function scrollToCommentComposer() {
   }
 
   composer.scrollIntoView({ behavior: 'smooth', block: 'start' })
-
-  clearComposerFocusTimer()
-  composerFocusTimer = window.setTimeout(() => {
-    composerFocusTimer = null
-    if (isDisposed) return
-    const textarea = composer.querySelector('textarea') as HTMLTextAreaElement | null
-    textarea?.focus()
-  }, 250)
+  scheduleComposerFocus(composer)
 }
 
 function scrollToComments() {
-  if (isDisposed) return
+  if (isPostDetailUiDisposed()) return
 
   const target = document.getElementById('comment-composer') || commentsRef.value
   if (!target) return
@@ -473,7 +332,7 @@ function scrollToComments() {
 }
 
 function waitForImagesInContent(): Promise<void> {
-  if (isDisposed) return Promise.resolve()
+  if (isPostDetailUiDisposed()) return Promise.resolve()
 
   const container = contentRef.value
   if (!container) return Promise.resolve()
@@ -491,14 +350,7 @@ function waitForImagesInContent(): Promise<void> {
         image.onload = () => resolve()
         image.onerror = () => resolve()
       }),
-      new Promise<void>((resolve) => {
-        const resolveTimeout = () => {
-          imageLoadTimeouts.delete(timer)
-          resolve()
-        }
-        const timer = window.setTimeout(resolveTimeout, imageLoadTimeout)
-        imageLoadTimeouts.set(timer, resolveTimeout)
-      })
+      new Promise<void>((resolve) => trackImageLoadTimeout(resolve, imageLoadTimeout))
     ])
   })
 
@@ -506,48 +358,29 @@ function waitForImagesInContent(): Promise<void> {
 }
 
 function scrollToCommentsAfterImagesLoad() {
+  const expectedPostId = postView.value?.postId
+  const expectedHash = route.hash
+
   waitForImagesInContent().then(() => {
-    if (isDisposed) return
-    nextTick(() => scrollToComments())
+    if (isPostDetailUiDisposed()) return
+    if (expectedPostId !== postView.value?.postId) return
+    if (expectedHash && route.hash !== expectedHash) return
+
+    nextTick(() => {
+      if (isPostDetailUiDisposed()) return
+      if (expectedPostId !== postView.value?.postId) return
+      scrollToComments()
+    })
   })
 }
 
 function goToList() {
-  if (post.value?.board) {
-    router.push(buildBoardListRoute(post.value.board.boardUrl))
+  if (postView.value?.boardUrl) {
+    router.push(buildBoardListRoute(postView.value.boardUrl))
     return
   }
 
   router.back()
-}
-
-function setupComposerObserver() {
-  if (isDisposed) return
-
-  if (composerObserver) {
-    composerObserver.disconnect()
-    composerObserver = null
-  }
-
-  if (typeof window === 'undefined' || window.innerWidth >= 640) {
-    showComposerCta.value = false
-    return
-  }
-
-  const composer = document.getElementById('comment-composer')
-  if (!composer) {
-    showComposerCta.value = false
-    return
-  }
-
-  composerObserver = new IntersectionObserver(([entry]) => {
-    showComposerCta.value = !entry.isIntersecting
-  }, {
-    threshold: 0,
-    rootMargin: '0px 0px -18% 0px'
-  })
-
-  composerObserver.observe(composer)
 }
 
 function handleResize() {
@@ -562,7 +395,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
 
   if (shiftKey) {
     if (key === 'S') {
-      if (authStore.isAuthenticated && post.value) {
+      if (authStore.isAuthenticated && postView.value) {
         event.preventDefault()
         handleBookmark()
       }
@@ -585,7 +418,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
       goToList()
       break
     case 'l':
-      if (authStore.isAuthenticated && post.value) {
+      if (authStore.isAuthenticated && postView.value) {
         event.preventDefault()
         handleLike()
       }
@@ -595,7 +428,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
       handleCopyUrl()
       break
     case 'e':
-      if (canEdit.value && post.value) {
+      if (canEdit.value && postView.value) {
         event.preventDefault()
         router.push(buildEditRoute())
       }
@@ -616,7 +449,7 @@ watch(() => route.hash, (newHash) => {
       return
     }
 
-    const element = document.querySelector(newHash)
+    const element = findElementByHash(newHash)
     if (element) {
       element.scrollIntoView({ behavior: 'smooth' })
     }
@@ -649,7 +482,7 @@ watch(post, (newPost, oldPost) => {
 
       window.scrollTo(0, 0)
       if (hash) {
-        const element = document.querySelector(hash)
+        const element = findElementByHash(hash)
         if (element) {
           element.scrollIntoView({ behavior: 'smooth' })
         }
@@ -659,7 +492,7 @@ watch(post, (newPost, oldPost) => {
 }, { immediate: true })
 
 onMounted(() => {
-  isDisposed = false
+  markPostDetailUiMounted()
   nextTick(() => setupComposerObserver())
 
   document.addEventListener('keydown', handleKeyDown)
@@ -667,29 +500,10 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  isDisposed = true
   document.removeEventListener('keydown', handleKeyDown)
   window.removeEventListener('resize', handleResize)
 
-  clearBlurTimer()
-  clearComposerFocusTimer()
-  clearImageLoadTimeoutTimers()
-  if (composerObserver) {
-    composerObserver.disconnect()
-    composerObserver = null
-  }
-  if (likeAnimationTimer) {
-    clearTimeout(likeAnimationTimer)
-    likeAnimationTimer = null
-  }
-  if (bookmarkAnimationTimer) {
-    clearTimeout(bookmarkAnimationTimer)
-    bookmarkAnimationTimer = null
-  }
-  if (copyHintTimer) {
-    clearTimeout(copyHintTimer)
-    copyHintTimer = null
-  }
+  disposePostDetailUiEffects()
 })
 </script>
 
@@ -707,13 +521,13 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <template v-else-if="post">
+      <template v-else-if="post && postView">
         <header class="nv-post-header px-4 py-4 sm:px-6 sm:py-5">
           <div class="flex items-start justify-between gap-4">
             <div class="min-w-0 flex-1 space-y-4">
               <div class="flex items-center justify-between gap-2">
                 <BaseButton
-                  @click="router.push(buildBoardListRoute(post.board.boardUrl))"
+                  @click="router.push(buildBoardListRoute(postView.boardUrl))"
                   variant="ghost"
                   size="sm"
                   class="nv-post-back-btn"
@@ -750,17 +564,17 @@ onUnmounted(() => {
 
               <div class="space-y-3">
                 <div class="nv-post-meta-strip">
-                  <span>{{ post.board.boardName }}</span>
+                  <span>{{ postView.boardName }}</span>
                   <span>&middot;</span>
                   <span>{{ $t('common.post') }}</span>
                 </div>
                 <h1 class="text-2xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)] sm:text-4xl">
-                  {{ post.title }}
+                  {{ postView.title }}
                 </h1>
                 <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[var(--nv-ink-soft)]">
                   <span class="inline-flex items-center gap-1.5">
                     <User class="h-4 w-4" />
-                    <UserMenu :user-id="post.author.userId" :display-name="post.author.displayName" size="inherit" />
+                    <UserMenu :user-id="postView.authorUserId" :display-name="postView.authorDisplayName" size="inherit" />
                     <span
                       v-if="isAgentAuthor"
                       class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"
@@ -770,15 +584,15 @@ onUnmounted(() => {
                   </span>
                   <span class="inline-flex items-center gap-1.5">
                     <Clock class="h-4 w-4" />
-                    {{ formatDate(post.createdAt) }}
+                    {{ formatDate(postView.createdAt) }}
                   </span>
                   <span class="inline-flex items-center gap-1.5">
                     <Eye class="h-4 w-4" />
-                    {{ post.viewCount }}
+                    {{ postView.viewCount }}
                   </span>
                   <span class="inline-flex items-center gap-1.5">
                     <MessageSquare class="h-4 w-4" />
-                    {{ post.commentCount }}
+                    {{ postView.commentCount }}
                   </span>
                 </div>
               </div>
@@ -839,14 +653,14 @@ onUnmounted(() => {
             </div>
 
             <div
-              v-if="post.tags && post.tags.length > 0"
+              v-if="postView.tags.length > 0"
               class="nv-post-tags"
             >
               <p class="nv-post-section-label">{{ $t('board.postDetail.tags') }}</p>
               <PostTags
-                :modelValue="post.tags"
+                :modelValue="postView.tags"
                 :readOnly="true"
-                :boardUrl="post.board.boardUrl"
+                :boardUrl="postView.boardUrl"
                 compact
                 @tag-click="handleTagClick"
               />
@@ -857,22 +671,22 @@ onUnmounted(() => {
                 <button
                   type="button"
                   class="nv-post-action-btn nv-post-action-btn-circle"
-                  :class="{ 'is-active': post.liked }"
+                  :class="{ 'is-active': postView.liked }"
                   :aria-label="$t('common.likes')"
-                  :aria-pressed="post.liked"
+                  :aria-pressed="postView.liked"
                   :title="$t('common.likes')"
                   :disabled="!authStore.isAuthenticated"
                   @click="handleLike"
                 >
                   <ThumbsUp class="h-5 w-5" :class="{ 'fill-current bounce-in': isLikeAnimating }" />
-                  <span class="nv-post-action-count">{{ post.likeCount }}</span>
+                  <span class="nv-post-action-count">{{ postView.likeCount }}</span>
                 </button>
                 <button
                   type="button"
                   class="nv-post-action-btn nv-post-action-btn-circle"
-                  :class="{ 'is-active is-bookmark': post.scrapped }"
+                  :class="{ 'is-active is-bookmark': postView.scrapped }"
                   :aria-label="$t('board.postDetail.bookmark')"
-                  :aria-pressed="post.scrapped"
+                  :aria-pressed="postView.scrapped"
                   :title="$t('board.postDetail.bookmark')"
                   :disabled="!authStore.isAuthenticated"
                   @click="handleBookmark"
@@ -902,7 +716,7 @@ onUnmounted(() => {
             </div>
 
             <section id="comments" ref="commentsRef" class="nv-post-comments">
-              <CommentList :postId="post.postId" :boardUrl="post.board.boardUrl" />
+              <CommentList :postId="postView.postId" :boardUrl="postView.boardUrl" />
             </section>
           </article>
         </div>
@@ -910,7 +724,7 @@ onUnmounted(() => {
     </BaseCard>
 
     <div
-      v-if="post"
+      v-if="postView"
       class="nv-post-board-actions hidden xl:flex"
       role="navigation"
       :aria-label="$t('board.postDetail.quickActions')"
@@ -962,7 +776,7 @@ onUnmounted(() => {
             {{ $t('report.target') }}
           </label>
           <div class="mt-1 text-sm font-medium text-gray-900 dark:text-white">
-            {{ $t('common.post') }} | {{ post?.title }}
+            {{ $t('common.post') }} | {{ postView?.title }}
           </div>
         </div>
         <div>

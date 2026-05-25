@@ -34,9 +34,8 @@ class SemanticSearchBackfillServiceTest {
         int count = backfillService.enqueueBackfill("ALL", 10);
 
         assertThat(count).isEqualTo(3);
-        verify(jobService).enqueue("POST", 1L, SemanticSearchIndexAction.UPSERT);
-        verify(jobService).enqueue("POST", 2L, SemanticSearchIndexAction.UPSERT);
-        verify(jobService).enqueue("COMMENT", 11L, SemanticSearchIndexAction.UPSERT);
+        verify(jobService).enqueueAll("POST", List.of(1L, 2L), SemanticSearchIndexAction.UPSERT);
+        verify(jobService).enqueueAll("COMMENT", List.of(11L), SemanticSearchIndexAction.UPSERT);
 
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         verify(jdbcTemplate, times(2)).queryForList(sqlCaptor.capture(), eq(Long.class), eq(10));

@@ -5,6 +5,7 @@ export const SUPPORTED_EMOTICON_IMAGE_TYPES = new Set(['image/jpeg', 'image/png'
 export const SUPPORTED_EMOTICON_IMAGE_ACCEPT = 'image/jpeg,image/png,image/gif,image/webp'
 
 export interface EmoticonImagePreview {
+  clientId: string
   file: File
   preview: string
   width: number
@@ -46,6 +47,13 @@ export function revokeEmoticonPreviewUrl(url: string | null | undefined): void {
   }
 }
 
+let emoticonImagePreviewSequence = 0
+
+function createEmoticonImagePreviewId(): string {
+  emoticonImagePreviewSequence += 1
+  return `emoticon-preview-${emoticonImagePreviewSequence}`
+}
+
 export function createEmoticonImagePreview(file: File): Promise<EmoticonImagePreviewResult> {
   return new Promise((resolve) => {
     const img = new Image()
@@ -61,6 +69,7 @@ export function createEmoticonImagePreview(file: File): Promise<EmoticonImagePre
       resolve({
         ok: true,
         item: {
+          clientId: createEmoticonImagePreviewId(),
           file,
           preview,
           width: img.width,

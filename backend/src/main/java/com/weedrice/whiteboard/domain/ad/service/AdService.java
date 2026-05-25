@@ -11,13 +11,12 @@ import com.weedrice.whiteboard.global.common.util.ClientMetadataNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -40,29 +39,29 @@ public class AdService {
 
     public Ad getAd(String placement) {
         LocalDateTime now = LocalDateTime.now(clock);
-        List<Long> activeAdIds = adRepository.findActiveIdsByPlacement(placement, now);
-        if (activeAdIds.isEmpty()) {
+        long activeAdCount = adRepository.countActiveByPlacement(placement, now);
+        if (activeAdCount == 0) {
             return null;
         }
-
-        Ad ad = findRandomActiveAd(activeAdIds, now);
+        Ad ad = findRandomActiveAd(placement, now, activeAdCount);
         if (ad != null) {
             return ad;
         }
-        return findRandomActiveAd(adRepository.findActiveIdsByPlacement(placement, now), now);
+
+        long refreshedActiveAdCount = adRepository.countActiveByPlacement(placement, now);
+        if (refreshedActiveAdCount == 0) {
+            return null;
+        }
+        return findRandomActiveAd(placement, now, refreshedActiveAdCount);
     }
 
-    private Ad findRandomActiveAd(List<Long> activeAdIds, LocalDateTime now) {
-        List<Long> candidateIds = new ArrayList<>(activeAdIds);
-        while (!candidateIds.isEmpty()) {
-            int randomIndex = ThreadLocalRandom.current().nextInt(candidateIds.size());
-            Long adId = candidateIds.remove(randomIndex);
-            Ad ad = adRepository.findActiveById(adId, now).orElse(null);
-            if (ad != null) {
-                return ad;
-            }
-        }
-        return null;
+    private Ad findRandomActiveAd(String placement, LocalDateTime now, long activeAdCount) {
+        int candidateCount = activeAdCount > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) activeAdCount;
+        int offset = ThreadLocalRandom.current().nextInt(candidateCount);
+        return adRepository.findActiveByPlacement(placement, now, PageRequest.of(offset, 1))
+                .stream()
+                .findFirst()
+                .orElse(null);
     }
 
     @Transactional

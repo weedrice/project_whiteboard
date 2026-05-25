@@ -7,6 +7,7 @@ import org.springframework.stereotype.Repository;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,6 +39,30 @@ class SemanticSearchJobRepository {
                     last_error_message = NULL,
                     updated_at = EXCLUDED.updated_at
                 """, contentType, contentId, action.name(), LocalDateTime.now(), LocalDateTime.now());
+    }
+
+    void enqueueAll(String contentType, Collection<Long> contentIds, SemanticSearchIndexAction action) {
+        if (contentIds == null || contentIds.isEmpty()) {
+            return;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        jdbcTemplate.batchUpdate("""
+                INSERT INTO semantic_search_jobs (
+                    content_type, content_id, action, status, retry_count, created_at, updated_at
+                )
+                VALUES (?, ?, ?, 'PENDING', 0, ?, ?)
+                ON CONFLICT (content_type, content_id)
+                DO UPDATE SET
+                    action = EXCLUDED.action,
+                    status = 'PENDING',
+                    retry_count = 0,
+                    processing_started_at = NULL,
+                    completed_at = NULL,
+                    last_error_message = NULL,
+                    updated_at = EXCLUDED.updated_at
+                """, contentIds.stream()
+                .map(contentId -> new Object[]{contentType, contentId, action.name(), now, now})
+                .toList());
     }
 
     List<Long> findActivePostIdsByBoardId(Long boardId) {

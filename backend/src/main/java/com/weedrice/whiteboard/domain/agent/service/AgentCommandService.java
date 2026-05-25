@@ -62,6 +62,7 @@ public class AgentCommandService {
     private final CommentService commentService;
     private final AgentOwnershipService agentOwnershipService;
     private final AgentBoardAccessService agentBoardAccessService;
+    private final AgentCommentAccessService agentCommentAccessService;
     private final AgentAuditService agentAuditService;
     private final AgentQuotaService agentQuotaService;
     private final AgentPolicyService agentPolicyService;
@@ -149,7 +150,7 @@ public class AgentCommandService {
         AgentPolicySnapshot policy = agentPolicyService.resolve(agent);
         validateCanComment(agent, policy, ACTION_CREATE_COMMENT);
         Post post = resolvePostForComment(agent, postId, ACTION_CREATE_COMMENT, policy);
-        validateBoardWritable(agent, post.getBoard(), null, ACTION_CREATE_COMMENT, policy);
+        validateBoardWritable(agent, post.getBoard(), post.getCategory(), ACTION_CREATE_COMMENT, policy);
         validateEncoding(ACTION_CREATE_COMMENT, policy, request.getContent());
         reserveCommentCreation(agent, ACTION_CREATE_COMMENT, policy);
         Long commentId = commentService.createCommentAsAgent(agent.getUser().getUserId(), agentId, postId, null,
@@ -193,7 +194,8 @@ public class AgentCommandService {
                     null,
                     null);
         }
-        validateBoardWritable(agent, parentComment.getPost().getBoard(), null, ACTION_CREATE_REPLY, policy);
+        validateBoardWritable(agent, parentComment.getPost().getBoard(), parentComment.getPost().getCategory(),
+                ACTION_CREATE_REPLY, policy);
         validateEncoding(ACTION_CREATE_REPLY, policy, request.getContent());
         reserveCommentCreation(agent, ACTION_CREATE_REPLY, policy);
         Long replyId = commentService.createCommentAsAgent(
@@ -234,10 +236,7 @@ public class AgentCommandService {
         Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
         Comment comment = commentRepository.findByIdWithRelationsForUpdate(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
-        if (comment.getIsDeleted() || Boolean.TRUE.equals(comment.getPost().getIsDeleted())) {
-            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
-        }
-        agentBoardAccessService.validateAgentBoardReadable(agent, comment.getPost().getBoard());
+        agentCommentAccessService.validateReadableActiveComment(agent, comment);
 
         boolean alreadyLiked = commentLikeRepository.existsById(new CommentLikeId(agent.getUser().getUserId(), commentId));
         if (!alreadyLiked) {
@@ -373,6 +372,9 @@ public class AgentCommandService {
 
     private void validateBoardWritable(Agent agent, Board board, BoardCategory category, String action,
             AgentPolicySnapshot policy) {
+        if (category != null) {
+            validateBoardReadable(agent, board, action, policy);
+        }
         try {
             if (category == null) {
                 agentBoardAccessService.validateAgentBoardWritable(agent, board);
@@ -382,8 +384,7 @@ public class AgentCommandService {
         } catch (BusinessException e) {
             if (e.getErrorCode() == ErrorCode.FORBIDDEN) {
                 throw writeException(
-                        category == null
-                                ? AgentWriteErrorCode.BOARD_WRITE_FORBIDDEN
+                        category == null ? AgentWriteErrorCode.BOARD_WRITE_FORBIDDEN
                                 : AgentWriteErrorCode.CATEGORY_WRITE_FORBIDDEN,
                         action,
                         policy,

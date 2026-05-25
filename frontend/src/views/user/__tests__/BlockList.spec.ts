@@ -1,84 +1,200 @@
-import { flushPromises, mount } from '@vue/test-utils'
+import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import BlockList from '../BlockList.vue'
-import { userApi } from '@/api/user'
+import { defineComponent, nextTick, ref, type Ref } from 'vue'
 
-vi.mock('@/api/user', () => ({
-    userApi: {
-        getBlockList: vi.fn(),
-    },
-}))
+import type BlockListComponent from '../BlockList.vue'
 
-vi.mock('@/utils/logger', () => ({
-    default: {
-        error: vi.fn(),
-    },
-}))
+type BlockList = typeof BlockListComponent
+type BlockListParams = { page: number; size: number }
 
-vi.mock('vue-i18n', () => ({
-    createI18n: vi.fn(() => ({
-        global: {
-            t: (key: string) => key,
-        },
-    })),
-    useI18n: () => ({
-        t: (key: string) => key,
-    }),
-}))
-
-const errorStateStub = {
-    name: 'ErrorState',
-    props: ['message', 'showRetry'],
-    emits: ['retry'],
-    template: '<button type="button" data-testid="error-state" @click="$emit(\'retry\')">{{ message }}</button>',
+let queryState: {
+  data: ReturnType<typeof ref<unknown>>
+  isLoading: ReturnType<typeof ref<boolean>>
+  error: ReturnType<typeof ref<unknown>>
+  refetch: ReturnType<typeof vi.fn>
 }
+let BlockList: BlockList
+let latestParams: Ref<BlockListParams> | undefined
+let loggerError: ReturnType<typeof vi.fn>
 
-const mountBlockList = () => mount(BlockList, {
-    global: {
-        mocks: {
-            $t: (key: string) => key,
-        },
-        stubs: {
-            BaseSkeleton: true,
-            BlockButton: true,
-            EmptyState: true,
-            ErrorState: errorStateStub,
-            UserX: true,
-        },
+const PageSizeSelectorStub = defineComponent({
+  name: 'PageSizeSelectorStub',
+  props: {
+    modelValue: {
+      type: Number,
+      required: true,
     },
+    options: {
+      type: Array,
+      default: () => [],
+    },
+  },
+  emits: ['update:modelValue', 'change'],
+  template: '<button data-test="size-change" @click="$emit(\'update:modelValue\', 50); $emit(\'change\')">size</button>',
+})
+
+const PaginationStub = defineComponent({
+  name: 'PaginationStub',
+  props: {
+    currentPage: {
+      type: Number,
+      required: true,
+    },
+    totalPages: {
+      type: Number,
+      required: true,
+    },
+  },
+  emits: ['page-change'],
+  template: '<button data-test="page-change" @click="$emit(\'page-change\', 1)">{{ currentPage }}/{{ totalPages }}</button>',
+})
+
+const ErrorStateStub = defineComponent({
+  name: 'ErrorState',
+  props: {
+    message: {
+      type: String,
+      required: true,
+    },
+    showRetry: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  emits: ['retry'],
+  template: '<button type="button" data-test="error-state" @click="$emit(\'retry\')">{{ message }}</button>',
+})
+
+const mountList = () => mount(BlockList, {
+  global: {
+    mocks: {
+      $t: (key: string) => key,
+    },
+    stubs: {
+      BaseSkeleton: true,
+      EmptyState: true,
+      ErrorState: ErrorStateStub,
+      PageSizeSelector: PageSizeSelectorStub,
+      Pagination: PaginationStub,
+      BlockButton: {
+        emits: ['block-change'],
+        template: '<button data-test="block-button" @click="$emit(\'block-change\', false)">unblock</button>',
+      },
+      UserX: true,
+    },
+  },
 })
 
 describe('BlockList', () => {
-    beforeEach(() => {
-        vi.clearAllMocks()
-    })
+  beforeEach(async () => {
+    vi.resetModules()
+    latestParams = undefined
+    loggerError = vi.fn()
+    queryState = {
+      data: ref(null),
+      isLoading: ref(false),
+      error: ref(null),
+      refetch: vi.fn(),
+    }
+    vi.doMock('@/composables/useUser', () => ({
+      useUser: () => ({
+        useBlockList: (params?: Ref<BlockListParams>) => {
+          latestParams = params
+          return queryState
+        },
+      }),
+    }))
+    vi.doMock('@/utils/logger', () => ({
+      default: { error: loggerError },
+    }))
+    BlockList = (await import('../BlockList.vue')).default
+  })
 
-    it('shows an error state instead of an empty state when loading fails', async () => {
-        vi.mocked(userApi.getBlockList).mockRejectedValueOnce(new Error('network'))
+  it('renders users from the paged block list query cache', () => {
+    queryState.data.value = {
+      content: [
+        { userId: 1, displayName: 'Ada', email: 'ada@example.com' },
+        { userId: 2, displayName: 'Grace', email: 'grace@example.com' },
+      ],
+      totalElements: 2,
+      totalPages: 3,
+    }
 
-        const wrapper = mountBlockList()
-        await flushPromises()
+    const wrapper = mountList()
 
-        expect(wrapper.get('[data-testid="error-state"]').text()).toBe('common.messages.loadFailed')
-        expect(wrapper.findComponent({ name: 'EmptyState' }).exists()).toBe(false)
-    })
+    expect(wrapper.text()).toContain('Ada')
+    expect(wrapper.text()).toContain('Grace')
+    expect(wrapper.text()).toContain('총 2건')
+    expect(wrapper.get('[data-test="page-change"]').text()).toContain('0/3')
+    expect(wrapper.findAll('[data-test="block-button"]')).toHaveLength(2)
+  })
 
-    it('retries loading blocked users from the error state', async () => {
-        vi.mocked(userApi.getBlockList)
-            .mockRejectedValueOnce(new Error('network'))
-            .mockResolvedValueOnce({
-                data: {
-                    success: true,
-                    data: [],
-                },
-            } as never)
+  it('supports legacy array payloads from the block list query cache', () => {
+    queryState.data.value = [
+      { userId: 1, displayName: 'Ada', email: 'ada@example.com' },
+    ]
 
-        const wrapper = mountBlockList()
-        await flushPromises()
+    const wrapper = mountList()
 
-        await wrapper.get('[data-testid="error-state"]').trigger('click')
-        await flushPromises()
+    expect(wrapper.text()).toContain('Ada')
+    expect(wrapper.text()).toContain('총 1건')
+    expect(wrapper.get('[data-test="page-change"]').text()).toContain('0/1')
+  })
 
-        expect(userApi.getBlockList).toHaveBeenCalledTimes(2)
-    })
+  it('shows an error state and retries through the query refetch', async () => {
+    queryState.error.value = new Error('network')
+    const wrapper = mountList()
+
+    expect(wrapper.get('[data-test="error-state"]').text()).toBe('차단 목록을 불러오지 못했습니다.')
+    expect(wrapper.findComponent({ name: 'EmptyState' }).exists()).toBe(false)
+
+    await wrapper.get('[data-test="error-state"]').trigger('click')
+
+    expect(queryState.refetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('updates query params when page or page size changes', async () => {
+    queryState.data.value = {
+      content: [{ userId: 1, displayName: 'Ada', email: 'ada@example.com' }],
+      totalElements: 1,
+      totalPages: 2,
+    }
+    const wrapper = mountList()
+
+    expect(latestParams?.value).toEqual({ page: 0, size: 20 })
+
+    await wrapper.get('[data-test="page-change"]').trigger('click')
+    expect(latestParams?.value).toEqual({ page: 1, size: 20 })
+
+    await wrapper.get('[data-test="size-change"]').trigger('click')
+    expect(latestParams?.value).toEqual({ page: 0, size: 50 })
+  })
+
+  it('moves to the previous page after the last visible user is unblocked without manual refetch', async () => {
+    queryState.data.value = {
+      content: [{ userId: 1, displayName: 'Ada', email: 'ada@example.com' }],
+      totalElements: 21,
+      totalPages: 2,
+    }
+    const wrapper = mountList()
+
+    await wrapper.get('[data-test="page-change"]').trigger('click')
+    expect(latestParams?.value).toEqual({ page: 1, size: 20 })
+
+    await wrapper.get('[data-test="block-button"]').trigger('click')
+
+    expect(latestParams?.value).toEqual({ page: 0, size: 20 })
+    expect(queryState.refetch).not.toHaveBeenCalled()
+  })
+
+  it('logs query errors from the block list query', async () => {
+    const wrapper = mountList()
+    const error = new Error('load failed')
+
+    queryState.error.value = error
+    await nextTick()
+
+    expect(loggerError).toHaveBeenCalledWith('Failed to fetch blocked users:', error)
+    wrapper.unmount()
+  })
 })

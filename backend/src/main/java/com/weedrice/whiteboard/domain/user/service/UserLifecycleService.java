@@ -51,7 +51,10 @@ public class UserLifecycleService {
 
     @Transactional
     public void suspendUser(User user) {
-        suspendUser(user, null);
+        validateLifecycleMutationTarget(user);
+        User lockedUser = userRepository.findByIdForUpdate(user.getUserId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        suspendLockedUser(lockedUser, null);
     }
 
     @Transactional
@@ -59,13 +62,17 @@ public class UserLifecycleService {
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         validateLifecycleMutationTarget(user);
-        cleanupOperationalAccess(user, null);
+        cleanupOperationalAccessForLockedUser(user, null);
         user.delete();
     }
 
     private void suspendUser(User user, Long actorUserId) {
+        suspendLockedUser(user, actorUserId);
+    }
+
+    private void suspendLockedUser(User user, Long actorUserId) {
         validateLifecycleMutationTarget(user);
-        cleanupOperationalAccess(user, actorUserId);
+        cleanupOperationalAccessForLockedUser(user, actorUserId);
         user.suspend();
     }
 
@@ -78,13 +85,13 @@ public class UserLifecycleService {
         }
     }
 
-    private void cleanupOperationalAccess(User user, Long actorUserId) {
+    private void cleanupOperationalAccessForLockedUser(User user, Long actorUserId) {
         if (actorUserId == null) {
             userPrivilegeCleanupService.removeOperationalPrivileges(user);
         } else {
             userPrivilegeCleanupService.removeOperationalPrivileges(user, actorUserId);
         }
-        refreshTokenLifecycleService.revokeActiveRefreshTokens(user);
+        refreshTokenLifecycleService.revokeActiveRefreshTokensForLockedUser(user);
         agentLifecycleService.suspendAllForUser(user);
     }
 }

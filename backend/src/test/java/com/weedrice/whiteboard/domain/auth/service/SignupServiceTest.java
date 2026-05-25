@@ -48,7 +48,7 @@ class SignupServiceTest {
     @Mock private UserSettingsRepository userSettingsRepository;
     @Mock private SocialAccountLinkService socialAccountLinkService;
     @Mock private VerificationCodeService verificationCodeService;
-    @Mock private EmailEligibilityService emailEligibilityService;
+    @Mock private AccountUniquenessPolicy accountUniquenessPolicy;
     @Mock private GlobalConfigService globalConfigService;
     @Mock private EntityManager entityManager;
     @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
@@ -79,7 +79,7 @@ class SignupServiceTest {
         ReflectionTestUtils.setField(deletedUser, "status", "DELETED");
         ReflectionTestUtils.setField(deletedUser, "deletedAt", LocalDateTime.now().minusDays(1));
 
-        when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(deletedUser));
+        when(accountUniquenessPolicy.findReregisterableSignupUser(request.getEmail())).thenReturn(Optional.of(deletedUser));
         when(passwordHistoryPolicy.encode(request.getPassword())).thenReturn("encoded-new-password");
         when(userRepository.save(deletedUser)).thenReturn(deletedUser);
 
@@ -131,7 +131,7 @@ class SignupServiceTest {
         ReflectionTestUtils.setField(deletedUser, "status", "DELETED");
         ReflectionTestUtils.setField(deletedUser, "deletedAt", LocalDateTime.now().minusDays(1));
 
-        when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(deletedUser));
+        when(accountUniquenessPolicy.findReregisterableSignupUser(request.getEmail())).thenReturn(Optional.of(deletedUser));
         doThrow(new BusinessException(ErrorCode.VALIDATION_ERROR))
                 .when(verificationCodeService)
                 .consumeVerificationTicket(
@@ -172,7 +172,7 @@ class SignupServiceTest {
         ReflectionTestUtils.setField(deletedUser, "status", "DELETED");
         ReflectionTestUtils.setField(deletedUser, "deletedAt", LocalDateTime.now().minusDays(1));
 
-        when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(deletedUser));
+        when(accountUniquenessPolicy.findReregisterableSignupUser(request.getEmail())).thenReturn(Optional.of(deletedUser));
         doThrow(new BusinessException(ErrorCode.PASSWORD_RECENTLY_USED))
                 .when(passwordHistoryPolicy).validateNotRecentlyUsed(deletedUser, request.getPassword());
 
@@ -209,7 +209,7 @@ class SignupServiceTest {
         ReflectionTestUtils.setField(deletedUser, "status", "DELETED");
         ReflectionTestUtils.setField(deletedUser, "deletedAt", LocalDateTime.now().minusDays(1));
 
-        when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(deletedUser));
+        when(accountUniquenessPolicy.findReregisterableSignupUser(request.getEmail())).thenReturn(Optional.of(deletedUser));
 
         assertThatThrownBy(() -> signupService.signup(request))
                 .isInstanceOf(BusinessException.class)
@@ -245,8 +245,7 @@ class SignupServiceTest {
                 .build();
         ReflectionTestUtils.setField(savedUser, "userId", 10L);
 
-        when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty());
-        when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
+        when(accountUniquenessPolicy.findReregisterableSignupUser(request.getEmail())).thenReturn(Optional.empty());
         when(passwordHistoryPolicy.encode(request.getPassword())).thenReturn("encoded-password");
         when(userRepository.saveAndFlush(org.mockito.ArgumentMatchers.any(User.class))).thenReturn(savedUser);
         when(userSettingsRepository.save(org.mockito.ArgumentMatchers.any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -334,8 +333,7 @@ class SignupServiceTest {
                 .build();
         ReflectionTestUtils.setField(savedUser, "userId", 10L);
 
-        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.empty());
-        when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
+        when(accountUniquenessPolicy.findReregisterableSignupUser("test@example.com")).thenReturn(Optional.empty());
         when(passwordHistoryPolicy.encode(request.getPassword())).thenReturn("encoded-password");
         when(userRepository.saveAndFlush(any(User.class))).thenReturn(savedUser);
         when(userSettingsRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -344,8 +342,8 @@ class SignupServiceTest {
         SignupResponse response = signupService.signup(request);
 
         assertThat(response.getEmail()).isEqualTo("test@example.com");
-        verify(emailEligibilityService).validateSignupEmail("test@example.com");
-        verify(userRepository).findByEmail("test@example.com");
+        verify(accountUniquenessPolicy).findReregisterableSignupUser("test@example.com");
+        verify(accountUniquenessPolicy).validateLoginIdAvailable(request.getLoginId());
         verify(verificationCodeService).consumeVerificationTicket(
                 "test@example.com",
                 VerificationPurpose.SIGNUP,
@@ -371,8 +369,7 @@ class SignupServiceTest {
                 .build();
         ReflectionTestUtils.setField(savedUser, "userId", 10L);
 
-        when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty());
-        when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
+        when(accountUniquenessPolicy.findReregisterableSignupUser(request.getEmail())).thenReturn(Optional.empty());
         when(passwordHistoryPolicy.encode(request.getPassword())).thenReturn("encoded-password");
         when(userRepository.saveAndFlush(any(User.class))).thenReturn(savedUser);
         when(userSettingsRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -401,8 +398,7 @@ class SignupServiceTest {
                 .build();
         ReflectionTestUtils.setField(savedUser, "userId", 10L);
 
-        when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty());
-        when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
+        when(accountUniquenessPolicy.findReregisterableSignupUser(request.getEmail())).thenReturn(Optional.empty());
         when(passwordHistoryPolicy.encode(request.getPassword())).thenReturn("encoded-password");
         when(userRepository.saveAndFlush(any(User.class))).thenReturn(savedUser);
         when(userSettingsRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -427,8 +423,7 @@ class SignupServiceTest {
                 .build();
         ReflectionTestUtils.setField(savedUser, "userId", 10L);
 
-        when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty());
-        when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
+        when(accountUniquenessPolicy.findReregisterableSignupUser(request.getEmail())).thenReturn(Optional.empty());
         when(passwordHistoryPolicy.encode(request.getPassword())).thenReturn("encoded-password");
         when(userRepository.saveAndFlush(any(User.class))).thenReturn(savedUser);
         when(userSettingsRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
