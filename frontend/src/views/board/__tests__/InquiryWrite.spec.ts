@@ -1,9 +1,11 @@
 import { flushPromises, mount } from '@vue/test-utils'
+import { AxiosHeaders, type AxiosResponse } from 'axios'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { defineComponent, h } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 import InquiryWrite from '../InquiryWrite.vue'
 import { boardApi } from '@/api/board'
+import type { ApiResponse } from '@/types'
 
 vi.mock('@/api/board', () => ({
   boardApi: {
@@ -78,7 +80,14 @@ async function mountInquiryWrite() {
 
 describe('InquiryWrite', () => {
   it('prepares the inquiry board and renders PostForm with inquiry-only options', async () => {
-    vi.mocked(boardApi.ensureInquiryBoard).mockResolvedValueOnce({} as never)
+    const ensureResponse: AxiosResponse<ApiResponse<void>> = {
+      data: { success: true, data: undefined },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config: { headers: new AxiosHeaders() },
+    }
+    vi.mocked(boardApi.ensureInquiryBoard).mockResolvedValueOnce(ensureResponse)
 
     const { wrapper } = await mountInquiryWrite()
     const postForm = wrapper.findComponent(PostFormStub)
