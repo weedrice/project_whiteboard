@@ -65,6 +65,12 @@ vi.mock('@/stores/toast', () => ({
   useToastStore: () => ({ addToast }),
 }))
 
+vi.mock('@/composables/useConfirm', () => ({
+  useConfirm: () => ({
+    confirm: vi.fn(async () => true),
+  }),
+}))
+
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
   return {

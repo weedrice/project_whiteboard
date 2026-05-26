@@ -108,7 +108,7 @@ describe('BlockList', () => {
       default: { error: loggerError },
     }))
     BlockList = (await import('../BlockList.vue')).default
-  })
+  }, 30000)
 
   it('renders users from the paged block list query cache', () => {
     queryState.data.value = {

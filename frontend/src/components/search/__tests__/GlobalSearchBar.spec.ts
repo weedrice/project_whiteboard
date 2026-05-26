@@ -26,6 +26,15 @@ vi.mock('vue-router', () => ({
     useRouter: () => ({
         push: routerPush,
     }),
+    useRoute: () => ({
+        query: {},
+    }),
+}))
+
+vi.mock('@tanstack/vue-query', () => ({
+    useQueryClient: () => ({
+        setQueryData: vi.fn(),
+    }),
 }))
 
 vi.mock('@/composables/useBoard', () => ({
