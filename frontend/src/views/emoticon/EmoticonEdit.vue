@@ -317,11 +317,11 @@ const handleSubmit = async () => {
         }
       })()
 
-      for (const fileId of imageFileIds) {
+      await Promise.all(imageFileIds.map(async (fileId) => {
         uploadSession.assertSubmitActive(currentRunId)
         await emoticonApi.addImage(emoticonId.value, fileId)
         uploadSession.assertSubmitActive(currentRunId)
-      }
+      }))
     }
 
     // 4. 이모티콘 정보 수정 (이름, 썸네일, 태그)
