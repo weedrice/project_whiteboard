@@ -165,7 +165,9 @@ class FileServiceTest {
 
         assertThatThrownBy(() -> fileService.uploadFile(uploaderId, multipartFile))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR)
+                .satisfies(exception -> assertThat(exception.getMessage())
+                        .isEqualTo(ErrorCode.VALIDATION_ERROR.getMessage()));
 
         verify(userWritableResolver, never()).resolve(any());
         verify(fileStorageService, never()).storeFileAs(any(), any(), any());
@@ -181,7 +183,9 @@ class FileServiceTest {
 
         assertThatThrownBy(() -> fileService.uploadFile(uploaderId, multipartFile))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR)
+                .satisfies(exception -> assertThat(exception.getMessage())
+                        .isEqualTo(ErrorCode.VALIDATION_ERROR.getMessage()));
 
         verify(userWritableResolver, never()).resolve(any());
         verify(fileStorageService, never()).storeFileAs(any(), any(), any());

@@ -162,15 +162,15 @@ public class FileService {
 
     private String normalizeOriginalFilename(String originalFilename) {
         if (!StringUtils.hasText(originalFilename)) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "파일 이름이 올바르지 않습니다.");
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
 
         String normalizedFilename = StringUtils.getFilename(StringUtils.cleanPath(originalFilename));
         if (!StringUtils.hasText(normalizedFilename)) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "파일 이름이 올바르지 않습니다.");
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
         if (normalizedFilename.length() > MAX_ORIGINAL_FILENAME_LENGTH) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "파일 이름은 255자를 초과할 수 없습니다.");
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
         return normalizedFilename;
     }
