@@ -26,8 +26,8 @@ const {
   fetch: fetchReports,
   handlePageChange,
   handleSizeChange
-} = usePagination<MyReport>(async (params) => {
-  const { data } = await reportApi.getMyReports(params)
+} = usePagination<MyReport>(async (params, { signal }) => {
+  const { data } = await reportApi.getMyReports(params, { signal })
   return data
 }, { page: 0, size: 15 })
 
