@@ -5,7 +5,6 @@ import com.weedrice.whiteboard.domain.post.dto.PostResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.dto.PostVersionResponse;
 import com.weedrice.whiteboard.domain.post.entity.Post;
-import com.weedrice.whiteboard.domain.post.entity.PostVersion;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostVersionRepository;
 import com.weedrice.whiteboard.domain.tag.service.TagAssignmentService;
@@ -63,8 +62,7 @@ public class PostFacadeReadService {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
-        List<PostVersion> versions = postVersionRepository.findByPost_PostIdOrderByCreatedAtDesc(postId);
-        return PostVersionResponse.from(versions);
+        return postVersionRepository.findVersionResponsesByPostId(postId);
     }
 
     public List<String> getTagsForPost(@NonNull Long postId) {

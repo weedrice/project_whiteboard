@@ -2422,9 +2422,9 @@ class PostServiceTest {
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(postVersionRepository.findByPost_PostIdOrderByCreatedAtDesc(1L)).thenReturn(Collections.emptyList());
+        when(postVersionRepository.findVersionResponsesByPostId(1L)).thenReturn(Collections.emptyList());
         postService.getPostVersions(1L, 1L);
-        verify(postVersionRepository).findByPost_PostIdOrderByCreatedAtDesc(1L);
+        verify(postVersionRepository).findVersionResponsesByPostId(1L);
         verify(userRepository).findById(1L);
     }
 
@@ -2456,11 +2456,11 @@ class PostServiceTest {
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
         when(userRepository.findById(2L)).thenReturn(Optional.of(adminUser));
         when(adminRepository.existsByUserAndBoardAndIsActive(adminUser, board, true)).thenReturn(true);
-        when(postVersionRepository.findByPost_PostIdOrderByCreatedAtDesc(1L)).thenReturn(Collections.emptyList());
+        when(postVersionRepository.findVersionResponsesByPostId(1L)).thenReturn(Collections.emptyList());
 
         postService.getPostVersions(1L, 2L);
 
-        verify(postVersionRepository).findByPost_PostIdOrderByCreatedAtDesc(1L);
+        verify(postVersionRepository).findVersionResponsesByPostId(1L);
     }
 
     @Test
@@ -2480,11 +2480,11 @@ class PostServiceTest {
                         .board(board)
                         .role("BOARD_ADMIN")
                         .build()));
-        when(postVersionRepository.findByPost_PostIdOrderByCreatedAtDesc(1L)).thenReturn(Collections.emptyList());
+        when(postVersionRepository.findVersionResponsesByPostId(1L)).thenReturn(Collections.emptyList());
 
         postService.getPostVersions(1L, 2L);
 
-        verify(postVersionRepository).findByPost_PostIdOrderByCreatedAtDesc(1L);
+        verify(postVersionRepository).findVersionResponsesByPostId(1L);
         verify(adminRepository, never()).existsByUserAndBoardAndIsActive(adminUser, board, true);
     }
 

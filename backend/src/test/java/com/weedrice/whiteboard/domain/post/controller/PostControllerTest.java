@@ -781,9 +781,19 @@ class PostControllerTest {
     @Test
     @DisplayName("게시글 버전 조회")
     void getPostVersions_success() throws Exception {
-        when(postService.getPostVersions(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+        when(postService.getPostVersions(anyLong(), anyLong())).thenReturn(List.of(PostVersionResponse.builder()
+                .versionId(10L)
+                .actionType("MODIFY")
+                .title("Original title")
+                .createdAt(LocalDateTime.of(2026, 5, 26, 16, 0))
+                .build()));
         mockMvc.perform(get("/api/v1/posts/1/versions").with(user(customUserDetails)))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].versionId").value(10L))
+                .andExpect(jsonPath("$.data[0].actionType").value("MODIFY"))
+                .andExpect(jsonPath("$.data[0].title").value("Original title"))
+                .andExpect(jsonPath("$.data[0].createdAt").exists());
     }
 
     @Test
