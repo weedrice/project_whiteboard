@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue'
-import { useBoard } from '@/composables/useBoard'
-import { usePost } from '@/composables/usePost'
 import { usePostDraft } from '@/composables/usePostDraft'
 import { usePopoverFocus } from '@/composables/usePopoverFocus'
+import { usePostFormResource } from '@/composables/usePostFormResource'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
@@ -66,24 +65,23 @@ const toastStore = useToastStore()
 const boardUrl = computed(() => props.boardUrl ?? '')
 const postId = computed(() => props.postId ?? '')
 
-const { useBoardDetail } = useBoard()
 const {
-  usePostDetail,
-  useCreatePost,
-  useUpdatePost,
-} = usePost()
-
-const queryEnabled = computed(() => !!boardUrl.value && !props.skipBoardLookup)
-const { data: board, isLoading: isBoardLoading } = useBoardDetail(boardUrl, {
-  enabled: queryEnabled,
+  board,
+  categories,
+  post,
+  isLoading,
+  isSubmitting,
+  showNotice,
+  canShowNsfw,
+  createPost,
+  updatePost,
+} = usePostFormResource({
+  mode: () => props.mode,
+  boardUrl,
+  postId,
+  skipBoardLookup: () => props.skipBoardLookup,
+  hideNotice: () => props.hideNotice,
 })
-const categories = computed(() => board.value?.categories ?? [])
-const postIdRef = computed(() => (props.mode === 'edit' ? postId.value : '') as string)
-const { data: post, isLoading: isPostLoading } = usePostDetail(postIdRef, {
-  enabled: computed(() => props.mode === 'edit' && !!postId.value),
-})
-const { mutate: createPost, isPending: isCreateSubmitting } = useCreatePost()
-const { mutate: updatePost, isPending: isUpdateSubmitting } = useUpdatePost()
 
 const tiptapEditorRef = ref<InstanceType<typeof PostEditorTipTap> | null>(null)
 const editorWrapperRef = ref<HTMLElement | null>(null)
@@ -101,11 +99,6 @@ const hasHydratedEditPost = ref(false)
 const isEditorFocusWithin = ref(false)
 
 usePopoverFocus(videoPopoverRef, showVideoPopover)
-
-const isSubmitting = computed(() => isCreateSubmitting.value || isUpdateSubmitting.value)
-const isLoading = computed(() =>
-  isBoardLoading.value || (props.mode === 'edit' && isPostLoading.value),
-)
 
 const filteredCategories = computed<CategoryOption[]>(() => {
   const selectableCategories = categories.value.filter((cat) => canWriteCategory(
@@ -147,8 +140,6 @@ const submitLabel = computed(() =>
     : (props.mode === 'create' ? t('common.submit') : t('board.writePost.update')),
 )
 
-const showNotice = computed(() => !props.hideNotice && props.mode === 'create' && Boolean(board.value?.isAdmin))
-const canShowNsfw = computed(() => Boolean(board.value?.allowNsfw))
 const {
   form,
   isDirty,
