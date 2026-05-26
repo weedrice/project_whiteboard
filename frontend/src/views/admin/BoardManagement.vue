@@ -260,7 +260,7 @@ import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import UserSelectModal from '@/components/common/widgets/UserSelectModal.vue'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
-import { hasRequiredBoardFields, normalizeBoardUrlInput } from '@/utils/board'
+import { normalizeBoardUrlInput, validateRequiredBoardFields } from '@/utils/board'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -348,8 +348,9 @@ watch(() => createForm.boardUrl, (boardUrl) => {
 })
 
 async function handleCreateBoard() {
-  if (!hasRequiredBoardFields(createForm)) {
-    toastStore.addToast(t('board.writePost.validation'), 'warning')
+  const requiredFieldValidation = validateRequiredBoardFields(createForm)
+  if (!requiredFieldValidation.valid) {
+    toastStore.addToast(t(requiredFieldValidation.messageKey), requiredFieldValidation.toastType)
     return
   }
 

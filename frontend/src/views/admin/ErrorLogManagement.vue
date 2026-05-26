@@ -116,7 +116,6 @@ async function handleResolve() {
         })
         toastStore.addToast(t('admin.errorLogs.messages.resolved'), 'success')
         closeResolveModal()
-        refetch()
     } catch {
         // Error handled globally
     }

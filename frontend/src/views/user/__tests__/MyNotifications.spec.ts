@@ -7,6 +7,7 @@ import type { Notification, PageResponse } from '@/types'
 const notificationsData = ref<PageResponse<Notification> | null>(null)
 const isLoading = ref(false)
 const isError = ref(false)
+const error = ref<Error | null>(null)
 const isMarkingAllAsRead = ref(false)
 const refetchNotifications = vi.fn()
 const markAllAsRead = vi.fn()
@@ -18,7 +19,7 @@ vi.mock('vue-i18n', () => ({
 
 vi.mock('@/composables/useNotification', () => ({
   useNotification: () => ({
-    useNotifications: () => ({ data: notificationsData, isLoading, isError, refetch: refetchNotifications }),
+    useNotifications: () => ({ data: notificationsData, isLoading, isError, error, refetch: refetchNotifications }),
     useMarkAllAsRead: () => ({ mutate: markAllAsRead, isPending: isMarkingAllAsRead }),
   }),
 }))
@@ -113,6 +114,7 @@ describe('MyNotifications', () => {
     vi.clearAllMocks()
     isLoading.value = false
     isError.value = false
+    error.value = null
     isMarkingAllAsRead.value = false
     notificationsData.value = makePage([])
   })
