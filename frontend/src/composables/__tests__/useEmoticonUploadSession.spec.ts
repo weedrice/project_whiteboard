@@ -4,18 +4,18 @@ import { mount } from '@vue/test-utils'
 import { useEmoticonUploadSession } from '../useEmoticonUploadSession'
 
 function mountSession() {
-  let session: ReturnType<typeof useEmoticonUploadSession> | null = null
+  const holder: { session?: ReturnType<typeof useEmoticonUploadSession> } = {}
 
   const TestHarness = defineComponent({
     setup() {
-      session = useEmoticonUploadSession()
+      holder.session = useEmoticonUploadSession()
       return () => h('div')
     },
   })
 
   const wrapper = mount(TestHarness)
-  if (!session) throw new Error('session not mounted')
-  return { wrapper, session }
+  if (!holder.session) throw new Error('session not mounted')
+  return { wrapper, session: holder.session }
 }
 
 describe('useEmoticonUploadSession', () => {

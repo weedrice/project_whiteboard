@@ -6,7 +6,7 @@ import {
 
 interface UsePostEditorImageUploadStateOptions<TUploaded> {
   validate: (file: File) => 'type' | 'size' | null
-  upload: (file: File) => Promise<TUploaded>
+  upload: (file: File) => Promise<TUploaded | null>
   isAbort: (error: unknown) => boolean
   onUploaded: (uploaded: TUploaded, file: File) => void
   onFailed: (error: unknown, file: File) => void
