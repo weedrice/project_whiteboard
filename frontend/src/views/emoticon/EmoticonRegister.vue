@@ -10,6 +10,7 @@ import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { useEmoticonImageSelection } from '@/composables/useEmoticonImageSelection'
+import { useEmoticonUploadSession } from '@/composables/useEmoticonUploadSession'
 import {
   resolveEmoticonTagAddition,
   revokeEmoticonPreviewUrl,
@@ -34,10 +35,8 @@ const thumbnailPreview = ref<string | null>(null)
 const emoticonPreviews = ref<EmoticonImagePreview[]>([])
 const tagInput = ref('')
 const isSubmitting = ref(false)
-const uploadProgress = ref({ current: 0, total: 0 })
-const uploadControllers = new Set<AbortController>()
-let submitRunId = 0
-let isComponentUnmounted = false
+const uploadSession = useEmoticonUploadSession()
+const { uploadProgress } = uploadSession
 let tagSequence = 0
 
 interface EmoticonTagItem {
@@ -67,46 +66,7 @@ const emoticonInput = ref<HTMLInputElement | null>(null)
 
 const SUPPORTED_IMAGE_ACCEPT = SUPPORTED_EMOTICON_IMAGE_ACCEPT
 
-const createUploadCancelledError = () => new DOMException('Upload has been cancelled', 'AbortError')
-
-const isUploadCancelledError = (error: unknown) => {
-  if (!isComponentUnmounted) {
-    return false
-  }
-
-  if (error instanceof DOMException && error.name === 'AbortError') {
-    return true
-  }
-
-  if (typeof error !== 'object' || error === null) {
-    return false
-  }
-
-  const maybeCancelledError = error as { code?: string; name?: string }
-  return maybeCancelledError.code === 'ERR_CANCELED' || maybeCancelledError.name === 'AbortError'
-}
-
-const assertSubmitActive = (runId: number) => {
-  if (isComponentUnmounted || submitRunId !== runId) {
-    throw createUploadCancelledError()
-  }
-}
-
-const abortPendingUploads = () => {
-  uploadControllers.forEach((controller) => controller.abort())
-  uploadControllers.clear()
-}
-
-const createUploadController = () => {
-  const controller = new AbortController()
-  uploadControllers.add(controller)
-  return controller
-}
-
 onUnmounted(() => {
-  isComponentUnmounted = true
-  submitRunId += 1
-  abortPendingUploads()
   revokeEmoticonPreviewUrl(thumbnailPreview.value)
   emoticonPreviews.value.forEach((item) => {
     revokeEmoticonPreviewUrl(item.preview)
@@ -194,7 +154,7 @@ const handleSubmit = async () => {
   if (!isFormValid.value || isSubmitting.value) return
 
   isSubmitting.value = true
-  const currentRunId = ++submitRunId
+  const currentRunId = uploadSession.startSubmitRun()
 
   try {
     // 1. 썸네일 업로드
@@ -206,32 +166,32 @@ const handleSubmit = async () => {
     }
 
     // 2. 이모티콘 이미지 업로드 (리사이징 적용)
-    uploadProgress.value = { current: 0, total: submitSnapshot.previews.length }
+    uploadSession.setUploadProgress(0, submitSnapshot.previews.length)
 
     let uploadFailed = false
     let submitFailure: unknown = null
     const failSubmit = (error: unknown) => {
       submitFailure ??= error
       uploadFailed = true
-      abortPendingUploads()
+      uploadSession.abortPendingUploads()
     }
 
     const uploadThumbnail = async () => {
-      assertSubmitActive(currentRunId)
-      const controller = createUploadController()
+      uploadSession.assertSubmitActive(currentRunId)
+      const controller = uploadSession.createUploadController()
 
       try {
         const response = await fileApi.uploadFile(submitSnapshot.thumbnail, {
           signal: controller.signal,
           skipGlobalErrorHandler: true
         })
-        assertSubmitActive(currentRunId)
+        uploadSession.assertSubmitActive(currentRunId)
         return response.data.data.fileId
       } catch (error) {
         failSubmit(error)
         throw error
       } finally {
-        uploadControllers.delete(controller)
+        uploadSession.releaseUploadController(controller)
       }
     }
 
@@ -239,29 +199,29 @@ const handleSubmit = async () => {
       submitSnapshot.previews,
       async (uploadFile) => {
         if (uploadFailed) {
-          throw createUploadCancelledError()
+          throw uploadSession.createUploadCancelledError()
         }
 
-        assertSubmitActive(currentRunId)
-        const controller = createUploadController()
+        uploadSession.assertSubmitActive(currentRunId)
+        const controller = uploadSession.createUploadController()
 
         try {
           const response = await fileApi.uploadFile(uploadFile, {
             signal: controller.signal,
             skipGlobalErrorHandler: true
           })
-          assertSubmitActive(currentRunId)
+          uploadSession.assertSubmitActive(currentRunId)
           return response.data.data.fileId
         } catch (error) {
           failSubmit(error)
           throw error
         } finally {
-          uploadControllers.delete(controller)
+          uploadSession.releaseUploadController(controller)
         }
       },
       (current) => {
-        if (!isComponentUnmounted && submitRunId === currentRunId) {
-          uploadProgress.value.current = current
+        if (uploadSession.isSubmitActive(currentRunId)) {
+          uploadSession.setUploadProgress(current)
         }
       }
     )
@@ -275,7 +235,7 @@ const handleSubmit = async () => {
     ]).catch((error) => {
       throw submitFailure ?? error
     })
-    assertSubmitActive(currentRunId)
+    uploadSession.assertSubmitActive(currentRunId)
 
     // 3. 이모티콘 생성
     await emoticonApi.createEmoticon({
@@ -284,20 +244,22 @@ const handleSubmit = async () => {
       tags: submitSnapshot.tags,
       imageFileIds
     })
-    assertSubmitActive(currentRunId)
+    uploadSession.assertSubmitActive(currentRunId)
 
     toastStore.addToast(t('emoticon.register.created'), 'success')
     router.push({ name: 'emoticon-list' })
   } catch (error: unknown) {
-    if (!isComponentUnmounted && !isUploadCancelledError(error)) {
+    const isStaleCancellation = !uploadSession.isSubmitActive(currentRunId)
+      && uploadSession.isUploadCancelledError(error)
+    if (!uploadSession.isDisposed.value && !isStaleCancellation) {
       const message = extractErrorMessage(error) || t('emoticon.register.failed')
       toastStore.addToast(message, 'error')
     }
   } finally {
-    if (!isComponentUnmounted && submitRunId === currentRunId) {
+    if (uploadSession.isSubmitActive(currentRunId)) {
       isSubmitting.value = false
-      submitRunId += 1
-      uploadProgress.value = { current: 0, total: 0 }
+      uploadSession.cancelSubmitRun()
+      uploadSession.resetUploadProgress()
     }
   }
 }
