@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watchEffect } from 'vue'
 import { usePopoverFocus } from '@/composables/usePopoverFocus'
 import { usePostComposerDraft } from '@/composables/usePostComposerDraft'
+import { usePostComposerSubmit, type PostFormSubmitResult } from '@/composables/usePostComposerSubmit'
 import { usePostFormResource } from '@/composables/usePostFormResource'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
@@ -17,7 +18,6 @@ import EmoticonPicker from '@/components/common/widgets/EmoticonPicker.vue'
 import PostEditorTipTap from '@/components/board/PostEditorTipTap.vue'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
 import { canWriteCategory } from '@/utils/board'
-import logger from '@/utils/logger'
 import { usePostComposerState } from '@/composables/usePostComposerState'
 import { toEmbedPostVideoUrl } from '@/utils/postForm'
 
@@ -41,15 +41,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   cancel: []
 }>()
-
-type PostFormSubmitResult = {
-  mode: 'create' | 'edit'
-  boardUrl: string
-  postId?: string | number
-  newPostId?: string | number
-  isSecret: boolean
-  isBoardAdmin: boolean
-}
 
 type CategoryOption = {
   categoryId: number
@@ -303,82 +294,26 @@ function handleFocusOut() {
   }, 0)
 }
 
-function navigateAfterCreate(newPostId: string | number, payload: ReturnType<typeof buildPayload>) {
-  if (props.onSubmitted) {
-    props.onSubmitted({
-      mode: 'create',
-      boardUrl: boardUrl.value,
-      newPostId,
-      isSecret: payload.isSecret,
-      isBoardAdmin: board.value?.isAdmin ?? false,
-    })
-  }
-}
-
-async function handleSubmit() {
-  if (!form.value.title) {
-    toastStore.addToast(t('board.writePost.validation'), 'error')
-    return
-  }
-  if (props.mode === 'create' && !props.hideCategory && !form.value.categoryId) {
-    toastStore.addToast(t('board.writePost.validation'), 'error')
-    return
-  }
-
-  let currentDraftId = draftId.value ?? undefined
-  if (draftEnabled.value) {
-    try {
-      const savedDraft = await saveDraftNow()
-      if (savedDraft?.draftId != null) {
-        currentDraftId = savedDraft.draftId
-      }
-    } catch (error) {
-      logger.error('Failed to save draft before submit:', error)
-      toastStore.addToast(t('common.error.unknown'), 'error')
-      return
-    }
-  }
-  const payload = {
-    ...buildPayload(),
-    ...(currentDraftId !== undefined && { draftId: currentDraftId }),
-  }
-
-  if (props.mode === 'create') {
-    createPost({ boardUrl: boardUrl.value, data: payload }, {
-      onSuccess: (response) => {
-        markCurrentSnapshotSaved()
-        cleanupPublishedDraft()
-        if (props.createSuccessToastMessage) {
-          toastStore.addToast(props.createSuccessToastMessage, 'success')
-        }
-        navigateAfterCreate(response.data.data, payload)
-      },
-      onError: (error) => {
-        logger.error('Failed to create post:', error)
-      },
-    })
-    return
-  }
-
-  updatePost({ postId: postId.value, data: payload }, {
-    onSuccess: () => {
-      markCurrentSnapshotSaved()
-      cleanupPublishedDraft()
-      if (props.onSubmitted) {
-        props.onSubmitted({
-          mode: 'edit',
-          boardUrl: boardUrl.value,
-          postId: postId.value,
-          isSecret: payload.isSecret,
-          isBoardAdmin: board.value?.isAdmin ?? false,
-        })
-      }
-    },
-    onError: (error) => {
-      logger.error('Failed to update post:', error)
-    },
-  })
-}
+const { handleSubmit } = usePostComposerSubmit({
+  mode: () => props.mode,
+  boardUrl,
+  postId,
+  board,
+  form,
+  hideCategory: () => props.hideCategory,
+  draftEnabled,
+  draftId,
+  saveDraftNow,
+  buildPayload,
+  markCurrentSnapshotSaved,
+  cleanupPublishedDraft,
+  createPost,
+  updatePost,
+  onSubmitted: () => props.onSubmitted,
+  createSuccessToastMessage: () => props.createSuccessToastMessage,
+  t,
+  addToast: toastStore.addToast,
+})
 
 function handleCancel() {
   emit('cancel')
