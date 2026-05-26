@@ -1,4 +1,3 @@
-import type { PageResponse } from './common'
 import type { BoardSearchItem, PostSummary } from './board'
 import type { CommentResponse } from './comment'
 import type { UserSummary } from './user'
@@ -17,10 +16,19 @@ export * from './search'
 export * from './tag'
 export * from '../api/file'
 
+export interface IntegratedSearchResultGroup<T> {
+    items: T[]
+    totalElements: number
+    totalPages: number
+    page: number
+    size: number
+    hasMore: boolean
+}
+
 export interface IntegratedSearchResponse {
-    posts: PageResponse<PostSummary>
-    comments: PageResponse<CommentResponse>
-    users: PageResponse<UserSummary>
-    boards: BoardSearchItem[]
+    postResults: IntegratedSearchResultGroup<PostSummary>
+    commentResults: IntegratedSearchResultGroup<CommentResponse>
+    userResults: IntegratedSearchResultGroup<UserSummary>
+    boardResults: BoardSearchItem[]
     keyword: string
 }

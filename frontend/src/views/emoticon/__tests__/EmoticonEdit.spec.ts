@@ -134,6 +134,17 @@ const baseButtonStub = {
   template: '<button :type="type || \'button\'" :disabled="disabled"><slot /></button>',
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (error: unknown) => void
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve
+    reject = promiseReject
+  })
+
+  return { promise, resolve, reject }
+}
+
 describe('EmoticonEdit', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -282,6 +293,59 @@ describe('EmoticonEdit', () => {
     expect(mocks.deleteImage.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.uploadFile.mock.invocationCallOrder[0]
     )
+    expect(mocks.updateEmoticon).toHaveBeenCalledWith(7, {
+      name: 'Original',
+      thumbnailFileId: undefined,
+      tags: ['tag'],
+    })
+  })
+
+  it('starts image add requests together and waits for all before updating metadata', async () => {
+    const firstAdd = createDeferred<{ data: { success: boolean } }>()
+    const secondAdd = createDeferred<{ data: { success: boolean } }>()
+    mocks.addImage.mockImplementation((_: number, fileId: number) => (
+      fileId === 101 ? firstAdd.promise : secondAdd.promise
+    ))
+
+    const wrapper = mount(EmoticonEdit, {
+      global: {
+        mocks: {
+          $t: (key: string) => key,
+        },
+        stubs: {
+          BaseButton: baseButtonStub,
+          ArrowLeft: true,
+          Upload: true,
+          X: true,
+          Plus: true,
+          EyeOff: true,
+          Eye: true,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const fileInput = wrapper.find('input[type="file"][multiple]')
+    Object.defineProperty(fileInput.element, 'files', {
+      value: [new File(['upload'], 'selected.png', { type: 'image/png' })],
+      configurable: true,
+    })
+    await fileInput.trigger('change')
+    await flushPromises()
+
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(mocks.addImage).toHaveBeenCalledTimes(2)
+    expect(mocks.updateEmoticon).not.toHaveBeenCalled()
+
+    secondAdd.resolve({ data: { success: true } })
+    await flushPromises()
+    expect(mocks.updateEmoticon).not.toHaveBeenCalled()
+
+    firstAdd.resolve({ data: { success: true } })
+    await flushPromises()
     expect(mocks.updateEmoticon).toHaveBeenCalledWith(7, {
       name: 'Original',
       thumbnailFileId: undefined,

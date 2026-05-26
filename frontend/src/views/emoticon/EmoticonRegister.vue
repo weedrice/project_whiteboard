@@ -9,6 +9,7 @@ import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { useEmoticonImageSelection } from '@/composables/useEmoticonImageSelection'
+import { useEmoticonTagItems } from '@/composables/useEmoticonTagItems'
 import { useEmoticonImageUploader } from '@/composables/useEmoticonImageUploader'
 import { useEmoticonUploadSession } from '@/composables/useEmoticonUploadSession'
 import {
@@ -37,28 +38,7 @@ const isSubmitting = ref(false)
 const uploadSession = useEmoticonUploadSession()
 const imageUploader = useEmoticonImageUploader(uploadSession)
 const { uploadProgress } = uploadSession
-let tagSequence = 0
-
-interface EmoticonTagItem {
-  clientId: string
-  value: string
-}
-
-const createTagItem = (value: string): EmoticonTagItem => {
-  tagSequence += 1
-  return {
-    clientId: `emoticon-tag-${tagSequence}`,
-    value
-  }
-}
-
-const tagItems = ref<EmoticonTagItem[]>([])
-const tags = computed<string[]>({
-  get: () => tagItems.value.map((item) => item.value),
-  set: (values) => {
-    tagItems.value = values.map(createTagItem)
-  }
-})
+const { tagItems, tags, addTagItem, removeTagItem } = useEmoticonTagItems()
 
 // 파일 입력 refs
 const thumbnailInput = ref<HTMLInputElement | null>(null)
@@ -129,17 +109,14 @@ const addTag = () => {
   if (result.error === 'maxTags') {
     toastStore.addToast(t('emoticon.validation.maxTags'), 'error')
   } else if (result.tag) {
-    tagItems.value.push(createTagItem(result.tag))
+    addTagItem(result.tag)
   }
   tagInput.value = ''
 }
 
 // 태그 제거
 const removeTag = (clientId: string) => {
-  const index = tagItems.value.findIndex((item) => item.clientId === clientId)
-  if (index >= 0) {
-    tagItems.value.splice(index, 1)
-  }
+  removeTagItem(clientId)
 }
 
 // 폼 유효성 검사

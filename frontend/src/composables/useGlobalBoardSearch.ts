@@ -1,9 +1,7 @@
-import { computed, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useQueryClient } from '@tanstack/vue-query'
+import { computed, ref } from 'vue'
 import { useBoard } from '@/composables/useBoard'
 import { useDebounce } from '@/composables/useDebounce'
-import { useKeyboardNavigation } from '@/composables/useKeyboardNavigation'
+import { useSearchNavigation } from '@/composables/useSearchNavigation'
 import { DEBOUNCE_DELAY } from '@/utils/constants'
 import type { BoardListItem } from '@/types'
 
@@ -20,9 +18,6 @@ export function useGlobalBoardSearch({
   collapse,
   focusSearchInput,
 }: UseGlobalBoardSearchOptions) {
-  const router = useRouter()
-  const route = useRoute()
-  const queryClient = useQueryClient()
   const { useBoards } = useBoard()
   const { data: boardsData } = useBoards()
 
@@ -39,68 +34,22 @@ export function useGlobalBoardSearch({
     )
   })
 
-  const selectBoard = (boardUrl: string) => {
-    showDropdown.value = false
-    searchQuery.value = ''
-    if (isMobile.value) collapse()
-    router.push(`/board/${boardUrl}`)
-  }
-
   const {
+    activeDescendantId,
     selectedIndex,
-    handleKeyDown: handleDropdownKeyDown,
-    reset: resetSelection,
+    resetSelection,
+    handleDropdownKeyDown,
+    handleSearch,
+    selectBoard,
     setSelectedIndex,
-  } = useKeyboardNavigation(
+  } = useSearchNavigation({
     filteredBoards,
-    {
-      onSelect: (index) => {
-        if (filteredBoards.value[index]) {
-          selectBoard(filteredBoards.value[index].boardUrl)
-        }
-      },
-      onEscape: () => {
-        showDropdown.value = false
-        focusSearchInput()
-      },
-      loop: true,
-      initialIndex: -1,
-    }
-  )
-
-  const activeDescendantId = computed(() => (
-    selectedIndex.value >= 0 && filteredBoards.value[selectedIndex.value]
-      ? `${listboxId}-${filteredBoards.value[selectedIndex.value].boardUrl}`
-      : undefined
-  ))
-
-  const handleSearch = () => {
-    const nextQuery = searchQuery.value.trim()
-    if (!nextQuery) return
-
-    showDropdown.value = false
-    if (isMobile.value) collapse()
-
-    if (route.name === 'search' && route.query.q === nextQuery) {
-      queryClient.invalidateQueries({ queryKey: ['search', 'integrated'] })
-      return
-    }
-
-    router.push({
-      name: 'search',
-      query: {
-        q: nextQuery,
-      },
-    })
-  }
-
-  watch(searchQuery, () => {
-    showDropdown.value = !!searchQuery.value.trim()
-    resetSelection()
-  })
-
-  watch(filteredBoards, () => {
-    resetSelection()
+    searchQuery,
+    showDropdown,
+    listboxId,
+    isMobile,
+    collapse,
+    focusSearchInput,
   })
 
   return {

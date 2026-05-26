@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useQuery, useQueryClient } from '@tanstack/vue-query'
-import { emoticonApi } from '@/api/emoticon'
+import { useQueryClient } from '@tanstack/vue-query'
 import { useHead } from '@unhead/vue'
 import { ArrowLeft, Upload, X, Plus, EyeOff, Eye } from 'lucide-vue-next'
 import { useToastStore } from '@/stores/toast'
@@ -11,12 +10,12 @@ import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import type { EmoticonImage } from '@/types/emoticon'
-import { extractErrorMessage } from '@/utils/errorHandler'
+import { useEmoticonEditResource } from '@/composables/useEmoticonEditResource'
+import { useEmoticonEditSubmit } from '@/composables/useEmoticonEditSubmit'
 import { useEmoticonImageSelection } from '@/composables/useEmoticonImageSelection'
-import { useEmoticonImageUploader } from '@/composables/useEmoticonImageUploader'
+import { useEmoticonTagItems } from '@/composables/useEmoticonTagItems'
 import { useToggleEmoticonVisibility } from '@/composables/useToggleEmoticonVisibility'
 import { useEmoticonUploadSession } from '@/composables/useEmoticonUploadSession'
-import { useEmoticonPermissions } from '@/composables/useEmoticonPermissions'
 import {
   resolveEmoticonTagAddition,
   revokeEmoticonPreviewUrl,
@@ -34,18 +33,21 @@ const { selectThumbnailImage, selectEmoticonImages } = useEmoticonImageSelection
 const { confirm } = useConfirm()
 
 const emoticonId = computed(() => Number(route.params.emoticonId))
+const { emoticon, isLoading, isOwner } = useEmoticonEditResource({
+  emoticonId,
+  isAuthenticated: () => authStore.isAuthenticated,
+  getUser: () => authStore.user,
+  onUnauthenticated: () => {
+    router.push({ name: 'emoticon-list' })
+  },
+  onForbidden: () => {
+    toastStore.addToast(t('emoticon.edit.noPermission'), 'error')
+    router.push({ name: 'emoticon-detail', params: { emoticonId: emoticonId.value } })
+  }
+})
 
 useHead({
   title: computed(() => emoticon.value?.name ? `${emoticon.value.name} 수정 - 노비콘` : '노비콘 수정')
-})
-
-// 기존 이모티콘 데이터 조회
-const { data: emoticon, isLoading } = useQuery({
-  queryKey: ['emoticon', emoticonId],
-  queryFn: async () => {
-    return emoticonApi.getEmoticonData(emoticonId.value)
-  },
-  enabled: () => !!emoticonId.value
 })
 
 // 폼 상태
@@ -59,41 +61,12 @@ const imagesToDelete = ref<number[]>([])
 const tagInput = ref('')
 const isSubmitting = ref(false)
 const uploadSession = useEmoticonUploadSession()
-const imageUploader = useEmoticonImageUploader(uploadSession)
 const { uploadProgress } = uploadSession
-let tagSequence = 0
-
-interface EmoticonTagItem {
-  clientId: string
-  value: string
-}
-
-const createTagItem = (value: string): EmoticonTagItem => {
-  tagSequence += 1
-  return {
-    clientId: `emoticon-tag-${tagSequence}`,
-    value
-  }
-}
-
-const tagItems = ref<EmoticonTagItem[]>([])
-const tags = computed<string[]>({
-  get: () => tagItems.value.map((item) => item.value),
-  set: (values) => {
-    tagItems.value = values.map(createTagItem)
-  }
-})
+const { tagItems, tags, addTagItem, removeTagItem } = useEmoticonTagItems()
 
 // 파일 입력 refs
 const thumbnailInput = ref<HTMLInputElement | null>(null)
 const emoticonInput = ref<HTMLInputElement | null>(null)
-
-// 권한 체크
-const { isOwner } = useEmoticonPermissions({
-  isAuthenticated: () => authStore.isAuthenticated,
-  getCreatorId: () => emoticon.value?.creatorId,
-  getUserId: () => authStore.user?.userId,
-})
 
 // 기존 데이터로 폼 초기화
 watch(emoticon, (data) => {
@@ -105,20 +78,6 @@ watch(emoticon, (data) => {
     thumbnailPreview.value = data.thumbnailUrl || null
   }
 }, { immediate: true })
-
-// 권한 없으면 목록으로 리다이렉트
-onMounted(() => {
-  if (!authStore.isAuthenticated) {
-    router.push({ name: 'emoticon-list' })
-  }
-})
-
-watch([emoticon, () => authStore.user], ([emoticonData, user]) => {
-  if (emoticonData && user && emoticonData.creatorId !== user.userId) {
-    toastStore.addToast(t('emoticon.edit.noPermission'), 'error')
-    router.push({ name: 'emoticon-detail', params: { emoticonId: emoticonId.value } })
-  }
-})
 
 // 숨김/표시 전환
 const { mutate: toggleVisibility, isPending: isToggling } = useToggleEmoticonVisibility(emoticonId)
@@ -208,17 +167,14 @@ const addTag = () => {
   if (result.error === 'maxTags') {
     toastStore.addToast(t('emoticon.validation.maxTags'), 'error')
   } else if (result.tag) {
-    tagItems.value.push(createTagItem(result.tag))
+    addTagItem(result.tag)
   }
   tagInput.value = ''
 }
 
 // 태그 제거
 const removeTag = (clientId: string) => {
-  const index = tagItems.value.findIndex((item) => item.clientId === clientId)
-  if (index >= 0) {
-    tagItems.value.splice(index, 1)
-  }
+  removeTagItem(clientId)
 }
 
 // 총 이미지 개수 계산
@@ -235,75 +191,26 @@ const isFormValid = computed(() => {
 })
 
 // 수정 처리
-const handleSubmit = async () => {
-  if (!isFormValid.value || isSubmitting.value) return
-
-  isSubmitting.value = true
-  const currentRunId = uploadSession.startSubmitRun()
-
-  try {
-    const submitSnapshot = {
-      thumbnail: thumbnailFile.value,
-      imagesToDelete: [...imagesToDelete.value],
-      newPreviews: [...newEmoticonPreviews.value],
-      name: emoticonName.value.trim(),
-      tags: [...tags.value],
-    }
-    const uploadFiles = await imageUploader.preparePreviewFiles(submitSnapshot.newPreviews)
-    uploadSession.assertSubmitActive(currentRunId)
-
-    // 1. 썸네일 업로드 (변경된 경우에만)
-    let thumbnailFileId: number | undefined
-    if (submitSnapshot.thumbnail) {
-      thumbnailFileId = await imageUploader.uploadFile(submitSnapshot.thumbnail, currentRunId)
-    }
-
-    // 2. 기존 이미지 삭제 처리
-    await Promise.all(submitSnapshot.imagesToDelete.map(async (imageId) => {
-      await emoticonApi.deleteImage(imageId)
-      uploadSession.assertSubmitActive(currentRunId)
-    }))
-
-    // 3. 새 이미지 업로드 및 추가
-    if (uploadFiles.length > 0) {
-      const imageFileIds = await imageUploader.uploadFiles(uploadFiles, currentRunId)
-      for (const fileId of imageFileIds) {
-        uploadSession.assertSubmitActive(currentRunId)
-        await emoticonApi.addImage(emoticonId.value, fileId)
-        uploadSession.assertSubmitActive(currentRunId)
-      }
-    }
-
-    // 4. 이모티콘 정보 수정 (이름, 썸네일, 태그)
-    uploadSession.assertSubmitActive(currentRunId)
-    await emoticonApi.updateEmoticon(emoticonId.value, {
-      name: submitSnapshot.name,
-      thumbnailFileId,
-      tags: submitSnapshot.tags
-    })
-    uploadSession.assertSubmitActive(currentRunId)
-
-    // 캐시 무효화
-    queryClient.invalidateQueries({ queryKey: ['emoticon', emoticonId] })
-    queryClient.invalidateQueries({ queryKey: ['emoticons'] })
-
+const { handleSubmit } = useEmoticonEditSubmit({
+  emoticonId,
+  isFormValid,
+  isSubmitting,
+  thumbnailFile,
+  imagesToDelete,
+  newEmoticonPreviews,
+  emoticonName,
+  tags,
+  uploadSession,
+  queryClient,
+  fallbackErrorMessage: t('emoticon.edit.failed'),
+  onSuccess: () => {
     toastStore.addToast(t('emoticon.edit.updated'), 'success')
     router.push({ name: 'emoticon-detail', params: { emoticonId: emoticonId.value } })
-  } catch (error: unknown) {
-    const isStaleCancellation = !uploadSession.isSubmitActive(currentRunId)
-      && uploadSession.isUploadCancelledError(error)
-    if (!uploadSession.isDisposed.value && !isStaleCancellation) {
-      const message = extractErrorMessage(error) || t('emoticon.edit.failed')
-      toastStore.addToast(message, 'error')
-    }
-  } finally {
-    if (uploadSession.isSubmitActive(currentRunId)) {
-      isSubmitting.value = false
-      uploadSession.cancelSubmitRun()
-      uploadSession.resetUploadProgress()
-    }
-  }
-}
+  },
+  onError: (message) => {
+    toastStore.addToast(message, 'error')
+  },
+})
 
 // 상세 페이지로 이동
 const goToDetail = () => {

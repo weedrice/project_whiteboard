@@ -13,20 +13,20 @@ import java.util.List;
 @Getter
 @Builder
 public class IntegratedSearchResponse {
-    private Page<PostSummary> posts;
-    private Page<CommentResponse> comments;
-    private Page<UserSummary> users;
-    private List<BoardSummary> boards;
-    private String keyword; // Add keyword field
+    private IntegratedSearchResultGroup<PostSummary> postResults;
+    private IntegratedSearchResultGroup<CommentResponse> commentResults;
+    private IntegratedSearchResultGroup<UserSummary> userResults;
+    private List<BoardSummary> boardResults;
+    private String keyword;
 
     public static IntegratedSearchResponse from(Page<PostSummary> postPage, Page<CommentResponse> commentPage,
             Page<UserSummary> userPage, List<BoardSummary> boardList, String keyword) {
         return IntegratedSearchResponse.builder()
-                .posts(postPage)
-                .comments(commentPage)
-                .users(userPage)
-                .boards(boardList)
-                .keyword(keyword) // Set keyword
+                .postResults(IntegratedSearchResultGroup.from(postPage))
+                .commentResults(IntegratedSearchResultGroup.from(commentPage))
+                .userResults(IntegratedSearchResultGroup.from(userPage))
+                .boardResults(boardList)
+                .keyword(keyword)
                 .build();
     }
 }

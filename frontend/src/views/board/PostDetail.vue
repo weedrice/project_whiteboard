@@ -1,5 +1,5 @@
 ﻿<script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   AlertTriangle,
@@ -16,7 +16,6 @@ import {
   Trash2,
   User
 } from 'lucide-vue-next'
-import { useHead } from '@unhead/vue'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseCard from '@/components/common/ui/BaseCard.vue'
@@ -31,13 +30,15 @@ import { usePost } from '@/composables/usePost'
 import { usePostDetailPermissions } from '@/composables/usePostDetailPermissions'
 import { usePostDetailActions } from '@/composables/usePostDetailActions'
 import { usePostDetailShare } from '@/composables/usePostDetailShare'
+import { usePostDetailNavigation } from '@/composables/usePostDetailNavigation'
+import { usePostDetailScrollEffects } from '@/composables/usePostDetailScrollEffects'
+import { usePostDetailSeo } from '@/composables/usePostDetailSeo'
 import { usePostDetailUiEffects } from '@/composables/usePostDetailUiEffects'
 import { usePostDetailViewModel } from '@/composables/usePostDetailViewModel'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { formatDate } from '@/utils/date'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
-import { isInputFocused } from '@/utils/keyboard'
 import { applyImageFallback } from '@/utils/imageFallback'
 import { renderPostContentHtml } from '@/utils/postContentHtml'
 
@@ -69,74 +70,12 @@ const {
 })
 const postView = usePostDetailViewModel(post)
 
-const postPageTitle = computed(() => {
-  const postTitle = postView.value?.title.trim()
-  const boardName = postView.value?.boardName.trim()
-
-  if (postTitle && boardName) {
-    return `${postTitle} - ${boardName}`
-  }
-  return postTitle || 'Post'
+usePostDetailSeo({
+  route,
+  post,
+  postView,
+  t,
 })
-
-const postDescription = computed(() => {
-  if (!post.value?.contents) return 'Post content'
-  const text = post.value.contents.replace(/<[^>]*>/g, '').trim().slice(0, 160)
-  return text + (text.length >= 160 ? '...' : '')
-})
-
-const canonicalUrl = computed(() => {
-  if (typeof window === 'undefined') return ''
-  const normalizedPath = route.path.endsWith('/') ? route.path : `${route.path}/`
-  return `${window.location.origin}${normalizedPath}`
-})
-
-const articleStructuredData = computed(() => {
-  const viewModel = postView.value
-  if (!viewModel || !canonicalUrl.value) return ''
-
-  return JSON.stringify({
-    '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: viewModel.title,
-    datePublished: viewModel.createdAt,
-    dateModified: post.value?.modifiedAt || viewModel.createdAt,
-    author: {
-      '@type': 'Person',
-      name: viewModel.authorDisplayName
-    },
-    mainEntityOfPage: canonicalUrl.value,
-    url: canonicalUrl.value
-  })
-})
-
-useHead({
-  titleTemplate: '%s',
-  title: postPageTitle,
-  link: [
-    { rel: 'canonical', href: canonicalUrl }
-  ],
-  meta: [
-    { name: 'description', content: postDescription },
-    { property: 'og:title', content: computed(() => `${postView.value?.title || 'Post'} - ${t('common.appName')}`) },
-    { property: 'og:description', content: postDescription },
-    { property: 'og:type', content: 'article' },
-    { property: 'og:url', content: canonicalUrl }
-  ],
-  script: [
-    {
-      type: 'application/ld+json',
-      textContent: articleStructuredData
-    }
-  ]
-})
-
-watch([() => route.name, postPageTitle], ([routeName, title]) => {
-  if (routeName !== 'post-detail' || typeof document === 'undefined') {
-    return
-  }
-  document.title = title
-}, { immediate: true })
 
 const { mutate: deleteMutate } = useDeletePost()
 const { mutate: likeMutate } = useLikePost()
@@ -187,9 +126,6 @@ const {
   disposePostDetailUiEffects
 } = usePostDetailUiEffects()
 
-const contentRef = ref<HTMLElement | null>(null)
-const commentsRef = ref<HTMLElement | null>(null)
-
 const {
   currentUrl,
   compactUrl,
@@ -204,57 +140,18 @@ const {
   t,
 })
 
-function buildBoardListRoute(boardUrl: string) {
-  const { fromCreate, ...query } = route.query
-  return {
-    path: `/board/${boardUrl}`,
-    query
-  }
-}
-
-function handleTagClick(tag: string) {
-  const boardUrl = postView.value?.boardUrl
-  if (!boardUrl) return
-
-  router.push({
-    path: `/board/${boardUrl}`,
-    query: {
-      q: tag,
-      type: 'TAG'
-    }
-  })
-}
-
-function syncBoardListPageForDirectEntry() {
-  const listPage = post.value?.boardListPage
-  if (
-    route.name !== 'post-detail'
-    || typeof listPage !== 'number'
-    || listPage <= 0
-    || route.query.page
-    || route.query.q
-    || route.query.type
-    || route.query.categoryId
-    || route.query.concept
-  ) {
-    return
-  }
-
-  router.replace({
-    path: route.path,
-    hash: route.hash,
-    query: {
-      ...route.query,
-      page: String(listPage + 1)
-    }
-  })
-}
-
-function buildEditRoute() {
-  const viewModel = postView.value
-  if (!viewModel) return '/'
-  return `/board/${viewModel.boardUrl}/post/${viewModel.postId}/edit`
-}
+const {
+  buildBoardListRoute,
+  handleTagClick,
+  syncBoardListPageForDirectEntry,
+  buildEditRoute,
+  goToList,
+} = usePostDetailNavigation({
+  route,
+  router,
+  post,
+  postView,
+})
 
 const {
   isLikeAnimating,
@@ -285,225 +182,37 @@ const {
   reportMutate,
 })
 
-function scrollToTop() {
-  window.scrollTo({ top: 0, behavior: 'smooth' })
-}
-
-function findElementByHash(hash: string): HTMLElement | null {
-  if (!hash.startsWith('#')) return null
-
-  const rawId = hash.slice(1)
-  if (!rawId) return null
-
-  try {
-    return document.getElementById(decodeURIComponent(rawId))
-  } catch {
-    return document.getElementById(rawId)
-  }
-}
-
-function scrollToCommentComposer() {
-  if (isPostDetailUiDisposed()) return
-
-  const composer = document.getElementById('comment-composer')
-  if (!composer) {
-    scrollToComments()
-    return
-  }
-
-  composer.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  scheduleComposerFocus(composer)
-}
-
-function scrollToComments() {
-  if (isPostDetailUiDisposed()) return
-
-  const target = document.getElementById('comment-composer') || commentsRef.value
-  if (!target) return
-
-  const headerOffset = 96
-  const elementPosition = target.getBoundingClientRect().top
-  const offsetPosition = elementPosition + window.scrollY - headerOffset
-
-  window.scrollTo({
-    top: offsetPosition,
-    behavior: 'smooth'
-  })
-}
-
-function waitForImagesInContent(): Promise<void> {
-  if (isPostDetailUiDisposed()) return Promise.resolve()
-
-  const container = contentRef.value
-  if (!container) return Promise.resolve()
-
-  const images = container.querySelectorAll<HTMLImageElement>('img')
-  if (images.length === 0) return Promise.resolve()
-
-  const imageLoadTimeout = 8000
-  const promises = Array.from(images).map((image) => {
-    if (image.complete) return Promise.resolve()
-    if (image.loading === 'lazy') image.loading = 'eager'
-
-    return Promise.race([
-      new Promise<void>((resolve) => {
-        image.onload = () => resolve()
-        image.onerror = () => resolve()
-      }),
-      new Promise<void>((resolve) => trackImageLoadTimeout(resolve, imageLoadTimeout))
-    ])
-  })
-
-  return Promise.all(promises).then(() => {})
-}
-
-function scrollToCommentsAfterImagesLoad() {
-  const expectedPostId = postView.value?.postId
-  const expectedHash = route.hash
-
-  waitForImagesInContent().then(() => {
-    if (isPostDetailUiDisposed()) return
-    if (expectedPostId !== postView.value?.postId) return
-    if (expectedHash && route.hash !== expectedHash) return
-
-    nextTick(() => {
-      if (isPostDetailUiDisposed()) return
-      if (expectedPostId !== postView.value?.postId) return
-      scrollToComments()
-    })
-  })
-}
-
-function goToList() {
-  if (postView.value?.boardUrl) {
-    router.push(buildBoardListRoute(postView.value.boardUrl))
-    return
-  }
-
-  router.back()
-}
-
-function handleResize() {
-  setupComposerObserver()
-}
-
-const handleKeyDown = (event: KeyboardEvent) => {
-  const { key, shiftKey, ctrlKey, altKey, metaKey } = event
-
-  if (ctrlKey || altKey || metaKey) return
-  if (isInputFocused()) return
-
-  if (shiftKey) {
-    if (key === 'S') {
-      if (authStore.isAuthenticated && postView.value) {
-        event.preventDefault()
-        handleBookmark()
-      }
-      return
-    }
-    if (key === 'Y') {
-      event.preventDefault()
-      handleShare()
-    }
-    return
-  }
-
-  switch (key) {
-    case 'c':
-      event.preventDefault()
-      scrollToComments()
-      break
-    case 'u':
-      event.preventDefault()
-      goToList()
-      break
-    case 'l':
-      if (authStore.isAuthenticated && postView.value) {
-        event.preventDefault()
-        handleLike()
-      }
-      break
-    case 'y':
-      event.preventDefault()
-      handleCopyUrl()
-      break
-    case 'e':
-      if (canEdit.value && postView.value) {
-        event.preventDefault()
-        router.push(buildEditRoute())
-      }
-      break
-    case 'Escape':
-      event.preventDefault()
-      goToList()
-      break
-  }
-}
-
-watch(() => route.hash, (newHash) => {
-  if (!newHash) return
-
-  nextTick(() => {
-    if (newHash === '#comments') {
-      scrollToCommentsAfterImagesLoad()
-      return
-    }
-
-    const element = findElementByHash(newHash)
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' })
-    }
-  })
-})
-
-watch(post, (newPost, oldPost) => {
-  if (!newPost) return
-
-  syncBoardListPageForDirectEntry()
-
-  if (newPost.isSpoiler) {
-    isBlurred.value = true
-    timeLeft.value = 5
-    startBlurTimer()
-  } else {
-    isBlurred.value = false
-    clearBlurTimer()
-  }
-
-  nextTick(() => setupComposerObserver())
-
-  if (!oldPost || newPost.postId !== oldPost.postId) {
-    nextTick(() => {
-      const hash = route.hash
-      if (hash === '#comments') {
-        scrollToCommentsAfterImagesLoad()
-        return
-      }
-
-      window.scrollTo(0, 0)
-      if (hash) {
-        const element = findElementByHash(hash)
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth' })
-        }
-      }
-    })
-  }
-}, { immediate: true })
-
-onMounted(() => {
-  markPostDetailUiMounted()
-  nextTick(() => setupComposerObserver())
-
-  document.addEventListener('keydown', handleKeyDown)
-  window.addEventListener('resize', handleResize)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeyDown)
-  window.removeEventListener('resize', handleResize)
-
-  disposePostDetailUiEffects()
+const {
+  contentRef,
+  commentsRef,
+  scrollToTop,
+  scrollToCommentComposer,
+  scrollToComments,
+} = usePostDetailScrollEffects({
+  route,
+  router,
+  post,
+  postView,
+  authStore,
+  canEdit,
+  isReportModalOpen: showReportModal,
+  isBlurred,
+  timeLeft,
+  startBlurTimer,
+  clearBlurTimer,
+  markPostDetailUiMounted,
+  isPostDetailUiDisposed,
+  scheduleComposerFocus,
+  trackImageLoadTimeout,
+  setupComposerObserver,
+  disposePostDetailUiEffects,
+  syncBoardListPageForDirectEntry,
+  buildEditRoute,
+  goToList,
+  handleBookmark,
+  handleShare,
+  handleCopyUrl,
+  handleLike,
 })
 </script>
 
@@ -618,8 +327,6 @@ onUnmounted(() => {
                 :title="currentUrl"
                 :aria-label="$t('common.copy')"
                 @click="onUrlBarClick"
-                @keydown.enter="onUrlBarClick"
-                @keydown.space.prevent="onUrlBarClick"
               >
                 <Copy class="h-3.5 w-3.5 flex-shrink-0" />
                 <span>{{ compactUrl }}</span>
