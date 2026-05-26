@@ -14,6 +14,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import type { EmoticonImage } from '@/types/emoticon'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { useEmoticonImageSelection } from '@/composables/useEmoticonImageSelection'
+import { useEmoticonTagItems } from '@/composables/useEmoticonTagItems'
 import { useToggleEmoticonVisibility } from '@/composables/useToggleEmoticonVisibility'
 import { useEmoticonUploadSession } from '@/composables/useEmoticonUploadSession'
 import { useEmoticonPermissions } from '@/composables/useEmoticonPermissions'
@@ -61,28 +62,7 @@ const tagInput = ref('')
 const isSubmitting = ref(false)
 const uploadSession = useEmoticonUploadSession()
 const { uploadProgress } = uploadSession
-let tagSequence = 0
-
-interface EmoticonTagItem {
-  clientId: string
-  value: string
-}
-
-const createTagItem = (value: string): EmoticonTagItem => {
-  tagSequence += 1
-  return {
-    clientId: `emoticon-tag-${tagSequence}`,
-    value
-  }
-}
-
-const tagItems = ref<EmoticonTagItem[]>([])
-const tags = computed<string[]>({
-  get: () => tagItems.value.map((item) => item.value),
-  set: (values) => {
-    tagItems.value = values.map(createTagItem)
-  }
-})
+const { tagItems, tags, addTagItem, removeTagItem } = useEmoticonTagItems()
 
 // 파일 입력 refs
 const thumbnailInput = ref<HTMLInputElement | null>(null)
@@ -208,17 +188,14 @@ const addTag = () => {
   if (result.error === 'maxTags') {
     toastStore.addToast(t('emoticon.validation.maxTags'), 'error')
   } else if (result.tag) {
-    tagItems.value.push(createTagItem(result.tag))
+    addTagItem(result.tag)
   }
   tagInput.value = ''
 }
 
 // 태그 제거
 const removeTag = (clientId: string) => {
-  const index = tagItems.value.findIndex((item) => item.clientId === clientId)
-  if (index >= 0) {
-    tagItems.value.splice(index, 1)
-  }
+  removeTagItem(clientId)
 }
 
 // 총 이미지 개수 계산
