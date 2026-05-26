@@ -99,6 +99,9 @@ const {
   onUploaded: (uploaded, file) => {
     insertUploadedImage(uploaded, file)
   },
+  onValidationError: (validationError) => {
+    reportImageValidationError(validationError)
+  },
   onFailed: (error) => {
     logger.error('Image upload failed:', error)
     toastStore.addToast(t('common.messages.uploadFailed'), 'error')
@@ -530,17 +533,7 @@ function insertUploadedImage(uploaded: { url: string; fileId?: number }, file: F
 function queueImageFiles(files: File[]) {
   const candidateFiles = files.filter(isCandidateImageFile)
   if (candidateFiles.length === 0) return false
-  const validFiles = candidateFiles.filter((file) => {
-    const validationError = validateImageFile(file)
-    if (validationError) {
-      reportImageValidationError(validationError)
-      return false
-    }
-    return true
-  })
-  if (validFiles.length > 0) {
-    imageUploadQueue.enqueueFiles(validFiles)
-  }
+  imageUploadQueue.enqueueFiles(candidateFiles)
   return true
 }
 

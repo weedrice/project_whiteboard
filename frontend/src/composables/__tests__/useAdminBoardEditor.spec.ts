@@ -71,7 +71,7 @@ describe('useAdminBoardEditor', () => {
 
   it('saves form edits with the original boardUrl request key', async () => {
     const boardsData = ref([
-      createBoard({ boardId: 10, boardName: 'Old', boardUrl: 'old-url', sortOrder: 1 })
+      createBoard({ boardId: 10, boardName: 'Old', boardUrl: 'old_url', sortOrder: 1 })
     ])
     const updateBoard = vi.fn().mockResolvedValue(undefined)
 
@@ -79,14 +79,15 @@ describe('useAdminBoardEditor', () => {
     await nextTick()
 
     editor.form.boardName = 'New'
-    editor.form.boardUrl = 'new-url'
+    editor.form.boardUrl = 'New-URL_한글'
+    await nextTick()
     await editor.handleSaveChanges()
 
     expect(updateBoard).toHaveBeenCalledWith({
-      boardUrl: 'old-url',
+      boardUrl: 'old_url',
       data: expect.objectContaining({
         boardName: 'New',
-        boardUrl: 'new-url',
+        boardUrl: 'newurl_',
         sortOrder: 1
       })
     })

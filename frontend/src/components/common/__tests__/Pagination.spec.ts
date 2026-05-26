@@ -118,6 +118,22 @@ describe('Pagination', () => {
         expect(hiddenWrapper.find('nav').exists()).toBe(false)
     })
 
+    it('keeps the visible page range bounded for very large page counts', () => {
+        const wrapper = mount(Pagination, {
+            props: {
+                currentPage: 4999,
+                totalPages: 10000,
+            },
+            global: globalMountOptions,
+        })
+
+        expect(wrapper.findAll('button').length).toBeLessThanOrEqual(11)
+        expect(wrapper.text()).toContain('1')
+        expect(wrapper.text()).toContain('5000')
+        expect(wrapper.text()).toContain('10000')
+        expect(wrapper.text()).toContain('...')
+    })
+
     it('renders crawlable links when linkBuilder is provided', () => {
         const wrapper = mount(Pagination, {
             props: {
