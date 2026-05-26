@@ -27,7 +27,6 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router'
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, type ComponentPublicInstance } from 'vue'
-import { useI18n } from 'vue-i18n'
 import { useThrottleFn } from '@/composables/useThrottle'
 import { DEBOUNCE_DELAY } from '@/utils/constants'
 import { isInputFocused } from '@/utils/keyboard'
@@ -35,7 +34,6 @@ import { isInputFocused } from '@/utils/keyboard'
 // User Navigation Component
 const route = useRoute()
 const router = useRouter()
-const { t } = useI18n()
 
 interface Tab {
     nameKey: string;

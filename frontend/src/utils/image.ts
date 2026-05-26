@@ -23,7 +23,7 @@
  */
 export function getOptimizedImageUrl(
     url: string | null | undefined,
-    options?: {
+    _options?: {
         width?: number
         height?: number
         quality?: number

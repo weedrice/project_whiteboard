@@ -1,4 +1,4 @@
-import { ref, onMounted, onUnmounted, type Ref } from 'vue'
+import { ref, type Ref } from 'vue'
 
 /**
  * 리스트/드롭다운 키보드 네비게이션을 위한 composable

@@ -72,8 +72,6 @@ export interface ErrorLogDetail extends ErrorLogListItem {
     stackTrace: string | null
 }
 
-export type ErrorLogItem = ErrorLogDetail
-
 export interface ErrorLogSearchParams {
     page?: number
     size?: number

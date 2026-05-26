@@ -65,7 +65,6 @@ const mockPageData = {
 const mockRefetch = vi.fn()
 const mockMutateAsync = vi.fn()
 const mockFetchErrorLogDetail = vi.fn().mockResolvedValue(mockErrorLogDetail)
-const mockInvalidateQueries = vi.fn()
 
 const mocks = vi.hoisted(() => {
     const messages: Record<string, string> = {

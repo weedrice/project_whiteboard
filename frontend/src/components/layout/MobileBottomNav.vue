@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, type ComponentPublicInstance } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Bell, Home, Layers3, PenSquare, UserRound } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
@@ -30,6 +30,16 @@ const {
   goToBoardWrite,
   handleSheetKeydown,
 } = useWriteBoardSheet()
+
+const setFabButtonRef = (element: Element | ComponentPublicInstance | null) => {
+  const target = element instanceof HTMLButtonElement ? element : null
+  fabButtonRef.value = target
+}
+
+const setSheetRef = (element: Element | ComponentPublicInstance | null) => {
+  const target = element instanceof HTMLElement ? element : null
+  sheetRef.value = target
+}
 
 const isHome = computed(() => route.name === 'home')
 const isBoards = computed(() => route.name === 'all-boards' || route.name === 'board-detail' || route.name === 'post-detail')
@@ -65,7 +75,7 @@ const navigateOrLogin = async (path: string) => {
         <span>{{ $t('layout.mobileNav.boards') }}</span>
       </button>
       <button
-        ref="fabButtonRef"
+        :ref="setFabButtonRef"
         type="button"
         class="nv-mobile-nav-fab"
         aria-haspopup="dialog"
@@ -97,7 +107,7 @@ const navigateOrLogin = async (path: string) => {
       <div v-if="showWriteSheet" class="fixed inset-0 z-[90] bg-black/40 backdrop-blur-[1px]" @click="closeWriteSheet">
         <div
           id="mobile-write-sheet"
-          ref="sheetRef"
+          :ref="setSheetRef"
           class="nv-mobile-sheet"
           role="dialog"
           aria-modal="true"

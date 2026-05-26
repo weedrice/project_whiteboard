@@ -1,4 +1,4 @@
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { Storage } from '@/utils/storage'
 
 const STORAGE_KEY = 'recentBoards'

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
+import { onMounted, onUnmounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useKeyboardStore, type DropdownItem } from '@/stores/keyboard'
@@ -22,7 +22,6 @@ const emit = defineEmits<{
   (e: 'toggle'): void
 }>()
 
-const dropdownRef = ref<HTMLElement | null>(null)
 const menuId = 'user-dropdown-menu'
 const shouldFetchPoints = computed(() => props.isOpen && authStore.isAuthenticated)
 const pointQueryIdentity = computed(() => authStore.user?.userId ?? authStore.user?.loginId ?? null)
@@ -107,7 +106,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="relative" ref="dropdownRef">
+  <div class="relative">
     <button type="button" @click.stop="toggleDropdown"
       aria-label="사용자 메뉴"
       aria-haspopup="menu"

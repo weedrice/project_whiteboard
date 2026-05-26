@@ -31,25 +31,3 @@ export function logMetric(metric: Metric) {
         id: metric.id
     })
 }
-
-export function measureApiResponse(url: string, startTime: number) {
-    const duration = performance.now() - startTime
-    if (duration > 1000) {
-        logger.warn(`[Performance] Slow API response: ${url} took ${duration.toFixed(2)}ms`)
-    }
-    return duration
-}
-
-export function measurePageLoad() {
-    if (typeof window !== 'undefined' && window.performance) {
-        const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming
-        if (navigation) {
-            return {
-                domContentLoaded: navigation.domContentLoadedEventEnd - navigation.domContentLoadedEventStart,
-                loadComplete: navigation.loadEventEnd - navigation.loadEventStart,
-                total: navigation.loadEventEnd - navigation.fetchStart
-            }
-        }
-    }
-    return null
-}

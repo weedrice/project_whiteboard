@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import { useToastStore, type Toast } from '../toast'
+import { useToastStore } from '../toast'
 
 describe('Toast Store', () => {
     let store: ReturnType<typeof useToastStore>

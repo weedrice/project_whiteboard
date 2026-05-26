@@ -165,7 +165,7 @@
                     <div class="flex items-center">
                       <input
                         type="file"
-                        ref="fileInput"
+                        :ref="setFileInputRef"
                         @change="handleFileUpload"
                         accept="image/*"
                         class="hidden"
@@ -244,6 +244,7 @@
 </template>
 
 <script setup lang="ts">
+import { type ComponentPublicInstance } from 'vue'
 import draggable from 'vuedraggable'
 import { GripVertical } from 'lucide-vue-next'
 import { useAdmin } from '@/composables/useAdmin'
@@ -303,6 +304,11 @@ const {
     form.iconUrl = iconUrl
   }
 })
+
+const setFileInputRef = (element: Element | ComponentPublicInstance | null) => {
+  const target = element instanceof HTMLInputElement ? element : null
+  fileInput.value = target
+}
 
 const { data: boardManagerData, isLoading: isBoardManagerLoading } = useBoardManager(selectedBoardId)
 const { mutateAsync: updateBoardManager } = useUpdateBoardManager()

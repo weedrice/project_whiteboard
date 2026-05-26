@@ -18,15 +18,6 @@ import type {
 import type { AxiosRequestConfig, AxiosResponse } from 'axios'
 import { normalizePageResponse, type PageResponseRaw } from '@/utils/pageResponse'
 
-export interface UserProfile {
-    userId: number;
-    displayName: string;
-    email: string;
-    profileImageUrl?: string;
-    role: 'USER' | 'ADMIN' | 'SUPER_ADMIN';
-    createdAt: string;
-}
-
 export interface UserUpdatePayload {
     displayName?: string;
     profileImageId?: number | null;

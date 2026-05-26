@@ -1,23 +1,19 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import {
   LayoutDashboard,
   Users,
   ShieldAlert,
   Settings,
-  LogOut,
   UserCog,
   FileText,
   Bug,
   MessageSquare
 } from 'lucide-vue-next'
-import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
 
 const route = useRoute()
-const router = useRouter()
-const authStore = useAuthStore()
 const { t } = useI18n()
 
 const navigation = computed(() => [
@@ -32,12 +28,6 @@ const navigation = computed(() => [
   { name: t('admin.menu.settings'), href: '/admin/settings', icon: Settings },
 ])
 
-const currentRouteName = computed(() => route.name)
-
-async function handleLogout() {
-  await authStore.logout()
-  router.push('/login')
-}
 </script>
 
 <template>

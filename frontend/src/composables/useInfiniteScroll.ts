@@ -66,7 +66,6 @@ export function useInfiniteScroll<TData = unknown, TError = unknown>(
         queryKey,
         queryFn,
         initialPageParam = 0,
-        getNextPageParam = (lastPage) => lastPage.hasMore ? undefined : undefined,
         queryOptions = {}
     } = options
 

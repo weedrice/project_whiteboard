@@ -20,7 +20,6 @@ const { data: recentData, isLoading: loading } = useRecentlyViewedPosts(params)
 
 const posts = computed(() => recentData.value?.content || [])
 const totalPages = computed(() => recentData.value?.totalPages || 0)
-const totalElements = computed(() => recentData.value?.totalElements || 0)
 
 const handlePageChange = (newPage: number) => {
   page.value = newPage

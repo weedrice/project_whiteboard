@@ -49,7 +49,7 @@ const queryClient = new QueryClient({
         }
     }),
     mutationCache: new MutationCache({
-        onError: (error: Error, variables, context, mutation) => {
+        onError: (error: Error, _variables, _context, mutation) => {
             if (mutation.meta?.errorMessage === false) return
             if (shouldSuppressGlobalErrorToast(error)) return
 
