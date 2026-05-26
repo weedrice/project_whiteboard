@@ -14,7 +14,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
@@ -36,6 +35,8 @@ class BoardManagerAssignmentServiceTest {
 
     @Mock
     private AdminEligibleUserService adminEligibleUserService;
+    @Mock
+    private AdminAssignmentDuplicatePolicy duplicatePolicy;
 
     @InjectMocks
     private BoardManagerAssignmentService boardManagerAssignmentService;
@@ -77,16 +78,14 @@ class BoardManagerAssignmentServiceTest {
 
         when(adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true))
                 .thenReturn(List.of(currentManager));
-        when(adminRepository.findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(
-                user, board, Role.BOARD_ADMIN, false))
-                .thenReturn(Optional.empty());
-        when(adminRepository.saveAndFlush(any(Admin.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(duplicatePolicy.findReusableAdmin(user, board, Role.BOARD_ADMIN)).thenReturn(Optional.empty());
+        when(duplicatePolicy.saveAndMapDuplicate(any(Admin.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Admin assignedManager = boardManagerAssignmentService.assignBoardManager(board, user);
 
         assertThat(assignedManager.getRole()).isEqualTo(Role.BOARD_ADMIN);
         assertThat(currentManager.getIsActive()).isFalse();
-        verify(adminRepository).saveAndFlush(any(Admin.class));
+        verify(duplicatePolicy).saveAndMapDuplicate(any(Admin.class));
     }
 
     @Test
@@ -97,16 +96,16 @@ class BoardManagerAssignmentServiceTest {
 
         when(adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true))
                 .thenReturn(List.of());
-        when(adminRepository.findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(
-                user, board, Role.BOARD_ADMIN, false))
+        when(duplicatePolicy.findReusableAdmin(user, board, Role.BOARD_ADMIN))
                 .thenReturn(Optional.of(inactiveManager));
+        when(duplicatePolicy.flushAndMapDuplicate(inactiveManager)).thenReturn(inactiveManager);
 
         Admin assignedManager = boardManagerAssignmentService.assignBoardManager(board, user);
 
         assertThat(assignedManager).isSameAs(inactiveManager);
         assertThat(inactiveManager.getIsActive()).isTrue();
-        verify(adminRepository).flush();
-        verify(adminRepository, never()).saveAndFlush(any(Admin.class));
+        verify(duplicatePolicy).flushAndMapDuplicate(inactiveManager);
+        verify(duplicatePolicy, never()).saveAndMapDuplicate(any(Admin.class));
     }
 
     @Test
@@ -121,6 +120,7 @@ class BoardManagerAssignmentServiceTest {
 
         when(adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true))
                 .thenReturn(List.of(olderDuplicate, latestDuplicate, anotherActiveManager));
+        when(duplicatePolicy.flushAndMapDuplicate(latestDuplicate)).thenReturn(latestDuplicate);
 
         Admin assignedManager = boardManagerAssignmentService.assignBoardManager(board, user);
 
@@ -128,7 +128,7 @@ class BoardManagerAssignmentServiceTest {
         assertThat(latestDuplicate.getIsActive()).isTrue();
         assertThat(olderDuplicate.getIsActive()).isFalse();
         assertThat(anotherActiveManager.getIsActive()).isFalse();
-        verify(adminRepository).flush();
+        verify(duplicatePolicy).flushAndMapDuplicate(latestDuplicate);
     }
 
     @Test
@@ -157,13 +157,14 @@ class BoardManagerAssignmentServiceTest {
 
         when(adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true))
                 .thenReturn(List.of(currentManager));
+        when(duplicatePolicy.flushAndMapDuplicate(inactiveAdmin)).thenReturn(inactiveAdmin);
 
         Admin activatedManager = boardManagerAssignmentService.activateBoardManager(inactiveAdmin, board);
 
         assertThat(activatedManager).isSameAs(inactiveAdmin);
         assertThat(inactiveAdmin.getIsActive()).isTrue();
         assertThat(currentManager.getIsActive()).isFalse();
-        verify(adminRepository).flush();
+        verify(duplicatePolicy).flushAndMapDuplicate(inactiveAdmin);
     }
 
     @Test
@@ -171,11 +172,10 @@ class BoardManagerAssignmentServiceTest {
     void assignBoardManager_duplicateSave_throwsBusinessException() {
         when(adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true))
                 .thenReturn(List.of());
-        when(adminRepository.findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(
-                user, board, Role.BOARD_ADMIN, false))
+        when(duplicatePolicy.findReusableAdmin(user, board, Role.BOARD_ADMIN))
                 .thenReturn(Optional.empty());
-        when(adminRepository.saveAndFlush(any(Admin.class)))
-                .thenThrow(new DataIntegrityViolationException("duplicate board admin"));
+        when(duplicatePolicy.saveAndMapDuplicate(any(Admin.class)))
+                .thenThrow(new BusinessException(ErrorCode.DUPLICATE_RESOURCE));
 
         assertThatThrownBy(() -> boardManagerAssignmentService.assignBoardManager(board, user))
                 .isInstanceOf(BusinessException.class)

@@ -5,10 +5,7 @@ import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.global.exception.BusinessException;
-import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +19,7 @@ public class BoardManagerAssignmentService {
 
     private final AdminRepository adminRepository;
     private final AdminEligibleUserService adminEligibleUserService;
+    private final AdminAssignmentDuplicatePolicy duplicatePolicy;
 
     @Transactional
     public Admin assignBoardManager(Board board, User user) {
@@ -36,20 +34,19 @@ public class BoardManagerAssignmentService {
             activeManagers.stream()
                     .filter(activeManager -> !Objects.equals(activeManager.getAdminId(), targetActiveManager.getAdminId()))
                     .forEach(Admin::deactivate);
-            return flushAndReturn(targetActiveManager);
+            return duplicatePolicy.flushAndMapDuplicate(targetActiveManager);
         }
 
         activeManagers.forEach(Admin::deactivate);
 
-        Admin reusableManager = adminRepository
-                .findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(user, board, Role.BOARD_ADMIN, false)
+        Admin reusableManager = duplicatePolicy.findReusableAdmin(user, board, Role.BOARD_ADMIN)
                 .orElse(null);
         if (reusableManager != null) {
             reusableManager.activate();
-            return flushAndReturn(reusableManager);
+            return duplicatePolicy.flushAndMapDuplicate(reusableManager);
         }
 
-        return saveAndReturn(Admin.builder()
+        return duplicatePolicy.saveAndMapDuplicate(Admin.builder()
                 .user(user)
                 .board(board)
                 .role(Role.BOARD_ADMIN)
@@ -66,23 +63,6 @@ public class BoardManagerAssignmentService {
                 .forEach(Admin::deactivate);
 
         admin.activate();
-        return flushAndReturn(admin);
-    }
-
-    private Admin saveAndReturn(Admin admin) {
-        try {
-            return adminRepository.saveAndFlush(admin);
-        } catch (DataIntegrityViolationException exception) {
-            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
-        }
-    }
-
-    private Admin flushAndReturn(Admin admin) {
-        try {
-            adminRepository.flush();
-            return admin;
-        } catch (DataIntegrityViolationException exception) {
-            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
-        }
+        return duplicatePolicy.flushAndMapDuplicate(admin);
     }
 }

@@ -17,7 +17,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
@@ -46,6 +45,8 @@ class AdminAssignmentServiceTest {
     private BoardManagerAssignmentService boardManagerAssignmentService;
     @Mock
     private OperationalPrivilegeRevocationGuard privilegeRevocationGuard;
+    @Mock
+    private AdminAssignmentDuplicatePolicy duplicatePolicy;
 
     @InjectMocks
     private AdminAssignmentService adminAssignmentService;
@@ -122,19 +123,17 @@ class AdminAssignmentServiceTest {
 
         when(adminEligibleUserService.getActiveUserByLoginId("testUser")).thenReturn(user);
         when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
-        when(adminRepository.findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(
-                user, board, "MODERATOR", true))
-                .thenReturn(Optional.empty());
-        when(adminRepository.findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(
-                user, board, "MODERATOR", false))
+        when(duplicatePolicy.findReusableAdmin(user, board, "MODERATOR"))
                 .thenReturn(Optional.of(inactiveAdmin));
+        when(duplicatePolicy.flushAndMapDuplicate(inactiveAdmin)).thenReturn(inactiveAdmin);
 
         AdminResponse response = adminAssignmentService.createAdmin("testUser", 10L, AdminRole.MODERATOR);
 
         assertThat(response.getRole()).isEqualTo("MODERATOR");
         assertThat(inactiveAdmin.getIsActive()).isTrue();
-        verify(adminRepository).flush();
-        verify(adminRepository, never()).saveAndFlush(any(Admin.class));
+        verify(duplicatePolicy).validateNoActiveAdmin(user, board, "MODERATOR");
+        verify(duplicatePolicy).flushAndMapDuplicate(inactiveAdmin);
+        verify(duplicatePolicy, never()).saveAndMapDuplicate(any(Admin.class));
     }
 
     @Test
@@ -142,14 +141,10 @@ class AdminAssignmentServiceTest {
     void createAdmin_duplicateScopedAdmin_throwsBusinessException() {
         when(adminEligibleUserService.getActiveUserByLoginId("testUser")).thenReturn(user);
         when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
-        when(adminRepository.findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(
-                user, board, "MODERATOR", true))
+        when(duplicatePolicy.findReusableAdmin(user, board, "MODERATOR"))
                 .thenReturn(Optional.empty());
-        when(adminRepository.findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(
-                user, board, "MODERATOR", false))
-                .thenReturn(Optional.empty());
-        when(adminRepository.saveAndFlush(any(Admin.class)))
-                .thenThrow(new DataIntegrityViolationException("duplicate admin"));
+        when(duplicatePolicy.saveAndMapDuplicate(any(Admin.class)))
+                .thenThrow(new BusinessException(ErrorCode.DUPLICATE_RESOURCE));
 
         assertThatThrownBy(() -> adminAssignmentService.createAdmin("testUser", 10L, AdminRole.MODERATOR))
                 .isInstanceOf(BusinessException.class)
@@ -159,22 +154,18 @@ class AdminAssignmentServiceTest {
     @Test
     @DisplayName("일반 관리자 생성 시 활성 row가 있으면 비활성 이력이 있어도 중복으로 거부한다")
     void createAdmin_scopedAdmin_prefersActiveDuplicateCheck() {
-        Admin activeAdmin = Admin.builder().user(user).board(board).role("MODERATOR").build();
-        ReflectionTestUtils.setField(activeAdmin, "adminId", 400L);
-
         when(adminEligibleUserService.getActiveUserByLoginId("testUser")).thenReturn(user);
         when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
-        when(adminRepository.findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(
-                user, board, "MODERATOR", true))
-                .thenReturn(Optional.of(activeAdmin));
+        doThrow(new BusinessException(ErrorCode.DUPLICATE_RESOURCE))
+                .when(duplicatePolicy)
+                .validateNoActiveAdmin(user, board, "MODERATOR");
 
         assertThatThrownBy(() -> adminAssignmentService.createAdmin("testUser", 10L, AdminRole.MODERATOR))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_RESOURCE);
 
-        verify(adminRepository, never()).findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(
-                user, board, "MODERATOR", false);
-        verify(adminRepository, never()).saveAndFlush(any(Admin.class));
+        verify(duplicatePolicy, never()).findReusableAdmin(user, board, "MODERATOR");
+        verify(duplicatePolicy, never()).saveAndMapDuplicate(any(Admin.class));
     }
 
     @Test
@@ -184,13 +175,11 @@ class AdminAssignmentServiceTest {
         inactiveAdmin.deactivate();
         ReflectionTestUtils.setField(inactiveAdmin, "adminId", 300L);
 
-        Admin activeAdmin = Admin.builder().user(user).board(board).role("MODERATOR").build();
-        ReflectionTestUtils.setField(activeAdmin, "adminId", 301L);
-
         when(adminRepository.findById(300L)).thenReturn(Optional.of(inactiveAdmin));
         when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
-        when(adminRepository.findByUserAndBoardAndRoleAndIsActive(user, board, "MODERATOR", true))
-                .thenReturn(Optional.of(activeAdmin));
+        doThrow(new BusinessException(ErrorCode.DUPLICATE_RESOURCE))
+                .when(duplicatePolicy)
+                .validateNoOtherActiveAdmin(inactiveAdmin, board);
 
         assertThatThrownBy(() -> adminAssignmentService.activateAdmin(300L))
                 .isInstanceOf(BusinessException.class)

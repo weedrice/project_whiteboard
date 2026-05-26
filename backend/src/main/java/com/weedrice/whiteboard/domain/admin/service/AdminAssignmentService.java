@@ -10,7 +10,6 @@ import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +22,7 @@ public class AdminAssignmentService {
     private final AdminEligibleUserService adminEligibleUserService;
     private final BoardManagerAssignmentService boardManagerAssignmentService;
     private final OperationalPrivilegeRevocationGuard privilegeRevocationGuard;
+    private final AdminAssignmentDuplicatePolicy duplicatePolicy;
 
     @Transactional
     public AdminResponse createAdmin(String loginId, Long boardId, AdminRole role) {
@@ -43,19 +43,13 @@ public class AdminAssignmentService {
             return AdminResponse.from(boardManagerAssignmentService.assignBoardManager(board, user));
         }
 
-        Admin activeAdmin = adminRepository
-                .findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(user, board, roleValue, true)
-                .orElse(null);
-        if (activeAdmin != null) {
-            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
-        }
+        duplicatePolicy.validateNoActiveAdmin(user, board, roleValue);
 
-        Admin reusableAdmin = adminRepository
-                .findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(user, board, roleValue, false)
+        Admin reusableAdmin = duplicatePolicy.findReusableAdmin(user, board, roleValue)
                 .orElse(null);
         if (reusableAdmin != null) {
             reusableAdmin.activate();
-            return flushAndMapDuplicate(reusableAdmin);
+            return AdminResponse.from(duplicatePolicy.flushAndMapDuplicate(reusableAdmin));
         }
 
         Admin admin = Admin.builder()
@@ -63,7 +57,7 @@ public class AdminAssignmentService {
                 .board(board)
                 .role(roleValue)
                 .build();
-        return saveAndMapDuplicate(admin);
+        return AdminResponse.from(duplicatePolicy.saveAndMapDuplicate(admin));
     }
 
     @Transactional(readOnly = true)
@@ -100,34 +94,12 @@ public class AdminAssignmentService {
         if (Role.BOARD_ADMIN.equals(admin.getRole())) {
             boardManagerAssignmentService.activateBoardManager(admin, board);
             return;
-        } else {
-            adminEligibleUserService.validateActiveUser(admin.getUser());
-            Admin activeAdmin = adminRepository
-                    .findByUserAndBoardAndRoleAndIsActive(admin.getUser(), board, admin.getRole(), true)
-                    .orElse(null);
-            if (activeAdmin != null && !activeAdmin.getAdminId().equals(admin.getAdminId())) {
-                throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
-            }
         }
+
+        adminEligibleUserService.validateActiveUser(admin.getUser());
+        duplicatePolicy.validateNoOtherActiveAdmin(admin, board);
         admin.activate();
-        flushAndMapDuplicate(admin);
-    }
-
-    private AdminResponse saveAndMapDuplicate(Admin admin) {
-        try {
-            return AdminResponse.from(adminRepository.saveAndFlush(admin));
-        } catch (DataIntegrityViolationException exception) {
-            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
-        }
-    }
-
-    private AdminResponse flushAndMapDuplicate(Admin admin) {
-        try {
-            adminRepository.flush();
-            return AdminResponse.from(admin);
-        } catch (DataIntegrityViolationException exception) {
-            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
-        }
+        duplicatePolicy.flushAndMapDuplicate(admin);
     }
 
 }
