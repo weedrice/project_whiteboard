@@ -14,6 +14,7 @@ import com.weedrice.whiteboard.domain.point.service.ContentRewardPolicy;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.post.service.PostAuthorCommandPolicy;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchIndexAction;
@@ -44,6 +45,7 @@ public class CommentCommandService {
     private final UserWritableResolver userWritableResolver;
     private final SanctionService sanctionService;
     private final CommentPostAccessService commentPostAccessService;
+    private final PostAuthorCommandPolicy postAuthorCommandPolicy;
     private final ContentRewardService contentRewardService;
     private final CommentNotificationService commentNotificationService;
     private final ReactionWriter reactionWriter;
@@ -79,6 +81,7 @@ public class CommentCommandService {
         if (context == null || !context.postReadablePrevalidated()) {
             validatePostReadable(post, user);
         }
+        postAuthorCommandPolicy.validateWritableCommand(post, user, post.getCategory());
 
         Comment parentComment = null;
         int depth = 0;

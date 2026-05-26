@@ -5,7 +5,10 @@ import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
 import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
+import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
+import com.weedrice.whiteboard.domain.board.service.BoardCategoryWritePolicy;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.entity.CommentLike;
@@ -20,6 +23,7 @@ import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
+import com.weedrice.whiteboard.domain.post.service.PostAuthorCommandPolicy;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -99,6 +103,8 @@ class CommentServiceTest {
     @Mock
     private AdminRepository adminRepository;
     @Mock
+    private BoardCategoryRepository boardCategoryRepository;
+    @Mock
     private AgentOwnershipService agentOwnershipService;
     @Mock
     private SanctionService sanctionService;
@@ -126,6 +132,11 @@ class CommentServiceTest {
         CommentNotificationService commentNotificationService = new CommentNotificationService(eventPublisher);
         ReactionWriter reactionWriter = new ReactionWriter();
         UserWritableResolver userWritableResolver = new UserWritableResolver(userRepository, sanctionService);
+        BoardCategoryWritePolicy boardCategoryWritePolicy = new BoardCategoryWritePolicy(boardAccessPolicy);
+        PostAuthorCommandPolicy postAuthorCommandPolicy = new PostAuthorCommandPolicy(
+                boardAccessPolicy,
+                boardCategoryRepository,
+                boardCategoryWritePolicy);
         CommentCommandService commentCommandService = new CommentCommandService(
                 commentRepository,
                 postRepository,
@@ -136,6 +147,7 @@ class CommentServiceTest {
                 userWritableResolver,
                 sanctionService,
                 commentPostAccessService,
+                postAuthorCommandPolicy,
                 contentRewardService,
                 commentNotificationService,
                 reactionWriter,
@@ -306,6 +318,88 @@ class CommentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
         verify(commentRepository, never()).save(any(Comment.class));
+    }
+
+    @Test
+    @DisplayName("읽을 수 있지만 쓸 수 없는 게시판에는 댓글을 작성할 수 없다")
+    void createComment_readableButNotWritableBoard_throwsBoardNotFound() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        User boardOwner = User.builder().build();
+        ReflectionTestUtils.setField(boardOwner, "userId", 99L);
+        Board board = Board.builder().boardUrl("free").creator(boardOwner).build();
+        ReflectionTestUtils.setField(board, "boardId", 1L);
+        ReflectionTestUtils.setField(board, "isActive", false);
+        Post post = Post.builder().user(user).board(board).build();
+        ReflectionTestUtils.setField(post, "postId", 100L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
+
+        assertThatThrownBy(() -> commentService.createComment(1L, 100L, null, "content"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
+
+        verify(adminRepository).existsByUserAndBoardAndIsActive(user, board, true);
+        verify(commentRepository, never()).save(any(Comment.class));
+    }
+
+    @Test
+    @DisplayName("카테고리 최소 작성 권한을 만족하지 못하면 댓글을 작성할 수 없다")
+    void createComment_categoryWriteRoleForbidden_throwsForbidden() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        User boardOwner = User.builder().build();
+        ReflectionTestUtils.setField(boardOwner, "userId", 99L);
+        Board board = Board.builder().boardUrl("free").creator(boardOwner).build();
+        ReflectionTestUtils.setField(board, "boardId", 1L);
+        BoardCategory category = BoardCategory.builder()
+                .name("Admin Only")
+                .board(board)
+                .minWriteRole("BOARD_ADMIN")
+                .build();
+        ReflectionTestUtils.setField(category, "categoryId", 10L);
+        Post post = Post.builder().user(boardOwner).board(board).category(category).build();
+        ReflectionTestUtils.setField(post, "postId", 100L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
+
+        assertThatThrownBy(() -> commentService.createComment(1L, 100L, null, "content"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        verify(commentRepository, never()).save(any(Comment.class));
+    }
+
+    @Test
+    @DisplayName("카테고리 최소 작성 권한을 만족하지 못하면 답글도 부모 조회 전에 차단한다")
+    void createComment_replyCategoryWriteRoleForbidden_rejectsBeforeParentLookup() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        User boardOwner = User.builder().build();
+        ReflectionTestUtils.setField(boardOwner, "userId", 99L);
+        Board board = Board.builder().boardUrl("free").creator(boardOwner).build();
+        ReflectionTestUtils.setField(board, "boardId", 1L);
+        BoardCategory category = BoardCategory.builder()
+                .name("Admin Only")
+                .board(board)
+                .minWriteRole("BOARD_ADMIN")
+                .build();
+        ReflectionTestUtils.setField(category, "categoryId", 10L);
+        Post post = Post.builder().user(boardOwner).board(board).category(category).build();
+        ReflectionTestUtils.setField(post, "postId", 100L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
+
+        assertThatThrownBy(() -> commentService.createComment(1L, 100L, 5L, "content"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        verify(commentRepository, never()).findByIdWithRelationsForUpdate(5L);
+        verify(commentRepository, never()).save(any(Comment.class));
+        verify(commentClosureRepository, never()).createClosures(anyLong(), anyLong());
     }
 
     @Test
