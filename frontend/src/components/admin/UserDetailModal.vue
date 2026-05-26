@@ -1,10 +1,11 @@
 ﻿<script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useAdmin } from '@/composables/useAdmin'
+import { useAdminUserDetailTabs } from '@/composables/useAdminUserDetailTabs'
 import { formatDate } from '@/utils/date'
 import { isEmoticonOnlyContent, renderCommentContentHtml } from '@/utils/commentContent'
 import { applyImageFallback } from '@/utils/imageFallback'
@@ -16,7 +17,7 @@ import {
 } from '@/utils/adminUserDisplay'
 
 const { t } = useI18n()
-const { useAdminUserDetail, useAdminUserPosts, useAdminUserComments, useAdminUserSubscriptions } = useAdmin()
+const { useAdminUserDetail } = useAdmin()
 
 const props = defineProps<{
   isOpen: boolean
@@ -27,22 +28,27 @@ defineEmits<{
   (e: 'close'): void
 }>()
 
-const activeTab = ref<'posts' | 'comments' | 'subscriptions'>('posts')
-const postsPage = ref(0)
-const commentsPage = ref(0)
-const subscriptionsPage = ref(0)
-const tabSize = 10
-
 const queryUserId = computed<number | null>(() => (props.isOpen ? props.userId : null))
 
-const postsParams = computed(() => ({ page: postsPage.value, size: tabSize }))
-const commentsParams = computed(() => ({ page: commentsPage.value, size: tabSize }))
-const subscriptionsParams = computed(() => ({ page: subscriptionsPage.value, size: tabSize }))
-
 const { data: userDetail, isLoading: isDetailLoading } = useAdminUserDetail(queryUserId)
-const { data: userPosts, isLoading: isPostsLoading } = useAdminUserPosts(queryUserId, postsParams)
-const { data: userComments, isLoading: isCommentsLoading } = useAdminUserComments(queryUserId, commentsParams)
-const { data: userSubscriptions, isLoading: isSubscriptionsLoading } = useAdminUserSubscriptions(queryUserId, subscriptionsParams)
+const {
+  activeTab,
+  isCommentsLoading,
+  isPostsLoading,
+  isSubscriptionsLoading,
+  nextCommentsPage,
+  nextPostsPage,
+  nextSubscriptionsPage,
+  prevCommentsPage,
+  prevPostsPage,
+  prevSubscriptionsPage,
+  userComments,
+  userPosts,
+  userSubscriptions,
+} = useAdminUserDetailTabs({
+  isOpen: computed(() => props.isOpen),
+  userId: computed(() => props.userId)
+})
 
 const statusVariant = computed(() => {
   if (!userDetail.value) return 'gray'
@@ -60,44 +66,6 @@ function getRoleLabel(role: string | undefined) {
 const roleVariant = computed(() => {
   return getAdminUserRoleVariant(userDetail.value?.role)
 })
-
-watch(() => props.isOpen, (open) => {
-  if (!open) return
-  activeTab.value = 'posts'
-  postsPage.value = 0
-  commentsPage.value = 0
-  subscriptionsPage.value = 0
-})
-
-function prevPostsPage() {
-  if (!userPosts.value) return
-  if (userPosts.value.number > 0) postsPage.value -= 1
-}
-
-function nextPostsPage() {
-  if (!userPosts.value) return
-  if (userPosts.value.number + 1 < userPosts.value.totalPages) postsPage.value += 1
-}
-
-function prevCommentsPage() {
-  if (!userComments.value) return
-  if (userComments.value.number > 0) commentsPage.value -= 1
-}
-
-function nextCommentsPage() {
-  if (!userComments.value) return
-  if (userComments.value.number + 1 < userComments.value.totalPages) commentsPage.value += 1
-}
-
-function prevSubscriptionsPage() {
-  if (!userSubscriptions.value) return
-  if (userSubscriptions.value.number > 0) subscriptionsPage.value -= 1
-}
-
-function nextSubscriptionsPage() {
-  if (!userSubscriptions.value) return
-  if (userSubscriptions.value.number + 1 < userSubscriptions.value.totalPages) subscriptionsPage.value += 1
-}
 
 function renderCommentContent(content: string | null | undefined): string {
   return renderCommentContentHtml(content, 'comment-emoticon comment-emoticon-list')

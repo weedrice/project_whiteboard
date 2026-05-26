@@ -39,6 +39,14 @@ vi.mock('@tanstack/vue-query', () => ({
     }),
 }))
 
+vi.mock('vue-i18n', () => ({
+    useI18n: () => ({
+        t: (key: string, params?: Record<string, string>) => (
+            key === 'search.doSearch' ? `검색: ${params?.query}` : key
+        ),
+    }),
+}))
+
 vi.mock('@/composables/useBoard', () => ({
     useBoard: () => ({
         useBoards: () => ({
