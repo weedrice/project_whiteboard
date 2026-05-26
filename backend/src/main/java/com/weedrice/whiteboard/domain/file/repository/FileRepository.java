@@ -367,7 +367,7 @@ public interface FileRepository extends JpaRepository<File, Long> {
             @Param("deleteRequestedAt") LocalDateTime deleteRequestedAt);
 
     @Query("""
-            SELECT f
+            SELECT f.fileId
             FROM File f
             WHERE f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.PENDING_DELETE
                OR (
@@ -376,14 +376,14 @@ public interface FileRepository extends JpaRepository<File, Long> {
                )
             ORDER BY COALESCE(f.deleteRequestedAt, f.createdAt) ASC, f.fileId ASC
             """)
-    List<File> findPendingDeletionCandidates(@Param("staleBefore") LocalDateTime staleBefore, Pageable pageable);
+    List<Long> findPendingDeletionFileIds(@Param("staleBefore") LocalDateTime staleBefore, Pageable pageable);
 
     @Query("""
-            SELECT f
+            SELECT f.fileId
             FROM File f
             WHERE f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.DELETE_FAILED
               AND COALESCE(f.deleteRetryCount, 0) < :maxRetryCount
             ORDER BY COALESCE(f.deleteRequestedAt, f.createdAt) ASC, f.fileId ASC
             """)
-    List<File> findRetryableFailedDeletionCandidates(@Param("maxRetryCount") int maxRetryCount, Pageable pageable);
+    List<Long> findRetryableFailedDeletionFileIds(@Param("maxRetryCount") int maxRetryCount, Pageable pageable);
 }

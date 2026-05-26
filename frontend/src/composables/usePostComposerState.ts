@@ -131,6 +131,12 @@ export function usePostComposerState(options: UsePostComposerStateOptions) {
     }
   }
 
+  function resetFormState() {
+    form.value = createEmptyPostComposerForm()
+    draftFileIds.value = []
+    initialFormSnapshot.value = null
+  }
+
   return {
     form,
     draftFileIds,
@@ -140,5 +146,6 @@ export function usePostComposerState(options: UsePostComposerStateOptions) {
     applyDraftSnapshot,
     buildPayload,
     trackUploadedFile,
+    resetFormState,
   }
 }

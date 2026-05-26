@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { userApi, type UserAgent } from '@/api/user'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { createMyAgentsQueryOptions, createMyProfileQueryOptions } from '@/composables/useUser'
+import { useAuthStore } from '@/stores/auth'
 import type { MyComment, PostSummary, User } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 
@@ -18,6 +19,7 @@ export interface MyCommentListItem {
 export function useMyPageDashboardResource() {
   const { handleSilentError } = useErrorHandler()
   const queryClient = useQueryClient()
+  const authStore = useAuthStore()
 
   const profile = ref<User | null>(null)
   const myAgents = ref<UserAgent[]>([])
@@ -66,6 +68,17 @@ export function useMyPageDashboardResource() {
   }
 
   async function fetchMyProfile() {
+    if (authStore.user) {
+      const cachedProfile = queryClient.getQueryData<User>(['user', 'me'])
+      if (cachedProfile?.userId === authStore.user.userId) {
+        profile.value = cachedProfile
+      } else {
+        profile.value = authStore.user
+        queryClient.setQueryData(['user', 'me'], authStore.user)
+      }
+      return
+    }
+
     isProfileLoading.value = true
     profileError.value = null
     try {

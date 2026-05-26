@@ -566,17 +566,11 @@ public class FileService {
 
     public List<Long> getPendingDeletionFileIds(int limit) {
         LocalDateTime staleBefore = LocalDateTime.now().minusMinutes(DELETE_CLAIM_STALE_MINUTES);
-        return fileRepository.findPendingDeletionCandidates(staleBefore, PageRequest.of(0, limit))
-                .stream()
-                .map(File::getFileId)
-                .toList();
+        return fileRepository.findPendingDeletionFileIds(staleBefore, PageRequest.of(0, limit));
     }
 
     public List<Long> getRetryableFailedDeletionFileIds(int limit) {
-        return fileRepository.findRetryableFailedDeletionCandidates(MAX_DELETE_RETRY_COUNT, PageRequest.of(0, limit))
-                .stream()
-                .map(File::getFileId)
-                .toList();
+        return fileRepository.findRetryableFailedDeletionFileIds(MAX_DELETE_RETRY_COUNT, PageRequest.of(0, limit));
     }
 
     private String detectImageMimeType(MultipartFile multipartFile) {

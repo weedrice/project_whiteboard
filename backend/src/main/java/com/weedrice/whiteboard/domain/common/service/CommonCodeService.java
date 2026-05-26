@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 @Service
@@ -39,9 +40,7 @@ public class CommonCodeService {
         String typeName = normalizeRequired(request.getTypeName(), MAX_TYPE_NAME_LENGTH);
         String description = normalizeDescription(request.getDescription());
 
-        if (commonCodeRepository.existsById(typeCode)) {
-            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
-        }
+        validateCommonCodeCreatable(typeCode);
 
         CommonCode commonCode = CommonCode.builder()
                 .typeCode(typeCode)
@@ -49,11 +48,8 @@ public class CommonCodeService {
                 .description(description)
                 .build();
 
-        try {
-            return CommonCodeResponse.from(commonCodeRepository.saveAndFlush(commonCode));
-        } catch (DataIntegrityViolationException ex) {
-            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
-        }
+        return saveOrThrowDuplicate(
+                () -> CommonCodeResponse.from(commonCodeRepository.saveAndFlush(commonCode)));
     }
 
     public List<CommonCodeResponse> getAllCommonCodes() {
@@ -116,13 +112,9 @@ public class CommonCodeService {
         CommonCode commonCode = commonCodeRepository.findById(normalizedTypeCode)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
-        var existingDetail = commonCodeDetailRepository
-                .findByCommonCode_TypeCodeAndCodeValue(normalizedTypeCode, codeValue);
-        if (existingDetail.isPresent()) {
-            CommonCodeDetail detail = existingDetail.get();
-            if (Boolean.TRUE.equals(detail.getIsActive())) {
-                throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
-            }
+        CommonCodeDetail restorableDetail = resolveRestorableCommonCodeDetailForCreate(normalizedTypeCode, codeValue);
+        if (restorableDetail != null) {
+            CommonCodeDetail detail = restorableDetail;
             detail.update(
                     codeName,
                     sortOrder,
@@ -138,11 +130,37 @@ public class CommonCodeService {
                 .isActive(request.getIsActive())
                 .build();
 
+        return saveOrThrowDuplicate(
+                () -> CommonCodeDetailResponse.from(commonCodeDetailRepository.saveAndFlush(detail)));
+    }
+
+    private void validateCommonCodeCreatable(String typeCode) {
+        if (commonCodeRepository.existsById(typeCode)) {
+            throw duplicateResource();
+        }
+    }
+
+    private CommonCodeDetail resolveRestorableCommonCodeDetailForCreate(String typeCode, String codeValue) {
+        return commonCodeDetailRepository.findByCommonCode_TypeCodeAndCodeValue(typeCode, codeValue)
+                .map(detail -> {
+                    if (Boolean.TRUE.equals(detail.getIsActive())) {
+                        throw duplicateResource();
+                    }
+                    return detail;
+                })
+                .orElse(null);
+    }
+
+    private <T> T saveOrThrowDuplicate(Supplier<T> saveOperation) {
         try {
-            return CommonCodeDetailResponse.from(commonCodeDetailRepository.saveAndFlush(detail));
+            return saveOperation.get();
         } catch (DataIntegrityViolationException ex) {
             throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
         }
+    }
+
+    private BusinessException duplicateResource() {
+        return new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
     }
 
     public List<CommonCodeDetailResponse> getCommonCodeDetails(String typeCode) {

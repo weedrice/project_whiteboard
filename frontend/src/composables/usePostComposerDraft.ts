@@ -9,6 +9,7 @@ type ComposerToastType = 'info' | 'success' | 'warning' | 'error'
 type UsePostComposerDraftOptions = {
   isAuthenticated: Ref<boolean>
   userId: Ref<string | number | undefined>
+  identity: Ref<string>
   mode: () => 'create' | 'edit'
   boardUrl: Ref<string>
   postId: Ref<string | number>
@@ -39,6 +40,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     isSavingDraft,
     restoreSource,
     draftId,
+    resetSession,
   } = usePostDraft({
     enabled: draftEnabled,
     storageKey: draftStorageKey,
@@ -62,9 +64,19 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
   })
 
   watch(
-    options.isLoading,
-    async (loading) => {
+    options.identity,
+    (_current, previous) => {
+      if (previous === undefined) return
+      hasRestoredDraft.value = false
+      resetSession()
+    },
+  )
+
+  watch(
+    () => [options.isLoading.value, options.identity.value] as const,
+    async ([loading]) => {
       if (loading || hasRestoredDraft.value) return
+      const restoringIdentity = options.identity.value
       hasRestoredDraft.value = true
 
       if (options.mode() === 'create' && !options.selectedCategoryId.value && options.firstCategoryId.value != null) {
@@ -72,6 +84,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
       }
 
       await restoreDraft()
+      if (restoringIdentity !== options.identity.value) return
       const restoredDraftSource = restoreSource.value
       if (restoredDraftSource !== 'idle') {
         options.addToast(

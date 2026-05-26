@@ -20,10 +20,9 @@ import PostEditorSlashMenu from '@/components/board/editor/PostEditorSlashMenu.v
 import PostEditorTablePopover from '@/components/board/editor/PostEditorTablePopover.vue'
 import PostEditorToolbar from '@/components/board/editor/PostEditorToolbar.vue'
 import '@/components/board/editor/editor.css'
-import { useAnchoredPopover } from '@/composables/useAnchoredPopover'
 import { useEditorImageUpload } from '@/composables/useEditorImageUpload'
-import { useEditorImageUploadQueue, type EditorImageUploadItem } from '@/composables/useEditorImageUploadQueue'
-import { usePopoverFocus } from '@/composables/usePopoverFocus'
+import { usePostEditorImageUploadState } from '@/composables/usePostEditorImageUploadState'
+import { usePostEditorPopovers } from '@/composables/usePostEditorPopovers'
 import { useI18n } from 'vue-i18n'
 import { useThemeStore } from '@/stores/theme'
 import { useToastStore } from '@/stores/toast'
@@ -49,11 +48,6 @@ const { t } = useI18n()
 const toastStore = useToastStore()
 const themeStore = useThemeStore()
 const fileIds = ref<number[]>([])
-const showColorPanel = ref(false)
-const showLinkPopover = ref(false)
-const showTablePopover = ref(false)
-const showSlashMenu = ref(false)
-const showImageAltPopover = ref(false)
 const linkUrl = ref('')
 const linkText = ref('')
 const imageAltText = ref('')
@@ -64,25 +58,41 @@ const savedListSelection = ref<{ from: number; to: number } | null>(null)
 const imageInput = ref<HTMLInputElement | null>(null)
 const isDraggingImage = ref(false)
 const slashActiveIndex = ref(0)
-const slashPopoverRef = ref<HTMLElement | null>(null)
-const colorPanelRef = ref<HTMLElement | null>(null)
-const linkPopoverRef = ref<HTMLElement | null>(null)
-const tablePopoverRef = ref<HTMLElement | null>(null)
-const imageAltPopoverRef = ref<HTMLElement | null>(null)
-const colorTriggerElement = ref<HTMLElement | null>(null)
 const editorImagePreviewUrls = new Set<string>()
 
 const { isUploadingImage, validateImageFile, uploadImage, abortImageUpload, isAbortUploadError } = useEditorImageUpload()
-usePopoverFocus(slashPopoverRef, showSlashMenu)
-usePopoverFocus(linkPopoverRef, showLinkPopover)
-usePopoverFocus(tablePopoverRef, showTablePopover)
-usePopoverFocus(imageAltPopoverRef, showImageAltPopover)
-const slashPosition = useAnchoredPopover(slashPopoverRef, showSlashMenu)
-const colorPosition = useAnchoredPopover(colorPanelRef, showColorPanel)
-const linkPosition = useAnchoredPopover(linkPopoverRef, showLinkPopover)
-const tablePosition = useAnchoredPopover(tablePopoverRef, showTablePopover)
-const imageAltPosition = useAnchoredPopover(imageAltPopoverRef, showImageAltPopover)
-const imageUploadQueue = useEditorImageUploadQueue<UploadedEditorImage>({
+const {
+  showColorPanel,
+  showLinkPopover,
+  showTablePopover,
+  showSlashMenu,
+  showImageAltPopover,
+  slashPopoverRef,
+  colorPanelRef,
+  linkPopoverRef,
+  tablePopoverRef,
+  imageAltPopoverRef,
+  colorTriggerElement,
+  slashPosition,
+  colorPosition,
+  linkPosition,
+  tablePosition,
+  imageAltPosition,
+  closeFloatingMenus,
+} = usePostEditorPopovers()
+const {
+  imageUploadQueue,
+  hasImageUploadError,
+  failedImageCount,
+  failedImageFiles,
+  currentUploadingImageName,
+  imageUploadQueueCount,
+  retryImageUpload,
+  retryFailedImageUpload,
+  dismissImageUploadError,
+  dismissFailedImageUpload,
+  cancelImageUpload,
+} = usePostEditorImageUploadState<UploadedEditorImage>({
   validate: validateImageFile,
   upload: uploadImage,
   isAbort: isAbortUploadError,
@@ -240,11 +250,6 @@ const currentTextColor = computed(() => editor.value?.getAttributes('textStyle')
 const isDefaultColor = computed(() => !currentTextColor.value)
 const currentFontSize = computed(() => editor.value?.getAttributes('textStyle').fontSize || '')
 const currentLineHeight = computed(() => editor.value?.getAttributes('textStyle').lineHeight || '')
-const hasImageUploadError = computed(() => imageUploadQueue.failedCount.value > 0)
-const failedImageCount = computed(() => imageUploadQueue.failedCount.value)
-const failedImageFiles = computed(() => imageUploadQueue.failedItems.value.map((item) => item.file))
-const currentUploadingImageName = computed(() => imageUploadQueue.currentItem.value?.file.name ?? '')
-const imageUploadQueueCount = computed(() => imageUploadQueue.queueCount.value)
 const activeTextAlign = computed<'left' | 'center' | 'right' | 'justify' | ''>(() => {
   if (isTextAlignActive('left')) return 'left'
   if (isTextAlignActive('center')) return 'center'
@@ -258,13 +263,6 @@ const colorPresetLabels = computed(() => Object.fromEntries(
     t(`board.writePost.colorLabels.${colorLabelKeys[index]}`),
   ]),
 ))
-
-function closeFloatingMenus() {
-  showSlashMenu.value = false
-  showColorPanel.value = false
-  colorPosition.clearAnchor()
-  colorTriggerElement.value = null
-}
 
 function openSlashMenu(anchor?: HTMLElement) {
   closeFloatingMenus()
@@ -558,32 +556,6 @@ async function onImageChange(event: Event) {
   }
 }
 
-function retryImageUpload() {
-  imageUploadQueue.retryNextFailed()
-}
-
-function retryFailedImageUpload(file: File) {
-  const item = findFailedImageUploadItem(file)
-  if (item) imageUploadQueue.retryItem(item)
-}
-
-function dismissImageUploadError() {
-  imageUploadQueue.dismissFailed()
-}
-
-function dismissFailedImageUpload(file: File) {
-  const item = findFailedImageUploadItem(file)
-  if (item) imageUploadQueue.dismissItem(item)
-}
-
-function cancelImageUpload() {
-  imageUploadQueue.cancel()
-}
-
-function findFailedImageUploadItem(file: File): EditorImageUploadItem<UploadedEditorImage> | undefined {
-  return imageUploadQueue.failedItems.value.find((item) => item.file === file)
-}
-
 function onEditorPaste(event: ClipboardEvent) {
   const files = Array.from(event.clipboardData?.files ?? [])
   if (queueImageFiles(files)) {
@@ -694,6 +666,7 @@ defineExpose({
 })
 
 onBeforeUnmount(() => {
+  imageUploadQueue.dispose()
   editorImagePreviewUrls.forEach((url) => URL.revokeObjectURL(url))
   editorImagePreviewUrls.clear()
   editor.value?.destroy()

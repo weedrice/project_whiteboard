@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, onUnmounted, watch } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import { emoticonApi } from '@/api/emoticon'
 import type { EmoticonMaster, EmoticonImage } from '@/types/emoticon'
@@ -21,6 +21,7 @@ const selectedEmoticonId = ref<number | null>(null)
 const searchKeyword = ref('')
 const isLoadingDetail = ref(false)
 let detailRequestId = 0
+let detailAbortController: AbortController | null = null
 
 // 구매한 이모티콘 목록 조회
 const { data: purchasedEmoticons, isLoading } = useQuery({
@@ -49,23 +50,43 @@ const selectedImages = computed(() => {
   return selectedEmoticon.value?.images || []
 })
 
+const resetDetailState = (options: { clearSearch?: boolean } = {}) => {
+  detailRequestId++
+  detailAbortController?.abort()
+  detailAbortController = null
+  isLoadingDetail.value = false
+  selectedEmoticon.value = null
+  selectedEmoticonId.value = null
+  if (options.clearSearch) {
+    searchKeyword.value = ''
+  }
+}
+
 const handleEmoticonClick = async (emoticon: EmoticonMaster) => {
   // 상세 정보 조회 (이미지 포함)
+  detailAbortController?.abort()
+  const controller = new AbortController()
+  detailAbortController = controller
   const requestId = ++detailRequestId
   isLoadingDetail.value = true
   selectedEmoticonId.value = emoticon.emoticonId
 
   try {
-    const emoticonDetail = await emoticonApi.getEmoticonData(emoticon.emoticonId)
+    const emoticonDetail = await emoticonApi.getEmoticonData(emoticon.emoticonId, {
+      signal: controller.signal,
+    })
     if (requestId !== detailRequestId || selectedEmoticonId.value !== emoticon.emoticonId) {
       return
     }
     selectedEmoticon.value = emoticonDetail
   } catch (error) {
-    if (requestId === detailRequestId && selectedEmoticonId.value === emoticon.emoticonId) {
+    if (!controller.signal.aborted && requestId === detailRequestId && selectedEmoticonId.value === emoticon.emoticonId) {
       logger.error('Failed to load emoticon detail:', error)
     }
   } finally {
+    if (detailAbortController === controller) {
+      detailAbortController = null
+    }
     if (requestId === detailRequestId && selectedEmoticonId.value === emoticon.emoticonId) {
       isLoadingDetail.value = false
     }
@@ -77,30 +98,23 @@ const handleImageClick = (image: EmoticonImage) => {
 }
 
 const goBack = () => {
-  detailRequestId++
-  isLoadingDetail.value = false
-  selectedEmoticon.value = null
-  selectedEmoticonId.value = null
+  resetDetailState()
 }
 
 const close = () => {
-  detailRequestId++
-  isLoadingDetail.value = false
-  selectedEmoticon.value = null
-  selectedEmoticonId.value = null
-  searchKeyword.value = ''
+  resetDetailState({ clearSearch: true })
   emit('close')
 }
 
 // 팝업이 닫힐 때 상태 초기화
 watch(() => props.show, (newVal) => {
   if (!newVal) {
-    detailRequestId++
-    isLoadingDetail.value = false
-    selectedEmoticon.value = null
-    selectedEmoticonId.value = null
-    searchKeyword.value = ''
+    resetDetailState({ clearSearch: true })
   }
+})
+
+onUnmounted(() => {
+  resetDetailState({ clearSearch: true })
 })
 </script>
 

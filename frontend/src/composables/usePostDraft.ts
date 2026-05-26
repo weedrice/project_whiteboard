@@ -124,6 +124,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const hasRestoredDraft = ref(false)
     let autosaveTimer: ReturnType<typeof setTimeout> | null = null
     let savePromise: Promise<DraftPost | null> | null = null
+    let sessionGeneration = 0
 
     const clearAutosaveTimer = () => {
         if (autosaveTimer) {
@@ -194,6 +195,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
 
     const persistNow = async () => {
         if (!options.enabled.value) return null
+        const generation = sessionGeneration
         clearAutosaveTimer()
         const payload = options.buildPayload()
         const hasMeaningfulContent = Boolean(
@@ -212,6 +214,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
                     throw error
                 }
             }
+            if (generation !== sessionGeneration) return null
             resetDraftTracking()
             writeLocalSnapshot()
             return null
@@ -220,6 +223,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         writeLocalSnapshot()
         const { data } = await savePayload(payload)
         const savedDraft = data.data
+        if (generation !== sessionGeneration) return null
         draftId.value = savedDraft.draftId
         updatedAt.value = getDraftUpdatedAt(savedDraft) ?? new Date().toISOString()
         lastSavedAt.value = updatedAt.value
@@ -253,6 +257,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
 
     const restoreDraft = async () => {
         if (hasRestoredDraft.value || !options.enabled.value) return
+        const generation = sessionGeneration
         hasRestoredDraft.value = true
 
         let localSnapshot = Storage.get<DraftRecoverySnapshot>(options.storageKey.value, null)
@@ -271,8 +276,10 @@ export function usePostDraft(options: UsePostDraftOptions) {
         if (serverDraftId != null) {
             try {
                 const { data } = await postApi.getDraft(serverDraftId)
+                if (generation !== sessionGeneration) return
                 serverDraft = data.data
             } catch (error: unknown) {
+                if (generation !== sessionGeneration) return
                 if (
                     localSnapshot?.draftId === serverDraftId
                     && isAxiosError(error)
@@ -303,6 +310,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
 
         const chosen = pickNewestSnapshot(localSnapshot, serverDraft)
         if (!chosen) return
+        if (generation !== sessionGeneration) return
 
         draftId.value = chosen.draftId ?? null
         updatedAt.value = chosen.updatedAt ?? chosen.modifiedAt ?? null
@@ -316,6 +324,15 @@ export function usePostDraft(options: UsePostDraftOptions) {
         Storage.remove(options.storageKey.value)
         resetDraftTracking()
         restoreSource.value = 'idle'
+    }
+
+    const resetSession = () => {
+        sessionGeneration++
+        clearAutosaveTimer()
+        savePromise = null
+        resetDraftTracking()
+        restoreSource.value = 'idle'
+        hasRestoredDraft.value = false
     }
 
     const cleanupDraft = async () => {
@@ -351,6 +368,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         saveNow,
         scheduleAutosave,
         restoreDraft,
+        resetSession,
         clearRecovery,
         cleanupDraft,
         writeLocalSnapshot,

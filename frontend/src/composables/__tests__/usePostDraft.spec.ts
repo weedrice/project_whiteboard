@@ -54,7 +54,7 @@ function mountComposable(payloadRef = ref({
     contents: 'Draft body',
     fileIds: [7],
     originalPostId: undefined as number | undefined,
-})) {
+}), storageKeyRef = ref('noviis:test:draft')) {
     const appliedDrafts: DraftRecoverySnapshot[] = []
     let composable: ReturnType<typeof usePostDraft> | null = null
 
@@ -62,7 +62,7 @@ function mountComposable(payloadRef = ref({
         setup() {
             composable = usePostDraft({
                 enabled: ref(true),
-                storageKey: ref('noviis:test:draft'),
+                storageKey: storageKeyRef,
                 buildPayload: () => payloadRef.value,
                 applyDraft: (draft) => appliedDrafts.push(draft),
             })
@@ -296,6 +296,68 @@ describe('usePostDraft', () => {
             ...payloadRef.value,
             title: 'Autosaved title',
         }
+    })
+
+    it('resets draft restoration tracking for a changed form identity', async () => {
+        const storageKeyRef = ref('noviis:test:draft:first')
+        Storage.set('noviis:test:draft:first', {
+            boardUrl: 'free',
+            title: 'First local draft',
+            contents: 'First contents',
+            fileIds: [],
+        })
+        Storage.set('noviis:test:draft:second', {
+            boardUrl: 'free',
+            title: 'Second local draft',
+            contents: 'Second contents',
+            fileIds: [],
+        })
+        const { composable, appliedDrafts } = mountComposable(undefined, storageKeyRef)
+
+        await composable.restoreDraft()
+        composable.resetSession()
+        storageKeyRef.value = 'noviis:test:draft:second'
+        await composable.restoreDraft()
+
+        expect(appliedDrafts.map((draft) => draft.title)).toEqual([
+            'First local draft',
+            'Second local draft',
+        ])
+    })
+
+    it('ignores an in-flight save result after the form identity resets', async () => {
+        let resolveSave: (value: unknown) => void = () => undefined
+        mocks.saveDraftMutateAsync.mockReturnValueOnce(new Promise((resolve) => {
+            resolveSave = resolve
+        }))
+        const { composable } = mountComposable()
+
+        const savePromise = composable.saveNow()
+        composable.resetSession()
+        resolveSave({
+            data: {
+                data: {
+                    draftId: 91,
+                    boardId: 1,
+                    boardUrl: 'free',
+                    boardName: 'Free',
+                    title: 'Stale draft',
+                    contents: 'Stale body',
+                    tags: [],
+                    fileIds: [],
+                    isNotice: false,
+                    isNsfw: false,
+                    isSpoiler: false,
+                    isSecret: false,
+                    updatedAt: '2025-01-01T00:00:00.000Z',
+                    modifiedAt: '2025-01-01T00:00:00.000Z',
+                },
+            },
+        })
+
+        await expect(savePromise).resolves.toBeNull()
+        expect(composable.draftId.value).toBeNull()
+        expect(composable.lastSavedAt.value).toBeNull()
     })
 
     it('does not auto-restore create drafts when multiple server drafts match the same board', async () => {
