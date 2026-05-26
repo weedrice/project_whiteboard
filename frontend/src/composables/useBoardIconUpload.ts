@@ -8,6 +8,11 @@ interface UseBoardIconUploadOptions {
   setIconUrl: (iconUrl: string) => void
 }
 
+export async function uploadBoardIconFile(file: File): Promise<string | null> {
+  const { data } = await fileApi.uploadFile(file)
+  return data.success ? data.data.url : null
+}
+
 export function useBoardIconUpload({ setIconUrl }: UseBoardIconUploadOptions) {
   const { t } = useI18n()
   const toastStore = useToastStore()
@@ -18,10 +23,9 @@ export function useBoardIconUpload({ setIconUrl }: UseBoardIconUploadOptions) {
     if (!file) return
 
     try {
-      const { data } = await fileApi.uploadFile(file)
-
-      if (data.success) {
-        setIconUrl(data.data.url)
+      const iconUrl = await uploadBoardIconFile(file)
+      if (iconUrl) {
+        setIconUrl(iconUrl)
       }
     } catch (error: unknown) {
       logger.error('Failed to upload board icon:', error)

@@ -29,10 +29,14 @@ vi.mock('@tanstack/vue-query', () => ({
     return {
       data: ref({
         emoticonId: 9,
+        name: 'Novi',
         creatorId: 2,
         isActive: true,
         price: 100,
+        tags: [],
         images: [],
+        createdAt: '2026-05-01T10:00:00',
+        modifiedAt: '2026-05-01T10:00:00',
       }),
       isLoading: ref(false),
       error: ref(null),
