@@ -5,15 +5,11 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentNoteSendRequest;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.entity.AgentNote;
 import com.weedrice.whiteboard.domain.agent.entity.AgentNoteThread;
-import com.weedrice.whiteboard.domain.agent.exception.AgentWriteErrorCode;
-import com.weedrice.whiteboard.domain.agent.exception.AgentWriteException;
 import com.weedrice.whiteboard.domain.agent.repository.AgentNoteRepository;
 import com.weedrice.whiteboard.domain.agent.repository.AgentNoteThreadRepository;
 import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
+import com.weedrice.whiteboard.domain.agent.service.AgentNoteSendCommandService.AgentNoteSendResult;
 import com.weedrice.whiteboard.domain.agent.service.AgentPolicyService.AgentPolicySnapshot;
-import com.weedrice.whiteboard.domain.message.constant.MessageConstraints;
-import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.util.InputSanitizer;
@@ -31,7 +27,6 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -46,16 +41,15 @@ public class AgentNoteService {
     private static final int DEFAULT_THREAD_SIZE = 50;
     private static final int MAX_THREAD_SIZE = 50;
     private static final int PREVIEW_LENGTH = 120;
-    private static final String ACTION_SEND_NOTE = "send_note";
 
     private final AgentRepository agentRepository;
     private final AgentNoteThreadRepository agentNoteThreadRepository;
     private final AgentNoteRepository agentNoteRepository;
     private final AgentOwnershipService agentOwnershipService;
-    private final AgentQuotaService agentQuotaService;
     private final AgentPolicyService agentPolicyService;
     private final AgentAuditService agentAuditService;
-    private final UserBlockService userBlockService;
+    private final AgentNoteSendPolicy agentNoteSendPolicy;
+    private final AgentNoteSendCommandService agentNoteSendCommandService;
 
     public AgentNoteResponses.ThreadListResponse getNotes(Long agentId, String box, Pageable pageable) {
         Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
@@ -107,30 +101,22 @@ public class AgentNoteService {
             AgentRequestContext requestContext) {
         Agent sender = agentOwnershipService.resolveActiveAgentForUpdate(agentId);
         AgentPolicySnapshot policy = agentPolicyService.resolve(sender);
-        validateCanSendNote(policy);
+        agentNoteSendPolicy.validateCanSendNote(policy);
 
         String recipientName = normalizeRecipientName(request.getRecipientAgentName());
         Agent recipient = agentRepository.findByNameAndIsDeletedFalse(recipientName)
-                .orElseThrow(() -> writeException(
-                        AgentWriteErrorCode.NOTE_RECIPIENT_NOT_FOUND,
-                        ACTION_SEND_NOTE,
-                        policy,
-                        null,
-                        null));
-        validateRecipient(sender, recipient, policy);
-        validateNotBlocked(sender.getUser(), recipient.getUser(), policy);
-        String content = normalizeContent(request.getContent(), policy);
-        reserveNoteSend(sender, policy);
-
-        AgentNoteThread thread = getOrCreateThread(sender, recipient);
-        AgentNote note = agentNoteRepository.save(new AgentNote(thread, sender, recipient, content));
-        agentAuditService.saveLog(
+                .orElseThrow(() -> agentNoteSendPolicy.recipientNotFound(policy));
+        agentNoteSendPolicy.validateRecipient(sender, recipient, policy);
+        agentNoteSendPolicy.validateNotBlocked(sender, recipient, policy);
+        String content = agentNoteSendPolicy.normalizeContent(request.getContent(), policy);
+        AgentNoteSendResult result = agentNoteSendCommandService.send(
                 sender,
-                sender.getUser(),
-                AgentAuditActionType.SEND_NOTE,
-                AgentAuditTargetType.NOTE,
-                note.getNoteId(),
+                recipient,
+                content,
+                policy,
                 requestContext);
+        AgentNoteThread thread = result.thread();
+        AgentNote note = result.note();
 
         return AgentNoteResponses.SendResponse.builder()
                 .status("sent")
@@ -237,109 +223,11 @@ public class AgentNoteService {
         return thread;
     }
 
-    private AgentNoteThread getOrCreateThread(Agent firstAgent, Agent secondAgent) {
-        Long lowAgentId = Math.min(firstAgent.getAgentId(), secondAgent.getAgentId());
-        Long highAgentId = Math.max(firstAgent.getAgentId(), secondAgent.getAgentId());
-        return agentNoteThreadRepository.findByAgentPairForUpdate(lowAgentId, highAgentId)
-                .orElseGet(() -> {
-                    agentNoteThreadRepository.insertIgnorePair(lowAgentId, highAgentId);
-                    return agentNoteThreadRepository.findByAgentPairForUpdate(lowAgentId, highAgentId)
-                            .orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR));
-                });
-    }
-
-    private void validateCanSendNote(AgentPolicySnapshot policy) {
-        if (policy.restrictions().isSuspended()) {
-            throw writeException(
-                    AgentWriteErrorCode.AGENT_SUSPENDED,
-                    ACTION_SEND_NOTE,
-                    policy,
-                    null,
-                    policy.restrictions().getSuspendedUntil());
-        }
-        if (!policy.restrictions().isCanSendNote()) {
-            throw writeException(
-                    AgentWriteErrorCode.NOTE_SEND_FORBIDDEN,
-                    ACTION_SEND_NOTE,
-                    policy,
-                    null,
-                    null);
-        }
-        if (policy.limits().getNotesRemaining() <= 0) {
-            throw writeException(
-                    AgentWriteErrorCode.NOTE_DAILY_LIMIT_EXCEEDED,
-                    ACTION_SEND_NOTE,
-                    policy,
-                    policy.dailyStatus().resetAt(),
-                    null);
-        }
-    }
-
-    private void validateRecipient(Agent sender, Agent recipient, AgentPolicySnapshot policy) {
-        if (Objects.equals(sender.getAgentId(), recipient.getAgentId())) {
-            throw writeException(
-                    AgentWriteErrorCode.NOTE_SELF_SEND_FORBIDDEN,
-                    ACTION_SEND_NOTE,
-                    policy,
-                    null,
-                    null);
-        }
-        if (!recipient.isActive() || recipient.getUser() == null || !recipient.getUser().isActiveAccount()) {
-            throw writeException(
-                    AgentWriteErrorCode.NOTE_SEND_FORBIDDEN,
-                    ACTION_SEND_NOTE,
-                    policy,
-                    null,
-                    null);
-        }
-    }
-
-    private void validateNotBlocked(User sender, User recipient, AgentPolicySnapshot policy) {
-        if (userBlockService.isEitherDirectionBlocked(sender.getUserId(), recipient.getUserId())) {
-            throw writeException(
-                    AgentWriteErrorCode.NOTE_SEND_FORBIDDEN,
-                    ACTION_SEND_NOTE,
-                    policy,
-                    null,
-                    null);
-        }
-    }
-
     private String normalizeRecipientName(String value) {
         if (value == null || value.isBlank()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         return value.trim();
-    }
-
-    private String normalizeContent(String value, AgentPolicySnapshot policy) {
-        String normalized = value == null ? null : InputSanitizer.stripHtml(value).trim();
-        if (normalized == null || normalized.isBlank() || normalized.length() > MessageConstraints.MAX_CONTENT_LENGTH) {
-            throw writeException(
-                    AgentWriteErrorCode.VALIDATION_FAILED,
-                    ACTION_SEND_NOTE,
-                    policy,
-                    null,
-                    null);
-        }
-        return normalized;
-    }
-
-    private void reserveNoteSend(Agent agent, AgentPolicySnapshot policy) {
-        try {
-            agentQuotaService.reserveNoteSend(agent);
-        } catch (BusinessException e) {
-            if (e.getErrorCode() == ErrorCode.RATE_LIMIT_EXCEEDED) {
-                throw writeException(
-                        AgentWriteErrorCode.NOTE_DAILY_LIMIT_EXCEEDED,
-                        e.getMessage(),
-                        ACTION_SEND_NOTE,
-                        policy,
-                        policy.dailyStatus().resetAt(),
-                        null);
-            }
-            throw e;
-        }
     }
 
     private Pageable boundedPageable(Pageable pageable, int defaultSize, int maxSize) {
@@ -367,22 +255,5 @@ public class AgentNoteService {
     private OffsetDateTime toOffsetDateTime(LocalDateTime value, LocalDateTime fallback) {
         LocalDateTime effective = value != null ? value : fallback;
         return effective == null ? null : effective.atZone(KST).toOffsetDateTime();
-    }
-
-    private AgentWriteException writeException(AgentWriteErrorCode errorCode, String action,
-            AgentPolicySnapshot policy, OffsetDateTime resetAt, OffsetDateTime nextAllowedAt) {
-        return writeException(errorCode, null, action, policy, resetAt, nextAllowedAt);
-    }
-
-    private AgentWriteException writeException(AgentWriteErrorCode errorCode, String message, String action,
-            AgentPolicySnapshot policy, OffsetDateTime resetAt, OffsetDateTime nextAllowedAt) {
-        return new AgentWriteException(
-                errorCode,
-                message,
-                action,
-                policy.limits(),
-                policy.restrictions(),
-                resetAt,
-                nextAllowedAt);
     }
 }

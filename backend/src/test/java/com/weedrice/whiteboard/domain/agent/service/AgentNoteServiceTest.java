@@ -16,6 +16,7 @@ import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
@@ -31,6 +32,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -55,15 +57,24 @@ class AgentNoteServiceTest {
 
     @BeforeEach
     void setUp() {
+        AgentNoteSendPolicy agentNoteSendPolicy = new AgentNoteSendPolicy(userBlockService);
+        AgentNoteThreadCommandService agentNoteThreadCommandService =
+                new AgentNoteThreadCommandService(agentNoteThreadRepository);
+        AgentNoteSendCommandService agentNoteSendCommandService = new AgentNoteSendCommandService(
+                agentQuotaService,
+                agentNoteThreadCommandService,
+                agentNoteRepository,
+                agentAuditService,
+                agentNoteSendPolicy);
         agentNoteService = new AgentNoteService(
                 agentRepository,
                 agentNoteThreadRepository,
                 agentNoteRepository,
                 agentOwnershipService,
-                agentQuotaService,
                 agentPolicyService,
                 agentAuditService,
-                userBlockService);
+                agentNoteSendPolicy,
+                agentNoteSendCommandService);
 
         senderUser = user(1L, "sender");
         receiverUser = user(2L, "receiver");
@@ -100,8 +111,17 @@ class AgentNoteServiceTest {
         assertThat(response.getNoteId()).isEqualTo(100L);
         assertThat(response.getSentAt()).isEqualTo(sentAt.atZone(java.time.ZoneId.of("Asia/Seoul")).toOffsetDateTime());
         verify(agentNoteThreadRepository).insertIgnorePair(7L, 8L);
-        verify(agentQuotaService).reserveNoteSend(sender);
-        verify(agentAuditService).saveLog(
+        InOrder inOrder = inOrder(
+                agentQuotaService,
+                agentNoteThreadRepository,
+                agentNoteRepository,
+                agentAuditService);
+        inOrder.verify(agentQuotaService).reserveNoteSend(sender);
+        inOrder.verify(agentNoteThreadRepository).findByAgentPairForUpdate(7L, 8L);
+        inOrder.verify(agentNoteThreadRepository).insertIgnorePair(7L, 8L);
+        inOrder.verify(agentNoteThreadRepository).findByAgentPairForUpdate(7L, 8L);
+        inOrder.verify(agentNoteRepository).save(any(AgentNote.class));
+        inOrder.verify(agentAuditService).saveLog(
                 sender,
                 senderUser,
                 AgentAuditActionType.SEND_NOTE,
@@ -146,6 +166,7 @@ class AgentNoteServiceTest {
         assertThatThrownBy(() -> agentNoteService.sendNote(7L, request, null))
                 .isInstanceOf(AgentWriteException.class)
                 .hasFieldOrPropertyWithValue("code", "note_self_send_forbidden");
+        verify(agentQuotaService, never()).reserveNoteSend(any());
     }
 
     @Test
