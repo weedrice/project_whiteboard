@@ -1,103 +1,31 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { useQuery, useQueryClient } from '@tanstack/vue-query'
-import { adminApi } from '@/api/admin'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import CommentList from '@/components/comment/CommentList.vue'
 import { useI18n } from 'vue-i18n'
-import type { Post, PostSummary } from '@/types'
-import { renderPostContentHtml } from '@/utils/postContentHtml'
+import { useAdminInquiryPosts } from '@/composables/useAdminInquiryPosts'
 
 const { t } = useI18n()
-const queryClient = useQueryClient()
-
-const page = ref(0)
-const size = ref(20)
-const sort = ref('createdAt,desc')
-const selectedPostId = ref<number | null>(null)
-
-watch(sort, () => {
-  page.value = 0
-})
-
-const { data, isLoading, isFetching, error } = useQuery({
-  queryKey: ['admin', 'inquiry-posts', page, size, sort],
-  queryFn: async () => {
-    const { data } = await adminApi.getInquiryPosts({
-      page: page.value,
-      size: size.value,
-      sort: sort.value
-    })
-    return data.data
-  },
-  placeholderData: (previousData) => previousData
-})
-
 const {
-  data: selectedPost,
-  isLoading: isDetailLoading,
-  isFetching: isDetailFetching,
-  error: detailError
-} = useQuery({
-  queryKey: ['admin', 'inquiry-post-detail', selectedPostId],
-  queryFn: async () => {
-    const postId = selectedPostId.value
-    if (!postId) {
-      throw new Error('Invalid post id')
-    }
-    const { data } = await adminApi.getInquiryPost(postId)
-    return data.data as Post
-  },
-  enabled: computed(() => selectedPostId.value !== null)
-})
-
-const posts = computed(() => (data.value?.content || []) as PostSummary[])
-const totalPages = computed(() => data.value?.totalPages || 0)
-const totalElements = computed(() => data.value?.totalElements || 0)
-const selectedPostContentsHtml = computed(() => renderPostContentHtml(selectedPost.value?.contents))
-
-function handlePageChange(nextPage: number) {
-  page.value = nextPage
-}
-
-function formatDate(dateString?: string) {
-  if (!dateString) return '-'
-  const date = new Date(dateString)
-  if (Number.isNaN(date.getTime())) return '-'
-  return date.toLocaleString()
-}
-
-function stripHtml(value?: string) {
-  if (!value) return ''
-  return value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-}
-
-function truncateText(value: string, maxLength = 50) {
-  if (value.length <= maxLength) return value
-  return `${value.slice(0, maxLength)}...`
-}
-
-function getSummary(post: PostSummary) {
-  const plain = stripHtml(post.summary || '')
-  if (!plain) return '-'
-  return truncateText(plain, 50)
-}
-
-function getInquiryStatusLabel(post: PostSummary) {
-  return post.inquiryAnswered ? t('admin.inquiries.status.answered') : t('admin.inquiries.status.pending')
-}
-
-function openDetail(postId: number) {
-  selectedPostId.value = postId
-}
-
-function closeDetail() {
-  queryClient.invalidateQueries({ queryKey: ['admin', 'inquiry-posts'] })
-  selectedPostId.value = null
-}
+  closeDetail,
+  detailError,
+  error,
+  handlePageChange,
+  isDetailFetching,
+  isDetailLoading,
+  isFetching,
+  isLoading,
+  openDetail,
+  page,
+  posts,
+  selectedInquiry,
+  selectedPostId,
+  sort,
+  totalElements,
+  totalPages,
+} = useAdminInquiryPosts()
 </script>
 
 <template>
@@ -148,30 +76,30 @@ function closeDetail() {
             </tr>
             <tr
               v-for="post in posts"
-              :key="post.postId"
+              :key="post.id"
               class="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40"
-              @click="openDetail(post.postId)"
+              @click="openDetail(post.id)"
             >
               <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                <button type="button" class="max-w-[280px] truncate text-left hover:underline" @click.stop="openDetail(post.postId)">
+                <button type="button" class="max-w-[280px] truncate text-left hover:underline" @click.stop="openDetail(post.id)">
                   {{ post.title }}
                 </button>
               </td>
               <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                {{ getSummary(post) }}
+                {{ post.summaryText }}
               </td>
               <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                {{ post.author?.displayName || post.authorName || '-' }}
+                {{ post.authorName }}
               </td>
               <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                {{ formatDate(post.createdAt) }}
+                {{ post.createdAtText }}
               </td>
               <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                 <span
                   class="inline-flex rounded-full px-2 py-1 text-xs font-medium"
-                  :class="post.inquiryAnswered ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'"
+                  :class="post.statusClass"
                 >
-                  {{ getInquiryStatusLabel(post) }}
+                  {{ t(post.statusLabelKey) }}
                 </span>
               </td>
             </tr>
@@ -199,22 +127,22 @@ function closeDetail() {
           {{ t('common.messages.loadFailed') }}
         </div>
 
-        <template v-else-if="selectedPost">
+        <template v-else-if="selectedInquiry">
           <div class="space-y-2 border-b border-gray-200 pb-3 dark:border-gray-700">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ selectedPost.title }}</h2>
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ selectedInquiry.title }}</h2>
             <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-              <span>{{ t('common.author') }} {{ selectedPost.author?.displayName || '-' }}</span>
-              <span>{{ t('common.createdAt') }} {{ formatDate(selectedPost.createdAt) }}</span>
+              <span>{{ t('common.author') }} {{ selectedInquiry.authorName }}</span>
+              <span>{{ t('common.createdAt') }} {{ selectedInquiry.createdAtText }}</span>
             </div>
           </div>
 
           <div class="max-h-[60vh] overflow-y-auto rounded-md bg-gray-50 p-4 text-sm text-gray-800 dark:bg-gray-900/30 dark:text-gray-200">
-            <div v-if="selectedPostContentsHtml" class="break-words leading-6" v-html="selectedPostContentsHtml" />
+            <div v-if="selectedInquiry.contentsHtml" class="break-words leading-6" v-html="selectedInquiry.contentsHtml" />
             <div v-else>-</div>
           </div>
 
           <div class="border-t border-gray-200 pt-4 dark:border-gray-700">
-            <CommentList :postId="selectedPost.postId" boardUrl="inquiry" />
+            <CommentList :postId="selectedInquiry.id" boardUrl="inquiry" />
           </div>
         </template>
       </div>

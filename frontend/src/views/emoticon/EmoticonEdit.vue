@@ -267,11 +267,11 @@ const handleSubmit = async () => {
     // 3. 새 이미지 업로드 및 추가
     if (uploadFiles.length > 0) {
       const imageFileIds = await imageUploader.uploadFiles(uploadFiles, currentRunId)
-      for (const fileId of imageFileIds) {
+      await Promise.all(imageFileIds.map(async (fileId) => {
         uploadSession.assertSubmitActive(currentRunId)
         await emoticonApi.addImage(emoticonId.value, fileId)
         uploadSession.assertSubmitActive(currentRunId)
-      }
+      }))
     }
 
     // 4. 이모티콘 정보 수정 (이름, 썸네일, 태그)
