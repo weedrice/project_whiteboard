@@ -2,20 +2,15 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { authApi } from '@/api/auth'
 import { useEmailVerificationFlow } from '@/composables/useEmailVerificationFlow'
+import { useFindIdFlow } from '@/composables/useFindIdFlow'
+import { usePasswordResetByVerificationFlow } from '@/composables/usePasswordResetByVerificationFlow'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import { useToastStore } from '@/stores/toast'
-import { extractErrorMessage } from '@/utils/errorHandler'
-import { useAuthPasswordValidation } from '@/composables/useAuthPasswordValidation'
-import axios from 'axios'
 import { Mail, ChevronLeft, Key, User, CheckCircle } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const router = useRouter()
-const toastStore = useToastStore()
-const { validatePasswordPair } = useAuthPasswordValidation()
 
 const activeTab = ref('id')
 const form = reactive({
@@ -57,6 +52,35 @@ const switchTab = (tab: string) => {
     resetState()
 }
 
+const { findId } = useFindIdFlow({
+    getEmail: () => form.email,
+    onLoadingChange: (loading) => {
+        status.loading = loading
+    },
+    onSuccess: ({ loginId, verificationTicket }) => {
+        status.isVerified = true
+        status.verificationTicket = verificationTicket
+        status.foundId = loginId
+    }
+})
+
+const {
+    completeVerification: completePasswordResetVerification,
+    resetPassword: handleResetPassword
+} = usePasswordResetByVerificationFlow({
+    getEmail: () => form.email,
+    getVerificationTicket: () => status.verificationTicket,
+    getNewPassword: () => form.newPassword,
+    getConfirmPassword: () => form.confirmPassword,
+    onLoadingChange: (loading) => {
+        status.loading = loading
+    },
+    onVerified: (verificationTicket) => {
+        status.isVerified = true
+        status.verificationTicket = verificationTicket
+    }
+})
+
 const {
     sendVerifyCode: handleSendCode,
     verifyEmailCode: handleVerifyCode
@@ -81,69 +105,11 @@ const {
         if (activeTab.value === 'id') {
             await findId(verificationTicket)
         } else {
-            status.isVerified = true
-            status.verificationTicket = verificationTicket
-            toastStore.addToast(t('auth.codeVerified'), 'success')
+            completePasswordResetVerification(verificationTicket)
         }
     },
     onSendError: () => true
 })
-
-const findId = async (verificationTicket: string) => {
-    try {
-        const { data } = await authApi.findId(form.email.trim(), verificationTicket)
-        if (data.success) {
-            status.isVerified = true
-            status.verificationTicket = verificationTicket
-            status.foundId = data.data.loginId
-            toastStore.addToast(t('auth.codeVerified'), 'success')
-        }
-    } catch (error: unknown) {
-        if (axios.isAxiosError(error) && error.response?.data?.error?.code === 'A009') {
-            toastStore.addToast(t('auth.userDeleted'), 'info')
-            router.push(`/signup?email=${encodeURIComponent(form.email.trim())}`)
-        } else {
-            const message = extractErrorMessage(error) || t('auth.verificationFailed')
-            toastStore.addToast(message, 'error')
-        }
-    }
-}
-
-const handleResetPassword = async () => {
-    const passwordError = validatePasswordPair(form.newPassword, form.confirmPassword, {
-        messages: {
-            invalid: t('auth.validation.passwordStrength'),
-            mismatch: t('auth.passwordMismatch')
-        }
-    })
-    if (passwordError) {
-        toastStore.addToast(passwordError, 'error')
-        return
-    }
-
-    status.loading = true
-    try {
-        const { data } = await authApi.resetPassword({
-            email: form.email.trim(),
-            verificationTicket: status.verificationTicket,
-            newPassword: form.newPassword
-        })
-        if (data.success) {
-            toastStore.addToast(t('auth.passwordResetSuccess'), 'success')
-            router.push('/login')
-        }
-    } catch (error: unknown) {
-        if (axios.isAxiosError(error) && error.response?.data?.error?.code === 'A009') {
-            toastStore.addToast(t('auth.userDeleted'), 'info')
-            router.push(`/signup?email=${encodeURIComponent(form.email.trim())}`)
-        } else {
-            const message = extractErrorMessage(error) || t('auth.verificationFailed')
-            toastStore.addToast(message, 'error')
-        }
-    } finally {
-        status.loading = false
-    }
-}
 </script>
 
 <template>
