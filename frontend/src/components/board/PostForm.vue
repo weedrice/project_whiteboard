@@ -426,13 +426,25 @@ function syncEditorFocus(value: boolean) {
   window.dispatchEvent(new CustomEvent('noviis:editor-focus-change', { detail: value }))
 }
 
+let focusOutTimerId: number | undefined
+
+function clearFocusOutTimer() {
+  if (focusOutTimerId === undefined || typeof window === 'undefined') return
+  window.clearTimeout(focusOutTimerId)
+  focusOutTimerId = undefined
+}
+
 function handleFocusIn() {
+  clearFocusOutTimer()
   isEditorFocusWithin.value = true
   syncEditorFocus(true)
 }
 
 function handleFocusOut() {
-  setTimeout(() => {
+  clearFocusOutTimer()
+  if (typeof window === 'undefined') return
+  focusOutTimerId = window.setTimeout(() => {
+    focusOutTimerId = undefined
     if (!composePageRef.value?.contains(document.activeElement)) {
       isEditorFocusWithin.value = false
       syncEditorFocus(false)
@@ -578,6 +590,7 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown)
   window.removeEventListener('beforeunload', onBeforeUnload)
+  clearFocusOutTimer()
   syncEditorFocus(false)
 })
 
