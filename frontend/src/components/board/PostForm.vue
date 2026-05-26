@@ -74,12 +74,26 @@ type FormState = {
   isSecret: boolean
 }
 
+function createEmptyFormState(): FormState {
+  return {
+    title: '',
+    content: '',
+    categoryId: '',
+    tags: [],
+    isNsfw: false,
+    isSpoiler: false,
+    isNotice: false,
+    isSecret: false,
+  }
+}
+
 const { t } = useI18n()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
 
 const boardUrl = computed(() => props.boardUrl ?? '')
 const postId = computed(() => props.postId ?? '')
+const formIdentity = computed(() => `${props.mode}:${boardUrl.value || 'unknown'}:${postId.value || 'new'}`)
 
 const { useBoardDetail } = useBoard()
 const {
@@ -116,16 +130,7 @@ const hasRestoredDraft = ref(false)
 const hasHydratedEditPost = ref(false)
 const isEditorFocusWithin = ref(false)
 
-const form = ref<FormState>({
-  title: '',
-  content: '',
-  categoryId: '',
-  tags: [],
-  isNsfw: false,
-  isSpoiler: false,
-  isNotice: false,
-  isSecret: false,
-})
+const form = ref<FormState>(createEmptyFormState())
 
 usePopoverFocus(videoPopoverRef, showVideoPopover)
 
@@ -282,6 +287,7 @@ const {
   isSavingDraft,
   restoreSource,
   draftId,
+  resetSession: resetDraftSession,
 } = usePostDraft({
   enabled: draftEnabled,
   storageKey: draftStorageKey,
@@ -292,6 +298,15 @@ const {
   }),
   applyDraft: applyDraftSnapshot,
 })
+
+function resetFormIdentityState() {
+  hasHydratedEditPost.value = false
+  hasRestoredDraft.value = false
+  draftFileIds.value = []
+  initialFormSnapshot.value = null
+  form.value = createEmptyFormState()
+  resetDraftSession()
+}
 
 const draftStatusLabel = computed(() => {
   if (!draftEnabled.value) return ''
@@ -306,6 +321,7 @@ const draftStatusLabel = computed(() => {
 
 watchEffect(() => {
   if (props.mode !== 'edit' || !post.value || hasHydratedEditPost.value) return
+  if (String(post.value.postId) !== String(postId.value)) return
   hasHydratedEditPost.value = true
   applyDraftSnapshot({
     title: post.value.title,
@@ -322,9 +338,18 @@ watchEffect(() => {
 })
 
 watch(
-  isLoading,
-  async (loading) => {
+  formIdentity,
+  (_current, previous) => {
+    if (previous === undefined) return
+    resetFormIdentityState()
+  },
+)
+
+watch(
+  () => [isLoading.value, formIdentity.value] as const,
+  async ([loading]) => {
     if (loading || hasRestoredDraft.value) return
+    const restoringIdentity = formIdentity.value
     hasRestoredDraft.value = true
 
     if (props.mode === 'create' && !form.value.categoryId && filteredCategories.value.length > 0) {
@@ -332,6 +357,7 @@ watch(
     }
 
     await restoreDraft()
+    if (restoringIdentity !== formIdentity.value) return
     const restoredDraftSource = restoreSource.value
     if (restoredDraftSource !== 'idle') {
       toastStore.addToast(
