@@ -10,8 +10,6 @@ import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchService;
 import com.weedrice.whiteboard.domain.search.service.SearchService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
-import com.weedrice.whiteboard.global.exception.BusinessException;
-import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -21,6 +19,9 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+
+import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.optionalUserId;
+import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
 
 @RestController
 @RequestMapping("/api/v1/search")
@@ -35,7 +36,7 @@ public class SearchController {
             @RequestParam String q,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        Long userId = (userDetails != null) ? userDetails.getUserId() : null;
+        Long userId = optionalUserId(userDetails);
         IntegratedSearchResponse response = searchService.integratedSearch(q, userId);
         return ApiResponse.success(response);
     }
@@ -50,7 +51,7 @@ public class SearchController {
             Sort sort,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        Long userId = (userDetails != null) ? userDetails.getUserId() : null;
+        Long userId = optionalUserId(userDetails);
         Page<PostSummary> response = searchService.searchPosts(q, searchType, boardUrl, page, size, sort, userId);
 
         return ApiResponse.success(new PageResponse<>(response));
@@ -65,7 +66,7 @@ public class SearchController {
             @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        Long userId = (userDetails != null) ? userDetails.getUserId() : null;
+        Long userId = optionalUserId(userDetails);
         Page<SemanticSearchResultResponse> response = semanticSearchService.search(
                 q, contentType, boardUrl, page, size, userId);
         return ApiResponse.success(new PageResponse<>(response));
@@ -83,26 +84,19 @@ public class SearchController {
     public ApiResponse<SearchPersonalizationResponse> getRecentSearches(
             Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(searchService.getRecentSearches(currentUserId(userDetails), pageable));
+        return ApiResponse.success(searchService.getRecentSearches(requiredUserId(userDetails), pageable));
     }
 
     @DeleteMapping("/recent/{logId}")
     public ApiResponse<Void> deleteRecentSearch(@PathVariable Long logId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        searchService.deleteRecentSearch(currentUserId(userDetails), logId);
+        searchService.deleteRecentSearch(requiredUserId(userDetails), logId);
         return ApiResponse.success(null);
     }
 
     @DeleteMapping("/recent")
     public ApiResponse<Void> deleteAllRecentSearches(@AuthenticationPrincipal CustomUserDetails userDetails) {
-        searchService.deleteAllRecentSearches(currentUserId(userDetails));
+        searchService.deleteAllRecentSearches(requiredUserId(userDetails));
         return ApiResponse.success(null);
-    }
-
-    private Long currentUserId(CustomUserDetails userDetails) {
-        if (userDetails == null) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED);
-        }
-        return userDetails.getUserId();
     }
 }

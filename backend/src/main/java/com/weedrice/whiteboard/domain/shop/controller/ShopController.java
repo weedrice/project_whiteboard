@@ -9,8 +9,10 @@ import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
 
 @RestController
 @RequestMapping("/api/v1/shop")
@@ -30,8 +32,10 @@ public class ShopController {
 
     @PostMapping("/items/{itemId}/purchase")
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<Long> purchaseItem(@PathVariable Long itemId, Authentication authentication) {
-        Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
+    public ApiResponse<Long> purchaseItem(
+            @PathVariable Long itemId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        Long userId = requiredUserId(userDetails);
         return ApiResponse.success(shopService.purchaseItem(userId, itemId));
     }
 
@@ -39,8 +43,8 @@ public class ShopController {
     public ApiResponse<PurchaseHistoryResponse> getMyPurchaseHistories(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            Authentication authentication) {
-        Long userId = ((CustomUserDetails) authentication.getPrincipal()).getUserId();
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        Long userId = requiredUserId(userDetails);
         Pageable pageable = PageRequestUtils.of(page, size);
         return ApiResponse.success(shopService.getPurchaseHistories(userId, pageable));
     }

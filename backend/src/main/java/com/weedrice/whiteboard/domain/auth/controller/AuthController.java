@@ -43,6 +43,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
+import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.optionalUserId;
+
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
@@ -178,7 +180,7 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Void>> sendVerificationCode(
             @Valid @RequestBody EmailVerificationRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long currentUserId = userDetails != null ? userDetails.getUserId() : null;
+        Long currentUserId = optionalUserId(userDetails);
         verificationCodeService.sendVerificationCode(
                 request.getEmail(),
                 request.getPurpose().toPurpose(),

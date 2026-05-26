@@ -26,6 +26,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.optionalUserId;
+import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
+
 @RestController
 @RequestMapping("/api/v1/boards")
 @RequiredArgsConstructor
@@ -36,44 +39,44 @@ public class BoardController {
 
     @GetMapping
     public ApiResponse<List<BoardListResponse>> getBoards(@AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(boardService.getActiveBoards(userIdOrNull(userDetails)));
+        return ApiResponse.success(boardService.getActiveBoards(optionalUserId(userDetails)));
     }
 
     @GetMapping("/all")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ApiResponse<List<AdminBoardResponse>> getAllBoards(@AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(boardService.getAllBoards(userIdOrNull(userDetails)));
+        return ApiResponse.success(boardService.getAllBoards(requiredUserId(userDetails)));
     }
 
     @GetMapping("/top")
     public ApiResponse<List<BoardListResponse>> getTopBoards(@AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(boardService.getTopBoards(userIdOrNull(userDetails)));
+        return ApiResponse.success(boardService.getTopBoards(optionalUserId(userDetails)));
     }
 
     @GetMapping("/{boardUrl}")
     public ApiResponse<BoardDetailResponse> getBoardDetails(@PathVariable String boardUrl,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(boardService.getBoardDetails(boardUrl, userIdOrNull(userDetails)));
+        return ApiResponse.success(boardService.getBoardDetails(boardUrl, optionalUserId(userDetails)));
     }
 
     @GetMapping("/{boardUrl}/notices")
     public ApiResponse<List<PostSummary>> getNotices(@PathVariable String boardUrl,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(boardService.getNoticeSummaries(boardUrl, userIdOrNull(userDetails)));
+        return ApiResponse.success(boardService.getNoticeSummaries(boardUrl, optionalUserId(userDetails)));
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<BoardDetailResponse> createBoard(@Valid @RequestBody BoardCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(boardApplicationService.createBoardDetail(userDetails.getUserId(), request));
+        return ApiResponse.success(boardApplicationService.createBoardDetail(requiredUserId(userDetails), request));
     }
 
     @PostMapping("/inquiry/ensure")
     public ApiResponse<Void> ensureInquiryBoard(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestParam(required = false) String boardUrl) {
-        boardService.ensureInquiryBoard(userIdOrNull(userDetails), boardUrl);
+        boardService.ensureInquiryBoard(requiredUserId(userDetails), boardUrl);
         return ApiResponse.success(null);
     }
 
@@ -81,7 +84,10 @@ public class BoardController {
     public ApiResponse<BoardDetailResponse> updateBoard(@PathVariable String boardUrl,
             @Valid @RequestBody BoardUpdateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(boardApplicationService.updateBoardDetail(boardUrl, request, userIdOrNull(userDetails)));
+        return ApiResponse.success(boardApplicationService.updateBoardDetail(
+                boardUrl,
+                request,
+                requiredUserId(userDetails)));
     }
 
     @PutMapping("/{boardUrl}/manager")
@@ -91,7 +97,7 @@ public class BoardController {
         return ApiResponse.success(boardApplicationService.transferBoardManagerDetail(
                 boardUrl,
                 request.getLoginId(),
-                userIdOrNull(userDetails)));
+                requiredUserId(userDetails)));
     }
 
     @GetMapping("/{boardUrl}/manager-candidates")
@@ -103,7 +109,7 @@ public class BoardController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ApiResponse.success(new PageResponse<>(boardService.getBoardManagerCandidates(
                 boardUrl,
-                userIdOrNull(userDetails),
+                requiredUserId(userDetails),
                 keyword,
                 PageRequestUtils.of(page, size))));
     }
@@ -111,28 +117,28 @@ public class BoardController {
     @DeleteMapping("/{boardUrl}")
     public ApiResponse<Void> deleteBoard(@PathVariable String boardUrl,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        boardService.deleteBoard(boardUrl, userIdOrNull(userDetails));
+        boardService.deleteBoard(boardUrl, requiredUserId(userDetails));
         return ApiResponse.success(null);
     }
 
     @GetMapping("/{boardUrl}/categories")
     public ApiResponse<List<CategoryResponse>> getCategories(@PathVariable String boardUrl,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(boardService.getActiveCategories(boardUrl, userIdOrNull(userDetails)));
+        return ApiResponse.success(boardService.getActiveCategories(boardUrl, optionalUserId(userDetails)));
     }
 
     @PostMapping("/{boardUrl}/subscribe")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Void> subscribeBoard(@PathVariable String boardUrl,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        boardService.subscribeBoard(userDetails.getUserId(), boardUrl);
+        boardService.subscribeBoard(requiredUserId(userDetails), boardUrl);
         return ApiResponse.success(null);
     }
 
     @DeleteMapping("/{boardUrl}/subscribe")
     public ApiResponse<Void> unsubscribeBoard(@PathVariable String boardUrl,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        boardService.unsubscribeBoard(userDetails.getUserId(), boardUrl);
+        boardService.unsubscribeBoard(requiredUserId(userDetails), boardUrl);
         return ApiResponse.success(null);
     }
 
@@ -141,20 +147,20 @@ public class BoardController {
     public ApiResponse<CategoryResponse> createCategory(@PathVariable String boardUrl,
             @Valid @RequestBody CategoryRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(boardService.createCategory(boardUrl, request, userIdOrNull(userDetails)));
+        return ApiResponse.success(boardService.createCategory(boardUrl, request, requiredUserId(userDetails)));
     }
 
     @PutMapping("/categories/{categoryId}")
     public ApiResponse<CategoryResponse> updateCategory(@PathVariable Long categoryId,
             @Valid @RequestBody CategoryRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(boardService.updateCategory(categoryId, request, userIdOrNull(userDetails)));
+        return ApiResponse.success(boardService.updateCategory(categoryId, request, requiredUserId(userDetails)));
     }
 
     @DeleteMapping("/categories/{categoryId}")
     public ApiResponse<Void> deleteCategory(@PathVariable Long categoryId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        boardService.deleteCategory(categoryId, userIdOrNull(userDetails));
+        boardService.deleteCategory(categoryId, requiredUserId(userDetails));
         return ApiResponse.success(null);
     }
 
@@ -162,11 +168,7 @@ public class BoardController {
     public ApiResponse<Void> updateSubscriptionOrder(
             @Valid @RequestBody BoardSubscriptionOrderRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        boardService.updateSubscriptionOrder(userDetails.getUserId(), request.boardUrls());
+        boardService.updateSubscriptionOrder(requiredUserId(userDetails), request.boardUrls());
         return ApiResponse.success(null);
-    }
-
-    private Long userIdOrNull(CustomUserDetails userDetails) {
-        return userDetails != null ? userDetails.getUserId() : null;
     }
 }

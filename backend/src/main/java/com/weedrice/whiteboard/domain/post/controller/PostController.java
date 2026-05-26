@@ -6,8 +6,6 @@ import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
-import com.weedrice.whiteboard.global.exception.BusinessException;
-import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +17,9 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+
+import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.optionalUserId;
+import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -36,7 +37,7 @@ public class PostController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @NonNull Pageable pageable) {
 
-        Long userId = currentUserIdOrNull(userDetails);
+        Long userId = optionalUserId(userDetails);
         Page<PostSummary> summaryPage = postService.getPosts(boardUrl, categoryId, keyword, minLikes, userId, pageable);
 
         return pageResponse(summaryPage);
@@ -48,7 +49,7 @@ public class PostController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "24h") String period,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = currentUserIdOrNull(userDetails);
+        Long userId = optionalUserId(userDetails);
         return pageResponse(postService.getTrendingPostsPage(PageRequestUtils.of(page, size), userId, period));
     }
 
@@ -58,7 +59,7 @@ public class PostController {
             @RequestParam(defaultValue = "false") boolean incrementView,
             @RequestParam(defaultValue = "20") int boardListPageSize,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = currentUserIdOrNull(userDetails);
+        Long userId = optionalUserId(userDetails);
         int normalizedBoardListPageSize = PageRequestUtils.of(0, boardListPageSize).getPageSize();
         return ApiResponse.success(
                 postService.getPostResponse(postId, userId, incrementView, normalizedBoardListPageSize));
@@ -68,7 +69,7 @@ public class PostController {
     public ApiResponse<Void> incrementPostView(
             @PathVariable Long postId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = currentUserIdOrNull(userDetails);
+        Long userId = optionalUserId(userDetails);
         postService.incrementViewCount(postId, userId);
         return ApiResponse.success(null);
     }
@@ -78,7 +79,7 @@ public class PostController {
             @PathVariable Long postId,
             @Valid @RequestBody ViewHistoryRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = currentUserId(userDetails);
+        Long userId = requiredUserId(userDetails);
         postService.updateViewHistory(userId, postId, request);
         return ApiResponse.success(null);
     }
@@ -89,7 +90,7 @@ public class PostController {
             @PathVariable String boardUrl,
             @Valid @RequestBody PostCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = currentUserId(userDetails);
+        Long userId = requiredUserId(userDetails);
         return ApiResponse.success(postService.createPost(userId, boardUrl, request));
     }
 
@@ -98,7 +99,7 @@ public class PostController {
             @PathVariable Long postId,
             @Valid @RequestBody PostUpdateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = currentUserId(userDetails);
+        Long userId = requiredUserId(userDetails);
         return ApiResponse.success(postService.updatePost(userId, postId, request));
     }
 
@@ -106,7 +107,7 @@ public class PostController {
     public ApiResponse<Void> deletePost(
             @PathVariable Long postId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = currentUserId(userDetails);
+        Long userId = requiredUserId(userDetails);
         postService.deletePost(userId, postId);
         return ApiResponse.success(null);
     }
@@ -116,7 +117,7 @@ public class PostController {
     public ApiResponse<Integer> likePost(
             @PathVariable Long postId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = currentUserId(userDetails);
+        Long userId = requiredUserId(userDetails);
         return ApiResponse.success(postService.likePost(userId, postId));
     }
 
@@ -124,7 +125,7 @@ public class PostController {
     public ApiResponse<Integer> unlikePost(
             @PathVariable Long postId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = currentUserId(userDetails);
+        Long userId = requiredUserId(userDetails);
         return ApiResponse.success(postService.unlikePost(userId, postId));
     }
 
@@ -135,7 +136,7 @@ public class PostController {
             @Valid @RequestBody(required = false) PostScrapRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         String remark = (request != null) ? request.getRemark() : null;
-        Long userId = currentUserId(userDetails);
+        Long userId = requiredUserId(userDetails);
         postService.scrapPost(userId, postId, remark);
         return ApiResponse.success(null);
     }
@@ -144,7 +145,7 @@ public class PostController {
     public ApiResponse<Void> unscrapPost(
             @PathVariable Long postId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = currentUserId(userDetails);
+        Long userId = requiredUserId(userDetails);
         postService.unscrapPost(userId, postId);
         return ApiResponse.success(null);
     }
@@ -153,7 +154,7 @@ public class PostController {
     public ApiResponse<ScrapListResponse> getMyScraps(
             @NonNull Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = currentUserId(userDetails);
+        Long userId = requiredUserId(userDetails);
         return ApiResponse.success(postService.getMyScraps(userId, pageable));
     }
 
@@ -161,7 +162,7 @@ public class PostController {
     public ApiResponse<DraftListResponse> getMyDrafts(
             @NonNull Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = currentUserId(userDetails);
+        Long userId = requiredUserId(userDetails);
         return ApiResponse
                 .success(postService.getDraftPosts(userId, pageable));
     }
@@ -170,7 +171,7 @@ public class PostController {
     public ApiResponse<DraftResponse> getDraft(
             @PathVariable Long draftId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = currentUserId(userDetails);
+        Long userId = requiredUserId(userDetails);
         return ApiResponse.success(postService.getDraftPost(userId, draftId));
     }
 
@@ -179,7 +180,7 @@ public class PostController {
     public ApiResponse<DraftResponse> saveDraft(
             @Valid @RequestBody PostDraftRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = currentUserId(userDetails);
+        Long userId = requiredUserId(userDetails);
         return ApiResponse.success(postService.saveDraftPost(userId, request));
     }
 
@@ -187,7 +188,7 @@ public class PostController {
     public ApiResponse<Void> deleteDraft(
             @PathVariable Long draftId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = currentUserId(userDetails);
+        Long userId = requiredUserId(userDetails);
         postService.deleteDraftPost(userId, draftId);
         return ApiResponse.success(null);
     }
@@ -196,20 +197,8 @@ public class PostController {
     public ApiResponse<List<PostVersionResponse>> getPostVersions(
             @PathVariable Long postId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = currentUserId(userDetails);
+        Long userId = requiredUserId(userDetails);
         return ApiResponse.success(postService.getPostVersions(postId, userId));
-    }
-
-    private Long currentUserIdOrNull(CustomUserDetails userDetails) {
-        return userDetails == null ? null : userDetails.getUserId();
-    }
-
-    private Long currentUserId(CustomUserDetails userDetails) {
-        Long userId = currentUserIdOrNull(userDetails);
-        if (userId == null) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED);
-        }
-        return userId;
     }
 
     private <T> ApiResponse<PageResponse<T>> pageResponse(Page<T> page) {

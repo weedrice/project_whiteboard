@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.optionalUserId;
+
 @RestController
 @RequestMapping("/files")
 @RequiredArgsConstructor
@@ -23,7 +25,7 @@ class LegacyFileController {
     public ResponseEntity<Resource> downloadFile(
             @PathVariable Long fileId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long viewerUserId = userDetails != null ? userDetails.getUserId() : null;
+        Long viewerUserId = optionalUserId(userDetails);
         FileDownloadResponse download = fileDownloadService.downloadFile(fileId, viewerUserId);
 
         return FileDownloadResponseAssembler.toResponse(download);

@@ -17,6 +17,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.optionalUserId;
+import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
+
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
@@ -32,7 +35,7 @@ public class CommentController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = (userDetails != null) ? userDetails.getUserId() : null;
+        Long userId = optionalUserId(userDetails);
         Pageable pageable = PageRequestUtils.of(page, size, COMMENT_READ_SORT);
         return ApiResponse.success(new PageResponse<>(commentService.getComments(postId, userId, pageable)));
     }
@@ -43,7 +46,7 @@ public class CommentController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = (userDetails != null) ? userDetails.getUserId() : null;
+        Long userId = optionalUserId(userDetails);
         Pageable pageable = PageRequestUtils.of(page, size, COMMENT_READ_SORT);
         return ApiResponse.success(commentService.getReplies(commentId, userId, pageable));
     }
@@ -52,7 +55,7 @@ public class CommentController {
     public ApiResponse<CommentResponse> getComment(
             @PathVariable Long commentId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = (userDetails != null) ? userDetails.getUserId() : null;
+        Long userId = optionalUserId(userDetails);
         CommentResponse comment = commentService.getComment(commentId, userId);
         return ApiResponse.success(comment);
     }
@@ -63,7 +66,10 @@ public class CommentController {
             @PathVariable Long postId,
             @Valid @RequestBody CommentCreateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long commentId = commentService.createComment(userDetails.getUserId(), postId, request.getParentId(),
+        Long commentId = commentService.createComment(
+                requiredUserId(userDetails),
+                postId,
+                request.getParentId(),
                 request.getContent());
         return ApiResponse.success(commentId);
     }
@@ -73,14 +79,17 @@ public class CommentController {
             @PathVariable Long commentId,
             @Valid @RequestBody CommentUpdateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long updatedCommentId = commentService.updateComment(userDetails.getUserId(), commentId, request.getContent());
+        Long updatedCommentId = commentService.updateComment(
+                requiredUserId(userDetails),
+                commentId,
+                request.getContent());
         return ApiResponse.success(updatedCommentId);
     }
 
     @DeleteMapping("/comments/{commentId}")
     public ApiResponse<Void> deleteComment(@PathVariable Long commentId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        commentService.deleteComment(userDetails.getUserId(), commentId);
+        commentService.deleteComment(requiredUserId(userDetails), commentId);
         return ApiResponse.success(null);
     }
 
@@ -88,14 +97,14 @@ public class CommentController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Void> likeComment(@PathVariable Long commentId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        commentService.likeComment(userDetails.getUserId(), commentId);
+        commentService.likeComment(requiredUserId(userDetails), commentId);
         return ApiResponse.success(null);
     }
 
     @DeleteMapping("/comments/{commentId}/like")
     public ApiResponse<Void> unlikeComment(@PathVariable Long commentId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        commentService.unlikeComment(userDetails.getUserId(), commentId);
+        commentService.unlikeComment(requiredUserId(userDetails), commentId);
         return ApiResponse.success(null);
     }
 }

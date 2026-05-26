@@ -14,6 +14,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
+
 @RestController
 @RequestMapping("/api/v1/messages")
 @RequiredArgsConstructor
@@ -26,8 +28,10 @@ public class MessageController {
         public ApiResponse<Long> sendMessage(
                         @Valid @RequestBody MessageCreateRequest request,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                return ApiResponse.success(messageService
-                                .sendMessage(userDetails.getUserId(), request.getReceiverId(), request.getContent()));
+                return ApiResponse.success(messageService.sendMessage(
+                                requiredUserId(userDetails),
+                                request.getReceiverId(),
+                                request.getContent()));
         }
 
         @GetMapping("/received")
@@ -37,7 +41,7 @@ public class MessageController {
                         @RequestParam(defaultValue = "20") int size,
                         Sort sort) {
                 Pageable pageable = PageRequestUtils.of(page, size, sort);
-                return ApiResponse.success(messageService.getReceivedMessages(userDetails.getUserId(), pageable));
+                return ApiResponse.success(messageService.getReceivedMessages(requiredUserId(userDetails), pageable));
         }
 
         @GetMapping("/sent")
@@ -47,21 +51,21 @@ public class MessageController {
                         @RequestParam(defaultValue = "20") int size,
                         Sort sort) {
                 Pageable pageable = PageRequestUtils.of(page, size, sort);
-                return ApiResponse.success(messageService.getSentMessages(userDetails.getUserId(), pageable));
+                return ApiResponse.success(messageService.getSentMessages(requiredUserId(userDetails), pageable));
         }
 
         @GetMapping("/{messageId}")
         public ApiResponse<MessageResponse.MessageSummary> getMessage(
                         @PathVariable Long messageId,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                return ApiResponse.success(messageService.getMessageSummary(userDetails.getUserId(), messageId));
+                return ApiResponse.success(messageService.getMessageSummary(requiredUserId(userDetails), messageId));
         }
 
         @PostMapping("/{messageId}/read")
         public ApiResponse<Void> markAsRead(
                         @PathVariable Long messageId,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                messageService.markAsRead(userDetails.getUserId(), messageId);
+                messageService.markAsRead(requiredUserId(userDetails), messageId);
                 return ApiResponse.success(null);
         }
 
@@ -69,7 +73,7 @@ public class MessageController {
         public ApiResponse<Void> deleteMessage(
                         @PathVariable Long messageId,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                messageService.deleteMessage(userDetails.getUserId(), messageId);
+                messageService.deleteMessage(requiredUserId(userDetails), messageId);
                 return ApiResponse.success(null);
         }
 
@@ -77,12 +81,12 @@ public class MessageController {
         public ApiResponse<Void> deleteMessages(
                         @RequestBody java.util.List<Long> messageIds,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                messageService.deleteMessages(userDetails.getUserId(), messageIds);
+                messageService.deleteMessages(requiredUserId(userDetails), messageIds);
                 return ApiResponse.success(null);
         }
 
         @GetMapping("/unread-count")
         public ApiResponse<Long> getUnreadMessageCount(@AuthenticationPrincipal CustomUserDetails userDetails) {
-                return ApiResponse.success(messageService.getUnreadMessageCount(userDetails.getUserId()));
+                return ApiResponse.success(messageService.getUnreadMessageCount(requiredUserId(userDetails)));
         }
 }

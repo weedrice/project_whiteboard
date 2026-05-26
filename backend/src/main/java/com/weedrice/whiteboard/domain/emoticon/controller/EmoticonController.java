@@ -9,8 +9,6 @@ import com.weedrice.whiteboard.domain.emoticon.service.EmoticonService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
-import com.weedrice.whiteboard.global.exception.BusinessException;
-import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +18,9 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+
+import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.optionalUserId;
+import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
 
 @RestController
 @RequestMapping("/api/v1/emoticons")
@@ -96,9 +97,8 @@ public class EmoticonController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        CustomUserDetails authenticatedUser = requireAuthenticated(userDetails);
         return ApiResponse.success(new PageResponse<>(
-                emoticonService.getMyEmoticons(authenticatedUser.getUserId(), pageable(page, size))));
+                emoticonService.getMyEmoticons(requiredUserId(userDetails), pageable(page, size))));
     }
 
     /**
@@ -109,7 +109,7 @@ public class EmoticonController {
     public ApiResponse<EmoticonMasterDto> getEmoticonDetail(
             @PathVariable Long emoticonId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = userDetails != null ? userDetails.getUserId() : null;
+        Long userId = optionalUserId(userDetails);
         return ApiResponse.success(emoticonService.getEmoticonDetail(emoticonId, userId));
     }
 
@@ -121,7 +121,7 @@ public class EmoticonController {
     public ApiResponse<EmoticonMasterDto> createEmoticon(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @RequestBody EmoticonCreateRequest request) {
-        return ApiResponse.success(emoticonService.createEmoticon(userDetails.getUserId(), request));
+        return ApiResponse.success(emoticonService.createEmoticon(requiredUserId(userDetails), request));
     }
 
     /**
@@ -132,7 +132,7 @@ public class EmoticonController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long emoticonId,
             @Valid @RequestBody EmoticonUpdateRequest request) {
-        return ApiResponse.success(emoticonService.updateEmoticon(userDetails.getUserId(), emoticonId, request));
+        return ApiResponse.success(emoticonService.updateEmoticon(requiredUserId(userDetails), emoticonId, request));
     }
 
     /**
@@ -142,7 +142,7 @@ public class EmoticonController {
     public ApiResponse<EmoticonMasterDto> toggleVisibility(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long emoticonId) {
-        return ApiResponse.success(emoticonService.toggleVisibility(userDetails.getUserId(), emoticonId));
+        return ApiResponse.success(emoticonService.toggleVisibility(requiredUserId(userDetails), emoticonId));
     }
 
     /**
@@ -153,7 +153,7 @@ public class EmoticonController {
     public ApiResponse<Void> deleteEmoticon(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long emoticonId) {
-        emoticonService.deleteEmoticon(userDetails.getUserId(), emoticonId);
+        emoticonService.deleteEmoticon(requiredUserId(userDetails), emoticonId);
         return ApiResponse.success(null);
     }
 
@@ -165,7 +165,10 @@ public class EmoticonController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long emoticonId,
             @Valid @RequestBody EmoticonImageAddRequest request) {
-        return ApiResponse.success(emoticonService.addImage(userDetails.getUserId(), emoticonId, request.getFileId()));
+        return ApiResponse.success(emoticonService.addImage(
+                requiredUserId(userDetails),
+                emoticonId,
+                request.getFileId()));
     }
 
     /**
@@ -176,7 +179,7 @@ public class EmoticonController {
     public ApiResponse<Void> deleteImage(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long imageId) {
-        emoticonService.deleteImage(userDetails.getUserId(), imageId);
+        emoticonService.deleteImage(requiredUserId(userDetails), imageId);
         return ApiResponse.success(null);
     }
 
@@ -187,7 +190,7 @@ public class EmoticonController {
     public ApiResponse<EmoticonMasterDto> purchaseEmoticon(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long emoticonId) {
-        return ApiResponse.success(emoticonService.purchaseEmoticon(userDetails.getUserId(), emoticonId));
+        return ApiResponse.success(emoticonService.purchaseEmoticon(requiredUserId(userDetails), emoticonId));
     }
 
     /**
@@ -198,9 +201,8 @@ public class EmoticonController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        CustomUserDetails authenticatedUser = requireAuthenticated(userDetails);
         return ApiResponse.success(new PageResponse<>(
-                emoticonService.getPurchasedEmoticons(authenticatedUser.getUserId(), pageable(page, size))));
+                emoticonService.getPurchasedEmoticons(requiredUserId(userDetails), pageable(page, size))));
     }
 
     /**
@@ -210,19 +212,12 @@ public class EmoticonController {
     public ApiResponse<EmoticonPurchaseStatusResponse> hasPurchased(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long emoticonId) {
-        Long userId = userDetails != null ? userDetails.getUserId() : null;
+        Long userId = optionalUserId(userDetails);
         return ApiResponse.success(emoticonService.getPurchaseStatus(userId, emoticonId));
     }
 
     private Pageable pageable(int page, int size) {
         return PageRequestUtils.of(page, size);
-    }
-
-    private CustomUserDetails requireAuthenticated(CustomUserDetails userDetails) {
-        if (userDetails == null) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED);
-        }
-        return userDetails;
     }
 
     private String normalizeSortBy(String sortBy) {

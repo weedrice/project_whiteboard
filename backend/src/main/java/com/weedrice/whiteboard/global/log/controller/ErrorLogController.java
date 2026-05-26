@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.*;
 
 import com.weedrice.whiteboard.domain.user.entity.Role;
 
+import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
+
 /**
  * 에러 로그 관리 컨트롤러 (관리자 전용)
  */
@@ -58,7 +60,7 @@ public class ErrorLogController {
             @RequestBody(required = false) ErrorLogResolveRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         String memo = request != null ? request.getMemo() : null;
-        errorLogService.resolveErrorLog(errorLogId, userDetails.getUserId(), memo);
+        errorLogService.resolveErrorLog(errorLogId, requiredUserId(userDetails), memo);
         return ApiResponse.success(null);
     }
 

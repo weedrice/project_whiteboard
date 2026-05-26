@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.optionalUserId;
+
 @RestController
 @RequestMapping("/api/v1/tags")
 @RequiredArgsConstructor
@@ -34,7 +36,7 @@ public class TagController {
             @PathVariable Long tagId,
             @PageableDefault(size = 20) Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = (userDetails != null) ? userDetails.getUserId() : null;
+        Long userId = optionalUserId(userDetails);
         return ApiResponse.success(new PageResponse<>(postService.getPostsByTag(tagId, userId, pageable)));
     }
 }

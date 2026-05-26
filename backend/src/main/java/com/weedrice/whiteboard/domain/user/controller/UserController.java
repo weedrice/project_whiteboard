@@ -32,8 +32,10 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
+
+import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.optionalUserId;
+import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -55,22 +57,24 @@ public class UserController {
         public ResponseEntity<ApiResponse<UserProfileResponse>> getUserProfile(
                         @PathVariable Long userId,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                Long viewerUserId = userDetails != null ? userDetails.getUserId() : null;
+                Long viewerUserId = optionalUserId(userDetails);
                 return ResponseEntity.ok(ApiResponse.success(userProfileService.getUserProfile(userId, viewerUserId)));
         }
 
         @GetMapping("/me")
         public ResponseEntity<ApiResponse<MyInfoResponse>> getMyInfo(
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                return ResponseEntity.ok(ApiResponse.success(userProfileService.getMyInfo(userDetails.getUserId())));
+                return ResponseEntity.ok(ApiResponse.success(userProfileService.getMyInfo(requiredUserId(userDetails))));
         }
 
         @PutMapping("/me")
         public ResponseEntity<ApiResponse<UpdateProfileResponse>> updateMyProfile(
                         @Valid @RequestBody UpdateProfileRequest request,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                return ResponseEntity.ok(ApiResponse.success(userProfileService.updateMyProfile(userDetails.getUserId(),
-                                request.getDisplayName(), request.getProfileImageId())));
+                return ResponseEntity.ok(ApiResponse.success(userProfileService.updateMyProfile(
+                                requiredUserId(userDetails),
+                                request.getDisplayName(),
+                                request.getProfileImageId())));
         }
 
         @PostMapping("/me/email-verification")
@@ -78,7 +82,7 @@ public class UserController {
                         @Valid @RequestBody EmailVerificationConfirmRequest request,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 userSecurityService.verifyAndChangeEmail(
-                                userDetails.getUserId(),
+                                requiredUserId(userDetails),
                                 request.getEmail(),
                                 request.getVerificationTicket());
                 return ResponseEntity.ok(ApiResponse.success(null));
@@ -88,7 +92,7 @@ public class UserController {
         public ResponseEntity<ApiResponse<MessageResponse>> updatePassword(
                         @Valid @RequestBody UpdatePasswordRequest request,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                userSecurityService.updatePassword(userDetails.getUserId(), request.getCurrentPassword(),
+                userSecurityService.updatePassword(requiredUserId(userDetails), request.getCurrentPassword(),
                                 request.getNewPassword());
                 return userActionResponseFactory.passwordChanged();
         }
@@ -97,21 +101,21 @@ public class UserController {
         public ResponseEntity<ApiResponse<MessageResponse>> deleteAccount(
                         @Valid @RequestBody DeleteAccountRequest request,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                userProfileService.deleteAccount(userDetails.getUserId(), request.getPassword());
+                userProfileService.deleteAccount(requiredUserId(userDetails), request.getPassword());
                 return userActionResponseFactory.accountDeleted();
         }
 
         @GetMapping("/me/settings")
         public ResponseEntity<ApiResponse<UserSettingsResponse>> getMySettings(
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                return ResponseEntity.ok(ApiResponse.success(userSettingsService.getSettings(userDetails.getUserId())));
+                return ResponseEntity.ok(ApiResponse.success(userSettingsService.getSettings(requiredUserId(userDetails))));
         }
 
         @PutMapping("/me/settings")
         public ResponseEntity<ApiResponse<UserSettingsResponse>> updateMySettings(
                         @Valid @RequestBody UpdateSettingsRequest request,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                return ResponseEntity.ok(ApiResponse.success(userSettingsService.updateSettings(userDetails.getUserId(),
+                return ResponseEntity.ok(ApiResponse.success(userSettingsService.updateSettings(requiredUserId(userDetails),
                                 request.getTheme(), request.getLanguage(), request.getTimezone(),
                                 request.getHideNsfw())));
         }
@@ -120,7 +124,7 @@ public class UserController {
         public ResponseEntity<ApiResponse<List<NotificationSettingResponse>>> getMyNotificationSettings(
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 return ResponseEntity.ok(ApiResponse
-                                .success(userSettingsService.getNotificationSettings(userDetails.getUserId())));
+                                .success(userSettingsService.getNotificationSettings(requiredUserId(userDetails))));
         }
 
         @PutMapping("/me/notification-settings/bulk")
@@ -128,7 +132,7 @@ public class UserController {
                         @Valid @RequestBody UpdateNotificationSettingsRequest request,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 return ResponseEntity.ok(ApiResponse.success(userSettingsService.updateNotificationSettings(
-                                userDetails.getUserId(),
+                                requiredUserId(userDetails),
                                 request.getSettings())));
         }
 
@@ -136,7 +140,7 @@ public class UserController {
         public ResponseEntity<ApiResponse<MessageResponse>> blockUser(
                         @PathVariable Long userId,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                userBlockService.blockUser(userDetails.getUserId(), userId);
+                userBlockService.blockUser(requiredUserId(userDetails), userId);
                 return userActionResponseFactory.blocked();
         }
 
@@ -144,7 +148,7 @@ public class UserController {
         public ResponseEntity<ApiResponse<MessageResponse>> unblockUser(
                         @PathVariable Long userId,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                userBlockService.unblockUser(userDetails.getUserId(), userId);
+                userBlockService.unblockUser(requiredUserId(userDetails), userId);
                 return userActionResponseFactory.unblocked();
         }
 
@@ -155,7 +159,7 @@ public class UserController {
                         Sort sort,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 Pageable pageable = PageRequestUtils.of(page, size, sort);
-                Page<BlockedUserResponse> response = userBlockService.getBlockedUsers(userDetails.getUserId(),
+                Page<BlockedUserResponse> response = userBlockService.getBlockedUsers(requiredUserId(userDetails),
                                 pageable);
                 return ResponseEntity.ok(ApiResponse.success(new PageResponse<>(response)));
         }
@@ -169,7 +173,7 @@ public class UserController {
                         Sort sort) {
                 Pageable pageable = PageRequestUtils.of(page, size, sort);
                 Page<SubscriptionBoardResponse> response = boardService.getMySubscriptions(
-                                userDetails.getUserId(),
+                                requiredUserId(userDetails),
                                 pageable,
                                 includeUnavailable);
                 return ApiResponse.success(new PageResponse<>(response));
@@ -181,14 +185,14 @@ public class UserController {
                         @AuthenticationPrincipal CustomUserDetails userDetails,
                         jakarta.servlet.http.HttpServletRequest httpServletRequest) {
                 return ApiResponse.success(
-                                agentLifecycleService.claim(userDetails.getUserId(), request,
+                                agentLifecycleService.claim(requiredUserId(userDetails), request,
                                                 agentRequestContextResolver.resolve(httpServletRequest)));
         }
 
         @GetMapping("/me/agents")
         public ApiResponse<AgentListResponse> getMyAgents(
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
-                return ApiResponse.success(agentLifecycleService.getMyAgents(userDetails.getUserId()));
+                return ApiResponse.success(agentLifecycleService.getMyAgents(requiredUserId(userDetails)));
         }
 
         @PatchMapping("/me/agents/{agentId}/suspend")
@@ -197,7 +201,7 @@ public class UserController {
                         @AuthenticationPrincipal CustomUserDetails userDetails,
                         jakarta.servlet.http.HttpServletRequest httpServletRequest) {
                 return ApiResponse.success(
-                                agentLifecycleService.suspendMyAgent(userDetails.getUserId(), agentId,
+                                agentLifecycleService.suspendMyAgent(requiredUserId(userDetails), agentId,
                                                 agentRequestContextResolver.resolve(httpServletRequest)));
         }
 
@@ -207,7 +211,7 @@ public class UserController {
                         @AuthenticationPrincipal CustomUserDetails userDetails,
                         jakarta.servlet.http.HttpServletRequest httpServletRequest) {
                 return ApiResponse.success(
-                                agentLifecycleService.activateMyAgent(userDetails.getUserId(), agentId,
+                                agentLifecycleService.activateMyAgent(requiredUserId(userDetails), agentId,
                                                 agentRequestContextResolver.resolve(httpServletRequest)));
         }
 
@@ -216,7 +220,7 @@ public class UserController {
                         @PathVariable Long agentId,
                         @AuthenticationPrincipal CustomUserDetails userDetails,
                         jakarta.servlet.http.HttpServletRequest httpServletRequest) {
-                agentLifecycleService.deleteMyAgent(userDetails.getUserId(), agentId,
+                agentLifecycleService.deleteMyAgent(requiredUserId(userDetails), agentId,
                                 agentRequestContextResolver.resolve(httpServletRequest));
                 return ApiResponse.success(null);
         }
@@ -227,7 +231,7 @@ public class UserController {
                         @RequestParam(defaultValue = "20") int size,
                         Sort sort) {
                 Pageable pageable = PageRequestUtils.of(page, size, sort);
-                Page<PostSummary> response = postService.getMyPosts(userDetails.getUserId(), pageable);
+                Page<PostSummary> response = postService.getMyPosts(requiredUserId(userDetails), pageable);
                 return ApiResponse.success(new PageResponse<>(response));
         }
 
@@ -238,7 +242,7 @@ public class UserController {
                         @RequestParam(defaultValue = "20") int size,
                         Sort sort) {
                 Pageable pageable = PageRequestUtils.of(page, size, sort);
-                Page<MyCommentResponse> response = commentService.getMyComments(userDetails.getUserId(), pageable);
+                Page<MyCommentResponse> response = commentService.getMyComments(requiredUserId(userDetails), pageable);
                 return ApiResponse.success(new PageResponse<>(response));
         }
 
@@ -249,7 +253,7 @@ public class UserController {
                         @RequestParam(defaultValue = "20") int size,
                         Sort sort) {
                 Pageable pageable = PageRequestUtils.of(page, size, sort);
-                Long userId = Objects.requireNonNull(userDetails.getUserId(), "UserId must not be null");
+                Long userId = requiredUserId(userDetails);
                 Page<PostSummary> response = postService.getRecentlyViewedPosts(userId, pageable);
                 return ApiResponse.success(new PageResponse<>(response));
         }

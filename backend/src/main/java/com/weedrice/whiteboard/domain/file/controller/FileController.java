@@ -21,6 +21,9 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.optionalUserId;
+import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
+
 @RestController
 @RequestMapping("/api/v1/files")
 @RequiredArgsConstructor
@@ -34,7 +37,7 @@ public class FileController {
     public ApiResponse<FileUploadResponse> uploadFile(
             @RequestParam("file") MultipartFile multipartFile,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = userDetails.getUserId();
+        Long userId = requiredUserId(userDetails);
         return ApiResponse.success(fileService.uploadFile(userId, multipartFile));
     }
 
@@ -43,7 +46,7 @@ public class FileController {
     public ApiResponse<FileSimpleResponse> uploadSimple(
             @RequestParam("file") MultipartFile multipartFile,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = userDetails.getUserId();
+        Long userId = requiredUserId(userDetails);
         return ApiResponse.success(fileService.uploadSimpleFile(userId, multipartFile));
     }
 
@@ -51,7 +54,7 @@ public class FileController {
     public ResponseEntity<Resource> downloadFile(
             @PathVariable Long fileId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long viewerUserId = userDetails != null ? userDetails.getUserId() : null;
+        Long viewerUserId = optionalUserId(userDetails);
         FileDownloadResponse download = fileDownloadService.downloadFile(fileId, viewerUserId);
 
         return FileDownloadResponseAssembler.toResponse(download);

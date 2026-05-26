@@ -22,6 +22,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 
+import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
+
 @RestController
 @RequestMapping("/api/v1/admin/users")
 @RequiredArgsConstructor
@@ -94,7 +96,7 @@ public class AdminUserController {
             @PathVariable Long userId,
             @RequestBody UserStatusUpdateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        userAdminCommandService.updateUserStatus(userDetails.getUserId(), userId, request.getStatus());
+        userAdminCommandService.updateUserStatus(requiredUserId(userDetails), userId, request.getStatus());
         return ApiResponse.success(null);
     }
 }
