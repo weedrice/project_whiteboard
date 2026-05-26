@@ -1,4 +1,5 @@
 import type { BoardDetail } from '@/types'
+import { isEmpty } from '@/utils/validation'
 
 const BOARD_URL_DISALLOWED_INPUT_PATTERN = /[^a-z_]/g
 const GENERAL_CATEGORY_NAMES = new Set(['일반', 'general'])
@@ -17,9 +18,26 @@ type BoardRequiredFields = {
   boardName?: string | null
   boardUrl?: string | null
 }
+type BoardRequiredFieldValidationResult =
+  | { valid: true }
+  | { valid: false, messageKey: 'board.form.validation', toastType: 'error' }
+
+const BOARD_REQUIRED_FIELD_ERROR = {
+  valid: false,
+  messageKey: 'board.form.validation',
+  toastType: 'error'
+} as const
 
 export function hasRequiredBoardFields(board: BoardRequiredFields): boolean {
-  return Boolean(board.boardName && board.boardUrl)
+  return validateRequiredBoardFields(board).valid
+}
+
+export function validateRequiredBoardFields(board: BoardRequiredFields): BoardRequiredFieldValidationResult {
+  if (isEmpty(board.boardName) || isEmpty(board.boardUrl)) {
+    return BOARD_REQUIRED_FIELD_ERROR
+  }
+
+  return { valid: true }
 }
 
 export function isGeneralCategoryName(name?: string | null): boolean {

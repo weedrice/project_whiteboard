@@ -6,13 +6,12 @@ import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import { useI18n } from 'vue-i18n'
 import { fileApi } from '@/api/file'
-import { isEmpty } from '@/utils/validation'
 import { useToastStore } from '@/stores/toast'
 import { useAuthStore } from '@/stores/auth'
 import { useConfigStore } from '@/stores/config'
 import { useFormSubmit } from '@/composables/useFormSubmit'
 import { useErrorHandler } from '@/composables/useErrorHandler'
-import { normalizeBoardUrlInput } from '@/utils/board'
+import { normalizeBoardUrlInput, validateRequiredBoardFields } from '@/utils/board'
 
 interface BoardData {
   boardName: string
@@ -102,12 +101,9 @@ const handleFileChange = (event: Event) => {
 }
 
 async function handleSubmit() {
-  if (isEmpty(form.value.boardName)) {
-    toastStore.addToast(t('board.form.validation'), 'error')
-    return
-  }
-  if (isEmpty(form.value.boardUrl)) {
-    toastStore.addToast(t('board.form.validation'), 'error')
+  const requiredFieldValidation = validateRequiredBoardFields(form.value)
+  if (!requiredFieldValidation.valid) {
+    toastStore.addToast(t(requiredFieldValidation.messageKey), requiredFieldValidation.toastType)
     return
   }
 
