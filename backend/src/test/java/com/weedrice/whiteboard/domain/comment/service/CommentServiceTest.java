@@ -1047,8 +1047,8 @@ class CommentServiceTest {
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
         when(commentRepository.findRepliesWithRelations(9L, false, true, NO_BLOCKED_USER_IDS, pageable))
                 .thenReturn(Page.empty(pageable));
-        when(commentRepository.countVisibleRepliesByParentIds(List.of(9L), true, NO_BLOCKED_USER_IDS))
-                .thenReturn(List.of());
+        when(commentRepository.existsVisibleReplyByParentId(9L, true, NO_BLOCKED_USER_IDS))
+                .thenReturn(false);
 
         assertThatThrownBy(() -> commentService.getReplies(9L, 1L, PageRequest.of(0, 10)))
                 .isInstanceOf(BusinessException.class)
@@ -1098,15 +1098,15 @@ class CommentServiceTest {
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
         when(commentRepository.findRepliesWithRelations(9L, false, false, List.of(2L), pageable))
                 .thenReturn(new PageImpl<>(List.of(blockedReply), pageable, 1));
-        when(commentRepository.countVisibleRepliesByParentIds(List.of(9L), false, List.of(2L)))
-                .thenReturn(List.of());
+        when(commentRepository.existsVisibleReplyByParentId(9L, false, List.of(2L)))
+                .thenReturn(false);
 
         assertThatThrownBy(() -> commentService.getReplies(9L, 1L, PageRequest.of(0, 10)))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
 
         verify(commentRepository).findRepliesWithRelations(9L, false, false, List.of(2L), pageable);
-        verify(commentRepository).countVisibleRepliesByParentIds(List.of(9L), false, List.of(2L));
+        verify(commentRepository).existsVisibleReplyByParentId(9L, false, List.of(2L));
     }
 
     @Test
@@ -1150,8 +1150,8 @@ class CommentServiceTest {
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
         when(commentRepository.findRepliesWithRelations(9L, false, true, NO_BLOCKED_USER_IDS, pageable))
                 .thenReturn(new PageImpl<>(List.of(reply), pageable, 1));
-        when(commentRepository.countVisibleRepliesByParentIds(List.of(9L), true, NO_BLOCKED_USER_IDS))
-                .thenReturn(List.of(replyCountProjection(9L, 1L)));
+        when(commentRepository.existsVisibleReplyByParentId(9L, true, NO_BLOCKED_USER_IDS))
+                .thenReturn(true);
 
         var result = commentService.getReplies(9L, 1L, PageRequest.of(0, 10));
 

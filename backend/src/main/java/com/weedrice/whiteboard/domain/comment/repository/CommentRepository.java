@@ -507,6 +507,33 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                         @org.springframework.data.repository.query.Param("blockedUserIds") Collection<Long> blockedUserIds);
 
         @Query("""
+                        SELECT CASE WHEN COUNT(c) > 0 THEN true ELSE false END
+                        FROM Comment c
+                        WHERE c.parent.commentId = :parentId
+                          AND (
+                                (
+                                        c.isDeleted = false
+                                        AND (:blockedUserIdsEmpty = true
+                                             OR c.user.userId NOT IN (:blockedUserIds))
+                                )
+                                OR EXISTS (
+                                        SELECT 1
+                                        FROM CommentClosure cc
+                                        JOIN cc.descendant descendant
+                                        WHERE cc.ancestor = c
+                                          AND cc.depth > 0
+                                          AND descendant.isDeleted = false
+                                          AND (:blockedUserIdsEmpty = true
+                                               OR descendant.user.userId NOT IN (:blockedUserIds))
+                                )
+                          )
+                        """)
+        boolean existsVisibleReplyByParentId(
+                        @org.springframework.data.repository.query.Param("parentId") Long parentId,
+                        @org.springframework.data.repository.query.Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
+                        @org.springframework.data.repository.query.Param("blockedUserIds") Collection<Long> blockedUserIds);
+
+        @Query("""
                         SELECT DISTINCT c.post.postId
                         FROM Comment c
                         WHERE c.post.postId IN :postIds

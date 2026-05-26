@@ -139,8 +139,11 @@ public class CommentQueryService {
     }
 
     private boolean hasVisibleReply(Comment parentComment, Set<Long> blockedUserIds) {
-        return commentReadSupport.loadVisibleReplyCounts(List.of(parentComment), blockedUserIds)
-                .getOrDefault(parentComment.getCommentId(), 0L) > 0;
+        BlockedUserIdsParameter blockedUserIdsParameter = BlockedUserIdsParameter.from(blockedUserIds);
+        return commentRepository.existsVisibleReplyByParentId(
+                parentComment.getCommentId(),
+                blockedUserIdsParameter.empty(),
+                blockedUserIdsParameter.ids());
     }
 
     private Pageable normalizeMyCommentPageable(Pageable pageable) {
