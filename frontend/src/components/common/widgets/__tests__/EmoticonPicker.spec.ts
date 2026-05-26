@@ -192,7 +192,9 @@ describe('EmoticonPicker', () => {
         await wrapper.get('.emoticon-btn').trigger('click')
         await flushPromises()
 
-        expect(mocks.getEmoticon).toHaveBeenCalledWith(10)
+        expect(mocks.getEmoticon).toHaveBeenCalledWith(10, {
+            signal: expect.any(AbortSignal),
+        })
         expect(wrapper.findAll('.image-btn')).toHaveLength(2)
         expect(wrapper.get('.back-btn').attributes('type')).toBe('button')
         expect(wrapper.get('.back-btn').attributes('aria-label')).toBe('이모티콘 목록으로 돌아가기')
@@ -239,6 +241,25 @@ describe('EmoticonPicker', () => {
         await flushPromises()
         expect(wrapper.text()).toContain('SecondPack')
         expect(wrapper.text()).not.toContain('FirstPack')
+    })
+
+    it('aborts pending detail request on unmount', async () => {
+        const listItem = createEmoticon(50, 'UnmountPack', ['cleanup'])
+        let detailSignal: AbortSignal | undefined
+        mocks.purchasedEmoticons.value = [listItem]
+        mocks.getEmoticon.mockImplementationOnce((_id: number, config?: { signal?: AbortSignal }) => {
+            detailSignal = config?.signal
+            return new Promise(() => undefined)
+        })
+
+        const wrapper = mountPicker(true)
+        await wrapper.get('.emoticon-btn').trigger('click')
+
+        expect(detailSignal?.aborted).toBe(false)
+
+        wrapper.unmount()
+
+        expect(detailSignal?.aborted).toBe(true)
     })
 
     it('logs detail load error and exits loading state', async () => {
