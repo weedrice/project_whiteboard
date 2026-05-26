@@ -76,7 +76,36 @@ describe('useSearch', () => {
 
     it('fetches integrated search and uses q-only enabled condition', async () => {
         vi.mocked(searchApi.search).mockResolvedValueOnce({
-            data: { data: { posts: [{ postId: 2 }], boards: [] } },
+            data: {
+                data: {
+                    keyword: 'pinia',
+                    postResults: {
+                        items: [{ postId: 2 }],
+                        totalElements: 1,
+                        totalPages: 1,
+                        page: 0,
+                        size: 5,
+                        hasMore: false,
+                    },
+                    commentResults: {
+                        items: [],
+                        totalElements: 0,
+                        totalPages: 0,
+                        page: 0,
+                        size: 5,
+                        hasMore: false,
+                    },
+                    userResults: {
+                        items: [],
+                        totalElements: 0,
+                        totalPages: 0,
+                        page: 0,
+                        size: 5,
+                        hasMore: false,
+                    },
+                    boardResults: [],
+                }
+            },
         } as never)
 
         const { useIntegratedSearch } = useSearch()
@@ -90,7 +119,18 @@ describe('useSearch', () => {
 
         const result = await (options.queryFn as () => Promise<unknown>)()
         expect(searchApi.search).toHaveBeenCalledWith({ q: 'pinia', size: 5 })
-        expect(result).toEqual({ posts: [{ postId: 2 }], boards: [] })
+        expect(result).toEqual({
+            keyword: 'pinia',
+            postResults: [{ postId: 2 }],
+            boardResults: [],
+            postPage: {
+                totalElements: 1,
+                totalPages: 1,
+                page: 0,
+                size: 5,
+                hasMore: false,
+            },
+        })
 
         const disabledParams = ref({ keyword: 'only-keyword' })
         useIntegratedSearch(disabledParams as never)

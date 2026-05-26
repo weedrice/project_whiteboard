@@ -121,8 +121,8 @@ const params = computed(() => ({
 }))
 
 const { data: searchData, isLoading } = useIntegratedSearch(params)
-const posts = computed(() => searchData.value?.posts?.content || [])
-const boards = computed(() => searchData.value?.boards || [])
+const posts = computed(() => searchData.value?.postResults || [])
+const boards = computed(() => searchData.value?.boardResults || [])
 const searchQuery = computed(() => query.value)
 const hasSearchQuery = computed(() => searchQuery.value.length > 0)
 
