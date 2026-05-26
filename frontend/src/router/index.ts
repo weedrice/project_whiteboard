@@ -28,6 +28,7 @@ declare module 'vue-router' {
         roles?: string[]
         layout?: string
         requiresWritableBoard?: boolean
+        requiresBoardAdmin?: boolean
     }
 }
 
@@ -190,7 +191,7 @@ const router = createRouter({
             path: '/board/:boardUrl/edit',
             name: 'board-edit',
             component: () => import('@/views/board/BoardEdit.vue'),
-            meta: { requiresAuth: true }
+            meta: { requiresAuth: true, requiresBoardAdmin: true }
         },
         {
             path: '/inquiry',
@@ -359,7 +360,7 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
         // OAuth callback should be allowed even if authenticated (handles re-login scenarios)
         next({ name: 'home' })
     } else {
-        if (to.meta.requiresWritableBoard) {
+        if (to.meta.requiresBoardAdmin || to.meta.requiresWritableBoard) {
             const boardUrl = typeof to.params.boardUrl === 'string' ? to.params.boardUrl : ''
             if (!boardUrl) {
                 next({ name: 'error', query: { status: '404' } })
@@ -369,13 +370,18 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
             try {
                 const { data } = await boardApi.getBoard(boardUrl)
                 const board = data.data as BoardDetail
-                if (!canWriteBoardPost(board, authStore.isAuthenticated, authStore.user?.role)) {
+                if (to.meta.requiresBoardAdmin && !board.isAdmin) {
+                    useToastStore().addToast('You do not have permission to manage this board.', 'error')
+                    next({ name: 'board-detail', params: { boardUrl } })
+                    return
+                }
+                if (to.meta.requiresWritableBoard && !canWriteBoardPost(board, authStore.isAuthenticated, authStore.user?.role)) {
                     useToastStore().addToast('You do not have permission to write on this board.', 'error')
                     next({ name: 'board-detail', params: { boardUrl } })
                     return
                 }
             } catch (error) {
-                logger.error('Failed to verify board write access:', error)
+                logger.error('Failed to verify board access:', error)
                 next({ name: 'error', query: { status: '500' } })
                 return
             }

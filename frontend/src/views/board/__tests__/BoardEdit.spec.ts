@@ -143,6 +143,7 @@ describe('BoardEdit', () => {
           agentUseYn: false,
           guidePrompt: '',
           adminDisplayName: 'Manager',
+          isAdmin: true,
         },
       },
     }
@@ -204,6 +205,24 @@ describe('BoardEdit', () => {
       boardUrl: 'qna',
       data: expect.objectContaining({ boardUrl: 'qna' }),
     })
+  })
+
+  it('redirects before rendering the form when the current user is not a board manager', async () => {
+    vi.mocked(boardApi.getBoard).mockResolvedValueOnce({
+      ...mockBoard('free', 'Free Board'),
+      data: {
+        ...mockBoard('free', 'Free Board').data,
+        data: {
+          ...mockBoard('free', 'Free Board').data.data,
+          isAdmin: false,
+        },
+      },
+    } as never)
+
+    const wrapper = await mountBoardEdit()
+
+    expect(routerPush).toHaveBeenCalledWith('/board/free')
+    expect(wrapper.find('[data-testid="board-form"]').exists()).toBe(false)
   })
 
   it('ignores stale manager transfer results after the route boardUrl changes', async () => {

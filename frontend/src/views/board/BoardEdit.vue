@@ -58,6 +58,7 @@ const { mutateAsync: updateBoard } = useUpdateBoard()
 const { mutateAsync: deleteBoard } = useDeleteBoard()
 const { mutateAsync: transferBoardManager } = useTransferBoardManager()
 const error = ref('')
+const canManageBoard = ref(true)
 const isManagerModalOpen = ref(false)
 const isTransferringManager = ref(false)
 const currentManagerLabel = ref('')
@@ -68,6 +69,7 @@ function resetBoardState() {
   managerTransferRequestId += 1
   form.value = createEmptyForm()
   error.value = ''
+  canManageBoard.value = true
   currentManagerLabel.value = ''
   isManagerModalOpen.value = false
   isTransferringManager.value = false
@@ -83,6 +85,12 @@ async function fetchBoard() {
     if (requestId !== fetchRequestId) return
     if (data.success) {
       const board = data.data as BoardDetail
+      if (!board.isAdmin) {
+        canManageBoard.value = false
+        toastStore.addToast(t('common.messages.forbidden'), 'error')
+        router.push(`/board/${currentBoardUrl}`)
+        return
+      }
       form.value = {
         boardName: board.boardName,
         boardUrl: board.boardUrl,
@@ -183,7 +191,7 @@ watch(boardUrl, () => {
       <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
     </div>
 
-    <div v-else class="bg-white dark:bg-gray-800 shadow sm:rounded-lg overflow-hidden">
+    <div v-else-if="canManageBoard" class="bg-white dark:bg-gray-800 shadow sm:rounded-lg overflow-hidden">
       <!-- Header -->
       <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
         <div>
