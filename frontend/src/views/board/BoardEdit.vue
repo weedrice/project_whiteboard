@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { boardApi } from '@/api/board'
 import CategoryManager from '@/components/board/CategoryManager.vue'
@@ -32,19 +32,23 @@ const { confirm } = useConfirm()
 
 const route = useRoute()
 const router = useRouter()
-const boardUrl = route.params.boardUrl as string
+const boardUrl = computed(() => String(route.params.boardUrl ?? ''))
 
-const form = ref({
-  boardName: '',
-  boardUrl: '',
-  description: '',
-  iconUrl: '',
-  sortOrder: 0,
-  allowNsfw: false,
-  isPublic: true,
-  agentUseYn: false,
-  guidePrompt: ''
-})
+function createEmptyForm() {
+  return {
+    boardName: '',
+    boardUrl: '',
+    description: '',
+    iconUrl: '',
+    sortOrder: 0,
+    allowNsfw: false,
+    isPublic: true,
+    agentUseYn: false,
+    guidePrompt: ''
+  }
+}
+
+const form = ref(createEmptyForm())
 
 const isLoading = ref(true)
 const { isSubmitting, submit } = useFormSubmit()
@@ -57,11 +61,24 @@ const error = ref('')
 const isManagerModalOpen = ref(false)
 const isTransferringManager = ref(false)
 const currentManagerLabel = ref('')
+let fetchRequestId = 0
+
+function resetBoardState() {
+  form.value = createEmptyForm()
+  error.value = ''
+  currentManagerLabel.value = ''
+  isManagerModalOpen.value = false
+  isTransferringManager.value = false
+}
 
 async function fetchBoard() {
+  const currentBoardUrl = boardUrl.value
+  if (!currentBoardUrl) return
+  const requestId = ++fetchRequestId
   isLoading.value = true
   try {
-    const { data } = await boardApi.getBoard(boardUrl)
+    const { data } = await boardApi.getBoard(currentBoardUrl)
+    if (requestId !== fetchRequestId) return
     if (data.success) {
       const board = data.data as BoardDetail
       form.value = {
@@ -78,10 +95,13 @@ async function fetchBoard() {
       currentManagerLabel.value = board.adminDisplayName || t('common.noData')
     }
   } catch (err: unknown) {
+    if (requestId !== fetchRequestId) return
     handleError(err, t('board.loadFailed'))
-    router.push(`/board/${boardUrl}`)
+    router.push(`/board/${currentBoardUrl}`)
   } finally {
-    isLoading.value = false
+    if (requestId === fetchRequestId) {
+      isLoading.value = false
+    }
   }
 }
 
@@ -90,7 +110,7 @@ async function handleUpdate(formData: BoardData) {
 
   await submit(async () => {
     try {
-      const board = await updateBoard({ boardUrl, data: formData as BoardUpdateData })
+      const board = await updateBoard({ boardUrl: boardUrl.value, data: formData as BoardUpdateData })
       toastStore.addToast(t('board.form.successUpdate'), 'success')
       router.push(`/board/${board.boardUrl}`)
     } catch (err: unknown) {
@@ -106,7 +126,7 @@ async function handleDelete() {
   if (!isConfirmed) return
 
   try {
-    await deleteBoard(boardUrl)
+    await deleteBoard(boardUrl.value)
     toastStore.addToast(t('board.form.successDelete'), 'success')
     router.push('/')
   } catch (err: unknown) {
@@ -130,7 +150,7 @@ async function confirmManagerSelection(users: Array<{ loginId: string; displayNa
   isTransferringManager.value = true
   try {
     const updatedBoard = await transferBoardManager({
-      boardUrl,
+      boardUrl: boardUrl.value,
       loginId: selectedUser.loginId
     })
     currentManagerLabel.value = updatedBoard.adminDisplayName || `${selectedUser.displayName} (${selectedUser.loginId})`
@@ -143,7 +163,10 @@ async function confirmManagerSelection(users: Array<{ loginId: string; displayNa
   }
 }
 
-onMounted(fetchBoard)
+watch(boardUrl, () => {
+  resetBoardState()
+  void fetchBoard()
+}, { immediate: true })
 </script>
 
 <template>
