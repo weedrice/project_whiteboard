@@ -1,0 +1,160 @@
+import { computed, ref } from 'vue'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { useEmoticonEditSubmit } from '../useEmoticonEditSubmit'
+import type { EmoticonImagePreview } from '@/utils/emoticonImage'
+
+const mocks = vi.hoisted(() => ({
+  deleteImage: vi.fn(),
+  addImage: vi.fn(),
+  updateEmoticon: vi.fn(),
+  uploadFile: vi.fn(),
+  createUploadableEmoticonImageFile: vi.fn(),
+}))
+
+vi.mock('@/api/emoticon', () => ({
+  emoticonApi: {
+    deleteImage: mocks.deleteImage,
+    addImage: mocks.addImage,
+    updateEmoticon: mocks.updateEmoticon,
+  },
+}))
+
+vi.mock('@/api/file', () => ({
+  fileApi: {
+    uploadFile: mocks.uploadFile,
+  },
+}))
+
+vi.mock('@/utils/emoticonImage', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/utils/emoticonImage')>()
+
+  return {
+    ...actual,
+    createUploadableEmoticonImageFile: mocks.createUploadableEmoticonImageFile,
+  }
+})
+
+vi.mock('@/utils/errorHandler', () => ({
+  extractErrorMessage: vi.fn(() => ''),
+}))
+
+const createUploadSession = () => {
+  const isDisposed = computed(() => false)
+  let activeRunId = 0
+
+  return {
+    uploadProgress: ref({ current: 0, total: 0 }),
+    isDisposed,
+    startSubmitRun: vi.fn(() => {
+      activeRunId += 1
+      return activeRunId
+    }),
+    assertSubmitActive: vi.fn(),
+    isSubmitActive: vi.fn((runId?: number) => runId === activeRunId),
+    cancelSubmitRun: vi.fn(() => {
+      activeRunId = 0
+    }),
+    resetUploadProgress: vi.fn(),
+    setUploadProgress: vi.fn(),
+    createUploadController: vi.fn(() => new AbortController()),
+    releaseUploadController: vi.fn(),
+    abortPendingUploads: vi.fn(),
+    createUploadCancelledError: vi.fn(() => new DOMException('cancelled', 'AbortError')),
+    isUploadCancelledError: vi.fn((error: unknown) => error instanceof DOMException && error.name === 'AbortError'),
+  }
+}
+
+const createPreview = (fileName: string): EmoticonImagePreview => ({
+  clientId: fileName,
+  file: new File(['image'], fileName, { type: 'image/png' }),
+  preview: `blob:${fileName}`,
+  width: 80,
+  height: 80,
+})
+
+describe('useEmoticonEditSubmit', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.deleteImage.mockResolvedValue({ data: { success: true } })
+    mocks.addImage.mockResolvedValue({ data: { success: true } })
+    mocks.updateEmoticon.mockResolvedValue({ data: { success: true } })
+    mocks.createUploadableEmoticonImageFile.mockImplementation((item) => Promise.resolve(item.file))
+    mocks.uploadFile.mockImplementation((file: File) => Promise.resolve({
+      data: {
+        data: {
+          fileId: file.name === 'thumb.png' ? 10 : 20,
+        },
+      },
+    }))
+  })
+
+  it('submits edits and invalidates the same detail and list cache keys', async () => {
+    const uploadSession = createUploadSession()
+    const invalidateQueries = vi.fn()
+    const onSuccess = vi.fn()
+    const onError = vi.fn()
+    const isSubmitting = ref(false)
+    const { handleSubmit } = useEmoticonEditSubmit({
+      emoticonId: computed(() => 7),
+      isFormValid: computed(() => true),
+      isSubmitting,
+      thumbnailFile: ref(new File(['thumb'], 'thumb.png', { type: 'image/png' })),
+      imagesToDelete: ref([10]),
+      newEmoticonPreviews: ref([createPreview('new.png')]),
+      emoticonName: ref(' Updated '),
+      tags: ref(['fun']),
+      uploadSession,
+      queryClient: { invalidateQueries } as never,
+      fallbackErrorMessage: 'failed',
+      onSuccess,
+      onError,
+    })
+
+    await handleSubmit()
+
+    expect(mocks.deleteImage).toHaveBeenCalledWith(10)
+    expect(mocks.uploadFile).toHaveBeenCalledWith(expect.any(File), { signal: expect.any(AbortSignal) })
+    expect(mocks.addImage).toHaveBeenCalledWith(7, 20)
+    expect(mocks.updateEmoticon).toHaveBeenCalledWith(7, {
+      name: 'Updated',
+      thumbnailFileId: 10,
+      tags: ['fun'],
+    })
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticon', expect.any(Object)] })
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticons'] })
+    expect(onSuccess).toHaveBeenCalledTimes(1)
+    expect(onError).not.toHaveBeenCalled()
+    expect(isSubmitting.value).toBe(false)
+  })
+
+  it('does not delete or update images when new image preparation fails', async () => {
+    mocks.createUploadableEmoticonImageFile.mockRejectedValueOnce(new Error('resize failed'))
+    const uploadSession = createUploadSession()
+    const onSuccess = vi.fn()
+    const onError = vi.fn()
+    const { handleSubmit } = useEmoticonEditSubmit({
+      emoticonId: computed(() => 7),
+      isFormValid: computed(() => true),
+      isSubmitting: ref(false),
+      thumbnailFile: ref(null),
+      imagesToDelete: ref([10]),
+      newEmoticonPreviews: ref([createPreview('new.png')]),
+      emoticonName: ref('Updated'),
+      tags: ref(['fun']),
+      uploadSession,
+      queryClient: { invalidateQueries: vi.fn() } as never,
+      fallbackErrorMessage: 'failed',
+      onSuccess,
+      onError,
+    })
+
+    await handleSubmit()
+
+    expect(mocks.deleteImage).not.toHaveBeenCalled()
+    expect(mocks.uploadFile).not.toHaveBeenCalled()
+    expect(mocks.addImage).not.toHaveBeenCalled()
+    expect(mocks.updateEmoticon).not.toHaveBeenCalled()
+    expect(onSuccess).not.toHaveBeenCalled()
+    expect(onError).toHaveBeenCalledWith('failed')
+  })
+})
