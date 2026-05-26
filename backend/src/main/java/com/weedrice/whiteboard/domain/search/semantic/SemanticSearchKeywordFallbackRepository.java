@@ -109,6 +109,61 @@ class SemanticSearchKeywordFallbackRepository {
               )
             """;
 
+    private static final String POST_COUNT_SELECT = """
+            SELECT p.post_id AS content_id
+            FROM posts p
+            JOIN boards b ON b.board_id = p.board_id
+            JOIN users u ON u.user_id = p.user_id
+            WHERE p.is_deleted = 'N'
+              AND (
+                    LOWER(COALESCE(p.title, '')) LIKE :keywordPattern ESCAPE '!'
+                    OR LOWER(COALESCE(p.contents, '')) LIKE :keywordPattern ESCAPE '!'
+              )
+              AND %s
+              AND %s
+              AND u.status = 'ACTIVE'
+              AND u.deleted_at IS NULL
+              AND NOT EXISTS (
+                    SELECT 1 FROM sanctions s
+                    WHERE s.target_user_id = u.user_id
+                      AND UPPER(s.type) = 'BAN'
+                      AND s.start_date <= CURRENT_TIMESTAMP
+                      AND (s.end_date IS NULL OR s.end_date > CURRENT_TIMESTAMP)
+              )
+            """;
+
+    private static final String COMMENT_COUNT_SELECT = """
+            SELECT c.comment_id AS content_id
+            FROM comments c
+            JOIN posts p ON p.post_id = c.post_id
+            JOIN boards b ON b.board_id = p.board_id
+            JOIN users u ON u.user_id = c.user_id
+            JOIN users post_author ON post_author.user_id = p.user_id
+            WHERE c.is_deleted = 'N'
+              AND p.is_deleted = 'N'
+              AND LOWER(COALESCE(c.content, '')) LIKE :keywordPattern ESCAPE '!'
+              AND %s
+              AND %s
+              AND u.status = 'ACTIVE'
+              AND u.deleted_at IS NULL
+              AND post_author.status = 'ACTIVE'
+              AND post_author.deleted_at IS NULL
+              AND NOT EXISTS (
+                    SELECT 1 FROM sanctions s
+                    WHERE s.target_user_id = u.user_id
+                      AND UPPER(s.type) = 'BAN'
+                      AND s.start_date <= CURRENT_TIMESTAMP
+                      AND (s.end_date IS NULL OR s.end_date > CURRENT_TIMESTAMP)
+              )
+              AND NOT EXISTS (
+                    SELECT 1 FROM sanctions s
+                    WHERE s.target_user_id = post_author.user_id
+                      AND UPPER(s.type) = 'BAN'
+                      AND s.start_date <= CURRENT_TIMESTAMP
+                      AND (s.end_date IS NULL OR s.end_date > CURRENT_TIMESTAMP)
+              )
+            """;
+
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
     List<SemanticSearchRow> search(SemanticSearchKeywordQuery query) {
@@ -120,7 +175,7 @@ class SemanticSearchKeywordFallbackRepository {
     }
 
     long count(SemanticSearchKeywordQuery query) {
-        String sql = "SELECT COUNT(*) FROM (" + buildUnionSql(query) + ") semantic_keyword_count";
+        String sql = "SELECT COUNT(*) FROM (" + buildCountUnionSql(query) + ") semantic_keyword_count";
         Long count = jdbcTemplate.queryForObject(sql, params(query), Long.class);
         return count != null ? count : 0L;
     }
@@ -134,6 +189,19 @@ class SemanticSearchKeywordFallbackRepository {
         }
         if (query.contentType().includesComments()) {
             selects.add(String.format(COMMENT_SELECT, boardPredicate, postPrivacyPredicate));
+        }
+        return String.join("\nUNION ALL\n", selects) + "\n";
+    }
+
+    private String buildCountUnionSql(SemanticSearchKeywordQuery query) {
+        List<String> selects = new ArrayList<>();
+        String boardPredicate = boardPredicate(query);
+        String postPrivacyPredicate = postPrivacyPredicate(query);
+        if (query.contentType().includesPosts()) {
+            selects.add(String.format(POST_COUNT_SELECT, boardPredicate, postPrivacyPredicate));
+        }
+        if (query.contentType().includesComments()) {
+            selects.add(String.format(COMMENT_COUNT_SELECT, boardPredicate, postPrivacyPredicate));
         }
         return String.join("\nUNION ALL\n", selects) + "\n";
     }

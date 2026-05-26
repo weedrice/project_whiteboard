@@ -17,67 +17,61 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class SemanticSearchKeywordFallbackRepositoryTest {
+class SemanticSearchVectorRepositoryTest {
 
     private NamedParameterJdbcTemplate jdbcTemplate;
-    private SemanticSearchKeywordFallbackRepository repository;
+    private SemanticSearchVectorRepository repository;
 
     @BeforeEach
     void setUp() {
         jdbcTemplate = mock(NamedParameterJdbcTemplate.class);
-        repository = new SemanticSearchKeywordFallbackRepository(jdbcTemplate);
+        repository = new SemanticSearchVectorRepository(jdbcTemplate);
     }
 
     @Test
-    void search_buildsUnionSqlWithSafetyFiltersAndEscapedKeywordPattern() {
+    void search_buildsUnionSqlWithSimilarityAndResponseColumns() {
         when(jdbcTemplate.query(anyString(), any(MapSqlParameterSource.class), any(RowMapper.class)))
                 .thenReturn(List.of());
-        SemanticSearchKeywordQuery query = new SemanticSearchKeywordQuery(
+        SemanticSearchQuery query = new SemanticSearchQuery(
                 SemanticSearchContentType.ALL,
-                "100%_match!",
                 null,
                 7L,
                 false,
                 List.of(9L),
+                "[0.1,0.2]",
                 20,
                 40);
 
         repository.search(query);
 
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
-        ArgumentCaptor<MapSqlParameterSource> paramsCaptor = ArgumentCaptor.forClass(MapSqlParameterSource.class);
-        verify(jdbcTemplate).query(sqlCaptor.capture(), paramsCaptor.capture(), any(RowMapper.class));
+        verify(jdbcTemplate).query(sqlCaptor.capture(), any(MapSqlParameterSource.class), any(RowMapper.class));
 
-        String sql = sqlCaptor.getValue();
-        assertThat(sql)
-                .contains("UNION ALL")
-                .contains("b.is_active = 'Y' AND b.is_public = 'Y'")
-                .contains("u.status = 'ACTIVE'")
-                .contains("post_author.status = 'ACTIVE'")
-                .contains("UPPER(s.type) = 'BAN'")
-                .contains("p.user_id NOT IN (:blockedUserIds)")
-                .contains("u.user_id NOT IN (:blockedUserIds)")
-                .contains("ORDER BY created_at DESC, content_type ASC, content_id DESC");
-        assertThat(paramsCaptor.getValue().getValue("keywordPattern")).isEqualTo("%100!%!_match!!%");
+        assertThat(sqlCaptor.getValue())
+                .contains("1 - (e.embedding <=> CAST(:queryEmbedding AS vector)) AS similarity")
+                .contains("LEFT JOIN agents a")
+                .contains("author_display_name")
+                .contains("ORDER BY similarity DESC, created_at DESC, content_id DESC")
+                .contains("LIMIT :limit OFFSET :offset");
     }
 
     @Test
     void count_usesDedicatedCountSqlWithoutResponseColumns() {
         when(jdbcTemplate.queryForObject(anyString(), any(MapSqlParameterSource.class), eq(Long.class)))
-                .thenReturn(3L);
-        SemanticSearchKeywordQuery query = new SemanticSearchKeywordQuery(
+                .thenReturn(5L);
+        SemanticSearchQuery query = new SemanticSearchQuery(
                 SemanticSearchContentType.ALL,
-                "hello",
                 "private",
                 7L,
                 true,
-                List.of(),
+                List.of(9L),
+                "[0.1,0.2]",
                 10,
                 0);
 
         long count = repository.count(query);
 
-        assertThat(count).isEqualTo(3L);
+        assertThat(count).isEqualTo(5L);
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         verify(jdbcTemplate).queryForObject(sqlCaptor.capture(), any(MapSqlParameterSource.class), eq(Long.class));
         assertThat(sqlCaptor.getValue())
@@ -85,10 +79,11 @@ class SemanticSearchKeywordFallbackRepositoryTest {
                 .contains("UNION ALL")
                 .contains("b.board_url = :boardUrl")
                 .contains(":viewerSuperAdmin = TRUE")
-                .contains("LOWER(COALESCE(p.title, '')) LIKE :keywordPattern ESCAPE '!'")
-                .contains("LOWER(COALESCE(c.content, '')) LIKE :keywordPattern ESCAPE '!'")
+                .contains("p.user_id NOT IN (:blockedUserIds)")
+                .contains("u.user_id NOT IN (:blockedUserIds)")
                 .contains("post_author.status = 'ACTIVE'")
                 .contains("UPPER(s.type) = 'BAN'")
+                .doesNotContain("e.embedding <=>")
                 .doesNotContain("LEFT JOIN agents")
                 .doesNotContain("author_display_name")
                 .doesNotContain("ORDER BY")

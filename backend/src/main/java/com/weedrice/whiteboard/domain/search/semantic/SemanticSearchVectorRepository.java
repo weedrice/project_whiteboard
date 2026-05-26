@@ -106,10 +106,66 @@ class SemanticSearchVectorRepository {
               )
             """;
 
+    private static final String POST_COUNT_SELECT = """
+            SELECT e.content_id
+            FROM semantic_search_embeddings e
+            JOIN posts p ON p.post_id = e.content_id
+            JOIN boards b ON b.board_id = p.board_id
+            JOIN users u ON u.user_id = p.user_id
+            WHERE e.content_type = 'POST'
+              AND e.deleted_at IS NULL
+              AND p.is_deleted = 'N'
+              AND %s
+              AND %s
+              AND u.status = 'ACTIVE'
+              AND u.deleted_at IS NULL
+              AND NOT EXISTS (
+                    SELECT 1 FROM sanctions s
+                    WHERE s.target_user_id = u.user_id
+                      AND UPPER(s.type) = 'BAN'
+                      AND s.start_date <= CURRENT_TIMESTAMP
+                      AND (s.end_date IS NULL OR s.end_date > CURRENT_TIMESTAMP)
+              )
+            """;
+
+    private static final String COMMENT_COUNT_SELECT = """
+            SELECT e.content_id
+            FROM semantic_search_embeddings e
+            JOIN comments c ON c.comment_id = e.content_id
+            JOIN posts p ON p.post_id = c.post_id
+            JOIN boards b ON b.board_id = p.board_id
+            JOIN users u ON u.user_id = c.user_id
+            JOIN users post_author ON post_author.user_id = p.user_id
+            WHERE e.content_type = 'COMMENT'
+              AND e.deleted_at IS NULL
+              AND c.is_deleted = 'N'
+              AND p.is_deleted = 'N'
+              AND %s
+              AND %s
+              AND u.status = 'ACTIVE'
+              AND u.deleted_at IS NULL
+              AND post_author.status = 'ACTIVE'
+              AND post_author.deleted_at IS NULL
+              AND NOT EXISTS (
+                    SELECT 1 FROM sanctions s
+                    WHERE s.target_user_id = u.user_id
+                      AND UPPER(s.type) = 'BAN'
+                      AND s.start_date <= CURRENT_TIMESTAMP
+                      AND (s.end_date IS NULL OR s.end_date > CURRENT_TIMESTAMP)
+              )
+              AND NOT EXISTS (
+                    SELECT 1 FROM sanctions s
+                    WHERE s.target_user_id = post_author.user_id
+                      AND UPPER(s.type) = 'BAN'
+                      AND s.start_date <= CURRENT_TIMESTAMP
+                      AND (s.end_date IS NULL OR s.end_date > CURRENT_TIMESTAMP)
+              )
+            """;
+
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
     List<SemanticSearchRow> search(SemanticSearchQuery query) {
-        String sql = buildUnionSql(query, true) + """
+        String sql = buildUnionSql(query) + """
                 ORDER BY similarity DESC, created_at DESC, content_id DESC
                 LIMIT :limit OFFSET :offset
                 """;
@@ -117,12 +173,12 @@ class SemanticSearchVectorRepository {
     }
 
     long count(SemanticSearchQuery query) {
-        String sql = "SELECT COUNT(*) FROM (" + buildUnionSql(query, false) + ") semantic_count";
+        String sql = "SELECT COUNT(*) FROM (" + buildCountUnionSql(query) + ") semantic_count";
         Long count = jdbcTemplate.queryForObject(sql, params(query), Long.class);
         return count != null ? count : 0L;
     }
 
-    private String buildUnionSql(SemanticSearchQuery query, boolean includeSimilarity) {
+    private String buildUnionSql(SemanticSearchQuery query) {
         List<String> selects = new ArrayList<>();
         String boardPredicate = boardPredicate(query);
         String postPrivacyPredicate = postPrivacyPredicate(query);
@@ -133,11 +189,20 @@ class SemanticSearchVectorRepository {
             selects.add(String.format(COMMENT_SELECT, boardPredicate, postPrivacyPredicate));
         }
         String sql = String.join("\nUNION ALL\n", selects);
-        if (includeSimilarity) {
-            return sql + "\n";
+        return sql + "\n";
+    }
+
+    private String buildCountUnionSql(SemanticSearchQuery query) {
+        List<String> selects = new ArrayList<>();
+        String boardPredicate = boardPredicate(query);
+        String postPrivacyPredicate = postPrivacyPredicate(query);
+        if (query.contentType().includesPosts()) {
+            selects.add(String.format(POST_COUNT_SELECT, boardPredicate, postPrivacyPredicate));
         }
-        return sql.replace("1 - (e.embedding <=> CAST(:queryEmbedding AS vector)) AS similarity,", "0 AS similarity,")
-                + "\n";
+        if (query.contentType().includesComments()) {
+            selects.add(String.format(COMMENT_COUNT_SELECT, boardPredicate, postPrivacyPredicate));
+        }
+        return String.join("\nUNION ALL\n", selects) + "\n";
     }
 
     private String boardPredicate(SemanticSearchQuery query) {
