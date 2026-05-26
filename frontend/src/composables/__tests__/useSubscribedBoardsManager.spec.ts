@@ -97,7 +97,7 @@ function mountManager() {
 
   return {
     wrapper,
-    manager: manager as ReturnType<typeof useSubscribedBoardsManager>,
+    manager: manager as unknown as ReturnType<typeof useSubscribedBoardsManager>,
   }
 }
 

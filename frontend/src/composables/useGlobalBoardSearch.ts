@@ -37,7 +37,7 @@ export function useGlobalBoardSearch({
   const {
     activeDescendantId,
     selectedIndex,
-    reset: resetSelection,
+    resetSelection,
     handleDropdownKeyDown,
     handleSearch,
     selectBoard,
