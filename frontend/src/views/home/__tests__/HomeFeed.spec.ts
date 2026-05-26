@@ -208,6 +208,31 @@ describe('HomeFeed', () => {
         expect(wrapper.text()).toContain('1,824')
     })
 
+    it('does not use latest activity as the curated hero post', () => {
+        state.liveActivity.value = [makePost(404, 'Latest activity')]
+
+        const wrapper = mount(HomeFeed, {
+            global: {
+                mocks: {
+                    $t: (key: string) => key,
+                },
+                stubs: {
+                    RouterLink: RouterLinkStub,
+                    HomePostCard: HomePostCardStub,
+                    HomeActivityList: HomeActivityListStub,
+                    EmptyState: EmptyStateStub,
+                    ErrorState: ErrorStateStub,
+                    HomeLandingSkeleton: HomeLandingSkeletonStub,
+                },
+            },
+        })
+
+        expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(false)
+        expect(wrapper.find('[data-testid="activity-list"]').text()).toContain('404')
+        expect(wrapper.findAll('[data-testid="post-card"]')).toHaveLength(0)
+        expect(wrapper.text()).toContain('home.landing.featuredLoading')
+    })
+
     it('links the remaining board strip area to the all boards page', () => {
         state.editorPicks.value = [makePost(101, 'Hero')]
         state.spotlightBoards.value = Array.from({ length: 6 }, (_, index) => ({
