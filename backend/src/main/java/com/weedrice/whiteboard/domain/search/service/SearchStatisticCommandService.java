@@ -1,7 +1,6 @@
 package com.weedrice.whiteboard.domain.search.service;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -11,6 +10,7 @@ import java.time.LocalDate;
 public class SearchStatisticCommandService {
 
     private final SearchStatisticWriteService searchStatisticWriteService;
+    private final SearchUpsertRetryPolicy searchUpsertRetryPolicy;
 
     public void recordSearchStatistic(String keyword, LocalDate searchDate) {
         String canonicalKeyword = SearchRequestNormalizer.canonicalizeOptionalKeyword(keyword);
@@ -19,15 +19,8 @@ public class SearchStatisticCommandService {
         }
 
         String normalizedKeyword = SearchKeywordNormalizer.normalize(canonicalKeyword);
-        int updated = searchStatisticWriteService.incrementSearchCount(normalizedKeyword, searchDate);
-        if (updated > 0) {
-            return;
-        }
-
-        try {
-            searchStatisticWriteService.createStatistic(normalizedKeyword, searchDate);
-        } catch (DataIntegrityViolationException e) {
-            searchStatisticWriteService.incrementSearchCount(normalizedKeyword, searchDate);
-        }
+        searchUpsertRetryPolicy.updateOrCreate(
+                () -> searchStatisticWriteService.incrementSearchCount(normalizedKeyword, searchDate),
+                () -> searchStatisticWriteService.createStatistic(normalizedKeyword, searchDate));
     }
 }

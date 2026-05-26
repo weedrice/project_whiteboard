@@ -1,9 +1,9 @@
 package com.weedrice.whiteboard.domain.search.service;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -25,8 +25,14 @@ class SearchStatisticCommandServiceTest {
     @Mock
     private SearchStatisticWriteService searchStatisticWriteService;
 
-    @InjectMocks
     private SearchStatisticCommandService searchStatisticCommandService;
+
+    @BeforeEach
+    void setUp() {
+        searchStatisticCommandService = new SearchStatisticCommandService(
+                searchStatisticWriteService,
+                new SearchUpsertRetryPolicy());
+    }
 
     @Test
     @DisplayName("기존 통계가 있으면 search_count만 증가시킨다")
@@ -44,6 +50,8 @@ class SearchStatisticCommandServiceTest {
     void recordSearchStatistic_truncatesKeyword() {
         String keyword = "A".repeat(SearchRequestNormalizer.MAX_KEYWORD_LENGTH + 10);
         String normalizedKeyword = "a".repeat(SearchRequestNormalizer.MAX_KEYWORD_LENGTH);
+        when(searchStatisticWriteService.incrementSearchCount(eq(normalizedKeyword), any(LocalDate.class)))
+                .thenReturn(1);
 
         searchStatisticCommandService.recordSearchStatistic(keyword, LocalDate.now());
 

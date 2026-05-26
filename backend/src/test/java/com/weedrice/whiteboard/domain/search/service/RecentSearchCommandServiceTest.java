@@ -2,11 +2,11 @@ package com.weedrice.whiteboard.domain.search.service;
 
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -31,8 +31,15 @@ class RecentSearchCommandServiceTest {
     @Mock
     private SearchUserLookupPolicy searchUserLookupPolicy;
 
-    @InjectMocks
     private RecentSearchCommandService recentSearchCommandService;
+
+    @BeforeEach
+    void setUp() {
+        recentSearchCommandService = new RecentSearchCommandService(
+                recentSearchWriteService,
+                searchUserLookupPolicy,
+                new SearchUpsertRetryPolicy());
+    }
 
     @Test
     @DisplayName("최근 검색어를 정규화 키워드 기준으로 신규 저장한다")
