@@ -10,8 +10,8 @@ const routeState = vi.hoisted(() => ({
 const searchState = vi.hoisted(() => ({
   lastParams: null as ReturnType<typeof computed<Record<string, unknown>>> | null,
   searchData: {
-    posts: { content: [] },
-    boards: [],
+    postResults: [],
+    boardResults: [],
   },
   isLoading: false,
 }))
@@ -71,8 +71,8 @@ describe('SearchPage', () => {
     routeState.query = {}
     searchState.lastParams = null
     searchState.searchData = {
-      posts: { content: [] },
-      boards: [],
+      postResults: [],
+      boardResults: [],
     }
     searchState.isLoading = false
     routeState.routerPush.mockClear()

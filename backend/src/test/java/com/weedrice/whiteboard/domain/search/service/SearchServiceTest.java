@@ -196,8 +196,8 @@ class SearchServiceTest {
 
         var result = searchService.integratedSearch(keyword, null);
 
-        assertThat(result.getComments().getTotalElements()).isZero();
-        assertThat(result.getBoards()).isEmpty();
+        assertThat(result.getCommentResults().getTotalElements()).isZero();
+        assertThat(result.getBoardResults()).isEmpty();
         verify(commentRepository).searchCommentsByKeyword(eq(keyword), isNull(), isNull(), any(Pageable.class));
         verify(boardRepository).findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
                 eq(keyword), eq(previewPageable));
@@ -314,8 +314,8 @@ class SearchServiceTest {
 
         var result = searchService.integratedSearch(keyword, currentUserId);
 
-        assertThat(result.getComments().getTotalElements()).isZero();
-        assertThat(result.getBoards()).isEmpty();
+        assertThat(result.getCommentResults().getTotalElements()).isZero();
+        assertThat(result.getBoardResults()).isEmpty();
         verify(userBlockService).getBlockedUserIdsEitherDirection(currentUserId);
         verify(commentRepository).searchCommentsByKeyword(eq(keyword), eq(blockedUserIds), eq(currentUserId),
                 any(Pageable.class));
@@ -347,8 +347,8 @@ class SearchServiceTest {
 
         var result = searchService.integratedSearch(keyword, null);
 
-        assertThat(result.getBoards()).hasSize(5);
-        assertThat(result.getBoards()).extracting("boardName")
+        assertThat(result.getBoardResults()).hasSize(5);
+        assertThat(result.getBoardResults()).extracting("boardName")
                 .containsExactly("Board 1", "Board 2", "Board 3", "Board 4", "Board 5");
         verify(boardRepository).findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
                 eq(keyword), eq(previewPageable));

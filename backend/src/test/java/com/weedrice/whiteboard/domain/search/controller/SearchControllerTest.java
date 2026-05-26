@@ -136,7 +136,18 @@ class SearchControllerTest {
                 .param("q", query)
                 .with(anonymous()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.keyword").value(query))
+                .andExpect(jsonPath("$.data.postResults.items").isArray())
+                .andExpect(jsonPath("$.data.postResults.totalElements").value(0))
+                .andExpect(jsonPath("$.data.postResults.page").value(0))
+                .andExpect(jsonPath("$.data.postResults.size").value(0))
+                .andExpect(jsonPath("$.data.postResults.hasMore").value(false))
+                .andExpect(jsonPath("$.data.commentResults.items").isArray())
+                .andExpect(jsonPath("$.data.userResults.items").isArray())
+                .andExpect(jsonPath("$.data.boardResults").isArray())
+                .andExpect(jsonPath("$.data.posts").doesNotExist())
+                .andExpect(jsonPath("$.data.boards").doesNotExist());
 
         verify(searchService).integratedSearch(eq(query), isNull());
     }

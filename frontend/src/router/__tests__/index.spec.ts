@@ -203,6 +203,42 @@ describe('Router Navigation Guards', () => {
         expect(router.currentRoute.value.query.status).toBe('500')
     })
 
+    it('checks board manager permission before entering board edit route', async () => {
+        mockAuthStore.isAuthenticated = true
+        mockAuthStore.user = { role: 'USER' }
+        vi.mocked(boardApi.getBoard).mockResolvedValueOnce({
+            data: {
+                data: {
+                    isAdmin: true,
+                    categories: []
+                }
+            }
+        } as never)
+
+        await router.push('/board/free/edit')
+
+        expect(boardApi.getBoard).toHaveBeenCalledWith('free')
+        expect(router.currentRoute.value.name).toBe('board-edit')
+    })
+
+    it('redirects to board detail when the user cannot manage the board', async () => {
+        mockAuthStore.isAuthenticated = true
+        mockAuthStore.user = { role: 'USER' }
+        vi.mocked(boardApi.getBoard).mockResolvedValueOnce({
+            data: {
+                data: {
+                    isAdmin: false,
+                    categories: []
+                }
+            }
+        } as never)
+
+        await router.push('/board/restricted/edit')
+
+        expect(router.currentRoute.value.name).toBe('board-detail')
+        expect(router.currentRoute.value.params.boardUrl).toBe('restricted')
+    })
+
     it('fetches user if token exists but user is missing', async () => {
         mockAuthStore.accessToken = 'token'
         mockAuthStore.user = null
