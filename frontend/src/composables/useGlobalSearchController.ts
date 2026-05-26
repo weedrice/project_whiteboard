@@ -1,7 +1,5 @@
-import { computed, nextTick, onMounted, onUnmounted, ref, watch, type Ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useQueryClient } from '@tanstack/vue-query'
-import { useKeyboardNavigation } from '@/composables/useKeyboardNavigation'
+import { nextTick, onMounted, onUnmounted, ref, type Ref } from 'vue'
+import { useSearchNavigation } from '@/composables/useSearchNavigation'
 import type { BoardListItem } from '@/types'
 
 interface SearchInputLike {
@@ -24,10 +22,6 @@ export function useGlobalSearchController({
   searchInputRef,
   searchListboxId
 }: UseGlobalSearchControllerOptions) {
-  const router = useRouter()
-  const route = useRoute()
-  const queryClient = useQueryClient()
-
   const showDropdown = ref(false)
   const isMobile = ref(typeof window !== 'undefined' && window.innerWidth < 640)
   const isExpanded = ref(false)
@@ -71,68 +65,22 @@ export function useGlobalSearchController({
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
   }
 
-  const handleSearch = () => {
-    const nextQuery = searchQuery.value.trim()
-    if (nextQuery) {
-      showDropdown.value = false
-      if (isMobile.value) collapse()
-
-      if (route.name === 'search' && route.query.q === nextQuery) {
-        queryClient.invalidateQueries({ queryKey: ['search', 'integrated'] })
-        return
-      }
-
-      router.push({
-        name: 'search',
-        query: {
-          q: nextQuery
-        }
-      })
-    }
-  }
-
-  const selectBoard = (boardUrl: string) => {
-    showDropdown.value = false
-    searchQuery.value = ''
-    if (isMobile.value) collapse()
-    router.push(`/board/${boardUrl}`)
-  }
-
   const {
+    activeDescendantId,
     selectedIndex,
-    handleKeyDown: handleDropdownKeyDown,
-    reset: resetSelection,
-    setSelectedIndex
-  } = useKeyboardNavigation(
+    handleDropdownKeyDown,
+    handleSearch,
+    resetSelection,
+    selectBoard,
+    setSelectedIndex,
+  } = useSearchNavigation({
     filteredBoards,
-    {
-      onSelect: (index) => {
-        if (filteredBoards.value[index]) {
-          selectBoard(filteredBoards.value[index].boardUrl)
-        }
-      },
-      onEscape: () => {
-        showDropdown.value = false
-        focusSearchInput()
-      },
-      loop: true,
-      initialIndex: -1
-    }
-  )
-
-  const activeDescendantId = computed(() => (
-    selectedIndex.value >= 0 && filteredBoards.value[selectedIndex.value]
-      ? `${searchListboxId}-${filteredBoards.value[selectedIndex.value].boardUrl}`
-      : undefined
-  ))
-
-  watch(searchQuery, () => {
-    showDropdown.value = !!searchQuery.value.trim()
-    resetSelection()
-  })
-
-  watch(filteredBoards, () => {
-    resetSelection()
+    searchQuery,
+    showDropdown,
+    listboxId: searchListboxId,
+    isMobile,
+    collapse,
+    focusSearchInput,
   })
 
   const handleClickOutside = (event: Event) => {
