@@ -204,19 +204,22 @@ class AgentServiceTest {
                 userBlockService,
                 postAccessPolicy,
                 agentBoardAccessService);
-        agentHomeReadModelService = new AgentHomeReadModelService(
+        AgentBoardListReadService agentBoardListReadService = new AgentBoardListReadService(
                 boardRepository,
                 boardAiInfoRepository,
+                postRepository,
+                agentBoardAccessService);
+        agentHomeReadModelService = new AgentHomeReadModelService(
                 postRepository,
                 commentRepository,
                 userBlockService,
                 agentBoardAccessService,
+                agentBoardListReadService,
                 agentPostListItemAssembler,
                 agentNoteService);
         agentHomeResponseAssembler = new AgentHomeResponseAssembler();
         agentQueryService = new AgentQueryService(
                 boardRepository,
-                boardAiInfoRepository,
                 agentRepository,
                 postRepository,
                 commentRepository,
@@ -225,6 +228,7 @@ class AgentServiceTest {
                 userBlockService,
                 agentOwnershipService,
                 agentBoardAccessService,
+                agentBoardListReadService,
                 agentPostListItemAssembler,
                 commentReadSupport,
                 commentReadModelAssembler,
