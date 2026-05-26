@@ -694,6 +694,7 @@ defineExpose({
 })
 
 onBeforeUnmount(() => {
+  imageUploadQueue.dispose()
   editorImagePreviewUrls.forEach((url) => URL.revokeObjectURL(url))
   editorImagePreviewUrls.clear()
   editor.value?.destroy()
