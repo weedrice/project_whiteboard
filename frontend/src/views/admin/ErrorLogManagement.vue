@@ -1,125 +1,40 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useAdmin } from '@/composables/useAdmin'
+import { useErrorLogDetailModal } from '@/composables/useErrorLogDetailModal'
+import { useErrorLogListState } from '@/composables/useErrorLogListState'
 import { useI18n } from 'vue-i18n'
-import { useToastStore } from '@/stores/toast'
 import { Eye, CheckCircle, ChevronLeft, ChevronRight, X, Search, Copy } from 'lucide-vue-next'
-import type { ErrorLogDetail, ErrorLogListItem } from '@/types'
 
 const { t } = useI18n()
-const toastStore = useToastStore()
-const { useErrorLogs, useErrorLog, useResolveErrorLog, useErrorLogStats } = useAdmin()
 
-// 날짜 기본값 (시작일: 2주 전, 종료일: 오늘)
-function toDateString(date: Date): string {
-    const y = date.getFullYear()
-    const m = String(date.getMonth() + 1).padStart(2, '0')
-    const d = String(date.getDate()).padStart(2, '0')
-    return `${y}-${m}-${d}`
-}
+const {
+    errorLogs,
+    filterEndDate,
+    filterErrorType,
+    filterHttpStatus,
+    filterIsResolved,
+    filterStartDate,
+    handleSearch,
+    isLoading,
+    page,
+    resetFilters,
+    statsData,
+    totalElements,
+    totalPages
+} = useErrorLogListState()
 
-const today = new Date()
-const twoWeeksAgo = new Date(today)
-twoWeeksAgo.setDate(today.getDate() - 14)
-
-const defaultStartDate = toDateString(twoWeeksAgo)
-const defaultEndDate = toDateString(today)
-
-// 검색 조건 (입력용)
-const page = ref(0)
-const size = ref(20)
-const filterErrorType = ref('')
-const filterHttpStatus = ref<number | undefined>(undefined)
-const filterIsResolved = ref('')
-const filterStartDate = ref(defaultStartDate)
-const filterEndDate = ref(defaultEndDate)
-
-// 실제 검색에 사용되는 파라미터 (검색 버튼 클릭 시 반영)
-const searchParams = ref({
-    page: 0,
-    size: 20,
-    errorType: undefined as string | undefined,
-    httpStatus: undefined as number | undefined,
-    isResolved: undefined as string | undefined,
-    startDate: defaultStartDate as string | undefined,
-    endDate: defaultEndDate as string | undefined,
-})
-
-const params = computed(() => ({
-    ...searchParams.value,
-    page: page.value,
-}))
-
-function handleSearch() {
-    searchParams.value = {
-        page: 0,
-        size: size.value,
-        errorType: filterErrorType.value || undefined,
-        httpStatus: filterHttpStatus.value || undefined,
-        isResolved: filterIsResolved.value || undefined,
-        startDate: filterStartDate.value || undefined,
-        endDate: filterEndDate.value || undefined,
-    }
-    page.value = 0
-}
-
-const { data: errorLogsData, isLoading, refetch } = useErrorLogs(params)
-const { data: statsData } = useErrorLogStats()
-const { mutateAsync: fetchErrorLogDetail } = useErrorLog()
-const { mutateAsync: resolveErrorLog } = useResolveErrorLog()
-
-const errorLogs = computed(() => errorLogsData.value?.content || [])
-const totalPages = computed(() => errorLogsData.value?.totalPages || 0)
-const totalElements = computed(() => errorLogsData.value?.totalElements || 0)
-
-// 상세 모달
-const isDetailModalOpen = ref(false)
-const selectedLog = ref<ErrorLogDetail | null>(null)
-
-// 확인 처리 모달
-const isResolveModalOpen = ref(false)
-const resolveTargetLog = ref<ErrorLogListItem | ErrorLogDetail | null>(null)
-const resolveMemo = ref('')
-
-async function openDetailModal(log: ErrorLogListItem) {
-    try {
-        selectedLog.value = await fetchErrorLogDetail(log.errorLogId)
-        isDetailModalOpen.value = true
-    } catch {
-        toastStore.addToast(t('common.error'), 'error')
-    }
-}
-
-function closeDetailModal() {
-    isDetailModalOpen.value = false
-    selectedLog.value = null
-}
-
-function openResolveModal(log: ErrorLogListItem | ErrorLogDetail) {
-    resolveTargetLog.value = log
-    resolveMemo.value = ''
-    isResolveModalOpen.value = true
-}
-
-function closeResolveModal() {
-    isResolveModalOpen.value = false
-    resolveTargetLog.value = null
-    resolveMemo.value = ''
-}
-
-async function handleResolve() {
-    if (!resolveTargetLog.value) return
-    try {
-        await resolveErrorLog({
-            errorLogId: resolveTargetLog.value.errorLogId,
-            data: resolveMemo.value ? { memo: resolveMemo.value } : undefined
-        })
-        toastStore.addToast(t('admin.errorLogs.messages.resolved'), 'success')
-        closeResolveModal()
-    } catch {
-        // Error handled globally
-    }
-}
+const {
+    closeDetailModal,
+    closeResolveModal,
+    copyStackTrace,
+    handleResolve,
+    isDetailModalOpen,
+    isResolveModalOpen,
+    openDetailModal,
+    openResolveModal,
+    resolveMemo,
+    resolveTargetLog,
+    selectedLog
+} = useErrorLogDetailModal()
 
 function getHttpStatusClass(status: number): string {
     if (status >= 500) return 'status-500'
@@ -140,27 +55,6 @@ function formatDate(dateStr: string): string {
     })
 }
 
-function resetFilters() {
-    filterErrorType.value = ''
-    filterHttpStatus.value = undefined
-    filterIsResolved.value = ''
-    filterStartDate.value = defaultStartDate
-    filterEndDate.value = defaultEndDate
-    page.value = 0
-    handleSearch()
-}
-
-async function copyStackTrace() {
-    const stackTrace = selectedLog.value?.stackTrace
-    if (!stackTrace) return
-
-    try {
-        await navigator.clipboard.writeText(stackTrace)
-        toastStore.addToast(t('admin.errorLogs.messages.stackTraceCopied'), 'success')
-    } catch {
-        toastStore.addToast(t('admin.errorLogs.messages.stackTraceCopyFailed'), 'error')
-    }
-}
 </script>
 
 <template>
