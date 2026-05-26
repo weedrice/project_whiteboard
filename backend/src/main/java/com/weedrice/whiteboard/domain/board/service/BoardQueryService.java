@@ -179,7 +179,9 @@ class BoardQueryService {
                     .map(BoardSubscription::getBoard)
                     .filter(board -> boardAccessPolicy.canReadBoard(board, user, activeAdminBoardIds))
                     .toList();
-            Map<Long, BoardListResponse> readableResponsesByBoardId = boardResponseAssembler.assembleListAll(readableBoards, user)
+            Set<Long> subscribedBoardIds = resolveSubscribedBoardIds(subscriptions.getContent());
+            Map<Long, BoardListResponse> readableResponsesByBoardId = boardResponseAssembler
+                    .assembleListAllWithSubscribedBoardIds(readableBoards, user, subscribedBoardIds)
                     .stream()
                     .collect(Collectors.toMap(BoardListResponse::getBoardId, Function.identity()));
             List<SubscriptionBoardResponse> responses = subscriptions.getContent().stream()
@@ -194,11 +196,20 @@ class BoardQueryService {
         List<Board> visibleBoards = visibleSubscriptions.getContent().stream()
                 .map(BoardSubscription::getBoard)
                 .toList();
-        List<SubscriptionBoardResponse> responses = boardResponseAssembler.assembleListAll(visibleBoards, user)
+        Set<Long> subscribedBoardIds = resolveSubscribedBoardIds(visibleSubscriptions.getContent());
+        List<SubscriptionBoardResponse> responses = boardResponseAssembler
+                .assembleListAllWithSubscribedBoardIds(visibleBoards, user, subscribedBoardIds)
                 .stream()
                 .map(SubscriptionBoardResponse::accessible)
                 .toList();
         return new PageImpl<>(responses, fixedOrderPageable, visibleSubscriptions.getTotalElements());
+    }
+
+    private Set<Long> resolveSubscribedBoardIds(List<BoardSubscription> subscriptions) {
+        return subscriptions.stream()
+                .map(BoardSubscription::getBoard)
+                .map(Board::getBoardId)
+                .collect(Collectors.toSet());
     }
 
     Page<BoardManagerCandidateResponse> getBoardManagerCandidates(String boardUrl, Long currentUserId,

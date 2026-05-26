@@ -1755,7 +1755,6 @@ class BoardServiceTest {
         when(boardSubscriptionRepository.findVisibleByUserOrderBySortOrderAsc(
                 user, false, PageRequest.of(0, 1)))
                 .thenReturn(new PageImpl<>(List.of(subscription), PageRequest.of(0, 1), 1));
-        when(boardSubscriptionRepository.findByUserAndBoardIn(user, List.of(board))).thenReturn(List.of(subscription));
 
         var result = boardService.getMySubscriptions(1L, PageRequest.of(0, 1));
 
@@ -1766,6 +1765,7 @@ class BoardServiceTest {
         assertThat(result.getContent().get(0).getAccessState())
                 .isEqualTo(SubscriptionBoardResponse.AccessState.ACCESSIBLE);
         assertThat(result.getContent().get(0).getInaccessibleReason()).isNull();
+        verify(boardSubscriptionRepository, never()).findByUserAndBoardIn(eq(user), any());
     }
 
     @Test
@@ -1784,7 +1784,6 @@ class BoardServiceTest {
         when(boardSubscriptionRepository.findVisibleByUserOrderBySortOrderAsc(
                 user, false, fixedPageable))
                 .thenReturn(new PageImpl<>(List.of(subscription), fixedPageable, 1));
-        when(boardSubscriptionRepository.findByUserAndBoardIn(user, List.of(board))).thenReturn(List.of(subscription));
 
         var result = boardService.getMySubscriptions(1L, requestedPageable);
 
@@ -1794,6 +1793,7 @@ class BoardServiceTest {
                 user,
                 false,
                 requestedPageable);
+        verify(boardSubscriptionRepository, never()).findByUserAndBoardIn(eq(user), any());
     }
 
     @Test
@@ -2319,8 +2319,6 @@ class BoardServiceTest {
         when(boardSubscriptionRepository.findVisibleByUserOrderBySortOrderAsc(
                 user, false, PageRequest.of(0, 10)))
                 .thenReturn(new PageImpl<>(List.of(visibleSubscription), PageRequest.of(0, 10), 1));
-        when(boardSubscriptionRepository.findByUserAndBoardIn(user, List.of(board)))
-                .thenReturn(List.of(visibleSubscription));
 
         var result = boardService.getMySubscriptions(1L, PageRequest.of(0, 10));
 
@@ -2329,6 +2327,7 @@ class BoardServiceTest {
         assertThat(result.getContent().get(0).getBoardUrl()).isEqualTo("test-board");
         assertThat(result.getContent().get(0).getAccessState())
                 .isEqualTo(SubscriptionBoardResponse.AccessState.ACCESSIBLE);
+        verify(boardSubscriptionRepository, never()).findByUserAndBoardIn(eq(user), any());
     }
 
     @Test
@@ -2411,6 +2410,7 @@ class BoardServiceTest {
         assertThat(result.getContent().get(0).getInaccessibleReason())
                 .isEqualTo(SubscriptionBoardResponse.InaccessibleReason.PRIVATE);
         assertThat(result.getContent().get(0).getBoardUrl()).isEqualTo("hidden-board");
+        verify(boardSubscriptionRepository, never()).findByUserAndBoardIn(eq(user), any());
     }
 
     @Test
@@ -2501,6 +2501,7 @@ class BoardServiceTest {
                 argThat(boardIds -> boardIds.containsAll(List.of(3L, 4L, 5L)) && boardIds.size() == 3),
                 eq(true));
         verify(adminRepository, never()).existsByUserAndBoardAndIsActive(eq(user), any(Board.class), eq(true));
+        verify(boardSubscriptionRepository, never()).findByUserAndBoardIn(eq(user), any());
     }
 
     private CategoryRequest categoryRequest(String name, Integer sortOrder, String minWriteRole) {

@@ -43,10 +43,25 @@ class BoardResponseReadService {
     }
 
     ListReadContext loadListWithPostCounts(List<Board> boards, User currentUser, Map<Long, Long> postCounts) {
-        return loadList(boards, currentUser, postCounts);
+        return loadList(boards, currentUser, postCounts, null);
+    }
+
+    ListReadContext loadListWithSubscribedBoardIds(
+            List<Board> boards,
+            User currentUser,
+            Set<Long> subscribedBoardIds) {
+        return loadList(boards, currentUser, null, subscribedBoardIds);
     }
 
     private ListReadContext loadList(List<Board> boards, User currentUser, Map<Long, Long> precomputedPostCounts) {
+        return loadList(boards, currentUser, precomputedPostCounts, null);
+    }
+
+    private ListReadContext loadList(
+            List<Board> boards,
+            User currentUser,
+            Map<Long, Long> precomputedPostCounts,
+            Set<Long> precomputedSubscribedBoardIds) {
         if (boards == null || boards.isEmpty()) {
             return ListReadContext.empty();
         }
@@ -64,7 +79,9 @@ class BoardResponseReadService {
         Map<Long, Long> postCounts = precomputedPostCounts != null
                 ? precomputedPostCounts
                 : resolvePostCounts(boards, boardIds, adminBoardIds);
-        Set<Long> subscribedBoardIds = resolveSubscribedBoardIds(currentUser, boards);
+        Set<Long> subscribedBoardIds = precomputedSubscribedBoardIds != null
+                ? precomputedSubscribedBoardIds
+                : resolveSubscribedBoardIds(currentUser, boards);
         return new ListReadContext(
                 subscriberCounts,
                 postCounts,

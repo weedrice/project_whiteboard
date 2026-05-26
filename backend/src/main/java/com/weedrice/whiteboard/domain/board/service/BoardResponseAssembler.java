@@ -47,13 +47,30 @@ class BoardResponseAssembler {
     }
 
     List<BoardListResponse> assembleListAll(List<Board> boards, User currentUser, Map<Long, Long> precomputedPostCounts) {
+        return assembleListAll(boards, currentUser, precomputedPostCounts, null);
+    }
+
+    List<BoardListResponse> assembleListAllWithSubscribedBoardIds(
+            List<Board> boards,
+            User currentUser,
+            Set<Long> subscribedBoardIds) {
+        return assembleListAll(boards, currentUser, null, subscribedBoardIds);
+    }
+
+    private List<BoardListResponse> assembleListAll(
+            List<Board> boards,
+            User currentUser,
+            Map<Long, Long> precomputedPostCounts,
+            Set<Long> precomputedSubscribedBoardIds) {
         if (boards == null || boards.isEmpty()) {
             return Collections.emptyList();
         }
 
-        BoardResponseReadService.ListReadContext readContext = precomputedPostCounts != null
-                ? boardResponseReadService.loadListWithPostCounts(boards, currentUser, precomputedPostCounts)
-                : boardResponseReadService.loadList(boards, currentUser);
+        BoardResponseReadService.ListReadContext readContext = resolveListReadContext(
+                boards,
+                currentUser,
+                precomputedPostCounts,
+                precomputedSubscribedBoardIds);
 
         return boards.stream()
                 .map(board -> buildResponse(
@@ -64,6 +81,23 @@ class BoardResponseAssembler {
                         readContext.subscribedBoardIds(),
                         currentUser))
                 .toList();
+    }
+
+    private BoardResponseReadService.ListReadContext resolveListReadContext(
+            List<Board> boards,
+            User currentUser,
+            Map<Long, Long> precomputedPostCounts,
+            Set<Long> precomputedSubscribedBoardIds) {
+        if (precomputedSubscribedBoardIds != null) {
+            return boardResponseReadService.loadListWithSubscribedBoardIds(
+                    boards,
+                    currentUser,
+                    precomputedSubscribedBoardIds);
+        }
+        if (precomputedPostCounts != null) {
+            return boardResponseReadService.loadListWithPostCounts(boards, currentUser, precomputedPostCounts);
+        }
+        return boardResponseReadService.loadList(boards, currentUser);
     }
 
     List<AdminBoardResponse> assembleAdminAll(List<Board> boards) {
