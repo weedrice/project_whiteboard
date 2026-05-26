@@ -235,6 +235,10 @@ const shouldMarkGlobalErrorToastHandled = (error: AxiosError, toastStore: ToastS
     return error.response?.status !== 401 && toastStore !== noopToastStore
 }
 
+const isCanceledRequestError = (error: AxiosError) => {
+    return error.code === 'ERR_CANCELED' || error.name === 'CanceledError' || error.name === 'AbortError'
+}
+
 // Response Interceptor
 api.interceptors.response.use(
     (response: AxiosResponse) => {
@@ -243,6 +247,10 @@ api.interceptors.response.use(
     async (error: AxiosError) => {
         const originalRequest = error.config as InternalAxiosRequestConfig | undefined
         const toastStore = await resolveToastStore()
+
+        if (isCanceledRequestError(error)) {
+            return Promise.reject(error)
+        }
 
         if (!originalRequest) {
             handleApiError(error, toastStore)

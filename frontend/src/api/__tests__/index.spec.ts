@@ -286,6 +286,23 @@ describe('API Interceptors', () => {
         expect(mocks.mockAddToast).not.toHaveBeenCalled()
     })
 
+    it('ignores canceled requests before global handling and auth refresh', async () => {
+        const { responseRejected } = await loadApiModule()
+        const canceledError = {
+            name: 'CanceledError',
+            code: 'ERR_CANCELED',
+            message: 'canceled',
+            config: { headers: {} },
+            request: {},
+        } as any
+
+        await expect(responseRejected(canceledError)).rejects.toBe(canceledError)
+        expect(canceledError.suppressGlobalErrorToast).toBeUndefined()
+        expect(mocks.mockAddToast).not.toHaveBeenCalled()
+        expect(mocks.mockAxiosPost).not.toHaveBeenCalled()
+        expect(mocks.mockRouterPush).not.toHaveBeenCalled()
+    })
+
     it('shows validation message for 400 errors with details', async () => {
         const { responseRejected } = await loadApiModule()
         const error = {
