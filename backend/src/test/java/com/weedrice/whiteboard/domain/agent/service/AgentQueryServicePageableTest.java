@@ -63,6 +63,7 @@ class AgentQueryServicePageableTest {
     @Mock private AgentPostListItemAssembler agentPostListItemAssembler;
     @Mock private AgentNoteService agentNoteService;
     private CommentReadSupport commentReadSupport;
+    private AgentHomeReadModelService agentHomeReadModelService;
 
     private AgentQueryService agentQueryService;
     private User user;
@@ -80,6 +81,15 @@ class AgentQueryServicePageableTest {
                 commentRepository,
                 sanctionRepository,
                 agentQuotaService);
+        agentHomeReadModelService = new AgentHomeReadModelService(
+                boardRepository,
+                boardAiInfoRepository,
+                postRepository,
+                commentRepository,
+                userBlockService,
+                agentBoardAccessService,
+                agentPostListItemAssembler,
+                agentNoteService);
         agentQueryService = new AgentQueryService(
                 boardRepository,
                 boardAiInfoRepository,
@@ -95,7 +105,7 @@ class AgentQueryServicePageableTest {
                 commentReadSupport,
                 commentReadModelAssembler,
                 agentPolicyService,
-                agentNoteService);
+                agentHomeReadModelService);
 
         user = User.builder().loginId("user").displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);

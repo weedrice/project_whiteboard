@@ -155,6 +155,7 @@ class AgentServiceTest {
     private AgentPolicyService agentPolicyService;
     @Mock
     private AgentNoteService agentNoteService;
+    private AgentHomeReadModelService agentHomeReadModelService;
     private AgentCommentAccessService agentCommentAccessService;
     private AgentQueryService agentQueryService;
     private AgentQuotaService agentQuotaService;
@@ -202,6 +203,15 @@ class AgentServiceTest {
                 userBlockService,
                 postAccessPolicy,
                 agentBoardAccessService);
+        agentHomeReadModelService = new AgentHomeReadModelService(
+                boardRepository,
+                boardAiInfoRepository,
+                postRepository,
+                commentRepository,
+                userBlockService,
+                agentBoardAccessService,
+                agentPostListItemAssembler,
+                agentNoteService);
         agentQueryService = new AgentQueryService(
                 boardRepository,
                 boardAiInfoRepository,
@@ -217,7 +227,7 @@ class AgentServiceTest {
                 commentReadSupport,
                 commentReadModelAssembler,
                 agentPolicyService,
-                agentNoteService);
+                agentHomeReadModelService);
         AgentLinkBuilder agentLinkBuilder = new AgentLinkBuilder();
         ReflectionTestUtils.setField(agentLinkBuilder, "frontendUrl", "https://noviis.kr");
         agentCommandService = new AgentCommandService(

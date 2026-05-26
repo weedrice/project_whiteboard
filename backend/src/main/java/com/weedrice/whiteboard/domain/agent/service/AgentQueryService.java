@@ -59,9 +59,6 @@ public class AgentQueryService {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final int FEED_PAGE_SIZE_LIMIT = 10;
-    private static final int HOME_ACTIVITY_LIMIT = 5;
-    private static final int HOME_RECENT_POST_LIMIT = 5;
-    private static final int HOME_RECOMMENDED_BOARD_LIMIT = 5;
     private static final int HOME_RECENT_FEED_LIMIT = 10;
     private static final int DEFAULT_READ_PAGE_SIZE_LIMIT = 20;
     private static final List<String> WRITE_ENDPOINT_ENFORCEMENTS = List.of(
@@ -93,7 +90,7 @@ public class AgentQueryService {
     private final CommentReadSupport commentReadSupport;
     private final CommentReadModelAssembler commentReadModelAssembler;
     private final AgentPolicyService agentPolicyService;
-    private final AgentNoteService agentNoteService;
+    private final AgentHomeReadModelService agentHomeReadModelService;
 
     public AgentStatusResponse getStatus(Long agentId) {
         Agent agent = agentOwnershipService.resolveClaimedAgent(agentId);
@@ -182,28 +179,13 @@ public class AgentQueryService {
             agentOwnershipService.validateAuthenticatedAgent(agent);
         }
 
-        List<AgentHomeResponse.ActivityOnMyPost> activityOnMyPosts = activeAgent
-                ? getActivityOnMyPosts(agentId)
-                : List.of();
-        List<AgentHomeResponse.MyRecentPost> myRecentPosts = activeAgent
-                ? getHomeMyRecentPosts(agent)
-                : List.of();
-        AgentBoardListResponse writableBoards = activeAgent
-                ? getBoards(agent)
-                : new AgentBoardListResponse(List.of());
-        List<AgentHomeResponse.RecommendedBoard> recommendedBoards = activeAgent
-                ? getHomeRecommendedBoards(writableBoards)
-                : List.of();
-        List<AgentHomeResponse.RecentFeedItem> recentFeed = activeAgent
-                ? getHomeRecentFeed(agent)
-                : List.of();
-        AgentNoteResponses.Summary noteSummary = activeAgent
-                ? agentNoteService.getSummary(agentId)
-                : AgentNoteResponses.Summary.builder().unreadThreadCount(0).unreadNoteCount(0).build();
+        AgentHomeReadModel homeReadModel = activeAgent
+                ? agentHomeReadModelService.collect(agent)
+                : AgentHomeReadModel.empty();
         Map<String, AgentHomeResponse.Capability> capabilities = resolveCapabilities(
                 policy.limits(),
                 policy.restrictions(),
-                !writableBoards.getBoards().isEmpty());
+                homeReadModel.hasWritableBoardPermission());
 
         return AgentHomeResponse.builder()
                 .agent(AgentHomeResponse.AgentSummary.builder()
@@ -214,16 +196,17 @@ public class AgentQueryService {
                         .build())
                 .usage(toUsage(dailyStatus, policy.limits()))
                 .capabilities(capabilities)
-                .noteSummary(noteSummary)
+                .noteSummary(homeReadModel.noteSummary())
                 .hardConstraints(toHardConstraints(policy.limits(), policy.restrictions()))
                 .softGuidance(softGuidance())
                 .styleGuidance(styleGuidance())
-                .activityOnMyPosts(activityOnMyPosts)
-                .myRecentPosts(myRecentPosts)
-                .recommendedBoards(recommendedBoards)
-                .recentFeed(recentFeed)
-                .opportunities(resolveOpportunities(capabilities, noteSummary, activityOnMyPosts, myRecentPosts,
-                        recentFeed, recommendedBoards))
+                .activityOnMyPosts(homeReadModel.activityOnMyPosts())
+                .myRecentPosts(homeReadModel.myRecentPosts())
+                .recommendedBoards(homeReadModel.recommendedBoards())
+                .recentFeed(homeReadModel.recentFeed())
+                .opportunities(resolveOpportunities(capabilities, homeReadModel.noteSummary(),
+                        homeReadModel.activityOnMyPosts(), homeReadModel.myRecentPosts(),
+                        homeReadModel.recentFeed(), homeReadModel.recommendedBoards()))
                 .warnings(resolveWarnings(policy.limits(), policy.restrictions()))
                 .build();
     }
@@ -390,80 +373,6 @@ public class AgentQueryService {
 
     private OffsetDateTime toOffsetDateTime(LocalDateTime value) {
         return value == null ? null : value.atZone(KST).toOffsetDateTime();
-    }
-
-    private List<AgentHomeResponse.ActivityOnMyPost> getActivityOnMyPosts(Long agentId) {
-        List<CommentRepository.UnreadAgentPostActivityProjection> activities = commentRepository.findUnreadAgentPostActivities(
-                agentId,
-                PageRequest.of(0, HOME_ACTIVITY_LIMIT));
-        if (activities.isEmpty()) {
-            return List.of();
-        }
-
-        List<AgentHomeResponse.ActivityOnMyPost> items = new ArrayList<>();
-        for (CommentRepository.UnreadAgentPostActivityProjection activity : activities) {
-            items.add(AgentHomeResponse.ActivityOnMyPost.builder()
-                    .postId(activity.getPostId())
-                    .title(activity.getPostTitle())
-                    .boardId(activity.getBoardId())
-                    .boardName(activity.getBoardName())
-                    .newCommentCount(activity.getUnreadCount())
-                    .latestCommentPreview(toPreview(activity.getLatestCommentContent()))
-                    .latestAt(toOffsetDateTime(activity.getLatestCommentCreatedAt()))
-                    .lastReadAt(toOffsetDateTime(activity.getLastReadAt()))
-                    .build());
-        }
-        return items;
-    }
-
-    private List<AgentHomeResponse.MyRecentPost> getHomeMyRecentPosts(Agent agent) {
-        return getMyPosts(agent, PageRequest.of(0, HOME_RECENT_POST_LIMIT))
-                .getContent()
-                .stream()
-                .map(item -> AgentHomeResponse.MyRecentPost.builder()
-                        .postId(item.getPostId())
-                        .title(item.getTitle())
-                        .boardId(item.getBoardId())
-                        .boardName(item.getBoardName())
-                        .commentCount(item.getCommentCount())
-                        .likeCount(item.getLikeCount())
-                        .createdAt(item.getCreatedAt())
-                        .build())
-                .toList();
-    }
-
-    private List<AgentHomeResponse.RecommendedBoard> getHomeRecommendedBoards(AgentBoardListResponse writableBoards) {
-        return writableBoards.getBoards()
-                .stream()
-                .filter(board -> hasText(board.getGuidePrompt()) || board.getPostCount() > 0)
-                .limit(HOME_RECOMMENDED_BOARD_LIMIT)
-                .map(board -> AgentHomeResponse.RecommendedBoard.builder()
-                        .boardId(board.getBoardId())
-                        .boardUrl(board.getBoardUrl())
-                        .name(board.getBoardName())
-                        .description(board.getDescription())
-                        .guidePrompt(board.getGuidePrompt())
-                        .postCount(board.getPostCount())
-                        .build())
-                .toList();
-    }
-
-    private List<AgentHomeResponse.RecentFeedItem> getHomeRecentFeed(Agent agent) {
-        return getFeed(agent, null, PageRequest.of(0, HOME_RECENT_FEED_LIMIT))
-                .getContent()
-                .stream()
-                .map(item -> AgentHomeResponse.RecentFeedItem.builder()
-                        .postId(item.getPostId())
-                        .title(item.getTitle())
-                        .contentPreview(toPreview(item.getContent()))
-                        .boardId(item.getBoardId())
-                        .boardName(item.getBoardName())
-                        .commentCount(item.getCommentCount())
-                        .likeCount(item.getLikeCount())
-                        .createdAt(item.getCreatedAt())
-                        .hasMyComment(item.isHasMyComment())
-                        .build())
-                .toList();
     }
 
     private AgentHomeResponse.Usage toUsage(AgentDailyStatus dailyStatus, AgentLimits limits) {
