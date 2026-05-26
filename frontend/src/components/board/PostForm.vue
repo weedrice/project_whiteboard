@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue'
-import { usePostDraft } from '@/composables/usePostDraft'
+import { computed, nextTick, onMounted, onUnmounted, ref, watchEffect } from 'vue'
 import { usePopoverFocus } from '@/composables/usePopoverFocus'
+import { usePostComposerDraft } from '@/composables/usePostComposerDraft'
 import { usePostFormResource } from '@/composables/usePostFormResource'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
@@ -94,7 +94,6 @@ const showVideoPopover = ref(false)
 const videoUrl = ref('')
 const videoPopoverStyle = ref<{ top: string; left: string }>({ top: '0', left: '0' })
 const editorViewMode = ref<'visual' | 'html'>('visual')
-const hasRestoredDraft = ref(false)
 const hasHydratedEditPost = ref(false)
 const isEditorFocusWithin = ref(false)
 
@@ -157,8 +156,6 @@ const {
   showNotice,
   canShowNsfw,
 })
-const draftEnabled = computed(() => authStore.isAuthenticated && !!boardUrl.value)
-const draftStorageKey = computed(() => `noviis:draft:${authStore.user?.userId ?? 'guest'}:${props.mode}:${boardUrl.value || 'unknown'}:${postId.value || 'new'}`)
 const previewHtml = computed(() => sanitizeQuillHtml(form.value.content || `<p>${t('board.writePost.preview.emptyContent')}</p>`))
 const leaveConfirmMessage = computed(() => t('board.writePost.leaveConfirm'))
 
@@ -168,38 +165,6 @@ function onBeforeUnload(event: BeforeUnloadEvent) {
   event.returnValue = leaveConfirmMessage.value
   return leaveConfirmMessage.value
 }
-
-const {
-  saveNow: saveDraftNow,
-  scheduleAutosave,
-  restoreDraft,
-  clearRecovery,
-  writeLocalSnapshot,
-  lastSavedAt,
-  isSavingDraft,
-  restoreSource,
-  draftId,
-} = usePostDraft({
-  enabled: draftEnabled,
-  storageKey: draftStorageKey,
-  buildPayload: () => ({
-    ...buildPayload('draft'),
-    boardUrl: boardUrl.value,
-    originalPostId: props.mode === 'edit' ? Number(postId.value) : undefined,
-  }),
-  applyDraft: applyDraftSnapshot,
-})
-
-const draftStatusLabel = computed(() => {
-  if (!draftEnabled.value) return ''
-  if (isSavingDraft.value) return t('board.writePost.draftStatus.saving')
-  if (lastSavedAt.value) {
-    return t('board.writePost.draftStatus.savedAt', {
-      time: new Date(lastSavedAt.value).toLocaleTimeString(),
-    })
-  }
-  return t('board.writePost.draftStatus.ready')
-})
 
 watchEffect(() => {
   if (props.mode !== 'edit' || !post.value || hasHydratedEditPost.value) return
@@ -218,46 +183,35 @@ watchEffect(() => {
   markCurrentSnapshotSaved()
 })
 
-watch(
+const firstCategoryId = computed(() => filteredCategories.value[0]?.categoryId)
+const {
+  draftEnabled,
+  draftStatusLabel,
+  draftId,
+  isSavingDraft,
+  saveDraftNow,
+  handleSaveDraft,
+  cleanupPublishedDraft,
+} = usePostComposerDraft({
+  isAuthenticated: computed(() => Boolean(authStore.isAuthenticated)),
+  userId: computed(() => authStore.user?.userId),
+  mode: () => props.mode,
+  boardUrl,
+  postId,
   isLoading,
-  async (loading) => {
-    if (loading || hasRestoredDraft.value) return
-    hasRestoredDraft.value = true
-
-    if (props.mode === 'create' && !form.value.categoryId && filteredCategories.value.length > 0) {
-      form.value.categoryId = filteredCategories.value[0].categoryId
-    }
-
-    await restoreDraft()
-    const restoredDraftSource = restoreSource.value
-    if (restoredDraftSource !== 'idle') {
-      toastStore.addToast(
-        restoredDraftSource === 'local'
-          ? t('board.writePost.draftStatus.restoredLocal')
-          : t('board.writePost.draftStatus.restoredServer'),
-        'info',
-      )
-    }
-    markCurrentSnapshotSaved()
-  },
-  { immediate: true },
-)
-
-const draftSignature = computed(() => JSON.stringify({
-  ...buildPayload(),
-  boardUrl: boardUrl.value,
-  originalPostId: props.mode === 'edit' ? Number(postId.value) : undefined,
-}))
-
-watch(
-  draftSignature,
-  () => {
-    if (!hasRestoredDraft.value || !draftEnabled.value || isLoading.value) return
-    writeLocalSnapshot()
-    scheduleAutosave()
-  },
-  { flush: 'post' },
-)
+  selectedCategoryId: computed({
+    get: () => form.value.categoryId,
+    set: (categoryId) => {
+      form.value.categoryId = categoryId
+    },
+  }),
+  firstCategoryId,
+  buildPayload,
+  applyDraft: applyDraftSnapshot,
+  markCurrentSnapshotSaved,
+  t,
+  addToast: toastStore.addToast,
+})
 
 function isMobileView(): boolean {
   if (typeof window === 'undefined') return false
@@ -347,22 +301,6 @@ function handleFocusOut() {
       syncEditorFocus(false)
     }
   }, 0)
-}
-
-async function handleSaveDraft() {
-  try {
-    const savedDraft = await saveDraftNow()
-    if (savedDraft) {
-      markCurrentSnapshotSaved()
-      toastStore.addToast(t('board.writePost.draftStatus.saved'), 'success')
-    }
-  } catch (error) {
-    logger.error('Failed to save draft:', error)
-  }
-}
-
-function cleanupPublishedDraft() {
-  clearRecovery()
 }
 
 function navigateAfterCreate(newPostId: string | number, payload: ReturnType<typeof buildPayload>) {
