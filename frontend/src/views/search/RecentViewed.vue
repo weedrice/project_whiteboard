@@ -4,6 +4,7 @@ import { useUser } from '@/composables/useUser'
 import PostList from '@/components/board/PostList.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
+import { isInquiryPostItem, resolvePostDetailRoute } from '@/utils/postNavigation'
 
 const { useRecentlyViewedPosts } = useUser()
 
@@ -41,7 +42,13 @@ const handleSizeChange = () => {
         </div>
       </div>
       <div v-if="posts.length > 0">
-        <PostList :posts="posts" :show-board-name="true" :hide-no-column="true" />
+        <PostList
+          :posts="posts"
+          :show-board-name="true"
+          :hide-no-column="true"
+          :resolve-post-route="resolvePostDetailRoute"
+          :show-inquiry-status="isInquiryPostItem"
+        />
 
         <div class="mt-4 flex justify-center pb-6">
           <Pagination :current-page="page" :total-pages="totalPages" @page-change="handlePageChange" />
