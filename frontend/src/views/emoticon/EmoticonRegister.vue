@@ -2,7 +2,6 @@
 import { ref, computed, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { emoticonApi } from '@/api/emoticon'
-import { fileApi } from '@/api/file'
 import { useHead } from '@unhead/vue'
 import { ArrowLeft, Upload, X, Plus } from 'lucide-vue-next'
 import { useToastStore } from '@/stores/toast'
@@ -10,12 +9,12 @@ import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { useEmoticonImageSelection } from '@/composables/useEmoticonImageSelection'
+import { useEmoticonImageUploader } from '@/composables/useEmoticonImageUploader'
 import { useEmoticonUploadSession } from '@/composables/useEmoticonUploadSession'
 import {
   resolveEmoticonTagAddition,
   revokeEmoticonPreviewUrl,
   SUPPORTED_EMOTICON_IMAGE_ACCEPT,
-  uploadEmoticonImagePreviews,
   type EmoticonImagePreview
 } from '@/utils/emoticonImage'
 
@@ -36,6 +35,7 @@ const emoticonPreviews = ref<EmoticonImagePreview[]>([])
 const tagInput = ref('')
 const isSubmitting = ref(false)
 const uploadSession = useEmoticonUploadSession()
+const imageUploader = useEmoticonImageUploader(uploadSession)
 const { uploadProgress } = uploadSession
 let tagSequence = 0
 
@@ -166,75 +166,24 @@ const handleSubmit = async () => {
     }
 
     // 2. 이모티콘 이미지 업로드 (리사이징 적용)
-    uploadSession.setUploadProgress(0, submitSnapshot.previews.length)
-
-    let uploadFailed = false
-    let submitFailure: unknown = null
-    const failSubmit = (error: unknown) => {
-      submitFailure ??= error
-      uploadFailed = true
-      uploadSession.abortPendingUploads()
-    }
-
     const uploadThumbnail = async () => {
-      uploadSession.assertSubmitActive(currentRunId)
-      const controller = uploadSession.createUploadController()
-
-      try {
-        const response = await fileApi.uploadFile(submitSnapshot.thumbnail, {
-          signal: controller.signal,
-          skipGlobalErrorHandler: true
-        })
-        uploadSession.assertSubmitActive(currentRunId)
-        return response.data.data.fileId
-      } catch (error) {
-        failSubmit(error)
-        throw error
-      } finally {
-        uploadSession.releaseUploadController(controller)
-      }
+      return imageUploader.uploadFile(submitSnapshot.thumbnail, currentRunId, {
+        skipGlobalErrorHandler: true
+      })
     }
 
-    const uploadImages = async () => uploadEmoticonImagePreviews(
+    const uploadImages = async () => imageUploader.uploadPreviews(
       submitSnapshot.previews,
-      async (uploadFile) => {
-        if (uploadFailed) {
-          throw uploadSession.createUploadCancelledError()
-        }
-
-        uploadSession.assertSubmitActive(currentRunId)
-        const controller = uploadSession.createUploadController()
-
-        try {
-          const response = await fileApi.uploadFile(uploadFile, {
-            signal: controller.signal,
-            skipGlobalErrorHandler: true
-          })
-          uploadSession.assertSubmitActive(currentRunId)
-          return response.data.data.fileId
-        } catch (error) {
-          failSubmit(error)
-          throw error
-        } finally {
-          uploadSession.releaseUploadController(controller)
-        }
-      },
-      (current) => {
-        if (uploadSession.isSubmitActive(currentRunId)) {
-          uploadSession.setUploadProgress(current)
-        }
+      currentRunId,
+      {
+        skipGlobalErrorHandler: true
       }
     )
 
     const [thumbnailFileId, imageFileIds] = await Promise.all([
       uploadThumbnail(),
-      uploadImages().catch((error) => {
-        failSubmit(error)
-        throw error
-      })
-    ]).catch((error) => {
-      throw submitFailure ?? error
-    })
+      uploadImages()
+    ])
     uploadSession.assertSubmitActive(currentRunId)
 
     // 3. 이모티콘 생성

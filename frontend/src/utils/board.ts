@@ -100,10 +100,10 @@ export function canWriteBoardPost(
     return false
   }
 
-  const defaultCategory = resolveDefaultCategory(board.categories)
-  if (!defaultCategory) {
+  const categories = board.categories ?? []
+  if (!categories.length) {
     return true
   }
 
-  return canWriteCategory(defaultCategory, userRole, board.isAdmin)
+  return categories.some((category) => canWriteCategory(category, userRole, board.isAdmin))
 }

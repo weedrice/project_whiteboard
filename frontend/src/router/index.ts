@@ -1,6 +1,10 @@
 import { createRouter, createWebHistory, type RouteLocationNormalized, type NavigationGuardNext } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useToastStore } from '@/stores/toast'
+import { boardApi } from '@/api/board'
+import { canWriteBoardPost } from '@/utils/board'
 import logger from '@/utils/logger'
+import type { BoardDetail } from '@/types'
 
 const CHUNK_RELOAD_KEY = 'chunk-reload-attempted'
 
@@ -23,6 +27,7 @@ declare module 'vue-router' {
         guestOnly?: boolean
         roles?: string[]
         layout?: string
+        requiresWritableBoard?: boolean
     }
 }
 
@@ -197,7 +202,7 @@ const router = createRouter({
             path: '/board/:boardUrl/write',
             name: 'post-write',
             component: () => import('@/views/board/PostWrite.vue'),
-            meta: { requiresAuth: true }
+            meta: { requiresAuth: true, requiresWritableBoard: true }
         },
         {
             path: '/board/:boardUrl',
@@ -354,6 +359,28 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
         // OAuth callback should be allowed even if authenticated (handles re-login scenarios)
         next({ name: 'home' })
     } else {
+        if (to.meta.requiresWritableBoard) {
+            const boardUrl = typeof to.params.boardUrl === 'string' ? to.params.boardUrl : ''
+            if (!boardUrl) {
+                next({ name: 'error', query: { status: '404' } })
+                return
+            }
+
+            try {
+                const { data } = await boardApi.getBoard(boardUrl)
+                const board = data.data as BoardDetail
+                if (!canWriteBoardPost(board, authStore.isAuthenticated, authStore.user?.role)) {
+                    useToastStore().addToast('You do not have permission to write on this board.', 'error')
+                    next({ name: 'board-detail', params: { boardUrl } })
+                    return
+                }
+            } catch (error) {
+                logger.error('Failed to verify board write access:', error)
+                next({ name: 'error', query: { status: '500' } })
+                return
+            }
+        }
+
         next()
     }
 })
