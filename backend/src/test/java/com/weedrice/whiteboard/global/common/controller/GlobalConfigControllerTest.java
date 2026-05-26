@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.global.common.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.global.common.dto.GlobalConfigResponse;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -14,21 +15,22 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
@@ -47,6 +49,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
     })
 class GlobalConfigControllerTest {
+
+    private static final Long ACTOR_USER_ID = 1L;
 
     @Autowired
     private MockMvc mockMvc;
@@ -76,12 +80,6 @@ class GlobalConfigControllerTest {
     private org.springframework.data.jpa.mapping.JpaMetamodelMappingContext jpaMetamodelMappingContext;
 
     @MockitoBean
-    private com.weedrice.whiteboard.domain.user.repository.UserRepository userRepository;
-
-    @MockitoBean
-    private com.weedrice.whiteboard.domain.admin.repository.AdminRepository adminRepository;
-
-    @MockitoBean
     private com.weedrice.whiteboard.global.security.oauth.CustomOAuth2UserService customOAuth2UserService;
 
     @MockitoBean
@@ -91,22 +89,8 @@ class GlobalConfigControllerTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        adminUser = new CustomUserDetails(1L, "admin", "password",
+        adminUser = new CustomUserDetails(ACTOR_USER_ID, "admin", "password",
                 Collections.singletonList(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN")));
-
-        // UserRepository mock 설정 (SecurityUtils에서 사용)
-        com.weedrice.whiteboard.domain.user.entity.User user = com.weedrice.whiteboard.domain.user.entity.User.builder()
-                .loginId("admin")
-                .displayName("Admin")
-                .build();
-        org.springframework.test.util.ReflectionTestUtils.setField(user, "userId", 1L);
-        org.springframework.test.util.ReflectionTestUtils.setField(user, "isSuperAdmin", true);
-        when(userRepository.findById(1L)).thenReturn(java.util.Optional.of(user));
-
-        // SecurityUtils 초기화 (static 필드 설정)
-        com.weedrice.whiteboard.global.common.util.SecurityUtils securityUtils = 
-            new com.weedrice.whiteboard.global.common.util.SecurityUtils(userRepository);
-        securityUtils.init();
 
         when(ipBlockInterceptor.preHandle(any(), any(), any())).thenReturn(true);
         when(refererCheckInterceptor.preHandle(any(), any(), any())).thenReturn(true);
@@ -124,7 +108,7 @@ class GlobalConfigControllerTest {
     @Test
     @DisplayName("설정 단건 조회")
     void getConfig_success() throws Exception {
-        when(globalConfigService.getConfigResponseOrThrow("key"))
+        when(globalConfigService.getConfigResponseOrThrow(ACTOR_USER_ID, "key"))
                 .thenReturn(configResponse("key", "value", null));
 
         mockMvc.perform(get("/api/v1/configs/{key}", "key")
@@ -139,7 +123,7 @@ class GlobalConfigControllerTest {
     @Test
     @DisplayName("GET /configs/{key} response uses normalized key")
     void getConfig_normalizesResponseKey() throws Exception {
-        when(globalConfigService.getConfigResponseOrThrow(" key "))
+        when(globalConfigService.getConfigResponseOrThrow(ACTOR_USER_ID, " key "))
                 .thenReturn(configResponse("key", "value", null));
 
         mockMvc.perform(get("/api/v1/configs/{key}", " key ")
@@ -154,7 +138,7 @@ class GlobalConfigControllerTest {
     @Test
     @DisplayName("단건 설정 조회는 없는 key에 404를 반환한다")
     void getConfig_missing_returnsNotFound() throws Exception {
-        when(globalConfigService.getConfigResponseOrThrow("missing"))
+        when(globalConfigService.getConfigResponseOrThrow(ACTOR_USER_ID, "missing"))
                 .thenThrow(new BusinessException(ErrorCode.NOT_FOUND));
 
         mockMvc.perform(get("/api/v1/configs/{key}", "missing")
@@ -182,7 +166,7 @@ class GlobalConfigControllerTest {
     @Test
     @DisplayName("전체 설정 조회")
     void getAllConfigs_success() throws Exception {
-        when(globalConfigService.getAllConfigs()).thenReturn(List.of(configResponse("key", "val", "desc")));
+        when(globalConfigService.getAllConfigs(ACTOR_USER_ID)).thenReturn(List.of(configResponse("key", "val", "desc")));
 
         mockMvc.perform(get("/api/v1/admin/configs")
                 .with(user(adminUser))
@@ -196,7 +180,7 @@ class GlobalConfigControllerTest {
     @DisplayName("설정 생성")
     void createConfig_success() throws Exception {
         Map<String, String> request = Map.of("key", "newKey", "value", "val", "description", "desc");
-        when(globalConfigService.createConfig("newKey", "val", "desc"))
+        when(globalConfigService.createConfig(ACTOR_USER_ID, "newKey", "val", "desc"))
                 .thenReturn(configResponse("newKey", "val", "desc"));
 
         mockMvc.perform(post("/api/v1/admin/configs")
@@ -222,7 +206,7 @@ class GlobalConfigControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
 
-        verify(globalConfigService, never()).createConfig(anyString(), anyString(), anyString());
+        verify(globalConfigService, never()).createConfig(anyLong(), anyString(), anyString(), anyString());
     }
 
     @Test
@@ -230,7 +214,7 @@ class GlobalConfigControllerTest {
     void updateConfig_success() throws Exception {
         Map<String, String> request = Map.of("key", "key", "value", "newVal");
 
-        when(globalConfigService.updateConfig("key", "newVal", null))
+        when(globalConfigService.updateConfig(ACTOR_USER_ID, "key", "newVal", null))
                 .thenReturn(configResponse("key", "newVal", "desc"));
 
         mockMvc.perform(put("/api/v1/admin/configs")
@@ -247,7 +231,7 @@ class GlobalConfigControllerTest {
     void updateConfigByKey_success() throws Exception {
         Map<String, String> request = Map.of("value", "newVal");
 
-        when(globalConfigService.updateConfig("key", "newVal", null))
+        when(globalConfigService.updateConfig(ACTOR_USER_ID, "key", "newVal", null))
                 .thenReturn(configResponse("key", "newVal", "desc"));
 
         mockMvc.perform(put("/api/v1/admin/configs/{key}", "key")
@@ -262,7 +246,7 @@ class GlobalConfigControllerTest {
     @Test
     @DisplayName("설정 삭제")
     void deleteConfig_success() throws Exception {
-        doNothing().when(globalConfigService).deleteConfig("key");
+        doNothing().when(globalConfigService).deleteConfig(ACTOR_USER_ID, "key");
 
         mockMvc.perform(delete("/api/v1/admin/configs/{key}", "key")
                 .with(user(adminUser))
@@ -271,11 +255,45 @@ class GlobalConfigControllerTest {
                 .andExpect(jsonPath("$.success").value(true));
     }
 
+    @Test
+    @DisplayName("admin config endpoints require SUPER_ADMIN")
+    void adminConfigEndpoints_requireSuperAdminPreAuthorize() throws Exception {
+        assertRequiresSuperAdmin("getConfig", String.class, CustomUserDetails.class);
+        assertRequiresSuperAdmin("getAllConfigs", CustomUserDetails.class);
+        assertRequiresSuperAdmin("createConfig",
+                com.weedrice.whiteboard.global.common.dto.GlobalConfigCreateRequest.class,
+                CustomUserDetails.class);
+        assertRequiresSuperAdmin("updateConfig",
+                com.weedrice.whiteboard.global.common.dto.GlobalConfigUpdateRequest.class,
+                CustomUserDetails.class);
+        assertRequiresSuperAdmin("updateConfigByKey",
+                String.class,
+                com.weedrice.whiteboard.global.common.dto.GlobalConfigUpdateByKeyRequest.class,
+                CustomUserDetails.class);
+        assertRequiresSuperAdmin("deleteConfig", String.class, CustomUserDetails.class);
+    }
+
+    @Test
+    @DisplayName("public config endpoint has no PreAuthorize")
+    void publicConfigEndpoint_hasNoPreAuthorize() throws Exception {
+        Method method = GlobalConfigController.class.getDeclaredMethod("getPublicConfigs");
+
+        assertThat(method.getAnnotation(PreAuthorize.class)).isNull();
+    }
+
     private GlobalConfigResponse configResponse(String key, String value, String description) {
         return GlobalConfigResponse.builder()
                 .key(key)
                 .value(value)
                 .description(description)
                 .build();
+    }
+
+    private void assertRequiresSuperAdmin(String methodName, Class<?>... parameterTypes) throws Exception {
+        Method method = GlobalConfigController.class.getDeclaredMethod(methodName, parameterTypes);
+        PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+
+        assertThat(preAuthorize).isNotNull();
+        assertThat(preAuthorize.value()).isEqualTo("hasRole('" + Role.SUPER_ADMIN + "')");
     }
 }

@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.global.common.entity.GlobalConfig;
 import com.weedrice.whiteboard.global.common.repository.GlobalConfigRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.security.SuperAdminPolicy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
@@ -33,7 +34,7 @@ public class GlobalConfigService {
 
     private final GlobalConfigRepository globalConfigRepository;
     private final CacheManager cacheManager;
-    private final GlobalConfigAdminGuard adminGuard;
+    private final SuperAdminPolicy superAdminPolicy;
     private final GlobalConfigDuplicatePolicy duplicatePolicy;
 
     @Cacheable(value = GLOBAL_CONFIG_CACHE,
@@ -52,8 +53,8 @@ public class GlobalConfigService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
     }
 
-    public GlobalConfigResponse getConfigResponseOrThrow(String key) {
-        adminGuard.requireSuperAdmin();
+    public GlobalConfigResponse getConfigResponseOrThrow(Long actorUserId, String key) {
+        superAdminPolicy.requireUsableSuperAdmin(actorUserId);
         String normalizedKey = normalizeConfigKey(key);
         String value = getConfigOrThrow(normalizedKey);
         return GlobalConfigResponse.builder()
@@ -74,8 +75,8 @@ public class GlobalConfigService {
         }
     }
 
-    public List<GlobalConfigResponse> getAllConfigs() {
-        adminGuard.requireSuperAdmin();
+    public List<GlobalConfigResponse> getAllConfigs(Long actorUserId) {
+        superAdminPolicy.requireUsableSuperAdmin(actorUserId);
         return globalConfigRepository.findAll().stream()
                 .map(GlobalConfigResponse::from)
                 .toList();
@@ -89,8 +90,8 @@ public class GlobalConfigService {
     }
 
     @Transactional
-    public GlobalConfigResponse createConfig(String key, String value, String description) {
-        adminGuard.requireSuperAdmin();
+    public GlobalConfigResponse createConfig(Long actorUserId, String key, String value, String description) {
+        superAdminPolicy.requireUsableSuperAdmin(actorUserId);
         NormalizedConfigInput input = normalizeConfigInput(key, value, description);
         validateConfigValue(input.key(), input.value());
         duplicatePolicy.validateCreatable(input.key());
@@ -105,8 +106,8 @@ public class GlobalConfigService {
     }
 
     @Transactional
-    public GlobalConfigResponse updateConfig(String key, String value, String description) {
-        adminGuard.requireSuperAdmin();
+    public GlobalConfigResponse updateConfig(Long actorUserId, String key, String value, String description) {
+        superAdminPolicy.requireUsableSuperAdmin(actorUserId);
         NormalizedConfigInput input = normalizeConfigInput(key, value, description);
         validateConfigValue(input.key(), input.value());
         GlobalConfig config = globalConfigRepository.findById(input.key())
@@ -123,8 +124,8 @@ public class GlobalConfigService {
     }
 
     @Transactional
-    public void deleteConfig(String key) {
-        adminGuard.requireSuperAdmin();
+    public void deleteConfig(Long actorUserId, String key) {
+        superAdminPolicy.requireUsableSuperAdmin(actorUserId);
         String normalizedKey = normalizeRequiredText(key, MAX_CONFIG_KEY_LENGTH);
         if (!globalConfigRepository.existsById(normalizedKey)) {
             throw new BusinessException(ErrorCode.NOT_FOUND);

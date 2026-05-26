@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.global.common.entity.GlobalConfig;
 import com.weedrice.whiteboard.global.common.repository.GlobalConfigRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.security.SuperAdminPolicy;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,10 +27,13 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class GlobalConfigServiceTest {
+
+    private static final Long ACTOR_USER_ID = 1L;
 
     private GlobalConfigService globalConfigService;
 
@@ -43,14 +47,14 @@ class GlobalConfigServiceTest {
     private Cache cache;
 
     @Mock
-    private GlobalConfigAdminGuard adminGuard;
+    private SuperAdminPolicy superAdminPolicy;
 
     @BeforeEach
     void setUp() {
         globalConfigService = new GlobalConfigService(
                 globalConfigRepository,
                 cacheManager,
-                adminGuard,
+                superAdminPolicy,
                 new GlobalConfigDuplicatePolicy(globalConfigRepository));
     }
 
@@ -113,12 +117,12 @@ class GlobalConfigServiceTest {
         GlobalConfig config = new GlobalConfig("key", "value", "desc");
         when(globalConfigRepository.findById("key")).thenReturn(Optional.of(config));
 
-        GlobalConfigResponse response = globalConfigService.getConfigResponseOrThrow(" key ");
+        GlobalConfigResponse response = globalConfigService.getConfigResponseOrThrow(ACTOR_USER_ID, " key ");
 
         assertThat(response.getKey()).isEqualTo("key");
         assertThat(response.getValue()).isEqualTo("value");
         assertThat(response.getDescription()).isNull();
-        verify(adminGuard).requireSuperAdmin();
+        verify(superAdminPolicy).requireUsableSuperAdmin(ACTOR_USER_ID);
     }
 
     @Test
@@ -150,22 +154,22 @@ class GlobalConfigServiceTest {
     void getAllConfigs_returnsResponses() {
         when(globalConfigRepository.findAll()).thenReturn(List.of(new GlobalConfig("key", "value", "desc")));
 
-        var responses = globalConfigService.getAllConfigs();
+        var responses = globalConfigService.getAllConfigs(ACTOR_USER_ID);
 
         assertThat(responses).hasSize(1);
         assertThat(responses.getFirst().getKey()).isEqualTo("key");
         assertThat(responses.getFirst().getValue()).isEqualTo("value");
         assertThat(responses.getFirst().getDescription()).isEqualTo("desc");
-        verify(adminGuard).requireSuperAdmin();
+        verify(superAdminPolicy).requireUsableSuperAdmin(ACTOR_USER_ID);
     }
 
     @Test
-    @DisplayName("getAllConfigs stops before repository access when admin guard rejects")
+    @DisplayName("getAllConfigs stops before repository access when super admin policy rejects")
     void getAllConfigs_guardRejects_stopsBeforeRepositoryAccess() {
         doThrow(new BusinessException(ErrorCode.FORBIDDEN))
-                .when(adminGuard).requireSuperAdmin();
+                .when(superAdminPolicy).requireUsableSuperAdmin(ACTOR_USER_ID);
 
-        assertThatThrownBy(() -> globalConfigService.getAllConfigs())
+        assertThatThrownBy(() -> globalConfigService.getAllConfigs(ACTOR_USER_ID))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
         verify(globalConfigRepository, never()).findAll();
@@ -182,7 +186,7 @@ class GlobalConfigServiceTest {
         assertThat(responses).hasSize(1);
         assertThat(responses.getFirst().getKey()).isEqualTo("POINT_SIGNUP_BONUS");
         assertThat(responses.getFirst().getValue()).isEqualTo("10");
-        verify(adminGuard, never()).requireSuperAdmin();
+        verifyNoInteractions(superAdminPolicy);
     }
 
     @Test
@@ -192,13 +196,13 @@ class GlobalConfigServiceTest {
         when(globalConfigRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(cacheManager.getCache("globalConfig")).thenReturn(cache);
 
-        GlobalConfigResponse created = globalConfigService.createConfig("key", "value", "desc");
+        GlobalConfigResponse created = globalConfigService.createConfig(ACTOR_USER_ID, "key", "value", "desc");
 
         assertThat(created.getKey()).isEqualTo("key");
         assertThat(created.getValue()).isEqualTo("value");
         verify(globalConfigRepository).saveAndFlush(any(GlobalConfig.class));
         verify(cache).put("key", "value");
-        verify(adminGuard).requireSuperAdmin();
+        verify(superAdminPolicy).requireUsableSuperAdmin(ACTOR_USER_ID);
     }
 
     @Test
@@ -208,7 +212,7 @@ class GlobalConfigServiceTest {
         when(globalConfigRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(cacheManager.getCache("globalConfig")).thenReturn(cache);
 
-        GlobalConfigResponse created = globalConfigService.createConfig(" key ", " value ", " desc ");
+        GlobalConfigResponse created = globalConfigService.createConfig(ACTOR_USER_ID, " key ", " value ", " desc ");
 
         assertThat(created.getKey()).isEqualTo("key");
         assertThat(created.getValue()).isEqualTo("value");
@@ -227,7 +231,7 @@ class GlobalConfigServiceTest {
         TransactionSynchronizationManager.initSynchronization();
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
-            GlobalConfigResponse created = globalConfigService.createConfig("key", "value", "desc");
+            GlobalConfigResponse created = globalConfigService.createConfig(ACTOR_USER_ID, "key", "value", "desc");
 
             assertThat(created.getKey()).isEqualTo("key");
             assertThat(created.getValue()).isEqualTo("value");
@@ -252,7 +256,7 @@ class GlobalConfigServiceTest {
         TransactionSynchronizationManager.initSynchronization();
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
-            GlobalConfigResponse created = globalConfigService.createConfig("key", "value", "desc");
+            GlobalConfigResponse created = globalConfigService.createConfig(ACTOR_USER_ID, "key", "value", "desc");
             when(cacheManager.getCache("globalConfig")).thenThrow(new IllegalStateException("cache down"));
 
             assertThat(created.getKey()).isEqualTo("key");
@@ -271,7 +275,11 @@ class GlobalConfigServiceTest {
         when(globalConfigRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(cacheManager.getCache("globalConfig")).thenReturn(cache);
 
-        GlobalConfigResponse created = globalConfigService.createConfig("POINT_SIGNUP_BONUS", "0", "desc");
+        GlobalConfigResponse created = globalConfigService.createConfig(
+                ACTOR_USER_ID,
+                "POINT_SIGNUP_BONUS",
+                "0",
+                "desc");
 
         assertThat(created.getValue()).isEqualTo("0");
         verify(globalConfigRepository).saveAndFlush(any(GlobalConfig.class));
@@ -281,13 +289,21 @@ class GlobalConfigServiceTest {
     @Test
     @DisplayName("createConfig rejects invalid point config values")
     void createConfig_pointConfig_rejectsInvalidValue() {
-        assertThatThrownBy(() -> globalConfigService.createConfig("POINT_SIGNUP_BONUS", "invalid", "desc"))
+        assertThatThrownBy(() -> globalConfigService.createConfig(ACTOR_USER_ID, "POINT_SIGNUP_BONUS", "invalid", "desc"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-        assertThatThrownBy(() -> globalConfigService.createConfig("POINT_POST_CREATE_REWARD", "-1", "desc"))
+        assertThatThrownBy(() -> globalConfigService.createConfig(
+                ACTOR_USER_ID,
+                "POINT_POST_CREATE_REWARD",
+                "-1",
+                "desc"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-        assertThatThrownBy(() -> globalConfigService.createConfig(" POINT_SIGNUP_BONUS ", "invalid", "desc"))
+        assertThatThrownBy(() -> globalConfigService.createConfig(
+                ACTOR_USER_ID,
+                " POINT_SIGNUP_BONUS ",
+                "invalid",
+                "desc"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
 
@@ -299,22 +315,22 @@ class GlobalConfigServiceTest {
     @Test
     @DisplayName("createConfig rejects invalid key value and description before repository access")
     void createConfig_invalidText_rejectsBeforeRepositoryAccess() {
-        assertThatThrownBy(() -> globalConfigService.createConfig(null, "value", "desc"))
+        assertThatThrownBy(() -> globalConfigService.createConfig(ACTOR_USER_ID, null, "value", "desc"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-        assertThatThrownBy(() -> globalConfigService.createConfig("   ", "value", "desc"))
+        assertThatThrownBy(() -> globalConfigService.createConfig(ACTOR_USER_ID, "   ", "value", "desc"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-        assertThatThrownBy(() -> globalConfigService.createConfig("k".repeat(101), "value", "desc"))
+        assertThatThrownBy(() -> globalConfigService.createConfig(ACTOR_USER_ID, "k".repeat(101), "value", "desc"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-        assertThatThrownBy(() -> globalConfigService.createConfig("key", "   ", "desc"))
+        assertThatThrownBy(() -> globalConfigService.createConfig(ACTOR_USER_ID, "key", "   ", "desc"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-        assertThatThrownBy(() -> globalConfigService.createConfig("key", "v".repeat(10_001), "desc"))
+        assertThatThrownBy(() -> globalConfigService.createConfig(ACTOR_USER_ID, "key", "v".repeat(10_001), "desc"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-        assertThatThrownBy(() -> globalConfigService.createConfig("key", "value", "d".repeat(256)))
+        assertThatThrownBy(() -> globalConfigService.createConfig(ACTOR_USER_ID, "key", "value", "d".repeat(256)))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
 
@@ -328,7 +344,7 @@ class GlobalConfigServiceTest {
     void createConfig_duplicate() {
         when(globalConfigRepository.existsById("key")).thenReturn(true);
 
-        assertThatThrownBy(() -> globalConfigService.createConfig("key", "value", "desc"))
+        assertThatThrownBy(() -> globalConfigService.createConfig(ACTOR_USER_ID, "key", "value", "desc"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_RESOURCE);
     }
@@ -340,7 +356,7 @@ class GlobalConfigServiceTest {
         when(globalConfigRepository.saveAndFlush(any(GlobalConfig.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate key"));
 
-        assertThatThrownBy(() -> globalConfigService.createConfig("key", "value", "desc"))
+        assertThatThrownBy(() -> globalConfigService.createConfig(ACTOR_USER_ID, "key", "value", "desc"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_RESOURCE);
         verify(cacheManager, never()).getCache("globalConfig");
@@ -354,10 +370,10 @@ class GlobalConfigServiceTest {
         when(globalConfigRepository.findById("key")).thenReturn(Optional.of(config));
         when(globalConfigRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        GlobalConfigResponse updated = globalConfigService.updateConfig("key", "new", "new");
+        GlobalConfigResponse updated = globalConfigService.updateConfig(ACTOR_USER_ID, "key", "new", "new");
 
         assertThat(updated.getValue()).isEqualTo("new");
-        verify(adminGuard).requireSuperAdmin();
+        verify(superAdminPolicy).requireUsableSuperAdmin(ACTOR_USER_ID);
     }
 
     @Test
@@ -368,7 +384,7 @@ class GlobalConfigServiceTest {
         when(globalConfigRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(cacheManager.getCache("globalConfig")).thenReturn(cache);
 
-        GlobalConfigResponse updated = globalConfigService.updateConfig(" key ", " new ", " desc ");
+        GlobalConfigResponse updated = globalConfigService.updateConfig(ACTOR_USER_ID, " key ", " new ", " desc ");
 
         assertThat(updated.getValue()).isEqualTo("new");
         assertThat(updated.getDescription()).isEqualTo("desc");
@@ -387,7 +403,7 @@ class GlobalConfigServiceTest {
         TransactionSynchronizationManager.initSynchronization();
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
-            GlobalConfigResponse updated = globalConfigService.updateConfig("key", "new", "new");
+            GlobalConfigResponse updated = globalConfigService.updateConfig(ACTOR_USER_ID, "key", "new", "new");
 
             assertThat(updated.getValue()).isEqualTo("new");
             verify(cache, never()).put(any(), any());
@@ -410,11 +426,11 @@ class GlobalConfigServiceTest {
         TransactionSynchronizationManager.initSynchronization();
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
-            globalConfigService.deleteConfig("key");
+            globalConfigService.deleteConfig(ACTOR_USER_ID, "key");
 
             verify(cache, never()).evict(any());
             verify(globalConfigRepository).deleteById("key");
-            verify(adminGuard).requireSuperAdmin();
+            verify(superAdminPolicy).requireUsableSuperAdmin(ACTOR_USER_ID);
 
             TransactionSynchronizationManager.getSynchronizations()
                     .forEach(synchronization -> synchronization.afterCommit());
@@ -428,22 +444,22 @@ class GlobalConfigServiceTest {
     @Test
     @DisplayName("updateConfig rejects invalid key value and description before repository access")
     void updateConfig_invalidText_rejectsBeforeRepositoryAccess() {
-        assertThatThrownBy(() -> globalConfigService.updateConfig(null, "value", "desc"))
+        assertThatThrownBy(() -> globalConfigService.updateConfig(ACTOR_USER_ID, null, "value", "desc"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-        assertThatThrownBy(() -> globalConfigService.updateConfig("   ", "value", "desc"))
+        assertThatThrownBy(() -> globalConfigService.updateConfig(ACTOR_USER_ID, "   ", "value", "desc"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-        assertThatThrownBy(() -> globalConfigService.updateConfig("k".repeat(101), "value", "desc"))
+        assertThatThrownBy(() -> globalConfigService.updateConfig(ACTOR_USER_ID, "k".repeat(101), "value", "desc"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-        assertThatThrownBy(() -> globalConfigService.updateConfig("key", null, "desc"))
+        assertThatThrownBy(() -> globalConfigService.updateConfig(ACTOR_USER_ID, "key", null, "desc"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-        assertThatThrownBy(() -> globalConfigService.updateConfig("key", "v".repeat(10_001), "desc"))
+        assertThatThrownBy(() -> globalConfigService.updateConfig(ACTOR_USER_ID, "key", "v".repeat(10_001), "desc"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-        assertThatThrownBy(() -> globalConfigService.updateConfig("key", "value", "d".repeat(256)))
+        assertThatThrownBy(() -> globalConfigService.updateConfig(ACTOR_USER_ID, "key", "value", "d".repeat(256)))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
 
@@ -454,10 +470,18 @@ class GlobalConfigServiceTest {
     @Test
     @DisplayName("updateConfig rejects invalid point config values")
     void updateConfig_pointConfig_rejectsInvalidValue() {
-        assertThatThrownBy(() -> globalConfigService.updateConfig("POINT_BOARD_CREATE_COST", "invalid", "desc"))
+        assertThatThrownBy(() -> globalConfigService.updateConfig(
+                ACTOR_USER_ID,
+                "POINT_BOARD_CREATE_COST",
+                "invalid",
+                "desc"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-        assertThatThrownBy(() -> globalConfigService.updateConfig("POINT_BOARD_CREATE_COST", "-1", "desc"))
+        assertThatThrownBy(() -> globalConfigService.updateConfig(
+                ACTOR_USER_ID,
+                "POINT_BOARD_CREATE_COST",
+                "-1",
+                "desc"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
 
