@@ -3,41 +3,14 @@ import { useQuery } from '@tanstack/vue-query'
 import { emptyHomeLanding, postApi } from '@/api/post'
 import { useAuthStore } from '@/stores/auth'
 import { QUERY_STALE_TIME } from '@/utils/constants'
-import type { FeedPost, HomeLandingPeriod, PostSummary } from '@/types'
+import { toFeedPost, toFeedPosts } from '@/utils/postViewModel'
+import type { HomeLandingPeriod } from '@/types'
 
 const EDITOR_PICK_START_INDEX = 1
 const EDITOR_PICK_END_INDEX = 4
 const TRENDING_START_INDEX = 1
 const TRENDING_END_INDEX = 10
 const LIVE_ACTIVITY_END_INDEX = 6
-
-const mapToFeedPost = (post: PostSummary): FeedPost | null => {
-    if (
-        post.postId == null ||
-        post.boardUrl == null ||
-        post.boardName == null ||
-        (post.authorName == null && post.author?.displayName == null)
-    ) {
-        return null
-    }
-
-    return {
-        ...post,
-        boardUrl: post.boardUrl,
-        boardName: post.boardName,
-        boardIconUrl: post.boardIconUrl,
-        authorName: post.authorName ?? post.author?.displayName ?? '',
-        liked: post.liked ?? false,
-        scrapped: post.scrapped ?? false,
-        subscribed: post.subscribed ?? false,
-    }
-}
-
-const mapPosts = (posts: PostSummary[] | undefined): FeedPost[] => {
-    return (posts ?? [])
-        .map(mapToFeedPost)
-        .filter((post): post is FeedPost => post != null)
-}
 
 export function useHomeLanding() {
     const authStore = useAuthStore()
@@ -68,13 +41,13 @@ export function useHomeLanding() {
     const editorPickPosts = computed(() => sourcePosts.value.slice(EDITOR_PICK_START_INDEX, EDITOR_PICK_END_INDEX))
     const trendingPosts = computed(() => sourcePosts.value.slice(TRENDING_START_INDEX, TRENDING_END_INDEX))
     const liveActivityPosts = computed(() => sourceLatestPosts.value.slice(0, LIVE_ACTIVITY_END_INDEX))
-    const posts = computed(() => mapPosts(sourcePosts.value.slice(0, TRENDING_END_INDEX)))
+    const posts = computed(() => toFeedPosts(sourcePosts.value.slice(0, TRENDING_END_INDEX)))
 
     return {
-        featured: computed(() => featuredPost.value ? mapToFeedPost(featuredPost.value) : null),
-        editorPicks: computed(() => mapPosts(editorPickPosts.value)),
-        trending: computed(() => mapPosts(trendingPosts.value)),
-        liveActivity: computed(() => mapPosts(liveActivityPosts.value)),
+        featured: computed(() => featuredPost.value ? toFeedPost(featuredPost.value) : null),
+        editorPicks: computed(() => toFeedPosts(editorPickPosts.value)),
+        trending: computed(() => toFeedPosts(trendingPosts.value)),
+        liveActivity: computed(() => toFeedPosts(liveActivityPosts.value)),
         spotlightBoards: computed(() => landing.value.boards),
         boards: computed(() => landing.value.boards),
         stats: computed(() => landing.value.stats),

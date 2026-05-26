@@ -3,19 +3,7 @@ import { postApi, type PostCreateData, type PostDraftData, type PostUpdateData, 
 import { computed, type Ref } from 'vue'
 import type { Post } from '@/types'
 import type { AxiosRequestConfig } from 'axios'
-
-type PostReactionAlias = Post & {
-    isLiked?: boolean
-    isScrapped?: boolean
-}
-
-function normalizePostReactionFlags(post: PostReactionAlias): Post {
-    return {
-        ...post,
-        liked: post.liked ?? post.isLiked ?? false,
-        scrapped: post.scrapped ?? post.isScrapped ?? false,
-    }
-}
+import { normalizePostReactionFlags, type PostReactionAlias } from '@/utils/postViewModel'
 
 export function usePost() {
     const queryClient = useQueryClient()
