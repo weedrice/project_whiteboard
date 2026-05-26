@@ -69,7 +69,7 @@ export function usePostDetailShare({
       ;(document.activeElement as HTMLElement | null)?.blur()
     }).catch((err) => {
       logger.error('Failed to copy URL:', err)
-      toastStore.addToast(translateOrFallback('common.messages.processFailed', '二쇱냼 蹂듭궗???ㅽ뙣?덉뒿?덈떎.'), 'error')
+      toastStore.addToast(translateOrFallback('common.messages.processFailed', '주소 복사에 실패했습니다.'), 'error')
     })
   }
 
