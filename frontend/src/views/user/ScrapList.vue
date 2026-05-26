@@ -10,6 +10,7 @@ import ErrorState from '@/components/common/ui/ErrorState.vue'
 import { Bookmark } from 'lucide-vue-next'
 import type { PostSummary } from '@/types'
 import { usePagination } from '@/composables/usePagination'
+import { isInquiryPostItem, resolvePostDetailRoute } from '@/utils/postNavigation'
 
 const {
   items: scraps,
@@ -66,6 +67,8 @@ onMounted(() => {
           :show-comment-count="false"
           :show-preview-indicator="false"
           :show-secret-indicator="false"
+          :resolve-post-route="resolvePostDetailRoute"
+          :show-inquiry-status="isInquiryPostItem"
         />
         <div class="bg-gray-50 dark:bg-gray-900/50 px-4 py-4 sm:px-6 flex justify-center">
           <Pagination :current-page="page" :total-pages="totalPages" @page-change="handlePageChange" />

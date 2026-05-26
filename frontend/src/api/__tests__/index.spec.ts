@@ -80,10 +80,27 @@ const loadApiModule = async (
     resolverOptions: ApiResolverOptions = {},
 ) => {
     const module = await import('../index')
-    const authStore = {
+    const authStore: {
+        user: unknown
+        accessToken: string | null
+        fetchUser: typeof mocks.mockFetchUser
+        setTokens: ReturnType<typeof vi.fn>
+        clearSessionState: ReturnType<typeof vi.fn>
+    } = {
         user: authStoreOverrides?.user ?? { id: 1 },
         accessToken: authStoreOverrides?.accessToken ?? '',
         fetchUser: mocks.mockFetchUser,
+        setTokens: vi.fn((token: string) => {
+            authStore.accessToken = token
+            localStorage.setItem('accessToken', token)
+            localStorage.removeItem('refreshToken')
+        }),
+        clearSessionState: vi.fn(() => {
+            authStore.user = null
+            authStore.accessToken = null
+            localStorage.removeItem('accessToken')
+            localStorage.removeItem('refreshToken')
+        }),
     }
 
     if (resolverOptions.configureResolvers !== false) {
@@ -138,9 +155,9 @@ describe('API Interceptors', () => {
         })
         module.configureApiStoreResolvers({
             resolveAuthStore: () => ({
-                user: null,
-                accessToken: null,
                 fetchUser: async () => false,
+                setTokens: () => undefined,
+                clearSessionState: () => undefined,
             }),
         })
 
@@ -573,7 +590,7 @@ describe('API Interceptors', () => {
     })
 
     it('refreshes token and retries original request on 401', async () => {
-        const { responseRejected } = await loadApiModule({ user: { id: 10 }, accessToken: 'old-access' })
+        const { responseRejected, authStore } = await loadApiModule({ user: { id: 10 }, accessToken: 'old-access' })
         mocks.mockFetchUser.mockResolvedValueOnce(true)
         mocks.mockAxiosPost.mockResolvedValueOnce({
             data: {
@@ -596,6 +613,7 @@ describe('API Interceptors', () => {
         expect(mocks.mockAxiosPost).toHaveBeenCalledWith('/api/v1/auth/refresh', undefined, { withCredentials: true })
         expect(localStorage.getItem('accessToken')).toBe('new-access')
         expect(localStorage.getItem('refreshToken')).toBeNull()
+        expect(authStore.setTokens).toHaveBeenCalledWith('new-access')
         expect(mocks.mockFetchUser).toHaveBeenCalledWith({ skipAuthRefresh: true })
         expect(originalRequest.headers.Authorization).toBe('Bearer new-access')
         expect(mocks.mockApiRequest).toHaveBeenCalledWith(originalRequest)
@@ -922,8 +940,9 @@ describe('API Interceptors', () => {
 
         expect(localStorage.getItem('accessToken')).toBeNull()
         expect(localStorage.getItem('refreshToken')).toBeNull()
+        expect(authStore.clearSessionState).toHaveBeenCalledTimes(1)
         expect(authStore.user).toBeNull()
-        expect(authStore.accessToken).toBe('')
+        expect(authStore.accessToken).toBeNull()
         expect(mocks.mockAddToast).toHaveBeenCalledTimes(1)
         expect(mocks.mockAddToast).toHaveBeenCalledWith(
             'common.messages.sessionExpired',

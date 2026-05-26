@@ -73,7 +73,13 @@
               <Search class="w-5 h-5" />
               {{ $t('common.post') }}
             </h3>
-            <PostList :posts="posts" :showBoardName="true" :hideNoColumn="true" />
+            <PostList
+              :posts="posts"
+              :showBoardName="true"
+              :hideNoColumn="true"
+              :resolve-post-route="resolvePostDetailRoute"
+              :show-inquiry-status="isInquiryPostItem"
+            />
           </div>
         </div>
       </div>
@@ -92,6 +98,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import { Search, Layout } from 'lucide-vue-next'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
+import { isInquiryPostItem, resolvePostDetailRoute } from '@/utils/postNavigation'
 
 const route = useRoute()
 const router = useRouter()

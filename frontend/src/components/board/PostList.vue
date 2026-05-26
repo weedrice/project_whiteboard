@@ -17,6 +17,11 @@ type ResolvePostRoute = (
   linkQuery: LocationQueryRaw | undefined
 ) => RouteLocationRaw | null | undefined
 
+type PostPredicate = (
+  post: PostSummary,
+  boardUrl: string
+) => boolean
+
 const props = withDefaults(defineProps<{
   posts: PostSummary[]
   loading?: boolean
@@ -25,6 +30,8 @@ const props = withDefaults(defineProps<{
   currentPostId?: string
   linkQuery?: LocationQueryRaw
   resolvePostRoute?: ResolvePostRoute
+  shouldInterceptPost?: PostPredicate
+  showInquiryStatus?: PostPredicate
   showBoardName?: boolean
   hideNoColumn?: boolean
   interceptInquiry?: boolean
@@ -74,20 +81,13 @@ function hasValidBoardTarget(item: PostSummary): boolean {
   return getResolvedBoardUrl(item).length > 0
 }
 
-function resolveDefaultPostRoute(item: PostSummary, boardUrl: string): RouteLocationRaw {
-  return {
-    path: `/board/${boardUrl}/post/${item.postId}`,
-    query: props.linkQuery
-  }
-}
-
 function resolvePostRouteTarget(item: PostSummary): RouteLocationRaw | null {
   const boardUrl = getResolvedBoardUrl(item)
   if (!boardUrl) return null
   if (props.resolvePostRoute) {
     return props.resolvePostRoute(item, boardUrl, props.linkQuery) ?? null
   }
-  return resolveDefaultPostRoute(item, boardUrl)
+  return null
 }
 
 const postRouteTargets = computed(() => {
@@ -108,12 +108,14 @@ function hasPostRouteTarget(item: PostSummary): boolean {
   return getPostLink(item) !== null
 }
 
-function isInquiryPost(item: PostSummary): boolean {
-  return getResolvedBoardUrl(item) === 'inquiry'
+function shouldInterceptInquiry(item: PostSummary): boolean {
+  const boardUrl = getResolvedBoardUrl(item)
+  return props.interceptInquiry && !!props.shouldInterceptPost?.(item, boardUrl)
 }
 
-function shouldInterceptInquiry(item: PostSummary): boolean {
-  return props.interceptInquiry && isInquiryPost(item)
+function shouldShowInquiryStatus(item: PostSummary): boolean {
+  const boardUrl = getResolvedBoardUrl(item)
+  return !!props.showInquiryStatus?.(item, boardUrl)
 }
 
 function isAgentAuthor(item: PostSummary): boolean {
@@ -311,7 +313,7 @@ const columns = computed(() => {
             <div class="mt-2 flex items-center gap-2 text-sm font-medium text-[var(--nv-ink)]">
               <PostListTitleContent
                 :post="item"
-                :board-url="getResolvedBoardUrl(item)"
+                :show-inquiry-status="shouldShowInquiryStatus(item)"
                 :show-notice-badge="props.showNoticeBadge"
                 :show-comment-count="props.showCommentCount"
                 :show-preview-indicator="props.showPreviewIndicator"
@@ -401,7 +403,7 @@ const columns = computed(() => {
             >
               <PostListTitleContent
                 :post="item"
-                :board-url="getResolvedBoardUrl(item)"
+                :show-inquiry-status="shouldShowInquiryStatus(item)"
                 :show-notice-badge="props.showNoticeBadge"
                 :show-comment-count="props.showCommentCount"
                 :show-preview-indicator="props.showPreviewIndicator"
