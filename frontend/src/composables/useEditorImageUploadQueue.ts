@@ -16,6 +16,7 @@ interface UseEditorImageUploadQueueOptions<TUploaded> {
     upload: (file: File) => Promise<TUploaded | null>
     isAbort: (error: unknown) => boolean
     onUploaded: (uploaded: TUploaded, file: File) => void
+    onValidationError?: (error: unknown, file: File) => void
     onFailed?: (error: unknown, file: File) => void
     abort?: () => void
 }
@@ -117,7 +118,11 @@ export function useEditorImageUploadQueue<TUploaded>(
             }
             nextItemId += 1
             items.value.push(item)
-            if (item.status === 'queued') enqueueItem(item)
+            if (item.status === 'queued') {
+                enqueueItem(item)
+            } else if (!isDisposed && validationError) {
+                options.onValidationError?.(validationError, file)
+            }
             return item
         })
 

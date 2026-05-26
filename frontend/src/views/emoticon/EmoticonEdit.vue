@@ -16,6 +16,7 @@ import { extractErrorMessage } from '@/utils/errorHandler'
 import { useEmoticonImageSelection } from '@/composables/useEmoticonImageSelection'
 import { useToggleEmoticonVisibility } from '@/composables/useToggleEmoticonVisibility'
 import { useEmoticonUploadSession } from '@/composables/useEmoticonUploadSession'
+import { useEmoticonPermissions } from '@/composables/useEmoticonPermissions'
 import {
   createUploadableEmoticonImageFile,
   resolveEmoticonTagAddition,
@@ -88,9 +89,10 @@ const thumbnailInput = ref<HTMLInputElement | null>(null)
 const emoticonInput = ref<HTMLInputElement | null>(null)
 
 // 권한 체크
-const isOwner = computed(() => {
-  if (!emoticon.value || !authStore.user) return false
-  return emoticon.value.creatorId === authStore.user.userId
+const { isOwner } = useEmoticonPermissions({
+  isAuthenticated: () => authStore.isAuthenticated,
+  getCreatorId: () => emoticon.value?.creatorId,
+  getUserId: () => authStore.user?.userId,
 })
 
 // 기존 데이터로 폼 초기화

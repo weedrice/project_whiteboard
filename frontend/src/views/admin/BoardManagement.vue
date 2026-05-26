@@ -226,8 +226,8 @@
         />
         <div class="flex justify-end gap-3 pt-2">
           <BaseButton variant="secondary" @click="closeModal">{{ $t('common.cancel') }}</BaseButton>
-          <BaseButton :disabled="isSubmitting" @click="handleCreateBoard">
-            {{ isSubmitting ? $t('common.messages.saving') : $t('common.save') }}
+          <BaseButton :disabled="isCreatingBoard" @click="handleCreateBoard">
+            {{ isCreatingBoard ? $t('common.messages.saving') : $t('common.save') }}
           </BaseButton>
         </div>
       </div>
@@ -273,6 +273,7 @@ const {
 } = useAdmin()
 
 const isModalOpen = ref(false)
+const isCreatingBoard = ref(false)
 
 const createForm = reactive({
   boardName: '',
@@ -354,7 +355,7 @@ async function handleCreateBoard() {
     return
   }
 
-  isSubmitting.value = true
+  isCreatingBoard.value = true
   try {
     await createBoard({ ...createForm })
     toastStore.addToast(t('admin.boards.messages.created'), 'success')
@@ -362,7 +363,7 @@ async function handleCreateBoard() {
   } catch {
     // Error handled globally
   } finally {
-    isSubmitting.value = false
+    isCreatingBoard.value = false
   }
 }
 

@@ -19,6 +19,7 @@ describe('useEditorImageUploadQueue', () => {
     const upload = vi.fn()
     const isAbort = vi.fn()
     const onUploaded = vi.fn()
+    const onValidationError = vi.fn()
     const abort = vi.fn()
 
     const createQueue = () => useEditorImageUploadQueue({
@@ -26,6 +27,7 @@ describe('useEditorImageUploadQueue', () => {
         upload,
         isAbort,
         onUploaded,
+        onValidationError,
         abort,
     })
 
@@ -217,6 +219,7 @@ describe('useEditorImageUploadQueue', () => {
         expect(invalidItem.status).toBe('failed')
         expect(invalidItem.error).toBe('type')
         expect(validItem.status).toBe('uploaded')
+        expect(onValidationError).toHaveBeenCalledWith('type', invalidFile)
         expect(upload).toHaveBeenCalledTimes(1)
         expect(upload).toHaveBeenCalledWith(validFile)
         expect(queue.failedItems.value).toEqual([invalidItem])
