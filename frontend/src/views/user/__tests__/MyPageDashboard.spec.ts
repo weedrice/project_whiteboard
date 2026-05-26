@@ -69,6 +69,7 @@ vi.mock('@/composables/useInquiryDetailModal', () => ({
     isInquiryDetailLoading: ref(false),
     inquiryDetailError: ref(''),
     isDeletingInquiry: ref(false),
+    isInquiryPostItem: vi.fn(() => false),
     openMyInquiryPost: vi.fn(),
     closeInquiryModal: vi.fn(),
     deleteInquiryPost: vi.fn(),

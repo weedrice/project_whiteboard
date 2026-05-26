@@ -271,6 +271,23 @@ describe('Auth Store', () => {
         })
     })
 
+    describe('clearSessionState', () => {
+        it('clears reactive auth state and stored tokens without calling logout api', () => {
+            store.accessToken = 'token'
+            store.user = { id: 1, username: 'test', role: 'USER' } as any
+            localStorage.setItem('accessToken', 'token')
+            localStorage.setItem('refreshToken', 'stale-refresh')
+
+            store.clearSessionState()
+
+            expect(store.accessToken).toBeNull()
+            expect(store.user).toBeNull()
+            expect(localStorage.getItem('accessToken')).toBeNull()
+            expect(localStorage.getItem('refreshToken')).toBeNull()
+            expect(authApi.logout).not.toHaveBeenCalled()
+        })
+    })
+
     describe('getters', () => {
         it('isAdmin returns correct value', () => {
             store.user = { id: 1, role: 'ADMIN' } as any

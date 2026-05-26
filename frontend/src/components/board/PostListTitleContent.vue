@@ -6,18 +6,19 @@ import { isDefaultCategory } from '@/utils/board'
 
 const props = withDefaults(defineProps<{
   post: PostSummary
-  boardUrl?: string
   truncateTitle?: boolean
   showNoticeBadge?: boolean
   showCommentCount?: boolean
   showPreviewIndicator?: boolean
   showSecretIndicator?: boolean
+  showInquiryStatus?: boolean
 }>(), {
   truncateTitle: false,
   showNoticeBadge: true,
   showCommentCount: true,
   showPreviewIndicator: true,
-  showSecretIndicator: true
+  showSecretIndicator: true,
+  showInquiryStatus: false
 })
 
 const { t } = useI18n()
@@ -26,9 +27,6 @@ const hasPreviewImage = (post: PostSummary) => (
   Boolean(post.thumbnailUrl) || post.firstMediaType?.toLowerCase() === 'image'
 )
 
-const isInquiryPost = (post: PostSummary, boardUrl?: string) => (
-  (post.boardUrl || boardUrl) === 'inquiry'
-)
 </script>
 
 <template>
@@ -52,7 +50,7 @@ const isInquiryPost = (post: PostSummary, boardUrl?: string) => (
     <ImageIcon class="h-4 w-4" />
   </span>
   <span
-    v-if="typeof post.inquiryAnswered === 'boolean' && isInquiryPost(post, boardUrl)"
+    v-if="typeof post.inquiryAnswered === 'boolean' && props.showInquiryStatus"
     class="nv-post-badge"
     :class="post.inquiryAnswered ? 'nv-post-badge-success' : 'nv-post-badge-warn'"
   >

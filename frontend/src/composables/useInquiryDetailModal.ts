@@ -4,6 +4,7 @@ import { postApi } from '@/api/post'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToastStore } from '@/stores/toast'
 import { extractErrorMessage } from '@/utils/errorHandler'
+import { isInquiryPostItem } from '@/utils/postNavigation'
 import type { Post } from '@/types'
 
 export function useInquiryDetailModal(refreshPosts: () => Promise<void> | void) {
@@ -17,10 +18,6 @@ export function useInquiryDetailModal(refreshPosts: () => Promise<void> | void) 
   const inquiryDetailError = ref('')
   const isDeletingInquiry = ref(false)
   let inquiryDetailRequestId = 0
-
-  function isInquiryPostItem(post: { boardUrl?: string | number }): boolean {
-    return String(post.boardUrl || '').toLowerCase() === 'inquiry'
-  }
 
   async function openMyInquiryPost(post: { postId: number; boardUrl?: string | number }) {
     if (!isInquiryPostItem(post)) {

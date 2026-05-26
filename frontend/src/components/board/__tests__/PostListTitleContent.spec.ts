@@ -31,13 +31,13 @@ describe('PostListTitleContent', () => {
     ...overrides
   })
 
-  it('shows inquiry status with the normalized board url fallback', () => {
+  it('shows inquiry status when the parent marks the post as inquiry', () => {
     const wrapper = mount(PostListTitleContent, {
       props: {
         post: createPost({
           inquiryAnswered: true
         }),
-        boardUrl: 'inquiry'
+        showInquiryStatus: true
       },
       global: {
         mocks: {

@@ -4,6 +4,7 @@ import { mount, RouterLinkStub } from '@vue/test-utils'
 import BaseTable from '@/components/common/ui/BaseTable.vue'
 import PostList from '../PostList.vue'
 import type { PostSummary } from '@/types'
+import type { LocationQueryRaw } from 'vue-router'
 
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
@@ -37,6 +38,15 @@ describe('PostList', () => {
     ...overrides
   })
 
+  const resolvePostRoute = (post: PostSummary, boardUrl: string, linkQuery?: LocationQueryRaw) => ({
+    name: 'post-detail',
+    params: {
+      boardUrl,
+      postId: post.postId
+    },
+    query: linkQuery
+  })
+
   it('preserves pagination query in post detail links when provided', () => {
     const wrapper = mount(PostList, {
       props: {
@@ -53,7 +63,8 @@ describe('PostList', () => {
         linkQuery: {
           page: '3',
           q: 'vue'
-        }
+        },
+        resolvePostRoute
       },
       global: {
         mocks: {
@@ -71,7 +82,11 @@ describe('PostList', () => {
 
     expect(postLink.exists()).toBe(true)
     expect(postLink.props('to')).toEqual({
-      path: '/board/free/post/101',
+      name: 'post-detail',
+      params: {
+        boardUrl: 'free',
+        postId: 101
+      },
       query: {
         page: '3',
         q: 'vue'
@@ -352,7 +367,8 @@ describe('PostList', () => {
             inquiryAnswered: false
           })
         ],
-        interceptInquiry: true
+        interceptInquiry: true,
+        shouldInterceptPost: (post) => post.boardUrl === 'inquiry'
       },
       global: {
         mocks: {
@@ -376,6 +392,7 @@ describe('PostList', () => {
     const wrapper = mount(PostList, {
       props: {
         boardUrl: 'inquiry',
+        showInquiryStatus: (_post, boardUrl) => boardUrl === 'inquiry',
         posts: [
           createPost({
             inquiryAnswered: true
@@ -444,7 +461,8 @@ describe('PostList', () => {
             }
           })
         ],
-        showBoardName: true
+        showBoardName: true,
+        resolvePostRoute
       },
       global: {
         mocks: {
@@ -464,7 +482,11 @@ describe('PostList', () => {
 
     expect(targets).toContain('/board/free')
     expect(targets).toContainEqual({
-      path: '/board/free/post/404',
+      name: 'post-detail',
+      params: {
+        boardUrl: 'free',
+        postId: 404
+      },
       query: undefined
     })
   })

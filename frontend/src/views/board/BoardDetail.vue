@@ -20,6 +20,7 @@ import { canWriteBoardPost, resolveDefaultCategory } from '@/utils/board'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
 import { formatRelativeDate } from '@/utils/date'
+import { isInquiryPostItem, resolvePostDetailRoute } from '@/utils/postNavigation'
 import type { PostSummary } from '@/types'
 
 const NOTICE_PREVIEW_LIMIT = 3
@@ -526,6 +527,8 @@ useBoardDetailShortcuts({
           :current-sort="sort"
           :currentPostId="highlightedPostId"
           :linkQuery="listQuery"
+          :resolve-post-route="resolvePostDetailRoute"
+          :show-inquiry-status="isInquiryPostItem"
           @update:sort="handleSortChange"
         />
 

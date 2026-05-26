@@ -56,9 +56,9 @@ interface ToastStore {
 }
 
 interface AuthStoreLike {
-    user: unknown
-    accessToken: string | null
     fetchUser: (config?: AxiosRequestConfig) => Promise<boolean>
+    setTokens: (token: string) => void
+    clearSessionState: () => void
 }
 
 interface ApiStoreResolvers {
@@ -156,6 +156,31 @@ const notifySessionExpired = (toastStore: ToastStore) => {
 
     lastSessionExpiredToastAt = now
     toastStore.addToast(t('common.messages.sessionExpired'), 'warning', 3000, 'top-center')
+}
+
+const applyRefreshedAccessToken = (authStore: AuthStoreLike | null, token: unknown): string | null => {
+    if (typeof token !== 'string' || token.length === 0) {
+        return null
+    }
+
+    if (authStore) {
+        authStore.setTokens(token)
+    } else {
+        Storage.setString('accessToken', token)
+        Storage.remove('refreshToken')
+    }
+
+    return token
+}
+
+const clearExpiredAuthSession = (authStore: AuthStoreLike | null) => {
+    if (authStore) {
+        authStore.clearSessionState()
+        return
+    }
+
+    Storage.remove('accessToken')
+    Storage.remove('refreshToken')
 }
 
 const handleApiError = (error: AxiosError, toastStore: ToastStore) => {
@@ -279,16 +304,14 @@ api.interceptors.response.use(
                 })
 
                 if (data.success) {
-                    const newAccessToken = data.data.accessToken
+                    const refreshedAccessToken = data.data.accessToken
                     lastSessionExpiredToastAt = 0
-                    Storage.setString('accessToken', newAccessToken)
-                    Storage.remove('refreshToken')
 
                     // Update user state (permissions, etc.) with new token
                     const authStore = await resolveAuthStore()
-                    if (authStore) {
-                        authStore.accessToken = newAccessToken
+                    const newAccessToken = applyRefreshedAccessToken(authStore, refreshedAccessToken)
 
+                    if (authStore) {
                         // Pass skipAuthRefresh to prevent infinite loop if getMe fails
                         const didFetchUser = await authStore.fetchUser({ skipAuthRefresh: true })
                         if (!didFetchUser) {
@@ -323,15 +346,8 @@ api.interceptors.response.use(
                 const isLoginPage = window.location.pathname === API_PATHS.LOGIN
 
                 if ((refreshStatus === 401 || refreshStatus === 403 || !axiosRefreshError.response) && !suppressibleRefreshError.isUserHydrationFailure) {
-                    Storage.remove('accessToken')
-                    Storage.remove('refreshToken')
-
-                    // Update auth store state
                     const authStore = await resolveAuthStore()
-                    if (authStore) {
-                        authStore.user = null
-                        authStore.accessToken = ''
-                    }
+                    clearExpiredAuthSession(authStore)
 
                     if (!isLoginPage) {
                         if (router.currentRoute.value.meta.requiresAuth) {

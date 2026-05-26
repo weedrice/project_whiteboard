@@ -150,16 +150,21 @@ describe('reportApi', () => {
     })
 
     it('calls report endpoints with correct path and payload', () => {
-        reportApi.reportUser(7, 'abuse', '/users/7')
+        reportApi.reportUser(7, 'abuse', '/users/7', { skipGlobalErrorHandler: true })
         reportApi.reportPost(11, 'spam')
         reportApi.reportComment(13, 'off-topic')
         reportApi.getMyReports({ page: 1, size: 10 })
 
-        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/reports/users', {
-            targetUserId: 7,
-            reason: 'abuse',
-            link: '/users/7',
-        })
+        expect(apiMock.post).toHaveBeenNthCalledWith(
+            1,
+            '/reports/users',
+            {
+                targetUserId: 7,
+                reason: 'abuse',
+                link: '/users/7',
+            },
+            { skipGlobalErrorHandler: true }
+        )
         expect(apiMock.post).toHaveBeenNthCalledWith(2, '/reports/posts', {
             targetPostId: 11,
             reason: 'spam',

@@ -46,7 +46,7 @@ const handleReportUser = async () => {
     }
     isReporting.value = true
     try {
-        const { data } = await reportApi.reportUser(props.userId, reportReason.value, '')
+        const { data } = await reportApi.reportUser(props.userId, reportReason.value, '', { skipGlobalErrorHandler: true })
         if (data.success) {
             toastStore.addToast(t('report.reportSuccess'), 'success')
             reportReason.value = ''
