@@ -49,10 +49,10 @@ public class UserSettingsService {
         private final UserWritableResolver userWritableResolver;
 
         public UserSettingsResponse getSettings(Long userId) {
-                validateUserExists(userId);
-                return userSettingsRepository.findById(userId)
-                                .map(this::toResponse)
-                                .orElseGet(this::defaultSettingsResponse);
+                UserSettingsRepository.SettingsReadProjection settings = userSettingsRepository
+                                .findSettingsReadByUserId(userId)
+                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                return toReadResponse(settings);
         }
 
         @Transactional
@@ -101,8 +101,7 @@ public class UserSettingsService {
         }
 
         public List<NotificationSettingResponse> getNotificationSettings(Long userId) {
-                validateUserExists(userId);
-                return buildNotificationSettingResponses(loadNotificationSettingsByType(userId));
+                return buildNotificationSettingResponsesFromStates(loadNotificationSettingStatesByType(userId));
         }
 
         @Transactional
@@ -174,18 +173,23 @@ public class UserSettingsService {
                 }
         }
 
-        private void validateUserExists(Long userId) {
-                if (!userRepository.existsById(userId)) {
-                        throw new BusinessException(ErrorCode.USER_NOT_FOUND);
-                }
-        }
-
         private User validateUserCanWrite(Long userId) {
                 return userWritableResolver.resolve(userId);
         }
 
         private UserSettingsResponse toResponse(UserSettings settings) {
                 return new UserSettingsResponse(settings.getTheme(), settings.getLanguage(), settings.getTimezone(),
+                                settings.getHideNsfw());
+        }
+
+        private UserSettingsResponse toReadResponse(UserSettingsRepository.SettingsReadProjection settings) {
+                if (settings.getTheme() == null) {
+                        return defaultSettingsResponse();
+                }
+                return new UserSettingsResponse(
+                                settings.getTheme(),
+                                settings.getLanguage(),
+                                settings.getTimezone(),
                                 settings.getHideNsfw());
         }
 
@@ -272,15 +276,48 @@ public class UserSettingsService {
                                                 LinkedHashMap::new));
         }
 
-        private List<NotificationSettingResponse> buildNotificationSettingResponses(
-                        Map<NotificationType, UserNotificationSettings> settingsByType) {
+        private Map<NotificationType, Boolean> loadNotificationSettingStatesByType(Long userId) {
+                List<UserNotificationSettingsRepository.NotificationSettingReadProjection> settings =
+                                userNotificationSettingsRepository.findNotificationSettingsReadByUserId(userId);
+                if (settings.isEmpty()) {
+                        throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+                }
+
+                Map<NotificationType, Boolean> settingsByType = new LinkedHashMap<>();
+                for (UserNotificationSettingsRepository.NotificationSettingReadProjection setting : settings) {
+                        NotificationType notificationType = setting.getNotificationType();
+                        if (notificationType == null) {
+                                continue;
+                        }
+                        if (settingsByType.containsKey(notificationType)) {
+                                log.warn("Duplicate notification setting detected for userId={} type={}. Keeping the most recently updated row.",
+                                                userId, notificationType);
+                                continue;
+                        }
+                        settingsByType.put(notificationType, Boolean.TRUE.equals(setting.getEnabled()));
+                }
+                return settingsByType;
+        }
+
+        private List<NotificationSettingResponse> buildNotificationSettingResponsesFromStates(
+                        Map<NotificationType, Boolean> settingsByType) {
                 return List.of(NotificationType.values()).stream()
                                 .map(type -> {
-                                        UserNotificationSettings setting = settingsByType.get(type);
-                                        boolean enabled = setting == null || Boolean.TRUE.equals(setting.getIsEnabled());
-                                        return new NotificationSettingResponse(type.name(), enabled);
+                                        Boolean enabled = settingsByType.get(type);
+                                        return new NotificationSettingResponse(type.name(), enabled == null || enabled);
                                 })
                                 .collect(Collectors.toList());
+        }
+
+        private List<NotificationSettingResponse> buildNotificationSettingResponses(
+                        Map<NotificationType, UserNotificationSettings> settingsByType) {
+                Map<NotificationType, Boolean> settingStatesByType = settingsByType.entrySet().stream()
+                                .collect(Collectors.toMap(
+                                                Map.Entry::getKey,
+                                                entry -> Boolean.TRUE.equals(entry.getValue().getIsEnabled()),
+                                                (existing, duplicate) -> existing,
+                                                LinkedHashMap::new));
+                return buildNotificationSettingResponsesFromStates(settingStatesByType);
         }
 
         private UserSettings createSettingsEntity(User user) {

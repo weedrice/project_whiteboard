@@ -74,22 +74,20 @@ class UserSettingsServiceTest {
     @Test
     @DisplayName("Settings lookup succeeds")
     void getSettings_success() {
-        User user = User.builder().build();
-        UserSettings settings = new UserSettings(user);
-
-        when(userRepository.existsById(1L)).thenReturn(true);
-        when(userSettingsRepository.findById(1L)).thenReturn(Optional.of(settings));
+        when(userSettingsRepository.findSettingsReadByUserId(1L))
+                .thenReturn(Optional.of(settingsProjection(1L, "LIGHT", "ko", "Asia/Seoul", true)));
 
         UserSettingsResponse response = userSettingsService.getSettings(1L);
 
         assertThat(response).isNotNull();
+        verify(userRepository, never()).existsById(any());
     }
 
     @Test
     @DisplayName("Settings lookup returns defaults when settings row is missing")
     void getSettings_missingRow_returnsDefaults() {
-        when(userRepository.existsById(1L)).thenReturn(true);
-        when(userSettingsRepository.findById(1L)).thenReturn(Optional.empty());
+        when(userSettingsRepository.findSettingsReadByUserId(1L))
+                .thenReturn(Optional.of(settingsProjection(1L, null, null, null, null)));
 
         UserSettingsResponse response = userSettingsService.getSettings(1L);
 
@@ -98,6 +96,7 @@ class UserSettingsServiceTest {
         assertThat(response.getTimezone()).isEqualTo("Asia/Seoul");
         assertThat(response.isHideNsfw()).isTrue();
         verify(userSettingsRepository, never()).save(any());
+        verify(userRepository, never()).existsById(any());
     }
 
     @Test
@@ -211,12 +210,8 @@ class UserSettingsServiceTest {
     @Test
     @DisplayName("Notification settings lookup returns all supported types")
     void getNotificationSettings_success() {
-        UserNotificationSettings notificationSetting =
-                new UserNotificationSettings(1L, NotificationType.COMMENT, true);
-
-        when(userRepository.existsById(1L)).thenReturn(true);
-        when(userNotificationSettingsRepository.findByUserIdOrderByModifiedAtDescCreatedAtDesc(1L))
-                .thenReturn(List.of(notificationSetting));
+        when(userNotificationSettingsRepository.findNotificationSettingsReadByUserId(1L))
+                .thenReturn(List.of(notificationProjection(1L, NotificationType.COMMENT, true)));
 
         List<NotificationSettingResponse> responses = userSettingsService.getNotificationSettings(1L);
 
@@ -234,17 +229,16 @@ class UserSettingsServiceTest {
                 .singleElement()
                 .extracting(NotificationSettingResponse::isEnabled)
                 .isEqualTo(true);
+        verify(userRepository, never()).existsById(any());
     }
 
     @Test
     @DisplayName("Notification settings lookup tolerates duplicate rows")
     void getNotificationSettings_duplicateRows_keepsFirst() {
-        UserNotificationSettings first = new UserNotificationSettings(1L, NotificationType.COMMENT, true);
-        UserNotificationSettings duplicate = new UserNotificationSettings(1L, NotificationType.COMMENT, false);
-
-        when(userRepository.existsById(1L)).thenReturn(true);
-        when(userNotificationSettingsRepository.findByUserIdOrderByModifiedAtDescCreatedAtDesc(1L))
-                .thenReturn(List.of(first, duplicate));
+        when(userNotificationSettingsRepository.findNotificationSettingsReadByUserId(1L))
+                .thenReturn(List.of(
+                        notificationProjection(1L, NotificationType.COMMENT, true),
+                        notificationProjection(1L, NotificationType.COMMENT, false)));
 
         List<NotificationSettingResponse> responses = userSettingsService.getNotificationSettings(1L);
 
@@ -253,17 +247,19 @@ class UserSettingsServiceTest {
                 .singleElement()
                 .extracting(NotificationSettingResponse::isEnabled)
                 .isEqualTo(true);
+        verify(userRepository, never()).existsById(any());
     }
 
     @Test
     @DisplayName("Settings lookup fails when user does not exist")
     void getSettings_userNotFound() {
-        when(userRepository.existsById(1L)).thenReturn(false);
+        when(userSettingsRepository.findSettingsReadByUserId(1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> userSettingsService.getSettings(1L))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
+        verify(userRepository, never()).existsById(any());
     }
 
     @Test
@@ -295,12 +291,13 @@ class UserSettingsServiceTest {
     @Test
     @DisplayName("Notification settings lookup fails when user does not exist")
     void getNotificationSettings_userNotFound() {
-        when(userRepository.existsById(1L)).thenReturn(false);
+        when(userNotificationSettingsRepository.findNotificationSettingsReadByUserId(1L)).thenReturn(List.of());
 
         assertThatThrownBy(() -> userSettingsService.getNotificationSettings(1L))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
+        verify(userRepository, never()).existsById(any());
     }
 
     @Test
@@ -486,5 +483,61 @@ class UserSettingsServiceTest {
                 .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
 
         verify(userNotificationSettingsRepository, never()).saveAllAndFlush(any());
+    }
+
+    private UserSettingsRepository.SettingsReadProjection settingsProjection(
+            Long userId,
+            String theme,
+            String language,
+            String timezone,
+            Boolean hideNsfw) {
+        return new UserSettingsRepository.SettingsReadProjection() {
+            @Override
+            public Long getUserId() {
+                return userId;
+            }
+
+            @Override
+            public String getTheme() {
+                return theme;
+            }
+
+            @Override
+            public String getLanguage() {
+                return language;
+            }
+
+            @Override
+            public String getTimezone() {
+                return timezone;
+            }
+
+            @Override
+            public Boolean getHideNsfw() {
+                return hideNsfw;
+            }
+        };
+    }
+
+    private UserNotificationSettingsRepository.NotificationSettingReadProjection notificationProjection(
+            Long userId,
+            NotificationType notificationType,
+            Boolean enabled) {
+        return new UserNotificationSettingsRepository.NotificationSettingReadProjection() {
+            @Override
+            public Long getUserId() {
+                return userId;
+            }
+
+            @Override
+            public NotificationType getNotificationType() {
+                return notificationType;
+            }
+
+            @Override
+            public Boolean getEnabled() {
+                return enabled;
+            }
+        };
     }
 }
