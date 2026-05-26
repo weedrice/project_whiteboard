@@ -4,10 +4,17 @@ import type { RouteRecordRaw } from 'vue-router'
 import router from '../index'
 import { useAuthStore } from '@/stores/auth'
 import logger from '@/utils/logger'
+import { boardApi } from '@/api/board'
 
 // Mock Auth Store
 vi.mock('@/stores/auth', () => ({
     useAuthStore: vi.fn()
+}))
+
+vi.mock('@/api/board', () => ({
+    boardApi: {
+        getBoard: vi.fn()
+    }
 }))
 
 // Mock View Components to prevent API calls during routing
@@ -92,6 +99,14 @@ describe('Router Navigation Guards', () => {
             })
         }
         vi.mocked(useAuthStore).mockReturnValue(mockAuthStore)
+        vi.mocked(boardApi.getBoard).mockResolvedValue({
+            data: {
+                data: {
+                    isAdmin: false,
+                    categories: [{ categoryId: 1, name: 'Open', minWriteRole: 'USER' }]
+                }
+            }
+        } as never)
         history.pushState({}, '', '/')
     })
 
@@ -147,6 +162,45 @@ describe('Router Navigation Guards', () => {
         mockAuthStore.user = { role: 'SUPER_ADMIN' }
         await router.push('/admin/dashboard')
         expect(router.currentRoute.value.name).toBe('AdminDashboard')
+    })
+
+    it('checks board write permission before entering post write route', async () => {
+        mockAuthStore.isAuthenticated = true
+        mockAuthStore.user = { role: 'USER' }
+
+        await router.push('/board/open/write')
+
+        expect(boardApi.getBoard).toHaveBeenCalledWith('open')
+        expect(router.currentRoute.value.name).toBe('post-write')
+    })
+
+    it('redirects to board detail when the user cannot write any category', async () => {
+        mockAuthStore.isAuthenticated = true
+        mockAuthStore.user = { role: 'USER' }
+        vi.mocked(boardApi.getBoard).mockResolvedValueOnce({
+            data: {
+                data: {
+                    isAdmin: false,
+                    categories: [{ categoryId: 1, name: 'Admins', minWriteRole: 'BOARD_ADMIN' }]
+                }
+            }
+        } as never)
+
+        await router.push('/board/restricted/write')
+
+        expect(router.currentRoute.value.name).toBe('board-detail')
+        expect(router.currentRoute.value.params.boardUrl).toBe('restricted')
+    })
+
+    it('redirects to error when board write permission cannot be verified', async () => {
+        mockAuthStore.isAuthenticated = true
+        mockAuthStore.user = { role: 'USER' }
+        vi.mocked(boardApi.getBoard).mockRejectedValueOnce(new Error('board failed'))
+
+        await router.push('/board/error/write')
+
+        expect(router.currentRoute.value.name).toBe('error')
+        expect(router.currentRoute.value.query.status).toBe('500')
     })
 
     it('fetches user if token exists but user is missing', async () => {

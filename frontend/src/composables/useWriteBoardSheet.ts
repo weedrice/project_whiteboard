@@ -5,7 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useBoard } from '@/composables/useBoard'
 import { useToastStore } from '@/stores/toast'
 import { boardApi } from '@/api/board'
-import { canWriteCategory } from '@/utils/board'
+import { canWriteBoardPost } from '@/utils/board'
 import type { BoardDetail } from '@/types'
 
 export function useWriteBoardSheet() {
@@ -60,14 +60,7 @@ export function useWriteBoardSheet() {
         return data.data as BoardDetail
       },
     })
-    const categories = board.categories ?? []
-    if (!categories.length) return true
-
-    return categories.some((category) => canWriteCategory(
-      category,
-      authStore.user?.role,
-      board.isAdmin
-    ))
+    return canWriteBoardPost(board, authStore.isAuthenticated, authStore.user?.role)
   }
 
   const goToBoardWrite = async (boardUrl: string) => {
