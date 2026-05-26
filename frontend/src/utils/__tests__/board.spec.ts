@@ -62,24 +62,25 @@ describe('board utils', () => {
     }, false, 'USER')).toBe(false)
   })
 
-  it('requires board admin or super admin when the general category is restricted', () => {
+  it('allows writing if any category is writable even when the default category is restricted', () => {
     const board = {
       isAdmin: false,
       categories: [
-        { categoryId: 1, name: '\uC77C\uBC18', sortOrder: 1, isActive: true, minWriteRole: 'BOARD_ADMIN' }
+        { categoryId: 1, name: '\uC77C\uBC18', sortOrder: 1, isActive: true, minWriteRole: 'BOARD_ADMIN' },
+        { categoryId: 2, name: 'Open', sortOrder: 2, isActive: true, minWriteRole: 'USER' }
       ]
     }
 
-    expect(canWriteBoardPost(board, true, 'USER')).toBe(false)
+    expect(canWriteBoardPost(board, true, 'USER')).toBe(true)
     expect(canWriteBoardPost({ ...board, isAdmin: true }, true, 'USER')).toBe(true)
     expect(canWriteBoardPost(board, true, 'SUPER_ADMIN')).toBe(true)
   })
 
-  it('uses the explicit default category write role even when the name is custom', () => {
+  it('blocks writing only when every category requires elevated permission', () => {
     const board = {
       isAdmin: false,
       categories: [
-        { categoryId: 1, name: 'General', sortOrder: 1, isActive: true, minWriteRole: 'USER' },
+        { categoryId: 1, name: 'Admins', sortOrder: 1, isActive: true, minWriteRole: 'BOARD_ADMIN' },
         { categoryId: 2, name: 'Restricted', sortOrder: 2, isActive: true, minWriteRole: 'BOARD_ADMIN', isDefault: true }
       ]
     }

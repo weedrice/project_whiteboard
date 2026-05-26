@@ -3,7 +3,6 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { emoticonApi } from '@/api/emoticon'
-import { fileApi } from '@/api/file'
 import { useHead } from '@unhead/vue'
 import { ArrowLeft, Upload, X, Plus, EyeOff, Eye } from 'lucide-vue-next'
 import { useToastStore } from '@/stores/toast'
@@ -14,11 +13,11 @@ import { useConfirm } from '@/composables/useConfirm'
 import type { EmoticonImage } from '@/types/emoticon'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { useEmoticonImageSelection } from '@/composables/useEmoticonImageSelection'
+import { useEmoticonImageUploader } from '@/composables/useEmoticonImageUploader'
 import { useToggleEmoticonVisibility } from '@/composables/useToggleEmoticonVisibility'
 import { useEmoticonUploadSession } from '@/composables/useEmoticonUploadSession'
 import { useEmoticonPermissions } from '@/composables/useEmoticonPermissions'
 import {
-  createUploadableEmoticonImageFile,
   resolveEmoticonTagAddition,
   revokeEmoticonPreviewUrl,
   SUPPORTED_EMOTICON_IMAGE_ACCEPT,
@@ -60,6 +59,7 @@ const imagesToDelete = ref<number[]>([])
 const tagInput = ref('')
 const isSubmitting = ref(false)
 const uploadSession = useEmoticonUploadSession()
+const imageUploader = useEmoticonImageUploader(uploadSession)
 const { uploadProgress } = uploadSession
 let tagSequence = 0
 
@@ -249,23 +249,13 @@ const handleSubmit = async () => {
       name: emoticonName.value.trim(),
       tags: [...tags.value],
     }
-    const uploadFiles = submitSnapshot.newPreviews.length > 0
-      ? await Promise.all(submitSnapshot.newPreviews.map((item) => createUploadableEmoticonImageFile(item)))
-      : []
+    const uploadFiles = await imageUploader.preparePreviewFiles(submitSnapshot.newPreviews)
     uploadSession.assertSubmitActive(currentRunId)
 
     // 1. 썸네일 업로드 (변경된 경우에만)
     let thumbnailFileId: number | undefined
     if (submitSnapshot.thumbnail) {
-      const controller = uploadSession.createUploadController()
-
-      try {
-        const thumbnailResponse = await fileApi.uploadFile(submitSnapshot.thumbnail, { signal: controller.signal })
-        uploadSession.assertSubmitActive(currentRunId)
-        thumbnailFileId = thumbnailResponse.data.data.fileId
-      } finally {
-        uploadSession.releaseUploadController(controller)
-      }
+      thumbnailFileId = await imageUploader.uploadFile(submitSnapshot.thumbnail, currentRunId)
     }
 
     // 2. 기존 이미지 삭제 처리
@@ -276,47 +266,7 @@ const handleSubmit = async () => {
 
     // 3. 새 이미지 업로드 및 추가
     if (uploadFiles.length > 0) {
-      uploadSession.setUploadProgress(0, uploadFiles.length)
-
-      let uploadFailed = false
-
-      const imageFileIds = await (async () => {
-        try {
-          let completed = 0
-
-          return await Promise.all(
-            uploadFiles.map(async (uploadFile) => {
-              if (uploadFailed) {
-                throw uploadSession.createUploadCancelledError()
-              }
-
-              uploadSession.assertSubmitActive(currentRunId)
-              const controller = uploadSession.createUploadController()
-
-              try {
-                const response = await fileApi.uploadFile(uploadFile, { signal: controller.signal })
-                uploadSession.assertSubmitActive(currentRunId)
-                completed += 1
-                if (uploadSession.isSubmitActive(currentRunId)) {
-                  uploadSession.setUploadProgress(completed)
-                }
-                return response.data.data.fileId
-              } catch (error) {
-                uploadFailed = true
-                uploadSession.abortPendingUploads()
-                throw error
-              } finally {
-                uploadSession.releaseUploadController(controller)
-              }
-            })
-          )
-        } catch (error) {
-          uploadFailed = true
-          uploadSession.abortPendingUploads()
-          throw error
-        }
-      })()
-
+      const imageFileIds = await imageUploader.uploadFiles(uploadFiles, currentRunId)
       await Promise.all(imageFileIds.map(async (fileId) => {
         uploadSession.assertSubmitActive(currentRunId)
         await emoticonApi.addImage(emoticonId.value, fileId)
