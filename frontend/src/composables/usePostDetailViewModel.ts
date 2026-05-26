@@ -1,10 +1,6 @@
 import { computed, type Ref } from 'vue'
 import type { Post } from '@/types'
-
-type PostWithBackendBooleans = Post & {
-  isLiked?: boolean
-  isScrapped?: boolean
-}
+import { normalizePostReactionFlags } from '@/utils/postViewModel'
 
 export interface PostDetailViewModel {
   postId: number
@@ -23,7 +19,7 @@ export interface PostDetailViewModel {
 }
 
 export function toPostDetailViewModel(post: Post): PostDetailViewModel {
-  const normalizedPost = post as PostWithBackendBooleans
+  const normalizedPost = normalizePostReactionFlags(post)
 
   return {
     postId: post.postId,
@@ -32,8 +28,8 @@ export function toPostDetailViewModel(post: Post): PostDetailViewModel {
     viewCount: post.viewCount,
     commentCount: post.commentCount,
     likeCount: post.likeCount,
-    liked: normalizedPost.liked ?? normalizedPost.isLiked ?? false,
-    scrapped: normalizedPost.scrapped ?? normalizedPost.isScrapped ?? false,
+    liked: normalizedPost.liked ?? false,
+    scrapped: normalizedPost.scrapped ?? false,
     tags: post.tags ?? [],
     boardName: post.board.boardName,
     boardUrl: post.board.boardUrl,
