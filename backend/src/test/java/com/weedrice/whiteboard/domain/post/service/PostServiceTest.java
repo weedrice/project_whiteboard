@@ -229,20 +229,32 @@ class PostServiceTest {
         PostCreatePolicyValidator postCreatePolicyValidator = new PostCreatePolicyValidator(
                 boardAccessPolicy,
                 postAuthorCommandPolicy);
+        PostVersionRecorder postVersionRecorder = new PostVersionRecorder(postVersionRepository);
+        PostDraftPublicationService postDraftPublicationService = new PostDraftPublicationService(
+                draftPostRepository,
+                fileService);
+        PostCreateSideEffectService postCreateSideEffectService = new PostCreateSideEffectService(
+                tagAssignmentService,
+                eventPublisher,
+                contentRewardService,
+                fileService,
+                semanticSearchEventPublisher,
+                postVersionRecorder,
+                postDraftPublicationService);
         postCommandService = new PostCommandService(
                 postRepository,
                 boardRepository,
                 boardCategoryRepository,
-                draftPostRepository,
-                postVersionRepository,
                 tagAssignmentService,
-                eventPublisher,
                 contentRewardService,
                 fileService,
                 userWritableResolver,
                 sanctionService,
                 postCreateTargetResolver,
                 postCreatePolicyValidator,
+                postVersionRecorder,
+                postDraftPublicationService,
+                postCreateSideEffectService,
                 boardAccessPolicy,
                 postAuthorCommandPolicy,
                 semanticSearchEventPublisher);

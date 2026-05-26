@@ -6,17 +6,12 @@ import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.file.service.FileService;
-import com.weedrice.whiteboard.domain.feed.event.PostPublishedEvent;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardPolicy;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostUpdateRequest;
-import com.weedrice.whiteboard.domain.post.entity.DraftPost;
 import com.weedrice.whiteboard.domain.post.entity.Post;
-import com.weedrice.whiteboard.domain.post.entity.PostVersion;
-import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
-import com.weedrice.whiteboard.domain.post.repository.PostVersionRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchIndexAction;
@@ -27,7 +22,6 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,16 +36,16 @@ public class PostCommandService {
     private final PostRepository postRepository;
     private final BoardRepository boardRepository;
     private final BoardCategoryRepository boardCategoryRepository;
-    private final DraftPostRepository draftPostRepository;
-    private final PostVersionRepository postVersionRepository;
     private final TagAssignmentService tagAssignmentService;
-    private final ApplicationEventPublisher eventPublisher;
     private final ContentRewardService contentRewardService;
     private final FileService fileService;
     private final UserWritableResolver userWritableResolver;
     private final SanctionService sanctionService;
     private final PostCreateTargetResolver postCreateTargetResolver;
     private final PostCreatePolicyValidator postCreatePolicyValidator;
+    private final PostVersionRecorder postVersionRecorder;
+    private final PostDraftPublicationService postDraftPublicationService;
+    private final PostCreateSideEffectService postCreateSideEffectService;
     private final BoardAccessPolicy boardAccessPolicy;
     private final PostAuthorCommandPolicy postAuthorCommandPolicy;
     private final SemanticSearchEventPublisher semanticSearchEventPublisher;
@@ -115,17 +109,12 @@ public class PostCommandService {
                 .build();
 
         Post savedPost = postRepository.save(post);
-        tagAssignmentService.assignTags(savedPost, request.getTags());
-        savePostVersion(savedPost, target.user(), "CREATE", null, null);
-
-        if (request.getFileIds() != null && !request.getFileIds().isEmpty()) {
-            fileService.attachFilesToPost(request.getFileIds(), userId, savedPost.getPostId(), request.getDraftId());
-        }
-        deletePublishedDraftIfOwned(request.getDraftId(), target.user());
-
-        contentRewardService.rewardCreate(userId, savedPost.getPostId(), ContentRewardPolicy.POST);
-        eventPublisher.publishEvent(new PostPublishedEvent(savedPost.getPostId(), target.board().getBoardId()));
-        semanticSearchEventPublisher.publish("POST", savedPost.getPostId(), SemanticSearchIndexAction.UPSERT);
+        postCreateSideEffectService.applyAfterCreate(
+                userId,
+                target.user(),
+                target.board().getBoardId(),
+                savedPost,
+                request);
         return savedPost;
     }
 
@@ -154,9 +143,9 @@ public class PostCommandService {
         if (request.getFileIds() != null) {
             fileService.syncPostFiles(request.getFileIds(), userId, post.getPostId(), request.getDraftId());
         }
-        deletePublishedDraftIfOwned(request.getDraftId(), modifier);
+        postDraftPublicationService.deletePublishedDraftIfOwned(request.getDraftId(), modifier);
 
-        savePostVersion(post, modifier, "MODIFY", originalTitle, originalContents);
+        postVersionRecorder.record(post, modifier, "MODIFY", originalTitle, originalContents);
         semanticSearchEventPublisher.publish("POST", post.getPostId(), SemanticSearchIndexAction.UPSERT);
         if (!Objects.equals(originalTitle, post.getTitle())) {
             semanticSearchEventPublisher.publishPostCommentsReindex(post.getPostId());
@@ -175,7 +164,7 @@ public class PostCommandService {
 
         post.deletePost();
         tagAssignmentService.clearTags(post);
-        savePostVersion(post, modifier, "DELETE", post.getTitle(), post.getContents());
+        postVersionRecorder.record(post, modifier, "DELETE", post.getTitle(), post.getContents());
         fileService.markPostContentFilesDeletionPending(post.getPostId());
 
         contentRewardService.rollbackCreateReward(modifier, postId, ContentRewardPolicy.POST);
@@ -190,19 +179,6 @@ public class PostCommandService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
     }
 
-    private void deletePublishedDraftIfOwned(Long draftId, User user) {
-        if (draftId == null) {
-            return;
-        }
-        draftPostRepository.findByDraftIdAndUserForUpdate(draftId, user)
-                .ifPresent(draftPost -> deleteDraft(draftId, draftPost));
-    }
-
-    private void deleteDraft(Long draftId, DraftPost draftPost) {
-        fileService.markDraftFilesDeletionPending(draftId);
-        draftPostRepository.delete(draftPost);
-    }
-
     private BoardCategory resolveUpdatedCategory(Post post, Long categoryId) {
         if (categoryId == null) {
             return null;
@@ -214,18 +190,6 @@ public class PostCommandService {
         }
 
         return findActiveCategory(post.getBoard(), categoryId);
-    }
-
-    private void savePostVersion(Post post, User modifier, String versionType, String originalTitle,
-            String originalContents) {
-        PostVersion postVersion = PostVersion.builder()
-                .post(post)
-                .modifier(modifier)
-                .versionType(versionType)
-                .originalTitle(originalTitle)
-                .originalContents(originalContents)
-                .build();
-        postVersionRepository.save(postVersion);
     }
 
     private String sanitizePostContents(String contents) {
