@@ -17,7 +17,31 @@ vi.mock('@/composables/useAdmin', () => ({
             captured.postsUserId = userId
             captured.postsParams = params
             return {
-                data: ref({ number: 0, totalPages: 3, content: [] }),
+                data: ref({
+                    number: 0,
+                    totalPages: 3,
+                    content: [{
+                        postId: 1,
+                        boardId: 2,
+                        boardName: 'Free',
+                        boardUrl: 'free',
+                        categoryId: 3,
+                        categoryName: 'Notice',
+                        title: 'post title',
+                        authorType: 'AGENT',
+                        agentId: 4,
+                        agentName: 'Helper',
+                        viewCount: 10,
+                        likeCount: 2,
+                        commentCount: 5,
+                        deleted: false,
+                        notice: true,
+                        nsfw: false,
+                        spoiler: true,
+                        secret: false,
+                        createdAt: '2026-04-21T00:00:00'
+                    }]
+                }),
                 isLoading: ref(false)
             }
         },
@@ -25,7 +49,30 @@ vi.mock('@/composables/useAdmin', () => ({
             captured.commentsUserId = userId
             captured.commentsParams = params
             return {
-                data: ref({ number: 0, totalPages: 3, content: [] }),
+                data: ref({
+                    number: 0,
+                    totalPages: 3,
+                    content: [{
+                        commentId: 5,
+                        content: 'comment body',
+                        authorType: 'USER',
+                        parentId: 4,
+                        depth: 1,
+                        likeCount: 7,
+                        deleted: true,
+                        createdAt: '2026-04-22T00:00:00',
+                        post: {
+                            postId: 6,
+                            title: 'origin post',
+                            boardId: 7,
+                            boardName: 'Secret',
+                            boardUrl: 'secret',
+                            deleted: true,
+                            boardActive: false,
+                            boardPublic: false
+                        }
+                    }]
+                }),
                 isLoading: ref(false)
             }
         },
@@ -33,7 +80,21 @@ vi.mock('@/composables/useAdmin', () => ({
             captured.subscriptionsUserId = userId
             captured.subscriptionsParams = params
             return {
-                data: ref({ number: 0, totalPages: 3, content: [] }),
+                data: ref({
+                    number: 0,
+                    totalPages: 3,
+                    content: [{
+                        boardId: 8,
+                        boardName: 'Hidden',
+                        boardUrl: 'hidden',
+                        sortOrder: 9,
+                        role: 'MEMBER',
+                        boardActive: false,
+                        boardPublic: false,
+                        subscriptionAccessible: false,
+                        inaccessibleReason: 'INACTIVE'
+                    }]
+                }),
                 isLoading: ref(false)
             }
         },
@@ -94,5 +155,48 @@ describe('useAdminUserDetailTabs', () => {
         expect(captured.postsParams?.value.page).toBe(0)
         expect(captured.commentsParams?.value.page).toBe(0)
         expect(captured.subscriptionsParams?.value.page).toBe(0)
+    })
+
+    it('maps raw admin tab DTOs to view-model items', () => {
+        const isOpen = ref(true)
+        const userId = ref<number | null>(7)
+        const tabs = useAdminUserDetailTabs({ isOpen, userId })
+
+        expect(tabs.postItems.value[0]).toMatchObject({
+            postId: 1,
+            title: 'post title',
+            categoryText: '카테고리: Notice',
+            statsText: '조회 10 · 추천 2 · 댓글 5'
+        })
+        expect(tabs.postItems.value[0].badges.map((badge) => badge.label)).toEqual([
+            '노출중',
+            '공지',
+            '스포일러',
+            'Agent Helper'
+        ])
+        expect(tabs.commentItems.value[0]).toMatchObject({
+            commentId: 5,
+            content: 'comment body',
+            statsText: '좋아요 7 · depth 1'
+        })
+        expect(tabs.commentItems.value[0].badges.map((badge) => badge.label)).toEqual([
+            '삭제됨',
+            '답글',
+            '원문 삭제',
+            '게시판 비활성',
+            '비공개 게시판'
+        ])
+        expect(tabs.subscriptionItems.value[0]).toMatchObject({
+            boardId: 8,
+            boardName: 'Hidden',
+            boardPath: '/hidden',
+            sortOrderText: '정렬 순서 9'
+        })
+        expect(tabs.subscriptionItems.value[0].badges.map((badge) => badge.label)).toEqual([
+            '비활성',
+            '비활성',
+            '비공개',
+            'MEMBER'
+        ])
     })
 })
