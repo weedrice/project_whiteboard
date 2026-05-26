@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.feed.repository.UserFeedRepository;
 import com.weedrice.whiteboard.domain.feed.repository.UserFeedVisibilityCondition;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.post.service.PostSummaryReadContext;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
@@ -54,7 +55,7 @@ public class FeedService {
         Page<UserFeed> feedPage = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
                 visibilityCondition,
                 normalizedPageable);
-        ResolvedFeedPage resolvedFeedPage = resolveFeedPage(userId, feedPage);
+        ResolvedFeedPage resolvedFeedPage = resolveFeedPage(userId, visibilityCondition, feedPage);
         return FeedResponse.from(
                 resolvedFeedPage.page(),
                 resolvedFeedPage.feeds(),
@@ -73,7 +74,9 @@ public class FeedService {
         return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), FEED_LIST_SORT);
     }
 
-    private Map<Long, PostSummary> resolvePostSummaries(Page<UserFeed> feedPage, Long userId) {
+    private Map<Long, PostSummary> resolvePostSummaries(
+            Page<UserFeed> feedPage,
+            PostSummaryReadContext readContext) {
         List<Long> postIds = feedPage.getContent().stream()
                 .filter(feed -> FeedGenerationService.CONTENT_TYPE_POST.equals(feed.getContentType()))
                 .map(UserFeed::getContentId)
@@ -81,7 +84,7 @@ public class FeedService {
         if (postIds.isEmpty()) {
             return Map.of();
         }
-        return postService.getPostSummariesByIds(postIds, userId);
+        return postService.getPostSummariesByIds(postIds, readContext);
     }
 
     private UserFeedVisibilityCondition resolveVisibilityCondition(User user, List<Long> blockedUserIds) {
@@ -103,9 +106,17 @@ public class FeedService {
         }
     }
 
-    private ResolvedFeedPage resolveFeedPage(Long userId, Page<UserFeed> firstFeedPage) {
+    private ResolvedFeedPage resolveFeedPage(
+            Long userId,
+            UserFeedVisibilityCondition visibilityCondition,
+            Page<UserFeed> firstFeedPage) {
         Map<Long, PostSummary> postSummariesById = new LinkedHashMap<>();
-        Map<Long, PostSummary> currentSummariesById = resolvePostSummaries(firstFeedPage, userId);
+        PostSummaryReadContext readContext = PostSummaryReadContext.of(
+                userId,
+                visibilityCondition.targetUser(),
+                visibilityCondition.blockedUserIds(),
+                visibilityCondition.activeAdminBoardIds());
+        Map<Long, PostSummary> currentSummariesById = resolvePostSummaries(firstFeedPage, readContext);
         postSummariesById.putAll(currentSummariesById);
         logUnresolvedPostFeeds(firstFeedPage, currentSummariesById, userId);
 

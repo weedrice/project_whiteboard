@@ -330,5 +330,9 @@ public class PostService {
         return postFacadeReadService.getPostSummariesByIds(postIds, currentUserId);
     }
 
+    public Map<Long, PostSummary> getPostSummariesByIds(List<Long> postIds, PostSummaryReadContext readContext) {
+        return postFacadeReadService.getPostSummariesByIds(postIds, readContext);
+    }
+
 }
 

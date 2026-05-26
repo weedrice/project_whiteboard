@@ -31,19 +31,21 @@ public class PostInteractionContextResolver {
         userRepository.findById(currentUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        if (posts.isEmpty()) {
-            return PostUserInteractionContext.empty();
-        }
-
-        Set<Long> postIds = resolvePostIds(posts);
-
-        return new PostUserInteractionContext(
-                resolveLikedPostIds(currentUserId, postIds),
-                resolveScrappedPostIds(currentUserId, postIds),
-                resolveSubscribedBoardUrls(currentUserId, posts));
+        return resolveInteractions(posts, currentUserId, true);
     }
 
     PostUserInteractionContext resolvePostReactionsForExistingUser(List<Post> posts, Long currentUserId) {
+        return resolveInteractions(posts, currentUserId, false);
+    }
+
+    PostUserInteractionContext resolveForExistingUser(List<Post> posts, Long currentUserId) {
+        return resolveInteractions(posts, currentUserId, true);
+    }
+
+    private PostUserInteractionContext resolveInteractions(
+            List<Post> posts,
+            Long currentUserId,
+            boolean includeBoardSubscriptions) {
         if (currentUserId == null || posts.isEmpty()) {
             return PostUserInteractionContext.empty();
         }
@@ -53,7 +55,7 @@ public class PostInteractionContextResolver {
         return new PostUserInteractionContext(
                 resolveLikedPostIds(currentUserId, postIds),
                 resolveScrappedPostIds(currentUserId, postIds),
-                Set.of());
+                includeBoardSubscriptions ? resolveSubscribedBoardUrls(currentUserId, posts) : Set.of());
     }
 
     private Set<Long> resolvePostIds(List<Post> posts) {

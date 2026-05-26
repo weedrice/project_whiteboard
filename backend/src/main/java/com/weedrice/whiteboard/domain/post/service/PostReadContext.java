@@ -27,6 +27,18 @@ record PostReadContext(
         return new PostReadContext(null, currentUserId, blockedUserIds, blockedUserIdSet, Collections.emptySet());
     }
 
+    static PostReadContext from(PostSummaryReadContext context) {
+        if (context == null) {
+            return anonymous();
+        }
+        return new PostReadContext(
+                context.viewer(),
+                context.currentUserId(),
+                context.blockedUserIds(),
+                context.blockedUserIdSet(),
+                context.activeAdminBoardIds());
+    }
+
     PostReadContext {
         if (blockedUserIdSet == null) {
             blockedUserIdSet = Collections.emptySet();

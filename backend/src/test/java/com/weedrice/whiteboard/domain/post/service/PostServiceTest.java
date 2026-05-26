@@ -3720,6 +3720,35 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("Feed summary lookup reuses pre-resolved read context")
+    void getPostSummariesByIds_preResolvedContext_skipsDuplicateUserBlockAndAdminLookup() {
+        User author = createUser(2L, "author");
+        Board adminBoard = createBoard(10L, "admin-board", author, false, false);
+        Board privateBoard = createBoard(20L, "private-board", author, false, false);
+        Post adminPost = createPost(100L, adminBoard, author, true);
+        Post privatePost = createPost(200L, privateBoard, author, true);
+        PostSummaryReadContext readContext = PostSummaryReadContext.of(
+                1L,
+                user,
+                Collections.emptyList(),
+                List.of(10L));
+
+        when(postRepository.findByPostIdInAndIsDeletedFalse(List.of(100L, 200L)))
+                .thenReturn(List.of(adminPost, privatePost));
+        stubSummaryInteractions(user);
+
+        Map<Long, PostSummary> summaries = postService.getPostSummariesByIds(List.of(100L, 200L), readContext);
+
+        assertThat(summaries.keySet()).containsExactly(100L);
+        verify(userRepository, never()).findById(1L);
+        verify(userBlockService, never()).getBlockedUserIdsEitherDirectionForExistingUser(1L);
+        verify(adminRepository, never()).findByUserAndBoard_BoardIdInAndIsActive(
+                any(User.class), anyCollection(), anyBoolean());
+        verify(adminRepository, never()).existsByUserAndBoardAndIsActive(
+                any(User.class), any(Board.class), anyBoolean());
+    }
+
+    @Test
     @DisplayName("Feed summary lookup denies board creator without active admin role")
     void getPostSummariesByIds_boardCreatorDeniedWithoutAdminRole() {
         Board creatorBoard = createBoard(10L, "creator-board", user, false, false);

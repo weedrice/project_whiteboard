@@ -151,6 +151,14 @@ public class PostSummaryAssembler {
     }
 
     List<PostSummary> assembleLatestPosts(List<Post> posts, Long currentUserId) {
+        return assembleLatestPosts(posts, currentUserId, false);
+    }
+
+    List<PostSummary> assembleLatestPostsForExistingUser(List<Post> posts, Long currentUserId) {
+        return assembleLatestPosts(posts, currentUserId, true);
+    }
+
+    private List<PostSummary> assembleLatestPosts(List<Post> posts, Long currentUserId, boolean existingUser) {
         if (posts.isEmpty()) {
             return Collections.emptyList();
         }
@@ -158,7 +166,9 @@ public class PostSummaryAssembler {
         List<Long> postIds = posts.stream().map(Post::getPostId).collect(Collectors.toList());
         Map<Long, Long> thumbnailFileIdsByPostId = getThumbnailFileIdsByPostId(postIds);
         Set<Long> postIdsWithImages = thumbnailFileIdsByPostId.keySet();
-        PostUserInteractionContext interactionContext = interactionContextResolver.resolve(posts, currentUserId);
+        PostUserInteractionContext interactionContext = existingUser
+                ? interactionContextResolver.resolveForExistingUser(posts, currentUserId)
+                : interactionContextResolver.resolve(posts, currentUserId);
 
         return posts.stream()
                 .map(post -> buildFeedSummary(post, postIdsWithImages, thumbnailFileIdsByPostId, interactionContext,

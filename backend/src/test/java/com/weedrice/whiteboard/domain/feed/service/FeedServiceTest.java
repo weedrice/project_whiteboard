@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.feed.repository.UserFeedRepository;
 import com.weedrice.whiteboard.domain.feed.repository.UserFeedVisibilityCondition;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.post.service.PostSummaryReadContext;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
@@ -35,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -87,7 +89,8 @@ class FeedServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of());
         when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(user), pageable)).thenReturn(feedPage);
-        when(postService.getPostSummariesByIds(List.of(101L, 202L), userId)).thenReturn(postSummaries);
+        when(postService.getPostSummariesByIds(List.of(101L, 202L), readContext(userId, user)))
+                .thenReturn(postSummaries);
 
         FeedResponse response = feedService.getUserFeeds(userId, pageable);
 
@@ -115,7 +118,8 @@ class FeedServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of());
         when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(user), pageable)).thenReturn(feedPage);
-        when(postService.getPostSummariesByIds(List.of(101L, 202L), userId)).thenReturn(Map.of(202L, validPost));
+        when(postService.getPostSummariesByIds(List.of(101L, 202L), readContext(userId, user)))
+                .thenReturn(Map.of(202L, validPost));
 
         FeedResponse response = feedService.getUserFeeds(userId, pageable);
 
@@ -144,7 +148,8 @@ class FeedServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of());
         when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(user), pageable)).thenReturn(feedPage);
-        when(postService.getPostSummariesByIds(List.of(101L, 202L), userId)).thenReturn(Map.of(202L, validPost));
+        when(postService.getPostSummariesByIds(List.of(101L, 202L), readContext(userId, user)))
+                .thenReturn(Map.of(202L, validPost));
 
         FeedResponse response = feedService.getUserFeeds(userId, pageable);
 
@@ -192,7 +197,8 @@ class FeedServiceTest {
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of(99L));
         when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(user, List.of(99L)), pageable))
                 .thenReturn(feedPage);
-        when(postService.getPostSummariesByIds(List.of(101L), userId)).thenReturn(Map.of(101L, validPost));
+        when(postService.getPostSummariesByIds(List.of(101L), readContext(userId, user, List.of(99L), List.of())))
+                .thenReturn(Map.of(101L, validPost));
 
         FeedResponse response = feedService.getUserFeeds(userId, pageable);
 
@@ -231,7 +237,7 @@ class FeedServiceTest {
         assertThat(response.isHasNext()).isFalse();
         assertThat(response.isHasPrevious()).isFalse();
         verify(userFeedRepository, never()).deleteAllInBatch(org.mockito.ArgumentMatchers.anyList());
-        verify(postService, never()).getPostSummariesByIds(org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.anyLong());
+        verifyNoInteractions(postService);
     }
 
     @Test
@@ -323,6 +329,18 @@ class FeedServiceTest {
 
     private UserFeedVisibilityCondition vf(User user, List<Long> blockedUserIds, List<Long> activeAdminBoardIds) {
         return UserFeedVisibilityCondition.of(user, blockedUserIds, activeAdminBoardIds);
+    }
+
+    private PostSummaryReadContext readContext(Long userId, User user) {
+        return readContext(userId, user, List.of(), List.of());
+    }
+
+    private PostSummaryReadContext readContext(
+            Long userId,
+            User user,
+            List<Long> blockedUserIds,
+            List<Long> activeAdminBoardIds) {
+        return PostSummaryReadContext.of(userId, user, blockedUserIds, activeAdminBoardIds);
     }
 
     private Pageable feedPageable(int page, int size) {

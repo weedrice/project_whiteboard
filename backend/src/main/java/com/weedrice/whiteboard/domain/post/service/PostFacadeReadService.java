@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -88,13 +89,35 @@ public class PostFacadeReadService {
     }
 
     public Map<Long, PostSummary> getPostSummariesByIds(List<Long> postIds, Long currentUserId) {
+        return getPostSummariesByIds(
+                postIds,
+                posts -> postReadContextResolver.resolveForExistingUserPosts(currentUserId, posts),
+                currentUserId,
+                false);
+    }
+
+    public Map<Long, PostSummary> getPostSummariesByIds(List<Long> postIds, PostSummaryReadContext readContext) {
+        Long currentUserId = readContext == null ? null : readContext.currentUserId();
+        boolean existingUser = readContext != null && readContext.viewer() != null;
+        return getPostSummariesByIds(
+                postIds,
+                posts -> PostReadContext.from(readContext),
+                currentUserId,
+                existingUser);
+    }
+
+    private Map<Long, PostSummary> getPostSummariesByIds(
+            List<Long> postIds,
+            Function<List<Post>, PostReadContext> contextResolver,
+            Long currentUserId,
+            boolean existingUser) {
         if (postIds == null || postIds.isEmpty()) {
             return Collections.emptyMap();
         }
 
         List<Long> distinctPostIds = postIds.stream().distinct().toList();
         List<Post> posts = postRepository.findByPostIdInAndIsDeletedFalse(distinctPostIds);
-        PostReadContext context = postReadContextResolver.resolveForExistingUserPosts(currentUserId, posts);
+        PostReadContext context = contextResolver.apply(posts);
 
         Map<Long, Post> postsById = posts.stream()
                 .filter(post -> canReadPostSummary(post, context))
@@ -108,7 +131,10 @@ public class PostFacadeReadService {
             return Collections.emptyMap();
         }
 
-        return postSummaryAssembler.assembleLatestPosts(orderedPosts, currentUserId).stream()
+        List<PostSummary> summaries = existingUser
+                ? postSummaryAssembler.assembleLatestPostsForExistingUser(orderedPosts, currentUserId)
+                : postSummaryAssembler.assembleLatestPosts(orderedPosts, currentUserId);
+        return summaries.stream()
                 .collect(Collectors.toMap(PostSummary::getPostId, summary -> summary, (left, right) -> left,
                         LinkedHashMap::new));
     }
