@@ -9,6 +9,7 @@ interface UsePostEditorImageUploadStateOptions<TUploaded> {
   upload: (file: File) => Promise<TUploaded | null>
   isAbort: (error: unknown) => boolean
   onUploaded: (uploaded: TUploaded, file: File) => void
+  onValidationError?: (error: 'type' | 'size', file: File) => void
   onFailed: (error: unknown, file: File) => void
   abort: () => void
 }
@@ -18,6 +19,7 @@ export function usePostEditorImageUploadState<TUploaded>({
   upload,
   isAbort,
   onUploaded,
+  onValidationError,
   onFailed,
   abort,
 }: UsePostEditorImageUploadStateOptions<TUploaded>) {
@@ -26,6 +28,13 @@ export function usePostEditorImageUploadState<TUploaded>({
     upload,
     isAbort,
     onUploaded,
+    onValidationError: onValidationError
+      ? (error, file) => {
+        if (error === 'type' || error === 'size') {
+          onValidationError(error, file)
+        }
+      }
+      : undefined,
     onFailed,
     abort,
   })

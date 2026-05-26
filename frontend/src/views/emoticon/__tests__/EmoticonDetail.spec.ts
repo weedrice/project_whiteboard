@@ -7,6 +7,11 @@ const invalidateQueries = vi.hoisted(() => vi.fn())
 const addToast = vi.hoisted(() => vi.fn())
 const purchaseEmoticon = vi.hoisted(() => vi.fn())
 const mutationOptions = vi.hoisted(() => [] as Array<Record<string, unknown>>)
+const purchaseStatusState = vi.hoisted(() => ({
+  isLoading: false,
+  isFetching: false,
+  purchased: false,
+}))
 
 vi.mock('@tanstack/vue-query', () => ({
   useQueryClient: () => ({ invalidateQueries }),
@@ -14,8 +19,9 @@ vi.mock('@tanstack/vue-query', () => ({
     const key = options.queryKey as unknown[]
     if (Array.isArray(key) && key[2] === 'purchased') {
       return {
-        data: ref({ purchased: false, price: 100 }),
-        isLoading: ref(false),
+        data: ref({ purchased: purchaseStatusState.purchased, price: 100 }),
+        isLoading: ref(purchaseStatusState.isLoading),
+        isFetching: ref(purchaseStatusState.isFetching),
         error: ref(null),
       }
     }
@@ -109,7 +115,9 @@ vi.mock('lucide-vue-next', () => {
 
 vi.mock('@/components/common/ui/BaseButton.vue', () => ({
   default: {
-    template: '<button type="button"><slot /></button>',
+    props: ['disabled', 'variant', 'size'],
+    emits: ['click'],
+    template: '<button type="button" :disabled="disabled" @click="$emit(\'click\')"><slot /></button>',
   },
 }))
 
@@ -119,6 +127,9 @@ describe('EmoticonDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mutationOptions.length = 0
+    purchaseStatusState.isLoading = false
+    purchaseStatusState.isFetching = false
+    purchaseStatusState.purchased = false
   })
 
   it('invalidates user point cache after purchase success', () => {
@@ -138,5 +149,22 @@ describe('EmoticonDetail', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticon', expect.any(Object)] })
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticon', expect.any(Object), 'purchased'] })
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['user', 'points'] })
+  })
+
+  it('disables purchase while purchase status is loading', () => {
+    purchaseStatusState.isLoading = true
+
+    const wrapper = mount(EmoticonDetail, {
+      global: {
+        stubs: {
+          RouterLink: true,
+        },
+      },
+    })
+
+    const purchaseButton = wrapper.findAll('button')
+      .find((button) => button.text().includes('emoticon.purchase.button.buyWithPrice'))
+
+    expect(purchaseButton?.attributes('disabled')).toBeDefined()
   })
 })

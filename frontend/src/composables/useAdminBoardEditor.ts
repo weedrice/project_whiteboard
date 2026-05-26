@@ -2,7 +2,7 @@ import { computed, reactive, ref, watch, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToastStore } from '@/stores/toast'
-import { hasRequiredBoardFields } from '@/utils/board'
+import { hasRequiredBoardFields, normalizeBoardUrlInput } from '@/utils/board'
 import type { AdminBoard, BoardUpdateData } from '@/types'
 
 type UpdateBoardPayload = {
@@ -91,6 +91,13 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
     form.agentUseYn = board.isPublic ? (board.agentUseYn ?? false) : false
     form.guidePrompt = board.guidePrompt || ''
   }, { immediate: true })
+
+  watch(() => form.boardUrl, (boardUrl) => {
+    const normalizedBoardUrl = normalizeBoardUrlInput(boardUrl)
+    if (boardUrl !== normalizedBoardUrl) {
+      form.boardUrl = normalizedBoardUrl
+    }
+  })
 
   function markBoardModified(boardId: number) {
     if (!modifiedBoardIds.value.includes(boardId)) {

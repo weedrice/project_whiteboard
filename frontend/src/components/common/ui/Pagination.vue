@@ -88,17 +88,30 @@ function getPageKey(page: number | string, index: number): string {
 
 const displayedPages = computed(() => {
   const delta = 2
-  const range: number[] = []
+  const totalPages = Math.max(props.totalPages, 0)
+  const currentPageNumber = Math.min(Math.max(props.currentPage + 1, 1), totalPages)
+  const candidatePages = new Set<number>()
   const rangeWithDots: (number | string)[] = []
   let l: number | undefined
 
-  for (let i = 1; i <= props.totalPages; i++) {
-    if (i === 1 || i === props.totalPages || (i >= props.currentPage + 1 - delta && i <= props.currentPage + 1 + delta)) {
-      range.push(i)
-    }
+  if (totalPages === 0) {
+    return rangeWithDots
   }
 
-  for (let i of range) {
+  candidatePages.add(1)
+  candidatePages.add(totalPages)
+
+  for (
+    let i = Math.max(1, currentPageNumber - delta);
+    i <= Math.min(totalPages, currentPageNumber + delta);
+    i += 1
+  ) {
+    candidatePages.add(i)
+  }
+
+  const range = [...candidatePages].sort((a, b) => a - b)
+
+  for (const i of range) {
     if (l) {
       if (i - l === 2) {
         rangeWithDots.push(l + 1)

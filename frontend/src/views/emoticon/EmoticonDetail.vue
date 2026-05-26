@@ -13,6 +13,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { DEFAULT_EMOTICON_IMAGE_URL, applyImageFallback } from '@/utils/imageFallback'
 import { useToggleEmoticonVisibility } from '@/composables/useToggleEmoticonVisibility'
+import { useEmoticonPermissions } from '@/composables/useEmoticonPermissions'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -34,7 +35,11 @@ const { data: emoticon, isLoading, error } = useQuery({
 })
 
 // 구매 상태 확인
-const { data: purchaseStatus } = useQuery({
+const {
+  data: purchaseStatus,
+  isLoading: isPurchaseStatusLoading,
+  isFetching: isPurchaseStatusFetching,
+} = useQuery({
   queryKey: ['emoticon', emoticonId, 'purchased'],
   queryFn: async () => {
     return emoticonApi.checkPurchaseStatusData(emoticonId.value)
@@ -58,19 +63,26 @@ const { mutate: purchase, isPending: isPurchasing } = useMutation({
 })
 
 // 등록자 여부
-const isOwner = computed(() => {
-  if (!authStore.isAuthenticated) return false
-  if (!emoticon.value) return false
-  return emoticon.value.creatorId === authStore.user?.userId
+const { isOwner } = useEmoticonPermissions({
+  isAuthenticated: () => authStore.isAuthenticated,
+  getCreatorId: () => emoticon.value?.creatorId,
+  getUserId: () => authStore.user?.userId,
 })
+
+const isPurchaseStatusPending = computed(() => (
+  authStore.isAuthenticated
+  && !!emoticonId.value
+  && (isPurchaseStatusLoading.value || isPurchaseStatusFetching.value)
+))
 
 // 구매 가능 여부 (숨김 처리된 노비콘은 구매 불가)
 const canPurchase = computed(() => {
   if (!authStore.isAuthenticated) return false
   if (!emoticon.value) return false
+  if (isPurchaseStatusPending.value) return false
   if (!emoticon.value.isActive) return false
   if (purchaseStatus.value?.purchased) return false
-  if (emoticon.value.creatorId === authStore.user?.userId) return false
+  if (isOwner.value) return false
   return true
 })
 
@@ -78,7 +90,7 @@ const canPurchase = computed(() => {
 const purchaseButtonText = computed(() => {
   if (!authStore.isAuthenticated) return t('emoticon.purchase.button.loginRequired')
   if (purchaseStatus.value?.purchased) return t('emoticon.purchase.button.purchased')
-  if (emoticon.value?.creatorId === authStore.user?.userId) return t('emoticon.purchase.button.myEmoticon')
+  if (isOwner.value) return t('emoticon.purchase.button.myEmoticon')
   return t('emoticon.purchase.button.buyWithPrice', { price: purchaseStatus.value?.price || 100 })
 })
 
@@ -288,7 +300,7 @@ useHead({
 
       <!-- 구매 버튼 -->
       <div class="flex justify-end">
-        <BaseButton @click="handlePurchase" :disabled="!canPurchase || isPurchasing"
+        <BaseButton @click="handlePurchase" :disabled="!canPurchase || isPurchasing || isPurchaseStatusPending"
           :variant="canPurchase ? 'primary' : 'secondary'" size="lg">
           <ShoppingCart class="w-4 h-4 mr-2" />
           {{ isPurchasing ? $t('emoticon.purchase.purchasing') : purchaseButtonText }}
