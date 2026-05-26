@@ -21,10 +21,21 @@ const boards: BoardListItem[] = [
 ]
 
 const routerPush = vi.fn()
+const invalidateQueries = vi.fn()
 
 vi.mock('vue-router', () => ({
+    useRoute: () => ({
+        name: 'home',
+        query: {},
+    }),
     useRouter: () => ({
         push: routerPush,
+    }),
+}))
+
+vi.mock('@tanstack/vue-query', () => ({
+    useQueryClient: () => ({
+        invalidateQueries,
     }),
 }))
 
