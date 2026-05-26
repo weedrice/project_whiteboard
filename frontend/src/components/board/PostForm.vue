@@ -19,12 +19,8 @@ import PostEditorTipTap from '@/components/board/PostEditorTipTap.vue'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
 import { canWriteCategory } from '@/utils/board'
 import logger from '@/utils/logger'
-import {
-  buildPostFormPayload,
-  resolvePostFormFileIds,
-  toEmbedPostVideoUrl,
-  type PostFormFileIdScope,
-} from '@/utils/postForm'
+import { usePostComposerState } from '@/composables/usePostComposerState'
+import { toEmbedPostVideoUrl } from '@/utils/postForm'
 
 const props = defineProps<{
   mode: 'create' | 'edit'
@@ -63,17 +59,6 @@ type CategoryOption = {
   disabled?: boolean
 }
 
-type FormState = {
-  title: string
-  content: string
-  categoryId: string | number
-  tags: string[]
-  isNsfw: boolean
-  isSpoiler: boolean
-  isNotice: boolean
-  isSecret: boolean
-}
-
 const { t } = useI18n()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
@@ -104,7 +89,6 @@ const tiptapEditorRef = ref<InstanceType<typeof PostEditorTipTap> | null>(null)
 const editorWrapperRef = ref<HTMLElement | null>(null)
 const composePageRef = ref<HTMLElement | null>(null)
 const videoPopoverRef = ref<HTMLElement | null>(null)
-const draftFileIds = ref<number[]>([])
 
 const showPreview = ref(false)
 const showEmoticonPicker = ref(false)
@@ -116,42 +100,12 @@ const hasRestoredDraft = ref(false)
 const hasHydratedEditPost = ref(false)
 const isEditorFocusWithin = ref(false)
 
-const form = ref<FormState>({
-  title: '',
-  content: '',
-  categoryId: '',
-  tags: [],
-  isNsfw: false,
-  isSpoiler: false,
-  isNotice: false,
-  isSecret: false,
-})
-
 usePopoverFocus(videoPopoverRef, showVideoPopover)
-
-const initialFormSnapshot = ref<FormState | null>(null)
 
 const isSubmitting = computed(() => isCreateSubmitting.value || isUpdateSubmitting.value)
 const isLoading = computed(() =>
   isBoardLoading.value || (props.mode === 'edit' && isPostLoading.value),
 )
-
-function copyFormSnapshot(src: FormState): FormState {
-  return {
-    title: src.title,
-    content: src.content,
-    categoryId: src.categoryId,
-    tags: [...src.tags],
-    isNsfw: src.isNsfw,
-    isSpoiler: src.isSpoiler,
-    isNotice: src.isNotice,
-    isSecret: src.isSecret,
-  }
-}
-
-function markCurrentSnapshotSaved() {
-  initialFormSnapshot.value = copyFormSnapshot(form.value)
-}
 
 const filteredCategories = computed<CategoryOption[]>(() => {
   const selectableCategories = categories.value.filter((cat) => canWriteCategory(
@@ -195,30 +149,26 @@ const submitLabel = computed(() =>
 
 const showNotice = computed(() => !props.hideNotice && props.mode === 'create' && Boolean(board.value?.isAdmin))
 const canShowNsfw = computed(() => Boolean(board.value?.allowNsfw))
+const {
+  form,
+  isDirty,
+  isFormDirty,
+  markCurrentSnapshotSaved,
+  applyDraftSnapshot,
+  buildPayload,
+  trackUploadedFile,
+} = usePostComposerState({
+  mode: () => props.mode,
+  hideCategory: () => props.hideCategory,
+  hideTags: () => props.hideTags,
+  hideSpoiler: () => props.hideSpoiler,
+  hideSecret: () => props.hideSecret,
+  showNotice,
+  canShowNsfw,
+})
 const draftEnabled = computed(() => authStore.isAuthenticated && !!boardUrl.value)
 const draftStorageKey = computed(() => `noviis:draft:${authStore.user?.userId ?? 'guest'}:${props.mode}:${boardUrl.value || 'unknown'}:${postId.value || 'new'}`)
 const previewHtml = computed(() => sanitizeQuillHtml(form.value.content || `<p>${t('board.writePost.preview.emptyContent')}</p>`))
-
-function isFormDirty(): boolean {
-  const init = initialFormSnapshot.value
-  if (!init) return false
-  const current = form.value
-  if (
-    current.title !== init.title
-    || current.content !== init.content
-    || current.isNsfw !== init.isNsfw
-    || current.isSpoiler !== init.isSpoiler
-    || current.isNotice !== init.isNotice
-    || current.isSecret !== init.isSecret
-  ) {
-    return true
-  }
-  if (String(current.categoryId) !== String(init.categoryId)) return true
-  if (current.tags.length !== init.tags.length) return true
-  return current.tags.some((tag, index) => tag !== init.tags[index])
-}
-
-const isDirty = computed(() => isFormDirty())
 const leaveConfirmMessage = computed(() => t('board.writePost.leaveConfirm'))
 
 function onBeforeUnload(event: BeforeUnloadEvent) {
@@ -226,50 +176,6 @@ function onBeforeUnload(event: BeforeUnloadEvent) {
   event.preventDefault()
   event.returnValue = leaveConfirmMessage.value
   return leaveConfirmMessage.value
-}
-
-function applyDraftSnapshot(draft: {
-  title?: string
-  contents?: string
-  categoryId?: number | null
-  tags?: string[]
-  isNsfw?: boolean
-  isSpoiler?: boolean
-  isNotice?: boolean
-  isSecret?: boolean
-  fileIds?: number[]
-}) {
-  form.value = {
-    title: draft.title ?? '',
-    content: draft.contents ?? '',
-    categoryId: draft.categoryId ?? '',
-    tags: [...(draft.tags ?? [])],
-    isNsfw: Boolean(draft.isNsfw),
-    isSpoiler: Boolean(draft.isSpoiler),
-    isNotice: Boolean(draft.isNotice),
-    isSecret: Boolean(draft.isSecret),
-  }
-  draftFileIds.value = [...(draft.fileIds ?? [])]
-}
-
-const buildPayload = (fileIdScope: PostFormFileIdScope = 'content') => {
-  return buildPostFormPayload({
-    form: form.value,
-    mode: props.mode,
-    hideCategory: props.hideCategory,
-    hideTags: props.hideTags,
-    hideSpoiler: props.hideSpoiler,
-    hideSecret: props.hideSecret,
-    showNotice: showNotice.value,
-    canShowNsfw: canShowNsfw.value,
-    fileIds: resolvePostFormFileIds(form.value.content, draftFileIds.value, fileIdScope),
-  })
-}
-
-function trackUploadedFile(fileId: number) {
-  if (!draftFileIds.value.includes(fileId)) {
-    draftFileIds.value.push(fileId)
-  }
 }
 
 const {
