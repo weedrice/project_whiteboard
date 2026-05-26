@@ -5,12 +5,23 @@ import { QUERY_STALE_TIME } from '@/utils/constants'
 
 const mocks = vi.hoisted(() => ({
   fetchQuery: vi.fn(),
+  setQueryData: vi.fn(),
+  getQueryData: vi.fn(),
+  authStore: {
+    user: null as null | Record<string, unknown>,
+  },
 }))
 
 vi.mock('@tanstack/vue-query', () => ({
   useQueryClient: () => ({
     fetchQuery: mocks.fetchQuery,
+    setQueryData: mocks.setQueryData,
+    getQueryData: mocks.getQueryData,
   }),
+}))
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => mocks.authStore,
 }))
 
 vi.mock('@/api/user', () => ({
@@ -42,6 +53,8 @@ const createDeferred = <T>() => {
 describe('useMyPageDashboardResource', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.authStore.user = null
+    mocks.getQueryData.mockReturnValue(undefined)
     mocks.fetchQuery.mockImplementation(async (options: { queryFn: () => Promise<unknown> }) => options.queryFn())
     vi.mocked(userApi.getMyProfile).mockResolvedValue({
       data: { success: true, data: { userId: 1, email: 'me@example.com' } },
@@ -120,6 +133,77 @@ describe('useMyPageDashboardResource', () => {
       boardLabel: 'Notice',
     }])
     expect(resource.isLoading.value).toBe(false)
+  })
+
+  it('uses restored auth store user as the dashboard profile without refetching /users/me', async () => {
+    mocks.authStore.user = {
+      userId: 9,
+      email: 'restored@example.com',
+      loginId: 'restored',
+      displayName: 'Restored',
+      status: 'ACTIVE',
+      createdAt: '2026-05-20T10:00:00',
+    }
+    const resource = useMyPageDashboardResource()
+
+    await resource.fetchMyProfile()
+
+    expect(resource.profile.value?.email).toBe('restored@example.com')
+    expect(mocks.setQueryData).toHaveBeenCalledWith(['user', 'me'], mocks.authStore.user)
+    expect(mocks.fetchQuery).not.toHaveBeenCalled()
+    expect(userApi.getMyProfile).not.toHaveBeenCalled()
+  })
+
+  it('keeps a matching fresh profile cache ahead of the auth store snapshot', async () => {
+    mocks.authStore.user = {
+      userId: 9,
+      email: 'restored@example.com',
+      loginId: 'restored',
+      displayName: 'Restored',
+      status: 'ACTIVE',
+      createdAt: '2026-05-20T10:00:00',
+    }
+    mocks.getQueryData.mockReturnValueOnce({
+      userId: 9,
+      email: 'cached@example.com',
+      loginId: 'cached',
+      displayName: 'Cached',
+      status: 'ACTIVE',
+      createdAt: '2026-05-20T10:00:00',
+    })
+    const resource = useMyPageDashboardResource()
+
+    await resource.fetchMyProfile()
+
+    expect(resource.profile.value?.email).toBe('cached@example.com')
+    expect(mocks.setQueryData).not.toHaveBeenCalled()
+    expect(mocks.fetchQuery).not.toHaveBeenCalled()
+  })
+
+  it('replaces a stale profile cache when the authenticated user changed', async () => {
+    mocks.authStore.user = {
+      userId: 9,
+      email: 'restored@example.com',
+      loginId: 'restored',
+      displayName: 'Restored',
+      status: 'ACTIVE',
+      createdAt: '2026-05-20T10:00:00',
+    }
+    mocks.getQueryData.mockReturnValueOnce({
+      userId: 10,
+      email: 'stale@example.com',
+      loginId: 'stale',
+      displayName: 'Stale',
+      status: 'ACTIVE',
+      createdAt: '2026-05-20T10:00:00',
+    })
+    const resource = useMyPageDashboardResource()
+
+    await resource.fetchMyProfile()
+
+    expect(resource.profile.value?.email).toBe('restored@example.com')
+    expect(mocks.setQueryData).toHaveBeenCalledWith(['user', 'me'], mocks.authStore.user)
+    expect(mocks.fetchQuery).not.toHaveBeenCalled()
   })
 
   it('updates post sort before refetching my posts', async () => {
