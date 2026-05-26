@@ -15,7 +15,7 @@ import type {
     ScrapListResponse,
     UserPoint,
 } from '@/types'
-import type { AxiosResponse } from 'axios'
+import type { AxiosRequestConfig, AxiosResponse } from 'axios'
 import { normalizePageResponse, type PageResponseRaw } from '@/utils/pageResponse'
 
 export interface UserProfile {
@@ -176,8 +176,8 @@ export const userApi = {
     getMyComments(params: PaginationParams) {
         return api.get<ApiResponse<PageResponse<MyComment>>>('/users/me/comments', { params })
     },
-    getMyScraps(params: PaginationParams) {
-        return api.get<ApiResponse<ScrapListResponse>>('/users/me/scraps', { params })
+    getMyScraps(params: PaginationParams, config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<ScrapListResponse>>('/users/me/scraps', { ...config, params })
             .then((response) => mapApiPageResponse(response, toScrapPostSummaryPage))
     },
     getMyDrafts(params: PaginationParams) {
@@ -192,8 +192,8 @@ export const userApi = {
     getMyPoint() {
         return api.get<ApiResponse<UserPoint>>('/points/me')
     },
-    getMyPointHistories(params: PaginationParams) {
-        return api.get<ApiResponse<PointHistoryResponse>>('/points/me/history', { params })
+    getMyPointHistories(params: PaginationParams, config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<PointHistoryResponse>>('/points/me/history', { ...config, params })
             .then((response) => mapApiPageResponse<PointHistoryResponse, PointHistory>(
                 response,
                 (source) => normalizePageResponse(source as PageResponseRaw<PointHistory>)

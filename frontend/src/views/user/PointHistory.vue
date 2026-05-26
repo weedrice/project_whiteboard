@@ -22,8 +22,8 @@ const {
   fetch: fetchHistory,
   handlePageChange,
   handleSizeChange
-} = usePagination<PointHistory>(async (params) => {
-  const { data } = await userApi.getMyPointHistories(params)
+} = usePagination<PointHistory>(async (params, { signal }) => {
+  const { data } = await userApi.getMyPointHistories(params, { signal })
   return data
 }, { page: 0, size: 15 })
 

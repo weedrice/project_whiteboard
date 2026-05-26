@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { effectScope } from 'vue'
-import { usePagination, type PaginationParams } from '../usePagination'
+import { usePagination, type PaginationFetchContext, type PaginationParams } from '../usePagination'
 import type { ApiResponse, PageResponse } from '@/types'
 
 const pageResponse = <T>(content: T[], params: { page: number; size: number; totalPages?: number }): ApiResponse<PageResponse<T>> => ({
@@ -30,7 +30,7 @@ function deferred<T>() {
 describe('usePagination', () => {
     it('fetches items with current page and size', async () => {
         const scope = effectScope()
-        const fetchFn = vi.fn(async (params: PaginationParams) => (
+        const fetchFn = vi.fn(async (params: PaginationParams, _context: PaginationFetchContext) => (
             pageResponse([{ id: 1 }], { page: Number(params.page), size: Number(params.size), totalPages: 2 })
         ))
 
@@ -40,7 +40,7 @@ describe('usePagination', () => {
 
                 await pagination.fetch()
 
-                expect(fetchFn).toHaveBeenCalledWith({ page: 0, size: 15 })
+                expect(fetchFn).toHaveBeenCalledWith({ page: 0, size: 15 }, { signal: expect.any(AbortSignal) })
                 expect(pagination.items.value).toEqual([{ id: 1 }])
                 expect(pagination.totalPages.value).toBe(2)
                 expect(pagination.loading.value).toBe(false)
@@ -53,7 +53,7 @@ describe('usePagination', () => {
 
     it('updates page and size through handlers', async () => {
         const scope = effectScope()
-        const fetchFn = vi.fn(async (params: PaginationParams) => (
+        const fetchFn = vi.fn(async (params: PaginationParams, _context: PaginationFetchContext) => (
             pageResponse([{ id: Number(params.page) }], { page: Number(params.page), size: Number(params.size) })
         ))
 
@@ -62,12 +62,12 @@ describe('usePagination', () => {
                 const pagination = usePagination(fetchFn, { page: 0, size: 15 })
 
                 await pagination.handlePageChange(2)
-                expect(fetchFn).toHaveBeenLastCalledWith({ page: 2, size: 15 })
+                expect(fetchFn).toHaveBeenLastCalledWith({ page: 2, size: 15 }, { signal: expect.any(AbortSignal) })
                 expect(pagination.page.value).toBe(2)
 
                 pagination.size.value = 30
                 await pagination.handleSizeChange()
-                expect(fetchFn).toHaveBeenLastCalledWith({ page: 0, size: 30 })
+                expect(fetchFn).toHaveBeenLastCalledWith({ page: 0, size: 30 }, { signal: expect.any(AbortSignal) })
                 expect(pagination.page.value).toBe(0)
             })
         } finally {
@@ -80,7 +80,7 @@ describe('usePagination', () => {
         const firstRequest = deferred<ApiResponse<PageResponse<{ id: number }>>>()
         const secondRequest = deferred<ApiResponse<PageResponse<{ id: number }>>>()
         const fetchFn = vi
-            .fn<(params: PaginationParams) => Promise<ApiResponse<PageResponse<{ id: number }>>>>()
+            .fn<(params: PaginationParams, context: PaginationFetchContext) => Promise<ApiResponse<PageResponse<{ id: number }>>>>()
             .mockReturnValueOnce(firstRequest.promise)
             .mockReturnValueOnce(secondRequest.promise)
 
@@ -114,7 +114,11 @@ describe('usePagination', () => {
     it('does not commit an in-flight request after reset', async () => {
         const scope = effectScope()
         const request = deferred<ApiResponse<PageResponse<{ id: number }>>>()
-        const fetchFn = vi.fn(async () => request.promise)
+        let capturedSignal: AbortSignal | null = null
+        const fetchFn = vi.fn(async (_params: PaginationParams, context: PaginationFetchContext) => {
+            capturedSignal = context.signal
+            return request.promise
+        })
 
         try {
             await scope.run(async () => {
@@ -122,6 +126,7 @@ describe('usePagination', () => {
 
                 const fetchPromise = pagination.fetch()
                 pagination.reset()
+                expect(capturedSignal?.aborted).toBe(true)
                 request.resolve(pageResponse([{ id: 1 }], { page: 0, size: 15 }))
                 await fetchPromise
 
@@ -132,5 +137,34 @@ describe('usePagination', () => {
         } finally {
             scope.stop()
         }
+    })
+
+    it('aborts an in-flight request when the effect scope stops', async () => {
+        const scope = effectScope()
+        const request = deferred<ApiResponse<PageResponse<{ id: number }>>>()
+        let capturedSignal: AbortSignal | null = null
+        const fetchFn = vi.fn(async (_params: PaginationParams, context: PaginationFetchContext) => {
+            capturedSignal = context.signal
+            return request.promise
+        })
+
+        const fetchPromise = scope.run(async () => {
+            const pagination = usePagination(fetchFn, { page: 0, size: 15 })
+            return pagination.fetch()
+        })
+
+        const getCapturedSignal = () => {
+            if (!capturedSignal) {
+                throw new Error('Expected pagination fetch to receive an AbortSignal')
+            }
+            return capturedSignal
+        }
+
+        expect(getCapturedSignal().aborted).toBe(false)
+        scope.stop()
+        expect(getCapturedSignal().aborted).toBe(true)
+
+        request.resolve(pageResponse([{ id: 1 }], { page: 0, size: 15 }))
+        await fetchPromise
     })
 })

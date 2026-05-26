@@ -21,8 +21,8 @@ const {
   fetch: fetchScraps,
   handlePageChange,
   handleSizeChange
-} = usePagination<PostSummary>(async (params) => {
-  const { data } = await userApi.getMyScraps(params)
+} = usePagination<PostSummary>(async (params, { signal }) => {
+  const { data } = await userApi.getMyScraps(params, { signal })
   return data
 }, { page: 0, size: 15 })
 

@@ -1,4 +1,4 @@
-import { ref, type Ref } from 'vue'
+import { onScopeDispose, ref, type Ref } from 'vue'
 import logger from '@/utils/logger'
 import type { ApiResponse, PageResponse } from '@/types'
 
@@ -10,6 +10,10 @@ export interface PaginationParams {
     size?: number
     sort?: string
     [key: string]: unknown // 추가 파라미터 허용
+}
+
+export interface PaginationFetchContext {
+    signal: AbortSignal
 }
 
 /**
@@ -33,7 +37,7 @@ export interface PaginationParams {
  * ```
  */
 export function usePagination<T>(
-    fetchFn: (params: PaginationParams) => Promise<ApiResponse<PageResponse<T>>>,
+    fetchFn: (params: PaginationParams, context: PaginationFetchContext) => Promise<ApiResponse<PageResponse<T>>>,
     initialParams: PaginationParams = { page: 0, size: 20 }
 ) {
     const page = ref(initialParams.page || 0)
@@ -45,14 +49,23 @@ export function usePagination<T>(
     const loading = ref(false)
     const error = ref<string | null>(null)
     let latestRequestId = 0
+    let abortController: AbortController | null = null
 
     const isLatestRequest = (requestId: number) => requestId === latestRequestId
+
+    const abortActiveRequest = () => {
+        abortController?.abort()
+        abortController = null
+    }
 
     /**
      * 데이터 페칭 함수
      * @param additionalParams 추가 파라미터
      */
     const fetch = async (additionalParams: Record<string, unknown> = {}) => {
+        abortActiveRequest()
+        const controller = new AbortController()
+        abortController = controller
         const requestId = ++latestRequestId
         loading.value = true
         error.value = null
@@ -65,7 +78,7 @@ export function usePagination<T>(
                 ...additionalParams
             }
 
-            const result = await fetchFn(params)
+            const result = await fetchFn(params, { signal: controller.signal })
 
             if (!isLatestRequest(requestId)) return
 
@@ -77,11 +90,14 @@ export function usePagination<T>(
                 error.value = '데이터를 불러오는데 실패했습니다.'
             }
         } catch (err: unknown) {
-            if (!isLatestRequest(requestId)) return
+            if (!isLatestRequest(requestId) || controller.signal.aborted) return
 
             logger.error('Failed to fetch paginated data:', err)
             error.value = '데이터를 불러오는데 실패했습니다.'
         } finally {
+            if (abortController === controller) {
+                abortController = null
+            }
             if (isLatestRequest(requestId)) {
                 loading.value = false
             }
@@ -121,6 +137,7 @@ export function usePagination<T>(
      * 페이지네이션 상태 리셋
      */
     const reset = () => {
+        abortActiveRequest()
         latestRequestId++
         page.value = initialParams.page || 0
         size.value = initialParams.size || 20
@@ -131,6 +148,12 @@ export function usePagination<T>(
         loading.value = false
         error.value = null
     }
+
+    onScopeDispose(() => {
+        latestRequestId++
+        abortActiveRequest()
+        loading.value = false
+    })
 
     return {
         // State
