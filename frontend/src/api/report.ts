@@ -8,7 +8,7 @@ interface PaginationParams {
 }
 
 export const reportApi = {
-    reportUser: (targetUserId: string | number, reason: string, link: string) => api.post<ApiResponse<number>>(`/reports/users`, { targetUserId, reason, link }),
+    reportUser: (targetUserId: string | number, reason: string, link: string, config?: AxiosRequestConfig) => api.post<ApiResponse<number>>(`/reports/users`, { targetUserId, reason, link }, config),
     reportPost: (targetPostId: string | number, reason: string) => api.post<ApiResponse<number>>(`/reports/posts`, { targetPostId, reason }),
     reportComment: (targetCommentId: string | number, reason: string) => api.post<ApiResponse<number>>(`/reports/comments`, { targetCommentId, reason }),
     getMyReports: (params: PaginationParams, config?: AxiosRequestConfig) => api.get<ApiResponse<PageResponse<MyReport>>>('/reports/me', { ...config, params }),
