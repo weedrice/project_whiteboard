@@ -62,8 +62,10 @@ const isManagerModalOpen = ref(false)
 const isTransferringManager = ref(false)
 const currentManagerLabel = ref('')
 let fetchRequestId = 0
+let managerTransferRequestId = 0
 
 function resetBoardState() {
+  managerTransferRequestId += 1
   form.value = createEmptyForm()
   error.value = ''
   currentManagerLabel.value = ''
@@ -146,20 +148,26 @@ async function confirmManagerSelection(users: Array<{ loginId: string; displayNa
   if (users.length === 0) return
 
   const selectedUser = users[0]
+  const transferBoardUrl = boardUrl.value
+  const requestId = ++managerTransferRequestId
 
   isTransferringManager.value = true
   try {
     const updatedBoard = await transferBoardManager({
-      boardUrl: boardUrl.value,
+      boardUrl: transferBoardUrl,
       loginId: selectedUser.loginId
     })
+    if (requestId !== managerTransferRequestId || transferBoardUrl !== boardUrl.value) return
     currentManagerLabel.value = updatedBoard.adminDisplayName || `${selectedUser.displayName} (${selectedUser.loginId})`
     closeManagerModal()
     toastStore.addToast(t('common.messages.saveSuccess'), 'success')
   } catch (err: unknown) {
+    if (requestId !== managerTransferRequestId || transferBoardUrl !== boardUrl.value) return
     handleError(err, t('common.messages.saveFailed'))
   } finally {
-    isTransferringManager.value = false
+    if (requestId === managerTransferRequestId && transferBoardUrl === boardUrl.value) {
+      isTransferringManager.value = false
+    }
   }
 }
 

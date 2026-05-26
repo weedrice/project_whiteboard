@@ -205,4 +205,35 @@ describe('BoardEdit', () => {
       data: expect.objectContaining({ boardUrl: 'qna' }),
     })
   })
+
+  it('ignores stale manager transfer results after the route boardUrl changes', async () => {
+    vi.mocked(boardApi.getBoard)
+      .mockResolvedValueOnce(mockBoard('free', 'Free Board') as never)
+      .mockResolvedValueOnce(mockBoard('qna', 'Q&A Board') as never)
+    let resolveTransfer: (value: { adminDisplayName: string }) => void = () => undefined
+    transferBoardManager.mockImplementationOnce(() => new Promise((resolve) => {
+      resolveTransfer = resolve
+    }))
+
+    const wrapper = await mountBoardEdit()
+
+    const transferPromise = (wrapper.vm as unknown as {
+      confirmManagerSelection(users: Array<{ loginId: string; displayName?: string }>): Promise<void>
+    }).confirmManagerSelection([{ loginId: 'next-manager', displayName: 'Next Manager' }])
+
+    routeState.params.boardUrl = 'qna'
+    await nextTick()
+    await flushPromises()
+
+    resolveTransfer({ adminDisplayName: 'Old Manager' })
+    await transferPromise
+    await flushPromises()
+
+    expect(transferBoardManager).toHaveBeenCalledWith({
+      boardUrl: 'free',
+      loginId: 'next-manager',
+    })
+    expect(wrapper.text()).not.toContain('Old Manager')
+    expect(wrapper.text()).toContain('Manager')
+  })
 })

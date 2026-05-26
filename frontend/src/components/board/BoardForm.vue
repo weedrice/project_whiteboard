@@ -73,12 +73,11 @@ const previewImage = ref<string | null>(null)
 // Watch for changes in initialData (e.g. when loading data in edit mode)
 watch(() => props.initialData, (newData) => {
   form.value = { ...newData }
+  selectedFile.value = null
   if (!form.value.isPublic) {
     form.value.agentUseYn = false
   }
-  if (newData.iconUrl) {
-    previewImage.value = newData.iconUrl
-  }
+  previewImage.value = newData.iconUrl || null
 }, { deep: true, immediate: true })
 
 watch(() => form.value.isPublic, (isPublic) => {
