@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watchEffect } from 'vue'
+import { computed, ref, watch, watchEffect } from 'vue'
 import { usePostComposerDraft } from '@/composables/usePostComposerDraft'
 import { usePostComposerEffects } from '@/composables/usePostComposerEffects'
 import { usePostComposerSubmit, type PostFormSubmitResult } from '@/composables/usePostComposerSubmit'
@@ -54,6 +54,7 @@ const toastStore = useToastStore()
 
 const boardUrl = computed(() => props.boardUrl ?? '')
 const postId = computed(() => props.postId ?? '')
+const formIdentity = computed(() => `${props.mode}:${boardUrl.value || 'unknown'}:${postId.value || 'new'}`)
 
 const {
   board,
@@ -123,6 +124,7 @@ const {
   applyDraftSnapshot,
   buildPayload,
   trackUploadedFile,
+  resetFormState,
 } = usePostComposerState({
   mode: () => props.mode,
   hideCategory: () => props.hideCategory,
@@ -142,8 +144,22 @@ function onBeforeUnload(event: BeforeUnloadEvent) {
   return leaveConfirmMessage.value
 }
 
+function resetFormIdentityState() {
+  hasHydratedEditPost.value = false
+  resetFormState()
+}
+
+watch(
+  formIdentity,
+  (_current, previous) => {
+    if (previous === undefined) return
+    resetFormIdentityState()
+  },
+)
+
 watchEffect(() => {
   if (props.mode !== 'edit' || !post.value || hasHydratedEditPost.value) return
+  if (String(post.value.postId) !== String(postId.value)) return
   hasHydratedEditPost.value = true
   applyDraftSnapshot({
     title: post.value.title,
@@ -171,6 +187,7 @@ const {
 } = usePostComposerDraft({
   isAuthenticated: computed(() => Boolean(authStore.isAuthenticated)),
   userId: computed(() => authStore.user?.userId),
+  identity: formIdentity,
   mode: () => props.mode,
   boardUrl,
   postId,

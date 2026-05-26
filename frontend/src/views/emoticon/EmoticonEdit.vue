@@ -15,6 +15,7 @@ import type { EmoticonImage } from '@/types/emoticon'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { useEmoticonImageSelection } from '@/composables/useEmoticonImageSelection'
 import { useToggleEmoticonVisibility } from '@/composables/useToggleEmoticonVisibility'
+import { useEmoticonUploadSession } from '@/composables/useEmoticonUploadSession'
 import {
   createUploadableEmoticonImageFile,
   resolveEmoticonTagAddition,
@@ -57,9 +58,8 @@ const existingImages = ref<EmoticonImage[]>([])
 const imagesToDelete = ref<number[]>([])
 const tagInput = ref('')
 const isSubmitting = ref(false)
-const uploadProgress = ref({ current: 0, total: 0 })
-const uploadControllers = new Set<AbortController>()
-let isComponentUnmounted = false
+const uploadSession = useEmoticonUploadSession()
+const { uploadProgress } = uploadSession
 let tagSequence = 0
 
 interface EmoticonTagItem {
@@ -86,25 +86,6 @@ const tags = computed<string[]>({
 // 파일 입력 refs
 const thumbnailInput = ref<HTMLInputElement | null>(null)
 const emoticonInput = ref<HTMLInputElement | null>(null)
-
-const createUploadCancelledError = () => new DOMException('Upload has been cancelled', 'AbortError')
-
-const assertSubmitActive = () => {
-  if (isComponentUnmounted) {
-    throw createUploadCancelledError()
-  }
-}
-
-const abortPendingUploads = () => {
-  uploadControllers.forEach((controller) => controller.abort())
-  uploadControllers.clear()
-}
-
-const createUploadController = () => {
-  const controller = new AbortController()
-  uploadControllers.add(controller)
-  return controller
-}
 
 // 권한 체크
 const isOwner = computed(() => {
@@ -152,8 +133,6 @@ const handleToggleVisibility = async () => {
 const SUPPORTED_IMAGE_ACCEPT = SUPPORTED_EMOTICON_IMAGE_ACCEPT
 
 onUnmounted(() => {
-  isComponentUnmounted = true
-  abortPendingUploads()
   revokeEmoticonPreviewUrl(thumbnailPreview.value)
   newEmoticonPreviews.value.forEach((item) => {
     revokeEmoticonPreviewUrl(item.preview)
@@ -258,6 +237,7 @@ const handleSubmit = async () => {
   if (!isFormValid.value || isSubmitting.value) return
 
   isSubmitting.value = true
+  const currentRunId = uploadSession.startSubmitRun()
 
   try {
     const submitSnapshot = {
@@ -270,31 +250,31 @@ const handleSubmit = async () => {
     const uploadFiles = submitSnapshot.newPreviews.length > 0
       ? await Promise.all(submitSnapshot.newPreviews.map((item) => createUploadableEmoticonImageFile(item)))
       : []
-    assertSubmitActive()
+    uploadSession.assertSubmitActive(currentRunId)
 
     // 1. 썸네일 업로드 (변경된 경우에만)
     let thumbnailFileId: number | undefined
     if (submitSnapshot.thumbnail) {
-      const controller = createUploadController()
+      const controller = uploadSession.createUploadController()
 
       try {
         const thumbnailResponse = await fileApi.uploadFile(submitSnapshot.thumbnail, { signal: controller.signal })
-        assertSubmitActive()
+        uploadSession.assertSubmitActive(currentRunId)
         thumbnailFileId = thumbnailResponse.data.data.fileId
       } finally {
-        uploadControllers.delete(controller)
+        uploadSession.releaseUploadController(controller)
       }
     }
 
     // 2. 기존 이미지 삭제 처리
     await Promise.all(submitSnapshot.imagesToDelete.map(async (imageId) => {
       await emoticonApi.deleteImage(imageId)
-      assertSubmitActive()
+      uploadSession.assertSubmitActive(currentRunId)
     }))
 
     // 3. 새 이미지 업로드 및 추가
     if (uploadFiles.length > 0) {
-      uploadProgress.value = { current: 0, total: uploadFiles.length }
+      uploadSession.setUploadProgress(0, uploadFiles.length)
 
       let uploadFailed = false
 
@@ -305,51 +285,51 @@ const handleSubmit = async () => {
           return await Promise.all(
             uploadFiles.map(async (uploadFile) => {
               if (uploadFailed) {
-                throw createUploadCancelledError()
+                throw uploadSession.createUploadCancelledError()
               }
 
-              assertSubmitActive()
-              const controller = createUploadController()
+              uploadSession.assertSubmitActive(currentRunId)
+              const controller = uploadSession.createUploadController()
 
               try {
                 const response = await fileApi.uploadFile(uploadFile, { signal: controller.signal })
-                assertSubmitActive()
+                uploadSession.assertSubmitActive(currentRunId)
                 completed += 1
-                if (!isComponentUnmounted) {
-                  uploadProgress.value.current = completed
+                if (uploadSession.isSubmitActive(currentRunId)) {
+                  uploadSession.setUploadProgress(completed)
                 }
                 return response.data.data.fileId
               } catch (error) {
                 uploadFailed = true
-                abortPendingUploads()
+                uploadSession.abortPendingUploads()
                 throw error
               } finally {
-                uploadControllers.delete(controller)
+                uploadSession.releaseUploadController(controller)
               }
             })
           )
         } catch (error) {
           uploadFailed = true
-          abortPendingUploads()
+          uploadSession.abortPendingUploads()
           throw error
         }
       })()
 
       for (const fileId of imageFileIds) {
-        assertSubmitActive()
+        uploadSession.assertSubmitActive(currentRunId)
         await emoticonApi.addImage(emoticonId.value, fileId)
-        assertSubmitActive()
+        uploadSession.assertSubmitActive(currentRunId)
       }
     }
 
     // 4. 이모티콘 정보 수정 (이름, 썸네일, 태그)
-    assertSubmitActive()
+    uploadSession.assertSubmitActive(currentRunId)
     await emoticonApi.updateEmoticon(emoticonId.value, {
       name: submitSnapshot.name,
       thumbnailFileId,
       tags: submitSnapshot.tags
     })
-    assertSubmitActive()
+    uploadSession.assertSubmitActive(currentRunId)
 
     // 캐시 무효화
     queryClient.invalidateQueries({ queryKey: ['emoticon', emoticonId] })
@@ -358,14 +338,17 @@ const handleSubmit = async () => {
     toastStore.addToast(t('emoticon.edit.updated'), 'success')
     router.push({ name: 'emoticon-detail', params: { emoticonId: emoticonId.value } })
   } catch (error: unknown) {
-    if (!isComponentUnmounted) {
+    const isStaleCancellation = !uploadSession.isSubmitActive(currentRunId)
+      && uploadSession.isUploadCancelledError(error)
+    if (!uploadSession.isDisposed.value && !isStaleCancellation) {
       const message = extractErrorMessage(error) || t('emoticon.edit.failed')
       toastStore.addToast(message, 'error')
     }
   } finally {
-    if (!isComponentUnmounted) {
+    if (uploadSession.isSubmitActive(currentRunId)) {
       isSubmitting.value = false
-      uploadProgress.value = { current: 0, total: 0 }
+      uploadSession.cancelSubmitRun()
+      uploadSession.resetUploadProgress()
     }
   }
 }

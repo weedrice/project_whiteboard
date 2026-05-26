@@ -511,6 +511,41 @@ describe('PostForm', () => {
         expect((wrapper.get('[data-testid=\"editor-input\"]').element as HTMLTextAreaElement).value).toBe('Existing content')
     })
 
+    it('resets edit hydration state when the form identity changes', async () => {
+        postRef.value = {
+            postId: 1,
+            title: 'First post',
+            contents: 'First content',
+            category: { categoryId: 1 },
+            tags: [],
+            isNsfw: false,
+            isSpoiler: false,
+        }
+        const wrapper = mountPostForm('edit')
+        await nextTick()
+
+        expect((wrapper.get('#title').element as HTMLInputElement).value).toBe('First post')
+
+        await wrapper.setProps({ postId: '2' })
+        await nextTick()
+
+        expect((wrapper.get('#title').element as HTMLInputElement).value).toBe('')
+
+        postRef.value = {
+            postId: 2,
+            title: 'Second post',
+            contents: 'Second content',
+            category: { categoryId: 1 },
+            tags: [],
+            isNsfw: false,
+            isSpoiler: false,
+        }
+        await nextTick()
+
+        expect((wrapper.get('#title').element as HTMLInputElement).value).toBe('Second post')
+        expect((wrapper.get('[data-testid=\"editor-input\"]').element as HTMLTextAreaElement).value).toBe('Second content')
+    })
+
     it('validates required fields before submit', async () => {
         const wrapper = mountPostForm('create')
 

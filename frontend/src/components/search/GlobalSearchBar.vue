@@ -1,147 +1,52 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, computed, nextTick } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useQueryClient } from '@tanstack/vue-query'
-import { useBoard } from '@/composables/useBoard'
+import { ref } from 'vue'
 import { Search, X } from 'lucide-vue-next'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
-import { useDebounce } from '@/composables/useDebounce'
-import { useKeyboardNavigation } from '@/composables/useKeyboardNavigation'
+import { useGlobalBoardSearch } from '@/composables/useGlobalBoardSearch'
+import { useGlobalSearchDropdown } from '@/composables/useGlobalSearchDropdown'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
-import { DEBOUNCE_DELAY } from '@/utils/constants'
-import type { BoardListItem } from '@/types'
 
-const router = useRouter()
-const route = useRoute()
-const queryClient = useQueryClient()
-const { useBoards } = useBoard()
-const { data: boardsData } = useBoards()
-
-const searchQuery = ref('')
-const debouncedSearchQuery = useDebounce(searchQuery, DEBOUNCE_DELAY.SEARCH)
-const showDropdown = ref(false)
 const searchContainer = ref<HTMLElement | null>(null)
 const searchInputRef = ref<HTMLInputElement | null>(null)
 const searchInputId = 'global-search-input'
 const searchListboxId = 'global-search-board-results'
 
-// 모바일(640px 미만): 돋보기만 보이다가 클릭 시 검색 바 확장
-const isMobile = ref(typeof window !== 'undefined' && window.innerWidth < 640)
-const isExpanded = ref(false)
-const mediaQuery = typeof window !== 'undefined' ? window.matchMedia('(max-width: 639px)') : null
-const updateIsMobile = () => {
-  if (mediaQuery) {
-    isMobile.value = mediaQuery.matches
-    if (!mediaQuery.matches) isExpanded.value = false
-  }
-}
-const focusSearchInput = () => {
-  const comp = searchInputRef.value as { $el?: HTMLElement } | null
-  const el = comp?.$el
-  const input = el?.querySelector?.('input')
-  if (input instanceof HTMLInputElement) input.focus()
-}
-
-const expandAndFocus = () => {
-  isExpanded.value = true
-  // BaseInput이 v-else로 마운트된 뒤 ref가 채워지도록 nextTick + rAF
-  nextTick(() => {
-    nextTick(() => {
-      requestAnimationFrame(() => focusSearchInput())
-    })
-  })
-}
-const collapse = () => {
-  isExpanded.value = false
+const closeBoardDropdown = () => {
   showDropdown.value = false
-  if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
 }
 
-const boards = computed(() => boardsData.value || [])
-const filteredBoards = computed(() => {
-  if (!debouncedSearchQuery.value.trim()) return []
-  const query = debouncedSearchQuery.value.toLowerCase()
-  return boards.value.filter((board: BoardListItem) =>
-    board.boardName.toLowerCase().includes(query)
-  )
+const {
+  isMobile,
+  isExpanded,
+  focusSearchInput,
+  expandAndFocus,
+  collapse,
+} = useGlobalSearchDropdown({
+  searchContainer,
+  searchInputRef,
+  closeBoardDropdown,
+  resetSelection: () => resetSelection(),
 })
-const activeDescendantId = computed(() => (
-  selectedIndex.value >= 0 && filteredBoards.value[selectedIndex.value]
-    ? `${searchListboxId}-${filteredBoards.value[selectedIndex.value].boardUrl}`
-    : undefined
-))
 
-// 키보드 네비게이션
-const { selectedIndex, handleKeyDown: handleDropdownKeyDown, reset: resetSelection, setSelectedIndex } = useKeyboardNavigation(
+const {
+  searchQuery,
+  showDropdown,
   filteredBoards,
-  {
-    onSelect: (index) => {
-      if (filteredBoards.value[index]) {
-        selectBoard(filteredBoards.value[index].boardUrl)
-      }
-    },
-    onEscape: () => {
-      showDropdown.value = false
-      searchInputRef.value?.focus()
-    },
-    loop: true,
-    initialIndex: -1
-  }
-)
-
-// Handle search submission (Full Search)
-const handleSearch = () => {
-  const nextQuery = searchQuery.value.trim()
-  if (nextQuery) {
-    showDropdown.value = false
-    if (isMobile.value) collapse()
-
-    if (route.name === 'search' && route.query.q === nextQuery) {
-      queryClient.invalidateQueries({ queryKey: ['search', 'integrated'] })
-      return
-    }
-
-    router.push({
-      name: 'search',
-      query: {
-        q: nextQuery
-      }
-    })
-  }
-}
-
-// Handle board selection (Autocomplete)
-const selectBoard = (boardUrl: string) => {
-  showDropdown.value = false
-  searchQuery.value = ''
-  if (isMobile.value) collapse()
-  router.push(`/board/${boardUrl}`)
-}
-
-// Watch for input changes (use debounced query for filtering, but show dropdown immediately)
-watch(searchQuery, () => {
-  showDropdown.value = !!searchQuery.value.trim()
-  resetSelection()
+  selectedIndex,
+  activeDescendantId,
+  setSelectedIndex,
+  handleDropdownKeyDown,
+  handleSearch,
+  selectBoard,
+  resetSelection,
+} = useGlobalBoardSearch({
+  listboxId: searchListboxId,
+  isMobile,
+  collapse,
+  focusSearchInput,
 })
 
-// Watch for filtered boards changes to reset selection
-watch(filteredBoards, () => {
-  resetSelection()
-})
-
-// Click outside to close dropdown (모바일 확장 시 접기)
-const handleClickOutside = (event: Event) => {
-  if (!searchContainer.value || searchContainer.value.contains(event.target as Node)) return
-  // 모바일 확장 중 입력 포커스가 있으면 접지 않음 (키보드 열림/레이아웃 변경 시 오탐 방지)
-  if (isMobile.value && isExpanded.value && document.activeElement && searchContainer.value.contains(document.activeElement)) return
-  showDropdown.value = false
-  resetSelection()
-  if (isMobile.value && isExpanded.value) collapse()
-}
-
-// Input 키보드 이벤트 핸들러
 const handleInputKeyDown = (event: KeyboardEvent) => {
-  // ESC: 포커스 해제 (모바일 확장 시 검색 바 접기)
   if (event.key === 'Escape') {
     event.preventDefault()
     if (isMobile.value && isExpanded.value) {
@@ -155,31 +60,15 @@ const handleInputKeyDown = (event: KeyboardEvent) => {
   }
 
   if (showDropdown.value && filteredBoards.value.length > 0) {
-    // If Enter is pressed and no item is selected, perform full search
     if (event.key === 'Enter' && selectedIndex.value === -1) {
       handleSearch()
       return
     }
-    // 드롭다운이 열려있으면 드롭다운 네비게이션 사용
     handleDropdownKeyDown(event)
   } else if (event.key === 'Enter') {
-    // 드롭다운이 없으면 검색 실행
     handleSearch()
   }
 }
-
-onMounted(() => {
-  if (mediaQuery) {
-    isMobile.value = mediaQuery.matches
-    mediaQuery.addEventListener('change', updateIsMobile)
-  }
-  document.addEventListener('click', handleClickOutside)
-})
-
-onUnmounted(() => {
-  if (mediaQuery) mediaQuery.removeEventListener('change', updateIsMobile)
-  document.removeEventListener('click', handleClickOutside)
-})
 </script>
 
 <template>

@@ -176,6 +176,32 @@ describe('useEditorImageUploadQueue', () => {
         expect(queue.isProcessing.value).toBe(false)
     })
 
+    it('disposes the queue and prevents later uploads from starting', async () => {
+        const currentUpload = createDeferred<{ url: string }>()
+        upload.mockReturnValueOnce(currentUpload.promise)
+        const queue = createQueue()
+        const [currentItem, queuedItem] = queue.enqueueFiles([
+            createFile('current.png'),
+            createFile('queued.png'),
+        ])
+
+        queue.dispose()
+        const [lateItem] = queue.enqueueFiles([createFile('late.png')])
+
+        expect(abort).toHaveBeenCalledTimes(1)
+        expect(currentItem.status).toBe('canceled')
+        expect(queuedItem.status).toBe('canceled')
+        expect(lateItem.status).toBe('canceled')
+        expect(queue.queueCount.value).toBe(0)
+
+        currentUpload.resolve({ url: 'https://cdn.test/current.png' })
+        await flushPromises()
+
+        expect(upload).toHaveBeenCalledTimes(1)
+        expect(onUploaded).not.toHaveBeenCalled()
+        expect(queue.isProcessing.value).toBe(false)
+    })
+
     it('stores validation failures without uploading them', async () => {
         const invalidFile = createFile('invalid.png')
         const validFile = createFile('valid.png')

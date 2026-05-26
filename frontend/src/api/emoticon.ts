@@ -1,4 +1,5 @@
 import api from './index'
+import type { AxiosRequestConfig } from 'axios'
 import type { EmoticonMaster, EmoticonCreateRequest, EmoticonUpdateRequest, EmoticonSearchParams, EmoticonPurchaseStatus } from '@/types/emoticon'
 import type { ApiResponse } from '@/types'
 import type { PageResponse } from '@/types/common'
@@ -81,11 +82,14 @@ export const emoticonApi = {
     /**
      * 이모티콘 상세 조회
      */
-    getEmoticon(emoticonId: number) {
+    getEmoticon(emoticonId: number, config?: AxiosRequestConfig) {
+        if (config) {
+            return api.get<{ data: EmoticonMaster }>(`/emoticons/${emoticonId}`, config)
+        }
         return api.get<{ data: EmoticonMaster }>(`/emoticons/${emoticonId}`)
     },
-    async getEmoticonData(emoticonId: number) {
-        return unwrapEmoticonResponse(await this.getEmoticon(emoticonId))
+    async getEmoticonData(emoticonId: number, config?: AxiosRequestConfig) {
+        return unwrapEmoticonResponse(await this.getEmoticon(emoticonId, config))
     },
 
     /**

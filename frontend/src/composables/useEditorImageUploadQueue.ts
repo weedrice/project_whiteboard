@@ -30,6 +30,7 @@ export function useEditorImageUploadQueue<TUploaded>(
     const currentItem: Ref<EditorImageUploadItem<TUploaded> | null> = ref(null)
     const isProcessing = ref(false)
     let nextItemId = 1
+    let isDisposed = false
 
     const queuedItems = computed(() => queuedItemIds.value
         .map((id) => items.value.find((item) => item.id === id))
@@ -61,10 +62,15 @@ export function useEditorImageUploadQueue<TUploaded>(
 
         isProcessing.value = true
         try {
-            while (queuedItemIds.value.length > 0) {
+            while (!isDisposed && queuedItemIds.value.length > 0) {
                 const itemId = queuedItemIds.value.shift()
                 const item = typeof itemId === 'number' ? findItem(itemId) : undefined
                 if (!item || item.status !== 'queued') continue
+
+                if (isDisposed) {
+                    item.status = 'canceled'
+                    continue
+                }
 
                 item.status = 'uploading'
                 item.error = undefined
@@ -72,7 +78,7 @@ export function useEditorImageUploadQueue<TUploaded>(
 
                 try {
                     const uploaded = await options.upload(item.file)
-                    if ((item.status as EditorImageUploadStatus) === 'canceled') continue
+                    if (isDisposed || (item.status as EditorImageUploadStatus) === 'canceled') continue
                     if (uploaded) {
                         item.status = 'uploaded'
                         item.uploaded = uploaded
@@ -102,11 +108,11 @@ export function useEditorImageUploadQueue<TUploaded>(
 
     const enqueueFiles = (files: File[]) => {
         const createdItems = files.map((file) => {
-            const validationError = options.validate(file)
+            const validationError = isDisposed ? 'disposed' : options.validate(file)
             const item: EditorImageUploadItem<TUploaded> = {
                 id: nextItemId,
                 file,
-                status: validationError ? 'failed' : 'queued',
+                status: isDisposed ? 'canceled' : validationError ? 'failed' : 'queued',
                 error: validationError || undefined,
             }
             nextItemId += 1
@@ -120,6 +126,7 @@ export function useEditorImageUploadQueue<TUploaded>(
     }
 
     const retryItem = (target: ItemTarget<TUploaded>) => {
+        if (isDisposed) return false
         const item = findItem(target)
         if (!item || item.status === 'uploading') return false
 
@@ -163,6 +170,11 @@ export function useEditorImageUploadQueue<TUploaded>(
         options.abort?.()
     }
 
+    const dispose = () => {
+        isDisposed = true
+        cancel()
+    }
+
     return {
         items,
         queuedItems,
@@ -177,5 +189,6 @@ export function useEditorImageUploadQueue<TUploaded>(
         dismissItem,
         dismissFailed,
         cancel,
+        dispose,
     }
 }
