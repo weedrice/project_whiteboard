@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import BoardForm from '../BoardForm.vue'
+import { fileApi } from '@/api/file'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
@@ -92,6 +93,16 @@ const BaseButtonStub = defineComponent({
 })
 
 describe('BoardForm', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:local-preview')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('keeps icon upload text inside the label and describes preview image', () => {
     const wrapper = mount(BoardForm, {
       props: {
@@ -201,5 +212,65 @@ describe('BoardForm', () => {
 
     const submit = wrapper.emitted('submit')?.[0]?.[0] as { boardUrl: string }
     expect(submit.boardUrl).toBe('free_board_')
+  })
+
+  it('clears selected icon file and preview when initial board data changes', async () => {
+    const wrapper = mount(BoardForm, {
+      props: {
+        initialData: {
+          boardName: 'Old Board',
+          boardUrl: 'old',
+          description: '',
+          iconUrl: '/old.png',
+          sortOrder: 0,
+          allowNsfw: false,
+          isPublic: true,
+          agentUseYn: false,
+          guidePrompt: '',
+        },
+      },
+      global: {
+        mocks: {
+          $t: (key: string) => key,
+        },
+        stubs: {
+          BaseInput: BaseInputStub,
+          BaseTextarea: BaseTextareaStub,
+          BaseCheckbox: BaseCheckboxStub,
+          BaseButton: BaseButtonStub,
+        },
+      },
+    })
+
+    const file = new File(['icon'], 'icon.png', { type: 'image/png' })
+    const fileInput = wrapper.get<HTMLInputElement>('#icon-upload')
+    Object.defineProperty(fileInput.element, 'files', { value: [file], configurable: true })
+    await fileInput.trigger('change')
+
+    expect(wrapper.get('img').attributes('src')).toBe('blob:local-preview')
+
+    await wrapper.setProps({
+      initialData: {
+        boardName: 'New Board',
+        boardUrl: 'new',
+        description: '',
+        iconUrl: '',
+        sortOrder: 0,
+        allowNsfw: false,
+        isPublic: true,
+        agentUseYn: false,
+        guidePrompt: '',
+      },
+    })
+    await nextTick()
+
+    expect(wrapper.find('img').exists()).toBe(false)
+
+    await wrapper.find('form').trigger('submit.prevent')
+
+    expect(fileApi.uploadFile).not.toHaveBeenCalled()
+    const submit = wrapper.emitted('submit')?.[0]?.[0] as { boardUrl: string; iconUrl: string }
+    expect(submit.boardUrl).toBe('new')
+    expect(submit.iconUrl).toBe('')
   })
 })

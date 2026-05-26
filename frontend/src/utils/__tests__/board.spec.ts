@@ -6,7 +6,8 @@ import {
   isDefaultCategory,
   isGeneralCategoryName,
   normalizeBoardUrlInput,
-  resolveDefaultCategory
+  resolveDefaultCategory,
+  validateRequiredBoardFields
 } from '../board'
 
 describe('board utils', () => {
@@ -21,11 +22,16 @@ describe('board utils', () => {
     expect(normalizeBoardUrlInput(null)).toBe('')
   })
 
-  it('checks required board form fields without changing existing truthy semantics', () => {
+  it('checks required board form fields with shared trimmed validation semantics', () => {
     expect(hasRequiredBoardFields({ boardName: 'Board', boardUrl: 'board' })).toBe(true)
     expect(hasRequiredBoardFields({ boardName: '', boardUrl: 'board' })).toBe(false)
     expect(hasRequiredBoardFields({ boardName: 'Board', boardUrl: '' })).toBe(false)
-    expect(hasRequiredBoardFields({ boardName: ' ', boardUrl: 'board' })).toBe(true)
+    expect(hasRequiredBoardFields({ boardName: ' ', boardUrl: 'board' })).toBe(false)
+    expect(validateRequiredBoardFields({ boardName: ' ', boardUrl: 'board' })).toEqual({
+      valid: false,
+      messageKey: 'board.form.validation',
+      toastType: 'error'
+    })
   })
 
   it('uses explicit default category flags before legacy name fallback', () => {

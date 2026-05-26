@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, type Ref } from 'vue'
 import type { PageResponse, Report } from '@/types'
@@ -83,7 +83,14 @@ const ReportListStub = defineComponent({
       required: true,
     },
   },
-  template: '<div data-testid="report-list">{{ reports.length }}</div>',
+  emits: ['resolve', 'reject'],
+  template: `
+    <div data-testid="report-list">
+      {{ reports.length }}
+      <button data-testid="resolve-report" @click="$emit('resolve', reports[0])">resolve</button>
+      <button data-testid="reject-report" @click="$emit('reject', reports[0])">reject</button>
+    </div>
+  `,
 })
 
 const PageSizeSelectorStub = defineComponent({
@@ -167,5 +174,29 @@ describe('ReportManagement', () => {
     await wrapper.get('[data-testid="size-change"]').trigger('click')
 
     expect(mocks.params?.value).toEqual({ page: 0, size: 50 })
+  })
+
+  it('does not directly refetch after resolving because mutation invalidates reports', async () => {
+    mocks.confirm.mockResolvedValueOnce(true)
+    mocks.resolveReport.mockResolvedValueOnce(undefined)
+    const wrapper = mountReportManagement()
+
+    await wrapper.get('[data-testid="resolve-report"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.resolveReport).toHaveBeenCalledWith({ reportId: 1, data: { status: 'RESOLVED' } })
+    expect(mocks.refetch).not.toHaveBeenCalled()
+  })
+
+  it('does not directly refetch after rejecting because mutation invalidates reports', async () => {
+    mocks.confirm.mockResolvedValueOnce(true)
+    mocks.resolveReport.mockResolvedValueOnce(undefined)
+    const wrapper = mountReportManagement()
+
+    await wrapper.get('[data-testid="reject-report"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.resolveReport).toHaveBeenCalledWith({ reportId: 1, data: { status: 'REJECTED' } })
+    expect(mocks.refetch).not.toHaveBeenCalled()
   })
 })

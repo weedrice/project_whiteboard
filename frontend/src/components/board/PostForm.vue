@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue'
-import { useBoard } from '@/composables/useBoard'
-import { usePost } from '@/composables/usePost'
-import { usePostDraft } from '@/composables/usePostDraft'
-import { usePopoverFocus } from '@/composables/usePopoverFocus'
+import { computed, ref, watchEffect } from 'vue'
+import { usePostComposerDraft } from '@/composables/usePostComposerDraft'
+import { usePostComposerEffects } from '@/composables/usePostComposerEffects'
+import { usePostComposerSubmit, type PostFormSubmitResult } from '@/composables/usePostComposerSubmit'
+import { usePostFormResource } from '@/composables/usePostFormResource'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
@@ -18,13 +18,7 @@ import EmoticonPicker from '@/components/common/widgets/EmoticonPicker.vue'
 import PostEditorTipTap from '@/components/board/PostEditorTipTap.vue'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
 import { canWriteCategory } from '@/utils/board'
-import logger from '@/utils/logger'
-import {
-  buildPostFormPayload,
-  resolvePostFormFileIds,
-  toEmbedPostVideoUrl,
-  type PostFormFileIdScope,
-} from '@/utils/postForm'
+import { usePostComposerState } from '@/composables/usePostComposerState'
 
 const props = defineProps<{
   mode: 'create' | 'edit'
@@ -47,31 +41,11 @@ const emit = defineEmits<{
   cancel: []
 }>()
 
-type PostFormSubmitResult = {
-  mode: 'create' | 'edit'
-  boardUrl: string
-  postId?: string | number
-  newPostId?: string | number
-  isSecret: boolean
-  isBoardAdmin: boolean
-}
-
 type CategoryOption = {
   categoryId: number
   name: string
   minWriteRole?: string
   disabled?: boolean
-}
-
-type FormState = {
-  title: string
-  content: string
-  categoryId: string | number
-  tags: string[]
-  isNsfw: boolean
-  isSpoiler: boolean
-  isNotice: boolean
-  isSecret: boolean
 }
 
 const { t } = useI18n()
@@ -81,77 +55,25 @@ const toastStore = useToastStore()
 const boardUrl = computed(() => props.boardUrl ?? '')
 const postId = computed(() => props.postId ?? '')
 
-const { useBoardDetail } = useBoard()
 const {
-  usePostDetail,
-  useCreatePost,
-  useUpdatePost,
-} = usePost()
-
-const queryEnabled = computed(() => !!boardUrl.value && !props.skipBoardLookup)
-const { data: board, isLoading: isBoardLoading } = useBoardDetail(boardUrl, {
-  enabled: queryEnabled,
+  board,
+  categories,
+  post,
+  isLoading,
+  isSubmitting,
+  showNotice,
+  canShowNsfw,
+  createPost,
+  updatePost,
+} = usePostFormResource({
+  mode: () => props.mode,
+  boardUrl,
+  postId,
+  skipBoardLookup: () => props.skipBoardLookup,
+  hideNotice: () => props.hideNotice,
 })
-const categories = computed(() => board.value?.categories ?? [])
-const postIdRef = computed(() => (props.mode === 'edit' ? postId.value : '') as string)
-const { data: post, isLoading: isPostLoading } = usePostDetail(postIdRef, {
-  enabled: computed(() => props.mode === 'edit' && !!postId.value),
-})
-const { mutate: createPost, isPending: isCreateSubmitting } = useCreatePost()
-const { mutate: updatePost, isPending: isUpdateSubmitting } = useUpdatePost()
 
-const tiptapEditorRef = ref<InstanceType<typeof PostEditorTipTap> | null>(null)
-const editorWrapperRef = ref<HTMLElement | null>(null)
-const composePageRef = ref<HTMLElement | null>(null)
-const videoPopoverRef = ref<HTMLElement | null>(null)
-const draftFileIds = ref<number[]>([])
-
-const showPreview = ref(false)
-const showEmoticonPicker = ref(false)
-const showVideoPopover = ref(false)
-const videoUrl = ref('')
-const videoPopoverStyle = ref<{ top: string; left: string }>({ top: '0', left: '0' })
-const editorViewMode = ref<'visual' | 'html'>('visual')
-const hasRestoredDraft = ref(false)
 const hasHydratedEditPost = ref(false)
-const isEditorFocusWithin = ref(false)
-
-const form = ref<FormState>({
-  title: '',
-  content: '',
-  categoryId: '',
-  tags: [],
-  isNsfw: false,
-  isSpoiler: false,
-  isNotice: false,
-  isSecret: false,
-})
-
-usePopoverFocus(videoPopoverRef, showVideoPopover)
-
-const initialFormSnapshot = ref<FormState | null>(null)
-
-const isSubmitting = computed(() => isCreateSubmitting.value || isUpdateSubmitting.value)
-const isLoading = computed(() =>
-  isBoardLoading.value || (props.mode === 'edit' && isPostLoading.value),
-)
-
-function copyFormSnapshot(src: FormState): FormState {
-  return {
-    title: src.title,
-    content: src.content,
-    categoryId: src.categoryId,
-    tags: [...src.tags],
-    isNsfw: src.isNsfw,
-    isSpoiler: src.isSpoiler,
-    isNotice: src.isNotice,
-    isSecret: src.isSecret,
-  }
-}
-
-function markCurrentSnapshotSaved() {
-  initialFormSnapshot.value = copyFormSnapshot(form.value)
-}
 
 const filteredCategories = computed<CategoryOption[]>(() => {
   const selectableCategories = categories.value.filter((cat) => canWriteCategory(
@@ -193,32 +115,24 @@ const submitLabel = computed(() =>
     : (props.mode === 'create' ? t('common.submit') : t('board.writePost.update')),
 )
 
-const showNotice = computed(() => !props.hideNotice && props.mode === 'create' && Boolean(board.value?.isAdmin))
-const canShowNsfw = computed(() => Boolean(board.value?.allowNsfw))
-const draftEnabled = computed(() => authStore.isAuthenticated && !!boardUrl.value)
-const draftStorageKey = computed(() => `noviis:draft:${authStore.user?.userId ?? 'guest'}:${props.mode}:${boardUrl.value || 'unknown'}:${postId.value || 'new'}`)
+const {
+  form,
+  isDirty,
+  isFormDirty,
+  markCurrentSnapshotSaved,
+  applyDraftSnapshot,
+  buildPayload,
+  trackUploadedFile,
+} = usePostComposerState({
+  mode: () => props.mode,
+  hideCategory: () => props.hideCategory,
+  hideTags: () => props.hideTags,
+  hideSpoiler: () => props.hideSpoiler,
+  hideSecret: () => props.hideSecret,
+  showNotice,
+  canShowNsfw,
+})
 const previewHtml = computed(() => sanitizeQuillHtml(form.value.content || `<p>${t('board.writePost.preview.emptyContent')}</p>`))
-
-function isFormDirty(): boolean {
-  const init = initialFormSnapshot.value
-  if (!init) return false
-  const current = form.value
-  if (
-    current.title !== init.title
-    || current.content !== init.content
-    || current.isNsfw !== init.isNsfw
-    || current.isSpoiler !== init.isSpoiler
-    || current.isNotice !== init.isNotice
-    || current.isSecret !== init.isSecret
-  ) {
-    return true
-  }
-  if (String(current.categoryId) !== String(init.categoryId)) return true
-  if (current.tags.length !== init.tags.length) return true
-  return current.tags.some((tag, index) => tag !== init.tags[index])
-}
-
-const isDirty = computed(() => isFormDirty())
 const leaveConfirmMessage = computed(() => t('board.writePost.leaveConfirm'))
 
 function onBeforeUnload(event: BeforeUnloadEvent) {
@@ -227,82 +141,6 @@ function onBeforeUnload(event: BeforeUnloadEvent) {
   event.returnValue = leaveConfirmMessage.value
   return leaveConfirmMessage.value
 }
-
-function applyDraftSnapshot(draft: {
-  title?: string
-  contents?: string
-  categoryId?: number | null
-  tags?: string[]
-  isNsfw?: boolean
-  isSpoiler?: boolean
-  isNotice?: boolean
-  isSecret?: boolean
-  fileIds?: number[]
-}) {
-  form.value = {
-    title: draft.title ?? '',
-    content: draft.contents ?? '',
-    categoryId: draft.categoryId ?? '',
-    tags: [...(draft.tags ?? [])],
-    isNsfw: Boolean(draft.isNsfw),
-    isSpoiler: Boolean(draft.isSpoiler),
-    isNotice: Boolean(draft.isNotice),
-    isSecret: Boolean(draft.isSecret),
-  }
-  draftFileIds.value = [...(draft.fileIds ?? [])]
-}
-
-const buildPayload = (fileIdScope: PostFormFileIdScope = 'content') => {
-  return buildPostFormPayload({
-    form: form.value,
-    mode: props.mode,
-    hideCategory: props.hideCategory,
-    hideTags: props.hideTags,
-    hideSpoiler: props.hideSpoiler,
-    hideSecret: props.hideSecret,
-    showNotice: showNotice.value,
-    canShowNsfw: canShowNsfw.value,
-    fileIds: resolvePostFormFileIds(form.value.content, draftFileIds.value, fileIdScope),
-  })
-}
-
-function trackUploadedFile(fileId: number) {
-  if (!draftFileIds.value.includes(fileId)) {
-    draftFileIds.value.push(fileId)
-  }
-}
-
-const {
-  saveNow: saveDraftNow,
-  scheduleAutosave,
-  restoreDraft,
-  clearRecovery,
-  writeLocalSnapshot,
-  lastSavedAt,
-  isSavingDraft,
-  restoreSource,
-  draftId,
-} = usePostDraft({
-  enabled: draftEnabled,
-  storageKey: draftStorageKey,
-  buildPayload: () => ({
-    ...buildPayload('draft'),
-    boardUrl: boardUrl.value,
-    originalPostId: props.mode === 'edit' ? Number(postId.value) : undefined,
-  }),
-  applyDraft: applyDraftSnapshot,
-})
-
-const draftStatusLabel = computed(() => {
-  if (!draftEnabled.value) return ''
-  if (isSavingDraft.value) return t('board.writePost.draftStatus.saving')
-  if (lastSavedAt.value) {
-    return t('board.writePost.draftStatus.savedAt', {
-      time: new Date(lastSavedAt.value).toLocaleTimeString(),
-    })
-  }
-  return t('board.writePost.draftStatus.ready')
-})
 
 watchEffect(() => {
   if (props.mode !== 'edit' || !post.value || hasHydratedEditPost.value) return
@@ -321,264 +159,86 @@ watchEffect(() => {
   markCurrentSnapshotSaved()
 })
 
-watch(
+const firstCategoryId = computed(() => filteredCategories.value[0]?.categoryId)
+const {
+  draftEnabled,
+  draftStatusLabel,
+  draftId,
+  isSavingDraft,
+  saveDraftNow,
+  handleSaveDraft,
+  cleanupPublishedDraft,
+} = usePostComposerDraft({
+  isAuthenticated: computed(() => Boolean(authStore.isAuthenticated)),
+  userId: computed(() => authStore.user?.userId),
+  mode: () => props.mode,
+  boardUrl,
+  postId,
   isLoading,
-  async (loading) => {
-    if (loading || hasRestoredDraft.value) return
-    hasRestoredDraft.value = true
-
-    if (props.mode === 'create' && !form.value.categoryId && filteredCategories.value.length > 0) {
-      form.value.categoryId = filteredCategories.value[0].categoryId
-    }
-
-    await restoreDraft()
-    const restoredDraftSource = restoreSource.value
-    if (restoredDraftSource !== 'idle') {
-      toastStore.addToast(
-        restoredDraftSource === 'local'
-          ? t('board.writePost.draftStatus.restoredLocal')
-          : t('board.writePost.draftStatus.restoredServer'),
-        'info',
-      )
-    }
-    markCurrentSnapshotSaved()
-  },
-  { immediate: true },
-)
-
-const draftSignature = computed(() => JSON.stringify({
-  ...buildPayload(),
-  boardUrl: boardUrl.value,
-  originalPostId: props.mode === 'edit' ? Number(postId.value) : undefined,
-}))
-
-watch(
-  draftSignature,
-  () => {
-    if (!hasRestoredDraft.value || !draftEnabled.value || isLoading.value) return
-    writeLocalSnapshot()
-    scheduleAutosave()
-  },
-  { flush: 'post' },
-)
-
-function isMobileView(): boolean {
-  if (typeof window === 'undefined') return false
-  return window.matchMedia('(max-width: 767px)').matches
-}
-
-function openVideoPopover() {
-  if (typeof window === 'undefined') {
-    videoPopoverStyle.value = { top: '300px', left: '400px' }
-  } else if (!isMobileView() && editorWrapperRef.value) {
-    const toolbar = editorWrapperRef.value.querySelector('.tiptap-toolbar')
-    if (toolbar) {
-      const rect = toolbar.getBoundingClientRect()
-      videoPopoverStyle.value = {
-        top: `${rect.bottom + 8}px`,
-        left: `${rect.left + rect.width / 2}px`,
-      }
-    } else {
-      const rect = editorWrapperRef.value.getBoundingClientRect()
-      videoPopoverStyle.value = {
-        top: `${rect.top + 60}px`,
-        left: `${rect.left + rect.width / 2}px`,
-      }
-    }
-  } else {
-    videoPopoverStyle.value = {
-      top: `${window.innerHeight / 2}px`,
-      left: `${window.innerWidth / 2}px`,
-    }
-  }
-  videoUrl.value = ''
-  showVideoPopover.value = true
-}
-
-function closeVideoPopover() {
-  showVideoPopover.value = false
-  videoUrl.value = ''
-}
-
-function insertVideoFromPopover() {
-  const rawVideoUrl = videoUrl.value.trim()
-  if (!rawVideoUrl) {
-    toastStore.addToast(t('board.writePost.videoUrlRequired'), 'error')
-    return
-  }
-
-  const embedUrl = toEmbedPostVideoUrl(rawVideoUrl)
-  if (!embedUrl) {
-    toastStore.addToast(t('board.writePost.invalidVideoUrl'), 'error')
-    return
-  }
-  tiptapEditorRef.value?.setVideo(embedUrl)
-  closeVideoPopover()
-}
-
-function handleEmoticonSelect(image: import('@/types/emoticon').EmoticonImage) {
-  tiptapEditorRef.value?.setEmoticon(image)
-  showEmoticonPicker.value = false
-}
-
-function syncEditorFocus(value: boolean) {
-  if (typeof window === 'undefined') return
-  window.dispatchEvent(new CustomEvent('noviis:editor-focus-change', { detail: value }))
-}
-
-function handleFocusIn() {
-  isEditorFocusWithin.value = true
-  syncEditorFocus(true)
-}
-
-function handleFocusOut() {
-  setTimeout(() => {
-    if (!composePageRef.value?.contains(document.activeElement)) {
-      isEditorFocusWithin.value = false
-      syncEditorFocus(false)
-    }
-  }, 0)
-}
-
-async function handleSaveDraft() {
-  try {
-    const savedDraft = await saveDraftNow()
-    if (savedDraft) {
-      markCurrentSnapshotSaved()
-      toastStore.addToast(t('board.writePost.draftStatus.saved'), 'success')
-    }
-  } catch (error) {
-    logger.error('Failed to save draft:', error)
-  }
-}
-
-function cleanupPublishedDraft() {
-  clearRecovery()
-}
-
-function navigateAfterCreate(newPostId: string | number, payload: ReturnType<typeof buildPayload>) {
-  if (props.onSubmitted) {
-    props.onSubmitted({
-      mode: 'create',
-      boardUrl: boardUrl.value,
-      newPostId,
-      isSecret: payload.isSecret,
-      isBoardAdmin: board.value?.isAdmin ?? false,
-    })
-  }
-}
-
-async function handleSubmit() {
-  if (!form.value.title) {
-    toastStore.addToast(t('board.writePost.validation'), 'error')
-    return
-  }
-  if (props.mode === 'create' && !props.hideCategory && !form.value.categoryId) {
-    toastStore.addToast(t('board.writePost.validation'), 'error')
-    return
-  }
-
-  let currentDraftId = draftId.value ?? undefined
-  if (draftEnabled.value) {
-    try {
-      const savedDraft = await saveDraftNow()
-      if (savedDraft?.draftId != null) {
-        currentDraftId = savedDraft.draftId
-      }
-    } catch (error) {
-      logger.error('Failed to save draft before submit:', error)
-      toastStore.addToast(t('common.error.unknown'), 'error')
-      return
-    }
-  }
-  const payload = {
-    ...buildPayload(),
-    ...(currentDraftId !== undefined && { draftId: currentDraftId }),
-  }
-
-  if (props.mode === 'create') {
-    createPost({ boardUrl: boardUrl.value, data: payload }, {
-      onSuccess: (response) => {
-        markCurrentSnapshotSaved()
-        cleanupPublishedDraft()
-        if (props.createSuccessToastMessage) {
-          toastStore.addToast(props.createSuccessToastMessage, 'success')
-        }
-        navigateAfterCreate(response.data.data, payload)
-      },
-      onError: (error) => {
-        logger.error('Failed to create post:', error)
-      },
-    })
-    return
-  }
-
-  updatePost({ postId: postId.value, data: payload }, {
-    onSuccess: () => {
-      markCurrentSnapshotSaved()
-      cleanupPublishedDraft()
-      if (props.onSubmitted) {
-        props.onSubmitted({
-          mode: 'edit',
-          boardUrl: boardUrl.value,
-          postId: postId.value,
-          isSecret: payload.isSecret,
-          isBoardAdmin: board.value?.isAdmin ?? false,
-        })
-      }
+  selectedCategoryId: computed({
+    get: () => form.value.categoryId,
+    set: (categoryId) => {
+      form.value.categoryId = categoryId
     },
-    onError: (error) => {
-      logger.error('Failed to update post:', error)
-    },
-  })
-}
+  }),
+  firstCategoryId,
+  buildPayload,
+  applyDraft: applyDraftSnapshot,
+  markCurrentSnapshotSaved,
+  t,
+  addToast: toastStore.addToast,
+})
+
+const { handleSubmit } = usePostComposerSubmit({
+  mode: () => props.mode,
+  boardUrl,
+  postId,
+  board,
+  form,
+  hideCategory: () => props.hideCategory,
+  draftEnabled,
+  draftId,
+  saveDraftNow,
+  buildPayload,
+  markCurrentSnapshotSaved,
+  cleanupPublishedDraft,
+  createPost,
+  updatePost,
+  onSubmitted: () => props.onSubmitted,
+  createSuccessToastMessage: () => props.createSuccessToastMessage,
+  t,
+  addToast: toastStore.addToast,
+})
 
 function handleCancel() {
   emit('cancel')
 }
 
-function handleKeyDown(event: KeyboardEvent) {
-  const { key, ctrlKey, metaKey } = event
-  if ((ctrlKey || metaKey) && key === 'Enter') {
-    event.preventDefault()
-    handleSubmit()
-    return
-  }
-  if ((ctrlKey || metaKey) && (key === 's' || key === 'S')) {
-    event.preventDefault()
-    void handleSaveDraft()
-    return
-  }
-  if (key === 'Escape') {
-    if (showVideoPopover.value) {
-      event.preventDefault()
-      closeVideoPopover()
-      return
-    }
-    if (showEmoticonPicker.value) {
-      event.preventDefault()
-      showEmoticonPicker.value = false
-      return
-    }
-    if (showPreview.value) {
-      event.preventDefault()
-      showPreview.value = false
-      return
-    }
-    event.preventDefault()
-    handleCancel()
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('keydown', handleKeyDown)
-  window.addEventListener('beforeunload', onBeforeUnload)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeyDown)
-  window.removeEventListener('beforeunload', onBeforeUnload)
-  syncEditorFocus(false)
+const {
+  tiptapEditorRef,
+  editorWrapperRef,
+  composePageRef,
+  videoPopoverRef,
+  showPreview,
+  showEmoticonPicker,
+  showVideoPopover,
+  videoUrl,
+  videoPopoverStyle,
+  editorViewMode,
+  isEditorFocusWithin,
+  openVideoPopover,
+  closeVideoPopover,
+  insertVideoFromPopover,
+  handleEmoticonSelect,
+  handleFocusIn,
+  handleFocusOut,
+} = usePostComposerEffects({
+  t,
+  addToast: toastStore.addToast,
+  handleSubmit,
+  handleSaveDraft,
+  handleCancel,
+  onBeforeUnload,
 })
 
 defineExpose({
