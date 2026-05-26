@@ -1,12 +1,9 @@
 import type { ComputedRef, Ref } from 'vue'
 import type { QueryClient } from '@tanstack/vue-query'
 import { emoticonApi } from '@/api/emoticon'
-import { fileApi } from '@/api/file'
 import { extractErrorMessage } from '@/utils/errorHandler'
-import {
-  createUploadableEmoticonImageFile,
-  type EmoticonImagePreview
-} from '@/utils/emoticonImage'
+import type { EmoticonImagePreview } from '@/utils/emoticonImage'
+import { useEmoticonImageUploader } from '@/composables/useEmoticonImageUploader'
 import type { useEmoticonUploadSession } from '@/composables/useEmoticonUploadSession'
 
 type EmoticonUploadSession = ReturnType<typeof useEmoticonUploadSession>
@@ -42,6 +39,8 @@ export function useEmoticonEditSubmit({
   onSuccess,
   onError,
 }: UseEmoticonEditSubmitOptions) {
+  const imageUploader = useEmoticonImageUploader(uploadSession)
+
   const handleSubmit = async () => {
     if (!isFormValid.value || isSubmitting.value) return
 
@@ -57,22 +56,12 @@ export function useEmoticonEditSubmit({
         name: emoticonName.value.trim(),
         tags: [...tags.value],
       }
-      const uploadFiles = submitSnapshot.newPreviews.length > 0
-        ? await Promise.all(submitSnapshot.newPreviews.map((item) => createUploadableEmoticonImageFile(item)))
-        : []
+      const uploadFiles = await imageUploader.preparePreviewFiles(submitSnapshot.newPreviews)
       uploadSession.assertSubmitActive(currentRunId)
 
       let thumbnailFileId: number | undefined
       if (submitSnapshot.thumbnail) {
-        const controller = uploadSession.createUploadController()
-
-        try {
-          const thumbnailResponse = await fileApi.uploadFile(submitSnapshot.thumbnail, { signal: controller.signal })
-          uploadSession.assertSubmitActive(currentRunId)
-          thumbnailFileId = thumbnailResponse.data.data.fileId
-        } finally {
-          uploadSession.releaseUploadController(controller)
-        }
+        thumbnailFileId = await imageUploader.uploadFile(submitSnapshot.thumbnail, currentRunId)
       }
 
       await Promise.all(submitSnapshot.imagesToDelete.map(async (imageId) => {
@@ -81,47 +70,7 @@ export function useEmoticonEditSubmit({
       }))
 
       if (uploadFiles.length > 0) {
-        uploadSession.setUploadProgress(0, uploadFiles.length)
-
-        let uploadFailed = false
-
-        const imageFileIds = await (async () => {
-          try {
-            let completed = 0
-
-            return await Promise.all(
-              uploadFiles.map(async (uploadFile) => {
-                if (uploadFailed) {
-                  throw uploadSession.createUploadCancelledError()
-                }
-
-                uploadSession.assertSubmitActive(currentRunId)
-                const controller = uploadSession.createUploadController()
-
-                try {
-                  const response = await fileApi.uploadFile(uploadFile, { signal: controller.signal })
-                  uploadSession.assertSubmitActive(currentRunId)
-                  completed += 1
-                  if (uploadSession.isSubmitActive(currentRunId)) {
-                    uploadSession.setUploadProgress(completed)
-                  }
-                  return response.data.data.fileId
-                } catch (error) {
-                  uploadFailed = true
-                  uploadSession.abortPendingUploads()
-                  throw error
-                } finally {
-                  uploadSession.releaseUploadController(controller)
-                }
-              })
-            )
-          } catch (error) {
-            uploadFailed = true
-            uploadSession.abortPendingUploads()
-            throw error
-          }
-        })()
-
+        const imageFileIds = await imageUploader.uploadFiles(uploadFiles, currentRunId)
         await Promise.all(imageFileIds.map(async (fileId) => {
           uploadSession.assertSubmitActive(currentRunId)
           await emoticonApi.addImage(submitSnapshot.emoticonId, fileId)

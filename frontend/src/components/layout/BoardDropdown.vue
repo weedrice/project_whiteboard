@@ -81,14 +81,19 @@ const navigateToBoard = (boardUrl: string) => {
 }
 
 // 드롭다운 열릴 때 keyboard store에 항목 등록
-watch(() => props.isOpen, (isOpen) => {
-  if (isOpen) {
-    const dropdownItems: DropdownItem[] = displayItems.value.map((board) => ({
-      label: board.boardName,
-      action: () => navigateToBoard(board.boardUrl),
-    }))
-    keyboardStore.setOpenDropdown(props.type, dropdownItems)
+watch([() => props.isOpen, displayItems], ([isOpen, boards]) => {
+  if (!isOpen) {
+    if (keyboardStore.openDropdownType === props.type) {
+      keyboardStore.closeDropdown()
+    }
+    return
   }
+
+  const dropdownItems: DropdownItem[] = boards.map((board) => ({
+    label: board.boardName,
+    action: () => navigateToBoard(board.boardUrl),
+  }))
+  keyboardStore.setOpenDropdown(props.type, dropdownItems)
 }, { immediate: true })
 
 // 키보드 이벤트 핸들러

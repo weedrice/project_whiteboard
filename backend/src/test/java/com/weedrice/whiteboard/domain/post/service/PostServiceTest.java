@@ -220,19 +220,41 @@ class PostServiceTest {
                 pointService,
                 pointHistoryRepository,
                 globalConfigService);
-        postCommandService = new PostCommandService(
-                postRepository,
+        PostCreateTargetResolver postCreateTargetResolver = new PostCreateTargetResolver(
                 boardRepository,
                 boardCategoryRepository,
+                agentOwnershipService,
+                userWritableResolver,
+                sanctionService);
+        PostCreatePolicyValidator postCreatePolicyValidator = new PostCreatePolicyValidator(
+                boardAccessPolicy,
+                postAuthorCommandPolicy);
+        PostVersionRecorder postVersionRecorder = new PostVersionRecorder(postVersionRepository);
+        PostDraftPublicationService postDraftPublicationService = new PostDraftPublicationService(
                 draftPostRepository,
-                postVersionRepository,
+                fileService);
+        PostCreateSideEffectService postCreateSideEffectService = new PostCreateSideEffectService(
                 tagAssignmentService,
                 eventPublisher,
                 contentRewardService,
                 fileService,
-                agentOwnershipService,
+                semanticSearchEventPublisher,
+                postVersionRecorder,
+                postDraftPublicationService);
+        postCommandService = new PostCommandService(
+                postRepository,
+                boardRepository,
+                boardCategoryRepository,
+                tagAssignmentService,
+                contentRewardService,
+                fileService,
                 userWritableResolver,
                 sanctionService,
+                postCreateTargetResolver,
+                postCreatePolicyValidator,
+                postVersionRecorder,
+                postDraftPublicationService,
+                postCreateSideEffectService,
                 boardAccessPolicy,
                 postAuthorCommandPolicy,
                 semanticSearchEventPublisher);

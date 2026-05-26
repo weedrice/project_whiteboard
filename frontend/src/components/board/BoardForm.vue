@@ -5,12 +5,11 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import { useI18n } from 'vue-i18n'
-import { fileApi } from '@/api/file'
 import { useToastStore } from '@/stores/toast'
-import { useAuthStore } from '@/stores/auth'
-import { useConfigStore } from '@/stores/config'
 import { useFormSubmit } from '@/composables/useFormSubmit'
 import { useErrorHandler } from '@/composables/useErrorHandler'
+import { useBoardCreationPolicy } from '@/composables/useBoardCreationPolicy'
+import { uploadBoardIconFile } from '@/composables/useBoardIconUpload'
 import { normalizeBoardUrlInput, validateRequiredBoardFields } from '@/utils/board'
 
 interface BoardData {
@@ -54,17 +53,15 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const toastStore = useToastStore()
-const authStore = useAuthStore()
-const configStore = useConfigStore()
 const { isSubmitting: localIsSubmitting, submit } = useFormSubmit()
 const { handleError } = useErrorHandler()
 
-const userPoints = computed(() => authStore.user?.points || 0)
-const boardCreateCost = computed(() => {
-  const cost = configStore.getConfig('POINT_BOARD_CREATE_COST')
-  return cost ? parseInt(cost) : 500
-})
-const canCreate = computed(() => props.isEdit || userPoints.value >= boardCreateCost.value)
+const isEditMode = computed(() => props.isEdit)
+const {
+  userPoints,
+  boardCreateCost,
+  canCreate
+} = useBoardCreationPolicy({ isEdit: isEditMode })
 
 const form = ref<BoardData>({ ...props.initialData })
 const selectedFile = ref<File | null>(null)
@@ -116,10 +113,7 @@ async function handleSubmit() {
 
     try {
       if (selectedFile.value) {
-        const { data } = await fileApi.uploadFile(selectedFile.value)
-        if (data.success) {
-          iconUrl = data.data.url
-        }
+        iconUrl = await uploadBoardIconFile(selectedFile.value) ?? iconUrl
       }
 
       emit('submit', {
