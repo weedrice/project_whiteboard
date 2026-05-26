@@ -31,7 +31,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -892,6 +891,17 @@ class FileServiceTest {
     }
 
     @Test
+    @DisplayName("삭제 대기 파일 ID 조회는 projection 결과를 그대로 반환한다")
+    void getPendingDeletionFileIds_usesProjectionQuery() {
+        when(fileRepository.findPendingDeletionFileIds(any(LocalDateTime.class), eq(PageRequest.of(0, 10))))
+                .thenReturn(List.of(10L, 11L));
+
+        List<Long> fileIds = fileService.getPendingDeletionFileIds(10);
+
+        assertThat(fileIds).containsExactly(10L, 11L);
+    }
+
+    @Test
     @DisplayName("삭제 요청이 없는 배치도 반환된 커서로 계속 진행한다")
     void cleanUpTemporaryFiles_continuesWhenBatchRequestsNothing() {
         LocalDateTime firstCreatedAt = LocalDateTime.of(2026, 5, 6, 10, 0);
@@ -943,42 +953,10 @@ class FileServiceTest {
     }
 
     @Test
-    @DisplayName("DELETE_FAILED 파일이 재시도 횟수를 초과하면 작업 대상에서 제외한다")
-    void getRetryableFailedDeletionFileIds_excludesFilesOverRetryLimit() {
-        File pendingDeleteFile = File.builder()
-                .filePath("pending.jpg")
-                .originalName("pending.jpg")
-                .fileSize(4L)
-                .mimeType("image/jpeg")
-                .uploader(User.builder().build())
-                .storageStatus(FileStorageStatus.PENDING_DELETE)
-                .build();
-        ReflectionTestUtils.setField(pendingDeleteFile, "fileId", 10L);
-
-        File retryableFailedFile = File.builder()
-                .filePath("failed.jpg")
-                .originalName("failed.jpg")
-                .fileSize(4L)
-                .mimeType("image/jpeg")
-                .uploader(User.builder().build())
-                .storageStatus(FileStorageStatus.DELETE_FAILED)
-                .deleteRetryCount(4)
-                .build();
-        ReflectionTestUtils.setField(retryableFailedFile, "fileId", 11L);
-
-        File exhaustedFailedFile = File.builder()
-                .filePath("exhausted.jpg")
-                .originalName("exhausted.jpg")
-                .fileSize(4L)
-                .mimeType("image/jpeg")
-                .uploader(User.builder().build())
-                .storageStatus(FileStorageStatus.DELETE_FAILED)
-                .deleteRetryCount(5)
-                .build();
-        ReflectionTestUtils.setField(exhaustedFailedFile, "fileId", 12L);
-
-        when(fileRepository.findRetryableFailedDeletionCandidates(5, PageRequest.of(0, 10)))
-                .thenReturn(new ArrayList<>(List.of(retryableFailedFile)));
+    @DisplayName("재시도 가능한 삭제 실패 파일 ID 조회는 projection 결과를 그대로 반환한다")
+    void getRetryableFailedDeletionFileIds_usesProjectionQuery() {
+        when(fileRepository.findRetryableFailedDeletionFileIds(5, PageRequest.of(0, 10)))
+                .thenReturn(List.of(11L));
 
         List<Long> fileIds = fileService.getRetryableFailedDeletionFileIds(10);
 

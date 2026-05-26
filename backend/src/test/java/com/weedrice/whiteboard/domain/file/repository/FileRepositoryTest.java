@@ -322,7 +322,7 @@ class FileRepositoryTest {
 
     @Test
     @DisplayName("삭제 후보 조회는 pending delete와 stale deleting만 반환한다")
-    void findPendingDeletionCandidates_returnsPendingAndStaleDeleting() {
+    void findPendingDeletionFileIds_returnsPendingAndStaleDeleting() {
         LocalDateTime staleBefore = LocalDateTime.now().minusMinutes(30);
         File failedFile = File.builder()
                 .originalName("failed.jpg")
@@ -371,16 +371,15 @@ class FileRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        List<File> candidates = fileRepository.findPendingDeletionCandidates(staleBefore, PageRequest.of(0, 10));
-        List<String> candidatePaths = candidates.stream().map(File::getFilePath).toList();
+        List<Long> candidateIds = fileRepository.findPendingDeletionFileIds(staleBefore, PageRequest.of(0, 10));
 
-        assertThat(candidatePaths)
-                .containsExactlyInAnyOrder("path/to/pending.jpg", "path/to/stale-deleting.jpg");
+        assertThat(candidateIds)
+                .containsExactlyInAnyOrder(pendingFile.getFileId(), staleDeletingFile.getFileId());
     }
 
     @Test
     @DisplayName("삭제 후보 조회는 재시도 한도를 넘긴 failed 파일을 제외한다")
-    void findRetryableFailedDeletionCandidates_excludesFailedFilesOverRetryLimit() {
+    void findRetryableFailedDeletionFileIds_excludesFailedFilesOverRetryLimit() {
         File retryableFailedFile = File.builder()
                 .originalName("retryable.jpg")
                 .filePath("path/to/retryable.jpg")
@@ -407,11 +406,10 @@ class FileRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        List<File> candidates = fileRepository.findRetryableFailedDeletionCandidates(5, PageRequest.of(0, 10));
-        List<String> candidatePaths = candidates.stream().map(File::getFilePath).toList();
+        List<Long> candidateIds = fileRepository.findRetryableFailedDeletionFileIds(5, PageRequest.of(0, 10));
 
-        assertThat(candidatePaths).contains("path/to/retryable.jpg");
-        assertThat(candidatePaths).doesNotContain("path/to/exhausted.jpg");
+        assertThat(candidateIds).contains(retryableFailedFile.getFileId());
+        assertThat(candidateIds).doesNotContain(exhaustedFailedFile.getFileId());
     }
 
     @Test
