@@ -1,7 +1,5 @@
 package com.weedrice.whiteboard.domain.post.service;
 
-import com.weedrice.whiteboard.domain.agent.entity.Agent;
-import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
@@ -34,7 +32,6 @@ import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.Objects;
 
 @Service
@@ -51,9 +48,10 @@ public class PostCommandService {
     private final ApplicationEventPublisher eventPublisher;
     private final ContentRewardService contentRewardService;
     private final FileService fileService;
-    private final AgentOwnershipService agentOwnershipService;
     private final UserWritableResolver userWritableResolver;
     private final SanctionService sanctionService;
+    private final PostCreateTargetResolver postCreateTargetResolver;
+    private final PostCreatePolicyValidator postCreatePolicyValidator;
     private final BoardAccessPolicy boardAccessPolicy;
     private final PostAuthorCommandPolicy postAuthorCommandPolicy;
     private final SemanticSearchEventPublisher semanticSearchEventPublisher;
@@ -93,36 +91,21 @@ public class PostCommandService {
 
     private Post createPost(@NonNull Long userId, Long agentId, Long boardId, PostCreateRequest request,
             PostCreateContext context) {
-        User user = userWritableResolver.resolve(userId);
-        sanctionService.validateNotMuted(user);
-        Agent agent = resolveAgent(userId, agentId, context);
-        Board board = resolveBoard(boardId, context);
-
-        boolean boardWritablePrevalidated = isBoardWritablePrevalidated(context);
-        if (!boardWritablePrevalidated) {
-            postAuthorCommandPolicy.validateBoardWritable(board, user);
-        }
-
-        if (request.isNotice()) {
-            if (!boardAccessPolicy.hasBoardAdminAccess(board, user)) {
-                throw new BusinessException(ErrorCode.FORBIDDEN);
-            }
-        }
-
-        BoardCategory category = resolveCreatedCategory(board, request.getCategoryId(), context);
-        if (!isCategoryWriteRolePrevalidated(context, request.getCategoryId(), category)) {
-            postAuthorCommandPolicy.validateAppliedCategoryWriteRole(board, user, category);
-        }
+        PostCreateTarget target = postCreateTargetResolver.resolveTarget(userId, agentId, boardId, context);
+        postCreatePolicyValidator.validateBoardAndNotice(target, request);
+        PostCreateCategoryTarget categoryTarget =
+                postCreateTargetResolver.resolveCategory(target.board(), request.getCategoryId(), context);
+        postCreatePolicyValidator.validateCategory(target, categoryTarget);
 
         PostTitleValidator.validate(request.getTitle());
         String sanitizedContents = sanitizePostContents(request.getContents());
-        boolean isSecret = !boardAccessPolicy.isInquiryBoard(board) && request.isSecret();
+        boolean isSecret = !boardAccessPolicy.isInquiryBoard(target.board()) && request.isSecret();
 
         Post post = Post.builder()
-                .board(board)
-                .user(user)
-                .agent(agent)
-                .category(category)
+                .board(target.board())
+                .user(target.user())
+                .agent(target.agent())
+                .category(categoryTarget.category())
                 .title(request.getTitle())
                 .contents(sanitizedContents)
                 .isNotice(request.isNotice())
@@ -133,82 +116,17 @@ public class PostCommandService {
 
         Post savedPost = postRepository.save(post);
         tagAssignmentService.assignTags(savedPost, request.getTags());
-        savePostVersion(savedPost, user, "CREATE", null, null);
+        savePostVersion(savedPost, target.user(), "CREATE", null, null);
 
         if (request.getFileIds() != null && !request.getFileIds().isEmpty()) {
             fileService.attachFilesToPost(request.getFileIds(), userId, savedPost.getPostId(), request.getDraftId());
         }
-        deletePublishedDraftIfOwned(request.getDraftId(), user);
+        deletePublishedDraftIfOwned(request.getDraftId(), target.user());
 
         contentRewardService.rewardCreate(userId, savedPost.getPostId(), ContentRewardPolicy.POST);
-        eventPublisher.publishEvent(new PostPublishedEvent(savedPost.getPostId(), board.getBoardId()));
+        eventPublisher.publishEvent(new PostPublishedEvent(savedPost.getPostId(), target.board().getBoardId()));
         semanticSearchEventPublisher.publish("POST", savedPost.getPostId(), SemanticSearchIndexAction.UPSERT);
         return savedPost;
-    }
-
-    private boolean isBoardWritablePrevalidated(PostCreateContext context) {
-        return context != null && context.boardWritablePrevalidated();
-    }
-
-    private boolean isCategoryWriteRolePrevalidated(PostCreateContext context, Long categoryId,
-            BoardCategory category) {
-        if (!isBoardWritablePrevalidated(context)) {
-            return false;
-        }
-        if (categoryId == null) {
-            return category == null;
-        }
-        return category != null
-                && context.category() != null
-                && Objects.equals(context.category().getCategoryId(), categoryId)
-                && Objects.equals(context.category().getCategoryId(), category.getCategoryId());
-    }
-
-    private Agent resolveAgent(Long userId, Long agentId, PostCreateContext context) {
-        if (context != null && context.agent() != null) {
-            Agent contextAgent = context.agent();
-            if (!Objects.equals(contextAgent.getAgentId(), agentId)
-                    || contextAgent.getUser() == null
-                    || !Objects.equals(contextAgent.getUser().getUserId(), userId)) {
-                throw new BusinessException(ErrorCode.FORBIDDEN);
-            }
-            return contextAgent;
-        }
-        if (agentId == null) {
-            return null;
-        }
-        return agentOwnershipService.resolveOwnedActiveAgent(userId, agentId);
-    }
-
-    private Board resolveBoard(Long boardId, PostCreateContext context) {
-        if (context != null && context.board() != null) {
-            Board contextBoard = context.board();
-            if (boardId != null && !Objects.equals(contextBoard.getBoardId(), boardId)) {
-                throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
-            }
-            return contextBoard;
-        }
-        if (boardId == null) {
-            throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
-        }
-        return boardRepository.findById(boardId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-    }
-
-    private BoardCategory resolveCreatedCategory(Board board, Long categoryId, PostCreateContext context) {
-        if (context != null && context.category() != null) {
-            BoardCategory contextCategory = context.category();
-            if (!Objects.equals(contextCategory.getCategoryId(), categoryId)
-                    || contextCategory.getBoard() == null
-                    || !Objects.equals(contextCategory.getBoard().getBoardId(), board.getBoardId())) {
-                throw new BusinessException(ErrorCode.NOT_FOUND);
-            }
-            return contextCategory;
-        }
-        if (categoryId == null) {
-            return null;
-        }
-        return findActiveCategory(board, categoryId);
     }
 
     @Transactional

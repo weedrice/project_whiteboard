@@ -220,6 +220,15 @@ class PostServiceTest {
                 pointService,
                 pointHistoryRepository,
                 globalConfigService);
+        PostCreateTargetResolver postCreateTargetResolver = new PostCreateTargetResolver(
+                boardRepository,
+                boardCategoryRepository,
+                agentOwnershipService,
+                userWritableResolver,
+                sanctionService);
+        PostCreatePolicyValidator postCreatePolicyValidator = new PostCreatePolicyValidator(
+                boardAccessPolicy,
+                postAuthorCommandPolicy);
         postCommandService = new PostCommandService(
                 postRepository,
                 boardRepository,
@@ -230,9 +239,10 @@ class PostServiceTest {
                 eventPublisher,
                 contentRewardService,
                 fileService,
-                agentOwnershipService,
                 userWritableResolver,
                 sanctionService,
+                postCreateTargetResolver,
+                postCreatePolicyValidator,
                 boardAccessPolicy,
                 postAuthorCommandPolicy,
                 semanticSearchEventPublisher);
