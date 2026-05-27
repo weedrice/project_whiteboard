@@ -3,6 +3,7 @@ import { defineComponent, h, nextTick, reactive } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import BoardEdit from '../BoardEdit.vue'
 import { boardApi } from '@/api/board'
+import type { AxiosRequestConfig } from 'axios'
 
 const routeState = reactive({
   params: {
@@ -231,8 +232,8 @@ describe('BoardEdit', () => {
 
   it('aborts and ignores an in-flight board load after unmount', async () => {
     let resolveBoard: (value: ReturnType<typeof mockBoard>) => void = () => undefined
-    let requestSignal: AbortSignal | undefined
-    vi.mocked(boardApi.getBoard).mockImplementationOnce((_boardUrl, config?: { signal?: AbortSignal }) => {
+    let requestSignal: AxiosRequestConfig['signal']
+    vi.mocked(boardApi.getBoard).mockImplementationOnce((_boardUrl, config?: AxiosRequestConfig) => {
       requestSignal = config?.signal
       return new Promise((resolve) => {
         resolveBoard = resolve
