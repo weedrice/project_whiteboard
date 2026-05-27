@@ -7,9 +7,17 @@ import logger from '@/utils/logger'
 import { boardApi } from '@/api/board'
 import { emoticonApi } from '@/api/emoticon'
 
+const queryClientMock = vi.hoisted(() => ({
+    fetchQuery: vi.fn(({ queryFn }: { queryFn: () => Promise<unknown> }) => queryFn())
+}))
+
 // Mock Auth Store
 vi.mock('@/stores/auth', () => ({
     useAuthStore: vi.fn()
+}))
+
+vi.mock('@/queryClient', () => ({
+    queryClient: queryClientMock
 }))
 
 vi.mock('@/api/board', () => ({

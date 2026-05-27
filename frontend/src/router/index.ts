@@ -3,7 +3,9 @@ import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { boardApi } from '@/api/board'
 import { emoticonApi } from '@/api/emoticon'
+import { queryClient } from '@/queryClient'
 import { canWriteBoardPost } from '@/utils/board'
+import { QUERY_STALE_TIME } from '@/utils/constants'
 import logger from '@/utils/logger'
 import i18n from '@/i18n'
 import type { BoardDetail } from '@/types'
@@ -392,8 +394,14 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
             }
 
             try {
-                const { data } = await boardApi.getBoard(boardUrl)
-                const board = data.data as BoardDetail
+                const board = await queryClient.fetchQuery({
+                    queryKey: ['board', boardUrl],
+                    queryFn: async () => {
+                        const { data } = await boardApi.getBoard(boardUrl)
+                        return data.data as BoardDetail
+                    },
+                    staleTime: QUERY_STALE_TIME.SHORT,
+                })
                 if (to.meta.requiresBoardAdmin && !board.isAdmin) {
                     useToastStore().addToast('You do not have permission to manage this board.', 'error')
                     next({ name: 'board-detail', params: { boardUrl } })
