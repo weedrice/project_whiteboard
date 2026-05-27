@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { apiEmptySuccess, apiSuccess } from '@/test/factories'
 
 const apiMock = vi.hoisted(() => ({
   get: vi.fn(),
@@ -18,10 +19,10 @@ describe('adApi', () => {
 
   it('calls ad endpoints with existing paths and unwraps envelopes', async () => {
     const ad = { adId: 11, title: 'Ad', imageUrl: null, targetUrl: 'https://example.com' }
-    apiMock.get.mockResolvedValueOnce({ data: { success: true, data: ad } })
+    apiMock.get.mockResolvedValueOnce({ data: apiSuccess(ad) })
     apiMock.post
-      .mockResolvedValueOnce({ data: { success: true } })
-      .mockResolvedValueOnce({ data: { success: true, data: 'https://example.com' } })
+      .mockResolvedValueOnce({ data: apiEmptySuccess() })
+      .mockResolvedValueOnce({ data: apiSuccess('https://example.com') })
 
     await expect(adApi.getAd('SIDEBAR')).resolves.toEqual(ad)
     await adApi.recordImpression(11)

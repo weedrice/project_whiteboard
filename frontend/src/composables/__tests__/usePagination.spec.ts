@@ -1,21 +1,16 @@
 import { describe, expect, it, vi } from 'vitest'
 import { effectScope } from 'vue'
 import { usePagination, type PaginationFetchContext, type PaginationParams } from '../usePagination'
+import { apiSuccess, pageResponse } from '@/test/factories'
 import type { ApiResponse, PageResponse } from '@/types'
 
-const pageResponse = <T>(content: T[], params: { page: number; size: number; totalPages?: number }): ApiResponse<PageResponse<T>> => ({
-    success: true,
-    data: {
-        content,
-        totalElements: content.length,
+const apiPageResponse = <T>(content: T[], params: { page: number; size: number; totalPages?: number }): ApiResponse<PageResponse<T>> => (
+    apiSuccess(pageResponse(content, {
         totalPages: params.totalPages ?? 1,
         size: params.size,
         number: params.page,
-        first: params.page === 0,
-        last: params.page >= (params.totalPages ?? 1) - 1,
-        empty: content.length === 0,
-    },
-})
+    }))
+)
 
 function deferred<T>() {
     let resolve!: (value: T) => void
@@ -31,7 +26,7 @@ describe('usePagination', () => {
     it('fetches items with current page and size', async () => {
         const scope = effectScope()
         const fetchFn = vi.fn(async (params: PaginationParams, _context: PaginationFetchContext) => (
-            pageResponse([{ id: 1 }], { page: Number(params.page), size: Number(params.size), totalPages: 2 })
+            apiPageResponse([{ id: 1 }], { page: Number(params.page), size: Number(params.size), totalPages: 2 })
         ))
 
         try {
@@ -54,7 +49,7 @@ describe('usePagination', () => {
     it('updates page and size through handlers', async () => {
         const scope = effectScope()
         const fetchFn = vi.fn(async (params: PaginationParams, _context: PaginationFetchContext) => (
-            pageResponse([{ id: Number(params.page) }], { page: Number(params.page), size: Number(params.size) })
+            apiPageResponse([{ id: Number(params.page) }], { page: Number(params.page), size: Number(params.size) })
         ))
 
         try {
@@ -92,14 +87,14 @@ describe('usePagination', () => {
                 pagination.page.value = 1
                 const secondFetch = pagination.fetch()
 
-                secondRequest.resolve(pageResponse([{ id: 2 }], { page: 1, size: 15, totalPages: 3 }))
+                secondRequest.resolve(apiPageResponse([{ id: 2 }], { page: 1, size: 15, totalPages: 3 }))
                 await secondFetch
 
                 expect(pagination.items.value).toEqual([{ id: 2 }])
                 expect(pagination.totalPages.value).toBe(3)
                 expect(pagination.loading.value).toBe(false)
 
-                firstRequest.resolve(pageResponse([{ id: 1 }], { page: 0, size: 15, totalPages: 2 }))
+                firstRequest.resolve(apiPageResponse([{ id: 1 }], { page: 0, size: 15, totalPages: 2 }))
                 await firstFetch
 
                 expect(pagination.items.value).toEqual([{ id: 2 }])
@@ -127,7 +122,7 @@ describe('usePagination', () => {
                 const fetchPromise = pagination.fetch()
                 pagination.reset()
                 expect(capturedSignal?.aborted).toBe(true)
-                request.resolve(pageResponse([{ id: 1 }], { page: 0, size: 15 }))
+                request.resolve(apiPageResponse([{ id: 1 }], { page: 0, size: 15 }))
                 await fetchPromise
 
                 expect(pagination.items.value).toEqual([])
@@ -164,7 +159,7 @@ describe('usePagination', () => {
         scope.stop()
         expect(getCapturedSignal().aborted).toBe(true)
 
-        request.resolve(pageResponse([{ id: 1 }], { page: 0, size: 15 }))
+        request.resolve(apiPageResponse([{ id: 1 }], { page: 0, size: 15 }))
         await fetchPromise
     })
 })

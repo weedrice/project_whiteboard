@@ -2,9 +2,8 @@ import { ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useBoardCategoriesManager } from '../useBoardCategoriesManager'
 import { boardApi } from '@/api/board'
+import { apiEmptySuccess, apiSuccess, axiosApiResponse } from '@/test/factories'
 import type { Category } from '@/types'
-import type { ApiResponse } from '@/types'
-import type { AxiosResponse } from 'axios'
 
 const mocks = vi.hoisted(() => ({
     addToast: vi.fn(),
@@ -60,18 +59,6 @@ function createManager() {
     return useBoardCategoriesManager(ref('free-board'))
 }
 
-function apiResponse<T>(data: ApiResponse<T>): AxiosResponse<ApiResponse<T>> {
-    return {
-        data,
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-        config: {
-            headers: undefined,
-        },
-    } as unknown as AxiosResponse<ApiResponse<T>>
-}
-
 describe('useBoardCategoriesManager', () => {
     beforeEach(() => {
         vi.clearAllMocks()
@@ -80,13 +67,12 @@ describe('useBoardCategoriesManager', () => {
 
     it('loads categories sorted by sortOrder', async () => {
         vi.mocked(boardApi.getCategories).mockResolvedValueOnce(
-            apiResponse({
-                success: true,
-                data: [
+            axiosApiResponse(
+                apiSuccess([
                     makeCategory({ categoryId: 2, name: 'Second', sortOrder: 2 }),
                     makeCategory({ categoryId: 1, name: 'General', sortOrder: 1, isDefault: true }),
-                ],
-            })
+                ])
+            )
         )
 
         const manager = createManager()
@@ -107,15 +93,14 @@ describe('useBoardCategoriesManager', () => {
         manager.newCategoryRole.value = 'BOARD_ADMIN'
 
         vi.mocked(boardApi.createCategory).mockResolvedValueOnce(
-            apiResponse({
-                success: true,
-                data: makeCategory({
+            axiosApiResponse(
+                apiSuccess(makeCategory({
                     categoryId: 2,
                     name: 'Notice',
                     sortOrder: 2,
                     minWriteRole: 'BOARD_ADMIN',
-                }),
-            })
+                }))
+            )
         )
 
         await manager.handleAdd()
@@ -146,10 +131,7 @@ describe('useBoardCategoriesManager', () => {
             makeCategory({ categoryId: 2, name: 'Notice' }),
         ]
         vi.mocked(boardApi.deleteCategory).mockResolvedValueOnce(
-            apiResponse({
-                success: true,
-                data: undefined,
-            })
+            axiosApiResponse(apiEmptySuccess())
         )
 
         await manager.handleDelete(2)
@@ -167,15 +149,14 @@ describe('useBoardCategoriesManager', () => {
         manager.editingRole.value = 'BOARD_ADMIN'
 
         vi.mocked(boardApi.updateCategory).mockResolvedValueOnce(
-            apiResponse({
-                success: true,
-                data: makeCategory({
+            axiosApiResponse(
+                apiSuccess(makeCategory({
                     categoryId: 2,
                     name: 'New',
                     sortOrder: 2,
                     minWriteRole: 'BOARD_ADMIN',
-                }),
-            })
+                }))
+            )
         )
 
         await manager.saveEdit(category)
@@ -199,10 +180,7 @@ describe('useBoardCategoriesManager', () => {
             makeCategory({ categoryId: 3, name: 'B', sortOrder: 3 }),
         ]
         vi.mocked(boardApi.updateCategory).mockResolvedValue(
-            apiResponse({
-                success: true,
-                data: makeCategory({}),
-            })
+            axiosApiResponse(apiSuccess(makeCategory({})))
         )
 
         manager.onDragStart({ dataTransfer: { effectAllowed: 'copy' } } as unknown as DragEvent, 1)
@@ -234,14 +212,13 @@ describe('useBoardCategoriesManager', () => {
         ]
         vi.mocked(boardApi.updateCategory).mockRejectedValueOnce(new Error('failed'))
         vi.mocked(boardApi.getCategories).mockResolvedValueOnce(
-            apiResponse({
-                success: true,
-                data: [
+            axiosApiResponse(
+                apiSuccess([
                     makeCategory({ categoryId: 1, name: 'General', sortOrder: 1, isDefault: true }),
                     makeCategory({ categoryId: 2, name: 'A', sortOrder: 2 }),
                     makeCategory({ categoryId: 3, name: 'B', sortOrder: 3 }),
-                ],
-            })
+                ])
+            )
         )
 
         manager.onDragStart({ dataTransfer: null } as unknown as DragEvent, 1)
