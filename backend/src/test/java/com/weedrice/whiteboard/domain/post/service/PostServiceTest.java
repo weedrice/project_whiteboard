@@ -167,6 +167,7 @@ class PostServiceTest {
                 new BoardCategoryWritePolicy(boardAccessPolicy));
         userWritableResolver = new UserWritableResolver(userRepository, sanctionService);
         viewHistoryCommandService = new ViewHistoryCommandService(viewHistoryRepository);
+        PostViewCountWriter postViewCountWriter = new PostViewCountWriter(postRepository);
         postDetailReadService = new PostDetailReadService(
                 postRepository,
                 viewHistoryRepository,
@@ -176,7 +177,8 @@ class PostServiceTest {
                 postReadContextResolver,
                 postInteractionContextResolver,
                 postAccessPolicy,
-                boardAccessPolicy);
+                boardAccessPolicy,
+                postViewCountWriter);
         postDraftService = new PostDraftService(
                 userRepository,
                 boardRepository,
@@ -202,6 +204,7 @@ class PostServiceTest {
                 postSummaryAssembler,
                 postAccessPolicy,
                 reactionWriter,
+                postViewCountWriter,
                 entityManager);
         postLatestReadService = new PostLatestReadService(
                 postRepository,

@@ -33,6 +33,7 @@ public class PostDetailReadService {
     private final PostInteractionContextResolver postInteractionContextResolver;
     private final PostAccessPolicy postAccessPolicy;
     private final BoardAccessPolicy boardAccessPolicy;
+    private final PostViewCountWriter postViewCountWriter;
 
     public PostResponse getPostResponse(@NonNull Long postId, Long userId) {
         return getPostResponse(postId, userId, DEFAULT_BOARD_PAGE_SIZE);
@@ -80,7 +81,7 @@ public class PostDetailReadService {
         ViewHistory viewHistory = null;
 
         if (incrementView) {
-            incrementReadablePostViewCount(postId);
+            postViewCountWriter.incrementReadablePostViewCount(postId);
 
             if (readContext.viewer() != null) {
                 viewHistory = viewHistoryCommandService.touchAndLoadView(readContext.viewer(), post);
@@ -128,12 +129,6 @@ public class PostDetailReadService {
     private Post findPost(@NonNull Long postId) {
         return postRepository.findByIdWithRelations(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-    }
-
-    private void incrementReadablePostViewCount(Long postId) {
-        if (postRepository.incrementViewCount(postId) == 0) {
-            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
-        }
     }
 
     private int getReadablePostViewCount(Long postId) {
