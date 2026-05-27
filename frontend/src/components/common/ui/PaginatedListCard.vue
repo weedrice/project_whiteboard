@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import type { Component } from 'vue'
+import { computed, useSlots, type Component } from 'vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   title: string
   icon: Component
   itemsCount: number
@@ -17,9 +17,15 @@ withDefaults(defineProps<{
   totalPages: number
   maxWidthClass?: string
   headerClass?: string
+  pageSizeOptions?: number[]
+  actionsVisibility?: 'desktop' | 'always'
+  titleTag?: 'h1' | 'h2' | 'h3'
 }>(), {
   maxWidthClass: 'max-w-4xl',
   headerClass: 'px-4 py-4 sm:py-5 sm:px-6 gap-3',
+  pageSizeOptions: () => [15, 30, 50],
+  actionsVisibility: 'desktop',
+  titleTag: 'h3',
 })
 
 const emit = defineEmits<{
@@ -27,6 +33,11 @@ const emit = defineEmits<{
   'page-change': [page: number]
   'size-change': [size: number]
 }>()
+
+const slots = useSlots()
+const headerActionsClass = computed(() => props.actionsVisibility === 'always'
+  ? 'flex items-center gap-2'
+  : 'hidden sm:flex sm:items-center sm:gap-2')
 </script>
 
 <template>
@@ -38,13 +49,26 @@ const emit = defineEmits<{
           'flex flex-col sm:flex-row sm:justify-between sm:items-center border-b border-gray-200 dark:border-gray-700',
         ]"
       >
-        <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white flex items-center">
+        <component :is="titleTag" class="text-lg leading-6 font-medium text-gray-900 dark:text-white flex items-center">
           <component :is="icon" class="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400 flex-shrink-0" />
           {{ title }}
-        </h3>
-        <div class="hidden sm:flex sm:items-center sm:gap-2">
-          <PageSizeSelector :model-value="size" @update:modelValue="emit('size-change', $event)" />
-          <slot name="header-actions" />
+        </component>
+        <div class="flex items-center gap-2">
+          <PageSizeSelector
+            :model-value="size"
+            :options="pageSizeOptions"
+            class="hidden sm:flex"
+            @update:modelValue="emit('size-change', $event)"
+          />
+          <div v-if="slots['header-actions']" :class="headerActionsClass">
+            <slot name="header-actions" />
+          </div>
+        </div>
+      </div>
+
+      <div v-if="slots.subheader" class="border-b border-gray-200 dark:border-gray-700">
+        <div class="px-4 py-3 sm:px-6">
+          <slot name="subheader" />
         </div>
       </div>
 
@@ -53,7 +77,8 @@ const emit = defineEmits<{
       <EmptyState v-else-if="itemsCount === 0" :title="emptyTitle" :icon="icon" />
       <slot v-else />
 
-      <div v-if="itemsCount > 0" class="bg-gray-50 dark:bg-gray-900/50 px-4 py-4 sm:px-6 flex justify-center">
+      <div v-if="itemsCount > 0" class="bg-gray-50 dark:bg-gray-900/50 px-4 py-4 sm:px-6 flex flex-col items-center">
+        <slot name="footer-meta" />
         <Pagination :current-page="page" :total-pages="totalPages" @page-change="emit('page-change', $event)" />
       </div>
     </div>

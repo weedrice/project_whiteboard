@@ -4,12 +4,9 @@ import { useNotification } from '@/composables/useNotification'
 import { useNotificationNavigation } from '@/composables/useNotificationNavigation'
 import { Check, Bell } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
-import Pagination from '@/components/common/ui/Pagination.vue'
-import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
-import EmptyState from '@/components/common/ui/EmptyState.vue'
+import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
-import ErrorState from '@/components/common/ui/ErrorState.vue'
 import { useNotificationListState } from '@/composables/useNotificationListState'
 import { formatDate } from '@/utils/date'
 import type { Notification } from '@/types'
@@ -36,7 +33,8 @@ function handlePageChange(newPage: number) {
   page.value = newPage
 }
 
-function handleSizeChange() {
+function handleSizeChange(newSize = size.value) {
+  size.value = newSize
   page.value = 0
 }
 
@@ -54,34 +52,38 @@ function handleMarkAllAsRead() {
 </script>
 
 <template>
-  <div class="max-w-4xl mx-auto py-3 sm:py-6 md:py-8 px-3 sm:px-6 lg:px-8">
-    <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
-      <div
-        class="px-3 py-3 sm:py-5 sm:px-6 flex flex-row justify-between items-center gap-2 border-b border-gray-200 dark:border-gray-700">
-        <h3
-          class="text-base sm:text-lg leading-6 font-medium text-gray-900 dark:text-white flex items-center flex-1 min-w-0">
-          <Bell class="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-gray-500 dark:text-gray-400 flex-shrink-0" />
-          {{ $t('notification.title') }}
-        </h3>
-        <div class="flex items-center gap-2 flex-shrink-0">
-          <div class="hidden sm:block">
-            <PageSizeSelector v-model="size" @change="handleSizeChange" />
-          </div>
-          <BaseButton
-            @click="handleMarkAllAsRead"
-            size="sm"
-            variant="secondary"
-            :disabled="!hasUnreadNotifications || isMarkingAllAsRead"
-            class="min-h-[36px] sm:min-h-0 text-xs sm:text-sm"
-          >
-            <Check class="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 text-green-500" />
-            <span class="sm:hidden">{{ $t('notification.markAllReadShort') || $t('notification.markAllRead') }}</span>
-            <span class="hidden sm:inline">{{ $t('notification.markAllRead') }}</span>
-          </BaseButton>
-        </div>
-      </div>
+  <PaginatedListCard
+    :title="$t('notification.title')"
+    :icon="Bell"
+    :items-count="notifications.length"
+    :loading="isLoading"
+    :error="isError ? errorMessage : null"
+    :empty-title="$t('notification.empty')"
+    :page="page"
+    :size="size"
+    :total-pages="totalPages"
+    header-class="px-3 py-3 sm:py-5 sm:px-6 gap-2"
+    actions-visibility="always"
+    @retry="refetch"
+    @page-change="handlePageChange"
+    @size-change="handleSizeChange"
+  >
+    <template #header-actions>
+      <BaseButton
+        @click="handleMarkAllAsRead"
+        size="sm"
+        variant="secondary"
+        :disabled="!hasUnreadNotifications || isMarkingAllAsRead"
+        class="min-h-[36px] sm:min-h-0 text-xs sm:text-sm"
+      >
+        <Check class="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 text-green-500" />
+        <span class="sm:hidden">{{ $t('notification.markAllReadShort') || $t('notification.markAllRead') }}</span>
+        <span class="hidden sm:inline">{{ $t('notification.markAllRead') }}</span>
+      </BaseButton>
+    </template>
 
-      <div v-if="isLoading && notifications.length === 0" class="divide-y divide-gray-200 dark:divide-gray-700">
+    <template #loading>
+      <div class="divide-y divide-gray-200 dark:divide-gray-700">
         <div v-for="i in 5" :key="i" class="px-3 py-3 sm:px-6 sm:py-4 flex justify-between items-center">
           <div class="flex flex-col flex-1 min-w-0">
             <BaseSkeleton width="80%" height="14px" className="mb-1" />
@@ -90,46 +92,33 @@ function handleMarkAllAsRead() {
           <BaseSkeleton width="48px" height="16px" rounded="rounded-full" />
         </div>
       </div>
+    </template>
 
-      <ErrorState
-        v-else-if="isError"
-        :message="errorMessage"
-        :show-retry="true"
-        @retry="refetch"
-      />
-
-      <EmptyState v-else-if="notifications.length === 0" :title="$t('notification.empty')" :icon="Bell" />
-
-      <ul v-else class="divide-y divide-gray-200 dark:divide-gray-700">
-        <li v-for="notification in notifications" :key="notification.notificationId"
-          class="hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-150 ease-in-out"
-          :class="{ 'bg-blue-50 dark:bg-blue-900/20': !notification.isRead }">
-          <a href="#" @click.prevent="handleNotificationClick(notification)"
-            class="block px-3 py-3 sm:px-6 sm:py-4 min-h-[48px] active:bg-gray-100 dark:active:bg-gray-600">
-            <div class="flex flex-row items-center justify-between gap-3">
-              <div class="min-w-0 flex-1">
-                <div class="flex items-center justify-between gap-2 mb-0.5">
-                  <span class="text-[11px] text-gray-500 dark:text-gray-400 flex-shrink-0">
-                    {{ formatDate(notification.createdAt) }}
-                  </span>
-                  <span
-                    class="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-400 flex-shrink-0">
-                    {{ notification.sourceType === 'POST' ? '게시글' : notification.sourceType === 'COMMENT' ? '댓글' :
-                      notification.sourceType }}
-                  </span>
-                </div>
-                <div class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
-                  {{ notification.message }}
-                </div>
+    <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+      <li v-for="notification in notifications" :key="notification.notificationId"
+        class="hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-150 ease-in-out"
+        :class="{ 'bg-blue-50 dark:bg-blue-900/20': !notification.isRead }">
+        <a href="#" @click.prevent="handleNotificationClick(notification)"
+          class="block px-3 py-3 sm:px-6 sm:py-4 min-h-[48px] active:bg-gray-100 dark:active:bg-gray-600">
+          <div class="flex flex-row items-center justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center justify-between gap-2 mb-0.5">
+                <span class="text-[11px] text-gray-500 dark:text-gray-400 flex-shrink-0">
+                  {{ formatDate(notification.createdAt) }}
+                </span>
+                <span
+                  class="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-400 flex-shrink-0">
+                  {{ notification.sourceType === 'POST' ? '게시글' : notification.sourceType === 'COMMENT' ? '댓글' :
+                    notification.sourceType }}
+                </span>
+              </div>
+              <div class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
+                {{ notification.message }}
               </div>
             </div>
-          </a>
-        </li>
-      </ul>
-
-      <div v-if="notifications.length > 0" class="bg-gray-50 dark:bg-gray-900/50 px-4 py-4 sm:px-6 flex justify-center">
-        <Pagination :current-page="page" :total-pages="totalPages" @page-change="handlePageChange" />
-      </div>
-    </div>
-  </div>
+          </div>
+        </a>
+      </li>
+    </ul>
+  </PaginatedListCard>
 </template>
