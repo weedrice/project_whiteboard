@@ -88,9 +88,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed } from 'vue'
 import { useSearch } from '@/composables/useSearch'
+import { useSearchRouteQuery } from '@/composables/useSearchRouteQuery'
 import PostList from '@/components/board/PostList.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
@@ -100,53 +100,16 @@ import { Search, Layout } from 'lucide-vue-next'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
 import { isInquiryPostItem, resolvePostDetailRoute } from '@/utils/postNavigation'
 
-const route = useRoute()
-const router = useRouter()
 const { useIntegratedSearch } = useSearch()
-const searchInput = ref('')
-
-const firstQueryValue = (value: unknown): string => {
-  if (Array.isArray(value)) {
-    return String(value[0] ?? '')
-  }
-  return String(value ?? '')
-}
-
-const query = computed(() => (
-  [
-    firstQueryValue(route.query.q),
-    firstQueryValue(route.query.keyword),
-    firstQueryValue(route.query.tag)
-  ]
-    .map((value) => value.trim())
-    .find(Boolean) ?? ''
-))
-const params = computed(() => ({
-  q: query.value,
-  page: 0,
-  size: 20
-}))
+const {
+  searchInput,
+  searchQuery,
+  hasSearchQuery,
+  params,
+  handleSearchSubmit,
+} = useSearchRouteQuery()
 
 const { data: searchData, isLoading } = useIntegratedSearch(params)
 const posts = computed(() => searchData.value?.postResults || [])
 const boards = computed(() => searchData.value?.boardResults || [])
-const searchQuery = computed(() => query.value)
-const hasSearchQuery = computed(() => searchQuery.value.length > 0)
-
-watch(query, (value) => {
-  searchInput.value = value
-}, { immediate: true })
-
-function handleSearchSubmit() {
-  const q = searchInput.value.trim()
-  if (!q) return
-
-  router.push({
-    name: 'search',
-    query: {
-      q,
-      t: Date.now().toString()
-    }
-  })
-}
 </script>
