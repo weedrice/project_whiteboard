@@ -50,4 +50,19 @@ describe('AdminPanel', () => {
     expect(wrapper.classes()).not.toContain('p-4')
     expect(wrapper.classes()).not.toContain('p-5')
   })
+
+  it('supports small shadow, transparent border, and hidden overflow', () => {
+    const wrapper = mount(AdminPanel, {
+      props: {
+        shadow: 'sm',
+        border: 'transparent',
+        overflow: 'hidden',
+      },
+    })
+
+    expect(wrapper.classes()).toContain('shadow-sm')
+    expect(wrapper.classes()).not.toContain('shadow')
+    expect(wrapper.classes()).toContain('border-transparent')
+    expect(wrapper.classes()).toContain('overflow-hidden')
+  })
 })

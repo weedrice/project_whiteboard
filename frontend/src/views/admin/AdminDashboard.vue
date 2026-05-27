@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { Users, FileText, Activity } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
+import AdminPanel from '@/components/admin/AdminPanel.vue'
 
 const { t } = useI18n()
 const { useDashboardStats } = useAdmin()
@@ -33,8 +34,13 @@ const recentActivity = ref([])
     <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">{{ t('admin.dashboard.title') }}</h1>
 
     <div class="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-      <div v-for="item in stats" :key="item.name"
-        class="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg border border-transparent dark:border-gray-700">
+      <AdminPanel
+        v-for="item in stats"
+        :key="item.name"
+        padding="none"
+        border="transparent"
+        overflow="hidden"
+      >
         <div class="p-5">
           <div class="flex items-center">
             <div class="flex-shrink-0">
@@ -62,20 +68,19 @@ const recentActivity = ref([])
             </router-link>
           </div>
         </div>
-      </div>
+      </AdminPanel>
     </div>
 
     <div class="mt-8">
       <h2 class="text-lg font-medium text-gray-900 dark:text-white">{{ t('admin.dashboard.recentActivity') }}</h2>
-      <div
-        class="mt-4 bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-md border border-transparent dark:border-gray-700">
+      <AdminPanel class="mt-4 sm:rounded-md" padding="none" border="transparent" overflow="hidden">
         <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
           <li v-if="recentActivity.length === 0" class="px-4 py-4 sm:px-6 text-center text-gray-500 dark:text-gray-400">
             {{ t('admin.dashboard.noActivity') }}
           </li>
           <!-- Activity items would go here -->
         </ul>
-      </div>
+      </AdminPanel>
     </div>
   </div>
 </template>
