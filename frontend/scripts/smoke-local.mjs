@@ -55,6 +55,16 @@ function isOk(status) {
   return status >= 200 && status < 300
 }
 
+function getPathname(url) {
+  if (!url) return ''
+
+  try {
+    return new URL(url).pathname
+  } catch {
+    return ''
+  }
+}
+
 async function fetchStatus(url, options = {}) {
   try {
     const response = await fetch(url, options)
@@ -76,10 +86,11 @@ async function runSpaSmoke() {
   for (const route of spaRoutes) {
     const response = await fetchStatus(`${frontendOrigin}${route}`)
     const body = isOk(response.status) ? await response.text() : ''
+    const redirectedToLogin = route !== '/auth/login' && getPathname(response.url) === '/auth/login'
     results.push({
       target: route,
       status: response.status,
-      ok: isOk(response.status) && body.includes('id="app"'),
+      ok: isOk(response.status) && body.includes('id="app"') && !redirectedToLogin,
     })
   }
 
