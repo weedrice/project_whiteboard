@@ -4,6 +4,7 @@ import { useAdmin } from '@/composables/useAdmin'
 import { Shield } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
+import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
 import IpBlockList from '@/components/admin/IpBlockList.vue'
 import IpBlockDetailModal from '@/components/admin/IpBlockDetailModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
@@ -81,12 +82,7 @@ watch(totalPages, (nextTotalPages) => {
 
 <template>
     <div>
-        <div class="sm:flex sm:items-center">
-            <div class="sm:flex-auto">
-                <h1 class="text-xl font-semibold text-gray-900 dark:text-white">{{ t('admin.security.title') }}</h1>
-                <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">{{ t('admin.security.description') }}</p>
-            </div>
-        </div>
+        <AdminPageHeader :title="t('admin.security.title')" :description="t('admin.security.description')" />
 
         <!-- Block IP Form -->
         <div

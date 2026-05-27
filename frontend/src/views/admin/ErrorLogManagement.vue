@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useErrorLogDetailModal } from '@/composables/useErrorLogDetailModal'
 import { useErrorLogListState } from '@/composables/useErrorLogListState'
+import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
 import { useI18n } from 'vue-i18n'
 import { Eye, CheckCircle, ChevronLeft, ChevronRight, X, Search, Copy } from 'lucide-vue-next'
 
@@ -60,12 +61,7 @@ function formatDate(dateStr: string): string {
 <template>
     <div>
         <!-- 헤더 -->
-        <div class="sm:flex sm:items-center">
-            <div class="sm:flex-auto">
-                <h1 class="text-xl font-semibold text-gray-900 dark:text-white">{{ t('admin.errorLogs.title') }}</h1>
-                <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">{{ t('admin.errorLogs.description') }}</p>
-            </div>
-        </div>
+        <AdminPageHeader :title="t('admin.errorLogs.title')" :description="t('admin.errorLogs.description')" />
 
         <!-- 통계 카드 -->
         <div v-if="statsData" class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">

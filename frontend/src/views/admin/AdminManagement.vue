@@ -8,6 +8,7 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTable from '@/components/common/ui/BaseTable.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
+import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
 import { formatDate } from '@/utils/date'
 
 const { t } = useI18n()
@@ -76,12 +77,7 @@ const superAdminColumns: { key: string; label: string; width: string; align?: 'l
 
 <template>
   <div>
-    <div class="sm:flex sm:items-center">
-      <div class="sm:flex-auto">
-        <h1 class="text-xl font-semibold text-gray-900 dark:text-white">{{ t('admin.admins.title') }}</h1>
-        <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">{{ t('admin.admins.description') }}</p>
-      </div>
-    </div>
+    <AdminPageHeader :title="t('admin.admins.title')" :description="t('admin.admins.description')" />
 
     <div class="mt-6">
       <div

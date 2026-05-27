@@ -8,6 +8,7 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import BaseTable from '@/components/common/ui/BaseTable.vue'
+import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
 import UserDetailModal from '@/components/admin/UserDetailModal.vue'
 import { formatDateOnly } from '@/utils/date'
 import { useConfirm } from '@/composables/useConfirm'
@@ -182,12 +183,7 @@ const columns = computed(() => [
 
 <template>
   <div>
-    <div class="sm:flex sm:items-center">
-      <div class="sm:flex-auto">
-        <h1 class="text-xl font-semibold text-gray-900 dark:text-white">{{ t('admin.users.title') }}</h1>
-        <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">{{ t('admin.users.description') }}</p>
-      </div>
-    </div>
+    <AdminPageHeader :title="t('admin.users.title')" :description="t('admin.users.description')" />
 
     <div class="mt-6 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
       <div class="flex flex-col items-start gap-4">

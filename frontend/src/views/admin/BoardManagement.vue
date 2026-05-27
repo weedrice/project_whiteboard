@@ -1,16 +1,14 @@
 <template>
   <div class="space-y-6">
-    <div class="sm:flex sm:items-center sm:justify-between">
-      <div>
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ $t('admin.boards.title') }}</h1>
-        <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">{{ $t('admin.boards.description') }}</p>
-      </div>
-      <div class="mt-4 sm:mt-0">
-        <BaseButton @click="openCreateModal">
-          {{ $t('admin.boards.addTitle') }}
-        </BaseButton>
-      </div>
-    </div>
+    <AdminPageHeader :title="$t('admin.boards.title')" :description="$t('admin.boards.description')">
+      <template #actions>
+        <div class="mt-4 sm:mt-0">
+          <BaseButton @click="openCreateModal">
+            {{ $t('admin.boards.addTitle') }}
+          </BaseButton>
+        </div>
+      </template>
+    </AdminPageHeader>
 
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-12">
       <section class="xl:col-span-4">
@@ -252,6 +250,7 @@ import { useAdminBoardEditor } from '@/composables/useAdminBoardEditor'
 import { useAdminBoardCreateModal } from '@/composables/useAdminBoardCreateModal'
 import { useBoardIconUpload } from '@/composables/useBoardIconUpload'
 import { useBoardManagerAssignment } from '@/composables/useBoardManagerAssignment'
+import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -259,9 +258,6 @@ import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import UserSelectModal from '@/components/common/widgets/UserSelectModal.vue'
-import { useI18n } from 'vue-i18n'
-
-const { t } = useI18n()
 const {
   useAdminBoards,
   useCreateBoard,

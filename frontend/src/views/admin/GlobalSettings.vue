@@ -8,6 +8,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import { useToastStore } from '@/stores/toast'
 import BaseTable from '@/components/common/ui/BaseTable.vue'
+import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
 import { useConfirm } from '@/composables/useConfirm'
 
 
@@ -90,17 +91,15 @@ const columns = [
 
 <template>
   <div>
-    <div class="sm:flex sm:items-center">
-      <div class="sm:flex-auto">
-        <h1 class="text-xl font-semibold text-gray-900 dark:text-white">{{ t('admin.settings.title') }}</h1>
-        <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">{{ t('admin.settings.description') }}</p>
-      </div>
-      <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-        <BaseButton @click="isModalOpen = true">
-          {{ t('common.add') }}
-        </BaseButton>
-      </div>
-    </div>
+    <AdminPageHeader :title="t('admin.settings.title')" :description="t('admin.settings.description')">
+      <template #actions>
+        <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+          <BaseButton @click="isModalOpen = true">
+            {{ t('common.add') }}
+          </BaseButton>
+        </div>
+      </template>
+    </AdminPageHeader>
 
     <div class="mt-8">
       <BaseTable :columns="columns" :items="configs" row-key="key" :loading="isLoading" :emptyText="t('common.noData')">

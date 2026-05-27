@@ -3,12 +3,14 @@ import { ref, computed } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
+import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
 import ReportList from '@/components/admin/ReportList.vue'
 import ReportDetailModal from '@/components/admin/ReportDetailModal.vue'
 import SanctionModal from '@/components/admin/SanctionModal.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import { useConfirm } from '@/composables/useConfirm'
+import { usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import type { Report } from '@/types'
 
 const { t } = useI18n()
@@ -16,12 +18,9 @@ const toastStore = useToastStore()
 const { confirm } = useConfirm()
 const { useReports, useResolveReport } = useAdmin()
 
-const page = ref(0)
-const size = ref(20)
-const params = computed(() => ({
-  page: page.value,
-  size: size.value
-}))
+const { page, size, params, handlePageChange, handleSizeChange } = usePaginatedQueryState({
+  initialSize: 20,
+})
 
 const { data: reportsData, isLoading, refetch } = useReports(params)
 const { mutateAsync: resolveReport } = useResolveReport()
@@ -30,14 +29,6 @@ const reports = computed(() => reportsData.value?.content || [])
 const totalPages = computed(() => reportsData.value?.totalPages || 0)
 const totalElements = computed(() => reportsData.value?.totalElements || 0)
 const currentPage = computed(() => reportsData.value?.number ?? page.value)
-
-function handlePageChange(nextPage: number) {
-  page.value = nextPage
-}
-
-function handleSizeChange() {
-  page.value = 0
-}
 
 const isModalOpen = ref(false)
 const selectedUser = ref<{
@@ -99,12 +90,7 @@ async function handleReject(report: Report) {
 
 <template>
   <div>
-    <div class="sm:flex sm:items-center">
-      <div class="sm:flex-auto">
-        <h1 class="text-xl font-semibold text-gray-900 dark:text-white">{{ t('admin.reports.title') }}</h1>
-        <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">{{ t('admin.reports.description') }}</p>
-      </div>
-    </div>
+    <AdminPageHeader :title="t('admin.reports.title')" :description="t('admin.reports.description')" />
 
     <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <p class="text-sm text-gray-600 dark:text-gray-300">총 {{ totalElements }}건</p>

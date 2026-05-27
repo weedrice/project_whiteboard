@@ -3,6 +3,7 @@ import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
+import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
 import CommentList from '@/components/comment/CommentList.vue'
 import { useI18n } from 'vue-i18n'
 import { useAdminInquiryPosts } from '@/composables/useAdminInquiryPosts'
@@ -30,23 +31,21 @@ const {
 
 <template>
   <div>
-    <div class="sm:flex sm:items-center sm:justify-between">
-      <div class="sm:flex-auto">
-        <h1 class="text-xl font-semibold text-gray-900 dark:text-white">{{ t('admin.inquiries.title') }}</h1>
-        <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">{{ t('admin.inquiries.description') }}</p>
-      </div>
-      <div class="mt-3 flex items-center gap-2 sm:mt-0">
-        <label for="inquiry-sort" class="text-sm text-gray-600 dark:text-gray-300">{{ t('admin.inquiries.sort.label') }}</label>
-        <select
-          id="inquiry-sort"
-          v-model="sort"
-          class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-        >
-          <option value="createdAt,desc">{{ t('admin.inquiries.sort.latest') }}</option>
-          <option value="createdAt,asc">{{ t('admin.inquiries.sort.oldest') }}</option>
-        </select>
-      </div>
-    </div>
+    <AdminPageHeader :title="t('admin.inquiries.title')" :description="t('admin.inquiries.description')">
+      <template #actions>
+        <div class="mt-3 flex items-center gap-2 sm:mt-0">
+          <label for="inquiry-sort" class="text-sm text-gray-600 dark:text-gray-300">{{ t('admin.inquiries.sort.label') }}</label>
+          <select
+            id="inquiry-sort"
+            v-model="sort"
+            class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+          >
+            <option value="createdAt,desc">{{ t('admin.inquiries.sort.latest') }}</option>
+            <option value="createdAt,asc">{{ t('admin.inquiries.sort.oldest') }}</option>
+          </select>
+        </div>
+      </template>
+    </AdminPageHeader>
 
     <div class="mt-4 rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
       <div v-if="isLoading" class="flex items-center justify-center py-10">
