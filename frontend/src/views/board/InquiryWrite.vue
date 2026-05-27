@@ -1,5 +1,5 @@
 ﻿<script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import PostForm from '@/components/board/PostForm.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
@@ -15,6 +15,8 @@ const prepareError = ref('')
 const { t } = useI18n()
 const router = useRouter()
 const leaveConfirmMessage = '페이지에서 나가시겠습니까? 변경사항이 저장되지 않을 수 있습니다.'
+let ensureRequestId = 0
+let ensureAbortController: AbortController | null = null
 
 const inquiryBoardUrl = computed(() => {
   const fromEnv = (import.meta.env.VITE_INQUIRY_BOARD_URL || 'inquiry').trim()
@@ -22,15 +24,27 @@ const inquiryBoardUrl = computed(() => {
 })
 
 const ensureInquiryBoard = async () => {
+  ensureAbortController?.abort()
+  const controller = new AbortController()
+  ensureAbortController = controller
+  const requestId = ++ensureRequestId
   isPreparingBoard.value = true
   prepareError.value = ''
   try {
-    await boardApi.ensureInquiryBoard(inquiryBoardUrl.value)
+    await boardApi.ensureInquiryBoard(inquiryBoardUrl.value, { signal: controller.signal })
   } catch (error) {
+    if (controller.signal.aborted || requestId !== ensureRequestId) {
+      return
+    }
     logger.error('Failed to ensure inquiry board:', error)
     prepareError.value = extractErrorMessage(error) || t('board.loadFailed')
   } finally {
-    isPreparingBoard.value = false
+    if (ensureAbortController === controller) {
+      ensureAbortController = null
+    }
+    if (!controller.signal.aborted && requestId === ensureRequestId) {
+      isPreparingBoard.value = false
+    }
   }
 }
 
@@ -46,6 +60,12 @@ function handleSubmitted() {
 
 onMounted(() => {
   ensureInquiryBoard()
+})
+
+onUnmounted(() => {
+  ensureRequestId += 1
+  ensureAbortController?.abort()
+  ensureAbortController = null
 })
 </script>
 

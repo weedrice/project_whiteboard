@@ -56,8 +56,14 @@ export const boardApi = {
     createBoard: (data: BoardCreateData) => api.post<ApiResponse<BoardDetail>>('/boards', data),
 
     // Ensure inquiry board exists (create if absent)
-    ensureInquiryBoard: (boardUrl?: string) =>
-        api.post<ApiResponse<void>>('/boards/inquiry/ensure', null, { params: boardUrl ? { boardUrl } : undefined }),
+    ensureInquiryBoard: (boardUrl?: string, config?: AxiosRequestConfig) =>
+        api.post<ApiResponse<void>>('/boards/inquiry/ensure', null, {
+            ...config,
+            params: {
+                ...config?.params,
+                ...(boardUrl ? { boardUrl } : {})
+            }
+        }),
 
     // Get posts in a board
     getPosts: (boardUrl: string, params: PostsParams, config?: AxiosRequestConfig) =>

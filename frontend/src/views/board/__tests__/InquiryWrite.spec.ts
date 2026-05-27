@@ -2,7 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { AxiosHeaders, type AxiosResponse } from 'axios'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { defineComponent, h } from 'vue'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import InquiryWrite from '../InquiryWrite.vue'
 import { boardApi } from '@/api/board'
 import type { ApiResponse } from '@/types'
@@ -78,7 +78,21 @@ async function mountInquiryWrite() {
   return { wrapper, router }
 }
 
+function createDeferred<T>() {
+  let resolve: (value: T) => void = () => undefined
+  let reject: (reason?: unknown) => void = () => undefined
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve
+    reject = promiseReject
+  })
+  return { promise, resolve, reject }
+}
+
 describe('InquiryWrite', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   it('prepares the inquiry board and renders PostForm with inquiry-only options', async () => {
     const ensureResponse: AxiosResponse<ApiResponse<void>> = {
       data: { success: true, data: undefined },
@@ -92,7 +106,9 @@ describe('InquiryWrite', () => {
     const { wrapper } = await mountInquiryWrite()
     const postForm = wrapper.findComponent(PostFormStub)
 
-    expect(boardApi.ensureInquiryBoard).toHaveBeenCalledWith('inquiry')
+    expect(boardApi.ensureInquiryBoard).toHaveBeenCalledWith('inquiry', {
+      signal: expect.any(AbortSignal),
+    })
     expect(postForm.exists()).toBe(true)
     expect(postForm.props()).toEqual(expect.objectContaining({
       mode: 'create',
@@ -107,5 +123,19 @@ describe('InquiryWrite', () => {
       skipBoardLookup: true,
     }))
     expect(typeof postForm.props('onSubmitted')).toBe('function')
+  })
+
+  it('aborts the pending inquiry board preparation when unmounted', async () => {
+    const ensureRequest = createDeferred<AxiosResponse<ApiResponse<void>>>()
+    vi.mocked(boardApi.ensureInquiryBoard).mockReturnValueOnce(ensureRequest.promise)
+
+    const { wrapper } = await mountInquiryWrite()
+    const config = vi.mocked(boardApi.ensureInquiryBoard).mock.calls[0][1]
+
+    expect(config?.signal?.aborted).toBe(false)
+
+    wrapper.unmount()
+
+    expect(config?.signal?.aborted).toBe(true)
   })
 })
