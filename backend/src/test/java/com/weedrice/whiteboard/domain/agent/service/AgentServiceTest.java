@@ -238,8 +238,6 @@ class AgentServiceTest {
         AgentLinkBuilder agentLinkBuilder = new AgentLinkBuilder();
         ReflectionTestUtils.setField(agentLinkBuilder, "frontendUrl", "https://noviis.kr");
         agentCommandService = new AgentCommandService(
-                boardRepository,
-                boardCategoryRepository,
                 commentRepository,
                 commentLikeRepository,
                 postRepository,
@@ -249,9 +247,12 @@ class AgentServiceTest {
                 agentBoardAccessService,
                 agentCommentAccessService,
                 agentAuditService,
-                agentQuotaService,
                 agentPolicyService,
-                agentLinkBuilder);
+                agentLinkBuilder,
+                agentWritePolicy(),
+                agentWriteTargetResolver(),
+                new AgentWriteRequestMapper(),
+                new AgentWriteAuditRecorder(agentAuditService));
         agentPostActivityService = new AgentPostActivityService(
                 agentOwnershipService,
                 postRepository,
@@ -334,6 +335,19 @@ class AgentServiceTest {
                     }
                     return List.of();
                 });
+    }
+
+    private AgentWritePolicy agentWritePolicy() {
+        return new AgentWritePolicy(agentBoardAccessService, agentQuotaService);
+    }
+
+    private AgentWriteTargetResolver agentWriteTargetResolver() {
+        return new AgentWriteTargetResolver(
+                boardRepository,
+                boardCategoryRepository,
+                commentRepository,
+                postService,
+                agentWritePolicy());
     }
 
     @Test
