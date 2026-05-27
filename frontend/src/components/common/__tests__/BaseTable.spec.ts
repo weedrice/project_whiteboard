@@ -66,6 +66,34 @@ describe('BaseTable', () => {
         expect(status.get('.nv-base-table-spinner').attributes('aria-hidden')).toBe('true')
     })
 
+    it('keeps default table chrome unless compact options are provided', () => {
+        const defaultWrapper = mount(BaseTable, {
+            props: {
+                columns: [{ key: 'title', label: 'Title' }],
+                items: [{ title: 'Default row' }],
+            },
+        })
+
+        expect(defaultWrapper.get('.nv-base-table').classes()).toContain('shadow')
+        expect(defaultWrapper.get('th').classes()).toEqual(expect.arrayContaining(['px-3', 'sm:px-6']))
+        expect(defaultWrapper.get('td').classes()).toEqual(expect.arrayContaining(['px-3', 'sm:px-6']))
+
+        const compactWrapper = mount(BaseTable, {
+            props: {
+                columns: [{ key: 'title', label: 'Title' }],
+                items: [{ title: 'Compact row' }],
+                density: 'compact',
+                shadow: false,
+                maxHeightClass: 'max-h-[420px]',
+            },
+        })
+
+        expect(compactWrapper.get('.nv-base-table').classes()).not.toContain('shadow')
+        expect(compactWrapper.get('.overflow-x-auto').classes()).toEqual(expect.arrayContaining(['max-h-[420px]', 'overflow-y-auto']))
+        expect(compactWrapper.get('th').classes()).toEqual(expect.arrayContaining(['px-2', 'py-2']))
+        expect(compactWrapper.get('td').classes()).toEqual(expect.arrayContaining(['px-2', 'py-1.5']))
+    })
+
     it('uses stable fallback row keys before falling back to index', async () => {
         const StatefulCell = defineComponent({
             props: {

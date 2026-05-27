@@ -1,4 +1,5 @@
 <script setup lang="ts" generic="T extends object">
+import { computed } from 'vue'
 
 export interface TableColumn {
     key: string
@@ -15,6 +16,9 @@ const props = withDefaults(defineProps<{
     items: T[]
     loading?: boolean
     emptyText?: string
+    density?: 'default' | 'compact'
+    shadow?: boolean
+    maxHeightClass?: string
     currentSortKey?: string | null
     currentSortDirection?: 'asc' | 'desc' | null
     rowClass?: (item: T) => string
@@ -22,6 +26,9 @@ const props = withDefaults(defineProps<{
 }>(), {
     loading: false,
     emptyText: 'No data available',
+    density: 'default',
+    shadow: true,
+    maxHeightClass: undefined,
     currentSortKey: null,
     currentSortDirection: null,
     rowClass: undefined,
@@ -103,12 +110,36 @@ const getCellValue = (item: T, key: string): unknown => {
     const record = item as Record<string, unknown>
     return record[key]
 }
+
+const rootClasses = computed(() => [
+    'nv-base-table overflow-hidden',
+    props.shadow ? 'shadow' : '',
+])
+
+const scrollContainerClasses = computed(() => [
+    'overflow-x-auto',
+    props.maxHeightClass || '',
+    props.maxHeightClass ? 'overflow-y-auto' : '',
+])
+
+const headerCellClasses = computed(() => [
+    'nv-base-table-header text-[10px] sm:text-xs font-medium uppercase tracking-wider whitespace-nowrap',
+    props.density === 'compact'
+        ? 'px-2 py-2'
+        : 'px-3 sm:px-6 py-2 sm:py-3',
+])
+
+const bodyCellClasses = computed(() => [
+    'nv-base-table-cell whitespace-nowrap text-xs sm:text-sm min-w-0 overflow-hidden align-middle',
+    props.density === 'compact'
+        ? 'px-2 py-1.5'
+        : 'px-3 sm:px-6 py-3 sm:py-4',
+])
 </script>
 
 <template>
-    <div
-        class="nv-base-table shadow overflow-hidden">
-        <div class="overflow-x-auto">
+    <div :class="rootClasses">
+        <div :class="scrollContainerClasses">
             <table class="min-w-full table-fixed nv-base-table-table" style="table-layout: fixed;">
                 <colgroup>
                     <col v-for="col in columns" :key="col.key" :style="{ width: col.width || 'auto' }" />
@@ -117,8 +148,7 @@ const getCellValue = (item: T, key: string): unknown => {
                     <tr>
                         <th v-for="col in columns" :key="col.key" scope="col"
                             :aria-sort="getAriaSort(col)"
-                            class="nv-base-table-header px-3 sm:px-6 py-2 sm:py-3 text-[10px] sm:text-xs font-medium uppercase tracking-wider whitespace-nowrap"
-                            :class="alignClass(col.align)"
+                            :class="[headerCellClasses, alignClass(col.align)]"
                             :style="{ width: col.width }">
                             <button
                                 v-if="col.sortable"
@@ -159,8 +189,7 @@ const getCellValue = (item: T, key: string): unknown => {
                         @click="emit('row-click', item)"
                         @dblclick="emit('row-dblclick', item)">
                         <td v-for="col in columns" :key="col.key"
-                            class="nv-base-table-cell px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm min-w-0 overflow-hidden align-middle"
-                            :class="alignClass(col.align)">
+                            :class="[bodyCellClasses, alignClass(col.align)]">
                             <slot :name="`cell-${col.key}`" :item="item" :value="getCellValue(item, col.key)">
                                 {{ getCellValue(item, col.key) }}
                             </slot>
