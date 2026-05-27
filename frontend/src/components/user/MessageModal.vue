@@ -26,6 +26,7 @@ import { useToastStore } from '@/stores/toast'
 import type { AxiosError } from 'axios'
 import { messageApi, BLOCKED_BY_USER_CODE } from '@/api/message'
 import { extractErrorResponse } from '@/utils/errorHandler'
+import { hasMessageContent } from '@/utils/messageValidation'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -44,7 +45,7 @@ const isSendingMessage = ref(false)
 const handleSendMessage = async () => {
     if (isSendingMessage.value) return
 
-    if (!messageContent.value.trim()) {
+    if (!hasMessageContent(messageContent.value)) {
         toastStore.addToast(t('user.message.inputContent'), 'warning')
         return
     }

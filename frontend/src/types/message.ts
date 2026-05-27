@@ -1,10 +1,33 @@
-import type { UserSummary } from './user'
+export interface MessagePartnerDto {
+    userId: number
+    displayName: string
+}
 
-// 메시지 관련 타입
-export interface Message {
+export interface MessageSummaryDto {
     messageId: number
     content: string
-    partner: UserSummary
+    partner: MessagePartnerDto
     isRead: boolean
     createdAt: string
 }
+
+export interface MessageResponse {
+    content: MessageSummaryDto[]
+    page: number
+    size: number
+    totalElements: number
+    totalPages: number
+    hasNext: boolean
+    hasPrevious: boolean
+}
+
+export interface MailboxMessageViewModel {
+    id: number
+    partnerUserId: number
+    partnerName: string
+    body: string
+    isUnread: boolean
+    createdAt: string
+}
+
+export type Message = MessageSummaryDto
