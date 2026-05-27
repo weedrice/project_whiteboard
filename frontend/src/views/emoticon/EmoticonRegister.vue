@@ -1,16 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { emoticonApi } from '@/api/emoticon'
 import { useHead } from '@unhead/vue'
 import { ArrowLeft, Upload, X, Plus } from 'lucide-vue-next'
 import { useToastStore } from '@/stores/toast'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import { extractErrorMessage } from '@/utils/errorHandler'
 import { useEmoticonImageSelection } from '@/composables/useEmoticonImageSelection'
+import { useEmoticonRegisterSubmit } from '@/composables/useEmoticonRegisterSubmit'
 import { useEmoticonTags } from '@/composables/useEmoticonTags'
-import { useEmoticonImageUploader } from '@/composables/useEmoticonImageUploader'
 import { useEmoticonUploadSession } from '@/composables/useEmoticonUploadSession'
 import {
   revokeEmoticonPreviewUrl,
@@ -34,7 +32,6 @@ const thumbnailPreview = ref<string | null>(null)
 const emoticonPreviews = ref<EmoticonImagePreview[]>([])
 const isSubmitting = ref(false)
 const uploadSession = useEmoticonUploadSession()
-const imageUploader = useEmoticonImageUploader(uploadSession)
 const { uploadProgress } = uploadSession
 const { tagInput, tagItems, tags, addTag, removeTag } = useEmoticonTags({
   onMaxTags: () => {
@@ -112,69 +109,23 @@ const isFormValid = computed(() => {
          emoticonPreviews.value.length > 0
 })
 
-// 등록 처리
-const handleSubmit = async () => {
-  if (!isFormValid.value || isSubmitting.value) return
-
-  isSubmitting.value = true
-  const currentRunId = uploadSession.startSubmitRun()
-
-  try {
-    // 1. 썸네일 업로드
-    const submitSnapshot = {
-      thumbnail: thumbnailFile.value!,
-      previews: [...emoticonPreviews.value],
-      name: emoticonName.value.trim(),
-      tags: [...tags.value],
-    }
-
-    // 2. 이모티콘 이미지 업로드 (리사이징 적용)
-    const uploadThumbnail = async () => {
-      return imageUploader.uploadFile(submitSnapshot.thumbnail, currentRunId, {
-        skipGlobalErrorHandler: true
-      })
-    }
-
-    const uploadImages = async () => imageUploader.uploadPreviews(
-      submitSnapshot.previews,
-      currentRunId,
-      {
-        skipGlobalErrorHandler: true
-      }
-    )
-
-    const [thumbnailFileId, imageFileIds] = await Promise.all([
-      uploadThumbnail(),
-      uploadImages()
-    ])
-    uploadSession.assertSubmitActive(currentRunId)
-
-    // 3. 이모티콘 생성
-    await emoticonApi.createEmoticon({
-      name: submitSnapshot.name,
-      thumbnailFileId,
-      tags: submitSnapshot.tags,
-      imageFileIds
-    })
-    uploadSession.assertSubmitActive(currentRunId)
-
+const { handleSubmit } = useEmoticonRegisterSubmit({
+  isFormValid,
+  isSubmitting,
+  thumbnailFile,
+  emoticonPreviews,
+  emoticonName,
+  tags,
+  uploadSession,
+  fallbackErrorMessage: t('emoticon.register.failed'),
+  onSuccess: () => {
     toastStore.addToast(t('emoticon.register.created'), 'success')
     router.push({ name: 'emoticon-list' })
-  } catch (error: unknown) {
-    const isStaleCancellation = !uploadSession.isSubmitActive(currentRunId)
-      && uploadSession.isUploadCancelledError(error)
-    if (!uploadSession.isDisposed.value && !isStaleCancellation) {
-      const message = extractErrorMessage(error) || t('emoticon.register.failed')
-      toastStore.addToast(message, 'error')
-    }
-  } finally {
-    if (uploadSession.isSubmitActive(currentRunId)) {
-      isSubmitting.value = false
-      uploadSession.cancelSubmitRun()
-      uploadSession.resetUploadProgress()
-    }
-  }
-}
+  },
+  onError: (message) => {
+    toastStore.addToast(message, 'error')
+  },
+})
 
 // 목록으로 이동
 const goToList = () => {
