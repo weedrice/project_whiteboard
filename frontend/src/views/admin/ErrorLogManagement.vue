@@ -1,9 +1,13 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useErrorLogDetailModal } from '@/composables/useErrorLogDetailModal'
 import { useErrorLogListState } from '@/composables/useErrorLogListState'
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
+import AdminPaginationFooter from '@/components/admin/AdminPaginationFooter.vue'
+import BaseTable, { type TableColumn } from '@/components/common/ui/BaseTable.vue'
 import { useI18n } from 'vue-i18n'
-import { Eye, CheckCircle, ChevronLeft, ChevronRight, X, Search, Copy } from 'lucide-vue-next'
+import { Eye, CheckCircle, X, Search, Copy } from 'lucide-vue-next'
+import type { ErrorLogListItem } from '@/types'
 
 const { t } = useI18n()
 
@@ -54,6 +58,22 @@ function formatDate(dateStr: string): string {
         minute: '2-digit',
         second: '2-digit'
     })
+}
+
+const columns = computed<TableColumn[]>(() => [
+    { key: 'httpStatus', label: t('admin.errorLogs.table.httpStatus'), width: '8%' },
+    { key: 'errorCode', label: t('admin.errorLogs.table.errorCode'), width: '13%' },
+    { key: 'errorType', label: t('admin.errorLogs.table.errorType'), width: '13%' },
+    { key: 'message', label: t('admin.errorLogs.table.message'), width: '20%' },
+    { key: 'requestUri', label: t('admin.errorLogs.table.requestUri'), width: '16%' },
+    { key: 'ipAddress', label: t('admin.errorLogs.table.ipAddress'), width: '10%' },
+    { key: 'isResolved', label: t('admin.errorLogs.table.isResolved'), width: '8%' },
+    { key: 'createdAt', label: t('admin.errorLogs.table.createdAt'), width: '10%' },
+    { key: 'actions', label: '', align: 'right', width: '8%' }
+])
+
+function getRowClass(log: ErrorLogListItem): string {
+    return log.isResolved === 'N' ? 'row-unresolved' : ''
 }
 
 </script>
@@ -127,82 +147,82 @@ function formatDate(dateStr: string): string {
         </div>
 
         <!-- 테이블 -->
-        <div class="mt-4 error-log-table-wrapper">
-            <div v-if="isLoading" class="loading-indicator">
-                로딩 중...
-            </div>
-            <table v-else class="error-log-table">
-                <thead>
-                    <tr>
-                        <th>{{ t('admin.errorLogs.table.httpStatus') }}</th>
-                        <th>{{ t('admin.errorLogs.table.errorCode') }}</th>
-                        <th>{{ t('admin.errorLogs.table.errorType') }}</th>
-                        <th>{{ t('admin.errorLogs.table.message') }}</th>
-                        <th>{{ t('admin.errorLogs.table.requestUri') }}</th>
-                        <th>{{ t('admin.errorLogs.table.ipAddress') }}</th>
-                        <th>{{ t('admin.errorLogs.table.isResolved') }}</th>
-                        <th>{{ t('admin.errorLogs.table.createdAt') }}</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="log in errorLogs" :key="log.errorLogId"
-                        :class="{ 'row-unresolved': log.isResolved === 'N' }">
-                        <td>
-                            <span class="http-status-badge" :class="getHttpStatusClass(log.httpStatus)">
-                                {{ log.httpStatus }}
-                            </span>
-                        </td>
-                        <td class="text-xs font-mono">{{ log.errorCode || '-' }}</td>
-                        <td class="text-xs">{{ log.errorType }}</td>
-                        <td class="message-cell" :title="log.message">{{ log.message }}</td>
-                        <td class="text-xs font-mono uri-cell" :title="log.requestUri">{{ log.requestUri }}</td>
-                        <td class="text-xs font-mono">{{ log.ipAddress }}</td>
-                        <td>
-                            <span class="resolve-badge"
-                                :class="log.isResolved === 'Y' ? 'resolve-badge--resolved' : 'resolve-badge--unresolved'">
-                                {{ log.isResolved === 'Y' ? t('admin.errorLogs.status.resolved') :
-                                    t('admin.errorLogs.status.unresolved') }}
-                            </span>
-                        </td>
-                        <td class="text-xs">{{ formatDate(log.createdAt) }}</td>
-                        <td>
-                            <div class="action-buttons">
-                                <button type="button" @click="openDetailModal(log)" class="btn-icon"
-                                    :title="t('admin.errorLogs.actions.viewDetail')"
-                                    :aria-label="t('admin.errorLogs.actions.viewDetail')">
-                                    <Eye class="w-4 h-4" aria-hidden="true" />
-                                </button>
-                                <button v-if="log.isResolved === 'N'" type="button" @click="openResolveModal(log)"
-                                    class="btn-icon btn-icon--resolve" :title="t('admin.errorLogs.actions.resolve')"
-                                    :aria-label="t('admin.errorLogs.actions.resolve')">
-                                    <CheckCircle class="w-4 h-4" aria-hidden="true" />
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                    <tr v-if="errorLogs.length === 0">
-                        <td colspan="9" class="empty-row">에러 로그가 없습니다.</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+        <BaseTable
+            class="mt-4 error-log-table-wrapper"
+            :columns="columns"
+            :items="errorLogs"
+            :loading="isLoading"
+            :empty-text="'에러 로그가 없습니다.'"
+            :row-class="getRowClass"
+            row-key="errorLogId"
+        >
+            <template #loading>
+                <div class="loading-indicator">
+                    로딩 중...
+                </div>
+            </template>
+
+            <template #cell-httpStatus="{ item: log }">
+                <span class="http-status-badge" :class="getHttpStatusClass(log.httpStatus)">
+                    {{ log.httpStatus }}
+                </span>
+            </template>
+
+            <template #cell-errorCode="{ item: log }">
+                <span class="text-xs font-mono">{{ log.errorCode || '-' }}</span>
+            </template>
+
+            <template #cell-errorType="{ item: log }">
+                <span class="text-xs">{{ log.errorType }}</span>
+            </template>
+
+            <template #cell-message="{ item: log }">
+                <span class="message-cell" :title="log.message">{{ log.message }}</span>
+            </template>
+
+            <template #cell-requestUri="{ item: log }">
+                <span class="text-xs font-mono uri-cell" :title="log.requestUri">{{ log.requestUri }}</span>
+            </template>
+
+            <template #cell-ipAddress="{ item: log }">
+                <span class="text-xs font-mono">{{ log.ipAddress }}</span>
+            </template>
+
+            <template #cell-isResolved="{ item: log }">
+                <span class="resolve-badge"
+                    :class="log.isResolved === 'Y' ? 'resolve-badge--resolved' : 'resolve-badge--unresolved'">
+                    {{ log.isResolved === 'Y' ? t('admin.errorLogs.status.resolved') :
+                        t('admin.errorLogs.status.unresolved') }}
+                </span>
+            </template>
+
+            <template #cell-createdAt="{ item: log }">
+                <span class="text-xs">{{ formatDate(log.createdAt) }}</span>
+            </template>
+
+            <template #cell-actions="{ item: log }">
+                <div class="action-buttons">
+                    <button type="button" @click="openDetailModal(log)" class="btn-icon"
+                        :title="t('admin.errorLogs.actions.viewDetail')"
+                        :aria-label="t('admin.errorLogs.actions.viewDetail')">
+                        <Eye class="w-4 h-4" aria-hidden="true" />
+                    </button>
+                    <button v-if="log.isResolved === 'N'" type="button" @click="openResolveModal(log)"
+                        class="btn-icon btn-icon--resolve" :title="t('admin.errorLogs.actions.resolve')"
+                        :aria-label="t('admin.errorLogs.actions.resolve')">
+                        <CheckCircle class="w-4 h-4" aria-hidden="true" />
+                    </button>
+                </div>
+            </template>
+        </BaseTable>
 
         <!-- 페이징 -->
-        <div v-if="totalPages > 0" class="mt-4 pagination-bar">
-            <div class="pagination-info">
-                총 {{ totalElements }}건 ({{ page + 1 }} / {{ totalPages }} 페이지)
-            </div>
-            <div class="pagination-buttons">
-                <button type="button" @click="page = Math.max(0, page - 1)" :disabled="page === 0" class="btn-page" aria-label="이전 페이지">
-                    <ChevronLeft class="w-4 h-4" aria-hidden="true" />
-                </button>
-                <button type="button" @click="page = Math.min(totalPages - 1, page + 1)" :disabled="page >= totalPages - 1"
-                    class="btn-page" aria-label="다음 페이지">
-                    <ChevronRight class="w-4 h-4" aria-hidden="true" />
-                </button>
-            </div>
-        </div>
+        <AdminPaginationFooter
+            :page="page"
+            :total-pages="totalPages"
+            :summary="`총 ${totalElements}건 (${page + 1} / ${totalPages} 페이지)`"
+            @page-change="page = $event"
+        />
 
         <!-- 상세 모달 -->
         <Teleport to="body">
@@ -521,49 +541,6 @@ function formatDate(dateStr: string): string {
     color: #6b7280;
 }
 
-.error-log-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.error-log-table thead th {
-    padding: 10px 12px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-align: left;
-    color: #6b7280;
-    border-bottom: 1px solid #e5e7eb;
-    white-space: nowrap;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.dark .error-log-table thead th {
-    color: #9ca3af;
-    border-bottom-color: #374151;
-}
-
-.error-log-table tbody td {
-    padding: 8px 12px;
-    font-size: 0.8125rem;
-    color: #374151;
-    border-bottom: 1px solid #f3f4f6;
-    vertical-align: middle;
-}
-
-.dark .error-log-table tbody td {
-    color: #d1d5db;
-    border-bottom-color: #1f2937;
-}
-
-.error-log-table tbody tr:hover {
-    background: #f9fafb;
-}
-
-.dark .error-log-table tbody tr:hover {
-    background: #111827;
-}
-
 .row-unresolved {
     background: #fffbeb;
 }
@@ -694,62 +671,6 @@ function formatDate(dateStr: string): string {
 .dark .btn-icon--resolve:hover {
     background: rgba(22, 163, 74, 0.15);
     color: #86efac;
-}
-
-.empty-row {
-    text-align: center;
-    padding: 40px 12px !important;
-    color: #9ca3af;
-}
-
-/* 페이징 */
-.pagination-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.pagination-info {
-    font-size: 0.8125rem;
-    color: #6b7280;
-}
-
-.dark .pagination-info {
-    color: #9ca3af;
-}
-
-.pagination-buttons {
-    display: flex;
-    gap: 4px;
-}
-
-.btn-page {
-    padding: 6px 10px;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    background: white;
-    color: #374151;
-    cursor: pointer;
-    transition: background 0.15s;
-}
-
-.btn-page:hover:not(:disabled) {
-    background: #f3f4f6;
-}
-
-.btn-page:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-}
-
-.dark .btn-page {
-    background: #374151;
-    border-color: #4b5563;
-    color: #d1d5db;
-}
-
-.dark .btn-page:hover:not(:disabled) {
-    background: #4b5563;
 }
 
 /* 모달 */

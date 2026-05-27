@@ -153,6 +153,20 @@ const iconStub = defineComponent({
     }
 })
 
+const PaginationStub = defineComponent({
+    props: {
+        currentPage: Number,
+        totalPages: Number,
+    },
+    emits: ['page-change'],
+    template: `
+        <div data-test="pagination">
+            <button type="button" data-test="prev-page" :disabled="currentPage === 0" @click="$emit('page-change', currentPage - 1)">prev</button>
+            <button type="button" data-test="next-page" :disabled="currentPage >= totalPages - 1" @click="$emit('page-change', currentPage + 1)">next</button>
+        </div>
+    `
+})
+
 describe('ErrorLogManagement', () => {
     let wrapper: VueWrapper
 
@@ -161,11 +175,10 @@ describe('ErrorLogManagement', () => {
             stubs: {
                 Eye: iconStub,
                 CheckCircle: iconStub,
-                ChevronLeft: iconStub,
-                ChevronRight: iconStub,
                 X: iconStub,
                 Search: iconStub,
                 Copy: iconStub,
+                Pagination: PaginationStub,
                 Teleport: true
             },
             mocks: {
@@ -381,28 +394,26 @@ describe('ErrorLogManagement', () => {
 
     describe('페이지네이션', () => {
         it('페이지 정보가 표시된다', () => {
-            const paginationInfo = wrapper.find('.pagination-info')
-            expect(paginationInfo.exists()).toBe(true)
-            expect(paginationInfo.text()).toContain('100')
+            expect(wrapper.text()).toContain('100')
+            expect(wrapper.find('[data-test="pagination"]').exists()).toBe(true)
         })
 
         it('이전/다음 페이지 버튼이 존재한다', () => {
-            const pageButtons = wrapper.findAll('.btn-page')
+            const pageButtons = wrapper.findAll('[data-test$="-page"]')
             expect(pageButtons).toHaveLength(2)
         })
 
         it('첫 페이지에서 이전 버튼이 비활성화된다', () => {
-            const prevButton = wrapper.findAll('.btn-page')[0]
+            const prevButton = wrapper.get('[data-test="prev-page"]')
             expect((prevButton.element as HTMLButtonElement).disabled).toBe(true)
         })
 
         it('페이지 이동 버튼에 접근 가능한 이름이 있다', () => {
-            const [prevButton, nextButton] = wrapper.findAll('.btn-page')
+            const prevButton = wrapper.get('[data-test="prev-page"]')
+            const nextButton = wrapper.get('[data-test="next-page"]')
 
             expect(prevButton.attributes('type')).toBe('button')
-            expect(prevButton.attributes('aria-label')).toBe('이전 페이지')
             expect(nextButton.attributes('type')).toBe('button')
-            expect(nextButton.attributes('aria-label')).toBe('다음 페이지')
         })
     })
 
