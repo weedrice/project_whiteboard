@@ -6,12 +6,6 @@ import { QUERY_STALE_TIME } from '@/utils/constants'
 import { toFeedPost, toFeedPosts } from '@/utils/postViewModel'
 import type { HomeLandingPeriod } from '@/types'
 
-const EDITOR_PICK_START_INDEX = 1
-const EDITOR_PICK_END_INDEX = 4
-const TRENDING_START_INDEX = 1
-const TRENDING_END_INDEX = 10
-const LIVE_ACTIVITY_END_INDEX = 6
-
 export function useHomeLanding() {
     const authStore = useAuthStore()
     const selectedPeriod = ref<HomeLandingPeriod>('24h')
@@ -33,15 +27,14 @@ export function useHomeLanding() {
     const landing = computed(() => landingQuery.data.value ?? emptyHomeLanding())
     const isPendingAuthHydration = computed(() => authStore.isAuthenticated && authStore.user == null)
     const isLoading = computed(() => landingQuery.isLoading.value || isPendingAuthHydration.value)
-    const sourcePosts = computed(() => landing.value.posts ?? [])
-    const sourceLatestPosts = computed(() => landing.value.latestPosts?.length
-        ? landing.value.latestPosts
-        : sourcePosts.value.slice(0, LIVE_ACTIVITY_END_INDEX))
-    const featuredPost = computed(() => sourcePosts.value[0] ?? null)
-    const editorPickPosts = computed(() => sourcePosts.value.slice(EDITOR_PICK_START_INDEX, EDITOR_PICK_END_INDEX))
-    const trendingPosts = computed(() => sourcePosts.value.slice(TRENDING_START_INDEX, TRENDING_END_INDEX))
-    const liveActivityPosts = computed(() => sourceLatestPosts.value.slice(0, LIVE_ACTIVITY_END_INDEX))
-    const posts = computed(() => toFeedPosts(sourcePosts.value.slice(0, TRENDING_END_INDEX)))
+    const featuredPost = computed(() => landing.value.featuredPost ?? null)
+    const editorPickPosts = computed(() => landing.value.editorPicks ?? [])
+    const trendingPosts = computed(() => landing.value.trendingPosts ?? [])
+    const liveActivityPosts = computed(() => landing.value.liveActivityPosts ?? [])
+    const posts = computed(() => toFeedPosts([
+        ...(featuredPost.value ? [featuredPost.value] : []),
+        ...trendingPosts.value,
+    ]))
 
     return {
         featured: computed(() => featuredPost.value ? toFeedPost(featuredPost.value) : null),

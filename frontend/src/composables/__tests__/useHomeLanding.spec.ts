@@ -22,8 +22,10 @@ vi.mock('@tanstack/vue-query', () => ({
 
 vi.mock('@/api/post', () => ({
     emptyHomeLanding: () => ({
-        posts: [],
-        latestPosts: [],
+        featuredPost: null,
+        editorPicks: [],
+        trendingPosts: [],
+        liveActivityPosts: [],
         boards: [],
         stats: {
             boardCount: 0,
@@ -80,15 +82,17 @@ describe('useHomeLanding', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         queryData.current = {
-            posts: [
-                makePost(1, 'Featured', 'A'),
+            featuredPost: makePost(1, 'Featured', 'A'),
+            editorPicks: [
                 makePost(2, 'Pick', 'B'),
-                makePost(3, 'Live', 'C'),
+                makePost(3, 'Pick 2', 'C'),
                 makePost(4, 'Pick 3', 'D'),
+            ],
+            trendingPosts: [
                 makePost(5, 'Trend 1', 'E'),
                 makePost(6, 'Trend 2', 'F'),
             ],
-            latestPosts: [
+            liveActivityPosts: [
                 makePost(21, 'Latest 1', 'L1'),
                 makePost(20, 'Latest 2', 'L2'),
             ],
@@ -100,15 +104,15 @@ describe('useHomeLanding', () => {
         } as never)
     })
 
-    it('maps the aggregated home landing contract into feed-ready sections', () => {
+    it('maps the sectioned home landing contract into feed-ready sections', () => {
         const landing = useHomeLanding()
 
         expect(landing.isError.value).toBe(false)
         expect(landing.featured.value?.postId).toBe(1)
         expect(landing.editorPicks.value.map(post => post.postId)).toEqual([2, 3, 4])
-        expect(landing.trending.value.map(post => post.postId)).toEqual([2, 3, 4, 5, 6])
+        expect(landing.trending.value.map(post => post.postId)).toEqual([5, 6])
         expect(landing.liveActivity.value.map(post => post.postId)).toEqual([21, 20])
-        expect(landing.posts.value.map(post => post.postId)).toEqual([1, 2, 3, 4, 5, 6])
+        expect(landing.posts.value.map(post => post.postId)).toEqual([1, 5, 6])
         expect(landing.spotlightBoards.value[0]?.boardUrl).toBe('free')
         expect(landing.stats.value.boardCount).toBe(1)
         expect(landing.selectedPeriod.value).toBe('24h')

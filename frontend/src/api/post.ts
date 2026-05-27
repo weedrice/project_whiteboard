@@ -65,12 +65,13 @@ export type BackendPageResponse<T> = Partial<PageResponse<T>> & {
     hasPrevious?: boolean
 }
 
-export type LegacyHomeLandingResponse = Omit<HomeLandingResponse, 'posts'> & {
+export type LegacyHomeLandingResponse = Omit<HomeLandingResponse, 'editorPicks' | 'trendingPosts' | 'liveActivityPosts'> & {
     posts?: PostSummary[]
     latestPosts?: PostSummary[]
     featuredPost?: PostSummary | null
     editorPicks?: PostSummary[]
     trendingPosts?: PostSummary[]
+    liveActivityPosts?: PostSummary[]
 }
 
 const emptyStats = (): HomeLandingStats => ({
@@ -86,8 +87,10 @@ const emptyStats = (): HomeLandingStats => ({
 })
 
 export const emptyHomeLanding = (): HomeLandingResponse => ({
-    posts: [],
-    latestPosts: [],
+    featuredPost: null,
+    editorPicks: [],
+    trendingPosts: [],
+    liveActivityPosts: [],
     boards: [],
     stats: emptyStats(),
 })
@@ -99,23 +102,17 @@ export const normalizeHomeLandingResponse = (
         return emptyHomeLanding()
     }
 
-    if (Array.isArray(landing.posts)) {
-        return {
-            posts: landing.posts,
-            latestPosts: landing.latestPosts ?? [],
-            boards: landing.boards ?? [],
-            stats: landing.stats ?? emptyStats(),
-        }
-    }
-
     const legacyLanding = landing as LegacyHomeLandingResponse
+    const legacyPosts = legacyLanding.posts ?? [
+        ...(legacyLanding.featuredPost ? [legacyLanding.featuredPost] : []),
+        ...(legacyLanding.editorPicks ?? []),
+        ...(legacyLanding.trendingPosts ?? []),
+    ]
     return {
-        posts: [
-            ...(legacyLanding.featuredPost ? [legacyLanding.featuredPost] : []),
-            ...(legacyLanding.editorPicks ?? []),
-            ...(legacyLanding.trendingPosts ?? []),
-        ],
-        latestPosts: legacyLanding.latestPosts ?? [],
+        featuredPost: legacyLanding.featuredPost ?? legacyPosts[0] ?? null,
+        editorPicks: legacyLanding.editorPicks ?? legacyPosts.slice(1, 4),
+        trendingPosts: legacyLanding.trendingPosts ?? legacyPosts.slice(1, 10),
+        liveActivityPosts: legacyLanding.liveActivityPosts ?? legacyLanding.latestPosts ?? legacyPosts.slice(0, 6),
         boards: legacyLanding.boards ?? [],
         stats: legacyLanding.stats ?? emptyStats(),
     }

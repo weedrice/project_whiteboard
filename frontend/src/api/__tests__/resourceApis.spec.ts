@@ -99,8 +99,10 @@ describe('postApi', () => {
             data: {
                 success: true,
                 data: {
-                    posts: [],
-                    latestPosts: [],
+                    featuredPost: null,
+                    editorPicks: [],
+                    trendingPosts: [],
+                    liveActivityPosts: [],
                     boards: [],
                     stats: {},
                 },
@@ -140,7 +142,7 @@ describe('postApi', () => {
         expect(apiMock.post).toHaveBeenNthCalledWith(5, '/reports/posts', reportData)
     })
 
-    it('normalizes legacy home landing response fields in the API layer', async () => {
+    it('passes through sectioned home landing response fields in the API layer', async () => {
         apiMock.get.mockResolvedValueOnce({
             data: {
                 success: true,
@@ -148,6 +150,7 @@ describe('postApi', () => {
                     featuredPost: { postId: 1, title: 'Featured' },
                     editorPicks: [{ postId: 2, title: 'Pick' }],
                     trendingPosts: [{ postId: 3, title: 'Trend' }],
+                    liveActivityPosts: [{ postId: 4, title: 'Live' }],
                     boards: [{ boardId: 1, boardUrl: 'free', boardName: 'Free' }],
                 },
             },
@@ -156,10 +159,57 @@ describe('postApi', () => {
         const response = await postApi.getHomeLanding()
 
         expect(apiMock.get).toHaveBeenCalledWith('/home/landing', { params: { period: '24h' } })
-        expect(response.data.data.posts.map(post => post.postId)).toEqual([1, 2, 3])
-        expect(response.data.data.latestPosts).toEqual([])
+        expect(response.data.data.featuredPost?.postId).toBe(1)
+        expect(response.data.data.editorPicks.map(post => post.postId)).toEqual([2])
+        expect(response.data.data.trendingPosts.map(post => post.postId)).toEqual([3])
+        expect(response.data.data.liveActivityPosts.map(post => post.postId)).toEqual([4])
         expect(response.data.data.boards).toEqual([{ boardId: 1, boardUrl: 'free', boardName: 'Free' }])
         expect(response.data.data.stats.boardCount).toBe(0)
+    })
+
+    it('normalizes legacy home landing posts in the API layer', async () => {
+        apiMock.get.mockResolvedValueOnce({
+            data: {
+                success: true,
+                data: {
+                    posts: [
+                        { postId: 1, title: 'Featured' },
+                        { postId: 2, title: 'Pick' },
+                        { postId: 3, title: 'Trend' },
+                    ],
+                    latestPosts: [{ postId: 4, title: 'Live' }],
+                    boards: [],
+                },
+            },
+        })
+
+        const response = await postApi.getHomeLanding()
+
+        expect(response.data.data.featuredPost?.postId).toBe(1)
+        expect(response.data.data.editorPicks.map(post => post.postId)).toEqual([2, 3])
+        expect(response.data.data.trendingPosts.map(post => post.postId)).toEqual([2, 3])
+        expect(response.data.data.liveActivityPosts.map(post => post.postId)).toEqual([4])
+    })
+
+    it('normalizes mixed home landing section and legacy fields in the API layer', async () => {
+        apiMock.get.mockResolvedValueOnce({
+            data: {
+                success: true,
+                data: {
+                    featuredPost: { postId: 1, title: 'Featured' },
+                    editorPicks: [{ postId: 2, title: 'Pick' }],
+                    latestPosts: [{ postId: 4, title: 'Live' }],
+                    boards: [],
+                },
+            },
+        })
+
+        const response = await postApi.getHomeLanding()
+
+        expect(response.data.data.featuredPost?.postId).toBe(1)
+        expect(response.data.data.editorPicks.map(post => post.postId)).toEqual([2])
+        expect(response.data.data.trendingPosts.map(post => post.postId)).toEqual([2])
+        expect(response.data.data.liveActivityPosts.map(post => post.postId)).toEqual([4])
     })
 })
 

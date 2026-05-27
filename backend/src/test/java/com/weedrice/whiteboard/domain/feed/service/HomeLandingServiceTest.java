@@ -71,7 +71,8 @@ class HomeLandingServiceTest {
                 boardRepository,
                 commentRepository,
                 userRepository,
-                clock);
+                clock,
+                new HomeLandingSectionAssembler());
     }
 
     @Test
@@ -107,9 +108,12 @@ class HomeLandingServiceTest {
 
         HomeLandingResponse response = homeLandingService.getLanding(1L, "24h");
 
-        assertThat(response.getPosts()).extracting(PostSummary::getPostId)
-                .containsExactly(1L, 2L, 3L, 4L, 5L, 6L);
-        assertThat(response.getLatestPosts()).extracting(PostSummary::getPostId)
+        assertThat(response.getFeaturedPost().getPostId()).isEqualTo(1L);
+        assertThat(response.getEditorPicks()).extracting(PostSummary::getPostId)
+                .containsExactly(2L, 3L, 4L);
+        assertThat(response.getTrendingPosts()).extracting(PostSummary::getPostId)
+                .containsExactly(2L, 3L, 4L, 5L, 6L);
+        assertThat(response.getLiveActivityPosts()).extracting(PostSummary::getPostId)
                 .containsExactly(11L, 10L);
         assertThat(response.getStats().getBoardCount()).isEqualTo(11L);
         assertThat(response.getStats().getPostCount()).isEqualTo(8421L);
