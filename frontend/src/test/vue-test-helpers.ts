@@ -34,9 +34,19 @@ export const BaseBadgeStub = defineComponent({
 
 export const BaseButtonStub = defineComponent({
   name: 'BaseButtonStub',
+  props: {
+    disabled: { type: Boolean, default: false },
+    loading: { type: Boolean, default: false },
+    type: { type: String, default: 'button' },
+  },
   emits: ['click'],
-  setup(_, { slots, emit }) {
-    return () => h('button', { type: 'button', onClick: () => emit('click') }, slots.default?.())
+  setup(props, { slots, emit }) {
+    return () => h('button', {
+      type: props.type,
+      disabled: props.disabled,
+      'data-loading': String(props.loading),
+      onClick: () => emit('click'),
+    }, slots.default?.())
   },
 })
 

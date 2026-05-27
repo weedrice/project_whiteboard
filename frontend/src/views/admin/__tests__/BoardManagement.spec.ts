@@ -1,8 +1,8 @@
-import { flushPromises, mount } from '@vue/test-utils'
+import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import BoardManagement from '../BoardManagement.vue'
-import { getButtonByText } from '@/test/vue-test-helpers'
+import { BaseButtonStub, BaseModalStub, flushAll, getButtonByText, identityT } from '@/test/vue-test-helpers'
 
 const mocks = vi.hoisted(() => ({
   createBoard: vi.fn(),
@@ -24,7 +24,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
   return {
     ...actual,
     useI18n: () => ({
-      t: (key: string) => key,
+      t: identityT,
     }),
   }
 })
@@ -80,32 +80,6 @@ vi.mock('vuedraggable', () => ({
   }),
 }))
 
-const BaseButtonStub = defineComponent({
-  name: 'BaseButton',
-  props: {
-    disabled: { type: Boolean, default: false },
-    type: { type: String, default: 'button' },
-  },
-  emits: ['click'],
-  setup(props, { emit, slots }) {
-    return () => h('button', {
-      type: props.type,
-      disabled: props.disabled,
-      onClick: () => emit('click'),
-    }, slots.default?.())
-  },
-})
-
-const BaseModalStub = defineComponent({
-  name: 'BaseModal',
-  props: {
-    isOpen: { type: Boolean, default: false },
-  },
-  setup(props, { slots }) {
-    return () => props.isOpen ? h('div', { class: 'modal-stub' }, slots.default?.()) : null
-  },
-})
-
 describe('BoardManagement', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -115,7 +89,7 @@ describe('BoardManagement', () => {
     const wrapper = mount(BoardManagement, {
       global: {
         mocks: {
-          $t: (key: string) => key,
+          $t: identityT,
         },
         stubs: {
           BaseButton: BaseButtonStub,
@@ -143,7 +117,7 @@ describe('BoardManagement', () => {
     const wrapper = mount(BoardManagement, {
       global: {
         mocks: {
-          $t: (key: string) => key,
+          $t: identityT,
         },
         stubs: {
           BaseButton: BaseButtonStub,
@@ -164,12 +138,12 @@ describe('BoardManagement', () => {
     await getButtonByText(wrapper, 'admin.boards.addTitle').trigger('click')
     vm.createForm.boardName = 'New board'
     vm.createForm.boardUrl = 'new_board'
-    await flushPromises()
+    await flushAll()
 
-    await getButtonByText(wrapper.get('.modal-stub'), 'common.save').trigger('click')
-    await flushPromises()
+    await getButtonByText(wrapper.get('[data-test="modal"]'), 'common.save').trigger('click')
+    await flushAll()
 
-    const savingButton = getButtonByText(wrapper.get('.modal-stub'), 'common.messages.saving')
+    const savingButton = getButtonByText(wrapper.get('[data-test="modal"]'), 'common.messages.saving')
     expect(savingButton?.attributes('disabled')).toBeDefined()
     expect(mocks.createBoard).toHaveBeenCalledWith(expect.objectContaining({
       boardName: 'New board',
@@ -177,6 +151,6 @@ describe('BoardManagement', () => {
     }))
 
     createBoardRequest.resolve({})
-    await flushPromises()
+    await flushAll()
   })
 })

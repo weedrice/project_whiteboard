@@ -5,9 +5,10 @@ import type { NotificationSettingsPayload } from '@/api/user'
 import UserSettings from '../UserSettings.vue'
 import { useUser } from '@/composables/useUser'
 import { useThemeStore } from '@/stores/theme'
+import { BaseButtonStub, flushAll, identityT } from '@/test/vue-test-helpers'
 
 vi.mock('vue-i18n', () => ({
-  useI18n: () => ({ t: (key: string) => key }),
+  useI18n: () => ({ t: identityT }),
 }))
 
 vi.mock('@/composables/useUser', () => ({
@@ -75,28 +76,6 @@ const BaseCheckboxStub = defineComponent({
   },
 })
 
-const BaseButtonStub = defineComponent({
-  name: 'BaseButton',
-  props: {
-    loading: { type: Boolean, default: false },
-    disabled: { type: Boolean, default: false },
-  },
-  emits: ['click'],
-  setup(props, { emit, slots }) {
-    return () =>
-      h(
-        'button',
-        {
-          type: 'button',
-          disabled: props.disabled,
-          'data-loading': String(props.loading),
-          onClick: () => emit('click'),
-        },
-        slots.default?.(),
-      )
-  },
-})
-
 const BaseSpinnerStub = defineComponent({
   name: 'BaseSpinner',
   setup() {
@@ -124,11 +103,6 @@ const updateNotificationSettings = vi.fn()
 const setTheme = vi.fn()
 const mountedWrappers: Array<ReturnType<typeof mount>> = []
 
-const flushPromises = async () => {
-    await Promise.resolve()
-    await Promise.resolve()
-}
-
 const getSaveButtons = (wrapper: ReturnType<typeof mount>) => {
   const buttons = wrapper.findAll('button').filter((button) => button.text() === 'user.settings.save')
   expect(buttons).toHaveLength(2)
@@ -142,7 +116,7 @@ const mountUserSettings = () => {
   const wrapper = mount(UserSettings, {
     global: {
       mocks: {
-        $t: (key: string) => key,
+        $t: identityT,
       },
       stubs: {
         BaseSelect: BaseSelectStub,
@@ -269,7 +243,7 @@ describe('UserSettings', () => {
 
     await wrapper.findAll('select')[0].setValue('DARK')
     await getSaveButtons(wrapper).generalSaveButton.trigger('click')
-    await flushPromises()
+    await flushAll()
 
     const message = wrapper.findAll('p').find((item) => item.text() === 'user.settings.failed')
     expect(message?.attributes('role')).toBe('alert')

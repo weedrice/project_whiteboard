@@ -2,7 +2,7 @@ import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import MessageModal from '../MessageModal.vue'
-import { getButtonByText } from '@/test/vue-test-helpers'
+import { BaseButtonStub, BaseModalStub, flushAll, getButtonByText, identityT } from '@/test/vue-test-helpers'
 
 const mocks = vi.hoisted(() => ({
     sendMessage: vi.fn(),
@@ -35,17 +35,9 @@ vi.mock('@/utils/errorHandler', () => ({
 
 vi.mock('vue-i18n', () => ({
     useI18n: () => ({
-        t: (key: string) => key,
+        t: identityT,
     }),
 }))
-
-const BaseModalStub = defineComponent({
-    props: {
-        isOpen: Boolean,
-        title: String,
-    },
-    template: '<section v-if="isOpen"><slot /></section>',
-})
 
 const BaseTextareaStub = defineComponent({
     props: {
@@ -68,19 +60,15 @@ const mountModal = () => mount(MessageModal, {
     },
     global: {
         mocks: {
-            $t: (key: string) => key,
+            $t: identityT,
         },
         stubs: {
             BaseModal: BaseModalStub,
+            BaseButton: BaseButtonStub,
             BaseTextarea: BaseTextareaStub,
         },
     },
 })
-
-const flushPromises = async () => {
-    await Promise.resolve()
-    await Promise.resolve()
-}
 
 describe('MessageModal', () => {
     it('shows a warning and skips the request when content is blank', async () => {
@@ -110,7 +98,7 @@ describe('MessageModal', () => {
         expect(mocks.sendMessage).toHaveBeenCalledWith(3, '안녕하세요', { skipGlobalErrorHandler: true })
 
         resolveSend({ data: { success: true } })
-        await flushPromises()
+        await flushAll()
         expect(wrapper.emitted('close')).toHaveLength(1)
     })
 })

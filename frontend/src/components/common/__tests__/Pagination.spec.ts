@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import Pagination from '../ui/Pagination.vue'
-import { getButtonByText } from '@/test/vue-test-helpers'
+import { getButtonByText, identityT } from '@/test/vue-test-helpers'
 
 const globalMountOptions = {
     mocks: {
-        $t: (msg: string) => msg
+        $t: identityT
     },
     stubs: {
         RouterLink: RouterLinkStub
