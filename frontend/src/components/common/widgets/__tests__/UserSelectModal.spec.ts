@@ -109,6 +109,16 @@ const mountModal = (props: {
   },
 })
 
+function getActionButton(wrapper: ReturnType<typeof mount>, label: string) {
+  const button = wrapper.findAll('button').find((candidate) => candidate.text() === label)
+
+  if (!button) {
+    throw new Error(`Button not found: ${label}`)
+  }
+
+  return button
+}
+
 describe('UserSelectModal', () => {
   beforeEach(() => {
     mocks.adminCalls.length = 0
@@ -151,7 +161,7 @@ describe('UserSelectModal', () => {
     expect(mocks.boardCalls.at(-1)?.boardUrl.value).toBe('free')
     expect(wrapper.text()).toContain('board-user')
     expect(wrapper.text()).toContain('current')
-    expect(wrapper.text()).not.toContain('common.email')
+    expect(wrapper.findAll('th').map((header) => header.text())).not.toContain('common.email')
   })
 
   it('disables both queries while closed', () => {
@@ -179,9 +189,12 @@ describe('UserSelectModal', () => {
 
   it('emits a single selected user on confirm', async () => {
     const wrapper = mountModal({ isOpen: true })
+    const saveButton = getActionButton(wrapper, 'common.save')
 
+    expect(saveButton.attributes('disabled')).toBeDefined()
     await wrapper.findAll('tbody tr')[0].trigger('click')
-    await wrapper.get('button:last-child').trigger('click')
+    expect(saveButton.attributes('disabled')).toBeUndefined()
+    await saveButton.trigger('click')
 
     expect(wrapper.emitted('confirm')).toEqual([[
       [{ userId: 1, loginId: 'admin-user', displayName: 'Admin User', email: 'admin@test.com' }],
@@ -197,7 +210,8 @@ describe('UserSelectModal', () => {
     expect(wrapper.text()).toContain('선택 2명')
 
     await rows[0].trigger('click')
-    await wrapper.get('button:last-child').trigger('click')
+    expect(wrapper.text()).toContain('선택 1명')
+    await getActionButton(wrapper, 'common.save').trigger('click')
 
     expect(wrapper.emitted('confirm')).toEqual([[
       [{ userId: 3, loginId: 'second-user', displayName: 'Second User', email: 'second@test.com' }],
@@ -218,7 +232,7 @@ describe('UserSelectModal', () => {
     expect(wrapper.text()).toContain('second-user')
     expect(wrapper.text()).toContain('선택 1명')
 
-    await wrapper.get('button:last-child').trigger('click')
+    await getActionButton(wrapper, 'common.save').trigger('click')
 
     expect(wrapper.emitted('confirm')).toEqual([[
       [{ userId: 3, loginId: 'second-user', displayName: 'Second User', email: 'second@test.com' }],
@@ -236,5 +250,14 @@ describe('UserSelectModal', () => {
     const emptyWrapper = mountModal({ isOpen: true })
 
     expect(emptyWrapper.text()).toContain('common.noData')
+  })
+
+  it('keeps the compact BaseTable chrome inside the modal', () => {
+    const wrapper = mountModal({ isOpen: true, selectionMode: 'multiple' })
+
+    expect(wrapper.get('.nv-base-table').classes()).not.toContain('shadow')
+    expect(wrapper.get('.overflow-x-auto').classes()).toEqual(expect.arrayContaining(['max-h-[420px]', 'overflow-y-auto']))
+    expect(wrapper.get('th').classes()).toEqual(expect.arrayContaining(['px-2', 'py-2']))
+    expect(wrapper.get('td').classes()).toEqual(expect.arrayContaining(['px-2', 'py-1.5']))
   })
 })
