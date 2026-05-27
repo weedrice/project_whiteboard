@@ -7,10 +7,14 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 import { visualizer } from 'rollup-plugin-visualizer'
 
 function getCommitHash(): string {
+    if (process.env.VITE_COMMIT_HASH) {
+        return process.env.VITE_COMMIT_HASH
+    }
+
     try {
         return execSync('git rev-parse --short HEAD').toString().trim()
     } catch {
-        return process.env.VITE_COMMIT_HASH || 'unknown'
+        return 'unknown'
     }
 }
 
