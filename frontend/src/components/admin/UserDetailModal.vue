@@ -1,6 +1,7 @@
 ﻿<script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AdminInlinePager from '@/components/admin/AdminInlinePager.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -181,10 +182,15 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
               </div>
             </div>
           </div>
-          <div v-if="userPosts && userPosts.totalPages > 0" class="mt-2 flex items-center justify-end gap-2">
-            <BaseButton variant="secondary" size="sm" :disabled="userPosts.number <= 0" @click="prevPostsPage">이전</BaseButton>
-            <BaseButton variant="secondary" size="sm" :disabled="userPosts.number + 1 >= userPosts.totalPages" @click="nextPostsPage">다음</BaseButton>
-          </div>
+          <AdminInlinePager
+            v-if="userPosts"
+            :page="userPosts.number"
+            :total-pages="userPosts.totalPages"
+            previous-label="이전"
+            next-label="다음"
+            @previous="prevPostsPage"
+            @next="nextPostsPage"
+          />
         </div>
 
         <div v-else-if="activeTab === 'comments'" class="space-y-2">
@@ -207,10 +213,15 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
               </div>
             </div>
           </div>
-          <div v-if="userComments && userComments.totalPages > 0" class="mt-2 flex items-center justify-end gap-2">
-            <BaseButton variant="secondary" size="sm" :disabled="userComments.number <= 0" @click="prevCommentsPage">이전</BaseButton>
-            <BaseButton variant="secondary" size="sm" :disabled="userComments.number + 1 >= userComments.totalPages" @click="nextCommentsPage">다음</BaseButton>
-          </div>
+          <AdminInlinePager
+            v-if="userComments"
+            :page="userComments.number"
+            :total-pages="userComments.totalPages"
+            previous-label="이전"
+            next-label="다음"
+            @previous="prevCommentsPage"
+            @next="nextCommentsPage"
+          />
         </div>
 
         <div v-else class="space-y-2">
@@ -226,10 +237,15 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
                 <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ board.sortOrderText }}</div>
               </div>
           </div>
-          <div v-if="userSubscriptions && userSubscriptions.totalPages > 0" class="mt-2 flex items-center justify-end gap-2">
-            <BaseButton variant="secondary" size="sm" :disabled="userSubscriptions.number <= 0" @click="prevSubscriptionsPage">이전</BaseButton>
-            <BaseButton variant="secondary" size="sm" :disabled="userSubscriptions.number + 1 >= userSubscriptions.totalPages" @click="nextSubscriptionsPage">다음</BaseButton>
-          </div>
+          <AdminInlinePager
+            v-if="userSubscriptions"
+            :page="userSubscriptions.number"
+            :total-pages="userSubscriptions.totalPages"
+            previous-label="이전"
+            next-label="다음"
+            @previous="prevSubscriptionsPage"
+            @next="nextSubscriptionsPage"
+          />
         </div>
       </div>
     </div>

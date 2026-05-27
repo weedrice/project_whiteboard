@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AdminModalContentState from '@/components/admin/AdminModalContentState.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import DetailSection from '@/components/admin/detail/DetailSection.vue'
@@ -52,7 +53,8 @@ function getReportReasonText(report: Report) {
 
 <template>
   <BaseModal :isOpen="isOpen" :title="t('admin.reports.detail.title')" @close="$emit('close')">
-    <div v-if="report" class="space-y-6">
+    <AdminModalContentState :empty="!report" empty-text="">
+      <div v-if="report" class="space-y-6">
       <DetailSection :title="t('admin.reports.detail.reportInfo')">
         <DescriptionGrid>
           <DescriptionItem :label="t('common.id')">
@@ -109,6 +111,7 @@ function getReportReasonText(report: Report) {
         <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">{{ t('admin.reports.remark') }}</h3>
         <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ getReportReasonText(report) }}</p>
       </div>
-    </div>
+      </div>
+    </AdminModalContentState>
   </BaseModal>
 </template>
