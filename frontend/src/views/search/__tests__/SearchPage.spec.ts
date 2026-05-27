@@ -3,8 +3,10 @@ import { computed, defineComponent, h, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const routeState = vi.hoisted(() => ({
+  name: 'search' as string,
   query: {} as Record<string, unknown>,
   routerPush: vi.fn(),
+  invalidateQueries: vi.fn(),
 }))
 
 const searchState = vi.hoisted(() => ({
@@ -19,6 +21,12 @@ const searchState = vi.hoisted(() => ({
 vi.mock('vue-router', () => ({
   useRoute: () => routeState,
   useRouter: () => ({ push: routeState.routerPush }),
+}))
+
+vi.mock('@tanstack/vue-query', () => ({
+  useQueryClient: () => ({
+    invalidateQueries: routeState.invalidateQueries,
+  }),
 }))
 
 vi.mock('@/composables/useSearch', () => ({
@@ -76,6 +84,7 @@ describe('SearchPage', () => {
     }
     searchState.isLoading = false
     routeState.routerPush.mockClear()
+    routeState.invalidateQueries.mockClear()
   })
 
   const mountPage = () => mount(SearchPage, {
@@ -134,9 +143,19 @@ describe('SearchPage', () => {
       name: 'search',
       query: {
         q: 'local query',
-        t: expect.any(String),
       },
     })
+  })
+
+  it('invalidates integrated search instead of changing the URL for the same submitted query', async () => {
+    routeState.query = { q: 'same' }
+    const wrapper = mountPage()
+
+    await wrapper.get('#search-page-query').setValue('same')
+    await wrapper.get('form[role="search"]').trigger('submit.prevent')
+
+    expect(routeState.routerPush).not.toHaveBeenCalled()
+    expect(routeState.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['search', 'integrated'] })
   })
 
   it('falls back to keyword and tag query names used by search entry components', () => {
