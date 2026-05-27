@@ -1,37 +1,18 @@
 import { mount } from '@vue/test-utils'
-import { defineComponent, h } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
+import { BaseBadgeStub, BaseModalStub, identityT } from '@/test/vue-test-helpers'
 import ReportDetailModal from '../ReportDetailModal.vue'
 import type { Report } from '@/types'
 
 vi.mock('vue-i18n', () => ({
     useI18n: () => ({
-        t: (key: string) => key
+        t: identityT
     })
 }))
 
 vi.mock('@/utils/date', () => ({
     formatDate: (value: string) => value
 }))
-
-const BaseModalStub = defineComponent({
-    props: {
-        isOpen: Boolean,
-        title: String
-    },
-    setup(props, { slots }) {
-        return () => props.isOpen ? h('div', { 'data-test': 'modal' }, [
-            h('h1', props.title),
-            slots.default?.()
-        ]) : null
-    }
-})
-
-const BaseBadgeStub = defineComponent({
-    setup(_, { slots }) {
-        return () => h('span', slots.default?.())
-    }
-})
 
 const baseReport: Report = {
     reportId: 1,

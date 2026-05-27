@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, reactive } from 'vue'
+import { createPaginationStub, identityT } from '@/test/vue-test-helpers'
 import type AdminInquiryPostsComponent from '../AdminInquiryPosts.vue'
 
 type AdminInquiryPosts = typeof AdminInquiryPostsComponent
@@ -49,25 +50,16 @@ vi.mock('@/composables/useAdminInquiryPosts', () => ({
 vi.mock('vue-i18n', () => ({
   createI18n: () => ({
     global: {
-      t: (key: string) => key,
+      t: identityT,
     },
     install: vi.fn(),
   }),
   useI18n: () => ({
-    t: (key: string, params?: Record<string, unknown>) => (
-      params?.count !== undefined ? `${key}:${params.count}` : key
-    ),
+    t: identityT,
   }),
 }))
 
-const PaginationStub = defineComponent({
-  props: {
-    currentPage: Number,
-    totalPages: Number,
-  },
-  emits: ['page-change'],
-  template: '<button data-test="pagination" @click="$emit(\'page-change\', 2)">{{ currentPage }}/{{ totalPages }}</button>',
-})
+const PaginationStub = createPaginationStub()
 
 const DetailModalStub = defineComponent({
   props: {

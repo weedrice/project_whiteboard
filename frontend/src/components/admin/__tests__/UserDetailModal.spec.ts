@@ -1,11 +1,12 @@
 import { mount } from '@vue/test-utils'
-import { defineComponent, h, ref } from 'vue'
+import { ref } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
+import { BaseBadgeStub, BaseButtonStub, BaseModalStub, identityT } from '@/test/vue-test-helpers'
 import UserDetailModal from '../UserDetailModal.vue'
 
 vi.mock('vue-i18n', () => ({
     useI18n: () => ({
-        t: (key: string) => key
+        t: identityT
     })
 }))
 
@@ -108,32 +109,6 @@ vi.mock('@/composables/useAdmin', () => ({
         })
     })
 }))
-
-const BaseModalStub = defineComponent({
-    props: {
-        isOpen: Boolean,
-        title: String
-    },
-    setup(props, { slots }) {
-        return () => props.isOpen ? h('div', { 'data-test': 'modal' }, [
-            h('h1', props.title),
-            slots.default?.()
-        ]) : null
-    }
-})
-
-const BaseBadgeStub = defineComponent({
-    setup(_, { slots }) {
-        return () => h('span', slots.default?.())
-    }
-})
-
-const BaseButtonStub = defineComponent({
-    emits: ['click'],
-    setup(_, { slots, emit }) {
-        return () => h('button', { onClick: () => emit('click') }, slots.default?.())
-    }
-})
 
 describe('UserDetailModal', () => {
     it('renders admin-specific metadata for posts, comments, and subscriptions', async () => {

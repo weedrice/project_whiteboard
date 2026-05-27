@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, ref, type Ref } from 'vue'
+import { createPaginationStub } from '@/test/vue-test-helpers'
 
 import type RecentViewedComponent from '../RecentViewed.vue'
 
@@ -26,21 +27,7 @@ const PageSizeSelectorStub = defineComponent({
   template: '<button data-test="size-change" @click="$emit(\'update:modelValue\', 30)">size {{ modelValue }}</button>',
 })
 
-const PaginationStub = defineComponent({
-  name: 'PaginationStub',
-  props: {
-    currentPage: {
-      type: Number,
-      required: true,
-    },
-    totalPages: {
-      type: Number,
-      required: true,
-    },
-  },
-  emits: ['page-change'],
-  template: '<button data-test="page-change" @click="$emit(\'page-change\', 2)">{{ currentPage }}/{{ totalPages }}</button>',
-})
+const PaginationStub = createPaginationStub()
 
 const EmptyStateStub = defineComponent({
   name: 'EmptyState',
@@ -130,7 +117,7 @@ describe('RecentViewed', () => {
     expect(wrapper.text()).toContain('user.tabs.recent')
     expect(wrapper.text()).toContain('First post')
     expect(wrapper.text()).toContain('Second post')
-    expect(wrapper.get('[data-test="page-change"]').text()).toContain('0/4')
+    expect(wrapper.get('[data-test="pagination"]').text()).toContain('0/4')
     expect(wrapper.get('[data-test="board-name"]').text()).toBe('true')
     expect(wrapper.get('[data-test="hide-no-column"]').text()).toBe('true')
   })
@@ -166,7 +153,7 @@ describe('RecentViewed', () => {
 
     expect(latestParams?.value).toEqual({ page: 0, size: 15 })
 
-    await wrapper.get('[data-test="page-change"]').trigger('click')
+    await wrapper.get('[data-test="pagination"]').trigger('click')
     expect(latestParams?.value).toEqual({ page: 2, size: 15 })
 
     await wrapper.get('[data-test="size-change"]').trigger('click')

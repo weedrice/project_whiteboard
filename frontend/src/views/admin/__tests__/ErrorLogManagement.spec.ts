@@ -1,6 +1,7 @@
 import { flushPromises, mount, VueWrapper } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref, nextTick, defineComponent, h } from 'vue'
+import { createPrevNextPaginationStub } from '@/test/vue-test-helpers'
 import ErrorLogManagement from '../ErrorLogManagement.vue'
 
 // Mock 데이터
@@ -153,19 +154,7 @@ const iconStub = defineComponent({
     }
 })
 
-const PaginationStub = defineComponent({
-    props: {
-        currentPage: Number,
-        totalPages: Number,
-    },
-    emits: ['page-change'],
-    template: `
-        <div data-test="pagination">
-            <button type="button" data-test="prev-page" :disabled="currentPage === 0" @click="$emit('page-change', currentPage - 1)">prev</button>
-            <button type="button" data-test="next-page" :disabled="currentPage >= totalPages - 1" @click="$emit('page-change', currentPage + 1)">next</button>
-        </div>
-    `
-})
+const PaginationStub = createPrevNextPaginationStub()
 
 describe('ErrorLogManagement', () => {
     let wrapper: VueWrapper
