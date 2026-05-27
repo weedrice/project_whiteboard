@@ -5,15 +5,30 @@ import router from '../index'
 import { useAuthStore } from '@/stores/auth'
 import logger from '@/utils/logger'
 import { boardApi } from '@/api/board'
+import { emoticonApi } from '@/api/emoticon'
+
+const queryClientMock = vi.hoisted(() => ({
+    fetchQuery: vi.fn(({ queryFn }: { queryFn: () => Promise<unknown> }) => queryFn())
+}))
 
 // Mock Auth Store
 vi.mock('@/stores/auth', () => ({
     useAuthStore: vi.fn()
 }))
 
+vi.mock('@/queryClient', () => ({
+    queryClient: queryClientMock
+}))
+
 vi.mock('@/api/board', () => ({
     boardApi: {
         getBoard: vi.fn()
+    }
+}))
+
+vi.mock('@/api/emoticon', () => ({
+    emoticonApi: {
+        getEmoticonData: vi.fn()
     }
 }))
 
@@ -106,6 +121,11 @@ describe('Router Navigation Guards', () => {
                     categories: [{ categoryId: 1, name: 'Open', minWriteRole: 'USER' }]
                 }
             }
+        } as never)
+        vi.mocked(emoticonApi.getEmoticonData).mockResolvedValue({
+            emoticonId: 7,
+            creatorId: 1,
+            name: 'Owned',
         } as never)
         history.pushState({}, '', '/')
     })
@@ -237,6 +257,31 @@ describe('Router Navigation Guards', () => {
 
         expect(router.currentRoute.value.name).toBe('board-detail')
         expect(router.currentRoute.value.params.boardUrl).toBe('restricted')
+    })
+
+    it('checks emoticon ownership before entering emoticon edit route', async () => {
+        mockAuthStore.isAuthenticated = true
+        mockAuthStore.user = { userId: 1, role: 'USER' }
+
+        await router.push('/emoticons/7/edit')
+
+        expect(emoticonApi.getEmoticonData).toHaveBeenCalledWith(7)
+        expect(router.currentRoute.value.name).toBe('emoticon-edit')
+    })
+
+    it('redirects to emoticon detail when the user does not own the emoticon', async () => {
+        mockAuthStore.isAuthenticated = true
+        mockAuthStore.user = { userId: 1, role: 'USER' }
+        vi.mocked(emoticonApi.getEmoticonData).mockResolvedValueOnce({
+            emoticonId: 8,
+            creatorId: 2,
+            name: 'Not owned',
+        } as never)
+
+        await router.push('/emoticons/8/edit')
+
+        expect(router.currentRoute.value.name).toBe('emoticon-detail')
+        expect(router.currentRoute.value.params.emoticonId).toBe('8')
     })
 
     it('fetches user if token exists but user is missing', async () => {

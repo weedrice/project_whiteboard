@@ -1,31 +1,28 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
+import { createUnhead, headSymbol } from '@unhead/vue'
+import { VueQueryPlugin } from '@tanstack/vue-query'
 
 import App from './App.vue'
 import router from './router'
 import i18n from './i18n'
 import './style.css'
 
-import { VueQueryPlugin, QueryClient, QueryCache, MutationCache } from '@tanstack/vue-query'
-import { useToastStore } from '@/stores/toast'
-import { useAuthStore } from '@/stores/auth'
 import { configureApiStoreResolvers } from '@/api'
+import { queryClient, configureQueryClientStoreResolvers } from '@/queryClient'
+import { configureAuthSessionEffects, useAuthStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/theme'
+import { useToastStore } from '@/stores/toast'
 import logger from '@/utils/logger'
 import { validateEnv } from '@/utils/env'
-import type { AxiosError } from 'axios'
 
-// 환경 변수 검증
 validateEnv()
-
-import { createUnhead, headSymbol } from '@unhead/vue'
 
 const app = createApp(App)
 const head = createUnhead()
 const pinia = createPinia()
 
 app.use(pinia)
-app.use(router)
-app.use(i18n)
 app.provide(headSymbol, head)
 
 configureApiStoreResolvers({
@@ -33,90 +30,25 @@ configureApiStoreResolvers({
     resolveAuthStore: () => useAuthStore(pinia),
 })
 
-import { QUERY_STALE_TIME } from '@/utils/constants'
-
-const queryClient = new QueryClient({
-    queryCache: new QueryCache({
-        onError: (error: Error, query) => {
-            if (query.meta?.errorMessage === false) return
-            if (shouldSuppressGlobalErrorToast(error)) return
-
-            const toastStore = useToastStore(pinia)
-            const axiosError = error as Error & { response?: { data?: { message?: string } } }
-            const message = axiosError.response?.data?.message || error.message || 'An error occurred'
-            toastStore.addToast(message, 'error')
-            logger.error('Query Error:', error)
-        }
-    }),
-    mutationCache: new MutationCache({
-        onError: (error: Error, _variables, _context, mutation) => {
-            if (mutation.meta?.errorMessage === false) return
-            if (shouldSuppressGlobalErrorToast(error)) return
-
-            const toastStore = useToastStore(pinia)
-            const axiosError = error as Error & { response?: { data?: { message?: string } } }
-            const message = axiosError.response?.data?.message || error.message || 'An error occurred'
-            toastStore.addToast(message, 'error')
-            logger.error('Mutation Error:', error)
-        }
-    }),
-    defaultOptions: {
-        queries: {
-            // 기본 staleTime: 0 (항상 fresh로 간주)
-            // 개별 쿼리에서 필요에 따라 설정
-            staleTime: 0,
-            // 기본 gcTime: 5분 (이전 cacheTime)
-            gcTime: QUERY_STALE_TIME.SHORT,
-            // placeholderData로 이전 데이터 유지
-            placeholderData: (previousData: unknown) => previousData,
-            retry: (failureCount, error: unknown) => {
-                // 네트워크 오류나 5xx 서버 오류인 경우에만 재시도
-                const axiosError = error as AxiosError
-                if (!axiosError.response) {
-                    // 네트워크 오류
-                    return failureCount < 2 // 최대 2번 재시도
-                }
-                const status = axiosError.response?.status
-                if (status && status >= 500 && status < 600) {
-                    // 5xx 서버 오류
-                    return failureCount < 2
-                }
-                if (status === 429) {
-                    // Rate limiting
-                    return failureCount < 3
-                }
-                return false
-            },
-            retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // 지수 백오프, 최대 30초
-            refetchOnWindowFocus: false,
-            refetchOnReconnect: true // 네트워크 재연결 시 자동 재요청
-        },
-        mutations: {
-            retry: false // Mutation은 기본적으로 재시도하지 않음
-        }
-    }
+configureQueryClientStoreResolvers({
+    resolveToastStore: () => useToastStore(pinia),
 })
 
-function shouldSuppressGlobalErrorToast(error: unknown): boolean {
-    const suppressible = error as {
-        suppressGlobalErrorToast?: boolean
-        isAuthRefreshFailure?: boolean
-        response?: { status?: number }
-        config?: { url?: string }
-    }
-
-    if (suppressible?.suppressGlobalErrorToast || suppressible?.isAuthRefreshFailure) {
-        return true
-    }
-
-    const status = suppressible?.response?.status
-    const url = suppressible?.config?.url
-    return status === 401 && typeof url === 'string' && url.includes('/auth/refresh')
-}
+configureAuthSessionEffects({
+    syncThemeFromUser: (userData) => {
+        if (userData?.theme) {
+            useThemeStore(pinia).setTheme(userData.theme)
+        }
+    },
+    handleSanctionedSession: () => {
+        useToastStore(pinia).addToast(i18n.global.t('user.sanctioned'), 'error')
+    },
+})
 
 app.use(VueQueryPlugin, { queryClient })
+app.use(router)
+app.use(i18n)
 
-// Global Error Handler
 app.config.errorHandler = (err, instance, info) => {
     logger.error('Global Error Handler:', err)
     logger.error('Vue Instance:', instance)
@@ -125,11 +57,10 @@ app.config.errorHandler = (err, instance, info) => {
 
 app.mount('#app')
 
-// Web Vitals 성능 모니터링 (프로덕션 환경에서만)
 if (import.meta.env.PROD) {
     import('@/utils/performance').then(({ reportWebVitals, logMetric }) => {
         reportWebVitals(logMetric)
     }).catch(() => {
-        // web-vitals가 없는 경우 무시 (개발 환경 등)
+        // Ignore optional web-vitals loading failures.
     })
 }
