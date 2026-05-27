@@ -2,7 +2,7 @@
 
 ## Summary
 
-Frontend build currently completes, but local Docker/npm output repeatedly reports dependency maintenance warnings. This note classifies the warnings only; it does not change `package.json`, `package-lock.json`, Docker images, or runtime dependencies.
+Frontend build currently completes. The first dependency-warning cleanup pass removed the Docker commit hash warning, refreshed Browserslist data, and applied same-major audit patches. The remaining warning class is the ESLint 8 deprecated install chain, which should be handled as a separate major migration.
 
 Latest checked command:
 
@@ -10,30 +10,35 @@ Latest checked command:
 npm.cmd audit --audit-level=low
 ```
 
-Result: 16 vulnerabilities, including 1 low, 7 moderate, and 8 high.
+Result after same-major patch cleanup: 0 vulnerabilities.
 
 ## Immediately Actionable
 
 - Docker build: `/bin/sh: git: not found`
-  - Likely cause: the Vite build path invokes `git rev-parse --short HEAD` when Docker build context does not include a git binary.
-  - Preferred fix: make `vite.config.ts` prefer `VITE_COMMIT_HASH` first, then run `git` only as a fallback.
-  - Avoid adding `git` to the production image unless commit metadata cannot be supplied another way.
+  - Status: fixed by making `vite.config.ts` prefer `VITE_COMMIT_HASH` and only running `git rev-parse --short HEAD` as a fallback.
+  - Keep avoiding `git` installation in the frontend Docker image unless commit metadata cannot be supplied another way.
 
 - Browserslist stale database
-  - Warning: `caniuse-lite` browser data is stale.
-  - Preferred fix: run a lockfile-only Browserslist database refresh in a dedicated maintenance change, then verify build and smoke.
+  - Status: fixed by refreshing Browserslist data through `npx update-browserslist-db@latest`.
+  - `package-lock.json` now carries the refreshed browser data, while `package.json` dependency ranges remain unchanged.
 
 - Same-major dependency patch updates
-  - Audit currently flags direct or near-direct frontend tooling/runtime packages including `axios`, `dompurify`, `@unhead/vue`/`unhead`, `postcss`, `vite`, and `rollup`.
-  - Preferred fix: update within compatible major ranges first, then run `npm audit`, `npm run lint:ci`, `npm run test:run`, and `npm run build`.
+  - Status: fixed with `npm.cmd audit fix` without `--force`.
+  - `npm.cmd audit --audit-level=low` now reports 0 vulnerabilities.
+  - `package.json` dependency ranges remain unchanged.
 
 ## Major Migration Needed
 
 - Deprecated npm install chain
   - Docker `npm ci` reports deprecated `eslint@8.57.1`, `@humanwhocodes/config-array`, `@humanwhocodes/object-schema`, `rimraf@3`, `glob@7`, and `inflight`.
   - Most of this chain is tied to ESLint 8 era dependencies.
-  - Preferred fix: plan an ESLint major migration with compatible versions of `@eslint/js`, `typescript-eslint`, `eslint-plugin-vue`, `eslint-plugin-vitest`, and `vue-eslint-parser`.
-  - Risk: lint output and rule behavior may change, so this should be a separate migration commit/PR.
+  - Current config: `frontend/eslint.config.mjs` is already on ESLint flat config, importing `@eslint/js`, `typescript-eslint`, `eslint-plugin-vue`, `eslint-plugin-vitest`, and `vue-eslint-parser`.
+  - Current direct versions: `eslint`/`@eslint/js` `8.57.1`, `typescript-eslint` `8.56.0`, `eslint-plugin-vue` `10.8.0`, `eslint-plugin-vitest` `0.5.4`, and `vue-eslint-parser` `10.4.0`.
+  - Available versions checked on 2026-05-27: `eslint` latest `10.4.0`, `@eslint/js` latest `10.0.1`, `typescript-eslint` wanted/latest `8.60.0`, and `eslint-plugin-vue` wanted/latest `10.9.1`.
+  - Compatibility note: `eslint-plugin-vitest@0.5.4` declares an ESLint peer range of `^8.57.0 || ^9.0.0`, while `typescript-eslint`, `eslint-plugin-vue`, and `vue-eslint-parser` already declare ranges that include ESLint 10.
+  - Recommended next unit: migrate to ESLint 9 first, update the compatible parser/plugin packages in the same commit, and keep ESLint 10 as a later follow-up after `eslint-plugin-vitest` compatibility is verified or replaced.
+  - Verification commands for that migration: `npm.cmd run lint:ci`, `npm.cmd run test:run`, `npm.cmd run type-check`, and `npm.cmd run build`.
+  - Risk: lint output and rule behavior may change, so this should stay separate from runtime dependency cleanup.
 
 ## Deferred
 
@@ -42,9 +47,8 @@ Result: 16 vulnerabilities, including 1 low, 7 moderate, and 8 high.
   - Prefer environment-provided commit hash fallback first.
 
 - Transitive audit overrides
-  - Audit also flags transitive packages such as `ajv`, `brace-expansion`, `flatted`, `follow-redirects`, `js-cookie`, `minimatch`, `picomatch`, and `ws`.
-  - Avoid broad `overrides` unless a same-major update path cannot resolve them.
-  - Recheck after direct dependency patch updates and ESLint migration planning.
+  - Status: no longer needed after same-major audit patch cleanup.
+  - Avoid broad `overrides` unless a future audit cannot be resolved by normal compatible updates.
 
 ## Verification For Future Cleanup
 
