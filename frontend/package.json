@@ -16,6 +16,7 @@
     "seo:verify": "node ./scripts/verify-seo.mjs",
     "seo:submit": "node ./scripts/submit-search-engines.mjs",
     "sitemap:generate": "node ./scripts/generate-sitemap.mjs",
+    "smoke:local": "node ./scripts/smoke-local.mjs",
     "type-check": "vue-tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
