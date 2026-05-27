@@ -1,4 +1,4 @@
-import { flushPromises, type DOMWrapper, type VueWrapper } from '@vue/test-utils'
+import { flushPromises, type DOMWrapper } from '@vue/test-utils'
 import { defineComponent, h, nextTick } from 'vue'
 
 export const identityT = (key: string, params?: Record<string, unknown>) => {
@@ -79,7 +79,9 @@ export function createPrevNextPaginationStub() {
   })
 }
 
-type ButtonSearchRoot = VueWrapper | DOMWrapper<Element>
+type ButtonSearchRoot = {
+  findAll: (selector: string) => DOMWrapper<Element>[]
+}
 
 export function findButtonByText(root: ButtonSearchRoot, text: string) {
   return root.findAll('button').find((button) => button.text() === text)
