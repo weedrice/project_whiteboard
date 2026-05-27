@@ -18,7 +18,7 @@
             />
             <div
               v-else
-              class="h-full w-full rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-2xl"
+              class="h-full w-full rounded-full bg-indigo-100 dark:bg-gray-700 flex items-center justify-center text-indigo-600 dark:text-gray-200 font-bold text-2xl"
             >
               {{ (form.displayName || authStore.user?.displayName)?.[0] || 'U' }}
             </div>

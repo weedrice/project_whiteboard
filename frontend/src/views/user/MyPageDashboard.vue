@@ -134,7 +134,7 @@ onMounted(async () => {
               <img v-if="profile?.profileImageUrl" :src="getOptimizedProfileImageUrl(profile.profileImageUrl)"
                 class="h-16 w-16 rounded-full mr-4 flex-shrink-0" alt="Profile" @error="handleImageError($event)" />
               <div v-else
-                class="h-16 w-16 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-2xl mr-4 flex-shrink-0">
+                class="h-16 w-16 rounded-full bg-indigo-100 dark:bg-gray-700 flex items-center justify-center text-indigo-600 dark:text-gray-200 font-bold text-2xl mr-4 flex-shrink-0">
                 {{ profile?.displayName?.[0] || 'U' }}
               </div>
               <div class="min-w-0">

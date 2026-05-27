@@ -17,7 +17,7 @@
                 </router-link>
 
                 <!-- Animated Underline -->
-                <div class="absolute bottom-0 h-0.5 bg-indigo-500 transition-all duration-300 ease-out"
+                <div class="absolute bottom-0 h-0.5 bg-indigo-500 dark:bg-gray-300 transition-all duration-300 ease-out"
                     :style="underlineStyle"></div>
             </nav>
         </div>

@@ -97,7 +97,7 @@ function handleMarkAllAsRead() {
     <ul class="divide-y divide-gray-200 dark:divide-gray-700">
       <li v-for="notification in notifications" :key="notification.notificationId"
         class="hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-150 ease-in-out"
-        :class="{ 'bg-blue-50 dark:bg-blue-900/20': !notification.isRead }">
+        :class="{ 'bg-blue-50 dark:bg-gray-700/40': !notification.isRead }">
         <a href="#" @click.prevent="handleNotificationClick(notification)"
           class="block px-3 py-3 sm:px-6 sm:py-4 min-h-[48px] active:bg-gray-100 dark:active:bg-gray-600">
           <div class="flex flex-row items-center justify-between gap-3">

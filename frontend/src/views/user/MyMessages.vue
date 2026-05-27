@@ -31,14 +31,14 @@
                 <button type="button" :aria-pressed="viewType === 'received'" @click="changeViewType('received')"
                     class="flex-1 sm:flex-initial relative inline-flex items-center justify-center rounded-l-lg sm:rounded-l-md px-3 py-2.5 sm:py-2 text-sm font-medium ring-1 ring-inset min-h-[44px] sm:min-h-0 focus:z-10"
                     :class="viewType === 'received'
-                        ? 'bg-indigo-600 text-white ring-indigo-600 hover:bg-indigo-700'
+                        ? 'bg-indigo-600 text-white ring-indigo-600 hover:bg-indigo-700 dark:bg-gray-200 dark:text-gray-900 dark:ring-gray-200 dark:hover:bg-white'
                         : 'bg-white text-gray-900 ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-700'">
                     {{ $t('user.message.received') }}
                 </button>
                 <button type="button" :aria-pressed="viewType === 'sent'" @click="changeViewType('sent')"
                     class="flex-1 sm:flex-initial relative -ml-px inline-flex items-center justify-center rounded-r-lg sm:rounded-r-md px-3 py-2.5 sm:py-2 text-sm font-medium ring-1 ring-inset min-h-[44px] sm:min-h-0 focus:z-10"
                     :class="viewType === 'sent'
-                        ? 'bg-indigo-600 text-white ring-indigo-600 hover:bg-indigo-700'
+                        ? 'bg-indigo-600 text-white ring-indigo-600 hover:bg-indigo-700 dark:bg-gray-200 dark:text-gray-900 dark:ring-gray-200 dark:hover:bg-white'
                         : 'bg-white text-gray-900 ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-700'">
                     {{ $t('user.message.sent') }}
                 </button>
