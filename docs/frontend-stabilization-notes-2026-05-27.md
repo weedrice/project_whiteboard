@@ -35,3 +35,9 @@ Codex Browser checklist:
 - `PostForm` video URL popover tests still use positional selectors such as `.video-url-popover-actions button:last-child`; keep this as a focused follow-up because the spec is large.
 - Full E2E adoption is deferred. Benefits: realistic user-flow coverage for login/admin/user journeys. Costs: new tooling, environment setup, fixture data, and slower CI.
 - Browser smoke script automation is deferred until the project explicitly accepts a browser automation dependency or a repo-local browser runner pattern.
+
+## Next Candidates
+
+- Continue selector cleanup in the large board editor specs, starting with `PostForm` video popover actions.
+- Evaluate a small E2E proof of concept only after the team agrees on tooling, fixture strategy, and CI runtime budget.
+- Keep `smoke-local.mjs` focused on fast HTTP/API checks unless a browser runner is added intentionally.

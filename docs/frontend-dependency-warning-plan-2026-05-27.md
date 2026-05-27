@@ -54,25 +54,11 @@ Result after same-major patch cleanup: 0 vulnerabilities.
   - Docker build still reports the informational npm CLI notice `10.9.8 -> 11.15.0`.
   - Do not change the Node base image or install a different npm CLI solely for this notice.
 
-## UI Follow-Up Status
+## Related Stabilization Notes
 
-- `frontend/src/components/common/widgets/UserSelectModal.vue`
-  - Status: applied after adding focused tests for search, initial selected ids, single/multiple selection, `board-manager-candidates` source, hidden email column, excluded users, loading, and empty states.
-  - The modal now uses `BaseTable` with compact density, no table shadow, row click selection, optional selection/email columns, and the existing `max-h-[420px]` scroll region.
+UI stabilization, smoke checklist, and `BaseTable` follow-up status have moved to:
 
-## BaseTable Follow-Up Scan
-
-Latest scan:
-
-```powershell
-rg "<table" frontend/src -n
-rg "<BaseTable" frontend/src -n
-```
-
-- Immediate conversion candidates: none. The only raw `<table>` under `frontend/src` is the internal table rendered by `BaseTable` itself.
-- Already commonized: admin user/config/error-log/admin/inquiry/report/IP block tables, board post list, and `UserSelectModal` all use `BaseTable`.
-- Deferred candidates: none currently identified from raw table usage. Future list or grid cleanup should start from repeated card/list markup instead of table conversion.
-- Caution: keep compact modal tables on `BaseTable` only when selection, scroll height, and optional columns are covered by focused tests.
+- `docs/frontend-stabilization-notes-2026-05-27.md`
 
 ## Verification For Future Cleanup
 
