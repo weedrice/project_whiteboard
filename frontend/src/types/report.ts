@@ -1,4 +1,4 @@
-// ?좉퀬 愿?????(API ReportResponse? ?숈씪)
+// 신고 관련 타입 (API ReportResponse와 동일)
 export interface Report {
     reportId: number
     reporterId?: number
@@ -6,18 +6,18 @@ export interface Report {
     targetType: 'POST' | 'COMMENT' | 'USER'
     targetId: number
     targetUserId?: number | null
-    /** ?좉퀬 ?ъ쑀 ?좏삎 (SPAM, ABUSE, ADULT ?? */
+    /** 신고 사유 유형 (SPAM, ABUSE, ADULT 등) */
     reasonType: string
     /** Report creation remark, such as a legacy user report link. */
     remark?: string | null
     /** Admin processing note. */
     processedRemark?: string | null
     status: 'PENDING' | 'RESOLVED' | 'REJECTED'
-    /** ?좉퀬 ?곸꽭 ?댁슜(?ъ슜???낅젰) */
+    /** 신고 상세 내용 (사용자 입력) */
     contents?: string | null
-    /** ????쒖떆紐?(USER?????됰꽕?? */
+    /** 대상 표시명 (USER 대상의 닉네임) */
     targetDisplayName?: string | null
-    /** ???濡쒓렇??ID (USER???? ?됰꽕??ID ?쒓린?? */
+    /** 대상 로그인 ID (USER 대상의 로그인 ID 표시용) */
     targetLoginId?: string | null
     createdAt: string
     updatedAt?: string
