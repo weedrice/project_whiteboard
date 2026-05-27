@@ -82,6 +82,17 @@ const flushPromises = async () => {
 }
 
 describe('MessageModal', () => {
+    it('shows a warning and skips the request when content is blank', async () => {
+        const wrapper = mountModal()
+
+        await wrapper.get('textarea').setValue('   ')
+        const sendButton = wrapper.findAll('button').at(1)
+        await sendButton?.trigger('click')
+
+        expect(mocks.addToast).toHaveBeenCalledWith('user.message.inputContent', 'warning')
+        expect(mocks.sendMessage).not.toHaveBeenCalled()
+    })
+
     it('ignores repeated sends while a send request is pending', async () => {
         let resolveSend: (value: unknown) => void = () => undefined
         mocks.sendMessage.mockReturnValue(new Promise((resolve) => {

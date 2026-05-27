@@ -159,6 +159,41 @@ describe('MyMessages', () => {
         expect(wrapper.findComponent({ name: 'EmptyState' }).exists()).toBe(false)
     })
 
+    it('shows the shared blank-content warning for empty replies', async () => {
+        const listedMessage = {
+            messageId: 5,
+            content: 'hello',
+            partner: { userId: 2, displayName: 'Other' },
+            isRead: true,
+            createdAt: '2026-04-16T11:00:00',
+        }
+
+        messageApi.getReceivedMessages.mockResolvedValue({
+            data: {
+                success: true,
+                data: {
+                    content: [listedMessage],
+                    totalPages: 1,
+                }
+            }
+        })
+
+        const wrapper = mountMyMessages()
+        await flushPromises()
+
+        const exposed = wrapper.vm as unknown as {
+            startReply: (message: typeof listedMessage) => void
+            replyContent: string
+            sendReply: () => Promise<void>
+        }
+        exposed.startReply(listedMessage)
+        exposed.replyContent = '   '
+        await exposed.sendReply()
+
+        expect(addToast).toHaveBeenCalledWith('user.message.inputContent', 'warning')
+        expect(messageApi.sendMessage).not.toHaveBeenCalled()
+    })
+
     it('exposes mailbox view and message row controls to assistive technology', async () => {
         messageApi.getReceivedMessages.mockResolvedValue({
             data: {
