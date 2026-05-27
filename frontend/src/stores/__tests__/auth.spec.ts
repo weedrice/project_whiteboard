@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import { useAuthStore } from '../auth'
+import { configureAuthSessionEffects, useAuthStore } from '../auth'
 import { authApi } from '@/api/auth'
 import logger from '@/utils/logger'
 
@@ -13,19 +13,8 @@ vi.mock('@/api/auth', () => ({
     }
 }))
 
-const mockSetTheme = vi.fn()
-vi.mock('@/stores/theme', () => ({
-    useThemeStore: vi.fn(() => ({
-        setTheme: mockSetTheme
-    }))
-}))
-
-const mockAddToast = vi.fn()
-vi.mock('@/stores/toast', () => ({
-    useToastStore: vi.fn(() => ({
-        addToast: mockAddToast
-    }))
-}))
+const mockSyncThemeFromUser = vi.fn()
+const mockHandleSanctionedSession = vi.fn()
 
 vi.mock('@/utils/logger', () => ({
     default: {
@@ -48,6 +37,10 @@ describe('Auth Store', () => {
         setActivePinia(createPinia())
         localStorage.clear()
         vi.clearAllMocks()
+        configureAuthSessionEffects({
+            syncThemeFromUser: mockSyncThemeFromUser,
+            handleSanctionedSession: mockHandleSanctionedSession,
+        })
         store = useAuthStore()
     })
 
@@ -87,8 +80,7 @@ describe('Auth Store', () => {
             expect(localStorage.getItem('accessToken')).toBe('new-token')
             expect(localStorage.getItem('refreshToken')).toBeNull()
 
-            // Verify theme setting
-            expect(mockSetTheme).toHaveBeenCalledWith('DARK')
+            expect(mockSyncThemeFromUser).toHaveBeenCalledWith(mockResponse.data.data.user)
         })
 
         it('handles login failure', async () => {
@@ -159,7 +151,7 @@ describe('Auth Store', () => {
 
             await store.handleSanctionedSession()
 
-            expect(mockAddToast).toHaveBeenCalledWith('user.sanctioned', 'error')
+            expect(mockHandleSanctionedSession).toHaveBeenCalled()
             expect(authApi.logout).toHaveBeenCalled()
             expect(store.accessToken).toBeNull()
             expect(store.user).toBeNull()
@@ -203,7 +195,7 @@ describe('Auth Store', () => {
             expect(store.accessToken).toBe('stored-token')
             expect(authApi.getMe).toHaveBeenCalledWith({ headers: { 'x-test': '1' } })
             expect(store.user).toEqual(mockUser)
-            expect(mockSetTheme).toHaveBeenCalledWith('DARK')
+            expect(mockSyncThemeFromUser).toHaveBeenCalledWith(mockUser)
         })
 
         it('returns false when getMe response is unsuccessful', async () => {
@@ -227,21 +219,11 @@ describe('Auth Store', () => {
                 data: { success: true, data: mockUser }
             } as any)
 
-            // Mock i18n
-            vi.mock('@/i18n', () => ({
-                default: {
-                    global: {
-                        t: (key: string) => key
-                    }
-                }
-            }))
-
             const result = await store.fetchUser()
 
-            // Now uses toast instead of alert, and logout is called
             expect(result).toBe(false)
             expect(store.accessToken).toBeNull() // Should have logged out
-            expect(mockAddToast).toHaveBeenCalledWith('user.sanctioned', 'error')
+            expect(mockHandleSanctionedSession).toHaveBeenCalled()
         })
 
         it('does not logout on fetch error (handled by interceptor)', async () => {

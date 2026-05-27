@@ -1,27 +1,37 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi } from '@/api/auth'
-import { useThemeStore } from '@/stores/theme'
 import logger from '@/utils/logger'
-import { useToastStore } from '@/stores/toast'
-import i18n from '@/i18n'
 import { clearStoredAuthTokens, getStoredAccessToken, persistAccessToken } from '@/utils/authTokenStorage'
 import type { User, LoginCredentials } from '@/types'
 import type { AxiosRequestConfig } from 'axios'
 
+interface AuthSessionEffects {
+    syncThemeFromUser: (userData: User | null) => void
+    handleSanctionedSession: () => void
+}
 
+const noopSessionEffects: AuthSessionEffects = {
+    syncThemeFromUser: () => undefined,
+    handleSanctionedSession: () => undefined,
+}
+
+let authSessionEffects: AuthSessionEffects = noopSessionEffects
+
+export function configureAuthSessionEffects(effects: Partial<AuthSessionEffects>) {
+    authSessionEffects = {
+        ...noopSessionEffects,
+        ...effects,
+    }
+}
 
 export const useAuthStore = defineStore('auth', () => {
     const user = ref<User | null>(null)
     const accessToken = ref<string | null>(getStoredAccessToken())
     const isAuthenticated = computed(() => !!accessToken.value)
-    const themeStore = useThemeStore()
-    const toastStore = useToastStore()
 
     function syncThemeFromUser(userData: User | null) {
-        if (userData?.theme) {
-            themeStore.setTheme(userData.theme)
-        }
+        authSessionEffects.syncThemeFromUser(userData)
     }
 
     function applyAuthenticatedSession(token: string, userData: User) {
@@ -38,7 +48,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     async function handleSanctionedSession() {
-        toastStore.addToast(i18n.global.t('user.sanctioned'), 'error')
+        authSessionEffects.handleSanctionedSession()
         await logout()
     }
 
