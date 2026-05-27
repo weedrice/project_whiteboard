@@ -1,13 +1,13 @@
 import { createRouter, createWebHistory, type RouteLocationNormalized, type NavigationGuardNext } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
-import { boardApi } from '@/api/board'
 import { postApi } from '@/api/post'
 import { queryClient } from '@/queryClient'
+import { boardDetailQueryKey, fetchBoardDetail } from '@/composables/useBoard'
 import { canWriteBoardPost } from '@/utils/board'
 import logger from '@/utils/logger'
 import { normalizePostReactionFlags, type PostReactionAlias } from '@/utils/postViewModel'
-import type { BoardDetail, Post } from '@/types'
+import type { Post } from '@/types'
 
 const CHUNK_RELOAD_KEY = 'chunk-reload-attempted'
 
@@ -389,8 +389,11 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
             }
 
             try {
-                const { data } = await boardApi.getBoard(boardUrl)
-                const board = data.data as BoardDetail
+                const board = await queryClient.fetchQuery({
+                    queryKey: boardDetailQueryKey(boardUrl),
+                    queryFn: () => fetchBoardDetail(boardUrl),
+                    retry: false,
+                })
                 if (to.meta.requiresBoardAdmin && !board.isAdmin) {
                     useToastStore().addToast('You do not have permission to manage this board.', 'error')
                     next({ name: 'board-detail', params: { boardUrl } })

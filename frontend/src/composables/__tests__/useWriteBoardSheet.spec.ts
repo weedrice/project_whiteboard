@@ -33,6 +33,11 @@ vi.mock('@tanstack/vue-query', () => ({
 }))
 
 vi.mock('@/composables/useBoard', () => ({
+    boardDetailQueryKey: (boardUrl: string) => ['board', boardUrl],
+    fetchBoardDetail: async (boardUrl: string) => {
+        const { data } = await boardApi.getBoard(boardUrl)
+        return data.data
+    },
     useBoard: () => ({
         useBoards: () => ({
             data: ref([{ boardId: 1, boardUrl: 'free', boardName: 'Free', subscriberCount: 10, postCount: 12 }]),
