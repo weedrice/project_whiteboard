@@ -11,7 +11,7 @@ withDefaults(defineProps<{
   paddingClass?: string
 }>(), {
   loading: false,
-  error: null,
+  error: undefined,
   empty: false,
   loadingText: 'Loading...',
   errorText: 'Failed to load data.',
