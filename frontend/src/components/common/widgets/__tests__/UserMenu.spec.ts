@@ -22,11 +22,15 @@ vi.mock('@/stores/auth', () => ({
   useAuthStore: () => authState
 }))
 
-vi.mock('@tanstack/vue-query', () => ({
-  useQueryClient: () => ({
-    invalidateQueries: invalidateQueriesMock
-  })
-}))
+vi.mock('@tanstack/vue-query', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tanstack/vue-query')>()
+  return {
+    ...actual,
+    useQueryClient: () => ({
+      invalidateQueries: invalidateQueriesMock
+    })
+  }
+})
 
 vi.mock('@/stores/toast', () => ({
   useToastStore: () => ({
