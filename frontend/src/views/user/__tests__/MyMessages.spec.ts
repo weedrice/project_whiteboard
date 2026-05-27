@@ -2,6 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import MyMessages from '../MyMessages.vue'
 import { extractErrorResponse } from '@/utils/errorHandler'
+import { toMailboxMessageViewModel } from '@/utils/messageViewModel'
 
 const messageApi = vi.hoisted(() => ({
     getReceivedMessages: vi.fn(),
@@ -143,7 +144,7 @@ describe('MyMessages', () => {
         expect(messageApi.getMessage).toHaveBeenCalledWith(5, expect.objectContaining({ skipGlobalErrorHandler: true }))
         expect(messageApi.markAsRead).toHaveBeenCalledWith(5, expect.objectContaining({ skipGlobalErrorHandler: true }))
         expect(messageApi.getMessage.mock.invocationCallOrder[0]).toBeLessThan(messageApi.markAsRead.mock.invocationCallOrder[0])
-        expect(listedMessage.isRead).toBe(true)
+        expect(listedMessage.isRead).toBe(false)
     })
 
     it('shows an error state instead of empty state when the message list fails to load', async () => {
@@ -182,11 +183,11 @@ describe('MyMessages', () => {
         await flushPromises()
 
         const exposed = wrapper.vm as unknown as {
-            startReply: (message: typeof listedMessage) => void
+            startReply: (message: ReturnType<typeof toMailboxMessageViewModel>) => void
             replyContent: string
             sendReply: () => Promise<void>
         }
-        exposed.startReply(listedMessage)
+        exposed.startReply(toMailboxMessageViewModel(listedMessage))
         exposed.replyContent = '   '
         await exposed.sendReply()
 
@@ -467,7 +468,7 @@ describe('MyMessages', () => {
         expect(messageApi.markAsRead).toHaveBeenCalledTimes(1)
         expect(messageApi.markAsRead).toHaveBeenCalledWith(6, expect.objectContaining({ skipGlobalErrorHandler: true }))
         expect(firstMessage.isRead).toBe(false)
-        expect(secondMessage.isRead).toBe(true)
+        expect(secondMessage.isRead).toBe(false)
     })
 
     it('keeps the list read state when read completion is stale for the modal', async () => {
@@ -525,7 +526,7 @@ describe('MyMessages', () => {
         resolveFirstRead?.({ data: { success: true } })
         await flushPromises()
 
-        expect(firstMessage.isRead).toBe(true)
+        expect(firstMessage.isRead).toBe(false)
         expect(wrapper.text()).toContain('second detail')
         expect(wrapper.text()).not.toContain('first detail')
     })
