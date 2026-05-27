@@ -5,6 +5,7 @@ import { Shield } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
+import AdminPanel from '@/components/admin/AdminPanel.vue'
 import AdminPaginationFooter from '@/components/admin/AdminPaginationFooter.vue'
 import IpBlockList from '@/components/admin/IpBlockList.vue'
 import IpBlockDetailModal from '@/components/admin/IpBlockDetailModal.vue'
@@ -85,8 +86,7 @@ watch(totalPages, (nextTotalPages) => {
         <AdminPageHeader :title="t('admin.security.title')" :description="t('admin.security.description')" />
 
         <!-- Block IP Form -->
-        <div
-            class="mt-6 bg-white dark:bg-gray-800 shadow sm:rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+        <AdminPanel class="mt-6" padding="sm">
             <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ t('admin.security.addTitle') }}
             </h3>
             <form @submit.prevent="handleBlockIp" class="mt-5 sm:flex sm:items-end space-x-4">
@@ -104,7 +104,7 @@ watch(totalPages, (nextTotalPages) => {
                     {{ t('common.block') }}
                 </BaseButton>
             </form>
-        </div>
+        </AdminPanel>
 
         <!-- IP Block List -->
         <IpBlockList :ip-blocks="ipBlocks" @unblock="handleUnblockIp" @viewDetail="openDetailModal" />

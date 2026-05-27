@@ -9,6 +9,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTable from '@/components/common/ui/BaseTable.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
+import AdminPanel from '@/components/admin/AdminPanel.vue'
 import { formatDate } from '@/utils/date'
 
 const { t } = useI18n()
@@ -80,8 +81,7 @@ const superAdminColumns: { key: string; label: string; width: string; align?: 'l
     <AdminPageHeader :title="t('admin.admins.title')" :description="t('admin.admins.description')" />
 
     <div class="mt-6">
-      <div
-        class="bg-white dark:bg-gray-800 shadow sm:rounded-lg p-4 border border-gray-200 dark:border-gray-700 max-w-xl">
+      <AdminPanel padding="sm" max-width-class="max-w-xl">
         <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ t('admin.admins.addSuperAdmin') }}</h3>
         <div class="mt-2 text-sm text-gray-500 dark:text-gray-400">
           <p>{{ t('admin.admins.addSuperAdminDesc') }}</p>
@@ -101,7 +101,7 @@ const superAdminColumns: { key: string; label: string; width: string; align?: 'l
             {{ t('common.add') }}
           </BaseButton>
         </form>
-      </div>
+      </AdminPanel>
     </div>
 
     <div class="mt-8">

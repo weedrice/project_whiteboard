@@ -12,7 +12,7 @@
 
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-12">
       <section class="xl:col-span-4">
-        <div class="rounded-lg border border-gray-200 bg-white p-4 shadow dark:border-gray-700 dark:bg-gray-800">
+        <AdminPanel padding="sm">
           <h2 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $t('common.board') }}</h2>
 
           <div v-if="loading" class="py-8 flex justify-center">
@@ -60,11 +60,11 @@
               </button>
             </template>
           </draggable>
-        </div>
+        </AdminPanel>
       </section>
 
       <section class="xl:col-span-8">
-        <div class="w-full max-w-5xl rounded-lg border border-gray-200 bg-white p-5 shadow dark:border-gray-700 dark:bg-gray-800">
+        <AdminPanel max-width-class="w-full max-w-5xl">
           <template v-if="selectedBoard">
             <div class="space-y-7">
               <div>
@@ -200,7 +200,7 @@
           <div v-else class="py-12 text-center text-sm text-gray-500 dark:text-gray-400">
             {{ $t('common.noData') }}
           </div>
-        </div>
+        </AdminPanel>
       </section>
     </div>
 
@@ -251,6 +251,7 @@ import { useAdminBoardCreateModal } from '@/composables/useAdminBoardCreateModal
 import { useBoardIconUpload } from '@/composables/useBoardIconUpload'
 import { useBoardManagerAssignment } from '@/composables/useBoardManagerAssignment'
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
+import AdminPanel from '@/components/admin/AdminPanel.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'

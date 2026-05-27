@@ -9,6 +9,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import BaseTable from '@/components/common/ui/BaseTable.vue'
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
+import AdminPanel from '@/components/admin/AdminPanel.vue'
 import AdminPaginationFooter from '@/components/admin/AdminPaginationFooter.vue'
 import UserDetailModal from '@/components/admin/UserDetailModal.vue'
 import { formatDateOnly } from '@/utils/date'
@@ -178,7 +179,7 @@ const columns = computed(() => [
   <div>
     <AdminPageHeader :title="t('admin.users.title')" :description="t('admin.users.description')" />
 
-    <div class="mt-6 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+    <AdminPanel class="mt-6" padding="sm" :shadow="false">
       <div class="flex flex-col items-start gap-4">
         <div class="flex flex-wrap items-end gap-3">
           <div class="flex w-36 flex-col gap-1">
@@ -266,7 +267,7 @@ const columns = computed(() => [
           </div>
         </div>
       </div>
-    </div>
+    </AdminPanel>
 
     <AdminPaginationFooter
       :page="currentPage"
