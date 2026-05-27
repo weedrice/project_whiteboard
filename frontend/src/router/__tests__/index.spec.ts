@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import logger from '@/utils/logger'
 import { boardApi } from '@/api/board'
 import { emoticonApi } from '@/api/emoticon'
+import { postApi } from '@/api/post'
 
 const queryClientMock = vi.hoisted(() => ({
     fetchQuery: vi.fn(({ queryFn }: { queryFn: () => Promise<unknown> }) => queryFn())
@@ -29,6 +30,12 @@ vi.mock('@/api/board', () => ({
 vi.mock('@/api/emoticon', () => ({
     emoticonApi: {
         getEmoticonData: vi.fn()
+    }
+}))
+
+vi.mock('@/api/post', () => ({
+    postApi: {
+        getPost: vi.fn()
     }
 }))
 
@@ -127,6 +134,32 @@ describe('Router Navigation Guards', () => {
             creatorId: 1,
             name: 'Owned',
         } as never)
+        vi.mocked(postApi.getPost).mockResolvedValue({
+            data: {
+                data: {
+                    postId: 10,
+                    title: 'Editable post',
+                    contents: 'content',
+                    viewCount: 0,
+                    likeCount: 0,
+                    commentCount: 0,
+                    isNotice: false,
+                    isNsfw: false,
+                    isSpoiler: false,
+                    author: {
+                        userId: 1,
+                        displayName: 'Author',
+                        authorType: 'USER',
+                    },
+                    board: {
+                        boardId: 1,
+                        boardName: 'Open',
+                        boardUrl: 'open',
+                    },
+                    createdAt: '2026-05-27T00:00:00Z',
+                }
+            }
+        } as never)
         history.pushState({}, '', '/')
     })
 
@@ -218,6 +251,41 @@ describe('Router Navigation Guards', () => {
         vi.mocked(boardApi.getBoard).mockRejectedValueOnce(new Error('board failed'))
 
         await router.push('/board/error/write')
+
+        expect(router.currentRoute.value.name).toBe('error')
+        expect(router.currentRoute.value.query.status).toBe('500')
+    })
+
+    it('checks post author permission before entering post edit route', async () => {
+        mockAuthStore.isAuthenticated = true
+        mockAuthStore.user = { userId: 1, role: 'USER' }
+        await router.push('/')
+
+        await router.push('/board/open/post/10/edit')
+
+        expect(postApi.getPost).toHaveBeenCalledWith('10', { params: { incrementView: false } })
+        expect(router.currentRoute.value.name).toBe('post-edit')
+    })
+
+    it('redirects to post detail when the user is not the post author', async () => {
+        mockAuthStore.isAuthenticated = true
+        mockAuthStore.user = { userId: 2, role: 'USER' }
+        await router.push('/')
+
+        await router.push('/board/open/post/10/edit')
+
+        expect(router.currentRoute.value.name).toBe('post-detail')
+        expect(router.currentRoute.value.params.boardUrl).toBe('open')
+        expect(router.currentRoute.value.params.postId).toBe('10')
+    })
+
+    it('redirects to error when post author permission cannot be verified', async () => {
+        mockAuthStore.isAuthenticated = true
+        mockAuthStore.user = { userId: 1, role: 'USER' }
+        vi.mocked(postApi.getPost).mockRejectedValueOnce(new Error('post failed'))
+        await router.push('/')
+
+        await router.push('/board/open/post/10/edit')
 
         expect(router.currentRoute.value.name).toBe('error')
         expect(router.currentRoute.value.query.status).toBe('500')

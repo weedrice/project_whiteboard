@@ -13,11 +13,10 @@ import type { EmoticonImage } from '@/types/emoticon'
 import { useEmoticonEditResource } from '@/composables/useEmoticonEditResource'
 import { useEmoticonEditSubmit } from '@/composables/useEmoticonEditSubmit'
 import { useEmoticonImageSelection } from '@/composables/useEmoticonImageSelection'
-import { useEmoticonTagItems } from '@/composables/useEmoticonTagItems'
+import { useEmoticonTags } from '@/composables/useEmoticonTags'
 import { useToggleEmoticonVisibility } from '@/composables/useToggleEmoticonVisibility'
 import { useEmoticonUploadSession } from '@/composables/useEmoticonUploadSession'
 import {
-  resolveEmoticonTagAddition,
   revokeEmoticonPreviewUrl,
   SUPPORTED_EMOTICON_IMAGE_ACCEPT,
   type EmoticonImagePreview
@@ -51,11 +50,14 @@ const originalThumbnailUrl = ref<string | null>(null)
 const newEmoticonPreviews = ref<EmoticonImagePreview[]>([])
 const existingImages = ref<EmoticonImage[]>([])
 const imagesToDelete = ref<number[]>([])
-const tagInput = ref('')
 const isSubmitting = ref(false)
 const uploadSession = useEmoticonUploadSession()
 const { uploadProgress } = uploadSession
-const { tagItems, tags, addTagItem, removeTagItem } = useEmoticonTagItems()
+const { tagInput, tagItems, tags, addTag, removeTag } = useEmoticonTags({
+  onMaxTags: () => {
+    toastStore.addToast(t('emoticon.validation.maxTags'), 'error')
+  }
+})
 
 // 파일 입력 refs
 const thumbnailInput = ref<HTMLInputElement | null>(null)
@@ -152,22 +154,6 @@ const removeNewEmoticonImage = (clientId: string) => {
     revokeEmoticonPreviewUrl(item.preview)
     newEmoticonPreviews.value.splice(index, 1)
   }
-}
-
-// 태그 추가
-const addTag = () => {
-  const result = resolveEmoticonTagAddition(tagInput.value, tags.value)
-  if (result.error === 'maxTags') {
-    toastStore.addToast(t('emoticon.validation.maxTags'), 'error')
-  } else if (result.tag) {
-    addTagItem(result.tag)
-  }
-  tagInput.value = ''
-}
-
-// 태그 제거
-const removeTag = (clientId: string) => {
-  removeTagItem(clientId)
 }
 
 // 총 이미지 개수 계산

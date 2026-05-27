@@ -2,11 +2,9 @@ import { useQueryClient } from '@tanstack/vue-query'
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { useBoard } from '@/composables/useBoard'
+import { boardDetailQueryKey, fetchBoardDetail, useBoard } from '@/composables/useBoard'
 import { useToastStore } from '@/stores/toast'
-import { boardApi } from '@/api/board'
 import { canWriteBoardPost } from '@/utils/board'
-import type { BoardDetail } from '@/types'
 
 export function useWriteBoardSheet() {
   const route = useRoute()
@@ -54,11 +52,9 @@ export function useWriteBoardSheet() {
 
   const verifyBoardWriteAccess = async (boardUrl: string) => {
     const board = await queryClient.fetchQuery({
-      queryKey: ['board', boardUrl],
-      queryFn: async () => {
-        const { data } = await boardApi.getBoard(boardUrl)
-        return data.data as BoardDetail
-      },
+      queryKey: boardDetailQueryKey(boardUrl),
+      queryFn: () => fetchBoardDetail(boardUrl),
+      retry: false,
     })
     return canWriteBoardPost(board, authStore.isAuthenticated, authStore.user?.role)
   }

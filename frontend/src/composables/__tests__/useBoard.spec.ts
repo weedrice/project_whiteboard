@@ -145,7 +145,7 @@ describe('useBoard', () => {
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
         const result = await (options.queryFn as () => Promise<unknown>)()
         expect(result).toEqual({ boardId: 2, boardUrl: 'free' })
-        expect(boardApi.getBoard).toHaveBeenCalledWith('free', undefined)
+        expect(boardApi.getBoard).toHaveBeenCalledWith('free')
     })
 
     it('fetches board notices with enabled guards', async () => {
