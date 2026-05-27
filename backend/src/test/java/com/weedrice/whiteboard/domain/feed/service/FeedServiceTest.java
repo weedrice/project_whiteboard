@@ -102,7 +102,7 @@ class FeedServiceTest {
     }
 
     @Test
-    @DisplayName("POST feed without resolved post summary adjusts last page metadata")
+    @DisplayName("POST feed without resolved post summary keeps repository page metadata")
     void getUserFeeds_excludesPostFeedWhenSummaryMissing() {
         Long userId = 1L;
         User user = User.builder().build();
@@ -123,16 +123,18 @@ class FeedServiceTest {
 
         FeedResponse response = feedService.getUserFeeds(userId, pageable);
 
-        assertThat(response.getContent()).hasSize(1);
-        assertThat(response.getContent().getFirst().getContentId()).isEqualTo(202L);
-        assertThat(response.getContent().getFirst().getPost()).isEqualTo(validPost);
-        assertThat(response.getTotalElements()).isEqualTo(1);
+        assertThat(response.getContent()).hasSize(2);
+        assertThat(response.getContent()).extracting(FeedResponse.FeedSummary::getContentId)
+                .containsExactly(101L, 202L);
+        assertThat(response.getContent().get(0).getPost()).isNull();
+        assertThat(response.getContent().get(1).getPost()).isEqualTo(validPost);
+        assertThat(response.getTotalElements()).isEqualTo(2);
         assertThat(response.getTotalPages()).isEqualTo(1);
         assertThat(response.isHasNext()).isFalse();
     }
 
     @Test
-    @DisplayName("POST feed filtering keeps next page metadata when additional physical pages may exist")
+    @DisplayName("POST feed with missing summary keeps next page metadata")
     void getUserFeeds_keepsNextPageMetadataWhenNextPhysicalPageMayExist() {
         Long userId = 1L;
         User user = User.builder().build();
@@ -153,9 +155,11 @@ class FeedServiceTest {
 
         FeedResponse response = feedService.getUserFeeds(userId, pageable);
 
-        assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent()).hasSize(2);
         assertThat(response.getContent()).extracting(FeedResponse.FeedSummary::getContentId)
-                .containsExactly(202L);
+                .containsExactly(101L, 202L);
+        assertThat(response.getContent().get(0).getPost()).isNull();
+        assertThat(response.getContent().get(1).getPost()).isEqualTo(validPost);
         assertThat(response.getTotalElements()).isEqualTo(3);
         assertThat(response.getTotalPages()).isEqualTo(2);
         assertThat(response.isHasNext()).isTrue();
