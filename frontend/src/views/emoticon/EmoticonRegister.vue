@@ -9,11 +9,10 @@ import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { useEmoticonImageSelection } from '@/composables/useEmoticonImageSelection'
-import { useEmoticonTagItems } from '@/composables/useEmoticonTagItems'
+import { useEmoticonTags } from '@/composables/useEmoticonTags'
 import { useEmoticonImageUploader } from '@/composables/useEmoticonImageUploader'
 import { useEmoticonUploadSession } from '@/composables/useEmoticonUploadSession'
 import {
-  resolveEmoticonTagAddition,
   revokeEmoticonPreviewUrl,
   SUPPORTED_EMOTICON_IMAGE_ACCEPT,
   type EmoticonImagePreview
@@ -33,12 +32,15 @@ const emoticonName = ref('')
 const thumbnailFile = ref<File | null>(null)
 const thumbnailPreview = ref<string | null>(null)
 const emoticonPreviews = ref<EmoticonImagePreview[]>([])
-const tagInput = ref('')
 const isSubmitting = ref(false)
 const uploadSession = useEmoticonUploadSession()
 const imageUploader = useEmoticonImageUploader(uploadSession)
 const { uploadProgress } = uploadSession
-const { tagItems, tags, addTagItem, removeTagItem } = useEmoticonTagItems()
+const { tagInput, tagItems, tags, addTag, removeTag } = useEmoticonTags({
+  onMaxTags: () => {
+    toastStore.addToast(t('emoticon.validation.maxTags'), 'error')
+  }
+})
 
 // 파일 입력 refs
 const thumbnailInput = ref<HTMLInputElement | null>(null)
@@ -101,22 +103,6 @@ const removeEmoticonImage = (clientId: string) => {
     revokeEmoticonPreviewUrl(item.preview)
     emoticonPreviews.value.splice(index, 1)
   }
-}
-
-// 태그 추가
-const addTag = () => {
-  const result = resolveEmoticonTagAddition(tagInput.value, tags.value)
-  if (result.error === 'maxTags') {
-    toastStore.addToast(t('emoticon.validation.maxTags'), 'error')
-  } else if (result.tag) {
-    addTagItem(result.tag)
-  }
-  tagInput.value = ''
-}
-
-// 태그 제거
-const removeTag = (clientId: string) => {
-  removeTagItem(clientId)
 }
 
 // 폼 유효성 검사
