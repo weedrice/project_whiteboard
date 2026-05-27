@@ -24,6 +24,15 @@ interface BoardManagerCandidateParams {
     q?: string
 }
 
+export const boardDetailQueryKey = (boardUrl: string | Ref<string>) => ['board', boardUrl] as const
+
+export async function fetchBoardDetail(boardUrl: string, requestConfig?: AxiosRequestConfig) {
+    const { data } = requestConfig
+        ? await boardApi.getBoard(boardUrl, requestConfig)
+        : await boardApi.getBoard(boardUrl)
+    return data.data as BoardDetail
+}
+
 const isVisibleSubscriptionBoard = (
     board: SubscriptionBoardListItem
 ): board is SubscriptionBoardListItem & BoardListItem =>
@@ -64,11 +73,8 @@ export function useBoard() {
     const useBoardDetail = (boardUrl: Ref<string>, options: { requestConfig?: AxiosRequestConfig } & Record<string, unknown> = {}) => {
         const { requestConfig, ...queryOptions } = options
         return useQuery({
-            queryKey: ['board', boardUrl],
-            queryFn: async () => {
-                const { data } = await boardApi.getBoard(boardUrl.value, requestConfig)
-                return data.data as BoardDetail
-            },
+            queryKey: boardDetailQueryKey(boardUrl),
+            queryFn: () => fetchBoardDetail(boardUrl.value, requestConfig),
             enabled: computed(() => !!boardUrl.value),
             staleTime: QUERY_STALE_TIME.SHORT,
             ...queryOptions
