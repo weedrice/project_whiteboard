@@ -2,7 +2,7 @@
 
 ## Summary
 
-Frontend build currently completes. The first dependency-warning cleanup pass removed the Docker commit hash warning, refreshed Browserslist data, and applied same-major audit patches. The remaining warning class is the ESLint 8 deprecated install chain, which should be handled as a separate major migration.
+Frontend build currently completes. The dependency-warning cleanup removed the Docker commit hash warning, refreshed Browserslist data, applied same-major audit patches, and migrated the frontend lint stack from ESLint 8 to ESLint 9.
 
 Latest checked command:
 
@@ -27,18 +27,14 @@ Result after same-major patch cleanup: 0 vulnerabilities.
   - `npm.cmd audit --audit-level=low` now reports 0 vulnerabilities.
   - `package.json` dependency ranges remain unchanged.
 
-## Major Migration Needed
+## Completed Major Migration
 
 - Deprecated npm install chain
-  - Docker `npm ci` reports deprecated `eslint@8.57.1`, `@humanwhocodes/config-array`, `@humanwhocodes/object-schema`, `rimraf@3`, `glob@7`, and `inflight`.
-  - Most of this chain is tied to ESLint 8 era dependencies.
-  - Current config: `frontend/eslint.config.mjs` is already on ESLint flat config, importing `@eslint/js`, `typescript-eslint`, `eslint-plugin-vue`, `eslint-plugin-vitest`, and `vue-eslint-parser`.
-  - Current direct versions: `eslint`/`@eslint/js` `8.57.1`, `typescript-eslint` `8.56.0`, `eslint-plugin-vue` `10.8.0`, `eslint-plugin-vitest` `0.5.4`, and `vue-eslint-parser` `10.4.0`.
-  - Available versions checked on 2026-05-27: `eslint` latest `10.4.0`, `@eslint/js` latest `10.0.1`, `typescript-eslint` wanted/latest `8.60.0`, and `eslint-plugin-vue` wanted/latest `10.9.1`.
-  - Compatibility note: `eslint-plugin-vitest@0.5.4` declares an ESLint peer range of `^8.57.0 || ^9.0.0`, while `typescript-eslint`, `eslint-plugin-vue`, and `vue-eslint-parser` already declare ranges that include ESLint 10.
-  - Recommended next unit: migrate to ESLint 9 first, update the compatible parser/plugin packages in the same commit, and keep ESLint 10 as a later follow-up after `eslint-plugin-vitest` compatibility is verified or replaced.
-  - Verification commands for that migration: `npm.cmd run lint:ci`, `npm.cmd run test:run`, `npm.cmd run type-check`, and `npm.cmd run build`.
-  - Risk: lint output and rule behavior may change, so this should stay separate from runtime dependency cleanup.
+  - Status: fixed by migrating `eslint`/`@eslint/js` to `9.39.4`, `typescript-eslint` to `8.60.0`, and `eslint-plugin-vue` to `10.9.1`.
+  - `eslint-plugin-vitest` was replaced with `@vitest/eslint-plugin` to avoid the old `@typescript-eslint/utils@7` dependency path.
+  - Docker `npm ci` no longer reports deprecated `eslint@8.57.1`, `@humanwhocodes/config-array`, `@humanwhocodes/object-schema`, `rimraf@3`, `glob@7`, or `inflight`.
+  - Current config: `frontend/eslint.config.mjs` is already on ESLint flat config, importing `@eslint/js`, `typescript-eslint`, `eslint-plugin-vue`, `@vitest/eslint-plugin`, and `vue-eslint-parser`.
+  - Current direct versions: `eslint`/`@eslint/js` `9.39.4`, `typescript-eslint` `8.60.0`, `eslint-plugin-vue` `10.9.1`, `@vitest/eslint-plugin` `1.6.18`, and `vue-eslint-parser` `10.4.0`.
 
 ## Deferred
 
@@ -49,6 +45,14 @@ Result after same-major patch cleanup: 0 vulnerabilities.
 - Transitive audit overrides
   - Status: no longer needed after same-major audit patch cleanup.
   - Avoid broad `overrides` unless a future audit cannot be resolved by normal compatible updates.
+
+- ESLint 10
+  - ESLint latest was `10.4.0` when checked on 2026-05-27.
+  - Keep ESLint 10 as a later follow-up because ESLint 9 already removes the deprecated install chain and keeps the current toolchain on a conservative compatibility path.
+
+- npm CLI major notice
+  - Docker build still reports the informational npm CLI notice `10.9.8 -> 11.15.0`.
+  - Do not change the Node base image or install a different npm CLI solely for this notice.
 
 ## UI Follow-Up Candidate
 
