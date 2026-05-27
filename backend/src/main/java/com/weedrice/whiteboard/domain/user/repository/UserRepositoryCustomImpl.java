@@ -112,12 +112,9 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
 
     private Page<User> searchUsersForAdminByActivity(String keyword, UserAdminSearchCondition condition, Pageable pageable) {
         NativeAdminQueryParts queryParts = buildNativeAdminQueryParts(keyword, condition);
-        long total = fetchNativeCount(queryParts);
-        if (total == 0L) {
-            return new PageImpl<>(List.of(), pageable, 0L);
-        }
-
-        List<Long> userIds = fetchNativeUserIds(queryParts, pageable);
+        NativeAdminPage nativePage = fetchNativeUserPage(queryParts, pageable);
+        List<Long> userIds = nativePage.userIds();
+        long total = nativePage.total();
         if (userIds.isEmpty()) {
             return new PageImpl<>(List.of(), pageable, total);
         }
@@ -337,9 +334,9 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
         return ((Number) countQuery.getSingleResult()).longValue();
     }
 
-    private List<Long> fetchNativeUserIds(NativeAdminQueryParts queryParts, Pageable pageable) {
+    private NativeAdminPage fetchNativeUserPage(NativeAdminQueryParts queryParts, Pageable pageable) {
         Query contentQuery = entityManager.createNativeQuery(activityCountCte()
-                + " select u.user_id "
+                + " select u.user_id, count(*) over() as total_count "
                 + activityCountFromClause()
                 + queryParts.whereClause()
                 + buildActivityOrderBy(pageable));
@@ -348,10 +345,17 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
         contentQuery.setMaxResults(pageable.getPageSize());
 
         @SuppressWarnings("unchecked")
-        List<Number> rows = contentQuery.getResultList();
-        return rows.stream()
-                .map(Number::longValue)
+        List<Object[]> rows = contentQuery.getResultList();
+        if (rows.isEmpty()) {
+            long total = pageable.getOffset() > 0 ? fetchNativeCount(queryParts) : 0L;
+            return new NativeAdminPage(List.of(), total);
+        }
+
+        long total = ((Number) rows.getFirst()[1]).longValue();
+        List<Long> userIds = rows.stream()
+                .map(row -> ((Number) row[0]).longValue())
                 .toList();
+        return new NativeAdminPage(userIds, total);
     }
 
     private void applyParameters(Query query, Map<String, Object> params) {
@@ -568,6 +572,9 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
             }
             return null;
         }
+    }
+
+    private record NativeAdminPage(List<Long> userIds, long total) {
     }
 
     private record NativeAdminQueryParts(String whereClause, Map<String, Object> params) {

@@ -163,17 +163,7 @@ class UserRepositoryTest {
     @Test
     @DisplayName("관리자 사용자 검색은 minActivityCount가 있을 때 활동량 집계 경로로 정렬과 total을 유지한다")
     void searchUsersForAdmin_withMinActivityCount_preservesOrderAndTotal() {
-        Post user1Post1 = Post.builder().board(board).user(user1).title("p1").contents("c").build();
-        Post user1Post2 = Post.builder().board(board).user(user1).title("p2").contents("c").build();
-        entityManager.persist(user1Post1);
-        entityManager.persist(user1Post2);
-        entityManager.persist(Comment.builder().post(user1Post1).user(user1).content("comment").depth(0).build());
-
-        Post user3Post = Post.builder().board(board).user(user3).title("u3").contents("c").build();
-        entityManager.persist(user3Post);
-        entityManager.persist(Comment.builder().post(user3Post).user(user3).content("comment").depth(0).build());
-        entityManager.flush();
-        entityManager.clear();
+        persistActivitySearchFixture();
 
         UserAdminSearchCondition condition = UserAdminSearchCondition.builder()
                 .minActivityCount(2L)
@@ -188,6 +178,59 @@ class UserRepositoryTest {
         assertThat(result.getContent())
                 .extracting(User::getDisplayName)
                 .containsExactly("Apple Another", "Apple User");
+    }
+
+    @Test
+    @DisplayName("관리자 사용자 검색은 활동량 집계 경로의 다음 페이지에서도 total을 유지한다")
+    void searchUsersForAdmin_withMinActivityCount_preservesTotalOnSecondPage() {
+        persistActivitySearchFixture();
+
+        UserAdminSearchCondition condition = UserAdminSearchCondition.builder()
+                .minActivityCount(2L)
+                .build();
+
+        Page<User> result = userRepository.searchUsersForAdmin(
+                null,
+                condition,
+                PageRequest.of(1, 1, Sort.by(Sort.Direction.ASC, "displayName")));
+
+        assertThat(result.getTotalElements()).isEqualTo(2L);
+        assertThat(result.getTotalPages()).isEqualTo(2);
+        assertThat(result.getContent())
+                .extracting(User::getDisplayName)
+                .containsExactly("Apple User");
+    }
+
+    @Test
+    @DisplayName("관리자 사용자 검색은 활동량 집계 경로의 범위 밖 페이지에서도 total을 유지한다")
+    void searchUsersForAdmin_withMinActivityCount_preservesTotalOnOutOfRangePage() {
+        persistActivitySearchFixture();
+
+        UserAdminSearchCondition condition = UserAdminSearchCondition.builder()
+                .minActivityCount(2L)
+                .build();
+
+        Page<User> result = userRepository.searchUsersForAdmin(
+                null,
+                condition,
+                PageRequest.of(99, 1, Sort.by(Sort.Direction.ASC, "displayName")));
+
+        assertThat(result.getTotalElements()).isEqualTo(2L);
+        assertThat(result.getContent()).isEmpty();
+    }
+
+    private void persistActivitySearchFixture() {
+        Post user1Post1 = Post.builder().board(board).user(user1).title("p1").contents("c").build();
+        Post user1Post2 = Post.builder().board(board).user(user1).title("p2").contents("c").build();
+        entityManager.persist(user1Post1);
+        entityManager.persist(user1Post2);
+        entityManager.persist(Comment.builder().post(user1Post1).user(user1).content("comment").depth(0).build());
+
+        Post user3Post = Post.builder().board(board).user(user3).title("u3").contents("c").build();
+        entityManager.persist(user3Post);
+        entityManager.persist(Comment.builder().post(user3Post).user(user3).content("comment").depth(0).build());
+        entityManager.flush();
+        entityManager.clear();
     }
 
     @Test
