@@ -6,6 +6,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useToastStore } from '@/stores/toast'
 import type { Message } from '@/types'
 import { extractErrorResponse } from '@/utils/errorHandler'
+import { hasMessageContent } from '@/utils/messageValidation'
 import logger from '@/utils/logger'
 
 const NOT_FOUND_CODE = 'C006'
@@ -201,7 +202,10 @@ export function useMailboxResource() {
     }
 
     async function sendReply() {
-        if (!replyContent.value.trim()) return
+        if (!hasMessageContent(replyContent.value)) {
+            toastStore.addToast(t('user.message.inputContent'), 'warning')
+            return
+        }
         if (!replyTarget.value) return
         isSending.value = true
         try {
