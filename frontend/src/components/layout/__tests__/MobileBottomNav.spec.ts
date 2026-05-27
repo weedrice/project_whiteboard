@@ -88,14 +88,10 @@ describe('MobileBottomNav', () => {
   ])('marks only the active route as current for %s', (routeName, activeIndex) => {
     const wrapper = mountNav(routeName)
     const navButtons = wrapper.findAll('.nv-mobile-nav-item')
+    const ariaCurrentValues = navButtons.map((button) => button.attributes('aria-current'))
+    const expectedValues = navButtons.map((_, index) => (index === activeIndex ? 'page' : undefined))
 
-    navButtons.forEach((button, index) => {
-      if (index === activeIndex) {
-        expect(button.attributes('aria-current')).toBe('page')
-      } else {
-        expect(button.attributes('aria-current')).toBeUndefined()
-      }
-    })
+    expect(ariaCurrentValues).toEqual(expectedValues)
   })
 
   it('connects the write button with the mobile write sheet dialog', () => {

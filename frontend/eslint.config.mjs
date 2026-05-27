@@ -2,7 +2,7 @@ import js from '@eslint/js'
 import globals from 'globals'
 import pluginVue from 'eslint-plugin-vue'
 import tseslint from 'typescript-eslint'
-import vitest from 'eslint-plugin-vitest'
+import vitest from '@vitest/eslint-plugin'
 import vueParser from 'vue-eslint-parser'
 
 export default [

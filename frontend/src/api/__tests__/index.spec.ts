@@ -71,7 +71,6 @@ vi.mock('@/router', () => ({
 type ApiResolverOptions = {
     configureResolvers?: boolean
     resolveToastStore?: () => { addToast: typeof mocks.mockAddToast } | Promise<{ addToast: typeof mocks.mockAddToast }>
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolveAuthStore?: () => any
 }
 
