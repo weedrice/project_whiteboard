@@ -30,79 +30,45 @@
           </p>
         </div>
 
-        <div class="max-h-[420px] overflow-y-auto">
-          <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead class="bg-gray-50 dark:bg-gray-800">
-              <tr>
-                <th v-if="isMultiMode" class="w-10 px-2 py-2"></th>
-                <th
-                  class="py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-300"
-                  :class="isMultiMode ? 'pl-1 pr-3' : 'px-3'"
-                >
-                  {{ $t('common.loginId') }}
-                </th>
-                <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-300">{{ $t('common.displayName') }}</th>
-                <th v-if="showEmailColumn" class="px-3 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-300">{{ $t('common.email') }}</th>
-              </tr>
-            </thead>
-            <tbody v-if="isLoading" class="bg-white dark:bg-gray-900">
-              <tr>
-                <td :colspan="columnCount" class="py-6">
-                  <div class="flex justify-center">
-                    <BaseSpinner />
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-            <tbody v-else-if="filteredUsers.length === 0" class="bg-white dark:bg-gray-900">
-              <tr>
-                <td :colspan="columnCount" class="px-3 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
-                  {{ $t('common.noData') }}
-                </td>
-              </tr>
-            </tbody>
-            <tbody v-else class="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
-              <tr
-                v-for="user in filteredUsers"
-                :key="user.userId"
-                class="cursor-pointer transition-colors"
-                :class="isSelected(user.userId)
-                  ? 'bg-indigo-50 dark:bg-indigo-900/20'
-                  : 'hover:bg-gray-50 dark:hover:bg-gray-800'"
-                @click="toggleSelection(user)"
+        <BaseTable
+          :columns="userColumns"
+          :items="filteredUsers"
+          :loading="isLoading"
+          :empty-text="$t('common.noData')"
+          density="compact"
+          :shadow="false"
+          max-height-class="max-h-[420px]"
+          row-key="userId"
+          :row-class="getUserRowClass"
+          @row-click="toggleSelection"
+        >
+          <template #loading>
+            <BaseSpinner />
+          </template>
+
+          <template #cell-selection="{ item }">
+            <span
+              class="inline-flex h-4 w-4 items-center justify-center rounded border text-[10px]"
+              :class="isSelected(item.userId)
+                ? 'border-indigo-500 bg-indigo-500 text-white'
+                : 'border-gray-300 text-transparent dark:border-gray-600'"
+            >
+              <Check class="h-3 w-3" />
+            </span>
+          </template>
+
+          <template #cell-displayName="{ item }">
+            <span class="inline-flex items-center gap-2">
+              <span>{{ item.displayName }}</span>
+              <span
+                v-if="item.currentManager"
+                class="rounded bg-indigo-50 px-1.5 py-0.5 text-[11px] font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-200"
               >
-                <td v-if="isMultiMode" class="px-2 py-1.5">
-                  <span
-                    class="inline-flex h-4 w-4 items-center justify-center rounded border text-[10px]"
-                    :class="isSelected(user.userId)
-                      ? 'border-indigo-500 bg-indigo-500 text-white'
-                      : 'border-gray-300 text-transparent dark:border-gray-600'"
-                  >
-                    <Check class="h-3 w-3" />
-                  </span>
-                </td>
-                <td
-                  class="py-1.5 text-sm text-gray-900 dark:text-white"
-                  :class="isMultiMode ? 'pl-1 pr-3' : 'px-3'"
-                >
-                  {{ user.loginId }}
-                </td>
-                <td class="px-3 py-1.5 text-sm text-gray-900 dark:text-white">
-                  <span class="inline-flex items-center gap-2">
-                    <span>{{ user.displayName }}</span>
-                    <span
-                      v-if="user.currentManager"
-                      class="rounded bg-indigo-50 px-1.5 py-0.5 text-[11px] font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-200"
-                    >
-                      current
-                    </span>
-                  </span>
-                </td>
-                <td v-if="showEmailColumn" class="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-300">{{ user.email }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+                current
+              </span>
+            </span>
+          </template>
+        </BaseTable>
       </div>
 
       <div class="flex items-center justify-end gap-2">
@@ -115,11 +81,13 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Search, Check } from 'lucide-vue-next'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
+import BaseTable, { type TableColumn } from '@/components/common/ui/BaseTable.vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { useBoard } from '@/composables/useBoard'
 
@@ -157,6 +125,7 @@ const emit = defineEmits<{
   (e: 'confirm', users: SelectableUser[]): void
 }>()
 
+const { t } = useI18n()
 const { useUsers } = useAdmin()
 const { useBoardManagerCandidates } = useBoard()
 
@@ -183,10 +152,21 @@ const isMultiMode = computed(() => props.selectionMode === 'multiple')
 const showEmailColumn = computed(() => !isBoardCandidateSource.value)
 const usersData = computed(() => (isBoardCandidateSource.value ? boardCandidatesData.value : adminUsersData.value))
 const isLoading = computed(() => (isBoardCandidateSource.value ? isBoardCandidatesLoading.value : isAdminUsersLoading.value))
-const columnCount = computed(() => {
-  let count = isMultiMode.value ? 3 : 2
-  if (showEmailColumn.value) count += 1
-  return count
+const userColumns = computed<TableColumn[]>(() => {
+  const columns: TableColumn[] = []
+
+  if (isMultiMode.value) {
+    columns.push({ key: 'selection', label: '', width: '2.5rem', align: 'center' })
+  }
+
+  columns.push({ key: 'loginId', label: t('common.loginId') })
+  columns.push({ key: 'displayName', label: t('common.displayName') })
+
+  if (showEmailColumn.value) {
+    columns.push({ key: 'email', label: t('common.email') })
+  }
+
+  return columns
 })
 
 const filteredUsers = computed<SelectableUser[]>(() => {
@@ -200,6 +180,12 @@ const selectedUsers = computed<SelectableUser[]>(() => Object.values(selectedMap
 
 function isSelected(userId: number) {
   return !!selectedMap.value[userId]
+}
+
+function getUserRowClass(user: SelectableUser) {
+  return isSelected(user.userId)
+    ? 'cursor-pointer !bg-indigo-50 dark:!bg-indigo-900/20'
+    : 'cursor-pointer'
 }
 
 function toggleSelection(user: SelectableUser) {

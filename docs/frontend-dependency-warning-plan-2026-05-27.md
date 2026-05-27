@@ -54,14 +54,11 @@ Result after same-major patch cleanup: 0 vulnerabilities.
   - Docker build still reports the informational npm CLI notice `10.9.8 -> 11.15.0`.
   - Do not change the Node base image or install a different npm CLI solely for this notice.
 
-## UI Follow-Up Candidate
+## UI Follow-Up Status
 
 - `frontend/src/components/common/widgets/UserSelectModal.vue`
-  - The compact modal table is still intentionally manual.
-  - It combines single and multi-select modes, row click selection, optional email column, board-manager candidate source, current-manager badge display, and a fixed `max-h-[420px]` scroll region inside `BaseModal`.
-  - A direct `BaseTable` conversion could change modal height, row hit targets, selected-row highlighting, or checkbox-like affordance behavior.
-  - Recommended follow-up: add focused tests around search, initial selected ids, single/multiple selection, `board-manager-candidates` source, hidden email column, and excluded users before attempting any table abstraction.
-  - Only convert this table if `BaseTable` can support compact density, scroll containment, row selection styling, and optional leading selection cells without introducing nested-card or modal spacing changes.
+  - Status: applied after adding focused tests for search, initial selected ids, single/multiple selection, `board-manager-candidates` source, hidden email column, excluded users, loading, and empty states.
+  - The modal now uses `BaseTable` with compact density, no table shadow, row click selection, optional selection/email columns, and the existing `max-h-[420px]` scroll region.
 
 ## Verification For Future Cleanup
 

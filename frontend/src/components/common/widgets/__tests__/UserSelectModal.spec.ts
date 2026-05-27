@@ -57,6 +57,12 @@ vi.mock('@/composables/useBoard', () => ({
   }),
 }))
 
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({
+    t: (key: string) => key,
+  }),
+}))
+
 const mountModal = (props: {
   isOpen: boolean
   title?: string
@@ -223,7 +229,7 @@ describe('UserSelectModal', () => {
     mocks.adminLoading = true
     const loadingWrapper = mountModal({ isOpen: true })
 
-    expect(loadingWrapper.get('[data-testid="spinner"]').exists()).toBe(true)
+    expect(loadingWrapper.find('[data-testid="spinner"]').exists()).toBe(true)
 
     mocks.adminLoading = false
     mocks.adminUsers = []
