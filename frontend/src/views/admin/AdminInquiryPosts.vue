@@ -1,11 +1,13 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
+import BaseTable, { type TableColumn } from '@/components/common/ui/BaseTable.vue'
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
 import AdminPaginationFooter from '@/components/admin/AdminPaginationFooter.vue'
 import AdminPanel from '@/components/admin/AdminPanel.vue'
 import AdminInquiryDetailModal from '@/components/admin/AdminInquiryDetailModal.vue'
 import { useI18n } from 'vue-i18n'
-import { useAdminInquiryPosts } from '@/composables/useAdminInquiryPosts'
+import { useAdminInquiryPosts, type AdminInquiryListItem } from '@/composables/useAdminInquiryPosts'
 
 const { t } = useI18n()
 const {
@@ -26,6 +28,22 @@ const {
   totalElements,
   totalPages,
 } = useAdminInquiryPosts()
+
+const columns = computed<TableColumn[]>(() => [
+  { key: 'title', label: t('common.title'), width: '28%' },
+  { key: 'summaryText', label: t('admin.inquiries.table.summary'), width: '30%' },
+  { key: 'authorName', label: t('common.author'), width: '14%' },
+  { key: 'createdAtText', label: t('common.createdAt'), width: '16%' },
+  { key: 'status', label: t('common.status'), width: '12%' },
+])
+
+function getRowClass() {
+  return 'cursor-pointer'
+}
+
+function handleRowClick(post: AdminInquiryListItem) {
+  openDetail(post.id)
+}
 </script>
 
 <template>
@@ -55,55 +73,30 @@ const {
         {{ t('common.messages.loadFailed') }}
       </div>
 
-      <div v-else class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead class="bg-gray-50 dark:bg-gray-900/30">
-            <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">{{ t('common.title') }}</th>
-              <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">{{ t('admin.inquiries.table.summary') }}</th>
-              <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">{{ t('common.author') }}</th>
-              <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">{{ t('common.createdAt') }}</th>
-              <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">{{ t('common.status') }}</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-            <tr v-if="posts.length === 0">
-              <td colspan="5" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                {{ t('admin.inquiries.empty') }}
-              </td>
-            </tr>
-            <tr
-              v-for="post in posts"
-              :key="post.id"
-              class="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40"
-              @click="openDetail(post.id)"
-            >
-              <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                <button type="button" class="max-w-[280px] truncate text-left hover:underline" @click.stop="openDetail(post.id)">
-                  {{ post.title }}
-                </button>
-              </td>
-              <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                {{ post.summaryText }}
-              </td>
-              <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                {{ post.authorName }}
-              </td>
-              <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                {{ post.createdAtText }}
-              </td>
-              <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                <span
-                  class="inline-flex rounded-full px-2 py-1 text-xs font-medium"
-                  :class="post.statusClass"
-                >
-                  {{ t(post.statusLabelKey) }}
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <BaseTable
+        v-else
+        :columns="columns"
+        :items="posts"
+        row-key="id"
+        :empty-text="t('admin.inquiries.empty')"
+        :row-class="getRowClass"
+        @row-click="handleRowClick"
+      >
+        <template #cell-title="{ item }">
+          <button type="button" class="max-w-[280px] truncate text-left hover:underline" @click.stop="openDetail(item.id)">
+            {{ item.title }}
+          </button>
+        </template>
+
+        <template #cell-status="{ item }">
+          <span
+            class="inline-flex rounded-full px-2 py-1 text-xs font-medium"
+            :class="item.statusClass"
+          >
+            {{ t(item.statusLabelKey) }}
+          </span>
+        </template>
+      </BaseTable>
     </AdminPanel>
 
     <AdminPaginationFooter
