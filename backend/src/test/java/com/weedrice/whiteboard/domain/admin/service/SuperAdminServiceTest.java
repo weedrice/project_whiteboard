@@ -6,17 +6,12 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
@@ -40,11 +35,6 @@ class SuperAdminServiceTest {
 
     @InjectMocks
     private SuperAdminService superAdminService;
-
-    @AfterEach
-    void tearDown() {
-        SecurityContextHolder.clearContext();
-    }
 
     @Test
     @DisplayName("createSuperAdmin grants role to active user")
@@ -99,11 +89,10 @@ class SuperAdminServiceTest {
     void deactivateSuperAdmin_success() {
         User target = activeSuperAdmin("target");
         setUserId(target, 1L);
-        setCurrentUser(2L, "other-admin");
         when(userRepository.findByLoginId("target")).thenReturn(Optional.of(target));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        SuperAdminUpdateResponse response = superAdminService.deactivateSuperAdmin(" target ");
+        SuperAdminUpdateResponse response = superAdminService.deactivateSuperAdmin(" target ", 2L);
 
         assertThat(response.isSuperAdmin()).isFalse();
         assertThat(response.getLoginId()).isEqualTo("target");
@@ -111,17 +100,27 @@ class SuperAdminServiceTest {
     }
 
     @Test
+    @DisplayName("deactivateSuperAdmin rejects missing actor user id")
+    void deactivateSuperAdmin_missingActor_unauthorized() {
+        assertThatThrownBy(() -> superAdminService.deactivateSuperAdmin("target", null))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.UNAUTHORIZED));
+
+        verify(userRepository, never()).findByLoginId(any());
+        verify(privilegeRevocationGuard, never()).validateSuperAdminCanBeRevokedBy(any(), any());
+    }
+
+    @Test
     @DisplayName("deactivateSuperAdmin blocks removing the last usable super admin")
     void deactivateSuperAdmin_lastUsableAdmin_forbidden() {
         User target = activeSuperAdmin("target");
         setUserId(target, 1L);
-        setCurrentUser(2L, "other-admin");
         when(userRepository.findByLoginId("target")).thenReturn(Optional.of(target));
         doThrow(new BusinessException(ErrorCode.FORBIDDEN))
                 .when(privilegeRevocationGuard)
                 .validateSuperAdminCanBeRevokedBy(target, 2L);
 
-        assertThatThrownBy(() -> superAdminService.deactivateSuperAdmin("target"))
+        assertThatThrownBy(() -> superAdminService.deactivateSuperAdmin("target", 2L))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
     }
@@ -132,11 +131,10 @@ class SuperAdminServiceTest {
         User suspendedTarget = activeSuperAdmin("target");
         setUserId(suspendedTarget, 1L);
         suspendedTarget.suspend();
-        setCurrentUser(2L, "other-admin");
         when(userRepository.findByLoginId("target")).thenReturn(Optional.of(suspendedTarget));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        SuperAdminUpdateResponse response = superAdminService.deactivateSuperAdmin("target");
+        SuperAdminUpdateResponse response = superAdminService.deactivateSuperAdmin("target", 2L);
 
         assertThat(response.isSuperAdmin()).isFalse();
         verify(privilegeRevocationGuard).validateSuperAdminCanBeRevokedBy(suspendedTarget, 2L);
@@ -147,13 +145,12 @@ class SuperAdminServiceTest {
     void deactivateSuperAdmin_self_forbidden() {
         User target = activeSuperAdmin("target");
         setUserId(target, 1L);
-        setCurrentUser(1L, "target");
         when(userRepository.findByLoginId("target")).thenReturn(Optional.of(target));
         doThrow(new BusinessException(ErrorCode.FORBIDDEN))
                 .when(privilegeRevocationGuard)
                 .validateSuperAdminCanBeRevokedBy(target, 1L);
 
-        assertThatThrownBy(() -> superAdminService.deactivateSuperAdmin("target"))
+        assertThatThrownBy(() -> superAdminService.deactivateSuperAdmin("target", 1L))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
     }
@@ -189,15 +186,5 @@ class SuperAdminServiceTest {
 
     private void setUserId(User user, Long userId) {
         ReflectionTestUtils.setField(user, "userId", userId);
-    }
-
-    private void setCurrentUser(Long userId, String loginId) {
-        CustomUserDetails userDetails = new CustomUserDetails(
-                userId,
-                loginId,
-                "password",
-                List.of(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN")));
-        SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(userDetails, "", userDetails.getAuthorities()));
     }
 }

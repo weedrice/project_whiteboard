@@ -82,8 +82,12 @@ public class AdminController {
      * @return {@link SuperAdminUpdateResponse} 등록된 Super Admin 정보
      */
     @PutMapping("/super/deactive")
-    public ApiResponse<SuperAdminUpdateResponse> deactivateSuperAdmin(@Valid @RequestBody SuperAdminRequest request) {
-        return ApiResponse.success(superAdminService.deactivateSuperAdmin(request.getLoginId()));
+    public ApiResponse<SuperAdminUpdateResponse> deactivateSuperAdmin(
+            @Valid @RequestBody SuperAdminRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.success(superAdminService.deactivateSuperAdmin(
+                request.getLoginId(),
+                requiredUserId(userDetails)));
     }
 
     /**

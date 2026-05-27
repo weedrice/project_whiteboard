@@ -5,7 +5,6 @@ import com.weedrice.whiteboard.domain.admin.dto.SuperAdminUpdateResponse;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -43,7 +42,10 @@ public class SuperAdminService {
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
-    public SuperAdminUpdateResponse deactivateSuperAdmin(String loginId) {
+    public SuperAdminUpdateResponse deactivateSuperAdmin(String loginId, Long actorUserId) {
+        if (actorUserId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
         String normalizedLoginId = normalizeLoginId(loginId);
         User user = userRepository.findByLoginId(normalizedLoginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
@@ -51,7 +53,7 @@ public class SuperAdminService {
         if (!Boolean.TRUE.equals(user.getIsSuperAdmin())) {
             throw new BusinessException(ErrorCode.INVALID_TARGET);
         }
-        privilegeRevocationGuard.validateSuperAdminCanBeRevokedBy(user, SecurityUtils.getCurrentUserIdOrNull());
+        privilegeRevocationGuard.validateSuperAdminCanBeRevokedBy(user, actorUserId);
 
         user.revokeSuperAdminRole();
         return SuperAdminUpdateResponse.from(userRepository.save(user));

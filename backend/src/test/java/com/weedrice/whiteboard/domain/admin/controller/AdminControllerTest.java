@@ -49,7 +49,6 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -176,6 +175,31 @@ class AdminControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(superAdminService, never()).createSuperAdmin(any());
+    }
+
+    @Test
+    @DisplayName("Super Admin 비활성화는 인증 주체 ID를 서비스로 전달한다")
+    void deactivateSuperAdmin_passesActorUserId() throws Exception {
+        SuperAdminRequest request = new SuperAdminRequest();
+        ReflectionTestUtils.setField(request, "loginId", "admin");
+
+        SuperAdminUpdateResponse response = SuperAdminUpdateResponse.builder()
+                .loginId("admin")
+                .isSuperAdmin(false)
+                .build();
+        when(superAdminService.deactivateSuperAdmin("admin", 1L)).thenReturn(response);
+
+        mockMvc.perform(put("/api/v1/admin/super/deactive")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.loginId").value("admin"))
+                .andExpect(jsonPath("$.data.superAdmin").value(false));
+
+        verify(superAdminService).deactivateSuperAdmin("admin", 1L);
     }
 
     @Test
