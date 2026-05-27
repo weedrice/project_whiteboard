@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import DescriptionItem from '@/components/admin/detail/DescriptionItem.vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { useAdminUserDetailTabs } from '@/composables/useAdminUserDetailTabs'
 import { formatDate } from '@/utils/date'
@@ -134,16 +135,22 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
 
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
-          <div class="text-xs text-gray-500 dark:text-gray-400">가입일 / 최근 로그인</div>
-          <div class="mt-2 text-sm text-gray-900 dark:text-white">가입: {{ formatDate(userDetail.createdAt) }}</div>
-          <div class="text-sm text-gray-900 dark:text-white">최근 로그인: {{ userDetail.lastLoginAt ? formatDate(userDetail.lastLoginAt) : '-' }}</div>
-          <div v-if="userDetail.deletedAt" class="text-sm text-red-600 dark:text-red-400">탈퇴일: {{ formatDate(userDetail.deletedAt) }}</div>
+          <dl class="space-y-2">
+            <DescriptionItem label="가입일 / 최근 로그인" value-class="mt-2 space-y-0.5 text-sm text-gray-900 dark:text-white">
+              <div>가입: {{ formatDate(userDetail.createdAt) }}</div>
+              <div>최근 로그인: {{ userDetail.lastLoginAt ? formatDate(userDetail.lastLoginAt) : '-' }}</div>
+              <div v-if="userDetail.deletedAt" class="text-red-600 dark:text-red-400">탈퇴일: {{ formatDate(userDetail.deletedAt) }}</div>
+            </DescriptionItem>
+          </dl>
         </div>
         <div class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
-          <div class="text-xs text-gray-500 dark:text-gray-400">최근 접속</div>
-          <div class="mt-2 text-sm text-gray-900 dark:text-white">IP: {{ userDetail.recentLogin?.ipAddress || '-' }}</div>
-          <div class="text-sm text-gray-900 dark:text-white">시간: {{ userDetail.recentLogin?.loggedAt ? formatDate(userDetail.recentLogin.loggedAt) : '-' }}</div>
-          <div class="truncate text-sm text-gray-500 dark:text-gray-400">UA: {{ userDetail.recentLogin?.userAgent || '-' }}</div>
+          <dl class="space-y-2">
+            <DescriptionItem label="최근 접속" value-class="mt-2 space-y-0.5 text-sm text-gray-900 dark:text-white">
+              <div>IP: {{ userDetail.recentLogin?.ipAddress || '-' }}</div>
+              <div>시간: {{ userDetail.recentLogin?.loggedAt ? formatDate(userDetail.recentLogin.loggedAt) : '-' }}</div>
+              <div class="truncate text-gray-500 dark:text-gray-400">UA: {{ userDetail.recentLogin?.userAgent || '-' }}</div>
+            </DescriptionItem>
+          </dl>
         </div>
       </div>
 

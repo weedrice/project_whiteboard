@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
+import DetailSection from '@/components/admin/detail/DetailSection.vue'
+import DescriptionGrid from '@/components/admin/detail/DescriptionGrid.vue'
+import DescriptionItem from '@/components/admin/detail/DescriptionItem.vue'
 import { formatDate } from '@/utils/date'
 import type { IpBlock } from '@/types'
 
@@ -19,48 +22,28 @@ defineEmits<{
 <template>
   <BaseModal :isOpen="isOpen" :title="t('admin.security.detail.title')" @close="$emit('close')">
     <div v-if="ipBlock" class="space-y-6">
-      <!-- IP 차단 정보 -->
-      <div>
-        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">
-          {{ t('admin.security.detail.blockInfo') }}
-        </h3>
-        <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
-              {{ t('admin.security.table.ipAddress') }}
-            </dt>
-            <dd class="mt-1 text-sm text-gray-900 dark:text-white font-mono">{{ ipBlock.ipAddress }}</dd>
-          </div>
-          <div>
-            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
-              {{ t('admin.security.table.adminId') }}
-            </dt>
-            <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ ipBlock.admin.adminId }}</dd>
-          </div>
-          <div>
-            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
-              {{ t('admin.security.table.createdAt') }}
-            </dt>
-            <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ formatDate(ipBlock.startDate) }}</dd>
-          </div>
-          <div v-if="ipBlock.endDate">
-            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
-              {{ t('admin.security.detail.endDate') }}
-            </dt>
-            <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ formatDate(ipBlock.endDate) }}</dd>
-          </div>
-        </dl>
-      </div>
+      <DetailSection :title="t('admin.security.detail.blockInfo')">
+        <DescriptionGrid>
+          <DescriptionItem :label="t('admin.security.table.ipAddress')" value-class="mt-1 text-sm text-gray-900 dark:text-white font-mono">
+            {{ ipBlock.ipAddress }}
+          </DescriptionItem>
+          <DescriptionItem :label="t('admin.security.table.adminId')">
+            {{ ipBlock.admin.adminId }}
+          </DescriptionItem>
+          <DescriptionItem :label="t('admin.security.table.createdAt')">
+            {{ formatDate(ipBlock.startDate) }}
+          </DescriptionItem>
+          <DescriptionItem v-if="ipBlock.endDate" :label="t('admin.security.detail.endDate')">
+            {{ formatDate(ipBlock.endDate) }}
+          </DescriptionItem>
+        </DescriptionGrid>
+      </DetailSection>
 
-      <!-- 차단 사유 -->
-      <div>
-        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">
-          {{ t('admin.security.table.reason') }}
-        </h3>
+      <DetailSection :title="t('admin.security.table.reason')">
         <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
           <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ ipBlock.reason }}</p>
         </div>
-      </div>
+      </DetailSection>
     </div>
   </BaseModal>
 </template>
