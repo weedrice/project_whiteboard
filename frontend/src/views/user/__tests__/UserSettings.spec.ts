@@ -125,8 +125,17 @@ const setTheme = vi.fn()
 const mountedWrappers: Array<ReturnType<typeof mount>> = []
 
 const flushPromises = async () => {
-  await Promise.resolve()
-  await Promise.resolve()
+    await Promise.resolve()
+    await Promise.resolve()
+}
+
+const getSaveButtons = (wrapper: ReturnType<typeof mount>) => {
+  const buttons = wrapper.findAll('button').filter((button) => button.text() === 'user.settings.save')
+  expect(buttons).toHaveLength(2)
+  return {
+    generalSaveButton: buttons[0],
+    notificationSaveButton: buttons[1],
+  }
 }
 
 const mountUserSettings = () => {
@@ -216,16 +225,16 @@ describe('UserSettings', () => {
     const wrapper = mountUserSettings()
     await nextTick()
 
-    const buttons = wrapper.findAll('button')
-    expect(buttons[0].attributes('disabled')).toBeDefined()
-    expect(buttons[1].attributes('disabled')).toBeDefined()
+    const { generalSaveButton, notificationSaveButton } = getSaveButtons(wrapper)
+    expect(generalSaveButton.attributes('disabled')).toBeDefined()
+    expect(notificationSaveButton.attributes('disabled')).toBeDefined()
 
     await wrapper.findAll('select')[0].setValue('DARK')
-    expect(buttons[0].attributes('disabled')).toBeUndefined()
-    expect(buttons[1].attributes('disabled')).toBeDefined()
+    expect(generalSaveButton.attributes('disabled')).toBeUndefined()
+    expect(notificationSaveButton.attributes('disabled')).toBeDefined()
 
     await wrapper.get('#notification-like').setValue(true)
-    expect(buttons[1].attributes('disabled')).toBeUndefined()
+    expect(notificationSaveButton.attributes('disabled')).toBeUndefined()
   })
 
   it('saves only general settings from the general section', async () => {
@@ -236,8 +245,7 @@ describe('UserSettings', () => {
     await selects[0].setValue('DARK')
     await selects[1].setValue('en')
 
-    const buttons = wrapper.findAll('button')
-    await buttons[0].trigger('click')
+    await getSaveButtons(wrapper).generalSaveButton.trigger('click')
     await nextTick()
 
     expect(updateSettings).toHaveBeenCalledWith({
@@ -260,7 +268,7 @@ describe('UserSettings', () => {
     await nextTick()
 
     await wrapper.findAll('select')[0].setValue('DARK')
-    await wrapper.findAll('button')[0].trigger('click')
+    await getSaveButtons(wrapper).generalSaveButton.trigger('click')
     await flushPromises()
 
     const message = wrapper.findAll('p').find((item) => item.text() === 'user.settings.failed')
@@ -276,8 +284,7 @@ describe('UserSettings', () => {
     await wrapper.get('#notification-comment').setValue(false)
     await wrapper.get('#notification-reply').setValue(false)
 
-    const buttons = wrapper.findAll('button')
-    await buttons[1].trigger('click')
+    await getSaveButtons(wrapper).notificationSaveButton.trigger('click')
     await nextTick()
 
     expect(updateSettings).not.toHaveBeenCalled()

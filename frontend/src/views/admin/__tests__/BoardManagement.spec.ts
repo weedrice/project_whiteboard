@@ -2,6 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import BoardManagement from '../BoardManagement.vue'
+import { getButtonByText } from '@/test/vue-test-helpers'
 
 const mocks = vi.hoisted(() => ({
   createBoard: vi.fn(),
@@ -160,20 +161,15 @@ describe('BoardManagement', () => {
       createForm: { boardName: string; boardUrl: string }
     }
 
-    await wrapper.findAll('button')
-      .find((button) => button.text() === 'admin.boards.addTitle')
-      ?.trigger('click')
+    await getButtonByText(wrapper, 'admin.boards.addTitle').trigger('click')
     vm.createForm.boardName = 'New board'
     vm.createForm.boardUrl = 'new_board'
     await flushPromises()
 
-    const saveButton = wrapper.findAll('.modal-stub button')
-      .find((button) => button.text() === 'common.save')
-    await saveButton?.trigger('click')
+    await getButtonByText(wrapper.get('.modal-stub'), 'common.save').trigger('click')
     await flushPromises()
 
-    const savingButton = wrapper.findAll('.modal-stub button')
-      .find((button) => button.text() === 'common.messages.saving')
+    const savingButton = getButtonByText(wrapper.get('.modal-stub'), 'common.messages.saving')
     expect(savingButton?.attributes('disabled')).toBeDefined()
     expect(mocks.createBoard).toHaveBeenCalledWith(expect.objectContaining({
       boardName: 'New board',

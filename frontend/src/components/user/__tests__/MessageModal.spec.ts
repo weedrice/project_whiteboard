@@ -2,6 +2,7 @@ import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import MessageModal from '../MessageModal.vue'
+import { getButtonByText } from '@/test/vue-test-helpers'
 
 const mocks = vi.hoisted(() => ({
     sendMessage: vi.fn(),
@@ -86,8 +87,7 @@ describe('MessageModal', () => {
         const wrapper = mountModal()
 
         await wrapper.get('textarea').setValue('   ')
-        const sendButton = wrapper.findAll('button').at(1)
-        await sendButton?.trigger('click')
+        await getButtonByText(wrapper, 'common.send').trigger('click')
 
         expect(mocks.addToast).toHaveBeenCalledWith('user.message.inputContent', 'warning')
         expect(mocks.sendMessage).not.toHaveBeenCalled()
@@ -102,9 +102,9 @@ describe('MessageModal', () => {
         const wrapper = mountModal()
         await wrapper.get('textarea').setValue('안녕하세요')
 
-        const sendButton = wrapper.findAll('button').at(1)
-        await sendButton?.trigger('click')
-        await sendButton?.trigger('click')
+        const sendButton = getButtonByText(wrapper, 'common.send')
+        await sendButton.trigger('click')
+        await sendButton.trigger('click')
 
         expect(mocks.sendMessage).toHaveBeenCalledTimes(1)
         expect(mocks.sendMessage).toHaveBeenCalledWith(3, '안녕하세요', { skipGlobalErrorHandler: true })

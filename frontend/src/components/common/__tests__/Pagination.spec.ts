@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import Pagination from '../ui/Pagination.vue'
+import { getButtonByText } from '@/test/vue-test-helpers'
 
 const globalMountOptions = {
     mocks: {
@@ -49,9 +50,7 @@ describe('Pagination', () => {
             },
             global: globalMountOptions
         })
-        const buttons = wrapper.findAll('button')
-        // Click page 2 (index 2 in buttons array: prev, 1, 2...)
-        await buttons[2].trigger('click')
+        await getButtonByText(wrapper, '2').trigger('click')
         expect(wrapper.emitted('page-change')?.[0]).toEqual([1])
     })
 
@@ -63,7 +62,7 @@ describe('Pagination', () => {
             },
             global: globalMountOptions
         })
-        const prevButton = wrapper.findAll('button')[0]
+        const prevButton = getButtonByText(wrapper, 'common.previous')
         expect(prevButton.attributes('disabled')).toBeDefined()
     })
 
@@ -75,8 +74,7 @@ describe('Pagination', () => {
             },
             global: globalMountOptions
         })
-        const buttons = wrapper.findAll('button')
-        const nextButton = buttons[buttons.length - 1]
+        const nextButton = getButtonByText(wrapper, 'common.next')
         expect(nextButton.attributes('disabled')).toBeDefined()
     })
 
@@ -89,9 +87,8 @@ describe('Pagination', () => {
             global: globalMountOptions,
         })
 
-        const buttons = wrapper.findAll('button')
-        await buttons[0].trigger('click')
-        await buttons[buttons.length - 1].trigger('click')
+        await getButtonByText(wrapper, 'common.previous').trigger('click')
+        await getButtonByText(wrapper, 'common.next').trigger('click')
 
         expect(wrapper.emitted('page-change')?.[0]).toEqual([1])
         expect(wrapper.emitted('page-change')?.[1]).toEqual([3])

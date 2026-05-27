@@ -1,4 +1,4 @@
-import { flushPromises } from '@vue/test-utils'
+import { flushPromises, type DOMWrapper, type VueWrapper } from '@vue/test-utils'
 import { defineComponent, h, nextTick } from 'vue'
 
 export const identityT = (key: string, params?: Record<string, unknown>) => {
@@ -67,6 +67,32 @@ export function createPrevNextPaginationStub() {
       </div>
     `,
   })
+}
+
+type ButtonSearchRoot = VueWrapper | DOMWrapper<Element>
+
+export function findButtonByText(root: ButtonSearchRoot, text: string) {
+  return root.findAll('button').find((button) => button.text() === text)
+}
+
+export function getButtonByText(root: ButtonSearchRoot, text: string) {
+  const button = findButtonByText(root, text)
+
+  if (!button) {
+    throw new Error(`Button not found: ${text}`)
+  }
+
+  return button
+}
+
+export function getButtonByAriaLabel(root: ButtonSearchRoot, label: string) {
+  const button = root.findAll('button').find((candidate) => candidate.attributes('aria-label') === label)
+
+  if (!button) {
+    throw new Error(`Button not found by aria-label: ${label}`)
+  }
+
+  return button
 }
 
 export async function flushAll() {
