@@ -66,34 +66,34 @@
             />
 
             <ul v-else class="divide-y divide-gray-200 dark:divide-gray-700">
-                <li v-for="msg in messages" :key="msg.messageId"
+                <li v-for="msg in messages" :key="msg.id"
                     class="p-3 sm:p-4 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-stretch transition-colors duration-200 min-h-[52px] active:bg-gray-100 dark:active:bg-gray-600">
                     <div class="flex items-center justify-center h-full mr-3 sm:mr-4 p-2 -ml-1 cursor-pointer flex-shrink-0" @click.stop>
                         <BaseCheckbox
-                            :id="`message-${msg.messageId}-select`"
-                            :value="msg.messageId"
+                            :id="`message-${msg.id}-select`"
+                            :value="msg.id"
                             v-model="selectedMessages"
-                            :label="$t('user.message.selectMessage', { name: msg.partner.displayName })"
+                            :label="$t('user.message.selectMessage', { name: msg.partnerName })"
                             label-class="sr-only"
                         />
                     </div>
                     <button
                         type="button"
                         class="flex-1 min-w-0 text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 rounded-md"
-                        :aria-label="$t('user.message.openMessage', { name: msg.partner.displayName })"
+                        :aria-label="$t('user.message.openMessage', { name: msg.partnerName })"
                         @click="openMessage(msg)"
                     >
                         <div class="flex justify-between items-baseline gap-2">
                             <div class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">
-                                {{ msg.partner.displayName }}
+                                {{ msg.partnerName }}
                             </div>
                             <div class="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
                                 {{ formatDate(msg.createdAt) }}
                             </div>
                         </div>
                         <p class="mt-0.5 text-xs sm:text-sm text-gray-900 dark:text-gray-100 line-clamp-2"
-                            :class="{ 'font-bold': viewType === 'received' && !msg.isRead }">
-                            {{ msg.content }}
+                            :class="{ 'font-bold': viewType === 'received' && msg.isUnread }">
+                            {{ msg.body }}
                         </p>
                     </button>
                 </li>
@@ -111,12 +111,12 @@
                             <span class="block text-xs text-gray-500 dark:text-gray-400">{{ viewType === 'received' ?
                                 $t('user.message.from') : $t('user.message.to') }}</span>
                             <span class="text-sm font-medium text-gray-900 dark:text-white truncate block">{{
-                                selectedMessage.partner.displayName }}</span>
+                                selectedMessage.partnerName }}</span>
                         </div>
                         <span class="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">{{ formatDate(selectedMessage.createdAt) }}</span>
                     </div>
                     <div class="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap min-h-[120px] overflow-y-auto max-h-[50vh] sm:max-h-none">
-                        {{ selectedMessage.content }}
+                        {{ selectedMessage.body }}
                     </div>
 
                     <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:space-x-2 pt-4 border-t dark:border-gray-700">
@@ -139,7 +139,7 @@
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ $t('user.message.to')
                             }}</label>
                         <div class="mt-1 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg text-sm text-gray-900 dark:text-white">
-                            {{ replyTarget?.partner.displayName }}
+                            {{ replyTarget?.partnerName }}
                         </div>
                     </div>
                     <div>

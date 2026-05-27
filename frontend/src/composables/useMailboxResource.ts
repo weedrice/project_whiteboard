@@ -4,9 +4,10 @@ import type { AxiosError } from 'axios'
 import { messageApi, BLOCKED_BY_USER_CODE } from '@/api/message'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToastStore } from '@/stores/toast'
-import type { Message } from '@/types'
+import type { MailboxMessageViewModel } from '@/types'
 import { extractErrorResponse } from '@/utils/errorHandler'
 import { hasMessageContent } from '@/utils/messageValidation'
+import { markMailboxMessageRead, toMailboxMessageViewModel } from '@/utils/messageViewModel'
 import logger from '@/utils/logger'
 
 const NOT_FOUND_CODE = 'C006'
@@ -17,10 +18,10 @@ export function useMailboxResource() {
     const { confirm } = useConfirm()
 
     const viewType = ref<'received' | 'sent'>('received')
-    const messages = ref<Message[]>([])
+    const messages = ref<MailboxMessageViewModel[]>([])
     const loading = ref(false)
     const error = ref<string | null>(null)
-    const selectedMessage = ref<Message | null>(null)
+    const selectedMessage = ref<MailboxMessageViewModel | null>(null)
     const selectedMessages = ref<number[]>([])
 
     const page = ref(0)
@@ -28,7 +29,7 @@ export function useMailboxResource() {
     const totalPages = ref(0)
 
     const isReplyModalOpen = ref(false)
-    const replyTarget = ref<Message | null>(null)
+    const replyTarget = ref<MailboxMessageViewModel | null>(null)
     const replyContent = ref('')
     const isSending = ref(false)
     /** Block relationship can make detail/read fail; show toast only when user attempts reply. */
@@ -73,7 +74,7 @@ export function useMailboxResource() {
                 : await messageApi.getSentMessages(params, { signal: controller.signal })
 
             if (requestId === messageListRequestId && data.success) {
-                messages.value = data.data?.content || []
+                messages.value = data.data?.content.map(toMailboxMessageViewModel) || []
                 totalPages.value = data.data?.totalPages || 0
             }
         } catch (caughtError) {
@@ -108,12 +109,12 @@ export function useMailboxResource() {
         fetchMessages()
     }
 
-    async function openMessage(msg: Message) {
+    async function openMessage(msg: MailboxMessageViewModel) {
         const requestId = ++messageDetailRequestId
         abortMessageDetailRequest()
         const controller = new AbortController()
         messageDetailAbortController = controller
-        const messageId = msg.messageId
+        const messageId = msg.id
         messageFromBlockedUser.value = false
         selectedMessage.value = msg
         try {
@@ -121,13 +122,13 @@ export function useMailboxResource() {
                 skipGlobalErrorHandler: true,
                 signal: controller.signal
             })
-            if (requestId !== messageDetailRequestId || selectedMessage.value?.messageId !== messageId) {
+            if (requestId !== messageDetailRequestId || selectedMessage.value?.id !== messageId) {
                 return
             }
             if (data.success && data.data) {
-                selectedMessage.value = data.data
+                selectedMessage.value = toMailboxMessageViewModel(data.data)
             }
-            if (viewType.value === 'received' && !msg.isRead) {
+            if (viewType.value === 'received' && msg.isUnread) {
                 const markAsReadController = new AbortController()
                 markAsReadAbortControllers.add(markAsReadController)
                 try {
@@ -138,16 +139,19 @@ export function useMailboxResource() {
                 } finally {
                     markAsReadAbortControllers.delete(markAsReadController)
                 }
-                msg.isRead = true
-                if (requestId !== messageDetailRequestId || selectedMessage.value?.messageId !== messageId) {
+                const targetIndex = messages.value.findIndex((message) => message.id === messageId)
+                if (targetIndex >= 0) {
+                    messages.value[targetIndex] = markMailboxMessageRead(messages.value[targetIndex])
+                }
+                if (requestId !== messageDetailRequestId || selectedMessage.value?.id !== messageId) {
                     return
                 }
-                if (selectedMessage.value?.messageId === messageId) {
-                    selectedMessage.value = { ...selectedMessage.value, isRead: true }
+                if (selectedMessage.value?.id === messageId) {
+                    selectedMessage.value = markMailboxMessageRead(selectedMessage.value)
                 }
             }
         } catch (error) {
-            if (requestId !== messageDetailRequestId || selectedMessage.value?.messageId !== messageId) {
+            if (requestId !== messageDetailRequestId || selectedMessage.value?.id !== messageId) {
                 return
             }
             if (controller.signal.aborted) {
@@ -185,7 +189,7 @@ export function useMailboxResource() {
         }
     }
 
-    function startReply(msg: Message) {
+    function startReply(msg: MailboxMessageViewModel) {
         if (messageFromBlockedUser.value) {
             toastStore.addToast(t('user.message.blockedByUser'), 'error')
             return
@@ -210,7 +214,7 @@ export function useMailboxResource() {
         isSending.value = true
         try {
             const { data } = await messageApi.sendMessage(
-                replyTarget.value.partner.userId,
+                replyTarget.value.partnerUserId,
                 replyContent.value,
                 { skipGlobalErrorHandler: true }
             )
