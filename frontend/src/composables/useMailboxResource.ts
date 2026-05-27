@@ -78,7 +78,8 @@ export function useMailboxResource() {
         fetchMessages()
     }
 
-    function handleSizeChange() {
+    function handleSizeChange(newSize = size.value) {
+        size.value = newSize
         page.value = 0
         fetchMessages()
     }

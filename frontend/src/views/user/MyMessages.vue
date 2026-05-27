@@ -1,45 +1,52 @@
 <template>
-    <div class="max-w-4xl mx-auto py-4 sm:py-6 md:py-8 px-4 sm:px-6 lg:px-8">
-        <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
-            <div class="px-4 py-4 sm:py-5 sm:px-6 flex flex-col gap-3 border-b border-gray-200 dark:border-gray-700">
-                <div class="flex flex-row justify-between items-center gap-2">
-                    <h1 class="text-lg leading-6 font-medium text-gray-900 dark:text-white flex items-center min-w-0">
-                        <Mail class="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400 flex-shrink-0" />
-                        {{ $t('user.message.boxTitle') }}
-                    </h1>
-                    <div class="flex items-center gap-2 flex-shrink-0">
-                        <div class="hidden sm:block">
-                            <PageSizeSelector v-model="size" @change="handleSizeChange" />
-                        </div>
-                        <BaseButton v-if="selectedMessages.length > 0" @click="deleteSelectedMessages" variant="danger"
-                            size="sm" class="min-h-[36px] sm:min-h-0 text-xs sm:text-sm">
-                            {{ $t('common.delete') }} ({{ selectedMessages.length }})
-                        </BaseButton>
-                    </div>
-                </div>
-                <span
-                    class="isolate inline-flex rounded-lg sm:rounded-md shadow-sm w-full sm:w-auto"
-                    role="group"
-                    :aria-label="$t('user.message.boxTitle')"
-                >
-                    <button type="button" :aria-pressed="viewType === 'received'" @click="changeViewType('received')"
-                        class="flex-1 sm:flex-initial relative inline-flex items-center justify-center rounded-l-lg sm:rounded-l-md px-3 py-2.5 sm:py-2 text-sm font-medium ring-1 ring-inset min-h-[44px] sm:min-h-0 focus:z-10"
-                        :class="viewType === 'received'
-                            ? 'bg-indigo-600 text-white ring-indigo-600 hover:bg-indigo-700'
-                            : 'bg-white text-gray-900 ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-700'">
-                        {{ $t('user.message.received') }}
-                    </button>
-                    <button type="button" :aria-pressed="viewType === 'sent'" @click="changeViewType('sent')"
-                        class="flex-1 sm:flex-initial relative -ml-px inline-flex items-center justify-center rounded-r-lg sm:rounded-r-md px-3 py-2.5 sm:py-2 text-sm font-medium ring-1 ring-inset min-h-[44px] sm:min-h-0 focus:z-10"
-                        :class="viewType === 'sent'
-                            ? 'bg-indigo-600 text-white ring-indigo-600 hover:bg-indigo-700'
-                            : 'bg-white text-gray-900 ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-700'">
-                        {{ $t('user.message.sent') }}
-                    </button>
-                </span>
-            </div>
+    <PaginatedListCard
+        :title="$t('user.message.boxTitle')"
+        :icon="Mail"
+        :items-count="messages.length"
+        :loading="loading"
+        :error="error"
+        :empty-title="$t('user.message.empty')"
+        :page="page"
+        :size="size"
+        :total-pages="totalPages"
+        title-tag="h1"
+        actions-visibility="always"
+        @retry="fetchMessages"
+        @page-change="handlePageChange"
+        @size-change="handleSizeChange"
+    >
+        <template #header-actions>
+            <BaseButton v-if="selectedMessages.length > 0" @click="deleteSelectedMessages" variant="danger"
+                size="sm" class="min-h-[36px] sm:min-h-0 text-xs sm:text-sm">
+                {{ $t('common.delete') }} ({{ selectedMessages.length }})
+            </BaseButton>
+        </template>
 
-            <div v-if="loading" class="divide-y divide-gray-200 dark:divide-gray-700">
+        <template #subheader>
+            <span
+                class="isolate inline-flex rounded-lg sm:rounded-md shadow-sm w-full sm:w-auto"
+                role="group"
+                :aria-label="$t('user.message.boxTitle')"
+            >
+                <button type="button" :aria-pressed="viewType === 'received'" @click="changeViewType('received')"
+                    class="flex-1 sm:flex-initial relative inline-flex items-center justify-center rounded-l-lg sm:rounded-l-md px-3 py-2.5 sm:py-2 text-sm font-medium ring-1 ring-inset min-h-[44px] sm:min-h-0 focus:z-10"
+                    :class="viewType === 'received'
+                        ? 'bg-indigo-600 text-white ring-indigo-600 hover:bg-indigo-700'
+                        : 'bg-white text-gray-900 ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-700'">
+                    {{ $t('user.message.received') }}
+                </button>
+                <button type="button" :aria-pressed="viewType === 'sent'" @click="changeViewType('sent')"
+                    class="flex-1 sm:flex-initial relative -ml-px inline-flex items-center justify-center rounded-r-lg sm:rounded-r-md px-3 py-2.5 sm:py-2 text-sm font-medium ring-1 ring-inset min-h-[44px] sm:min-h-0 focus:z-10"
+                    :class="viewType === 'sent'
+                        ? 'bg-indigo-600 text-white ring-indigo-600 hover:bg-indigo-700'
+                        : 'bg-white text-gray-900 ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-700'">
+                    {{ $t('user.message.sent') }}
+                </button>
+            </span>
+        </template>
+
+        <template #loading>
+            <div class="divide-y divide-gray-200 dark:divide-gray-700">
                 <div v-for="i in 5" :key="i" class="p-4 flex items-start">
                     <BaseSkeleton width="20px" height="20px" className="mr-4 mt-1" />
                     <div class="flex-1">
@@ -51,115 +58,98 @@
                     </div>
                 </div>
             </div>
+        </template>
 
-            <ErrorState
-                v-else-if="error"
-                :message="error"
-                :show-retry="true"
-                @retry="fetchMessages"
-            />
-
-            <EmptyState
-                v-else-if="messages.length === 0"
-                :title="$t('user.message.empty')"
-                :icon="Mail"
-            />
-
-            <ul v-else class="divide-y divide-gray-200 dark:divide-gray-700">
-                <li v-for="msg in messages" :key="msg.id"
-                    class="p-3 sm:p-4 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-stretch transition-colors duration-200 min-h-[52px] active:bg-gray-100 dark:active:bg-gray-600">
-                    <div class="flex items-center justify-center h-full mr-3 sm:mr-4 p-2 -ml-1 cursor-pointer flex-shrink-0" @click.stop>
-                        <BaseCheckbox
-                            :id="`message-${msg.id}-select`"
-                            :value="msg.id"
-                            v-model="selectedMessages"
-                            :label="$t('user.message.selectMessage', { name: msg.partnerName })"
-                            label-class="sr-only"
-                        />
-                    </div>
-                    <button
-                        type="button"
-                        class="flex-1 min-w-0 text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 rounded-md"
-                        :aria-label="$t('user.message.openMessage', { name: msg.partnerName })"
-                        @click="openMessage(msg)"
-                    >
-                        <div class="flex justify-between items-baseline gap-2">
-                            <div class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">
-                                {{ msg.partnerName }}
-                            </div>
-                            <div class="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
-                                {{ formatDate(msg.createdAt) }}
-                            </div>
+        <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+            <li v-for="msg in messages" :key="msg.id"
+                class="p-3 sm:p-4 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-stretch transition-colors duration-200 min-h-[52px] active:bg-gray-100 dark:active:bg-gray-600">
+                <div class="flex items-center justify-center h-full mr-3 sm:mr-4 p-2 -ml-1 cursor-pointer flex-shrink-0" @click.stop>
+                    <BaseCheckbox
+                        :id="`message-${msg.id}-select`"
+                        :value="msg.id"
+                        v-model="selectedMessages"
+                        :label="$t('user.message.selectMessage', { name: msg.partnerName })"
+                        label-class="sr-only"
+                    />
+                </div>
+                <button
+                    type="button"
+                    class="flex-1 min-w-0 text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 rounded-md"
+                    :aria-label="$t('user.message.openMessage', { name: msg.partnerName })"
+                    @click="openMessage(msg)"
+                >
+                    <div class="flex justify-between items-baseline gap-2">
+                        <div class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">
+                            {{ msg.partnerName }}
                         </div>
-                        <p class="mt-0.5 text-xs sm:text-sm text-gray-900 dark:text-gray-100 line-clamp-2"
-                            :class="{ 'font-bold': viewType === 'received' && msg.isUnread }">
-                            {{ msg.body }}
-                        </p>
-                    </button>
-                </li>
-            </ul>
+                        <div class="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+                            {{ formatDate(msg.createdAt) }}
+                        </div>
+                    </div>
+                    <p class="mt-0.5 text-xs sm:text-sm text-gray-900 dark:text-gray-100 line-clamp-2"
+                        :class="{ 'font-bold': viewType === 'received' && msg.isUnread }">
+                        {{ msg.body }}
+                    </p>
+                </button>
+            </li>
+        </ul>
+    </PaginatedListCard>
 
-            <div v-if="messages.length > 0" class="bg-gray-50 dark:bg-gray-900/50 px-4 py-4 sm:px-6 flex justify-center">
-                <Pagination :current-page="page" :total-pages="totalPages" @page-change="handlePageChange" />
+    <BaseModal :isOpen="!!selectedMessage" :title="$t('user.message.title')" @close="selectedMessage = null"
+        mobile-full mobile-fit-content size="lg">
+        <div v-if="selectedMessage" class="p-4 sm:p-6 space-y-4">
+            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 border-b dark:border-gray-700 pb-3">
+                <div class="min-w-0">
+                    <span class="block text-xs text-gray-500 dark:text-gray-400">{{ viewType === 'received' ?
+                        $t('user.message.from') : $t('user.message.to') }}</span>
+                    <span class="text-sm font-medium text-gray-900 dark:text-white truncate block">{{
+                        selectedMessage.partnerName }}</span>
+                </div>
+                <span class="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">{{ formatDate(selectedMessage.createdAt) }}</span>
+            </div>
+            <div class="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap min-h-[120px] overflow-y-auto max-h-[50vh] sm:max-h-none">
+                {{ selectedMessage.body }}
             </div>
 
-            <BaseModal :isOpen="!!selectedMessage" :title="$t('user.message.title')" @close="selectedMessage = null"
-                mobile-full mobile-fit-content size="lg">
-                <div v-if="selectedMessage" class="p-4 sm:p-6 space-y-4">
-                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 border-b dark:border-gray-700 pb-3">
-                        <div class="min-w-0">
-                            <span class="block text-xs text-gray-500 dark:text-gray-400">{{ viewType === 'received' ?
-                                $t('user.message.from') : $t('user.message.to') }}</span>
-                            <span class="text-sm font-medium text-gray-900 dark:text-white truncate block">{{
-                                selectedMessage.partnerName }}</span>
-                        </div>
-                        <span class="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">{{ formatDate(selectedMessage.createdAt) }}</span>
-                    </div>
-                    <div class="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap min-h-[120px] overflow-y-auto max-h-[50vh] sm:max-h-none">
-                        {{ selectedMessage.body }}
-                    </div>
-
-                    <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:space-x-2 pt-4 border-t dark:border-gray-700">
-                        <BaseButton v-if="viewType === 'received'" @click="startReply(selectedMessage)"
-                            class="w-full sm:w-auto min-h-[44px] order-2 sm:order-none">
-                            {{ $t('user.message.reply') }}
-                        </BaseButton>
-                        <BaseButton @click="selectedMessage = null" variant="secondary"
-                            class="w-full sm:w-auto min-h-[44px] order-1 sm:order-none">
-                            {{ $t('common.close') }}
-                        </BaseButton>
-                    </div>
-                </div>
-            </BaseModal>
-
-            <BaseModal :isOpen="isReplyModalOpen" :title="$t('user.message.replyTitle')" @close="closeReplyModal"
-                mobile-full mobile-fit-content>
-                <div class="p-4 sm:p-6 space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ $t('user.message.to')
-                            }}</label>
-                        <div class="mt-1 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg text-sm text-gray-900 dark:text-white">
-                            {{ replyTarget?.partnerName }}
-                        </div>
-                    </div>
-                    <div>
-                        <BaseTextarea v-model="replyContent" :label="$t('user.message.content')" rows="5"
-                            class="min-h-[120px] sm:min-h-0" />
-                    </div>
-                    <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-2 pt-2">
-                        <BaseButton @click="sendReply" :disabled="isSending"
-                            class="w-full sm:w-auto min-h-[44px] order-2 sm:order-none">
-                            {{ isSending ? $t('common.messages.sending') : $t('common.send') }}
-                        </BaseButton>
-                        <BaseButton @click="closeReplyModal" variant="secondary"
-                            class="w-full sm:w-auto min-h-[44px] order-1 sm:order-none">
-                            {{ $t('common.cancel') }}
-                        </BaseButton>
-                    </div>
-                </div>
-            </BaseModal>
+            <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:space-x-2 pt-4 border-t dark:border-gray-700">
+                <BaseButton v-if="viewType === 'received'" @click="startReply(selectedMessage)"
+                    class="w-full sm:w-auto min-h-[44px] order-2 sm:order-none">
+                    {{ $t('user.message.reply') }}
+                </BaseButton>
+                <BaseButton @click="selectedMessage = null" variant="secondary"
+                    class="w-full sm:w-auto min-h-[44px] order-1 sm:order-none">
+                    {{ $t('common.close') }}
+                </BaseButton>
+            </div>
         </div>
-    </div>
+    </BaseModal>
+
+    <BaseModal :isOpen="isReplyModalOpen" :title="$t('user.message.replyTitle')" @close="closeReplyModal"
+        mobile-full mobile-fit-content>
+        <div class="p-4 sm:p-6 space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ $t('user.message.to')
+                    }}</label>
+                <div class="mt-1 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg text-sm text-gray-900 dark:text-white">
+                    {{ replyTarget?.partnerName }}
+                </div>
+            </div>
+            <div>
+                <BaseTextarea v-model="replyContent" :label="$t('user.message.content')" rows="5"
+                    class="min-h-[120px] sm:min-h-0" />
+            </div>
+            <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-2 pt-2">
+                <BaseButton @click="sendReply" :disabled="isSending"
+                    class="w-full sm:w-auto min-h-[44px] order-2 sm:order-none">
+                    {{ isSending ? $t('common.messages.sending') : $t('common.send') }}
+                </BaseButton>
+                <BaseButton @click="closeReplyModal" variant="secondary"
+                    class="w-full sm:w-auto min-h-[44px] order-1 sm:order-none">
+                    {{ $t('common.cancel') }}
+                </BaseButton>
+            </div>
+        </div>
+    </BaseModal>
 </template>
 
 <script setup lang="ts">
@@ -168,10 +158,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
-import EmptyState from '@/components/common/ui/EmptyState.vue'
-import ErrorState from '@/components/common/ui/ErrorState.vue'
-import Pagination from '@/components/common/ui/Pagination.vue'
-import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
+import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
 import { Mail } from 'lucide-vue-next'
 import { useMailboxResource } from '@/composables/useMailboxResource'
 import { formatDate } from '@/utils/date'
