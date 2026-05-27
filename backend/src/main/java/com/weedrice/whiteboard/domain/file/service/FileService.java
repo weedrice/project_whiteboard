@@ -196,9 +196,6 @@ public class FileService {
     @Transactional
     public List<String> associateFilesWithEntity(List<Long> fileIds, Long ownerUserId, Long relatedId,
             String relatedType) {
-        if (fileIds != null && fileIds.stream().anyMatch(Objects::isNull)) {
-            throw new BusinessException(ErrorCode.NOT_FOUND);
-        }
         Set<Long> orderedFileIds = normalizeFileIds(fileIds);
         if (orderedFileIds.isEmpty()) {
             return List.of();
@@ -296,8 +293,10 @@ public class FileService {
         if (fileIds == null || fileIds.isEmpty()) {
             return Set.of();
         }
+        if (fileIds.stream().anyMatch(Objects::isNull)) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
         return new LinkedHashSet<>(fileIds.stream()
-                .filter(Objects::nonNull)
                 .toList());
     }
 

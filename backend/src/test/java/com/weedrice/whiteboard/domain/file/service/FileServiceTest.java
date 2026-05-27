@@ -644,12 +644,24 @@ class FileServiceTest {
                 any(LocalDateTime.class)))
                 .thenReturn(1);
 
-        fileService.attachFilesToPost(Arrays.asList(10L, 11L, 10L, null), 1L, 100L, 99L);
+        fileService.attachFilesToPost(List.of(10L, 11L, 10L), 1L, 100L, 99L);
 
         assertThat(imageFile.isAssociatedWith(100L, FileService.RELATED_TYPE_POST_CONTENT)).isTrue();
         assertThat(draftFile.isAssociatedWith(100L, FileService.RELATED_TYPE_POST_CONTENT)).isTrue();
         verify(fileRepository).findByFileIdInAndStorageStatus(List.of(10L, 11L), FileStorageStatus.ACTIVE);
         verify(fileRepository, never()).findByFileIdAndStorageStatus(any(), any());
+    }
+
+    @Test
+    @DisplayName("게시글 첨부 파일 연결은 null 파일 ID를 거부한다")
+    void attachFilesToPost_rejectsNullFileId() {
+        assertThatThrownBy(() -> fileService.attachFilesToPost(Arrays.asList(10L, null), 1L, 100L, 99L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
+
+        verify(fileRepository, never()).findByFileIdInAndStorageStatus(any(), any());
+        verify(fileRepository, never()).associateIfUnassociatedOrSourceDraft(
+                any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -765,6 +777,19 @@ class FileServiceTest {
     }
 
     @Test
+    @DisplayName("초안 파일 동기화는 null 파일 ID를 거부한다")
+    void syncDraftFiles_rejectsNullFileId() {
+        assertThatThrownBy(() -> fileService.syncDraftFiles(Arrays.asList(11L, null), 1L, 77L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
+
+        verify(fileRepository, never()).findByRelatedIdAndRelatedTypeAndStorageStatus(any(), any(), any());
+        verify(fileRepository, never()).findByFileIdInAndStorageStatus(any(), any());
+        verify(fileRepository, never()).associateIfUnassociatedOrSourceDraft(
+                any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
     @DisplayName("게시글 파일 동기화는 요청 목록에 없는 기존 파일을 삭제 예정으로 전환한다")
     void syncPostFiles_marksOmittedFilesPendingDelete() {
         User uploader = User.builder().build();
@@ -837,6 +862,19 @@ class FileServiceTest {
         assertThat(firstFile.getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_DELETE);
         assertThat(secondFile.getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_DELETE);
         verify(fileRepository, never()).findByFileIdInAndStorageStatus(any(), any());
+    }
+
+    @Test
+    @DisplayName("게시글 파일 동기화는 null 파일 ID를 거부한다")
+    void syncPostFiles_rejectsNullFileId() {
+        assertThatThrownBy(() -> fileService.syncPostFiles(Arrays.asList(10L, null), 1L, 100L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
+
+        verify(fileRepository, never()).findActiveByRelatedIdAndRelatedTypeForUpdate(any(), any());
+        verify(fileRepository, never()).findByFileIdInAndStorageStatus(any(), any());
+        verify(fileRepository, never()).associateIfUnassociatedOrSourceDraft(
+                any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
