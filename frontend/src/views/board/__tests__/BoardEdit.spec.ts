@@ -175,14 +175,18 @@ describe('BoardEdit', () => {
 
     const wrapper = await mountBoardEdit()
 
-    expect(boardApi.getBoard).toHaveBeenCalledWith('free')
+    expect(boardApi.getBoard).toHaveBeenCalledWith('free', {
+      signal: expect.any(AbortSignal),
+    })
     expect(wrapper.get('[data-testid="board-form"]').attributes('data-board-url')).toBe('free')
 
     routeState.params.boardUrl = 'qna'
     await nextTick()
     await flushPromises()
 
-    expect(boardApi.getBoard).toHaveBeenLastCalledWith('qna')
+    expect(boardApi.getBoard).toHaveBeenLastCalledWith('qna', {
+      signal: expect.any(AbortSignal),
+    })
     expect(wrapper.get('[data-testid="board-form"]').attributes('data-board-url')).toBe('qna')
   })
 
@@ -223,6 +227,49 @@ describe('BoardEdit', () => {
 
     expect(routerPush).toHaveBeenCalledWith('/board/free')
     expect(wrapper.find('[data-testid="board-form"]').exists()).toBe(false)
+  })
+
+  it('aborts and ignores an in-flight board load after unmount', async () => {
+    let resolveBoard: (value: ReturnType<typeof mockBoard>) => void = () => undefined
+    let requestSignal: AbortSignal | undefined
+    vi.mocked(boardApi.getBoard).mockImplementationOnce((_boardUrl, config?: { signal?: AbortSignal }) => {
+      requestSignal = config?.signal
+      return new Promise((resolve) => {
+        resolveBoard = resolve
+      }) as never
+    })
+
+    const wrapper = mount(BoardEdit, {
+      global: {
+        mocks: {
+          $t: (key: string) => key,
+        },
+        stubs: {
+          BoardForm: BoardFormStub,
+          CategoryManager: CategoryManagerStub,
+          BaseButton: BaseButtonStub,
+          UserSelectModal: true,
+        },
+      },
+    })
+
+    expect(requestSignal?.aborted).toBe(false)
+    wrapper.unmount()
+    expect(requestSignal?.aborted).toBe(true)
+
+    resolveBoard({
+      ...mockBoard('free', 'Free Board'),
+      data: {
+        ...mockBoard('free', 'Free Board').data,
+        data: {
+          ...mockBoard('free', 'Free Board').data.data,
+          isAdmin: false,
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(routerPush).not.toHaveBeenCalled()
   })
 
   it('ignores stale manager transfer results after the route boardUrl changes', async () => {

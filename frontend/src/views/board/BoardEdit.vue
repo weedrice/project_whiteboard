@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { boardApi } from '@/api/board'
 import CategoryManager from '@/components/board/CategoryManager.vue'
@@ -64,6 +64,12 @@ const isTransferringManager = ref(false)
 const currentManagerLabel = ref('')
 let fetchRequestId = 0
 let managerTransferRequestId = 0
+let fetchAbortController: AbortController | null = null
+
+function abortActiveFetch() {
+  fetchAbortController?.abort()
+  fetchAbortController = null
+}
 
 function resetBoardState() {
   managerTransferRequestId += 1
@@ -78,10 +84,13 @@ function resetBoardState() {
 async function fetchBoard() {
   const currentBoardUrl = boardUrl.value
   if (!currentBoardUrl) return
+  abortActiveFetch()
+  const controller = new AbortController()
+  fetchAbortController = controller
   const requestId = ++fetchRequestId
   isLoading.value = true
   try {
-    const { data } = await boardApi.getBoard(currentBoardUrl)
+    const { data } = await boardApi.getBoard(currentBoardUrl, { signal: controller.signal })
     if (requestId !== fetchRequestId) return
     if (data.success) {
       const board = data.data as BoardDetail
@@ -105,10 +114,13 @@ async function fetchBoard() {
       currentManagerLabel.value = board.adminDisplayName || t('common.noData')
     }
   } catch (err: unknown) {
-    if (requestId !== fetchRequestId) return
+    if (requestId !== fetchRequestId || controller.signal.aborted) return
     handleError(err, t('board.loadFailed'))
     router.push(`/board/${currentBoardUrl}`)
   } finally {
+    if (fetchAbortController === controller) {
+      fetchAbortController = null
+    }
     if (requestId === fetchRequestId) {
       isLoading.value = false
     }
@@ -183,6 +195,12 @@ watch(boardUrl, () => {
   resetBoardState()
   void fetchBoard()
 }, { immediate: true })
+
+onUnmounted(() => {
+  fetchRequestId += 1
+  managerTransferRequestId += 1
+  abortActiveFetch()
+})
 </script>
 
 <template>
