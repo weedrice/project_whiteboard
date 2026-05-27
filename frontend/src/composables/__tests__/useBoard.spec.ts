@@ -141,7 +141,7 @@ describe('useBoard', () => {
 
         useBoardDetail(boardUrl)
         const options = mocks.queryOptions.at(-1)!
-        expect(options.queryKey).toEqual(['board', boardUrl])
+        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual(['board', 'free'])
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
         const result = await (options.queryFn as () => Promise<unknown>)()
         expect(result).toEqual({ boardId: 2, boardUrl: 'free' })

@@ -1,8 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { defineComponent, h, nextTick, reactive } from 'vue'
+import { defineComponent, h, nextTick, reactive, ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import BoardEdit from '../BoardEdit.vue'
-import { boardApi } from '@/api/board'
 
 const routeState = reactive({
   params: {
@@ -15,6 +14,9 @@ const routerBack = vi.fn()
 const updateBoard = vi.fn()
 const deleteBoard = vi.fn()
 const transferBoardManager = vi.fn()
+const boardDetail = ref<any>(null)
+const isBoardDetailLoading = ref(false)
+const boardDetailError = ref<unknown>(null)
 
 vi.mock('vue-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-router')>()
@@ -35,12 +37,6 @@ vi.mock('vue-i18n', async (importOriginal) => {
     useI18n: () => ({ t: (key: string) => key }),
   }
 })
-
-vi.mock('@/api/board', () => ({
-  boardApi: {
-    getBoard: vi.fn(),
-  },
-}))
 
 vi.mock('@/stores/toast', () => ({
   useToastStore: () => ({ addToast: vi.fn() }),
@@ -63,6 +59,11 @@ vi.mock('@/composables/useErrorHandler', () => ({
 
 vi.mock('@/composables/useBoard', () => ({
   useBoard: () => ({
+    useBoardDetail: () => ({
+      data: boardDetail,
+      isLoading: isBoardDetailLoading,
+      error: boardDetailError,
+    }),
     useUpdateBoard: () => ({ mutateAsync: updateBoard }),
     useDeleteBoard: () => ({ mutateAsync: deleteBoard }),
     useTransferBoardManager: () => ({ mutateAsync: transferBoardManager }),
@@ -120,7 +121,9 @@ describe('BoardEdit', () => {
     updateBoard.mockReset()
     deleteBoard.mockReset()
     transferBoardManager.mockReset()
-    vi.mocked(boardApi.getBoard).mockReset()
+    boardDetail.value = null
+    isBoardDetailLoading.value = false
+    boardDetailError.value = null
   })
 
   afterEach(() => {
@@ -169,32 +172,28 @@ describe('BoardEdit', () => {
   }
 
   it('reloads board state when the route boardUrl param changes', async () => {
-    vi.mocked(boardApi.getBoard)
-      .mockResolvedValueOnce(mockBoard('free', 'Free Board') as never)
-      .mockResolvedValueOnce(mockBoard('qna', 'Q&A Board') as never)
+    boardDetail.value = mockBoard('free', 'Free Board').data.data
 
     const wrapper = await mountBoardEdit()
 
-    expect(boardApi.getBoard).toHaveBeenCalledWith('free')
     expect(wrapper.get('[data-testid="board-form"]').attributes('data-board-url')).toBe('free')
 
     routeState.params.boardUrl = 'qna'
+    boardDetail.value = mockBoard('qna', 'Q&A Board').data.data
     await nextTick()
     await flushPromises()
 
-    expect(boardApi.getBoard).toHaveBeenLastCalledWith('qna')
     expect(wrapper.get('[data-testid="board-form"]').attributes('data-board-url')).toBe('qna')
   })
 
   it('submits updates with the current route boardUrl', async () => {
-    vi.mocked(boardApi.getBoard)
-      .mockResolvedValueOnce(mockBoard('free', 'Free Board') as never)
-      .mockResolvedValueOnce(mockBoard('qna', 'Q&A Board') as never)
+    boardDetail.value = mockBoard('free', 'Free Board').data.data
     updateBoard.mockResolvedValue({ boardUrl: 'qna' })
 
     const wrapper = await mountBoardEdit()
 
     routeState.params.boardUrl = 'qna'
+    boardDetail.value = mockBoard('qna', 'Q&A Board').data.data
     await nextTick()
     await flushPromises()
     await nextTick()
@@ -208,7 +207,7 @@ describe('BoardEdit', () => {
   })
 
   it('redirects before rendering the form when the current user is not a board manager', async () => {
-    vi.mocked(boardApi.getBoard).mockResolvedValueOnce({
+    boardDetail.value = {
       ...mockBoard('free', 'Free Board'),
       data: {
         ...mockBoard('free', 'Free Board').data,
@@ -217,7 +216,7 @@ describe('BoardEdit', () => {
           isAdmin: false,
         },
       },
-    } as never)
+    }.data.data
 
     const wrapper = await mountBoardEdit()
 
@@ -226,9 +225,7 @@ describe('BoardEdit', () => {
   })
 
   it('ignores stale manager transfer results after the route boardUrl changes', async () => {
-    vi.mocked(boardApi.getBoard)
-      .mockResolvedValueOnce(mockBoard('free', 'Free Board') as never)
-      .mockResolvedValueOnce(mockBoard('qna', 'Q&A Board') as never)
+    boardDetail.value = mockBoard('free', 'Free Board').data.data
     let resolveTransfer: (value: { adminDisplayName: string }) => void = () => undefined
     transferBoardManager.mockImplementationOnce(() => new Promise((resolve) => {
       resolveTransfer = resolve
@@ -241,6 +238,7 @@ describe('BoardEdit', () => {
     }).confirmManagerSelection([{ loginId: 'next-manager', displayName: 'Next Manager' }])
 
     routeState.params.boardUrl = 'qna'
+    boardDetail.value = mockBoard('qna', 'Q&A Board').data.data
     await nextTick()
     await flushPromises()
 

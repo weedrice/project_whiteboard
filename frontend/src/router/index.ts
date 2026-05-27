@@ -2,6 +2,8 @@ import { createRouter, createWebHistory, type RouteLocationNormalized, type Navi
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { boardApi } from '@/api/board'
+import { queryClient } from '@/queryClient'
+import { boardDetailQueryKey } from '@/composables/useBoard'
 import { canWriteBoardPost } from '@/utils/board'
 import logger from '@/utils/logger'
 import type { BoardDetail } from '@/types'
@@ -370,6 +372,7 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
             try {
                 const { data } = await boardApi.getBoard(boardUrl)
                 const board = data.data as BoardDetail
+                queryClient.setQueryData(boardDetailQueryKey(boardUrl), board)
                 if (to.meta.requiresBoardAdmin && !board.isAdmin) {
                     useToastStore().addToast('You do not have permission to manage this board.', 'error')
                     next({ name: 'board-detail', params: { boardUrl } })

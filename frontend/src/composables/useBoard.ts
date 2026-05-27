@@ -29,6 +29,8 @@ const isVisibleSubscriptionBoard = (
 ): board is SubscriptionBoardListItem & BoardListItem =>
     board.accessState === 'ACCESSIBLE'
 
+export const boardDetailQueryKey = (boardUrl: string) => ['board', boardUrl] as const
+
 export function useBoard() {
     const queryClient = useQueryClient()
 
@@ -64,7 +66,7 @@ export function useBoard() {
     const useBoardDetail = (boardUrl: Ref<string>, options: { requestConfig?: AxiosRequestConfig } & Record<string, unknown> = {}) => {
         const { requestConfig, ...queryOptions } = options
         return useQuery({
-            queryKey: ['board', boardUrl],
+            queryKey: computed(() => boardDetailQueryKey(boardUrl.value)),
             queryFn: async () => {
                 const { data } = await boardApi.getBoard(boardUrl.value, requestConfig)
                 return data.data as BoardDetail
@@ -150,7 +152,7 @@ export function useBoard() {
             },
             onSuccess: (_, { boardUrl }) => {
                 // Invalidate board details and boards list to refresh subscription status
-                queryClient.invalidateQueries({ queryKey: ['board', boardUrl] })
+                queryClient.invalidateQueries({ queryKey: boardDetailQueryKey(boardUrl) })
                 queryClient.invalidateQueries({ queryKey: ['boards'] })
                 queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
             },
@@ -195,10 +197,10 @@ export function useBoard() {
             },
             onSuccess: (updatedBoard, { boardUrl, data }) => {
                 // Invalidate board details, boards list, and subscriptions
-                queryClient.invalidateQueries({ queryKey: ['board', boardUrl] })
+                queryClient.invalidateQueries({ queryKey: boardDetailQueryKey(boardUrl) })
                 const updatedBoardUrl = updatedBoard?.boardUrl ?? data.boardUrl
                 if (updatedBoardUrl && updatedBoardUrl !== boardUrl) {
-                    queryClient.invalidateQueries({ queryKey: ['board', updatedBoardUrl] })
+                    queryClient.invalidateQueries({ queryKey: boardDetailQueryKey(updatedBoardUrl) })
                 }
                 queryClient.invalidateQueries({ queryKey: ['boards'] })
                 queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
@@ -213,7 +215,7 @@ export function useBoard() {
                 return response.data
             },
             onSuccess: (_, { boardUrl }) => {
-                queryClient.invalidateQueries({ queryKey: ['board', boardUrl] })
+                queryClient.invalidateQueries({ queryKey: boardDetailQueryKey(boardUrl) })
                 queryClient.invalidateQueries({ queryKey: ['boards'] })
                 queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
             }

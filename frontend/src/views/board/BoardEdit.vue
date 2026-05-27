@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { boardApi } from '@/api/board'
 import CategoryManager from '@/components/board/CategoryManager.vue'
 import BoardForm from '@/components/board/BoardForm.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -12,19 +11,8 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useFormSubmit } from '@/composables/useFormSubmit'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { useBoard } from '@/composables/useBoard'
-import type { BoardDetail, BoardUpdateData } from '@/types'
-
-interface BoardData {
-  boardName: string
-  boardUrl: string
-  description: string
-  iconUrl: string
-  sortOrder: number
-  allowNsfw: boolean
-  isPublic: boolean
-  agentUseYn: boolean
-  guidePrompt: string
-}
+import { useBoardEditResource, type BoardEditFormData } from '@/composables/useBoardEditResource'
+import type { BoardUpdateData } from '@/types'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -34,88 +22,40 @@ const route = useRoute()
 const router = useRouter()
 const boardUrl = computed(() => String(route.params.boardUrl ?? ''))
 
-function createEmptyForm() {
-  return {
-    boardName: '',
-    boardUrl: '',
-    description: '',
-    iconUrl: '',
-    sortOrder: 0,
-    allowNsfw: false,
-    isPublic: true,
-    agentUseYn: false,
-    guidePrompt: ''
-  }
-}
-
-const form = ref(createEmptyForm())
-
-const isLoading = ref(true)
 const { isSubmitting, submit } = useFormSubmit()
 const { handleError } = useErrorHandler()
 const { useUpdateBoard, useDeleteBoard, useTransferBoardManager } = useBoard()
 const { mutateAsync: updateBoard } = useUpdateBoard()
 const { mutateAsync: deleteBoard } = useDeleteBoard()
 const { mutateAsync: transferBoardManager } = useTransferBoardManager()
-const error = ref('')
-const canManageBoard = ref(true)
+const {
+  form,
+  error,
+  canManageBoard,
+  currentManagerLabel,
+  isLoading,
+} = useBoardEditResource(boardUrl, {
+  fallbackManagerLabel: t('common.noData'),
+  onForbidden: (currentBoardUrl) => {
+    toastStore.addToast(t('common.messages.forbidden'), 'error')
+    router.push(`/board/${currentBoardUrl}`)
+  },
+  onLoadError: (err, currentBoardUrl) => {
+    handleError(err, t('board.loadFailed'))
+    router.push(`/board/${currentBoardUrl}`)
+  },
+})
 const isManagerModalOpen = ref(false)
 const isTransferringManager = ref(false)
-const currentManagerLabel = ref('')
-let fetchRequestId = 0
 let managerTransferRequestId = 0
 
-function resetBoardState() {
+function resetManagerTransferState() {
   managerTransferRequestId += 1
-  form.value = createEmptyForm()
-  error.value = ''
-  canManageBoard.value = true
-  currentManagerLabel.value = ''
   isManagerModalOpen.value = false
   isTransferringManager.value = false
 }
 
-async function fetchBoard() {
-  const currentBoardUrl = boardUrl.value
-  if (!currentBoardUrl) return
-  const requestId = ++fetchRequestId
-  isLoading.value = true
-  try {
-    const { data } = await boardApi.getBoard(currentBoardUrl)
-    if (requestId !== fetchRequestId) return
-    if (data.success) {
-      const board = data.data as BoardDetail
-      if (!board.isAdmin) {
-        canManageBoard.value = false
-        toastStore.addToast(t('common.messages.forbidden'), 'error')
-        router.push(`/board/${currentBoardUrl}`)
-        return
-      }
-      form.value = {
-        boardName: board.boardName,
-        boardUrl: board.boardUrl,
-        description: board.description || '',
-        iconUrl: board.iconUrl || '',
-        sortOrder: board.sortOrder || 0,
-        allowNsfw: board.allowNsfw || false,
-        isPublic: board.isPublic ?? true,
-        agentUseYn: board.agentUseYn ?? false,
-        guidePrompt: board.guidePrompt || ''
-      }
-      currentManagerLabel.value = board.adminDisplayName || t('common.noData')
-    }
-  } catch (err: unknown) {
-    if (requestId !== fetchRequestId) return
-    handleError(err, t('board.loadFailed'))
-    router.push(`/board/${currentBoardUrl}`)
-  } finally {
-    if (requestId === fetchRequestId) {
-      isLoading.value = false
-    }
-  }
-}
-
-async function handleUpdate(formData: BoardData) {
+async function handleUpdate(formData: BoardEditFormData) {
   error.value = ''
 
   await submit(async () => {
@@ -180,9 +120,8 @@ async function confirmManagerSelection(users: Array<{ loginId: string; displayNa
 }
 
 watch(boardUrl, () => {
-  resetBoardState()
-  void fetchBoard()
-}, { immediate: true })
+  resetManagerTransferState()
+})
 </script>
 
 <template>
