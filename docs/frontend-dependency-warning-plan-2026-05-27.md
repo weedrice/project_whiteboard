@@ -50,6 +50,15 @@ Result after same-major patch cleanup: 0 vulnerabilities.
   - Status: no longer needed after same-major audit patch cleanup.
   - Avoid broad `overrides` unless a future audit cannot be resolved by normal compatible updates.
 
+## UI Follow-Up Candidate
+
+- `frontend/src/components/common/widgets/UserSelectModal.vue`
+  - The compact modal table is still intentionally manual.
+  - It combines single and multi-select modes, row click selection, optional email column, board-manager candidate source, current-manager badge display, and a fixed `max-h-[420px]` scroll region inside `BaseModal`.
+  - A direct `BaseTable` conversion could change modal height, row hit targets, selected-row highlighting, or checkbox-like affordance behavior.
+  - Recommended follow-up: add focused tests around search, initial selected ids, single/multiple selection, `board-manager-candidates` source, hidden email column, and excluded users before attempting any table abstraction.
+  - Only convert this table if `BaseTable` can support compact density, scroll containment, row selection styling, and optional leading selection cells without introducing nested-card or modal spacing changes.
+
 ## Verification For Future Cleanup
 
 After any dependency cleanup, run:
