@@ -1,4 +1,5 @@
-import { onScopeDispose, ref, type Ref } from 'vue'
+import { ref, type Ref } from 'vue'
+import { useLatestAsyncTask } from '@/composables/useLatestAsyncTask'
 import logger from '@/utils/logger'
 import type { ApiResponse, PageResponse } from '@/types'
 
@@ -46,31 +47,19 @@ export function usePagination<T>(
     const items = ref<T[]>([]) as Ref<T[]>
     const totalCount = ref(0)
     const totalPages = ref(0)
-    const loading = ref(false)
-    const error = ref<string | null>(null)
-    let latestRequestId = 0
-    let abortController: AbortController | null = null
-
-    const isLatestRequest = (requestId: number) => requestId === latestRequestId
-
-    const abortActiveRequest = () => {
-        abortController?.abort()
-        abortController = null
-    }
+    const failedMessage = '데이터를 불러오는데 실패했습니다.'
+    const fetchTask = useLatestAsyncTask<string>({
+        getErrorValue: () => failedMessage,
+        onError: (err) => logger.error('Failed to fetch paginated data:', err),
+    })
+    const { loading, error } = fetchTask
 
     /**
      * 데이터 페칭 함수
      * @param additionalParams 추가 파라미터
      */
     const fetch = async (additionalParams: Record<string, unknown> = {}) => {
-        abortActiveRequest()
-        const controller = new AbortController()
-        abortController = controller
-        const requestId = ++latestRequestId
-        loading.value = true
-        error.value = null
-
-        try {
+        const result = await fetchTask.run(({ signal }) => {
             const params: PaginationParams = {
                 page: page.value,
                 size: size.value,
@@ -78,29 +67,17 @@ export function usePagination<T>(
                 ...additionalParams
             }
 
-            const result = await fetchFn(params, { signal: controller.signal })
+            return fetchFn(params, { signal })
+        })
 
-            if (!isLatestRequest(requestId)) return
+        if (!result) return
 
-            if (result.success) {
-                items.value = result.data.content
-                totalCount.value = result.data.totalElements
-                totalPages.value = result.data.totalPages
-            } else {
-                error.value = '데이터를 불러오는데 실패했습니다.'
-            }
-        } catch (err: unknown) {
-            if (!isLatestRequest(requestId) || controller.signal.aborted) return
-
-            logger.error('Failed to fetch paginated data:', err)
-            error.value = '데이터를 불러오는데 실패했습니다.'
-        } finally {
-            if (abortController === controller) {
-                abortController = null
-            }
-            if (isLatestRequest(requestId)) {
-                loading.value = false
-            }
+        if (result.success) {
+            items.value = result.data.content
+            totalCount.value = result.data.totalElements
+            totalPages.value = result.data.totalPages
+        } else {
+            error.value = failedMessage
         }
     }
 
@@ -137,23 +114,14 @@ export function usePagination<T>(
      * 페이지네이션 상태 리셋
      */
     const reset = () => {
-        abortActiveRequest()
-        latestRequestId++
+        fetchTask.reset()
         page.value = initialParams.page || 0
         size.value = initialParams.size || 20
         sort.value = initialParams.sort
         items.value = []
         totalCount.value = 0
         totalPages.value = 0
-        loading.value = false
-        error.value = null
     }
-
-    onScopeDispose(() => {
-        latestRequestId++
-        abortActiveRequest()
-        loading.value = false
-    })
 
     return {
         // State

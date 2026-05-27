@@ -3,6 +3,7 @@ import { useI18n } from 'vue-i18n'
 import type { AxiosError } from 'axios'
 import { messageApi, BLOCKED_BY_USER_CODE } from '@/api/message'
 import { useConfirm } from '@/composables/useConfirm'
+import { useLatestAsyncTask } from '@/composables/useLatestAsyncTask'
 import { useToastStore } from '@/stores/toast'
 import type { MailboxMessageViewModel } from '@/types'
 import { extractErrorResponse } from '@/utils/errorHandler'
@@ -19,8 +20,11 @@ export function useMailboxResource() {
 
     const viewType = ref<'received' | 'sent'>('received')
     const messages = ref<MailboxMessageViewModel[]>([])
-    const loading = ref(false)
-    const error = ref<string | null>(null)
+    const messageListTask = useLatestAsyncTask<string>({
+        getErrorValue: () => t('common.messages.loadFailed'),
+        onError: (caughtError) => logger.error('Failed to fetch messages:', caughtError),
+    })
+    const { loading, error } = messageListTask
     const selectedMessage = ref<MailboxMessageViewModel | null>(null)
     const selectedMessages = ref<number[]>([])
 
@@ -34,16 +38,9 @@ export function useMailboxResource() {
     const isSending = ref(false)
     /** Block relationship can make detail/read fail; show toast only when user attempts reply. */
     const messageFromBlockedUser = ref(false)
-    let messageListRequestId = 0
     let messageDetailRequestId = 0
-    let messageListAbortController: AbortController | null = null
     let messageDetailAbortController: AbortController | null = null
     const markAsReadAbortControllers = new Set<AbortController>()
-
-    function abortMessageListRequest() {
-        messageListAbortController?.abort()
-        messageListAbortController = null
-    }
 
     function abortMessageDetailRequest() {
         messageDetailAbortController?.abort()
@@ -56,39 +53,23 @@ export function useMailboxResource() {
     }
 
     async function fetchMessages() {
-        const requestId = ++messageListRequestId
-        abortMessageListRequest()
-        const controller = new AbortController()
-        messageListAbortController = controller
-        loading.value = true
-        error.value = null
         messages.value = []
         selectedMessages.value = []
-        try {
+        const data = await messageListTask.run(async ({ signal }) => {
             const params = {
                 page: page.value,
                 size: size.value
             }
-            const { data } = viewType.value === 'received'
-                ? await messageApi.getReceivedMessages(params, { signal: controller.signal })
-                : await messageApi.getSentMessages(params, { signal: controller.signal })
+            const response = viewType.value === 'received'
+                ? await messageApi.getReceivedMessages(params, { signal })
+                : await messageApi.getSentMessages(params, { signal })
 
-            if (requestId === messageListRequestId && data.success) {
-                messages.value = data.data?.content.map(toMailboxMessageViewModel) || []
-                totalPages.value = data.data?.totalPages || 0
-            }
-        } catch (caughtError) {
-            if (requestId === messageListRequestId && !controller.signal.aborted) {
-                logger.error('Failed to fetch messages:', caughtError)
-                error.value = t('common.messages.loadFailed')
-            }
-        } finally {
-            if (messageListAbortController === controller) {
-                messageListAbortController = null
-            }
-            if (requestId === messageListRequestId) {
-                loading.value = false
-            }
+            return response.data
+        })
+
+        if (data?.success) {
+            messages.value = data.data?.content.map(toMailboxMessageViewModel) || []
+            totalPages.value = data.data?.totalPages || 0
         }
     }
 
@@ -243,9 +224,8 @@ export function useMailboxResource() {
     })
 
     onUnmounted(() => {
-        messageListRequestId++
+        messageListTask.reset()
         messageDetailRequestId++
-        abortMessageListRequest()
         abortMessageDetailRequest()
         abortMarkAsReadRequests()
     })
