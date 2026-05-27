@@ -4,10 +4,10 @@ import { useAdmin } from '@/composables/useAdmin'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
+import AdminPaginationFooter from '@/components/admin/AdminPaginationFooter.vue'
 import ReportList from '@/components/admin/ReportList.vue'
 import ReportDetailModal from '@/components/admin/ReportDetailModal.vue'
 import SanctionModal from '@/components/admin/SanctionModal.vue'
-import Pagination from '@/components/common/ui/Pagination.vue'
 import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
@@ -92,8 +92,7 @@ async function handleReject(report: Report) {
   <div>
     <AdminPageHeader :title="t('admin.reports.title')" :description="t('admin.reports.description')" />
 
-    <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <p class="text-sm text-gray-600 dark:text-gray-300">총 {{ totalElements }}건</p>
+    <div class="mt-6 flex justify-end">
       <div class="flex items-center gap-3">
         <span v-if="isLoading" class="text-xs text-gray-500 dark:text-gray-400">{{ t('common.loading') }}</span>
         <PageSizeSelector v-model="size" :options="[20, 50, 100]" @change="handleSizeChange" />
@@ -103,9 +102,13 @@ async function handleReject(report: Report) {
     <ReportList :reports="reports" @resolve="handleResolve" @reject="handleReject" @sanction="openSanctionModal"
       @viewDetail="openDetailModal" />
 
-    <div class="mt-4">
-      <Pagination :current-page="currentPage" :total-pages="totalPages" @page-change="handlePageChange" />
-    </div>
+    <AdminPaginationFooter
+      :page="currentPage"
+      :total-pages="totalPages"
+      :summary="`총 ${totalElements}건`"
+      :loading-text="t('common.loading')"
+      @page-change="handlePageChange"
+    />
 
     <ReportDetailModal :isOpen="isDetailModalOpen" :report="selectedReport" @close="isDetailModalOpen = false" />
 

@@ -115,6 +115,7 @@ describe('UserManagement', () => {
                     BaseInput: BaseInputStub,
                     BaseBadge: BaseBadgeStub,
                     UserDetailModal: UserDetailModalStub,
+                    Pagination: true,
                 },
             },
         })
@@ -138,6 +139,7 @@ describe('UserManagement', () => {
                     BaseInput: BaseInputStub,
                     BaseBadge: BaseBadgeStub,
                     UserDetailModal: UserDetailModalStub,
+                    Pagination: true,
                 },
             },
         })

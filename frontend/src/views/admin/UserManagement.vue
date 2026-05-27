@@ -9,6 +9,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import BaseTable from '@/components/common/ui/BaseTable.vue'
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
+import AdminPaginationFooter from '@/components/admin/AdminPaginationFooter.vue'
 import UserDetailModal from '@/components/admin/UserDetailModal.vue'
 import { formatDateOnly } from '@/utils/date'
 import { useConfirm } from '@/composables/useConfirm'
@@ -141,14 +142,6 @@ function applyFilters() {
   page.value = 0
 }
 
-function prevPage() {
-  if (page.value > 0) page.value -= 1
-}
-
-function nextPage() {
-  if (page.value + 1 < totalPages.value) page.value += 1
-}
-
 function getSortLabel(baseLabel: string, key: string) {
   if (sortField.value !== key) return baseLabel
   return `${baseLabel} ${sortDirection.value === 'asc' ? '▲' : '▼'}`
@@ -275,23 +268,24 @@ const columns = computed(() => [
       </div>
     </div>
 
-    <div class="mt-6 flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm dark:border-gray-700 dark:bg-gray-800">
-      <div class="text-gray-600 dark:text-gray-300">
-        <div v-if="totalPages > 0">총 {{ totalCount.toLocaleString() }}명 / {{ currentPage + 1 }} / {{ totalPages }} 페이지</div>
-        <div v-else>총 {{ totalCount.toLocaleString() }}명</div>
+    <AdminPaginationFooter
+      :page="currentPage"
+      :total-pages="totalPages"
+      :summary="totalPages > 0 ? `총 ${totalCount.toLocaleString()}명 / ${currentPage + 1} / ${totalPages} 페이지` : `총 ${totalCount.toLocaleString()}명`"
+      @page-change="page = $event"
+    >
+      <template #description>
         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">사용자 행을 더블클릭하면 상세 팝업이 열립니다.</p>
-      </div>
-      <div class="flex items-center gap-2">
+      </template>
+      <template #actions>
         <label class="text-xs text-gray-500 dark:text-gray-400">페이지 당</label>
         <select v-model.number="size" class="rounded-md border border-gray-300 px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-900">
           <option :value="10">10</option>
           <option :value="20">20</option>
           <option :value="50">50</option>
         </select>
-        <BaseButton variant="secondary" size="sm" :disabled="currentPage <= 0" @click="prevPage">이전</BaseButton>
-        <BaseButton variant="secondary" size="sm" :disabled="totalPages === 0 || currentPage + 1 >= totalPages" @click="nextPage">다음</BaseButton>
-      </div>
-    </div>
+      </template>
+    </AdminPaginationFooter>
 
     <div class="mt-4">
       <BaseTable

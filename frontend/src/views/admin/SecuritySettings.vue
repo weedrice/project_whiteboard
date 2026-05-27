@@ -5,11 +5,11 @@ import { Shield } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
+import AdminPaginationFooter from '@/components/admin/AdminPaginationFooter.vue'
 import IpBlockList from '@/components/admin/IpBlockList.vue'
 import IpBlockDetailModal from '@/components/admin/IpBlockDetailModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import Pagination from '@/components/common/ui/Pagination.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import type { IpBlock } from '@/types'
 
@@ -109,9 +109,7 @@ watch(totalPages, (nextTotalPages) => {
         <!-- IP Block List -->
         <IpBlockList :ip-blocks="ipBlocks" @unblock="handleUnblockIp" @viewDetail="openDetailModal" />
 
-        <div v-if="totalPages > 0" class="mt-4">
-            <Pagination :current-page="page" :total-pages="totalPages" @page-change="page = $event" />
-        </div>
+        <AdminPaginationFooter :page="page" :total-pages="totalPages" @page-change="page = $event" />
 
         <!-- IP Block Detail Modal -->
         <IpBlockDetailModal :isOpen="isDetailModalOpen" :ipBlock="selectedIpBlock" @close="isDetailModalOpen = false" />
