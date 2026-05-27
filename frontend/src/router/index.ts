@@ -3,12 +3,14 @@ import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { boardApi } from '@/api/board'
 import { emoticonApi } from '@/api/emoticon'
+import { postApi } from '@/api/post'
 import { queryClient } from '@/queryClient'
 import { canWriteBoardPost } from '@/utils/board'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import logger from '@/utils/logger'
 import i18n from '@/i18n'
-import type { BoardDetail } from '@/types'
+import { normalizePostReactionFlags, type PostReactionAlias } from '@/utils/postViewModel'
+import type { BoardDetail, Post } from '@/types'
 
 const CHUNK_RELOAD_KEY = 'chunk-reload-attempted'
 
@@ -34,7 +36,25 @@ declare module 'vue-router' {
         requiresWritableBoard?: boolean
         requiresBoardAdmin?: boolean
         requiresEmoticonOwner?: boolean
+        requiresPostAuthor?: boolean
     }
+}
+
+const getStringRouteParam = (param: unknown) => typeof param === 'string' ? param : ''
+
+async function fetchPostForAuthorGuard(postId: string): Promise<Post> {
+    return queryClient.fetchQuery({
+        queryKey: ['post', postId],
+        queryFn: async () => {
+            const { data } = await postApi.getPost(postId, {
+                params: {
+                    incrementView: false,
+                },
+            })
+            return normalizePostReactionFlags(data.data as PostReactionAlias)
+        },
+        retry: false,
+    })
 }
 
 const router = createRouter({
@@ -226,7 +246,7 @@ const router = createRouter({
             path: '/board/:boardUrl/post/:postId/edit',
             name: 'post-edit',
             component: () => import(/* webpackChunkName: "post-editor" */ '@/views/board/PostEdit.vue'),
-            meta: { requiresAuth: true }
+            meta: { requiresAuth: true, requiresPostAuthor: true }
         },
         {
             path: '/admin',
@@ -343,7 +363,7 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
         return
     }
 
-    const boardUrlParam = typeof to.params.boardUrl === 'string' ? to.params.boardUrl.toLowerCase() : ''
+    const boardUrlParam = getStringRouteParam(to.params.boardUrl).toLowerCase()
     if (boardUrlParam === 'inquiry') {
         next({ name: 'error', query: { status: '404' } })
         return
@@ -387,7 +407,7 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
         }
 
         if (to.meta.requiresBoardAdmin || to.meta.requiresWritableBoard) {
-            const boardUrl = typeof to.params.boardUrl === 'string' ? to.params.boardUrl : ''
+            const boardUrl = getStringRouteParam(to.params.boardUrl)
             if (!boardUrl) {
                 next({ name: 'error', query: { status: '404' } })
                 return
@@ -414,6 +434,33 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
                 }
             } catch (error) {
                 logger.error('Failed to verify board access:', error)
+                next({ name: 'error', query: { status: '500' } })
+                return
+            }
+        }
+
+        if (to.meta.requiresPostAuthor) {
+            const boardUrl = getStringRouteParam(to.params.boardUrl)
+            const postId = getStringRouteParam(to.params.postId)
+            const currentUserId = authStore.user?.userId
+            if (!boardUrl || !postId) {
+                next({ name: 'error', query: { status: '404' } })
+                return
+            }
+            if (!currentUserId) {
+                next({ name: 'error', query: { status: '503' } })
+                return
+            }
+
+            try {
+                const post = await fetchPostForAuthorGuard(postId)
+                if (post.author.userId !== currentUserId) {
+                    useToastStore().addToast('You do not have permission to edit this post.', 'error')
+                    next({ name: 'post-detail', params: { boardUrl, postId } })
+                    return
+                }
+            } catch (error) {
+                logger.error('Failed to verify post author:', error)
                 next({ name: 'error', query: { status: '500' } })
                 return
             }
