@@ -39,4 +39,15 @@ describe('AdminPanel', () => {
 
     expect(wrapper.classes()).toContain('mt-6')
   })
+
+  it('can render without panel padding for wrapped table surfaces', () => {
+    const wrapper = mount(AdminPanel, {
+      props: {
+        padding: 'none',
+      },
+    })
+
+    expect(wrapper.classes()).not.toContain('p-4')
+    expect(wrapper.classes()).not.toContain('p-5')
+  })
 })

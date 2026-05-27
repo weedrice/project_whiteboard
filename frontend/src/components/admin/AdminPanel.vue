@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 
 const props = withDefaults(defineProps<{
-  padding?: 'sm' | 'md'
+  padding?: 'none' | 'sm' | 'md'
   shadow?: boolean
   maxWidthClass?: string
 }>(), {
@@ -11,7 +11,10 @@ const props = withDefaults(defineProps<{
   maxWidthClass: '',
 })
 
-const paddingClass = computed(() => (props.padding === 'sm' ? 'p-4' : 'p-5'))
+const paddingClass = computed(() => {
+  if (props.padding === 'none') return ''
+  return props.padding === 'sm' ? 'p-4' : 'p-5'
+})
 const shadowClass = computed(() => (props.shadow ? 'shadow' : ''))
 </script>
 
