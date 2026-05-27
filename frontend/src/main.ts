@@ -10,7 +10,8 @@ import './style.css'
 
 import { configureApiStoreResolvers } from '@/api'
 import { queryClient, configureQueryClientStoreResolvers } from '@/queryClient'
-import { useAuthStore } from '@/stores/auth'
+import { configureAuthSessionEffects, useAuthStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/theme'
 import { useToastStore } from '@/stores/toast'
 import logger from '@/utils/logger'
 import { validateEnv } from '@/utils/env'
@@ -31,6 +32,17 @@ configureApiStoreResolvers({
 
 configureQueryClientStoreResolvers({
     resolveToastStore: () => useToastStore(pinia),
+})
+
+configureAuthSessionEffects({
+    syncThemeFromUser: (userData) => {
+        if (userData?.theme) {
+            useThemeStore(pinia).setTheme(userData.theme)
+        }
+    },
+    handleSanctionedSession: () => {
+        useToastStore(pinia).addToast(i18n.global.t('user.sanctioned'), 'error')
+    },
 })
 
 app.use(VueQueryPlugin, { queryClient })
