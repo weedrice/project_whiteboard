@@ -180,6 +180,12 @@ describe('BoardEdit', () => {
       signal: expect.any(AbortSignal),
     })
     expect(wrapper.get('[data-testid="board-form"]').attributes('data-board-url')).toBe('free')
+    expect(wrapper.getComponent({ name: 'UserSelectModal' }).props()).toMatchObject({
+      isOpen: false,
+      selectionMode: 'single',
+      source: 'board-manager-candidates',
+      boardUrl: 'free',
+    })
 
     routeState.params.boardUrl = 'qna'
     await nextTick()
@@ -189,6 +195,7 @@ describe('BoardEdit', () => {
       signal: expect.any(AbortSignal),
     })
     expect(wrapper.get('[data-testid="board-form"]').attributes('data-board-url')).toBe('qna')
+    expect(wrapper.getComponent({ name: 'UserSelectModal' }).props('boardUrl')).toBe('qna')
   })
 
   it('submits updates with the current route boardUrl', async () => {

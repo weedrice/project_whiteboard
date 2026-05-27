@@ -110,6 +110,32 @@ describe('BoardManagement', () => {
     vi.clearAllMocks()
   })
 
+  it('passes the manager selection contract to UserSelectModal', () => {
+    const wrapper = mount(BoardManagement, {
+      global: {
+        mocks: {
+          $t: (key: string) => key,
+        },
+        stubs: {
+          BaseButton: BaseButtonStub,
+          BaseModal: BaseModalStub,
+          BaseInput: true,
+          BaseTextarea: true,
+          BaseCheckbox: true,
+          BaseSpinner: true,
+          UserSelectModal: true,
+          GripVertical: true,
+        },
+      },
+    })
+
+    expect(wrapper.getComponent({ name: 'UserSelectModal' }).props()).toMatchObject({
+      isOpen: false,
+      title: 'admin.boards.userSelectTitle',
+      selectionMode: 'single',
+    })
+  })
+
   it('uses a create-only submitting state for the create modal', async () => {
     const createBoardRequest = makeDeferred<unknown>()
     mocks.createBoard.mockReturnValueOnce(createBoardRequest.promise)
