@@ -25,6 +25,17 @@ describe('messageApi', () => {
         expect(apiMock.post).toHaveBeenCalledWith('/messages', { receiverId: 2, content: 'hello' }, config)
     })
 
+    it('calls mailbox list endpoints with pagination params and config', () => {
+        const config = { signal: new AbortController().signal }
+        const params = { page: 1, size: 15 }
+
+        messageApi.getReceivedMessages(params, config as never)
+        messageApi.getSentMessages(params, config as never)
+
+        expect(apiMock.get).toHaveBeenNthCalledWith(1, '/messages/received', { ...config, params })
+        expect(apiMock.get).toHaveBeenNthCalledWith(2, '/messages/sent', { ...config, params })
+    })
+
     it('calls message detail and read endpoints separately', () => {
         const config = { skipGlobalErrorHandler: true }
 

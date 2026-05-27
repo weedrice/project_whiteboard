@@ -2,8 +2,12 @@ import { createRouter, createWebHistory, type RouteLocationNormalized, type Navi
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { boardApi } from '@/api/board'
+import { emoticonApi } from '@/api/emoticon'
+import { queryClient } from '@/queryClient'
 import { canWriteBoardPost } from '@/utils/board'
+import { QUERY_STALE_TIME } from '@/utils/constants'
 import logger from '@/utils/logger'
+import i18n from '@/i18n'
 import type { BoardDetail } from '@/types'
 
 const CHUNK_RELOAD_KEY = 'chunk-reload-attempted'
@@ -29,6 +33,7 @@ declare module 'vue-router' {
         layout?: string
         requiresWritableBoard?: boolean
         requiresBoardAdmin?: boolean
+        requiresEmoticonOwner?: boolean
     }
 }
 
@@ -180,7 +185,7 @@ const router = createRouter({
             path: '/emoticons/:emoticonId/edit',
             name: 'emoticon-edit',
             component: () => import('@/views/emoticon/EmoticonEdit.vue'),
-            meta: { requiresAuth: true }
+            meta: { requiresAuth: true, requiresEmoticonOwner: true }
         },
         {
             path: '/boards',
@@ -360,6 +365,27 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
         // OAuth callback should be allowed even if authenticated (handles re-login scenarios)
         next({ name: 'home' })
     } else {
+        if (to.meta.requiresEmoticonOwner) {
+            const emoticonIdParam = typeof to.params.emoticonId === 'string' ? Number(to.params.emoticonId) : NaN
+            if (!Number.isFinite(emoticonIdParam)) {
+                next({ name: 'error', query: { status: '404' } })
+                return
+            }
+
+            try {
+                const emoticon = await emoticonApi.getEmoticonData(emoticonIdParam)
+                if (emoticon.creatorId !== authStore.user?.userId) {
+                    useToastStore().addToast(i18n.global.t('emoticon.edit.noPermission'), 'error')
+                    next({ name: 'emoticon-detail', params: { emoticonId: to.params.emoticonId } })
+                    return
+                }
+            } catch (error) {
+                logger.error('Failed to verify emoticon edit access:', error)
+                next({ name: 'error', query: { status: '500' } })
+                return
+            }
+        }
+
         if (to.meta.requiresBoardAdmin || to.meta.requiresWritableBoard) {
             const boardUrl = typeof to.params.boardUrl === 'string' ? to.params.boardUrl : ''
             if (!boardUrl) {
@@ -368,8 +394,14 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
             }
 
             try {
-                const { data } = await boardApi.getBoard(boardUrl)
-                const board = data.data as BoardDetail
+                const board = await queryClient.fetchQuery({
+                    queryKey: ['board', boardUrl],
+                    queryFn: async () => {
+                        const { data } = await boardApi.getBoard(boardUrl)
+                        return data.data as BoardDetail
+                    },
+                    staleTime: QUERY_STALE_TIME.SHORT,
+                })
                 if (to.meta.requiresBoardAdmin && !board.isAdmin) {
                     useToastStore().addToast('You do not have permission to manage this board.', 'error')
                     next({ name: 'board-detail', params: { boardUrl } })

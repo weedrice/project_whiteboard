@@ -37,13 +37,6 @@ const { emoticon, isLoading, isOwner } = useEmoticonEditResource({
   emoticonId,
   isAuthenticated: () => authStore.isAuthenticated,
   getUser: () => authStore.user,
-  onUnauthenticated: () => {
-    router.push({ name: 'emoticon-list' })
-  },
-  onForbidden: () => {
-    toastStore.addToast(t('emoticon.edit.noPermission'), 'error')
-    router.push({ name: 'emoticon-detail', params: { emoticonId: emoticonId.value } })
-  }
 })
 
 useHead({
