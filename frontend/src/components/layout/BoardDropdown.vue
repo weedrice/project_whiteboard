@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ChevronDown, List } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
@@ -21,7 +21,6 @@ const emit = defineEmits<{
 const router = useRouter()
 const authStore = useAuthStore()
 const keyboardStore = useKeyboardStore()
-const dropdownRef = ref<HTMLElement | null>(null)
 const { useBoards, useSubscribedBoards } = useBoard()
 
 // Computed to determine if subscriptions query should be enabled
@@ -134,7 +133,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="relative" ref="dropdownRef">
+  <div class="relative">
     <BaseButton @click.stop="toggleDropdown" variant="ghost"
       :aria-expanded="isOpen"
       aria-haspopup="menu"

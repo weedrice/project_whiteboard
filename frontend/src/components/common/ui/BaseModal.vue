@@ -60,7 +60,6 @@ function unlockBodyScroll() {
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import { useI18n } from 'vue-i18n'
 
 const props = withDefaults(defineProps<{
   isOpen: boolean
@@ -92,7 +91,6 @@ const sizeClass = computed(() => {
   return sizes[props.size] || 'max-w-md'
 })
 
-const { t } = useI18n()
 const modalRef = ref<HTMLElement | null>(null)
 const titleId = `modal-title-${Math.random().toString(36).substr(2, 9)}`
 const descriptionId = `modal-description-${Math.random().toString(36).substr(2, 9)}`

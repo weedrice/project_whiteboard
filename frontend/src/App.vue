@@ -164,7 +164,7 @@ onMounted(() => {
     })
 })
 
-onErrorCaptured((err, instance, info) => {
+onErrorCaptured((err, _instance, info) => {
     logger.error('Global Error Captured:', err, info)
     toastStore.addToast(t('common.error.unknown'), 'error')
     return false // Prevent error from propagating further

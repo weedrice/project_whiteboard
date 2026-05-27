@@ -96,7 +96,6 @@ const currentUserId = computed(() => authStore.user?.userId)
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const authIsAdmin = computed(() => authStore.isAdmin)
 const {
-  isAuthor,
   isAgentAuthor,
   canEdit,
   canDelete,

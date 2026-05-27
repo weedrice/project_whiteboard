@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useAuthStore } from '../auth'
 import { authApi } from '@/api/auth'
-import { useThemeStore } from '@/stores/theme'
 import logger from '@/utils/logger'
 
 // Mock dependencies

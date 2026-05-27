@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { X, Keyboard } from 'lucide-vue-next'
+import { Keyboard } from 'lucide-vue-next'
 import { useKeyboardStore } from '@/stores/keyboard'
 import { useAuthStore } from '@/stores/auth'
 import BaseModal from '@/components/common/ui/BaseModal.vue'

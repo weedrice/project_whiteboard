@@ -140,7 +140,7 @@ watch(() => form.value.boardUrl, (boardUrl) => {
 })
 
 // Cleanup preview image URL
-watch(previewImage, (newUrl, oldUrl) => {
+watch(previewImage, (_newUrl, oldUrl) => {
   // 이전 URL 정리 (blob: URL인 경우만)
   if (oldUrl && oldUrl.startsWith('blob:')) {
     URL.revokeObjectURL(oldUrl)

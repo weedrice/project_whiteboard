@@ -165,7 +165,7 @@
                     <div class="flex items-center">
                       <input
                         type="file"
-                        ref="fileInput"
+                        :ref="setFileInputRef"
                         @change="handleFileUpload"
                         accept="image/*"
                         class="hidden"
@@ -244,11 +244,12 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { type ComponentPublicInstance } from 'vue'
 import draggable from 'vuedraggable'
 import { GripVertical } from 'lucide-vue-next'
 import { useAdmin } from '@/composables/useAdmin'
 import { useAdminBoardEditor } from '@/composables/useAdminBoardEditor'
+import { useAdminBoardCreateModal } from '@/composables/useAdminBoardCreateModal'
 import { useBoardIconUpload } from '@/composables/useBoardIconUpload'
 import { useBoardManagerAssignment } from '@/composables/useBoardManagerAssignment'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
@@ -259,11 +260,8 @@ import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import UserSelectModal from '@/components/common/widgets/UserSelectModal.vue'
 import { useI18n } from 'vue-i18n'
-import { useToastStore } from '@/stores/toast'
-import { normalizeBoardUrlInput, validateRequiredBoardFields } from '@/utils/board'
 
 const { t } = useI18n()
-const toastStore = useToastStore()
 const {
   useAdminBoards,
   useCreateBoard,
@@ -272,21 +270,17 @@ const {
   useUpdateBoardManager
 } = useAdmin()
 
-const isModalOpen = ref(false)
-const isCreatingBoard = ref(false)
-
-const createForm = reactive({
-  boardName: '',
-  boardUrl: '',
-  description: '',
-  iconUrl: '',
-  agentUseYn: false,
-  guidePrompt: ''
-})
-
 const { data: boardsData, isLoading: loading } = useAdminBoards()
 const { mutateAsync: createBoard } = useCreateBoard()
 const { mutateAsync: updateBoard } = useUpdateBoard()
+const {
+  closeModal,
+  createForm,
+  handleCreateBoard,
+  isCreatingBoard,
+  isModalOpen,
+  openCreateModal
+} = useAdminBoardCreateModal(createBoard)
 
 const {
   boards,
@@ -311,6 +305,11 @@ const {
   }
 })
 
+const setFileInputRef = (element: Element | ComponentPublicInstance | null) => {
+  const target = element instanceof HTMLInputElement ? element : null
+  fileInput.value = target
+}
+
 const { data: boardManagerData, isLoading: isBoardManagerLoading } = useBoardManager(selectedBoardId)
 const { mutateAsync: updateBoardManager } = useUpdateBoardManager()
 const {
@@ -326,45 +325,4 @@ const {
   boardManagerData,
   updateBoardManager
 })
-
-function openCreateModal() {
-  createForm.boardName = ''
-  createForm.boardUrl = ''
-  createForm.description = ''
-  createForm.iconUrl = ''
-  createForm.agentUseYn = false
-  createForm.guidePrompt = ''
-  isModalOpen.value = true
-}
-
-function closeModal() {
-  isModalOpen.value = false
-}
-
-watch(() => createForm.boardUrl, (boardUrl) => {
-  const normalizedBoardUrl = normalizeBoardUrlInput(boardUrl)
-  if (boardUrl !== normalizedBoardUrl) {
-    createForm.boardUrl = normalizedBoardUrl
-  }
-})
-
-async function handleCreateBoard() {
-  const requiredFieldValidation = validateRequiredBoardFields(createForm)
-  if (!requiredFieldValidation.valid) {
-    toastStore.addToast(t(requiredFieldValidation.messageKey), requiredFieldValidation.toastType)
-    return
-  }
-
-  isCreatingBoard.value = true
-  try {
-    await createBoard({ ...createForm })
-    toastStore.addToast(t('admin.boards.messages.created'), 'success')
-    closeModal()
-  } catch {
-    // Error handled globally
-  } finally {
-    isCreatingBoard.value = false
-  }
-}
-
 </script>

@@ -47,7 +47,6 @@ const heroPost = computed(() =>
   featured.value
   ?? editorPicks.value[0]
   ?? trending.value[0]
-  ?? liveActivity.value[0]
   ?? null,
 )
 const heroPostId = computed(() => heroPost.value?.postId ?? null)

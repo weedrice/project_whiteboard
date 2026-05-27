@@ -96,7 +96,7 @@ export function useGlobalShortcuts() {
     let gKeyPressed = false
     let gKeyTimer: ReturnType<typeof setTimeout> | null = null
 
-    const handleGKey = (event: KeyboardEvent) => {
+    const handleGKey = () => {
       if (!isInputFocused()) {
         gKeyPressed = true
         if (gKeyTimer) clearTimeout(gKeyTimer)
@@ -120,7 +120,7 @@ export function useGlobalShortcuts() {
     // g 키 감지를 위한 별도 리스너
     const gKeyHandler = (e: KeyboardEvent) => {
       if (e.key === 'g' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
-        handleGKey(e)
+        handleGKey()
       } else if (gKeyPressed) {
         // g 키가 눌린 상태에서 다른 키 처리
         if (e.key === 'h' && !e.ctrlKey && !e.metaKey && !e.altKey) {

@@ -1,7 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, type Ref } from 'vue'
-import type { PageResponse, Report } from '@/types'
+import type { Report } from '@/types'
 
 const mocks = vi.hoisted(() => ({
   reportsData: {
