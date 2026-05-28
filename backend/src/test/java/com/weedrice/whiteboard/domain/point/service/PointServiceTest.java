@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,6 +43,8 @@ class PointServiceTest {
     private UserRepository userRepository;
     @Mock
     private SanctionService sanctionService;
+    @Mock
+    private UserReadableResolver userReadableResolver;
 
     @InjectMocks
     private PointService pointService;
@@ -341,19 +344,19 @@ class PointServiceTest {
         assertThat(response).isNotNull();
         assertThat(response.getCurrentPoint()).isEqualTo(500);
         verify(userPointRepository).findByUserId(userId);
-        verify(userRepository, never()).existsById(userId);
+        verify(userReadableResolver, never()).ensureExists(userId);
     }
 
     @Test
     @DisplayName("빈 지갑은 0포인트로 해석한다")
     void getUserPoint_missingWallet_returnsZero() {
         Long userId = 1L;
-        when(userRepository.existsById(userId)).thenReturn(true);
         when(userPointRepository.findByUserId(userId)).thenReturn(Optional.empty());
 
         com.weedrice.whiteboard.domain.point.dto.UserPointResponse response = pointService.getUserPoint(userId);
 
         assertThat(response.getCurrentPoint()).isZero();
+        verify(userReadableResolver).ensureExists(userId);
     }
 
     @Test
@@ -361,7 +364,8 @@ class PointServiceTest {
     void getUserPoint_missingUser_throwsUserNotFound() {
         Long userId = 1L;
         when(userPointRepository.findByUserId(userId)).thenReturn(Optional.empty());
-        when(userRepository.existsById(userId)).thenReturn(false);
+        doThrow(new BusinessException(ErrorCode.USER_NOT_FOUND))
+                .when(userReadableResolver).ensureExists(userId);
 
         assertThatThrownBy(() -> pointService.getUserPoint(userId))
                 .isInstanceOf(BusinessException.class)
@@ -373,12 +377,12 @@ class PointServiceTest {
     @DisplayName("현재 잔액 조회는 사용자 존재 시 빈 지갑을 0으로 반환한다")
     void getCurrentBalance_missingWallet_returnsZero() {
         Long userId = 1L;
-        when(userRepository.existsById(userId)).thenReturn(true);
         when(userPointRepository.findByUserId(userId)).thenReturn(Optional.empty());
 
         int balance = pointService.getCurrentBalance(userId);
 
         assertThat(balance).isZero();
+        verify(userReadableResolver).ensureExists(userId);
     }
 
     @Test
@@ -405,7 +409,7 @@ class PointServiceTest {
 
         // then
         assertThat(response).isNotNull();
-        verify(userRepository, never()).existsById(userId);
+        verify(userReadableResolver, never()).ensureExists(userId);
     }
 
     @Test
@@ -415,7 +419,8 @@ class PointServiceTest {
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
         when(pointHistoryRepository.findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(userId, pageable))
                 .thenReturn(org.springframework.data.domain.Page.empty(pageable));
-        when(userRepository.existsById(userId)).thenReturn(false);
+        doThrow(new BusinessException(ErrorCode.USER_NOT_FOUND))
+                .when(userReadableResolver).ensureExists(userId);
 
         assertThatThrownBy(() -> pointService.getPointHistories(userId, null, pageable))
                 .isInstanceOf(BusinessException.class)
@@ -440,7 +445,6 @@ class PointServiceTest {
                 org.springframework.data.domain.PageRequest.of(2, 100),
                 0);
 
-        when(userRepository.existsById(userId)).thenReturn(true);
         when(pointHistoryRepository.findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(eq(userId), any()))
                 .thenReturn(historyPage);
 
@@ -456,6 +460,7 @@ class PointServiceTest {
         assertThat(safePageable.getPageNumber()).isEqualTo(2);
         assertThat(safePageable.getPageSize()).isEqualTo(100);
         assertThat(safePageable.getSort().isUnsorted()).isTrue();
+        verify(userReadableResolver).ensureExists(userId);
     }
 
     @Test
@@ -494,7 +499,6 @@ class PointServiceTest {
         org.springframework.data.domain.Page<PointHistory> historyPage = new org.springframework.data.domain.PageImpl<>(
                 java.util.Collections.emptyList(), pageable, 0);
 
-        when(userRepository.existsById(userId)).thenReturn(true);
         when(pointHistoryRepository.findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc(userId, "SPEND", pageable))
                 .thenReturn(historyPage);
 
@@ -506,6 +510,7 @@ class PointServiceTest {
                 userId,
                 "SPEND",
                 pageable);
+        verify(userReadableResolver).ensureExists(userId);
     }
 
     @Test
@@ -516,7 +521,6 @@ class PointServiceTest {
         org.springframework.data.domain.Page<PointHistory> historyPage = new org.springframework.data.domain.PageImpl<>(
                 java.util.Collections.emptyList(), pageable, 0);
 
-        when(userRepository.existsById(userId)).thenReturn(true);
         when(pointHistoryRepository.findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc(
                 userId,
                 "REWARD_REVERSAL",
@@ -531,6 +535,7 @@ class PointServiceTest {
                 userId,
                 "REWARD_REVERSAL",
                 pageable);
+        verify(userReadableResolver).ensureExists(userId);
     }
 
     @Test
@@ -541,7 +546,6 @@ class PointServiceTest {
         org.springframework.data.domain.Page<PointHistory> historyPage = new org.springframework.data.domain.PageImpl<>(
                 java.util.Collections.emptyList(), pageable, 0);
 
-        when(userRepository.existsById(userId)).thenReturn(true);
         when(pointHistoryRepository.findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(userId, pageable))
                 .thenReturn(historyPage);
 
@@ -550,6 +554,7 @@ class PointServiceTest {
 
         assertThat(response).isNotNull();
         verify(pointHistoryRepository).findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(userId, pageable);
+        verify(userReadableResolver).ensureExists(userId);
         verify(pointHistoryRepository, never())
                 .findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc(any(), any(), any());
     }

@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -44,12 +45,13 @@ public class PointService {
         private final PointHistoryRepository pointHistoryRepository;
         private final UserRepository userRepository;
         private final SanctionService sanctionService;
+        private final UserReadableResolver userReadableResolver;
 
         public UserPointResponse getUserPoint(@NonNull Long userId) {
                 return userPointRepository.findByUserId(userId)
                                 .map(UserPointResponse::from)
                                 .orElseGet(() -> {
-                                        ensureUserExists(userId);
+                                        userReadableResolver.ensureExists(userId);
                                         return UserPointResponse.builder()
                                                         .currentPoint(0)
                                                         .build();
@@ -70,7 +72,7 @@ public class PointService {
                                         safePageable);
                 }
                 if (historyPage.isEmpty()) {
-                        ensureUserExists(userId);
+                        userReadableResolver.ensureExists(userId);
                 }
                 return PointHistoryResponse.from(historyPage);
         }
@@ -119,7 +121,7 @@ public class PointService {
         }
 
         public int getCurrentBalance(@NonNull Long userId) {
-                ensureUserExists(userId);
+                userReadableResolver.ensureExists(userId);
                 return userPointRepository.findByUserId(userId)
                                 .map(UserPoint::getCurrentPoint)
                                 .orElse(0);
@@ -227,9 +229,4 @@ public class PointService {
                 return normalizedType;
         }
 
-        private void ensureUserExists(Long userId) {
-                if (!userRepository.existsById(userId)) {
-                        throw new BusinessException(ErrorCode.USER_NOT_FOUND);
-                }
-        }
 }

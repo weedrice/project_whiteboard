@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.domain.shop.repository.PurchaseHistoryRepository;
 import com.weedrice.whiteboard.domain.shop.repository.ShopItemRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,6 +64,8 @@ class ShopServiceTest {
     private ShopEntitlementCapabilityRegistry shopEntitlementCapabilityRegistry;
     @Mock
     private SanctionService sanctionService;
+    @Mock
+    private UserReadableResolver userReadableResolver;
 
     @InjectMocks
     private ShopService shopService;
@@ -672,12 +675,12 @@ class ShopServiceTest {
                 Sort.Order.desc("purchaseId")));
         when(purchaseHistoryRepository.findByUser_UserIdOrderByCreatedAtDescPurchaseIdDesc(1L, expectedPageable))
                 .thenReturn(new PageImpl<>(List.of(), expectedPageable, 0));
-        when(userRepository.existsById(1L)).thenReturn(true);
 
         PurchaseHistoryResponse response = shopService.getPurchaseHistories(1L, requested);
 
         assertThat(response.getContent()).isEmpty();
         verify(purchaseHistoryRepository).findByUser_UserIdOrderByCreatedAtDescPurchaseIdDesc(1L, expectedPageable);
+        verify(userReadableResolver).ensureExists(1L);
     }
 
     @Test
@@ -689,7 +692,8 @@ class ShopServiceTest {
                 Sort.Order.desc("purchaseId")));
         when(purchaseHistoryRepository.findByUser_UserIdOrderByCreatedAtDescPurchaseIdDesc(999L, expectedPageable))
                 .thenReturn(new PageImpl<>(List.of(), expectedPageable, 0));
-        when(userRepository.existsById(999L)).thenReturn(false);
+        doThrow(new BusinessException(ErrorCode.USER_NOT_FOUND))
+                .when(userReadableResolver).ensureExists(999L);
 
         assertThatThrownBy(() -> shopService.getPurchaseHistories(999L, requested))
                 .isInstanceOf(BusinessException.class)

@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserLifecycleService;
+import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,6 +51,7 @@ class SanctionServiceTest {
     @Mock private ModerationActorResolver moderationActorResolver;
     @Mock private UserLifecycleService userLifecycleService;
     @Mock private SanctionPolicyService sanctionPolicyService;
+    @Mock private UserReadableResolver userReadableResolver;
 
     private SanctionService sanctionService;
 
@@ -71,12 +73,12 @@ class SanctionServiceTest {
 
         sanctionService = new SanctionService(
                 sanctionRepository,
-                userRepository,
                 moderationActorResolver,
                 sanctionPolicyService,
                 new SanctionRequestValidator(),
                 new SanctionTargetResolver(userRepository, postRepository, commentRepository),
-                new SanctionEffectApplier(userLifecycleService));
+                new SanctionEffectApplier(userLifecycleService),
+                userReadableResolver);
         lenient().when(moderationActorResolver.resolveModerationActor(1L))
                 .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, admin));
     }
@@ -461,11 +463,11 @@ class SanctionServiceTest {
         PageRequest safePageable = defaultSanctionPageable();
         when(sanctionRepository.findByTargetUser_UserId(2L, safePageable))
                 .thenReturn(new PageImpl<>(List.of(), safePageable, 0));
-        when(userRepository.existsById(2L)).thenReturn(true);
 
         sanctionService.getSanctions(2L, requestedPageable);
 
         verify(sanctionRepository).findByTargetUser_UserId(2L, safePageable);
+        verify(userReadableResolver).ensureExists(2L);
     }
 
     @Test
@@ -475,7 +477,8 @@ class SanctionServiceTest {
         PageRequest safePageable = defaultSanctionPageable();
         when(sanctionRepository.findByTargetUser_UserId(999L, safePageable))
                 .thenReturn(new PageImpl<>(List.of(), safePageable, 0));
-        when(userRepository.existsById(999L)).thenReturn(false);
+        doThrow(new BusinessException(ErrorCode.USER_NOT_FOUND))
+                .when(userReadableResolver).ensureExists(999L);
 
         assertThatThrownBy(() -> sanctionService.getSanctions(999L, requestedPageable))
                 .isInstanceOf(BusinessException.class)

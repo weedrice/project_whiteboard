@@ -5,10 +5,8 @@ import com.weedrice.whiteboard.domain.sanction.dto.SanctionResponse;
 import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
 import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
-import com.weedrice.whiteboard.global.exception.BusinessException;
-import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -31,12 +29,12 @@ public class SanctionService {
             "createdAt", "sanctionId", "type", "startDate", "endDate");
 
     private final SanctionRepository sanctionRepository;
-    private final UserRepository userRepository;
     private final ModerationActorResolver moderationActorResolver;
     private final SanctionPolicyService sanctionPolicyService;
     private final SanctionRequestValidator sanctionRequestValidator;
     private final SanctionTargetResolver sanctionTargetResolver;
     private final SanctionEffectApplier sanctionEffectApplier;
+    private final UserReadableResolver userReadableResolver;
 
     @Transactional
     public Long createSanction(Long adminUserId, Long targetUserId, String type, String remark, LocalDateTime endDate,
@@ -75,8 +73,8 @@ public class SanctionService {
         Page<Sanction> sanctions;
         if (targetUserId != null) {
             sanctions = sanctionRepository.findByTargetUser_UserId(targetUserId, safePageable);
-            if (sanctions.isEmpty() && !userRepository.existsById(targetUserId)) {
-                throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+            if (sanctions.isEmpty()) {
+                userReadableResolver.ensureExists(targetUserId);
             }
         } else {
             sanctions = sanctionRepository.findAll(safePageable);

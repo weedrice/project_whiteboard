@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.domain.shop.repository.PurchaseHistoryRepository;
 import com.weedrice.whiteboard.domain.shop.repository.ShopItemRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -44,6 +45,7 @@ public class ShopService {
     private final PointService pointService;
     private final ShopEntitlementCapabilityRegistry shopEntitlementCapabilityRegistry;
     private final SanctionService sanctionService;
+    private final UserReadableResolver userReadableResolver;
 
     public ShopItemResponse getShopItems(String itemType, Pageable pageable) {
         Pageable effectivePageable = normalizeShopItemPageable(pageable);
@@ -160,8 +162,8 @@ public class ShopService {
         Page<PurchaseHistory> histories = purchaseHistoryRepository.findByUser_UserIdOrderByCreatedAtDescPurchaseIdDesc(
                 userId,
                 effectivePageable);
-        if (histories.isEmpty() && !userRepository.existsById(userId)) {
-            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        if (histories.isEmpty()) {
+            userReadableResolver.ensureExists(userId);
         }
         return PurchaseHistoryResponse.from(histories);
     }
