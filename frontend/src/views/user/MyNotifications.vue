@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import { useNotification } from '@/composables/useNotification'
 import { useNotificationNavigation } from '@/composables/useNotificationNavigation'
 import { Check, Bell } from 'lucide-vue-next'
@@ -8,6 +8,7 @@ import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import { useNotificationListState } from '@/composables/useNotificationListState'
+import { usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import { formatDate } from '@/utils/date'
 import { getListLoadErrorMessage } from '@/utils/listLoadError'
 import type { Notification } from '@/types'
@@ -16,28 +17,13 @@ const { t } = useI18n()
 const { useMarkAllAsRead } = useNotification()
 const { navigateFromNotification } = useNotificationNavigation({ showCommentFailureToast: true })
 
-const page = ref(0)
-const size = ref(15)
-
-const params = computed(() => ({
-  page: page.value,
-  size: size.value
-}))
+const { page, size, params, handlePageChange, handleSizeChange } = usePaginatedQueryState({ initialSize: 15 })
 
 const { isLoading, isError, refetch, notifications, totalPages } = useNotificationListState(params)
 const { mutate: markAllAsRead, isPending: isMarkingAllAsRead } = useMarkAllAsRead()
 
 const hasUnreadNotifications = computed(() => notifications.value.some((notification) => !notification.isRead))
 const errorMessage = computed(() => getListLoadErrorMessage(t))
-
-function handlePageChange(newPage: number) {
-  page.value = newPage
-}
-
-function handleSizeChange(newSize = size.value) {
-  size.value = newSize
-  page.value = 0
-}
 
 async function handleNotificationClick(notification: Notification) {
   await navigateFromNotification(notification)
