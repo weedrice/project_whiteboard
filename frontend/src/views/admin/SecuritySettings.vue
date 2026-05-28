@@ -12,6 +12,7 @@ import IpBlockDetailModal from '@/components/admin/IpBlockDetailModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useConfirm } from '@/composables/useConfirm'
+import { usePageResponseState } from '@/composables/usePaginatedQueryState'
 import type { IpBlock } from '@/types'
 
 const { t } = useI18n()
@@ -31,8 +32,7 @@ const { data: ipBlocksData } = useIpBlocks(ipBlockParams)
 const { mutateAsync: blockIp } = useBlockIp()
 const { mutateAsync: unblockIp } = useUnblockIp()
 
-const ipBlocks = computed(() => ipBlocksData.value?.content || [])
-const totalPages = computed(() => ipBlocksData.value?.totalPages || 0)
+const { items: ipBlocks, totalPages } = usePageResponseState(ipBlocksData, page)
 
 const isDetailModalOpen = ref(false)
 const selectedIpBlock = ref<IpBlock | null>(null)

@@ -14,6 +14,7 @@ import AdminPaginationFooter from '@/components/admin/AdminPaginationFooter.vue'
 import UserDetailModal from '@/components/admin/UserDetailModal.vue'
 import { formatDateOnly } from '@/utils/date'
 import { useConfirm } from '@/composables/useConfirm'
+import { usePageResponseState } from '@/composables/usePaginatedQueryState'
 import type { User } from '@/types'
 import {
   getAdminUserRoleLabel,
@@ -83,10 +84,12 @@ const params = computed(() => ({
 const { data: usersData, isLoading } = useUsers(params)
 const { mutateAsync: updateUserStatus } = useUpdateUserStatus()
 
-const users = computed(() => usersData.value?.content || [])
-const totalCount = computed(() => usersData.value?.totalElements || 0)
-const totalPages = computed(() => usersData.value?.totalPages || 0)
-const currentPage = computed(() => usersData.value?.number ?? page.value)
+const {
+  items: users,
+  totalElements: totalCount,
+  totalPages,
+  currentPage,
+} = usePageResponseState(usersData, page)
 
 const isDetailModalOpen = ref(false)
 const selectedUserId = ref<number | null>(null)

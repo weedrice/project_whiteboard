@@ -5,8 +5,10 @@ import { emoticonApi } from '@/api/emoticon'
 import { postApi } from '@/api/post'
 import { queryClient } from '@/queryClient'
 import { boardDetailQueryKey, fetchBoardDetail } from '@/composables/useBoard'
+import { emoticonDetailQueryKey } from '@/composables/useEmoticonEditResource'
 import { postDetailQueryKey } from '@/composables/usePost'
 import { canWriteBoardPost } from '@/utils/board'
+import { QUERY_STALE_TIME } from '@/utils/constants'
 import logger from '@/utils/logger'
 import i18n from '@/i18n'
 import { normalizePostReactionFlags, type PostReactionAlias } from '@/utils/postViewModel'
@@ -393,7 +395,12 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
             }
 
             try {
-                const emoticon = await emoticonApi.getEmoticonData(emoticonIdParam)
+                const emoticon = await queryClient.fetchQuery({
+                    queryKey: emoticonDetailQueryKey(emoticonIdParam),
+                    queryFn: () => emoticonApi.getEmoticonData(emoticonIdParam),
+                    retry: false,
+                    staleTime: QUERY_STALE_TIME.SHORT,
+                })
                 if (emoticon.creatorId !== authStore.user?.userId) {
                     useToastStore().addToast(i18n.global.t('emoticon.edit.noPermission'), 'error')
                     next({ name: 'emoticon-detail', params: { emoticonId: to.params.emoticonId } })
