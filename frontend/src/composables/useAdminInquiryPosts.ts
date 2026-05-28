@@ -1,6 +1,7 @@
 import { computed, ref, watch } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { adminApi } from '@/api/admin'
+import { formatDateTimeOrDash } from '@/utils/date'
 import { renderPostContentHtml } from '@/utils/postContentHtml'
 import type { AdminInquirySummary, PageResponse, Post } from '@/types'
 
@@ -20,13 +21,6 @@ export interface AdminInquiryDetail {
   authorName: string
   createdAtText: string
   contentsHtml: string
-}
-
-function formatDate(dateString?: string) {
-  if (!dateString) return '-'
-  const date = new Date(dateString)
-  if (Number.isNaN(date.getTime())) return '-'
-  return date.toLocaleString()
 }
 
 function stripHtml(value?: string) {
@@ -61,7 +55,7 @@ export function toAdminInquiryListItem(post: AdminInquirySummary): AdminInquiryL
     title: post.title,
     summaryText: plainSummary ? truncateText(plainSummary, 50) : '-',
     authorName: getAuthorName(post),
-    createdAtText: formatDate(post.createdAt),
+    createdAtText: formatDateTimeOrDash(post.createdAt),
     statusLabelKey: getStatusLabelKey(post),
     statusClass: getStatusClass(post),
   }
@@ -72,7 +66,7 @@ export function toAdminInquiryDetail(post: Post): AdminInquiryDetail {
     id: post.postId,
     title: post.title,
     authorName: getAuthorName(post),
-    createdAtText: formatDate(post.createdAt),
+    createdAtText: formatDateTimeOrDash(post.createdAt),
     contentsHtml: renderPostContentHtml(post.contents),
   }
 }

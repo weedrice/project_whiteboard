@@ -1,143 +1,52 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
-import { emoticonApi } from '@/api/emoticon'
-import { useAuthStore } from '@/stores/auth'
 import { useHead } from '@unhead/vue'
 import { ArrowLeft, ShoppingCart, Tag, Calendar, User, TrendingUp, Pencil, EyeOff, Eye } from 'lucide-vue-next'
-import { useToastStore } from '@/stores/toast'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useConfirm } from '@/composables/useConfirm'
-import { extractErrorMessage } from '@/utils/errorHandler'
 import { applyImageFallback } from '@/utils/imageFallback'
-import { useToggleEmoticonVisibility } from '@/composables/useToggleEmoticonVisibility'
-import { useEmoticonPermissions } from '@/composables/useEmoticonPermissions'
-import { useEmoticonDetailViewModel } from '@/composables/useEmoticonDetailViewModel'
+import { formatDateOnlyLongOrDash } from '@/utils/date'
+import { useEmoticonDetailResource } from '@/composables/useEmoticonDetailResource'
+import { useEmoticonDetailActions } from '@/composables/useEmoticonDetailActions'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
-const authStore = useAuthStore()
-const queryClient = useQueryClient()
-const toastStore = useToastStore()
 const { confirm } = useConfirm()
 
 const emoticonId = computed(() => Number(route.params.emoticonId))
 
-// 이모티콘 상세 조회
-const { data: emoticon, isLoading, error } = useQuery({
-  queryKey: ['emoticon', emoticonId],
-  queryFn: async () => {
-    return emoticonApi.getEmoticonData(emoticonId.value)
-  },
-  enabled: () => !!emoticonId.value
-})
-
-// 구매 상태 확인
 const {
-  data: purchaseStatus,
-  isLoading: isPurchaseStatusLoading,
-  isFetching: isPurchaseStatusFetching,
-} = useQuery({
-  queryKey: ['emoticon', emoticonId, 'purchased'],
-  queryFn: async () => {
-    return emoticonApi.checkPurchaseStatusData(emoticonId.value)
-  },
-  enabled: () => !!emoticonId.value && authStore.isAuthenticated
+  canPurchase,
+  emoticonView,
+  error,
+  isLoading,
+  isOwner,
+  isPurchaseStatusPending,
+  isPurchasing,
+  isToggling,
+  purchase,
+  purchaseButtonText,
+  toggleVisibility,
+} = useEmoticonDetailResource(emoticonId)
+
+const {
+  goToEdit,
+  goToList,
+  handlePurchase,
+  handleToggleVisibility,
+} = useEmoticonDetailActions({
+  canPurchase,
+  confirm,
+  emoticonId,
+  emoticonView,
+  purchase,
+  router,
+  t,
+  toggleVisibility,
 })
-
-const emoticonView = useEmoticonDetailViewModel(emoticon)
-
-// 구매하기 mutation
-const { mutate: purchase, isPending: isPurchasing } = useMutation({
-  mutationFn: () => emoticonApi.purchaseEmoticon(emoticonId.value),
-  onSuccess: () => {
-    toastStore.addToast(t('emoticon.purchase.success'), 'success')
-    queryClient.invalidateQueries({ queryKey: ['emoticon', emoticonId] })
-    queryClient.invalidateQueries({ queryKey: ['emoticon', emoticonId, 'purchased'] })
-    queryClient.invalidateQueries({ queryKey: ['user', 'points'] })
-  },
-  onError: (error: unknown) => {
-    const message = extractErrorMessage(error) || t('emoticon.purchase.failed')
-    toastStore.addToast(message, 'error')
-  }
-})
-
-// 등록자 여부
-const { isOwner } = useEmoticonPermissions({
-  isAuthenticated: () => authStore.isAuthenticated,
-  getCreatorId: () => emoticonView.value?.creatorId,
-  getUserId: () => authStore.user?.userId,
-})
-
-const isPurchaseStatusPending = computed(() => (
-  authStore.isAuthenticated
-  && !!emoticonId.value
-  && (isPurchaseStatusLoading.value || isPurchaseStatusFetching.value)
-))
-
-// 구매 가능 여부 (숨김 처리된 노비콘은 구매 불가)
-const canPurchase = computed(() => {
-  if (!authStore.isAuthenticated) return false
-  if (!emoticonView.value) return false
-  if (isPurchaseStatusPending.value) return false
-  if (!emoticonView.value.isActive) return false
-  if (purchaseStatus.value?.purchased) return false
-  if (isOwner.value) return false
-  return true
-})
-
-// 구매 버튼 텍스트
-const purchaseButtonText = computed(() => {
-  if (!authStore.isAuthenticated) return t('emoticon.purchase.button.loginRequired')
-  if (purchaseStatus.value?.purchased) return t('emoticon.purchase.button.purchased')
-  if (isOwner.value) return t('emoticon.purchase.button.myEmoticon')
-  return t('emoticon.purchase.button.buyWithPrice', { price: purchaseStatus.value?.price || 100 })
-})
-
-// 목록으로 이동
-const goToList = () => {
-  router.push({ name: 'emoticon-list' })
-}
-
-// 수정 페이지로 이동
-const goToEdit = () => {
-  router.push({ name: 'emoticon-edit', params: { emoticonId: emoticonId.value } })
-}
-
-// 구매 처리
-const handlePurchase = async () => {
-  if (!canPurchase.value) return
-  const isConfirmed = await confirm(t('emoticon.purchase.confirm'))
-  if (!isConfirmed) return
-
-  purchase()
-}
-
-// 숨김/표시 전환 mutation
-const { mutate: toggleVisibility, isPending: isToggling } = useToggleEmoticonVisibility(emoticonId, {
-  invalidatePurchaseStatus: true
-})
-
-const handleToggleVisibility = async () => {
-  if (!emoticonView.value) return
-  const verb = emoticonView.value.isActive ? t('emoticon.visibility.hideConfirm') : t('emoticon.visibility.showConfirm')
-  const isConfirmed = await confirm(verb)
-  if (!isConfirmed) return
-
-  toggleVisibility()
-}
-
-// 날짜 포맷
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString('ko-KR', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  })
-}
 
 // 페이지 제목 설정
 useHead({
@@ -255,7 +164,7 @@ useHead({
               </div>
               <div class="flex items-center text-gray-600 dark:text-gray-400">
                 <Calendar class="w-4 h-4 mr-2" />
-                <span>등록일: {{ formatDate(emoticonView.createdAt) }}</span>
+                <span>등록일: {{ formatDateOnlyLongOrDash(emoticonView.createdAt) }}</span>
               </div>
               <div class="flex items-center text-indigo-600 dark:text-indigo-400">
                 <TrendingUp class="w-4 h-4 mr-2" />
