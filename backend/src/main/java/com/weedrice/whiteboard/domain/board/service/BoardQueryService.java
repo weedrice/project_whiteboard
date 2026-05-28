@@ -164,11 +164,7 @@ class BoardQueryService {
     }
 
     Page<SubscriptionBoardResponse> getMySubscriptions(Long userId, Pageable pageable, boolean includeUnavailable) {
-        if (userId == null) {
-            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
-        }
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = getCurrentUserByIdOrThrow(userId);
         Pageable fixedOrderPageable = fixedSubscriptionOrderPageable(pageable);
         if (includeUnavailable) {
             Page<BoardSubscription> subscriptions = boardSubscriptionRepository.findByUserOrderBySortOrderAsc(
@@ -288,6 +284,13 @@ class BoardQueryService {
     private User getCurrentUserByIdOrNull(Long userId) {
         if (userId == null) {
             return null;
+        }
+        return getCurrentUserByIdOrThrow(userId);
+    }
+
+    private User getCurrentUserByIdOrThrow(Long userId) {
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
         return userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
