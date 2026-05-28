@@ -63,11 +63,12 @@ class UserSettingsServiceTest {
     @BeforeEach
     void setUp() {
         UserWritableResolver userWritableResolver = new UserWritableResolver(userRepository, sanctionService);
+        UserReadableResolver userReadableResolver = new UserReadableResolver(userRepository);
         userSettingsService = new UserSettingsService(
-                userRepository,
                 userSettingsRepository,
                 userNotificationSettingsRepository,
                 entityManager,
+                userReadableResolver,
                 userWritableResolver);
     }
 

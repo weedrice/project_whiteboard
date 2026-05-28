@@ -8,7 +8,6 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserNotificationSettings;
 import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.repository.UserNotificationSettingsRepository;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -42,10 +41,10 @@ public class UserSettingsService {
         private static final Set<String> SUPPORTED_THEMES = Set.of("LIGHT", "DARK");
         private static final Set<String> SUPPORTED_LANGUAGES = Set.of("ko", "en");
 
-        private final UserRepository userRepository;
         private final UserSettingsRepository userSettingsRepository;
         private final UserNotificationSettingsRepository userNotificationSettingsRepository;
         private final EntityManager entityManager;
+        private final UserReadableResolver userReadableResolver;
         private final UserWritableResolver userWritableResolver;
 
         public UserSettingsResponse getSettings(Long userId) {
@@ -74,10 +73,7 @@ public class UserSettingsService {
 
         @Transactional
         public UserSettings getOrCreateSettingsEntity(Long userId) {
-                User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-                return getOrCreateSettingsEntity(user);
+                return getOrCreateSettingsEntity(userReadableResolver.resolve(userId));
         }
 
         private UserSettings getOrCreateSettingsEntity(User user) {

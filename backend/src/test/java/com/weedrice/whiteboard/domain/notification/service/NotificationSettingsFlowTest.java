@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.domain.user.entity.UserNotificationSettingsId;
 import com.weedrice.whiteboard.domain.user.repository.UserNotificationSettingsRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
+import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
 import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import jakarta.persistence.EntityManager;
@@ -70,10 +71,10 @@ class NotificationSettingsFlowTest {
     @BeforeEach
     void setUp() {
         userSettingsService = new UserSettingsService(
-                userRepository,
                 userSettingsRepository,
                 userNotificationSettingsRepository,
                 entityManager,
+                new UserReadableResolver(userRepository),
                 new UserWritableResolver(userRepository, sanctionService));
         NotificationPreferenceService preferenceService = new NotificationPreferenceService(userNotificationSettingsRepository);
         NotificationStreamService streamService = new NotificationStreamService(1_800_000L, 5);

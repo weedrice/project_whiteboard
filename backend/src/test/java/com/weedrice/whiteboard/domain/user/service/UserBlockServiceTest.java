@@ -29,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -44,6 +45,9 @@ class UserBlockServiceTest {
 
     @Mock
     private UserBlockRepository userBlockRepository;
+
+    @Mock
+    private UserReadableResolver userReadableResolver;
 
     @Mock
     private UserWritableResolver userWritableResolver;
@@ -145,7 +149,7 @@ class UserBlockServiceTest {
         UserBlock userBlock = UserBlock.builder().user(blocker).target(blocked).build();
         Page<UserBlock> page = new PageImpl<>(List.of(userBlock));
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(blocker));
+        when(userReadableResolver.resolve(1L)).thenReturn(blocker);
         when(userBlockRepository.findPageByUserWithTarget(eq(blocker), any())).thenReturn(page);
 
         Page<BlockedUserResponse> response = userBlockService.getBlockedUsers(1L, PageRequest.of(0, 10));
@@ -161,7 +165,7 @@ class UserBlockServiceTest {
         User blocker = User.builder().build();
         Page<UserBlock> page = new PageImpl<>(List.of(), PageRequest.of(1, 100), 0);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(blocker));
+        when(userReadableResolver.resolve(1L)).thenReturn(blocker);
         when(userBlockRepository.findPageByUserWithTarget(any(), any())).thenReturn(page);
 
         userBlockService.getBlockedUsers(1L, PageRequest.of(1, 500, Sort.by("target.loginId").ascending()));
@@ -177,11 +181,12 @@ class UserBlockServiceTest {
     @Test
     @DisplayName("차단 여부 확인")
     void isBlocked() {
-        when(userRepository.existsById(1L)).thenReturn(true);
-        when(userRepository.existsById(2L)).thenReturn(true);
         when(userBlockRepository.existsByUser_UserIdAndTarget_UserId(1L, 2L)).thenReturn(true);
 
         assertThat(userBlockService.isBlocked(1L, 2L)).isTrue();
+
+        verify(userReadableResolver).ensureExists(1L);
+        verify(userReadableResolver).ensureExists(2L);
     }
 
     @Test
@@ -205,23 +210,23 @@ class UserBlockServiceTest {
     @Test
     @DisplayName("차단된 사용자 ID 목록 조회")
     void getBlockedUserIds() {
-        when(userRepository.existsById(1L)).thenReturn(true);
         when(userBlockRepository.findTargetUserIdsByUserId(1L)).thenReturn(List.of(2L));
 
         List<Long> ids = userBlockService.getBlockedUserIds(1L);
         assertThat(ids).containsExactly(2L);
+        verify(userReadableResolver).ensureExists(1L);
         verify(userBlockRepository).findTargetUserIdsByUserId(1L);
     }
 
     @Test
     @DisplayName("양방향 차단 사용자 ID 목록을 projection으로 조회한다")
     void getBlockedUserIdsEitherDirection() {
-        when(userRepository.existsById(1L)).thenReturn(true);
         when(userBlockRepository.findBlockedUserIdsEitherDirectionByUserId(1L)).thenReturn(List.of(2L, 3L, 2L));
 
         List<Long> ids = userBlockService.getBlockedUserIdsEitherDirection(1L);
 
         assertThat(ids).containsExactly(2L, 3L);
+        verify(userReadableResolver).ensureExists(1L);
         verify(userBlockRepository).findBlockedUserIdsEitherDirectionByUserId(1L);
     }
 
@@ -234,7 +239,7 @@ class UserBlockServiceTest {
 
         assertThat(ids).containsExactly(2L, 3L);
         verify(userBlockRepository).findBlockedUserIdsEitherDirectionByUserId(1L);
-        verify(userRepository, never()).existsById(1L);
+        verify(userReadableResolver, never()).ensureExists(1L);
     }
 
     @Test
@@ -291,7 +296,7 @@ class UserBlockServiceTest {
     @Test
     @DisplayName("차단 목록 조회 실패 - 사용자 없음")
     void getBlockedUsers_userNotFound() {
-        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+        when(userReadableResolver.resolve(1L)).thenThrow(new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         assertThatThrownBy(() -> userBlockService.getBlockedUsers(1L, null))
                 .isInstanceOf(BusinessException.class)
@@ -302,7 +307,8 @@ class UserBlockServiceTest {
     @Test
     @DisplayName("차단 여부 확인 실패 - 사용자 없음")
     void isBlocked_userNotFound() {
-        when(userRepository.existsById(1L)).thenReturn(false);
+        doThrow(new BusinessException(ErrorCode.USER_NOT_FOUND))
+                .when(userReadableResolver).ensureExists(1L);
 
         assertThatThrownBy(() -> userBlockService.isBlocked(1L, 2L))
                 .isInstanceOf(BusinessException.class)
@@ -313,7 +319,8 @@ class UserBlockServiceTest {
     @Test
     @DisplayName("차단된 사용자 ID 목록 조회 실패 - 사용자 없음")
     void getBlockedUserIds_userNotFound() {
-        when(userRepository.existsById(1L)).thenReturn(false);
+        doThrow(new BusinessException(ErrorCode.USER_NOT_FOUND))
+                .when(userReadableResolver).ensureExists(1L);
 
         assertThatThrownBy(() -> userBlockService.getBlockedUserIds(1L))
                 .isInstanceOf(BusinessException.class)
@@ -324,7 +331,8 @@ class UserBlockServiceTest {
     @Test
     @DisplayName("양방향 차단 사용자 ID 목록 조회 실패 - 사용자 없음")
     void getBlockedUserIdsEitherDirection_userNotFound() {
-        when(userRepository.existsById(1L)).thenReturn(false);
+        doThrow(new BusinessException(ErrorCode.USER_NOT_FOUND))
+                .when(userReadableResolver).ensureExists(1L);
 
         assertThatThrownBy(() -> userBlockService.getBlockedUserIdsEitherDirection(1L))
                 .isInstanceOf(BusinessException.class)

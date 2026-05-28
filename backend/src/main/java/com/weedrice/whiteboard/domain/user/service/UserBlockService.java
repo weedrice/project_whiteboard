@@ -28,6 +28,7 @@ public class UserBlockService {
 
     private final UserRepository userRepository;
     private final UserBlockRepository userBlockRepository;
+    private final UserReadableResolver userReadableResolver;
     private final UserWritableResolver userWritableResolver;
 
     @Transactional
@@ -67,8 +68,7 @@ public class UserBlockService {
     }
 
     public Page<BlockedUserResponse> getBlockedUsers(Long userId, Pageable pageable) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = userReadableResolver.resolve(userId);
 
         Pageable safePageable = normalizeBlockPageable(pageable);
         Page<UserBlock> blocks = userBlockRepository.findPageByUserWithTarget(user, safePageable);
@@ -118,8 +118,6 @@ public class UserBlockService {
     }
 
     private void validateUserExists(Long userId) {
-        if (!userRepository.existsById(userId)) {
-            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
-        }
+        userReadableResolver.ensureExists(userId);
     }
 }

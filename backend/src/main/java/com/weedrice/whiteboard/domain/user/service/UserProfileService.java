@@ -35,6 +35,7 @@ public class UserProfileService {
     private final UserBlockRepository userBlockRepository;
     private final FileService fileService;
     private final PasswordEncoder passwordEncoder;
+    private final UserReadableResolver userReadableResolver;
     private final UserWritableResolver userWritableResolver;
     private final UserLifecycleService userLifecycleService;
 
@@ -45,8 +46,7 @@ public class UserProfileService {
     }
 
     public MyInfoResponse getMyInfo(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = userReadableResolver.resolve(userId);
         CurrentUserSummaryAssembler.CurrentUserSummary userSummary = currentUserSummaryAssembler.assemble(user);
 
         return MyInfoResponse.builder()
@@ -70,8 +70,7 @@ public class UserProfileService {
     }
 
     public UserProfileResponse getUserProfile(Long userId, Long viewerUserId) {
-        User user = userRepository.findByUserIdAndStatusAndDeletedAtIsNull(userId, "ACTIVE")
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = userReadableResolver.resolveActive(userId);
 
         if (isRestrictedProfile(user.getUserId(), viewerUserId)) {
             return restrictedProfile(user.getUserId());
