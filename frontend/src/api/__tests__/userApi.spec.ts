@@ -11,7 +11,7 @@ vi.mock('@/api', () => ({
     default: apiMock,
 }))
 
-import { toScrapPostSummaryPage, userApi } from '../user'
+import { toBlockedUserSummaryPage, toScrapPostSummaryPage, userApi } from '../user'
 
 describe('userApi', () => {
     beforeEach(() => {
@@ -74,6 +74,22 @@ describe('userApi', () => {
     it('calls block and activity endpoints with params', async () => {
         const params = { page: 1, size: 20, sort: 'latest' }
         apiMock.get.mockImplementation((url: string) => {
+            if (url === '/users/me/blocks') {
+                return Promise.resolve({
+                    data: {
+                        success: true,
+                        data: {
+                            content: [],
+                            page: 1,
+                            size: 20,
+                            totalElements: 0,
+                            totalPages: 0,
+                            hasNext: false,
+                            hasPrevious: true,
+                        },
+                    },
+                })
+            }
             if (url === '/users/me/scraps') {
                 return Promise.resolve({
                     data: {
@@ -114,7 +130,7 @@ describe('userApi', () => {
         userApi.blockUser(3)
         userApi.unblockUser(3)
         userApi.getBlockList()
-        userApi.getBlockList(params)
+        const blockListResponse = await userApi.getBlockList(params)
         userApi.getMyPosts(params)
         userApi.getMyComments(params)
         const scrapsResponse = await userApi.getMyScraps(params)
@@ -136,8 +152,32 @@ describe('userApi', () => {
         expect(apiMock.get).toHaveBeenNthCalledWith(8, '/users/me/subscriptions', { params })
         expect(apiMock.get).toHaveBeenNthCalledWith(9, '/points/me')
         expect(apiMock.get).toHaveBeenNthCalledWith(10, '/points/me/history', { params })
+        expect(blockListResponse.data.data.number).toBe(1)
         expect(scrapsResponse.data.data.number).toBe(1)
         expect(pointResponse.data.data.number).toBe(1)
+    })
+
+    it('maps block list responses to a normalized page', () => {
+        const result = toBlockedUserSummaryPage({
+            content: [{ userId: 100, displayName: 'blocked' }],
+            page: 2,
+            size: 10,
+            totalElements: 21,
+            totalPages: 3,
+            hasNext: false,
+            hasPrevious: true,
+        })
+
+        expect(result).toMatchObject({
+            content: [{ userId: 100, displayName: 'blocked' }],
+            number: 2,
+            size: 10,
+            totalElements: 21,
+            totalPages: 3,
+            first: false,
+            last: true,
+            empty: false,
+        })
     })
 
     it('maps scrap list response to post summary page', () => {

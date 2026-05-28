@@ -19,16 +19,24 @@ const emit = defineEmits<{
 
 const selectedEmoticon = ref<EmoticonMaster | null>(null)
 const selectedEmoticonId = ref<number | null>(null)
+const selectedEmoticonSource = ref<EmoticonMaster | null>(null)
 const searchKeyword = ref('')
-const detailTask = useLatestAsyncTask({
+const detailTask = useLatestAsyncTask<string>({
+  getErrorValue: () => '노비콘 정보를 불러오지 못했습니다.',
   onError: (error) => {
     logger.error('Failed to load emoticon detail:', error)
   },
 })
 const isLoadingDetail = detailTask.loading
+const detailError = detailTask.error
 
 // 구매한 이모티콘 목록 조회
-const { data: purchasedEmoticons, isLoading } = useQuery({
+const {
+  data: purchasedEmoticons,
+  isLoading,
+  isError: isListError,
+  refetch: refetchPurchasedEmoticons
+} = useQuery({
   queryKey: ['emoticons', 'purchased', 'picker'],
   queryFn: async () => {
     const purchasedPage = await emoticonApi.getPurchasedEmoticonsData({ size: 100 })
@@ -36,6 +44,7 @@ const { data: purchasedEmoticons, isLoading } = useQuery({
   },
   enabled: () => props.show
 })
+const listErrorMessage = '노비콘 목록을 불러오지 못했습니다.'
 
 // 검색 필터링
 const filteredEmoticons = computed(() => {
@@ -58,6 +67,7 @@ const resetDetailState = (options: { clearSearch?: boolean } = {}) => {
   detailTask.reset()
   selectedEmoticon.value = null
   selectedEmoticonId.value = null
+  selectedEmoticonSource.value = null
   if (options.clearSearch) {
     searchKeyword.value = ''
   }
@@ -66,10 +76,21 @@ const resetDetailState = (options: { clearSearch?: boolean } = {}) => {
 const handleEmoticonClick = async (emoticon: EmoticonMaster) => {
   // 상세 정보 조회 (이미지 포함)
   selectedEmoticonId.value = emoticon.emoticonId
+  selectedEmoticonSource.value = emoticon
+  selectedEmoticon.value = null
 
   const emoticonDetail = await detailTask.run(({ signal }) => emoticonApi.getEmoticonData(emoticon.emoticonId, { signal }))
   if (!emoticonDetail || selectedEmoticonId.value !== emoticon.emoticonId) return
   selectedEmoticon.value = emoticonDetail
+}
+
+const retryDetailLoad = () => {
+  if (!selectedEmoticonSource.value) return
+  handleEmoticonClick(selectedEmoticonSource.value)
+}
+
+const retryListLoad = () => {
+  refetchPurchasedEmoticons()
 }
 
 const handleImageClick = (image: EmoticonImage) => {
@@ -142,6 +163,13 @@ onUnmounted(() => {
             <img :src="image.imageUrl || DEFAULT_EMOTICON_IMAGE_URL" :alt="selectedEmoticon.name" @error="applyImageFallback" />
           </button>
         </div>
+        <div v-else-if="detailError" class="error-state">
+          <p>{{ detailError }}</p>
+          <div class="error-actions">
+            <button type="button" class="retry-btn" @click="retryDetailLoad">다시 시도</button>
+            <button type="button" class="retry-btn secondary" @click="goBack">목록으로</button>
+          </div>
+        </div>
       </template>
 
       <!-- 이모티콘 목록 -->
@@ -157,6 +185,11 @@ onUnmounted(() => {
         <!-- 로딩 -->
         <div v-if="isLoading" class="loading-state">
           <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500"></div>
+        </div>
+
+        <div v-else-if="isListError" class="error-state">
+          <p>{{ listErrorMessage }}</p>
+          <button type="button" class="retry-btn" @click="retryListLoad">다시 시도</button>
         </div>
 
         <!-- 빈 상태 -->
@@ -342,6 +375,44 @@ onUnmounted(() => {
   padding: 40px 0;
   color: #6b7280;
   font-size: 13px;
+}
+
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 0;
+  color: #dc2626;
+  font-size: 13px;
+  text-align: center;
+}
+
+.error-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.retry-btn {
+  border-radius: 6px;
+  background: #4f46e5;
+  color: white;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.retry-btn.secondary {
+  background: #6b7280;
+}
+
+.retry-btn:hover {
+  background: #4338ca;
+}
+
+.retry-btn.secondary:hover {
+  background: #4b5563;
 }
 
 .emoticons-grid {

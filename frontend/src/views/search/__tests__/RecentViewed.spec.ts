@@ -13,6 +13,9 @@ let latestParams: Ref<RecentParams> | undefined
 let queryState: {
   data: ReturnType<typeof ref<unknown>>
   isLoading: ReturnType<typeof ref<boolean>>
+  isError: ReturnType<typeof ref<boolean>>
+  error: ReturnType<typeof ref<Error | null>>
+  refetch: ReturnType<typeof vi.fn>
 }
 
 const PageSizeSelectorStub = defineComponent({
@@ -38,6 +41,19 @@ const EmptyStateStub = defineComponent({
     },
   },
   template: '<div data-test="empty-state">{{ title }}</div>',
+})
+
+const ErrorStateStub = defineComponent({
+  name: 'ErrorState',
+  props: {
+    message: {
+      type: String,
+      required: true,
+    },
+    showRetry: Boolean,
+  },
+  emits: ['retry'],
+  template: '<div data-test="error-state">{{ message }}<button v-if="showRetry" @click="$emit(\'retry\')">retry</button></div>',
 })
 
 const PostListStub = defineComponent({
@@ -70,7 +86,7 @@ const mountView = () => mount(RecentViewed, {
     stubs: {
       Clock: true,
       EmptyState: EmptyStateStub,
-      ErrorState: true,
+      ErrorState: ErrorStateStub,
       PageSizeSelector: PageSizeSelectorStub,
       Pagination: PaginationStub,
       PostList: PostListStub,
@@ -85,6 +101,9 @@ describe('RecentViewed', () => {
     queryState = {
       data: ref(null),
       isLoading: ref(false),
+      isError: ref(false),
+      error: ref(null),
+      refetch: vi.fn(),
     }
 
     vi.doMock('@/composables/useUser', () => ({
@@ -143,6 +162,19 @@ describe('RecentViewed', () => {
 
     expect(wrapper.find('.animate-spin').exists()).toBe(true)
     expect(wrapper.find('[data-test="empty-state"]').exists()).toBe(false)
+  })
+
+  it('renders error state and retries loading recent posts', async () => {
+    queryState.isError.value = true
+    queryState.error.value = new Error('recent failed')
+
+    const wrapper = mountView()
+
+    expect(wrapper.get('[data-test="error-state"]').text()).toContain('recent failed')
+    expect(wrapper.find('[data-test="empty-state"]').exists()).toBe(false)
+
+    await wrapper.get('[data-test="error-state"] button').trigger('click')
+    expect(queryState.refetch).toHaveBeenCalledTimes(1)
   })
 
   it('updates query params when page or page size changes', async () => {

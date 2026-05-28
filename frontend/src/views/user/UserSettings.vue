@@ -1,16 +1,17 @@
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useThemeStore } from '@/stores/theme'
 import { useUser } from '@/composables/useUser'
-import type { NotificationSettingType, NotificationSettingsPayload } from '@/api/user'
+import {
+  useNotificationSettingsForm,
+  useUserSettingsForm
+} from '@/composables/useUserSettingsForm'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import { Settings } from 'lucide-vue-next'
-import logger from '@/utils/logger'
-import type { UserSettings } from '@/types'
 
 const { t } = useI18n()
 const {
@@ -29,131 +30,34 @@ const { mutateAsync: updateNotificationSettings, isPending: isUpdatingNotificati
 const loading = computed(() => isSettingsLoading.value || isNotifLoading.value)
 const savingGeneral = computed(() => isUpdatingSettings.value)
 const savingNotifications = computed(() => isUpdatingNotifications.value)
-const canSaveGeneral = computed(() => isGeneralDirty.value && !savingGeneral.value)
-const canSaveNotifications = computed(() => isNotificationsDirty.value && !savingNotifications.value)
-const generalMessage = ref('')
-const generalIsError = ref(false)
-const notificationMessage = ref('')
-const notificationIsError = ref(false)
-const hasInitializedGeneral = ref(false)
-const hasInitializedNotifications = ref(false)
-const isHydratingGeneral = ref(false)
-const isHydratingNotifications = ref(false)
-const isGeneralDirty = ref(false)
-const isNotificationsDirty = ref(false)
 
-const NOTIFICATION_TYPES: NotificationSettingType[] = ['LIKE', 'COMMENT', 'REPLY']
-
-const userSettingsForm = reactive<{
-  theme: 'LIGHT' | 'DARK'
-  language: string
-  timezone: string
-  hideNsfw: boolean
-}>({
-  theme: 'LIGHT',
-  language: 'ko',
-  timezone: 'Asia/Seoul',
-  hideNsfw: true
+const {
+  canSave: canSaveGeneral,
+  form: userSettingsForm,
+  isError: generalIsError,
+  message: generalMessage,
+  save: saveGeneralSettings
+} = useUserSettingsForm({
+  settingsData,
+  isSaving: isUpdatingSettings,
+  themeIsDark: () => themeStore.isDark,
+  updateSettings,
+  setTheme: themeStore.setTheme,
+  t
 })
 
-const notificationSettings = reactive<Record<NotificationSettingType, boolean>>({
-  LIKE: true,
-  COMMENT: true,
-  REPLY: true
+const {
+  canSave: canSaveNotifications,
+  isError: notificationIsError,
+  message: notificationMessage,
+  save: saveNotificationSettings,
+  settings: notificationSettings
+} = useNotificationSettingsForm({
+  notificationData,
+  isSaving: isUpdatingNotifications,
+  updateNotificationSettings,
+  t
 })
-
-watch(settingsData, (value) => {
-  if (!value || (hasInitializedGeneral.value && isGeneralDirty.value)) {
-    return
-  }
-
-  isHydratingGeneral.value = true
-  Object.assign(userSettingsForm, value)
-  hasInitializedGeneral.value = true
-  isHydratingGeneral.value = false
-}, { immediate: true })
-
-watch(notificationData, (value) => {
-  if (!value || (hasInitializedNotifications.value && isNotificationsDirty.value)) {
-    return
-  }
-
-  isHydratingNotifications.value = true
-  for (const type of NOTIFICATION_TYPES) {
-    notificationSettings[type] = value.find(
-      (setting: NotificationSettingsPayload) => setting.notificationType === type
-    )?.isEnabled ?? true
-  }
-  hasInitializedNotifications.value = true
-  isHydratingNotifications.value = false
-}, { immediate: true })
-
-watch(userSettingsForm, () => {
-  if (!isHydratingGeneral.value && hasInitializedGeneral.value) {
-    isGeneralDirty.value = true
-  }
-}, { deep: true })
-
-watch(notificationSettings, () => {
-  if (!isHydratingNotifications.value && hasInitializedNotifications.value) {
-    isNotificationsDirty.value = true
-  }
-}, { deep: true })
-
-watch(() => themeStore.isDark, (isDark) => {
-  if (userSettingsForm.theme !== (isDark ? 'DARK' : 'LIGHT')) {
-    userSettingsForm.theme = isDark ? 'DARK' : 'LIGHT'
-  }
-})
-
-const saveGeneralSettings = async () => {
-  if (!canSaveGeneral.value) {
-    return
-  }
-
-  generalMessage.value = ''
-  generalIsError.value = false
-  try {
-    await updateSettings({
-      theme: userSettingsForm.theme,
-      language: userSettingsForm.language as UserSettings['language'],
-      timezone: userSettingsForm.timezone,
-      hideNsfw: userSettingsForm.hideNsfw
-    })
-
-    themeStore.setTheme(userSettingsForm.theme)
-    isGeneralDirty.value = false
-    generalMessage.value = t('user.settings.saved')
-  } catch (error: unknown) {
-    logger.error('Failed to save general settings:', error)
-    generalMessage.value = t('user.settings.failed')
-    generalIsError.value = true
-  }
-}
-
-const saveNotificationSettings = async () => {
-  if (!canSaveNotifications.value) {
-    return
-  }
-
-  notificationMessage.value = ''
-  notificationIsError.value = false
-  try {
-    await updateNotificationSettings({
-      settings: NOTIFICATION_TYPES.map((notificationType) => ({
-        notificationType,
-        isEnabled: notificationSettings[notificationType]
-      }))
-    })
-
-    isNotificationsDirty.value = false
-    notificationMessage.value = t('user.settings.saved')
-  } catch (error: unknown) {
-    logger.error('Failed to save notification settings:', error)
-    notificationMessage.value = t('user.settings.failed')
-    notificationIsError.value = true
-  }
-}
 </script>
 
 <template>

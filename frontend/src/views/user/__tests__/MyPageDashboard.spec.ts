@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import MyPageDashboard from '../MyPageDashboard.vue'
 
@@ -23,6 +23,8 @@ const mocks = vi.hoisted(() => ({
     resendCooldown: 0,
     timeLeft: 120,
   },
+  myPostsError: { __v_isRef: true, value: '' },
+  myCommentsError: { __v_isRef: true, value: '' },
 }))
 
 vi.mock('vue-i18n', () => ({
@@ -51,6 +53,8 @@ vi.mock('@/composables/useMyPageDashboardResource', () => ({
     myCommentsSize: ref(15),
     isLoading: ref(false),
     error: ref(''),
+    myPostsError: mocks.myPostsError,
+    myCommentsError: mocks.myCommentsError,
     fetchMyProfile: vi.fn(),
     fetchMyAgents: vi.fn(),
     fetchMyPosts: vi.fn(),
@@ -140,27 +144,37 @@ const BaseInputStub = defineComponent({
   },
 })
 
-describe('MyPageDashboard', () => {
-  it('labels email verification inputs for the modal flow', () => {
-    const wrapper = mount(MyPageDashboard, {
-      global: {
-        mocks: {
-          $t: (key: string) => key,
-        },
-        stubs: {
-          BaseButton: { template: '<button type="button"><slot /></button>' },
-          BaseInput: BaseInputStub,
-          BaseModal: { props: ['isOpen'], template: '<section v-if="isOpen"><slot /><slot name="footer" /></section>' },
-          BaseSkeleton: true,
-          CommentList: true,
-          EmptyState: true,
-          Pagination: true,
-          PostList: true,
-          ProfileEditor: true,
-          RouterLink: { template: '<a><slot /></a>' },
-        },
+function mountDashboard() {
+  return mount(MyPageDashboard, {
+    global: {
+      mocks: {
+        $t: (key: string) => key,
       },
-    })
+      stubs: {
+        BaseButton: { template: '<button type="button"><slot /></button>' },
+        BaseInput: BaseInputStub,
+        BaseModal: { props: ['isOpen'], template: '<section v-if="isOpen"><slot /><slot name="footer" /></section>' },
+        BaseSkeleton: true,
+        CommentList: true,
+        EmptyState: { template: '<div data-testid="empty-state"><slot /></div>' },
+        Pagination: true,
+        PostList: true,
+        ProfileEditor: true,
+        RouterLink: { template: '<a><slot /></a>' },
+      },
+    },
+  })
+}
+
+describe('MyPageDashboard', () => {
+  beforeEach(() => {
+    mocks.myPostsError.value = ''
+    mocks.myCommentsError.value = ''
+    mocks.isVerifyModalOpen.value = true
+  })
+
+  it('labels email verification inputs for the modal flow', () => {
+    const wrapper = mountDashboard()
 
     expect(wrapper.get('label[for="email-verification-email"]').text()).toBe('user.profile.email')
     expect(wrapper.get('#email-verification-email').attributes()).toMatchObject({
@@ -173,5 +187,21 @@ describe('MyPageDashboard', () => {
       inputmode: 'numeric',
       autocomplete: 'one-time-code',
     })
+  })
+
+  it('does not render the my posts empty state while the posts error is shown', () => {
+    mocks.myPostsError.value = 'posts failed'
+    const wrapper = mountDashboard()
+
+    expect(wrapper.text()).toContain('posts failed')
+    expect(wrapper.findAll('[data-testid="empty-state"]')).toHaveLength(1)
+  })
+
+  it('does not render the my comments empty state while the comments error is shown', () => {
+    mocks.myCommentsError.value = 'comments failed'
+    const wrapper = mountDashboard()
+
+    expect(wrapper.text()).toContain('comments failed')
+    expect(wrapper.findAll('[data-testid="empty-state"]')).toHaveLength(1)
   })
 })

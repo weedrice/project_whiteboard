@@ -27,6 +27,7 @@ const {
   editingId,
   editingName,
   editingRole,
+  isReordering,
   defaultCategory,
   draggableCategories,
   fetchCategories,
@@ -54,7 +55,13 @@ onMounted(fetchCategories)
         inputClass="dark:bg-gray-700 dark:text-white dark:border-gray-600">
         <option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option>
       </BaseSelect>
-      <BaseButton type="submit" variant="primary" class="px-3" :aria-label="$t('board.category.add')">
+      <BaseButton
+        type="submit"
+        variant="primary"
+        class="px-3"
+        :aria-label="$t('board.category.add')"
+        :disabled="isReordering"
+      >
         <Plus class="h-4 w-4" aria-hidden="true" />
       </BaseButton>
     </form>
@@ -83,6 +90,7 @@ onMounted(fetchCategories)
             </BaseSelect>
             <BaseButton @click="saveEdit(defaultCategory)" variant="ghost" size="sm"
               :aria-label="$t('board.category.save')"
+              :disabled="isReordering"
               class="p-1 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300">
               <Check class="h-4 w-4" aria-hidden="true" />
             </BaseButton>
@@ -104,6 +112,7 @@ onMounted(fetchCategories)
           </div>
           <BaseButton @click="startEdit(defaultCategory)" variant="ghost" size="sm"
             :aria-label="$t('board.category.edit')"
+            :disabled="isReordering"
             class="p-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
             <Edit2 class="h-4 w-4" aria-hidden="true" />
           </BaseButton>
@@ -116,8 +125,11 @@ onMounted(fetchCategories)
           class="px-4 py-3 flex items-center justify-between group bg-white dark:bg-gray-800" @dragover.prevent
           @dragenter.prevent @drop="onDrop(index)">
           <div class="flex items-center">
-            <div draggable="true" @dragstart="onDragStart($event, index)"
-              class="mr-3 cursor-move text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+            <div :draggable="!isReordering" @dragstart="onDragStart($event, index)"
+              class="mr-3 text-gray-400 dark:text-gray-500 p-1 rounded"
+              :class="isReordering
+                ? 'cursor-not-allowed opacity-50'
+                : 'cursor-move hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'">
               <GripVertical class="h-4 w-4" aria-hidden="true" />
             </div>
           </div>
@@ -132,6 +144,7 @@ onMounted(fetchCategories)
               </BaseSelect>
               <BaseButton @click="saveEdit(category)" variant="ghost" size="sm"
                 :aria-label="$t('board.category.save')"
+                :disabled="isReordering"
                 class="p-1 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300">
                 <Check class="h-4 w-4" aria-hidden="true" />
               </BaseButton>
@@ -152,11 +165,13 @@ onMounted(fetchCategories)
             <div class="flex items-center gap-2">
               <BaseButton @click="startEdit(category)" variant="ghost" size="sm"
                 :aria-label="$t('board.category.edit')"
+                :disabled="isReordering"
                 class="p-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
                 <Edit2 class="h-4 w-4" aria-hidden="true" />
               </BaseButton>
               <BaseButton @click="handleDelete(category.categoryId)" variant="ghost" size="sm"
                 :aria-label="$t('board.category.delete')"
+                :disabled="isReordering"
                 class="p-1 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300">
                 <Trash2 class="h-4 w-4" aria-hidden="true" />
               </BaseButton>

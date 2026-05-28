@@ -85,6 +85,21 @@ export function toScrapPostSummaryPage(response: ScrapListResponse): PageRespons
     })
 }
 
+export function toBlockedUserSummaryPage(
+    response: PageResponseRaw<BlockedUserSummary> | BlockedUserSummary[],
+): PageResponse<BlockedUserSummary> {
+    if (Array.isArray(response)) {
+        return normalizePageResponse({
+            content: response,
+            totalElements: response.length,
+            totalPages: response.length > 0 ? 1 : 0,
+            size: response.length,
+        })
+    }
+
+    return normalizePageResponse(response)
+}
+
 function mapApiPageResponse<TSource, TTarget>(
     response: AxiosResponse<ApiResponse<TSource>>,
     mapper: (source: TSource) => PageResponse<TTarget>,
@@ -155,10 +170,11 @@ export const userApi = {
         return api.delete<ApiResponse<void>>(`/users/${userId}/block`)
     },
     getBlockList(params?: PaginationParams) {
-        if (params) {
-            return api.get<ApiResponse<PageResponse<BlockedUserSummary> | BlockedUserSummary[]>>('/users/me/blocks', { params })
-        }
-        return api.get<ApiResponse<PageResponse<BlockedUserSummary> | BlockedUserSummary[]>>('/users/me/blocks')
+        const request = params
+            ? api.get<ApiResponse<PageResponse<BlockedUserSummary> | BlockedUserSummary[]>>('/users/me/blocks', { params })
+            : api.get<ApiResponse<PageResponse<BlockedUserSummary> | BlockedUserSummary[]>>('/users/me/blocks')
+
+        return request.then((response) => mapApiPageResponse(response, toBlockedUserSummaryPage))
     },
     getMyPosts(params: PaginationParams) {
         return api.get<ApiResponse<PageResponse<PostSummary>>>('/users/me/posts', { params })

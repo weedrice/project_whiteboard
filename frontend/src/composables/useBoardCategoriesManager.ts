@@ -21,6 +21,7 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
     const editingName = ref('')
     const editingRole = ref('USER')
     const dragIndex = ref<number | null>(null)
+    const isReordering = ref(false)
 
     const defaultCategory = computed(() => resolveDefaultCategory(categories.value))
     const draggableCategories = computed(() =>
@@ -114,6 +115,8 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
     }
 
     function onDragStart(event: DragEvent, index: number) {
+        if (isReordering.value) return
+
         dragIndex.value = index
         if (event.dataTransfer) {
             event.dataTransfer.effectAllowed = 'move'
@@ -121,6 +124,11 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
     }
 
     async function onDrop(index: number) {
+        if (isReordering.value) {
+            dragIndex.value = null
+            return
+        }
+
         const fromIndex = dragIndex.value
         const toIndex = index
 
@@ -129,22 +137,30 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
             return
         }
 
+        const previousCategories = categories.value.map(category => ({ ...category }))
+        const previousSortById = new Map(
+            previousCategories.map(category => [category.categoryId, category.sortOrder])
+        )
         const newDraggables = [...draggableCategories.value]
         const [movedItem] = newDraggables.splice(fromIndex, 1)
         newDraggables.splice(toIndex, 0, movedItem)
 
-        const newCategories: Category[] = []
-        if (defaultCategory.value) newCategories.push(defaultCategory.value)
-        newCategories.push(...newDraggables)
+        const orderedCategories: Category[] = []
+        if (defaultCategory.value) orderedCategories.push(defaultCategory.value)
+        orderedCategories.push(...newDraggables)
+
+        const newCategories = orderedCategories.map((category, idx) => ({
+            ...category,
+            sortOrder: idx + 1,
+        }))
 
         categories.value = newCategories
         dragIndex.value = null
+        isReordering.value = true
 
         try {
             const updatePromises = categories.value.map((category, idx) => {
-                if (category.sortOrder === idx + 1) return Promise.resolve()
-
-                category.sortOrder = idx + 1
+                if (previousSortById.get(category.categoryId) === idx + 1) return Promise.resolve()
 
                 return boardApi.updateCategory(boardUrl.value, category.categoryId, {
                     name: category.name,
@@ -158,7 +174,10 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
         } catch (err: unknown) {
             logger.error('Failed to reorder categories:', err)
             toastStore.addToast(t('board.category.orderFailed'), 'error')
-            fetchCategories()
+            categories.value = previousCategories
+            await fetchCategories()
+        } finally {
+            isReordering.value = false
         }
     }
 
@@ -172,6 +191,7 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
         editingName,
         editingRole,
         dragIndex,
+        isReordering,
         defaultCategory,
         draggableCategories,
         fetchCategories,

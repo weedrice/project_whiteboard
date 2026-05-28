@@ -107,6 +107,17 @@ describe('BlockList', () => {
     vi.doMock('@/utils/logger', () => ({
       default: { error: loggerError },
     }))
+    vi.doMock('vue-i18n', () => ({
+      createI18n: () => ({
+        global: {
+          t: (key: string) => key,
+        },
+        install: vi.fn(),
+      }),
+      useI18n: () => ({
+        t: (key: string) => key,
+      }),
+    }))
     BlockList = (await import('../BlockList.vue')).default
   }, 30000)
 
@@ -128,24 +139,20 @@ describe('BlockList', () => {
     expect(wrapper.get('[data-test="page-change"]').text()).toContain('0/3')
     expect(wrapper.findAll('[data-test="block-button"]')).toHaveLength(2)
   })
-
-  it('supports legacy array payloads from the block list query cache', () => {
-    queryState.data.value = [
-      { userId: 1, displayName: 'Ada', email: 'ada@example.com' },
-    ]
+  it('renders an empty list before block list data is loaded', () => {
+    queryState.data.value = null
 
     const wrapper = mountList()
 
-    expect(wrapper.text()).toContain('Ada')
-    expect(wrapper.text()).toContain('총 1건')
-    expect(wrapper.get('[data-test="page-change"]').text()).toContain('0/1')
+    expect(wrapper.findAll('[data-test="block-button"]')).toHaveLength(0)
+    expect(wrapper.find('[data-test="page-change"]').exists()).toBe(false)
   })
 
   it('shows an error state and retries through the query refetch', async () => {
     queryState.error.value = new Error('network')
     const wrapper = mountList()
 
-    expect(wrapper.get('[data-test="error-state"]').text()).toBe('차단 목록을 불러오지 못했습니다.')
+    expect(wrapper.get('[data-test="error-state"]').text()).toBe('common.messages.loadFailed')
     expect(wrapper.findComponent({ name: 'EmptyState' }).exists()).toBe(false)
 
     await wrapper.get('[data-test="error-state"]').trigger('click')

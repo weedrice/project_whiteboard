@@ -59,6 +59,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { BlockedUserSummary } from '@/api/user'
 import BlockButton from '@/components/user/BlockButton.vue'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
@@ -66,30 +67,20 @@ import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import { UserX } from 'lucide-vue-next'
 import logger from '@/utils/logger'
 import { useUser } from '@/composables/useUser'
+import { getListLoadErrorMessage } from '@/utils/listLoadError'
 
+const { t } = useI18n()
 const { useBlockList } = useUser()
 const page = ref(0)
 const size = ref(20)
 const blockListParams = computed(() => ({ page: page.value, size: size.value }))
 const { data: blockListData, isLoading: loading, error, refetch } = useBlockList(blockListParams)
 
-const blockedUsers = computed<BlockedUserSummary[]>(() => {
-  const payload = blockListData.value
-  if (!payload) return []
-  return Array.isArray(payload) ? payload : payload.content
-})
+const blockedUsers = computed<BlockedUserSummary[]>(() => blockListData.value?.content ?? [])
 
-const totalElements = computed(() => {
-  const payload = blockListData.value
-  if (!payload) return 0
-  return Array.isArray(payload) ? payload.length : payload.totalElements
-})
+const totalElements = computed(() => blockListData.value?.totalElements ?? 0)
 
-const totalPages = computed(() => {
-  const payload = blockListData.value
-  if (!payload) return 0
-  return Array.isArray(payload) ? (payload.length > 0 ? 1 : 0) : payload.totalPages
-})
+const totalPages = computed(() => blockListData.value?.totalPages ?? 0)
 
 const handlePageChange = (nextPage: number) => {
   page.value = nextPage
@@ -100,7 +91,7 @@ const handleSizeChange = (nextSize = size.value) => {
   page.value = 0
 }
 
-const errorMessage = computed(() => error.value ? '차단 목록을 불러오지 못했습니다.' : '')
+const errorMessage = computed(() => error.value ? getListLoadErrorMessage(t) : '')
 
 const fetchBlockedUsers = () => {
   refetch()

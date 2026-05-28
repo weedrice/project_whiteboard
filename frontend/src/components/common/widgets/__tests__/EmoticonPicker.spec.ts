@@ -6,17 +6,23 @@ import type { EmoticonMaster } from '@/types/emoticon'
 const mocks = vi.hoisted(() => {
     const purchasedEmoticons: { __v_isRef: true; value: EmoticonMaster[] | undefined } = { __v_isRef: true, value: undefined }
     const isLoading: { __v_isRef: true; value: boolean } = { __v_isRef: true, value: false }
+    const isError: { __v_isRef: true; value: boolean } = { __v_isRef: true, value: false }
+    const error: { __v_isRef: true; value: Error | null } = { __v_isRef: true, value: null }
     const queryOptions: Array<Record<string, unknown>> = []
     const getPurchasedEmoticons = vi.fn()
     const getEmoticon = vi.fn()
+    const refetchPurchasedEmoticons = vi.fn()
     const loggerError = vi.fn()
 
     return {
         purchasedEmoticons,
         isLoading,
+        isError,
+        error,
         queryOptions,
         getPurchasedEmoticons,
         getEmoticon,
+        refetchPurchasedEmoticons,
         loggerError,
     }
 })
@@ -27,6 +33,9 @@ vi.mock('@tanstack/vue-query', () => ({
         return {
             data: mocks.purchasedEmoticons,
             isLoading: mocks.isLoading,
+            isError: mocks.isError,
+            error: mocks.error,
+            refetch: mocks.refetchPurchasedEmoticons,
         }
     }),
 }))
@@ -88,6 +97,8 @@ describe('EmoticonPicker', () => {
         mocks.queryOptions.length = 0
         mocks.purchasedEmoticons.value = undefined
         mocks.isLoading.value = false
+        mocks.isError.value = false
+        mocks.error.value = null
     })
 
     it('configures purchased emoticon query and respects show flag', async () => {
@@ -165,6 +176,18 @@ describe('EmoticonPicker', () => {
         await noMatchWrapper.get('.search-input').setValue('not-found')
 
         expect(noMatchWrapper.find('.empty-state').exists()).toBe(true)
+    })
+
+    it('shows list load error and retries purchased emoticons query', async () => {
+        mocks.isError.value = true
+        mocks.error.value = new Error('list failed')
+        const wrapper = mountPicker(true)
+
+        expect(wrapper.get('.error-state').text()).toContain('노비콘 목록을 불러오지 못했습니다.')
+        await wrapper.get('.retry-btn').trigger('click')
+
+        expect(mocks.refetchPurchasedEmoticons).toHaveBeenCalledTimes(1)
+        expect(wrapper.find('.empty-state').exists()).toBe(false)
     })
 
     it('loads detail on emoticon click, emits selected image and supports goBack', async () => {
@@ -272,6 +295,8 @@ describe('EmoticonPicker', () => {
 
         expect(mocks.loggerError).toHaveBeenCalledWith('Failed to load emoticon detail:', expect.any(Error))
         expect(wrapper.find('.loading-state').exists()).toBe(false)
+        expect(wrapper.get('.error-state').text()).toContain('노비콘 정보를 불러오지 못했습니다.')
+        expect(wrapper.findAll('.retry-btn')).toHaveLength(2)
     })
 
     it('handles detail payload without images by rendering empty image list', async () => {
