@@ -266,9 +266,21 @@ class PostSummaryAssemblerTest {
 
         List<FeedPostSummary> trending = feedPostSummaryAssembler.assembleTrendingPosts(List.of(post), null);
         List<FeedPostSummary> latest = feedPostSummaryAssembler.assembleLatestPosts(List.of(post), null);
+        PostSummary listSummary = PostSummary.from(
+                post,
+                trending.get(0).getThumbnailUrl(),
+                board.getIconUrl(),
+                false,
+                false,
+                false,
+                trending.get(0).isHasImage(),
+                trending.get(0).getSummary());
 
         assertThat(trending.get(0).getSummary()).isEqualTo(latest.get(0).getSummary());
         assertThat(trending.get(0).getThumbnailUrl()).isEqualTo(latest.get(0).getThumbnailUrl());
+        assertThat(trending.get(0).getAuthor().getDisplayName()).isEqualTo(listSummary.getAuthor().getDisplayName());
+        assertThat(trending.get(0).getBoardUrl()).isEqualTo(listSummary.getBoardUrl());
+        assertThat(trending.get(0).getBoardIconUrl()).isEqualTo(listSummary.getBoardIconUrl());
         assertThat(trending.get(0).getContentsExcerpt()).isNotNull();
         assertThat(trending.get(0).getFirstMediaType()).isEqualTo("image");
         assertThat(trending.get(0).getFirstMediaUrl()).isEqualTo("https://cdn.example.com/thumb.png");

@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.feed.dto.FeedPostSummary;
 import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.post.dto.PostSummaryFields;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -55,6 +56,7 @@ class FeedPostSummaryAssembler {
                 post,
                 postIdsWithImages,
                 thumbnailFileIdsByPostId);
+        PostSummaryFields fields = PostSummaryFields.from(post, post.getBoard().getIconUrl());
 
         String firstMediaType = null;
         String firstMediaUrl = null;
@@ -75,38 +77,37 @@ class FeedPostSummaryAssembler {
         }
 
         return FeedPostSummary.builder()
-                .postId(post.getPostId())
-                .boardId(post.getBoard().getBoardId())
-                .categoryId(post.getCategory() != null ? post.getCategory().getCategoryId() : null)
-                .title(post.getTitle())
+                .postId(fields.postId())
+                .boardId(fields.boardId())
+                .categoryId(fields.categoryId())
+                .title(fields.title())
                 .author(FeedPostSummary.AuthorInfo.builder()
-                        .userId(post.getUser().getUserId())
-                        .agentId(post.getAgent() != null ? post.getAgent().getAgentId() : null)
-                        .authorType(post.getAgent() != null ? "AGENT" : "USER")
-                        .displayName(post.getAgent() != null ? post.getAgent().getName()
-                                : post.getUser().getDisplayName())
-                        .profileImageUrl(post.getAgent() != null ? null : post.getUser().getProfileImageUrl())
+                        .userId(fields.author().userId())
+                        .agentId(fields.author().agentId())
+                        .authorType(fields.author().authorType())
+                        .displayName(fields.author().displayName())
+                        .profileImageUrl(fields.author().profileImageUrl())
                         .build())
-                .category(post.getCategory() != null ? FeedPostSummary.CategoryInfo.builder()
-                        .categoryId(post.getCategory().getCategoryId())
-                        .name(post.getCategory().getName())
+                .category(fields.category() != null ? FeedPostSummary.CategoryInfo.builder()
+                        .categoryId(fields.category().categoryId())
+                        .name(fields.category().name())
                         .build() : null)
-                .viewCount(post.getViewCount())
-                .likeCount(post.getLikeCount())
-                .commentCount(post.getCommentCount())
-                .isNotice(post.getIsNotice())
-                .isNsfw(post.getIsNsfw())
-                .isSpoiler(post.getIsSpoiler())
-                .isSecret(post.getIsSecret())
-                .createdAt(post.getCreatedAt())
-                .boardUrl(post.getBoard().getBoardUrl())
-                .boardName(post.getBoard().getBoardName())
+                .viewCount(fields.counts().viewCount())
+                .likeCount(fields.counts().likeCount())
+                .commentCount(fields.counts().commentCount())
+                .isNotice(fields.flags().isNotice())
+                .isNsfw(fields.flags().isNsfw())
+                .isSpoiler(fields.flags().isSpoiler())
+                .isSecret(fields.flags().isSecret())
+                .createdAt(fields.createdAt())
+                .boardUrl(fields.boardUrl())
+                .boardName(fields.boardName())
                 .thumbnailUrl(thumbnailInfo.thumbnailUrl())
-                .boardIconUrl(post.getBoard().getIconUrl())
-                .authorName(post.getAgent() != null ? post.getAgent().getName() : post.getUser().getDisplayName())
-                .liked(interactionContext.likedPostIds().contains(post.getPostId()))
-                .scrapped(interactionContext.scrappedPostIds().contains(post.getPostId()))
-                .subscribed(interactionContext.subscribedBoardUrls().contains(post.getBoard().getBoardUrl()))
+                .boardIconUrl(fields.boardIconUrl())
+                .authorName(fields.authorName())
+                .liked(interactionContext.likedPostIds().contains(fields.postId()))
+                .scrapped(interactionContext.scrappedPostIds().contains(fields.postId()))
+                .subscribed(interactionContext.subscribedBoardUrls().contains(fields.boardUrl()))
                 .hasImage(thumbnailInfo.hasImage())
                 .summary(summaryText)
                 .contentsExcerpt(includeContentsExcerpt
