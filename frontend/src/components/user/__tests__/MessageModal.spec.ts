@@ -30,7 +30,7 @@ vi.mock('@/utils/logger', () => ({
 }))
 
 vi.mock('@/utils/errorHandler', () => ({
-    extractErrorResponse: () => null,
+    extractErrorResponse: (error: { response?: { data?: unknown } }) => error.response?.data ?? null,
 }))
 
 vi.mock('vue-i18n', () => ({
@@ -104,5 +104,24 @@ describe('MessageModal', () => {
         resolveSend({ data: { success: true } })
         await flushAll()
         expect(wrapper.emitted('close')).toHaveLength(1)
+    })
+
+    it('shows the blocked-user message when the API returns the block error code', async () => {
+        mocks.sendMessage.mockRejectedValue({
+            response: {
+                data: {
+                    code: 'BLOCKED_BY_USER',
+                },
+            },
+        })
+
+        const wrapper = mountModal()
+        await wrapper.get('textarea').setValue('안녕하세요')
+        await getButtonByText(wrapper, 'common.send').trigger('click')
+        await flushAll()
+
+        expect(wrapper.emitted('close')).toBeUndefined()
+        expect(mocks.loggerError).toHaveBeenCalled()
+        expect(mocks.addToast).toHaveBeenCalledWith('user.message.blockedByUser', 'error')
     })
 })
