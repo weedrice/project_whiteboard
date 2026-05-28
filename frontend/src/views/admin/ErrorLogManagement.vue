@@ -7,6 +7,7 @@ import AdminPaginationFooter from '@/components/admin/AdminPaginationFooter.vue'
 import BaseTable, { type TableColumn } from '@/components/common/ui/BaseTable.vue'
 import { useI18n } from 'vue-i18n'
 import { Eye, CheckCircle, X, Search, Copy } from 'lucide-vue-next'
+import { formatDateTimeOrDash } from '@/utils/date'
 import type { ErrorLogListItem } from '@/types'
 
 const { t } = useI18n()
@@ -45,19 +46,6 @@ function getHttpStatusClass(status: number): string {
     if (status >= 500) return 'status-500'
     if (status >= 400) return 'status-400'
     return 'status-other'
-}
-
-function formatDate(dateStr: string): string {
-    if (!dateStr) return '-'
-    const date = new Date(dateStr)
-    return date.toLocaleString('ko-KR', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-    })
 }
 
 const columns = computed<TableColumn[]>(() => [
@@ -197,7 +185,7 @@ function getRowClass(log: ErrorLogListItem): string {
             </template>
 
             <template #cell-createdAt="{ item: log }">
-                <span class="text-xs">{{ formatDate(log.createdAt) }}</span>
+                <span class="text-xs">{{ formatDateTimeOrDash(log.createdAt) }}</span>
             </template>
 
             <template #cell-actions="{ item: log }">
@@ -287,7 +275,7 @@ function getRowClass(log: ErrorLogListItem): string {
                                 </div>
                                 <div class="detail-item">
                                     <span class="detail-label">{{ t('admin.errorLogs.table.createdAt') }}</span>
-                                    <span class="detail-value">{{ formatDate(selectedLog.createdAt) }}</span>
+                                    <span class="detail-value">{{ formatDateTimeOrDash(selectedLog.createdAt) }}</span>
                                 </div>
                             </div>
                         </div>
@@ -314,7 +302,7 @@ function getRowClass(log: ErrorLogListItem): string {
                                 </div>
                                 <div class="detail-item">
                                     <span class="detail-label">처리 일시</span>
-                                    <span class="detail-value">{{ formatDate(selectedLog.resolvedAt || '') }}</span>
+                                    <span class="detail-value">{{ formatDateTimeOrDash(selectedLog.resolvedAt) }}</span>
                                 </div>
                                 <div v-if="selectedLog.resolvedMemo" class="detail-item detail-item--full">
                                     <span class="detail-label">처리 메모</span>

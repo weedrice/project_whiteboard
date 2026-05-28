@@ -12,6 +12,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { applyImageFallback } from '@/utils/imageFallback'
+import { formatDateOnlyLongOrDash } from '@/utils/date'
 import { useToggleEmoticonVisibility } from '@/composables/useToggleEmoticonVisibility'
 import { useEmoticonPermissions } from '@/composables/useEmoticonPermissions'
 import { useEmoticonDetailViewModel } from '@/composables/useEmoticonDetailViewModel'
@@ -131,14 +132,6 @@ const handleToggleVisibility = async () => {
 }
 
 // 날짜 포맷
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString('ko-KR', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  })
-}
-
 // 페이지 제목 설정
 useHead({
   title: computed(() => emoticonView.value?.name ? `${emoticonView.value.name} - 노비콘` : '노비콘')
@@ -255,7 +248,7 @@ useHead({
               </div>
               <div class="flex items-center text-gray-600 dark:text-gray-400">
                 <Calendar class="w-4 h-4 mr-2" />
-                <span>등록일: {{ formatDate(emoticonView.createdAt) }}</span>
+                <span>등록일: {{ formatDateOnlyLongOrDash(emoticonView.createdAt) }}</span>
               </div>
               <div class="flex items-center text-indigo-600 dark:text-indigo-400">
                 <TrendingUp class="w-4 h-4 mr-2" />
