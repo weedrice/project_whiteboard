@@ -3,7 +3,6 @@ import type { AxiosRequestConfig, AxiosResponse } from 'axios'
 import type {
     ApiResponse,
     DraftPost,
-    FeedPost,
     HomeLandingPeriod,
     HomeLandingResponse,
     HomeLandingStats,
@@ -66,15 +65,6 @@ export type BackendPageResponse<T> = Partial<PageResponse<T>> & {
     hasPrevious?: boolean
 }
 
-export type LegacyHomeLandingResponse = Omit<HomeLandingResponse, 'editorPicks' | 'trendingPosts' | 'liveActivityPosts'> & {
-    posts?: FeedPost[]
-    latestPosts?: FeedPost[]
-    featuredPost?: FeedPost | null
-    editorPicks?: FeedPost[]
-    trendingPosts?: FeedPost[]
-    liveActivityPosts?: FeedPost[]
-}
-
 const emptyStats = (): HomeLandingStats => ({
     boardCount: 0,
     postCount: 0,
@@ -88,49 +78,35 @@ const emptyStats = (): HomeLandingStats => ({
 })
 
 export const emptyHomeLanding = (): HomeLandingResponse => ({
-    featuredPost: null,
-    editorPicks: [],
-    trendingPosts: [],
-    liveActivityPosts: [],
+    sections: [
+        { sectionType: 'FEATURED', items: [], limit: 1 },
+        { sectionType: 'EDITOR_PICKS', items: [], limit: 3 },
+        { sectionType: 'TRENDING', items: [], limit: 9 },
+        { sectionType: 'LIVE_ACTIVITY', items: [], limit: 6 },
+    ],
     boards: [],
     stats: emptyStats(),
 })
 
-export const normalizeHomeLandingResponse = (
-    landing: HomeLandingResponse | LegacyHomeLandingResponse | null | undefined
-): HomeLandingResponse => {
+function normalizeSectionArray(landing: HomeLandingResponse | null | undefined): HomeLandingResponse {
     if (!landing) {
         return emptyHomeLanding()
     }
-
-    const legacyLanding = landing as LegacyHomeLandingResponse
-    const legacyPosts = legacyLanding.posts ?? [
-        ...(legacyLanding.featuredPost ? [legacyLanding.featuredPost] : []),
-        ...(legacyLanding.editorPicks ?? []),
-        ...(legacyLanding.trendingPosts ?? []),
-    ]
     return {
-        featuredPost: legacyLanding.featuredPost ?? legacyPosts[0] ?? null,
-        editorPicks: legacyLanding.editorPicks ?? legacyPosts.slice(1, 4),
-        trendingPosts: legacyLanding.trendingPosts ?? legacyPosts.slice(1, 10),
-        liveActivityPosts: legacyLanding.liveActivityPosts ?? legacyLanding.latestPosts ?? legacyPosts.slice(0, 6),
-        boards: legacyLanding.boards ?? [],
-        stats: legacyLanding.stats ?? emptyStats(),
+        sections: Array.isArray(landing.sections) ? landing.sections : emptyHomeLanding().sections,
+        boards: landing.boards ?? [],
+        stats: landing.stats ?? emptyStats(),
     }
 }
 
 function mapHomeLandingResponse(
-    response: AxiosResponse<ApiResponse<HomeLandingResponse | LegacyHomeLandingResponse>>
+    response: AxiosResponse<ApiResponse<HomeLandingResponse>>
 ): AxiosResponse<ApiResponse<HomeLandingResponse>> {
-    if (!response.data.success) {
-        return response as AxiosResponse<ApiResponse<HomeLandingResponse>>
-    }
-
     return {
         ...response,
         data: {
             ...response.data,
-            data: normalizeHomeLandingResponse(response.data.data),
+            data: normalizeSectionArray(response.data.data),
         },
     }
 }
@@ -167,7 +143,7 @@ export const postApi = {
     getTrendingPosts: (page: number = 0, size: number = 10, period: HomeLandingPeriod = '24h') => api.get<ApiResponse<BackendPageResponse<PostSummary>>>('/posts/trending', { params: { page, size, period } }),
 
     // Get home landing data
-    getHomeLanding: (period: HomeLandingPeriod = '24h') => api.get<ApiResponse<HomeLandingResponse | LegacyHomeLandingResponse>>('/home/landing', {
+    getHomeLanding: (period: HomeLandingPeriod = '24h') => api.get<ApiResponse<HomeLandingResponse>>('/home/landing', {
         params: { period }
     }).then(mapHomeLandingResponse),
 

@@ -99,10 +99,7 @@ describe('postApi', () => {
             data: {
                 success: true,
                 data: {
-                    featuredPost: null,
-                    editorPicks: [],
-                    trendingPosts: [],
-                    liveActivityPosts: [],
+                    sections: [],
                     boards: [],
                     stats: {},
                 },
@@ -142,16 +139,29 @@ describe('postApi', () => {
         expect(apiMock.post).toHaveBeenNthCalledWith(5, '/reports/posts', reportData)
     })
 
-    it('passes through sectioned home landing response fields in the API layer', async () => {
+    it('passes through section array home landing response fields in the API layer', async () => {
         apiMock.get.mockResolvedValueOnce({
             data: {
                 success: true,
                 data: {
-                    featuredPost: { postId: 1, title: 'Featured' },
-                    editorPicks: [{ postId: 2, title: 'Pick' }],
-                    trendingPosts: [{ postId: 3, title: 'Trend' }],
-                    liveActivityPosts: [{ postId: 4, title: 'Live' }],
+                    sections: [
+                        { sectionType: 'FEATURED', items: [{ postId: 1, title: 'Featured' }], limit: 1 },
+                        { sectionType: 'EDITOR_PICKS', items: [{ postId: 2, title: 'Pick' }], limit: 3 },
+                        { sectionType: 'TRENDING', items: [{ postId: 3, title: 'Trend' }], limit: 9 },
+                        { sectionType: 'LIVE_ACTIVITY', items: [{ postId: 4, title: 'Live' }], limit: 6 },
+                    ],
                     boards: [{ boardId: 1, boardUrl: 'free', boardName: 'Free' }],
+                    stats: {
+                        boardCount: 0,
+                        postCount: 0,
+                        liveCount: 0,
+                        onlineCount: 0,
+                        postsToday: 0,
+                        postsTodayDeltaPercent: null,
+                        activeBoardCount: 0,
+                        newMembersLast24Hours: 0,
+                        commentsToday: 0,
+                    },
                 },
             },
         })
@@ -159,57 +169,50 @@ describe('postApi', () => {
         const response = await postApi.getHomeLanding()
 
         expect(apiMock.get).toHaveBeenCalledWith('/home/landing', { params: { period: '24h' } })
-        expect(response.data.data.featuredPost?.postId).toBe(1)
-        expect(response.data.data.editorPicks.map(post => post.postId)).toEqual([2])
-        expect(response.data.data.trendingPosts.map(post => post.postId)).toEqual([3])
-        expect(response.data.data.liveActivityPosts.map(post => post.postId)).toEqual([4])
+        expect(response.data.data.sections.map(section => section.sectionType)).toEqual([
+            'FEATURED',
+            'EDITOR_PICKS',
+            'TRENDING',
+            'LIVE_ACTIVITY',
+        ])
+        expect(response.data.data.sections[0].items.map(post => post.postId)).toEqual([1])
+        expect(response.data.data.sections[1].items.map(post => post.postId)).toEqual([2])
+        expect(response.data.data.sections[2].items.map(post => post.postId)).toEqual([3])
+        expect(response.data.data.sections[3].items.map(post => post.postId)).toEqual([4])
         expect(response.data.data.boards).toEqual([{ boardId: 1, boardUrl: 'free', boardName: 'Free' }])
         expect(response.data.data.stats.boardCount).toBe(0)
     })
 
-    it('normalizes legacy home landing posts in the API layer', async () => {
+    it('normalizes missing home landing sections to empty section arrays', async () => {
         apiMock.get.mockResolvedValueOnce({
             data: {
                 success: true,
                 data: {
-                    posts: [
-                        { postId: 1, title: 'Featured' },
-                        { postId: 2, title: 'Pick' },
-                        { postId: 3, title: 'Trend' },
-                    ],
-                    latestPosts: [{ postId: 4, title: 'Live' }],
                     boards: [],
+                    stats: {
+                        boardCount: 0,
+                        postCount: 0,
+                        liveCount: 0,
+                        onlineCount: 0,
+                        postsToday: 0,
+                        postsTodayDeltaPercent: null,
+                        activeBoardCount: 0,
+                        newMembersLast24Hours: 0,
+                        commentsToday: 0,
+                    },
                 },
             },
         })
 
         const response = await postApi.getHomeLanding()
 
-        expect(response.data.data.featuredPost?.postId).toBe(1)
-        expect(response.data.data.editorPicks.map(post => post.postId)).toEqual([2, 3])
-        expect(response.data.data.trendingPosts.map(post => post.postId)).toEqual([2, 3])
-        expect(response.data.data.liveActivityPosts.map(post => post.postId)).toEqual([4])
-    })
-
-    it('normalizes mixed home landing section and legacy fields in the API layer', async () => {
-        apiMock.get.mockResolvedValueOnce({
-            data: {
-                success: true,
-                data: {
-                    featuredPost: { postId: 1, title: 'Featured' },
-                    editorPicks: [{ postId: 2, title: 'Pick' }],
-                    latestPosts: [{ postId: 4, title: 'Live' }],
-                    boards: [],
-                },
-            },
-        })
-
-        const response = await postApi.getHomeLanding()
-
-        expect(response.data.data.featuredPost?.postId).toBe(1)
-        expect(response.data.data.editorPicks.map(post => post.postId)).toEqual([2])
-        expect(response.data.data.trendingPosts.map(post => post.postId)).toEqual([2])
-        expect(response.data.data.liveActivityPosts.map(post => post.postId)).toEqual([4])
+        expect(response.data.data.sections.map(section => section.sectionType)).toEqual([
+            'FEATURED',
+            'EDITOR_PICKS',
+            'TRENDING',
+            'LIVE_ACTIVITY',
+        ])
+        expect(response.data.data.sections.every(section => section.items.length === 0)).toBe(true)
     })
 })
 

@@ -219,11 +219,16 @@ export interface HomeLandingStats {
     commentsToday: number
 }
 
+export type HomeLandingSectionType = 'FEATURED' | 'EDITOR_PICKS' | 'TRENDING' | 'LIVE_ACTIVITY'
+
+export interface HomeLandingSection {
+    sectionType: HomeLandingSectionType
+    items: FeedPost[]
+    limit: number
+}
+
 export interface HomeLandingResponse {
-    featuredPost?: FeedPost | null
-    editorPicks: FeedPost[]
-    trendingPosts: FeedPost[]
-    liveActivityPosts: FeedPost[]
+    sections: HomeLandingSection[]
     boards: BoardListItem[]
     stats: HomeLandingStats
 }

@@ -18,6 +18,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -101,10 +102,27 @@ class HomeControllerTest {
     @DisplayName("홈 랜딩 API가 성공 응답을 반환한다")
     void getLanding_returnsSuccess() throws Exception {
         HomeLandingResponse response = HomeLandingResponse.builder()
-                .featuredPost(null)
-                .editorPicks(Collections.emptyList())
-                .trendingPosts(Collections.emptyList())
-                .liveActivityPosts(Collections.emptyList())
+                .sections(List.of(
+                        HomeLandingResponse.Section.builder()
+                                .sectionType("FEATURED")
+                                .items(Collections.emptyList())
+                                .limit(1)
+                                .build(),
+                        HomeLandingResponse.Section.builder()
+                                .sectionType("EDITOR_PICKS")
+                                .items(Collections.emptyList())
+                                .limit(3)
+                                .build(),
+                        HomeLandingResponse.Section.builder()
+                                .sectionType("TRENDING")
+                                .items(Collections.emptyList())
+                                .limit(9)
+                                .build(),
+                        HomeLandingResponse.Section.builder()
+                                .sectionType("LIVE_ACTIVITY")
+                                .items(Collections.emptyList())
+                                .limit(6)
+                                .build()))
                 .boards(Collections.emptyList())
                 .stats(HomeLandingResponse.Stats.builder()
                         .boardCount(1)
@@ -120,10 +138,17 @@ class HomeControllerTest {
                         .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.featuredPost").isEmpty())
-                .andExpect(jsonPath("$.data.editorPicks").isArray())
-                .andExpect(jsonPath("$.data.trendingPosts").isArray())
-                .andExpect(jsonPath("$.data.liveActivityPosts").isArray())
+                .andExpect(jsonPath("$.data.sections").isArray())
+                .andExpect(jsonPath("$.data.sections[0].sectionType").value("FEATURED"))
+                .andExpect(jsonPath("$.data.sections[0].items").isArray())
+                .andExpect(jsonPath("$.data.sections[0].limit").value(1))
+                .andExpect(jsonPath("$.data.sections[1].sectionType").value("EDITOR_PICKS"))
+                .andExpect(jsonPath("$.data.sections[2].sectionType").value("TRENDING"))
+                .andExpect(jsonPath("$.data.sections[3].sectionType").value("LIVE_ACTIVITY"))
+                .andExpect(jsonPath("$.data.featuredPost").doesNotExist())
+                .andExpect(jsonPath("$.data.editorPicks").doesNotExist())
+                .andExpect(jsonPath("$.data.trendingPosts").doesNotExist())
+                .andExpect(jsonPath("$.data.liveActivityPosts").doesNotExist())
                 .andExpect(jsonPath("$.data.boards").isArray())
                 .andExpect(jsonPath("$.data.stats.boardCount").value(1))
                 .andExpect(jsonPath("$.data.stats.onlineCount").value(10));
@@ -134,10 +159,7 @@ class HomeControllerTest {
     @DisplayName("홈 랜딩 API는 비로그인 사용자도 성공 응답을 받는다")
     void getLanding_allowsAnonymous() throws Exception {
         HomeLandingResponse response = HomeLandingResponse.builder()
-                .featuredPost(null)
-                .editorPicks(Collections.emptyList())
-                .trendingPosts(Collections.emptyList())
-                .liveActivityPosts(Collections.emptyList())
+                .sections(Collections.emptyList())
                 .boards(Collections.emptyList())
                 .stats(HomeLandingResponse.Stats.builder()
                         .boardCount(0)
@@ -160,10 +182,7 @@ class HomeControllerTest {
     @DisplayName("홈 랜딩 API는 요청한 기간 파라미터를 서비스로 전달한다")
     void getLanding_forwardsExplicitPeriod() throws Exception {
         HomeLandingResponse response = HomeLandingResponse.builder()
-                .featuredPost(null)
-                .editorPicks(Collections.emptyList())
-                .trendingPosts(Collections.emptyList())
-                .liveActivityPosts(Collections.emptyList())
+                .sections(Collections.emptyList())
                 .boards(Collections.emptyList())
                 .stats(HomeLandingResponse.Stats.builder()
                         .boardCount(3)

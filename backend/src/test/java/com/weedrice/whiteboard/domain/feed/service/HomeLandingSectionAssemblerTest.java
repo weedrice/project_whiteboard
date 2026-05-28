@@ -37,12 +37,17 @@ class HomeLandingSectionAssemblerTest {
 
         HomeLandingResponse response = assembler.assemble(curatedPosts, latestPosts, List.of(), null);
 
-        assertThat(response.getFeaturedPost().getPostId()).isEqualTo(1L);
-        assertThat(response.getEditorPicks()).extracting(FeedPostSummary::getPostId)
+        assertThat(response.getSections()).extracting(HomeLandingResponse.Section::getSectionType)
+                .containsExactly("FEATURED", "EDITOR_PICKS", "TRENDING", "LIVE_ACTIVITY");
+        assertThat(response.getSections()).extracting(HomeLandingResponse.Section::getLimit)
+                .containsExactly(1, 3, 9, 6);
+        assertThat(response.getSections().get(0).getItems()).extracting(FeedPostSummary::getPostId)
+                .containsExactly(1L);
+        assertThat(response.getSections().get(1).getItems()).extracting(FeedPostSummary::getPostId)
                 .containsExactly(2L, 3L, 4L);
-        assertThat(response.getTrendingPosts()).extracting(FeedPostSummary::getPostId)
+        assertThat(response.getSections().get(2).getItems()).extracting(FeedPostSummary::getPostId)
                 .containsExactly(2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L);
-        assertThat(response.getLiveActivityPosts()).extracting(FeedPostSummary::getPostId)
+        assertThat(response.getSections().get(3).getItems()).extracting(FeedPostSummary::getPostId)
                 .containsExactly(21L, 22L, 23L, 24L, 25L, 26L);
     }
 
@@ -50,10 +55,9 @@ class HomeLandingSectionAssemblerTest {
     void assemble_returnsEmptySectionsWhenSourcePostsAreMissing() {
         HomeLandingResponse response = assembler.assemble(null, null, List.of(), null);
 
-        assertThat(response.getFeaturedPost()).isNull();
-        assertThat(response.getEditorPicks()).isEmpty();
-        assertThat(response.getTrendingPosts()).isEmpty();
-        assertThat(response.getLiveActivityPosts()).isEmpty();
+        assertThat(response.getSections()).extracting(HomeLandingResponse.Section::getSectionType)
+                .containsExactly("FEATURED", "EDITOR_PICKS", "TRENDING", "LIVE_ACTIVITY");
+        assertThat(response.getSections()).allSatisfy(section -> assertThat(section.getItems()).isEmpty());
     }
 
     private FeedPostSummary post(Long postId) {

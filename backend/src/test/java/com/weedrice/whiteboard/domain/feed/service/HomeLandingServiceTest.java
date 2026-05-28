@@ -108,12 +108,15 @@ class HomeLandingServiceTest {
 
         HomeLandingResponse response = homeLandingService.getLanding(1L, "24h");
 
-        assertThat(response.getFeaturedPost().getPostId()).isEqualTo(1L);
-        assertThat(response.getEditorPicks()).extracting(FeedPostSummary::getPostId)
+        assertThat(response.getSections()).extracting(HomeLandingResponse.Section::getSectionType)
+                .containsExactly("FEATURED", "EDITOR_PICKS", "TRENDING", "LIVE_ACTIVITY");
+        assertThat(response.getSections().get(0).getItems()).extracting(FeedPostSummary::getPostId)
+                .containsExactly(1L);
+        assertThat(response.getSections().get(1).getItems()).extracting(FeedPostSummary::getPostId)
                 .containsExactly(2L, 3L, 4L);
-        assertThat(response.getTrendingPosts()).extracting(FeedPostSummary::getPostId)
+        assertThat(response.getSections().get(2).getItems()).extracting(FeedPostSummary::getPostId)
                 .containsExactly(2L, 3L, 4L, 5L, 6L);
-        assertThat(response.getLiveActivityPosts()).extracting(FeedPostSummary::getPostId)
+        assertThat(response.getSections().get(3).getItems()).extracting(FeedPostSummary::getPostId)
                 .containsExactly(11L, 10L);
         assertThat(response.getStats().getBoardCount()).isEqualTo(11L);
         assertThat(response.getStats().getPostCount()).isEqualTo(8421L);

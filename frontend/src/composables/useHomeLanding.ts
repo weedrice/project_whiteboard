@@ -4,7 +4,7 @@ import { emptyHomeLanding, postApi } from '@/api/post'
 import { useAuthStore } from '@/stores/auth'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import { toFeedPost, toFeedPosts } from '@/utils/postViewModel'
-import type { HomeLandingPeriod } from '@/types'
+import type { FeedPost, HomeLandingPeriod, HomeLandingSectionType } from '@/types'
 
 export function useHomeLanding() {
     const authStore = useAuthStore()
@@ -27,10 +27,12 @@ export function useHomeLanding() {
     const landing = computed(() => landingQuery.data.value ?? emptyHomeLanding())
     const isPendingAuthHydration = computed(() => authStore.isAuthenticated && authStore.user == null)
     const isLoading = computed(() => landingQuery.isLoading.value || isPendingAuthHydration.value)
-    const featuredPost = computed(() => landing.value.featuredPost ?? null)
-    const editorPickPosts = computed(() => landing.value.editorPicks ?? [])
-    const trendingPosts = computed(() => landing.value.trendingPosts ?? [])
-    const liveActivityPosts = computed(() => landing.value.liveActivityPosts ?? [])
+    const sectionItems = (sectionType: HomeLandingSectionType): FeedPost[] =>
+        (landing.value.sections ?? []).find(section => section.sectionType === sectionType)?.items ?? []
+    const featuredPost = computed(() => sectionItems('FEATURED')[0] ?? null)
+    const editorPickPosts = computed(() => sectionItems('EDITOR_PICKS'))
+    const trendingPosts = computed(() => sectionItems('TRENDING'))
+    const liveActivityPosts = computed(() => sectionItems('LIVE_ACTIVITY'))
     const posts = computed(() => toFeedPosts([
         ...(featuredPost.value ? [featuredPost.value] : []),
         ...trendingPosts.value,

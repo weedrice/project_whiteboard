@@ -22,10 +22,12 @@ vi.mock('@tanstack/vue-query', () => ({
 
 vi.mock('@/api/post', () => ({
     emptyHomeLanding: () => ({
-        featuredPost: null,
-        editorPicks: [],
-        trendingPosts: [],
-        liveActivityPosts: [],
+        sections: [
+            { sectionType: 'FEATURED', items: [], limit: 1 },
+            { sectionType: 'EDITOR_PICKS', items: [], limit: 3 },
+            { sectionType: 'TRENDING', items: [], limit: 9 },
+            { sectionType: 'LIVE_ACTIVITY', items: [], limit: 6 },
+        ],
         boards: [],
         stats: {
             boardCount: 0,
@@ -82,19 +84,33 @@ describe('useHomeLanding', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         queryData.current = {
-            featuredPost: makePost(1, 'Featured', 'A'),
-            editorPicks: [
-                makePost(2, 'Pick', 'B'),
-                makePost(3, 'Pick 2', 'C'),
-                makePost(4, 'Pick 3', 'D'),
-            ],
-            trendingPosts: [
-                makePost(5, 'Trend 1', 'E'),
-                makePost(6, 'Trend 2', 'F'),
-            ],
-            liveActivityPosts: [
-                makePost(21, 'Latest 1', 'L1'),
-                makePost(20, 'Latest 2', 'L2'),
+            sections: [
+                { sectionType: 'FEATURED', items: [makePost(1, 'Featured', 'A')], limit: 1 },
+                {
+                    sectionType: 'EDITOR_PICKS',
+                    items: [
+                        makePost(2, 'Pick', 'B'),
+                        makePost(3, 'Pick 2', 'C'),
+                        makePost(4, 'Pick 3', 'D'),
+                    ],
+                    limit: 3,
+                },
+                {
+                    sectionType: 'TRENDING',
+                    items: [
+                        makePost(5, 'Trend 1', 'E'),
+                        makePost(6, 'Trend 2', 'F'),
+                    ],
+                    limit: 9,
+                },
+                {
+                    sectionType: 'LIVE_ACTIVITY',
+                    items: [
+                        makePost(21, 'Latest 1', 'L1'),
+                        makePost(20, 'Latest 2', 'L2'),
+                    ],
+                    limit: 6,
+                },
             ],
             boards: [{ boardId: 1, boardUrl: 'free', boardName: 'Free', subscriberCount: 10, postCount: 24 }],
             stats: makeStats(),

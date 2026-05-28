@@ -11,12 +11,17 @@ import java.util.List;
 @Builder
 @JsonInclude(JsonInclude.Include.ALWAYS)
 public class HomeLandingResponse {
-    private FeedPostSummary featuredPost;
-    private List<FeedPostSummary> editorPicks;
-    private List<FeedPostSummary> trendingPosts;
-    private List<FeedPostSummary> liveActivityPosts;
+    private List<Section> sections;
     private List<BoardListResponse> boards;
     private Stats stats;
+
+    @Getter
+    @Builder
+    public static class Section {
+        private String sectionType;
+        private List<FeedPostSummary> items;
+        private int limit;
+    }
 
     @Getter
     @Builder
