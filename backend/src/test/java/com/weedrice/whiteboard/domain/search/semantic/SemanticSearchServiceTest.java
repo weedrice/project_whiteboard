@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -73,6 +74,46 @@ class SemanticSearchServiceTest {
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getRankSource()).isEqualTo("VECTOR");
+        verify(transactionService, never()).searchKeyword(any());
+    }
+
+    @Test
+    void search_usesKeywordFallbackWhenEmbeddingFails() {
+        properties.setEnabled(true);
+        when(transactionService.loadQueryContext(null, null))
+                .thenReturn(new SemanticSearchQueryContext(null, null, false, List.of()));
+        when(embeddingClient.isAvailable()).thenReturn(true);
+        when(embeddingClient.embed("hello")).thenThrow(new IllegalStateException("provider down"));
+        when(transactionService.searchKeyword(any(SemanticSearchKeywordQuery.class))).thenReturn(
+                new SemanticSearchQueryRows(List.of(
+                        new SemanticSearchRow("POST", 100L, 100L, 10L, "board", "Board", "hello",
+                                "fallback excerpt", null, "KEYWORD_FALLBACK", null,
+                                1L, null, "USER", "author", null)), 1L));
+
+        Page<SemanticSearchResultResponse> result = semanticSearchService.search(
+                "hello", "ALL", null, 0, 20, null);
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getRankSource()).isEqualTo("KEYWORD_FALLBACK");
+        verify(transactionService, never()).searchVector(any());
+        verify(transactionService).searchKeyword(any(SemanticSearchKeywordQuery.class));
+    }
+
+    @Test
+    void search_propagatesVectorSearchFailureWithoutKeywordFallback() {
+        properties.setEnabled(true);
+        when(transactionService.loadQueryContext(null, null))
+                .thenReturn(new SemanticSearchQueryContext(null, null, false, List.of()));
+        when(embeddingClient.isAvailable()).thenReturn(true);
+        when(embeddingClient.embed("hello")).thenReturn(new float[1536]);
+        when(transactionService.searchVector(any(SemanticSearchQuery.class)))
+                .thenThrow(new IllegalStateException("vector store down"));
+
+        assertThatThrownBy(() -> semanticSearchService.search("hello", "ALL", null, 0, 20, null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("vector store down");
+
+        verify(transactionService).searchVector(any(SemanticSearchQuery.class));
         verify(transactionService, never()).searchKeyword(any());
     }
 

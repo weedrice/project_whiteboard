@@ -29,8 +29,8 @@ public class SemanticSearchService {
         SemanticSearchQueryContext context = transactionService.loadQueryContext(boardUrl, currentUserId);
 
         if (properties.isEnabled() && embeddingClient.isAvailable()) {
-            try {
-                float[] queryEmbedding = embeddingClient.embed(canonicalKeyword);
+            float[] queryEmbedding = embedOrFallback(canonicalKeyword, normalizedContentType, boardUrl);
+            if (queryEmbedding != null) {
                 SemanticSearchQuery query = new SemanticSearchQuery(
                         normalizedContentType,
                         context.boardUrl(),
@@ -46,12 +46,19 @@ public class SemanticSearchService {
                         .map(SemanticSearchRow::toResponse)
                         .toList();
                 return new PageImpl<>(results, pageable, rows.totalElements());
-            } catch (RuntimeException ex) {
-                log.warn("Semantic vector search failed. Falling back to keyword search. contentType={}, boardUrl={}",
-                        normalizedContentType, boardUrl, ex);
             }
         }
         return fallbackKeywordSearch(canonicalKeyword, normalizedContentType, context, pageable);
+    }
+
+    private float[] embedOrFallback(String keyword, SemanticSearchContentType contentType, String boardUrl) {
+        try {
+            return embeddingClient.embed(keyword);
+        } catch (RuntimeException ex) {
+            log.warn("Semantic embedding failed. Falling back to keyword search. contentType={}, boardUrl={}",
+                    contentType, boardUrl, ex);
+            return null;
+        }
     }
 
     private Page<SemanticSearchResultResponse> fallbackKeywordSearch(String keyword,
