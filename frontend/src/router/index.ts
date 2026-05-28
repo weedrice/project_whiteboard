@@ -4,7 +4,7 @@ import { useToastStore } from '@/stores/toast'
 import { emoticonApi } from '@/api/emoticon'
 import { postApi } from '@/api/post'
 import { queryClient } from '@/queryClient'
-import { boardDetailQueryKey, fetchBoardDetail } from '@/composables/useBoard'
+import { createBoardDetailQueryOptions } from '@/composables/useBoard'
 import { emoticonDetailQueryKey } from '@/composables/useEmoticonEditResource'
 import { postDetailQueryKey } from '@/composables/usePost'
 import { canWriteBoardPost } from '@/utils/board'
@@ -422,8 +422,7 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
 
             try {
                 const board = await queryClient.fetchQuery({
-                    queryKey: boardDetailQueryKey(boardUrl),
-                    queryFn: () => fetchBoardDetail(boardUrl),
+                    ...createBoardDetailQueryOptions(boardUrl),
                     retry: false,
                 })
                 if (to.meta.requiresBoardAdmin && !board.isAdmin) {

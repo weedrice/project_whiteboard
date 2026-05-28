@@ -38,6 +38,14 @@ vi.mock('@/composables/useBoard', () => ({
         const { data } = await boardApi.getBoard(boardUrl)
         return data.data
     },
+    createBoardDetailQueryOptions: (boardUrl: string) => ({
+        queryKey: ['board', boardUrl],
+        queryFn: async () => {
+            const { data } = await boardApi.getBoard(boardUrl)
+            return data.data
+        },
+        staleTime: 60000,
+    }),
     useBoard: () => ({
         useBoards: () => ({
             data: ref([{ boardId: 1, boardUrl: 'free', boardName: 'Free', subscriberCount: 10, postCount: 12 }]),
