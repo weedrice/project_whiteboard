@@ -19,7 +19,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
@@ -70,12 +69,21 @@ class FileServiceTest {
     @Mock
     private EntityManager entityManager;
 
-    @InjectMocks
     private FileService fileService;
 
     @BeforeEach
-    void setUpEntityManager() {
-        // @PersistenceContext fields are not reliably populated by @InjectMocks.
+    void setUpFileService() {
+        FileUploadService fileUploadService = new FileUploadService(
+                fileRepository,
+                userWritableResolver,
+                fileStorageService,
+                transactionTemplate);
+        fileService = new FileService(
+                fileUploadService,
+                fileRepository,
+                userRepository,
+                boardRepository,
+                fileTemporaryCleanupWorker);
         ReflectionTestUtils.setField(fileService, "entityManager", entityManager);
     }
 
