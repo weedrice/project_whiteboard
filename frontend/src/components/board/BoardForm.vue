@@ -1,28 +1,14 @@
 <script setup lang="ts">
-import { ref, watch, computed, onUnmounted } from 'vue'
+import { computed } from 'vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
-import { useI18n } from 'vue-i18n'
-import { useToastStore } from '@/stores/toast'
-import { useFormSubmit } from '@/composables/useFormSubmit'
-import { useErrorHandler } from '@/composables/useErrorHandler'
 import { useBoardCreationPolicy } from '@/composables/useBoardCreationPolicy'
-import { uploadBoardIconFile } from '@/composables/useBoardIconUpload'
-import { normalizeBoardUrlInput, validateRequiredBoardFields } from '@/utils/board'
+import { useBoardFormState, type BoardFormData } from '@/composables/useBoardFormState'
+import { useBoardFormSubmit } from '@/composables/useBoardFormSubmit'
 
-interface BoardData {
-  boardName: string
-  boardUrl: string
-  description: string
-  iconUrl: string
-  sortOrder: number
-  allowNsfw: boolean
-  isPublic: boolean
-  agentUseYn: boolean
-  guidePrompt: string
-}
+type BoardData = BoardFormData
 
 const props = withDefaults(defineProps<{
   initialData?: BoardData
@@ -51,11 +37,6 @@ const emit = defineEmits<{
   (e: 'cancel'): void
 }>()
 
-const { t } = useI18n()
-const toastStore = useToastStore()
-const { isSubmitting: localIsSubmitting, submit } = useFormSubmit()
-const { handleError } = useErrorHandler()
-
 const isEditMode = computed(() => props.isEdit)
 const {
   userPoints,
@@ -63,96 +44,29 @@ const {
   canCreate
 } = useBoardCreationPolicy({ isEdit: isEditMode })
 
-const form = ref<BoardData>({ ...props.initialData })
-const selectedFile = ref<File | null>(null)
-const previewImage = ref<string | null>(null)
-
-// Watch for changes in initialData (e.g. when loading data in edit mode)
-watch(() => props.initialData, (newData) => {
-  form.value = { ...newData }
-  selectedFile.value = null
-  if (!form.value.isPublic) {
-    form.value.agentUseYn = false
-  }
-  previewImage.value = newData.iconUrl || null
-}, { deep: true, immediate: true })
-
-watch(() => form.value.isPublic, (isPublic) => {
-  if (!isPublic) {
-    form.value.agentUseYn = false
-  }
+const {
+  form,
+  selectedFile,
+  previewImage,
+  handleFileChange,
+} = useBoardFormState({
+  initialData: () => props.initialData,
+  isEdit: () => props.isEdit,
 })
 
-const handleFileChange = (event: Event) => {
-  const target = event.target as HTMLInputElement
-  const file = target.files?.[0]
-  if (file) {
-    selectedFile.value = file
-    // 이전 preview URL 정리
-    if (previewImage.value && previewImage.value.startsWith('blob:')) {
-      URL.revokeObjectURL(previewImage.value)
-    }
-    previewImage.value = URL.createObjectURL(file)
-  }
-}
-
-async function handleSubmit() {
-  const requiredFieldValidation = validateRequiredBoardFields(form.value)
-  if (!requiredFieldValidation.valid) {
-    toastStore.addToast(t(requiredFieldValidation.messageKey), requiredFieldValidation.toastType)
-    return
-  }
-
-  if (!props.isEdit && !canCreate.value) {
-    toastStore.addToast(t('board.form.insufficientPoints', { cost: boardCreateCost.value }), 'error')
-    return
-  }
-
-  await submit(async () => {
-    let iconUrl = form.value.iconUrl
-
-    try {
-      if (selectedFile.value) {
-        iconUrl = await uploadBoardIconFile(selectedFile.value) ?? iconUrl
-      }
-
-      emit('submit', {
-        ...form.value,
-        iconUrl,
-        agentUseYn: form.value.isPublic ? form.value.agentUseYn : false
-      })
-    } catch (err) {
-      handleError(err, t('board.form.uploadFailed'))
-      throw err // Re-throw to prevent form submission
-    }
-  })
-}
+const {
+  isSubmitting: localIsSubmitting,
+  handleSubmit,
+} = useBoardFormSubmit({
+  form,
+  selectedFile,
+  isEdit: () => props.isEdit,
+  canCreate,
+  boardCreateCost,
+  emitSubmit: (data) => emit('submit', data),
+})
 
 const isSubmitting = computed(() => props.isSubmitting || localIsSubmitting.value)
-
-watch(() => form.value.boardUrl, (boardUrl) => {
-  if (props.isEdit) return
-
-  const normalizedBoardUrl = normalizeBoardUrlInput(boardUrl)
-  if (boardUrl !== normalizedBoardUrl) {
-    form.value.boardUrl = normalizedBoardUrl
-  }
-})
-
-// Cleanup preview image URL
-watch(previewImage, (_newUrl, oldUrl) => {
-  // 이전 URL 정리 (blob: URL인 경우만)
-  if (oldUrl && oldUrl.startsWith('blob:')) {
-    URL.revokeObjectURL(oldUrl)
-  }
-})
-
-onUnmounted(() => {
-  // 컴포넌트 unmount 시 preview URL 정리
-  if (previewImage.value && previewImage.value.startsWith('blob:')) {
-    URL.revokeObjectURL(previewImage.value)
-  }
-})
 </script>
 
 <template>
