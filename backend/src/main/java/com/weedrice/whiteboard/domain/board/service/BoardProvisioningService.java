@@ -3,14 +3,11 @@ package com.weedrice.whiteboard.domain.board.service;
 import com.weedrice.whiteboard.domain.admin.service.AdminEligibleUserService;
 import com.weedrice.whiteboard.domain.admin.service.BoardManagerAssignmentService;
 import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
-import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
-import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
-import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -44,12 +41,7 @@ class BoardProvisioningService {
     private final UserRepository userRepository;
     private final AdminEligibleUserService adminEligibleUserService;
     private final BoardManagerAssignmentService boardManagerAssignmentService;
-    private final BoardIconAttachmentService boardIconAttachmentService;
-    private final BoardCreationBillingService boardCreationBillingService;
-    private final BoardCreationInitializer boardCreationInitializer;
-    private final BoardAiInfoService boardAiInfoService;
     private final BoardAccessPolicy boardAccessPolicy;
-    private final SemanticSearchEventPublisher semanticSearchEventPublisher;
 
     BoardProvisioningService(BoardRepository boardRepository,
                              BoardCategoryRepository boardCategoryRepository,
@@ -57,24 +49,14 @@ class BoardProvisioningService {
                              UserRepository userRepository,
                              AdminEligibleUserService adminEligibleUserService,
                              BoardManagerAssignmentService boardManagerAssignmentService,
-                             BoardIconAttachmentService boardIconAttachmentService,
-                             BoardCreationBillingService boardCreationBillingService,
-                             BoardCreationInitializer boardCreationInitializer,
-                             BoardAiInfoService boardAiInfoService,
-                             BoardAccessPolicy boardAccessPolicy,
-                             SemanticSearchEventPublisher semanticSearchEventPublisher) {
+                             BoardAccessPolicy boardAccessPolicy) {
         this.boardRepository = boardRepository;
         this.boardCategoryRepository = boardCategoryRepository;
         this.boardSubscriptionRepository = boardSubscriptionRepository;
         this.userRepository = userRepository;
         this.adminEligibleUserService = adminEligibleUserService;
         this.boardManagerAssignmentService = boardManagerAssignmentService;
-        this.boardIconAttachmentService = boardIconAttachmentService;
-        this.boardCreationBillingService = boardCreationBillingService;
-        this.boardCreationInitializer = boardCreationInitializer;
-        this.boardAiInfoService = boardAiInfoService;
         this.boardAccessPolicy = boardAccessPolicy;
-        this.semanticSearchEventPublisher = semanticSearchEventPublisher;
     }
 
     void ensureInquiryBoard(Long userId, String requestedBoardUrl) {
@@ -87,97 +69,6 @@ class BoardProvisioningService {
         ensureInquiryBoardIsPrivate(board);
         ensureInquiryBoardCategory(board);
         ensureInquiryBoardManager(board, currentUser);
-    }
-
-    Board createBoard(Long creatorId, BoardCreateRequest request) {
-        User creator = userRepository.findById(creatorId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        adminEligibleUserService.validateActiveUser(creator);
-        String iconUrl = normalizeIconUrl(request.getIconUrl());
-
-        validateCreatableBoardUrl(request.getBoardUrl());
-
-        Integer maxSortOrder = boardRepository.findMaxSortOrder();
-
-        Board board = Board.builder()
-                .boardName(request.getBoardName())
-                .boardUrl(request.getBoardUrl())
-                .description(normalizeDescription(request.getDescription()))
-                .creator(creator)
-                .iconUrl(iconUrl)
-                .sortOrder(maxSortOrder + 1)
-                .isPublic(request.getIsPublic())
-                .agentUseYn(resolveAgentUseYn(request.getIsPublic(), request.getAgentUseYn()))
-                .build();
-
-        Board savedBoard;
-        try {
-            savedBoard = boardRepository.saveAndFlush(board);
-        } catch (DataIntegrityViolationException ex) {
-            throw resolveBoardConflict(ex);
-        }
-        boardIconAttachmentService.syncBoardIcon(creatorId, savedBoard, null);
-        boardCreationBillingService.spendCreationCost(creatorId, savedBoard);
-        boardCreationInitializer.initialize(savedBoard, creator, request.getGuidePrompt());
-
-        return savedBoard;
-    }
-
-    private BusinessException resolveBoardConflict(DataIntegrityViolationException ex) {
-        if (containsBoardUrlConstraint(ex)) {
-            return new BusinessException(ErrorCode.DUPLICATE_BOARD_URL);
-        }
-        if (containsBoardNameConstraint(ex)) {
-            return new BusinessException(ErrorCode.DUPLICATE_BOARD_NAME);
-        }
-        return new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
-    }
-
-    Board updateBoard(String boardUrl, BoardUpdateRequest request, Long userId) {
-        Board board = boardRepository.findByBoardUrlForUpdate(boardUrl)
-                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        User currentUser = getCurrentUser(userId);
-        String previousIconUrl = board.getIconUrl();
-        String previousBoardName = board.getBoardName();
-        String iconUrl = normalizeIconUrl(request.getIconUrl());
-
-        boardAccessPolicy.validateBoardAdmin(board, currentUser);
-
-        if (request.getBoardUrl() != null && !board.getBoardUrl().equals(request.getBoardUrl())) {
-            validateCreatableBoardUrl(request.getBoardUrl());
-        }
-
-        if (request.getBoardUrl() != null && !board.getBoardUrl().equals(request.getBoardUrl())) {
-            board.updateBoardUrl(request.getBoardUrl());
-        }
-
-        Integer sortOrder = request.getSortOrder() != null ? request.getSortOrder() : board.getSortOrder();
-        board.update(request.getBoardName(), normalizeDescription(request.getDescription()), iconUrl,
-                sortOrder,
-                request.getAllowNsfw() != null ? request.getAllowNsfw() : board.getAllowNsfw(),
-                request.getIsActive(),
-                request.getIsPublic(),
-                resolveAgentUseYn(
-                        request.getIsPublic() != null ? request.getIsPublic() : board.getIsPublic(),
-                        request.getAgentUseYn()));
-        try {
-            boardRepository.saveAndFlush(board);
-        } catch (DataIntegrityViolationException ex) {
-            throw resolveBoardConflict(ex);
-        }
-        boardIconAttachmentService.syncBoardIcon(currentUser.getUserId(), board, previousIconUrl);
-        boardAiInfoService.upsertBoardAiInfoIfEnabled(board, request.getGuidePrompt(), false);
-        if (!Objects.equals(previousBoardName, board.getBoardName())) {
-            semanticSearchEventPublisher.publishBoardContentReindex(board.getBoardId());
-        }
-        return board;
-    }
-
-    private Boolean resolveAgentUseYn(Boolean isPublic, Boolean requestedAgentUseYn) {
-        if (Boolean.FALSE.equals(isPublic)) {
-            return false;
-        }
-        return requestedAgentUseYn;
     }
 
     void transferBoardManager(String boardUrl, String loginId, Long userId) {
@@ -400,24 +291,4 @@ class BoardProvisioningService {
         return false;
     }
 
-    private void validateCreatableBoardUrl(String boardUrl) {
-        if (boardUrl == null) {
-            return;
-        }
-        if (BoardPolicyConstants.INQUIRY_BOARD_URL.equalsIgnoreCase(boardUrl.trim())) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Reserved board URL");
-        }
-    }
-
-    private String normalizeDescription(String description) {
-        return description == null || description.isBlank() ? "" : description;
-    }
-
-    private String normalizeIconUrl(String iconUrl) {
-        if (iconUrl == null) {
-            return null;
-        }
-        String trimmedIconUrl = iconUrl.trim();
-        return trimmedIconUrl.isEmpty() ? null : trimmedIconUrl;
-    }
 }

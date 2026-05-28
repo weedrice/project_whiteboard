@@ -161,11 +161,17 @@ class BoardServiceTest {
                 userRepository,
                 adminEligibleUserService,
                 boardManagerAssignmentService,
+                boardAccessPolicy);
+        BoardCommandService boardCommandService = new BoardCommandService(
+                boardRepository,
+                userRepository,
+                adminEligibleUserService,
+                boardAccessPolicy);
+        BoardProvisioningSideEffectService provisioningSideEffectService = new BoardProvisioningSideEffectService(
                 boardIconAttachmentService,
                 boardCreationBillingService,
                 boardCreationInitializer,
                 boardAiInfoService,
-                boardAccessPolicy,
                 semanticSearchEventPublisher);
         BoardSubscriptionService subscriptionService = new BoardSubscriptionService(
                 boardRepository,
@@ -182,6 +188,8 @@ class BoardServiceTest {
         boardService = new BoardService(
                 queryService,
                 provisioningService,
+                boardCommandService,
+                provisioningSideEffectService,
                 subscriptionService,
                 categoryService,
                 boardAccessPolicy);

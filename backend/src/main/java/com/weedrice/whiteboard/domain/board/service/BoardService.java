@@ -26,17 +26,23 @@ public class BoardService {
 
     private final BoardQueryService queryService;
     private final BoardProvisioningService provisioningService;
+    private final BoardCommandService boardCommandService;
+    private final BoardProvisioningSideEffectService provisioningSideEffectService;
     private final BoardSubscriptionService subscriptionService;
     private final BoardCategoryService categoryService;
     private final BoardAccessPolicy boardAccessPolicy;
 
     public BoardService(BoardQueryService queryService,
-                         BoardProvisioningService provisioningService,
-                         BoardSubscriptionService subscriptionService,
-                         BoardCategoryService categoryService,
-                         BoardAccessPolicy boardAccessPolicy) {
+                          BoardProvisioningService provisioningService,
+                          BoardCommandService boardCommandService,
+                          BoardProvisioningSideEffectService provisioningSideEffectService,
+                          BoardSubscriptionService subscriptionService,
+                          BoardCategoryService categoryService,
+                          BoardAccessPolicy boardAccessPolicy) {
         this.queryService = queryService;
         this.provisioningService = provisioningService;
+        this.boardCommandService = boardCommandService;
+        this.provisioningSideEffectService = provisioningSideEffectService;
         this.subscriptionService = subscriptionService;
         this.categoryService = categoryService;
         this.boardAccessPolicy = boardAccessPolicy;
@@ -110,15 +116,17 @@ public class BoardService {
 
     @Transactional
     public BoardCommandResult createBoard(Long creatorId, BoardCreateRequest request) {
-        Board board = provisioningService.createBoard(creatorId, request);
-        return new BoardCommandResult(board.getBoardUrl());
+        BoardCreateCommandResult result = boardCommandService.createBoard(creatorId, request);
+        provisioningSideEffectService.applyCreateSideEffects(result);
+        return new BoardCommandResult(result.board().getBoardUrl());
     }
 
     @Transactional
     public BoardCommandResult updateBoard(String boardUrl, BoardUpdateRequest request, Long userId) {
         validatePublicBoardPath(boardUrl);
-        Board board = provisioningService.updateBoard(boardUrl, request, userId);
-        return new BoardCommandResult(board.getBoardUrl());
+        BoardUpdateCommandResult result = boardCommandService.updateBoard(boardUrl, request, userId);
+        provisioningSideEffectService.applyUpdateSideEffects(result);
+        return new BoardCommandResult(result.board().getBoardUrl());
     }
 
     @Transactional
