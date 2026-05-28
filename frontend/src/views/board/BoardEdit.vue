@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { boardApi } from '@/api/board'
 import CategoryManager from '@/components/board/CategoryManager.vue'
 import BoardForm from '@/components/board/BoardForm.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -31,10 +30,10 @@ const boardUrl = computed(() => String(route.params.boardUrl ?? ''))
 
 const form = ref(createEmptyBoardEditForm())
 
-const isLoading = ref(true)
 const { isSubmitting, submit } = useFormSubmit()
 const { handleError } = useErrorHandler()
-const { useUpdateBoard, useDeleteBoard, useTransferBoardManager } = useBoard()
+const { useBoardDetail, useUpdateBoard, useDeleteBoard, useTransferBoardManager } = useBoard()
+const { data: boardData, isLoading, error: boardLoadError } = useBoardDetail(boardUrl)
 const { mutateAsync: updateBoard } = useUpdateBoard()
 const { mutateAsync: deleteBoard } = useDeleteBoard()
 const { mutateAsync: transferBoardManager } = useTransferBoardManager()
@@ -43,14 +42,7 @@ const canManageBoard = ref(true)
 const isManagerModalOpen = ref(false)
 const isTransferringManager = ref(false)
 const currentManagerLabel = ref('')
-let fetchRequestId = 0
 let managerTransferRequestId = 0
-let fetchAbortController: AbortController | null = null
-
-function abortActiveFetch() {
-  fetchAbortController?.abort()
-  fetchAbortController = null
-}
 
 function resetBoardState() {
   managerTransferRequestId += 1
@@ -60,42 +52,6 @@ function resetBoardState() {
   currentManagerLabel.value = ''
   isManagerModalOpen.value = false
   isTransferringManager.value = false
-}
-
-async function fetchBoard() {
-  const currentBoardUrl = boardUrl.value
-  if (!currentBoardUrl) return
-  abortActiveFetch()
-  const controller = new AbortController()
-  fetchAbortController = controller
-  const requestId = ++fetchRequestId
-  isLoading.value = true
-  try {
-    const { data } = await boardApi.getBoard(currentBoardUrl, { signal: controller.signal })
-    if (requestId !== fetchRequestId) return
-    if (data.success) {
-      const board = data.data
-      if (!assertBoardManageable(board)) {
-        canManageBoard.value = false
-        toastStore.addToast(t('common.messages.forbidden'), 'error')
-        router.push(`/board/${currentBoardUrl}`)
-        return
-      }
-      form.value = toBoardEditForm(board)
-      currentManagerLabel.value = resolveBoardManagerLabel(board, t('common.noData'))
-    }
-  } catch (err: unknown) {
-    if (requestId !== fetchRequestId || controller.signal.aborted) return
-    handleError(err, t('board.loadFailed'))
-    router.push(`/board/${currentBoardUrl}`)
-  } finally {
-    if (fetchAbortController === controller) {
-      fetchAbortController = null
-    }
-    if (requestId === fetchRequestId) {
-      isLoading.value = false
-    }
-  }
 }
 
 async function handleUpdate(formData: BoardEditFormData) {
@@ -164,13 +120,33 @@ async function confirmManagerSelection(users: Array<{ loginId: string; displayNa
 
 watch(boardUrl, () => {
   resetBoardState()
-  void fetchBoard()
 }, { immediate: true })
 
+watch(boardData, (board) => {
+  const currentBoardUrl = boardUrl.value
+  if (!board || !currentBoardUrl || board.boardUrl !== currentBoardUrl) return
+
+  if (!assertBoardManageable(board)) {
+    canManageBoard.value = false
+    toastStore.addToast(t('common.messages.forbidden'), 'error')
+    router.push(`/board/${currentBoardUrl}`)
+    return
+  }
+
+  form.value = toBoardEditForm(board)
+  currentManagerLabel.value = resolveBoardManagerLabel(board, t('common.noData'))
+}, { immediate: true })
+
+watch(boardLoadError, (err) => {
+  const currentBoardUrl = boardUrl.value
+  if (!err || !currentBoardUrl) return
+
+  handleError(err, t('board.loadFailed'))
+  router.push(`/board/${currentBoardUrl}`)
+})
+
 onUnmounted(() => {
-  fetchRequestId += 1
   managerTransferRequestId += 1
-  abortActiveFetch()
 })
 </script>
 
