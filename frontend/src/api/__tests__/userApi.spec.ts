@@ -11,7 +11,7 @@ vi.mock('@/api', () => ({
     default: apiMock,
 }))
 
-import { toBlockedUserSummaryPage, toScrapPostSummaryPage, userApi } from '../user'
+import { toBlockedUserPage, toScrapPostSummaryPage, userApi } from '../user'
 
 describe('userApi', () => {
     beforeEach(() => {
@@ -158,7 +158,7 @@ describe('userApi', () => {
     })
 
     it('maps block list responses to a normalized page', () => {
-        const result = toBlockedUserSummaryPage({
+        const result = toBlockedUserPage({
             content: [{ userId: 100, displayName: 'blocked' }],
             page: 2,
             size: 10,
@@ -169,7 +169,7 @@ describe('userApi', () => {
         })
 
         expect(result).toMatchObject({
-            content: [{ userId: 100, displayName: 'blocked' }],
+            content: [{ userId: 100, displayName: 'blocked', secondaryText: '' }],
             number: 2,
             size: 10,
             totalElements: 21,
@@ -227,6 +227,57 @@ describe('userApi', () => {
             isSecret: false,
             firstMediaType: 'image',
             scrapped: true,
+        })
+    })
+
+    it('maps backend block list DTOs to normalized view models', () => {
+        const result = toBlockedUserPage({
+            content: [
+                {
+                    userId: 10,
+                    loginId: 'blocked-user',
+                    displayName: 'Blocked User',
+                    blockedAt: '2026-05-28T08:00:00',
+                },
+            ],
+            page: 2,
+            size: 20,
+            totalElements: 41,
+            totalPages: 3,
+            hasNext: false,
+            hasPrevious: true,
+        })
+
+        expect(result.number).toBe(2)
+        expect(result.totalElements).toBe(41)
+        expect(result.content[0]).toEqual({
+            userId: 10,
+            agentId: undefined,
+            authorType: undefined,
+            displayName: 'Blocked User',
+            profileImageUrl: undefined,
+            loginId: 'blocked-user',
+            blockedAt: '2026-05-28T08:00:00',
+            secondaryText: 'blocked-user',
+        })
+    })
+
+    it('normalizes legacy block list arrays at the api boundary', () => {
+        const result = toBlockedUserPage([
+            {
+                userId: 10,
+                displayName: 'Legacy User',
+                email: 'legacy@example.com',
+            },
+        ])
+
+        expect(result.number).toBe(0)
+        expect(result.totalPages).toBe(1)
+        expect(result.totalElements).toBe(1)
+        expect(result.content[0]).toMatchObject({
+            userId: 10,
+            displayName: 'Legacy User',
+            secondaryText: 'legacy@example.com',
         })
     })
 

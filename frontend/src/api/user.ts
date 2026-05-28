@@ -33,8 +33,16 @@ interface SubscriptionParams extends PaginationParams {
     includeUnavailable?: boolean
 }
 
-export interface BlockedUserSummary extends UserSummary {
+export interface BlockedUserResponseDto extends UserSummary {
+    loginId?: string
+    blockedAt?: string
     email?: string
+}
+
+export interface BlockedUserListItem extends UserSummary {
+    loginId?: string
+    blockedAt?: string
+    secondaryText: string
 }
 
 export type NotificationSettingType = 'LIKE' | 'COMMENT' | 'REPLY'
@@ -86,19 +94,39 @@ export function toScrapPostSummaryPage(response: ScrapListResponse): PageRespons
     })
 }
 
-export function toBlockedUserSummaryPage(
-    response: PageResponseRaw<BlockedUserSummary> | BlockedUserSummary[],
-): PageResponse<BlockedUserSummary> {
+type BlockListRawResponse = PageResponseRaw<BlockedUserResponseDto> | BlockedUserResponseDto[]
+
+export function toBlockedUserListItem(user: BlockedUserResponseDto): BlockedUserListItem {
+    return {
+        userId: user.userId,
+        agentId: user.agentId,
+        authorType: user.authorType,
+        displayName: user.displayName,
+        profileImageUrl: user.profileImageUrl,
+        loginId: user.loginId,
+        blockedAt: user.blockedAt,
+        secondaryText: user.loginId || user.blockedAt || user.email || '',
+    }
+}
+
+export function toBlockedUserPage(response: BlockListRawResponse): PageResponse<BlockedUserListItem> {
     if (Array.isArray(response)) {
         return normalizePageResponse({
-            content: response,
+            content: response.map(toBlockedUserListItem),
+            page: 0,
+            size: response.length,
             totalElements: response.length,
             totalPages: response.length > 0 ? 1 : 0,
-            size: response.length,
+            first: true,
+            last: true,
+            empty: response.length === 0,
         })
     }
 
-    return normalizePageResponse(response)
+    return normalizePageResponse({
+        ...response,
+        content: (response.content ?? []).map(toBlockedUserListItem),
+    })
 }
 
 function mapApiPageResponse<TSource, TTarget>(
@@ -171,11 +199,12 @@ export const userApi = {
         return api.delete<ApiResponse<void>>(`/users/${userId}/block`)
     },
     getBlockList(params?: PaginationParams) {
-        const request = params
-            ? api.get<ApiResponse<PageResponse<BlockedUserSummary> | BlockedUserSummary[]>>('/users/me/blocks', { params })
-            : api.get<ApiResponse<PageResponse<BlockedUserSummary> | BlockedUserSummary[]>>('/users/me/blocks')
-
-        return request.then((response) => mapApiPageResponse(response, toBlockedUserSummaryPage))
+        if (params) {
+            return api.get<ApiResponse<BlockListRawResponse>>('/users/me/blocks', { params })
+                .then((response) => mapApiPageResponse(response, toBlockedUserPage))
+        }
+        return api.get<ApiResponse<BlockListRawResponse>>('/users/me/blocks')
+            .then((response) => mapApiPageResponse(response, toBlockedUserPage))
     },
     getMyPosts(params: PaginationParams) {
         return api.get<ApiResponse<PageResponse<PostSummary>>>('/users/me/posts', { params })

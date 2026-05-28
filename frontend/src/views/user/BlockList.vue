@@ -41,7 +41,7 @@
             </div>
             <div class="ml-4 min-w-0">
               <p class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ user.displayName }}</p>
-              <p class="text-sm text-gray-500 dark:text-gray-400 truncate">{{ user.email }}</p>
+              <p class="text-sm text-gray-500 dark:text-gray-400 truncate">{{ user.secondaryText }}</p>
             </div>
           </div>
           <div class="flex-shrink-0 min-h-[44px] sm:min-h-0 flex items-center">
@@ -60,7 +60,6 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { BlockedUserSummary } from '@/api/user'
 import BlockButton from '@/components/user/BlockButton.vue'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
@@ -68,7 +67,7 @@ import { UserX } from 'lucide-vue-next'
 import logger from '@/utils/logger'
 import { useUser } from '@/composables/useUser'
 import { getListLoadErrorMessage } from '@/utils/listLoadError'
-import { usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
+import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 
 const { t } = useI18n()
 const { useBlockList } = useUser()
@@ -76,12 +75,7 @@ const { page, size, params: blockListParams, handlePageChange, handleSizeChange 
   initialSize: 20,
 })
 const { data: blockListData, isLoading: loading, error, refetch } = useBlockList(blockListParams)
-
-const blockedUsers = computed<BlockedUserSummary[]>(() => blockListData.value?.content ?? [])
-
-const totalElements = computed(() => blockListData.value?.totalElements ?? 0)
-
-const totalPages = computed(() => blockListData.value?.totalPages ?? 0)
+const { items: blockedUsers, totalElements, totalPages } = usePageResponseState(blockListData, page)
 
 const errorMessage = computed(() => error.value ? getListLoadErrorMessage(t) : '')
 
