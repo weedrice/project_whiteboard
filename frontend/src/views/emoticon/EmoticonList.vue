@@ -1,23 +1,34 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { useQuery } from '@tanstack/vue-query'
-import { emoticonApi } from '@/api/emoticon'
 import { useAuthStore } from '@/stores/auth'
 import { useHead } from '@unhead/vue'
 import { Search, X, PlusCircle, TrendingUp } from 'lucide-vue-next'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import { DEFAULT_EMOTICON_IMAGE_URL, applyImageFallback } from '@/utils/imageFallback'
+import { useEmoticonListResource } from '@/composables/useEmoticonListResource'
 import type { EmoticonSearchParams } from '@/types/emoticon'
 
-const router = useRouter()
 const authStore = useAuthStore()
-
-interface DisplayedPage {
-  key: string
-  page: number | null
-}
+const {
+  popularPeriod,
+  sortBy,
+  currentPage,
+  searchInput,
+  searchType,
+  isSearching,
+  popularEmoticons,
+  popularLoading,
+  emoticonsLoading,
+  emoticons,
+  totalPages,
+  totalElements,
+  displayedPages,
+  goToPage,
+  changeSortBy,
+  handleSearch,
+  clearSearch,
+  goToDetail,
+} = useEmoticonListResource()
 
 useHead({
   title: '노비콘',
@@ -25,115 +36,6 @@ useHead({
     { name: 'description', content: '노비콘을 조회하고 구매하세요.' }
   ]
 })
-
-// 상태
-const popularPeriod = ref<'daily' | 'weekly' | 'monthly'>('daily')
-const sortBy = ref<'latest' | 'oldest' | 'popular'>('latest')
-const currentPage = ref(0)
-const pageSize = 20
-const searchKeyword = ref('')
-const searchInput = ref('')
-const searchType = ref<NonNullable<EmoticonSearchParams['searchType']>>('ALL') // ALL, NAME, CREATOR, TAG
-const isSearching = ref(false)
-
-// 인기 이모티콘 조회
-const { data: popularEmoticons, isLoading: popularLoading } = useQuery({
-  queryKey: ['emoticons', 'popular', popularPeriod],
-  queryFn: async () => {
-    return emoticonApi.getPopularEmoticonsData(popularPeriod.value)
-  }
-})
-
-// 전체 이모티콘 조회
-const { data: emoticonsPage, isLoading: emoticonsLoading } = useQuery({
-  queryKey: ['emoticons', 'list', currentPage, sortBy, searchKeyword, searchType],
-  queryFn: async () => {
-    const params: EmoticonSearchParams = {
-      page: currentPage.value,
-      size: pageSize,
-      sortBy: sortBy.value
-    }
-    if (searchKeyword.value) {
-      params.keyword = searchKeyword.value
-      params.searchType = searchType.value
-    }
-    return emoticonApi.searchAllData(params)
-  }
-})
-
-const emoticons = computed(() => emoticonsPage.value?.content || [])
-const totalPages = computed(() => emoticonsPage.value?.totalPages || 0)
-const totalElements = computed(() => emoticonsPage.value?.totalElements || 0)
-const displayedPages = computed(() => {
-  const pages: DisplayedPage[] = []
-  const lastPage = totalPages.value
-  const current = currentPage.value + 1
-
-  if (lastPage <= 7) {
-    return Array.from({ length: lastPage }, (_, index) => ({
-      key: `page-${index + 1}`,
-      page: index + 1
-    }))
-  }
-
-  const visiblePages = new Set<number>([1, lastPage])
-  for (let page = Math.max(2, current - 1); page <= Math.min(lastPage - 1, current + 1); page += 1) {
-    visiblePages.add(page)
-  }
-
-  let previousPage = 0
-  Array.from(visiblePages)
-    .sort((a, b) => a - b)
-    .forEach((page) => {
-      if (previousPage && page - previousPage > 1) {
-        pages.push({
-          key: `ellipsis-${previousPage}-${page}`,
-          page: null
-        })
-      }
-      pages.push({
-        key: `page-${page}`,
-        page
-      })
-      previousPage = page
-    })
-
-  return pages
-})
-
-// 페이지 변경
-const goToPage = (page: number) => {
-  if (page >= 0 && page < totalPages.value) {
-    currentPage.value = page
-  }
-}
-
-// 정렬 변경
-const changeSortBy = (newSort: NonNullable<EmoticonSearchParams['sortBy']>) => {
-  sortBy.value = newSort
-  currentPage.value = 0
-}
-
-// 검색
-const handleSearch = () => {
-  if (!searchInput.value.trim()) return
-  searchKeyword.value = searchInput.value.trim()
-  isSearching.value = true
-  currentPage.value = 0
-}
-
-// 검색 초기화
-const clearSearch = () => {
-  searchInput.value = ''
-  searchKeyword.value = ''
-  isSearching.value = false
-  currentPage.value = 0
-}
-
-// 상세 페이지 이동
-const goToDetail = (emoticonId: number) => {
-  router.push({ name: 'emoticon-detail', params: { emoticonId } })
-}
 
 // 등록 페이지 이동
 // 기간 버튼 텍스트
