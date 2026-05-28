@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
@@ -18,6 +19,7 @@ class SemanticSearchJobServiceTest {
     private SemanticSearchProperties properties;
     private EmbeddingClient embeddingClient;
     private SemanticSearchJobRepository jobRepository;
+    private SemanticSearchJobCommandService jobCommandService;
     private SemanticSearchIndexService indexService;
     private SemanticSearchJobService jobService;
 
@@ -30,9 +32,16 @@ class SemanticSearchJobServiceTest {
         embeddingClient = mock(EmbeddingClient.class);
         when(embeddingClient.isAvailable()).thenReturn(true);
         jobRepository = mock(SemanticSearchJobRepository.class);
+        jobCommandService = mock(SemanticSearchJobCommandService.class);
         indexService = mock(SemanticSearchIndexService.class);
         Clock clock = Clock.fixed(Instant.parse("2026-05-19T06:00:00Z"), ZoneId.of("Asia/Seoul"));
-        jobService = new SemanticSearchJobService(properties, embeddingClient, jobRepository, indexService, clock);
+        jobService = new SemanticSearchJobService(
+                properties,
+                embeddingClient,
+                jobRepository,
+                jobCommandService,
+                indexService,
+                clock);
     }
 
     @Test
@@ -97,32 +106,32 @@ class SemanticSearchJobServiceTest {
     void processPendingJobs_marksCompletedAfterUpsert() {
         SemanticSearchJob pending = new SemanticSearchJob(1L, "POST", 10L, "UPSERT", null);
         when(jobRepository.findPendingJobs(3, 10)).thenReturn(List.of(pending));
-        when(jobRepository.claimForProcessing(eq(1L), eq(3), any(LocalDateTime.class))).thenReturn(1);
-        when(jobRepository.findClaimed(eq(1L), any(LocalDateTime.class)))
-                .thenAnswer(invocation -> java.util.Optional.of(new SemanticSearchJob(
+        when(jobCommandService.claimForProcessing(eq(1L), eq(3), any(LocalDateTime.class))).thenReturn(1);
+        when(jobCommandService.findClaimed(eq(1L), any(LocalDateTime.class)))
+                .thenAnswer(invocation -> Optional.of(new SemanticSearchJob(
                         1L, "POST", 10L, "UPSERT", invocation.getArgument(1))));
 
         int processed = jobService.processPendingJobs();
 
         assertThat(processed).isEqualTo(1);
         verify(indexService).upsertPost(10L);
-        verify(jobRepository).markCompleted(eq(1L), any(LocalDateTime.class), any(LocalDateTime.class));
+        verify(jobCommandService).markCompleted(eq(1L), any(LocalDateTime.class), any(LocalDateTime.class));
     }
 
     @Test
     void processPendingJobs_retriesWhenIndexingFails() {
         SemanticSearchJob pending = new SemanticSearchJob(2L, "COMMENT", 20L, "UPSERT", null);
         when(jobRepository.findPendingJobs(3, 10)).thenReturn(List.of(pending));
-        when(jobRepository.claimForProcessing(eq(2L), eq(3), any(LocalDateTime.class))).thenReturn(1);
-        when(jobRepository.findClaimed(eq(2L), any(LocalDateTime.class)))
-                .thenAnswer(invocation -> java.util.Optional.of(new SemanticSearchJob(
+        when(jobCommandService.claimForProcessing(eq(2L), eq(3), any(LocalDateTime.class))).thenReturn(1);
+        when(jobCommandService.findClaimed(eq(2L), any(LocalDateTime.class)))
+                .thenAnswer(invocation -> Optional.of(new SemanticSearchJob(
                         2L, "COMMENT", 20L, "UPSERT", invocation.getArgument(1))));
         doThrow(new IllegalStateException("provider down")).when(indexService).upsertComment(20L);
 
         int processed = jobService.processPendingJobs();
 
         assertThat(processed).isEqualTo(1);
-        verify(jobRepository).markFailedIfCurrent(eq(2L), any(LocalDateTime.class), eq(3),
+        verify(jobCommandService).markFailedIfCurrent(eq(2L), any(LocalDateTime.class), eq(3),
                 contains("provider down"));
     }
 
@@ -130,9 +139,9 @@ class SemanticSearchJobServiceTest {
     void processPendingJobs_retriesAndDoesNotCompleteWhenIndexPayloadTurnsStale() {
         SemanticSearchJob pending = new SemanticSearchJob(3L, "POST", 30L, "UPSERT", null);
         when(jobRepository.findPendingJobs(3, 10)).thenReturn(List.of(pending));
-        when(jobRepository.claimForProcessing(eq(3L), eq(3), any(LocalDateTime.class))).thenReturn(1);
-        when(jobRepository.findClaimed(eq(3L), any(LocalDateTime.class)))
-                .thenAnswer(invocation -> java.util.Optional.of(new SemanticSearchJob(
+        when(jobCommandService.claimForProcessing(eq(3L), eq(3), any(LocalDateTime.class))).thenReturn(1);
+        when(jobCommandService.findClaimed(eq(3L), any(LocalDateTime.class)))
+                .thenAnswer(invocation -> Optional.of(new SemanticSearchJob(
                         3L, "POST", 30L, "UPSERT", invocation.getArgument(1))));
         doThrow(new IllegalStateException("Semantic search post payload changed before write"))
                 .when(indexService).upsertPost(30L);
@@ -140,8 +149,8 @@ class SemanticSearchJobServiceTest {
         int processed = jobService.processPendingJobs();
 
         assertThat(processed).isEqualTo(1);
-        verify(jobRepository, never()).markCompleted(anyLong(), any(LocalDateTime.class), any(LocalDateTime.class));
-        verify(jobRepository).markFailedIfCurrent(eq(3L), any(LocalDateTime.class), eq(3),
+        verify(jobCommandService, never()).markCompleted(anyLong(), any(LocalDateTime.class), any(LocalDateTime.class));
+        verify(jobCommandService).markFailedIfCurrent(eq(3L), any(LocalDateTime.class), eq(3),
                 contains("payload changed"));
     }
 }

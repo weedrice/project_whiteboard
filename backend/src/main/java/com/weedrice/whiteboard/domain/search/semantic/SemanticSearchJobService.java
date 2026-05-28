@@ -22,6 +22,7 @@ public class SemanticSearchJobService {
     private final SemanticSearchProperties properties;
     private final EmbeddingClient embeddingClient;
     private final SemanticSearchJobRepository jobRepository;
+    private final SemanticSearchJobCommandService jobCommandService;
     private final SemanticSearchIndexService indexService;
     private final Clock clock;
 
@@ -57,7 +58,7 @@ public class SemanticSearchJobService {
         }
 
         LocalDateTime current = now();
-        int recovered = jobRepository.recoverStaleProcessingJobs(
+        int recovered = jobCommandService.recoverStaleProcessingJobs(
                 current.minusMinutes(properties.getJob().getProcessingLeaseMinutes()),
                 properties.getJob().getMaxRetryCount(),
                 STALE_PROCESSING_ERROR);
@@ -72,7 +73,7 @@ public class SemanticSearchJobService {
         int processedCount = 0;
         for (SemanticSearchJob job : jobs) {
             LocalDateTime claimedAt = now();
-            int claimed = jobRepository.claimForProcessing(
+            int claimed = jobCommandService.claimForProcessing(
                     job.jobId(),
                     properties.getJob().getMaxRetryCount(),
                     claimedAt);
@@ -85,7 +86,7 @@ public class SemanticSearchJobService {
     }
 
     private void processClaimedJob(Long jobId, LocalDateTime claimedAt) {
-        jobRepository.findClaimed(jobId, claimedAt)
+        jobCommandService.findClaimed(jobId, claimedAt)
                 .ifPresent(job -> processClaimedJob(job, claimedAt));
     }
 
@@ -98,9 +99,9 @@ public class SemanticSearchJobService {
             } else if ("COMMENT".equals(job.contentType())) {
                 indexService.upsertComment(job.contentId());
             }
-            jobRepository.markCompleted(job.jobId(), claimedAt, now());
+            jobCommandService.markCompleted(job.jobId(), claimedAt, now());
         } catch (Exception ex) {
-            jobRepository.markFailedIfCurrent(
+            jobCommandService.markFailedIfCurrent(
                     job.jobId(),
                     claimedAt,
                     properties.getJob().getMaxRetryCount(),
