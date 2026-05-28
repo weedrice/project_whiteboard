@@ -26,38 +26,28 @@ public class PostDetailReadService {
 
     private final PostRepository postRepository;
     private final ViewHistoryRepository viewHistoryRepository;
-    private final ViewHistoryCommandService viewHistoryCommandService;
     private final TagAssignmentService tagAssignmentService;
     private final PostImageAttachmentReader postImageAttachmentReader;
     private final PostReadContextResolver postReadContextResolver;
     private final PostInteractionContextResolver postInteractionContextResolver;
     private final PostAccessPolicy postAccessPolicy;
     private final BoardAccessPolicy boardAccessPolicy;
-    private final PostViewCountWriter postViewCountWriter;
 
     public PostResponse getPostResponse(@NonNull Long postId, Long userId) {
         return getPostResponse(postId, userId, DEFAULT_BOARD_PAGE_SIZE);
     }
 
     public PostResponse getPostResponse(@NonNull Long postId, Long userId, int boardListPageSize) {
-        return assemblePostResponse(postId, userId, boardListPageSize, false);
+        return getPostResponse(postId, userId, boardListPageSize, null);
     }
 
-    @Transactional
-    public PostResponse getPostResponseWithViewIncrement(
-            @NonNull Long postId,
-            Long userId,
-            int boardListPageSize) {
-        return assemblePostResponse(postId, userId, boardListPageSize, true);
-    }
-
-    private PostResponse assemblePostResponse(
+    public PostResponse getPostResponse(
             @NonNull Long postId,
             Long userId,
             int boardListPageSize,
-            boolean incrementView) {
+            Integer viewCountOverride) {
         int normalizedBoardListPageSize = PageRequestUtils.of(0, boardListPageSize).getPageSize();
-        PostDetailContext context = loadPostDetailContext(postId, userId, incrementView);
+        PostDetailContext context = loadPostDetailContext(postId, userId);
         Post post = context.post();
         List<String> tags = getTagsForPost(post);
         PostUserInteractionContext interactionContext =
@@ -67,28 +57,20 @@ public class PostDetailReadService {
         List<String> imageUrls = getPostImageUrls(postId);
         boolean isAdmin = isBoardAdmin(context);
         int boardListPage = resolveDefaultBoardListPage(context, normalizedBoardListPageSize);
-        Integer viewCount = incrementView ? getReadablePostViewCount(postId) : null;
 
         return PostResponse.from(
-                post, tags, context.viewHistory(), isLiked, isScrapped, imageUrls, isAdmin, boardListPage, viewCount);
+                post, tags, context.viewHistory(), isLiked, isScrapped, imageUrls, isAdmin, boardListPage,
+                viewCountOverride);
     }
 
-    private PostDetailContext loadPostDetailContext(@NonNull Long postId, Long userId, boolean incrementView) {
+    private PostDetailContext loadPostDetailContext(@NonNull Long postId, Long userId) {
         PostReadContext readContext = postReadContextResolver.resolveForExistingUser(userId);
         Post post = findPost(postId);
         readContext = postReadContextResolver.withAdminBoardIds(readContext, List.of(post.getBoard()));
         validateReadable(post, readContext);
         ViewHistory viewHistory = null;
 
-        if (incrementView) {
-            postViewCountWriter.incrementReadablePostViewCount(postId);
-
-            if (readContext.viewer() != null) {
-                viewHistory = viewHistoryCommandService.touchAndLoadView(readContext.viewer(), post);
-            }
-        }
-
-        if (readContext.viewer() != null && viewHistory == null) {
+        if (readContext.viewer() != null) {
             viewHistory = viewHistoryRepository.findByUserAndPost(readContext.viewer(), post).orElse(null);
         }
 
@@ -129,14 +111,6 @@ public class PostDetailReadService {
     private Post findPost(@NonNull Long postId) {
         return postRepository.findByIdWithRelations(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-    }
-
-    private int getReadablePostViewCount(Long postId) {
-        Integer viewCount = postRepository.findViewCountByPostId(postId);
-        if (viewCount == null) {
-            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
-        }
-        return viewCount;
     }
 
     private void validateReadable(Post post, PostReadContext context) {

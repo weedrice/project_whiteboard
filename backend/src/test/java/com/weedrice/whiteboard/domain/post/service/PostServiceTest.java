@@ -126,6 +126,7 @@ class PostServiceTest {
     private PostImageAttachmentReader postImageAttachmentReader;
     private ViewHistoryCommandService viewHistoryCommandService;
     private PostDetailReadService postDetailReadService;
+    private PostDetailViewCommandService postDetailViewCommandService;
     private PostDraftService postDraftService;
     private PostInteractionService postInteractionService;
     private PostLatestReadService postLatestReadService;
@@ -175,13 +176,17 @@ class PostServiceTest {
         postDetailReadService = new PostDetailReadService(
                 postRepository,
                 viewHistoryRepository,
-                viewHistoryCommandService,
                 tagAssignmentService,
                 postImageAttachmentReader,
                 postReadContextResolver,
                 postInteractionContextResolver,
                 postAccessPolicy,
-                boardAccessPolicy,
+                boardAccessPolicy);
+        postDetailViewCommandService = new PostDetailViewCommandService(
+                postRepository,
+                viewHistoryCommandService,
+                postReadContextResolver,
+                postAccessPolicy,
                 postViewCountWriter);
         postDraftService = new PostDraftService(
                 userRepository,
@@ -279,6 +284,7 @@ class PostServiceTest {
                 boardRepository,
                 userRepository,
                 postDetailReadService,
+                postDetailViewCommandService,
                 postDraftService,
                 postInteractionService,
                 postListReadService,
@@ -2565,14 +2571,20 @@ class PostServiceTest {
                 Long.class,
                 Long.class,
                 int.class);
-        Method commandMethod = PostDetailReadService.class.getMethod(
-                "getPostResponseWithViewIncrement",
-                Long.class,
-                Long.class,
-                int.class);
 
         assertThat(PostDetailReadService.class.getAnnotation(Transactional.class).readOnly()).isTrue();
         assertThat(readMethod.getAnnotation(Transactional.class)).isNull();
+    }
+
+    @Test
+    @DisplayName("게시글 상세 조회수 갱신은 별도 command 트랜잭션을 사용한다")
+    void postDetailViewCommandService_usesWriteTransaction() throws Exception {
+        Method commandMethod = PostDetailViewCommandService.class.getMethod(
+                "recordReadableView",
+                Long.class,
+                Long.class);
+
+        assertThat(PostDetailViewCommandService.class.getAnnotation(Transactional.class).readOnly()).isTrue();
         assertThat(commandMethod.getAnnotation(Transactional.class).readOnly()).isFalse();
     }
 

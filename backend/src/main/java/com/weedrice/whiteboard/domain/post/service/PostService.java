@@ -42,6 +42,7 @@ public class PostService {
     private final BoardRepository boardRepository;
     private final UserRepository userRepository;
     private final PostDetailReadService postDetailReadService;
+    private final PostDetailViewCommandService postDetailViewCommandService;
     private final PostDraftService postDraftService;
     private final PostInteractionService postInteractionService;
     private final PostListReadService postListReadService;
@@ -163,10 +164,8 @@ public class PostService {
             int boardListPageSize) {
         int normalizedBoardListPageSize = PageRequestUtils.of(0, boardListPageSize).getPageSize();
         if (incrementView) {
-            return postDetailReadService.getPostResponseWithViewIncrement(
-                    postId,
-                    userId,
-                    normalizedBoardListPageSize);
+            int viewCount = postDetailViewCommandService.recordReadableView(postId, userId);
+            return postDetailReadService.getPostResponse(postId, userId, normalizedBoardListPageSize, viewCount);
         }
         return postDetailReadService.getPostResponse(postId, userId, normalizedBoardListPageSize);
     }
