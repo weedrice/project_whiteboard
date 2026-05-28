@@ -58,7 +58,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { BlockedUserSummary } from '@/api/user'
 import BlockButton from '@/components/user/BlockButton.vue'
@@ -68,12 +68,13 @@ import { UserX } from 'lucide-vue-next'
 import logger from '@/utils/logger'
 import { useUser } from '@/composables/useUser'
 import { getListLoadErrorMessage } from '@/utils/listLoadError'
+import { usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 
 const { t } = useI18n()
 const { useBlockList } = useUser()
-const page = ref(0)
-const size = ref(20)
-const blockListParams = computed(() => ({ page: page.value, size: size.value }))
+const { page, size, params: blockListParams, handlePageChange, handleSizeChange } = usePaginatedQueryState({
+  initialSize: 20,
+})
 const { data: blockListData, isLoading: loading, error, refetch } = useBlockList(blockListParams)
 
 const blockedUsers = computed<BlockedUserSummary[]>(() => blockListData.value?.content ?? [])
@@ -81,15 +82,6 @@ const blockedUsers = computed<BlockedUserSummary[]>(() => blockListData.value?.c
 const totalElements = computed(() => blockListData.value?.totalElements ?? 0)
 
 const totalPages = computed(() => blockListData.value?.totalPages ?? 0)
-
-const handlePageChange = (nextPage: number) => {
-  page.value = nextPage
-}
-
-const handleSizeChange = (nextSize = size.value) => {
-  size.value = nextSize
-  page.value = 0
-}
 
 const errorMessage = computed(() => error.value ? getListLoadErrorMessage(t) : '')
 
