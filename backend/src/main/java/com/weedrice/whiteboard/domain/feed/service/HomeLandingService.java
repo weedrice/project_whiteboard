@@ -5,8 +5,8 @@ import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.feed.dto.FeedPostSummary;
 import com.weedrice.whiteboard.domain.feed.dto.HomeLandingResponse;
-import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -38,8 +38,8 @@ public class HomeLandingService {
     private final HomeLandingSectionAssembler homeLandingSectionAssembler;
 
     public HomeLandingResponse getLanding(Long userId, String period) {
-        List<PostSummary> curatedPosts = getCuratedPosts(userId, period);
-        List<PostSummary> latestPosts = getLatestPosts(userId);
+        List<FeedPostSummary> curatedPosts = getCuratedPosts(userId, period);
+        List<FeedPostSummary> latestPosts = getLatestPosts(userId);
         List<BoardListResponse> boards = getBoards(userId);
         HomeLandingResponse.Stats stats = getStats();
 
@@ -95,12 +95,12 @@ public class HomeLandingService {
         return count == null ? 0L : count;
     }
 
-    private List<PostSummary> getCuratedPosts(Long userId, String period) {
-        return postService.getTrendingPosts(PageRequest.of(0, 16), userId, period);
+    private List<FeedPostSummary> getCuratedPosts(Long userId, String period) {
+        return postService.getTrendingFeedPosts(PageRequest.of(0, 16), userId, period);
     }
 
-    private List<PostSummary> getLatestPosts(Long userId) {
-        return postService.getPublicLandingLatestPosts(PageRequest.of(0, LANDING_LATEST_POST_LIMIT), userId);
+    private List<FeedPostSummary> getLatestPosts(Long userId) {
+        return postService.getPublicLandingLatestFeedPosts(PageRequest.of(0, LANDING_LATEST_POST_LIMIT), userId);
     }
 
     private List<BoardListResponse> getBoards(Long userId) {

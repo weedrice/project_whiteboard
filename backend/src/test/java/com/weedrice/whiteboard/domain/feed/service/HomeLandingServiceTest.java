@@ -6,8 +6,8 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.feed.dto.FeedPostSummary;
 import com.weedrice.whiteboard.domain.feed.dto.HomeLandingResponse;
-import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -78,22 +78,22 @@ class HomeLandingServiceTest {
     @Test
     @DisplayName("Landing response returns layout independent source posts")
     void getLanding_returnsCuratedPosts() {
-        List<PostSummary> curatedPosts = List.of(
+        List<FeedPostSummary> curatedPosts = List.of(
                 post(1L, "featured"),
                 post(2L, "pick-1"),
                 post(3L, "pick-2"),
                 post(4L, "pick-3"),
                 post(5L, "trend-1"),
                 post(6L, "trend-2"));
-        List<PostSummary> latestPosts = List.of(
+        List<FeedPostSummary> latestPosts = List.of(
                 post(11L, "latest-1"),
                 post(10L, "latest-2"));
         List<BoardListResponse> boards = List.of(
                 board(1L, "free"),
                 board(2L, "tech"));
 
-        when(postService.getTrendingPosts(any(), eq(1L), eq("24h"))).thenReturn(curatedPosts);
-        when(postService.getPublicLandingLatestPosts(any(), eq(1L))).thenReturn(latestPosts);
+        when(postService.getTrendingFeedPosts(any(), eq(1L), eq("24h"))).thenReturn(curatedPosts);
+        when(postService.getPublicLandingLatestFeedPosts(any(), eq(1L))).thenReturn(latestPosts);
         when(boardService.getTopBoardsByUserId(1L, 7)).thenReturn(boards);
         when(postRepository.countPublicLandingPostStats(any(), any(), any(), eq(BoardPolicyConstants.INQUIRY_BOARD_URL)))
                 .thenReturn(postStats(8421L, 12L, 10L));
@@ -109,11 +109,11 @@ class HomeLandingServiceTest {
         HomeLandingResponse response = homeLandingService.getLanding(1L, "24h");
 
         assertThat(response.getFeaturedPost().getPostId()).isEqualTo(1L);
-        assertThat(response.getEditorPicks()).extracting(PostSummary::getPostId)
+        assertThat(response.getEditorPicks()).extracting(FeedPostSummary::getPostId)
                 .containsExactly(2L, 3L, 4L);
-        assertThat(response.getTrendingPosts()).extracting(PostSummary::getPostId)
+        assertThat(response.getTrendingPosts()).extracting(FeedPostSummary::getPostId)
                 .containsExactly(2L, 3L, 4L, 5L, 6L);
-        assertThat(response.getLiveActivityPosts()).extracting(PostSummary::getPostId)
+        assertThat(response.getLiveActivityPosts()).extracting(FeedPostSummary::getPostId)
                 .containsExactly(11L, 10L);
         assertThat(response.getStats().getBoardCount()).isEqualTo(11L);
         assertThat(response.getStats().getPostCount()).isEqualTo(8421L);
@@ -125,13 +125,13 @@ class HomeLandingServiceTest {
         assertThat(response.getStats().getNewMembersLast24Hours()).isEqualTo(47L);
         assertThat(response.getStats().getCommentsToday()).isEqualTo(1824L);
         verify(boardService).getTopBoardsByUserId(1L, 7);
-        verify(postService).getPublicLandingLatestPosts(any(), eq(1L));
+        verify(postService).getPublicLandingLatestFeedPosts(any(), eq(1L));
     }
 
     @Test
     @DisplayName("Landing lookup propagates curated post failures")
     void getLanding_propagatesCuratedPostFailures() {
-        when(postService.getTrendingPosts(any(), isNull(), eq("24h")))
+        when(postService.getTrendingFeedPosts(any(), isNull(), eq("24h")))
                 .thenThrow(new IllegalStateException("post failure"));
 
         assertThatThrownBy(() -> homeLandingService.getLanding(null, "24h"))
@@ -139,15 +139,15 @@ class HomeLandingServiceTest {
                 .hasMessage("post failure");
 
         verify(boardService, never()).getTopBoardsByUserId(any(), anyInt());
-        verify(postService, never()).getPublicLandingLatestPosts(any(), any());
+        verify(postService, never()).getPublicLandingLatestFeedPosts(any(), any());
         verify(postRepository, never()).countPublicLandingPostStats(any(), any(), any(), any());
     }
 
     @Test
     @DisplayName("Landing lookup propagates stats failures")
     void getLanding_propagatesStatsFailures() {
-        when(postService.getTrendingPosts(any(), isNull(), eq("24h"))).thenReturn(List.of());
-        when(postService.getPublicLandingLatestPosts(any(), isNull())).thenReturn(List.of());
+        when(postService.getTrendingFeedPosts(any(), isNull(), eq("24h"))).thenReturn(List.of());
+        when(postService.getPublicLandingLatestFeedPosts(any(), isNull())).thenReturn(List.of());
         when(boardService.getTopBoardsByUserId(isNull(), eq(7))).thenReturn(List.of(board(1L, "free")));
         when(postRepository.countPublicLandingPostStats(any(), any(), any(), eq(BoardPolicyConstants.INQUIRY_BOARD_URL)))
                 .thenThrow(new IllegalStateException("stats failure"));
@@ -160,8 +160,8 @@ class HomeLandingServiceTest {
     @Test
     @DisplayName("Landing lookup propagates board failures")
     void getLanding_propagatesBoardFailures() {
-        when(postService.getTrendingPosts(any(), isNull(), eq("24h"))).thenReturn(List.of());
-        when(postService.getPublicLandingLatestPosts(any(), isNull())).thenReturn(List.of());
+        when(postService.getTrendingFeedPosts(any(), isNull(), eq("24h"))).thenReturn(List.of());
+        when(postService.getPublicLandingLatestFeedPosts(any(), isNull())).thenReturn(List.of());
         when(boardService.getTopBoardsByUserId(isNull(), eq(7))).thenThrow(new IllegalStateException("board failure"));
 
         assertThatThrownBy(() -> homeLandingService.getLanding(null, "24h"))
@@ -174,8 +174,8 @@ class HomeLandingServiceTest {
     @Test
     @DisplayName("Landing stats use KST day boundaries")
     void getLanding_statsUseKstDayBoundaries() {
-        when(postService.getTrendingPosts(any(), isNull(), eq("24h"))).thenReturn(List.of());
-        when(postService.getPublicLandingLatestPosts(any(), isNull())).thenReturn(List.of());
+        when(postService.getTrendingFeedPosts(any(), isNull(), eq("24h"))).thenReturn(List.of());
+        when(postService.getPublicLandingLatestFeedPosts(any(), isNull())).thenReturn(List.of());
         when(boardService.getTopBoardsByUserId(isNull(), eq(7))).thenReturn(List.of());
         when(postRepository.countPublicLandingPostStats(any(), any(), any(), eq(BoardPolicyConstants.INQUIRY_BOARD_URL)))
                 .thenReturn(postStats(8421L, 12L, 10L));
@@ -244,10 +244,10 @@ class HomeLandingServiceTest {
         };
     }
 
-    private PostSummary post(Long postId, String title) {
-        return PostSummary.builder()
+    private FeedPostSummary post(Long postId, String title) {
+        return FeedPostSummary.builder()
                 .postId(postId)
-                .author(PostSummary.AuthorInfo.builder()
+                .author(FeedPostSummary.AuthorInfo.builder()
                         .displayName("author")
                         .build())
                 .title(title)

@@ -7,7 +7,7 @@ import {
   toAdminInquiryPage,
   useAdminInquiryPosts,
 } from '../useAdminInquiryPosts'
-import type { PageResponse, Post, PostSummary } from '@/types'
+import type { AdminInquirySummary, PageResponse, Post } from '@/types'
 
 const mocks = vi.hoisted(() => ({
   invalidateQueries: vi.fn(),
@@ -36,15 +36,9 @@ vi.mock('@tanstack/vue-query', () => ({
   }),
 }))
 
-const postSummary = (overrides: Partial<PostSummary> = {}): PostSummary => ({
+const inquirySummary = (overrides: Partial<AdminInquirySummary> = {}): AdminInquirySummary => ({
   postId: 7,
   title: 'Need help',
-  viewCount: 1,
-  likeCount: 0,
-  commentCount: 2,
-  isNotice: false,
-  isNsfw: false,
-  isSpoiler: false,
   author: {
     userId: 1,
     displayName: 'Admin User',
@@ -78,7 +72,7 @@ const postDetail = (overrides: Partial<Post> = {}): Post => ({
   ...overrides,
 })
 
-const pageResponse = (content: PostSummary[]): PageResponse<PostSummary> => ({
+const pageResponse = (content: AdminInquirySummary[]): PageResponse<AdminInquirySummary> => ({
   content,
   totalElements: content.length,
   totalPages: 1,
@@ -96,7 +90,7 @@ describe('useAdminInquiryPosts', () => {
   })
 
   it('maps inquiry list DTOs to view-model fields', () => {
-    const item = toAdminInquiryListItem(postSummary({
+    const item = toAdminInquiryListItem(inquirySummary({
       summary: '<p>012345678901234567890123456789012345678901234567890123456789</p>',
       inquiryAnswered: true,
     }))
@@ -126,7 +120,7 @@ describe('useAdminInquiryPosts', () => {
     vi.mocked(adminApi.getInquiryPosts).mockResolvedValueOnce({
       data: {
         success: true,
-        data: pageResponse([postSummary({ authorName: 'Fallback Author', author: undefined as never })]),
+        data: pageResponse([inquirySummary({ author: { userId: 2, displayName: 'Inquiry Author' } })]),
       },
     } as never)
     vi.mocked(adminApi.getInquiryPost).mockResolvedValueOnce({
@@ -143,7 +137,7 @@ describe('useAdminInquiryPosts', () => {
     await expect(listQuery.queryFn()).resolves.toMatchObject({
       content: [{
         id: 7,
-        authorName: 'Fallback Author',
+        authorName: 'Inquiry Author',
       }],
     })
     expect(adminApi.getInquiryPosts).toHaveBeenCalledWith({
@@ -161,7 +155,7 @@ describe('useAdminInquiryPosts', () => {
   })
 
   it('preserves page metadata while mapping content', () => {
-    const mappedPage = toAdminInquiryPage(pageResponse([postSummary()]))
+    const mappedPage = toAdminInquiryPage(pageResponse([inquirySummary()]))
 
     expect(mappedPage.totalElements).toBe(1)
     expect(mappedPage.content[0].id).toBe(7)

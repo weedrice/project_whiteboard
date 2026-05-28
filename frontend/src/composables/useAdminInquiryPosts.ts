@@ -2,7 +2,7 @@ import { computed, ref, watch } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { adminApi } from '@/api/admin'
 import { renderPostContentHtml } from '@/utils/postContentHtml'
-import type { PageResponse, Post, PostSummary } from '@/types'
+import type { AdminInquirySummary, PageResponse, Post } from '@/types'
 
 export interface AdminInquiryListItem {
   id: number
@@ -39,21 +39,21 @@ function truncateText(value: string, maxLength = 50) {
   return `${value.slice(0, maxLength)}...`
 }
 
-function getAuthorName(post: Pick<PostSummary, 'author' | 'authorName'> | Pick<Post, 'author'>) {
-  return post.author?.displayName || ('authorName' in post ? post.authorName : undefined) || '-'
+function getAuthorName(post: Pick<AdminInquirySummary, 'author'> | Pick<Post, 'author'>) {
+  return post.author?.displayName || '-'
 }
 
-function getStatusLabelKey(post: PostSummary) {
+function getStatusLabelKey(post: AdminInquirySummary) {
   return post.inquiryAnswered ? 'admin.inquiries.status.answered' : 'admin.inquiries.status.pending'
 }
 
-function getStatusClass(post: PostSummary) {
+function getStatusClass(post: AdminInquirySummary) {
   return post.inquiryAnswered
     ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
     : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
 }
 
-export function toAdminInquiryListItem(post: PostSummary): AdminInquiryListItem {
+export function toAdminInquiryListItem(post: AdminInquirySummary): AdminInquiryListItem {
   const plainSummary = stripHtml(post.summary || '')
 
   return {
@@ -77,7 +77,7 @@ export function toAdminInquiryDetail(post: Post): AdminInquiryDetail {
   }
 }
 
-export function toAdminInquiryPage(page: PageResponse<PostSummary>): PageResponse<AdminInquiryListItem> {
+export function toAdminInquiryPage(page: PageResponse<AdminInquirySummary>): PageResponse<AdminInquiryListItem> {
   return {
     ...page,
     content: page.content.map(toAdminInquiryListItem),

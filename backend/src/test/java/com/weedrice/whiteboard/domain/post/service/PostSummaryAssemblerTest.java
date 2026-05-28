@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.feed.dto.FeedPostSummary;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.entity.Post;
@@ -52,6 +53,7 @@ class PostSummaryAssemblerTest {
     private AdminRepository adminRepository;
 
     private PostSummaryAssembler postSummaryAssembler;
+    private FeedPostSummaryAssembler feedPostSummaryAssembler;
 
     @BeforeEach
     void setUp() {
@@ -59,6 +61,14 @@ class PostSummaryAssemblerTest {
                 fileService,
                 commentRepository,
                 new BoardAccessPolicy(adminRepository),
+                new PostInteractionContextResolver(
+                        userRepository,
+                        postLikeRepository,
+                        scrapRepository,
+                        boardSubscriptionRepository),
+                new PostContentSummaryExtractor());
+        feedPostSummaryAssembler = new FeedPostSummaryAssembler(
+                fileService,
                 new PostInteractionContextResolver(
                         userRepository,
                         postLikeRepository,
@@ -253,8 +263,8 @@ class PostSummaryAssemblerTest {
                 .build();
         ReflectionTestUtils.setField(post, "postId", 100L);
 
-        List<PostSummary> trending = postSummaryAssembler.assembleTrendingPosts(List.of(post), null);
-        List<PostSummary> latest = postSummaryAssembler.assembleLatestPosts(List.of(post), null);
+        List<FeedPostSummary> trending = feedPostSummaryAssembler.assembleTrendingPosts(List.of(post), null);
+        List<FeedPostSummary> latest = feedPostSummaryAssembler.assembleLatestPosts(List.of(post), null);
 
         assertThat(trending.get(0).getSummary()).isEqualTo(latest.get(0).getSummary());
         assertThat(trending.get(0).getThumbnailUrl()).isEqualTo(latest.get(0).getThumbnailUrl());

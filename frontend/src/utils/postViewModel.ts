@@ -13,12 +13,13 @@ export function normalizePostReactionFlags(post: PostReactionAlias): Post {
     }
 }
 
-export function toFeedPost(post: PostSummary): FeedPost | null {
+export function toFeedPost(post: FeedPost | PostSummary): FeedPost | null {
+    const authorName = post.authorName ?? post.author?.displayName
     if (
         post.postId == null ||
         post.boardUrl == null ||
         post.boardName == null ||
-        (post.authorName == null && post.author?.displayName == null)
+        authorName == null
     ) {
         return null
     }
@@ -28,14 +29,14 @@ export function toFeedPost(post: PostSummary): FeedPost | null {
         boardUrl: post.boardUrl,
         boardName: post.boardName,
         boardIconUrl: post.boardIconUrl,
-        authorName: post.authorName ?? post.author?.displayName ?? '',
+        authorName,
         liked: post.liked ?? false,
         scrapped: post.scrapped ?? false,
         subscribed: post.subscribed ?? false,
     }
 }
 
-export function toFeedPosts(posts: PostSummary[] | undefined): FeedPost[] {
+export function toFeedPosts(posts: Array<FeedPost | PostSummary> | undefined): FeedPost[] {
     return (posts ?? [])
         .map(toFeedPost)
         .filter((post): post is FeedPost => post != null)

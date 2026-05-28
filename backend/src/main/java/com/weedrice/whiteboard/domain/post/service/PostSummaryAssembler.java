@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.post.service;
 
+import com.weedrice.whiteboard.domain.admin.dto.AdminInquirySummaryResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
@@ -24,8 +25,6 @@ import java.util.stream.Collectors;
 
 @Component
 public class PostSummaryAssembler {
-
-    private static final int FEED_EXCERPT_MAX_LENGTH = 800;
 
     private final FileService fileService;
     private final CommentRepository commentRepository;
@@ -134,6 +133,25 @@ public class PostSummaryAssembler {
         });
     }
 
+    Page<AdminInquirySummaryResponse> assembleAdminInquiryPage(Page<Post> posts) {
+        Map<Long, Boolean> inquiryAnsweredStatuses = resolveInquiryAnsweredStatuses(posts.getContent());
+        return posts.map(post -> AdminInquirySummaryResponse.builder()
+                .postId(post.getPostId())
+                .title(post.getTitle())
+                .summary(contentSummaryExtractor.extractSummary(post))
+                .author(AdminInquirySummaryResponse.AuthorInfo.builder()
+                        .userId(post.getUser().getUserId())
+                        .agentId(post.getAgent() != null ? post.getAgent().getAgentId() : null)
+                        .authorType(post.getAgent() != null ? "AGENT" : "USER")
+                        .displayName(post.getAgent() != null ? post.getAgent().getName()
+                                : post.getUser().getDisplayName())
+                        .profileImageUrl(post.getAgent() != null ? null : post.getUser().getProfileImageUrl())
+                        .build())
+                .createdAt(post.getCreatedAt())
+                .inquiryAnswered(inquiryAnsweredStatuses.getOrDefault(post.getPostId(), false))
+                .build());
+    }
+
     List<PostSummary> assembleTrendingPosts(List<Post> posts, Long currentUserId) {
         if (posts.isEmpty()) {
             return Collections.emptyList();
@@ -145,8 +163,8 @@ public class PostSummaryAssembler {
         PostUserInteractionContext interactionContext = interactionContextResolver.resolve(posts, currentUserId);
 
         return posts.stream()
-                .map(post -> buildFeedSummary(post, postIdsWithImages, thumbnailFileIdsByPostId, interactionContext,
-                        FeedSummaryOptions.trending()))
+                .map(post -> buildInteractionSummary(post, postIdsWithImages, thumbnailFileIdsByPostId,
+                        interactionContext))
                 .collect(Collectors.toList());
     }
 
@@ -171,42 +189,19 @@ public class PostSummaryAssembler {
                 : interactionContextResolver.resolve(posts, currentUserId);
 
         return posts.stream()
-                .map(post -> buildFeedSummary(post, postIdsWithImages, thumbnailFileIdsByPostId, interactionContext,
-                        FeedSummaryOptions.latest()))
+                .map(post -> buildInteractionSummary(post, postIdsWithImages, thumbnailFileIdsByPostId,
+                        interactionContext))
                 .collect(Collectors.toList());
     }
 
-    private PostSummary buildFeedSummary(Post post, Set<Long> postIdsWithImages,
-                                         Map<Long, Long> thumbnailFileIdsByPostId,
-                                         PostUserInteractionContext interactionContext,
-                                         FeedSummaryOptions options) {
+    private PostSummary buildInteractionSummary(Post post, Set<Long> postIdsWithImages,
+                                                Map<Long, Long> thumbnailFileIdsByPostId,
+                                                PostUserInteractionContext interactionContext) {
         String summaryText = contentSummaryExtractor.extractSummary(post);
         PostThumbnailInfo thumbnailInfo = contentSummaryExtractor.resolveThumbnail(
                 post,
                 postIdsWithImages,
                 thumbnailFileIdsByPostId);
-
-        String firstMediaType = null;
-        String firstMediaUrl = null;
-        String contentsExcerpt = null;
-        if (options.includeContentsExcerpt()) {
-            contentsExcerpt = contentSummaryExtractor.truncateHtmlForExcerpt(post.getContents(), FEED_EXCERPT_MAX_LENGTH);
-        }
-        if (options.includeFirstMedia()) {
-            String firstVideoUrl = contentSummaryExtractor.extractFirstVideoEmbedFromContent(post.getContents());
-            int imgPos = contentSummaryExtractor.indexOfFirstImageInContent(post.getContents());
-            int videoPos = contentSummaryExtractor.indexOfFirstVideoInContent(post.getContents());
-            if (imgPos >= 0 && (videoPos < 0 || imgPos < videoPos)) {
-                firstMediaType = "image";
-                firstMediaUrl = thumbnailInfo.thumbnailUrl();
-            } else if (videoPos >= 0) {
-                firstMediaType = "video";
-                firstMediaUrl = firstVideoUrl;
-            } else if (thumbnailInfo.thumbnailUrl() != null) {
-                firstMediaType = "image";
-                firstMediaUrl = thumbnailInfo.thumbnailUrl();
-            }
-        }
 
         return PostSummary.from(
                 post,
@@ -216,10 +211,7 @@ public class PostSummaryAssembler {
                 interactionContext.scrappedPostIds().contains(post.getPostId()),
                 interactionContext.subscribedBoardUrls().contains(post.getBoard().getBoardUrl()),
                 thumbnailInfo.hasImage(),
-                summaryText,
-                contentsExcerpt,
-                firstMediaType,
-                firstMediaUrl);
+                summaryText);
     }
 
     private Map<Long, Long> getThumbnailFileIdsByPostId(List<Long> postIds) {
@@ -253,13 +245,4 @@ public class PostSummaryAssembler {
         return inquiryAnsweredStatuses;
     }
 
-    private record FeedSummaryOptions(boolean includeContentsExcerpt, boolean includeFirstMedia) {
-        private static FeedSummaryOptions trending() {
-            return new FeedSummaryOptions(true, true);
-        }
-
-        private static FeedSummaryOptions latest() {
-            return new FeedSummaryOptions(false, false);
-        }
-    }
 }

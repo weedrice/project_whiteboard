@@ -502,7 +502,7 @@ describe('PostList', () => {
             commentCount: 3,
             isNotice: true,
             isSecret: true,
-            firstMediaType: 'image'
+            hasImage: true
           })
         ],
         showNoticeBadge: false,

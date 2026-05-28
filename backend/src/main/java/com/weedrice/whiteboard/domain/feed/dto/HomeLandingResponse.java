@@ -2,7 +2,6 @@ package com.weedrice.whiteboard.domain.feed.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
-import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -12,10 +11,10 @@ import java.util.List;
 @Builder
 @JsonInclude(JsonInclude.Include.ALWAYS)
 public class HomeLandingResponse {
-    private PostSummary featuredPost;
-    private List<PostSummary> editorPicks;
-    private List<PostSummary> trendingPosts;
-    private List<PostSummary> liveActivityPosts;
+    private FeedPostSummary featuredPost;
+    private List<FeedPostSummary> editorPicks;
+    private List<FeedPostSummary> trendingPosts;
+    private List<FeedPostSummary> liveActivityPosts;
     private List<BoardListResponse> boards;
     private Stats stats;
 

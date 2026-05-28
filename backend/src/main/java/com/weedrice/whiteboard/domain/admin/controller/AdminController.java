@@ -8,7 +8,6 @@ import com.weedrice.whiteboard.domain.admin.service.AdminReadService;
 import com.weedrice.whiteboard.domain.admin.service.IpBlockService;
 import com.weedrice.whiteboard.domain.admin.service.SuperAdminService;
 import com.weedrice.whiteboard.domain.post.dto.PostResponse;
-import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 
@@ -202,12 +201,12 @@ public class AdminController {
     }
 
     @GetMapping("/inquiries")
-    public ApiResponse<PageResponse<PostSummary>> getInquiryPosts(
+    public ApiResponse<PageResponse<AdminInquirySummaryResponse>> getInquiryPosts(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             Sort sort) {
         Pageable pageable = PageRequestUtils.of(page, size, sort);
-        Page<PostSummary> inquiryPage = postService.getInquiryPostsForAdmin(pageable);
+        Page<AdminInquirySummaryResponse> inquiryPage = postService.getInquiryPostsForAdmin(pageable);
         return ApiResponse.success(new PageResponse<>(inquiryPage));
     }
 

@@ -75,7 +75,6 @@ export function toScrapPostSummaryPage(response: ScrapListResponse): PageRespons
             isSpoiler: post.isSpoiler ?? false,
             isSecret: post.isSecret ?? false,
             thumbnailUrl: post.thumbnailUrl ?? undefined,
-            firstMediaType: post.firstMediaType ?? undefined,
             author: post.author,
             createdAt: post.createdAt,
             rowNum: post.rowNum,

@@ -1,9 +1,11 @@
 package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.admin.dto.AdminInquirySummaryResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
+import com.weedrice.whiteboard.domain.feed.dto.FeedPostSummary;
 import com.weedrice.whiteboard.domain.post.dto.DraftListResponse;
 import com.weedrice.whiteboard.domain.post.dto.DraftResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
@@ -100,7 +102,7 @@ public class PostService {
         return postListReadService.getMyPosts(userId, pageable);
     }
 
-    public Page<PostSummary> getInquiryPostsForAdmin(@NonNull Pageable pageable) {
+    public Page<AdminInquirySummaryResponse> getInquiryPostsForAdmin(@NonNull Pageable pageable) {
         return postListReadService.getInquiryPostsForAdmin(pageable);
     }
 
@@ -118,6 +120,14 @@ public class PostService {
 
     public List<PostSummary> getPublicLandingLatestPosts(Pageable pageable, Long currentUserId) {
         return postListReadService.getPublicLandingLatestPosts(pageable, currentUserId);
+    }
+
+    public List<FeedPostSummary> getTrendingFeedPosts(Pageable pageable, Long currentUserId, String period) {
+        return postListReadService.getTrendingFeedPosts(pageable, currentUserId, period);
+    }
+
+    public List<FeedPostSummary> getPublicLandingLatestFeedPosts(Pageable pageable, Long currentUserId) {
+        return postListReadService.getPublicLandingLatestFeedPosts(pageable, currentUserId);
     }
 
     @Transactional

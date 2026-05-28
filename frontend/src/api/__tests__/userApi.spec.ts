@@ -153,7 +153,6 @@ describe('userApi', () => {
                     likeCount: 3,
                     commentCount: 4,
                     isNotice: true,
-                    firstMediaType: 'image',
                     author: {
                         userId: 7,
                         displayName: 'writer',
@@ -185,7 +184,6 @@ describe('userApi', () => {
             isNsfw: false,
             isSpoiler: false,
             isSecret: false,
-            firstMediaType: 'image',
             scrapped: true,
         })
     })

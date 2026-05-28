@@ -83,11 +83,11 @@ describe('PostListTitleContent', () => {
     expect(generalWrapper.text()).not.toContain('일반')
   })
 
-  it('shows the image indicator for lowercase media types', () => {
+  it('shows the image indicator for summary image flags', () => {
     const wrapper = mount(PostListTitleContent, {
       props: {
         post: createPost({
-          firstMediaType: 'image'
+          hasImage: true
         })
       }
     })

@@ -3,6 +3,7 @@ import type { AxiosRequestConfig, AxiosResponse } from 'axios'
 import type {
     ApiResponse,
     DraftPost,
+    FeedPost,
     HomeLandingPeriod,
     HomeLandingResponse,
     HomeLandingStats,
@@ -66,12 +67,12 @@ export type BackendPageResponse<T> = Partial<PageResponse<T>> & {
 }
 
 export type LegacyHomeLandingResponse = Omit<HomeLandingResponse, 'editorPicks' | 'trendingPosts' | 'liveActivityPosts'> & {
-    posts?: PostSummary[]
-    latestPosts?: PostSummary[]
-    featuredPost?: PostSummary | null
-    editorPicks?: PostSummary[]
-    trendingPosts?: PostSummary[]
-    liveActivityPosts?: PostSummary[]
+    posts?: FeedPost[]
+    latestPosts?: FeedPost[]
+    featuredPost?: FeedPost | null
+    editorPicks?: FeedPost[]
+    trendingPosts?: FeedPost[]
+    liveActivityPosts?: FeedPost[]
 }
 
 const emptyStats = (): HomeLandingStats => ({

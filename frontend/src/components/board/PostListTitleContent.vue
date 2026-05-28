@@ -24,7 +24,7 @@ const props = withDefaults(defineProps<{
 const { t } = useI18n()
 
 const hasPreviewImage = (post: PostSummary) => (
-  Boolean(post.thumbnailUrl) || post.firstMediaType?.toLowerCase() === 'image'
+  Boolean(post.thumbnailUrl) || post.hasImage
 )
 
 </script>

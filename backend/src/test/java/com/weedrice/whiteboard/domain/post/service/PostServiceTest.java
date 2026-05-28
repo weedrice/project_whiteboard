@@ -154,6 +154,10 @@ class PostServiceTest {
                 boardAccessPolicy,
                 postInteractionContextResolver,
                 new PostContentSummaryExtractor());
+        FeedPostSummaryAssembler feedPostSummaryAssembler = new FeedPostSummaryAssembler(
+                fileService,
+                postInteractionContextResolver,
+                new PostContentSummaryExtractor());
         postAccessPolicy = new PostAccessPolicy(boardAccessPolicy);
         PostReadContextResolver postReadContextResolver = new PostReadContextResolver(
                 userRepository,
@@ -216,6 +220,7 @@ class PostServiceTest {
                 userRepository,
                 postReadContextResolver,
                 postSummaryAssembler,
+                feedPostSummaryAssembler,
                 boardAccessPolicy,
                 postLatestReadService,
                 searchRecordEventPublisher);

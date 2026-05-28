@@ -41,12 +41,6 @@ public class PostSummary {
     private Boolean inquiryAnswered;
     private boolean hasImage;
     private String summary;
-    /** Feed용: HTML 본문 앞부분 (약 5줄 분량, 태그 유지) */
-    private String contentsExcerpt;
-    /** Feed용: 본문에서 최초로 등장하는 미디어 타입 - "image" | "video" | null */
-    private String firstMediaType;
-    /** Feed용: 최초 미디어 URL (이미지 src 또는 iframe embed src) */
-    private String firstMediaUrl;
 
     @Getter
     @Builder
@@ -70,12 +64,11 @@ public class PostSummary {
         if (summary.length() > 1000) {
             summary = summary.substring(0, 1000);
         }
-        return from(post, null, null, false, false, false, false, summary, null, null, null);
+        return from(post, null, null, false, false, false, false, summary);
     }
 
     public static PostSummary from(Post post, String thumbnailUrl, String boardIconUrl, boolean isLiked,
-            boolean isScrapped, boolean isSubscribed, boolean hasImage, String summary,
-            String contentsExcerpt, String firstMediaType, String firstMediaUrl) {
+            boolean isScrapped, boolean isSubscribed, boolean hasImage, String summary) {
         return PostSummary.builder()
                 .postId(post.getPostId())
                 .boardId(post.getBoard().getBoardId())
@@ -109,9 +102,6 @@ public class PostSummary {
                 .isSubscribed(isSubscribed)
                 .hasImage(hasImage)
                 .summary(summary)
-                .contentsExcerpt(contentsExcerpt)
-                .firstMediaType(firstMediaType)
-                .firstMediaUrl(firstMediaUrl)
                 .build();
     }
 }

@@ -164,13 +164,24 @@ export interface PostSummary {
     boardIconUrl?: string
     authorName?: string
     inquiryAnswered?: boolean
+    hasImage?: boolean
     summary?: string
-    contentsExcerpt?: string
-    firstMediaType?: string
-    firstMediaUrl?: string
 }
 
-export interface FeedPost extends Omit<PostSummary, 'liked' | 'scrapped' | 'subscribed' | 'boardUrl' | 'boardName' | 'authorName'> {
+export interface FeedPost {
+    postId: number
+    title: string
+    viewCount: number
+    likeCount: number
+    commentCount: number
+    isNotice: boolean
+    isNsfw: boolean
+    isSpoiler: boolean
+    isSecret?: boolean
+    author: UserSummary
+    category?: Category
+    thumbnailUrl?: string
+    createdAt: string
     boardUrl: string | number
     boardName: string
     boardIconUrl?: string
@@ -178,10 +189,20 @@ export interface FeedPost extends Omit<PostSummary, 'liked' | 'scrapped' | 'subs
     liked: boolean
     scrapped: boolean
     subscribed: boolean
+    hasImage?: boolean
     summary?: string
     contentsExcerpt?: string
     firstMediaType?: string
     firstMediaUrl?: string
+}
+
+export interface AdminInquirySummary {
+    postId: number
+    title: string
+    summary?: string
+    author: UserSummary
+    createdAt: string
+    inquiryAnswered?: boolean
 }
 
 export type HomeLandingPeriod = '24h' | '7d' | '30d'
@@ -199,10 +220,10 @@ export interface HomeLandingStats {
 }
 
 export interface HomeLandingResponse {
-    featuredPost?: PostSummary | null
-    editorPicks: PostSummary[]
-    trendingPosts: PostSummary[]
-    liveActivityPosts: PostSummary[]
+    featuredPost?: FeedPost | null
+    editorPicks: FeedPost[]
+    trendingPosts: FeedPost[]
+    liveActivityPosts: FeedPost[]
     boards: BoardListItem[]
     stats: HomeLandingStats
 }

@@ -1,8 +1,10 @@
 package com.weedrice.whiteboard.domain.post.service;
 
+import com.weedrice.whiteboard.domain.admin.dto.AdminInquirySummaryResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
+import com.weedrice.whiteboard.domain.feed.dto.FeedPostSummary;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
@@ -61,6 +63,7 @@ public class PostListReadService {
     private final UserRepository userRepository;
     private final PostReadContextResolver postReadContextResolver;
     private final PostSummaryAssembler postSummaryAssembler;
+    private final FeedPostSummaryAssembler feedPostSummaryAssembler;
     private final BoardAccessPolicy boardAccessPolicy;
     private final PostLatestReadService postLatestReadService;
     private final SearchRecordEventPublisher searchRecordEventPublisher;
@@ -161,7 +164,7 @@ public class PostListReadService {
         return postSummaryAssembler.assembleBoardPage(posts, safePageable, true, true);
     }
 
-    public Page<PostSummary> getInquiryPostsForAdmin(@NonNull Pageable pageable) {
+    public Page<AdminInquirySummaryResponse> getInquiryPostsForAdmin(@NonNull Pageable pageable) {
         Pageable safePageable = PageRequestUtils.of(
                 pageable,
                 20,
@@ -174,7 +177,7 @@ public class PostListReadService {
         }
 
         Page<Post> posts = postRepository.findByBoard_BoardIdAndIsDeletedFalse(inquiryBoard.getBoardId(), safePageable);
-        return postSummaryAssembler.assembleBoardPage(posts, safePageable, false, true);
+        return postSummaryAssembler.assembleAdminInquiryPage(posts);
     }
 
     public List<PostSummary> getTrendingPosts(Pageable pageable, Long currentUserId) {
@@ -212,6 +215,22 @@ public class PostListReadService {
                 context.blockedUserIds(),
                 pageable);
         return postSummaryAssembler.assembleLatestPosts(posts, currentUserId);
+    }
+
+    public List<FeedPostSummary> getTrendingFeedPosts(Pageable pageable, Long currentUserId, String period) {
+        LocalDateTime since = resolveTrendingSince(period);
+        PostReadContext context = postReadContextResolver.resolve(currentUserId);
+        List<Post> posts = postRepository.findTrendingPosts(since, context.blockedUserIds(), pageable);
+        return feedPostSummaryAssembler.assembleTrendingPosts(posts, currentUserId);
+    }
+
+    public List<FeedPostSummary> getPublicLandingLatestFeedPosts(Pageable pageable, Long currentUserId) {
+        PostReadContext context = postReadContextResolver.resolve(currentUserId);
+        List<Post> posts = postRepository.findPublicLandingLatestPosts(
+                boardAccessPolicy.getInquiryBoardUrl(),
+                context.blockedUserIds(),
+                pageable);
+        return feedPostSummaryAssembler.assembleLatestPosts(posts, currentUserId);
     }
 
     public List<PostSummary> getLatestPostsByBoard(Long boardId, int limit, Long currentUserId) {

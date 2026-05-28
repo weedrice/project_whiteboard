@@ -1,8 +1,8 @@
 package com.weedrice.whiteboard.domain.feed.service;
 
 import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
+import com.weedrice.whiteboard.domain.feed.dto.FeedPostSummary;
 import com.weedrice.whiteboard.domain.feed.dto.HomeLandingResponse;
-import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -16,10 +16,10 @@ class HomeLandingSectionAssembler {
     private static final int TRENDING_END_INDEX = 10;
     private static final int LIVE_ACTIVITY_END_INDEX = 6;
 
-    HomeLandingResponse assemble(List<PostSummary> curatedPosts, List<PostSummary> latestPosts,
+    HomeLandingResponse assemble(List<FeedPostSummary> curatedPosts, List<FeedPostSummary> latestPosts,
             List<BoardListResponse> boards, HomeLandingResponse.Stats stats) {
-        List<PostSummary> safeCuratedPosts = curatedPosts == null ? List.of() : curatedPosts;
-        List<PostSummary> safeLatestPosts = latestPosts == null ? List.of() : latestPosts;
+        List<FeedPostSummary> safeCuratedPosts = curatedPosts == null ? List.of() : curatedPosts;
+        List<FeedPostSummary> safeLatestPosts = latestPosts == null ? List.of() : latestPosts;
         List<BoardListResponse> safeBoards = boards == null ? List.of() : boards;
 
         return HomeLandingResponse.builder()
@@ -32,7 +32,7 @@ class HomeLandingSectionAssembler {
                 .build();
     }
 
-    private List<PostSummary> slice(List<PostSummary> posts, int startInclusive, int endExclusive) {
+    private List<FeedPostSummary> slice(List<FeedPostSummary> posts, int startInclusive, int endExclusive) {
         if (posts.size() <= startInclusive) {
             return List.of();
         }

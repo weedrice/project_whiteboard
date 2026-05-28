@@ -22,7 +22,7 @@ import type {
     AdminUserPostItem,
     AdminUserCommentItem,
     AdminUserSubscriptionItem,
-    PostSummary,
+    AdminInquirySummary,
     Post
 } from '@/types'
 
@@ -171,7 +171,7 @@ export const adminApi = {
         return api.get<ApiResponse<DashboardStats>>('/admin/stats')
     },
     getInquiryPosts(params: PaginationParams & { sort?: string }) {
-        return api.get<ApiResponse<PageResponse<PostSummary>>>('/admin/inquiries', { params })
+        return api.get<ApiResponse<PageResponse<AdminInquirySummary>>>('/admin/inquiries', { params })
     },
     getInquiryPost(postId: string | number) {
         return api.get<ApiResponse<Post>>(`/admin/inquiries/${postId}`)
