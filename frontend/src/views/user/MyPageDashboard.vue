@@ -237,7 +237,7 @@ onMounted(async () => {
           >
             {{ myPostsError }}
           </div>
-          <div v-if="myPosts.length > 0">
+          <div v-else-if="myPosts.length > 0">
             <PostList :posts="myPosts" :totalCount="myPostsTotalCount" :page="myPostsCurrentPage" :size="myPostsSize"
               :current-sort="myPostsSort" :show-board-name="true" :intercept-inquiry="true"
               :resolve-post-route="resolvePostDetailRoute" :should-intercept-post="isInquiryPostItem"
@@ -265,7 +265,7 @@ onMounted(async () => {
           >
             {{ myCommentsError }}
           </div>
-          <div v-if="myCommentItems.length > 0">
+          <div v-else-if="myCommentItems.length > 0">
             <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
               <li v-for="comment in myCommentItems" :key="comment.commentId"
                 class="px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 min-h-[44px]">
