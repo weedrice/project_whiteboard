@@ -17,6 +17,11 @@ type ResolvePostRoute = (
   linkQuery: LocationQueryRaw | undefined
 ) => RouteLocationRaw | null | undefined
 
+type ResolveBoardRoute = (
+  post: PostSummary,
+  boardUrl: string
+) => RouteLocationRaw | null | undefined
+
 type PostPredicate = (
   post: PostSummary,
   boardUrl: string
@@ -30,6 +35,7 @@ const props = withDefaults(defineProps<{
   currentPostId?: string
   linkQuery?: LocationQueryRaw
   resolvePostRoute?: ResolvePostRoute
+  resolveBoardRoute?: ResolveBoardRoute
   shouldInterceptPost?: PostPredicate
   showInquiryStatus?: PostPredicate
   showBoardName?: boolean
@@ -77,8 +83,21 @@ function getResolvedBoardUrl(item: PostSummary): string {
   return raw.replace(/^\/+|\/+$/g, '')
 }
 
-function hasValidBoardTarget(item: PostSummary): boolean {
-  return getResolvedBoardUrl(item).length > 0
+function getBoardLink(item: PostSummary): RouteLocationRaw | null {
+  const boardUrl = getResolvedBoardUrl(item)
+  if (!boardUrl) return null
+  if (props.resolveBoardRoute) {
+    return props.resolveBoardRoute(item, boardUrl) ?? null
+  }
+  return `/board/${boardUrl}`
+}
+
+function hasBoardRouteTarget(item: PostSummary): boolean {
+  return getBoardLink(item) !== null
+}
+
+function getBoardLinkTarget(item: PostSummary): RouteLocationRaw {
+  return getBoardLink(item) ?? '/'
 }
 
 function resolvePostRouteTarget(item: PostSummary): RouteLocationRaw | null {
@@ -382,8 +401,8 @@ const columns = computed(() => {
             {{ item.boardName || '-' }}
           </button>
           <router-link
-            v-else-if="hasValidBoardTarget(item)"
-            :to="`/board/${getResolvedBoardUrl(item)}`"
+            v-else-if="hasBoardRouteTarget(item)"
+            :to="getBoardLinkTarget(item)"
             class="nv-post-board-link"
             @click="onBoardClick($event, item)"
           >

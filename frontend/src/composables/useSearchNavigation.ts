@@ -1,7 +1,7 @@
 import { computed, watch, type Ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useQueryClient } from '@tanstack/vue-query'
+import { useRouter } from 'vue-router'
 import { useKeyboardNavigation } from '@/composables/useKeyboardNavigation'
+import { useSearchSubmitNavigation } from '@/composables/useSearchSubmitNavigation'
 import type { BoardListItem } from '@/types'
 
 interface UseSearchNavigationOptions {
@@ -24,8 +24,7 @@ export function useSearchNavigation({
   focusSearchInput,
 }: UseSearchNavigationOptions) {
   const router = useRouter()
-  const route = useRoute()
-  const queryClient = useQueryClient()
+  const { submitSearch } = useSearchSubmitNavigation()
 
   const handleSearch = () => {
     const nextQuery = searchQuery.value.trim()
@@ -34,17 +33,7 @@ export function useSearchNavigation({
     showDropdown.value = false
     if (isMobile.value) collapse()
 
-    if (route.name === 'search' && route.query.q === nextQuery) {
-      queryClient.invalidateQueries({ queryKey: ['search', 'integrated'] })
-      return
-    }
-
-    router.push({
-      name: 'search',
-      query: {
-        q: nextQuery,
-      },
-    })
+    submitSearch(nextQuery)
   }
 
   const selectBoard = (boardUrl: string) => {

@@ -50,6 +50,7 @@ const PostListStub = defineComponent({
     showBoardName: Boolean,
     hideNoColumn: Boolean,
     resolvePostRoute: Function,
+    resolveBoardRoute: Function,
     showInquiryStatus: Function,
   },
   template: `
@@ -97,6 +98,7 @@ describe('RecentViewed', () => {
 
     vi.doMock('@/utils/postNavigation', () => ({
       isInquiryPostItem: vi.fn(() => false),
+      resolveBoardRoute: vi.fn(() => ({ name: 'board-detail' })),
       resolvePostDetailRoute: vi.fn(() => ({ name: 'post-detail' })),
     }))
 

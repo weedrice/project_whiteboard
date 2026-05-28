@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, ref } from 'vue'
-import { usePost } from '../usePost'
+import { postDetailQueryKey, usePost } from '../usePost'
 import { postApi } from '@/api/post'
 
 type QueryKey = unknown[]
@@ -137,12 +137,28 @@ describe('usePost', () => {
         usePostDetail(postId)
 
         const query = mocks.queryOptions.at(-1)!
-        expect(query.queryKey).toEqual(['post', postId])
+        expect(query.queryKey).toEqual(postDetailQueryKey(postId))
         expect((query.enabled as ReturnType<typeof computed>).value).toBe(true)
 
         const result = await (query.queryFn as () => Promise<unknown>)()
         expect(result).toEqual({ postId: 1, title: 'Test Post', liked: false, scrapped: false })
         expect(postApi.getPost).toHaveBeenCalledWith(1, { params: { incrementView: true } })
+    })
+
+    it('registers post detail query without incrementing views when requested', async () => {
+        vi.mocked(postApi.getPost).mockResolvedValueOnce({
+            data: { data: { postId: 1, title: 'Edit Post' } },
+        } as never)
+
+        const { usePostDetail } = usePost()
+        const postId = ref(1)
+        usePostDetail(postId, { requestConfig: { params: { incrementView: false } } })
+
+        const query = mocks.queryOptions.at(-1)!
+        expect(query.queryKey).toEqual(postDetailQueryKey(postId, false))
+
+        await (query.queryFn as () => Promise<unknown>)()
+        expect(postApi.getPost).toHaveBeenCalledWith(1, { params: { incrementView: false } })
     })
 
     it('normalizes post detail reaction aliases from the API response', async () => {

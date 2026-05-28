@@ -7,7 +7,7 @@ import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import { Bookmark } from 'lucide-vue-next'
 import type { PostSummary } from '@/types'
 import { usePagination } from '@/composables/usePagination'
-import { isInquiryPostItem, resolvePostDetailRoute } from '@/utils/postNavigation'
+import { isInquiryPostItem, resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigation'
 
 const {
   items: scraps,
@@ -68,6 +68,7 @@ onMounted(() => {
       :show-preview-indicator="false"
       :show-secret-indicator="false"
       :resolve-post-route="resolvePostDetailRoute"
+      :resolve-board-route="resolveBoardRoute"
       :show-inquiry-status="isInquiryPostItem"
     />
   </PaginatedListCard>
