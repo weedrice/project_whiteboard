@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { adminApi, type AdminRole } from '@/api/admin'
 import { computed, type Ref } from 'vue'
+import { normalizePageResponse, type PageResponseRaw } from '@/utils/pageResponse'
 import type {
     SanctionData,
     ApiResponse,
@@ -21,8 +22,8 @@ import type {
     IpBlock
 } from '@/types'
 
-function unwrapAdminPageResponse<T>(response: ApiResponse<PageResponse<T>>): PageResponse<T> {
-    return response.data
+function unwrapAdminPageResponse<T>(response: ApiResponse<PageResponse<T> | PageResponseRaw<T>>): PageResponse<T> {
+    return normalizePageResponse(response.data as PageResponseRaw<T>)
 }
 
 // Admin specific types
