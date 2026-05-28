@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import MessageModal from '../MessageModal.vue'
 import { BaseButtonStub, BaseModalStub, flushAll, getButtonByText, identityT } from '@/test/vue-test-helpers'
@@ -71,6 +71,10 @@ const mountModal = () => mount(MessageModal, {
 })
 
 describe('MessageModal', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
     it('shows a warning and skips the request when content is blank', async () => {
         const wrapper = mountModal()
 

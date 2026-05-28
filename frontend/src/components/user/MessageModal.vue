@@ -15,11 +15,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
+import { useModalSubmit } from '@/composables/useModalSubmit'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
@@ -39,33 +39,33 @@ const props = defineProps<{
 
 const emit = defineEmits(['close'])
 
-const messageContent = ref('')
-const isSendingMessage = ref(false)
+const {
+    value: messageContent,
+    isSubmitting: isSendingMessage,
+    submit: handleSendMessage
+} = useModalSubmit({
+    initialValue: '',
+    isValid: hasMessageContent,
+    onInvalid: () => toastStore.addToast(t('user.message.inputContent'), 'warning'),
+    onSubmit: async (content) => {
+        try {
+            const { data } = await messageApi.sendMessage(props.userId, content, { skipGlobalErrorHandler: true })
+            if (!data.success) return false
 
-const handleSendMessage = async () => {
-    if (isSendingMessage.value) return
-
-    if (!hasMessageContent(messageContent.value)) {
-        toastStore.addToast(t('user.message.inputContent'), 'warning')
-        return
-    }
-    isSendingMessage.value = true
-    try {
-        const { data } = await messageApi.sendMessage(props.userId, messageContent.value, { skipGlobalErrorHandler: true })
-        if (data.success) {
             toastStore.addToast(t('user.message.sendSuccess'), 'success')
-            messageContent.value = ''
-            emit('close')
+            return true
+        } catch (error) {
+            logger.error('Failed to send message:', error)
+            const errRes = extractErrorResponse(error as AxiosError)
+            const message = errRes?.code === BLOCKED_BY_USER_CODE
+                ? t('user.message.blockedByUser')
+                : t('user.message.sendFailed')
+            toastStore.addToast(message, 'error')
+            return false
         }
-    } catch (error) {
-        logger.error('Failed to send message:', error)
-        const errRes = extractErrorResponse(error as AxiosError)
-        const message = errRes?.code === BLOCKED_BY_USER_CODE
-            ? t('user.message.blockedByUser')
-            : t('user.message.sendFailed')
-        toastStore.addToast(message, 'error')
-    } finally {
-        isSendingMessage.value = false
+    },
+    onSuccess: () => {
+        emit('close')
     }
-}
+})
 </script>

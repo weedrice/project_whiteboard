@@ -15,12 +15,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
 import { reportApi } from '@/api/report'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
+import { useModalSubmit } from '@/composables/useModalSubmit'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
@@ -36,27 +36,29 @@ const props = defineProps<{
 
 const emit = defineEmits(['close'])
 
-const reportReason = ref('')
-const isReporting = ref(false)
+const {
+    value: reportReason,
+    isSubmitting: isReporting,
+    submit: handleReportUser
+} = useModalSubmit({
+    initialValue: '',
+    isValid: (reason) => reason.trim().length > 0,
+    onInvalid: () => toastStore.addToast(t('report.inputReason'), 'warning'),
+    onSubmit: async (reason) => {
+        try {
+            const { data } = await reportApi.reportUser(props.userId, reason, '', { skipGlobalErrorHandler: true })
+            if (!data.success) return false
 
-const handleReportUser = async () => {
-    if (!reportReason.value.trim()) {
-        toastStore.addToast(t('report.inputReason'), 'warning')
-        return
-    }
-    isReporting.value = true
-    try {
-        const { data } = await reportApi.reportUser(props.userId, reportReason.value, '', { skipGlobalErrorHandler: true })
-        if (data.success) {
             toastStore.addToast(t('report.reportSuccess'), 'success')
-            reportReason.value = ''
-            emit('close')
+            return true
+        } catch (error) {
+            logger.error('Failed to report user:', error)
+            toastStore.addToast(t('report.reportFailed'), 'error')
+            return false
         }
-    } catch (error) {
-        logger.error('Failed to report user:', error)
-        toastStore.addToast(t('report.reportFailed'), 'error')
-    } finally {
-        isReporting.value = false
+    },
+    onSuccess: () => {
+        emit('close')
     }
-}
+})
 </script>
