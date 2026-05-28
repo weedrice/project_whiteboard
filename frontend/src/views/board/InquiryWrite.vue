@@ -8,43 +8,33 @@ import { extractErrorMessage } from '@/utils/errorHandler'
 import logger from '@/utils/logger'
 import { useI18n } from 'vue-i18n'
 import { usePostFormLeaveGuard } from '@/composables/usePostFormLeaveGuard'
+import { useLatestAsyncTask } from '@/composables/useLatestAsyncTask'
 
 const postFormRef = ref<InstanceType<typeof PostForm> | null>(null)
-const isPreparingBoard = ref(true)
-const prepareError = ref('')
 const { t } = useI18n()
 const router = useRouter()
 const leaveConfirmMessage = '페이지에서 나가시겠습니까? 변경사항이 저장되지 않을 수 있습니다.'
-let ensureRequestId = 0
-let ensureAbortController: AbortController | null = null
+const hasPreparedBoard = ref(false)
 
 const inquiryBoardUrl = computed(() => {
   const fromEnv = (import.meta.env.VITE_INQUIRY_BOARD_URL || 'inquiry').trim()
   return fromEnv || 'inquiry'
 })
 
-const ensureInquiryBoard = async () => {
-  ensureAbortController?.abort()
-  const controller = new AbortController()
-  ensureAbortController = controller
-  const requestId = ++ensureRequestId
-  isPreparingBoard.value = true
-  prepareError.value = ''
-  try {
-    await boardApi.ensureInquiryBoard(inquiryBoardUrl.value, { signal: controller.signal })
-  } catch (error) {
-    if (controller.signal.aborted || requestId !== ensureRequestId) {
-      return
-    }
+const prepareBoardTask = useLatestAsyncTask<string>({
+  getErrorValue: (error) => extractErrorMessage(error) || t('board.loadFailed'),
+  onError: (error) => {
     logger.error('Failed to ensure inquiry board:', error)
-    prepareError.value = extractErrorMessage(error) || t('board.loadFailed')
-  } finally {
-    if (ensureAbortController === controller) {
-      ensureAbortController = null
-    }
-    if (!controller.signal.aborted && requestId === ensureRequestId) {
-      isPreparingBoard.value = false
-    }
+  },
+})
+const isPreparingBoard = computed(() => prepareBoardTask.loading.value || (!hasPreparedBoard.value && !prepareBoardTask.error.value))
+const prepareError = computed(() => prepareBoardTask.error.value || '')
+
+const ensureInquiryBoard = async () => {
+  hasPreparedBoard.value = false
+  const result = await prepareBoardTask.run(({ signal }) => boardApi.ensureInquiryBoard(inquiryBoardUrl.value, { signal }))
+  if (result) {
+    hasPreparedBoard.value = true
   }
 }
 
@@ -63,9 +53,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  ensureRequestId += 1
-  ensureAbortController?.abort()
-  ensureAbortController = null
+  prepareBoardTask.reset()
 })
 </script>
 

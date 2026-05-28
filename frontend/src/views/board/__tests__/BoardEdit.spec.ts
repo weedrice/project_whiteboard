@@ -3,7 +3,6 @@ import { defineComponent, h, nextTick, reactive } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import BoardEdit from '../BoardEdit.vue'
 import { boardApi } from '@/api/board'
-import type { AxiosRequestConfig } from 'axios'
 
 const routeState = reactive({
   params: {
@@ -62,13 +61,39 @@ vi.mock('@/composables/useErrorHandler', () => ({
   useErrorHandler: () => ({ handleError: vi.fn() }),
 }))
 
-vi.mock('@/composables/useBoard', () => ({
-  useBoard: () => ({
-    useUpdateBoard: () => ({ mutateAsync: updateBoard }),
-    useDeleteBoard: () => ({ mutateAsync: deleteBoard }),
-    useTransferBoardManager: () => ({ mutateAsync: transferBoardManager }),
-  }),
-}))
+vi.mock('@/composables/useBoard', async () => {
+  const { ref, watch } = await import('vue')
+  const { boardApi: mockedBoardApi } = await import('@/api/board')
+
+  return {
+    useBoard: () => ({
+      useBoardDetail: (boardUrl: { value: string }) => {
+        const data = ref<unknown>(null)
+        const isLoading = ref(false)
+        const error = ref<unknown>(null)
+
+        watch(() => boardUrl.value, async (nextBoardUrl) => {
+          if (!nextBoardUrl) return
+          isLoading.value = true
+          error.value = null
+          try {
+            const response = await mockedBoardApi.getBoard(nextBoardUrl)
+            data.value = response.data.data
+          } catch (err: unknown) {
+            error.value = err
+          } finally {
+            isLoading.value = false
+          }
+        }, { immediate: true })
+
+        return { data, isLoading, error }
+      },
+      useUpdateBoard: () => ({ mutateAsync: updateBoard }),
+      useDeleteBoard: () => ({ mutateAsync: deleteBoard }),
+      useTransferBoardManager: () => ({ mutateAsync: transferBoardManager }),
+    }),
+  }
+})
 
 const BoardFormStub = defineComponent({
   name: 'BoardForm',
@@ -176,9 +201,7 @@ describe('BoardEdit', () => {
 
     const wrapper = await mountBoardEdit()
 
-    expect(boardApi.getBoard).toHaveBeenCalledWith('free', {
-      signal: expect.any(AbortSignal),
-    })
+    expect(boardApi.getBoard).toHaveBeenCalledWith('free')
     expect(wrapper.get('[data-testid="board-form"]').attributes('data-board-url')).toBe('free')
     expect(wrapper.getComponent({ name: 'UserSelectModal' }).props()).toMatchObject({
       isOpen: false,
@@ -191,9 +214,7 @@ describe('BoardEdit', () => {
     await nextTick()
     await flushPromises()
 
-    expect(boardApi.getBoard).toHaveBeenLastCalledWith('qna', {
-      signal: expect.any(AbortSignal),
-    })
+    expect(boardApi.getBoard).toHaveBeenLastCalledWith('qna')
     expect(wrapper.get('[data-testid="board-form"]').attributes('data-board-url')).toBe('qna')
     expect(wrapper.getComponent({ name: 'UserSelectModal' }).props('boardUrl')).toBe('qna')
   })
@@ -237,11 +258,9 @@ describe('BoardEdit', () => {
     expect(wrapper.find('[data-testid="board-form"]').exists()).toBe(false)
   })
 
-  it('aborts and ignores an in-flight board load after unmount', async () => {
+  it('ignores an in-flight board load after unmount', async () => {
     let resolveBoard: (value: ReturnType<typeof mockBoard>) => void = () => undefined
-    let requestSignal: AxiosRequestConfig['signal']
-    vi.mocked(boardApi.getBoard).mockImplementationOnce((_boardUrl, config?: AxiosRequestConfig) => {
-      requestSignal = config?.signal
+    vi.mocked(boardApi.getBoard).mockImplementationOnce(() => {
       return new Promise((resolve) => {
         resolveBoard = resolve
       }) as never
@@ -261,9 +280,7 @@ describe('BoardEdit', () => {
       },
     })
 
-    expect(requestSignal?.aborted).toBe(false)
     wrapper.unmount()
-    expect(requestSignal?.aborted).toBe(true)
 
     resolveBoard({
       ...mockBoard('free', 'Free Board'),

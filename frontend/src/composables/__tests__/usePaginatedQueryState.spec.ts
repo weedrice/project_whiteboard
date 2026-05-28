@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { computed, ref } from 'vue'
-import { usePaginatedQueryState } from '../usePaginatedQueryState'
+import { usePageResponseState, usePaginatedQueryState } from '../usePaginatedQueryState'
+import type { PageResponse } from '@/types'
 
 describe('usePaginatedQueryState', () => {
     it('builds query params from page, size, and extra params', () => {
@@ -39,5 +40,48 @@ describe('usePaginatedQueryState', () => {
             page: 0,
             size: 50,
         })
+    })
+
+    it('projects page response fields with nullish fallbacks', () => {
+        const fallbackPage = ref(2)
+        const pageData = ref<PageResponse<string> | null>({
+            content: ['first'],
+            totalElements: 10,
+            totalPages: 5,
+            size: 20,
+            number: 3,
+            first: false,
+            last: false,
+            empty: false,
+        })
+        const state = usePageResponseState(pageData, fallbackPage)
+
+        expect(state.items.value).toEqual(['first'])
+        expect(state.totalElements.value).toBe(10)
+        expect(state.totalPages.value).toBe(5)
+        expect(state.currentPage.value).toBe(3)
+
+        pageData.value = {
+            content: [],
+            totalElements: 0,
+            totalPages: 0,
+            size: 20,
+            number: 0,
+            first: true,
+            last: true,
+            empty: true,
+        }
+
+        expect(state.items.value).toEqual([])
+        expect(state.totalElements.value).toBe(0)
+        expect(state.totalPages.value).toBe(0)
+        expect(state.currentPage.value).toBe(0)
+
+        pageData.value = null
+
+        expect(state.items.value).toEqual([])
+        expect(state.totalElements.value).toBe(0)
+        expect(state.totalPages.value).toBe(0)
+        expect(state.currentPage.value).toBe(2)
     })
 })

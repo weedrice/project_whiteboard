@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
@@ -10,7 +10,7 @@ import ReportDetailModal from '@/components/admin/ReportDetailModal.vue'
 import SanctionModal from '@/components/admin/SanctionModal.vue'
 import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import { useConfirm } from '@/composables/useConfirm'
-import { usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
+import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import type { Report } from '@/types'
 
 const { t } = useI18n()
@@ -25,10 +25,12 @@ const { page, size, params, handlePageChange, handleSizeChange } = usePaginatedQ
 const { data: reportsData, isLoading, refetch } = useReports(params)
 const { mutateAsync: resolveReport } = useResolveReport()
 
-const reports = computed(() => reportsData.value?.content || [])
-const totalPages = computed(() => reportsData.value?.totalPages || 0)
-const totalElements = computed(() => reportsData.value?.totalElements || 0)
-const currentPage = computed(() => reportsData.value?.number ?? page.value)
+const {
+  items: reports,
+  totalPages,
+  totalElements,
+  currentPage,
+} = usePageResponseState(reportsData, page)
 
 const isModalOpen = ref(false)
 const selectedUser = ref<{

@@ -337,6 +337,10 @@ describe('Router Navigation Guards', () => {
 
         await router.push('/emoticons/7/edit')
 
+        expect(queryClientMock.fetchQuery).toHaveBeenCalledWith(expect.objectContaining({
+            queryKey: ['emoticon', 7],
+            retry: false,
+        }))
         expect(emoticonApi.getEmoticonData).toHaveBeenCalledWith(7)
         expect(router.currentRoute.value.name).toBe('emoticon-edit')
     })
