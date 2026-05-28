@@ -4,7 +4,7 @@ import { useUser } from '@/composables/useUser'
 import { Clock } from 'lucide-vue-next'
 import PostList from '@/components/board/PostList.vue'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
-import { isInquiryPostItem, resolvePostDetailRoute } from '@/utils/postNavigation'
+import { isInquiryPostItem, resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigation'
 
 const { useRecentlyViewedPosts } = useUser()
 
@@ -57,6 +57,7 @@ const handleSizeChange = (newSize = size.value) => {
       :show-board-name="true"
       :hide-no-column="true"
       :resolve-post-route="resolvePostDetailRoute"
+      :resolve-board-route="resolveBoardRoute"
       :show-inquiry-status="isInquiryPostItem"
     />
   </PaginatedListCard>

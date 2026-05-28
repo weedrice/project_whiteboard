@@ -78,6 +78,7 @@
               :showBoardName="true"
               :hideNoColumn="true"
               :resolve-post-route="resolvePostDetailRoute"
+              :resolve-board-route="resolveBoardRoute"
               :show-inquiry-status="isInquiryPostItem"
             />
           </div>
@@ -98,7 +99,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import { Search, Layout } from 'lucide-vue-next'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
-import { isInquiryPostItem, resolvePostDetailRoute } from '@/utils/postNavigation'
+import { isInquiryPostItem, resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigation'
 
 const { useIntegratedSearch } = useSearch()
 const {

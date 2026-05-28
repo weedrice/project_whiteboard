@@ -19,7 +19,7 @@ import { formatDate } from '@/utils/date'
 import { renderCommentContentHtml } from '@/utils/commentContent'
 import { applyImageFallback } from '@/utils/imageFallback'
 import { renderPostContentHtml } from '@/utils/postContentHtml'
-import { resolvePostDetailRoute } from '@/utils/postNavigation'
+import { resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigation'
 
 const { t } = useI18n()
 
@@ -241,6 +241,7 @@ onMounted(async () => {
             <PostList :posts="myPosts" :totalCount="myPostsTotalCount" :page="myPostsCurrentPage" :size="myPostsSize"
               :current-sort="myPostsSort" :show-board-name="true" :intercept-inquiry="true"
               :resolve-post-route="resolvePostDetailRoute" :should-intercept-post="isInquiryPostItem"
+              :resolve-board-route="resolveBoardRoute"
               :show-inquiry-status="isInquiryPostItem"
               @update:sort="handleMyPostsSortChange" @inquiry-click="openMyInquiryPost" />
             <div class="bg-gray-50 dark:bg-gray-900/50 px-4 py-4 sm:px-6 flex justify-center">
