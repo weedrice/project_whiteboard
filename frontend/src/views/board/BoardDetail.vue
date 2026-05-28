@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ChevronDown, ChevronUp, Megaphone, Search, ShieldCheck, User, X } from 'lucide-vue-next'
 import { useHead } from '@unhead/vue'
@@ -10,24 +10,22 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
-import { useBoard } from '@/composables/useBoard'
+import { useBoardDetailNavigation } from '@/composables/useBoardDetailNavigation'
+import { useBoardDetailResource } from '@/composables/useBoardDetailResource'
 import { useBoardListState } from '@/composables/useBoardListState'
-import { useBoardDetailShortcuts } from '@/composables/useKeyboardShortcuts'
-import { useRecentBoards } from '@/composables/useRecentBoards'
+import { useBoardRecentVisit } from '@/composables/useBoardRecentVisit'
 import { useConfirm } from '@/composables/useConfirm'
 import { useAuthStore } from '@/stores/auth'
-import { canWriteBoardPost, resolveDefaultCategory } from '@/utils/board'
-import { isRestrictedResourceError } from '@/utils/errorHandler'
+import { canWriteBoardPost } from '@/utils/board'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
 import { formatRelativeDate } from '@/utils/date'
 import { isInquiryPostItem, resolvePostDetailRoute } from '@/utils/postNavigation'
-import type { PostSummary } from '@/types'
 
-const NOTICE_PREVIEW_LIMIT = 3
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const { confirm } = useConfirm()
 
 const {
   page,
@@ -49,50 +47,77 @@ const {
   resetListState
 } = useBoardListState(route, router)
 
-const { useBoardDetail, useBoardPosts, useBoardNotices, useSubscribeBoard } = useBoard()
-const { addRecentBoard } = useRecentBoards()
-const { confirm } = useConfirm()
-
 const boardUrl = computed(() => route.params.boardUrl as string)
 const currentPostId = computed(() => route.params.postId as string | undefined)
-const suppressedCurrentPostId = ref<string | null>(null)
-const searchInputElementId = 'board-search-input'
-const listQuery = computed(() => {
-  const { fromCreate, ...query } = route.query
-  return query
-})
-const highlightedPostId = computed(() => (
-  currentPostId.value && currentPostId.value !== suppressedCurrentPostId.value
-    ? currentPostId.value
-    : undefined
-))
-
-const buildBoardListRoute = () => ({
-  path: `/board/${boardUrl.value}`,
-  query: listQuery.value
-})
 
 const {
-  data: board,
-  isLoading: isBoardLoading,
-  error: boardError
-} = useBoardDetail(boardUrl, {
-  meta: { errorMessage: false },
-  requestConfig: { skipGlobalErrorHandler: true }
+  board,
+  boardTitle,
+  blockingError,
+  categories,
+  hasNoticeOverflow,
+  isInitialLoading,
+  isNoticesExpanded,
+  isSubscribePending,
+  posts,
+  resetNoticeState,
+  showPostListLoading,
+  subscribeMutate,
+  totalPages,
+  transientListError,
+  visibleNotices,
+  notices
+} = useBoardDetailResource({
+  boardUrl,
+  queryParams,
+  isSearching,
+  t
 })
 
-function decodeBoardUrlTitle(rawBoardUrl: string): string {
-  try {
-    return decodeURIComponent(rawBoardUrl).trim()
-  } catch {
-    return rawBoardUrl.trim()
+useBoardRecentVisit(board)
+
+const canWrite = computed(() => (
+  canWriteBoardPost(board.value, authStore.isAuthenticated, authStore.user?.role)
+))
+const isAllPostsActive = computed(() => (
+  !conceptOnly.value
+  && selectedCategoryId.value === null
+))
+
+async function handleSubscribe() {
+  if (!board.value || isSubscribePending.value) return
+  if (board.value.isSubscribed) {
+    const isConfirmed = await confirm(t('user.subscriptions.unsubscribeConfirm'))
+    if (!isConfirmed) return
   }
+
+  subscribeMutate({
+    boardUrl: board.value.boardUrl,
+    isSubscribed: board.value.isSubscribed ?? false
+  })
 }
 
-const boardTitle = computed(() => {
-  const boardName = board.value?.boardName?.trim()
-  if (boardName) return boardName
-  return decodeBoardUrlTitle(boardUrl.value || '') || 'Board'
+const {
+  buildBoardListRoute,
+  getNoticeRoute,
+  highlightedPostId,
+  listQuery,
+  onPageChange,
+  searchInputElementId
+} = useBoardDetailNavigation({
+  route,
+  router,
+  boardUrl,
+  currentPostId,
+  page,
+  totalPages,
+  board,
+  canWrite,
+  isSubscribePending,
+  handleSubscribe,
+  handlePageChange,
+  resetListState,
+  resetNoticeState
 })
 
 useHead({
@@ -110,203 +135,6 @@ watch([() => route.name, boardTitle], ([routeName, title]) => {
   }
   document.title = `${title} - ${t('common.appName')}`
 }, { immediate: true })
-
-const boardContentEnabled = computed(() => !boardError.value)
-const {
-  data: postsData,
-  isLoading: isPostsLoading,
-  isFetching: isPostsFetching,
-  error: postsError
-} = useBoardPosts(boardUrl, queryParams, isSearching, boardContentEnabled, {
-  meta: { errorMessage: false },
-  requestConfig: { skipGlobalErrorHandler: true }
-})
-
-const {
-  data: noticesData
-} = useBoardNotices(boardUrl, boardContentEnabled, {
-  meta: { errorMessage: false },
-  requestConfig: { skipGlobalErrorHandler: true }
-})
-
-const {
-  mutate: subscribeMutate,
-  isPending: isSubscribePending
-} = useSubscribeBoard({
-  meta: { errorMessage: false }
-})
-
-const defaultCategory = computed(() => resolveDefaultCategory(board.value?.categories))
-const categories = computed(() => (
-  board.value?.categories?.filter((category) => category.categoryId !== defaultCategory.value?.categoryId) ?? []
-))
-
-const posts = computed(() => postsData.value?.content ?? [])
-const isNoticesExpanded = ref(false)
-const notices = computed(() => (
-  [...(noticesData.value ?? [])].sort((left, right) => {
-    const leftTime = new Date(left.createdAt).getTime()
-    const rightTime = new Date(right.createdAt).getTime()
-    if (leftTime !== rightTime) {
-      return rightTime - leftTime
-    }
-    return Number(right.postId ?? 0) - Number(left.postId ?? 0)
-  })
-))
-const visibleNotices = computed(() => (
-  isNoticesExpanded.value ? notices.value : notices.value.slice(0, NOTICE_PREVIEW_LIMIT)
-))
-const hasNoticeOverflow = computed(() => notices.value.length > NOTICE_PREVIEW_LIMIT)
-const totalPages = computed(() => postsData.value?.totalPages || 0)
-const isInitialLoading = computed(() => isBoardLoading.value && !board.value)
-const currentListKey = computed(() => JSON.stringify({
-  boardUrl: boardUrl.value,
-  ...queryParams.value
-}))
-const lastResolvedListKey = ref(currentListKey.value)
-const showPostListLoading = computed(() => (
-  (isPostsLoading.value && posts.value.length === 0)
-  || (isPostsFetching.value && currentListKey.value !== lastResolvedListKey.value)
-))
-
-const blockingError = computed(() => {
-  const sourceError = boardError.value ?? (posts.value.length === 0 ? postsError.value : null)
-  if (!sourceError) return ''
-  if (isRestrictedResourceError(sourceError)) {
-    return 'This board is restricted.'
-  }
-  return t('board.loadFailed')
-})
-
-const transientListError = computed(() => {
-  if (!postsError.value || posts.value.length === 0) {
-    return ''
-  }
-  return t('board.loadFailed')
-})
-
-const canWrite = computed(() => (
-  canWriteBoardPost(board.value, authStore.isAuthenticated, authStore.user?.role)
-))
-const isAllPostsActive = computed(() => (
-  !conceptOnly.value
-  && selectedCategoryId.value === null
-))
-
-function onPageChange(newPage: number) {
-  handlePageChange(newPage, totalPages.value)
-}
-
-function getNoticeRoute(notice: PostSummary) {
-  return {
-    path: `/board/${boardUrl.value}/post/${notice.postId}`,
-    query: listQuery.value
-  }
-}
-
-async function handleSubscribe() {
-  if (!board.value || isSubscribePending.value) return
-  if (board.value.isSubscribed) {
-    const isConfirmed = await confirm(t('user.subscriptions.unsubscribeConfirm'))
-    if (!isConfirmed) return
-  }
-
-  subscribeMutate({
-    boardUrl: board.value.boardUrl,
-    isSubscribed: board.value.isSubscribed ?? false
-  })
-}
-
-function hasInteractiveFocus(): boolean {
-  if (typeof document === 'undefined') {
-    return false
-  }
-
-  const activeElement = document.activeElement as HTMLElement | null
-  if (!activeElement || activeElement === document.body) {
-    return false
-  }
-
-  if (activeElement.isContentEditable) {
-    return true
-  }
-
-  const tagName = activeElement.tagName.toLowerCase()
-  return ['input', 'textarea', 'select', 'button', 'a'].includes(tagName)
-}
-
-watch(() => route.params.boardUrl, () => {
-  resetListState()
-  isNoticesExpanded.value = false
-  suppressedCurrentPostId.value = null
-})
-
-watch([currentPostId, () => route.query.fromCreate], ([postId, fromCreate]) => {
-  if (!postId) {
-    suppressedCurrentPostId.value = null
-    return
-  }
-
-  if (fromCreate === '1') {
-    suppressedCurrentPostId.value = postId
-    router.replace({
-      path: route.path,
-      query: listQuery.value
-    })
-  }
-}, { immediate: true })
-
-watch(board, (newBoard) => {
-  if (!newBoard) return
-
-  addRecentBoard({
-    boardUrl: newBoard.boardUrl,
-    boardName: newBoard.boardName,
-    iconUrl: newBoard.iconUrl
-  })
-}, { immediate: true })
-
-watch([currentListKey, isPostsFetching], ([nextListKey, fetching]) => {
-  if (!fetching) {
-    lastResolvedListKey.value = nextListKey
-  }
-}, { immediate: true })
-
-useBoardDetailShortcuts({
-  goToNextPage: () => {
-    if (page.value < totalPages.value - 1) {
-      page.value++
-    }
-  },
-  goToPrevPage: () => {
-    if (page.value > 0) {
-      page.value--
-    }
-  },
-  goToFirstPage: () => {
-    page.value = 0
-  },
-  goToLastPage: () => {
-    if (totalPages.value > 0) {
-      page.value = totalPages.value - 1
-    }
-  },
-  goToWrite: () => {
-    if (board.value) {
-      router.push(`/board/${board.value.boardUrl}/write`)
-    }
-  },
-  toggleSubscribe: handleSubscribe,
-  focusSearch: () => {
-    const searchInput = document.getElementById(searchInputElementId) as HTMLInputElement | null
-    searchInput?.focus()
-  },
-  canWrite: () => canWrite.value && !!board.value,
-  canGoNext: () => page.value < totalPages.value - 1,
-  canGoPrev: () => page.value > 0,
-  canToggleSubscribe: () => !isSubscribePending.value,
-  shouldIgnoreShortcut: hasInteractiveFocus
-})
 </script>
 
 <template>
