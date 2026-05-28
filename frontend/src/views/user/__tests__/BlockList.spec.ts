@@ -107,6 +107,17 @@ describe('BlockList', () => {
     vi.doMock('@/utils/logger', () => ({
       default: { error: loggerError },
     }))
+    vi.doMock('vue-i18n', () => ({
+      createI18n: () => ({
+        global: {
+          t: (key: string) => key,
+        },
+        install: vi.fn(),
+      }),
+      useI18n: () => ({
+        t: (key: string) => key,
+      }),
+    }))
     BlockList = (await import('../BlockList.vue')).default
   }, 30000)
 
@@ -145,7 +156,7 @@ describe('BlockList', () => {
     queryState.error.value = new Error('network')
     const wrapper = mountList()
 
-    expect(wrapper.get('[data-test="error-state"]').text()).toBe('차단 목록을 불러오지 못했습니다.')
+    expect(wrapper.get('[data-test="error-state"]').text()).toBe('common.messages.loadFailed')
     expect(wrapper.findComponent({ name: 'EmptyState' }).exists()).toBe(false)
 
     await wrapper.get('[data-test="error-state"]').trigger('click')

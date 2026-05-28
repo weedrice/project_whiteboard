@@ -59,6 +59,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { BlockedUserSummary } from '@/api/user'
 import BlockButton from '@/components/user/BlockButton.vue'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
@@ -66,7 +67,9 @@ import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import { UserX } from 'lucide-vue-next'
 import logger from '@/utils/logger'
 import { useUser } from '@/composables/useUser'
+import { getListLoadErrorMessage } from '@/utils/listLoadError'
 
+const { t } = useI18n()
 const { useBlockList } = useUser()
 const page = ref(0)
 const size = ref(20)
@@ -100,7 +103,7 @@ const handleSizeChange = (nextSize = size.value) => {
   page.value = 0
 }
 
-const errorMessage = computed(() => error.value ? '차단 목록을 불러오지 못했습니다.' : '')
+const errorMessage = computed(() => error.value ? getListLoadErrorMessage(t) : '')
 
 const fetchBlockedUsers = () => {
   refetch()
