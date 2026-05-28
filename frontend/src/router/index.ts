@@ -5,6 +5,7 @@ import { emoticonApi } from '@/api/emoticon'
 import { postApi } from '@/api/post'
 import { queryClient } from '@/queryClient'
 import { boardDetailQueryKey, fetchBoardDetail } from '@/composables/useBoard'
+import { postDetailQueryKey } from '@/composables/usePost'
 import { canWriteBoardPost } from '@/utils/board'
 import logger from '@/utils/logger'
 import i18n from '@/i18n'
@@ -43,7 +44,7 @@ const getStringRouteParam = (param: unknown) => typeof param === 'string' ? para
 
 async function fetchPostForAuthorGuard(postId: string): Promise<Post> {
     return queryClient.fetchQuery({
-        queryKey: ['post', postId],
+        queryKey: postDetailQueryKey(postId, false),
         queryFn: async () => {
             const { data } = await postApi.getPost(postId, {
                 params: {
