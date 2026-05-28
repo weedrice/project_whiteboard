@@ -4,7 +4,7 @@ import { mount, RouterLinkStub } from '@vue/test-utils'
 import BaseTable from '@/components/common/ui/BaseTable.vue'
 import PostList from '../PostList.vue'
 import type { PostSummary } from '@/types'
-import type { LocationQueryRaw } from 'vue-router'
+import type { LocationQueryRaw, RouteLocationRaw } from 'vue-router'
 
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
@@ -45,6 +45,13 @@ describe('PostList', () => {
       postId: post.postId
     },
     query: linkQuery
+  })
+
+  const resolveBoardRoute = (_post: PostSummary, boardUrl: string): RouteLocationRaw => ({
+    name: 'board-detail',
+    params: {
+      boardUrl
+    }
   })
 
   it('preserves pagination query in post detail links when provided', () => {
@@ -488,6 +495,49 @@ describe('PostList', () => {
         postId: 404
       },
       query: undefined
+    })
+  })
+
+  it('uses an injected board route resolver for desktop board links', () => {
+    const wrapper = mount(PostList, {
+      props: {
+        posts: [
+          createPost({
+            postId: 405,
+            boardUrl: 'free',
+            boardName: 'Free Board',
+            title: 'Board route resolver',
+            author: {
+              userId: 1,
+              displayName: 'Author'
+            }
+          })
+        ],
+        showBoardName: true,
+        resolvePostRoute,
+        resolveBoardRoute
+      },
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          UserMenu: true
+        },
+        components: {
+          BaseTable
+        }
+      }
+    })
+
+    const targets = wrapper.findAllComponents(RouterLinkStub).map((link) => link.props('to'))
+
+    expect(targets).toContainEqual({
+      name: 'board-detail',
+      params: {
+        boardUrl: 'free'
+      }
     })
   })
 

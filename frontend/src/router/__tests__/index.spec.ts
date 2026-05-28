@@ -7,6 +7,7 @@ import logger from '@/utils/logger'
 import { boardApi } from '@/api/board'
 import { emoticonApi } from '@/api/emoticon'
 import { postApi } from '@/api/post'
+import { postDetailQueryKey } from '@/composables/usePost'
 
 const queryClientMock = vi.hoisted(() => ({
     fetchQuery: vi.fn(({ queryFn }: { queryFn: () => Promise<unknown> }) => queryFn())
@@ -263,6 +264,9 @@ describe('Router Navigation Guards', () => {
 
         await router.push('/board/open/post/10/edit')
 
+        expect(queryClientMock.fetchQuery).toHaveBeenCalledWith(expect.objectContaining({
+            queryKey: postDetailQueryKey('10', false),
+        }))
         expect(postApi.getPost).toHaveBeenCalledWith('10', { params: { incrementView: false } })
         expect(router.currentRoute.value.name).toBe('post-edit')
     })

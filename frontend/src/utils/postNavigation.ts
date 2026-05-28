@@ -24,6 +24,15 @@ export function resolvePostDetailRoute(
   }
 }
 
+export function resolveBoardRoute(_post: InquiryPostSource, boardUrl: string): RouteLocationRaw {
+  return {
+    name: 'board-detail',
+    params: {
+      boardUrl
+    }
+  }
+}
+
 export function isInquiryPostItem(post: InquiryPostSource, fallbackBoardUrl?: string | number): boolean {
   return String(post.boardUrl || fallbackBoardUrl || '').trim().toLowerCase() === 'inquiry'
 }

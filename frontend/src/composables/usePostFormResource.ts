@@ -26,6 +26,7 @@ export function usePostFormResource(options: UsePostFormResourceOptions) {
     const postIdRef = computed(() => (options.mode() === 'edit' ? options.postId.value : '') as string)
     const { data: post, isLoading: isPostLoading } = usePostDetail(postIdRef, {
         enabled: computed(() => options.mode() === 'edit' && !!options.postId.value),
+        requestConfig: { params: { incrementView: false } },
     })
     const { mutate: createPost, isPending: isCreateSubmitting } = useCreatePost()
     const { mutate: updatePost, isPending: isUpdateSubmitting } = useUpdatePost()

@@ -5,6 +5,11 @@ import type { Post } from '@/types'
 import type { AxiosRequestConfig } from 'axios'
 import { normalizePostReactionFlags, type PostReactionAlias } from '@/utils/postViewModel'
 
+export const postDetailQueryKey = (
+    postId: string | number | Ref<string | number>,
+    incrementView = true,
+) => ['post', postId, { incrementView }] as const
+
 export function usePost() {
     const queryClient = useQueryClient()
 
@@ -24,7 +29,7 @@ export function usePost() {
     // 모든 게시글 캐시(상세, 트렌딩, 게시판 목록)에서 특정 postId의 데이터를 업데이트
     function updatePostInAllCaches(postId: string | number, updater: (post: Partial<Post>) => Partial<Post>) {
         // 1. 게시글 상세 캐시
-        queryClient.setQueryData<Post>(['post', postId], (old) => {
+        queryClient.setQueriesData<Post>({ queryKey: ['post', postId] }, (old) => {
             if (!old) return old
             return updater(old) as Post
         })
@@ -85,7 +90,7 @@ export function usePost() {
     // 롤백을 위한 스냅샷 저장
     function savePostCacheSnapshots(postId: string | number) {
         return {
-            postDetail: queryClient.getQueryData(['post', postId]),
+            postDetailQueries: queryClient.getQueriesData({ queryKey: ['post', postId] }),
             postsQueries: queryClient.getQueriesData({ queryKey: ['posts'] }),
             boardQueries: queryClient.getQueriesData({ queryKey: ['board'] })
                 .filter(([key]) => (key as unknown[]).includes('posts'))
@@ -97,9 +102,9 @@ export function usePost() {
         postId: string | number,
         snapshots: ReturnType<typeof savePostCacheSnapshots>
     ) {
-        if (snapshots.postDetail !== undefined) {
-            queryClient.setQueryData(['post', postId], snapshots.postDetail)
-        }
+        snapshots.postDetailQueries.forEach(([key, data]) => {
+            queryClient.setQueryData(key, data)
+        })
         snapshots.postsQueries.forEach(([key, data]) => {
             queryClient.setQueryData(key, data)
         })
@@ -124,7 +129,7 @@ export function usePost() {
     const usePostDetail = (postId: Ref<string | number>, options: { requestConfig?: AxiosRequestConfig } & Record<string, unknown> = {}) => {
         const { requestConfig, ...queryOptions } = options
         return useQuery({
-            queryKey: ['post', postId],
+            queryKey: postDetailQueryKey(postId, requestConfig?.params?.incrementView !== false),
             queryFn: async () => {
                 const { data } = await postApi.getPost(postId.value, {
                     ...requestConfig,
