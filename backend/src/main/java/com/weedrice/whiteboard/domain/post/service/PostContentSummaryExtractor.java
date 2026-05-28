@@ -13,7 +13,11 @@ import java.util.regex.Pattern;
 public class PostContentSummaryExtractor {
 
     String extractSummary(Post post) {
-        String summary = Jsoup.parse(post.getContents()).text().trim();
+        return extractSummary(post.getContents());
+    }
+
+    String extractSummary(String contents) {
+        String summary = Jsoup.parse(contents == null ? "" : contents).text().trim();
         if (summary.length() > 1000) {
             return summary.substring(0, 1000);
         }

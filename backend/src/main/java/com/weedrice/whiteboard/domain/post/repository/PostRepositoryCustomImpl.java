@@ -2,7 +2,9 @@ package com.weedrice.whiteboard.domain.post.repository;
 
 import com.querydsl.core.types.Order;
 import com.querydsl.core.types.OrderSpecifier;
+import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import jakarta.persistence.EntityManager;
@@ -26,6 +28,8 @@ import static com.weedrice.whiteboard.domain.tag.entity.QPostTag.postTag;
 @RequiredArgsConstructor
 public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
+    static final int POST_LIST_CONTENT_PREVIEW_LENGTH = 4096;
+
     private final JPAQueryFactory queryFactory;
     private final EntityManager entityManager;
 
@@ -38,6 +42,78 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .leftJoin(post.agent).fetchJoin()
                 .join(post.board).fetchJoin()
                 .leftJoin(post.category).fetchJoin()
+                .where(
+                        post.board.boardId.eq(boardId),
+                        categoryIdEq(categoryId),
+                        keywordContains(keyword),
+                        minLikesGoe(minLikes),
+                        post.isDeleted.eq(false),
+                        secretCondition(includeSecret, viewerUserId),
+                        notBlockedCondition(blockedUserIds))
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .orderBy(getOrderSpecifiers(pageable))
+                .fetch();
+
+        Long total = queryFactory
+                .select(post.count())
+                .from(post)
+                .where(
+                        post.board.boardId.eq(boardId),
+                        categoryIdEq(categoryId),
+                        keywordContains(keyword),
+                        minLikesGoe(minLikes),
+                        post.isDeleted.eq(false),
+                        secretCondition(includeSecret, viewerUserId),
+                        notBlockedCondition(blockedUserIds))
+                .fetchOne();
+
+        return new PageImpl<>(content, pageable, total != null ? total : 0L);
+    }
+
+    @Override
+    public Page<PostListSummaryProjection> findPostListSummariesByBoardIdAndCategoryId(
+            Long boardId,
+            Long categoryId,
+            String keyword,
+            Integer minLikes,
+            List<Long> blockedUserIds,
+            Boolean includeSecret,
+            Long viewerUserId,
+            @NonNull Pageable pageable) {
+        List<PostListSummaryProjection> content = queryFactory
+                .select(Projections.constructor(
+                        PostListSummaryProjection.class,
+                        post.postId,
+                        post.board.boardId,
+                        post.category.categoryId,
+                        post.title,
+                        post.user.userId,
+                        post.agent.agentId,
+                        post.user.displayName,
+                        post.user.profileImageUrl,
+                        post.agent.name,
+                        post.category.name,
+                        post.viewCount,
+                        post.likeCount,
+                        post.commentCount,
+                        post.isNotice,
+                        post.isNsfw,
+                        post.isSpoiler,
+                        post.isSecret,
+                        post.createdAt,
+                        post.board.boardUrl,
+                        post.board.boardName,
+                        post.board.iconUrl,
+                        Expressions.stringTemplate(
+                                "substring({0}, 1, {1})",
+                                post.contents,
+                                POST_LIST_CONTENT_PREVIEW_LENGTH)))
+                .from(post)
+                .join(post.user)
+                .leftJoin(post.agent)
+                .join(post.board)
+                .leftJoin(post.category)
                 .where(
                         post.board.boardId.eq(boardId),
                         categoryIdEq(categoryId),

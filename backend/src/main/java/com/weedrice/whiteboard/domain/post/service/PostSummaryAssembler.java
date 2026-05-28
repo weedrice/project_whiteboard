@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
+import com.weedrice.whiteboard.domain.post.repository.PostListSummaryProjection;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -106,6 +107,78 @@ public class PostSummaryAssembler {
         }
 
         return new PageImpl<>(summaries, pageable, totalElements);
+    }
+
+    Page<PostSummary> assembleBoardListProjectionPage(Page<PostListSummaryProjection> posts, Pageable pageable,
+            boolean includeImages, boolean includeInquiryAnswered) {
+        List<Long> postIds = posts.getContent().stream()
+                .map(PostListSummaryProjection::postId)
+                .collect(Collectors.toList());
+        Set<Long> postIdsWithImages = includeImages
+                ? new HashSet<>(getThumbnailFileIdsByPostId(postIds).keySet())
+                : Collections.emptySet();
+        Map<Long, Boolean> inquiryAnsweredStatuses = includeInquiryAnswered
+                ? resolveInquiryAnsweredStatusesFromProjection(posts.getContent())
+                : Collections.emptyMap();
+
+        long totalElements = posts.getTotalElements();
+        int pageNumber = posts.getNumber();
+        int pageSize = posts.getSize();
+        boolean isAscending = isAscendingRowNumberSort(pageable.getSort());
+
+        List<PostSummary> summaries = new ArrayList<>();
+        for (int i = 0; i < posts.getContent().size(); i++) {
+            PostListSummaryProjection post = posts.getContent().get(i);
+            PostSummary summary = buildListSummary(post);
+            if (includeImages) {
+                summary.setHasImage(postIdsWithImages.contains(post.postId()));
+            }
+            if (includeInquiryAnswered) {
+                summary.setInquiryAnswered(inquiryAnsweredStatuses.get(post.postId()));
+            }
+
+            if (isAscending) {
+                summary.setRowNum(((long) pageNumber * pageSize) + i + 1);
+            } else {
+                summary.setRowNum(totalElements - ((long) pageNumber * pageSize) - i);
+            }
+            summaries.add(summary);
+        }
+
+        return new PageImpl<>(summaries, pageable, totalElements);
+    }
+
+    private PostSummary buildListSummary(PostListSummaryProjection post) {
+        boolean agentAuthored = post.agentId() != null;
+        return PostSummary.builder()
+                .postId(post.postId())
+                .boardId(post.boardId())
+                .categoryId(post.categoryId())
+                .title(post.title())
+                .author(PostSummary.AuthorInfo.builder()
+                        .userId(post.userId())
+                        .agentId(post.agentId())
+                        .authorType(agentAuthored ? "AGENT" : "USER")
+                        .displayName(agentAuthored ? post.agentName() : post.userDisplayName())
+                        .profileImageUrl(agentAuthored ? null : post.userProfileImageUrl())
+                        .build())
+                .category(post.categoryId() != null ? PostSummary.CategoryInfo.builder()
+                        .categoryId(post.categoryId())
+                        .name(post.categoryName())
+                        .build() : null)
+                .viewCount(post.viewCount() != null ? post.viewCount() : 0)
+                .likeCount(post.likeCount() != null ? post.likeCount() : 0)
+                .commentCount(post.commentCount() != null ? post.commentCount() : 0)
+                .isNotice(Boolean.TRUE.equals(post.isNotice()))
+                .isNsfw(Boolean.TRUE.equals(post.isNsfw()))
+                .isSpoiler(Boolean.TRUE.equals(post.isSpoiler()))
+                .isSecret(Boolean.TRUE.equals(post.isSecret()))
+                .createdAt(post.createdAt())
+                .boardUrl(post.boardUrl())
+                .boardName(post.boardName())
+                .boardIconUrl(post.boardIconUrl())
+                .summary(contentSummaryExtractor.extractSummary(post.contentPreview()))
+                .build();
     }
 
     private boolean isAscendingRowNumberSort(Sort sort) {
@@ -241,6 +314,30 @@ public class PostSummaryAssembler {
             inquiryAnsweredStatuses.put(
                     inquiryPost.getPostId(),
                     answeredPostIds.contains(inquiryPost.getPostId()));
+        }
+        return inquiryAnsweredStatuses;
+    }
+
+    private Map<Long, Boolean> resolveInquiryAnsweredStatusesFromProjection(List<PostListSummaryProjection> posts) {
+        if (posts == null || posts.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<PostListSummaryProjection> inquiryPosts = posts.stream()
+                .filter(post -> boardAccessPolicy.isInquiryBoardUrl(post.boardUrl()))
+                .toList();
+        if (inquiryPosts.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Set<Long> answeredPostIds = new HashSet<>(commentRepository.findPostIdsWithNonAuthorCommentsByPostIds(
+                inquiryPosts.stream().map(PostListSummaryProjection::postId).toList()));
+
+        Map<Long, Boolean> inquiryAnsweredStatuses = new HashMap<>();
+        for (PostListSummaryProjection inquiryPost : inquiryPosts) {
+            inquiryAnsweredStatuses.put(
+                    inquiryPost.postId(),
+                    answeredPostIds.contains(inquiryPost.postId()));
         }
         return inquiryAnsweredStatuses;
     }

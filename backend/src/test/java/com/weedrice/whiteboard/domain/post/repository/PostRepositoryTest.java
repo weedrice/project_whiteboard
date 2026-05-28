@@ -737,6 +737,79 @@ class PostRepositoryTest {
     }
 
     @Test
+    @DisplayName("게시글 목록 projection은 요약 필드와 제한된 본문 preview를 조회한다")
+    void findPostListSummariesByBoardIdAndCategoryId_success() {
+        Agent agent = Agent.builder()
+                .user(user)
+                .agentTokenHash("agent-token")
+                .name("agent")
+                .description("desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        entityManager.persist(agent);
+
+        user.updateProfileImage("profile.png");
+        board.update("Test Board", null, "board-icon.png", 0, false, true, true);
+
+        Post projectionPost = Post.builder()
+                .title("Long Projection Post")
+                .contents("<p>" + "A".repeat(PostRepositoryCustomImpl.POST_LIST_CONTENT_PREVIEW_LENGTH + 500) + "</p>")
+                .user(user)
+                .agent(agent)
+                .board(board)
+                .category(category)
+                .isNotice(true)
+                .isNsfw(true)
+                .isSpoiler(true)
+                .isSecret(true)
+                .build();
+        projectionPost.incrementViewCount();
+        projectionPost.incrementViewCount();
+        projectionPost.incrementLikeCount();
+        projectionPost.incrementCommentCount();
+        entityManager.persist(projectionPost);
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<PostListSummaryProjection> result = postRepository.findPostListSummariesByBoardIdAndCategoryId(
+                board.getBoardId(),
+                category.getCategoryId(),
+                "Long Projection",
+                null,
+                null,
+                true,
+                user.getUserId(),
+                PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt")));
+
+        assertThat(result.getContent()).singleElement().satisfies(summary -> {
+            assertThat(summary.postId()).isEqualTo(projectionPost.getPostId());
+            assertThat(summary.title()).isEqualTo("Long Projection Post");
+            assertThat(summary.boardId()).isEqualTo(board.getBoardId());
+            assertThat(summary.categoryId()).isEqualTo(category.getCategoryId());
+            assertThat(summary.userId()).isEqualTo(user.getUserId());
+            assertThat(summary.boardUrl()).isEqualTo("test-board");
+            assertThat(summary.boardName()).isEqualTo("Test Board");
+            assertThat(summary.boardIconUrl()).isEqualTo("board-icon.png");
+            assertThat(summary.categoryName()).isEqualTo("General");
+            assertThat(summary.userDisplayName()).isEqualTo("Test User");
+            assertThat(summary.userProfileImageUrl()).isEqualTo("profile.png");
+            assertThat(summary.agentId()).isNotNull();
+            assertThat(summary.agentName()).isEqualTo("agent");
+            assertThat(summary.viewCount()).isEqualTo(2);
+            assertThat(summary.likeCount()).isEqualTo(1);
+            assertThat(summary.commentCount()).isEqualTo(1);
+            assertThat(summary.isNotice()).isTrue();
+            assertThat(summary.isNsfw()).isTrue();
+            assertThat(summary.isSpoiler()).isTrue();
+            assertThat(summary.isSecret()).isTrue();
+            assertThat(summary.createdAt()).isNotNull();
+            assertThat(summary.contentPreview())
+                    .hasSize(PostRepositoryCustomImpl.POST_LIST_CONTENT_PREVIEW_LENGTH)
+                    .startsWith("<p>AAA");
+        });
+    }
+
+    @Test
     @DisplayName("Count posts before target in default board order")
     void countPostsBeforeInBoardDefaultOrder_success() {
         // given

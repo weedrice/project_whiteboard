@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.feed.dto.FeedPostSummary;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.repository.PostListSummaryProjection;
 import com.weedrice.whiteboard.domain.post.repository.PostLikeRepository;
 import com.weedrice.whiteboard.domain.post.repository.ScrapRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -274,6 +275,60 @@ class PostSummaryAssemblerTest {
         assertThat(latest.get(0).getContentsExcerpt()).isNull();
         assertThat(latest.get(0).getFirstMediaType()).isNull();
         assertThat(latest.get(0).getFirstMediaUrl()).isNull();
+    }
+
+    @Test
+    @DisplayName("게시글 목록 projection을 기존 PostSummary shape로 조립한다")
+    void assembleBoardListProjectionPage_buildsPostSummaryShape() {
+        PostListSummaryProjection projection = new PostListSummaryProjection(
+                100L,
+                10L,
+                20L,
+                "Question",
+                1L,
+                null,
+                "Author",
+                "profile.png",
+                null,
+                "General",
+                7,
+                3,
+                2,
+                true,
+                false,
+                false,
+                true,
+                null,
+                "inquiry",
+                "Inquiry",
+                "icon.png",
+                "<p>Hello <strong>world</strong></p>");
+
+        when(fileService.getFirstImageFileIdsForPosts(List.of(100L)))
+                .thenReturn(Map.of(100L, 1000L));
+        when(commentRepository.findPostIdsWithNonAuthorCommentsByPostIds(List.of(100L)))
+                .thenReturn(List.of(100L));
+
+        PageImpl<PostListSummaryProjection> page = new PageImpl<>(
+                List.of(projection),
+                PageRequest.of(0, 20, Sort.by(Sort.Order.desc("createdAt"))),
+                1);
+
+        PostSummary summary = postSummaryAssembler
+                .assembleBoardListProjectionPage(page, page.getPageable(), true, true)
+                .getContent()
+                .get(0);
+
+        assertThat(summary.getPostId()).isEqualTo(100L);
+        assertThat(summary.getBoardId()).isEqualTo(10L);
+        assertThat(summary.getCategory().getName()).isEqualTo("General");
+        assertThat(summary.getAuthor().getDisplayName()).isEqualTo("Author");
+        assertThat(summary.isHasImage()).isTrue();
+        assertThat(summary.getInquiryAnswered()).isTrue();
+        assertThat(summary.getSummary()).isEqualTo("Hello world");
+        assertThat(summary.getRowNum()).isEqualTo(1L);
+        assertThat(summary.getBoardUrl()).isEqualTo("inquiry");
+        assertThat(summary.getBoardIconUrl()).isEqualTo("icon.png");
     }
 
     private Post post(Long postId, User author, Board board) {

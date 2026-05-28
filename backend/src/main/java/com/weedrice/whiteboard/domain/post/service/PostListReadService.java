@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.feed.dto.FeedPostSummary;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.repository.PostListSummaryProjection;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.search.service.SearchRecordEventPublisher;
 import com.weedrice.whiteboard.domain.search.service.SearchRequestNormalizer;
@@ -73,7 +74,7 @@ public class PostListReadService {
         BoardReadContext boardContext = resolveReadableBoardContext(boardUrl, currentUserId);
         String canonicalKeyword = SearchRequestNormalizer.canonicalizeOptionalKeyword(keyword);
 
-        Page<Post> posts = getPosts(
+        Page<PostListSummaryProjection> posts = getPostListSummaries(
                 boardContext.board().getBoardId(),
                 categoryId,
                 canonicalKeyword,
@@ -81,7 +82,11 @@ public class PostListReadService {
                 boardContext.context(),
                 boardContext.includeSecret(),
                 pageable);
-        Page<PostSummary> response = postSummaryAssembler.assembleBoardPage(posts, posts.getPageable(), true, true);
+        Page<PostSummary> response = postSummaryAssembler.assembleBoardListProjectionPage(
+                posts,
+                posts.getPageable(),
+                true,
+                true);
         publishSearchRecord(currentUserId, canonicalKeyword);
         return response;
     }
@@ -110,6 +115,21 @@ public class PostListReadService {
         Pageable safePageable = normalizeBoardPostPageable(pageable);
         String canonicalKeyword = SearchRequestNormalizer.canonicalizeOptionalKeyword(keyword);
         return postRepository.findByBoardIdAndCategoryId(
+                boardId,
+                categoryId,
+                canonicalKeyword,
+                minLikes,
+                context.blockedUserIds(),
+                includeSecret,
+                context.viewerUserId(),
+                safePageable);
+    }
+
+    private Page<PostListSummaryProjection> getPostListSummaries(Long boardId, Long categoryId, String keyword,
+            Integer minLikes, PostReadContext context, Boolean includeSecret, @NonNull Pageable pageable) {
+        Pageable safePageable = normalizeBoardPostPageable(pageable);
+        String canonicalKeyword = SearchRequestNormalizer.canonicalizeOptionalKeyword(keyword);
+        return postRepository.findPostListSummariesByBoardIdAndCategoryId(
                 boardId,
                 categoryId,
                 canonicalKeyword,

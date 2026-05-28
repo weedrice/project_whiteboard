@@ -794,14 +794,16 @@ class PostServiceTest {
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         // currentUserId가 null이므로 userBlockService가 호출되지 않음
         // Page.empty()인 경우 getPostIdsWithImages가 빈 리스트를 받아 fileService가 호출되지 않음
-        when(postRepository.findByBoardIdAndCategoryId(eq(1L), any(), any(), any(), any(), any(Boolean.class), any(),
+        when(postRepository.findPostListSummariesByBoardIdAndCategoryId(eq(1L), any(), any(), any(), any(),
+                any(Boolean.class), any(),
                 any(Pageable.class)))
                 .thenAnswer(invocation -> Page.empty(invocation.getArgument(7)));
 
         postService.getPosts("free", null, null, null, null, Pageable.unpaged());
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        verify(postRepository).findByBoardIdAndCategoryId(eq(1L), any(), any(), any(), any(), any(Boolean.class), any(),
+        verify(postRepository).findPostListSummariesByBoardIdAndCategoryId(eq(1L), any(), any(), any(), any(),
+                any(Boolean.class), any(),
                 pageableCaptor.capture());
         Pageable pageable = pageableCaptor.getValue();
         assertThat(pageable.getPageNumber()).isZero();
@@ -816,7 +818,7 @@ class PostServiceTest {
     @DisplayName("게시글 목록 키워드 조회 성공 후 검색 기록 이벤트를 발행한다")
     void getPosts_withKeyword_publishesSearchRecord() {
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(postRepository.findByBoardIdAndCategoryId(eq(1L), any(), eq("test"), any(), any(),
+        when(postRepository.findPostListSummariesByBoardIdAndCategoryId(eq(1L), any(), eq("test"), any(), any(),
                 any(Boolean.class), any(), any(Pageable.class)))
                 .thenAnswer(invocation -> Page.empty(invocation.getArgument(7)));
 
@@ -831,13 +833,15 @@ class PostServiceTest {
         String rawKeyword = "A".repeat(MAX_KEYWORD_LENGTH + 10);
         String canonicalKeyword = "A".repeat(MAX_KEYWORD_LENGTH);
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(postRepository.findByBoardIdAndCategoryId(eq(1L), any(), eq(canonicalKeyword), any(), any(),
+        when(postRepository.findPostListSummariesByBoardIdAndCategoryId(eq(1L), any(), eq(canonicalKeyword), any(),
+                any(),
                 any(Boolean.class), any(), any(Pageable.class)))
                 .thenAnswer(invocation -> Page.empty(invocation.getArgument(7)));
 
         postService.getPosts("free", null, rawKeyword, null, null, Pageable.unpaged());
 
-        verify(postRepository).findByBoardIdAndCategoryId(eq(1L), any(), eq(canonicalKeyword), any(), any(),
+        verify(postRepository).findPostListSummariesByBoardIdAndCategoryId(eq(1L), any(), eq(canonicalKeyword), any(),
+                any(),
                 any(Boolean.class), any(), any(Pageable.class));
         verify(searchRecordEventPublisher).publish(null, canonicalKeyword);
     }
@@ -846,7 +850,7 @@ class PostServiceTest {
     @DisplayName("게시글 목록 키워드가 비어 있으면 검색 기록 이벤트를 발행하지 않는다")
     void getPosts_blankKeywordDoesNotPublishSearchRecord() {
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(postRepository.findByBoardIdAndCategoryId(eq(1L), any(), isNull(), any(), any(),
+        when(postRepository.findPostListSummariesByBoardIdAndCategoryId(eq(1L), any(), isNull(), any(), any(),
                 any(Boolean.class), any(), any(Pageable.class)))
                 .thenAnswer(invocation -> Page.empty(invocation.getArgument(7)));
 
