@@ -9,6 +9,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import { useNotificationListState } from '@/composables/useNotificationListState'
 import { formatDate } from '@/utils/date'
+import { getListLoadErrorMessage } from '@/utils/listLoadError'
 import type { Notification } from '@/types'
 
 const { t } = useI18n()
@@ -23,11 +24,11 @@ const params = computed(() => ({
   size: size.value
 }))
 
-const { isLoading, isError, error, refetch, notifications, totalPages } = useNotificationListState(params)
+const { isLoading, isError, refetch, notifications, totalPages } = useNotificationListState(params)
 const { mutate: markAllAsRead, isPending: isMarkingAllAsRead } = useMarkAllAsRead()
 
 const hasUnreadNotifications = computed(() => notifications.value.some((notification) => !notification.isRead))
-const errorMessage = computed(() => error.value instanceof Error ? error.value.message : t('common.messages.loadFailed'))
+const errorMessage = computed(() => getListLoadErrorMessage(t))
 
 function handlePageChange(newPage: number) {
   page.value = newPage

@@ -1,5 +1,6 @@
 import { ref, type Ref } from 'vue'
 import { useLatestAsyncTask } from '@/composables/useLatestAsyncTask'
+import { getListLoadErrorMessage } from '@/utils/listLoadError'
 import logger from '@/utils/logger'
 import type { ApiResponse, PageResponse } from '@/types'
 
@@ -47,7 +48,7 @@ export function usePagination<T>(
     const items = ref<T[]>([]) as Ref<T[]>
     const totalCount = ref(0)
     const totalPages = ref(0)
-    const failedMessage = '데이터를 불러오는데 실패했습니다.'
+    const failedMessage = getListLoadErrorMessage()
     const fetchTask = useLatestAsyncTask<string>({
         getErrorValue: () => failedMessage,
         onError: (err) => logger.error('Failed to fetch paginated data:', err),
