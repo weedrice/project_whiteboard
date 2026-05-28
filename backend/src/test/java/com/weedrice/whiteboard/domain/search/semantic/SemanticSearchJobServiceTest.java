@@ -2,11 +2,15 @@ package com.weedrice.whiteboard.domain.search.semantic;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.lang.reflect.Method;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -51,6 +55,14 @@ class SemanticSearchJobServiceTest {
         jobService.enqueue("POST", 1L, SemanticSearchIndexAction.UPSERT);
 
         verify(jobRepository).enqueue("POST", 1L, SemanticSearchIndexAction.UPSERT);
+    }
+
+    @Test
+    void enqueueMethodsUseRequiresNewTransactions() throws NoSuchMethodException {
+        assertRequiresNew("enqueue", String.class, Long.class, SemanticSearchIndexAction.class);
+        assertRequiresNew("enqueueAll", String.class, Collection.class, SemanticSearchIndexAction.class);
+        assertRequiresNew("enqueuePostComments", Long.class);
+        assertRequiresNew("enqueueBoardContent", Long.class);
     }
 
     @Test
@@ -152,5 +164,12 @@ class SemanticSearchJobServiceTest {
         verify(jobCommandService, never()).markCompleted(anyLong(), any(LocalDateTime.class), any(LocalDateTime.class));
         verify(jobCommandService).markFailedIfCurrent(eq(3L), any(LocalDateTime.class), eq(3),
                 contains("payload changed"));
+    }
+
+    private void assertRequiresNew(String methodName, Class<?>... parameterTypes) throws NoSuchMethodException {
+        Method method = SemanticSearchJobService.class.getMethod(methodName, parameterTypes);
+        Transactional transactional = method.getAnnotation(Transactional.class);
+        assertThat(transactional).isNotNull();
+        assertThat(transactional.propagation()).isEqualTo(Propagation.REQUIRES_NEW);
     }
 }

@@ -14,7 +14,7 @@ import java.util.List;
 public class SemanticSearchBackfillService {
 
     private final JdbcTemplate jdbcTemplate;
-    private final SemanticSearchJobService jobService;
+    private final SemanticSearchJobRepository jobRepository;
 
     @Transactional
     public int enqueueBackfill(String contentType, int limit) {
@@ -51,7 +51,7 @@ public class SemanticSearchBackfillService {
                 ORDER BY p.created_at ASC, p.post_id ASC
                 LIMIT ?
                 """, Long.class, limit);
-        jobService.enqueueAll("POST", postIds, SemanticSearchIndexAction.UPSERT);
+        jobRepository.enqueueAll("POST", postIds, SemanticSearchIndexAction.UPSERT);
         return postIds.size();
     }
 
@@ -76,7 +76,7 @@ public class SemanticSearchBackfillService {
                 ORDER BY c.created_at ASC, c.comment_id ASC
                 LIMIT ?
                 """, Long.class, limit);
-        jobService.enqueueAll("COMMENT", commentIds, SemanticSearchIndexAction.UPSERT);
+        jobRepository.enqueueAll("COMMENT", commentIds, SemanticSearchIndexAction.UPSERT);
         return commentIds.size();
     }
 }

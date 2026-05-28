@@ -5,7 +5,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.lang.reflect.Method;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -16,14 +19,14 @@ import static org.mockito.Mockito.*;
 class SemanticSearchBackfillServiceTest {
 
     private JdbcTemplate jdbcTemplate;
-    private SemanticSearchJobService jobService;
+    private SemanticSearchJobRepository jobRepository;
     private SemanticSearchBackfillService backfillService;
 
     @BeforeEach
     void setUp() {
         jdbcTemplate = mock(JdbcTemplate.class);
-        jobService = mock(SemanticSearchJobService.class);
-        backfillService = new SemanticSearchBackfillService(jdbcTemplate, jobService);
+        jobRepository = mock(SemanticSearchJobRepository.class);
+        backfillService = new SemanticSearchBackfillService(jdbcTemplate, jobRepository);
     }
 
     @Test
@@ -34,8 +37,8 @@ class SemanticSearchBackfillServiceTest {
         int count = backfillService.enqueueBackfill("ALL", 10);
 
         assertThat(count).isEqualTo(3);
-        verify(jobService).enqueueAll("POST", List.of(1L, 2L), SemanticSearchIndexAction.UPSERT);
-        verify(jobService).enqueueAll("COMMENT", List.of(11L), SemanticSearchIndexAction.UPSERT);
+        verify(jobRepository).enqueueAll("POST", List.of(1L, 2L), SemanticSearchIndexAction.UPSERT);
+        verify(jobRepository).enqueueAll("COMMENT", List.of(11L), SemanticSearchIndexAction.UPSERT);
 
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         verify(jdbcTemplate, times(2)).queryForList(sqlCaptor.capture(), eq(Long.class), eq(10));
@@ -52,6 +55,32 @@ class SemanticSearchBackfillServiceTest {
         assertThatThrownBy(() -> backfillService.enqueueBackfill("POST", 0))
                 .isInstanceOf(BusinessException.class);
 
-        verifyNoInteractions(jdbcTemplate, jobService);
+        verifyNoInteractions(jdbcTemplate, jobRepository);
+    }
+
+    @Test
+    void enqueueBackfill_usesRequiredWriteTransaction() throws NoSuchMethodException {
+        Method method = SemanticSearchBackfillService.class.getMethod(
+                "enqueueBackfill", String.class, int.class);
+        Transactional transactional = method.getAnnotation(Transactional.class);
+
+        assertThat(transactional).isNotNull();
+        assertThat(transactional.propagation()).isEqualTo(Propagation.REQUIRED);
+        assertThat(transactional.readOnly()).isFalse();
+    }
+
+    @Test
+    void enqueueBackfill_propagatesCommentEnqueueFailureAfterPostEnqueue() {
+        when(jdbcTemplate.queryForList(anyString(), eq(Long.class), eq(10)))
+                .thenReturn(List.of(1L), List.of(11L));
+        doThrow(new IllegalStateException("comment enqueue failed"))
+                .when(jobRepository).enqueueAll("COMMENT", List.of(11L), SemanticSearchIndexAction.UPSERT);
+
+        assertThatThrownBy(() -> backfillService.enqueueBackfill("ALL", 10))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("comment enqueue failed");
+
+        verify(jobRepository).enqueueAll("POST", List.of(1L), SemanticSearchIndexAction.UPSERT);
+        verify(jobRepository).enqueueAll("COMMENT", List.of(11L), SemanticSearchIndexAction.UPSERT);
     }
 }
