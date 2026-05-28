@@ -78,13 +78,16 @@ class FileServiceTest {
                 userWritableResolver,
                 fileStorageService,
                 transactionTemplate);
-        fileService = new FileService(
-                fileUploadService,
+        FileAssociationService fileAssociationService = new FileAssociationService(
                 fileRepository,
                 userRepository,
-                boardRepository,
+                boardRepository);
+        ReflectionTestUtils.setField(fileAssociationService, "entityManager", entityManager);
+        fileService = new FileService(
+                fileUploadService,
+                fileAssociationService,
+                fileRepository,
                 fileTemporaryCleanupWorker);
-        ReflectionTestUtils.setField(fileService, "entityManager", entityManager);
     }
 
     @Test
