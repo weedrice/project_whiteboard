@@ -139,17 +139,13 @@ describe('BlockList', () => {
     expect(wrapper.get('[data-test="page-change"]').text()).toContain('0/3')
     expect(wrapper.findAll('[data-test="block-button"]')).toHaveLength(2)
   })
-
-  it('supports legacy array payloads from the block list query cache', () => {
-    queryState.data.value = [
-      { userId: 1, displayName: 'Ada', email: 'ada@example.com' },
-    ]
+  it('renders an empty list before block list data is loaded', () => {
+    queryState.data.value = null
 
     const wrapper = mountList()
 
-    expect(wrapper.text()).toContain('Ada')
-    expect(wrapper.text()).toContain('총 1건')
-    expect(wrapper.get('[data-test="page-change"]').text()).toContain('0/1')
+    expect(wrapper.findAll('[data-test="block-button"]')).toHaveLength(0)
+    expect(wrapper.find('[data-test="page-change"]').exists()).toBe(false)
   })
 
   it('shows an error state and retries through the query refetch', async () => {

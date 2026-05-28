@@ -76,23 +76,11 @@ const size = ref(20)
 const blockListParams = computed(() => ({ page: page.value, size: size.value }))
 const { data: blockListData, isLoading: loading, error, refetch } = useBlockList(blockListParams)
 
-const blockedUsers = computed<BlockedUserSummary[]>(() => {
-  const payload = blockListData.value
-  if (!payload) return []
-  return Array.isArray(payload) ? payload : payload.content
-})
+const blockedUsers = computed<BlockedUserSummary[]>(() => blockListData.value?.content ?? [])
 
-const totalElements = computed(() => {
-  const payload = blockListData.value
-  if (!payload) return 0
-  return Array.isArray(payload) ? payload.length : payload.totalElements
-})
+const totalElements = computed(() => blockListData.value?.totalElements ?? 0)
 
-const totalPages = computed(() => {
-  const payload = blockListData.value
-  if (!payload) return 0
-  return Array.isArray(payload) ? (payload.length > 0 ? 1 : 0) : payload.totalPages
-})
+const totalPages = computed(() => blockListData.value?.totalPages ?? 0)
 
 const handlePageChange = (nextPage: number) => {
   page.value = nextPage

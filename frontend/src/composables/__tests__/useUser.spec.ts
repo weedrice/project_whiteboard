@@ -117,7 +117,18 @@ describe('useUser', () => {
             data: { data: { theme: 'LIGHT' } },
         } as never)
         vi.mocked(userApi.getBlockList).mockResolvedValueOnce({
-            data: { data: [{ userId: 100 }] },
+            data: {
+                data: {
+                    content: [{ userId: 100 }],
+                    totalElements: 1,
+                    totalPages: 1,
+                    size: 20,
+                    number: 0,
+                    first: true,
+                    last: true,
+                    empty: false,
+                },
+            },
         } as never)
         vi.mocked(userApi.getNotificationSettings).mockResolvedValueOnce({
             data: { data: [{ notificationType: 'COMMENT', isEnabled: true }] },
@@ -140,7 +151,16 @@ describe('useUser', () => {
         options = mocks.queryOptions.at(-1)!
         expect((options.queryKey as { value: unknown[] }).value).toEqual(['user', 'blocks', {}])
         result = await (options.queryFn as () => Promise<unknown>)()
-        expect(result).toEqual([{ userId: 100 }])
+        expect(result).toEqual({
+            content: [{ userId: 100 }],
+            totalElements: 1,
+            totalPages: 1,
+            size: 20,
+            number: 0,
+            first: true,
+            last: true,
+            empty: false,
+        })
 
         useNotificationSettings()
         options = mocks.queryOptions.at(-1)!
