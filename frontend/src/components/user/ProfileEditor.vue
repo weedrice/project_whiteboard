@@ -169,11 +169,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import type { AxiosError } from 'axios'
-import { fileApi } from '@/api/file'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
@@ -182,11 +180,9 @@ import { useUser } from '@/composables/useUser'
 import { useAccountDeletion } from '@/composables/useAccountDeletion'
 import { useMyAgentActions } from '@/composables/useMyAgentActions'
 import { useProfileImageEditor } from '@/composables/useProfileImageEditor'
+import { useProfileUpdateSubmit } from '@/composables/useProfileUpdateSubmit'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
-import type { UserUpdatePayload } from '@/api/user'
-import { extractErrorMessage, extractValidationErrors, getFieldError } from '@/utils/errorHandler'
-import logger from '@/utils/logger'
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -205,8 +201,6 @@ const { data: agentsData, isLoading: isAgentsLoading, isFetching: isAgentsFetchi
 const { mutateAsync: claimAgent, isPending: isClaiming } = useClaimAgent()
 const { mutateAsync: suspendMyAgent } = useSuspendMyAgent()
 
-const loading = ref(false)
-const errors = reactive<Record<string, string>>({})
 const isEmailVerified = computed(() => {
   const value: unknown = authStore.user?.isEmailVerified
   return value === true || value === 'Y' || value === 'true' || value === 1
@@ -226,6 +220,21 @@ const {
   profileImageUrl: () => authStore.user?.profileImageUrl,
   onFileSizeExceeded: () => toastStore.addToast(t('common.messages.fileSizeExceeded'), 'warning'),
   onProcessFailed: () => toastStore.addToast(t('common.messages.processImageFailed'), 'error')
+})
+
+const {
+  loading,
+  errors,
+  updateProfile
+} = useProfileUpdateSubmit({
+  selectedFile,
+  getDisplayName: () => form.displayName,
+  updateProfile: updateProfileMutateAsync,
+  refreshUser: authStore.fetchUser,
+  addToast: (message, type) => toastStore.addToast(message, type),
+  t,
+  onRefreshed: () => emit('refreshed'),
+  onClose: () => emit('close')
 })
 
 const {
@@ -263,59 +272,4 @@ const {
   t
 })
 
-const updateProfile = async () => {
-  loading.value = true
-  errors.displayName = ''
-
-  try {
-    let profileImageId: number | null = null
-
-    if (selectedFile.value) {
-      const uploadRes = await fileApi.uploadFile(selectedFile.value)
-
-      if (!uploadRes.data.success || !uploadRes.data.data?.fileId) {
-        toastStore.addToast(t('common.messages.uploadFailed'), 'error')
-        return
-      }
-
-      profileImageId = uploadRes.data.data.fileId
-    }
-
-    const payload: UserUpdatePayload = {
-      displayName: form.displayName,
-      profileImageId,
-    }
-
-    await updateProfileMutateAsync(payload)
-    await authStore.fetchUser()
-    toastStore.addToast(t('common.messages.profileUpdated'), 'success')
-    emit('refreshed')
-    emit('close')
-  } catch (error) {
-    const axiosError = error as AxiosError
-    logger.error('Failed to update profile:', error)
-
-    const validationErrors = extractValidationErrors(axiosError)
-    if (validationErrors) {
-      const displayNameError = getFieldError(validationErrors, 'displayName')
-      if (displayNameError) {
-        errors.displayName = displayNameError
-      }
-
-      const otherErrors = Object.entries(validationErrors)
-        .filter(([key]) => key !== 'displayName')
-        .flatMap(([, messages]) => messages)
-
-      if (otherErrors.length > 0) {
-        toastStore.addToast(otherErrors[0], 'error')
-      }
-    } else {
-      const errorMessage = extractErrorMessage(axiosError)
-      errors.displayName = errorMessage
-      toastStore.addToast(errorMessage, 'error')
-    }
-  } finally {
-    loading.value = false
-  }
-}
 </script>
