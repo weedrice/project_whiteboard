@@ -15,11 +15,31 @@ const dateOnlyFormatter = new Intl.DateTimeFormat('ko-KR', {
     day: '2-digit'
 })
 
+const longDateOnlyFormatter = new Intl.DateTimeFormat('ko-KR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+})
+
 const timeOnlyFormatter = new Intl.DateTimeFormat('ko-KR', {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false
 })
+
+type DateInput = string | number[] | null | undefined
+
+function toDate(dateString: DateInput): Date | null {
+    if (!dateString) return null
+
+    if (Array.isArray(dateString)) {
+        const [year, month, day, hour, minute, second] = dateString
+        return new Date(Date.UTC(year, month - 1, day, hour || 0, minute || 0, second || 0))
+    }
+
+    const date = new Date(dateString)
+    return Number.isNaN(date.getTime()) ? null : date
+}
 
 /**
  * Formats a date string to a locale string.
@@ -27,18 +47,20 @@ const timeOnlyFormatter = new Intl.DateTimeFormat('ko-KR', {
  * Uses Intl.DateTimeFormat for better performance and consistency.
  */
 export function formatDate(dateString: string | number[]): string {
-    if (!dateString) return ''
-    
-    let date: Date
-    if (Array.isArray(dateString)) {
-        const [year, month, day, hour, minute, second] = dateString
-        // Treat array as UTC components
-        date = new Date(Date.UTC(year, month - 1, day, hour, minute, second || 0))
-    } else {
-        date = new Date(dateString)
-    }
-    
+    const date = toDate(dateString)
+    if (!date) return ''
+
     return dateTimeFormatter.format(date)
+}
+
+export function formatDateTimeOrDash(dateString: DateInput): string {
+    const date = toDate(dateString)
+    return date ? dateTimeFormatter.format(date) : '-'
+}
+
+export function formatDateOnlyLongOrDash(dateString: DateInput): string {
+    const date = toDate(dateString)
+    return date ? longDateOnlyFormatter.format(date) : '-'
 }
 
 /**
@@ -72,15 +94,8 @@ export function formatRelativeDate(dateString: string): string {
  * Example: "2024-01-29T14:30:00" -> "24.01.29 14:30"
  */
 export function formatDateShort(dateString: string | number[]): string {
-    if (!dateString) return ''
-
-    let date: Date
-    if (Array.isArray(dateString)) {
-        const [year, month, day, hour, minute] = dateString
-        date = new Date(Date.UTC(year, month - 1, day, hour, minute || 0, 0))
-    } else {
-        date = new Date(dateString)
-    }
+    const date = toDate(dateString)
+    if (!date) return ''
 
     const yy = String(date.getFullYear()).slice(-2)
     const mm = String(date.getMonth() + 1).padStart(2, '0')
@@ -91,17 +106,9 @@ export function formatDateShort(dateString: string | number[]): string {
 }
 
 export function formatDateOnly(dateString: string | number[]): string {
-    if (!dateString) return ''
-    
-    let date: Date
-    if (Array.isArray(dateString)) {
-        const [year, month, day] = dateString
-        // Treat array as UTC components
-        date = new Date(Date.UTC(year, month - 1, day))
-    } else {
-        date = new Date(dateString)
-    }
-    
+    const date = toDate(dateString)
+    if (!date) return ''
+
     return dateOnlyFormatter.format(date)
 }
 
