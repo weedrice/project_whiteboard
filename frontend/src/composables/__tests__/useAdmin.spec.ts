@@ -109,7 +109,15 @@ describe('useAdmin', () => {
         it('useAdmins queryFn forwards params and preserves placeholder data', async () => {
             const { useAdmins } = useAdmin()
             const params = ref({ page: 1, size: 20 })
-            const response = { content: [{ adminId: 1 }], totalPages: 1, totalElements: 1, size: 20 }
+            const response = {
+                content: [{ adminId: 1 }],
+                page: 1,
+                totalPages: 3,
+                totalElements: 41,
+                size: 20,
+                hasNext: true,
+                hasPrevious: true
+            }
 
             vi.mocked(adminApi.getAdmins)
                 .mockResolvedValueOnce({ data: { data: response } } as any)
@@ -120,7 +128,16 @@ describe('useAdmin', () => {
                 placeholderData: (prev: unknown) => unknown
             }
 
-            await expect(query.queryFn()).resolves.toEqual(response)
+            await expect(query.queryFn()).resolves.toEqual({
+                content: [{ adminId: 1 }],
+                number: 1,
+                totalPages: 3,
+                totalElements: 41,
+                size: 20,
+                first: false,
+                last: false,
+                empty: false
+            })
             expect(adminApi.getAdmins).toHaveBeenCalledWith(params.value)
             expect(query.placeholderData('prev-admins')).toBe('prev-admins')
         })
@@ -229,7 +246,16 @@ describe('useAdmin', () => {
         it('useUsers queryFn forwards params and preserves placeholder data', async () => {
             const { useUsers } = useAdmin()
             const params = ref({ page: 2, size: 5, q: 'john' })
-            const response = { content: [{ userId: 1 }], number: 2, size: 5, totalElements: 1 }
+            const response = {
+                content: [{ userId: 1 }],
+                number: 2,
+                size: 5,
+                totalElements: 16,
+                totalPages: 4,
+                first: false,
+                last: false,
+                empty: false
+            }
             vi.mocked(adminApi.getUsers).mockResolvedValueOnce({ data: { data: response } } as any)
 
             useUsers(params)
@@ -275,9 +301,9 @@ describe('useAdmin', () => {
             const params = ref({ page: 1, size: 10 })
 
             vi.mocked(adminApi.getUserDetail).mockResolvedValueOnce({ data: { data: { userId: 5 } } } as any)
-            vi.mocked(adminApi.getUserPosts).mockResolvedValueOnce({ data: { data: { content: [{ postId: 1, deleted: true }] } } } as any)
-            vi.mocked(adminApi.getUserComments).mockResolvedValueOnce({ data: { data: { content: [{ commentId: 2, deleted: true }] } } } as any)
-            vi.mocked(adminApi.getUserSubscriptions).mockResolvedValueOnce({ data: { data: { content: [{ boardId: 3, subscriptionAccessible: false }] } } } as any)
+            vi.mocked(adminApi.getUserPosts).mockResolvedValueOnce({ data: { data: { content: [{ postId: 1, deleted: true }], page: 1, size: 10, totalElements: 21, totalPages: 3, hasNext: true, hasPrevious: true } } } as any)
+            vi.mocked(adminApi.getUserComments).mockResolvedValueOnce({ data: { data: { content: [{ commentId: 2, deleted: true }], page: 0, size: 10, totalElements: 2, totalPages: 1, hasNext: false, hasPrevious: false } } } as any)
+            vi.mocked(adminApi.getUserSubscriptions).mockResolvedValueOnce({ data: { data: { content: [{ boardId: 3, subscriptionAccessible: false }], page: 2, size: 10, totalElements: 23, totalPages: 3, hasNext: false, hasPrevious: true } } } as any)
 
             useAdminUserDetail(userId)
             const detailQuery = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
@@ -289,7 +315,12 @@ describe('useAdmin', () => {
                 queryFn: () => Promise<unknown>
                 placeholderData: (prev: unknown) => unknown
             }
-            await expect(postsQuery.queryFn()).resolves.toEqual({ content: [{ postId: 1, deleted: true }] })
+            await expect(postsQuery.queryFn()).resolves.toMatchObject({
+                content: [{ postId: 1, deleted: true }],
+                number: 1,
+                first: false,
+                last: false
+            })
             expect(adminApi.getUserPosts).toHaveBeenCalledWith(5, params.value)
             expect(postsQuery.placeholderData('prev-posts')).toBe('prev-posts')
 
@@ -298,7 +329,12 @@ describe('useAdmin', () => {
                 queryFn: () => Promise<unknown>
                 placeholderData: (prev: unknown) => unknown
             }
-            await expect(commentsQuery.queryFn()).resolves.toEqual({ content: [{ commentId: 2, deleted: true }] })
+            await expect(commentsQuery.queryFn()).resolves.toMatchObject({
+                content: [{ commentId: 2, deleted: true }],
+                number: 0,
+                first: true,
+                last: true
+            })
             expect(adminApi.getUserComments).toHaveBeenCalledWith(5, params.value)
             expect(commentsQuery.placeholderData('prev-comments')).toBe('prev-comments')
 
@@ -307,7 +343,12 @@ describe('useAdmin', () => {
                 queryFn: () => Promise<unknown>
                 placeholderData: (prev: unknown) => unknown
             }
-            await expect(subscriptionsQuery.queryFn()).resolves.toEqual({ content: [{ boardId: 3, subscriptionAccessible: false }] })
+            await expect(subscriptionsQuery.queryFn()).resolves.toMatchObject({
+                content: [{ boardId: 3, subscriptionAccessible: false }],
+                number: 2,
+                first: false,
+                last: true
+            })
             expect(adminApi.getUserSubscriptions).toHaveBeenCalledWith(5, params.value)
             expect(subscriptionsQuery.placeholderData('prev-subscriptions')).toBe('prev-subscriptions')
         })
@@ -326,7 +367,16 @@ describe('useAdmin', () => {
         it('useReports queryFn forwards params and preserves placeholder data', async () => {
             const { useReports } = useAdmin()
             const params = ref({ page: 1, size: 20 })
-            const response = { content: [{ reportId: 7 }], number: 1, size: 20, totalElements: 1 }
+            const response = {
+                content: [{ reportId: 7 }],
+                number: 1,
+                size: 20,
+                totalElements: 21,
+                totalPages: 2,
+                first: false,
+                last: true,
+                empty: false
+            }
             vi.mocked(adminApi.getReports).mockResolvedValueOnce({ data: { data: response } } as any)
 
             useReports(params)
@@ -378,7 +428,15 @@ describe('useAdmin', () => {
         it('useIpBlocks queryFn forwards params and preserves placeholder data', async () => {
             const { useIpBlocks } = useAdmin()
             const params = ref({ page: 1, size: 20 })
-            const response = { content: [{ ipAddress: '1.1.1.1' }], totalPages: 1, totalElements: 1, size: 20 }
+            const response = {
+                content: [{ ipAddress: '1.1.1.1' }],
+                page: 0,
+                totalPages: 1,
+                totalElements: 1,
+                size: 20,
+                hasNext: false,
+                hasPrevious: false
+            }
             vi.mocked(adminApi.getIpBlocks).mockResolvedValueOnce({ data: { data: response } } as any)
 
             useIpBlocks(params)
@@ -386,7 +444,16 @@ describe('useAdmin', () => {
                 queryFn: () => Promise<unknown>
                 placeholderData: (prev: unknown) => unknown
             }
-            await expect(query.queryFn()).resolves.toEqual(response)
+            await expect(query.queryFn()).resolves.toEqual({
+                content: [{ ipAddress: '1.1.1.1' }],
+                number: 0,
+                totalPages: 1,
+                totalElements: 1,
+                size: 20,
+                first: true,
+                last: true,
+                empty: false
+            })
             expect(adminApi.getIpBlocks).toHaveBeenCalledWith(params.value)
             expect(query.placeholderData('prev-ip-blocks')).toBe('prev-ip-blocks')
         })
@@ -591,7 +658,10 @@ describe('useAdmin', () => {
                 number: 0,
                 size: 20,
                 totalElements: 1,
-                totalPages: 1
+                totalPages: 1,
+                first: true,
+                last: true,
+                empty: false
             }
             vi.mocked(adminApi.getErrorLogs).mockResolvedValueOnce({ data: { data: response } } as any)
 
