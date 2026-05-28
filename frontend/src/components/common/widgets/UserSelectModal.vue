@@ -81,27 +81,18 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useI18n } from 'vue-i18n'
 import { Search, Check } from 'lucide-vue-next'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
-import BaseTable, { type TableColumn } from '@/components/common/ui/BaseTable.vue'
-import { useAdmin } from '@/composables/useAdmin'
-import { useBoard } from '@/composables/useBoard'
-
-type SelectionMode = 'single' | 'multiple'
-type UserSelectSource = 'admin' | 'board-manager-candidates'
-
-interface SelectableUser {
-  userId: number
-  loginId: string
-  displayName: string
-  profileImageUrl?: string | null
-  email?: string
-  currentManager?: boolean
-}
+import BaseTable from '@/components/common/ui/BaseTable.vue'
+import {
+  useUserSelectSource,
+  type SelectableUser,
+  type SelectionMode,
+  type UserSelectSource
+} from '@/composables/useUserSelectSource'
 
 const props = withDefaults(defineProps<{
   isOpen: boolean
@@ -125,55 +116,23 @@ const emit = defineEmits<{
   (e: 'confirm', users: SelectableUser[]): void
 }>()
 
-const { t } = useI18n()
-const { useUsers } = useAdmin()
-const { useBoardManagerCandidates } = useBoard()
-
 const searchQuery = ref('')
 const selectedMap = ref<Record<number, SelectableUser>>({})
+const hasUserSelectionChanged = ref(false)
+const hasAppliedInitialSelection = ref(false)
 
-const params = computed(() => ({
-  page: 0,
-  size: 10,
-  q: searchQuery.value
-}))
-const boardUrlRef = computed(() => props.boardUrl)
-const isBoardCandidateSource = computed(() => props.source === 'board-manager-candidates')
-const isUsersQueryEnabled = computed(() => props.isOpen && props.source === 'admin')
-const isBoardCandidatesQueryEnabled = computed(() => props.isOpen && isBoardCandidateSource.value && !!props.boardUrl)
-
-const { data: adminUsersData, isLoading: isAdminUsersLoading } = useUsers(params, isUsersQueryEnabled)
-const { data: boardCandidatesData, isLoading: isBoardCandidatesLoading } = useBoardManagerCandidates(
-  boardUrlRef,
-  params,
-  isBoardCandidatesQueryEnabled
-)
-const isMultiMode = computed(() => props.selectionMode === 'multiple')
-const showEmailColumn = computed(() => !isBoardCandidateSource.value)
-const usersData = computed(() => (isBoardCandidateSource.value ? boardCandidatesData.value : adminUsersData.value))
-const isLoading = computed(() => (isBoardCandidateSource.value ? isBoardCandidatesLoading.value : isAdminUsersLoading.value))
-const userColumns = computed<TableColumn[]>(() => {
-  const columns: TableColumn[] = []
-
-  if (isMultiMode.value) {
-    columns.push({ key: 'selection', label: '', width: '2.5rem', align: 'center' })
-  }
-
-  columns.push({ key: 'loginId', label: t('common.loginId') })
-  columns.push({ key: 'displayName', label: t('common.displayName') })
-
-  if (showEmailColumn.value) {
-    columns.push({ key: 'email', label: t('common.email') })
-  }
-
-  return columns
-})
-
-const filteredUsers = computed<SelectableUser[]>(() => {
-  const list = usersData.value?.content || []
-  if (!props.excludeUserIds.length) return list
-  const excluded = new Set(props.excludeUserIds)
-  return list.filter((user) => !excluded.has(user.userId))
+const {
+  filteredUsers,
+  isLoading,
+  isMultiMode,
+  userColumns,
+} = useUserSelectSource({
+  isOpen: computed(() => props.isOpen),
+  selectionMode: computed(() => props.selectionMode),
+  source: computed(() => props.source),
+  boardUrl: computed(() => props.boardUrl),
+  excludeUserIds: computed(() => props.excludeUserIds),
+  searchQuery,
 })
 
 const selectedUsers = computed<SelectableUser[]>(() => Object.values(selectedMap.value))
@@ -189,6 +148,8 @@ function getUserRowClass(user: SelectableUser) {
 }
 
 function toggleSelection(user: SelectableUser) {
+  hasUserSelectionChanged.value = true
+
   if (props.selectionMode === 'single') {
     selectedMap.value = { [user.userId]: user }
     return
@@ -208,20 +169,22 @@ function confirmSelection() {
   emit('confirm', selectedUsers.value)
 }
 
-watch([() => props.isOpen, () => props.selectionMode, () => props.initialSelectedIds], ([isOpen]) => {
-  if (!isOpen) return
-
-  searchQuery.value = ''
-  selectedMap.value = {}
-})
-
-watch(filteredUsers, (users) => {
-  if (!users.length || !props.initialSelectedIds.length) return
+function applyInitialSelection(users: SelectableUser[]) {
+  if (
+    hasUserSelectionChanged.value
+    || hasAppliedInitialSelection.value
+    || !users.length
+    || !props.initialSelectedIds.length
+  ) {
+    return
+  }
 
   const initialSet = new Set(props.initialSelectedIds)
   const matched = users.filter((user) => initialSet.has(user.userId))
 
   if (!matched.length) return
+
+  hasAppliedInitialSelection.value = true
 
   if (props.selectionMode === 'single') {
     const first = matched[0]
@@ -234,5 +197,19 @@ watch(filteredUsers, (users) => {
     next[user.userId] = user
   })
   selectedMap.value = next
+}
+
+watch([() => props.isOpen, () => props.selectionMode, () => props.initialSelectedIds], ([isOpen]) => {
+  if (!isOpen) return
+
+  searchQuery.value = ''
+  selectedMap.value = {}
+  hasUserSelectionChanged.value = false
+  hasAppliedInitialSelection.value = false
+  applyInitialSelection(filteredUsers.value)
+})
+
+watch(filteredUsers, (users) => {
+  applyInitialSelection(users)
 }, { immediate: true })
 </script>
