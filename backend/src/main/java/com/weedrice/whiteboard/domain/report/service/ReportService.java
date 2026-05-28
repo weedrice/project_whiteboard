@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -30,7 +31,7 @@ public class ReportService {
         return reportModerationService.getMyReports(userId, pageable);
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public ReportResponse processReport(Long adminUserId, Long reportId, String status, String remark) {
         return reportModerationService.processReport(adminUserId, reportId, status, remark);
     }

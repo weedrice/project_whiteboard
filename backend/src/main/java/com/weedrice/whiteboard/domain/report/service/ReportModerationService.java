@@ -1,10 +1,8 @@
 package com.weedrice.whiteboard.domain.report.service;
 
-import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
 import com.weedrice.whiteboard.domain.report.dto.MyReportResponse;
 import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.entity.Report;
-import com.weedrice.whiteboard.domain.report.entity.ReportStatus;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -16,6 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -29,11 +28,12 @@ class ReportModerationService {
 
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
-    private final ModerationActorResolver moderationActorResolver;
     private final ReportReadAssembler reportReadAssembler;
+    private final ReportModerationCommandService reportModerationCommandService;
+    private final ReportModerationReadService reportModerationReadService;
 
     public Page<ReportResponse> getReports(String status, String targetType, Pageable pageable) {
-        String normalizedStatus = normalizeStatus(status);
+        String normalizedStatus = ReportStatusNormalizer.normalizeNullable(status);
         String normalizedTargetType = ReportTargetTypeNormalizer.normalizeNullable(targetType);
         Pageable safePageable = normalizeReportPageable(pageable);
         return reportReadAssembler.toAdminResponsePage(
@@ -55,43 +55,10 @@ class ReportModerationService {
                 reportRepository.findByReporterOrderByCreatedAtDescReportIdDesc(reporter, safePageable));
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public ReportResponse processReport(Long adminUserId, Long reportId, String status, String remark) {
-        ModerationActorResolver.ModerationActor moderationActor =
-                moderationActorResolver.resolveModerationActor(adminUserId);
-        String normalizedStatus = normalizeTerminalStatus(status);
-        String normalizedRemark = ReportRemarkNormalizer.normalize(remark);
-        Report report = reportRepository.findByIdForUpdate(reportId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-
-        report.processReport(
-                moderationActor.admin(),
-                moderationActor.user().getUserId(),
-                normalizedStatus,
-                normalizedRemark);
-        reportRepository.save(report);
-        return reportReadAssembler.toAdminResponse(report);
-    }
-
-    private String normalizeStatus(String status) {
-        try {
-            ReportStatus reportStatus = ReportStatus.fromNullable(status);
-            return reportStatus != null ? reportStatus.name() : null;
-        } catch (IllegalArgumentException ex) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
-        }
-    }
-
-    private String normalizeTerminalStatus(String status) {
-        try {
-            ReportStatus reportStatus = ReportStatus.from(status);
-            if (!reportStatus.isTerminal()) {
-                throw new BusinessException(ErrorCode.VALIDATION_ERROR);
-            }
-            return reportStatus.name();
-        } catch (IllegalArgumentException ex) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
-        }
+        Long processedReportId = reportModerationCommandService.processReport(adminUserId, reportId, status, remark);
+        return reportModerationReadService.getAdminReportResponse(processedReportId);
     }
 
 }

@@ -35,6 +35,9 @@ public interface ReportRepository extends JpaRepository<Report, Long>, ReportRep
     @EntityGraph(attributePaths = {"reporter", "admin"})
     Page<Report> findByReporterOrderByCreatedAtDescReportIdDesc(User reporter, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"reporter", "admin"})
+    Optional<Report> findByReportId(Long reportId);
+
     long countByTargetTypeAndTargetId(String targetType, Long targetId);
 
     long countByTargetTypeAndTargetIdAndStatus(String targetType, Long targetId, String status);

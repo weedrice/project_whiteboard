@@ -1,7 +1,5 @@
 package com.weedrice.whiteboard.domain.report.service;
 
-import com.weedrice.whiteboard.domain.admin.entity.Admin;
-import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
 import com.weedrice.whiteboard.domain.report.dto.MyReportResponse;
 import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.entity.Report;
@@ -40,29 +38,22 @@ class ReportModerationServiceTest {
     @Mock
     private UserRepository userRepository;
     @Mock
-    private ModerationActorResolver moderationActorResolver;
-    @Mock
     private ReportReadAssembler reportReadAssembler;
+    @Mock
+    private ReportModerationCommandService reportModerationCommandService;
+    @Mock
+    private ReportModerationReadService reportModerationReadService;
 
     @InjectMocks
     private ReportModerationService reportModerationService;
 
     private User reporter;
-    private User adminUser;
-    private Admin admin;
     private Report report;
 
     @BeforeEach
     void setUp() {
         reporter = User.builder().displayName("Reporter").build();
         ReflectionTestUtils.setField(reporter, "userId", 1L);
-
-        adminUser = User.builder().displayName("Admin").build();
-        ReflectionTestUtils.setField(adminUser, "userId", 2L);
-        adminUser.grantSuperAdminRole();
-
-        admin = Admin.builder().user(adminUser).build();
-        ReflectionTestUtils.setField(admin, "adminId", 5L);
 
         report = Report.builder()
                 .reporter(reporter)
@@ -206,116 +197,20 @@ class ReportModerationServiceTest {
     }
 
     @Test
-    @DisplayName("processReport succeeds")
-    void processReport_success() {
+    @DisplayName("processReport separates command and read response assembly")
+    void processReport_separatesCommandAndRead() {
         ReportResponse response = ReportResponse.builder()
                 .reportId(7L)
                 .status(Report.STATUS_RESOLVED)
-                .adminId(5L)
-                .processorUserId(2L)
-                .processedRemark("done")
                 .build();
 
-        when(reportRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(report));
-        when(moderationActorResolver.resolveModerationActor(2L))
-                .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, admin));
-        when(reportReadAssembler.toAdminResponse(report)).thenReturn(response);
+        when(reportModerationCommandService.processReport(2L, 7L, Report.STATUS_RESOLVED, "done")).thenReturn(7L);
+        when(reportModerationReadService.getAdminReportResponse(7L)).thenReturn(response);
 
         ReportResponse result = reportModerationService.processReport(2L, 7L, Report.STATUS_RESOLVED, "done");
 
         assertThat(result.getStatus()).isEqualTo(Report.STATUS_RESOLVED);
-        assertThat(report.getStatus()).isEqualTo(Report.STATUS_RESOLVED);
-        assertThat(report.getAdmin()).isEqualTo(admin);
-        assertThat(report.getProcessorUserId()).isEqualTo(2L);
-        assertThat(report.getProcessedRemark()).isEqualTo("done");
-        verify(reportRepository).findByIdForUpdate(7L);
-    }
-
-    @Test
-    @DisplayName("processReport normalizes lowercase terminal statuses")
-    void processReport_normalizesLowercaseStatus() {
-        ReportResponse response = ReportResponse.builder()
-                .reportId(7L)
-                .status(Report.STATUS_RESOLVED)
-                .build();
-
-        when(reportRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(report));
-        when(moderationActorResolver.resolveModerationActor(2L))
-                .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, admin));
-        when(reportReadAssembler.toAdminResponse(report)).thenReturn(response);
-
-        ReportResponse result = reportModerationService.processReport(2L, 7L, "resolved", "done");
-
-        assertThat(result.getStatus()).isEqualTo(Report.STATUS_RESOLVED);
-        assertThat(report.getStatus()).isEqualTo(Report.STATUS_RESOLVED);
-    }
-
-    @Test
-    @DisplayName("processReport trims remark before save")
-    void processReport_trimsRemarkBeforeSave() {
-        ReportResponse response = ReportResponse.builder()
-                .reportId(7L)
-                .status(Report.STATUS_RESOLVED)
-                .build();
-
-        when(reportRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(report));
-        when(moderationActorResolver.resolveModerationActor(2L))
-                .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, admin));
-        when(reportReadAssembler.toAdminResponse(report)).thenReturn(response);
-
-        reportModerationService.processReport(2L, 7L, Report.STATUS_RESOLVED, "  done  ");
-
-        assertThat(report.getProcessedRemark()).isEqualTo("done");
-    }
-
-    @Test
-    @DisplayName("processReport rejects overlong remark")
-    void processReport_overlongRemark_throwsValidationError() {
-        assertThatThrownBy(() -> reportModerationService.processReport(
-                2L, 7L, Report.STATUS_RESOLVED, "a".repeat(256)))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
-    }
-
-    @Test
-    @DisplayName("processReport records processorUserId without active admin")
-    void processReport_withoutAdmin_recordsProcessorUserId() {
-        ReportResponse response = ReportResponse.builder()
-                .reportId(7L)
-                .status(Report.STATUS_RESOLVED)
-                .processorUserId(2L)
-                .build();
-
-        when(reportRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(report));
-        when(moderationActorResolver.resolveModerationActor(2L))
-                .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, null));
-        when(reportReadAssembler.toAdminResponse(report)).thenReturn(response);
-
-        ReportResponse result = reportModerationService.processReport(2L, 7L, Report.STATUS_RESOLVED, "done");
-
-        assertThat(result.getProcessorUserId()).isEqualTo(2L);
-        assertThat(report.getAdmin()).isNull();
-        assertThat(report.getProcessorUserId()).isEqualTo(2L);
-    }
-
-    @Test
-    @DisplayName("processReport rejects already processed report as conflict")
-    void processReport_alreadyProcessed_throwsConflict() {
-        ReflectionTestUtils.setField(report, "status", Report.STATUS_RESOLVED);
-        when(reportRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(report));
-        when(moderationActorResolver.resolveModerationActor(2L))
-                .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, admin));
-
-        assertThatThrownBy(() -> reportModerationService.processReport(2L, 7L, Report.STATUS_REJECTED, "retry"))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.REPORT_ALREADY_PROCESSED);
-    }
-
-    @Test
-    @DisplayName("processReport accepts only terminal statuses")
-    void processReport_invalidTerminalStatus_throwsValidationError() {
-        assertThatThrownBy(() -> reportModerationService.processReport(2L, 7L, "APPROVED", "invalid"))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+        verify(reportModerationCommandService).processReport(2L, 7L, Report.STATUS_RESOLVED, "done");
+        verify(reportModerationReadService).getAdminReportResponse(7L);
     }
 }
