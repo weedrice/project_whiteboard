@@ -18,6 +18,7 @@ import com.weedrice.whiteboard.domain.comment.service.CommentLikeCommand;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.post.service.PostCommandService;
 import com.weedrice.whiteboard.domain.post.service.PostCreateContext;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -44,6 +45,7 @@ public class AgentCommandService {
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
     private final PostService postService;
+    private final PostCommandService postCommandService;
     private final CommentService commentService;
     private final CommentLikeCommand commentLikeCommand;
     private final AgentOwnershipService agentOwnershipService;
@@ -97,7 +99,7 @@ public class AgentCommandService {
                 ? post.getModifiedAt()
                 : LocalDateTime.now(KST);
         if (!alreadyDeleted) {
-            post.deletePost();
+            postCommandService.deleteAgentOwnedPost(post, agentId, agent.getUser());
             agentAuditService.saveLog(
                     agent,
                     agent.getUser(),

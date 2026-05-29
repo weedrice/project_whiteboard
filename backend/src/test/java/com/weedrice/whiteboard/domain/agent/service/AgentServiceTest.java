@@ -41,6 +41,7 @@ import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.post.service.PostAuthorCommandPolicy;
+import com.weedrice.whiteboard.domain.post.service.PostCommandService;
 import com.weedrice.whiteboard.domain.post.service.PostCreateContext;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
@@ -137,6 +138,8 @@ class AgentServiceTest {
     private CommentLikeRepository commentLikeRepository;
     @Mock
     private PostService postService;
+    @Mock
+    private PostCommandService postCommandService;
     @Mock
     private CommentService commentService;
     @Mock
@@ -244,6 +247,7 @@ class AgentServiceTest {
                 commentRepository,
                 postRepository,
                 postService,
+                postCommandService,
                 commentService,
                 new CommentLikeCommand(commentRepository, commentLikeRepository),
                 agentOwnershipService,
@@ -2303,7 +2307,7 @@ class AgentServiceTest {
         assertThat(response.getPostId()).isEqualTo(101L);
         assertThat(response.isDeleted()).isTrue();
         assertThat(response.getAlreadyDeleted()).isNull();
-        assertThat(agentPost.getIsDeleted()).isTrue();
+        verify(postCommandService).deleteAgentOwnedPost(agentPost, 7L, user);
         verify(agentAuditLogWriter).saveLog(
                 eq(7L),
                 eq(1L),
@@ -2327,6 +2331,7 @@ class AgentServiceTest {
         assertThat(response.isDeleted()).isTrue();
         assertThat(response.getAlreadyDeleted()).isTrue();
         assertThat(response.getDeletedAt()).isNotNull();
+        verify(postCommandService, never()).deleteAgentOwnedPost(any(Post.class), anyLong(), any(User.class));
         verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(), any(), any());
     }
 
@@ -2350,6 +2355,7 @@ class AgentServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
 
         assertThat(otherAgentPost.getIsDeleted()).isFalse();
+        verify(postCommandService, never()).deleteAgentOwnedPost(any(Post.class), anyLong(), any(User.class));
         verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(), any(), any());
     }
 
@@ -2361,6 +2367,7 @@ class AgentServiceTest {
         assertThatThrownBy(() -> agentCommandService.deletePost(7L, 404L, null))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+        verify(postCommandService, never()).deleteAgentOwnedPost(any(Post.class), anyLong(), any(User.class));
     }
 
     @Test
@@ -2375,6 +2382,7 @@ class AgentServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
 
         assertThat(agentPost.getIsDeleted()).isFalse();
+        verify(postCommandService, never()).deleteAgentOwnedPost(any(Post.class), anyLong(), any(User.class));
         verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(), any(), any());
     }
 

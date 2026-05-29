@@ -27,6 +27,7 @@ import com.weedrice.whiteboard.domain.post.entity.*;
 import com.weedrice.whiteboard.domain.post.repository.*;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
+import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchIndexAction;
 import com.weedrice.whiteboard.domain.search.service.SearchRecordEventPublisher;
 import com.weedrice.whiteboard.domain.tag.service.TagAssignmentService;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -322,6 +323,17 @@ class PostServiceTest {
         ReflectionTestUtils.setField(post, "postId", 1L);
         ReflectionTestUtils.setField(post, "likeCount", 0);
         ReflectionTestUtils.setField(post, "viewCount", 0);
+    }
+
+    private void assertDeleteVersionRecorded(User modifier) {
+        ArgumentCaptor<PostVersion> versionCaptor = ArgumentCaptor.forClass(PostVersion.class);
+        verify(postVersionRepository).save(versionCaptor.capture());
+        PostVersion version = versionCaptor.getValue();
+        assertThat(version.getPost()).isSameAs(post);
+        assertThat(version.getModifier()).isSameAs(modifier);
+        assertThat(version.getVersionType()).isEqualTo("DELETE");
+        assertThat(version.getOriginalTitle()).isEqualTo("Test Post");
+        assertThat(version.getOriginalContents()).isEqualTo("Test Contents");
     }
 
     // --- Create Post ---
@@ -1199,9 +1211,37 @@ class PostServiceTest {
 
         assertThat(post.getIsDeleted()).isTrue();
         verify(tagAssignmentService).clearTags(post);
+        assertDeleteVersionRecorded(user);
         verify(fileService).markPostContentFilesDeletionPending(1L);
         verify(pointService).reverseRewardPoint(eq(1L), eq(50), anyString(), eq(1L), eq("POST"));
+        verify(semanticSearchEventPublisher).publish("POST", 1L, SemanticSearchIndexAction.DELETE);
         verify(globalConfigService, never()).getConfig("POINT_POST_CREATE_REWARD");
+    }
+
+    @Test
+    @DisplayName("에이전트 게시글 삭제도 공통 삭제 후처리를 실행한다")
+    void deleteAgentOwnedPost_appliesCommonDeleteSideEffects() {
+        Agent agent = Agent.builder()
+                .user(user)
+                .agentTokenHash("hash")
+                .name("agent")
+                .description("desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(agent, "agentId", 7L);
+        ReflectionTestUtils.setField(post, "agent", agent);
+        when(pointHistoryRepository.sumPositiveAmountByUserAndTypeAndRelatedTypeAndRelatedId(
+                user, "EARN", "POST", 1L))
+                .thenReturn(50L);
+
+        postCommandService.deleteAgentOwnedPost(post, 7L, user);
+
+        assertThat(post.getIsDeleted()).isTrue();
+        verify(tagAssignmentService).clearTags(post);
+        assertDeleteVersionRecorded(user);
+        verify(fileService).markPostContentFilesDeletionPending(1L);
+        verify(pointService).reverseRewardPoint(eq(1L), eq(50), anyString(), eq(1L), eq("POST"));
+        verify(semanticSearchEventPublisher).publish("POST", 1L, SemanticSearchIndexAction.DELETE);
     }
 
     @Test

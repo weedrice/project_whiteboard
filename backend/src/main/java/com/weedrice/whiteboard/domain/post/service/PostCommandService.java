@@ -162,12 +162,27 @@ public class PostCommandService {
 
         postAuthorCommandPolicy.validateDeletable(post, modifier);
 
+        deletePostWithSideEffects(post, modifier);
+    }
+
+    @Transactional
+    public void deleteAgentOwnedPost(@NonNull Post post, @NonNull Long agentId, @NonNull User modifier) {
+        if (Boolean.TRUE.equals(post.getIsDeleted())) {
+            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+        }
+        if (post.getAgent() == null || !Objects.equals(post.getAgent().getAgentId(), agentId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+        deletePostWithSideEffects(post, modifier);
+    }
+
+    private void deletePostWithSideEffects(Post post, User modifier) {
         post.deletePost();
         tagAssignmentService.clearTags(post);
         postVersionRecorder.record(post, modifier, "DELETE", post.getTitle(), post.getContents());
         fileService.markPostContentFilesDeletionPending(post.getPostId());
 
-        contentRewardService.rollbackCreateReward(modifier, postId, ContentRewardPolicy.POST);
+        contentRewardService.rollbackCreateReward(modifier, post.getPostId(), ContentRewardPolicy.POST);
         semanticSearchEventPublisher.publish("POST", post.getPostId(), SemanticSearchIndexAction.DELETE);
     }
 
