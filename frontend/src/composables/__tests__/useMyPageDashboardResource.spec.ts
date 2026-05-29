@@ -39,7 +39,8 @@ vi.mock('@/composables/useErrorHandler', () => ({
   }),
 }))
 
-const loadFailedMessage = '데이터를 불러오는데 실패했습니다.'
+const loadFailedMessage = 'common.messages.loadFailed'
+const signalConfig = expect.objectContaining({ signal: expect.any(AbortSignal) })
 
 const createDeferred = <T>() => {
   let resolve!: (value: T) => void
@@ -63,7 +64,7 @@ describe('useMyPageDashboardResource', () => {
       data: { success: true, data: { agents: [{ agentId: 1, name: 'Agent', status: 'ACTIVE' }] } },
     } as never)
     vi.mocked(userApi.getMyPosts).mockResolvedValue({
-      data: { success: true, data: { content: [{ postId: 7, title: 'Post' }], totalElements: 1 } },
+      data: { success: true, data: { content: [{ postId: 7, title: 'Post' }], totalElements: 1, totalPages: 1 } },
     } as never)
     vi.mocked(userApi.getMyComments).mockResolvedValue({
       data: {
@@ -81,6 +82,7 @@ describe('useMyPageDashboardResource', () => {
             },
           }],
           totalElements: 1,
+          totalPages: 1,
         },
       },
     } as never)
@@ -95,8 +97,8 @@ describe('useMyPageDashboardResource', () => {
       page: 0,
       size: 10,
       sort: 'createdAt,desc',
-    })
-    expect(userApi.getMyComments).toHaveBeenCalledWith({ page: 0, size: 10 })
+    }, signalConfig)
+    expect(userApi.getMyComments).toHaveBeenCalledWith({ page: 0, size: 10 }, signalConfig)
     expect(mocks.fetchQuery).toHaveBeenCalledWith(expect.objectContaining({
       queryKey: ['user', 'me'],
       staleTime: QUERY_STALE_TIME.MEDIUM,
@@ -208,17 +210,20 @@ describe('useMyPageDashboardResource', () => {
 
   it('updates post sort before refetching my posts', async () => {
     const resource = useMyPageDashboardResource()
+    await resource.handleMyPostsPageChange(2)
+    vi.mocked(userApi.getMyPosts).mockClear()
+    mocks.fetchQuery.mockClear()
 
     await resource.handleMyPostsSortChange('likeCount,desc')
 
     expect(userApi.getMyPosts).toHaveBeenCalledWith({
-      page: 0,
+      page: 2,
       size: 10,
       sort: 'likeCount,desc',
-    })
+    }, signalConfig)
     expect(mocks.fetchQuery).toHaveBeenCalledWith(expect.objectContaining({
       queryKey: ['user', 'me', 'posts', {
-        page: 0,
+        page: 2,
         size: 10,
         sort: 'likeCount,desc',
       }],
@@ -257,20 +262,33 @@ describe('useMyPageDashboardResource', () => {
   })
 
   it('ignores stale my posts responses from earlier requests', async () => {
-    const firstRequest = createDeferred<{ content: Array<{ postId: number; title: string }>; totalElements: number }>()
-    const secondRequest = createDeferred<{ content: Array<{ postId: number; title: string }>; totalElements: number }>()
-    mocks.fetchQuery
-      .mockReturnValueOnce(firstRequest.promise)
-      .mockReturnValueOnce(secondRequest.promise)
+    const firstRequest = createDeferred<{
+      data: {
+        success: true
+        data: { content: Array<{ postId: number; title: string }>; totalElements: number; totalPages: number }
+      }
+    }>()
+    const secondRequest = createDeferred<{
+      data: {
+        success: true
+        data: { content: Array<{ postId: number; title: string }>; totalElements: number; totalPages: number }
+      }
+    }>()
+    vi.mocked(userApi.getMyPosts)
+      .mockReturnValueOnce(firstRequest.promise as never)
+      .mockReturnValueOnce(secondRequest.promise as never)
     const resource = useMyPageDashboardResource()
 
     const firstFetch = resource.handleMyPostsPageChange(1)
+    const firstSignal = vi.mocked(userApi.getMyPosts).mock.calls[0][1]?.signal
     const secondFetch = resource.handleMyPostsPageChange(2)
 
-    secondRequest.resolve({ content: [{ postId: 2, title: 'Second' }], totalElements: 1 })
+    expect(firstSignal?.aborted).toBe(true)
+
+    secondRequest.resolve({ data: { success: true, data: { content: [{ postId: 2, title: 'Second' }], totalElements: 1, totalPages: 1 } } })
     await secondFetch
 
-    firstRequest.resolve({ content: [{ postId: 1, title: 'First' }], totalElements: 1 })
+    firstRequest.resolve({ data: { success: true, data: { content: [{ postId: 1, title: 'First' }], totalElements: 1, totalPages: 1 } } })
     await firstFetch
 
     expect(resource.myPosts.value).toEqual([{ postId: 2, title: 'Second' }])
@@ -278,20 +296,51 @@ describe('useMyPageDashboardResource', () => {
   })
 
   it('ignores stale my comments responses from earlier requests', async () => {
-    const firstRequest = createDeferred<{ content: Array<{ commentId: number; content: string; createdAt: string }>; totalElements: number }>()
-    const secondRequest = createDeferred<{ content: Array<{ commentId: number; content: string; createdAt: string }>; totalElements: number }>()
-    mocks.fetchQuery
-      .mockReturnValueOnce(firstRequest.promise)
-      .mockReturnValueOnce(secondRequest.promise)
+    const firstRequest = createDeferred<{
+      data: {
+        success: true
+        data: { content: Array<{ commentId: number; content: string; createdAt: string }>; totalElements: number; totalPages: number }
+      }
+    }>()
+    const secondRequest = createDeferred<{
+      data: {
+        success: true
+        data: { content: Array<{ commentId: number; content: string; createdAt: string }>; totalElements: number; totalPages: number }
+      }
+    }>()
+    vi.mocked(userApi.getMyComments)
+      .mockReturnValueOnce(firstRequest.promise as never)
+      .mockReturnValueOnce(secondRequest.promise as never)
     const resource = useMyPageDashboardResource()
 
     const firstFetch = resource.handleMyCommentsPageChange(1)
+    const firstSignal = vi.mocked(userApi.getMyComments).mock.calls[0][1]?.signal
     const secondFetch = resource.handleMyCommentsPageChange(2)
 
-    secondRequest.resolve({ content: [{ commentId: 2, content: 'Second', createdAt: '2026-05-20T10:00:00' }], totalElements: 1 })
+    expect(firstSignal?.aborted).toBe(true)
+
+    secondRequest.resolve({
+      data: {
+        success: true,
+        data: {
+          content: [{ commentId: 2, content: 'Second', createdAt: '2026-05-20T10:00:00' }],
+          totalElements: 1,
+          totalPages: 1,
+        },
+      },
+    })
     await secondFetch
 
-    firstRequest.resolve({ content: [{ commentId: 1, content: 'First', createdAt: '2026-05-20T09:00:00' }], totalElements: 1 })
+    firstRequest.resolve({
+      data: {
+        success: true,
+        data: {
+          content: [{ commentId: 1, content: 'First', createdAt: '2026-05-20T09:00:00' }],
+          totalElements: 1,
+          totalPages: 1,
+        },
+      },
+    })
     await firstFetch
 
     expect(resource.myComments.value).toEqual([{ commentId: 2, content: 'Second', createdAt: '2026-05-20T10:00:00' }])
