@@ -1,6 +1,3 @@
-import type { AxiosError } from 'axios'
-import { extractErrorResponse } from '@/utils/errorHandler'
-
 export const LOGIN_REDIRECT_KEY = 'loginRedirect'
 export const DELETED_ACCOUNT_ERROR_CODE = 'A009'
 export const DELETED_ACCOUNT_MESSAGE_KEY = 'auth.userDeleted'
@@ -41,11 +38,7 @@ export function isDeletedAccountError(error: unknown): boolean {
     return false
   }
 
-  if (extractErrorResponse(error as AxiosError)?.code === DELETED_ACCOUNT_ERROR_CODE) {
-    return true
-  }
-
-  const responseData = (error as AxiosError | undefined)?.response?.data as { error?: { code?: string }, code?: string } | undefined
+  const responseData = (error as { response?: { data?: { error?: { code?: string }, code?: string } } }).response?.data
   return (responseData?.error?.code ?? responseData?.code) === DELETED_ACCOUNT_ERROR_CODE
 }
 
