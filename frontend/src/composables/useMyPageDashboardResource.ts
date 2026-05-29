@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
 import { userApi, type UserAgent } from '@/api/user'
 import { useErrorHandler } from '@/composables/useErrorHandler'
+import { useLatestAsyncTask } from '@/composables/useLatestAsyncTask'
 import { usePagination } from '@/composables/usePagination'
 import { createMyAgentsQueryOptions, createMyProfileQueryOptions } from '@/composables/useUser'
 import { useAuthStore } from '@/stores/auth'
@@ -69,13 +70,21 @@ export function useMyPageDashboardResource() {
   })))
 
   const isLoading = ref(true)
-  const isProfileLoading = ref(false)
-  const isAgentsLoading = ref(false)
-  const profileError = ref<string | null>(null)
-  const agentsError = ref<string | null>(null)
   const loadFailedMessage = getListLoadErrorMessage()
+  const profileTask = useLatestAsyncTask<string>({
+    getErrorValue: () => loadFailedMessage,
+    onError: (err) => handleSilentError(err, 'Failed to load my profile')
+  })
+  const agentsTask = useLatestAsyncTask<string>({
+    getErrorValue: () => loadFailedMessage,
+    onError: (err) => handleSilentError(err, 'Failed to load my agents')
+  })
+  const isProfileLoading = profileTask.loading
+  const isAgentsLoading = agentsTask.loading
   const isMyPostsLoading = myPostsPagination.loading
   const isMyCommentsLoading = myCommentsPagination.loading
+  const profileError = profileTask.error
+  const agentsError = agentsTask.error
   const myPostsError = myPostsPagination.error
   const myCommentsError = myCommentsPagination.error
 
@@ -101,38 +110,24 @@ export function useMyPageDashboardResource() {
       return
     }
 
-    isProfileLoading.value = true
-    profileError.value = null
-    try {
-      const data = await queryClient.fetchQuery(createMyProfileQueryOptions())
-      if (data) {
-        profile.value = data
-      } else {
-        markLoadFailed(profileError)
-      }
-    } catch (err: unknown) {
-      handleSilentError(err, 'Failed to load my profile')
+    const data = await profileTask.run(({ signal }) => queryClient.fetchQuery(createMyProfileQueryOptions({ signal })))
+
+    if (data === undefined) return
+    if (data) {
+      profile.value = data
+    } else {
       markLoadFailed(profileError)
-    } finally {
-      isProfileLoading.value = false
     }
   }
 
   async function fetchMyAgents() {
-    isAgentsLoading.value = true
-    agentsError.value = null
-    try {
-      const data = await queryClient.fetchQuery(createMyAgentsQueryOptions())
-      if (data?.agents) {
-        myAgents.value = data.agents
-      } else {
-        markLoadFailed(agentsError)
-      }
-    } catch (err: unknown) {
-      handleSilentError(err, 'Failed to load my agents')
+    const data = await agentsTask.run(({ signal }) => queryClient.fetchQuery(createMyAgentsQueryOptions({ signal })))
+
+    if (data === undefined) return
+    if (data?.agents) {
+      myAgents.value = data.agents
+    } else {
       markLoadFailed(agentsError)
-    } finally {
-      isAgentsLoading.value = false
     }
   }
 

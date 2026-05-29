@@ -42,6 +42,8 @@ vi.mock('@/composables/useErrorHandler', () => ({
 const loadFailedMessage = 'common.messages.loadFailed'
 const signalConfig = expect.objectContaining({ signal: expect.any(AbortSignal) })
 
+const signalConfig = { signal: expect.any(AbortSignal) }
+
 const createDeferred = <T>() => {
   let resolve!: (value: T) => void
   const promise = new Promise<T>((promiseResolve) => {

@@ -86,9 +86,12 @@ describe('useUser', () => {
         expect(options.queryKey).toEqual(['user', 'me'])
         expect(options.staleTime).toBe(QUERY_STALE_TIME.MEDIUM)
 
-        const result = await (options.queryFn as () => Promise<unknown>)()
+        const controller = new AbortController()
+        const result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)({
+            signal: controller.signal,
+        })
         expect(result).toEqual({ userId: 1, displayName: 'me' })
-        expect(userApi.getMyProfile).toHaveBeenCalled()
+        expect(userApi.getMyProfile).toHaveBeenCalledWith({ signal: controller.signal })
     })
 
     it('fetches user profile and supports enabled guard', async () => {
@@ -172,8 +175,12 @@ describe('useUser', () => {
         options = mocks.queryOptions.at(-1)!
         expect(options.queryKey).toEqual(['user', 'agents'])
         expect(options.staleTime).toBe(QUERY_STALE_TIME.MEDIUM)
-        result = await (options.queryFn as () => Promise<unknown>)()
+        const controller = new AbortController()
+        result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)({
+            signal: controller.signal,
+        })
         expect(result).toEqual({ agents: [{ agentId: 10 }] })
+        expect(userApi.getMyAgents).toHaveBeenCalledWith({ signal: controller.signal })
     })
 
     it('fetches recently viewed posts with optional params', async () => {

@@ -146,8 +146,10 @@ function mapApiPageResponse<TSource, TTarget>(
 }
 
 export const userApi = {
-    getMyProfile() {
-        return api.get<ApiResponse<User>>('/users/me')
+    getMyProfile(config?: AxiosRequestConfig) {
+        return config
+            ? api.get<ApiResponse<User>>('/users/me', config)
+            : api.get<ApiResponse<User>>('/users/me')
     },
     getUserProfile(userId: string | number) {
         return api.get<ApiResponse<PublicUserProfile>>(`/users/${userId}`)
@@ -179,8 +181,10 @@ export const userApi = {
     claimAgent(agentToken: string) {
         return api.post<ApiResponse<UserAgent>>('/users/me/agents/claim', { agentToken })
     },
-    getMyAgents() {
-        return api.get<ApiResponse<UserAgentListResponse>>('/users/me/agents')
+    getMyAgents(config?: AxiosRequestConfig) {
+        return config
+            ? api.get<ApiResponse<UserAgentListResponse>>('/users/me/agents', config)
+            : api.get<ApiResponse<UserAgentListResponse>>('/users/me/agents')
     },
     suspendMyAgent(agentId: string | number) {
         return api.patch<ApiResponse<UserAgent>>(`/users/me/agents/${agentId}/suspend`)
