@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => {
     const getNotificationStreamUrl = vi.fn(() => 'https://api.example.com/api/v1/notifications/stream')
     const normalizeNotification = vi.fn((raw: Record<string, unknown>) => {
         const actor = raw.actor as Record<string, unknown> | undefined
+        const displayName = String(actor?.displayName || actor?.display_name || '')
+        const actorDisplayName = displayName.trim() || 'Unknown'
         return {
             notificationId: raw.notificationId || raw.notification_id || 0,
             sourceType: raw.sourceType || raw.source_type || 'SYSTEM',
@@ -28,6 +30,8 @@ const mocks = vi.hoisted(() => {
                 displayName: actor?.displayName || actor?.display_name || '',
                 profileImageUrl: actor?.profileImageUrl || actor?.profile_image_url,
             },
+            actorDisplayName,
+            actorInitial: actorDisplayName[0] || '?',
             targetUrl: raw.targetUrl,
         }
     })

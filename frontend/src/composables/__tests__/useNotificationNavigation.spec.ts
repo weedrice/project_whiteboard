@@ -66,6 +66,8 @@ const makeNotification = (overrides: Partial<Notification>): Notification => ({
         userId: 1,
         displayName: 'User',
     },
+    actorDisplayName: 'User',
+    actorInitial: 'U',
     ...overrides,
 })
 
