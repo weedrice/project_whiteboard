@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { onScopeDispose, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { postApi } from '@/api/post'
 import { useConfirm } from '@/composables/useConfirm'
@@ -18,6 +18,13 @@ export function useInquiryDetailModal(refreshPosts: () => Promise<void> | void) 
   const inquiryDetailError = ref('')
   const isDeletingInquiry = ref(false)
   let inquiryDetailRequestId = 0
+  let inquiryDetailAbortController: AbortController | null = null
+
+  function abortInquiryDetailRequest() {
+    inquiryDetailAbortController?.abort()
+    inquiryDetailAbortController = null
+    inquiryDetailRequestId += 1
+  }
 
   async function openMyInquiryPost(post: { postId: number; boardUrl?: string | number }) {
     if (!isInquiryPostItem(post)) {
@@ -28,18 +35,27 @@ export function useInquiryDetailModal(refreshPosts: () => Promise<void> | void) 
     selectedInquiryPost.value = null
     inquiryDetailError.value = ''
     isInquiryDetailLoading.value = true
-    const requestId = ++inquiryDetailRequestId
+    abortInquiryDetailRequest()
+    const requestId = inquiryDetailRequestId
+    const controller = new AbortController()
+    inquiryDetailAbortController = controller
 
     try {
-      const { data } = await postApi.getPost(post.postId, { params: { incrementView: false } })
+      const { data } = await postApi.getPost(post.postId, {
+        params: { incrementView: false },
+        signal: controller.signal
+      })
       if (requestId === inquiryDetailRequestId && data.success) {
         selectedInquiryPost.value = data.data
       }
     } catch (err: unknown) {
-      if (requestId === inquiryDetailRequestId) {
+      if (requestId === inquiryDetailRequestId && !controller.signal.aborted) {
         inquiryDetailError.value = extractErrorMessage(err) || t('common.messages.loadFailed')
       }
     } finally {
+      if (inquiryDetailAbortController === controller) {
+        inquiryDetailAbortController = null
+      }
       if (requestId === inquiryDetailRequestId) {
         isInquiryDetailLoading.value = false
       }
@@ -47,7 +63,7 @@ export function useInquiryDetailModal(refreshPosts: () => Promise<void> | void) 
   }
 
   function closeInquiryModal() {
-    inquiryDetailRequestId += 1
+    abortInquiryDetailRequest()
     isInquiryDetailOpen.value = false
     selectedInquiryPost.value = null
     inquiryDetailError.value = ''
@@ -73,6 +89,8 @@ export function useInquiryDetailModal(refreshPosts: () => Promise<void> | void) 
       isDeletingInquiry.value = false
     }
   }
+
+  onScopeDispose(abortInquiryDetailRequest, true)
 
   return {
     isInquiryDetailOpen,
