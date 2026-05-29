@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,11 +19,20 @@ class NotificationEventHandler {
 
     private final NotificationCommandService commandService;
     private final NotificationStreamPublisher streamPublisher;
+    private final NotificationTargetUrlResolver targetUrlResolver;
 
     NotificationEventHandler(NotificationCommandService commandService,
                              NotificationStreamPublisher streamPublisher) {
+        this(commandService, streamPublisher, NotificationTargetUrlResolver.noop());
+    }
+
+    @Autowired
+    NotificationEventHandler(NotificationCommandService commandService,
+                             NotificationStreamPublisher streamPublisher,
+                             NotificationTargetUrlResolver targetUrlResolver) {
         this.commandService = commandService;
         this.streamPublisher = streamPublisher;
+        this.targetUrlResolver = targetUrlResolver;
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -36,7 +46,11 @@ class NotificationEventHandler {
 
     private void deliverNotificationBestEffort(Long userId, Notification notification) {
         try {
-            streamPublisher.publish(userId, NotificationResponse.NotificationSummary.from(notification));
+            streamPublisher.publish(
+                    userId,
+                    NotificationResponse.NotificationSummary.from(
+                            notification,
+                            targetUrlResolver.resolve(notification)));
         } catch (RuntimeException e) {
             log.warn(
                     "Failed to deliver notification SSE. userId={}, notificationId={}, exceptionType={}",

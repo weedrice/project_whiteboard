@@ -169,6 +169,9 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
         @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "user")
         List<Comment> findByCommentIdIn(Collection<Long> commentIds);
 
+        @EntityGraph(attributePaths = {"post", "post.board"})
+        List<Comment> findByCommentIdInAndIsDeletedFalse(Collection<Long> commentIds);
+
         @Query("""
                         SELECT c.commentId AS targetId,
                                u.userId AS targetUserId,

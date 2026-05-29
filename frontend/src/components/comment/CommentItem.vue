@@ -6,7 +6,7 @@ import type { Comment } from '@/api/comment'
 import { useCommentReplies } from '@/composables/useCommentReplies'
 import { useCommentAuthorState } from '@/composables/useCommentAuthorState'
 import { useAuthStore } from '@/stores/auth'
-import { formatDate } from '@/utils/date'
+import { formatDate, formatDateShort } from '@/utils/date'
 import { isEmoticonOnlyContent, renderCommentContentHtml } from '@/utils/commentContent'
 import { applyImageFallback } from '@/utils/imageFallback'
 import CommentForm from './CommentForm.vue'
@@ -57,7 +57,7 @@ const {
 } = useCommentAuthorState(commentRef, authStore)
 const renderedContent = computed(() => renderCommentContentHtml(props.comment.content ?? ''))
 const isEmoticonOnly = computed(() => isEmoticonOnlyContent(props.comment.content ?? ''))
-const createdAtShort = computed(() => formatCommentDateShort(props.comment.createdAt))
+const createdAtShort = computed(() => formatDateShort(props.comment.createdAt))
 const createdAtFull = computed(() => formatDate(props.comment.createdAt))
 const replyToggleLabel = computed(() => {
   if (isRepliesOpen.value) {
@@ -80,21 +80,6 @@ function handleEditSuccess() {
 
 function handleDelete() {
   emit('delete', props.comment)
-}
-
-function formatCommentDateShort(dateString: string): string {
-  if (!dateString) {
-    return ''
-  }
-
-  const date = new Date(dateString)
-  const yy = String(date.getFullYear()).slice(-2)
-  const mm = String(date.getMonth() + 1).padStart(2, '0')
-  const dd = String(date.getDate()).padStart(2, '0')
-  const hh = String(date.getHours()).padStart(2, '0')
-  const mi = String(date.getMinutes()).padStart(2, '0')
-
-  return `${yy}.${mm}.${dd} ${hh}:${mi}`
 }
 
 watch(isBlockedAuthor, (blocked) => {

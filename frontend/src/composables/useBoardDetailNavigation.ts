@@ -3,6 +3,8 @@ import type { LocationQuery, RouteLocationNormalizedLoaded, Router } from 'vue-r
 import { useBoardDetailShortcuts } from '@/composables/useKeyboardShortcuts'
 import type { BoardDetail, PostSummary } from '@/types'
 
+export const BOARD_DETAIL_SEARCH_INPUT_ID = 'board-search-input'
+
 interface UseBoardDetailNavigationOptions {
   route: RouteLocationNormalizedLoaded
   router: Router
@@ -53,7 +55,6 @@ export function useBoardDetailNavigation({
   resetNoticeState
 }: UseBoardDetailNavigationOptions) {
   const suppressedCurrentPostId = ref<string | null>(null)
-  const searchInputElementId = 'board-search-input'
   const listQuery = computed<LocationQuery>(() => {
     const { fromCreate, ...query } = route.query
     return query
@@ -126,10 +127,6 @@ export function useBoardDetailNavigation({
       }
     },
     toggleSubscribe: handleSubscribe,
-    focusSearch: () => {
-      const searchInput = document.getElementById(searchInputElementId) as HTMLInputElement | null
-      searchInput?.focus()
-    },
     canWrite: () => canWrite.value && !!board.value,
     canGoNext: () => page.value < totalPages.value - 1,
     canGoPrev: () => page.value > 0,
@@ -143,6 +140,6 @@ export function useBoardDetailNavigation({
     highlightedPostId,
     listQuery,
     onPageChange,
-    searchInputElementId,
+    searchInputElementId: BOARD_DETAIL_SEARCH_INPUT_ID,
   }
 }

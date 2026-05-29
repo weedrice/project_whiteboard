@@ -37,6 +37,7 @@ export interface NotificationRaw {
     created_at?: string;
     actor?: NotificationActorRaw;
     targetUrl?: string;
+    target_url?: string;
 }
 
 interface NotificationPageRaw extends PageResponseRaw<NotificationRaw> {
@@ -81,7 +82,7 @@ export function normalizeNotification(raw: NotificationRaw): Notification {
         },
         actorDisplayName,
         actorInitial: getActorInitial(actorDisplayName),
-        targetUrl: raw.targetUrl
+        targetUrl: raw.targetUrl || raw.target_url
     }
 }
 

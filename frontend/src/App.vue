@@ -15,6 +15,7 @@ import ErrorBoundary from '@/components/common/ErrorBoundary.vue'
 import NetworkStatus from '@/components/common/NetworkStatus.vue'
 import logger from '@/utils/logger'
 import { useGlobalShortcuts } from '@/composables/useGlobalShortcuts'
+import { BOARD_DETAIL_SEARCH_INPUT_ID } from '@/composables/useBoardDetailNavigation'
 import { UserSettings } from '@/types/user'
 import { useHead } from '@unhead/vue'
 
@@ -60,6 +61,30 @@ const noIndexRouteNames = new Set([
     'ErrorLogManagement',
     'error',
 ])
+const boardSearchRouteNames = new Set(['board-detail', 'post-detail'])
+
+function getSearchInput(): HTMLInputElement | null {
+    if (route.name && boardSearchRouteNames.has(String(route.name))) {
+        const boardSearchInput = document.getElementById(BOARD_DETAIL_SEARCH_INPUT_ID) as HTMLInputElement | null
+        if (boardSearchInput) {
+            return boardSearchInput
+        }
+    }
+
+    const searchSelectors = [
+        'input[placeholder*="search" i]',
+        'input[placeholder*="검색" i]',
+    ]
+
+    for (const selector of searchSelectors) {
+        const searchInput = document.querySelector(selector) as HTMLInputElement | null
+        if (searchInput) {
+            return searchInput
+        }
+    }
+
+    return null
+}
 
 const shouldNoIndex = computed(() => {
     if (route.meta.requiresAuth || route.meta.guestOnly || route.meta.roles) {
@@ -154,7 +179,7 @@ onMounted(() => {
     registerShortcut({
         key: '/',
         handler: () => {
-            const searchInput = document.querySelector('input[placeholder*="search" i], input[placeholder*="검색" i]') as HTMLInputElement
+            const searchInput = getSearchInput()
             if (searchInput) {
                 searchInput.focus()
                 searchInput.select()

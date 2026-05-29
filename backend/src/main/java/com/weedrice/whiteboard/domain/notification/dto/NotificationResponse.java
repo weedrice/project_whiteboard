@@ -6,7 +6,9 @@ import lombok.Getter;
 import org.springframework.data.domain.Page;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Getter
@@ -31,8 +33,13 @@ public class NotificationResponse {
         private Long sourceId;
         private Boolean isRead;
         private LocalDateTime createdAt;
+        private String targetUrl;
 
         public static NotificationSummary from(Notification notification) {
+            return from(notification, null);
+        }
+
+        public static NotificationSummary from(Notification notification, String targetUrl) {
             return NotificationSummary.builder()
                     .notificationId(notification.getNotificationId())
                     .notificationType(notification.getNotificationType().name())
@@ -42,6 +49,7 @@ public class NotificationResponse {
                     .sourceId(notification.getSourceId())
                     .isRead(notification.getIsRead())
                     .createdAt(notification.getCreatedAt())
+                    .targetUrl(targetUrl)
                     .build();
         }
     }
@@ -84,8 +92,16 @@ public class NotificationResponse {
     }
 
     public static NotificationResponse from(Page<Notification> notificationPage) {
+        return from(notificationPage, Collections.emptyMap());
+    }
+
+    public static NotificationResponse from(Page<Notification> notificationPage, Map<Long, String> targetUrls) {
         List<NotificationSummary> content = notificationPage.getContent().stream()
-                .map(NotificationSummary::from)
+                .map(notification -> NotificationSummary.from(
+                        notification,
+                        notification.getNotificationId() != null
+                                ? targetUrls.get(notification.getNotificationId())
+                                : null))
                 .collect(Collectors.toList());
 
         return NotificationResponse.builder()

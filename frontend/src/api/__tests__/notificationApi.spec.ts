@@ -67,6 +67,7 @@ describe('notificationApi', () => {
                 display_name: 'Alice',
                 profile_image_url: '/profile.png',
             },
+            target_url: '/board/free/post/34#comment-34',
         })).toEqual({
             notificationId: 12,
             sourceType: 'COMMENT',
@@ -83,7 +84,21 @@ describe('notificationApi', () => {
             },
             actorDisplayName: 'Alice',
             actorInitial: 'A',
-            targetUrl: undefined,
+            targetUrl: '/board/free/post/34#comment-34',
+        })
+    })
+
+    it('normalizes camelCase targetUrl payloads', () => {
+        expect(normalizeNotification({
+            notificationId: 15,
+            sourceType: 'POST',
+            sourceId: 99,
+            targetUrl: '/board/free/post/99',
+        })).toMatchObject({
+            notificationId: 15,
+            sourceType: 'POST',
+            sourceId: 99,
+            targetUrl: '/board/free/post/99',
         })
     })
 

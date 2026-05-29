@@ -99,6 +99,43 @@ describe('useNotificationNavigation', () => {
         expect(mocks.routerPush).toHaveBeenCalledWith('/board/free/post/99')
     })
 
+    it('uses an internal targetUrl without fetching the source resource', async () => {
+        const { navigateFromNotification } = useNotificationNavigation()
+        await navigateFromNotification(makeNotification({
+            sourceType: 'COMMENT',
+            sourceId: 50,
+            targetUrl: '/board/free/post/99#comment-50',
+        }))
+
+        expect(mocks.markAsRead).toHaveBeenCalledWith(10)
+        expect(postApi.getPost).not.toHaveBeenCalled()
+        expect(commentApi.getComment).not.toHaveBeenCalled()
+        expect(mocks.routerPush).toHaveBeenCalledWith('/board/free/post/99#comment-50')
+    })
+
+    it('ignores unsafe absolute targetUrl values and falls back to source lookup', async () => {
+        vi.mocked(postApi.getPost).mockResolvedValueOnce({
+            data: {
+                success: true,
+                data: {
+                    board: {
+                        boardUrl: 'free',
+                    },
+                },
+            },
+        } as never)
+
+        const { navigateFromNotification } = useNotificationNavigation()
+        await navigateFromNotification(makeNotification({
+            sourceType: 'POST',
+            sourceId: 99,
+            targetUrl: '//evil.example/path',
+        }))
+
+        expect(postApi.getPost).toHaveBeenCalledWith(99)
+        expect(mocks.routerPush).toHaveBeenCalledWith('/board/free/post/99')
+    })
+
     it('navigates comment notifications to the parent post comment anchor', async () => {
         vi.mocked(commentApi.getComment).mockResolvedValueOnce({
             data: {

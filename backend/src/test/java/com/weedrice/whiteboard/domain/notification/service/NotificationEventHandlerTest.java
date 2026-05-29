@@ -12,6 +12,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.Map;
+
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -61,5 +63,22 @@ class NotificationEventHandlerTest {
                         && summary.getSourceType().equals("POST")
                         && summary.getSourceId().equals(10L)
                         && summary.getMessage().equals("content")));
+    }
+
+    @Test
+    @DisplayName("Notification event handler includes resolved targetUrl in delivered summary")
+    void handleNotificationEvent_includesResolvedTargetUrl() {
+        eventHandler = new NotificationEventHandler(
+                commandService,
+                streamPublisher,
+                notifications -> Map.of(5L, "/board/free/post/10"));
+        NotificationEvent event = new NotificationEvent(
+                receiver, User.builder().build(), NotificationType.LIKE, "POST", 10L, "content");
+        when(commandService.handleNotificationEvent(event)).thenReturn(notification);
+
+        eventHandler.handleNotificationEvent(event);
+
+        verify(streamPublisher).publish(eq(1L), argThat(summary ->
+                "/board/free/post/10".equals(summary.getTargetUrl())));
     }
 }

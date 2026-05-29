@@ -132,7 +132,6 @@ export interface BoardDetailShortcutHandlers {
     goToLastPage: () => void
     goToWrite: () => void
     toggleSubscribe: () => void
-    focusSearch: () => void
     canWrite: boolean | (() => boolean)
     canGoNext: boolean | (() => boolean)
     canGoPrev: boolean | (() => boolean)
@@ -196,10 +195,6 @@ export function useBoardDetailShortcuts(handlers: BoardDetailShortcutHandlers) {
                     event.preventDefault()
                     handlers.toggleSubscribe()
                 }
-                break
-            case '/':
-                event.preventDefault()
-                handlers.focusSearch()
                 break
         }
     }
