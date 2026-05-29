@@ -15,7 +15,7 @@
     @size-change="handleSizeChange"
   >
     <template #loading>
-      <div class="divide-y divide-gray-200 dark:divide-gray-700">
+      <div class="divide-y divide-[var(--nv-border)]">
         <div v-for="i in 5" :key="i" class="px-4 py-4 sm:px-6 flex items-center justify-between">
           <div class="flex items-center">
             <BaseSkeleton width="2.5rem" height="2.5rem" rounded="rounded-full" className="mr-4" />
@@ -29,19 +29,19 @@
       </div>
     </template>
 
-    <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
+    <ul role="list" class="divide-y divide-[var(--nv-border)]">
       <li v-for="user in blockedUsers" :key="user.userId"
-        class="px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
+        class="px-4 py-4 sm:px-6 nv-hover-surface transition-colors duration-200">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div class="flex items-center min-w-0 flex-1">
             <div
-              class="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-              <span class="text-gray-500 dark:text-gray-400 font-medium">{{ user.displayName.charAt(0).toUpperCase()
+              class="flex-shrink-0 h-10 w-10 rounded-full nv-avatar-fallback flex items-center justify-center">
+              <span class="font-medium">{{ user.displayName.charAt(0).toUpperCase()
               }}</span>
             </div>
             <div class="ml-4 min-w-0">
-              <p class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ user.displayName }}</p>
-              <p class="text-sm text-gray-500 dark:text-gray-400 truncate">{{ user.secondaryText }}</p>
+              <p class="text-sm font-medium nv-title truncate">{{ user.displayName }}</p>
+              <p class="text-sm nv-text-subtle truncate">{{ user.secondaryText }}</p>
             </div>
           </div>
           <div class="flex-shrink-0 min-h-[44px] sm:min-h-0 flex items-center">
@@ -52,7 +52,7 @@
     </ul>
 
     <template #footer-meta>
-      <div class="mb-3 text-center text-sm text-gray-600 dark:text-gray-300">총 {{ totalElements }}건</div>
+      <div class="mb-3 text-center text-sm nv-text-muted">총 {{ totalElements }}건</div>
     </template>
   </PaginatedListCard>
 </template>

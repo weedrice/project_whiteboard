@@ -31,22 +31,22 @@
                 <button type="button" :aria-pressed="viewType === 'received'" @click="changeViewType('received')"
                     class="flex-1 sm:flex-initial relative inline-flex items-center justify-center rounded-l-lg sm:rounded-l-md px-3 py-2.5 sm:py-2 text-sm font-medium ring-1 ring-inset min-h-[44px] sm:min-h-0 focus:z-10"
                     :class="viewType === 'received'
-                        ? 'bg-indigo-600 text-white ring-indigo-600 hover:bg-indigo-700 dark:bg-gray-200 dark:text-gray-900 dark:ring-gray-200 dark:hover:bg-white'
-                        : 'bg-white text-gray-900 ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-700'">
+                        ? 'message-tab-active'
+                        : 'message-tab-inactive'">
                     {{ $t('user.message.received') }}
                 </button>
                 <button type="button" :aria-pressed="viewType === 'sent'" @click="changeViewType('sent')"
                     class="flex-1 sm:flex-initial relative -ml-px inline-flex items-center justify-center rounded-r-lg sm:rounded-r-md px-3 py-2.5 sm:py-2 text-sm font-medium ring-1 ring-inset min-h-[44px] sm:min-h-0 focus:z-10"
                     :class="viewType === 'sent'
-                        ? 'bg-indigo-600 text-white ring-indigo-600 hover:bg-indigo-700 dark:bg-gray-200 dark:text-gray-900 dark:ring-gray-200 dark:hover:bg-white'
-                        : 'bg-white text-gray-900 ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-700'">
+                        ? 'message-tab-active'
+                        : 'message-tab-inactive'">
                     {{ $t('user.message.sent') }}
                 </button>
             </span>
         </template>
 
         <template #loading>
-            <div class="divide-y divide-gray-200 dark:divide-gray-700">
+            <div class="divide-y divide-[var(--nv-border)]">
                 <div v-for="i in 5" :key="i" class="p-4 flex items-start">
                     <BaseSkeleton width="20px" height="20px" className="mr-4 mt-1" />
                     <div class="flex-1">
@@ -60,9 +60,9 @@
             </div>
         </template>
 
-        <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+        <ul class="divide-y divide-[var(--nv-border)]">
             <li v-for="msg in messages" :key="msg.id"
-                class="p-3 sm:p-4 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-stretch transition-colors duration-200 min-h-[52px] active:bg-gray-100 dark:active:bg-gray-600">
+                class="p-3 sm:p-4 nv-hover-surface flex items-stretch transition-colors duration-200 min-h-[52px]">
                 <div class="flex items-center justify-center h-full mr-3 sm:mr-4 p-2 -ml-1 cursor-pointer flex-shrink-0" @click.stop>
                     <BaseCheckbox
                         :id="`message-${msg.id}-select`"
@@ -74,7 +74,7 @@
                 </div>
                 <button
                     type="button"
-                    class="flex-1 min-w-0 text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 rounded-md"
+                    class="flex-1 min-w-0 text-left cursor-pointer nv-focus-ring rounded-md"
                     :aria-label="$t('user.message.openMessage', { name: msg.partnerName })"
                     @click="openMessage(msg)"
                 >
@@ -82,11 +82,11 @@
                         <div class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">
                             {{ msg.partnerName }}
                         </div>
-                        <div class="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+                        <div class="text-[11px] sm:text-xs nv-text-subtle flex-shrink-0">
                             {{ formatDate(msg.createdAt) }}
                         </div>
                     </div>
-                    <p class="mt-0.5 text-xs sm:text-sm text-gray-900 dark:text-gray-100 line-clamp-2"
+                    <p class="mt-0.5 text-xs sm:text-sm nv-text line-clamp-2"
                         :class="{ 'font-bold': viewType === 'received' && msg.isUnread }">
                         {{ msg.body }}
                     </p>
@@ -98,20 +98,20 @@
     <BaseModal :isOpen="!!selectedMessage" :title="$t('user.message.title')" @close="selectedMessage = null"
         mobile-full mobile-fit-content size="lg">
         <div v-if="selectedMessage" class="p-4 sm:p-6 space-y-4">
-            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 border-b dark:border-gray-700 pb-3">
+            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 border-b nv-border pb-3">
                 <div class="min-w-0">
-                    <span class="block text-xs text-gray-500 dark:text-gray-400">{{ viewType === 'received' ?
+                    <span class="block text-xs nv-text-subtle">{{ viewType === 'received' ?
                         $t('user.message.from') : $t('user.message.to') }}</span>
-                    <span class="text-sm font-medium text-gray-900 dark:text-white truncate block">{{
+                    <span class="text-sm font-medium nv-title truncate block">{{
                         selectedMessage.partnerName }}</span>
                 </div>
-                <span class="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">{{ formatDate(selectedMessage.createdAt) }}</span>
+                <span class="text-xs nv-text-subtle flex-shrink-0">{{ formatDate(selectedMessage.createdAt) }}</span>
             </div>
-            <div class="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap min-h-[120px] overflow-y-auto max-h-[50vh] sm:max-h-none">
+            <div class="text-sm nv-text whitespace-pre-wrap min-h-[120px] overflow-y-auto max-h-[50vh] sm:max-h-none">
                 {{ selectedMessage.body }}
             </div>
 
-            <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:space-x-2 pt-4 border-t dark:border-gray-700">
+            <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:space-x-2 pt-4 border-t nv-border">
                 <BaseButton v-if="viewType === 'received'" @click="startReply(selectedMessage)"
                     class="w-full sm:w-auto min-h-[44px] order-2 sm:order-none">
                     {{ $t('user.message.reply') }}
@@ -128,9 +128,9 @@
         mobile-full mobile-fit-content>
         <div class="p-4 sm:p-6 space-y-4">
             <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ $t('user.message.to')
+                <label class="block text-sm font-medium nv-text-muted">{{ $t('user.message.to')
                     }}</label>
-                <div class="mt-1 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg text-sm text-gray-900 dark:text-white">
+                <div class="mt-1 p-3 nv-surface-muted rounded-lg text-sm nv-title">
                     {{ replyTarget?.partnerName }}
                 </div>
             </div>
@@ -188,3 +188,25 @@ const {
     sendReply,
 } = useMailboxResource()
 </script>
+
+<style scoped>
+.message-tab-active {
+    background: var(--nv-accent);
+    border-color: var(--nv-accent);
+    color: #fff;
+}
+
+.message-tab-active:hover {
+    background: color-mix(in srgb, var(--nv-accent) 88%, black 12%);
+}
+
+.message-tab-inactive {
+    background: var(--nv-surface);
+    border-color: var(--nv-border-strong);
+    color: var(--nv-text);
+}
+
+.message-tab-inactive:hover {
+    background: var(--nv-surface-hover);
+}
+</style>

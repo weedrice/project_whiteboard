@@ -66,20 +66,19 @@ const {
       <BaseSpinner />
     </div>
 
-    <div v-else class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
-      <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex items-center">
-        <Settings class="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400" />
-        <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">{{ $t('common.settings') }}</h3>
+    <div v-else class="nv-surface shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
+      <div class="px-4 py-5 sm:px-6 border-b nv-border flex items-center">
+        <Settings class="h-5 w-5 mr-2 nv-text-subtle" />
+        <h3 class="text-lg leading-6 font-medium nv-title">{{ $t('common.settings') }}</h3>
       </div>
       <div class="px-4 py-5 sm:p-6 space-y-6">
         <div>
-          <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('user.settings.general') }}</h3>
+          <h3 class="text-lg font-medium leading-6 nv-title">{{ $t('user.settings.general') }}</h3>
           <div class="mt-4 space-y-4">
             <div>
               <BaseSelect
                 v-model="userSettingsForm.theme"
                 :label="$t('user.settings.theme')"
-                inputClass="dark:bg-gray-700 dark:text-white dark:border-gray-600"
               >
                 <option value="LIGHT">{{ $t('user.settings.light') }}</option>
                 <option value="DARK">{{ $t('user.settings.dark') }}</option>
@@ -90,7 +89,6 @@ const {
               <BaseSelect
                 v-model="userSettingsForm.language"
                 :label="$t('user.settings.language')"
-                inputClass="dark:bg-gray-700 dark:text-white dark:border-gray-600"
               >
                 <option value="ko">{{ $t('common.languages.ko') }}</option>
                 <option value="en">{{ $t('common.languages.en') }}</option>
@@ -113,10 +111,10 @@ const {
           </div>
         </div>
 
-        <hr class="border-gray-200 dark:border-gray-700" />
+        <hr class="nv-border" />
 
         <div>
-          <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">
+          <h3 class="text-lg font-medium leading-6 nv-title">
             {{ $t('user.settings.notifications') }}
           </h3>
           <div class="mt-4 space-y-4">

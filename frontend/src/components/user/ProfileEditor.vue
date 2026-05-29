@@ -10,7 +10,7 @@
       @submit="updateProfile"
     />
 
-    <hr class="border-gray-200 dark:border-gray-700 my-4 sm:my-6" />
+    <hr class="nv-border my-4 sm:my-6" />
 
     <ProfileAgentPanel
       v-model:agent-token="agentToken"
@@ -25,7 +25,7 @@
       @suspend="handleSuspendAgent"
     />
 
-    <hr class="border-gray-200 dark:border-gray-700 my-4 sm:my-6" />
+    <hr class="nv-border my-4 sm:my-6" />
 
     <AccountDeletionSection
       v-model:show-delete-modal="showDeleteModal"

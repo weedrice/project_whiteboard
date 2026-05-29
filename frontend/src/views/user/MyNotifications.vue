@@ -88,7 +88,7 @@ function handleMarkAllAsRead() {
           <div class="flex flex-row items-center justify-between gap-3">
             <div class="min-w-0 flex-1">
               <div class="flex items-center justify-between gap-2 mb-0.5">
-                <span class="text-[11px] text-gray-500 dark:text-gray-400 flex-shrink-0">
+                <span class="text-[11px] nv-text-subtle flex-shrink-0">
                   {{ formatDate(notification.createdAt) }}
                 </span>
                 <span
@@ -97,7 +97,7 @@ function handleMarkAllAsRead() {
                     notification.sourceType }}
                 </span>
               </div>
-              <div class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
+              <div class="text-xs sm:text-sm nv-text-subtle line-clamp-2">
                 {{ notification.message }}
               </div>
             </div>

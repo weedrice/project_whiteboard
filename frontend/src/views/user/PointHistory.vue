@@ -36,7 +36,7 @@ const errorMessage = computed(() => error.value ? getListLoadErrorMessage(t) : '
     @size-change="handleSizeChange"
   >
     <template #loading>
-      <div class="divide-y divide-gray-200 dark:divide-gray-700">
+      <div class="divide-y divide-[var(--nv-border)]">
         <div v-for="i in 5" :key="i" class="px-3 py-2.5 sm:px-6 sm:py-4 flex justify-between items-center">
           <div class="flex flex-col flex-1 min-w-0">
             <BaseSkeleton width="60%" height="14px" className="mb-1" />
@@ -47,15 +47,15 @@ const errorMessage = computed(() => error.value ? getListLoadErrorMessage(t) : '
       </div>
     </template>
 
-    <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
+    <ul role="list" class="divide-y divide-[var(--nv-border)]">
       <li v-for="item in history" :key="item.historyId"
-        class="px-3 py-2.5 sm:px-6 sm:py-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 flex items-center">
+        class="px-3 py-2.5 sm:px-6 sm:py-4 nv-hover-surface transition-colors duration-200 flex items-center">
         <div class="flex flex-row items-center justify-between w-full gap-2 min-w-0">
           <div class="flex flex-col min-w-0 flex-1">
             <p class="text-xs sm:text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">
               {{ item.description || $t('user.pointsHistory.adjustment') }}
             </p>
-            <p class="mt-0.5 text-[11px] sm:text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-0.5 text-[11px] sm:text-xs nv-text-subtle">
               {{ formatDate(item.createdAt) }}
             </p>
           </div>

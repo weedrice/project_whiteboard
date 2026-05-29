@@ -38,7 +38,7 @@ const errorMessage = computed(() => error.value ? getListLoadErrorMessage(t) : '
     @size-change="handleSizeChange"
   >
     <template #loading>
-      <div class="divide-y divide-gray-200 dark:divide-gray-700">
+      <div class="divide-y divide-[var(--nv-border)]">
         <div v-for="i in 5" :key="i" class="px-4 py-4 sm:px-6 flex justify-between items-center">
           <div class="flex flex-col flex-1">
             <BaseSkeleton width="60%" height="20px" className="mb-1" />
@@ -49,15 +49,15 @@ const errorMessage = computed(() => error.value ? getListLoadErrorMessage(t) : '
       </div>
     </template>
 
-    <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
+    <ul role="list" class="divide-y divide-[var(--nv-border)]">
       <li v-for="report in reports" :key="report.reportId"
-        class="px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 min-h-[44px] flex flex-row items-center justify-between gap-3">
+        class="px-4 py-4 sm:px-6 nv-hover-surface transition-colors duration-200 min-h-[44px] flex flex-row items-center justify-between gap-3">
         <div class="flex flex-col min-w-0 flex-1">
           <p class="text-sm font-medium text-indigo-600 dark:text-indigo-400 line-clamp-2 sm:truncate">
             {{ getMyReportTargetTypeLabel($t, report.targetType) }} {{ $t('user.reportList.targetType') }} - {{
               report.reasonType || report.contents || '-' }}
           </p>
-          <p class="mt-0.5 sm:mt-1 text-xs text-gray-500 dark:text-gray-400">
+          <p class="mt-0.5 sm:mt-1 text-xs nv-text-subtle">
             {{ formatDate(report.createdAt) }}
           </p>
         </div>
