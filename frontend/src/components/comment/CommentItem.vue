@@ -3,7 +3,8 @@ import { computed, ref, watch } from 'vue'
 import { User as UserIcon, CornerDownRight } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { Comment } from '@/api/comment'
-import { useComment } from '@/composables/useComment'
+import { useCommentReplies } from '@/composables/useCommentReplies'
+import { useCommentAuthorState } from '@/composables/useCommentAuthorState'
 import { useAuthStore } from '@/stores/auth'
 import { formatDate } from '@/utils/date'
 import { isEmoticonOnlyContent, renderCommentContentHtml } from '@/utils/commentContent'
@@ -32,31 +33,30 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const authStore = useAuthStore() as ReturnType<typeof useAuthStore> | undefined
-const { useReplies } = useComment()
 
 const isReplying = ref(false)
 const isEditing = ref(false)
-const isRepliesOpen = ref(!props.comment.isDeleted && Boolean(props.comment.hasReplies))
-const optimisticHasReplies = ref(false)
-const replyParams = ref({ page: 0, size: 50 })
-const loadedReplies = ref<Comment[]>([])
-const replyHasNext = ref(false)
-const commentId = computed(() => props.comment.commentId)
-const canLoadReplies = computed(() => !props.comment.isDeleted && Boolean(props.comment.hasReplies || optimisticHasReplies.value))
-const repliesEnabled = computed(() => isRepliesOpen.value && canLoadReplies.value)
-
-const { data: repliesData, isLoading: isRepliesLoading, error: repliesError } =
-  useReplies(commentId, replyParams, repliesEnabled)
-
-const replies = computed(() => loadedReplies.value)
-const isBlockedAuthor = computed(() => Boolean(props.comment.isBlockedAuthor))
-const canUseCommentActions = computed(() => !props.comment.isDeleted && !isBlockedAuthor.value)
+const commentRef = computed(() => props.comment)
+const {
+  replies,
+  isRepliesOpen,
+  isRepliesLoading,
+  repliesError,
+  replyHasNext,
+  canLoadReplies,
+  markReplyCreated,
+  toggleReplies,
+  loadMoreReplies,
+} = useCommentReplies(commentRef)
+const {
+  isBlockedAuthor,
+  canUseCommentActions,
+  isAgentAuthor,
+  isAuthenticated,
+  isCommentAuthor,
+} = useCommentAuthorState(commentRef, authStore)
 const renderedContent = computed(() => renderCommentContentHtml(props.comment.content ?? ''))
 const isEmoticonOnly = computed(() => isEmoticonOnlyContent(props.comment.content ?? ''))
-const isAgentAuthor = computed(() => !isBlockedAuthor.value && props.comment.author?.authorType === 'AGENT')
-const isAuthenticated = computed(() => Boolean(authStore?.isAuthenticated))
-const currentUserId = computed(() => authStore?.user?.userId)
-const isCommentAuthor = computed(() => !isBlockedAuthor.value && currentUserId.value === props.comment.author?.userId)
 const createdAtShort = computed(() => formatCommentDateShort(props.comment.createdAt))
 const createdAtFull = computed(() => formatDate(props.comment.createdAt))
 const replyToggleLabel = computed(() => {
@@ -68,10 +68,8 @@ const replyToggleLabel = computed(() => {
 })
 
 function handleReplySuccess() {
-  optimisticHasReplies.value = true
+  markReplyCreated()
   isReplying.value = false
-  isRepliesOpen.value = true
-  replyParams.value = { ...replyParams.value, page: 0 }
   emit('reply-success')
 }
 
@@ -82,21 +80,6 @@ function handleEditSuccess() {
 
 function handleDelete() {
   emit('delete', props.comment)
-}
-
-function toggleReplies() {
-  isRepliesOpen.value = !isRepliesOpen.value
-}
-
-function loadMoreReplies() {
-  if (!replyHasNext.value || isRepliesLoading.value) {
-    return
-  }
-
-  replyParams.value = {
-    ...replyParams.value,
-    page: replyParams.value.page + 1,
-  }
 }
 
 function formatCommentDateShort(dateString: string): string {
@@ -113,54 +96,6 @@ function formatCommentDateShort(dateString: string): string {
 
   return `${yy}.${mm}.${dd} ${hh}:${mi}`
 }
-
-watch(repliesData, (pageData) => {
-  if (!pageData) {
-    return
-  }
-
-  if (replyParams.value.page === 0) {
-    loadedReplies.value = pageData.content
-  } else {
-    const existingIds = new Set(loadedReplies.value.map((reply) => reply.commentId))
-    loadedReplies.value = [
-      ...loadedReplies.value,
-      ...pageData.content.filter((reply) => !existingIds.has(reply.commentId)),
-    ]
-  }
-
-  replyHasNext.value = pageData.hasNext
-
-  if (!props.comment.hasReplies && !optimisticHasReplies.value && loadedReplies.value.length === 0) {
-    optimisticHasReplies.value = false
-    isRepliesOpen.value = false
-  }
-}, { immediate: true })
-
-watch(() => props.comment.hasReplies, (hasReplies) => {
-  if (!hasReplies && !optimisticHasReplies.value) {
-    optimisticHasReplies.value = false
-    loadedReplies.value = []
-    replyHasNext.value = false
-    isRepliesOpen.value = false
-    return
-  }
-
-  if (hasReplies && !props.comment.isDeleted) {
-    isRepliesOpen.value = true
-  }
-})
-
-watch(() => props.comment.isDeleted, (isDeleted) => {
-  if (!isDeleted) {
-    return
-  }
-
-  optimisticHasReplies.value = false
-  loadedReplies.value = []
-  replyHasNext.value = false
-  isRepliesOpen.value = false
-})
 
 watch(isBlockedAuthor, (blocked) => {
   if (!blocked) {
