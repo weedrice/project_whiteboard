@@ -2,9 +2,10 @@ import { useQueryClient } from '@tanstack/vue-query'
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { createBoardDetailQueryOptions, useBoard } from '@/composables/useBoard'
+import { useBoard } from '@/composables/useBoard'
 import { useToastStore } from '@/stores/toast'
-import { canWriteBoardPost } from '@/utils/board'
+import { verifyBoardWriteAccess } from '@/composables/useBoardWriteAccess'
+import i18n from '@/i18n'
 
 export function useWriteBoardSheet() {
   const route = useRoute()
@@ -50,26 +51,23 @@ export function useWriteBoardSheet() {
     showWriteSheet.value = true
   }
 
-  const verifyBoardWriteAccess = async (boardUrl: string) => {
-    const board = await queryClient.fetchQuery({
-      ...createBoardDetailQueryOptions(boardUrl),
-      retry: false,
-    })
-    return canWriteBoardPost(board, authStore.isAuthenticated, authStore.user?.role)
-  }
-
   const goToBoardWrite = async (boardUrl: string) => {
     try {
-      const canWrite = await verifyBoardWriteAccess(boardUrl)
+      const canWrite = await verifyBoardWriteAccess({
+        queryClient,
+        boardUrl,
+        isAuthenticated: authStore.isAuthenticated,
+        userRole: authStore.user?.role,
+      })
       if (!canWrite) {
-        toastStore.addToast('You do not have permission to write on this board.', 'error')
+        toastStore.addToast(i18n.global.t('common.messages.boardWriteForbidden'), 'error')
         return
       }
 
       showWriteSheet.value = false
       await router.push(`/board/${boardUrl}/write`)
     } catch {
-      toastStore.addToast('Unable to verify write access for this board.', 'error')
+      toastStore.addToast(i18n.global.t('common.messages.boardWriteForbidden'), 'error')
     }
   }
 

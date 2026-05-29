@@ -5,9 +5,9 @@ import { emoticonApi } from '@/api/emoticon'
 import { postApi } from '@/api/post'
 import { queryClient } from '@/queryClient'
 import { createBoardDetailQueryOptions } from '@/composables/useBoard'
+import { canUserWriteBoardPost } from '@/composables/useBoardWriteAccess'
 import { emoticonDetailQueryKey } from '@/composables/useEmoticonEditResource'
 import { postDetailQueryKey } from '@/composables/usePost'
-import { canWriteBoardPost } from '@/utils/board'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import { saveLoginRedirect } from '@/utils/authRedirect'
 import logger from '@/utils/logger'
@@ -431,7 +431,7 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
                     next({ name: 'board-detail', params: { boardUrl } })
                     return
                 }
-                if (to.meta.requiresWritableBoard && !canWriteBoardPost(board, authStore.isAuthenticated, authStore.user?.role)) {
+                if (to.meta.requiresWritableBoard && !canUserWriteBoardPost(board, authStore.isAuthenticated, authStore.user?.role)) {
                     useToastStore().addToast(i18n.global.t('common.messages.boardWriteForbidden'), 'error')
                     next({ name: 'board-detail', params: { boardUrl } })
                     return
