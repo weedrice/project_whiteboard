@@ -96,4 +96,12 @@ describe('BaseModal', () => {
 
         expect(document.body.style.overflow).toBe('')
     })
+
+    it('uses tokenized modal text and shell classes', async () => {
+        const wrapper = track(mountModal(true))
+        await nextTick()
+
+        expect(wrapper.find('.modal-content').exists()).toBe(true)
+        expect(wrapper.get('.modal-header .nv-title').text()).toBe('Modal')
+    })
 })

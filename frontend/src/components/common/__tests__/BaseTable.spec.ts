@@ -94,6 +94,20 @@ describe('BaseTable', () => {
         expect(compactWrapper.get('td').classes()).toEqual(expect.arrayContaining(['px-2', 'py-1.5']))
     })
 
+    it('keeps table chrome on nv token classes', () => {
+        const wrapper = mount(BaseTable, {
+            props: {
+                columns: [{ key: 'title', label: 'Title' }],
+                items: [{ id: 1, title: 'Token row' }],
+            },
+        })
+
+        expect(wrapper.find('.nv-base-table').exists()).toBe(true)
+        expect(wrapper.find('.nv-base-table-head').exists()).toBe(true)
+        expect(wrapper.find('.nv-base-table-row').exists()).toBe(true)
+        expect(wrapper.find('.nv-base-table-cell').exists()).toBe(true)
+    })
+
     it('uses stable fallback row keys before falling back to index', async () => {
         const StatefulCell = defineComponent({
             props: {

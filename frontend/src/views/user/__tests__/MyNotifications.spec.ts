@@ -148,6 +148,17 @@ describe('MyNotifications', () => {
     expect(markAllAsRead).toHaveBeenCalledTimes(1)
   })
 
+  it('uses tokenized surfaces for unread notification rows', () => {
+    notificationsData.value = makePage([makeNotification(false)])
+    const wrapper = mountMyNotifications()
+
+    const unreadRow = wrapper.get('li')
+
+    expect(unreadRow.classes()).toContain('nv-hover-surface')
+    expect(unreadRow.classes()).toContain('nv-unread-surface')
+    expect(unreadRow.get('a').classes()).toContain('active:bg-[var(--nv-surface-active)]')
+  })
+
   it('shows error state and retries notification loading', async () => {
     isError.value = true
     notificationsData.value = makePage([])

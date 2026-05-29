@@ -129,6 +129,17 @@ describe('NotificationDropdown', () => {
     expect(navigateFromNotification).toHaveBeenCalledWith(notification)
   })
 
+  it('uses the shared unread surface token for unread rows', () => {
+    const notification = makeNotification(false)
+    notificationsData.value = { content: [notification] }
+    const wrapper = mountDropdown()
+
+    const item = wrapper.findAll('button').find((button) => button.text().includes(notification.message))
+
+    expect(item?.classes()).toContain('nv-hover-surface')
+    expect(item?.classes()).toContain('nv-unread-surface')
+  })
+
   it('renders normalized actor display fields instead of raw actor DTO fields', () => {
     notificationsData.value = {
       content: [{
