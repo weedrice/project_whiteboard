@@ -1,32 +1,21 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { userApi } from '@/api/user'
-import type { PointHistory } from '@/types'
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useUser } from '@/composables/useUser'
 import { formatDate } from '@/utils/date'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import { Coins } from 'lucide-vue-next'
-import { usePagination } from '@/composables/usePagination'
+import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
+import { getListLoadErrorMessage } from '@/utils/listLoadError'
 
-const {
-  items: history,
-  loading,
-  page,
-  size,
-  totalPages,
-  error,
-  fetch: fetchHistory,
-  handlePageChange,
-  handleSizeChange
-} = usePagination<PointHistory>(async (params, { signal }) => {
-  const { data } = await userApi.getMyPointHistories(params, { signal })
-  return data
-}, { page: 0, size: 15 })
-
-onMounted(() => {
-  fetchHistory()
-})
+const { t } = useI18n()
+const { useMyPointHistories } = useUser()
+const { page, size, params, handlePageChange, handleSizeChange } = usePaginatedQueryState({ initialSize: 15 })
+const { data: historyData, isLoading: loading, error, refetch } = useMyPointHistories(params)
+const { items: history, totalPages } = usePageResponseState(historyData, page)
+const errorMessage = computed(() => error.value ? getListLoadErrorMessage(t) : '')
 </script>
 
 <template>
@@ -35,14 +24,14 @@ onMounted(() => {
     :icon="Coins"
     :items-count="history.length"
     :loading="loading"
-    :error="error"
+    :error="errorMessage || null"
     :empty-title="$t('user.pointsHistory.empty')"
     :page="page"
     :size="size"
     :total-pages="totalPages"
     max-width-class="max-w-2xl"
     header-class="px-3 py-3 sm:py-5 sm:px-6 gap-2"
-    @retry="fetchHistory"
+    @retry="refetch"
     @page-change="handlePageChange"
     @size-change="handleSizeChange"
   >

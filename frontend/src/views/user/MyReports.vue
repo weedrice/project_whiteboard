@@ -1,36 +1,25 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { reportApi } from '@/api/report'
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useReport } from '@/composables/useReport'
 import { formatDate } from '@/utils/date'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import { Flag } from 'lucide-vue-next'
-import type { MyReport } from '@/types'
-import { usePagination } from '@/composables/usePagination'
+import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
+import { getListLoadErrorMessage } from '@/utils/listLoadError'
 import {
   getMyReportStatusClass,
   getMyReportStatusLabel,
   getMyReportTargetTypeLabel
 } from '@/utils/reportDisplay'
 
-const {
-  items: reports,
-  loading,
-  page,
-  size,
-  totalPages,
-  error,
-  fetch: fetchReports,
-  handlePageChange,
-  handleSizeChange
-} = usePagination<MyReport>(async (params, { signal }) => {
-  const { data } = await reportApi.getMyReports(params, { signal })
-  return data
-}, { page: 0, size: 15 })
-
-onMounted(() => {
-  fetchReports()
-})
+const { t } = useI18n()
+const { useMyReports } = useReport()
+const { page, size, params, handlePageChange, handleSizeChange } = usePaginatedQueryState({ initialSize: 15 })
+const { data: reportsData, isLoading: loading, error, refetch } = useMyReports(params)
+const { items: reports, totalPages } = usePageResponseState(reportsData, page)
+const errorMessage = computed(() => error.value ? getListLoadErrorMessage(t) : '')
 </script>
 
 <template>
@@ -39,12 +28,12 @@ onMounted(() => {
     :icon="Flag"
     :items-count="reports.length"
     :loading="loading"
-    :error="error"
+    :error="errorMessage || null"
     :empty-title="$t('user.reportList.empty')"
     :page="page"
     :size="size"
     :total-pages="totalPages"
-    @retry="fetchReports"
+    @retry="refetch"
     @page-change="handlePageChange"
     @size-change="handleSizeChange"
   >
