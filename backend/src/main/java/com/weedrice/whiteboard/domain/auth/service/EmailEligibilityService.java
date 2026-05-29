@@ -1,9 +1,6 @@
 package com.weedrice.whiteboard.domain.auth.service;
 
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
-import com.weedrice.whiteboard.global.exception.BusinessException;
-import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,7 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class EmailEligibilityService {
 
     private final AccountUniquenessPolicy accountUniquenessPolicy;
-    private final UserRepository userRepository;
+    private final AuthEmailLookupPolicy authEmailLookupPolicy;
     private final AuthAccountEligibilityPolicy authAccountEligibilityPolicy;
 
     public void validateSignupEmail(String email) {
@@ -30,16 +27,12 @@ public class EmailEligibilityService {
     }
 
     public void validateFindIdEmail(String email) {
-        String normalizedEmail = AuthEmailNormalizer.normalize(email);
-        User user = userRepository.findByEmail(normalizedEmail)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = authEmailLookupPolicy.resolveFindIdEmail(email);
         authAccountEligibilityPolicy.validateUsableAccount(user);
     }
 
     public void validatePasswordResetEmail(String email) {
-        String normalizedEmail = AuthEmailNormalizer.normalize(email);
-        User user = userRepository.findByEmail(normalizedEmail)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND_BY_EMAIL));
+        User user = authEmailLookupPolicy.resolvePasswordResetEmail(email);
         authAccountEligibilityPolicy.validateUsableAccount(user);
     }
 

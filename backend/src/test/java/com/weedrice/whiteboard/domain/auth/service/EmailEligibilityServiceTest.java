@@ -30,7 +30,7 @@ class EmailEligibilityServiceTest {
     void setUp() {
         emailEligibilityService = new EmailEligibilityService(
                 new AccountUniquenessPolicy(userRepository),
-                userRepository,
+                new AuthEmailLookupPolicy(userRepository),
                 new AuthAccountEligibilityPolicy());
     }
 
@@ -95,6 +95,26 @@ class EmailEligibilityServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.UNAUTHORIZED);
+    }
+
+    @Test
+    void validateFindIdEmail_usesFindIdNotFoundCode() {
+        when(userRepository.findByEmail("missing@example.com")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> emailEligibilityService.validateFindIdEmail(" missing@example.com "))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    void validatePasswordResetEmail_usesPasswordResetNotFoundCode() {
+        when(userRepository.findByEmail("missing@example.com")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> emailEligibilityService.validatePasswordResetEmail(" missing@example.com "))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND_BY_EMAIL);
     }
 
     private User user(String email, Long userId, String status) {
