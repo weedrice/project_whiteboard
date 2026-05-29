@@ -259,10 +259,12 @@ class NotificationServiceTest {
     void readNotification_success() {
         Long userId = 1L;
         Long notificationId = 1L;
+        when(userRepository.existsById(userId)).thenReturn(true);
         when(notificationRepository.markReadByNotificationIdAndUserId(notificationId, userId)).thenReturn(1);
 
         notificationService.readNotification(userId, notificationId);
 
+        verify(userRepository).existsById(userId);
         verify(notificationRepository).markReadByNotificationIdAndUserId(notificationId, userId);
     }
 
@@ -271,6 +273,7 @@ class NotificationServiceTest {
     void readNotification_successWhenAlreadyReadByOwner() {
         Long userId = 1L;
         Long notificationId = 1L;
+        when(userRepository.existsById(userId)).thenReturn(true);
         when(notificationRepository.markReadByNotificationIdAndUserId(notificationId, userId)).thenReturn(1);
 
         assertThatCode(() -> notificationService.readNotification(userId, notificationId))
@@ -282,6 +285,7 @@ class NotificationServiceTest {
     void readNotification_notFoundForNonOwner() {
         Long userId = 1L;
         Long notificationId = 1L;
+        when(userRepository.existsById(userId)).thenReturn(true);
         when(notificationRepository.markReadByNotificationIdAndUserId(notificationId, userId)).thenReturn(0);
 
         assertThatThrownBy(() -> notificationService.readNotification(userId, notificationId))
@@ -294,11 +298,26 @@ class NotificationServiceTest {
     void readNotification_notFoundWhenMissing() {
         Long userId = 1L;
         Long notificationId = 999L;
+        when(userRepository.existsById(userId)).thenReturn(true);
         when(notificationRepository.markReadByNotificationIdAndUserId(notificationId, userId)).thenReturn(0);
 
         assertThatThrownBy(() -> notificationService.readNotification(userId, notificationId))
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("Read notification validates user existence first")
+    void readNotification_missingUser_throwsUserNotFound() {
+        Long userId = 999L;
+        Long notificationId = 1L;
+        when(userRepository.existsById(userId)).thenReturn(false);
+
+        assertThatThrownBy(() -> notificationService.readNotification(userId, notificationId))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND));
+
+        verify(notificationRepository, never()).markReadByNotificationIdAndUserId(anyLong(), anyLong());
     }
 
     @Test

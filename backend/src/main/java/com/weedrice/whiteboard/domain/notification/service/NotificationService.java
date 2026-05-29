@@ -49,6 +49,7 @@ public class NotificationService {
     }
 
     public void readNotification(Long userId, Long notificationId) {
+        validateUserExists(userId);
         readCommandService.readNotification(userId, notificationId);
     }
 
