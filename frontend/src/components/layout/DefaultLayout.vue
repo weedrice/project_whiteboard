@@ -5,6 +5,7 @@ import { Bell } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { useKeyboardStore } from '@/stores/keyboard'
+import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useNotificationStream } from '@/composables/useNotificationStream'
 import { useShellDropdowns } from '@/composables/useShellDropdowns'
 import { useShellShortcuts } from '@/composables/useShellShortcuts'
@@ -27,6 +28,7 @@ const route = useRoute()
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
 const keyboardStore = useKeyboardStore()
+const { requireAuth } = useAuthGuard()
 const { toggleTheme } = useThemePreference()
 
 const logoSrc = computed(() => (themeStore.isDark ? logoDark : logoLight))
@@ -79,8 +81,7 @@ const skipToMainContent = (event: Event) => {
 }
 
 const goToNotificationsPage = async () => {
-  if (!authStore.isAuthenticated) {
-    await router.push({ name: 'login', query: { redirect: '/mypage/notifications' } })
+  if (!requireAuth('/mypage/notifications')) {
     return
   }
 
