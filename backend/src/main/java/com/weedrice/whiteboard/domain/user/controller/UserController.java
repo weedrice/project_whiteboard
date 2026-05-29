@@ -21,21 +21,17 @@ import com.weedrice.whiteboard.domain.user.web.UserActionResponseFactory;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.CurrentUserId;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.stream.Collectors;
-
-import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.optionalUserId;
-import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -56,23 +52,22 @@ public class UserController {
         @GetMapping("/{userId}")
         public ResponseEntity<ApiResponse<UserProfileResponse>> getUserProfile(
                         @PathVariable Long userId,
-                        @AuthenticationPrincipal CustomUserDetails userDetails) {
-                Long viewerUserId = optionalUserId(userDetails);
+                        @CurrentUserId(required = false) Long viewerUserId) {
                 return ResponseEntity.ok(ApiResponse.success(userProfileService.getUserProfile(userId, viewerUserId)));
         }
 
         @GetMapping("/me")
         public ResponseEntity<ApiResponse<MyInfoResponse>> getMyInfo(
-                        @AuthenticationPrincipal CustomUserDetails userDetails) {
-                return ResponseEntity.ok(ApiResponse.success(userProfileService.getMyInfo(requiredUserId(userDetails))));
+                        @CurrentUserId Long userId) {
+                return ResponseEntity.ok(ApiResponse.success(userProfileService.getMyInfo(userId)));
         }
 
         @PutMapping("/me")
         public ResponseEntity<ApiResponse<UpdateProfileResponse>> updateMyProfile(
                         @Valid @RequestBody UpdateProfileRequest request,
-                        @AuthenticationPrincipal CustomUserDetails userDetails) {
+                        @CurrentUserId Long userId) {
                 return ResponseEntity.ok(ApiResponse.success(userProfileService.updateMyProfile(
-                                requiredUserId(userDetails),
+                                userId,
                                 request.getDisplayName(),
                                 request.getProfileImageId())));
         }
@@ -80,9 +75,9 @@ public class UserController {
         @PostMapping("/me/email-verification")
         public ResponseEntity<ApiResponse<Void>> verifyEmail(
                         @Valid @RequestBody EmailVerificationConfirmRequest request,
-                        @AuthenticationPrincipal CustomUserDetails userDetails) {
+                        @CurrentUserId Long userId) {
                 userSecurityService.verifyAndChangeEmail(
-                                requiredUserId(userDetails),
+                                userId,
                                 request.getEmail(),
                                 request.getVerificationTicket());
                 return ResponseEntity.ok(ApiResponse.success(null));
@@ -91,8 +86,8 @@ public class UserController {
         @PutMapping("/me/password")
         public ResponseEntity<ApiResponse<MessageResponse>> updatePassword(
                         @Valid @RequestBody UpdatePasswordRequest request,
-                        @AuthenticationPrincipal CustomUserDetails userDetails) {
-                userSecurityService.updatePassword(requiredUserId(userDetails), request.getCurrentPassword(),
+                        @CurrentUserId Long userId) {
+                userSecurityService.updatePassword(userId, request.getCurrentPassword(),
                                 request.getNewPassword());
                 return userActionResponseFactory.passwordChanged();
         }
@@ -100,55 +95,55 @@ public class UserController {
         @DeleteMapping("/me")
         public ResponseEntity<ApiResponse<MessageResponse>> deleteAccount(
                         @Valid @RequestBody DeleteAccountRequest request,
-                        @AuthenticationPrincipal CustomUserDetails userDetails) {
-                userProfileService.deleteAccount(requiredUserId(userDetails), request.getPassword());
+                        @CurrentUserId Long userId) {
+                userProfileService.deleteAccount(userId, request.getPassword());
                 return userActionResponseFactory.accountDeleted();
         }
 
         @GetMapping("/me/settings")
         public ResponseEntity<ApiResponse<UserSettingsResponse>> getMySettings(
-                        @AuthenticationPrincipal CustomUserDetails userDetails) {
-                return ResponseEntity.ok(ApiResponse.success(userSettingsService.getSettings(requiredUserId(userDetails))));
+                        @CurrentUserId Long userId) {
+                return ResponseEntity.ok(ApiResponse.success(userSettingsService.getSettings(userId)));
         }
 
         @PutMapping("/me/settings")
         public ResponseEntity<ApiResponse<UserSettingsResponse>> updateMySettings(
                         @Valid @RequestBody UpdateSettingsRequest request,
-                        @AuthenticationPrincipal CustomUserDetails userDetails) {
-                return ResponseEntity.ok(ApiResponse.success(userSettingsService.updateSettings(requiredUserId(userDetails),
+                        @CurrentUserId Long userId) {
+                return ResponseEntity.ok(ApiResponse.success(userSettingsService.updateSettings(userId,
                                 request.getTheme(), request.getLanguage(), request.getTimezone(),
                                 request.getHideNsfw())));
         }
 
         @GetMapping("/me/notification-settings")
         public ResponseEntity<ApiResponse<List<NotificationSettingResponse>>> getMyNotificationSettings(
-                        @AuthenticationPrincipal CustomUserDetails userDetails) {
+                        @CurrentUserId Long userId) {
                 return ResponseEntity.ok(ApiResponse
-                                .success(userSettingsService.getNotificationSettings(requiredUserId(userDetails))));
+                                .success(userSettingsService.getNotificationSettings(userId)));
         }
 
         @PutMapping("/me/notification-settings/bulk")
         public ResponseEntity<ApiResponse<List<NotificationSettingResponse>>> updateMyNotificationSettings(
                         @Valid @RequestBody UpdateNotificationSettingsRequest request,
-                        @AuthenticationPrincipal CustomUserDetails userDetails) {
+                        @CurrentUserId Long userId) {
                 return ResponseEntity.ok(ApiResponse.success(userSettingsService.updateNotificationSettings(
-                                requiredUserId(userDetails),
+                                userId,
                                 request.getSettings())));
         }
 
         @PostMapping("/{userId}/block")
         public ResponseEntity<ApiResponse<MessageResponse>> blockUser(
                         @PathVariable Long userId,
-                        @AuthenticationPrincipal CustomUserDetails userDetails) {
-                userBlockService.blockUser(requiredUserId(userDetails), userId);
+                        @CurrentUserId Long currentUserId) {
+                userBlockService.blockUser(currentUserId, userId);
                 return userActionResponseFactory.blocked();
         }
 
         @DeleteMapping("/{userId}/block")
         public ResponseEntity<ApiResponse<MessageResponse>> unblockUser(
                         @PathVariable Long userId,
-                        @AuthenticationPrincipal CustomUserDetails userDetails) {
-                userBlockService.unblockUser(requiredUserId(userDetails), userId);
+                        @CurrentUserId Long currentUserId) {
+                userBlockService.unblockUser(currentUserId, userId);
                 return userActionResponseFactory.unblocked();
         }
 
@@ -157,23 +152,22 @@ public class UserController {
                         @RequestParam(defaultValue = "0") int page,
                         @RequestParam(defaultValue = "20") int size,
                         Sort sort,
-                        @AuthenticationPrincipal CustomUserDetails userDetails) {
+                        @CurrentUserId Long userId) {
                 Pageable pageable = PageRequestUtils.of(page, size, sort);
-                Page<BlockedUserResponse> response = userBlockService.getBlockedUsers(requiredUserId(userDetails),
-                                pageable);
+                Page<BlockedUserResponse> response = userBlockService.getBlockedUsers(userId, pageable);
                 return ResponseEntity.ok(ApiResponse.success(new PageResponse<>(response)));
         }
 
         @GetMapping("/me/subscriptions")
         public ApiResponse<PageResponse<SubscriptionBoardResponse>> getMySubscriptions(
-                        @AuthenticationPrincipal CustomUserDetails userDetails,
+                        @CurrentUserId Long userId,
                         @RequestParam(defaultValue = "false") boolean includeUnavailable,
                         @RequestParam(defaultValue = "0") int page,
                         @RequestParam(defaultValue = "20") int size,
                         Sort sort) {
                 Pageable pageable = PageRequestUtils.of(page, size, sort);
                 Page<SubscriptionBoardResponse> response = boardService.getMySubscriptions(
-                                requiredUserId(userDetails),
+                                userId,
                                 pageable,
                                 includeUnavailable);
                 return ApiResponse.success(new PageResponse<>(response));
@@ -182,78 +176,77 @@ public class UserController {
         @PostMapping("/me/agents/claim")
         public ApiResponse<AgentResponse> claimAgent(
                         @Valid @RequestBody AgentClaimRequest request,
-                        @AuthenticationPrincipal CustomUserDetails userDetails,
+                        @CurrentUserId Long userId,
                         jakarta.servlet.http.HttpServletRequest httpServletRequest) {
                 return ApiResponse.success(
-                                agentLifecycleService.claim(requiredUserId(userDetails), request,
+                                agentLifecycleService.claim(userId, request,
                                                 agentRequestContextResolver.resolve(httpServletRequest)));
         }
 
         @GetMapping("/me/agents")
         public ApiResponse<AgentListResponse> getMyAgents(
-                        @AuthenticationPrincipal CustomUserDetails userDetails) {
-                return ApiResponse.success(agentLifecycleService.getMyAgents(requiredUserId(userDetails)));
+                        @CurrentUserId Long userId) {
+                return ApiResponse.success(agentLifecycleService.getMyAgents(userId));
         }
 
         @PatchMapping("/me/agents/{agentId}/suspend")
         public ApiResponse<AgentResponse> suspendMyAgent(
                         @PathVariable Long agentId,
-                        @AuthenticationPrincipal CustomUserDetails userDetails,
+                        @CurrentUserId Long userId,
                         jakarta.servlet.http.HttpServletRequest httpServletRequest) {
                 return ApiResponse.success(
-                                agentLifecycleService.suspendMyAgent(requiredUserId(userDetails), agentId,
+                                agentLifecycleService.suspendMyAgent(userId, agentId,
                                                 agentRequestContextResolver.resolve(httpServletRequest)));
         }
 
         @PatchMapping("/me/agents/{agentId}/activate")
         public ApiResponse<AgentResponse> activateMyAgent(
                         @PathVariable Long agentId,
-                        @AuthenticationPrincipal CustomUserDetails userDetails,
+                        @CurrentUserId Long userId,
                         jakarta.servlet.http.HttpServletRequest httpServletRequest) {
                 return ApiResponse.success(
-                                agentLifecycleService.activateMyAgent(requiredUserId(userDetails), agentId,
+                                agentLifecycleService.activateMyAgent(userId, agentId,
                                                 agentRequestContextResolver.resolve(httpServletRequest)));
         }
 
         @DeleteMapping("/me/agents/{agentId}")
         public ApiResponse<Void> deleteMyAgent(
                         @PathVariable Long agentId,
-                        @AuthenticationPrincipal CustomUserDetails userDetails,
+                        @CurrentUserId Long userId,
                         jakarta.servlet.http.HttpServletRequest httpServletRequest) {
-                agentLifecycleService.deleteMyAgent(requiredUserId(userDetails), agentId,
+                agentLifecycleService.deleteMyAgent(userId, agentId,
                                 agentRequestContextResolver.resolve(httpServletRequest));
                 return ApiResponse.success(null);
         }
 
         @GetMapping("/me/posts")
-        public ApiResponse<PageResponse<PostSummary>> getMyPosts(@AuthenticationPrincipal CustomUserDetails userDetails,
+        public ApiResponse<PageResponse<PostSummary>> getMyPosts(@CurrentUserId Long userId,
                         @RequestParam(defaultValue = "0") int page,
                         @RequestParam(defaultValue = "20") int size,
                         Sort sort) {
                 Pageable pageable = PageRequestUtils.of(page, size, sort);
-                Page<PostSummary> response = postService.getMyPosts(requiredUserId(userDetails), pageable);
+                Page<PostSummary> response = postService.getMyPosts(userId, pageable);
                 return ApiResponse.success(new PageResponse<>(response));
         }
 
         @GetMapping("/me/comments")
         public ApiResponse<PageResponse<MyCommentResponse>> getMyComments(
-                        @AuthenticationPrincipal CustomUserDetails userDetails,
+                        @CurrentUserId Long userId,
                         @RequestParam(defaultValue = "0") int page,
                         @RequestParam(defaultValue = "20") int size,
                         Sort sort) {
                 Pageable pageable = PageRequestUtils.of(page, size, sort);
-                Page<MyCommentResponse> response = commentService.getMyComments(requiredUserId(userDetails), pageable);
+                Page<MyCommentResponse> response = commentService.getMyComments(userId, pageable);
                 return ApiResponse.success(new PageResponse<>(response));
         }
 
         @GetMapping("/me/history/views")
         public ApiResponse<PageResponse<PostSummary>> getRecentlyViewedPosts(
-                        @AuthenticationPrincipal CustomUserDetails userDetails,
+                        @CurrentUserId Long userId,
                         @RequestParam(defaultValue = "0") int page,
                         @RequestParam(defaultValue = "20") int size,
                         Sort sort) {
                 Pageable pageable = PageRequestUtils.of(page, size, sort);
-                Long userId = requiredUserId(userDetails);
                 Page<PostSummary> response = postService.getRecentlyViewedPosts(userId, pageable);
                 return ApiResponse.success(new PageResponse<>(response));
         }

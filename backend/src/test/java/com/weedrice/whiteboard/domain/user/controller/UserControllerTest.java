@@ -27,7 +27,6 @@ import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
 import com.weedrice.whiteboard.domain.user.web.UserActionResponseFactory;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -43,11 +42,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -59,6 +56,8 @@ import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class UserControllerTest {
+
+        private static final Long USER_ID = 1L;
 
         @Mock
         private UserProfileService userProfileService;
@@ -94,7 +93,6 @@ class UserControllerTest {
         private UserController userController;
 
         private User testUser;
-        private CustomUserDetails customUserDetails;
         private Pageable pageable;
 
         @BeforeEach
@@ -112,13 +110,6 @@ class UserControllerTest {
                 ReflectionTestUtils.setField(testUser, "status", "ACTIVE");
                 ReflectionTestUtils.setField(testUser, "createdAt", LocalDateTime.now());
                 ReflectionTestUtils.setField(testUser, "lastLoginAt", LocalDateTime.now());
-
-                // CustomUserDetails ?앹꽦
-                customUserDetails = new CustomUserDetails(
-                                1L,
-                                "testuser",
-                                "encodedPassword",
-                                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
 
                 pageable = PageRequest.of(0, 10);
         }
@@ -142,12 +133,12 @@ class UserControllerTest {
                                         new NotificationSettingResponse("COMMENT", false),
                                         new NotificationSettingResponse("REPLY", true));
 
-                        given(userSettingsService.updateNotificationSettings(eq(1L), anyList()))
+                        given(userSettingsService.updateNotificationSettings(eq(USER_ID), anyList()))
                                         .willReturn(updatedSettings);
 
                         // when
                         ResponseEntity<ApiResponse<List<NotificationSettingResponse>>> response = userController
-                                        .updateMyNotificationSettings(request, customUserDetails);
+                                        .updateMyNotificationSettings(request, USER_ID);
 
                         // then
                         assertThat(response.getStatusCode().value()).isEqualTo(200);
@@ -159,7 +150,7 @@ class UserControllerTest {
                         assertThat(response.getBody().getData())
                                         .extracting(NotificationSettingResponse::isEnabled)
                                         .containsExactly(true, false, true);
-                        verify(userSettingsService).updateNotificationSettings(eq(1L), eq(request.getSettings()));
+                        verify(userSettingsService).updateNotificationSettings(eq(USER_ID), eq(request.getSettings()));
                 }
         }
 
@@ -172,19 +163,19 @@ class UserControllerTest {
                 void blockUser_success() {
                         // given
                         Long targetUserId = 2L;
-                        doNothing().when(userBlockService).blockUser(1L, targetUserId);
+                        doNothing().when(userBlockService).blockUser(USER_ID, targetUserId);
                         given(userActionResponseFactory.blocked())
                                         .willReturn(messageResponse(HttpStatus.CREATED, "blocked"));
 
                         // when
                         ResponseEntity<ApiResponse<MessageResponse>> response = userController.blockUser(targetUserId,
-                                        customUserDetails);
+                                        USER_ID);
 
                         // then
                         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
                         assertThat(response.getBody().isSuccess()).isTrue();
                         assertThat(response.getBody().getData().getMessage()).isEqualTo("blocked");
-                        verify(userBlockService).blockUser(1L, targetUserId);
+                        verify(userBlockService).blockUser(USER_ID, targetUserId);
                         verify(userActionResponseFactory).blocked();
                 }
 
@@ -193,19 +184,19 @@ class UserControllerTest {
                 void unblockUser_success() {
                         // given
                         Long targetUserId = 2L;
-                        doNothing().when(userBlockService).unblockUser(1L, targetUserId);
+                        doNothing().when(userBlockService).unblockUser(USER_ID, targetUserId);
                         given(userActionResponseFactory.unblocked())
                                         .willReturn(messageResponse(HttpStatus.OK, "unblocked"));
 
                         // when
                         ResponseEntity<ApiResponse<MessageResponse>> response = userController.unblockUser(targetUserId,
-                                        customUserDetails);
+                                        USER_ID);
 
                         // then
                         assertThat(response.getStatusCode().value()).isEqualTo(200);
                         assertThat(response.getBody().isSuccess()).isTrue();
                         assertThat(response.getBody().getData().getMessage()).isEqualTo("unblocked");
-                        verify(userBlockService).unblockUser(1L, targetUserId);
+                        verify(userBlockService).unblockUser(USER_ID, targetUserId);
                         verify(userActionResponseFactory).unblocked();
                 }
 
@@ -218,11 +209,11 @@ class UserControllerTest {
                         Page<BlockedUserResponse> blockedPage = new PageImpl<>(
                                         List.of(blockedUser), pageable, 1);
 
-                        given(userBlockService.getBlockedUsers(1L, pageable)).willReturn(blockedPage);
+                        given(userBlockService.getBlockedUsers(USER_ID, pageable)).willReturn(blockedPage);
 
                         // when
                         ResponseEntity<ApiResponse<PageResponse<BlockedUserResponse>>> response = userController
-                                        .getBlockedUsers(0, 10, Sort.unsorted(), customUserDetails);
+                                        .getBlockedUsers(0, 10, Sort.unsorted(), USER_ID);
 
                         // then
                         assertThat(response.getStatusCode().value()).isEqualTo(200);
@@ -256,11 +247,11 @@ class UserControllerTest {
                                         pageable,
                                         1);
 
-                        given(boardService.getMySubscriptions(1L, pageable, false)).willReturn(boardPage);
+                        given(boardService.getMySubscriptions(USER_ID, pageable, false)).willReturn(boardPage);
 
                         // when
                         ApiResponse<PageResponse<SubscriptionBoardResponse>> response = userController
-                                        .getMySubscriptions(customUserDetails, false, 0, 10, Sort.unsorted());
+                                        .getMySubscriptions(USER_ID, false, 0, 10, Sort.unsorted());
 
                         // then
                         assertThat(response.isSuccess()).isTrue();
@@ -299,10 +290,10 @@ class UserControllerTest {
                         PostSummary postSummary = PostSummary.from(post);
                         Page<PostSummary> postPage = new PageImpl<>(List.of(postSummary), pageable, 1);
 
-                        given(postService.getMyPosts(1L, pageable)).willReturn(postPage);
+                        given(postService.getMyPosts(USER_ID, pageable)).willReturn(postPage);
 
                         // when
-                        ApiResponse<PageResponse<PostSummary>> response = userController.getMyPosts(customUserDetails,
+                        ApiResponse<PageResponse<PostSummary>> response = userController.getMyPosts(USER_ID,
                                         0, 10, Sort.unsorted());
 
                         // then
@@ -342,11 +333,11 @@ class UserControllerTest {
                         MyCommentResponse myCommentResponse = MyCommentResponse.from(comment);
                         Page<MyCommentResponse> commentPage = new PageImpl<>(List.of(myCommentResponse), pageable, 1);
 
-                        given(commentService.getMyComments(1L, pageable)).willReturn(commentPage);
+                        given(commentService.getMyComments(USER_ID, pageable)).willReturn(commentPage);
 
                         // when
                         ApiResponse<PageResponse<com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse>> response = userController
-                                        .getMyComments(customUserDetails, 0, 10, Sort.unsorted());
+                                        .getMyComments(USER_ID, 0, 10, Sort.unsorted());
 
                         // then
                         assertThat(response.isSuccess()).isTrue();
@@ -364,11 +355,11 @@ class UserControllerTest {
 
                         Page<PostSummary> postSummaryPage = new PageImpl<>(List.of(postSummary), pageable, 1);
 
-                        given(postService.getRecentlyViewedPosts(1L, pageable)).willReturn(postSummaryPage);
+                        given(postService.getRecentlyViewedPosts(USER_ID, pageable)).willReturn(postSummaryPage);
 
                         // when
                         ApiResponse<PageResponse<PostSummary>> response = userController
-                                        .getRecentlyViewedPosts(customUserDetails, 0, 10, Sort.unsorted());
+                                        .getRecentlyViewedPosts(USER_ID, 0, 10, Sort.unsorted());
 
                         // then
                         assertThat(response.isSuccess()).isTrue();
@@ -390,15 +381,15 @@ class UserControllerTest {
                                         .postCount(3L)
                                         .commentCount(4L)
                                         .build();
-                        given(userProfileService.getUserProfile(2L, 1L)).willReturn(profile);
+                        given(userProfileService.getUserProfile(2L, USER_ID)).willReturn(profile);
 
                         ResponseEntity<ApiResponse<UserProfileResponse>> response =
-                                        userController.getUserProfile(2L, customUserDetails);
+                                        userController.getUserProfile(2L, USER_ID);
 
                         assertThat(response.getStatusCode().value()).isEqualTo(200);
                         assertThat(response.getBody().isSuccess()).isTrue();
                         assertThat(response.getBody().getData().getUserId()).isEqualTo(2L);
-                        verify(userProfileService).getUserProfile(2L, 1L);
+                        verify(userProfileService).getUserProfile(2L, USER_ID);
                 }
 
                 @Test
@@ -442,15 +433,15 @@ class UserControllerTest {
 
                         given(agentRequestContextResolver.resolve(nullable(jakarta.servlet.http.HttpServletRequest.class)))
                                         .willReturn(context);
-                        given(agentLifecycleService.claim(eq(1L), any(AgentClaimRequest.class), same(context)))
+                        given(agentLifecycleService.claim(eq(USER_ID), any(AgentClaimRequest.class), same(context)))
                                         .willReturn(agentResponse);
 
-                        ApiResponse<AgentResponse> response = userController.claimAgent(request, customUserDetails, null);
+                        ApiResponse<AgentResponse> response = userController.claimAgent(request, USER_ID, null);
 
                         assertThat(response.isSuccess()).isTrue();
                         assertThat(response.getData().getAgentId()).isEqualTo(10L);
                         assertThat(response.getData().getStatus()).isEqualTo("ACTIVE");
-                        verify(agentLifecycleService).claim(eq(1L), any(AgentClaimRequest.class), same(context));
+                        verify(agentLifecycleService).claim(eq(USER_ID), any(AgentClaimRequest.class), same(context));
                 }
 
                 @Test
@@ -471,10 +462,10 @@ class UserControllerTest {
                                         .createdAt(LocalDateTime.now())
                                         .build();
 
-                        given(agentLifecycleService.getMyAgents(1L))
+                        given(agentLifecycleService.getMyAgents(USER_ID))
                                         .willReturn(new AgentListResponse(List.of(first, second)));
 
-                        ApiResponse<AgentListResponse> response = userController.getMyAgents(customUserDetails);
+                        ApiResponse<AgentListResponse> response = userController.getMyAgents(USER_ID);
 
                         assertThat(response.isSuccess()).isTrue();
                         assertThat(response.getData().getAgents()).hasSize(2);
@@ -495,10 +486,10 @@ class UserControllerTest {
 
                         given(agentRequestContextResolver.resolve(nullable(jakarta.servlet.http.HttpServletRequest.class)))
                                         .willReturn(context);
-                        given(agentLifecycleService.suspendMyAgent(eq(1L), eq(10L), same(context)))
+                        given(agentLifecycleService.suspendMyAgent(eq(USER_ID), eq(10L), same(context)))
                                         .willReturn(agentResponse);
 
-                        ApiResponse<AgentResponse> response = userController.suspendMyAgent(10L, customUserDetails, null);
+                        ApiResponse<AgentResponse> response = userController.suspendMyAgent(10L, USER_ID, null);
 
                         assertThat(response.isSuccess()).isTrue();
                         assertThat(response.getData().getStatus()).isEqualTo("SUSPENDED");
@@ -518,14 +509,14 @@ class UserControllerTest {
 
                         given(agentRequestContextResolver.resolve(nullable(jakarta.servlet.http.HttpServletRequest.class)))
                                         .willReturn(context);
-                        given(agentLifecycleService.activateMyAgent(eq(1L), eq(10L), same(context)))
+                        given(agentLifecycleService.activateMyAgent(eq(USER_ID), eq(10L), same(context)))
                                         .willReturn(agentResponse);
 
-                        ApiResponse<AgentResponse> response = userController.activateMyAgent(10L, customUserDetails, null);
+                        ApiResponse<AgentResponse> response = userController.activateMyAgent(10L, USER_ID, null);
 
                         assertThat(response.isSuccess()).isTrue();
                         assertThat(response.getData().getStatus()).isEqualTo("ACTIVE");
-                        verify(agentLifecycleService).activateMyAgent(eq(1L), eq(10L), same(context));
+                        verify(agentLifecycleService).activateMyAgent(eq(USER_ID), eq(10L), same(context));
                 }
 
                 @Test
@@ -535,13 +526,13 @@ class UserControllerTest {
 
                         given(agentRequestContextResolver.resolve(nullable(jakarta.servlet.http.HttpServletRequest.class)))
                                         .willReturn(context);
-                        doNothing().when(agentLifecycleService).deleteMyAgent(eq(1L), eq(10L), same(context));
+                        doNothing().when(agentLifecycleService).deleteMyAgent(eq(USER_ID), eq(10L), same(context));
 
-                        ApiResponse<Void> response = userController.deleteMyAgent(10L, customUserDetails, null);
+                        ApiResponse<Void> response = userController.deleteMyAgent(10L, USER_ID, null);
 
                         assertThat(response.isSuccess()).isTrue();
                         assertThat(response.getData()).isNull();
-                        verify(agentLifecycleService).deleteMyAgent(eq(1L), eq(10L), same(context));
+                        verify(agentLifecycleService).deleteMyAgent(eq(USER_ID), eq(10L), same(context));
                 }
         }
 
@@ -559,12 +550,12 @@ class UserControllerTest {
                                         .willReturn(messageResponse(HttpStatus.OK, "password changed"));
 
                         ResponseEntity<ApiResponse<MessageResponse>> response = userController.updatePassword(
-                                        request, customUserDetails);
+                                        request, USER_ID);
 
                         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
                         assertThat(response.getBody().isSuccess()).isTrue();
                         assertThat(response.getBody().getData().getMessage()).isEqualTo("password changed");
-                        verify(userSecurityService).updatePassword(1L, "oldPassword", "newPassword1!");
+                        verify(userSecurityService).updatePassword(USER_ID, "oldPassword", "newPassword1!");
                         verify(userActionResponseFactory).passwordChanged();
                 }
 
@@ -577,12 +568,12 @@ class UserControllerTest {
                                         .willReturn(messageResponse(HttpStatus.OK, "account deleted"));
 
                         ResponseEntity<ApiResponse<MessageResponse>> response = userController.deleteAccount(
-                                        request, customUserDetails);
+                                        request, USER_ID);
 
                         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
                         assertThat(response.getBody().isSuccess()).isTrue();
                         assertThat(response.getBody().getData().getMessage()).isEqualTo("account deleted");
-                        verify(userProfileService).deleteAccount(1L, "password");
+                        verify(userProfileService).deleteAccount(USER_ID, "password");
                         verify(userActionResponseFactory).accountDeleted();
                 }
         }
