@@ -154,7 +154,7 @@ export const adminApi = {
         return api.get<ApiResponse<GlobalConfig[]>>('/admin/configs')
     },
 
-    updateConfig(key: string, value: string, description: string) {
+    updateConfig(key: string, value: string, description?: string) {
         return api.put<ApiResponse<GlobalConfig>>(`/admin/configs/${key}`, { value, description })
     },
 

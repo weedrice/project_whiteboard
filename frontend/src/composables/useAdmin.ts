@@ -290,7 +290,7 @@ export function useAdmin() {
 
     const useUpdateConfig = () => {
         return useMutation({
-            mutationFn: ({ key, value, description }: { key: string, value: string, description: string }) => adminApi.updateConfig(key, value, description),
+            mutationFn: ({ key, value, description }: { key: string, value: string, description?: string }) => adminApi.updateConfig(key, value, description),
             onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'configs'] })
         })
     }
