@@ -4,6 +4,7 @@ import { setActivePinia, createPinia } from 'pinia'
 import { useWriteBoardSheet } from '../useWriteBoardSheet'
 import { boardApi } from '@/api/board'
 import { useToastStore } from '@/stores/toast'
+import i18n from '@/i18n'
 
 const routerPush = vi.fn()
 const fetchQuery = vi.fn()
@@ -87,7 +88,7 @@ describe('useWriteBoardSheet', () => {
 
         expect(routerPush).not.toHaveBeenCalledWith('/board/free/write')
         expect(fetchQuery).toHaveBeenCalledWith(expect.objectContaining({ queryKey: ['board', 'free'] }))
-        expect(useToastStore().toasts.at(-1)?.message).toBe('You do not have permission to write on this board.')
+        expect(useToastStore().toasts.at(-1)?.message).toBe(i18n.global.t('common.messages.boardWriteForbidden'))
     })
 
     it('navigates when at least one category is writable', async () => {

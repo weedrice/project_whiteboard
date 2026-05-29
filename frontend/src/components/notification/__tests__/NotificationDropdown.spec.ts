@@ -56,6 +56,8 @@ const makeNotification = (isRead: boolean): Notification => ({
     displayName: 'Tester',
     profileImageUrl: '',
   },
+  actorDisplayName: 'Tester',
+  actorInitial: 'T',
 })
 
 const mountDropdown = () =>
@@ -120,5 +122,25 @@ describe('NotificationDropdown', () => {
     await item!.trigger('click')
 
     expect(navigateFromNotification).toHaveBeenCalledWith(notification)
+  })
+
+  it('renders normalized actor display fields instead of raw actor DTO fields', () => {
+    notificationsData.value = {
+      content: [{
+        ...makeNotification(true),
+        actor: {
+          userId: 0,
+          authorType: 'SYSTEM',
+          displayName: '',
+        },
+        actorDisplayName: 'System',
+        actorInitial: 'S',
+      }],
+    }
+
+    const wrapper = mountDropdown()
+
+    expect(wrapper.text()).toContain('System')
+    expect(wrapper.text()).toContain('S')
   })
 })
