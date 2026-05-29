@@ -8,6 +8,8 @@ import { boardApi } from '@/api/board'
 import { emoticonApi } from '@/api/emoticon'
 import { postApi } from '@/api/post'
 import { postDetailQueryKey } from '@/composables/usePost'
+import i18n from '@/i18n'
+import { useToastStore } from '@/stores/toast'
 
 const queryClientMock = vi.hoisted(() => ({
     fetchQuery: vi.fn(({ queryFn }: { queryFn: () => Promise<unknown> }) => queryFn())
@@ -122,6 +124,7 @@ describe('Router Navigation Guards', () => {
             })
         }
         vi.mocked(useAuthStore).mockReturnValue(mockAuthStore)
+        i18n.global.locale.value = 'ko'
         vi.mocked(boardApi.getBoard).mockResolvedValue({
             data: {
                 data: {
@@ -244,6 +247,24 @@ describe('Router Navigation Guards', () => {
 
         expect(router.currentRoute.value.name).toBe('board-detail')
         expect(router.currentRoute.value.params.boardUrl).toBe('restricted')
+    })
+
+    it('uses the English permission toast when the active locale is English', async () => {
+        mockAuthStore.isAuthenticated = true
+        mockAuthStore.user = { role: 'USER' }
+        i18n.global.locale.value = 'en'
+        vi.mocked(boardApi.getBoard).mockResolvedValueOnce({
+            data: {
+                data: {
+                    isAdmin: false,
+                    categories: [{ categoryId: 1, name: 'Admins', minWriteRole: 'BOARD_ADMIN' }]
+                }
+            }
+        } as never)
+
+        await router.push('/board/restricted/write')
+
+        expect(useToastStore().toasts.at(-1)?.message).toBe('You do not have permission to write on this board.')
     })
 
     it('redirects to error when board write permission cannot be verified', async () => {

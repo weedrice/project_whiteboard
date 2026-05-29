@@ -1,4 +1,4 @@
-import { useRouter } from 'vue-router'
+import { useRouter, type RouteLocationRaw } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { postApi } from '@/api/post'
 import { commentApi } from '@/api/comment'
@@ -9,6 +9,42 @@ import type { Notification } from '@/types'
 
 interface NotificationNavigationOptions {
     showCommentFailureToast?: boolean
+}
+
+interface NotificationPostNavigationSource {
+    board?: {
+        boardUrl?: string | null
+    } | null
+}
+
+interface NotificationCommentNavigationSource {
+    post?: {
+        boardUrl?: string | null
+        postId?: string | number | null
+    } | null
+    boardUrl?: string | null
+    postId?: string | number | null
+}
+
+export function mapPostNotificationRoute(
+    post: NotificationPostNavigationSource,
+    postId: string | number
+): RouteLocationRaw | null {
+    const boardUrl = post.board?.boardUrl
+    if (!boardUrl) return null
+
+    return `/board/${boardUrl}/post/${postId}`
+}
+
+export function mapCommentNotificationRoute(
+    comment: NotificationCommentNavigationSource,
+    commentId: string | number
+): RouteLocationRaw | null {
+    const boardUrl = comment.post?.boardUrl ?? comment.boardUrl
+    const postId = comment.post?.postId ?? comment.postId
+    if (!boardUrl || !postId) return null
+
+    return `/board/${boardUrl}/post/${postId}#comment-${commentId}`
 }
 
 export function useNotificationNavigation(options: NotificationNavigationOptions = {}) {
@@ -26,8 +62,11 @@ export function useNotificationNavigation(options: NotificationNavigationOptions
         if (notification.sourceType === 'POST') {
             try {
                 const { data } = await postApi.getPost(notification.sourceId)
-                if (data.success && data.data.board) {
-                    router.push(`/board/${data.data.board.boardUrl}/post/${notification.sourceId}`)
+                if (data.success) {
+                    const route = mapPostNotificationRoute(data.data, notification.sourceId)
+                    if (route) {
+                        router.push(route)
+                    }
                 }
             } catch (err: unknown) {
                 logger.error('Failed to navigate to post:', err)
@@ -39,11 +78,9 @@ export function useNotificationNavigation(options: NotificationNavigationOptions
             try {
                 const { data } = await commentApi.getComment(notification.sourceId)
                 if (data.success) {
-                    const comment = data.data
-                    const boardUrl = comment.post?.boardUrl ?? (comment as { boardUrl?: string }).boardUrl
-                    const postId = comment.post?.postId ?? (comment as { postId?: number }).postId
-                    if (boardUrl && postId) {
-                        router.push(`/board/${boardUrl}/post/${postId}#comment-${notification.sourceId}`)
+                    const route = mapCommentNotificationRoute(data.data, notification.sourceId)
+                    if (route) {
+                        router.push(route)
                     }
                 }
             } catch (err: unknown) {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onUnmounted, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQueryClient } from '@tanstack/vue-query'
 import { useHead } from '@unhead/vue'
@@ -13,14 +13,11 @@ import type { EmoticonImage } from '@/types/emoticon'
 import { useEmoticonEditResource } from '@/composables/useEmoticonEditResource'
 import { useEmoticonEditSubmit } from '@/composables/useEmoticonEditSubmit'
 import { useEmoticonImageSelection } from '@/composables/useEmoticonImageSelection'
+import { useEmoticonImageFormState } from '@/composables/useEmoticonImageFormState'
 import { useEmoticonTags } from '@/composables/useEmoticonTags'
 import { useToggleEmoticonVisibility } from '@/composables/useToggleEmoticonVisibility'
 import { useEmoticonUploadSession } from '@/composables/useEmoticonUploadSession'
-import {
-  revokeEmoticonPreviewUrl,
-  SUPPORTED_EMOTICON_IMAGE_ACCEPT,
-  type EmoticonImagePreview
-} from '@/utils/emoticonImage'
+import { SUPPORTED_EMOTICON_IMAGE_ACCEPT } from '@/utils/emoticonImage'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -42,14 +39,11 @@ useHead({
   title: computed(() => emoticon.value?.name ? `${emoticon.value.name} 수정 - 노비콘` : '노비콘 수정')
 })
 
-// 폼 상태
 const emoticonName = ref('')
-const thumbnailFile = ref<File | null>(null)
-const thumbnailPreview = ref<string | null>(null)
 const originalThumbnailUrl = ref<string | null>(null)
-const newEmoticonPreviews = ref<EmoticonImagePreview[]>([])
 const existingImages = ref<EmoticonImage[]>([])
 const imagesToDelete = ref<number[]>([])
+const hydratedEmoticonId = ref<number | null>(null)
 const isSubmitting = ref(false)
 const uploadSession = useEmoticonUploadSession()
 const { uploadProgress } = uploadSession
@@ -59,22 +53,43 @@ const { tagInput, tagItems, tags, addTag, removeTag } = useEmoticonTags({
   }
 })
 
-// 파일 입력 refs
-const thumbnailInput = ref<HTMLInputElement | null>(null)
-const emoticonInput = ref<HTMLInputElement | null>(null)
+const SUPPORTED_IMAGE_ACCEPT = SUPPORTED_EMOTICON_IMAGE_ACCEPT
+const {
+  thumbnailFile,
+  thumbnailPreview,
+  imagePreviews: newEmoticonPreviews,
+  thumbnailInput,
+  emoticonInput,
+  setThumbnailPreviewFromRemote,
+  handleThumbnailSelect,
+  handleEmoticonSelect,
+  removeImagePreview: removeNewEmoticonImage,
+  openThumbnailInput,
+} = useEmoticonImageFormState({
+  selectThumbnailImage,
+  selectEmoticonImages,
+  getRemainingSlots: () => {
+    const currentCount = existingImages.value.filter(img => !imagesToDelete.value.includes(img.imageId)).length + newEmoticonPreviews.value.length
+    return 100 - currentCount
+  },
+})
 
-// 기존 데이터로 폼 초기화
+const changeThumbnail = openThumbnailInput
+
 watch(emoticon, (data) => {
   if (data) {
+    const currentEmoticonId = emoticonId.value
+    if (data.emoticonId !== currentEmoticonId || hydratedEmoticonId.value === currentEmoticonId) return
+
+    hydratedEmoticonId.value = currentEmoticonId
     emoticonName.value = data.name || ''
     tags.value = [...(data.tags || [])]
     existingImages.value = [...(data.images || [])]
     originalThumbnailUrl.value = data.thumbnailUrl || null
-    thumbnailPreview.value = data.thumbnailUrl || null
+    setThumbnailPreviewFromRemote(data.thumbnailUrl || null)
   }
 }, { immediate: true })
 
-// 숨김/표시 전환
 const { mutate: toggleVisibility, isPending: isToggling } = useToggleEmoticonVisibility(emoticonId)
 
 const handleToggleVisibility = async () => {
@@ -86,59 +101,12 @@ const handleToggleVisibility = async () => {
   toggleVisibility()
 }
 
-const SUPPORTED_IMAGE_ACCEPT = SUPPORTED_EMOTICON_IMAGE_ACCEPT
-
-onUnmounted(() => {
-  revokeEmoticonPreviewUrl(thumbnailPreview.value)
-  newEmoticonPreviews.value.forEach((item) => {
-    revokeEmoticonPreviewUrl(item.preview)
-  })
-})
-
-// 썸네일 선택
-const handleThumbnailSelect = async (event: Event) => {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
-
-  const selectedThumbnail = await selectThumbnailImage(file)
-  if (!selectedThumbnail) return
-
-  revokeEmoticonPreviewUrl(thumbnailPreview.value)
-  thumbnailFile.value = file
-  thumbnailPreview.value = selectedThumbnail.preview
-}
-
-// 썸네일 변경 (변경할 수 있도록)
-const changeThumbnail = () => {
-  thumbnailInput.value?.click()
-}
-
-// 이모티콘 이미지 선택 (새로 추가할 이미지)
-const handleEmoticonSelect = async (event: Event) => {
-  const input = event.target as HTMLInputElement
-  const files = input.files
-  if (!files) return
-
-  const currentCount = existingImages.value.filter(img => !imagesToDelete.value.includes(img.imageId)).length + newEmoticonPreviews.value.length
-  const remainingSlots = 100 - currentCount
-  const selectedImages = await selectEmoticonImages(files, remainingSlots)
-  newEmoticonPreviews.value.push(...selectedImages)
-
-  // 입력 초기화
-  if (emoticonInput.value) {
-    emoticonInput.value.value = ''
-  }
-}
-
-// 기존 이미지 삭제 표시
 const markImageForDeletion = (imageId: number) => {
   if (!imagesToDelete.value.includes(imageId)) {
     imagesToDelete.value.push(imageId)
   }
 }
 
-// 삭제 표시 취소
 const unmarkImageForDeletion = (imageId: number) => {
   const index = imagesToDelete.value.indexOf(imageId)
   if (index > -1) {
@@ -146,30 +114,18 @@ const unmarkImageForDeletion = (imageId: number) => {
   }
 }
 
-// 새 이미지 제거
-const removeNewEmoticonImage = (clientId: string) => {
-  const index = newEmoticonPreviews.value.findIndex((item) => item.clientId === clientId)
-  const item = index >= 0 ? newEmoticonPreviews.value[index] : null
-  if (item) {
-    revokeEmoticonPreviewUrl(item.preview)
-    newEmoticonPreviews.value.splice(index, 1)
-  }
-}
-
-// 총 이미지 개수 계산
 const totalImageCount = computed(() => {
   const existingCount = existingImages.value.filter(img => !imagesToDelete.value.includes(img.imageId)).length
   return existingCount + newEmoticonPreviews.value.length
 })
 
-// 폼 유효성 검사
 const isFormValid = computed(() => {
   return emoticonName.value.trim() !== '' &&
     thumbnailPreview.value !== null &&
-    totalImageCount.value > 0
+    totalImageCount.value > 0 &&
+    totalImageCount.value <= 100
 })
 
-// 수정 처리
 const { handleSubmit } = useEmoticonEditSubmit({
   emoticonId,
   isFormValid,
@@ -191,11 +147,11 @@ const { handleSubmit } = useEmoticonEditSubmit({
   },
 })
 
-// 상세 페이지로 이동
 const goToDetail = () => {
   router.push({ name: 'emoticon-detail', params: { emoticonId: emoticonId.value } })
 }
 </script>
+
 
 <template>
   <div class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
