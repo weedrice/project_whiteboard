@@ -156,7 +156,7 @@ onUnmounted(() => {
         </router-link>
       </div>
 
-      <!-- Group 2: MyPage, Notifications, Messages, Points (?쒖떆 ?ㅼ젙 ?④?) -->
+      <!-- Group 2: MyPage, Notifications, Messages, Points -->
       <div class="py-1 border-b nv-border">
         <router-link to="/mypage"
           class="group flex items-center justify-between px-3 py-2.5 sm:py-2 min-h-[40px] sm:min-h-0 text-xs sm:text-sm nv-text-muted nv-hover-surface touch-manipulation"
@@ -277,7 +277,7 @@ onUnmounted(() => {
           @click="emit('toggle')">
           <Smile
             class="mr-2.5 sm:mr-3 h-3 w-3 sm:h-4 sm:w-4 nv-text-subtle flex-shrink-0" />
-          ?몃퉬肄?
+          노비콘
         </router-link>
       </div>
 
