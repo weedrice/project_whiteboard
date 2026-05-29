@@ -1,8 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
+import { useQuery, useMutation, useQueryClient, type QueryFunctionContext } from '@tanstack/vue-query'
 import { userApi, type UserUpdatePayload, type NotificationSettingsBulkPayload } from '@/api/user'
 import { computed, type Ref } from 'vue'
 import type { UserSettings } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
+import type { AxiosRequestConfig } from 'axios'
 
 interface PasswordUpdateData {
     currentPassword: string
@@ -14,19 +15,26 @@ interface PaginationParams {
     size?: number
 }
 
-export const createMyProfileQueryOptions = () => ({
+function withQuerySignal(config: AxiosRequestConfig | undefined, queryContext?: QueryFunctionContext): AxiosRequestConfig {
+    return {
+        ...config,
+        signal: config?.signal ?? queryContext?.signal,
+    }
+}
+
+export const createMyProfileQueryOptions = (config?: AxiosRequestConfig) => ({
     queryKey: ['user', 'me'] as const,
-    queryFn: async () => {
-        const { data } = await userApi.getMyProfile()
+    queryFn: async (context: QueryFunctionContext) => {
+        const { data } = await userApi.getMyProfile(withQuerySignal(config, context))
         return data.data
     },
     staleTime: QUERY_STALE_TIME.MEDIUM,
 })
 
-export const createMyAgentsQueryOptions = () => ({
+export const createMyAgentsQueryOptions = (config?: AxiosRequestConfig) => ({
     queryKey: ['user', 'agents'] as const,
-    queryFn: async () => {
-        const { data } = await userApi.getMyAgents()
+    queryFn: async (context: QueryFunctionContext) => {
+        const { data } = await userApi.getMyAgents(withQuerySignal(config, context))
         return data.data
     },
     staleTime: QUERY_STALE_TIME.MEDIUM,
