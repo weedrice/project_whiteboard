@@ -3,7 +3,7 @@
         <label
             v-if="label"
             :for="id"
-            :class="hideLabel ? 'sr-only' : ['text-sm font-medium text-gray-700 dark:text-gray-200', labelClass]"
+            :class="hideLabel ? 'sr-only' : ['text-sm font-medium nv-text', labelClass]"
         >
             {{ label }}
         </label>

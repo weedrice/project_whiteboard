@@ -71,11 +71,11 @@ const isSubmitting = computed(() => props.isSubmitting || localIsSubmitting.valu
 
 <template>
   <form @submit.prevent="handleSubmit"
-    class="space-y-6 bg-white dark:bg-gray-800 shadow px-4 py-5 sm:rounded-lg sm:p-6 transition-colors duration-200">
-    <div v-if="error" class="rounded-md bg-red-50 dark:bg-red-900/50 p-4">
+    class="space-y-6 nv-surface shadow px-4 py-5 sm:rounded-lg sm:p-6 transition-colors duration-200">
+    <div v-if="error" class="rounded-md nv-status-danger p-4">
       <div class="flex">
         <div class="ml-3">
-          <h3 class="text-sm font-medium text-red-800 dark:text-red-400">{{ error }}</h3>
+          <h3 class="text-sm font-medium">{{ error }}</h3>
         </div>
       </div>
     </div>
@@ -88,16 +88,16 @@ const isSubmitting = computed(() => props.isSubmitting || localIsSubmitting.valu
         <div class="shrink-0 relative group">
           <label for="icon-upload" class="cursor-pointer">
             <div
-              class="h-16 w-16 rounded-md border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 flex items-center justify-center overflow-hidden hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200">
+              class="h-16 w-16 rounded-md border nv-border nv-surface-muted flex items-center justify-center overflow-hidden nv-hover-surface transition-colors duration-200">
               <img v-if="previewImage" :src="previewImage" :alt="$t('board.form.iconImage')" class="h-full w-full object-cover" />
-              <svg v-else class="h-8 w-8 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor"
+              <svg v-else class="h-8 w-8 nv-text-subtle" fill="none" stroke="currentColor"
                 viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
             <input id="icon-upload" type="file" @change="handleFileChange" accept="image/*" class="hidden" />
-            <span class="text-xs text-gray-500 dark:text-gray-400 text-center block mt-1">{{ $t('board.form.iconImage')
+            <span class="text-xs nv-text-subtle text-center block mt-1">{{ $t('board.form.iconImage')
             }}</span>
           </label>
         </div>
@@ -154,7 +154,7 @@ const isSubmitting = computed(() => props.isSubmitting || localIsSubmitting.valu
 
     <div class="flex justify-end space-x-3 items-center">
       <div v-if="!isEdit" class="flex items-center mr-2 text-sm"
-        :class="canCreate ? 'text-gray-600 dark:text-gray-400' : 'text-red-500 font-bold'">
+        :class="canCreate ? 'nv-text-muted' : 'text-red-500 font-bold'">
         <span>{{ $t('board.form.cost') }}: {{ boardCreateCost }} P</span>
         <span class="mx-2 text-gray-300">|</span>
         <span>{{ $t('board.form.currentPoints') }}: {{ userPoints }} P</span>

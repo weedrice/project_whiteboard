@@ -10,7 +10,7 @@ const promptStore = usePromptStore()
 <template>
     <BaseModal :isOpen="promptStore.isOpen" :title="promptStore.title" @close="promptStore.cancel">
         <div class="space-y-4">
-            <p class="text-sm text-gray-500 dark:text-gray-400">
+            <p class="text-sm nv-text-subtle">
                 {{ promptStore.message }}
             </p>
             <BaseInput v-model="promptStore.inputValue" :label="promptStore.placeholder || promptStore.title" :placeholder="promptStore.placeholder" hideLabel

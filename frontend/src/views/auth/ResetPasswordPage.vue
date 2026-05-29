@@ -30,7 +30,7 @@ const { isLoading, resetPassword: handleResetPassword } = usePasswordResetByToke
     <div class="absolute top-4 left-4">
       <router-link
         to="/login"
-        class="flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+        class="flex items-center nv-text-subtle hover:text-[var(--nv-text)] transition-colors"
       >
         <ChevronLeft class="h-5 w-5 mr-1" />
         <span class="text-sm font-medium">{{ $t('common.back') }}</span>
@@ -38,10 +38,10 @@ const { isLoading, resetPassword: handleResetPassword } = usePasswordResetByToke
     </div>
 
     <div v-if="!token" class="w-[80%] mx-auto text-center">
-      <h1 class="mb-3 text-2xl font-bold text-gray-900 dark:text-white">
+      <h1 class="mb-3 text-2xl font-bold nv-title">
         {{ t('auth.resetPasswordTitle') }}
       </h1>
-      <p class="text-gray-600 dark:text-gray-300">{{ t('auth.invalidResetLink') }}</p>
+      <p class="nv-text-muted">{{ t('auth.invalidResetLink') }}</p>
       <BaseButton variant="primary" class="mt-6 w-full" @click="router.push('/login')">
         {{ t('auth.login') }}
       </BaseButton>
@@ -49,7 +49,7 @@ const { isLoading, resetPassword: handleResetPassword } = usePasswordResetByToke
 
     <div v-else class="w-[80%] mx-auto space-y-6">
       <div class="text-center mb-8">
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
+        <h1 class="text-2xl font-bold nv-title">
           {{ t('auth.resetPasswordTitle') }}
         </h1>
       </div>

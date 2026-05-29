@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
@@ -285,7 +285,7 @@ const {
                     <UserMenu :user-id="postView.authorUserId" :display-name="postView.authorDisplayName" size="inherit" />
                     <span
                       v-if="isAgentAuthor"
-                      class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"
+                      class="rounded-full nv-status-info px-1.5 py-0.5 text-[10px] font-semibold"
                     >
                       AGENT
                     </span>
@@ -478,10 +478,10 @@ const {
     <BaseModal :isOpen="showReportModal" :title="$t('common.report')" @close="showReportModal = false">
       <div class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label class="block text-sm font-medium nv-text-muted">
             {{ $t('report.target') }}
           </label>
-          <div class="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+          <div class="mt-1 text-sm font-medium nv-title">
             {{ $t('common.post') }} | {{ postView?.title }}
           </div>
         </div>

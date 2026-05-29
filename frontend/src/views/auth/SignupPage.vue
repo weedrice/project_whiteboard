@@ -31,13 +31,13 @@ const {
   <div class="p-8 relative h-full flex flex-col justify-center">
     <div class="absolute top-4 left-4">
       <router-link to="/login"
-        class="flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors">
+        class="flex items-center nv-text-subtle hover:text-[var(--nv-text)] transition-colors">
         <ChevronLeft class="h-5 w-5 mr-1" />
         <span class="text-sm font-medium">{{ $t('common.back') }}</span>
       </router-link>
     </div>
     <div class="text-center mb-12 mt-16">
-      <h2 class="text-3xl font-extrabold text-gray-900 dark:text-white">
+      <h2 class="text-3xl font-extrabold nv-title">
         {{ $t('auth.createAccountTitle') }}
       </h2>
     </div>

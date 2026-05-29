@@ -45,9 +45,9 @@ onUnmounted(() => {
 
 <template>
     <div
-        class="min-h-screen flex items-start justify-center bg-gray-50 dark:bg-gray-900 px-4 sm:px-6 lg:px-8 pt-20 transition-colors duration-200">
+        class="min-h-screen flex items-start justify-center nv-page px-4 sm:px-6 lg:px-8 pt-20 transition-colors duration-200">
         <div
-            class="auth-card max-w-lg w-full bg-white dark:bg-gray-800 shadow-xl rounded-2xl overflow-hidden relative flex flex-col transition-[min-height] duration-300 ease-out"
+            class="auth-card max-w-lg w-full nv-surface shadow-xl rounded-2xl overflow-hidden relative flex flex-col transition-[min-height] duration-300 ease-out"
             :style="cardHeight !== null ? { minHeight: `${cardHeight}px` } : {}"
         >
             <div ref="contentRef" class="flex flex-col min-h-0">

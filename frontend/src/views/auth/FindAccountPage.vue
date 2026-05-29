@@ -116,7 +116,7 @@ const {
         <!-- Back Button -->
         <div class="absolute top-4 left-4">
             <router-link to="/login"
-                class="flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors">
+                class="flex items-center nv-text-subtle hover:text-[var(--nv-text)] transition-colors">
                 <ChevronLeft class="h-5 w-5 mr-1" />
                 <span class="text-sm font-medium">{{ $t('common.back') }}</span>
             </router-link>
@@ -124,17 +124,17 @@ const {
 
         <div class="w-[80%] mx-auto">
             <!-- Tabs -->
-            <div class="flex border-b border-gray-200 dark:border-gray-700 mb-6" role="tablist"
+            <div class="flex border-b nv-border mb-6" role="tablist"
                 :aria-label="t('auth.findAccount')">
                 <BaseButton @click="switchTab('id')" variant="ghost" class="flex-1 rounded-b-none border-b-2"
                     role="tab" :aria-selected="activeTab === 'id'"
-                    :class="activeTab === 'id' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'">
+                    :class="activeTab === 'id' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent nv-text-subtle hover:text-[var(--nv-text)]'">
                     <User class="w-4 h-4 mr-2" />
                     {{ t('auth.findId') }}
                 </BaseButton>
                 <BaseButton @click="switchTab('password')" variant="ghost" class="flex-1 rounded-b-none border-b-2"
                     role="tab" :aria-selected="activeTab === 'password'"
-                    :class="activeTab === 'password' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'">
+                    :class="activeTab === 'password' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent nv-text-subtle hover:text-[var(--nv-text)]'">
                     <Key class="w-4 h-4 mr-2" />
                     {{ t('auth.findPassword') }}
                 </BaseButton>
@@ -181,8 +181,8 @@ const {
 
                 <!-- Step 2: Result (Find ID) -->
                 <div v-if="activeTab === 'id' && status.foundId"
-                    class="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 animate-fade-in">
-                    <p class="text-gray-600 dark:text-gray-300 mb-2">{{ t('auth.yourIdIs', { id: '' }).replace('{id}',
+                    class="text-center py-8 nv-surface-muted rounded-lg border nv-border animate-fade-in">
+                    <p class="nv-text-muted mb-2">{{ t('auth.yourIdIs', { id: '' }).replace('{id}',
                         '') }}</p>
                     <p class="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mb-6">{{ status.foundId }}</p>
                     <BaseButton @click="router.push('/login')" full-width>

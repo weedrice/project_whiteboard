@@ -59,7 +59,7 @@ useHead({
     <!-- 뒤로가기 버튼 -->
     <div class="mb-6">
       <button @click="goToList"
-        class="inline-flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+        class="inline-flex items-center text-sm nv-text-muted hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
         <ArrowLeft class="w-4 h-4 mr-1" />
         목록으로
       </button>
@@ -67,45 +67,45 @@ useHead({
 
     <!-- 로딩 -->
     <div v-if="isLoading" class="animate-pulse">
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
+      <div class="nv-surface rounded-lg shadow-sm border nv-border p-6 mb-8">
         <div class="flex flex-col sm:flex-row gap-6">
           <div class="flex-shrink-0">
-            <div class="w-40 h-40 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+            <div class="w-40 h-40 nv-surface-muted rounded-lg"></div>
           </div>
           <div class="flex-1">
             <div class="flex items-start justify-between mb-4 gap-2 flex-wrap">
               <div class="space-y-3 min-w-0 flex-1">
-                <div class="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/2 max-w-sm"></div>
-                <div class="h-5 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+                <div class="h-8 nv-surface-muted rounded w-1/2 max-w-sm"></div>
+                <div class="h-5 nv-surface-muted rounded w-20"></div>
               </div>
               <div class="flex items-center gap-2">
-                <div class="h-8 bg-gray-200 dark:bg-gray-700 rounded-lg w-20"></div>
-                <div class="h-8 bg-gray-200 dark:bg-gray-700 rounded-lg w-16"></div>
+                <div class="h-8 nv-surface-muted rounded-lg w-20"></div>
+                <div class="h-8 nv-surface-muted rounded-lg w-16"></div>
               </div>
             </div>
             <div class="space-y-3">
-              <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-40"></div>
-              <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-52"></div>
-              <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-36"></div>
+              <div class="h-4 nv-surface-muted rounded w-40"></div>
+              <div class="h-4 nv-surface-muted rounded w-52"></div>
+              <div class="h-4 nv-surface-muted rounded w-36"></div>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
-        <div class="h-6 bg-gray-200 dark:bg-gray-700 rounded w-40 mb-4"></div>
+      <div class="nv-surface rounded-lg shadow-sm border nv-border p-6 mb-8">
+        <div class="h-6 nv-surface-muted rounded w-40 mb-4"></div>
         <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
           <div
             v-for="i in 10"
             :key="i"
-            class="bg-gray-200 dark:bg-gray-700 rounded-lg"
+            class="nv-surface-muted rounded-lg"
             style="width: 100px; height: 100px;"
           ></div>
         </div>
       </div>
 
       <div class="flex justify-end">
-        <div class="h-11 bg-gray-200 dark:bg-gray-700 rounded-lg w-32"></div>
+        <div class="h-11 nv-surface-muted rounded-lg w-32"></div>
       </div>
     </div>
 
@@ -120,11 +120,11 @@ useHead({
     <!-- 컨텐츠 -->
     <div v-else-if="emoticonView">
       <!-- 상단 정보 -->
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
+      <div class="nv-surface rounded-lg shadow-sm border nv-border p-6 mb-8">
         <div class="flex flex-col sm:flex-row gap-6">
           <!-- 썸네일 -->
           <div class="flex-shrink-0">
-            <div class="w-40 h-40 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
+            <div class="w-40 h-40 nv-surface-muted rounded-lg overflow-hidden">
               <img :src="emoticonView.thumbnailSrc" :alt="emoticonView.name"
                 class="w-full h-full object-contain" @error="applyImageFallback" />
             </div>
@@ -134,9 +134,9 @@ useHead({
           <div class="flex-1">
             <div class="flex items-start justify-between mb-4 gap-2 flex-wrap">
               <div class="flex items-center gap-2 flex-wrap">
-                <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ emoticonView.name }}</h1>
+                <h1 class="text-2xl font-bold nv-title">{{ emoticonView.name }}</h1>
                 <span v-if="!emoticonView.isActive"
-                  class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-300">
+                  class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium nv-surface-muted nv-text-muted">
                   {{ $t('emoticon.visibility.hidden') }}
                 </span>
               </div>
@@ -150,7 +150,7 @@ useHead({
                   {{ emoticonView.isActive ? $t('emoticon.visibility.hide') : $t('emoticon.visibility.show') }}
                 </button>
                 <button @click="goToEdit"
-                  class="inline-flex items-center px-3 py-1.5 text-sm bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors">
+                  class="inline-flex items-center px-3 py-1.5 text-sm nv-status-info rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors">
                   <Pencil class="w-4 h-4 mr-1" />
                   수정
                 </button>
@@ -158,11 +158,11 @@ useHead({
             </div>
 
             <div class="space-y-2 text-sm">
-              <div class="flex items-center text-gray-600 dark:text-gray-400">
+              <div class="flex items-center nv-text-muted">
                 <User class="w-4 h-4 mr-2" />
                 <span>등록자: {{ emoticonView.creatorDisplayName }}</span>
               </div>
-              <div class="flex items-center text-gray-600 dark:text-gray-400">
+              <div class="flex items-center nv-text-muted">
                 <Calendar class="w-4 h-4 mr-2" />
                 <span>등록일: {{ formatDateOnlyLongOrDash(emoticonView.createdAt) }}</span>
               </div>
@@ -176,35 +176,35 @@ useHead({
       </div>
 
       <!-- 이모티콘 이미지 목록 -->
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+      <div class="nv-surface rounded-lg shadow-sm border nv-border p-6 mb-8">
+        <h2 class="text-lg font-semibold nv-title mb-4">
           이모티콘 목록 <span class="text-sm font-normal text-gray-500">({{ emoticonView.imageCount }}개)</span>
         </h2>
 
         <div v-if="emoticonView.imageItems.length > 0"
           class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
           <div v-for="image in emoticonView.imageItems" :key="image.imageId"
-            class="aspect-square bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden"
+            class="aspect-square nv-surface-muted rounded-lg overflow-hidden"
             style="width: 100px; height: 100px;">
             <img :src="image.src" :alt="image.alt"
               class="w-full h-full object-contain" @error="applyImageFallback" />
           </div>
         </div>
-        <div v-else class="text-center py-8 text-gray-500 dark:text-gray-400">
+        <div v-else class="text-center py-8 nv-text-subtle">
           등록된 이미지가 없습니다.
         </div>
       </div>
 
       <!-- 태그 -->
       <div v-if="emoticonView.tags.length > 0"
-        class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+        class="nv-surface rounded-lg shadow-sm border nv-border p-6 mb-8">
+        <h2 class="text-lg font-semibold nv-title mb-4 flex items-center">
           <Tag class="w-4 h-4 mr-2" />
           태그
         </h2>
         <div class="flex flex-wrap gap-2">
           <span v-for="tag in emoticonView.tags" :key="tag"
-            class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">
+            class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium nv-status-info">
             #{{ tag }}
           </span>
         </div>

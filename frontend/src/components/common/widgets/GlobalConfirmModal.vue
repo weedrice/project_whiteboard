@@ -8,7 +8,7 @@ const confirmStore = useConfirmStore()
 
 <template>
     <BaseModal :isOpen="confirmStore.isOpen" :title="confirmStore.title" :z-index="60" @close="confirmStore.cancel">
-        <div class="text-sm text-gray-500 dark:text-gray-400">
+        <div class="text-sm nv-text-subtle">
             {{ confirmStore.message }}
         </div>
         <template #footer>

@@ -89,32 +89,32 @@ const shortcutGroups = computed(() => [
             <!-- 왼쪽 열: 전역 + 드롭다운 + 마이페이지 탭 -->
             <div class="space-y-6">
                 <div v-for="group in shortcutGroups.slice(0, 2)" :key="group.title">
-                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                    <h3 class="text-sm font-semibold nv-title mb-3 flex items-center">
                         <Keyboard class="w-4 h-4 mr-2 text-indigo-500" />
                         {{ group.title }}
                     </h3>
                     <div class="space-y-1.5">
                         <div v-for="shortcut in group.shortcuts" :key="shortcut.key"
-                            class="flex items-center justify-between py-1.5 px-3 bg-gray-50 dark:bg-gray-700/50 rounded-md">
-                            <span class="text-sm text-gray-600 dark:text-gray-300">{{ shortcut.description }}</span>
+                            class="flex items-center justify-between py-1.5 px-3 nv-surface-muted rounded-md">
+                            <span class="text-sm nv-text-muted">{{ shortcut.description }}</span>
                             <kbd
-                                class="ml-2 px-2 py-0.5 text-xs font-semibold text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded shadow-sm whitespace-nowrap">
+                                class="ml-2 px-2 py-0.5 text-xs font-semibold nv-text nv-surface-muted border nv-border rounded shadow-sm whitespace-nowrap">
                                 {{ shortcut.key }}
                             </kbd>
                         </div>
                     </div>
                 </div>
                 <div v-if="shortcutGroups[5]" :key="shortcutGroups[5].title">
-                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                    <h3 class="text-sm font-semibold nv-title mb-3 flex items-center">
                         <Keyboard class="w-4 h-4 mr-2 text-indigo-500" />
                         {{ shortcutGroups[5].title }}
                     </h3>
                     <div class="space-y-1.5">
                         <div v-for="shortcut in shortcutGroups[5].shortcuts" :key="shortcut.key"
-                            class="flex items-center justify-between py-1.5 px-3 bg-gray-50 dark:bg-gray-700/50 rounded-md">
-                            <span class="text-sm text-gray-600 dark:text-gray-300">{{ shortcut.description }}</span>
+                            class="flex items-center justify-between py-1.5 px-3 nv-surface-muted rounded-md">
+                            <span class="text-sm nv-text-muted">{{ shortcut.description }}</span>
                             <kbd
-                                class="ml-2 px-2 py-0.5 text-xs font-semibold text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded shadow-sm whitespace-nowrap">
+                                class="ml-2 px-2 py-0.5 text-xs font-semibold nv-text nv-surface-muted border nv-border rounded shadow-sm whitespace-nowrap">
                                 {{ shortcut.key }}
                             </kbd>
                         </div>
@@ -125,16 +125,16 @@ const shortcutGroups = computed(() => [
             <!-- 중앙 열: 게시판 목록 + 글쓰기/수정 -->
             <div class="space-y-6">
                 <div v-for="group in [shortcutGroups[2], shortcutGroups[4]]" :key="group.title">
-                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                    <h3 class="text-sm font-semibold nv-title mb-3 flex items-center">
                         <Keyboard class="w-4 h-4 mr-2 text-indigo-500" />
                         {{ group.title }}
                     </h3>
                     <div class="space-y-1.5">
                         <div v-for="shortcut in group.shortcuts" :key="shortcut.key"
-                            class="flex items-center justify-between py-1.5 px-3 bg-gray-50 dark:bg-gray-700/50 rounded-md">
-                            <span class="text-sm text-gray-600 dark:text-gray-300">{{ shortcut.description }}</span>
+                            class="flex items-center justify-between py-1.5 px-3 nv-surface-muted rounded-md">
+                            <span class="text-sm nv-text-muted">{{ shortcut.description }}</span>
                             <kbd
-                                class="ml-2 px-2 py-0.5 text-xs font-semibold text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded shadow-sm whitespace-nowrap">
+                                class="ml-2 px-2 py-0.5 text-xs font-semibold nv-text nv-surface-muted border nv-border rounded shadow-sm whitespace-nowrap">
                                 {{ shortcut.key }}
                             </kbd>
                         </div>
@@ -145,16 +145,16 @@ const shortcutGroups = computed(() => [
             <!-- 오른쪽 열: 게시글 상세 -->
             <div class="space-y-6">
                 <div>
-                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                    <h3 class="text-sm font-semibold nv-title mb-3 flex items-center">
                         <Keyboard class="w-4 h-4 mr-2 text-indigo-500" />
                         {{ shortcutGroups[3].title }}
                     </h3>
                     <div class="space-y-1.5">
                         <div v-for="shortcut in shortcutGroups[3].shortcuts" :key="shortcut.key"
-                            class="flex items-center justify-between py-1.5 px-3 bg-gray-50 dark:bg-gray-700/50 rounded-md">
-                            <span class="text-sm text-gray-600 dark:text-gray-300">{{ shortcut.description }}</span>
+                            class="flex items-center justify-between py-1.5 px-3 nv-surface-muted rounded-md">
+                            <span class="text-sm nv-text-muted">{{ shortcut.description }}</span>
                             <kbd
-                                class="ml-2 px-2 py-0.5 text-xs font-semibold text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded shadow-sm whitespace-nowrap">
+                                class="ml-2 px-2 py-0.5 text-xs font-semibold nv-text nv-surface-muted border nv-border rounded shadow-sm whitespace-nowrap">
                                 {{ shortcut.key }}
                             </kbd>
                         </div>
@@ -165,11 +165,11 @@ const shortcutGroups = computed(() => [
 
         <template #footer>
             <div class="flex justify-end items-center gap-4">
-                <span class="text-xs text-gray-500 dark:text-gray-400">
+                <span class="text-xs nv-text-subtle">
                     Shift+/ 로 언제든지 열기
                 </span>
                 <button @click="close"
-                    class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors">
+                    class="px-4 py-2 text-sm font-medium nv-text nv-surface-muted nv-hover-surface rounded-md transition-colors">
                     {{ $t('common.close') }}
                 </button>
             </div>

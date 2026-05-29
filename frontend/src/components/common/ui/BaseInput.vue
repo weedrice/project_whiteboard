@@ -3,7 +3,7 @@
     <label
       v-if="label"
       :for="id"
-      :class="hideLabel ? 'sr-only' : ['text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-200', labelClass]"
+      :class="hideLabel ? 'sr-only' : ['text-xs sm:text-sm font-medium nv-text', labelClass]"
     >
       {{ label }}
     </label>
@@ -19,7 +19,7 @@
         :disabled="disabled"
         :aria-invalid="error ? 'true' : undefined"
         :aria-describedby="error ? `${id}-error` : undefined"
-        class="input-base disabled:bg-gray-100 disabled:text-gray-500 dark:disabled:bg-gray-600 dark:disabled:text-gray-400"
+        class="input-base"
         :class="[
           { 'border-red-500 focus:border-red-500 focus:ring-red-500': error },
           { 'pl-10': $slots.prefix },

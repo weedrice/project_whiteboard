@@ -1,12 +1,12 @@
 <template>
   <div class="text-center py-12" :class="containerClass">
-    <div v-if="icon" class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-4">
+    <div v-if="icon" class="mx-auto h-12 w-12 nv-text-subtle mb-4">
       <component :is="icon" class="h-full w-full" aria-hidden="true" />
     </div>
-    <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+    <h3 class="mt-2 text-sm font-medium nv-title">
       {{ title || $t('common.noData') }}
     </h3>
-    <p v-if="description" class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+    <p v-if="description" class="mt-1 text-sm nv-text-subtle">
       {{ description }}
     </p>
     <div v-if="$slots.action" class="mt-6">

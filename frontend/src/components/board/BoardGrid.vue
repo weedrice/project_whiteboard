@@ -18,7 +18,7 @@ defineProps<{
       />
     </div>
     
-    <div v-if="boards.length === 0" class="text-center py-20 text-gray-500 dark:text-gray-400">
+    <div v-if="boards.length === 0" class="text-center py-20 nv-text-subtle">
       {{ $t('board.list.empty') }}
     </div>
   </div>

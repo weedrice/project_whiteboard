@@ -56,8 +56,8 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
   <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
     <!-- 페이지 헤더 -->
     <div class="mb-8">
-      <h1 class="text-2xl font-bold text-gray-900 dark:text-white">노비콘</h1>
-      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">다양한 노비콘을 구경하고 구매하세요!</p>
+      <h1 class="text-2xl font-bold nv-title">노비콘</h1>
+      <p class="mt-1 text-sm nv-text-subtle">다양한 노비콘을 구경하고 구매하세요!</p>
     </div>
 
     <!-- 인기 노비콘 섹션 -->
@@ -65,7 +65,7 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
       <div class="flex items-center justify-between mb-4">
         <div class="flex items-center gap-2">
           <TrendingUp class="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-          <h2 class="text-lg font-semibold text-gray-900 dark:text-white">인기 노비콘</h2>
+          <h2 class="text-lg font-semibold nv-title">인기 노비콘</h2>
         </div>
         <div class="flex gap-2">
           <button
@@ -78,7 +78,7 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
               'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
               popularPeriod === period
                 ? 'bg-indigo-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                : 'nv-surface-muted nv-text-muted nv-hover-surface'
             ]"
           >
             {{ label }}
@@ -91,14 +91,14 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
         <div
           v-for="i in 5"
           :key="i"
-          class="relative bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden animate-pulse"
+          class="relative nv-surface rounded-lg shadow-sm border nv-border overflow-hidden animate-pulse"
         >
-          <div class="absolute top-2 left-2 z-10 w-6 h-6 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
-          <div class="aspect-square bg-gray-200 dark:bg-gray-700"></div>
+          <div class="absolute top-2 left-2 z-10 w-6 h-6 nv-surface-muted rounded-full"></div>
+          <div class="aspect-square nv-surface-muted"></div>
           <div class="p-3 space-y-2">
-            <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-            <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
-            <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+            <div class="h-4 nv-surface-muted rounded w-3/4"></div>
+            <div class="h-3 nv-surface-muted rounded w-1/2"></div>
+            <div class="h-3 nv-surface-muted rounded w-2/3"></div>
           </div>
         </div>
       </div>
@@ -109,14 +109,14 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
           type="button"
           :aria-label="emoticon.name"
           @click="goToDetail(emoticon.emoticonId)"
-          class="relative w-full bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden cursor-pointer text-left hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-shadow"
+          class="relative w-full nv-surface rounded-lg shadow-sm border nv-border overflow-hidden cursor-pointer text-left hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-shadow"
         >
           <!-- 순위 뱃지 -->
           <span class="absolute top-2 left-2 z-10 w-6 h-6 bg-indigo-600 text-white text-xs font-bold rounded-full flex items-center justify-center">
             {{ index + 1 }}
           </span>
           <!-- 썸네일 -->
-          <span class="block aspect-square bg-gray-100 dark:bg-gray-700">
+          <span class="block aspect-square nv-surface-muted">
             <img
               :src="emoticon.thumbnailUrl || DEFAULT_EMOTICON_IMAGE_URL"
               :alt="emoticon.name"
@@ -126,15 +126,15 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
           </span>
           <!-- 정보 -->
           <span class="block p-3">
-            <span class="block text-sm font-medium text-gray-900 dark:text-white truncate">{{ emoticon.name }}</span>
-            <span class="block text-xs text-gray-500 dark:text-gray-400 truncate">{{ emoticon.creatorName }}</span>
+            <span class="block text-sm font-medium nv-title truncate">{{ emoticon.name }}</span>
+            <span class="block text-xs nv-text-subtle truncate">{{ emoticon.creatorName }}</span>
             <span class="block text-xs text-indigo-600 dark:text-indigo-400 mt-1">
               판매 {{ emoticon.purchaseCount?.toLocaleString() || 0 }}회
             </span>
           </span>
         </button>
       </div>
-      <div v-else class="text-center py-8 text-gray-500 dark:text-gray-400">
+      <div v-else class="text-center py-8 nv-text-subtle">
         인기 노비콘이 없습니다.
       </div>
     </section>
@@ -142,7 +142,7 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
     <!-- 전체 노비콘 섹션 -->
     <section>
       <div class="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+        <h2 class="text-lg font-semibold nv-title">
           전체 노비콘 <span class="text-sm font-normal text-gray-500">({{ totalElements.toLocaleString() }}개)</span>
         </h2>
         <div class="flex flex-wrap gap-2">
@@ -156,7 +156,7 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
               'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
               sortBy === option.value
                 ? 'bg-indigo-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                : 'nv-surface-muted nv-text-muted nv-hover-surface'
             ]"
           >
             {{ option.label }}
@@ -169,13 +169,13 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
         <div
           v-for="i in 10"
           :key="i"
-          class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden animate-pulse"
+          class="nv-surface rounded-lg shadow-sm border nv-border overflow-hidden animate-pulse"
         >
-          <div class="aspect-square bg-gray-200 dark:bg-gray-700"></div>
+          <div class="aspect-square nv-surface-muted"></div>
           <div class="p-3 space-y-2">
-            <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-            <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
-            <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+            <div class="h-4 nv-surface-muted rounded w-3/4"></div>
+            <div class="h-3 nv-surface-muted rounded w-1/2"></div>
+            <div class="h-3 nv-surface-muted rounded w-2/3"></div>
           </div>
         </div>
       </div>
@@ -186,10 +186,10 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
           type="button"
           :aria-label="emoticon.name"
           @click="goToDetail(emoticon.emoticonId)"
-          class="w-full bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden cursor-pointer text-left hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-shadow"
+          class="w-full nv-surface rounded-lg shadow-sm border nv-border overflow-hidden cursor-pointer text-left hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-shadow"
         >
           <!-- 썸네일 -->
-          <span class="block aspect-square bg-gray-100 dark:bg-gray-700">
+          <span class="block aspect-square nv-surface-muted">
             <img
               :src="emoticon.thumbnailUrl || DEFAULT_EMOTICON_IMAGE_URL"
               :alt="emoticon.name"
@@ -199,15 +199,15 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
           </span>
           <!-- 정보 -->
           <span class="block p-3">
-            <span class="block text-sm font-medium text-gray-900 dark:text-white truncate">{{ emoticon.name }}</span>
-            <span class="block text-xs text-gray-500 dark:text-gray-400 truncate">{{ emoticon.creatorName }}</span>
+            <span class="block text-sm font-medium nv-title truncate">{{ emoticon.name }}</span>
+            <span class="block text-xs nv-text-subtle truncate">{{ emoticon.creatorName }}</span>
             <span class="block text-xs text-indigo-600 dark:text-indigo-400 mt-1">
               판매 {{ emoticon.purchaseCount?.toLocaleString() || 0 }}회
             </span>
           </span>
         </button>
       </div>
-      <div v-else class="text-center py-12 text-gray-500 dark:text-gray-400">
+      <div v-else class="text-center py-12 nv-text-subtle">
         등록된 노비콘이 없습니다.
       </div>
 
@@ -217,7 +217,7 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
           <button
             @click="goToPage(currentPage - 1)"
             :disabled="currentPage === 0"
-            class="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="px-3 py-2 text-sm font-medium nv-text-muted nv-surface border nv-border rounded-md nv-hover-surface disabled:opacity-50 disabled:cursor-not-allowed"
           >
             이전
           </button>
@@ -229,7 +229,7 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
                 'px-3 py-2 text-sm font-medium rounded-md',
                 currentPage === item.page - 1
                   ? 'bg-indigo-600 text-white'
-                  : 'text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  : 'nv-text-muted nv-surface border nv-border nv-hover-surface'
               ]"
             >
               {{ item.page }}
@@ -239,7 +239,7 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
           <button
             @click="goToPage(currentPage + 1)"
             :disabled="currentPage >= totalPages - 1"
-            class="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="px-3 py-2 text-sm font-medium nv-text-muted nv-surface border nv-border rounded-md nv-hover-surface disabled:opacity-50 disabled:cursor-not-allowed"
           >
             다음
           </button>
@@ -248,7 +248,7 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
     </section>
 
     <!-- 검색 바 (가운데) & 등록 버튼 (오른쪽) - 게시글 목록과 동일 레이아웃 -->
-    <div class="mt-4 px-4 py-4 sm:px-6 bg-gray-50 dark:bg-gray-800 rounded-lg transition-colors duration-200">
+    <div class="mt-4 px-4 py-4 sm:px-6 nv-surface-muted rounded-lg transition-colors duration-200">
       <div class="flex flex-col sm:flex-row items-center gap-4">
         <div class="flex-1 min-w-0 hidden sm:block" aria-hidden="true"></div>
         <div class="w-full sm:w-auto flex justify-center shrink-0">

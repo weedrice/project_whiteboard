@@ -2,14 +2,14 @@
     <div class="flex items-start" :class="$attrs.class">
         <div class="flex items-center h-5">
             <input :id="id" type="checkbox" :checked="checked" @change="updateValue" :disabled="disabled"
-                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer dark:bg-gray-700 dark:border-gray-600"
+                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer bg-[var(--nv-surface)] border-[var(--nv-border)]"
                 :class="inputClass" />
         </div>
         <div class="ml-3 text-sm">
-            <label :for="id" class="font-medium text-gray-700 dark:text-gray-300 cursor-pointer" :class="labelClass">
+            <label :for="id" class="font-medium nv-text-muted cursor-pointer" :class="labelClass">
                 {{ label }}
             </label>
-            <p v-if="description" class="text-gray-500 dark:text-gray-400">{{ description }}</p>
+            <p v-if="description" class="nv-text-subtle">{{ description }}</p>
         </div>
     </div>
 </template>

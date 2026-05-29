@@ -96,7 +96,7 @@ describe('PostTags', () => {
 
         expect(tagButton.classes()).toContain('text-[11px]')
         expect(tagButton.classes()).not.toContain('bg-blue-100')
-        expect(tagButton.classes()).toContain('bg-slate-100')
+        expect(tagButton.classes()).toContain('nv-surface-muted')
         expect(tagButton.classes()).toContain('rounded-full')
     })
 })

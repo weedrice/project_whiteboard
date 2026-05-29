@@ -59,17 +59,17 @@ onUnmounted(() => {
 
 <template>
   <div class="space-y-4">
-    <section class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-900 dark:bg-blue-950/30">
-      <h1 class="text-base font-semibold text-blue-900 dark:text-blue-100">
+    <section class="rounded-lg nv-status-info px-4 py-3">
+      <h1 class="text-base font-semibold">
         운영진에게 문의하기
       </h1>
-      <p class="mt-1 text-sm text-blue-800 dark:text-blue-200">
+      <p class="mt-1 text-sm">
         문의 글은 운영진이 확인합니다. 필요한 내용을 상세히 작성해 주세요.
       </p>
     </section>
 
-    <div v-if="isPreparingBoard" class="rounded-lg border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
-      <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+    <div v-if="isPreparingBoard" class="rounded-lg border nv-border nv-surface p-6">
+      <div class="flex items-center gap-3 text-sm nv-text-muted">
         <BaseSpinner size="sm" />
         <span>문의 게시판을 준비하고 있습니다.</span>
       </div>
@@ -77,7 +77,7 @@ onUnmounted(() => {
 
     <div
       v-else-if="prepareError"
-      class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
+      class="rounded-lg nv-status-danger px-4 py-3 text-sm"
     >
       <p>{{ prepareError }}</p>
       <button type="button" class="mt-2 underline" @click="ensureInquiryBoard">다시 시도</button>
