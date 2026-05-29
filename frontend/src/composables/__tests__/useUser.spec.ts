@@ -119,7 +119,7 @@ describe('useUser', () => {
         vi.mocked(userApi.getBlockList).mockResolvedValueOnce({
             data: {
                 data: {
-                    content: [{ userId: 100 }],
+                    content: [{ userId: 100, displayName: 'blocked', secondaryText: 'blocked-login' }],
                     totalElements: 1,
                     totalPages: 1,
                     size: 20,
@@ -152,7 +152,7 @@ describe('useUser', () => {
         expect((options.queryKey as { value: unknown[] }).value).toEqual(['user', 'blocks', {}])
         result = await (options.queryFn as () => Promise<unknown>)()
         expect(result).toEqual({
-            content: [{ userId: 100 }],
+            content: [{ userId: 100, displayName: 'blocked', secondaryText: 'blocked-login' }],
             totalElements: 1,
             totalPages: 1,
             size: 20,

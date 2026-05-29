@@ -124,8 +124,8 @@ describe('BlockList', () => {
   it('renders users from the paged block list query cache', () => {
     queryState.data.value = {
       content: [
-        { userId: 1, displayName: 'Ada', email: 'ada@example.com' },
-        { userId: 2, displayName: 'Grace', email: 'grace@example.com' },
+        { userId: 1, displayName: 'Ada', secondaryText: 'ada-login' },
+        { userId: 2, displayName: 'Grace', secondaryText: 'grace-login' },
       ],
       totalElements: 2,
       totalPages: 3,
@@ -135,6 +135,8 @@ describe('BlockList', () => {
 
     expect(wrapper.text()).toContain('Ada')
     expect(wrapper.text()).toContain('Grace')
+    expect(wrapper.text()).toContain('ada-login')
+    expect(wrapper.text()).toContain('grace-login')
     expect(wrapper.text()).toContain('총 2건')
     expect(wrapper.get('[data-test="page-change"]').text()).toContain('0/3')
     expect(wrapper.findAll('[data-test="block-button"]')).toHaveLength(2)
@@ -162,7 +164,7 @@ describe('BlockList', () => {
 
   it('updates query params when page or page size changes', async () => {
     queryState.data.value = {
-      content: [{ userId: 1, displayName: 'Ada', email: 'ada@example.com' }],
+      content: [{ userId: 1, displayName: 'Ada', secondaryText: 'ada-login' }],
       totalElements: 1,
       totalPages: 2,
     }
@@ -179,7 +181,7 @@ describe('BlockList', () => {
 
   it('moves to the previous page after the last visible user is unblocked without manual refetch', async () => {
     queryState.data.value = {
-      content: [{ userId: 1, displayName: 'Ada', email: 'ada@example.com' }],
+      content: [{ userId: 1, displayName: 'Ada', secondaryText: 'ada-login' }],
       totalElements: 21,
       totalPages: 2,
     }
