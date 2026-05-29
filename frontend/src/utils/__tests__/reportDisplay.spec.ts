@@ -5,7 +5,10 @@ import {
   getMyReportStatusClass,
   getMyReportStatusLabel,
   getMyReportTargetTypeLabel,
-  getReportStatusVariant
+  getReportProcessorText,
+  getReportReasonText,
+  getReportStatusVariant,
+  getReportTargetDisplayText
 } from '@/utils/reportDisplay'
 
 const t = (key: string) => `translated:${key}`
@@ -39,5 +42,28 @@ describe('reportDisplay', () => {
     expect(getMyReportStatusClass('PENDING')).toContain('bg-yellow-100')
     expect(getMyReportStatusClass('RESOLVED')).toContain('bg-green-100')
     expect(getMyReportStatusClass('REJECTED')).toContain('bg-red-100')
+  })
+
+  it('formats admin report processor, reason, and target display text', () => {
+    expect(getReportProcessorText({ adminId: 7, processorUserId: null })).toBe('ADMIN #7')
+    expect(getReportProcessorText({ adminId: null, processorUserId: 9 })).toBe('USER #9')
+    expect(getReportProcessorText({ adminId: null, processorUserId: null })).toBe('-')
+
+    expect(getReportReasonText({ contents: '  abuse  ', remark: 'fallback' })).toBe('abuse')
+    expect(getReportReasonText({ contents: ' ', remark: '  fallback  ' })).toBe('fallback')
+    expect(getReportReasonText({ contents: null, remark: null })).toBe('-')
+
+    expect(getReportTargetDisplayText(t, {
+      targetDisplayName: 'Target',
+      targetLoginId: 'target-id',
+      targetType: 'USER',
+      targetId: 3,
+    })).toBe('Target\ntarget-id')
+    expect(getReportTargetDisplayText(t, {
+      targetDisplayName: null,
+      targetLoginId: null,
+      targetType: 'POST',
+      targetId: 4,
+    })).toBe('translated:common.post #4')
   })
 })

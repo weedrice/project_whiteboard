@@ -4,10 +4,10 @@ import type { AxiosError } from 'axios'
 import { messageApi, BLOCKED_BY_USER_CODE } from '@/api/message'
 import { useConfirm } from '@/composables/useConfirm'
 import { useLatestAsyncTask } from '@/composables/useLatestAsyncTask'
+import { useMessageSubmit } from '@/composables/useMessageSubmit'
 import { useToastStore } from '@/stores/toast'
 import type { MailboxMessageViewModel } from '@/types'
 import { extractErrorResponse } from '@/utils/errorHandler'
-import { hasMessageContent } from '@/utils/messageValidation'
 import { markMailboxMessageRead, toMailboxMessageViewModel } from '@/utils/messageViewModel'
 import logger from '@/utils/logger'
 
@@ -34,8 +34,18 @@ export function useMailboxResource() {
 
     const isReplyModalOpen = ref(false)
     const replyTarget = ref<MailboxMessageViewModel | null>(null)
-    const replyContent = ref('')
-    const isSending = ref(false)
+    const {
+        content: replyContent,
+        isSending,
+        send: sendReply,
+        reset: resetReplyContent,
+    } = useMessageSubmit({
+        getReceiverId: () => replyTarget.value?.partnerUserId,
+        logMessage: 'Failed to send reply:',
+        onSuccess: () => {
+            closeReplyModal()
+        },
+    })
     /** Block relationship can make detail/read fail; show toast only when user attempts reply. */
     const messageFromBlockedUser = ref(false)
     let messageDetailRequestId = 0
@@ -184,36 +194,7 @@ export function useMailboxResource() {
     function closeReplyModal() {
         isReplyModalOpen.value = false
         replyTarget.value = null
-        replyContent.value = ''
-    }
-
-    async function sendReply() {
-        if (!hasMessageContent(replyContent.value)) {
-            toastStore.addToast(t('user.message.inputContent'), 'warning')
-            return
-        }
-        if (!replyTarget.value) return
-        isSending.value = true
-        try {
-            const { data } = await messageApi.sendMessage(
-                replyTarget.value.partnerUserId,
-                replyContent.value,
-                { skipGlobalErrorHandler: true }
-            )
-            if (data.success) {
-                toastStore.addToast(t('user.message.sendSuccess'), 'success')
-                closeReplyModal()
-            }
-        } catch (error) {
-            logger.error('Failed to send reply:', error)
-            const errRes = extractErrorResponse(error as AxiosError)
-            const toastMessage = errRes?.code === BLOCKED_BY_USER_CODE
-                ? t('user.message.blockedByUser')
-                : t('user.message.sendFailed')
-            toastStore.addToast(toastMessage, 'error')
-        } finally {
-            isSending.value = false
-        }
+        resetReplyContent()
     }
 
     watch(selectedMessage, (val) => {

@@ -103,6 +103,10 @@ const getRowKey = (item: T, index: number): string | number => {
         return defaultKey
     }
 
+    if (import.meta.env.DEV) {
+        console.warn('[BaseTable] Falling back to index row key. Provide rowKey for stable list rendering.', item)
+    }
+
     return index
 }
 
@@ -183,18 +187,20 @@ const bodyCellClasses = computed(() => [
                             {{ emptyText }}
                         </td>
                     </tr>
-                    <tr v-else v-for="(item, index) in items" :key="getRowKey(item, index)"
-                        class="nv-base-table-row transition-colors duration-150"
-                        :class="rowClass?.(item) || ''"
-                        @click="emit('row-click', item)"
-                        @dblclick="emit('row-dblclick', item)">
-                        <td v-for="col in columns" :key="col.key"
-                            :class="[bodyCellClasses, alignClass(col.align)]">
-                            <slot :name="`cell-${col.key}`" :item="item" :value="getCellValue(item, col.key)">
-                                {{ getCellValue(item, col.key) }}
-                            </slot>
-                        </td>
-                    </tr>
+                    <template v-else>
+                        <tr v-for="(item, index) in items" :key="getRowKey(item, index)"
+                            class="nv-base-table-row transition-colors duration-150"
+                            :class="rowClass?.(item) || ''"
+                            @click="emit('row-click', item)"
+                            @dblclick="emit('row-dblclick', item)">
+                            <td v-for="col in columns" :key="col.key"
+                                :class="[bodyCellClasses, alignClass(col.align)]">
+                                <slot :name="`cell-${col.key}`" :item="item" :value="getCellValue(item, col.key)">
+                                    {{ getCellValue(item, col.key) }}
+                                </slot>
+                            </td>
+                        </tr>
+                    </template>
                 </tbody>
             </table>
         </div>

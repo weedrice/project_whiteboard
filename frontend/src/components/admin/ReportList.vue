@@ -6,7 +6,14 @@ import BaseTable from '@/components/common/ui/BaseTable.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import { computed } from 'vue'
 import { formatDate } from '@/utils/date'
-import { getAdminReportStatusLabel, getReportStatusVariant } from '@/utils/reportDisplay'
+import {
+  getAdminReportStatusLabel,
+  getCommonReportTargetTypeLabel,
+  getReportProcessorText,
+  getReportReasonText,
+  getReportStatusVariant,
+  getReportTargetDisplayText
+} from '@/utils/reportDisplay'
 import type { Report } from '@/types'
 
 const { t } = useI18n()
@@ -34,20 +41,6 @@ function onSanction(report: Report) {
   emit('sanction', report)
 }
 
-function getProcessorText(report: Report) {
-  if (report.adminId != null) {
-    return `ADMIN #${report.adminId}`
-  }
-  if (report.processorUserId != null) {
-    return `USER #${report.processorUserId}`
-  }
-  return '-'
-}
-
-function getReportReasonText(report: Report) {
-  return report.contents?.trim() || report.remark?.trim() || '-'
-}
-
 const columns = computed(() => [
   { key: 'reportId', label: t('common.id'), width: '5%', align: 'center' as const },
   { key: 'reporterDisplayName', label: t('admin.reports.table.reporter'), width: '8%', align: 'center' as const },
@@ -67,20 +60,20 @@ const columns = computed(() => [
   <div class="mt-8">
     <BaseTable :columns="columns" :items="reports" row-key="reportId" :emptyText="t('common.noData')">
       <template #cell-targetType="{ item }">
-        {{ item.targetType }}
+        {{ getCommonReportTargetTypeLabel(t, item.targetType) }}
       </template>
 
       <template #cell-target="{ item }">
         <span
           class="inline-flex flex-col max-w-full"
-          :title="item.targetDisplayName != null && item.targetLoginId != null ? `${item.targetDisplayName}\n${item.targetLoginId}` : `${item.targetType} #${item.targetId}`"
+          :title="getReportTargetDisplayText(t, item)"
         >
           <template v-if="item.targetDisplayName != null && item.targetLoginId != null">
             <span class="text-xs font-medium">{{ item.targetDisplayName }}</span>
             <span class="text-[11px] text-gray-500 dark:text-gray-400">{{ item.targetLoginId }}</span>
           </template>
           <template v-else>
-            <span class="text-xs">{{ item.targetType }} #{{ item.targetId }}</span>
+            <span class="text-xs">{{ getReportTargetDisplayText(t, item) }}</span>
           </template>
         </span>
       </template>
@@ -95,7 +88,7 @@ const columns = computed(() => [
       </template>
 
       <template #cell-processor="{ item }">
-        {{ getProcessorText(item) }}
+        {{ getReportProcessorText(item) }}
       </template>
 
       <template #cell-remark="{ item }">

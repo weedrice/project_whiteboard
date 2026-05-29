@@ -1,64 +1,82 @@
 import { mount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
-import { defineComponent, h, ref } from 'vue'
-import GlobalSettings from '../GlobalSettings.vue'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { defineComponent, h } from 'vue'
 
-const configsData = ref([
-    {
-        key: 'site.name',
-        value: 'Noviis',
-        description: '서비스 이름',
+const mocks = vi.hoisted(() => ({
+    configsData: {
+        __v_isRef: true,
+        value: [
+            {
+                key: 'site.name',
+                value: 'Noviis',
+                description: 'Service name',
+            },
+        ] as Array<{ key: string; value: string; description?: string }>,
     },
-])
+    isLoading: { __v_isRef: true, value: false },
+    updateConfig: vi.fn(),
+    createConfig: vi.fn(),
+    deleteConfig: vi.fn(),
+    confirm: vi.fn(),
+    addToast: vi.fn(),
+}))
 
 vi.mock('vue-i18n', () => ({
     useI18n: () => ({
         t: (key: string) => ({
-            'common.description': '설명',
-            'common.value': '값',
-            'common.save': '저장',
-            'common.delete': '삭제',
-            'common.key': '키',
-            'common.noData': '데이터가 없습니다',
-            'admin.settings.title': '전역 설정',
-            'admin.settings.description': '설정을 관리합니다.',
+            'common.description': 'Description',
+            'common.value': 'Value',
+            'common.save': 'Save',
+            'common.delete': 'Delete',
+            'common.key': 'Key',
+            'common.noData': 'No data',
+            'common.add': 'Add',
+            'common.cancel': 'Cancel',
+            'common.deleted': 'Deleted',
+            'common.confirmDelete': 'Confirm delete',
+            'admin.settings.title': 'Global Settings',
+            'admin.settings.description': 'Manage settings.',
+            'admin.settings.addConfig': 'Add Config',
+            'admin.settings.messages.saved': 'Saved',
         }[key] ?? key),
     }),
 }))
 
 vi.mock('@/stores/toast', () => ({
     useToastStore: () => ({
-        addToast: vi.fn(),
+        addToast: mocks.addToast,
     }),
 }))
 
 vi.mock('@/composables/useConfirm', () => ({
     useConfirm: () => ({
-        confirm: vi.fn().mockResolvedValue(true),
+        confirm: mocks.confirm,
     }),
 }))
 
 vi.mock('@/composables/useAdmin', () => ({
     useAdmin: () => ({
         useConfigs: () => ({
-            data: configsData,
-            isLoading: ref(false),
+            data: mocks.configsData,
+            isLoading: mocks.isLoading,
         }),
         useUpdateConfig: () => ({
-            mutateAsync: vi.fn(),
+            mutateAsync: mocks.updateConfig,
         }),
         useCreateConfig: () => ({
-            mutateAsync: vi.fn(),
+            mutateAsync: mocks.createConfig,
         }),
         useDeleteConfig: () => ({
-            mutateAsync: vi.fn(),
+            mutateAsync: mocks.deleteConfig,
         }),
     }),
 }))
 
+import GlobalSettings from '../GlobalSettings.vue'
+
 const BaseInputStub = defineComponent({
     props: {
-        modelValue: String,
+        modelValue: [String, Number],
         label: String,
         hideLabel: Boolean,
     },
@@ -97,13 +115,68 @@ const mountGlobalSettings = () => mount(GlobalSettings, {
 })
 
 describe('GlobalSettings', () => {
+    beforeEach(() => {
+        mocks.configsData.value = [
+            {
+                key: 'site.name',
+                value: 'Noviis',
+                description: 'Service name',
+            },
+        ]
+        mocks.updateConfig.mockReset()
+        mocks.createConfig.mockReset()
+        mocks.deleteConfig.mockReset()
+        mocks.confirm.mockReset()
+        mocks.addToast.mockReset()
+    })
+
     it('keeps hidden labels for editable config fields and names icon actions', () => {
         const wrapper = mountGlobalSettings()
         const labels = wrapper.findAll('label.sr-only').map((label) => label.text())
 
-        expect(labels).toContain('site.name 설명')
-        expect(labels).toContain('site.name 값')
-        expect(wrapper.find('button[aria-label="저장"]').exists()).toBe(true)
-        expect(wrapper.find('button[aria-label="삭제"]').exists()).toBe(true)
+        expect(labels).toContain('site.name Description')
+        expect(labels).toContain('site.name Value')
+        expect(wrapper.find('button[aria-label="Save"]').exists()).toBe(true)
+        expect(wrapper.find('button[aria-label="Delete"]').exists()).toBe(true)
+    })
+
+    it('saves the edited draft instead of mutating the query item directly', async () => {
+        const wrapper = mountGlobalSettings()
+        const inputs = wrapper.findAll('input')
+
+        await inputs[0].setValue('Updated description')
+        await inputs[1].setValue('Updated name')
+        await wrapper.find('button[aria-label="Save"]').trigger('click')
+
+        expect(mocks.configsData.value[0]).toEqual({
+            key: 'site.name',
+            value: 'Noviis',
+            description: 'Service name',
+        })
+        expect(mocks.updateConfig).toHaveBeenCalledWith({
+            key: 'site.name',
+            value: 'Updated name',
+            description: 'Updated description',
+        })
+    })
+
+    it('preserves an omitted description until the user edits it', async () => {
+        mocks.configsData.value = [
+            {
+                key: 'site.name',
+                value: 'Noviis',
+            },
+        ]
+        const wrapper = mountGlobalSettings()
+        const inputs = wrapper.findAll('input')
+
+        await inputs[1].setValue('Updated name')
+        await wrapper.find('button[aria-label="Save"]').trigger('click')
+
+        expect(mocks.updateConfig).toHaveBeenCalledWith({
+            key: 'site.name',
+            value: 'Updated name',
+            description: undefined,
+        })
     })
 })
