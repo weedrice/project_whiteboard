@@ -1,84 +1,109 @@
 # NoviIs Frontend
 
-**NoviIs Frontend**는 NoviIs 커뮤니티 플랫폼의 클라이언트 사이드 애플리케이션입니다. Vue 3와 Vite를 기반으로 구축되었으며, 빠르고 반응성 높은 사용자 경험을 제공합니다.
+NoviIs 커뮤니티 플랫폼의 Vue 3 기반 프론트엔드 애플리케이션입니다. Vite, TypeScript, Pinia, TanStack Query를 사용하며 백엔드 API와 SSE 알림을 연동합니다.
 
-## 🛠️ 기술 스택 (Tech Stack)
+## 기술 스택
 
--   **Framework**: Vue 3 (Composition API, Script Setup)
--   **Build Tool**: Vite
--   **Language**: TypeScript / JavaScript
--   **State Management**: Pinia (UI State), TanStack Query (Server State)
--   **Routing**: Vue Router
--   **Styling**: TailwindCSS, PostCSS
--   **HTTP Client**: Axios
--   **Icons**: Lucide Vue Next
--   **I18n**: Vue I18n
+- Framework: Vue 3, Composition API, Script Setup
+- Build Tool: Vite
+- Language: TypeScript / JavaScript
+- State Management: Pinia, TanStack Query
+- Routing: Vue Router
+- Styling: TailwindCSS, PostCSS
+- HTTP Client: Axios
+- Icons: Lucide Vue Next
+- I18n: Vue I18n
+- Test: Vitest, Vue Test Utils
 
-## 📂 프로젝트 구조 (Project Structure)
+## 프로젝트 구조
 
-```
+```text
 src
 ├── api             # 백엔드 API 통신 모듈
-├── assets          # 정적 자원 (CSS, Images)
-├── components      # 재사용 가능한 UI 컴포넌트
-│   ├── admin       # 관리자용 컴포넌트
-│   ├── board       # 게시판 관련 컴포넌트
-│   ├── common      # 공통 컴포넌트 (UI, Widgets)
-│   ├── feed        # 피드 관련 컴포넌트
-│   ├── layout      # 레이아웃 컴포넌트 (Header, Footer)
+├── assets          # CSS, 이미지 등 정적 자원
+├── components      # 재사용 UI 컴포넌트
+│   ├── admin       # 관리자 컴포넌트
+│   ├── board       # 게시판 컴포넌트
+│   ├── comment     # 댓글 컴포넌트
+│   ├── common      # 공통 UI, 위젯
+│   ├── home        # 홈 화면 컴포넌트
+│   ├── layout      # Header, Footer 등 레이아웃
 │   ├── notification# 알림 컴포넌트
-│   └── user        # 사용자 관련 컴포넌트
-├── composables     # Vue Composables (Hooks)
+│   ├── report      # 신고 관련 컴포넌트
+│   ├── search      # 검색 컴포넌트
+│   ├── tag         # 태그 컴포넌트
+│   ├── user        # 사용자 컴포넌트
+│   └── __tests__   # 컴포넌트 테스트
+├── composables     # Vue composables
 ├── extensions      # TipTap 에디터 확장
-├── locales         # 다국어 리소스 (i18n)
+├── locales         # 다국어 리소스
 ├── router          # 라우터 설정
-├── stores          # Pinia 스토어
+├── stores          # Pinia store
 ├── types           # TypeScript 타입 정의
 ├── utils           # 유틸리티 함수
-└── views           # 페이지 뷰 컴포넌트
+└── views           # 페이지 뷰
     ├── admin       # 관리자 페이지
     ├── auth        # 인증 페이지
     ├── board       # 게시판 페이지
-    ├── common      # 공통 페이지 (에러 등)
+    ├── common      # 공통 페이지
     ├── emoticon    # 이모티콘 페이지
     ├── home        # 홈 화면
     ├── search      # 검색 페이지
-    └── user        # 사용자 페이지
+    ├── user        # 사용자 페이지
+    ├── PrivacyPolicy.vue
+    └── TermsOfService.vue
 ```
 
-## ✨ 주요 기능 (Key Features)
+## 주요 기능
 
--   **반응형 디자인**: 데스크탑 및 모바일 환경 지원.
--   **다크 모드**: 시스템 설정 또는 사용자 선택에 따른 테마 전환.
--   **이모티콘**: 커스텀 이모티콘 등록/수정 및 게시글/댓글 활용.
--   **실시간 알림**: SSE를 통한 실시간 알림 수신 및 UI 업데이트.
--   **다국어 지원**: 한국어 및 영어 지원 (확장 가능).
--   **에디터**: 게시글 작성을 위한 WYSIWYG 에디터 통합.
--   **관리자 대시보드**: 차트 및 테이블을 활용한 데이터 시각화 및 관리.
+- 반응형 커뮤니티 UI
+- 다크 모드
+- 커스텀 이모티콘 등록, 구매, 게시글/댓글 사용
+- SSE 기반 실시간 알림
+- 한국어/영어 다국어 리소스
+- TipTap 기반 WYSIWYG 에디터
+- 관리자 대시보드와 사용자/게시판 관리 화면
+- 검색, 태그, 신고, 댓글 UI
 
-## 🚀 시작하기 (Getting Started)
+## 시작하기
 
-### 전제 조건 (Prerequisites)
--   Node.js 20.19 이상 또는 22.12 이상
--   npm 또는 yarn
+### 전제 조건
 
-### 설치 (Installation)
+- Node.js 20.19 이상 또는 22.12 이상
+- npm
+
+### 설치
+
 ```bash
-npm install
+npm ci
 ```
 
-### 개발 서버 실행 (Development)
+로컬에서 lockfile을 갱신해야 하는 의존성 변경 작업은 `npm install`을 사용한다.
+
+### 개발 서버
+
 ```bash
 npm run dev
 ```
-앱은 `http://localhost:5173`에서 실행됩니다.
 
-### 빌드 (Build)
+기본 주소는 `http://localhost:5173`입니다.
+
+### 빌드
+
 ```bash
 npm run build
 ```
 
-### 타입 체크 (Type Check)
+SEO 배포 빌드와 동일한 절차를 확인하려면 다음 명령을 사용합니다.
+
 ```bash
+npm run build:seo
+```
+
+### 테스트와 검증
+
+```bash
+npm run test:run
 npm run type-check
+npm run lint:ci
 ```

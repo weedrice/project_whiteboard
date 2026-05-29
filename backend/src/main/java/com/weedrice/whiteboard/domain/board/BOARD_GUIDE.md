@@ -8,6 +8,8 @@
 - 구독 관리: 게시판 구독/해지 및 사용자가 정렬한 구독 순서 저장.
 - 게시판 생성: 이름·URL 중복 체크 후 기본 카테고리(“일반”)와 게시판 관리자(Admin) 자동 생성.
 - 게시판 수정/삭제: 관리자 권한 검사 후 정보 수정 또는 비활성화(Soft Delete).
+- 게시판 관리자 변경: 관리자 후보를 검색하고 게시판 관리자를 교체합니다.
+- 문의 게시판 보장: 시스템 문의 게시판이 필요한 경우 생성/복구합니다.
 - 카테고리 관리: 최소 작성 권한(minWriteRole) 기반으로 생성/수정/비활성화 처리.
 - 공지 조회: 게시판별 공지 게시글 목록 제공.
 
@@ -21,7 +23,10 @@
 | `GET` | `/api/v1/boards/{boardUrl}` | 게시판 상세/카테고리/구독 상태 조회 |
 | `GET` | `/api/v1/boards/{boardUrl}/notices` | 게시판 공지 게시글 목록 |
 | `POST` | `/api/v1/boards` | 게시판 생성 |
+| `POST` | `/api/v1/boards/inquiry/ensure` | 문의 게시판 보장 |
 | `PUT` | `/api/v1/boards/{boardUrl}` | 게시판 정보 수정 (게시판/슈퍼 관리자) |
+| `PUT` | `/api/v1/boards/{boardUrl}/manager` | 게시판 관리자 변경 |
+| `GET` | `/api/v1/boards/{boardUrl}/manager-candidates` | 게시판 관리자 후보 조회 |
 | `DELETE` | `/api/v1/boards/{boardUrl}` | 게시판 비활성화 (게시판/슈퍼 관리자) |
 | `GET` | `/api/v1/boards/{boardUrl}/categories` | 활성 카테고리 목록 |
 | `POST` | `/api/v1/boards/{boardUrl}/categories` | 카테고리 생성 (게시판/슈퍼 관리자) |

@@ -17,6 +17,7 @@
 | `GET` | `/api/v1/messages/received` | 받은 쪽지 목록 |
 | `GET` | `/api/v1/messages/sent` | 보낸 쪽지 목록 |
 | `GET` | `/api/v1/messages/{messageId}` | 쪽지 상세 조회 |
+| `POST` | `/api/v1/messages/{messageId}/read` | 쪽지 읽음 처리 |
 | `DELETE` | `/api/v1/messages/{messageId}` | 쪽지 삭제 |
 | `DELETE` | `/api/v1/messages` | 쪽지 일괄 삭제 |
 | `GET` | `/api/v1/messages/unread-count` | 안읽은 쪽지 수 조회 |

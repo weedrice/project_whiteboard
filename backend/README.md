@@ -12,7 +12,7 @@
 -   **Security**: Spring Security, JWT (JSON Web Token)
 -   **Testing**: JUnit 5, Mockito
 -   **Logging**: Logback
--   **Cloud**: AWS SES (Email Service)
+-   **Cloud/Storage**: AWS S3, SMTP mail integration
 
 ## 📂 프로젝트 구조 (Project Structure)
 
@@ -23,6 +23,7 @@ com.weedrice.whiteboard
 ├── domain
 │   ├── ad            # 광고 관리
 │   ├── admin         # 관리자 기능
+│   ├── agent         # MCP/Agent API, quota, notes
 │   ├── auth          # 인증 및 인가 (로그인, 회원가입, 비밀번호 초기화)
 │   ├── board         # 게시판 관리
 │   ├── comment       # 댓글 관리
@@ -36,7 +37,7 @@ com.weedrice.whiteboard
 │   ├── report        # 신고 시스템
 │   ├── sanction      # 제재 및 차단 관리
 │   ├── search        # 검색 기능
-│   ├── shop          # 포인트 상점 (예정)
+│   ├── shop          # 포인트 상점
 │   ├── tag           # 태그 시스템
 │   └── user          # 사용자 관리
 └── global            # 전역 설정 (Config, Exception, Security, Util)
@@ -62,7 +63,7 @@ com.weedrice.whiteboard
 ### 설정 (Configuration)
 
 #### 개발 환경
-`src/main/resources/application-dev.yml` 파일에서 데이터베이스 및 JWT 설정을 확인하고 필요에 따라 수정하세요.
+로컬 실행에는 PostgreSQL, JWT secret, OAuth/mail/storage 관련 설정이 필요합니다. 개인 값은 셸 환경 변수, IDE run configuration, 또는 커밋하지 않는 로컬 설정으로 주입하세요.
 
 #### 프로덕션 환경
 프로덕션 환경에서는 환경 변수를 통해 설정을 관리합니다.

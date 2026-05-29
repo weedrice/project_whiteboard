@@ -5,8 +5,10 @@
 ## 1. 주요 기능 및 로직
 - 슈퍼관리자 관리: 목록 조회, 권한 부여/해제, 중복 방지 검증.
 - 게시판 관리자 관리: 특정 게시판 담당 관리자 생성, 전체 목록 조회, 활성/비활성 전환.
+- 게시판 관리자 조회/변경: 특정 게시판의 현재 관리자 조회 및 교체.
 - IP 차단: 관리자 계정으로 IP 차단 등록·해제·목록 조회.
 - 대시보드 통계: 전체 사용자 수, 게시글 수, 보류 중 신고 건수, 최근 24시간 활성 사용자 수 제공.
+- 문의 관리: 문의 게시글 목록과 상세를 조회합니다.
 - IP 차단 여부 검사: 요청 IP가 차단 상태인지 글로벌 인터셉터에서 활용.
 
 ## 2. API Endpoints
@@ -20,10 +22,14 @@
 | `GET` | `/api/v1/admin/admins` | 게시판 관리자 전체 조회 |
 | `PUT` | `/api/v1/admin/admins/{adminId}/deactivate` | 관리자 비활성화 |
 | `PUT` | `/api/v1/admin/admins/{adminId}/activate` | 관리자 활성화 |
+| `GET` | `/api/v1/admin/boards/{boardId}/manager` | 게시판 관리자 조회 |
+| `PUT` | `/api/v1/admin/boards/{boardId}/manager` | 게시판 관리자 변경 |
 | `POST` | `/api/v1/admin/ip-blocks` | IP 차단 등록 |
 | `DELETE` | `/api/v1/admin/ip-blocks/{ipAddress}` | IP 차단 해제 |
 | `GET` | `/api/v1/admin/ip-blocks` | 차단 IP 목록 조회 |
 | `GET` | `/api/v1/admin/stats` | 대시보드 요약 통계 조회 |
+| `GET` | `/api/v1/admin/inquiries` | 문의 게시글 목록 |
+| `GET` | `/api/v1/admin/inquiries/{postId}` | 문의 게시글 상세 |
 
 ## 3. 관련 DB 테이블
 

@@ -12,6 +12,7 @@
 | Method | URI | 설명 |
 | :----- | :------------------------ | :------------------ |
 | `GET` | `/api/v1/ads?placement=` | 위치별 광고 조회 |
+| `POST` | `/api/v1/ads/{adId}/impression` | 광고 노출 기록 |
 | `POST` | `/api/v1/ads/{adId}/click` | 광고 클릭 기록 및 이동 URL 응답 |
 
 ## 3. 관련 DB 테이블

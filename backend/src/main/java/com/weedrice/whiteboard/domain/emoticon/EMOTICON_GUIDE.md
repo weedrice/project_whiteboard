@@ -1,26 +1,35 @@
 # Emoticon 도메인 가이드
 
-`emoticon` 도메인은 사용자 등록 커스텀 이모티콘을 관리합니다. 마스터/슬레이브 구조로 설계되었습니다.
+`emoticon` 도메인은 사용자 등록 커스텀 이모티콘 팩, 이미지, 구매 여부를 관리합니다.
 
 ## 1. 주요 기능 및 로직
-- **마스터(emoticon_masters)**: 이모티콘 정보(이름, 썸네일, 태그, 등록자)
-- **슬레이브(emoticon_images)**: 이모티콘에 포함된 개별 이미지들
-- 태그는 PostgreSQL 배열(`TEXT[]`) 타입으로 저장
+
+- 이모티콘 마스터: 이름, 썸네일, 태그, 등록자, 활성 상태, 구매 수를 저장합니다.
+- 이모티콘 이미지: 팩에 포함된 개별 이미지와 정렬 순서를 저장합니다.
+- 검색: 키워드, 태그, 전체 검색, 인기 이모티콘 조회를 제공합니다.
+- 소유/구매: 내가 만든 이모티콘, 구매한 이모티콘, 특정 이모티콘 구매 여부를 조회합니다.
+- 등록/수정/삭제: 소유자 권한을 검증하고 이미지 추가/삭제 및 공개 여부 변경을 처리합니다.
 
 ## 2. API Endpoints
 
 | Method | URI | 설명 |
-| :----- | :-- | :--- |
-| `GET` | `/api/emoticons` | 이모티콘 목록 |
-| `GET` | `/api/emoticons/{id}` | 이모티콘 상세 (이미지 포함) |
-| `GET` | `/api/emoticons/search?keyword=` | 키워드 검색 |
-| `GET` | `/api/emoticons/search/tag?tag=` | 태그 검색 |
-| `GET` | `/api/emoticons/my` | 내 이모티콘 |
-| `POST` | `/api/emoticons` | 이모티콘 등록 |
-| `PUT` | `/api/emoticons/{id}` | 이모티콘 수정 |
-| `DELETE` | `/api/emoticons/{id}` | 이모티콘 삭제 |
-| `POST` | `/api/emoticons/{id}/images` | 이미지 추가 |
-| `DELETE` | `/api/emoticons/images/{imageId}` | 이미지 삭제 |
+| :----- | :----------------------------------------------- | :---------------- |
+| `GET` | `/api/v1/emoticons` | 이모티콘 목록 |
+| `GET` | `/api/v1/emoticons/popular` | 인기 이모티콘 |
+| `GET` | `/api/v1/emoticons/search/all` | 전체 검색 |
+| `GET` | `/api/v1/emoticons/search/tag` | 태그 검색 |
+| `GET` | `/api/v1/emoticons/search` | 키워드 검색 |
+| `GET` | `/api/v1/emoticons/my` | 내가 만든 이모티콘 |
+| `GET` | `/api/v1/emoticons/{emoticonId}` | 이모티콘 상세 |
+| `POST` | `/api/v1/emoticons` | 이모티콘 등록 |
+| `PUT` | `/api/v1/emoticons/{emoticonId}` | 이모티콘 수정 |
+| `PATCH` | `/api/v1/emoticons/{emoticonId}/visibility` | 공개 여부 변경 |
+| `DELETE` | `/api/v1/emoticons/{emoticonId}` | 이모티콘 삭제 |
+| `POST` | `/api/v1/emoticons/{emoticonId}/images` | 이미지 추가 |
+| `DELETE` | `/api/v1/emoticons/images/{imageId}` | 이미지 삭제 |
+| `POST` | `/api/v1/emoticons/{emoticonId}/purchase` | 이모티콘 구매 |
+| `GET` | `/api/v1/emoticons/purchased` | 구매한 이모티콘 |
+| `GET` | `/api/v1/emoticons/{emoticonId}/purchased` | 구매 여부 조회 |
 
 ## 3. 관련 DB 테이블
 
@@ -28,3 +37,4 @@
 | :------- | :----- | :--- |
 | `emoticon_masters` | `EmoticonMaster` | 이모티콘 마스터 |
 | `emoticon_images` | `EmoticonImage` | 이모티콘 이미지 |
+| `emoticon_purchases` | `EmoticonPurchase` | 사용자별 이모티콘 구매 |

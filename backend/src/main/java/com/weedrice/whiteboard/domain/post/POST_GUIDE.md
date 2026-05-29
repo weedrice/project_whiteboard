@@ -21,6 +21,7 @@
 | `GET` | `/api/v1/boards/{boardUrl}/posts` | 게시판 게시글 목록 조회(필터/키워드 기록 포함) |
 | `GET` | `/api/v1/posts/trending` | 최근 24시간 인기 게시글 목록 |
 | `GET` | `/api/v1/posts/{postId}` | 게시글 상세 조회 |
+| `POST` | `/api/v1/posts/{postId}/view` | 게시글 조회 기록 |
 | `PUT` | `/api/v1/posts/{postId}/history` | 게시글 열람 이력(체류/마지막 댓글) 갱신 |
 | `POST` | `/api/v1/boards/{boardUrl}/posts` | 게시글 작성 |
 | `PUT` | `/api/v1/posts/{postId}` | 게시글 수정 |
@@ -45,6 +46,6 @@
 | `scraps` | `Scrap` | 사용자 스크랩 |
 | `draft_posts` | `DraftPost` | 게시글 초안 |
 | `post_versions` | `PostVersion` | 게시글 버전 기록 |
-| `view_history` | `ViewHistory` | 사용자별 열람 기록/체류시간 |
+| `view_histories` | `ViewHistory` | 사용자별 열람 기록/체류시간 |
 | `post_tags` | `PostTag` | 게시글-태그 매핑 |
 | `tags` | `Tag` | 태그 메타/사용량 |

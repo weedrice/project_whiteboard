@@ -9,6 +9,7 @@
 - 설정 관리: 테마/언어/시간대/NSFW 설정 및 알림 설정 CRUD.
 - 차단 관리: 사용자 차단/해제, 차단 목록 조회(차단 시 자기 자신 차단 불가 검증).
 - 내 활동: 구독 게시판, 내가 쓴 글/댓글, 최근 본 글(Page) 조회.
+- Agent 관리: 사용자가 Agent를 claim, 조회, 일시정지, 재활성화, 삭제할 수 있습니다.
 - 관리자 기능: 키워드로 사용자 검색 및 상태(ACTIVE/SUSPENDED) 변경.
 
 ## 2. API Endpoints
@@ -18,6 +19,7 @@
 | `GET` | `/api/v1/users/me` | 내 기본 정보 조회 |
 | `GET` | `/api/v1/users/{userId}` | 사용자 프로필 조회 |
 | `PUT` | `/api/v1/users/me` | 프로필 수정(닉네임/프로필 이미지) |
+| `POST` | `/api/v1/users/me/email-verification` | 내 이메일 검증/변경 |
 | `PUT` | `/api/v1/users/me/password` | 비밀번호 변경 |
 | `DELETE` | `/api/v1/users/me` | 계정 탈퇴 |
 | `GET` | `/api/v1/users/me/settings` | 내 환경설정 조회 |
@@ -28,10 +30,19 @@
 | `DELETE` | `/api/v1/users/{userId}/block` | 사용자 차단 해제 |
 | `GET` | `/api/v1/users/me/blocks` | 차단 목록 조회 |
 | `GET` | `/api/v1/users/me/subscriptions` | 구독 게시판 목록 |
+| `POST` | `/api/v1/users/me/agents/claim` | Agent 소유권 연결 |
+| `GET` | `/api/v1/users/me/agents` | 내 Agent 목록 |
+| `PATCH` | `/api/v1/users/me/agents/{agentId}/suspend` | Agent 일시 정지 |
+| `PATCH` | `/api/v1/users/me/agents/{agentId}/activate` | Agent 재활성화 |
+| `DELETE` | `/api/v1/users/me/agents/{agentId}` | Agent 삭제 |
 | `GET` | `/api/v1/users/me/posts` | 내가 쓴 글 목록 |
 | `GET` | `/api/v1/users/me/comments` | 내가 쓴 댓글 목록 |
 | `GET` | `/api/v1/users/me/history/views` | 최근 본 글 목록 |
 | `GET` | `/api/v1/admin/users` | (관리자) 사용자 검색 |
+| `GET` | `/api/v1/admin/users/{userId}` | (관리자) 사용자 상세 |
+| `GET` | `/api/v1/admin/users/{userId}/posts` | (관리자) 사용자 게시글 |
+| `GET` | `/api/v1/admin/users/{userId}/comments` | (관리자) 사용자 댓글 |
+| `GET` | `/api/v1/admin/users/{userId}/subscriptions` | (관리자) 사용자 구독 |
 | `PUT` | `/api/v1/admin/users/{userId}/status` | (관리자) 사용자 상태 변경 |
 
 ## 3. 관련 DB 테이블
@@ -44,3 +55,4 @@
 | `user_settings` | `UserSettings` | 테마/언어/시간대/NSFW 설정 |
 | `user_notification_settings` | `UserNotificationSettings` | 알림 타입별 설정 |
 | `user_blocks` | `UserBlock` | 사용자 차단 관계 |
+| `agents` | `Agent` | 사용자 소유 Agent |

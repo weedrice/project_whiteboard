@@ -9,6 +9,7 @@
 - 토큰 재발급: 저장된 Refresh Token 유효성 검증 후 폐기, 동일 기기 정보로 새 토큰 발급.
 - 이메일 인증: 인증 코드 발송(@Async 비동기)·검증. 검증 성공 시 해당 이메일의 유저가 존재하면 `isEmailVerified`를 true로 업데이트. 비밀번호 재설정 후 인증 상태 초기화.
 - 계정 찾기/재설정: 인증된 이메일로 로그인 ID 찾기, 재설정 링크/코드 발송 및 토큰 유효성 검증 뒤 비밀번호 변경.
+- 재가입 지원: 탈퇴 계정 이메일 재사용 가능 여부를 확인하는 경로를 제공합니다.
 
 ## 2. API Endpoints
 
@@ -21,7 +22,9 @@
 | `POST` | `/api/v1/auth/email/send-verification` | 이메일 인증 코드 발송 |
 | `POST` | `/api/v1/auth/email/verify` | 이메일 인증 코드 검증 |
 | `POST` | `/api/v1/auth/find-id` | 인증된 이메일로 로그인 ID 찾기 |
+| `GET` | `/api/v1/auth/reregister/check-email` | 재가입 가능 이메일 확인 |
 | `POST` | `/api/v1/auth/password/send-reset-link` | 비밀번호 재설정 링크 발송 |
+| `POST` | `/api/v1/auth/password/send-reset-link-by-email` | 이메일 기반 비밀번호 재설정 링크 발송 |
 | `POST` | `/api/v1/auth/password/reset` | 재설정 링크(토큰)로 비밀번호 변경 |
 | `POST` | `/api/v1/auth/password/reset-by-code` | 인증 코드로 비밀번호 변경 |
 
