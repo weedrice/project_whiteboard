@@ -17,6 +17,17 @@ const reportApi = vi.hoisted(() => ({
 vi.mock('@/api/user', () => ({ userApi }))
 vi.mock('@/api/report', () => ({ reportApi }))
 
+vi.mock('vue-i18n', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('vue-i18n')>()
+
+    return {
+        ...actual,
+        useI18n: () => ({
+            t: (key: string) => key,
+        }),
+    }
+})
+
 vi.mock('@/utils/logger', () => ({
     default: {
         error: vi.fn(),
