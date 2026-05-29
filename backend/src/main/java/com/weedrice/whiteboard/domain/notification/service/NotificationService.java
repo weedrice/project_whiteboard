@@ -7,7 +7,6 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @Service
 public class NotificationService {
@@ -15,18 +14,15 @@ public class NotificationService {
     private final NotificationEventHandler eventHandler;
     private final NotificationQueryService queryService;
     private final NotificationReadCommandService readCommandService;
-    private final NotificationSseFacade sseFacade;
     private final UserRepository userRepository;
 
     public NotificationService(NotificationEventHandler eventHandler,
                                NotificationQueryService queryService,
                                NotificationReadCommandService readCommandService,
-                               NotificationSseFacade sseFacade,
                                UserRepository userRepository) {
         this.eventHandler = eventHandler;
         this.queryService = queryService;
         this.readCommandService = readCommandService;
-        this.sseFacade = sseFacade;
         this.userRepository = userRepository;
     }
 
@@ -34,13 +30,8 @@ public class NotificationService {
         eventHandler.handleNotificationEvent(event);
     }
 
-    public SseEmitter subscribe(Long userId) {
+    public void validateStreamSubscription(Long userId) {
         validateUserExists(userId);
-        return sseFacade.subscribe(userId);
-    }
-
-    public void sendHeartbeat() {
-        sseFacade.sendHeartbeat();
     }
 
     public NotificationResponse getNotifications(Long userId, Pageable pageable) {

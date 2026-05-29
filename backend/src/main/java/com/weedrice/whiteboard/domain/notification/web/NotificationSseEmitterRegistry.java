@@ -1,10 +1,11 @@
-package com.weedrice.whiteboard.domain.notification.service;
+package com.weedrice.whiteboard.domain.notification.web;
 
 import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
-import com.weedrice.whiteboard.domain.notification.entity.Notification;
+import com.weedrice.whiteboard.domain.notification.service.NotificationStreamPublisher;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
@@ -18,8 +19,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
-@Service
-class NotificationStreamService {
+@Component
+public class NotificationSseEmitterRegistry implements NotificationStreamPublisher {
 
     private static final long DEFAULT_TIMEOUT_MILLIS = Duration.ofMinutes(30).toMillis();
     private static final int DEFAULT_MAX_CONNECTIONS_PER_USER = 5;
@@ -30,7 +31,7 @@ class NotificationStreamService {
     private final long timeoutMillis;
     private final int maxConnectionsPerUser;
 
-    NotificationStreamService(
+    NotificationSseEmitterRegistry(
             @Value("${notification.stream.timeout-millis:1800000}") long timeoutMillis,
             @Value("${notification.stream.max-connections-per-user:5}") int maxConnectionsPerUser) {
         this.timeoutMillis = timeoutMillis > 0 ? timeoutMillis : DEFAULT_TIMEOUT_MILLIS;
@@ -39,7 +40,7 @@ class NotificationStreamService {
                 : DEFAULT_MAX_CONNECTIONS_PER_USER;
     }
 
-    SseEmitter subscribe(Long userId) {
+    public SseEmitter subscribe(Long userId) {
         SseEmitter emitter = createEmitter();
         String connectionId = UUID.randomUUID().toString();
         EmitterConnection connection = new EmitterConnection(emitter, connectionSequence.incrementAndGet());
@@ -77,7 +78,8 @@ class NotificationStreamService {
         return emitter;
     }
 
-    void sendHeartbeat() {
+    @Scheduled(fixedRate = 25_000)
+    public void sendHeartbeat() {
         if (emitters.isEmpty()) {
             return;
         }
@@ -99,13 +101,13 @@ class NotificationStreamService {
         }
     }
 
-    void deliverNotification(Long userId, Notification notification) {
+    @Override
+    public void publish(Long userId, NotificationResponse.NotificationSummary summary) {
         Map<String, EmitterConnection> userEmitters = emitters.get(userId);
         if (userEmitters == null || userEmitters.isEmpty()) {
             return;
         }
 
-        NotificationResponse.NotificationSummary summary = NotificationResponse.NotificationSummary.from(notification);
         for (Map.Entry<String, EmitterConnection> entry : new ArrayList<>(userEmitters.entrySet())) {
             try {
                 entry.getValue().emitter().send(SseEmitter.event()

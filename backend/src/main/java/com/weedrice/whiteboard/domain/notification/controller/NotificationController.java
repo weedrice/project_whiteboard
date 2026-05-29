@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.notification.controller;
 
 import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.service.NotificationService;
+import com.weedrice.whiteboard.domain.notification.web.NotificationSseEmitterRegistry;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
@@ -19,6 +20,7 @@ import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.
 public class NotificationController {
 
     private final NotificationService notificationService;
+    private final NotificationSseEmitterRegistry notificationSseEmitterRegistry;
 
     @GetMapping
     public ApiResponse<NotificationResponse> getNotifications(
@@ -57,6 +59,7 @@ public class NotificationController {
     @GetMapping(value = "/stream", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribe(@AuthenticationPrincipal CustomUserDetails userDetails) {
         Long userId = requiredUserId(userDetails);
-        return notificationService.subscribe(userId);
+        notificationService.validateStreamSubscription(userId);
+        return notificationSseEmitterRegistry.subscribe(userId);
     }
 }

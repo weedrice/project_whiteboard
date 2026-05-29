@@ -1,6 +1,7 @@
-package com.weedrice.whiteboard.domain.notification.service;
+package com.weedrice.whiteboard.domain.notification.web;
 
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
+import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import org.junit.jupiter.api.DisplayName;
@@ -15,30 +16,30 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class NotificationStreamServiceTest {
+class NotificationSseEmitterRegistryTest {
 
     @Test
     @DisplayName("subscribe uses configured timeout and stores connection")
     void subscribe_usesConfiguredTimeout() {
-        NotificationStreamService service = new NotificationStreamService(10_000L, 5);
+        NotificationSseEmitterRegistry registry = new NotificationSseEmitterRegistry(10_000L, 5);
 
-        SseEmitter emitter = service.subscribe(1L);
+        SseEmitter emitter = registry.subscribe(1L);
 
         assertThat(ReflectionTestUtils.getField(emitter, "timeout")).isEqualTo(10_000L);
-        assertThat(connectionCount(service, 1L)).isEqualTo(1);
+        assertThat(connectionCount(registry, 1L)).isEqualTo(1);
     }
 
     @Test
     @DisplayName("subscribe evicts oldest connection when per-user limit is exceeded")
     void subscribe_evictsOldestConnectionWhenLimitExceeded() {
-        NotificationStreamService service = new NotificationStreamService(10_000L, 2);
+        NotificationSseEmitterRegistry registry = new NotificationSseEmitterRegistry(10_000L, 2);
 
-        SseEmitter first = service.subscribe(1L);
-        SseEmitter second = service.subscribe(1L);
-        SseEmitter third = service.subscribe(1L);
+        SseEmitter first = registry.subscribe(1L);
+        SseEmitter second = registry.subscribe(1L);
+        SseEmitter third = registry.subscribe(1L);
 
-        assertThat(connectionCount(service, 1L)).isEqualTo(2);
-        assertThat(activeEmitters(service, 1L))
+        assertThat(connectionCount(registry, 1L)).isEqualTo(2);
+        assertThat(activeEmitters(registry, 1L))
                 .doesNotContain(first)
                 .contains(second, third);
     }
@@ -46,25 +47,25 @@ class NotificationStreamServiceTest {
     @Test
     @DisplayName("heartbeat and notification delivery keep healthy connections")
     void heartbeatAndDelivery_keepHealthyConnections() {
-        NotificationStreamService service = new NotificationStreamService(10_000L, 5);
-        service.subscribe(1L);
+        NotificationSseEmitterRegistry registry = new NotificationSseEmitterRegistry(10_000L, 5);
+        registry.subscribe(1L);
 
-        service.sendHeartbeat();
-        service.deliverNotification(1L, notification(1L));
+        registry.sendHeartbeat();
+        registry.publish(1L, summary(1L));
 
-        assertThat(connectionCount(service, 1L)).isEqualTo(1);
+        assertThat(connectionCount(registry, 1L)).isEqualTo(1);
     }
 
     @Test
     @DisplayName("subscribe removes and completes emitter with error when connect event fails")
     void subscribe_connectEventFails_completesEmitterWithError() {
         FailingSseEmitter emitter = FailingSseEmitter.failImmediately();
-        NotificationStreamService service = new FixedEmitterNotificationStreamService(emitter);
+        NotificationSseEmitterRegistry registry = new FixedEmitterNotificationSseEmitterRegistry(emitter);
 
-        SseEmitter subscribed = service.subscribe(1L);
+        SseEmitter subscribed = registry.subscribe(1L);
 
         assertThat(subscribed).isSameAs(emitter);
-        assertThat(connectionCount(service, 1L)).isZero();
+        assertThat(connectionCount(registry, 1L)).isZero();
         assertThat(emitter.completedWithError()).isTrue();
         assertThat(emitter.completionError()).isInstanceOf(IOException.class);
     }
@@ -73,12 +74,12 @@ class NotificationStreamServiceTest {
     @DisplayName("heartbeat failure removes and completes emitter with error")
     void sendHeartbeat_sendFails_completesEmitterWithError() {
         FailingSseEmitter emitter = FailingSseEmitter.failAfterConnectEvent();
-        NotificationStreamService service = new FixedEmitterNotificationStreamService(emitter);
-        service.subscribe(1L);
+        NotificationSseEmitterRegistry registry = new FixedEmitterNotificationSseEmitterRegistry(emitter);
+        registry.subscribe(1L);
 
-        service.sendHeartbeat();
+        registry.sendHeartbeat();
 
-        assertThat(connectionCount(service, 1L)).isZero();
+        assertThat(connectionCount(registry, 1L)).isZero();
         assertThat(emitter.completedWithError()).isTrue();
         assertThat(emitter.completionError()).isInstanceOf(IOException.class);
     }
@@ -87,12 +88,12 @@ class NotificationStreamServiceTest {
     @DisplayName("notification delivery failure removes and completes emitter with error")
     void deliverNotification_sendFails_completesEmitterWithError() {
         FailingSseEmitter emitter = FailingSseEmitter.failAfterConnectEvent();
-        NotificationStreamService service = new FixedEmitterNotificationStreamService(emitter);
-        service.subscribe(1L);
+        NotificationSseEmitterRegistry registry = new FixedEmitterNotificationSseEmitterRegistry(emitter);
+        registry.subscribe(1L);
 
-        service.deliverNotification(1L, notification(1L));
+        registry.publish(1L, summary(1L));
 
-        assertThat(connectionCount(service, 1L)).isZero();
+        assertThat(connectionCount(registry, 1L)).isZero();
         assertThat(emitter.completedWithError()).isTrue();
         assertThat(emitter.completionError()).isInstanceOf(IOException.class);
     }
@@ -100,27 +101,27 @@ class NotificationStreamServiceTest {
     @Test
     @DisplayName("removeEmitter removes user lock after the last connection")
     void removeEmitter_removesUserLockAfterLastConnection() {
-        NotificationStreamService service = new NotificationStreamService(10_000L, 5);
+        NotificationSseEmitterRegistry registry = new NotificationSseEmitterRegistry(10_000L, 5);
 
-        service.subscribe(1L);
-        String connectionId = userEmitters(service, 1L).keySet().iterator().next().toString();
+        registry.subscribe(1L);
+        String connectionId = userEmitters(registry, 1L).keySet().iterator().next().toString();
 
-        ReflectionTestUtils.invokeMethod(service, "removeEmitter", 1L, connectionId);
+        ReflectionTestUtils.invokeMethod(registry, "removeEmitter", 1L, connectionId);
 
-        assertThat(userEmitters(service, 1L)).isNull();
-        assertThat(userLocks(service)).doesNotContainKey(1L);
+        assertThat(userEmitters(registry, 1L)).isNull();
+        assertThat(userLocks(registry)).doesNotContainKey(1L);
     }
 
     @Test
     @DisplayName("subscribe retries when the acquired user lock was removed")
     void subscribe_retriesWhenAcquiredUserLockWasRemoved() throws InterruptedException {
-        NotificationStreamService service = new NotificationStreamService(10_000L, 5);
+        NotificationSseEmitterRegistry registry = new NotificationSseEmitterRegistry(10_000L, 5);
         Object staleLock = new Object();
-        userLocks(service).put(1L, staleLock);
+        userLocks(registry).put(1L, staleLock);
         AtomicReference<Throwable> failure = new AtomicReference<>();
         Thread subscriber = new Thread(() -> {
             try {
-                service.subscribe(1L);
+                registry.subscribe(1L);
             } catch (Throwable e) {
                 failure.set(e);
             }
@@ -130,44 +131,44 @@ class NotificationStreamServiceTest {
         synchronized (staleLock) {
             subscriber.start();
             waitUntilBlocked(subscriber);
-            userLocks(service).remove(1L, staleLock);
+            userLocks(registry).remove(1L, staleLock);
         }
         subscriber.join(1_000L);
 
         assertThat(subscriber.isAlive()).isFalse();
         assertThat(failure.get()).isNull();
-        assertThat(connectionCount(service, 1L)).isEqualTo(1);
-        assertThat(userLocks(service)).containsKey(1L);
-        assertThat(userLocks(service).get(1L)).isNotSameAs(staleLock);
+        assertThat(connectionCount(registry, 1L)).isEqualTo(1);
+        assertThat(userLocks(registry)).containsKey(1L);
+        assertThat(userLocks(registry).get(1L)).isNotSameAs(staleLock);
     }
 
     @Test
     @DisplayName("heartbeat cleanup does not recreate a missing user lock")
     void heartbeatCleanup_doesNotRecreateMissingUserLock() {
-        NotificationStreamService service = new NotificationStreamService(10_000L, 5);
-        emitters(service).put(1L, new ConcurrentHashMap<>());
+        NotificationSseEmitterRegistry registry = new NotificationSseEmitterRegistry(10_000L, 5);
+        emitters(registry).put(1L, new ConcurrentHashMap<>());
 
-        service.sendHeartbeat();
+        registry.sendHeartbeat();
 
-        assertThat(emitters(service)).doesNotContainKey(1L);
-        assertThat(userLocks(service)).doesNotContainKey(1L);
+        assertThat(emitters(registry)).doesNotContainKey(1L);
+        assertThat(userLocks(registry)).doesNotContainKey(1L);
     }
 
     @Test
     @DisplayName("missing lock cleanup with null expected emitters keeps current emitters")
     void missingLockCleanupWithNullExpectedEmitters_keepsCurrentEmitters() {
-        NotificationStreamService service = new NotificationStreamService(10_000L, 5);
+        NotificationSseEmitterRegistry registry = new NotificationSseEmitterRegistry(10_000L, 5);
         Map<String, Object> currentEmitters = new ConcurrentHashMap<>();
         currentEmitters.put("active", new Object());
-        emitters(service).put(1L, currentEmitters);
+        emitters(registry).put(1L, currentEmitters);
 
-        ReflectionTestUtils.invokeMethod(service, "removeEmptyUser", 1L, null);
+        ReflectionTestUtils.invokeMethod(registry, "removeEmptyUser", 1L, null);
 
-        assertThat(emitters(service).get(1L)).isSameAs(currentEmitters);
-        assertThat(userLocks(service)).doesNotContainKey(1L);
+        assertThat(emitters(registry).get(1L)).isSameAs(currentEmitters);
+        assertThat(userLocks(registry)).doesNotContainKey(1L);
     }
 
-    private Notification notification(Long userId) {
+    private NotificationResponse.NotificationSummary summary(Long userId) {
         User user = User.builder()
                 .loginId("receiver")
                 .email("receiver@test.com")
@@ -176,41 +177,43 @@ class NotificationStreamServiceTest {
                 .build();
         ReflectionTestUtils.setField(user, "userId", userId);
 
-        return Notification.builder()
+        Notification notification = Notification.builder()
                 .user(user)
                 .notificationType(NotificationType.LIKE)
                 .sourceType("POST")
                 .sourceId(1L)
                 .content("notification")
                 .build();
+        return NotificationResponse.NotificationSummary.from(notification);
     }
 
-    private int connectionCount(NotificationStreamService service, Long userId) {
-        Map<?, ?> userEmitters = userEmitters(service, userId);
+    private int connectionCount(NotificationSseEmitterRegistry registry, Long userId) {
+        Map<?, ?> userEmitters = userEmitters(registry, userId);
         return userEmitters == null ? 0 : userEmitters.size();
     }
 
-    private Object[] activeEmitters(NotificationStreamService service, Long userId) {
-        return userEmitters(service, userId).values().stream()
+    private Object[] activeEmitters(NotificationSseEmitterRegistry registry, Long userId) {
+        return userEmitters(registry, userId).values().stream()
                 .map(connection -> ReflectionTestUtils.getField(connection, "emitter"))
                 .toArray();
     }
 
     @SuppressWarnings("unchecked")
-    private Map<?, ?> userEmitters(NotificationStreamService service, Long userId) {
-        return (Map<?, ?>) emitters(service).get(userId);
+    private Map<?, ?> userEmitters(NotificationSseEmitterRegistry registry, Long userId) {
+        return (Map<?, ?>) emitters(registry).get(userId);
     }
 
     @SuppressWarnings("unchecked")
-    private Map<Long, Map<String, ?>> emitters(NotificationStreamService service) {
-        Map<Long, Map<String, ?>> emitters = (Map<Long, Map<String, ?>>) ReflectionTestUtils.getField(service, "emitters");
+    private Map<Long, Map<String, ?>> emitters(NotificationSseEmitterRegistry registry) {
+        Map<Long, Map<String, ?>> emitters =
+                (Map<Long, Map<String, ?>>) ReflectionTestUtils.getField(registry, "emitters");
         assertThat(emitters).isNotNull();
         return emitters;
     }
 
     @SuppressWarnings("unchecked")
-    private Map<Long, Object> userLocks(NotificationStreamService service) {
-        Map<Long, Object> userLocks = (Map<Long, Object>) ReflectionTestUtils.getField(service, "userLocks");
+    private Map<Long, Object> userLocks(NotificationSseEmitterRegistry registry) {
+        Map<Long, Object> userLocks = (Map<Long, Object>) ReflectionTestUtils.getField(registry, "userLocks");
         assertThat(userLocks).isNotNull();
         return userLocks;
     }
@@ -225,11 +228,11 @@ class NotificationStreamServiceTest {
         throw new AssertionError("subscriber did not wait for the stale user lock");
     }
 
-    private static class FixedEmitterNotificationStreamService extends NotificationStreamService {
+    private static class FixedEmitterNotificationSseEmitterRegistry extends NotificationSseEmitterRegistry {
 
         private final SseEmitter emitter;
 
-        private FixedEmitterNotificationStreamService(SseEmitter emitter) {
+        private FixedEmitterNotificationSseEmitterRegistry(SseEmitter emitter) {
             super(10_000L, 5);
             this.emitter = emitter;
         }

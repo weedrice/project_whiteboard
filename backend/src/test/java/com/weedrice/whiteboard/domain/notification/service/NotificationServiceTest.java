@@ -82,8 +82,9 @@ class NotificationServiceTest {
                 .thenReturn(Optional.empty());
 
         NotificationPreferenceService preferenceService = new NotificationPreferenceService(userNotificationSettingsRepository);
-        NotificationStreamService streamService = new NotificationStreamService(1_800_000L, 5);
-        notificationService = createNotificationService(preferenceService, streamService);
+        NotificationStreamPublisher streamPublisher = (userId, summary) -> {
+        };
+        notificationService = createNotificationService(preferenceService, streamPublisher);
     }
 
     @Test
@@ -215,8 +216,8 @@ class NotificationServiceTest {
         when(notificationRepository.save(any(Notification.class))).thenReturn(notification);
 
         NotificationPreferenceService preferenceService = new NotificationPreferenceService(userNotificationSettingsRepository);
-        NotificationStreamService streamService = new ThrowingNotificationStreamService();
-        NotificationService service = createNotificationService(preferenceService, streamService);
+        NotificationStreamPublisher streamPublisher = new ThrowingNotificationStreamPublisher();
+        NotificationService service = createNotificationService(preferenceService, streamPublisher);
 
         assertThatCode(() -> service.handleNotificationEvent(event)).doesNotThrowAnyException();
 
@@ -235,14 +236,14 @@ class NotificationServiceTest {
         when(notificationRepository.save(any(Notification.class))).thenReturn(notification);
 
         NotificationPreferenceService preferenceService = new NotificationPreferenceService(userNotificationSettingsRepository);
-        RecordingNotificationStreamService streamService = new RecordingNotificationStreamService();
-        NotificationService service = createNotificationService(preferenceService, streamService);
+        RecordingNotificationStreamPublisher streamPublisher = new RecordingNotificationStreamPublisher();
+        NotificationService service = createNotificationService(preferenceService, streamPublisher);
 
         TransactionSynchronizationManager.initSynchronization();
         try {
             service.handleNotificationEvent(event);
 
-            assertThat(streamService.delivered).isFalse();
+            assertThat(streamPublisher.delivered).isFalse();
 
             TransactionSynchronizationManager.getSynchronizations()
                     .forEach(synchronization -> synchronization.afterCommit());
@@ -250,7 +251,7 @@ class NotificationServiceTest {
             TransactionSynchronizationManager.clearSynchronization();
         }
 
-        assertThat(streamService.delivered).isTrue();
+        assertThat(streamPublisher.delivered).isTrue();
         verify(notificationRepository).save(any(Notification.class));
     }
 
@@ -337,22 +338,22 @@ class NotificationServiceTest {
 
     @Test
     @DisplayName("SSE subscribe validates user existence")
-    void subscribe_validatesUserExists() {
+    void validateStreamSubscription_validatesUserExists() {
         Long userId = 1L;
         when(userRepository.existsById(userId)).thenReturn(true);
 
-        assertThat(notificationService.subscribe(userId)).isNotNull();
+        notificationService.validateStreamSubscription(userId);
 
         verify(userRepository).existsById(userId);
     }
 
     @Test
     @DisplayName("SSE subscribe rejects missing user")
-    void subscribe_missingUser_throwsUserNotFound() {
+    void validateStreamSubscription_missingUser_throwsUserNotFound() {
         Long userId = 999L;
         when(userRepository.existsById(userId)).thenReturn(false);
 
-        assertThatThrownBy(() -> notificationService.subscribe(userId))
+        assertThatThrownBy(() -> notificationService.validateStreamSubscription(userId))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_FOUND);
     }
@@ -424,40 +425,31 @@ class NotificationServiceTest {
     }
 
     private NotificationService createNotificationService(NotificationPreferenceService preferenceService,
-                                                          NotificationStreamService streamService) {
+                                                          NotificationStreamPublisher streamPublisher) {
         NotificationCommandService commandService = new NotificationCommandService(
                 notificationRepository,
                 preferenceService);
-        NotificationEventHandler eventHandler = new NotificationEventHandler(commandService, streamService);
+        NotificationEventHandler eventHandler = new NotificationEventHandler(commandService, streamPublisher);
         NotificationQueryService queryService = new NotificationQueryService(notificationRepository);
         NotificationReadCommandService readCommandService =
                 new NotificationReadCommandService(commandService);
-        NotificationSseFacade sseFacade = new NotificationSseFacade(streamService);
-        return new NotificationService(eventHandler, queryService, readCommandService, sseFacade, userRepository);
+        return new NotificationService(eventHandler, queryService, readCommandService, userRepository);
     }
 
-    private static class ThrowingNotificationStreamService extends NotificationStreamService {
-
-        private ThrowingNotificationStreamService() {
-            super(1_800_000L, 5);
-        }
+    private static class ThrowingNotificationStreamPublisher implements NotificationStreamPublisher {
 
         @Override
-        void deliverNotification(Long userId, Notification notification) {
+        public void publish(Long userId, NotificationResponse.NotificationSummary summary) {
             throw new IllegalStateException("delivery failed");
         }
     }
 
-    private static class RecordingNotificationStreamService extends NotificationStreamService {
+    private static class RecordingNotificationStreamPublisher implements NotificationStreamPublisher {
 
         private boolean delivered;
 
-        private RecordingNotificationStreamService() {
-            super(1_800_000L, 5);
-        }
-
         @Override
-        void deliverNotification(Long userId, Notification notification) {
+        public void publish(Long userId, NotificationResponse.NotificationSummary summary) {
             delivered = true;
         }
     }

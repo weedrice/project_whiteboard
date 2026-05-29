@@ -12,6 +12,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -22,7 +24,7 @@ class NotificationEventHandlerTest {
     private NotificationCommandService commandService;
 
     @Mock
-    private NotificationStreamService streamService;
+    private NotificationStreamPublisher streamPublisher;
 
     private NotificationEventHandler eventHandler;
     private User receiver;
@@ -30,7 +32,7 @@ class NotificationEventHandlerTest {
 
     @BeforeEach
     void setUp() {
-        eventHandler = new NotificationEventHandler(commandService, streamService);
+        eventHandler = new NotificationEventHandler(commandService, streamPublisher);
         receiver = User.builder().build();
         ReflectionTestUtils.setField(receiver, "userId", 1L);
         notification = Notification.builder()
@@ -53,6 +55,11 @@ class NotificationEventHandlerTest {
         eventHandler.handleNotificationEvent(event);
 
         verify(commandService).handleNotificationEvent(event);
-        verify(streamService).deliverNotification(1L, notification);
+        verify(streamPublisher).publish(eq(1L), argThat(summary ->
+                summary.getNotificationId().equals(5L)
+                        && summary.getNotificationType().equals(NotificationType.LIKE.name())
+                        && summary.getSourceType().equals("POST")
+                        && summary.getSourceId().equals(10L)
+                        && summary.getMessage().equals("content")));
     }
 }
