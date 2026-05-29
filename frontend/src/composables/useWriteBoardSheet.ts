@@ -4,7 +4,12 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useBoard } from '@/composables/useBoard'
 import { useToastStore } from '@/stores/toast'
-import { verifyBoardWriteAccess } from '@/composables/useBoardWriteAccess'
+import {
+  BOARD_WRITE_FORBIDDEN_MESSAGE_KEY,
+  BOARD_WRITE_VERIFY_FAILED_MESSAGE_KEY,
+  canUserWriteBoardPost,
+  fetchBoardForWriteAccess,
+} from '@/composables/useBoardWriteAccess'
 import i18n from '@/i18n'
 
 export function useWriteBoardSheet() {
@@ -51,23 +56,23 @@ export function useWriteBoardSheet() {
     showWriteSheet.value = true
   }
 
+  const verifyBoardWriteAccess = async (boardUrl: string) => {
+    const board = await fetchBoardForWriteAccess(queryClient, boardUrl)
+    return canUserWriteBoardPost(board, authStore.isAuthenticated, authStore.user?.role)
+  }
+
   const goToBoardWrite = async (boardUrl: string) => {
     try {
-      const canWrite = await verifyBoardWriteAccess({
-        queryClient,
-        boardUrl,
-        isAuthenticated: authStore.isAuthenticated,
-        userRole: authStore.user?.role,
-      })
+      const canWrite = await verifyBoardWriteAccess(boardUrl)
       if (!canWrite) {
-        toastStore.addToast(i18n.global.t('common.messages.boardWriteForbidden'), 'error')
+        toastStore.addToast(i18n.global.t(BOARD_WRITE_FORBIDDEN_MESSAGE_KEY), 'error')
         return
       }
 
       showWriteSheet.value = false
       await router.push(`/board/${boardUrl}/write`)
     } catch {
-      toastStore.addToast(i18n.global.t('common.messages.boardWriteForbidden'), 'error')
+      toastStore.addToast(i18n.global.t(BOARD_WRITE_VERIFY_FAILED_MESSAGE_KEY), 'error')
     }
   }
 
