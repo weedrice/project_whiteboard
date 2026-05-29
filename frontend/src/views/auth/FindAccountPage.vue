@@ -107,8 +107,7 @@ const {
         } else {
             completePasswordResetVerification(verificationTicket)
         }
-    },
-    onSendError: () => true
+    }
 })
 </script>
 
