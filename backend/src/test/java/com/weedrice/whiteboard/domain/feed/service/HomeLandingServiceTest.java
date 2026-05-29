@@ -71,8 +71,7 @@ class HomeLandingServiceTest {
                 boardRepository,
                 commentRepository,
                 userRepository,
-                clock,
-                new HomeLandingSectionAssembler());
+                clock);
     }
 
     @Test
@@ -108,16 +107,12 @@ class HomeLandingServiceTest {
 
         HomeLandingResponse response = homeLandingService.getLanding(1L, "24h");
 
-        assertThat(response.getSections()).extracting(HomeLandingResponse.Section::getSectionType)
-                .containsExactly("FEATURED", "EDITOR_PICKS", "TRENDING", "LIVE_ACTIVITY");
-        assertThat(response.getSections().get(0).getItems()).extracting(FeedPostSummary::getPostId)
-                .containsExactly(1L);
-        assertThat(response.getSections().get(1).getItems()).extracting(FeedPostSummary::getPostId)
-                .containsExactly(2L, 3L, 4L);
-        assertThat(response.getSections().get(2).getItems()).extracting(FeedPostSummary::getPostId)
-                .containsExactly(2L, 3L, 4L, 5L, 6L);
-        assertThat(response.getSections().get(3).getItems()).extracting(FeedPostSummary::getPostId)
+        assertThat(response.getCuratedPosts()).extracting(FeedPostSummary::getPostId)
+                .containsExactly(1L, 2L, 3L, 4L, 5L, 6L);
+        assertThat(response.getLatestPosts()).extracting(FeedPostSummary::getPostId)
                 .containsExactly(11L, 10L);
+        assertThat(response.getBoards()).extracting(BoardListResponse::getBoardId)
+                .containsExactly(1L, 2L);
         assertThat(response.getStats().getBoardCount()).isEqualTo(11L);
         assertThat(response.getStats().getPostCount()).isEqualTo(8421L);
         assertThat(response.getStats().getLiveCount()).isEqualTo(1824L);
@@ -129,6 +124,29 @@ class HomeLandingServiceTest {
         assertThat(response.getStats().getCommentsToday()).isEqualTo(1824L);
         verify(boardService).getTopBoardsByUserId(1L, 7);
         verify(postService).getPublicLandingLatestFeedPosts(any(), eq(1L));
+    }
+
+    @Test
+    @DisplayName("Landing response uses empty arrays when source lookups return null")
+    void getLanding_returnsEmptyArraysForNullSources() {
+        when(postService.getTrendingFeedPosts(any(), isNull(), eq("24h"))).thenReturn(null);
+        when(postService.getPublicLandingLatestFeedPosts(any(), isNull())).thenReturn(null);
+        when(boardService.getTopBoardsByUserId(isNull(), eq(7))).thenReturn(null);
+        when(postRepository.countPublicLandingPostStats(any(), any(), any(), eq(BoardPolicyConstants.INQUIRY_BOARD_URL)))
+                .thenReturn(postStats(0L, 0L, 0L));
+        when(boardRepository.countPublicLandingVisibleBoards(BoardPolicyConstants.INQUIRY_BOARD_URL)).thenReturn(0L);
+        when(userRepository.countPublicLandingUserStats(any())).thenReturn(userStats(0L, 0L));
+        when(commentRepository.countPublicLandingVisibleCommentsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                any(),
+                any(),
+                eq(BoardPolicyConstants.INQUIRY_BOARD_URL)))
+                .thenReturn(0L);
+
+        HomeLandingResponse response = homeLandingService.getLanding(null, "24h");
+
+        assertThat(response.getCuratedPosts()).isEmpty();
+        assertThat(response.getLatestPosts()).isEmpty();
+        assertThat(response.getBoards()).isEmpty();
     }
 
     @Test

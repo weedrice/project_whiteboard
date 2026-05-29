@@ -35,7 +35,6 @@ public class HomeLandingService {
     private final CommentRepository commentRepository;
     private final UserRepository userRepository;
     private final Clock clock;
-    private final HomeLandingSectionAssembler homeLandingSectionAssembler;
 
     public HomeLandingResponse getLanding(Long userId, String period) {
         List<FeedPostSummary> curatedPosts = getCuratedPosts(userId, period);
@@ -43,7 +42,12 @@ public class HomeLandingService {
         List<BoardListResponse> boards = getBoards(userId);
         HomeLandingResponse.Stats stats = getStats();
 
-        return homeLandingSectionAssembler.assemble(curatedPosts, latestPosts, boards, stats);
+        return HomeLandingResponse.builder()
+                .curatedPosts(safeList(curatedPosts))
+                .latestPosts(safeList(latestPosts))
+                .boards(safeList(boards))
+                .stats(stats)
+                .build();
     }
 
     private HomeLandingResponse.Stats getStats() {
@@ -105,5 +109,9 @@ public class HomeLandingService {
 
     private List<BoardListResponse> getBoards(Long userId) {
         return boardService.getTopBoardsByUserId(userId, LANDING_BOARD_LIMIT);
+    }
+
+    private <T> List<T> safeList(List<T> items) {
+        return items == null ? List.of() : items;
     }
 }
