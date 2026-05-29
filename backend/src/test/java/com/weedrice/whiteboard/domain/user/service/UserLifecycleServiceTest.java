@@ -24,6 +24,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -79,6 +80,22 @@ class UserLifecycleServiceTest {
         assertThat(user.getStatus()).isEqualTo("SUSPENDED");
         var inOrder = inOrder(userRepository, userPrivilegeCleanupService, refreshTokenLifecycleService, agentLifecycleService);
         inOrder.verify(userRepository).findByIdForUpdate(1L);
+        inOrder.verify(userPrivilegeCleanupService).removeOperationalPrivileges(user);
+        inOrder.verify(refreshTokenLifecycleService).revokeActiveRefreshTokensForLockedUser(user);
+        inOrder.verify(agentLifecycleService).suspendAllForUser(user);
+    }
+
+    @Test
+    @DisplayName("prelocked suspend reuses locked user without repository lookup")
+    void suspendPrelockedUser_reusesLockedUserWithoutRepositoryLookup() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        userLifecycleService.suspendPrelockedUser(user);
+
+        assertThat(user.getStatus()).isEqualTo("SUSPENDED");
+        verifyNoInteractions(userRepository);
+        var inOrder = inOrder(userPrivilegeCleanupService, refreshTokenLifecycleService, agentLifecycleService);
         inOrder.verify(userPrivilegeCleanupService).removeOperationalPrivileges(user);
         inOrder.verify(refreshTokenLifecycleService).revokeActiveRefreshTokensForLockedUser(user);
         inOrder.verify(agentLifecycleService).suspendAllForUser(user);

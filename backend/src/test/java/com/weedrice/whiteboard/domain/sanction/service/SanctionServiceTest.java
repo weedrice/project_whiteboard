@@ -114,7 +114,8 @@ class SanctionServiceTest {
 
         assertThat(sanctionId).isEqualTo(1L);
         verify(userRepository).findByIdForUpdate(2L);
-        verify(userLifecycleService).suspendUser(targetUser);
+        verify(userLifecycleService).suspendPrelockedUser(targetUser);
+        verify(userLifecycleService, never()).suspendUser(any(User.class));
         verify(sanctionRepository).save(argThat(sanction ->
                 Long.valueOf(100L).equals(sanction.getContentId())
                         && "POST".equals(sanction.getContentType())));
@@ -141,7 +142,7 @@ class SanctionServiceTest {
         sanctionService.createSanction(1L, 2L, "BAN", "Temp ban", LocalDateTime.now().plusDays(1), null, null);
 
         assertThat(targetUser.getStatus()).isEqualTo("ACTIVE");
-        verify(userLifecycleService, never()).suspendUser(targetUser);
+        verify(userLifecycleService, never()).suspendPrelockedUser(any(User.class));
     }
 
     @Test
@@ -155,7 +156,7 @@ class SanctionServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
 
-        verify(userLifecycleService, never()).suspendUser(any(User.class));
+        verify(userLifecycleService, never()).suspendPrelockedUser(any(User.class));
     }
 
     @Test
