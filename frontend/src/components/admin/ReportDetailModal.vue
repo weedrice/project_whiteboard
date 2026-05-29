@@ -11,6 +11,8 @@ import { formatDate } from '@/utils/date'
 import {
   getAdminReportStatusLabel,
   getCommonReportTargetTypeLabel,
+  getReportProcessorText,
+  getReportReasonText,
   getReportStatusVariant
 } from '@/utils/reportDisplay'
 import type { Report } from '@/types'
@@ -36,19 +38,6 @@ const targetTypeLabel = computed(() => {
   return getCommonReportTargetTypeLabel(t, props.report.targetType)
 })
 
-function getProcessorText(report: Report) {
-  if (report.adminId != null) {
-    return `ADMIN #${report.adminId}`
-  }
-  if (report.processorUserId != null) {
-    return `USER #${report.processorUserId}`
-  }
-  return '-'
-}
-
-function getReportReasonText(report: Report) {
-  return report.contents?.trim() || report.remark?.trim() || '-'
-}
 </script>
 
 <template>
@@ -83,7 +72,7 @@ function getReportReasonText(report: Report) {
             {{ formatDate(report.createdAt) }}
           </DescriptionItem>
           <DescriptionItem label="처리자">
-            {{ getProcessorText(report) }}
+            {{ getReportProcessorText(report) }}
           </DescriptionItem>
         </DescriptionGrid>
       </DetailSection>

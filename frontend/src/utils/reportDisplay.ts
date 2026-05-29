@@ -33,6 +33,31 @@ export function getCommonReportTargetTypeLabel(t: TranslateFn, targetType: Repor
   }
 }
 
+export function getReportProcessorText(report: Pick<Report, 'adminId' | 'processorUserId'>) {
+  if (report.adminId != null) {
+    return `ADMIN #${report.adminId}`
+  }
+  if (report.processorUserId != null) {
+    return `USER #${report.processorUserId}`
+  }
+  return '-'
+}
+
+export function getReportReasonText(report: Pick<Report, 'contents' | 'remark'>) {
+  return report.contents?.trim() || report.remark?.trim() || '-'
+}
+
+export function getReportTargetDisplayText(
+  t: TranslateFn,
+  report: Pick<Report, 'targetDisplayName' | 'targetLoginId' | 'targetType' | 'targetId'>,
+) {
+  if (report.targetDisplayName != null && report.targetLoginId != null) {
+    return `${report.targetDisplayName}\n${report.targetLoginId}`
+  }
+
+  return `${getCommonReportTargetTypeLabel(t, report.targetType)} #${report.targetId}`
+}
+
 export function getMyReportTargetTypeLabel(t: TranslateFn, targetType: ReportTargetType) {
   return t(`report.types.${targetType.toLowerCase()}`)
 }
