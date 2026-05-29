@@ -23,7 +23,7 @@ const { selectThumbnailImage, selectEmoticonImages } = useEmoticonImageSelection
 const { confirm } = useConfirm()
 
 const emoticonId = computed(() => Number(route.params.emoticonId))
-const { emoticon, isLoading } = useEmoticonEditResource({ emoticonId })
+const { emoticon, editFormState, isLoading } = useEmoticonEditResource({ emoticonId })
 
 useHead({
   title: computed(() => emoticon.value?.name ? `${emoticon.value.name} 수정 - 노비콘` : '노비콘 수정')
@@ -60,6 +60,7 @@ const {
 } = useEmoticonEditForm({
   emoticonId,
   emoticon,
+  editFormState,
   selectThumbnailImage,
   selectEmoticonImages,
   confirm,

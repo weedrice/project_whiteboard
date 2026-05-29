@@ -2,6 +2,7 @@ import { computed, ref, watch, type ComputedRef, type Ref } from 'vue'
 import type { EmoticonImage, EmoticonMaster } from '@/types/emoticon'
 import type { EmoticonImagePreview } from '@/utils/emoticonImage'
 import { useEmoticonImageFormState } from '@/composables/useEmoticonImageFormState'
+import type { EmoticonEditFormState } from '@/composables/useEmoticonEditResource'
 import { useEmoticonTags } from '@/composables/useEmoticonTags'
 import { useToggleEmoticonVisibility } from '@/composables/useToggleEmoticonVisibility'
 import { useEmoticonUploadSession } from '@/composables/useEmoticonUploadSession'
@@ -9,6 +10,7 @@ import { useEmoticonUploadSession } from '@/composables/useEmoticonUploadSession
 interface UseEmoticonEditFormOptions {
   emoticonId: ComputedRef<number>
   emoticon: Ref<EmoticonMaster | null | undefined>
+  editFormState: ComputedRef<EmoticonEditFormState | null>
   selectThumbnailImage: (file: File) => Promise<EmoticonImagePreview | null>
   selectEmoticonImages: (files: FileList, remainingSlots: number) => Promise<EmoticonImagePreview[]>
   confirm: (message: string) => Promise<boolean>
@@ -19,6 +21,7 @@ interface UseEmoticonEditFormOptions {
 export function useEmoticonEditForm({
   emoticonId,
   emoticon,
+  editFormState,
   selectThumbnailImage,
   selectEmoticonImages,
   confirm,
@@ -56,18 +59,18 @@ export function useEmoticonEditForm({
 
   const changeThumbnail = openThumbnailInput
 
-  watch(emoticon, (data) => {
-    if (!data) return
+  watch(editFormState, (formState) => {
+    if (!formState) return
 
     const currentEmoticonId = emoticonId.value
-    if (data.emoticonId !== currentEmoticonId || hydratedEmoticonId.value === currentEmoticonId) return
+    if (formState.emoticonId !== currentEmoticonId || hydratedEmoticonId.value === currentEmoticonId) return
 
     hydratedEmoticonId.value = currentEmoticonId
-    emoticonName.value = data.name || ''
-    tags.value = [...(data.tags || [])]
-    existingImages.value = [...(data.images || [])]
-    originalThumbnailUrl.value = data.thumbnailUrl || null
-    setThumbnailPreviewFromRemote(data.thumbnailUrl || null)
+    emoticonName.value = formState.name
+    tags.value = [...formState.tags]
+    existingImages.value = [...formState.existingImages]
+    originalThumbnailUrl.value = formState.thumbnailUrl
+    setThumbnailPreviewFromRemote(formState.thumbnailUrl)
   }, { immediate: true })
 
   const { mutate: toggleVisibility, isPending: isToggling } = useToggleEmoticonVisibility(emoticonId)
