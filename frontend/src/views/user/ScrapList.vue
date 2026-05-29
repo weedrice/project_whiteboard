@@ -35,7 +35,7 @@ const errorMessage = computed(() => error.value ? getListLoadErrorMessage(t) : '
     @size-change="handleSizeChange"
   >
     <template #loading>
-      <div class="divide-y divide-gray-200 dark:divide-gray-700">
+      <div class="divide-y divide-[var(--nv-border)]">
         <div v-for="i in 5" :key="i" class="px-4 py-4 sm:px-6 flex justify-between items-center">
           <div class="w-full">
             <BaseSkeleton width="70%" height="24px" className="mb-2" />

@@ -8,7 +8,7 @@
                 <h2 class="mt-4 text-3xl font-bold nv-title">
                     {{ title }}
                 </h2>
-                <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                <p class="mt-2 text-sm nv-text-muted">
                     {{ message }}
                 </p>
             </div>

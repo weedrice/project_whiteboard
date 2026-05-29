@@ -163,10 +163,10 @@ watch(isBlockedAuthor, (blocked) => {
           />
         </div>
 
-        <p v-else-if="comment.isDeleted" class="text-xs italic text-gray-400 sm:text-sm">
+        <p v-else-if="comment.isDeleted" class="text-xs italic nv-text-subtle sm:text-sm">
           {{ $t('comment.deleted') }}
         </p>
-        <p v-else-if="isBlockedAuthor" class="text-xs italic text-gray-400 sm:text-sm">
+        <p v-else-if="isBlockedAuthor" class="text-xs italic nv-text-subtle sm:text-sm">
           {{ $t('comment.blockedContent') }}
         </p>
         <p v-else-if="isEmoticonOnly" class="text-xs sm:text-sm" v-html="renderedContent" @error.capture="applyImageFallback"></p>
@@ -202,7 +202,7 @@ watch(isBlockedAuthor, (blocked) => {
             </button>
             <button
               type="button"
-              class="rounded-md px-2 py-1.5 text-xs font-medium text-red-500 transition-colors hover:bg-gray-100 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-900/20 dark:hover:text-red-300"
+              class="rounded-md px-2 py-1.5 text-xs font-medium text-[var(--nv-danger-text)] transition-colors hover:bg-[var(--nv-danger-bg)]"
               @click="handleDelete"
             >
               {{ $t('common.delete') }}
@@ -229,7 +229,7 @@ watch(isBlockedAuthor, (blocked) => {
           <p v-if="isRepliesLoading" class="text-xs nv-text-subtle">
             {{ $t('common.loading') }}
           </p>
-          <p v-else-if="repliesError" class="text-xs text-red-500 dark:text-red-300">
+          <p v-else-if="repliesError" class="text-xs nv-form-error">
             {{ $t('comment.loadRepliesFailed') }}
           </p>
           <div v-else-if="replies.length > 0" class="space-y-3 sm:space-y-4">

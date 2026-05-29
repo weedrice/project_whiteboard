@@ -79,7 +79,7 @@
                     @click="openMessage(msg)"
                 >
                     <div class="flex justify-between items-baseline gap-2">
-                        <div class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">
+                        <div class="text-sm font-medium nv-accent-text truncate">
                             {{ msg.partnerName }}
                         </div>
                         <div class="text-[11px] sm:text-xs nv-text-subtle flex-shrink-0">

@@ -53,7 +53,7 @@ const errorMessage = computed(() => error.value ? getListLoadErrorMessage(t) : '
       <li v-for="report in reports" :key="report.reportId"
         class="px-4 py-4 sm:px-6 nv-hover-surface transition-colors duration-200 min-h-[44px] flex flex-row items-center justify-between gap-3">
         <div class="flex flex-col min-w-0 flex-1">
-          <p class="text-sm font-medium text-indigo-600 dark:text-indigo-400 line-clamp-2 sm:truncate">
+          <p class="text-sm font-medium nv-accent-text line-clamp-2 sm:truncate">
             {{ getMyReportTargetTypeLabel($t, report.targetType) }} {{ $t('user.reportList.targetType') }} - {{
               report.reasonType || report.contents || '-' }}
           </p>

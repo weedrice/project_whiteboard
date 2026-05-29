@@ -62,7 +62,7 @@ async function handleDelete(comment: Comment) {
       <div v-else class="text-xs nv-text-subtle sm:text-sm">
         <router-link
           to="/login"
-          class="text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
+          class="nv-accent-text hover:brightness-95"
         >
           {{ $t('common.login') }}
         </router-link>
@@ -84,7 +84,7 @@ async function handleDelete(comment: Comment) {
       </div>
     </div>
 
-    <div v-else-if="commentsError" class="py-4 text-center text-xs text-red-500 sm:text-sm">
+    <div v-else-if="commentsError" class="py-4 text-center text-xs nv-form-error sm:text-sm">
       {{ commentLoadFailedMessage }}
     </div>
 

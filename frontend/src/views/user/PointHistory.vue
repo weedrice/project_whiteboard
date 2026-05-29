@@ -52,7 +52,7 @@ const errorMessage = computed(() => error.value ? getListLoadErrorMessage(t) : '
         class="px-3 py-2.5 sm:px-6 sm:py-4 nv-hover-surface transition-colors duration-200 flex items-center">
         <div class="flex flex-row items-center justify-between w-full gap-2 min-w-0">
           <div class="flex flex-col min-w-0 flex-1">
-            <p class="text-xs sm:text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">
+            <p class="text-xs sm:text-sm font-medium nv-accent-text truncate">
               {{ item.description || $t('user.pointsHistory.adjustment') }}
             </p>
             <p class="mt-0.5 text-[11px] sm:text-xs nv-text-subtle">

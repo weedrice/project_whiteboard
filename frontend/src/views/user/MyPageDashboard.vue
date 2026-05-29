@@ -277,7 +277,7 @@ onMounted(async () => {
                         class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium nv-surface-muted nv-text-muted flex-shrink-0">
                         {{ comment.boardLabel }}
                       </span>
-                      <p class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate min-w-0">
+                      <p class="text-sm font-medium nv-accent-text truncate min-w-0">
                         {{ comment.postTitle }}
                       </p>
                     </div>

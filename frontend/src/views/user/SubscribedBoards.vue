@@ -42,7 +42,7 @@
                                 <Menu class="h-5 w-5" />
                             </div>
                             <div class="flex-1 min-w-0 py-1 sm:py-0">
-                                <div class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">{{
+                                <div class="text-sm font-medium nv-accent-text truncate">{{
                                     board.boardName || $t('user.subscriptions.unavailableBoard') }}</div>
                                 <p class="mt-0.5 sm:mt-1 text-xs sm:text-sm nv-text-subtle line-clamp-1 sm:line-clamp-2">{{
                                     board.description || $t('user.subscriptions.unavailableBoardDescription') }}</p>
@@ -50,7 +50,7 @@
                         </router-link>
                         <div v-else class="flex items-center flex-1 min-w-0 cursor-default">
                             <div class="flex-1 min-w-0 py-1 sm:py-0">
-                                <div class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">{{
+                                <div class="text-sm font-medium nv-accent-text truncate">{{
                                     board.boardName || $t('user.subscriptions.unavailableBoard') }}</div>
                                 <p class="mt-0.5 sm:mt-1 text-xs sm:text-sm nv-text-subtle line-clamp-1 sm:line-clamp-2">{{
                                     board.description || $t('user.subscriptions.unavailableBoardDescription') }}</p>
@@ -74,7 +74,7 @@
                     class="px-3 py-3 sm:px-6 sm:py-4 nv-hover-surface flex flex-row items-center justify-between gap-2 sm:gap-3 transition-colors duration-200">
                     <div class="flex items-center flex-1 min-w-0 cursor-default">
                         <div class="flex-1 min-w-0 py-1 sm:py-0">
-                            <div class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">{{
+                            <div class="text-sm font-medium nv-accent-text truncate">{{
                                 board.boardName || $t('user.subscriptions.unavailableBoard') }}</div>
                             <p class="mt-0.5 sm:mt-1 text-xs sm:text-sm nv-text-subtle line-clamp-1 sm:line-clamp-2">{{
                                 board.description || $t('user.subscriptions.unavailableBoardDescription') }}</p>

@@ -10,14 +10,14 @@
                     class="whitespace-nowrap py-3 sm:py-4 px-1 text-xs sm:text-sm min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors duration-200 focus:outline-none rounded-t touch-manipulation"
                     :class="[
                         isActive(tab.href)
-                            ? 'text-indigo-600 dark:text-indigo-400 font-bold'
+                            ? 'text-[var(--nv-accent)] font-bold'
                             : 'nv-text-subtle user-nav-link font-medium'
                     ]" :aria-current="isActive(tab.href) ? 'page' : undefined" role="tab"
                     :tabindex="isActive(tab.href) ? 0 : -1">
                     {{ $t(tab.nameKey) }}
                 </a>
 
-                <div class="absolute bottom-0 h-0.5 bg-indigo-500 dark:bg-gray-300 transition-all duration-300 ease-out"
+                <div class="absolute bottom-0 h-0.5 bg-[var(--nv-accent)] transition-all duration-300 ease-out"
                     :style="underlineStyle"></div>
             </nav>
         </div>

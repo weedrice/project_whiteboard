@@ -58,7 +58,7 @@ function handleMarkAllAsRead() {
         <div class="notification-spinner animate-spin rounded-full h-5 w-5 border-b-2 mx-auto"></div>
       </div>
 
-      <div v-else-if="isError" class="space-y-3 px-4 py-4 text-center text-sm text-red-600 dark:text-red-400">
+      <div v-else-if="isError" class="space-y-3 px-4 py-4 text-center text-sm nv-form-error">
         <p>{{ errorMessage }}</p>
         <BaseButton type="button" variant="secondary" size="sm" @click="() => refetch()">
           {{ $t('common.retry') }}
