@@ -68,7 +68,7 @@ function handleMarkAllAsRead() {
     </template>
 
     <template #loading>
-      <div class="divide-y divide-gray-200 dark:divide-gray-700">
+      <div class="divide-y divide-[var(--nv-border)]">
         <div v-for="i in 5" :key="i" class="px-3 py-3 sm:px-6 sm:py-4 flex justify-between items-center">
           <div class="flex flex-col flex-1 min-w-0">
             <BaseSkeleton width="80%" height="14px" className="mb-1" />
@@ -79,12 +79,12 @@ function handleMarkAllAsRead() {
       </div>
     </template>
 
-    <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+    <ul class="divide-y divide-[var(--nv-border)]">
       <li v-for="notification in notifications" :key="notification.notificationId"
-        class="hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-150 ease-in-out"
-        :class="{ 'bg-blue-50 dark:bg-gray-700/40': !notification.isRead }">
+        class="nv-hover-surface transition duration-150 ease-in-out"
+        :class="{ 'nv-unread-surface': !notification.isRead }">
         <a href="#" @click.prevent="handleNotificationClick(notification)"
-          class="block px-3 py-3 sm:px-6 sm:py-4 min-h-[48px] active:bg-gray-100 dark:active:bg-gray-600">
+          class="block px-3 py-3 sm:px-6 sm:py-4 min-h-[48px] active:bg-[var(--nv-surface-active)]">
           <div class="flex flex-row items-center justify-between gap-3">
             <div class="min-w-0 flex-1">
               <div class="flex items-center justify-between gap-2 mb-0.5">

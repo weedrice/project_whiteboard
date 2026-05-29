@@ -160,6 +160,10 @@ html {
     background: var(--nv-surface-active);
   }
 
+  .nv-unread-surface {
+    background: color-mix(in srgb, var(--nv-info-bg) 54%, var(--nv-surface));
+  }
+
   .nv-focus-ring {
     outline: none;
   }
@@ -442,7 +446,7 @@ html {
     @apply px-3 py-2 text-sm leading-4;
   }
 
-  /* 모바일에서 모든 .btn-sm 버튼 크기 통일 (px-2 py-1.5 text-xs) */
+  /* Mobile button size normalization */
   @media (max-width: 639px) {
     .btn-sm {
       padding-left: 0.5rem !important;
@@ -456,28 +460,43 @@ html {
 
   /* List Group */
   .list-group {
-    @apply divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-md;
+    @apply divide-y rounded-md;
+    border: 1px solid var(--nv-border);
+  }
+
+  .list-group > :not([hidden]) ~ :not([hidden]) {
+    border-color: var(--nv-border);
   }
 
   .list-group-item {
-    @apply px-4 py-3 flex items-center justify-between bg-white dark:bg-gray-800;
+    @apply px-4 py-3 flex items-center justify-between;
+    background: var(--nv-surface);
   }
 
-  /* List Search Bar - 게시글 목록/노비콘 목록 하단 검색바 공통 (셀렉트·입력·버튼 하나의 박스, 구분선 없음) */
+  /* Shared list search bar */
   .list-search-row {
     @apply flex max-w-md w-full flex-1 min-w-0;
   }
 
   .list-search-group {
-    @apply flex flex-1 min-w-0 items-stretch rounded-md overflow-hidden border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500;
+    @apply flex flex-1 min-w-0 items-stretch rounded-md overflow-hidden border;
+    background: var(--nv-surface);
+    border-color: var(--nv-border-strong);
+  }
+
+  .list-search-group:focus-within {
+    border-color: var(--nv-focus);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--nv-focus) 32%, transparent);
   }
 
   .list-search-select-inline {
-    @apply h-10 min-h-10 pl-3 pr-8 text-sm text-gray-900 dark:text-white bg-transparent rounded-none rounded-l-md cursor-pointer focus:ring-0 focus:ring-offset-0 focus:outline-none shrink-0 border-r border-gray-300 dark:border-gray-600;
+    @apply h-10 min-h-10 pl-3 pr-8 text-sm bg-transparent rounded-none rounded-l-md cursor-pointer focus:ring-0 focus:ring-offset-0 focus:outline-none shrink-0 border-r;
     appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
     background-position: right 0.5rem center;
     background-repeat: no-repeat;
+    border-color: var(--nv-border);
+    color: var(--nv-text);
   }
 
   .dark .list-search-select-inline {
@@ -485,7 +504,8 @@ html {
   }
 
   .list-search-select-inline option {
-    @apply bg-white dark:bg-gray-700 text-gray-900 dark:text-white;
+    background: var(--nv-surface);
+    color: var(--nv-text);
   }
 
   .list-search-input-inner {
@@ -498,10 +518,15 @@ html {
   }
 
   .list-search-input {
-    @apply rounded-none bg-transparent h-10 min-h-10 py-2 box-border focus:ring-0 focus:ring-offset-0 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500;
+    @apply rounded-none bg-transparent h-10 min-h-10 py-2 box-border focus:ring-0 focus:ring-offset-0;
     border: none !important;
     box-shadow: none !important;
+    color: var(--nv-text);
     outline: none;
+  }
+
+  .list-search-input::placeholder {
+    color: var(--nv-text-subtle);
   }
 
   .list-search-input:focus {
@@ -510,14 +535,20 @@ html {
   }
 
   .list-search-btn {
-    @apply rounded-none h-10 min-h-10 py-0 px-4 bg-transparent hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium shrink-0 transition-colors border-l border-gray-300 dark:border-gray-600;
+    @apply rounded-none h-10 min-h-10 py-0 px-4 bg-transparent font-medium shrink-0 transition-colors border-l;
     border-top: none !important;
     border-right: none !important;
     border-bottom: none !important;
+    border-color: var(--nv-border);
     box-shadow: none !important;
+    color: var(--nv-text-muted);
   }
 
-  /* List Search Bar - 모바일에서 높이·폰트 축소 */
+  .list-search-btn:hover {
+    background: var(--nv-surface-hover);
+  }
+
+  /* Compact list search controls on mobile */
   @media (max-width: 639px) {
     .list-search-mobile .list-search-select-inline {
       height: 2rem;
