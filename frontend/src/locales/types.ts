@@ -74,6 +74,9 @@ export interface CommonMessages {
     sessionExpired: string
     badRequest: string
     forbidden: string
+    boardManageForbidden: string
+    boardWriteForbidden: string
+    postEditForbidden: string
     notFound: string
     serverError: string
     unknown: string

@@ -9,6 +9,7 @@ import { emoticonDetailQueryKey } from '@/composables/useEmoticonEditResource'
 import { postDetailQueryKey } from '@/composables/usePost'
 import { canWriteBoardPost } from '@/utils/board'
 import { QUERY_STALE_TIME } from '@/utils/constants'
+import { saveLoginRedirect } from '@/utils/authRedirect'
 import logger from '@/utils/logger'
 import i18n from '@/i18n'
 import { normalizePostReactionFlags, type PostReactionAlias } from '@/utils/postViewModel'
@@ -374,7 +375,7 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
     // Save previous path before guest-only navigation for post-login redirect
     if (to.meta.guestOnly && to.name !== 'oauth-callback' && !authStore.isAuthenticated) {
         if (from.name && !from.meta.guestOnly) {
-            sessionStorage.setItem('loginRedirect', from.fullPath)
+            saveLoginRedirect(from.fullPath)
         }
     }
 
@@ -427,12 +428,12 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
                     retry: false,
                 })
                 if (to.meta.requiresBoardAdmin && !board.isAdmin) {
-                    useToastStore().addToast('You do not have permission to manage this board.', 'error')
+                    useToastStore().addToast(i18n.global.t('common.messages.boardManageForbidden'), 'error')
                     next({ name: 'board-detail', params: { boardUrl } })
                     return
                 }
                 if (to.meta.requiresWritableBoard && !canWriteBoardPost(board, authStore.isAuthenticated, authStore.user?.role)) {
-                    useToastStore().addToast('You do not have permission to write on this board.', 'error')
+                    useToastStore().addToast(i18n.global.t('common.messages.boardWriteForbidden'), 'error')
                     next({ name: 'board-detail', params: { boardUrl } })
                     return
                 }
@@ -459,7 +460,7 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
             try {
                 const post = await fetchPostForAuthorGuard(postId)
                 if (post.author.userId !== currentUserId) {
-                    useToastStore().addToast('You do not have permission to edit this post.', 'error')
+                    useToastStore().addToast(i18n.global.t('common.messages.postEditForbidden'), 'error')
                     next({ name: 'post-detail', params: { boardUrl, postId } })
                     return
                 }

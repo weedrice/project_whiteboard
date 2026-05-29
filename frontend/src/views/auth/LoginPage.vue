@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import { clearLoginRedirect, resolveLoginRedirect, saveLoginRedirect } from '@/utils/authRedirect'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -15,27 +16,8 @@ const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 
-const LOGIN_REDIRECT_KEY = 'loginRedirect'
-
-function isSafeRedirect(path: unknown): path is string {
-  return typeof path === 'string' && path.startsWith('/') && !path.startsWith('//')
-}
-
-function getRedirectTarget(): string | null {
-  const fromQuery = route.query.redirect
-  const fromStorage = sessionStorage.getItem(LOGIN_REDIRECT_KEY)
-  return isSafeRedirect(fromQuery) ? fromQuery : (isSafeRedirect(fromStorage) ? fromStorage : null)
-}
-
-function clearRedirectStorage(): void {
-  sessionStorage.removeItem(LOGIN_REDIRECT_KEY)
-}
-
 onMounted(() => {
-  const redirect = route.query.redirect
-  if (isSafeRedirect(redirect)) {
-    sessionStorage.setItem(LOGIN_REDIRECT_KEY, redirect)
-  }
+  saveLoginRedirect(route.query.redirect)
 })
 
 const loginId = ref('')
@@ -73,9 +55,9 @@ async function handleLogin() {
       toastStore.addToast(t('auth.loginFailed'), 'error', 3000, 'top-center')
       return
     }
-    const redirect = getRedirectTarget()
-    clearRedirectStorage()
-    router.push(redirect || '/')
+    const redirect = resolveLoginRedirect(route.query.redirect)
+    clearLoginRedirect()
+    router.push(redirect)
   } catch (err: unknown) {
     const msg = err && typeof err === 'object' && 'response' in err
       ? (err as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message

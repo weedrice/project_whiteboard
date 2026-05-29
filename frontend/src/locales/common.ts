@@ -69,6 +69,9 @@ export const common: CommonMessages = {
     sessionExpired: '세션이 만료되었습니다. 다시 로그인해주세요.',
     badRequest: '잘못된 요청입니다.',
     forbidden: '권한이 없습니다.',
+    boardManageForbidden: '게시판을 관리할 권한이 없습니다.',
+    boardWriteForbidden: '이 게시판에 글을 작성할 권한이 없습니다.',
+    postEditForbidden: '이 게시글을 수정할 권한이 없습니다.',
     notFound: '요청한 리소스를 찾을 수 없습니다.',
     serverError: '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
     unknown: '알 수 없는 오류가 발생했습니다.',
@@ -179,4 +182,10 @@ export const commonEn: CommonMessages = {
   date: 'Created at',
   author: 'Author',
   viewAll: 'View all',
+  messages: {
+    ...common.messages,
+    boardManageForbidden: 'You do not have permission to manage this board.',
+    boardWriteForbidden: 'You do not have permission to write on this board.',
+    postEditForbidden: 'You do not have permission to edit this post.',
+  },
 }
