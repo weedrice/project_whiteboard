@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQueryClient } from '@tanstack/vue-query'
 import { useHead } from '@unhead/vue'
@@ -9,14 +9,10 @@ import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useConfirm } from '@/composables/useConfirm'
-import type { EmoticonImage } from '@/types/emoticon'
+import { useEmoticonEditForm } from '@/composables/useEmoticonEditForm'
 import { useEmoticonEditResource } from '@/composables/useEmoticonEditResource'
 import { useEmoticonEditSubmit } from '@/composables/useEmoticonEditSubmit'
 import { useEmoticonImageSelection } from '@/composables/useEmoticonImageSelection'
-import { useEmoticonImageFormState } from '@/composables/useEmoticonImageFormState'
-import { useEmoticonTags } from '@/composables/useEmoticonTags'
-import { useToggleEmoticonVisibility } from '@/composables/useToggleEmoticonVisibility'
-import { useEmoticonUploadSession } from '@/composables/useEmoticonUploadSession'
 import { SUPPORTED_EMOTICON_IMAGE_ACCEPT } from '@/utils/emoticonImage'
 
 const { t } = useI18n()
@@ -39,91 +35,44 @@ useHead({
   title: computed(() => emoticon.value?.name ? `${emoticon.value.name} 수정 - 노비콘` : '노비콘 수정')
 })
 
-const emoticonName = ref('')
-const originalThumbnailUrl = ref<string | null>(null)
-const existingImages = ref<EmoticonImage[]>([])
-const imagesToDelete = ref<number[]>([])
-const hydratedEmoticonId = ref<number | null>(null)
-const isSubmitting = ref(false)
-const uploadSession = useEmoticonUploadSession()
-const { uploadProgress } = uploadSession
-const { tagInput, tagItems, tags, addTag, removeTag } = useEmoticonTags({
+const SUPPORTED_IMAGE_ACCEPT = SUPPORTED_EMOTICON_IMAGE_ACCEPT
+const {
+  emoticonName,
+  existingImages,
+  imagesToDelete,
+  isSubmitting,
+  uploadSession,
+  uploadProgress,
+  tagInput,
+  tagItems,
+  tags,
+  addTag,
+  removeTag,
+  thumbnailFile,
+  thumbnailPreview,
+  newEmoticonPreviews,
+  thumbnailInput,
+  emoticonInput,
+  handleThumbnailSelect,
+  handleEmoticonSelect,
+  removeNewEmoticonImage,
+  changeThumbnail,
+  isToggling,
+  handleToggleVisibility,
+  markImageForDeletion,
+  unmarkImageForDeletion,
+  totalImageCount,
+  isFormValid,
+} = useEmoticonEditForm({
+  emoticonId,
+  emoticon,
+  selectThumbnailImage,
+  selectEmoticonImages,
+  confirm,
+  t,
   onMaxTags: () => {
     toastStore.addToast(t('emoticon.validation.maxTags'), 'error')
   }
-})
-
-const SUPPORTED_IMAGE_ACCEPT = SUPPORTED_EMOTICON_IMAGE_ACCEPT
-const {
-  thumbnailFile,
-  thumbnailPreview,
-  imagePreviews: newEmoticonPreviews,
-  thumbnailInput,
-  emoticonInput,
-  setThumbnailPreviewFromRemote,
-  handleThumbnailSelect,
-  handleEmoticonSelect,
-  removeImagePreview: removeNewEmoticonImage,
-  openThumbnailInput,
-} = useEmoticonImageFormState({
-  selectThumbnailImage,
-  selectEmoticonImages,
-  getRemainingSlots: () => {
-    const currentCount = existingImages.value.filter(img => !imagesToDelete.value.includes(img.imageId)).length + newEmoticonPreviews.value.length
-    return 100 - currentCount
-  },
-})
-
-const changeThumbnail = openThumbnailInput
-
-watch(emoticon, (data) => {
-  if (data) {
-    const currentEmoticonId = emoticonId.value
-    if (data.emoticonId !== currentEmoticonId || hydratedEmoticonId.value === currentEmoticonId) return
-
-    hydratedEmoticonId.value = currentEmoticonId
-    emoticonName.value = data.name || ''
-    tags.value = [...(data.tags || [])]
-    existingImages.value = [...(data.images || [])]
-    originalThumbnailUrl.value = data.thumbnailUrl || null
-    setThumbnailPreviewFromRemote(data.thumbnailUrl || null)
-  }
-}, { immediate: true })
-
-const { mutate: toggleVisibility, isPending: isToggling } = useToggleEmoticonVisibility(emoticonId)
-
-const handleToggleVisibility = async () => {
-  if (!emoticon.value) return
-  const verb = emoticon.value.isActive ? t('emoticon.visibility.hideConfirm') : t('emoticon.visibility.showConfirm')
-  const isConfirmed = await confirm(verb)
-  if (!isConfirmed) return
-
-  toggleVisibility()
-}
-
-const markImageForDeletion = (imageId: number) => {
-  if (!imagesToDelete.value.includes(imageId)) {
-    imagesToDelete.value.push(imageId)
-  }
-}
-
-const unmarkImageForDeletion = (imageId: number) => {
-  const index = imagesToDelete.value.indexOf(imageId)
-  if (index > -1) {
-    imagesToDelete.value.splice(index, 1)
-  }
-}
-
-const totalImageCount = computed(() => {
-  const existingCount = existingImages.value.filter(img => !imagesToDelete.value.includes(img.imageId)).length
-  return existingCount + newEmoticonPreviews.value.length
-})
-
-const isFormValid = computed(() => {
-  return emoticonName.value.trim() !== '' &&
-    thumbnailPreview.value !== null &&
-    totalImageCount.value > 0 &&
-    totalImageCount.value <= 100
 })
 
 const { handleSubmit } = useEmoticonEditSubmit({

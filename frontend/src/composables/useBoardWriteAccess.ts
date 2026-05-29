@@ -3,6 +3,9 @@ import { createBoardDetailQueryOptions } from '@/composables/useBoard'
 import { canWriteBoardPost } from '@/utils/board'
 import type { BoardDetail } from '@/types'
 
+export const BOARD_WRITE_FORBIDDEN_MESSAGE_KEY = 'common.messages.boardWriteForbidden'
+export const BOARD_WRITE_VERIFY_FAILED_MESSAGE_KEY = 'common.messages.loadFailed'
+
 interface VerifyBoardWriteAccessOptions {
   queryClient: QueryClient
   boardUrl: string
@@ -16,12 +19,16 @@ export async function verifyBoardWriteAccess({
   isAuthenticated,
   userRole,
 }: VerifyBoardWriteAccessOptions): Promise<boolean> {
-  const board = await queryClient.fetchQuery<BoardDetail>({
+  const board = await fetchBoardForWriteAccess(queryClient, boardUrl)
+
+  return canUserWriteBoardPost(board, isAuthenticated, userRole)
+}
+
+export function fetchBoardForWriteAccess(queryClient: QueryClient, boardUrl: string): Promise<BoardDetail> {
+  return queryClient.fetchQuery<BoardDetail>({
     ...createBoardDetailQueryOptions(boardUrl),
     retry: false,
   })
-
-  return canUserWriteBoardPost(board, isAuthenticated, userRole)
 }
 
 export function canUserWriteBoardPost(

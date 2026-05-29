@@ -1,9 +1,9 @@
-import axios from 'axios'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api/auth'
 import { useToastStore } from '@/stores/toast'
 import { extractErrorMessage } from '@/utils/errorHandler'
+import { handleDeletedAccountRedirect } from '@/utils/authRedirect'
 
 interface UseFindIdFlowOptions {
     getEmail: () => string
@@ -19,11 +19,6 @@ export function useFindIdFlow(options: UseFindIdFlowOptions) {
     const router = useRouter()
     const toastStore = useToastStore()
 
-    const redirectDeletedUserToSignup = (email: string) => {
-        toastStore.addToast(t('auth.userDeleted'), 'info')
-        router.push(`/signup?email=${encodeURIComponent(email)}`)
-    }
-
     const findId = async (verificationTicket: string) => {
         const email = options.getEmail().trim()
         options.onLoadingChange?.(true)
@@ -37,8 +32,13 @@ export function useFindIdFlow(options: UseFindIdFlowOptions) {
                 toastStore.addToast(t('auth.codeVerified'), 'success')
             }
         } catch (error: unknown) {
-            if (axios.isAxiosError(error) && error.response?.data?.error?.code === 'A009') {
-                redirectDeletedUserToSignup(email)
+            if (handleDeletedAccountRedirect(error, {
+                email,
+                t,
+                addToast: (message, type) => toastStore.addToast(message, type),
+                push: (to) => router.push(to),
+            })) {
+                return
             } else {
                 const message = extractErrorMessage(error) || t('auth.verificationFailed')
                 toastStore.addToast(message, 'error')
