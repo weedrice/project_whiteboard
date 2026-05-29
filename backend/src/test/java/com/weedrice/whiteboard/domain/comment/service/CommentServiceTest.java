@@ -29,6 +29,7 @@ import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublish
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
+import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.common.service.ReactionWriter;
@@ -121,7 +122,7 @@ class CommentServiceTest {
         CommentQueryService commentQueryService = new CommentQueryService(
                 commentRepository,
                 postRepository,
-                userRepository,
+                new UserReadableResolver(userRepository),
                 commentPostAccessService,
                 commentReadSupport,
                 commentReadModelAssembler);

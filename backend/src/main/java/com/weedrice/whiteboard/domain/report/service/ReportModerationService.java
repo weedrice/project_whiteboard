@@ -5,10 +5,8 @@ import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
-import com.weedrice.whiteboard.global.exception.BusinessException;
-import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,7 +25,7 @@ class ReportModerationService {
             Sort.Order.desc("reportId"));
 
     private final ReportRepository reportRepository;
-    private final UserRepository userRepository;
+    private final UserReadableResolver userReadableResolver;
     private final ReportReadAssembler reportReadAssembler;
     private final ReportModerationCommandService reportModerationCommandService;
     private final ReportModerationReadService reportModerationReadService;
@@ -48,8 +46,7 @@ class ReportModerationService {
     }
 
     public Page<MyReportResponse> getMyReports(Long userId, Pageable pageable) {
-        User reporter = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User reporter = userReadableResolver.resolve(userId);
         Pageable safePageable = normalizeReportPageable(pageable);
         return reportReadAssembler.toMyReportResponsePage(
                 reportRepository.findByReporterOrderByCreatedAtDescReportIdDesc(reporter, safePageable));

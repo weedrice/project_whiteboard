@@ -6,13 +6,13 @@ import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -44,7 +44,6 @@ class ReportModerationServiceTest {
     @Mock
     private ReportModerationReadService reportModerationReadService;
 
-    @InjectMocks
     private ReportModerationService reportModerationService;
 
     private User reporter;
@@ -52,6 +51,13 @@ class ReportModerationServiceTest {
 
     @BeforeEach
     void setUp() {
+        reportModerationService = new ReportModerationService(
+                reportRepository,
+                new UserReadableResolver(userRepository),
+                reportReadAssembler,
+                reportModerationCommandService,
+                reportModerationReadService);
+
         reporter = User.builder().displayName("Reporter").build();
         ReflectionTestUtils.setField(reporter, "userId", 1L);
 
