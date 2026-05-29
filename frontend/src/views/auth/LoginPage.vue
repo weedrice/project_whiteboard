@@ -78,7 +78,7 @@ async function handleLogin() {
       <p class="mt-2 text-xs sm:text-sm nv-text-muted">
         {{ $t('common.or') }}
         <router-link to="/signup"
-          class="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
+          class="font-medium nv-accent-text hover:brightness-95">
           {{ $t('auth.createAccount') }}
         </router-link>
       </p>
@@ -91,7 +91,7 @@ async function handleLogin() {
             autocomplete="username" :placeholder="$t('auth.placeholders.loginId')" :label="$t('common.loginId')"
             hideLabel>
             <template #prefix>
-              <User class="h-5 w-5 text-gray-400" />
+              <User class="h-5 w-5 nv-text-subtle" />
             </template>
           </BaseInput>
         </div>
@@ -100,7 +100,7 @@ async function handleLogin() {
             autocomplete="current-password" :placeholder="$t('auth.placeholders.password')"
             :label="$t('common.password')" hideLabel>
             <template #prefix>
-              <Lock class="h-5 w-5 text-gray-400" />
+              <Lock class="h-5 w-5 nv-text-subtle" />
             </template>
           </BaseInput>
         </div>
@@ -109,7 +109,7 @@ async function handleLogin() {
       <div class="w-[80%] mx-auto flex justify-end">
         <router-link
           to="/auth/forgot-password"
-          class="text-xs sm:text-sm nv-text-muted hover:text-indigo-500 dark:hover:text-indigo-400"
+          class="text-xs sm:text-sm nv-text-muted hover:text-[var(--nv-accent)]"
         >
           {{ $t('auth.findIdPassword') }}
         </router-link>
@@ -127,7 +127,7 @@ async function handleLogin() {
             <div class="w-full border-t nv-border"></div>
           </div>
           <div class="relative flex justify-center text-xs sm:text-sm">
-            <span class="px-2 nv-surface text-gray-500">
+            <span class="px-2 nv-surface nv-text-subtle">
               {{ $t('auth.socialLogin') }}
             </span>
           </div>

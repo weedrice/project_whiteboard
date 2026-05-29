@@ -89,7 +89,7 @@ const goToList = () => {
       </div>
       <button
         @click="goToList"
-        class="inline-flex items-center text-sm nv-text-muted hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+        class="inline-flex items-center text-sm nv-text-muted hover:text-[var(--nv-accent)] transition-colors"
       >
         <ArrowLeft class="w-4 h-4 mr-1" />
         목록으로
@@ -103,7 +103,7 @@ const goToList = () => {
           <!-- 썸네일 업로드 -->
           <div class="order-2 md:order-1 shrink-0">
             <label for="emoticon-register-thumbnail-input" class="block text-sm font-medium nv-text-muted mb-2">
-              썸네일 이미지 <span class="text-red-500">*</span>
+              썸네일 이미지 <span class="nv-form-error">*</span>
             </label>
             <p class="text-xs nv-text-subtle mb-4">대표 이미지로 노비콘 목록에 표시됩니다. 500x500px 이하의 이미지만 업로드 가능합니다.</p>
             <input
@@ -127,7 +127,7 @@ const goToList = () => {
                 @click="removeThumbnail"
                 :aria-label="$t('common.delete')"
                 :title="$t('common.delete')"
-                class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600"
+                class="absolute -top-2 -right-2 w-6 h-6 bg-[var(--nv-danger)] text-white rounded-full flex items-center justify-center hover:brightness-95"
               >
                 <X class="w-4 h-4" />
               </button>
@@ -136,7 +136,7 @@ const goToList = () => {
               <button
                 type="button"
                 @click="thumbnailInput?.click()"
-                class="w-32 h-32 border-2 border-dashed nv-border rounded-lg flex flex-col items-center justify-center nv-text-subtle hover:border-indigo-500 hover:text-indigo-500 transition-colors"
+                class="w-32 h-32 border-2 border-dashed nv-border rounded-lg flex flex-col items-center justify-center nv-text-subtle hover:border-[var(--nv-focus)] hover:text-[var(--nv-accent)] transition-colors"
               >
                 <Upload class="w-8 h-8 mb-2" />
                 <span class="text-xs">이미지 선택</span>
@@ -147,7 +147,7 @@ const goToList = () => {
           <!-- 이모티콘 이름 -->
           <div class="order-1 md:order-2 flex-1">
             <label for="emoticon-register-name-input" class="block text-sm font-medium nv-text-muted mb-2">
-              이모티콘 이름 <span class="text-red-500">*</span>
+              이모티콘 이름 <span class="nv-form-error">*</span>
             </label>
             <input
               id="emoticon-register-name-input"
@@ -157,7 +157,7 @@ const goToList = () => {
               autocomplete="off"
               maxlength="100"
               placeholder="이모티콘 이름을 입력하세요"
-              class="w-full px-4 py-2 border nv-border rounded-lg nv-surface nv-title placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              class="w-full px-4 py-2 border nv-border rounded-lg nv-surface nv-title placeholder:text-[var(--nv-text-subtle)] focus:ring-2 focus:ring-[var(--nv-focus)] focus:border-transparent"
             />
           </div>
         </div>
@@ -166,8 +166,8 @@ const goToList = () => {
       <!-- 이모티콘 이미지 업로드 -->
       <div class="nv-surface rounded-lg shadow-sm border nv-border p-6">
         <label for="emoticon-register-image-input" class="block text-sm font-medium nv-text-muted mb-2">
-          이모티콘 이미지 <span class="text-red-500">*</span>
-          <span class="text-xs font-normal text-gray-500 ml-2">({{ emoticonPreviews.length }}/100개)</span>
+          이모티콘 이미지 <span class="nv-form-error">*</span>
+          <span class="text-xs font-normal nv-text-subtle ml-2">({{ emoticonPreviews.length }}/100개)</span>
         </label>
         <p class="text-xs nv-text-subtle mb-4">
           최대 100개까지 업로드 가능합니다. 500x500px 이하의 이미지만 업로드 가능하며, 100px 초과 시 자동으로 리사이징됩니다.
@@ -191,7 +191,7 @@ const goToList = () => {
               @click="removeEmoticonImage(item.clientId)"
               :aria-label="$t('common.delete')"
               :title="$t('common.delete')"
-              class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 text-xs"
+              class="absolute -top-1 -right-1 w-5 h-5 bg-[var(--nv-danger)] text-white rounded-full flex items-center justify-center hover:brightness-95 text-xs"
             >
               <X class="w-3 h-3" />
             </button>
@@ -215,7 +215,7 @@ const goToList = () => {
               @click="emoticonInput?.click()"
               :aria-label="$t('common.add')"
               :title="$t('common.add')"
-              class="w-full aspect-square border-2 border-dashed nv-border rounded flex flex-col items-center justify-center nv-text-subtle hover:border-indigo-500 hover:text-indigo-500 transition-colors"
+              class="w-full aspect-square border-2 border-dashed nv-border rounded flex flex-col items-center justify-center nv-text-subtle hover:border-[var(--nv-focus)] hover:text-[var(--nv-accent)] transition-colors"
               style="width: 100px; height: 100px;"
             >
               <Plus class="w-6 h-6" />
@@ -228,7 +228,7 @@ const goToList = () => {
       <div class="nv-surface rounded-lg shadow-sm border nv-border p-6">
         <label for="emoticon-register-tag-input" class="block text-sm font-medium nv-text-muted mb-2">
           태그
-          <span class="text-xs font-normal text-gray-500 ml-2">({{ tags.length }}/10개)</span>
+          <span class="text-xs font-normal nv-text-subtle ml-2">({{ tags.length }}/10개)</span>
         </label>
         <p class="text-xs nv-text-subtle mb-4">검색에 사용될 태그를 입력하세요.</p>
 
@@ -241,7 +241,7 @@ const goToList = () => {
             @keydown.enter.prevent="addTag"
             type="text"
             placeholder="태그 입력 후 Enter"
-            class="flex-1 px-4 py-2 border nv-border rounded-lg nv-surface nv-title placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            class="flex-1 px-4 py-2 border nv-border rounded-lg nv-surface nv-title placeholder:text-[var(--nv-text-subtle)] focus:ring-2 focus:ring-[var(--nv-focus)] focus:border-transparent"
           />
           <BaseButton type="button" @click="addTag" variant="secondary">
             추가
@@ -260,7 +260,7 @@ const goToList = () => {
               @click="removeTag(tagItem.clientId)"
               :aria-label="$t('board.tags.remove')"
               :title="$t('board.tags.remove')"
-              class="ml-1 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-200"
+              class="ml-1 nv-accent-text hover:brightness-95"
             >
               <X class="w-3 h-3" />
             </button>

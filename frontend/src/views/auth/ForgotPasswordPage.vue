@@ -93,7 +93,7 @@ const {
         hideLabel
       >
         <template #prefix>
-          <Mail class="h-5 w-5 text-gray-400" />
+          <Mail class="h-5 w-5 nv-text-subtle" />
         </template>
       </BaseInput>
 
@@ -121,7 +121,7 @@ const {
           hideLabel
         >
           <template #prefix>
-            <CheckCircle class="h-5 w-5 text-gray-400" />
+            <CheckCircle class="h-5 w-5 nv-text-subtle" />
           </template>
         </BaseInput>
 

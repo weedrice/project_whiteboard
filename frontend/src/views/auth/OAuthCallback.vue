@@ -84,6 +84,6 @@ onMounted(async () => {
 
 <template>
   <div class="flex justify-center items-center h-screen">
-    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-current nv-spinner"></div>
   </div>
 </template>

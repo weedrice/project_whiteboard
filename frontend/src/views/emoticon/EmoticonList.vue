@@ -64,7 +64,7 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
     <section class="mb-12">
       <div class="flex items-center justify-between mb-4">
         <div class="flex items-center gap-2">
-          <TrendingUp class="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+          <TrendingUp class="w-5 h-5 nv-accent-text" />
           <h2 class="text-lg font-semibold nv-title">인기 노비콘</h2>
         </div>
         <div class="flex gap-2">
@@ -77,7 +77,7 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
             :class="[
               'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
               popularPeriod === period
-                ? 'bg-indigo-600 text-white'
+                ? 'bg-[var(--nv-accent)] text-white'
                 : 'nv-surface-muted nv-text-muted nv-hover-surface'
             ]"
           >
@@ -109,10 +109,10 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
           type="button"
           :aria-label="emoticon.name"
           @click="goToDetail(emoticon.emoticonId)"
-          class="relative w-full nv-surface rounded-lg shadow-sm border nv-border overflow-hidden cursor-pointer text-left hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-shadow"
+          class="relative w-full nv-surface rounded-lg shadow-sm border nv-border overflow-hidden cursor-pointer text-left hover:shadow-md nv-focus-ring transition-shadow"
         >
           <!-- 순위 뱃지 -->
-          <span class="absolute top-2 left-2 z-10 w-6 h-6 bg-indigo-600 text-white text-xs font-bold rounded-full flex items-center justify-center">
+          <span class="absolute top-2 left-2 z-10 w-6 h-6 bg-[var(--nv-accent)] text-white text-xs font-bold rounded-full flex items-center justify-center">
             {{ index + 1 }}
           </span>
           <!-- 썸네일 -->
@@ -128,7 +128,7 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
           <span class="block p-3">
             <span class="block text-sm font-medium nv-title truncate">{{ emoticon.name }}</span>
             <span class="block text-xs nv-text-subtle truncate">{{ emoticon.creatorName }}</span>
-            <span class="block text-xs text-indigo-600 dark:text-indigo-400 mt-1">
+            <span class="block text-xs nv-accent-text mt-1">
               판매 {{ emoticon.purchaseCount?.toLocaleString() || 0 }}회
             </span>
           </span>
@@ -143,7 +143,7 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
     <section>
       <div class="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
         <h2 class="text-lg font-semibold nv-title">
-          전체 노비콘 <span class="text-sm font-normal text-gray-500">({{ totalElements.toLocaleString() }}개)</span>
+          전체 노비콘 <span class="text-sm font-normal nv-text-subtle">({{ totalElements.toLocaleString() }}개)</span>
         </h2>
         <div class="flex flex-wrap gap-2">
           <button
@@ -155,7 +155,7 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
             :class="[
               'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
               sortBy === option.value
-                ? 'bg-indigo-600 text-white'
+                ? 'bg-[var(--nv-accent)] text-white'
                 : 'nv-surface-muted nv-text-muted nv-hover-surface'
             ]"
           >
@@ -186,7 +186,7 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
           type="button"
           :aria-label="emoticon.name"
           @click="goToDetail(emoticon.emoticonId)"
-          class="w-full nv-surface rounded-lg shadow-sm border nv-border overflow-hidden cursor-pointer text-left hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-shadow"
+          class="w-full nv-surface rounded-lg shadow-sm border nv-border overflow-hidden cursor-pointer text-left hover:shadow-md nv-focus-ring transition-shadow"
         >
           <!-- 썸네일 -->
           <span class="block aspect-square nv-surface-muted">
@@ -201,7 +201,7 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
           <span class="block p-3">
             <span class="block text-sm font-medium nv-title truncate">{{ emoticon.name }}</span>
             <span class="block text-xs nv-text-subtle truncate">{{ emoticon.creatorName }}</span>
-            <span class="block text-xs text-indigo-600 dark:text-indigo-400 mt-1">
+            <span class="block text-xs nv-accent-text mt-1">
               판매 {{ emoticon.purchaseCount?.toLocaleString() || 0 }}회
             </span>
           </span>
@@ -228,13 +228,13 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
               :class="[
                 'px-3 py-2 text-sm font-medium rounded-md',
                 currentPage === item.page - 1
-                  ? 'bg-indigo-600 text-white'
+                  ? 'bg-[var(--nv-accent)] text-white'
                   : 'nv-text-muted nv-surface border nv-border nv-hover-surface'
               ]"
             >
               {{ item.page }}
             </button>
-            <span v-else class="px-2 text-gray-500">...</span>
+            <span v-else class="px-2 nv-text-subtle">...</span>
           </template>
           <button
             @click="goToPage(currentPage + 1)"
@@ -270,7 +270,7 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
                   hideLabel
                 >
                   <template #prefix>
-                    <Search class="h-5 w-5 text-gray-400" />
+                    <Search class="h-5 w-5 nv-text-subtle" />
                   </template>
                   <template #suffix>
                     <button
@@ -278,7 +278,7 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
                       type="button"
                       @click="clearSearch"
                       :aria-label="$t('emoticon.search.clear')"
-                      class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-pointer"
+                      class="nv-text-subtle hover:text-[var(--nv-text)] cursor-pointer"
                     >
                       <X class="h-5 w-5" />
                     </button>
@@ -297,7 +297,7 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
           <router-link
             v-if="authStore.isAuthenticated"
             to="/emoticons/register"
-            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 whitespace-nowrap"
+            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[var(--nv-accent)] hover:brightness-95 nv-focus-ring whitespace-nowrap"
           >
             <PlusCircle class="-ml-1 mr-2 h-5 w-5" />
             등록하기

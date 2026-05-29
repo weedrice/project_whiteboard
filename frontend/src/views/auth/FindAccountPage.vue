@@ -128,13 +128,13 @@ const {
                 :aria-label="t('auth.findAccount')">
                 <BaseButton @click="switchTab('id')" variant="ghost" class="flex-1 rounded-b-none border-b-2"
                     role="tab" :aria-selected="activeTab === 'id'"
-                    :class="activeTab === 'id' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent nv-text-subtle hover:text-[var(--nv-text)]'">
+                    :class="activeTab === 'id' ? 'border-[var(--nv-accent)] text-[var(--nv-accent)]' : 'border-transparent nv-text-subtle hover:text-[var(--nv-text)]'">
                     <User class="w-4 h-4 mr-2" />
                     {{ t('auth.findId') }}
                 </BaseButton>
                 <BaseButton @click="switchTab('password')" variant="ghost" class="flex-1 rounded-b-none border-b-2"
                     role="tab" :aria-selected="activeTab === 'password'"
-                    :class="activeTab === 'password' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent nv-text-subtle hover:text-[var(--nv-text)]'">
+                    :class="activeTab === 'password' ? 'border-[var(--nv-accent)] text-[var(--nv-accent)]' : 'border-transparent nv-text-subtle hover:text-[var(--nv-text)]'">
                     <Key class="w-4 h-4 mr-2" />
                     {{ t('auth.findPassword') }}
                 </BaseButton>
@@ -151,7 +151,7 @@ const {
                                     autocomplete="email" :label="t('auth.email')"
                                     :placeholder="t('auth.placeholders.email')" :disabled="status.loading" hideLabel>
                                     <template #prefix>
-                                        <Mail class="h-5 w-5 text-gray-400" />
+                                        <Mail class="h-5 w-5 nv-text-subtle" />
                                     </template>
                                 </BaseInput>
                             </div>
@@ -168,7 +168,7 @@ const {
                                     name="verificationCode" inputmode="numeric" autocomplete="one-time-code"
                                     :placeholder="t('auth.codePlaceholder')" :label="t('auth.codePlaceholder')" hideLabel>
                                     <template #prefix>
-                                        <CheckCircle class="h-5 w-5 text-gray-400" />
+                                        <CheckCircle class="h-5 w-5 nv-text-subtle" />
                                     </template>
                                 </BaseInput>
                             </div>
@@ -184,7 +184,7 @@ const {
                     class="text-center py-8 nv-surface-muted rounded-lg border nv-border animate-fade-in">
                     <p class="nv-text-muted mb-2">{{ t('auth.yourIdIs', { id: '' }).replace('{id}',
                         '') }}</p>
-                    <p class="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mb-6">{{ status.foundId }}</p>
+                    <p class="text-2xl font-bold nv-accent-text mb-6">{{ status.foundId }}</p>
                     <BaseButton @click="router.push('/login')" full-width>
                         {{ t('auth.login') }}
                     </BaseButton>

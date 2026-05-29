@@ -65,7 +65,7 @@ const { isLoading, resetPassword: handleResetPassword } = usePasswordResetByToke
         hideLabel
       >
         <template #prefix>
-          <Lock class="h-5 w-5 text-gray-400" />
+          <Lock class="h-5 w-5 nv-text-subtle" />
         </template>
       </BaseInput>
 
@@ -80,7 +80,7 @@ const { isLoading, resetPassword: handleResetPassword } = usePasswordResetByToke
         hideLabel
       >
         <template #prefix>
-          <Lock class="h-5 w-5 text-gray-400" />
+          <Lock class="h-5 w-5 nv-text-subtle" />
         </template>
       </BaseInput>
 

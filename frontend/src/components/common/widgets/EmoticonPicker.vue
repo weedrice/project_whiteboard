@@ -148,7 +148,7 @@ onUnmounted(() => {
       <template v-if="selectedEmoticonId">
         <!-- 상세 로딩 중 -->
         <div v-if="isLoadingDetail" class="loading-state">
-          <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500"></div>
+          <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-current nv-spinner"></div>
         </div>
         <!-- 이미지 그리드 -->
         <div v-else-if="selectedEmoticon" class="images-grid">
@@ -177,14 +177,14 @@ onUnmounted(() => {
         <!-- 검색 -->
         <div class="search-area">
           <div class="relative">
-            <Search class="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search class="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 nv-text-subtle" />
             <input v-model="searchKeyword" type="text" aria-label="노비콘 검색" placeholder="검색..." class="search-input" />
           </div>
         </div>
 
         <!-- 로딩 -->
         <div v-if="isLoading" class="loading-state">
-          <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500"></div>
+          <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-current nv-spinner"></div>
         </div>
 
         <div v-else-if="isListError" class="error-state">
@@ -194,7 +194,7 @@ onUnmounted(() => {
 
         <!-- 빈 상태 -->
         <div v-else-if="!filteredEmoticons?.length" class="empty-state">
-          <Smile class="w-8 h-8 text-gray-400 mb-2" />
+          <Smile class="w-8 h-8 nv-text-subtle mb-2" />
           <p v-if="purchasedEmoticons?.length === 0">구매한 노비콘이 없습니다</p>
           <p v-else>검색 결과가 없습니다</p>
         </div>
@@ -231,9 +231,10 @@ onUnmounted(() => {
   width: min(400px, calc(100vw - 24px));
   max-width: 100%;
   max-height: min(450px, 80vh);
-  background: white;
+  background: var(--nv-surface);
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--nv-shadow-popup);
+  color: var(--nv-text);
   z-index: 100;
   display: flex;
   flex-direction: column;
@@ -253,16 +254,11 @@ onUnmounted(() => {
   }
 }
 
-.dark .emoticon-picker {
-  background: #1f2937;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-}
-
 .picker-header {
   display: flex;
   align-items: center;
   padding: 10px 12px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--nv-border);
   gap: 8px;
   flex-shrink: 0;
 }
@@ -273,15 +269,11 @@ onUnmounted(() => {
   }
 }
 
-.dark .picker-header {
-  border-bottom-color: #374151;
-}
-
 .header-title {
   flex: 1;
   font-weight: 600;
   font-size: 14px;
-  color: #1f2937;
+  color: var(--nv-text);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -294,29 +286,19 @@ onUnmounted(() => {
   }
 }
 
-.dark .header-title {
-  color: #f3f4f6;
-}
-
 .back-btn,
 .close-btn {
   padding: 4px;
   border-radius: 4px;
-  color: #6b7280;
+  color: var(--nv-text-muted);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .back-btn:hover,
 .close-btn:hover {
-  background: #f3f4f6;
-  color: #1f2937;
-}
-
-.dark .back-btn:hover,
-.dark .close-btn:hover {
-  background: #374151;
-  color: #f3f4f6;
+  background: var(--nv-surface-hover);
+  color: var(--nv-text);
 }
 
 .picker-content {
@@ -339,25 +321,22 @@ onUnmounted(() => {
 .search-input {
   width: 100%;
   padding: 8px 8px 8px 32px;
-  border: 1px solid #e5e7eb;
+  background: var(--nv-surface);
+  border: 1px solid var(--nv-border);
   border-radius: 6px;
+  color: var(--nv-text);
   font-size: 13px;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.search-input::placeholder {
+  color: var(--nv-text-subtle);
 }
 
 .search-input:focus {
-  border-color: #6366f1;
-}
-
-.dark .search-input {
-  background: #374151;
-  border-color: #4b5563;
-  color: #f3f4f6;
-}
-
-.dark .search-input:focus {
-  border-color: #6366f1;
+  border-color: var(--nv-focus);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--nv-focus) 28%, transparent);
 }
 
 .loading-state {
@@ -373,7 +352,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   padding: 40px 0;
-  color: #6b7280;
+  color: var(--nv-text-subtle);
   font-size: 13px;
 }
 
@@ -384,7 +363,7 @@ onUnmounted(() => {
   justify-content: center;
   gap: 10px;
   padding: 40px 0;
-  color: #dc2626;
+  color: var(--nv-danger-text);
   font-size: 13px;
   text-align: center;
 }
@@ -396,7 +375,7 @@ onUnmounted(() => {
 
 .retry-btn {
   border-radius: 6px;
-  background: #4f46e5;
+  background: var(--nv-accent);
   color: white;
   padding: 6px 10px;
   font-size: 12px;
@@ -404,15 +383,17 @@ onUnmounted(() => {
 }
 
 .retry-btn.secondary {
-  background: #6b7280;
+  background: var(--nv-surface-muted);
+  color: var(--nv-text-muted);
 }
 
 .retry-btn:hover {
-  background: #4338ca;
+  background: color-mix(in srgb, var(--nv-accent) 88%, black 12%);
 }
 
 .retry-btn.secondary:hover {
-  background: #4b5563;
+  background: var(--nv-surface-hover);
+  color: var(--nv-text);
 }
 
 .emoticons-grid {
@@ -446,11 +427,7 @@ onUnmounted(() => {
 }
 
 .emoticon-btn:hover {
-  background: #f3f4f6;
-}
-
-.dark .emoticon-btn:hover {
-  background: #374151;
+  background: var(--nv-surface-hover);
 }
 
 .emoticon-btn img {
@@ -470,7 +447,7 @@ onUnmounted(() => {
 .emoticon-name {
   margin-top: 4px;
   font-size: 11px;
-  color: #6b7280;
+  color: var(--nv-text-muted);
   text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -483,10 +460,6 @@ onUnmounted(() => {
     font-size: 10px;
     margin-top: 2px;
   }
-}
-
-.dark .emoticon-name {
-  color: #9ca3af;
 }
 
 .images-grid {
@@ -510,11 +483,7 @@ onUnmounted(() => {
 }
 
 .image-btn:hover {
-  background: #f3f4f6;
-}
-
-.dark .image-btn:hover {
-  background: #374151;
+  background: var(--nv-surface-hover);
 }
 
 .image-btn img {

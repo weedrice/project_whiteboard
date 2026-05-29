@@ -6,7 +6,7 @@
         <div class="mb-6">
           <h1 class="text-2xl font-bold nv-title">{{ $t('search.results') }}</h1>
           <p v-if="searchQuery" class="mt-2 nv-text-muted">
-            {{ $t('search.query') }}: <span class="font-semibold text-indigo-600 dark:text-indigo-400">"{{ searchQuery
+            {{ $t('search.query') }}: <span class="font-semibold nv-accent-text">"{{ searchQuery
             }}"</span>
           </p>
 
@@ -54,9 +54,9 @@
               <router-link v-for="board in boards" :key="board.boardId" :to="`/board/${board.boardUrl}`"
                 class="block p-4 nv-surface rounded-lg shadow hover:shadow-md transition-shadow border nv-border flex items-center gap-3">
                 <div
-                  class="flex-shrink-0 h-10 w-10 rounded bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold overflow-hidden border border-gray-200">
+                  class="flex-shrink-0 h-10 w-10 rounded bg-[var(--nv-accent-bg)] flex items-center justify-center text-[var(--nv-accent)] font-bold overflow-hidden border nv-border">
                   <img v-if="board.iconUrl" :src="getOptimizedBoardIconUrl(board.iconUrl)"
-                    class="h-full w-full object-contain bg-white" alt="" @error="handleImageError($event)" />
+                    class="h-full w-full object-contain bg-[var(--nv-surface)]" alt="" @error="handleImageError($event)" />
                   <span v-else class="text-sm">{{ board.boardName.substring(0, 1) }}</span>
                 </div>
                 <div class="flex-1 min-w-0">

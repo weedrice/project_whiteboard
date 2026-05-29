@@ -59,7 +59,7 @@ useHead({
     <!-- 뒤로가기 버튼 -->
     <div class="mb-6">
       <button @click="goToList"
-        class="inline-flex items-center text-sm nv-text-muted hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+        class="inline-flex items-center text-sm nv-text-muted hover:text-[var(--nv-accent)] transition-colors">
         <ArrowLeft class="w-4 h-4 mr-1" />
         목록으로
       </button>
@@ -111,7 +111,7 @@ useHead({
 
     <!-- 에러 -->
     <div v-else-if="error" class="text-center py-20">
-      <p class="text-red-500 dark:text-red-400">이모티콘을 불러오는데 실패했습니다.</p>
+      <p class="nv-form-error">이모티콘을 불러오는데 실패했습니다.</p>
       <BaseButton @click="goToList" variant="secondary" class="mt-4">
         목록으로 돌아가기
       </BaseButton>
@@ -143,8 +143,8 @@ useHead({
               <div v-if="isOwner" class="flex items-center gap-2">
                 <button @click="handleToggleVisibility" :disabled="isToggling"
                   :class="emoticonView.isActive
-                    ? 'inline-flex items-center px-3 py-1.5 text-sm bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors'
-                    : 'inline-flex items-center px-3 py-1.5 text-sm bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors'">
+                    ? 'inline-flex items-center px-3 py-1.5 text-sm nv-status-warning nv-hover-surface rounded-lg transition-colors'
+                    : 'inline-flex items-center px-3 py-1.5 text-sm nv-status-success nv-hover-surface rounded-lg transition-colors'">
                   <EyeOff v-if="emoticonView.isActive" class="w-4 h-4 mr-1" />
                   <Eye v-else class="w-4 h-4 mr-1" />
                   {{ emoticonView.isActive ? $t('emoticon.visibility.hide') : $t('emoticon.visibility.show') }}
@@ -166,7 +166,7 @@ useHead({
                 <Calendar class="w-4 h-4 mr-2" />
                 <span>등록일: {{ formatDateOnlyLongOrDash(emoticonView.createdAt) }}</span>
               </div>
-              <div class="flex items-center text-indigo-600 dark:text-indigo-400">
+              <div class="flex items-center nv-accent-text">
                 <TrendingUp class="w-4 h-4 mr-2" />
                 <span>판매 수량: {{ emoticonView.purchaseCountText }}개</span>
               </div>
@@ -178,7 +178,7 @@ useHead({
       <!-- 이모티콘 이미지 목록 -->
       <div class="nv-surface rounded-lg shadow-sm border nv-border p-6 mb-8">
         <h2 class="text-lg font-semibold nv-title mb-4">
-          이모티콘 목록 <span class="text-sm font-normal text-gray-500">({{ emoticonView.imageCount }}개)</span>
+          이모티콘 목록 <span class="text-sm font-normal nv-text-subtle">({{ emoticonView.imageCount }}개)</span>
         </h2>
 
         <div v-if="emoticonView.imageItems.length > 0"
