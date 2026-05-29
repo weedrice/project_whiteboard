@@ -22,12 +22,8 @@ vi.mock('@tanstack/vue-query', () => ({
 
 vi.mock('@/api/post', () => ({
     emptyHomeLanding: () => ({
-        sections: [
-            { sectionType: 'FEATURED', items: [], limit: 1 },
-            { sectionType: 'EDITOR_PICKS', items: [], limit: 3 },
-            { sectionType: 'TRENDING', items: [], limit: 9 },
-            { sectionType: 'LIVE_ACTIVITY', items: [], limit: 6 },
-        ],
+        curatedPosts: [],
+        latestPosts: [],
         boards: [],
         stats: {
             boardCount: 0,
@@ -84,33 +80,27 @@ describe('useHomeLanding', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         queryData.current = {
-            sections: [
-                { sectionType: 'FEATURED', items: [makePost(1, 'Featured', 'A')], limit: 1 },
-                {
-                    sectionType: 'EDITOR_PICKS',
-                    items: [
-                        makePost(2, 'Pick', 'B'),
-                        makePost(3, 'Pick 2', 'C'),
-                        makePost(4, 'Pick 3', 'D'),
-                    ],
-                    limit: 3,
-                },
-                {
-                    sectionType: 'TRENDING',
-                    items: [
-                        makePost(5, 'Trend 1', 'E'),
-                        makePost(6, 'Trend 2', 'F'),
-                    ],
-                    limit: 9,
-                },
-                {
-                    sectionType: 'LIVE_ACTIVITY',
-                    items: [
-                        makePost(21, 'Latest 1', 'L1'),
-                        makePost(20, 'Latest 2', 'L2'),
-                    ],
-                    limit: 6,
-                },
+            curatedPosts: [
+                makePost(1, 'Featured', 'A'),
+                makePost(2, 'Pick', 'B'),
+                makePost(3, 'Pick 2', 'C'),
+                makePost(4, 'Pick 3', 'D'),
+                makePost(5, 'Trend 1', 'E'),
+                makePost(6, 'Trend 2', 'F'),
+                makePost(7, 'Trend 3', 'G'),
+                makePost(8, 'Trend 4', 'H'),
+                makePost(9, 'Trend 5', 'I'),
+                makePost(10, 'Trend 6', 'J'),
+                makePost(11, 'Extra', 'K'),
+            ],
+            latestPosts: [
+                makePost(21, 'Latest 1', 'L1'),
+                makePost(20, 'Latest 2', 'L2'),
+                makePost(19, 'Latest 3', 'L3'),
+                makePost(18, 'Latest 4', 'L4'),
+                makePost(17, 'Latest 5', 'L5'),
+                makePost(16, 'Latest 6', 'L6'),
+                makePost(15, 'Latest 7', 'L7'),
             ],
             boards: [{ boardId: 1, boardUrl: 'free', boardName: 'Free', subscriberCount: 10, postCount: 24 }],
             stats: makeStats(),
@@ -120,15 +110,15 @@ describe('useHomeLanding', () => {
         } as never)
     })
 
-    it('maps the sectioned home landing contract into feed-ready sections', () => {
+    it('maps source home landing posts into feed-ready sections', () => {
         const landing = useHomeLanding()
 
         expect(landing.isError.value).toBe(false)
         expect(landing.featured.value?.postId).toBe(1)
         expect(landing.editorPicks.value.map(post => post.postId)).toEqual([2, 3, 4])
-        expect(landing.trending.value.map(post => post.postId)).toEqual([5, 6])
-        expect(landing.liveActivity.value.map(post => post.postId)).toEqual([21, 20])
-        expect(landing.posts.value.map(post => post.postId)).toEqual([1, 5, 6])
+        expect(landing.trending.value.map(post => post.postId)).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10])
+        expect(landing.liveActivity.value.map(post => post.postId)).toEqual([21, 20, 19, 18, 17, 16])
+        expect(landing.posts.value.map(post => post.postId)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
         expect(landing.spotlightBoards.value[0]?.boardUrl).toBe('free')
         expect(landing.stats.value.boardCount).toBe(1)
         expect(landing.selectedPeriod.value).toBe('24h')

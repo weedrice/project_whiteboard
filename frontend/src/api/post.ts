@@ -78,22 +78,19 @@ const emptyStats = (): HomeLandingStats => ({
 })
 
 export const emptyHomeLanding = (): HomeLandingResponse => ({
-    sections: [
-        { sectionType: 'FEATURED', items: [], limit: 1 },
-        { sectionType: 'EDITOR_PICKS', items: [], limit: 3 },
-        { sectionType: 'TRENDING', items: [], limit: 9 },
-        { sectionType: 'LIVE_ACTIVITY', items: [], limit: 6 },
-    ],
+    curatedPosts: [],
+    latestPosts: [],
     boards: [],
     stats: emptyStats(),
 })
 
-function normalizeSectionArray(landing: HomeLandingResponse | null | undefined): HomeLandingResponse {
+function normalizeHomeLanding(landing: HomeLandingResponse | null | undefined): HomeLandingResponse {
     if (!landing) {
         return emptyHomeLanding()
     }
     return {
-        sections: Array.isArray(landing.sections) ? landing.sections : emptyHomeLanding().sections,
+        curatedPosts: Array.isArray(landing.curatedPosts) ? landing.curatedPosts : [],
+        latestPosts: Array.isArray(landing.latestPosts) ? landing.latestPosts : [],
         boards: landing.boards ?? [],
         stats: landing.stats ?? emptyStats(),
     }
@@ -106,7 +103,7 @@ function mapHomeLandingResponse(
         ...response,
         data: {
             ...response.data,
-            data: normalizeSectionArray(response.data.data),
+            data: normalizeHomeLanding(response.data.data),
         },
     }
 }
