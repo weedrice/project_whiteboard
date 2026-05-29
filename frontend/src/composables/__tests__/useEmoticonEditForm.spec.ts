@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { defineComponent, computed, ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import { useEmoticonEditForm } from '../useEmoticonEditForm'
+import { toEmoticonEditFormState } from '../useEmoticonEditResource'
 
 const mocks = vi.hoisted(() => ({
   toggleVisibility: vi.fn(),
@@ -41,9 +42,11 @@ const mountForm = (options: {
   let form!: ReturnType<typeof useEmoticonEditForm>
   const wrapper = mount(defineComponent({
     setup() {
+      const emoticon = options.emoticon ?? createEmoticon()
       form = useEmoticonEditForm({
         emoticonId: computed(() => 7),
-        emoticon: options.emoticon ?? createEmoticon(),
+        emoticon,
+        editFormState: computed(() => toEmoticonEditFormState(emoticon.value)),
         selectThumbnailImage: vi.fn(),
         selectEmoticonImages: vi.fn(),
         confirm,

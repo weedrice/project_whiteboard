@@ -95,21 +95,27 @@ export const emoticonApi = {
     /**
      * 이모티콘 생성
      */
-    createEmoticon(data: EmoticonCreateRequest) {
+    createEmoticon(data: EmoticonCreateRequest, config?: AxiosRequestConfig) {
+        if (config) {
+            return api.post<{ data: EmoticonMaster }>('/emoticons', data, config)
+        }
         return api.post<{ data: EmoticonMaster }>('/emoticons', data)
     },
-    async createEmoticonData(data: EmoticonCreateRequest) {
-        return unwrapEmoticonResponse(await this.createEmoticon(data))
+    async createEmoticonData(data: EmoticonCreateRequest, config?: AxiosRequestConfig) {
+        return unwrapEmoticonResponse(await this.createEmoticon(data, config))
     },
 
     /**
      * 이모티콘 수정
      */
-    updateEmoticon(emoticonId: number, data: EmoticonUpdateRequest) {
+    updateEmoticon(emoticonId: number, data: EmoticonUpdateRequest, config?: AxiosRequestConfig) {
+        if (config) {
+            return api.put<{ data: EmoticonMaster }>(`/emoticons/${emoticonId}`, data, config)
+        }
         return api.put<{ data: EmoticonMaster }>(`/emoticons/${emoticonId}`, data)
     },
-    async updateEmoticonData(emoticonId: number, data: EmoticonUpdateRequest) {
-        return unwrapEmoticonResponse(await this.updateEmoticon(emoticonId, data))
+    async updateEmoticonData(emoticonId: number, data: EmoticonUpdateRequest, config?: AxiosRequestConfig) {
+        return unwrapEmoticonResponse(await this.updateEmoticon(emoticonId, data, config))
     },
 
     /**
@@ -132,17 +138,23 @@ export const emoticonApi = {
     /**
      * 이미지 추가
      */
-    addImage(emoticonId: number, fileId: number) {
+    addImage(emoticonId: number, fileId: number, config?: AxiosRequestConfig) {
+        if (config) {
+            return api.post<{ data: EmoticonMaster }>(`/emoticons/${emoticonId}/images`, { fileId }, config)
+        }
         return api.post<{ data: EmoticonMaster }>(`/emoticons/${emoticonId}/images`, { fileId })
     },
-    async addImageData(emoticonId: number, fileId: number) {
-        return unwrapEmoticonResponse(await this.addImage(emoticonId, fileId))
+    async addImageData(emoticonId: number, fileId: number, config?: AxiosRequestConfig) {
+        return unwrapEmoticonResponse(await this.addImage(emoticonId, fileId, config))
     },
 
     /**
      * 이미지 삭제
      */
-    deleteImage(imageId: number) {
+    deleteImage(imageId: number, config?: AxiosRequestConfig) {
+        if (config) {
+            return api.delete(`/emoticons/images/${imageId}`, config)
+        }
         return api.delete(`/emoticons/images/${imageId}`)
     },
 

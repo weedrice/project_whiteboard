@@ -216,6 +216,8 @@ describe('EmoticonRegister', () => {
       thumbnailFileId: 10,
       tags: ['fun'],
       imageFileIds: [20],
+    }, {
+      skipGlobalErrorHandler: true,
     })
     expect(mocks.addToast).toHaveBeenCalledWith('emoticon.register.created', 'success')
     expect(mocks.push).toHaveBeenCalledWith({ name: 'emoticon-list' })

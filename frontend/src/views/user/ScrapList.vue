@@ -1,32 +1,21 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { userApi } from '@/api/user'
+import { computed } from 'vue'
+import { useUser } from '@/composables/useUser'
 import PostList from '@/components/board/PostList.vue'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import { Bookmark } from 'lucide-vue-next'
-import type { PostSummary } from '@/types'
-import { usePagination } from '@/composables/usePagination'
+import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
+import { getListLoadErrorMessage } from '@/utils/listLoadError'
 import { isInquiryPostItem, resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigation'
+import { useI18n } from 'vue-i18n'
 
-const {
-  items: scraps,
-  loading,
-  page,
-  size,
-  totalPages,
-  error,
-  fetch: fetchScraps,
-  handlePageChange,
-  handleSizeChange
-} = usePagination<PostSummary>(async (params, { signal }) => {
-  const { data } = await userApi.getMyScraps(params, { signal })
-  return data
-}, { page: 0, size: 15 })
-
-onMounted(() => {
-  fetchScraps()
-})
+const { t } = useI18n()
+const { useMyScraps } = useUser()
+const { page, size, params, handlePageChange, handleSizeChange } = usePaginatedQueryState({ initialSize: 15 })
+const { data: scrapsData, isLoading: loading, error, refetch } = useMyScraps(params)
+const { items: scraps, totalPages } = usePageResponseState(scrapsData, page)
+const errorMessage = computed(() => error.value ? getListLoadErrorMessage(t) : '')
 </script>
 
 <template>
@@ -35,13 +24,13 @@ onMounted(() => {
     :icon="Bookmark"
     :items-count="scraps.length"
     :loading="loading"
-    :error="error"
+    :error="errorMessage || null"
     :empty-title="$t('user.scrapList.empty')"
     :page="page"
     :size="size"
     :total-pages="totalPages"
     max-width-class="max-w-7xl"
-    @retry="fetchScraps"
+    @retry="refetch"
     @page-change="handlePageChange"
     @size-change="handleSizeChange"
   >

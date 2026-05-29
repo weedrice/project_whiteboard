@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue'
+import { ref, reactive } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
+import { useConfigEditor } from '@/composables/useConfigEditor'
 import { Save, Trash2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
@@ -17,13 +18,6 @@ const toastStore = useToastStore()
 const { confirm } = useConfirm()
 const { useConfigs, useUpdateConfig, useCreateConfig, useDeleteConfig } = useAdmin()
 
-interface ConfigItem {
-  key: string
-  value: string
-  description: string
-}
-
-const configs = ref<ConfigItem[]>([])
 const isModalOpen = ref(false)
 const newConfig = reactive({
   key: '',
@@ -35,14 +29,12 @@ const { data: configsData, isLoading } = useConfigs()
 const { mutateAsync: updateConfig } = useUpdateConfig()
 const { mutateAsync: createConfig } = useCreateConfig()
 const { mutateAsync: deleteConfig } = useDeleteConfig()
+const { configs, updateDraft, getDraft } = useConfigEditor(configsData)
 
-watch(configsData, (newData) => {
-  if (newData) {
-    configs.value = JSON.parse(JSON.stringify(newData))
-  }
-}, { immediate: true })
+async function handleSave(key: string) {
+  const config = getDraft(key)
+  if (!config) return
 
-async function handleSave(config: ConfigItem) {
   try {
     await updateConfig({ key: config.key, value: config.value, description: config.description })
     toastStore.addToast(t('admin.settings.messages.saved'), 'success')
@@ -104,18 +96,22 @@ const columns = [
     <div class="mt-8">
       <BaseTable :columns="columns" :items="configs" row-key="key" :loading="isLoading" :emptyText="t('common.noData')">
         <template #cell-description="{ item }">
-          <BaseInput v-model="item.description" :label="`${item.key} ${t('common.description')}`" hideLabel
+          <BaseInput :model-value="item.description"
+            :label="`${item.key} ${t('common.description')}`" hideLabel
+            @update:model-value="updateDraft(item.key, { description: String($event) })"
             inputClass="block w-full border-0 p-0 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-500 focus:ring-0 sm:text-sm bg-transparent shadow-none" />
         </template>
 
         <template #cell-value="{ item }">
-          <BaseInput v-model="item.value" :label="`${item.key} ${t('common.value')}`" hideLabel
+          <BaseInput :model-value="item.value"
+            :label="`${item.key} ${t('common.value')}`" hideLabel
+            @update:model-value="updateDraft(item.key, { value: String($event) })"
             inputClass="block w-full border-0 p-0 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-500 focus:ring-0 sm:text-sm bg-transparent shadow-none" />
         </template>
 
         <template #cell-actions="{ item }">
           <div class="flex justify-end space-x-2">
-            <BaseButton @click="handleSave(item)" variant="ghost" size="sm" :title="t('common.save')" :aria-label="t('common.save')"
+            <BaseButton @click="handleSave(item.key)" variant="ghost" size="sm" :title="t('common.save')" :aria-label="t('common.save')"
               class="p-1 text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
               <Save class="h-4 w-4" aria-hidden="true" />
             </BaseButton>

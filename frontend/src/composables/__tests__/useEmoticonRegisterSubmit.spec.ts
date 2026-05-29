@@ -111,6 +111,8 @@ describe('useEmoticonRegisterSubmit', () => {
       thumbnailFileId: 10,
       tags: ['fun'],
       imageFileIds: [20],
+    }, {
+      skipGlobalErrorHandler: true,
     })
     expect(onSuccess).toHaveBeenCalledTimes(1)
     expect(onError).not.toHaveBeenCalled()

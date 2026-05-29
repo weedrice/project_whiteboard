@@ -5,7 +5,6 @@ import { useQueryClient } from '@tanstack/vue-query'
 import { useHead } from '@unhead/vue'
 import { ArrowLeft, Upload, X, Plus, EyeOff, Eye } from 'lucide-vue-next'
 import { useToastStore } from '@/stores/toast'
-import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useConfirm } from '@/composables/useConfirm'
@@ -19,17 +18,12 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const toastStore = useToastStore()
-const authStore = useAuthStore()
 const queryClient = useQueryClient()
 const { selectThumbnailImage, selectEmoticonImages } = useEmoticonImageSelection(t, toastStore)
 const { confirm } = useConfirm()
 
 const emoticonId = computed(() => Number(route.params.emoticonId))
-const { emoticon, isLoading, isOwner } = useEmoticonEditResource({
-  emoticonId,
-  isAuthenticated: () => authStore.isAuthenticated,
-  getUser: () => authStore.user,
-})
+const { emoticon, editFormState, isLoading } = useEmoticonEditResource({ emoticonId })
 
 useHead({
   title: computed(() => emoticon.value?.name ? `${emoticon.value.name} 수정 - 노비콘` : '노비콘 수정')
@@ -66,6 +60,7 @@ const {
 } = useEmoticonEditForm({
   emoticonId,
   emoticon,
+  editFormState,
   selectThumbnailImage,
   selectEmoticonImages,
   confirm,
@@ -132,11 +127,6 @@ const goToDetail = () => {
           <div v-for="i in 5" :key="i" class="aspect-square bg-gray-200 dark:bg-gray-700 rounded"></div>
         </div>
       </div>
-    </div>
-
-    <!-- 권한 없음 -->
-    <div v-else-if="emoticon && !isOwner" class="text-center py-20">
-      <p class="text-red-500 dark:text-red-400">수정 권한이 없습니다.</p>
     </div>
 
     <!-- 폼 -->

@@ -107,6 +107,26 @@ export function useUser() {
         })
     }
 
+    const useMyScraps = (params?: Ref<PaginationParams>) => {
+        return useQuery({
+            queryKey: computed(() => ['user', 'scraps', params?.value ?? {}]),
+            queryFn: async (context: QueryFunctionContext) => {
+                const { data } = await userApi.getMyScraps(params?.value ?? {}, withQuerySignal(undefined, context))
+                return data.data
+            },
+        })
+    }
+
+    const useMyPointHistories = (params?: Ref<PaginationParams>) => {
+        return useQuery({
+            queryKey: computed(() => ['user', 'points', 'history', params?.value ?? {}]),
+            queryFn: async (context: QueryFunctionContext) => {
+                const { data } = await userApi.getMyPointHistories(params?.value ?? {}, withQuerySignal(undefined, context))
+                return data.data
+            },
+        })
+    }
+
     // --- Mutations ---
 
     const useUpdateMyProfile = () => {
@@ -257,6 +277,8 @@ export function useUser() {
         useBlockList,
         useMyAgents,
         useMyPoint,
+        useMyScraps,
+        useMyPointHistories,
         useRecentlyViewedPosts,
         useUpdateMyProfile,
         useUpdatePassword,
