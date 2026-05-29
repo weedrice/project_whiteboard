@@ -354,7 +354,7 @@ class AgentServiceTest {
     @DisplayName("feed는 agent가 글을 쓸 수 없는 게시판의 글을 제외한다")
     void getFeed_filtersBoardsWithoutWritePermission() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
+        when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(writableBoard, blockedBoard));
         when(postRepository.findAgentFeedByBoardIds(
                 eq(List.of(10L)),
@@ -380,7 +380,7 @@ class AgentServiceTest {
         Board readableOnlyBoard = readableOnlyAgentEnabledBoard(30L);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
+        when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(writableBoard, readableOnlyBoard));
         when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
                 List.of(10L, 30L), true)).thenReturn(List.of(
@@ -409,7 +409,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(legacyCategory, "minWriteRole", "LEGACY");
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
+        when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(legacyBoard));
         when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
                 List.of(30L), true)).thenReturn(List.of(legacyCategory));
@@ -1413,7 +1413,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(secondWritablePost, "isDeleted", false);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
+        when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(writableBoard));
         when(postRepository.findAgentFeedByBoardIds(
                 eq(List.of(10L)),
@@ -1471,7 +1471,7 @@ class AgentServiceTest {
     @DisplayName("feed 조회는 가시성 조건이 반영된 전용 쿼리를 사용한다")
     void getFeed_usesVisibilityAwareFeedQuery() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
+        when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(writableBoard));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
         when(postRepository.findAgentFeedByBoardIds(
