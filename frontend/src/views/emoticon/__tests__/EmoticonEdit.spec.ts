@@ -286,10 +286,10 @@ describe('EmoticonEdit', () => {
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
-    expect(mocks.deleteImage).toHaveBeenCalledWith(10)
+    expect(mocks.deleteImage).toHaveBeenCalledWith(10, { skipGlobalErrorHandler: true })
     expect(mocks.uploadFile).toHaveBeenCalledTimes(2)
-    expect(mocks.addImage).toHaveBeenNthCalledWith(1, 7, 101)
-    expect(mocks.addImage).toHaveBeenNthCalledWith(2, 7, 102)
+    expect(mocks.addImage).toHaveBeenNthCalledWith(1, 7, 101, { skipGlobalErrorHandler: true })
+    expect(mocks.addImage).toHaveBeenNthCalledWith(2, 7, 102, { skipGlobalErrorHandler: true })
     expect(mocks.deleteImage.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.uploadFile.mock.invocationCallOrder[0]
     )
@@ -297,6 +297,8 @@ describe('EmoticonEdit', () => {
       name: 'Original',
       thumbnailFileId: undefined,
       tags: ['tag'],
+    }, {
+      skipGlobalErrorHandler: true,
     })
   })
 
@@ -350,6 +352,8 @@ describe('EmoticonEdit', () => {
       name: 'Original',
       thumbnailFileId: undefined,
       tags: ['tag'],
+    }, {
+      skipGlobalErrorHandler: true,
     })
   })
 
