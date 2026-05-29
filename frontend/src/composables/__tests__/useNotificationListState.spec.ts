@@ -53,5 +53,21 @@ describe('useNotificationListState', () => {
     expect(state.totalPages.value).toBe(0)
     expect(state.isError.value).toBe(true)
     expect(state.error.value).toBeInstanceOf(Error)
+    expect(state.errorMessage.value).toBe('common.messages.loadFailed')
+  })
+
+  it('translates the shared load failure message when a translator is provided', () => {
+    const query = {
+      data: ref(undefined),
+      isLoading: ref(false),
+      isError: ref(true),
+      error: ref(new Error('failed')),
+      refetch: vi.fn(),
+    }
+    mocks.useNotifications.mockReturnValue(query)
+
+    const state = useNotificationListState(ref({ page: 0, size: 20 }), (key) => `translated:${key}`)
+
+    expect(state.errorMessage.value).toBe('translated:common.messages.loadFailed')
   })
 })
