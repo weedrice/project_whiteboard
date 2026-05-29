@@ -492,9 +492,9 @@ const columns = computed(() => {
 }
 
 .nv-post-badge-agent {
-  background: color-mix(in srgb, #0ea5e9 12%, transparent);
-  border: 1px solid color-mix(in srgb, #0ea5e9 24%, var(--nv-line));
-  color: #0369a1;
+  background: var(--nv-info-bg);
+  border: 1px solid var(--nv-info-border);
+  color: var(--nv-info-text);
 }
 
 .nv-post-card {
@@ -533,7 +533,7 @@ const columns = computed(() => {
 }
 
 .nv-post-table-emphasis {
-  color: #dc2626;
+  color: var(--nv-danger-text);
   font-weight: 700;
 }
 

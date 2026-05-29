@@ -68,7 +68,7 @@ onMounted(fetchCategories)
 
     <!-- Category List -->
     <div v-if="isLoading" class="text-center py-4">
-      <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600 mx-auto"></div>
+      <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-current nv-spinner mx-auto"></div>
     </div>
 
     <div
@@ -91,7 +91,7 @@ onMounted(fetchCategories)
             <BaseButton @click="saveEdit(defaultCategory)" variant="ghost" size="sm"
               :aria-label="$t('board.category.save')"
               :disabled="isReordering"
-              class="p-1 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300">
+              class="p-1 text-[var(--nv-success-text)]">
               <Check class="h-4 w-4" aria-hidden="true" />
             </BaseButton>
             <BaseButton @click="cancelEdit" variant="ghost" size="sm"
@@ -113,7 +113,7 @@ onMounted(fetchCategories)
           <BaseButton @click="startEdit(defaultCategory)" variant="ghost" size="sm"
             :aria-label="$t('board.category.edit')"
             :disabled="isReordering"
-            class="p-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
+            class="p-1 nv-accent-text">
             <Edit2 class="h-4 w-4" aria-hidden="true" />
           </BaseButton>
         </div>
@@ -145,7 +145,7 @@ onMounted(fetchCategories)
               <BaseButton @click="saveEdit(category)" variant="ghost" size="sm"
                 :aria-label="$t('board.category.save')"
                 :disabled="isReordering"
-                class="p-1 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300">
+                class="p-1 text-[var(--nv-success-text)]">
                 <Check class="h-4 w-4" aria-hidden="true" />
               </BaseButton>
               <BaseButton @click="cancelEdit" variant="ghost" size="sm"
@@ -166,13 +166,13 @@ onMounted(fetchCategories)
               <BaseButton @click="startEdit(category)" variant="ghost" size="sm"
                 :aria-label="$t('board.category.edit')"
                 :disabled="isReordering"
-                class="p-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
+                class="p-1 nv-accent-text">
                 <Edit2 class="h-4 w-4" aria-hidden="true" />
               </BaseButton>
               <BaseButton @click="handleDelete(category.categoryId)" variant="ghost" size="sm"
                 :aria-label="$t('board.category.delete')"
                 :disabled="isReordering"
-                class="p-1 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300">
+                class="p-1 nv-danger-text">
                 <Trash2 class="h-4 w-4" aria-hidden="true" />
               </BaseButton>
             </div>

@@ -220,7 +220,7 @@ const {
     <BaseCard noPadding>
       <PostDetailSkeleton v-if="isLoading" />
 
-      <div v-else-if="error" class="px-4 py-12 text-center text-sm text-red-500 sm:px-6">
+      <div v-else-if="error" class="px-4 py-12 text-center text-sm nv-form-error sm:px-6">
         {{ error }}
         <div class="mt-4">
           <BaseButton @click="router.back()" variant="ghost" size="sm">
@@ -566,10 +566,11 @@ const {
 }
 
 .nv-post-copy-hint {
-  background: #ecfdf5;
+  background: var(--nv-success-bg);
+  border: 1px solid var(--nv-success-border);
   border-radius: 9999px;
   box-shadow: var(--nv-shadow-popup);
-  color: #059669;
+  color: var(--nv-success-text);
   font-size: 0.7rem;
   font-weight: 600;
   padding: 0.35rem 0.65rem;
@@ -747,7 +748,7 @@ const {
 }
 
 .nv-post-action-btn.is-bookmark {
-  color: #bb7a00;
+  color: var(--nv-warning-text);
 }
 
 .nv-post-action-btn.is-report {

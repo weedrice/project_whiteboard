@@ -154,9 +154,9 @@ const isSubmitting = computed(() => props.isSubmitting || localIsSubmitting.valu
 
     <div class="flex justify-end space-x-3 items-center">
       <div v-if="!isEdit" class="flex items-center mr-2 text-sm"
-        :class="canCreate ? 'nv-text-muted' : 'text-red-500 font-bold'">
+        :class="canCreate ? 'nv-text-muted' : 'nv-form-error font-bold'">
         <span>{{ $t('board.form.cost') }}: {{ boardCreateCost }} P</span>
-        <span class="mx-2 text-gray-300">|</span>
+        <span class="mx-2 nv-text-subtle">|</span>
         <span>{{ $t('board.form.currentPoints') }}: {{ userPoints }} P</span>
       </div>
       <BaseButton type="button" variant="secondary" @click="emit('cancel')">

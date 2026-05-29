@@ -41,7 +41,7 @@ const hasPreviewImage = (post: PostSummary) => (
   </span>
   <span
     v-if="showSecretIndicator && post.isSecret"
-    class="inline-flex flex-shrink-0 items-center text-amber-500"
+    class="inline-flex flex-shrink-0 items-center text-[var(--nv-warning-text)]"
     :title="t('board.writePost.secret')"
   >
     <Lock class="h-4 w-4" />
@@ -88,21 +88,21 @@ const hasPreviewImage = (post: PostSummary) => (
 }
 
 .nv-post-badge-notice {
-  background: color-mix(in srgb, #ef4444 12%, transparent);
-  border: 1px solid color-mix(in srgb, #ef4444 25%, var(--nv-line));
-  color: #dc2626;
+  background: var(--nv-danger-bg);
+  border: 1px solid var(--nv-danger-border);
+  color: var(--nv-danger-text);
 }
 
 .nv-post-badge-success {
-  background: color-mix(in srgb, #10b981 12%, transparent);
-  border: 1px solid color-mix(in srgb, #10b981 24%, var(--nv-line));
-  color: #047857;
+  background: var(--nv-success-bg);
+  border: 1px solid var(--nv-success-border);
+  color: var(--nv-success-text);
 }
 
 .nv-post-badge-warn {
-  background: color-mix(in srgb, #f59e0b 12%, transparent);
-  border: 1px solid color-mix(in srgb, #f59e0b 24%, var(--nv-line));
-  color: #b45309;
+  background: var(--nv-warning-bg);
+  border: 1px solid var(--nv-warning-border);
+  color: var(--nv-warning-text);
 }
 
 .nv-post-title-text,

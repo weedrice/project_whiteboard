@@ -27,7 +27,7 @@ const {
 <template>
   <div class="max-w-3xl mx-auto">
     <div v-if="isLoading" class="text-center py-10">
-      <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
+      <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-current nv-spinner mx-auto"></div>
     </div>
 
     <div v-else-if="canManageBoard" class="nv-surface shadow sm:rounded-lg overflow-hidden">

@@ -42,7 +42,7 @@ const allBoards = computed(() => {
 
     <BoardListSkeleton v-if="isLoading" :count="6" :show-subscribed="authStore.isAuthenticated" />
 
-    <div v-else-if="error" class="text-center py-20 text-red-500 dark:text-red-400">
+    <div v-else-if="error" class="text-center py-20 nv-form-error">
       {{ error }}
     </div>
 
