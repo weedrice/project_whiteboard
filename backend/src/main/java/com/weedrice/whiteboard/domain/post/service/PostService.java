@@ -50,6 +50,7 @@ public class PostService {
     private final PostAuthorCommandPolicy postAuthorCommandPolicy;
     private final PostCommandService postCommandService;
     private final PostFacadeReadService postFacadeReadService;
+    private final PostDetailContextResolver postDetailContextResolver;
 
     public Page<PostSummary> getPosts(String boardUrl, Long categoryId, String keyword, Integer minLikes, Long currentUserId,
             @NonNull Pageable pageable) {
@@ -164,8 +165,9 @@ public class PostService {
             int boardListPageSize) {
         int normalizedBoardListPageSize = PageRequestUtils.of(0, boardListPageSize).getPageSize();
         if (incrementView) {
-            int viewCount = postDetailViewCommandService.recordReadableView(postId, userId);
-            return postDetailReadService.getPostResponse(postId, userId, normalizedBoardListPageSize, viewCount);
+            PostDetailContext context = postDetailContextResolver.resolve(postId, userId);
+            int viewCount = postDetailViewCommandService.recordReadableView(context);
+            return postDetailReadService.getPostResponse(context, normalizedBoardListPageSize, viewCount);
         }
         return postDetailReadService.getPostResponse(postId, userId, normalizedBoardListPageSize);
     }
