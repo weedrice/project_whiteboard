@@ -84,7 +84,7 @@ const columns = computed(() => [
 
       <template #cell-contents="{ item }">
         <span v-if="item.targetType === 'POST' || item.targetType === 'COMMENT'">{{ item.targetId }}</span>
-        <span v-else class="text-gray-400">-</span>
+        <span v-else class="nv-text-subtle">-</span>
       </template>
 
       <template #cell-processor="{ item }">
@@ -111,20 +111,20 @@ const columns = computed(() => [
         <div class="flex justify-center space-x-2">
           <BaseButton @click="$emit('viewDetail', item)" variant="ghost" size="sm"
             :title="t('common.viewDetail')"
-            class="p-1 text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
+            class="p-1 nv-accent-text hover:brightness-95">
             <Eye class="h-4 w-4" />
           </BaseButton>
           <template v-if="item.status === 'PENDING'">
             <BaseButton @click="onSanction(item)" variant="ghost" size="sm" :title="t('admin.reports.actions.sanction')"
-              class="p-1 text-orange-600 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-300">
+              class="p-1 text-[var(--nv-warning-text)] hover:brightness-95">
               <ShieldAlert class="h-4 w-4" />
             </BaseButton>
             <BaseButton @click="onResolve(item)" variant="ghost" size="sm" :title="t('admin.reports.actions.resolve')"
-              class="p-1 text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300">
+              class="p-1 text-[var(--nv-success-text)] hover:brightness-95">
               <Check class="h-4 w-4" />
             </BaseButton>
             <BaseButton @click="onReject(item)" variant="ghost" size="sm" :title="t('admin.reports.actions.reject')"
-              class="p-1 text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">
+              class="p-1 text-[var(--nv-danger-text)] hover:brightness-95">
               <X class="h-4 w-4" />
             </BaseButton>
           </template>

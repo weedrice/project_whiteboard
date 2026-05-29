@@ -362,60 +362,42 @@ function getRowClass(log: ErrorLogListItem): string {
 <style scoped>
 /* 통계 카드 */
 .error-log-stat-card {
-    background: white;
+    background: var(--nv-surface);
     border-radius: 8px;
     padding: 16px 20px;
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-.dark .error-log-stat-card {
-    background: #1f2937;
-    border-color: #374151;
+    border: 1px solid var(--nv-border);
+    box-shadow: var(--nv-shadow-card);
 }
 
 .error-log-stat-card--warning {
-    border-left: 4px solid #f59e0b;
+    border-left: 4px solid var(--nv-warning);
 }
 
 .error-log-stat-card--success {
-    border-left: 4px solid #10b981;
+    border-left: 4px solid var(--nv-success);
 }
 
 .stat-label {
     font-size: 0.75rem;
-    color: #6b7280;
+    color: var(--nv-text-subtle);
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
 
-.dark .stat-label {
-    color: #9ca3af;
-}
-
 .stat-value {
     font-size: 1.5rem;
     font-weight: 700;
-    color: #111827;
+    color: var(--nv-text);
     margin-top: 4px;
-}
-
-.dark .stat-value {
-    color: #f9fafb;
 }
 
 /* 필터 */
 .error-log-filter-bar {
-    background: white;
+    background: var(--nv-surface);
     border-radius: 8px;
     padding: 16px;
-    border: 1px solid #e5e7eb;
-}
-
-.dark .error-log-filter-bar {
-    background: #1f2937;
-    border-color: #374151;
+    border: 1px solid var(--nv-border);
 }
 
 .filter-grid {
@@ -451,90 +433,62 @@ function getRowClass(log: ErrorLogListItem): string {
     font-size: 0.8125rem;
     font-weight: 500;
     color: white;
-    background: #4f46e5;
+    background: var(--nv-accent);
     cursor: pointer;
     transition: background 0.15s;
 }
 
 .btn-search:hover {
-    background: #4338ca;
+    background: color-mix(in srgb, var(--nv-accent) 88%, black 12%);
 }
 
 .filter-label {
     font-size: 0.75rem;
     font-weight: 500;
-    color: #374151;
-}
-
-.dark .filter-label {
-    color: #d1d5db;
+    color: var(--nv-text-muted);
 }
 
 .filter-input {
     padding: 6px 10px;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--nv-border);
     border-radius: 6px;
     font-size: 0.8125rem;
-    background: white;
-    color: #111827;
-}
-
-.dark .filter-input {
-    background: #111827;
-    border-color: #4b5563;
-    color: #f9fafb;
+    background: var(--nv-surface);
+    color: var(--nv-text);
 }
 
 .btn-reset {
     padding: 6px 14px;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--nv-border);
     border-radius: 6px;
     font-size: 0.8125rem;
-    color: #374151;
-    background: white;
+    color: var(--nv-text-muted);
+    background: var(--nv-surface);
     cursor: pointer;
     transition: background 0.15s;
 }
 
 .btn-reset:hover {
-    background: #f3f4f6;
-}
-
-.dark .btn-reset {
-    background: #374151;
-    border-color: #4b5563;
-    color: #d1d5db;
-}
-
-.dark .btn-reset:hover {
-    background: #4b5563;
+    background: var(--nv-surface-hover);
+    color: var(--nv-text);
 }
 
 /* 테이블 */
 .error-log-table-wrapper {
     overflow-x: auto;
-    background: white;
+    background: var(--nv-surface);
     border-radius: 8px;
-    border: 1px solid #e5e7eb;
-}
-
-.dark .error-log-table-wrapper {
-    background: #1f2937;
-    border-color: #374151;
+    border: 1px solid var(--nv-border);
 }
 
 .loading-indicator {
     text-align: center;
     padding: 40px;
-    color: #6b7280;
+    color: var(--nv-text-subtle);
 }
 
 .row-unresolved {
-    background: #fffbeb;
-}
-
-.dark .row-unresolved {
-    background: rgba(245, 158, 11, 0.05);
+    background: var(--nv-warning-bg);
 }
 
 .message-cell {
@@ -563,33 +517,18 @@ function getRowClass(log: ErrorLogListItem): string {
 }
 
 .status-500 {
-    background: #fef2f2;
-    color: #dc2626;
-}
-
-.dark .status-500 {
-    background: rgba(220, 38, 38, 0.15);
-    color: #fca5a5;
+    background: var(--nv-danger-bg);
+    color: var(--nv-danger-text);
 }
 
 .status-400 {
-    background: #fffbeb;
-    color: #d97706;
-}
-
-.dark .status-400 {
-    background: rgba(217, 119, 6, 0.15);
-    color: #fcd34d;
+    background: var(--nv-warning-bg);
+    color: var(--nv-warning-text);
 }
 
 .status-other {
-    background: #f0fdf4;
-    color: #16a34a;
-}
-
-.dark .status-other {
-    background: rgba(22, 163, 74, 0.15);
-    color: #86efac;
+    background: var(--nv-success-bg);
+    color: var(--nv-success-text);
 }
 
 .resolve-badge {
@@ -602,23 +541,13 @@ function getRowClass(log: ErrorLogListItem): string {
 }
 
 .resolve-badge--resolved {
-    background: #f0fdf4;
-    color: #16a34a;
-}
-
-.dark .resolve-badge--resolved {
-    background: rgba(22, 163, 74, 0.15);
-    color: #86efac;
+    background: var(--nv-success-bg);
+    color: var(--nv-success-text);
 }
 
 .resolve-badge--unresolved {
-    background: #fef2f2;
-    color: #dc2626;
-}
-
-.dark .resolve-badge--unresolved {
-    background: rgba(220, 38, 38, 0.15);
-    color: #fca5a5;
+    background: var(--nv-danger-bg);
+    color: var(--nv-danger-text);
 }
 
 /* 액션 버튼 */
@@ -630,7 +559,7 @@ function getRowClass(log: ErrorLogListItem): string {
 .btn-icon {
     padding: 4px;
     border-radius: 4px;
-    color: #6b7280;
+    color: var(--nv-text-subtle);
     background: transparent;
     border: none;
     cursor: pointer;
@@ -638,27 +567,17 @@ function getRowClass(log: ErrorLogListItem): string {
 }
 
 .btn-icon:hover {
-    background: #f3f4f6;
-    color: #111827;
-}
-
-.dark .btn-icon:hover {
-    background: #374151;
-    color: #f9fafb;
+    background: var(--nv-surface-hover);
+    color: var(--nv-text);
 }
 
 .btn-icon--resolve {
-    color: #16a34a;
+    color: var(--nv-success-text);
 }
 
 .btn-icon--resolve:hover {
-    background: #f0fdf4;
-    color: #16a34a;
-}
-
-.dark .btn-icon--resolve:hover {
-    background: rgba(22, 163, 74, 0.15);
-    color: #86efac;
+    background: var(--nv-success-bg);
+    color: var(--nv-success-text);
 }
 
 /* 모달 */
@@ -674,21 +593,18 @@ function getRowClass(log: ErrorLogListItem): string {
 }
 
 .modal-content {
-    background: white;
+    background: var(--nv-surface);
+    color: var(--nv-text);
     border-radius: 12px;
     width: 100%;
     max-width: 500px;
     max-height: 90vh;
     overflow-y: auto;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    box-shadow: var(--nv-shadow-popup);
 }
 
 .modal-content--lg {
     max-width: 720px;
-}
-
-.dark .modal-content {
-    background: #1f2937;
 }
 
 .modal-header {
@@ -696,38 +612,26 @@ function getRowClass(log: ErrorLogListItem): string {
     justify-content: space-between;
     align-items: center;
     padding: 16px 20px;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.dark .modal-header {
-    border-bottom-color: #374151;
+    border-bottom: 1px solid var(--nv-border);
 }
 
 .modal-header h3 {
     font-size: 1rem;
     font-weight: 600;
-    color: #111827;
-}
-
-.dark .modal-header h3 {
-    color: #f9fafb;
+    color: var(--nv-text);
 }
 
 .btn-close {
     padding: 4px;
     border-radius: 4px;
-    color: #6b7280;
+    color: var(--nv-text-muted);
     background: transparent;
     border: none;
     cursor: pointer;
 }
 
 .btn-close:hover {
-    background: #f3f4f6;
-}
-
-.dark .btn-close:hover {
-    background: #374151;
+    background: var(--nv-surface-hover);
 }
 
 .modal-body {
@@ -739,11 +643,7 @@ function getRowClass(log: ErrorLogListItem): string {
     justify-content: flex-end;
     gap: 8px;
     padding: 16px 20px;
-    border-top: 1px solid #e5e7eb;
-}
-
-.dark .modal-footer {
-    border-top-color: #374151;
+    border-top: 1px solid var(--nv-border);
 }
 
 /* 상세 섹션 */
@@ -758,15 +658,10 @@ function getRowClass(log: ErrorLogListItem): string {
 .detail-section-title {
     font-size: 0.875rem;
     font-weight: 600;
-    color: #111827;
+    color: var(--nv-text);
     margin-bottom: 12px;
     padding-bottom: 6px;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.dark .detail-section-title {
-    color: #f9fafb;
-    border-bottom-color: #374151;
+    border-bottom: 1px solid var(--nv-border);
 }
 
 .stack-trace-header {
@@ -786,10 +681,10 @@ function getRowClass(log: ErrorLogListItem): string {
     align-items: center;
     gap: 6px;
     padding: 5px 10px;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--nv-border);
     border-radius: 6px;
-    background: #ffffff;
-    color: #374151;
+    background: var(--nv-surface);
+    color: var(--nv-text-muted);
     font-size: 0.75rem;
     font-weight: 500;
     line-height: 1;
@@ -799,17 +694,8 @@ function getRowClass(log: ErrorLogListItem): string {
 }
 
 .btn-copy-stack-trace:hover {
-    background: #f3f4f6;
-}
-
-.dark .btn-copy-stack-trace {
-    background: #111827;
-    border-color: #4b5563;
-    color: #d1d5db;
-}
-
-.dark .btn-copy-stack-trace:hover {
-    background: #1f2937;
+    background: var(--nv-surface-hover);
+    color: var(--nv-text);
 }
 
 .detail-grid {
@@ -831,23 +717,15 @@ function getRowClass(log: ErrorLogListItem): string {
 .detail-label {
     font-size: 0.6875rem;
     font-weight: 500;
-    color: #6b7280;
+    color: var(--nv-text-subtle);
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
 
-.dark .detail-label {
-    color: #9ca3af;
-}
-
 .detail-value {
     font-size: 0.8125rem;
-    color: #111827;
+    color: var(--nv-text);
     word-break: break-all;
-}
-
-.dark .detail-value {
-    color: #f9fafb;
 }
 
 .stack-trace-block {
@@ -872,11 +750,7 @@ function getRowClass(log: ErrorLogListItem): string {
 .resolve-info p {
     margin: 4px 0;
     font-size: 0.875rem;
-    color: #374151;
-}
-
-.dark .resolve-info p {
-    color: #d1d5db;
+    color: var(--nv-text-muted);
 }
 
 /* 버튼 */
@@ -884,7 +758,7 @@ function getRowClass(log: ErrorLogListItem): string {
     display: inline-flex;
     align-items: center;
     padding: 8px 16px;
-    background: #4f46e5;
+    background: var(--nv-accent);
     color: white;
     border: none;
     border-radius: 6px;
@@ -895,14 +769,14 @@ function getRowClass(log: ErrorLogListItem): string {
 }
 
 .btn-resolve:hover {
-    background: #4338ca;
+    background: color-mix(in srgb, var(--nv-accent) 88%, black 12%);
 }
 
 .btn-cancel {
     padding: 8px 16px;
     background: transparent;
-    color: #374151;
-    border: 1px solid #d1d5db;
+    color: var(--nv-text-muted);
+    border: 1px solid var(--nv-border);
     border-radius: 6px;
     font-size: 0.8125rem;
     cursor: pointer;
@@ -910,15 +784,7 @@ function getRowClass(log: ErrorLogListItem): string {
 }
 
 .btn-cancel:hover {
-    background: #f3f4f6;
-}
-
-.dark .btn-cancel {
-    color: #d1d5db;
-    border-color: #4b5563;
-}
-
-.dark .btn-cancel:hover {
-    background: #374151;
+    background: var(--nv-surface-hover);
+    color: var(--nv-text);
 }
 </style>

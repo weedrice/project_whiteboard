@@ -28,7 +28,7 @@
         :id="menuDropdownId"
         ref="dropdownRef"
         :style="dropdownStyle"
-        class="absolute z-50 w-56 rounded-md nv-surface shadow-lg ring-1 ring-black/5 transition-colors duration-200 focus:outline-none"
+        class="absolute z-50 w-56 rounded-md nv-surface border nv-border shadow-lg transition-colors duration-200 focus:outline-none"
         role="menu"
         aria-orientation="vertical"
         :aria-labelledby="menuButtonId"

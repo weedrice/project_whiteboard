@@ -130,7 +130,7 @@ const superAdminColumns: { key: string; label: string; width: string; align?: 'l
             @click="toggleSuperAdminStatus(item as SuperAdminRow)"
             variant="ghost"
             size="sm"
-            class="p-1 text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
+            class="p-1 nv-accent-text hover:brightness-95"
           >
             {{ (item as SuperAdminRow).superAdmin ? t('common.deactivate') : t('common.activate') }}
           </BaseButton>

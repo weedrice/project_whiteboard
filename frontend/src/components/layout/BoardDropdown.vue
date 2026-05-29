@@ -147,12 +147,12 @@ onUnmounted(() => {
 
     <div v-if="isOpen"
       role="menu"
-      class="origin-top-left absolute left-0 mt-2 w-[min(16rem,92vw)] sm:w-64 rounded-md shadow-lg py-1 sm:py-1 nv-surface ring-1 ring-black/5 focus:outline-none z-50">
+      class="origin-top-left absolute left-0 mt-2 w-[min(16rem,92vw)] sm:w-64 rounded-md shadow-lg py-1 sm:py-1 nv-surface border nv-border focus:outline-none z-50">
       <div v-if="loading" class="px-3 py-3 sm:py-3 text-center">
-        <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600 mx-auto"></div>
+        <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-current nv-spinner mx-auto"></div>
       </div>
 
-      <div v-else-if="isError" class="px-3 py-3 sm:py-3 text-center text-xs sm:text-sm text-red-500 dark:text-red-400">
+      <div v-else-if="isError" class="px-3 py-3 sm:py-3 text-center text-xs sm:text-sm nv-form-error">
         <span>Unable to load boards.</span>
       </div>
 

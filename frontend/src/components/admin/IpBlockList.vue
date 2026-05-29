@@ -41,7 +41,7 @@ const columns = computed(() => [
         <div class="flex justify-end space-x-2">
           <BaseButton @click="$emit('viewDetail', item)" variant="ghost" size="sm"
             :title="t('common.viewDetail')"
-            class="p-1 text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
+            class="p-1 nv-accent-text hover:brightness-95">
             <Eye class="h-4 w-4" />
           </BaseButton>
           <BaseButton @click="onUnblock(item.ipAddress)" variant="danger" size="sm">

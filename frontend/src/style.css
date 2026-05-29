@@ -49,9 +49,11 @@ html {
     --nv-danger-bg: #fff0eb;
     --nv-danger-border: #ffd1c2;
     --nv-danger-text: #b53016;
+    --nv-success: #1d7a3f;
     --nv-success-bg: #eaf8ef;
     --nv-success-border: #c4ead1;
     --nv-success-text: #1d7a3f;
+    --nv-warning: #b77900;
     --nv-warning-bg: #fff6dc;
     --nv-warning-border: #f4dea3;
     --nv-warning-text: #8a5a00;
@@ -96,9 +98,11 @@ html {
     --nv-danger-bg: #3a1b15;
     --nv-danger-border: #5f2b20;
     --nv-danger-text: #ffad95;
+    --nv-success: #36b66b;
     --nv-success-bg: #143122;
     --nv-success-border: #205b38;
     --nv-success-text: #8be2a9;
+    --nv-warning: #d7a432;
     --nv-warning-bg: #35280f;
     --nv-warning-border: #66501d;
     --nv-warning-text: #f4d27c;

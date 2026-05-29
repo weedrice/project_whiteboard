@@ -40,7 +40,7 @@ const { t } = useI18n()
 
         <template #error>
           <div
-            class="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
+            class="rounded border border-[var(--nv-danger-border)] bg-[var(--nv-danger-bg)] px-4 py-3 text-sm text-[var(--nv-danger-text)]"
           >
             {{ t('common.messages.loadFailed') }}
           </div>

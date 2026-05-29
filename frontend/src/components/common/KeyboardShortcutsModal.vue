@@ -90,7 +90,7 @@ const shortcutGroups = computed(() => [
             <div class="space-y-6">
                 <div v-for="group in shortcutGroups.slice(0, 2)" :key="group.title">
                     <h3 class="text-sm font-semibold nv-title mb-3 flex items-center">
-                        <Keyboard class="w-4 h-4 mr-2 text-indigo-500" />
+                        <Keyboard class="w-4 h-4 mr-2 nv-accent-text" />
                         {{ group.title }}
                     </h3>
                     <div class="space-y-1.5">
@@ -106,7 +106,7 @@ const shortcutGroups = computed(() => [
                 </div>
                 <div v-if="shortcutGroups[5]" :key="shortcutGroups[5].title">
                     <h3 class="text-sm font-semibold nv-title mb-3 flex items-center">
-                        <Keyboard class="w-4 h-4 mr-2 text-indigo-500" />
+                        <Keyboard class="w-4 h-4 mr-2 nv-accent-text" />
                         {{ shortcutGroups[5].title }}
                     </h3>
                     <div class="space-y-1.5">
@@ -126,7 +126,7 @@ const shortcutGroups = computed(() => [
             <div class="space-y-6">
                 <div v-for="group in [shortcutGroups[2], shortcutGroups[4]]" :key="group.title">
                     <h3 class="text-sm font-semibold nv-title mb-3 flex items-center">
-                        <Keyboard class="w-4 h-4 mr-2 text-indigo-500" />
+                        <Keyboard class="w-4 h-4 mr-2 nv-accent-text" />
                         {{ group.title }}
                     </h3>
                     <div class="space-y-1.5">
@@ -146,7 +146,7 @@ const shortcutGroups = computed(() => [
             <div class="space-y-6">
                 <div>
                     <h3 class="text-sm font-semibold nv-title mb-3 flex items-center">
-                        <Keyboard class="w-4 h-4 mr-2 text-indigo-500" />
+                        <Keyboard class="w-4 h-4 mr-2 nv-accent-text" />
                         {{ shortcutGroups[3].title }}
                     </h3>
                     <div class="space-y-1.5">

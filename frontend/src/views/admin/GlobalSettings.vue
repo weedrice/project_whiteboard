@@ -112,11 +112,11 @@ const columns = [
         <template #cell-actions="{ item }">
           <div class="flex justify-end space-x-2">
             <BaseButton @click="handleSave(item.key)" variant="ghost" size="sm" :title="t('common.save')" :aria-label="t('common.save')"
-              class="p-1 text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
+              class="p-1 nv-accent-text hover:brightness-95">
               <Save class="h-4 w-4" aria-hidden="true" />
             </BaseButton>
             <BaseButton @click="handleDelete(item.key)" variant="ghost" size="sm" :title="t('common.delete')" :aria-label="t('common.delete')"
-              class="p-1 text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">
+              class="p-1 text-[var(--nv-danger-text)] hover:brightness-95">
               <Trash2 class="h-4 w-4" aria-hidden="true" />
             </BaseButton>
           </div>

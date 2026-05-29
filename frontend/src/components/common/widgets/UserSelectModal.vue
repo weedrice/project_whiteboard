@@ -16,7 +16,7 @@
         hideLabel
       >
         <template #prefix>
-          <Search class="h-4 w-4 text-gray-400" />
+          <Search class="h-4 w-4 nv-text-subtle" />
         </template>
       </BaseInput>
 

@@ -31,7 +31,7 @@ const navigation = computed(() => [
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-100 dark:bg-gray-900 flex transition-colors duration-200">
+  <div class="min-h-screen nv-page flex transition-colors duration-200">
     <!-- Sidebar -->
     <div class="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
       <div class="flex-1 flex flex-col min-h-0 bg-indigo-800">

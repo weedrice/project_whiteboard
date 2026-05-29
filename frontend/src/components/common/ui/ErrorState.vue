@@ -1,6 +1,6 @@
 <template>
   <div class="text-center py-12">
-    <div class="mx-auto h-12 w-12 text-red-400 dark:text-red-500 mb-4">
+    <div class="mx-auto h-12 w-12 text-[var(--nv-danger-text)] mb-4">
       <component :is="icon" class="h-full w-full" aria-hidden="true" />
     </div>
     <h3 class="text-lg font-medium nv-title mb-2">

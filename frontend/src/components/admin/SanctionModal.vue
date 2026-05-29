@@ -2,7 +2,7 @@
   <BaseModal :isOpen="isOpen" :title="t('admin.sanction.title')" @close="$emit('close')">
     <form @submit.prevent="submitSanction" class="space-y-4">
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.sanction.userLabel') }}</label>
+        <label class="block text-sm font-medium nv-text-muted">{{ t('admin.sanction.userLabel') }}</label>
         <p class="mt-1 text-sm nv-text">
           {{ sanctionTargetName }}<span v-if="user?.email"> ({{ user.email }})</span>
         </p>

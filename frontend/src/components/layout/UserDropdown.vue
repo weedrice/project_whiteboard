@@ -128,7 +128,7 @@ onUnmounted(() => {
     <div v-if="isOpen"
       :id="menuId"
       role="menu"
-      class="origin-top-right absolute right-0 mt-2 w-[min(16rem,92vw)] sm:w-64 rounded-md shadow-lg py-1 nv-surface ring-1 ring-black/5 focus:outline-none z-50">
+      class="origin-top-right absolute right-0 mt-2 w-[min(16rem,92vw)] sm:w-64 rounded-md shadow-lg py-1 nv-surface border nv-border focus:outline-none z-50">
       <!-- User Info -->
       <div class="px-3 py-2.5 sm:py-3 border-b nv-border">
         <p class="text-xs sm:text-sm font-medium nv-title truncate">
@@ -284,9 +284,9 @@ onUnmounted(() => {
       <!-- Logout -->
       <div class="py-1">
         <BaseButton @click="handleLogout" variant="ghost" full-width
-          class="w-full text-left group flex items-center px-3 py-2.5 sm:py-2 min-h-[40px] sm:min-h-0 text-xs sm:text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 active:bg-red-100 dark:active:bg-red-900/30 hover:text-red-700 dark:hover:text-red-400 justify-start touch-manipulation">
+          class="w-full text-left group flex items-center px-3 py-2.5 sm:py-2 min-h-[40px] sm:min-h-0 text-xs sm:text-sm text-[var(--nv-danger-text)] hover:bg-[var(--nv-danger-bg)] active:bg-[var(--nv-danger-bg)] justify-start touch-manipulation">
           <LogOut
-            class="mr-2.5 sm:mr-3 h-3 w-3 sm:h-4 sm:w-4 text-red-500 group-hover:text-red-600 dark:text-red-400 dark:group-hover:text-red-300 flex-shrink-0" />
+            class="mr-2.5 sm:mr-3 h-3 w-3 sm:h-4 sm:w-4 text-[var(--nv-danger-text)] flex-shrink-0" />
           {{ $t('common.logout') }}
         </BaseButton>
       </div>

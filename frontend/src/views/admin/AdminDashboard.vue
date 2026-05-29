@@ -63,7 +63,7 @@ const recentActivity = ref([])
         <div class="nv-surface-muted px-5 py-3">
           <div class="text-sm">
             <router-link :to="item.path"
-              class="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
+              class="font-medium nv-accent-text hover:brightness-95">
               {{ t('admin.dashboard.viewDetail') }}
             </router-link>
           </div>

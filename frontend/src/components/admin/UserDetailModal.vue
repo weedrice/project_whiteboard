@@ -140,7 +140,7 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
             <DescriptionItem label="가입일 / 최근 로그인" value-class="mt-2 space-y-0.5 text-sm nv-text">
               <div>가입: {{ formatDate(userDetail.createdAt) }}</div>
               <div>최근 로그인: {{ userDetail.lastLoginAt ? formatDate(userDetail.lastLoginAt) : '-' }}</div>
-              <div v-if="userDetail.deletedAt" class="text-red-600 dark:text-red-400">탈퇴일: {{ formatDate(userDetail.deletedAt) }}</div>
+              <div v-if="userDetail.deletedAt" class="text-[var(--nv-danger-text)]">탈퇴일: {{ formatDate(userDetail.deletedAt) }}</div>
             </DescriptionItem>
           </dl>
         </div>

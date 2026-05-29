@@ -260,7 +260,7 @@ const columns = computed(() => [
               @keyup.enter="applyFilters"
             >
               <template #prefix>
-                <Search class="h-5 w-5 text-gray-400 dark:text-gray-500" aria-hidden="true" />
+                <Search class="h-5 w-5 nv-text-subtle" aria-hidden="true" />
               </template>
             </BaseInput>
           </div>
@@ -354,7 +354,7 @@ const columns = computed(() => [
               size="sm"
               class="p-1"
               :class="item.status === 'ACTIVE'
-                ? 'text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300'
+                ? 'text-[var(--nv-danger-text)] hover:brightness-95'
                 : 'nv-text-muted'"
               :title="getStatusActionLabel(item.status)"
             >
