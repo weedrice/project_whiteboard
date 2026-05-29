@@ -83,12 +83,58 @@ const ReportListStub = defineComponent({
       required: true,
     },
   },
-  emits: ['resolve', 'reject'],
+  emits: ['resolve', 'reject', 'sanction', 'viewDetail'],
   template: `
     <div data-testid="report-list">
       {{ reports.length }}
       <button data-testid="resolve-report" @click="$emit('resolve', reports[0])">resolve</button>
       <button data-testid="reject-report" @click="$emit('reject', reports[0])">reject</button>
+      <button data-testid="sanction-report" @click="$emit('sanction', reports[0])">sanction</button>
+      <button data-testid="view-report" @click="$emit('viewDetail', reports[0])">view</button>
+    </div>
+  `,
+})
+
+const ReportDetailModalStub = defineComponent({
+  name: 'ReportDetailModal',
+  props: {
+    isOpen: {
+      type: Boolean,
+      required: true,
+    },
+    report: {
+      type: Object,
+      default: null,
+    },
+  },
+  emits: ['close'],
+  template: '<button data-testid="detail-modal" :data-open="String(isOpen)" :data-report-id="report?.reportId ?? \'\'" @click="$emit(\'close\')">detail</button>',
+})
+
+const SanctionModalStub = defineComponent({
+  name: 'SanctionModal',
+  props: {
+    isOpen: {
+      type: Boolean,
+      required: true,
+    },
+    user: {
+      type: Object,
+      required: true,
+    },
+  },
+  emits: ['close', 'sanctioned'],
+  template: `
+    <div>
+      <button
+        data-testid="sanction-modal"
+        :data-open="String(isOpen)"
+        :data-user-id="user.id"
+        :data-content-id="user.sanctionContentId"
+        :data-content-type="user.sanctionContentType"
+        @click="$emit('close')"
+      >sanction modal</button>
+      <button data-testid="sanctioned" @click="$emit('sanctioned')">sanctioned</button>
     </div>
   `,
 })
@@ -129,8 +175,8 @@ const mountReportManagement = () => mount(ReportManagement, {
   global: {
     stubs: {
       ReportList: ReportListStub,
-      ReportDetailModal: true,
-      SanctionModal: true,
+      ReportDetailModal: ReportDetailModalStub,
+      SanctionModal: SanctionModalStub,
       PageSizeSelector: PageSizeSelectorStub,
       Pagination: PaginationStub,
     },
@@ -198,5 +244,36 @@ describe('ReportManagement', () => {
 
     expect(mocks.resolveReport).toHaveBeenCalledWith({ reportId: 1, data: { status: 'REJECTED' } })
     expect(mocks.refetch).not.toHaveBeenCalled()
+  })
+
+  it('opens and closes report detail state through the modal contract', async () => {
+    const wrapper = mountReportManagement()
+
+    expect(wrapper.get('[data-testid="detail-modal"]').attributes('data-open')).toBe('false')
+
+    await wrapper.get('[data-testid="view-report"]').trigger('click')
+
+    expect(wrapper.get('[data-testid="detail-modal"]').attributes('data-open')).toBe('true')
+    expect(wrapper.get('[data-testid="detail-modal"]').attributes('data-report-id')).toBe('1')
+
+    await wrapper.get('[data-testid="detail-modal"]').trigger('click')
+
+    expect(wrapper.get('[data-testid="detail-modal"]').attributes('data-open')).toBe('false')
+  })
+
+  it('maps report target data for sanctions and refetches after sanctioning', async () => {
+    const wrapper = mountReportManagement()
+
+    await wrapper.get('[data-testid="sanction-report"]').trigger('click')
+
+    const modal = wrapper.get('[data-testid="sanction-modal"]')
+    expect(modal.attributes('data-open')).toBe('true')
+    expect(modal.attributes('data-user-id')).toBe('20')
+    expect(modal.attributes('data-content-id')).toBe('20')
+    expect(modal.attributes('data-content-type')).toBe('POST')
+
+    await wrapper.get('[data-testid="sanctioned"]').trigger('click')
+
+    expect(mocks.refetch).toHaveBeenCalledTimes(1)
   })
 })

@@ -10,7 +10,6 @@ import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import { useNotificationListState } from '@/composables/useNotificationListState'
 import { usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import { formatDate } from '@/utils/date'
-import { getListLoadErrorMessage } from '@/utils/listLoadError'
 import type { Notification } from '@/types'
 
 const { t } = useI18n()
@@ -19,11 +18,10 @@ const { navigateFromNotification } = useNotificationNavigation({ showCommentFail
 
 const { page, size, params, handlePageChange, handleSizeChange } = usePaginatedQueryState({ initialSize: 15 })
 
-const { isLoading, isError, refetch, notifications, totalPages } = useNotificationListState(params)
+const { isLoading, isError, errorMessage, refetch, notifications, totalPages } = useNotificationListState(params, t)
 const { mutate: markAllAsRead, isPending: isMarkingAllAsRead } = useMarkAllAsRead()
 
 const hasUnreadNotifications = computed(() => notifications.value.some((notification) => !notification.isRead))
-const errorMessage = computed(() => getListLoadErrorMessage(t))
 
 async function handleNotificationClick(notification: Notification) {
   await navigateFromNotification(notification)

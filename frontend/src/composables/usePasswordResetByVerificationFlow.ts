@@ -1,10 +1,10 @@
-import axios from 'axios'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api/auth'
 import { useAuthPasswordValidation } from '@/composables/useAuthPasswordValidation'
 import { useToastStore } from '@/stores/toast'
 import { extractErrorMessage } from '@/utils/errorHandler'
+import { handleDeletedAccountRedirect } from '@/utils/authRedirect'
 
 interface UsePasswordResetByVerificationFlowOptions {
     getEmail: () => string
@@ -20,11 +20,6 @@ export function usePasswordResetByVerificationFlow(options: UsePasswordResetByVe
     const router = useRouter()
     const toastStore = useToastStore()
     const { validatePasswordPair } = useAuthPasswordValidation()
-
-    const redirectDeletedUserToSignup = (email: string) => {
-        toastStore.addToast(t('auth.userDeleted'), 'info')
-        router.push(`/signup?email=${encodeURIComponent(email)}`)
-    }
 
     const completeVerification = (verificationTicket: string) => {
         options.onVerified?.(verificationTicket)
@@ -56,8 +51,13 @@ export function usePasswordResetByVerificationFlow(options: UsePasswordResetByVe
                 router.push('/login')
             }
         } catch (error: unknown) {
-            if (axios.isAxiosError(error) && error.response?.data?.error?.code === 'A009') {
-                redirectDeletedUserToSignup(email)
+            if (handleDeletedAccountRedirect(error, {
+                email,
+                t,
+                addToast: (message, type) => toastStore.addToast(message, type),
+                push: (to) => router.push(to),
+            })) {
+                return
             } else {
                 const message = extractErrorMessage(error) || t('auth.verificationFailed')
                 toastStore.addToast(message, 'error')

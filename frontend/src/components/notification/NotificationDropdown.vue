@@ -18,11 +18,10 @@ const { navigateFromNotification } = useNotificationNavigation()
 const params = ref<NotificationParams>({ page: 0, size: 20 })
 
 // Trigger fetch via useQuery
-const { isLoading, isError, error, refetch, notifications } = useNotificationListState(params)
+const { isLoading, isError, errorMessage, refetch, notifications } = useNotificationListState(params, t)
 const { mutate: markAllAsRead, isPending: isMarkingAllAsRead } = useMarkAllAsRead()
 
 const hasUnreadNotifications = computed(() => notifications.value.some((notification) => !notification.isRead))
-const errorMessage = computed(() => error.value instanceof Error ? error.value.message : t('common.messages.loadFailed'))
 
 async function handleNotificationClick(notification: Notification) {
   await navigateFromNotification(notification)

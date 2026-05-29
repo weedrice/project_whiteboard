@@ -6,7 +6,10 @@ import type { Notification } from '@/types'
 
 const notificationsData = ref<{ content: Notification[] }>({ content: [] })
 const isLoading = ref(false)
+const isError = ref(false)
+const error = ref<Error | null>(null)
 const isMarkingAllAsRead = ref(false)
+const refetchNotifications = vi.fn()
 const markAllAsRead = vi.fn()
 const navigateFromNotification = vi.fn()
 
@@ -16,7 +19,7 @@ vi.mock('vue-i18n', () => ({
 
 vi.mock('@/composables/useNotification', () => ({
   useNotification: () => ({
-    useNotifications: () => ({ data: notificationsData, isLoading }),
+    useNotifications: () => ({ data: notificationsData, isLoading, isError, error, refetch: refetchNotifications }),
     useMarkAllAsRead: () => ({ mutate: markAllAsRead, isPending: isMarkingAllAsRead }),
   }),
 }))
@@ -82,6 +85,8 @@ describe('NotificationDropdown', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     isLoading.value = false
+    isError.value = false
+    error.value = null
     isMarkingAllAsRead.value = false
     notificationsData.value = { content: [] }
   })
@@ -142,5 +147,19 @@ describe('NotificationDropdown', () => {
 
     expect(wrapper.text()).toContain('System')
     expect(wrapper.text()).toContain('S')
+  })
+
+  it('uses the shared notification load error message and retries', async () => {
+    isError.value = true
+    error.value = new Error('raw backend detail')
+    const wrapper = mountDropdown()
+
+    expect(wrapper.text()).toContain('common.messages.loadFailed')
+    expect(wrapper.text()).not.toContain('raw backend detail')
+
+    const retryButton = wrapper.findAll('button').find((button) => button.text().includes('common.retry'))
+    await retryButton!.trigger('click')
+
+    expect(refetchNotifications).toHaveBeenCalledTimes(1)
   })
 })

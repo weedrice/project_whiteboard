@@ -2,10 +2,9 @@
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import type { AxiosError } from 'axios'
 import { authApi } from '@/api/auth'
 import { useEmailVerificationFlow } from '@/composables/useEmailVerificationFlow'
-import { extractErrorResponse } from '@/utils/errorHandler'
+import { handleDeletedAccountRedirect } from '@/utils/authRedirect'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useToastStore } from '@/stores/toast'
@@ -50,13 +49,12 @@ const {
     }
   },
   onVerifyError: (error) => {
-    const errRes = extractErrorResponse(error as AxiosError)
-    if (errRes?.code === 'A009') {
-      toastStore.addToast(t('auth.userDeleted'), 'info')
-      router.push(`/signup?email=${encodeURIComponent(form.email.trim())}`)
-      return true
-    }
-    return false
+    return handleDeletedAccountRedirect(error, {
+      email: form.email,
+      t,
+      addToast: (message, type) => toastStore.addToast(message, type),
+      push: (to) => router.push(to),
+    })
   }
 })
 </script>

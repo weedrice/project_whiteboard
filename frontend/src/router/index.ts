@@ -4,8 +4,11 @@ import { useToastStore } from '@/stores/toast'
 import { emoticonApi } from '@/api/emoticon'
 import { postApi } from '@/api/post'
 import { queryClient } from '@/queryClient'
-import { createBoardDetailQueryOptions } from '@/composables/useBoard'
-import { canUserWriteBoardPost } from '@/composables/useBoardWriteAccess'
+import {
+    BOARD_WRITE_FORBIDDEN_MESSAGE_KEY,
+    canUserWriteBoardPost,
+    fetchBoardForWriteAccess,
+} from '@/composables/useBoardWriteAccess'
 import { emoticonDetailQueryKey } from '@/composables/useEmoticonEditResource'
 import { postDetailQueryKey } from '@/composables/usePost'
 import { QUERY_STALE_TIME } from '@/utils/constants'
@@ -422,17 +425,14 @@ router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormali
             }
 
             try {
-                const board = await queryClient.fetchQuery({
-                    ...createBoardDetailQueryOptions(boardUrl),
-                    retry: false,
-                })
+                const board = await fetchBoardForWriteAccess(queryClient, boardUrl)
                 if (to.meta.requiresBoardAdmin && !board.isAdmin) {
                     useToastStore().addToast(i18n.global.t('common.messages.boardManageForbidden'), 'error')
                     next({ name: 'board-detail', params: { boardUrl } })
                     return
                 }
                 if (to.meta.requiresWritableBoard && !canUserWriteBoardPost(board, authStore.isAuthenticated, authStore.user?.role)) {
-                    useToastStore().addToast(i18n.global.t('common.messages.boardWriteForbidden'), 'error')
+                    useToastStore().addToast(i18n.global.t(BOARD_WRITE_FORBIDDEN_MESSAGE_KEY), 'error')
                     next({ name: 'board-detail', params: { boardUrl } })
                     return
                 }
