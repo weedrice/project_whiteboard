@@ -54,6 +54,8 @@ vi.mock('@/api/user', () => ({
         getNotificationSettings: vi.fn(),
         getMyAgents: vi.fn(),
         getMyPoint: vi.fn(),
+        getMyScraps: vi.fn(),
+        getMyPointHistories: vi.fn(),
         updateMyProfile: vi.fn(),
         updatePassword: vi.fn(),
         deleteAccount: vi.fn(),
@@ -227,6 +229,36 @@ describe('useUser', () => {
         const result = await (options.queryFn as () => Promise<unknown>)()
         expect(result).toEqual({ currentPoint: 12345 })
         expect(userApi.getMyPoint).toHaveBeenCalled()
+    })
+
+    it('fetches my scraps and point history with paginated query state', async () => {
+        vi.mocked(userApi.getMyScraps).mockResolvedValueOnce({
+            data: { data: { content: [{ postId: 1 }], totalPages: 1 } },
+        } as never)
+        vi.mocked(userApi.getMyPointHistories).mockResolvedValueOnce({
+            data: { data: { content: [{ historyId: 2 }], totalPages: 1 } },
+        } as never)
+
+        const { useMyScraps, useMyPointHistories } = useUser()
+        const params = ref({ page: 1, size: 15 })
+
+        useMyScraps(params)
+        let options = mocks.queryOptions.at(-1)!
+        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual(['user', 'scraps', { page: 1, size: 15 }])
+        let result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)({
+            signal: new AbortController().signal,
+        })
+        expect(result).toEqual({ content: [{ postId: 1 }], totalPages: 1 })
+        expect(userApi.getMyScraps).toHaveBeenCalledWith({ page: 1, size: 15 }, expect.objectContaining({ signal: expect.any(AbortSignal) }))
+
+        useMyPointHistories(params)
+        options = mocks.queryOptions.at(-1)!
+        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual(['user', 'points', 'history', { page: 1, size: 15 }])
+        result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)({
+            signal: new AbortController().signal,
+        })
+        expect(result).toEqual({ content: [{ historyId: 2 }], totalPages: 1 })
+        expect(userApi.getMyPointHistories).toHaveBeenCalledWith({ page: 1, size: 15 }, expect.objectContaining({ signal: expect.any(AbortSignal) }))
     })
 
     it('updates profile and invalidates my profile cache', async () => {

@@ -1,4 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils'
+import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ScrapList from '../ScrapList.vue'
 import PointHistory from '../PointHistory.vue'
@@ -15,6 +16,17 @@ const reportApi = vi.hoisted(() => ({
 
 vi.mock('@/api/user', () => ({ userApi }))
 vi.mock('@/api/report', () => ({ reportApi }))
+
+vi.mock('vue-i18n', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('vue-i18n')>()
+
+    return {
+        ...actual,
+        useI18n: () => ({
+            t: (key: string) => key,
+        }),
+    }
+})
 
 vi.mock('@/utils/logger', () => ({
     default: {
@@ -38,22 +50,33 @@ const errorStateStub = {
     template: '<button type="button" data-testid="error-state" @click="$emit(\'retry\')">{{ message }}</button>',
 }
 
-const mountList = (component: typeof ScrapList) => mount(component, {
-    global: {
-        mocks: {
-            $t: (key: string) => key,
+const mountList = (component: typeof ScrapList) => {
+    const queryClient = new QueryClient({
+        defaultOptions: {
+            queries: {
+                retry: false,
+            },
         },
-        stubs: {
-            BaseBadge: true,
-            BaseSkeleton: true,
-            EmptyState: emptyStateStub,
-            ErrorState: errorStateStub,
-            PageSizeSelector: true,
-            Pagination: true,
-            PostList: true,
+    })
+
+    return mount(component, {
+        global: {
+            plugins: [[VueQueryPlugin, { queryClient }]],
+            mocks: {
+                $t: (key: string) => key,
+            },
+            stubs: {
+                BaseBadge: true,
+                BaseSkeleton: true,
+                EmptyState: emptyStateStub,
+                ErrorState: errorStateStub,
+                PageSizeSelector: true,
+                Pagination: true,
+                PostList: true,
+            },
         },
-    },
-})
+    })
+}
 
 describe('paginated user lists', () => {
     beforeEach(() => {

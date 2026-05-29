@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { Bell, Home, Layers3, PenSquare, UserRound } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
+import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useNotification } from '@/composables/useNotification'
 import { useWriteBoardSheet } from '@/composables/useWriteBoardSheet'
 
@@ -15,6 +16,7 @@ const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 const authStore = useAuthStore()
+const { requireAuth } = useAuthGuard()
 const { useUnreadCount } = useNotification()
 const { data: unreadCount } = useUnreadCount()
 const {
@@ -54,8 +56,7 @@ const isProfile = computed(() => {
 })
 
 const navigateOrLogin = async (path: string) => {
-  if (!authStore.isAuthenticated && (path.startsWith('/mypage') || path.includes('/notifications'))) {
-    await router.push({ name: 'login', query: { redirect: path } })
+  if ((path.startsWith('/mypage') || path.includes('/notifications')) && !requireAuth(path)) {
     return
   }
 

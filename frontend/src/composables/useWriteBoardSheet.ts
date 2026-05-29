@@ -3,6 +3,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useBoard } from '@/composables/useBoard'
+import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useToastStore } from '@/stores/toast'
 import {
   BOARD_WRITE_FORBIDDEN_MESSAGE_KEY,
@@ -17,6 +18,7 @@ export function useWriteBoardSheet() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const authStore = useAuthStore()
+  const { requireAuth } = useAuthGuard()
   const toastStore = useToastStore()
   const { useBoards, useSubscribedBoards } = useBoard()
 
@@ -47,8 +49,7 @@ export function useWriteBoardSheet() {
   }
 
   const openWriteSheet = async () => {
-    if (!authStore.isAuthenticated) {
-      await router.push({ name: 'login', query: { redirect: route.fullPath } })
+    if (!requireAuth(route.fullPath)) {
       return
     }
 
