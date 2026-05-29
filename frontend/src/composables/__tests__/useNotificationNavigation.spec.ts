@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { useNotificationNavigation } from '../useNotificationNavigation'
+import {
+    mapCommentNotificationRoute,
+    mapPostNotificationRoute,
+    useNotificationNavigation
+} from '../useNotificationNavigation'
 import { postApi } from '@/api/post'
 import { commentApi } from '@/api/comment'
 import type { Notification } from '@/types'
@@ -149,5 +153,18 @@ describe('useNotificationNavigation', () => {
         expect(postApi.getPost).not.toHaveBeenCalled()
         expect(commentApi.getComment).not.toHaveBeenCalled()
         expect(mocks.routerPush).not.toHaveBeenCalled()
+    })
+
+    it('maps backend post/comment navigation payloads to routes', () => {
+        expect(mapPostNotificationRoute({ board: { boardUrl: 'free' } }, 99)).toBe('/board/free/post/99')
+        expect(mapPostNotificationRoute({ board: null }, 99)).toBeNull()
+        expect(mapCommentNotificationRoute({
+            post: {
+                boardUrl: 'notice',
+                postId: 77,
+            },
+        }, 50)).toBe('/board/notice/post/77#comment-50')
+        expect(mapCommentNotificationRoute({ boardUrl: 'free', postId: 78 }, 52)).toBe('/board/free/post/78#comment-52')
+        expect(mapCommentNotificationRoute({ boardUrl: 'free' }, 52)).toBeNull()
     })
 })
