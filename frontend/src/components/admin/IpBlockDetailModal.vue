@@ -26,7 +26,7 @@ defineEmits<{
       <div v-if="ipBlock" class="space-y-6">
         <DetailSection :title="t('admin.security.detail.blockInfo')">
           <DescriptionGrid>
-            <DescriptionItem :label="t('admin.security.table.ipAddress')" value-class="mt-1 text-sm text-gray-900 dark:text-white font-mono">
+            <DescriptionItem :label="t('admin.security.table.ipAddress')" value-class="mt-1 text-sm nv-text font-mono">
               {{ ipBlock.ipAddress }}
             </DescriptionItem>
             <DescriptionItem :label="t('admin.security.table.adminId')">
@@ -42,8 +42,8 @@ defineEmits<{
         </DetailSection>
 
         <DetailSection :title="t('admin.security.table.reason')">
-          <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-            <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ ipBlock.reason }}</p>
+          <div class="nv-surface-muted rounded-lg p-4">
+            <p class="text-sm nv-text-muted whitespace-pre-wrap">{{ ipBlock.reason }}</p>
           </div>
         </DetailSection>
       </div>

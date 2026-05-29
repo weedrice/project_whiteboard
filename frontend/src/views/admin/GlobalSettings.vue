@@ -99,14 +99,14 @@ const columns = [
           <BaseInput :model-value="item.description"
             :label="`${item.key} ${t('common.description')}`" hideLabel
             @update:model-value="updateDraft(item.key, { description: String($event) })"
-            inputClass="block w-full border-0 p-0 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-500 focus:ring-0 sm:text-sm bg-transparent shadow-none" />
+            inputClass="block w-full border-0 p-0 nv-text placeholder-[var(--nv-text-subtle)] focus:ring-0 sm:text-sm bg-transparent shadow-none" />
         </template>
 
         <template #cell-value="{ item }">
           <BaseInput :model-value="item.value"
             :label="`${item.key} ${t('common.value')}`" hideLabel
             @update:model-value="updateDraft(item.key, { value: String($event) })"
-            inputClass="block w-full border-0 p-0 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-500 focus:ring-0 sm:text-sm bg-transparent shadow-none" />
+            inputClass="block w-full border-0 p-0 nv-text placeholder-[var(--nv-text-subtle)] focus:ring-0 sm:text-sm bg-transparent shadow-none" />
         </template>
 
         <template #cell-actions="{ item }">

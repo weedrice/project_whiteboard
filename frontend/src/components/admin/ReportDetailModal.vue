@@ -56,7 +56,7 @@ const targetTypeLabel = computed(() => {
               <template v-if="report.targetDisplayName != null && report.targetLoginId != null">
                 <div class="flex flex-col">
                   <span>{{ report.targetDisplayName }}</span>
-                  <span class="text-xs text-gray-500 dark:text-gray-400">{{ report.targetLoginId }}</span>
+                  <span class="text-xs nv-text-subtle">{{ report.targetLoginId }}</span>
                 </div>
               </template>
               <template v-else>
@@ -82,23 +82,23 @@ const targetTypeLabel = computed(() => {
           <DescriptionItem
             v-if="report.reasonType"
             :label="t('admin.reports.reasonType')"
-            value-class="mt-0.5 text-sm text-gray-900 dark:text-white"
+            value-class="mt-0.5 text-sm nv-text"
           >
             {{ report.reasonType }}
           </DescriptionItem>
           <DescriptionItem
             v-if="report.targetType === 'POST' || report.targetType === 'COMMENT'"
             :label="t('admin.reports.targetContentId')"
-            value-class="mt-0.5 text-sm text-gray-900 dark:text-white"
+            value-class="mt-0.5 text-sm nv-text"
           >
             {{ report.targetId }}
           </DescriptionItem>
         </DescriptionGrid>
       </DetailSection>
 
-      <div class="border-t border-gray-200 dark:border-gray-600 pt-4">
-        <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">{{ t('admin.reports.remark') }}</h3>
-        <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ getReportReasonText(report) }}</p>
+      <div class="border-t nv-border pt-4">
+        <h3 class="text-sm font-medium nv-text-subtle mb-2">{{ t('admin.reports.remark') }}</h3>
+        <p class="text-sm nv-text-muted whitespace-pre-wrap">{{ getReportReasonText(report) }}</p>
       </div>
       </div>
     </AdminModalContentState>

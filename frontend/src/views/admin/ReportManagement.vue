@@ -38,7 +38,7 @@ const {
 
     <div class="mt-6 flex justify-end">
       <div class="flex items-center gap-3">
-        <span v-if="isLoading" class="text-xs text-gray-500 dark:text-gray-400">{{ t('common.loading') }}</span>
+        <span v-if="isLoading" class="text-xs nv-text-subtle">{{ t('common.loading') }}</span>
         <PageSizeSelector v-model="size" :options="[20, 50, 100]" @change="handleSizeChange" />
       </div>
     </div>

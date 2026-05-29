@@ -3,7 +3,7 @@
     <form @submit.prevent="submitSanction" class="space-y-4">
       <div>
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.sanction.userLabel') }}</label>
-        <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+        <p class="mt-1 text-sm nv-text">
           {{ sanctionTargetName }}<span v-if="user?.email"> ({{ user.email }})</span>
         </p>
       </div>
@@ -24,7 +24,7 @@
 
       <div>
         <BaseInput id="duration" v-model="form.duration" type="number" :label="t('admin.sanction.duration')" min="1" />
-        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.sanction.durationHint') }}</p>
+        <p class="mt-1 text-xs nv-text-subtle">{{ t('admin.sanction.durationHint') }}</p>
       </div>
 
       <div class="flex justify-end space-x-3 mt-5">

@@ -186,8 +186,8 @@ const columns = computed(() => [
       <div class="flex flex-col items-start gap-4">
         <div class="flex flex-wrap items-end gap-3">
           <div class="flex w-36 flex-col gap-1">
-            <label class="w-full text-left text-xs text-gray-500 dark:text-gray-400">상태</label>
-            <select v-model="filterForm.status" class="w-full rounded-md border border-gray-300 pl-3 pr-9 py-2 text-sm dark:border-gray-600 dark:bg-gray-900">
+            <label class="w-full text-left text-xs nv-text-subtle">상태</label>
+            <select v-model="filterForm.status" class="input-base">
               <option value="">전체</option>
               <option value="ACTIVE">{{ getStatusLabel('ACTIVE') }}</option>
               <option value="SUSPENDED">{{ getStatusLabel('SUSPENDED') }}</option>
@@ -195,8 +195,8 @@ const columns = computed(() => [
             </select>
           </div>
           <div class="flex w-36 flex-col gap-1">
-            <label class="w-full text-left text-xs text-gray-500 dark:text-gray-400">권한</label>
-            <select v-model="filterForm.role" class="w-full rounded-md border border-gray-300 pl-3 pr-9 py-2 text-sm dark:border-gray-600 dark:bg-gray-900">
+            <label class="w-full text-left text-xs nv-text-subtle">권한</label>
+            <select v-model="filterForm.role" class="input-base">
               <option value="">전체</option>
               <option value="USER">{{ getRoleLabel('USER') }}</option>
               <option value="SUPER_ADMIN">{{ getRoleLabel('SUPER_ADMIN') }}</option>
@@ -205,24 +205,24 @@ const columns = computed(() => [
             </select>
           </div>
           <div class="flex w-36 flex-col gap-1">
-            <label class="w-full text-left text-xs text-gray-500 dark:text-gray-400">이메일 인증</label>
-            <select v-model="filterForm.emailVerified" class="w-full rounded-md border border-gray-300 pl-3 pr-9 py-2 text-sm dark:border-gray-600 dark:bg-gray-900">
+            <label class="w-full text-left text-xs nv-text-subtle">이메일 인증</label>
+            <select v-model="filterForm.emailVerified" class="input-base">
               <option value="">전체</option>
               <option value="true">인증</option>
               <option value="false">미인증</option>
             </select>
           </div>
           <div class="flex w-36 flex-col gap-1">
-            <label class="w-full text-left text-xs text-gray-500 dark:text-gray-400">슈퍼관리자</label>
-            <select v-model="filterForm.superAdmin" class="w-full rounded-md border border-gray-300 pl-3 pr-9 py-2 text-sm dark:border-gray-600 dark:bg-gray-900">
+            <label class="w-full text-left text-xs nv-text-subtle">슈퍼관리자</label>
+            <select v-model="filterForm.superAdmin" class="input-base">
               <option value="">전체</option>
               <option value="true">Y</option>
               <option value="false">N</option>
             </select>
           </div>
           <div class="flex w-36 flex-col gap-1">
-            <label class="w-full text-left text-xs text-gray-500 dark:text-gray-400">탈퇴 여부</label>
-            <select v-model="filterForm.withdrawn" class="w-full rounded-md border border-gray-300 pl-3 pr-9 py-2 text-sm dark:border-gray-600 dark:bg-gray-900">
+            <label class="w-full text-left text-xs nv-text-subtle">탈퇴 여부</label>
+            <select v-model="filterForm.withdrawn" class="input-base">
               <option value="">전체</option>
               <option value="true">탈퇴</option>
               <option value="false">활성/정지</option>
@@ -232,26 +232,26 @@ const columns = computed(() => [
 
         <div class="flex flex-wrap items-end gap-3">
           <div class="flex w-44 flex-col gap-1">
-            <label class="text-xs text-gray-500 dark:text-gray-400">가입일 시작</label>
-            <input v-model="filterForm.createdFrom" type="date" class="rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900" />
+            <label class="text-xs nv-text-subtle">가입일 시작</label>
+            <input v-model="filterForm.createdFrom" type="date" class="input-base" />
           </div>
           <div class="flex w-44 flex-col gap-1">
-            <label class="text-xs text-gray-500 dark:text-gray-400">가입일 종료</label>
-            <input v-model="filterForm.createdTo" type="date" class="rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900" />
+            <label class="text-xs nv-text-subtle">가입일 종료</label>
+            <input v-model="filterForm.createdTo" type="date" class="input-base" />
           </div>
           <div class="flex w-44 flex-col gap-1">
-            <label class="text-xs text-gray-500 dark:text-gray-400">최근 로그인 시작</label>
-            <input v-model="filterForm.lastLoginFrom" type="date" class="rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900" />
+            <label class="text-xs nv-text-subtle">최근 로그인 시작</label>
+            <input v-model="filterForm.lastLoginFrom" type="date" class="input-base" />
           </div>
           <div class="flex w-44 flex-col gap-1">
-            <label class="text-xs text-gray-500 dark:text-gray-400">최근 로그인 종료</label>
-            <input v-model="filterForm.lastLoginTo" type="date" class="rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900" />
+            <label class="text-xs nv-text-subtle">최근 로그인 종료</label>
+            <input v-model="filterForm.lastLoginTo" type="date" class="input-base" />
           </div>
         </div>
 
         <div class="flex flex-wrap items-end gap-3">
           <div class="w-80 max-w-full">
-            <label class="mb-1 block text-xs text-gray-500 dark:text-gray-400">사용자 검색</label>
+            <label class="mb-1 block text-xs nv-text-subtle">사용자 검색</label>
             <BaseInput
               v-model="filterForm.q"
               :label="t('admin.users.searchPlaceholder')"
@@ -279,11 +279,11 @@ const columns = computed(() => [
       @page-change="page = $event"
     >
       <template #description>
-        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">사용자 행을 더블클릭하면 상세 팝업이 열립니다.</p>
+        <p class="mt-1 text-xs nv-text-subtle">사용자 행을 더블클릭하면 상세 팝업이 열립니다.</p>
       </template>
       <template #actions>
-        <label class="text-xs text-gray-500 dark:text-gray-400">페이지 당</label>
-        <select v-model.number="size" class="rounded-md border border-gray-300 px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-900">
+        <label class="text-xs nv-text-subtle">페이지 당</label>
+        <select v-model.number="size" class="input-base px-2 py-1 text-xs">
           <option :value="10">10</option>
           <option :value="20">20</option>
           <option :value="50">50</option>
@@ -304,7 +304,7 @@ const columns = computed(() => [
         <template #cell-profile="{ item }">
           <div class="flex justify-center">
             <img v-if="item.profileImageUrl" :src="item.profileImageUrl" alt="profile" class="h-8 w-8 rounded-full object-cover" />
-            <div v-else class="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-xs font-semibold text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+            <div v-else class="flex h-8 w-8 items-center justify-center rounded-full nv-avatar-fallback text-xs font-semibold">
               {{ (item.displayName || item.loginId || '?').slice(0, 1).toUpperCase() }}
             </div>
           </div>
@@ -355,7 +355,7 @@ const columns = computed(() => [
               class="p-1"
               :class="item.status === 'ACTIVE'
                 ? 'text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300'
-                : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'"
+                : 'nv-text-muted'"
               :title="getStatusActionLabel(item.status)"
             >
               {{ getStatusActionLabel(item.status) }}

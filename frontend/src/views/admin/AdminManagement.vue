@@ -82,8 +82,8 @@ const superAdminColumns: { key: string; label: string; width: string; align?: 'l
 
     <div class="mt-6">
       <AdminPanel padding="sm" max-width-class="max-w-xl">
-        <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ t('admin.admins.addSuperAdmin') }}</h3>
-        <div class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+        <h3 class="text-lg font-medium leading-6 nv-title">{{ t('admin.admins.addSuperAdmin') }}</h3>
+        <div class="mt-2 text-sm nv-text-subtle">
           <p>{{ t('admin.admins.addSuperAdminDesc') }}</p>
         </div>
         <form @submit.prevent="handleCreateSuperAdmin" class="mt-5 flex gap-3">
@@ -105,7 +105,7 @@ const superAdminColumns: { key: string; label: string; width: string; align?: 'l
     </div>
 
     <div class="mt-8">
-      <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white mb-4">{{ t('admin.admins.superAdmins') }}</h3>
+      <h3 class="text-lg font-medium leading-6 nv-title mb-4">{{ t('admin.admins.superAdmins') }}</h3>
       <BaseTable :columns="superAdminColumns" :items="superAdmins" row-key="userId" :loading="isSuperAdminsLoading" :emptyText="t('common.noData')">
         <template #cell-loginId="{ item }">
           {{ item.loginId || '-' }}

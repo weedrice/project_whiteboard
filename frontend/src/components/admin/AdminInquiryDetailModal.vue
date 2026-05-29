@@ -47,20 +47,20 @@ const { t } = useI18n()
         </template>
 
         <template v-if="inquiry">
-          <div class="space-y-2 border-b border-gray-200 pb-3 dark:border-gray-700">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ inquiry.title }}</h2>
-            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+          <div class="space-y-2 border-b nv-border pb-3">
+            <h2 class="text-lg font-semibold nv-title">{{ inquiry.title }}</h2>
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs nv-text-subtle">
               <span>{{ t('common.author') }} {{ inquiry.authorName }}</span>
               <span>{{ t('common.createdAt') }} {{ inquiry.createdAtText }}</span>
             </div>
           </div>
 
-          <div class="max-h-[60vh] overflow-y-auto rounded-md bg-gray-50 p-4 text-sm text-gray-800 dark:bg-gray-900/30 dark:text-gray-200">
+          <div class="max-h-[60vh] overflow-y-auto rounded-md nv-surface-muted p-4 text-sm nv-text-muted">
             <div v-if="inquiry.contentsHtml" class="break-words leading-6" v-html="inquiry.contentsHtml" />
             <div v-else>-</div>
           </div>
 
-          <div class="border-t border-gray-200 pt-4 dark:border-gray-700">
+          <div class="border-t nv-border pt-4">
             <CommentList :postId="inquiry.id" boardUrl="inquiry" />
           </div>
         </template>

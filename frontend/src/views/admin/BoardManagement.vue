@@ -13,13 +13,13 @@
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-12">
       <section class="xl:col-span-4">
         <AdminPanel padding="sm">
-          <h2 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $t('common.board') }}</h2>
+          <h2 class="text-sm font-semibold nv-title">{{ $t('common.board') }}</h2>
 
           <div v-if="loading" class="py-8 flex justify-center">
             <BaseSpinner />
           </div>
 
-          <div v-else-if="boards.length === 0" class="py-8 text-sm text-gray-500 dark:text-gray-400 text-center">
+          <div v-else-if="boards.length === 0" class="py-8 text-sm nv-text-subtle text-center">
             {{ $t('common.noData') }}
           </div>
 
@@ -37,24 +37,24 @@
                 @click="selectBoard(board)"
                 class="w-full rounded-lg border px-3 py-3 text-left transition-colors"
                 :class="selectedBoardId === board.boardId
-                  ? 'border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-900/30'
-                  : 'border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700'"
+                  ? 'board-row-selected'
+                  : 'nv-border nv-hover-surface'"
               >
                 <div class="flex items-start justify-between gap-2">
-                  <p class="truncate text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    <GripVertical class="h-4 w-4 text-gray-400 dark:text-gray-500 drag-handle cursor-move" />
+                  <p class="truncate text-sm font-semibold nv-title flex items-center gap-2">
+                    <GripVertical class="h-4 w-4 nv-text-subtle drag-handle cursor-move" />
                     {{ board.boardName }}
                   </p>
                   <span
                     class="inline-flex rounded-full px-2 py-0.5 text-xs font-semibold"
                     :class="board.isActive
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                      : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'"
+                      ? 'nv-status-success'
+                      : 'nv-status-danger'"
                   >
                     {{ board.isActive ? $t('common.active') : $t('common.inactive') }}
                   </span>
                 </div>
-                <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                <div class="mt-2 text-xs nv-text-subtle">
                   {{ $t('common.sortOrder') }}: {{ board.sortOrder }}
                 </div>
               </button>
@@ -68,10 +68,10 @@
           <template v-if="selectedBoard">
             <div class="space-y-7">
               <div>
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                <h2 class="text-lg font-semibold nv-title">
                   {{ selectedBoard.boardName }}
                 </h2>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                <p class="mt-1 text-sm nv-text-subtle">
                   {{ selectedBoard.boardUrl }}
                 </p>
               </div>
@@ -103,8 +103,8 @@
                     type="button"
                     class="inline-flex items-center rounded-full px-3 py-1.5 text-sm font-semibold transition-colors"
                     :class="form.isActive
-                      ? 'bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-200 dark:hover:bg-green-800'
-                      : 'bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800'"
+                      ? 'nv-status-success'
+                      : 'nv-status-danger'"
                     @click="toggleBoardStatus"
                   >
                     {{ form.isActive ? $t('common.active') : $t('common.inactive') }}
@@ -136,12 +136,12 @@
               />
 
               <div class="space-y-2">
-                <p class="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-200">
+                <p class="text-xs sm:text-sm font-medium nv-text-muted">
                   {{ $t('board.form.iconUrl') }}
                 </p>
                 <div class="flex items-start gap-4">
                   <div
-                    class="h-20 w-20 flex-shrink-0 overflow-hidden rounded-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 flex items-center justify-center"
+                    class="h-20 w-20 flex-shrink-0 overflow-hidden rounded-full border nv-border nv-surface-muted flex items-center justify-center"
                   >
                     <img
                       v-if="form.iconUrl"
@@ -149,13 +149,13 @@
                       alt="icon"
                       class="h-full w-full object-contain"
                     />
-                    <span v-else class="text-[11px] text-gray-400 dark:text-gray-500">{{ $t('admin.boards.iconEmpty') }}</span>
+                    <span v-else class="text-[11px] nv-text-subtle">{{ $t('admin.boards.iconEmpty') }}</span>
                   </div>
 
                   <div class="flex-1 min-w-0 space-y-2 pt-1">
                     <p
                       class="break-all text-sm leading-5"
-                      :class="form.iconUrl ? 'text-gray-700 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'"
+                      :class="form.iconUrl ? 'nv-text-muted' : 'nv-text-subtle'"
                     >
                       {{ form.iconUrl || $t('admin.boards.iconUrlEmpty') }}
                     </p>
@@ -174,13 +174,13 @@
                 </div>
               </div>
 
-              <div class="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $t('admin.boards.managerTitle') }}</h3>
+              <div class="rounded-lg border nv-border p-4">
+                <h3 class="text-sm font-semibold nv-title">{{ $t('admin.boards.managerTitle') }}</h3>
                 <div v-if="isBoardManagerLoading" class="mt-3 flex justify-center">
                   <BaseSpinner />
                 </div>
                 <div v-else class="mt-3 space-y-3">
-                  <p class="text-sm text-gray-700 dark:text-gray-300">
+                  <p class="text-sm nv-text-muted">
                     {{ currentManagerLabel }}
                   </p>
                   <BaseButton @click="openManagerModal('single')" :disabled="isAssigningManager">
@@ -197,7 +197,7 @@
             </div>
           </template>
 
-          <div v-else class="py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+          <div v-else class="py-12 text-center text-sm nv-text-subtle">
             {{ $t('common.noData') }}
           </div>
         </AdminPanel>
@@ -323,3 +323,10 @@ const {
   updateBoardManager
 })
 </script>
+
+<style scoped>
+.board-row-selected {
+  background: var(--nv-selection);
+  border-color: var(--nv-focus);
+}
+</style>

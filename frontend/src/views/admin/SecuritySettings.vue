@@ -87,7 +87,7 @@ watch(totalPages, (nextTotalPages) => {
 
         <!-- Block IP Form -->
         <AdminPanel class="mt-6" padding="sm">
-            <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ t('admin.security.addTitle') }}
+            <h3 class="text-lg font-medium leading-6 nv-title">{{ t('admin.security.addTitle') }}
             </h3>
             <form @submit.prevent="handleBlockIp" class="mt-5 sm:flex sm:items-end space-x-4">
                 <div class="w-full sm:max-w-xs">
