@@ -61,7 +61,7 @@ function handleMarkAllAsRead() {
         :disabled="!hasUnreadNotifications || isMarkingAllAsRead"
         class="min-h-[36px] sm:min-h-0 text-xs sm:text-sm"
       >
-        <Check class="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 text-green-500" />
+        <Check class="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 text-[var(--nv-success-text)]" />
         <span class="sm:hidden">{{ $t('notification.markAllReadShort') || $t('notification.markAllRead') }}</span>
         <span class="hidden sm:inline">{{ $t('notification.markAllRead') }}</span>
       </BaseButton>
@@ -92,7 +92,7 @@ function handleMarkAllAsRead() {
                   {{ formatDate(notification.createdAt) }}
                 </span>
                 <span
-                  class="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-400 flex-shrink-0">
+                  class="px-2 py-0.5 text-[11px] font-semibold rounded-full nv-status-success flex-shrink-0">
                   {{ notification.sourceType === 'POST' ? '게시글' : notification.sourceType === 'COMMENT' ? '댓글' :
                     notification.sourceType }}
                 </span>

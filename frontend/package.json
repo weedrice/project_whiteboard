@@ -17,6 +17,7 @@
     "seo:submit": "node ./scripts/submit-search-engines.mjs",
     "sitemap:generate": "node ./scripts/generate-sitemap.mjs",
     "smoke:local": "node ./scripts/smoke-local.mjs",
+    "check:colors": "node ./scripts/check-color-tokens.mjs",
     "type-check": "vue-tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",

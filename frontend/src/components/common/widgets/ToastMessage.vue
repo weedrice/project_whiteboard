@@ -2,7 +2,7 @@
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-vue-next'
 import type { Toast } from '@/stores/toast'
 
-const props = defineProps<{
+defineProps<{
   toast: Toast
 }>()
 
@@ -18,23 +18,16 @@ const icons: Record<Toast['type'], any> = {
 }
 
 const colors: Record<Toast['type'], string> = {
-  success: 'bg-green-50 text-green-800 border-green-200',
-  error: 'bg-red-50 text-red-800 border-red-200',
-  info: 'bg-blue-50 text-blue-800 border-blue-200',
-  warning: 'bg-yellow-50 text-yellow-800 border-yellow-200'
-}
-
-const iconColors: Record<Toast['type'], string> = {
-  success: 'text-green-400',
-  error: 'text-red-400',
-  info: 'text-blue-400',
-  warning: 'text-yellow-400'
+  success: 'nv-status-success',
+  error: 'nv-status-danger',
+  info: 'nv-status-info',
+  warning: 'nv-status-warning'
 }
 </script>
 
 <template>
   <div
-    class="pointer-events-auto w-full max-w-sm overflow-hidden rounded-lg bg-white shadow-lg ring-1 ring-black ring-opacity-5 transition-all duration-300 ease-in-out transform hover:scale-102"
+    class="pointer-events-auto w-full max-w-sm overflow-hidden rounded-lg border shadow-lg transition-all duration-300 ease-in-out transform hover:scale-102"
     :class="colors[toast.type] || colors.info"
   >
     <div class="p-4">
@@ -42,8 +35,7 @@ const iconColors: Record<Toast['type'], string> = {
         <div class="flex-shrink-0">
           <component 
             :is="icons[toast.type] || icons.info" 
-            class="h-6 w-6" 
-            :class="iconColors[toast.type] || iconColors.info"
+            class="h-6 w-6"
             aria-hidden="true" 
           />
         </div>
@@ -56,7 +48,7 @@ const iconColors: Record<Toast['type'], string> = {
           <button
             type="button"
             :aria-label="$t('common.close')"
-            class="inline-flex rounded-md bg-transparent text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            class="inline-flex rounded-md bg-transparent nv-text-subtle hover:text-[var(--nv-text)] nv-focus-ring"
             @click="emit('close')"
           >
             <span class="sr-only">{{ $t('common.close') }}</span>

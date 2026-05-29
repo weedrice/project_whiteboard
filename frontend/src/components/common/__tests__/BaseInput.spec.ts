@@ -45,7 +45,9 @@ describe('BaseInput', () => {
                 error: 'Invalid input'
             }
         })
-        expect(wrapper.find('.text-red-600').text()).toBe('Invalid input')
+        expect(wrapper.get('[role="alert"]').text()).toBe('Invalid input')
+        expect(wrapper.get('[role="alert"]').classes()).toContain('nv-form-error')
+        expect(wrapper.get('input').classes()).toContain('is-invalid')
     })
 
     it('disables input when disabled prop is true', () => {

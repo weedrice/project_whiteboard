@@ -138,7 +138,7 @@ onUnmounted(() => {
           {{ authStore.user?.email }}
         </p>
         <router-link to="/mypage/points"
-          class="flex items-center min-h-[40px] sm:min-h-0 py-1 text-xs sm:text-sm text-indigo-600 dark:text-indigo-400 font-medium hover:text-indigo-800 dark:hover:text-indigo-300 active:bg-indigo-50 dark:active:bg-indigo-900/30 rounded touch-manipulation -mx-2 px-2"
+          class="flex items-center min-h-[40px] sm:min-h-0 py-1 text-xs sm:text-sm nv-accent-text font-medium nv-press-surface rounded touch-manipulation -mx-2 px-2"
           @click="emit('toggle')">
           <CreditCard class="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
           {{ points.toLocaleString() }} P

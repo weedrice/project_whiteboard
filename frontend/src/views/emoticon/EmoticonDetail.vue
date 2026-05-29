@@ -150,7 +150,7 @@ useHead({
                   {{ emoticonView.isActive ? $t('emoticon.visibility.hide') : $t('emoticon.visibility.show') }}
                 </button>
                 <button @click="goToEdit"
-                  class="inline-flex items-center px-3 py-1.5 text-sm nv-status-info rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors">
+                  class="inline-flex items-center px-3 py-1.5 text-sm nv-status-info nv-hover-surface rounded-lg transition-colors">
                   <Pencil class="w-4 h-4 mr-1" />
                   수정
                 </button>

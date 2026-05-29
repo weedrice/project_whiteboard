@@ -2,7 +2,7 @@
     <div class="flex items-start" :class="$attrs.class">
         <div class="flex items-center h-5">
             <input :id="id" type="checkbox" :checked="checked" @change="updateValue" :disabled="disabled"
-                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer bg-[var(--nv-surface)] border-[var(--nv-border)]"
+                class="nv-checkbox h-4 w-4 rounded cursor-pointer"
                 :class="inputClass" />
         </div>
         <div class="ml-3 text-sm">

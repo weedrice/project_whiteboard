@@ -70,9 +70,12 @@ nv-status-info
 변경 후 아래 검색 결과를 확인한다.
 
 ```powershell
+npm.cmd run check:colors
 rg "dark:bg-(blue|indigo|sky|cyan)" frontend/src -g "*.vue"
 rg "bg-white dark:bg|bg-gray-50 dark:bg|border-gray-200 dark:border|text-gray-900 dark:text|text-gray-500 dark:text" frontend/src -g "*.vue"
 rg "hover:nv|dark:hover:nv|focus:nv|dark:focus:nv" frontend/src -g "*.vue"
 ```
 
 세 번째 명령은 Tailwind variant처럼 잘못 작성한 custom class를 잡기 위한 보조 검사다. `hover:nv-surface-muted` 같은 형태는 유효하지 않으므로 `nv-hover-surface`를 사용한다.
+
+다크모드 수동 smoke 기준은 `docs/frontend-dark-mode-smoke-checklist-2026-05-29.md`에 분리해 관리한다.

@@ -121,7 +121,7 @@ onMounted(async () => {
       </div>
     </div>
 
-    <div v-else-if="error" class="text-center py-10 text-red-500 dark:text-red-400">
+    <div v-else-if="error" class="text-center py-10 nv-form-error">
       {{ error }}
     </div>
 
@@ -166,11 +166,11 @@ onMounted(async () => {
                 <dd class="mt-1 text-sm nv-text sm:mt-0">
                   {{ profile?.email }}
                   <span v-if="profile?.isEmailVerified"
-                    class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-400">
+                    class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium nv-status-success">
                     <CheckCircle class="h-3 w-3 mr-1" /> {{ $t('user.profile.verified') }}
                   </span>
                   <button v-else @click="openVerifyModal" type="button"
-                    class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-800/50 transition-colors cursor-pointer">
+                    class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium nv-status-danger nv-hover-surface transition-colors cursor-pointer">
                     <XCircle class="h-3 w-3 mr-1" /> {{ $t('user.profile.notVerified') }}
                   </button>
                 </dd>
@@ -187,10 +187,10 @@ onMounted(async () => {
                       :key="agent.agentId"
                       class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
                       :class="agent.status === 'ACTIVE'
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
+                        ? 'nv-status-success'
                         : agent.status === 'SUSPENDED'
-                          ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
-                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'"
+                          ? 'nv-status-danger'
+                          : 'nv-surface-muted nv-text-muted'"
                     >
                       <span>{{ agent.name }}</span>
                       <span>{{ getAgentStatusLabel(agent.status) }}</span>
@@ -233,7 +233,7 @@ onMounted(async () => {
 
           <div
             v-if="myPostsError"
-            class="mx-4 mt-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
+            class="mx-4 mt-4 rounded border px-4 py-3 text-sm nv-danger-surface"
           >
             {{ myPostsError }}
           </div>
@@ -261,7 +261,7 @@ onMounted(async () => {
 
           <div
             v-if="myCommentsError"
-            class="mx-4 mt-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
+            class="mx-4 mt-4 rounded border px-4 py-3 text-sm nv-danger-surface"
           >
             {{ myCommentsError }}
           </div>
@@ -274,7 +274,7 @@ onMounted(async () => {
                   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
                     <div class="flex flex-wrap items-center gap-2 min-w-0">
                       <span
-                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 flex-shrink-0">
+                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium nv-surface-muted nv-text-muted flex-shrink-0">
                         {{ comment.boardLabel }}
                       </span>
                       <p class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate min-w-0">
@@ -318,7 +318,7 @@ onMounted(async () => {
         <div class="space-y-6 p-4">
           <!-- Email Input & Send Button -->
           <div class="flex flex-col">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label class="block text-sm font-medium nv-text mb-1">
               {{ t('user.profile.email') }}
             </label>
             <div class="flex gap-2 items-end">
@@ -341,7 +341,7 @@ onMounted(async () => {
               </BaseButton>
             </div>
             <p v-if="emailVerification.email.trim() && !isValidEmail(emailVerification.email)"
-              class="text-xs sm:text-sm text-red-600 dark:text-red-400 mt-1" role="alert">
+              class="text-xs sm:text-sm nv-form-error mt-1" role="alert">
               {{ t('auth.validation.emailFormat') }}
             </p>
           </div>
@@ -353,16 +353,16 @@ onMounted(async () => {
                 inputmode="numeric" autocomplete="one-time-code" :label="t('auth.codePlaceholder')"
                 :placeholder="t('auth.codePlaceholder')" hideLabel :disabled="emailVerification.timeLeft <= 0">
                 <template #prefix>
-                  <ShieldCheck class="h-5 w-5 text-gray-400" />
+                  <ShieldCheck class="h-5 w-5 nv-text-subtle" />
                 </template>
               </BaseInput>
               <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium"
-                :class="emailVerification.timeLeft <= 60 ? 'text-red-500' : 'text-gray-500'">
+                :class="emailVerification.timeLeft <= 60 ? 'nv-form-error' : 'nv-text-subtle'">
                 {{ formatVerifyTime(emailVerification.timeLeft) }}
               </span>
             </div>
 
-            <p v-if="emailVerification.timeLeft <= 0" class="text-xs text-red-500">
+            <p v-if="emailVerification.timeLeft <= 0" class="text-xs nv-form-error">
               {{ t('auth.codeExpired') }}
             </p>
 
@@ -383,25 +383,25 @@ onMounted(async () => {
 
           <div
             v-else-if="inquiryDetailError"
-            class="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
+            class="rounded border px-4 py-3 text-sm nv-danger-surface"
           >
             {{ inquiryDetailError }}
           </div>
 
           <template v-else-if="selectedInquiryPost">
-            <div class="space-y-2 border-b border-gray-200 pb-3 dark:border-gray-700">
+            <div class="space-y-2 border-b nv-border pb-3">
               <h2 class="text-lg font-semibold nv-title">{{ selectedInquiryPost.title }}</h2>
               <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs nv-text-subtle">
                 <span>{{ t('common.createdAt') }} {{ formatDate(selectedInquiryPost.createdAt) }}</span>
               </div>
             </div>
 
-            <div class="max-h-[60vh] overflow-y-auto rounded-md bg-gray-50 p-4 text-sm text-gray-800 dark:bg-gray-900/30 dark:text-gray-200">
+            <div class="max-h-[60vh] overflow-y-auto rounded-md nv-surface-muted p-4 text-sm">
               <div v-if="selectedInquiryPostContentsHtml" class="break-words leading-6" v-html="selectedInquiryPostContentsHtml" @error.capture="applyImageFallback" />
               <div v-else>-</div>
             </div>
 
-            <div class="border-t border-gray-200 pt-4 dark:border-gray-700">
+            <div class="border-t nv-border pt-4">
               <CommentList :postId="selectedInquiryPost.postId" boardUrl="inquiry" />
             </div>
           </template>

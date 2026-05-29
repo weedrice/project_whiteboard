@@ -7,7 +7,7 @@
           :placeholder="$t('board.tags.placeholder')"
           class="flex-1 min-w-0 input-base rounded-full py-1 text-sm" />
         <button type="button" @click="addTag"
-          class="sm:hidden flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-full border border-indigo-600 dark:border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-transparent hover:bg-indigo-50 dark:hover:bg-indigo-900/30 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          class="sm:hidden flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-full border border-[var(--nv-accent)] nv-accent-text bg-transparent nv-hover-surface nv-focus-ring">
           {{ $t('common.add') }}
         </button>
       </div>
@@ -34,7 +34,7 @@
           ]">
           #{{ tag }}
           <button v-if="!readOnly" @click="removeTag(index)" type="button"
-            class="ml-1 sm:ml-1.5 inline-flex items-center justify-center h-3 w-3 sm:h-4 sm:w-4 rounded-full text-blue-400 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 hover:text-blue-500 dark:hover:text-blue-100 focus:outline-none">
+            class="ml-1 sm:ml-1.5 inline-flex items-center justify-center h-3 w-3 sm:h-4 sm:w-4 rounded-full nv-accent-text nv-hover-surface nv-focus-ring">
             <span class="sr-only">{{ $t('board.tags.remove') }}</span>
             <svg class="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
               <path stroke-linecap="round" stroke-width="1.5" d="M1 1l6 6m0-6L1 7" />

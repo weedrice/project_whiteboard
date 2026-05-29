@@ -170,7 +170,7 @@ onUnmounted(() => {
 
         <div v-if="type === 'all'" class="border-t nv-border pt-1">
           <BaseButton @click="handleMoreClick" variant="ghost" full-width role="menuitem"
-            class="w-full text-left group flex items-center px-3 py-2.5 sm:py-2 min-h-[40px] sm:min-h-0 text-xs sm:text-sm text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 active:bg-indigo-100 dark:active:bg-indigo-900/70 font-medium justify-start touch-manipulation">
+            class="w-full text-left group flex items-center px-3 py-2.5 sm:py-2 min-h-[40px] sm:min-h-0 text-xs sm:text-sm nv-accent-text nv-hover-surface nv-press-surface font-medium justify-start touch-manipulation">
             <List class="mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
             {{ $t('common.loadMore') }}
           </BaseButton>

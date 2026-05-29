@@ -21,7 +21,7 @@
         :aria-describedby="error ? `${id}-error` : undefined"
         class="input-base"
         :class="[
-          { 'border-red-500 focus:border-red-500 focus:ring-red-500': error },
+          { 'is-invalid': error },
           { 'pl-10': $slots.prefix },
           { 'pr-10': $slots.suffix },
           inputClass
@@ -32,7 +32,7 @@
         <slot name="suffix"></slot>
       </div>
     </div>
-    <p v-if="error && !hideErrorText" :id="`${id}-error`" class="text-xs sm:text-sm text-red-600 dark:text-red-400" role="alert">{{ error }}</p>
+    <p v-if="error && !hideErrorText" :id="`${id}-error`" class="text-xs sm:text-sm nv-form-error" role="alert">{{ error }}</p>
   </div>
 </template>
 

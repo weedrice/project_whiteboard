@@ -101,7 +101,7 @@ const {
               class="mr-4 text-sm flex items-center"
               :role="generalIsError ? 'alert' : 'status'"
               :aria-live="generalIsError ? undefined : 'polite'"
-              :class="generalIsError ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'"
+              :class="generalIsError ? 'nv-form-error' : 'text-[var(--nv-success-text)]'"
             >
               {{ generalMessage }}
             </p>
@@ -143,7 +143,7 @@ const {
               class="mr-4 text-sm flex items-center"
               :role="notificationIsError ? 'alert' : 'status'"
               :aria-live="notificationIsError ? undefined : 'polite'"
-              :class="notificationIsError ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'"
+              :class="notificationIsError ? 'nv-form-error' : 'text-[var(--nv-success-text)]'"
             >
               {{ notificationMessage }}
             </p>

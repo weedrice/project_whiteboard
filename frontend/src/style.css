@@ -148,6 +148,28 @@ html {
     color: var(--nv-text-subtle);
   }
 
+  .nv-accent-text {
+    color: var(--nv-accent);
+  }
+
+  .nv-accent-text:hover {
+    color: color-mix(in srgb, var(--nv-accent) 78%, var(--nv-text) 22%);
+  }
+
+  .nv-danger-text {
+    color: var(--nv-danger);
+  }
+
+  .nv-danger-surface {
+    background: var(--nv-danger-bg);
+    border-color: var(--nv-danger-border);
+    color: var(--nv-danger-text);
+  }
+
+  .nv-form-error {
+    color: var(--nv-danger-text);
+  }
+
   .nv-hover-surface {
     transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
   }
@@ -157,6 +179,10 @@ html {
   }
 
   .nv-active-surface {
+    background: var(--nv-surface-active);
+  }
+
+  .nv-press-surface:active {
     background: var(--nv-surface-active);
   }
 
@@ -207,6 +233,21 @@ html {
     background: var(--nv-danger-bg);
     border-color: var(--nv-danger-border);
     color: var(--nv-danger-text);
+  }
+
+  .nv-checkbox {
+    accent-color: var(--nv-accent);
+    background: var(--nv-surface);
+    border-color: var(--nv-border);
+  }
+
+  .nv-checkbox:focus-visible {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--nv-focus) 44%, transparent);
+    outline: none;
+  }
+
+  .nv-spinner {
+    color: var(--nv-accent);
   }
 
   .nv-rich-content {
@@ -388,6 +429,15 @@ html {
   .input-base:focus {
     border-color: var(--nv-focus);
     box-shadow: 0 0 0 1px var(--nv-focus);
+  }
+
+  .input-base.is-invalid {
+    border-color: var(--nv-danger);
+  }
+
+  .input-base.is-invalid:focus {
+    border-color: var(--nv-danger);
+    box-shadow: 0 0 0 1px var(--nv-danger);
   }
 
   .input-base:disabled {

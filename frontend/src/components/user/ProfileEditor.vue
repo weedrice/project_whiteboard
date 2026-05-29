@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-transparent dark:bg-transparent shadow-none rounded-lg p-0 sm:p-6 sm:bg-white sm:dark:bg-gray-800 sm:shadow transition-colors duration-200">
+  <div class="bg-transparent shadow-none rounded-lg p-0 sm:p-6 sm:bg-[var(--nv-surface)] sm:shadow transition-colors duration-200">
     <ProfileBasicForm
       v-model:display-name="form.displayName"
       v-model:profile-image-error="profileImageError"
