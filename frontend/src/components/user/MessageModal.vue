@@ -19,17 +19,7 @@ import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
-import { useModalSubmit } from '@/composables/useModalSubmit'
-import { useI18n } from 'vue-i18n'
-import logger from '@/utils/logger'
-import { useToastStore } from '@/stores/toast'
-import type { AxiosError } from 'axios'
-import { messageApi, BLOCKED_BY_USER_CODE } from '@/api/message'
-import { extractErrorResponse } from '@/utils/errorHandler'
-import { hasMessageContent } from '@/utils/messageValidation'
-
-const { t } = useI18n()
-const toastStore = useToastStore()
+import { useMessageSubmit } from '@/composables/useMessageSubmit'
 
 const props = defineProps<{
     isOpen: boolean
@@ -40,30 +30,12 @@ const props = defineProps<{
 const emit = defineEmits(['close'])
 
 const {
-    value: messageContent,
-    isSubmitting: isSendingMessage,
-    submit: handleSendMessage
-} = useModalSubmit({
-    initialValue: '',
-    isValid: hasMessageContent,
-    onInvalid: () => toastStore.addToast(t('user.message.inputContent'), 'warning'),
-    onSubmit: async (content) => {
-        try {
-            const { data } = await messageApi.sendMessage(props.userId, content, { skipGlobalErrorHandler: true })
-            if (!data.success) return false
-
-            toastStore.addToast(t('user.message.sendSuccess'), 'success')
-            return true
-        } catch (error) {
-            logger.error('Failed to send message:', error)
-            const errRes = extractErrorResponse(error as AxiosError)
-            const message = errRes?.code === BLOCKED_BY_USER_CODE
-                ? t('user.message.blockedByUser')
-                : t('user.message.sendFailed')
-            toastStore.addToast(message, 'error')
-            return false
-        }
-    },
+    content: messageContent,
+    isSending: isSendingMessage,
+    send: handleSendMessage
+} = useMessageSubmit({
+    getReceiverId: () => props.userId,
+    logMessage: 'Failed to send message:',
     onSuccess: () => {
         emit('close')
     }
