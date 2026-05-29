@@ -110,6 +110,8 @@ class AgentServiceTest {
     @Mock
     private AgentRepository agentRepository;
     @Mock
+    private AgentLastUsedCommandService agentLastUsedCommandService;
+    @Mock
     private AgentAuditLogWriter agentAuditLogWriter;
     @Mock
     private AgentDailyQuotaRepository agentDailyQuotaRepository;
@@ -194,7 +196,7 @@ class AgentServiceTest {
                 agentAuditService,
                 sanctionPolicyService,
                 entityManager);
-        agentAuthService = new AgentAuthService(agentRepository);
+        agentAuthService = new AgentAuthService(agentRepository, agentLastUsedCommandService);
         PostAccessPolicy postAccessPolicy = new PostAccessPolicy(new BoardAccessPolicy(adminRepository));
         agentPolicyService = new AgentPolicyService(
                 postRepository,
@@ -1077,36 +1079,40 @@ class AgentServiceTest {
     }
 
     @Test
-    void authenticate_success_usesTokenHashForUpdate() {
-        when(agentRepository.findByAgentTokenHashAndIsDeletedFalseForUpdate(any())).thenReturn(Optional.of(agent));
+    void authenticate_success_usesTokenHashWithoutLockAndMarksLastUsed() {
+        when(agentRepository.findByAgentTokenHashAndIsDeletedFalseForAuthentication(any())).thenReturn(Optional.of(agent));
 
         Agent result = agentAuthService.authenticate("noviis_agt_token");
 
         assertThat(result).isEqualTo(agent);
-        assertThat(agent.getLastUsedAt()).isNotNull();
-        verify(agentRepository).findByAgentTokenHashAndIsDeletedFalseForUpdate(any());
+        assertThat(agent.getLastUsedAt()).isNull();
+        verify(agentRepository).findByAgentTokenHashAndIsDeletedFalseForAuthentication(any());
+        verify(agentLastUsedCommandService).markLastUsedIfStale(agent.getAgentId());
+        verify(agentRepository, never()).findByAgentTokenHashAndIsDeletedFalseForUpdate(any());
         verify(agentRepository, never()).findByAgentTokenHashAndIsDeletedFalse(any());
     }
 
     @Test
     void authenticate_rejectsSuspendedOwner() {
         user.suspend();
-        when(agentRepository.findByAgentTokenHashAndIsDeletedFalseForUpdate(any())).thenReturn(Optional.of(agent));
+        when(agentRepository.findByAgentTokenHashAndIsDeletedFalseForAuthentication(any())).thenReturn(Optional.of(agent));
 
         assertThatThrownBy(() -> agentAuthService.authenticate("noviis_agt_token"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+        verifyNoInteractions(agentLastUsedCommandService);
     }
 
     @Test
-    void authenticate_rejectsDeletedOwnerBeforeTouchingLastUsed() {
+    void authenticate_rejectsDeletedOwnerBeforeMarkingLastUsed() {
         user.delete();
-        when(agentRepository.findByAgentTokenHashAndIsDeletedFalseForUpdate(any())).thenReturn(Optional.of(agent));
+        when(agentRepository.findByAgentTokenHashAndIsDeletedFalseForAuthentication(any())).thenReturn(Optional.of(agent));
 
         assertThatThrownBy(() -> agentAuthService.authenticate("noviis_agt_token"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
         assertThat(agent.getLastUsedAt()).isNull();
+        verifyNoInteractions(agentLastUsedCommandService);
     }
 
     @Test

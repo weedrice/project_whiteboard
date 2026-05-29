@@ -19,10 +19,10 @@ import java.util.HexFormat;
 public class AgentAuthService {
 
     private final AgentRepository agentRepository;
+    private final AgentLastUsedCommandService agentLastUsedCommandService;
 
-    @Transactional
     public Agent authenticate(String rawToken) {
-        Agent agent = agentRepository.findByAgentTokenHashAndIsDeletedFalseForUpdate(hashToken(rawToken))
+        Agent agent = agentRepository.findByAgentTokenHashAndIsDeletedFalseForAuthentication(hashToken(rawToken))
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
         if (agent.isPendingClaim() || agent.getUser() == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
@@ -30,7 +30,7 @@ public class AgentAuthService {
         if (!agent.getUser().isActiveAccount()) {
             throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
         }
-        agent.touchLastUsed();
+        agentLastUsedCommandService.markLastUsedIfStale(agent.getAgentId());
         return agent;
     }
 
