@@ -47,6 +47,10 @@ export function mapCommentNotificationRoute(
     return `/board/${boardUrl}/post/${postId}#comment-${commentId}`
 }
 
+function isInternalTargetUrl(targetUrl: string | undefined): targetUrl is string {
+    return Boolean(targetUrl?.startsWith('/') && !targetUrl.startsWith('//'))
+}
+
 export function useNotificationNavigation(options: NotificationNavigationOptions = {}) {
     const router = useRouter()
     const { t } = useI18n()
@@ -57,6 +61,11 @@ export function useNotificationNavigation(options: NotificationNavigationOptions
     async function navigateFromNotification(notification: Notification) {
         if (!notification.isRead) {
             markAsRead(notification.notificationId)
+        }
+
+        if (isInternalTargetUrl(notification.targetUrl)) {
+            router.push(notification.targetUrl)
+            return
         }
 
         if (notification.sourceType === 'POST') {

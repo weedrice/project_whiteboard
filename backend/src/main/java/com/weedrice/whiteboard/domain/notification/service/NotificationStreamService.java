@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.notification.service;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -27,12 +28,22 @@ class NotificationStreamService {
     private final Map<Long, Map<String, EmitterConnection>> emitters = new ConcurrentHashMap<>();
     private final Map<Long, Object> userLocks = new ConcurrentHashMap<>();
     private final AtomicLong connectionSequence = new AtomicLong();
+    private final NotificationTargetUrlResolver targetUrlResolver;
     private final long timeoutMillis;
     private final int maxConnectionsPerUser;
 
     NotificationStreamService(
             @Value("${notification.stream.timeout-millis:1800000}") long timeoutMillis,
             @Value("${notification.stream.max-connections-per-user:5}") int maxConnectionsPerUser) {
+        this(NotificationTargetUrlResolver.noop(), timeoutMillis, maxConnectionsPerUser);
+    }
+
+    @Autowired
+    NotificationStreamService(
+            NotificationTargetUrlResolver targetUrlResolver,
+            @Value("${notification.stream.timeout-millis:1800000}") long timeoutMillis,
+            @Value("${notification.stream.max-connections-per-user:5}") int maxConnectionsPerUser) {
+        this.targetUrlResolver = targetUrlResolver;
         this.timeoutMillis = timeoutMillis > 0 ? timeoutMillis : DEFAULT_TIMEOUT_MILLIS;
         this.maxConnectionsPerUser = maxConnectionsPerUser > 0
                 ? maxConnectionsPerUser
@@ -105,7 +116,9 @@ class NotificationStreamService {
             return;
         }
 
-        NotificationResponse.NotificationSummary summary = NotificationResponse.NotificationSummary.from(notification);
+        NotificationResponse.NotificationSummary summary = NotificationResponse.NotificationSummary.from(
+                notification,
+                targetUrlResolver.resolve(notification));
         for (Map.Entry<String, EmitterConnection> entry : new ArrayList<>(userEmitters.entrySet())) {
             try {
                 entry.getValue().emitter().send(SseEmitter.event()
