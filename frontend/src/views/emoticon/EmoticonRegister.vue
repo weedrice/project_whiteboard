@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useHead } from '@unhead/vue'
 import { ArrowLeft, Upload, X, Plus } from 'lucide-vue-next'
@@ -7,14 +7,11 @@ import { useToastStore } from '@/stores/toast'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useEmoticonImageSelection } from '@/composables/useEmoticonImageSelection'
+import { useEmoticonImageFormState } from '@/composables/useEmoticonImageFormState'
 import { useEmoticonRegisterSubmit } from '@/composables/useEmoticonRegisterSubmit'
 import { useEmoticonTags } from '@/composables/useEmoticonTags'
 import { useEmoticonUploadSession } from '@/composables/useEmoticonUploadSession'
-import {
-  revokeEmoticonPreviewUrl,
-  SUPPORTED_EMOTICON_IMAGE_ACCEPT,
-  type EmoticonImagePreview
-} from '@/utils/emoticonImage'
+import { SUPPORTED_EMOTICON_IMAGE_ACCEPT } from '@/utils/emoticonImage'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -25,11 +22,7 @@ useHead({
   title: '노비콘 등록'
 })
 
-// 폼 상태
 const emoticonName = ref('')
-const thumbnailFile = ref<File | null>(null)
-const thumbnailPreview = ref<string | null>(null)
-const emoticonPreviews = ref<EmoticonImagePreview[]>([])
 const isSubmitting = ref(false)
 const uploadSession = useEmoticonUploadSession()
 const { uploadProgress } = uploadSession
@@ -39,70 +32,23 @@ const { tagInput, tagItems, tags, addTag, removeTag } = useEmoticonTags({
   }
 })
 
-// 파일 입력 refs
-const thumbnailInput = ref<HTMLInputElement | null>(null)
-const emoticonInput = ref<HTMLInputElement | null>(null)
-
 const SUPPORTED_IMAGE_ACCEPT = SUPPORTED_EMOTICON_IMAGE_ACCEPT
-
-onUnmounted(() => {
-  revokeEmoticonPreviewUrl(thumbnailPreview.value)
-  emoticonPreviews.value.forEach((item) => {
-    revokeEmoticonPreviewUrl(item.preview)
-  })
+const {
+  thumbnailFile,
+  thumbnailPreview,
+  imagePreviews: emoticonPreviews,
+  thumbnailInput,
+  emoticonInput,
+  handleThumbnailSelect,
+  removeThumbnail,
+  handleEmoticonSelect,
+  removeImagePreview: removeEmoticonImage,
+} = useEmoticonImageFormState({
+  selectThumbnailImage,
+  selectEmoticonImages,
+  getRemainingSlots: () => 100 - emoticonPreviews.value.length,
 })
 
-// 썸네일 선택
-const handleThumbnailSelect = async (event: Event) => {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
-
-  const selectedThumbnail = await selectThumbnailImage(file)
-  if (!selectedThumbnail) return
-
-  revokeEmoticonPreviewUrl(thumbnailPreview.value)
-  thumbnailFile.value = file
-  thumbnailPreview.value = selectedThumbnail.preview
-}
-
-// 썸네일 제거
-const removeThumbnail = () => {
-  revokeEmoticonPreviewUrl(thumbnailPreview.value)
-  thumbnailFile.value = null
-  thumbnailPreview.value = null
-  if (thumbnailInput.value) {
-    thumbnailInput.value.value = ''
-  }
-}
-
-// 이모티콘 이미지 선택
-const handleEmoticonSelect = async (event: Event) => {
-  const input = event.target as HTMLInputElement
-  const files = input.files
-  if (!files) return
-
-  const remainingSlots = 100 - emoticonPreviews.value.length
-  const selectedImages = await selectEmoticonImages(files, remainingSlots)
-  emoticonPreviews.value.push(...selectedImages)
-
-  // 입력 초기화
-  if (emoticonInput.value) {
-    emoticonInput.value.value = ''
-  }
-}
-
-// 이모티콘 이미지 제거
-const removeEmoticonImage = (clientId: string) => {
-  const index = emoticonPreviews.value.findIndex((item) => item.clientId === clientId)
-  const item = index >= 0 ? emoticonPreviews.value[index] : null
-  if (item) {
-    revokeEmoticonPreviewUrl(item.preview)
-    emoticonPreviews.value.splice(index, 1)
-  }
-}
-
-// 폼 유효성 검사
 const isFormValid = computed(() => {
   return emoticonName.value.trim() !== '' && 
          thumbnailFile.value !== null &&
@@ -127,11 +73,11 @@ const { handleSubmit } = useEmoticonRegisterSubmit({
   },
 })
 
-// 목록으로 이동
 const goToList = () => {
   router.push({ name: 'emoticon-list' })
 }
 </script>
+
 
 <template>
   <div class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">

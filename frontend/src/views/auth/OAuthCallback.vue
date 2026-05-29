@@ -5,18 +5,13 @@ import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
+import { clearLoginRedirect, getStoredLoginRedirect } from '@/utils/authRedirect'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
 const { t } = useI18n()
-
-const LOGIN_REDIRECT_KEY = 'loginRedirect'
-
-function isSafeRedirect(path: unknown): path is string {
-  return typeof path === 'string' && path.startsWith('/') && !path.startsWith('//')
-}
 
 function getSingleValue(value: unknown): string | null {
   if (typeof value === 'string' && value.length > 0) return value
@@ -71,9 +66,9 @@ onMounted(async () => {
       }
       
       toastStore.addToast(t('auth.loginSuccess'), 'success')
-      const redirect = sessionStorage.getItem(LOGIN_REDIRECT_KEY)
-      sessionStorage.removeItem(LOGIN_REDIRECT_KEY)
-      router.push(isSafeRedirect(redirect) ? redirect : '/')
+      const redirect = getStoredLoginRedirect()
+      clearLoginRedirect()
+      router.push(redirect ?? '/')
     } catch (error) {
       logger.error('OAuth login failed:', error)
       await authStore.logout()

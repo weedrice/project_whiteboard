@@ -33,6 +33,12 @@ export async function fetchBoardDetail(boardUrl: string, requestConfig?: AxiosRe
     return data.data as BoardDetail
 }
 
+export const createBoardDetailQueryOptions = (boardUrl: string | Ref<string>, requestConfig?: AxiosRequestConfig) => ({
+    queryKey: boardDetailQueryKey(boardUrl),
+    queryFn: () => fetchBoardDetail(typeof boardUrl === 'string' ? boardUrl : boardUrl.value, requestConfig),
+    staleTime: QUERY_STALE_TIME.SHORT,
+})
+
 const isVisibleSubscriptionBoard = (
     board: SubscriptionBoardListItem
 ): board is SubscriptionBoardListItem & BoardListItem =>
@@ -73,10 +79,8 @@ export function useBoard() {
     const useBoardDetail = (boardUrl: Ref<string>, options: { requestConfig?: AxiosRequestConfig } & Record<string, unknown> = {}) => {
         const { requestConfig, ...queryOptions } = options
         return useQuery({
-            queryKey: boardDetailQueryKey(boardUrl),
-            queryFn: () => fetchBoardDetail(boardUrl.value, requestConfig),
+            ...createBoardDetailQueryOptions(boardUrl, requestConfig),
             enabled: computed(() => !!boardUrl.value),
-            staleTime: QUERY_STALE_TIME.SHORT,
             ...queryOptions
         })
     }

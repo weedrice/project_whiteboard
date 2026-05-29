@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils'
-import { defineComponent, h, ref } from 'vue'
+import { defineComponent, h, nextTick, ref, type Ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import MyNotifications from '../MyNotifications.vue'
 import type { Notification, PageResponse } from '@/types'
@@ -12,6 +12,7 @@ const isMarkingAllAsRead = ref(false)
 const refetchNotifications = vi.fn()
 const markAllAsRead = vi.fn()
 const navigateFromNotification = vi.fn()
+let latestParams: Ref<{ page: number; size: number }> | undefined
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
@@ -19,7 +20,10 @@ vi.mock('vue-i18n', () => ({
 
 vi.mock('@/composables/useNotification', () => ({
   useNotification: () => ({
-    useNotifications: () => ({ data: notificationsData, isLoading, isError, error, refetch: refetchNotifications }),
+    useNotifications: (params: Ref<{ page: number; size: number }>) => {
+      latestParams = params
+      return { data: notificationsData, isLoading, isError, error, refetch: refetchNotifications }
+    },
     useMarkAllAsRead: () => ({ mutate: markAllAsRead, isPending: isMarkingAllAsRead }),
   }),
 }))
@@ -117,6 +121,7 @@ describe('MyNotifications', () => {
     error.value = null
     isMarkingAllAsRead.value = false
     notificationsData.value = makePage([])
+    latestParams = undefined
   })
 
   it('disables mark-all when the page has no unread notifications', async () => {
@@ -151,5 +156,20 @@ describe('MyNotifications', () => {
 
     expect(refetchNotifications).toHaveBeenCalledTimes(1)
     expect(wrapper.findComponent({ name: 'EmptyState' }).exists()).toBe(false)
+  })
+
+  it('updates notification query params through shared pagination state', async () => {
+    const wrapper = mountMyNotifications()
+    const listCard = wrapper.getComponent({ name: 'PaginatedListCard' })
+
+    expect(latestParams?.value).toEqual({ page: 0, size: 15 })
+
+    listCard.vm.$emit('page-change', 2)
+    await nextTick()
+    expect(latestParams?.value).toEqual({ page: 2, size: 15 })
+
+    listCard.vm.$emit('size-change', 30)
+    await nextTick()
+    expect(latestParams?.value).toEqual({ page: 0, size: 30 })
   })
 })
