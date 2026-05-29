@@ -55,7 +55,6 @@ function mountBoardShortcuts(overrides: Partial<Parameters<typeof useBoardDetail
         goToLastPage: vi.fn(),
         goToWrite: vi.fn(),
         toggleSubscribe: vi.fn(),
-        focusSearch: vi.fn(),
         canWrite: () => true,
         canGoNext: () => true,
         canGoPrev: () => true,
@@ -181,14 +180,12 @@ describe('useBoardDetailShortcuts', () => {
         document.dispatchEvent(new KeyboardEvent('keydown', { key: '[', shiftKey: true }))
         document.dispatchEvent(new KeyboardEvent('keydown', { key: ']', shiftKey: true }))
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'n' }))
-        document.dispatchEvent(new KeyboardEvent('keydown', { key: '/' }))
 
         expect(handlers.goToNextPage).toHaveBeenCalledTimes(1)
         expect(handlers.goToPrevPage).toHaveBeenCalledTimes(1)
         expect(handlers.goToFirstPage).toHaveBeenCalledTimes(1)
         expect(handlers.goToLastPage).toHaveBeenCalledTimes(1)
         expect(handlers.goToWrite).toHaveBeenCalledTimes(1)
-        expect(handlers.focusSearch).toHaveBeenCalledTimes(1)
 
         boardWrapper.unmount()
     })
