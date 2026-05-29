@@ -24,8 +24,8 @@ const shadowClass = computed(() => {
   return props.shadow ? 'shadow' : ''
 })
 const borderClass = computed(() => (props.border === 'transparent'
-  ? 'border-transparent dark:border-gray-700'
-  : 'border-gray-200 dark:border-gray-700'))
+  ? 'border-transparent'
+  : 'nv-border'))
 const overflowClass = computed(() => (props.overflow === 'hidden' ? 'overflow-hidden' : ''))
 </script>
 
@@ -37,7 +37,7 @@ const overflowClass = computed(() => (props.overflow === 'hidden' ? 'overflow-hi
       shadowClass,
       borderClass,
       overflowClass,
-      'rounded-lg border bg-white dark:bg-gray-800',
+      'rounded-lg border nv-surface',
     ]"
   >
     <slot />

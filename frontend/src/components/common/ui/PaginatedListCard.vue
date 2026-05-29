@@ -42,15 +42,15 @@ const headerActionsClass = computed(() => props.actionsVisibility === 'always'
 
 <template>
   <div :class="[maxWidthClass, 'mx-auto py-4 sm:py-6 md:py-8 px-4 sm:px-6 lg:px-8']">
-    <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
+    <div class="nv-surface shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
       <div
         :class="[
           headerClass,
-          'flex flex-col sm:flex-row sm:justify-between sm:items-center border-b border-gray-200 dark:border-gray-700',
+          'flex flex-col sm:flex-row sm:justify-between sm:items-center border-b nv-border',
         ]"
       >
-        <component :is="titleTag" class="text-lg leading-6 font-medium text-gray-900 dark:text-white flex items-center">
-          <component :is="icon" class="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+        <component :is="titleTag" class="text-lg leading-6 font-medium nv-title flex items-center">
+          <component :is="icon" class="h-5 w-5 mr-2 nv-text-subtle flex-shrink-0" />
           {{ title }}
         </component>
         <div class="flex items-center gap-2">
@@ -66,7 +66,7 @@ const headerActionsClass = computed(() => props.actionsVisibility === 'always'
         </div>
       </div>
 
-      <div v-if="slots.subheader" class="border-b border-gray-200 dark:border-gray-700">
+      <div v-if="slots.subheader" class="border-b nv-border">
         <div class="px-4 py-3 sm:px-6">
           <slot name="subheader" />
         </div>
@@ -77,7 +77,7 @@ const headerActionsClass = computed(() => props.actionsVisibility === 'always'
       <EmptyState v-else-if="itemsCount === 0" :title="emptyTitle" :icon="icon" />
       <slot v-else />
 
-      <div v-if="itemsCount > 0" class="bg-gray-50 dark:bg-gray-900/50 px-4 py-4 sm:px-6 flex flex-col items-center">
+      <div v-if="itemsCount > 0" class="nv-surface-muted px-4 py-4 sm:px-6 flex flex-col items-center">
         <slot name="footer-meta" />
         <Pagination :current-page="page" :total-pages="totalPages" @page-change="emit('page-change', $event)" />
       </div>

@@ -20,12 +20,12 @@
         </template>
       </BaseInput>
 
-      <div class="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div class="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800">
-          <p class="text-xs font-medium text-gray-600 dark:text-gray-300">
+      <div class="rounded-xl border nv-border overflow-hidden">
+        <div class="flex items-center justify-between border-b nv-border nv-surface-muted px-3 py-2">
+          <p class="text-xs font-medium nv-text-muted">
             {{ isMultiMode ? '멀티 선택 모드' : '단일 선택 모드' }}
           </p>
-          <p class="text-xs text-gray-500 dark:text-gray-400">
+          <p class="text-xs nv-text-subtle">
             {{ selectedUsers.length > 0 ? `선택 ${selectedUsers.length}명` : '선택된 사용자 없음' }}
           </p>
         </div>
@@ -50,8 +50,8 @@
             <span
               class="inline-flex h-4 w-4 items-center justify-center rounded border text-[10px]"
               :class="isSelected(item.userId)
-                ? 'border-indigo-500 bg-indigo-500 text-white'
-                : 'border-gray-300 text-transparent dark:border-gray-600'"
+                ? 'user-select-check-selected'
+                : 'nv-border-strong text-transparent'"
             >
               <Check class="h-3 w-3" />
             </span>
@@ -62,7 +62,7 @@
               <span>{{ item.displayName }}</span>
               <span
                 v-if="item.currentManager"
-                class="rounded bg-indigo-50 px-1.5 py-0.5 text-[11px] font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-200"
+                class="rounded nv-status-info px-1.5 py-0.5 text-[11px] font-medium"
               >
                 current
               </span>
@@ -143,7 +143,7 @@ function isSelected(userId: number) {
 
 function getUserRowClass(user: SelectableUser) {
   return isSelected(user.userId)
-    ? 'cursor-pointer !bg-indigo-50 dark:!bg-indigo-900/20'
+    ? 'cursor-pointer !bg-[var(--nv-selection)]'
     : 'cursor-pointer'
 }
 
@@ -213,3 +213,11 @@ watch(filteredUsers, (users) => {
   applyInitialSelection(users)
 }, { immediate: true })
 </script>
+
+<style scoped>
+.user-select-check-selected {
+  background: var(--nv-accent);
+  border-color: var(--nv-accent);
+  color: #fff;
+}
+</style>

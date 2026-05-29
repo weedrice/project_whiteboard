@@ -583,19 +583,25 @@ html {
   }
 
   .modal-content {
-    @apply relative bg-white rounded-lg shadow dark:bg-gray-800 border dark:border-gray-700;
+    @apply relative rounded-lg shadow border;
+    background: var(--nv-surface);
+    border-color: var(--nv-border);
+    color: var(--nv-text);
   }
 
   .modal-header {
-    @apply flex items-center justify-between p-5 border-b rounded-t dark:border-gray-700;
+    @apply flex items-center justify-between p-5 border-b rounded-t;
+    border-color: var(--nv-border);
   }
 
   .modal-body {
-    @apply p-4 sm:p-6 space-y-4 sm:space-y-6 text-gray-700 dark:text-gray-300;
+    @apply p-4 sm:p-6 space-y-4 sm:space-y-6;
+    color: var(--nv-text-muted);
   }
 
   .modal-footer {
-    @apply flex items-center justify-end w-full p-6 space-x-2 border-t border-gray-200 rounded-b dark:border-gray-700;
+    @apply flex items-center justify-end w-full p-6 space-x-2 border-t rounded-b;
+    border-color: var(--nv-border);
   }
 
   /* Utilities */

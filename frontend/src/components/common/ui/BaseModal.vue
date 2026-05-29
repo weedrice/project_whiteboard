@@ -7,7 +7,7 @@
         <div class="modal-content">
           <!-- Modal header -->
           <div class="modal-header">
-            <h3 :id="titleId" class="text-xl font-medium text-gray-900 dark:text-white">
+            <h3 :id="titleId" class="text-xl font-medium nv-title">
               {{ title || 'Modal' }}
             </h3>
             <BaseButton @click="close" variant="ghost" size="sm" class="ml-auto p-1.5 rounded-lg"
