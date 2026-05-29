@@ -4,7 +4,6 @@ import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
 import com.weedrice.whiteboard.domain.comment.constant.CommentConstraints;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
-import com.weedrice.whiteboard.domain.comment.entity.CommentLike;
 import com.weedrice.whiteboard.domain.comment.entity.CommentVersion;
 import com.weedrice.whiteboard.domain.comment.repository.CommentClosureRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
@@ -20,7 +19,6 @@ import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublish
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchIndexAction;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
-import com.weedrice.whiteboard.global.common.service.ReactionWriter;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.util.InputSanitizer;
@@ -48,8 +46,8 @@ public class CommentCommandService {
     private final PostAuthorCommandPolicy postAuthorCommandPolicy;
     private final ContentRewardService contentRewardService;
     private final CommentNotificationService commentNotificationService;
-    private final ReactionWriter reactionWriter;
     private final SemanticSearchEventPublisher semanticSearchEventPublisher;
+    private final CommentLikeCommand commentLikeCommand;
 
     @Transactional
     public Long createComment(Long userId, Long postId, Long parentId, String content) {
@@ -221,14 +219,7 @@ public class CommentCommandService {
         User user = userWritableResolver.resolve(userId);
         Comment comment = loadReadableActiveCommentForReaction(commentId, user);
 
-        CommentLike commentLike = CommentLike.builder()
-                .user(user)
-                .comment(comment)
-                .build();
-        reactionWriter.insertOrThrowDuplicate(
-                () -> commentLikeRepository.saveAndFlush(commentLike),
-                ErrorCode.ALREADY_LIKED);
-        incrementCommentLikeCount(commentId);
+        commentLikeCommand.like(user, comment, CommentLikeCommand.DuplicatePolicy.THROW_ALREADY_LIKED);
         commentNotificationService.publishLikeNotification(user, comment, commentId);
     }
 
@@ -243,12 +234,6 @@ public class CommentCommandService {
         }
 
         decrementCommentLikeCount(commentId);
-    }
-
-    private void incrementCommentLikeCount(Long commentId) {
-        if (commentRepository.incrementLikeCount(commentId) == 0) {
-            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
-        }
     }
 
     private void decrementCommentLikeCount(Long commentId) {

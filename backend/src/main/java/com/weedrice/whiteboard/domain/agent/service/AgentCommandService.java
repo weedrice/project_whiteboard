@@ -12,11 +12,9 @@ import com.weedrice.whiteboard.domain.agent.service.AgentPolicyService.AgentPoli
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
-import com.weedrice.whiteboard.domain.comment.entity.CommentLike;
-import com.weedrice.whiteboard.domain.comment.entity.CommentLikeId;
-import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.service.CommentCreateContext;
+import com.weedrice.whiteboard.domain.comment.service.CommentLikeCommand;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
@@ -25,7 +23,6 @@ import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,10 +42,10 @@ public class AgentCommandService {
     private static final String ACTION_CREATE_REPLY = "create_reply";
 
     private final CommentRepository commentRepository;
-    private final CommentLikeRepository commentLikeRepository;
     private final PostRepository postRepository;
     private final PostService postService;
     private final CommentService commentService;
+    private final CommentLikeCommand commentLikeCommand;
     private final AgentOwnershipService agentOwnershipService;
     private final AgentBoardAccessService agentBoardAccessService;
     private final AgentCommentAccessService agentCommentAccessService;
@@ -183,44 +180,24 @@ public class AgentCommandService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
         agentCommentAccessService.validateReadableActiveComment(agent, comment);
 
-        boolean alreadyLiked = commentLikeRepository.existsById(new CommentLikeId(agent.getUser().getUserId(), commentId));
-        if (!alreadyLiked) {
-            try {
-                commentLikeRepository.saveAndFlush(CommentLike.builder()
-                        .user(agent.getUser())
-                        .comment(comment)
-                        .build());
-                incrementCommentLikeCount(commentId);
-                agentAuditService.saveLog(
-                        agent,
-                        agent.getUser(),
-                        AgentAuditActionType.LIKE_COMMENT,
-                        AgentAuditTargetType.COMMENT,
-                        commentId,
-                        requestContext);
-            } catch (DataIntegrityViolationException ex) {
-                alreadyLiked = true;
-            }
+        CommentLikeCommand.CommentLikeResult result = commentLikeCommand.like(
+                agent.getUser(),
+                comment,
+                CommentLikeCommand.DuplicatePolicy.RETURN_ALREADY_LIKED);
+        if (!result.alreadyLiked()) {
+            agentAuditService.saveLog(
+                    agent,
+                    agent.getUser(),
+                    AgentAuditActionType.LIKE_COMMENT,
+                    AgentAuditTargetType.COMMENT,
+                    commentId,
+                    requestContext);
         }
         return new AgentCommentLikeResponse(
                 "liked",
                 commentId,
-                resolveCommentLikeCount(commentId),
-                alreadyLiked);
-    }
-
-    private void incrementCommentLikeCount(Long commentId) {
-        if (commentRepository.incrementLikeCount(commentId) == 0) {
-            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
-        }
-    }
-
-    private int resolveCommentLikeCount(Long commentId) {
-        Integer likeCount = commentRepository.findLikeCountByCommentId(commentId);
-        if (likeCount == null) {
-            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
-        }
-        return likeCount;
+                result.likeCount(),
+                result.alreadyLiked());
     }
 
     private OffsetDateTime toOffsetDateTime(LocalDateTime value) {

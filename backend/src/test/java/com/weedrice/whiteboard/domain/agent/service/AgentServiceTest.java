@@ -32,6 +32,7 @@ import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.service.CommentCreateContext;
+import com.weedrice.whiteboard.domain.comment.service.CommentLikeCommand;
 import com.weedrice.whiteboard.domain.comment.service.CommentReadModelAssembler;
 import com.weedrice.whiteboard.domain.comment.service.CommentReadSupport;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
@@ -239,10 +240,10 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(agentLinkBuilder, "frontendUrl", "https://noviis.kr");
         agentCommandService = new AgentCommandService(
                 commentRepository,
-                commentLikeRepository,
                 postRepository,
                 postService,
                 commentService,
+                new CommentLikeCommand(commentRepository, commentLikeRepository),
                 agentOwnershipService,
                 agentBoardAccessService,
                 agentCommentAccessService,
@@ -2403,7 +2404,6 @@ class AgentServiceTest {
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(commentRepository.findByIdWithRelationsForUpdate(300L)).thenReturn(Optional.of(comment));
-        when(commentLikeRepository.existsById(any())).thenReturn(false);
         when(commentRepository.incrementLikeCount(300L)).thenReturn(1);
         when(commentRepository.findLikeCountByCommentId(300L)).thenReturn(1);
 
