@@ -2,6 +2,9 @@ package com.weedrice.whiteboard.domain.notification.controller;
 
 import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.service.NotificationService;
+import com.weedrice.whiteboard.domain.notification.web.NotificationSseEmitterRegistry;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -61,6 +64,9 @@ class NotificationControllerTest {
 
     @MockitoBean
     private NotificationService notificationService;
+
+    @MockitoBean
+    private NotificationSseEmitterRegistry notificationSseEmitterRegistry;
 
     @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -139,13 +145,27 @@ class NotificationControllerTest {
     @Test
     @DisplayName("SSE 구독 성공")
     void subscribe_success() throws Exception {
-        when(notificationService.subscribe(anyLong())).thenReturn(new SseEmitter());
+        when(notificationSseEmitterRegistry.subscribe(anyLong())).thenReturn(new SseEmitter());
 
         mockMvc.perform(get("/api/v1/notifications/stream")
                         .with(user(customUserDetails)))
                 .andExpect(status().isOk());
 
-        verify(notificationService).subscribe(1L);
+        verify(notificationService).validateStreamSubscription(1L);
+        verify(notificationSseEmitterRegistry).subscribe(1L);
+    }
+
+    @Test
+    @DisplayName("SSE subscription rejects missing user")
+    void subscribe_missingUser_returnsNotFound() throws Exception {
+        org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.USER_NOT_FOUND))
+                .when(notificationService).validateStreamSubscription(1L);
+
+        mockMvc.perform(get("/api/v1/notifications/stream")
+                        .with(user(customUserDetails)))
+                .andExpect(status().isNotFound());
+
+        verify(notificationSseEmitterRegistry, never()).subscribe(anyLong());
     }
 
     @Test

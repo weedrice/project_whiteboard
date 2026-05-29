@@ -6,6 +6,7 @@ import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -17,9 +18,27 @@ public interface AgentRepository extends JpaRepository<Agent, Long> {
     Optional<Agent> findByAgentTokenHashAndIsDeletedFalse(String agentTokenHash);
 
     @EntityGraph(attributePaths = { "user" })
+    @Query("SELECT a FROM Agent a WHERE a.agentTokenHash = :agentTokenHash AND a.isDeleted = false")
+    Optional<Agent> findByAgentTokenHashAndIsDeletedFalseForAuthentication(
+            @Param("agentTokenHash") String agentTokenHash);
+
+    @EntityGraph(attributePaths = { "user" })
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT a FROM Agent a WHERE a.agentTokenHash = :agentTokenHash AND a.isDeleted = false")
     Optional<Agent> findByAgentTokenHashAndIsDeletedFalseForUpdate(@Param("agentTokenHash") String agentTokenHash);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE Agent a
+            SET a.lastUsedAt = :lastUsedAt
+            WHERE a.agentId = :agentId
+              AND a.isDeleted = false
+              AND (a.lastUsedAt IS NULL OR a.lastUsedAt <= :staleBefore)
+            """)
+    int updateLastUsedAtIfStale(
+            @Param("agentId") Long agentId,
+            @Param("lastUsedAt") LocalDateTime lastUsedAt,
+            @Param("staleBefore") LocalDateTime staleBefore);
 
     boolean existsByAgentTokenHashAndIsDeletedFalse(String agentTokenHash);
 

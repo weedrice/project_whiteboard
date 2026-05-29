@@ -180,11 +180,15 @@ class BoardServiceTest {
                 boardAccessPolicy,
                 new BoardSubscriptionWritePolicy(boardSubscriptionRepository));
         BoardCategoryService categoryService = new BoardCategoryService(
-                boardRepository,
+                new BoardCategoryMutationResolver(
+                        boardRepository,
+                        boardCategoryRepository,
+                        userRepository,
+                        boardAccessPolicy),
                 boardCategoryRepository,
-                userRepository,
-                boardAccessPolicy,
-                new BoardCategoryNameConflictPolicy(boardCategoryRepository));
+                new BoardCategoryNameConflictPolicy(boardCategoryRepository),
+                new BoardCategoryDefaultCommand(boardCategoryRepository),
+                new BoardCategoryResponseAssembler());
         boardService = new BoardService(
                 queryService,
                 provisioningService,

@@ -7,6 +7,8 @@ import com.weedrice.whiteboard.domain.search.dto.PopularKeywordResponse;
 import com.weedrice.whiteboard.domain.search.dto.SearchPersonalizationResponse;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchResultResponse;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchService;
+import com.weedrice.whiteboard.domain.search.service.SearchPreviewReadService;
+import com.weedrice.whiteboard.domain.search.service.SearchRecordFacade;
 import com.weedrice.whiteboard.domain.search.service.SearchService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
@@ -29,6 +31,8 @@ import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.
 public class SearchController {
 
     private final SearchService searchService;
+    private final SearchPreviewReadService searchPreviewReadService;
+    private final SearchRecordFacade searchRecordFacade;
     private final SemanticSearchService semanticSearchService;
 
     @GetMapping
@@ -37,7 +41,8 @@ public class SearchController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
         Long userId = optionalUserId(userDetails);
-        IntegratedSearchResponse response = searchService.integratedSearch(q, userId);
+        IntegratedSearchResponse response = searchPreviewReadService.integratedSearch(q, userId);
+        searchRecordFacade.record(userId, response.getKeyword());
         return ApiResponse.success(response);
     }
 

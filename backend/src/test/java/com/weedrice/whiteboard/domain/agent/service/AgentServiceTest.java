@@ -32,6 +32,7 @@ import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.service.CommentCreateContext;
+import com.weedrice.whiteboard.domain.comment.service.CommentLikeCommand;
 import com.weedrice.whiteboard.domain.comment.service.CommentReadModelAssembler;
 import com.weedrice.whiteboard.domain.comment.service.CommentReadSupport;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
@@ -40,6 +41,7 @@ import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.post.service.PostAuthorCommandPolicy;
+import com.weedrice.whiteboard.domain.post.service.PostCommandService;
 import com.weedrice.whiteboard.domain.post.service.PostCreateContext;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.sanction.entity.Sanction;
@@ -109,6 +111,8 @@ class AgentServiceTest {
     @Mock
     private AgentRepository agentRepository;
     @Mock
+    private AgentLastUsedCommandService agentLastUsedCommandService;
+    @Mock
     private AgentAuditLogWriter agentAuditLogWriter;
     @Mock
     private AgentDailyQuotaRepository agentDailyQuotaRepository;
@@ -134,6 +138,8 @@ class AgentServiceTest {
     private CommentLikeRepository commentLikeRepository;
     @Mock
     private PostService postService;
+    @Mock
+    private PostCommandService postCommandService;
     @Mock
     private CommentService commentService;
     @Mock
@@ -193,7 +199,7 @@ class AgentServiceTest {
                 agentAuditService,
                 sanctionPolicyService,
                 entityManager);
-        agentAuthService = new AgentAuthService(agentRepository);
+        agentAuthService = new AgentAuthService(agentRepository, agentLastUsedCommandService);
         PostAccessPolicy postAccessPolicy = new PostAccessPolicy(new BoardAccessPolicy(adminRepository));
         agentPolicyService = new AgentPolicyService(
                 postRepository,
@@ -239,10 +245,11 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(agentLinkBuilder, "frontendUrl", "https://noviis.kr");
         agentCommandService = new AgentCommandService(
                 commentRepository,
-                commentLikeRepository,
                 postRepository,
                 postService,
+                postCommandService,
                 commentService,
+                new CommentLikeCommand(commentRepository, commentLikeRepository),
                 agentOwnershipService,
                 agentBoardAccessService,
                 agentCommentAccessService,
@@ -354,7 +361,7 @@ class AgentServiceTest {
     @DisplayName("feed는 agent가 글을 쓸 수 없는 게시판의 글을 제외한다")
     void getFeed_filtersBoardsWithoutWritePermission() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
+        when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(writableBoard, blockedBoard));
         when(postRepository.findAgentFeedByBoardIds(
                 eq(List.of(10L)),
@@ -380,7 +387,7 @@ class AgentServiceTest {
         Board readableOnlyBoard = readableOnlyAgentEnabledBoard(30L);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
+        when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(writableBoard, readableOnlyBoard));
         when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
                 List.of(10L, 30L), true)).thenReturn(List.of(
@@ -409,7 +416,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(legacyCategory, "minWriteRole", "LEGACY");
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
+        when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(legacyBoard));
         when(boardCategoryRepository.findByBoard_BoardIdInAndIsActiveOrderByBoard_BoardIdAscSortOrderAsc(
                 List.of(30L), true)).thenReturn(List.of(legacyCategory));
@@ -1076,36 +1083,40 @@ class AgentServiceTest {
     }
 
     @Test
-    void authenticate_success_usesTokenHashForUpdate() {
-        when(agentRepository.findByAgentTokenHashAndIsDeletedFalseForUpdate(any())).thenReturn(Optional.of(agent));
+    void authenticate_success_usesTokenHashWithoutLockAndMarksLastUsed() {
+        when(agentRepository.findByAgentTokenHashAndIsDeletedFalseForAuthentication(any())).thenReturn(Optional.of(agent));
 
         Agent result = agentAuthService.authenticate("noviis_agt_token");
 
         assertThat(result).isEqualTo(agent);
-        assertThat(agent.getLastUsedAt()).isNotNull();
-        verify(agentRepository).findByAgentTokenHashAndIsDeletedFalseForUpdate(any());
+        assertThat(agent.getLastUsedAt()).isNull();
+        verify(agentRepository).findByAgentTokenHashAndIsDeletedFalseForAuthentication(any());
+        verify(agentLastUsedCommandService).markLastUsedIfStale(agent.getAgentId());
+        verify(agentRepository, never()).findByAgentTokenHashAndIsDeletedFalseForUpdate(any());
         verify(agentRepository, never()).findByAgentTokenHashAndIsDeletedFalse(any());
     }
 
     @Test
     void authenticate_rejectsSuspendedOwner() {
         user.suspend();
-        when(agentRepository.findByAgentTokenHashAndIsDeletedFalseForUpdate(any())).thenReturn(Optional.of(agent));
+        when(agentRepository.findByAgentTokenHashAndIsDeletedFalseForAuthentication(any())).thenReturn(Optional.of(agent));
 
         assertThatThrownBy(() -> agentAuthService.authenticate("noviis_agt_token"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+        verifyNoInteractions(agentLastUsedCommandService);
     }
 
     @Test
-    void authenticate_rejectsDeletedOwnerBeforeTouchingLastUsed() {
+    void authenticate_rejectsDeletedOwnerBeforeMarkingLastUsed() {
         user.delete();
-        when(agentRepository.findByAgentTokenHashAndIsDeletedFalseForUpdate(any())).thenReturn(Optional.of(agent));
+        when(agentRepository.findByAgentTokenHashAndIsDeletedFalseForAuthentication(any())).thenReturn(Optional.of(agent));
 
         assertThatThrownBy(() -> agentAuthService.authenticate("noviis_agt_token"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
         assertThat(agent.getLastUsedAt()).isNull();
+        verifyNoInteractions(agentLastUsedCommandService);
     }
 
     @Test
@@ -1413,7 +1424,7 @@ class AgentServiceTest {
         ReflectionTestUtils.setField(secondWritablePost, "isDeleted", false);
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
+        when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(writableBoard));
         when(postRepository.findAgentFeedByBoardIds(
                 eq(List.of(10L)),
@@ -1471,7 +1482,7 @@ class AgentServiceTest {
     @DisplayName("feed 조회는 가시성 조건이 반영된 전용 쿼리를 사용한다")
     void getFeed_usesVisibilityAwareFeedQuery() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
-        when(boardRepository.findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(true, true))
+        when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
                 .thenReturn(List.of(writableBoard));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
         when(postRepository.findAgentFeedByBoardIds(
@@ -2296,7 +2307,7 @@ class AgentServiceTest {
         assertThat(response.getPostId()).isEqualTo(101L);
         assertThat(response.isDeleted()).isTrue();
         assertThat(response.getAlreadyDeleted()).isNull();
-        assertThat(agentPost.getIsDeleted()).isTrue();
+        verify(postCommandService).deleteAgentOwnedPost(agentPost, 7L, user);
         verify(agentAuditLogWriter).saveLog(
                 eq(7L),
                 eq(1L),
@@ -2320,6 +2331,7 @@ class AgentServiceTest {
         assertThat(response.isDeleted()).isTrue();
         assertThat(response.getAlreadyDeleted()).isTrue();
         assertThat(response.getDeletedAt()).isNotNull();
+        verify(postCommandService, never()).deleteAgentOwnedPost(any(Post.class), anyLong(), any(User.class));
         verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(), any(), any());
     }
 
@@ -2343,6 +2355,7 @@ class AgentServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
 
         assertThat(otherAgentPost.getIsDeleted()).isFalse();
+        verify(postCommandService, never()).deleteAgentOwnedPost(any(Post.class), anyLong(), any(User.class));
         verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(), any(), any());
     }
 
@@ -2354,6 +2367,7 @@ class AgentServiceTest {
         assertThatThrownBy(() -> agentCommandService.deletePost(7L, 404L, null))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+        verify(postCommandService, never()).deleteAgentOwnedPost(any(Post.class), anyLong(), any(User.class));
     }
 
     @Test
@@ -2368,6 +2382,7 @@ class AgentServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
 
         assertThat(agentPost.getIsDeleted()).isFalse();
+        verify(postCommandService, never()).deleteAgentOwnedPost(any(Post.class), anyLong(), any(User.class));
         verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(), any(), any());
     }
 
@@ -2403,7 +2418,6 @@ class AgentServiceTest {
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(commentRepository.findByIdWithRelationsForUpdate(300L)).thenReturn(Optional.of(comment));
-        when(commentLikeRepository.existsById(any())).thenReturn(false);
         when(commentRepository.incrementLikeCount(300L)).thenReturn(1);
         when(commentRepository.findLikeCountByCommentId(300L)).thenReturn(1);
 

@@ -145,7 +145,7 @@ class VerificationCodeServiceTest {
         verificationCodeService = new VerificationCodeService(
                 new EmailEligibilityService(
                         new AccountUniquenessPolicy(userRepository),
-                        userRepository,
+                        new AuthEmailLookupPolicy(userRepository),
                         new AuthAccountEligibilityPolicy()),
                 verificationCodeDeliveryService,
                 verificationTicketService);

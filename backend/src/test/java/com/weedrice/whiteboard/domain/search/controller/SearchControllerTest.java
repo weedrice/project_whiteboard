@@ -6,6 +6,8 @@ import com.weedrice.whiteboard.domain.search.dto.PopularKeywordDto;
 import com.weedrice.whiteboard.domain.search.dto.SearchPersonalizationResponse;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchResultResponse;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchService;
+import com.weedrice.whiteboard.domain.search.service.SearchPreviewReadService;
+import com.weedrice.whiteboard.domain.search.service.SearchRecordFacade;
 import com.weedrice.whiteboard.domain.search.service.SearchService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -34,6 +36,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous;
@@ -74,6 +77,12 @@ class SearchControllerTest {
 
     @MockitoBean
     private SearchService searchService;
+
+    @MockitoBean
+    private SearchPreviewReadService searchPreviewReadService;
+
+    @MockitoBean
+    private SearchRecordFacade searchRecordFacade;
 
     @MockitoBean
     private SemanticSearchService semanticSearchService;
@@ -129,7 +138,7 @@ class SearchControllerTest {
         IntegratedSearchResponse response = IntegratedSearchResponse.from(emptyPostPage, emptyCommentPage,
                 emptyUserPage, java.util.Collections.emptyList(), query);
 
-        when(searchService.integratedSearch(eq(query), isNull())).thenReturn(response);
+        when(searchPreviewReadService.integratedSearch(eq(query), isNull())).thenReturn(response);
 
         // when & then
         mockMvc.perform(get("/api/v1/search")
@@ -149,7 +158,8 @@ class SearchControllerTest {
                 .andExpect(jsonPath("$.data.posts").doesNotExist())
                 .andExpect(jsonPath("$.data.boards").doesNotExist());
 
-        verify(searchService).integratedSearch(eq(query), isNull());
+        verify(searchPreviewReadService).integratedSearch(eq(query), isNull());
+        verify(searchRecordFacade).record(null, query);
     }
 
     @Test
@@ -165,7 +175,7 @@ class SearchControllerTest {
         IntegratedSearchResponse response = IntegratedSearchResponse.from(emptyPostPage, emptyCommentPage,
                 emptyUserPage, java.util.Collections.emptyList(), canonicalQuery);
 
-        when(searchService.integratedSearch(eq(rawQuery), isNull())).thenReturn(response);
+        when(searchPreviewReadService.integratedSearch(eq(rawQuery), isNull())).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/search")
                 .param("q", rawQuery)
@@ -173,7 +183,8 @@ class SearchControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
-        verify(searchService).integratedSearch(eq(rawQuery), isNull());
+        verify(searchPreviewReadService).integratedSearch(eq(rawQuery), isNull());
+        verify(searchRecordFacade).record(null, canonicalQuery);
     }
 
     @Test
@@ -189,7 +200,7 @@ class SearchControllerTest {
         IntegratedSearchResponse response = IntegratedSearchResponse.from(emptyPostPage, emptyCommentPage,
                 emptyUserPage, java.util.Collections.emptyList(), canonicalQuery);
 
-        when(searchService.integratedSearch(eq(rawQuery), isNull())).thenReturn(response);
+        when(searchPreviewReadService.integratedSearch(eq(rawQuery), isNull())).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/search")
                         .param("q", rawQuery)
@@ -197,13 +208,14 @@ class SearchControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
-        verify(searchService).integratedSearch(eq(rawQuery), isNull());
+        verify(searchPreviewReadService).integratedSearch(eq(rawQuery), isNull());
+        verify(searchRecordFacade).record(null, canonicalQuery);
     }
 
     @Test
     @DisplayName("통합 검색은 빈 검색어를 거부한다")
     void integratedSearch_rejectsBlankKeyword() throws Exception {
-        when(searchService.integratedSearch(eq("   "), isNull()))
+        when(searchPreviewReadService.integratedSearch(eq("   "), isNull()))
                 .thenThrow(new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
 
         mockMvc.perform(get("/api/v1/search")
@@ -211,7 +223,8 @@ class SearchControllerTest {
                 .with(anonymous()))
                 .andExpect(status().isBadRequest());
 
-        verify(searchService).integratedSearch(eq("   "), isNull());
+        verify(searchPreviewReadService).integratedSearch(eq("   "), isNull());
+        verify(searchRecordFacade, never()).record(any(), anyString());
     }
 
     @Test
@@ -348,13 +361,14 @@ class SearchControllerTest {
     @DisplayName("통합 검색 실패 시 비즈니스 예외를 반환한다")
     void integratedSearch_failureReturnsBusinessException() throws Exception {
         String query = "test";
-        when(searchService.integratedSearch(eq(query), isNull()))
+        when(searchPreviewReadService.integratedSearch(eq(query), isNull()))
                 .thenThrow(new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
 
         mockMvc.perform(get("/api/v1/search")
                 .param("q", query)
                 .with(anonymous()))
                 .andExpect(status().isBadRequest());
+        verify(searchRecordFacade, never()).record(any(), anyString());
     }
 
     @Test

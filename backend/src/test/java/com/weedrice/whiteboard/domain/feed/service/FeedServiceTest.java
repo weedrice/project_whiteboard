@@ -11,12 +11,13 @@ import com.weedrice.whiteboard.domain.post.service.PostSummaryReadContext;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
+import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -46,7 +47,6 @@ class FeedServiceTest {
             Sort.Order.desc("createdAt"),
             Sort.Order.desc("feedId"));
 
-    @InjectMocks
     private FeedService feedService;
 
     @Mock
@@ -66,6 +66,17 @@ class FeedServiceTest {
 
     @Mock
     private AdminRepository adminRepository;
+
+    @BeforeEach
+    void setUp() {
+        feedService = new FeedService(
+                userFeedRepository,
+                new UserReadableResolver(userRepository),
+                postService,
+                feedGenerationService,
+                userBlockService,
+                adminRepository);
+    }
 
     @Test
     @DisplayName("POST feeds hydrate post summaries in page order")

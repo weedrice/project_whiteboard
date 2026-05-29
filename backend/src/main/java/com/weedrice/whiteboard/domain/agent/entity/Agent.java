@@ -82,10 +82,6 @@ public class Agent extends BaseTimeEntity {
         this.claimedAt = LocalDateTime.now();
     }
 
-    public void touchLastUsed() {
-        this.lastUsedAt = LocalDateTime.now();
-    }
-
     public void suspend() {
         this.status = STATUS_SUSPENDED;
     }

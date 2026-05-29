@@ -27,6 +27,7 @@ import com.weedrice.whiteboard.domain.post.entity.*;
 import com.weedrice.whiteboard.domain.post.repository.*;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
+import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchIndexAction;
 import com.weedrice.whiteboard.domain.search.service.SearchRecordEventPublisher;
 import com.weedrice.whiteboard.domain.tag.service.TagAssignmentService;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -164,6 +165,11 @@ class PostServiceTest {
                 userRepository,
                 userBlockService,
                 adminRepository);
+        PostDetailContextResolver postDetailContextResolver = new PostDetailContextResolver(
+                postRepository,
+                viewHistoryRepository,
+                postReadContextResolver,
+                postAccessPolicy);
         postImageAttachmentReader = new PostImageAttachmentReader(fileService);
         ReactionWriter reactionWriter = new ReactionWriter();
         postAuthorCommandPolicy = new PostAuthorCommandPolicy(
@@ -175,18 +181,15 @@ class PostServiceTest {
         PostViewCountWriter postViewCountWriter = new PostViewCountWriter(postRepository);
         postDetailReadService = new PostDetailReadService(
                 postRepository,
-                viewHistoryRepository,
                 tagAssignmentService,
                 postImageAttachmentReader,
-                postReadContextResolver,
                 postInteractionContextResolver,
-                postAccessPolicy,
-                boardAccessPolicy);
+                boardAccessPolicy,
+                postDetailContextResolver);
         postDetailViewCommandService = new PostDetailViewCommandService(
                 postRepository,
                 viewHistoryCommandService,
-                postReadContextResolver,
-                postAccessPolicy,
+                postDetailContextResolver,
                 postViewCountWriter);
         postDraftService = new PostDraftService(
                 userRepository,
@@ -291,7 +294,8 @@ class PostServiceTest {
                 boardAccessPolicy,
                 postAuthorCommandPolicy,
                 postCommandService,
-                postFacadeReadService);
+                postFacadeReadService,
+                postDetailContextResolver);
 
         // GlobalConfigService 기본 mock 설정 - lenient()로 설정하여 일부 테스트에서 사용되지 않아도 허용
         lenient().when(globalConfigService.getConfig(anyString())).thenReturn("50");
@@ -319,6 +323,17 @@ class PostServiceTest {
         ReflectionTestUtils.setField(post, "postId", 1L);
         ReflectionTestUtils.setField(post, "likeCount", 0);
         ReflectionTestUtils.setField(post, "viewCount", 0);
+    }
+
+    private void assertDeleteVersionRecorded(User modifier) {
+        ArgumentCaptor<PostVersion> versionCaptor = ArgumentCaptor.forClass(PostVersion.class);
+        verify(postVersionRepository).save(versionCaptor.capture());
+        PostVersion version = versionCaptor.getValue();
+        assertThat(version.getPost()).isSameAs(post);
+        assertThat(version.getModifier()).isSameAs(modifier);
+        assertThat(version.getVersionType()).isEqualTo("DELETE");
+        assertThat(version.getOriginalTitle()).isEqualTo("Test Post");
+        assertThat(version.getOriginalContents()).isEqualTo("Test Contents");
     }
 
     // --- Create Post ---
@@ -1196,9 +1211,37 @@ class PostServiceTest {
 
         assertThat(post.getIsDeleted()).isTrue();
         verify(tagAssignmentService).clearTags(post);
+        assertDeleteVersionRecorded(user);
         verify(fileService).markPostContentFilesDeletionPending(1L);
         verify(pointService).reverseRewardPoint(eq(1L), eq(50), anyString(), eq(1L), eq("POST"));
+        verify(semanticSearchEventPublisher).publish("POST", 1L, SemanticSearchIndexAction.DELETE);
         verify(globalConfigService, never()).getConfig("POINT_POST_CREATE_REWARD");
+    }
+
+    @Test
+    @DisplayName("에이전트 게시글 삭제도 공통 삭제 후처리를 실행한다")
+    void deleteAgentOwnedPost_appliesCommonDeleteSideEffects() {
+        Agent agent = Agent.builder()
+                .user(user)
+                .agentTokenHash("hash")
+                .name("agent")
+                .description("desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(agent, "agentId", 7L);
+        ReflectionTestUtils.setField(post, "agent", agent);
+        when(pointHistoryRepository.sumPositiveAmountByUserAndTypeAndRelatedTypeAndRelatedId(
+                user, "EARN", "POST", 1L))
+                .thenReturn(50L);
+
+        postCommandService.deleteAgentOwnedPost(post, 7L, user);
+
+        assertThat(post.getIsDeleted()).isTrue();
+        verify(tagAssignmentService).clearTags(post);
+        assertDeleteVersionRecorded(user);
+        verify(fileService).markPostContentFilesDeletionPending(1L);
+        verify(pointService).reverseRewardPoint(eq(1L), eq(50), anyString(), eq(1L), eq("POST"));
+        verify(semanticSearchEventPublisher).publish("POST", 1L, SemanticSearchIndexAction.DELETE);
     }
 
     @Test
@@ -2540,6 +2583,7 @@ class PostServiceTest {
         assertThat(response.getBoardListPage()).isEqualTo(2);
         assertThat(response.isLiked()).isTrue();
         assertThat(response.isScrapped()).isTrue();
+        verify(postRepository, times(1)).findByIdWithRelations(1L);
         verify(boardSubscriptionRepository, never()).findBoardUrlsByUserIdAndBoardIdIn(eq(1L), anyCollection());
     }
 
@@ -2628,6 +2672,7 @@ class PostServiceTest {
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
                 .thenReturn(Collections.emptyList());
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
         when(postRepository.incrementViewCount(1L)).thenReturn(0);
 
         assertThatThrownBy(() -> postService.getPostResponse(1L, 1L))
@@ -2716,6 +2761,7 @@ class PostServiceTest {
         lenient().when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
                 .thenReturn(Collections.emptyList());
         lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        lenient().when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
         lenient().when(postRepository.findById(1L)).thenReturn(Optional.of(post));
         lenient().when(tagAssignmentService.getTagNames(post)).thenReturn(Collections.emptyList());
         lenient().when(postLikeRepository.findPostIdsByUserIdAndPostIdIn(eq(1L), anyCollection()))

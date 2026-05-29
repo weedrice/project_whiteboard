@@ -49,6 +49,36 @@ class AgentRepositoryTest {
                 .containsExactly(expiredPending.getAgentTokenHash());
     }
 
+    @Test
+    void updateLastUsedAtIfStale_updatesOnlyNullOrStaleLastUsedAt() {
+        LocalDateTime now = LocalDateTime.of(2026, 5, 29, 12, 0);
+        LocalDateTime staleBefore = now.minusMinutes(1);
+        User user = persistUser();
+        Agent neverUsed = persistAgent("never-used", Agent.STATUS_ACTIVE, user, null, now.minusHours(1));
+        Agent stale = persistAgent("stale-used", Agent.STATUS_ACTIVE, user, null, now.minusHours(1));
+        Agent recent = persistAgent("recent-used", Agent.STATUS_ACTIVE, user, null, now.minusHours(1));
+        updateLastUsedAt(stale, now.minusMinutes(5));
+        updateLastUsedAt(recent, now.minusSeconds(30));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        int neverUsedUpdated = agentRepository.updateLastUsedAtIfStale(neverUsed.getAgentId(), now, staleBefore);
+        int staleUpdated = agentRepository.updateLastUsedAtIfStale(stale.getAgentId(), now, staleBefore);
+        int recentUpdated = agentRepository.updateLastUsedAtIfStale(recent.getAgentId(), now, staleBefore);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(neverUsedUpdated).isEqualTo(1);
+        assertThat(staleUpdated).isEqualTo(1);
+        assertThat(recentUpdated).isZero();
+        assertThat(entityManager.find(Agent.class, neverUsed.getAgentId()).getLastUsedAt()).isEqualTo(now);
+        assertThat(entityManager.find(Agent.class, stale.getAgentId()).getLastUsedAt()).isEqualTo(now);
+        assertThat(entityManager.find(Agent.class, recent.getAgentId()).getLastUsedAt())
+                .isEqualTo(now.minusSeconds(30));
+    }
+
     private User persistUser() {
         User user = User.builder()
                 .loginId("agent-owner")
@@ -77,5 +107,13 @@ class AgentRepositoryTest {
                 .setParameter(2, agent.getAgentId())
                 .executeUpdate();
         return agent;
+    }
+
+    private void updateLastUsedAt(Agent agent, LocalDateTime lastUsedAt) {
+        entityManager.getEntityManager()
+                .createNativeQuery("UPDATE agents SET last_used_at = ? WHERE agent_id = ?")
+                .setParameter(1, lastUsedAt)
+                .setParameter(2, agent.getAgentId())
+                .executeUpdate();
     }
 }

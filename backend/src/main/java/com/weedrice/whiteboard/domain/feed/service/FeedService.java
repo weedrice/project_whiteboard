@@ -9,11 +9,9 @@ import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.post.service.PostSummaryReadContext;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
+import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
-import com.weedrice.whiteboard.global.exception.BusinessException;
-import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -37,15 +35,14 @@ public class FeedService {
             Sort.Order.desc("feedId"));
 
     private final UserFeedRepository userFeedRepository;
-    private final UserRepository userRepository;
+    private final UserReadableResolver userReadableResolver;
     private final PostService postService;
     private final FeedGenerationService feedGenerationService;
     private final UserBlockService userBlockService;
     private final AdminRepository adminRepository;
 
     public FeedResponse getUserFeeds(Long userId, Pageable pageable) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = userReadableResolver.resolve(userId);
         Pageable normalizedPageable = normalizeFeedPageable(pageable);
         List<Long> blockedUserIds = userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId);
         UserFeedVisibilityCondition visibilityCondition = resolveVisibilityCondition(user, blockedUserIds);

@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.post.repository.ViewHistoryRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
@@ -35,6 +36,9 @@ class PostDetailViewCommandServiceTest {
     private PostRepository postRepository;
 
     @Mock
+    private ViewHistoryRepository viewHistoryRepository;
+
+    @Mock
     private ViewHistoryCommandService viewHistoryCommandService;
 
     @Mock
@@ -58,12 +62,16 @@ class PostDetailViewCommandServiceTest {
         PostReadContextResolver postReadContextResolver =
                 new PostReadContextResolver(userRepository, userBlockService, adminRepository);
         PostAccessPolicy postAccessPolicy = new PostAccessPolicy(boardAccessPolicy);
+        PostDetailContextResolver postDetailContextResolver = new PostDetailContextResolver(
+                postRepository,
+                viewHistoryRepository,
+                postReadContextResolver,
+                postAccessPolicy);
         PostViewCountWriter postViewCountWriter = new PostViewCountWriter(postRepository);
         commandService = new PostDetailViewCommandService(
                 postRepository,
                 viewHistoryCommandService,
-                postReadContextResolver,
-                postAccessPolicy,
+                postDetailContextResolver,
                 postViewCountWriter);
 
         user = User.builder().loginId("reader").build();
@@ -87,6 +95,7 @@ class PostDetailViewCommandServiceTest {
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
                 .thenReturn(Collections.emptyList());
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
+        when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
         when(postRepository.incrementViewCount(100L)).thenReturn(1);
         when(postRepository.findViewCountByPostId(100L)).thenReturn(11);
 
@@ -132,6 +141,7 @@ class PostDetailViewCommandServiceTest {
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
                 .thenReturn(Collections.emptyList());
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
+        when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
         when(postRepository.incrementViewCount(100L)).thenReturn(0);
 
         assertThatThrownBy(() -> commandService.recordReadableView(100L, 1L))
@@ -149,6 +159,7 @@ class PostDetailViewCommandServiceTest {
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
                 .thenReturn(Collections.emptyList());
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
+        when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
         when(postRepository.incrementViewCount(100L)).thenReturn(1);
         when(postRepository.findViewCountByPostId(100L)).thenReturn(null);
 

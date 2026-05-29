@@ -270,7 +270,7 @@ describe('HomeFeed', () => {
         expect(viewAllSlot?.attributes('style')).toContain('--remaining-board-slots: 1')
     })
 
-    it('shows the empty state when every landing section is empty', () => {
+    it('shows the empty state when every landing source is empty', () => {
         const wrapper = mount(HomeFeed, {
             global: {
                 mocks: {

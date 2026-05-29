@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.common.entity.CommonCode;
 import com.weedrice.whiteboard.domain.common.entity.CommonCodeDetail;
 import com.weedrice.whiteboard.domain.common.repository.CommonCodeDetailRepository;
 import com.weedrice.whiteboard.domain.common.repository.CommonCodeRepository;
+import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -79,25 +80,11 @@ public class CommonCodeService {
     }
 
     private String normalizeRequired(String value, int maxLength) {
-        if (value == null) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
-        String normalized = value.trim();
-        if (normalized.isBlank() || normalized.length() > maxLength) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
-        return normalized;
+        return TextInputNormalizer.normalizeRequired(value, maxLength);
     }
 
     private String normalizeDescription(String description) {
-        if (description == null) {
-            return null;
-        }
-        String normalized = description.trim();
-        if (normalized.length() > MAX_DESCRIPTION_LENGTH) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
-        return normalized;
+        return TextInputNormalizer.normalizeOptional(description, MAX_DESCRIPTION_LENGTH);
     }
 
     // --- Common Code Detail ---

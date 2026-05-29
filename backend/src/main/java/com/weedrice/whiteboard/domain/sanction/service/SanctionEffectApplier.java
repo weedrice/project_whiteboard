@@ -13,7 +13,7 @@ class SanctionEffectApplier {
 
     void apply(SanctionRequestValidator.NormalizedCommand command, User targetUser) {
         if (command.isPermanentBan()) {
-            userLifecycleService.suspendUser(targetUser);
+            userLifecycleService.suspendPrelockedUser(targetUser);
         }
     }
 }

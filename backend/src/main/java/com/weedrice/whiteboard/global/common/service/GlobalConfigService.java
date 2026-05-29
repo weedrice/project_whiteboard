@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.global.common.service;
 import com.weedrice.whiteboard.global.common.dto.GlobalConfigResponse;
 import com.weedrice.whiteboard.global.common.entity.GlobalConfig;
 import com.weedrice.whiteboard.global.common.repository.GlobalConfigRepository;
+import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.SuperAdminPolicy;
@@ -16,7 +17,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import org.springframework.util.StringUtils;
 
 import java.util.List;
 
@@ -126,7 +126,7 @@ public class GlobalConfigService {
     @Transactional
     public void deleteConfig(Long actorUserId, String key) {
         superAdminPolicy.requireUsableSuperAdmin(actorUserId);
-        String normalizedKey = normalizeRequiredText(key, MAX_CONFIG_KEY_LENGTH);
+        String normalizedKey = TextInputNormalizer.normalizeRequired(key, MAX_CONFIG_KEY_LENGTH);
         if (!globalConfigRepository.existsById(normalizedKey)) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
@@ -176,34 +176,14 @@ public class GlobalConfigService {
     }
 
     public static String normalizeConfigKey(String key) {
-        return normalizeNullableText(key);
+        return TextInputNormalizer.normalizeNullable(key);
     }
 
     private NormalizedConfigInput normalizeConfigInput(String key, String value, String description) {
         return new NormalizedConfigInput(
-                normalizeRequiredText(key, MAX_CONFIG_KEY_LENGTH),
-                normalizeRequiredText(value, MAX_CONFIG_VALUE_LENGTH),
-                normalizeOptionalText(description, MAX_CONFIG_DESCRIPTION_LENGTH));
-    }
-
-    private static String normalizeRequiredText(String value, int maxLength) {
-        String normalizedValue = normalizeNullableText(value);
-        if (!StringUtils.hasText(normalizedValue) || normalizedValue.length() > maxLength) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
-        return normalizedValue;
-    }
-
-    private static String normalizeOptionalText(String value, int maxLength) {
-        String normalizedValue = normalizeNullableText(value);
-        if (normalizedValue != null && normalizedValue.length() > maxLength) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
-        return normalizedValue;
-    }
-
-    private static String normalizeNullableText(String value) {
-        return value == null ? null : value.trim();
+                TextInputNormalizer.normalizeRequired(key, MAX_CONFIG_KEY_LENGTH),
+                TextInputNormalizer.normalizeRequired(value, MAX_CONFIG_VALUE_LENGTH),
+                TextInputNormalizer.normalizeOptional(description, MAX_CONFIG_DESCRIPTION_LENGTH));
     }
 
     private void validateConfigValue(String key, String value) {

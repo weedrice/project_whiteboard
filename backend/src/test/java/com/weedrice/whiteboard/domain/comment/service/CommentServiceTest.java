@@ -29,9 +29,9 @@ import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublish
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
+import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
-import com.weedrice.whiteboard.global.common.service.ReactionWriter;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -121,7 +121,7 @@ class CommentServiceTest {
         CommentQueryService commentQueryService = new CommentQueryService(
                 commentRepository,
                 postRepository,
-                userRepository,
+                new UserReadableResolver(userRepository),
                 commentPostAccessService,
                 commentReadSupport,
                 commentReadModelAssembler);
@@ -130,7 +130,7 @@ class CommentServiceTest {
                 pointHistoryRepository,
                 globalConfigService);
         CommentNotificationService commentNotificationService = new CommentNotificationService(eventPublisher);
-        ReactionWriter reactionWriter = new ReactionWriter();
+        CommentLikeCommand commentLikeCommand = new CommentLikeCommand(commentRepository, commentLikeRepository);
         UserWritableResolver userWritableResolver = new UserWritableResolver(userRepository, sanctionService);
         BoardCategoryWritePolicy boardCategoryWritePolicy = new BoardCategoryWritePolicy(boardAccessPolicy);
         PostAuthorCommandPolicy postAuthorCommandPolicy = new PostAuthorCommandPolicy(
@@ -150,8 +150,8 @@ class CommentServiceTest {
                 postAuthorCommandPolicy,
                 contentRewardService,
                 commentNotificationService,
-                reactionWriter,
-                semanticSearchEventPublisher);
+                semanticSearchEventPublisher,
+                commentLikeCommand);
         commentService = new CommentService(commentQueryService, commentCommandService);
     }
 
@@ -1316,6 +1316,7 @@ class CommentServiceTest {
         when(commentLikeRepository.saveAndFlush(any()))
                 .thenReturn(CommentLike.builder().user(user).comment(comment).build());
         when(commentRepository.incrementLikeCount(10L)).thenReturn(1);
+        when(commentRepository.findLikeCountByCommentId(10L)).thenReturn(1);
 
         commentService.likeComment(1L, 10L);
 
@@ -1355,6 +1356,7 @@ class CommentServiceTest {
         when(commentLikeRepository.saveAndFlush(any(CommentLike.class)))
                 .thenReturn(CommentLike.builder().user(actor).comment(comment).build());
         when(commentRepository.incrementLikeCount(10L)).thenReturn(1);
+        when(commentRepository.findLikeCountByCommentId(10L)).thenReturn(1);
 
         commentService.likeComment(2L, 10L);
 

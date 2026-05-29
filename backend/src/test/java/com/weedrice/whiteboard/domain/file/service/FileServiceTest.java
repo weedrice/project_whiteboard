@@ -73,11 +73,14 @@ class FileServiceTest {
 
     @BeforeEach
     void setUpFileService() {
-        FileUploadService fileUploadService = new FileUploadService(
+        FileUploadStateCommand fileUploadStateCommand = new FileUploadStateCommand(
                 fileRepository,
+                transactionTemplate);
+        FileUploadService fileUploadService = new FileUploadService(
                 userWritableResolver,
                 fileStorageService,
-                transactionTemplate);
+                new FileUploadValidationPolicy(),
+                fileUploadStateCommand);
         FileAssociationService fileAssociationService = new FileAssociationService(
                 fileRepository,
                 userRepository,

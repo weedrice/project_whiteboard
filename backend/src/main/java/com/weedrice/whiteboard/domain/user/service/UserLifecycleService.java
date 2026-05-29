@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -55,6 +56,11 @@ public class UserLifecycleService {
         User lockedUser = userRepository.findByIdForUpdate(user.getUserId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         suspendLockedUser(lockedUser, null);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void suspendPrelockedUser(User user) {
+        suspendLockedUser(user, null);
     }
 
     @Transactional

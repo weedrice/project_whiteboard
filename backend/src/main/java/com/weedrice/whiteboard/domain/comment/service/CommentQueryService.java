@@ -9,7 +9,7 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -38,7 +38,7 @@ public class CommentQueryService {
 
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
-    private final UserRepository userRepository;
+    private final UserReadableResolver userReadableResolver;
     private final CommentPostAccessService commentPostAccessService;
     private final CommentReadSupport commentReadSupport;
     private final CommentReadModelAssembler commentReadModelAssembler;
@@ -122,10 +122,9 @@ public class CommentQueryService {
     }
 
     public Page<MyCommentResponse> getMyComments(Long userId, Pageable pageable) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = userReadableResolver.resolve(userId);
         Pageable safePageable = normalizeMyCommentPageable(pageable);
-        CommentReadContext context = commentPostAccessService.resolveReadContext(user);
+        CommentReadContext context = resolveReadContext(user);
         Set<Long> blockedUserIds = context.blockedUserIds();
         BlockedUserIdsParameter blockedUserIdsParameter = BlockedUserIdsParameter.from(blockedUserIds);
         return commentRepository.findVisibleMyComments(
@@ -157,8 +156,10 @@ public class CommentQueryService {
         if (currentUserId == null) {
             return new CommentReadContext(null, Set.of());
         }
-        User viewer = userRepository.findById(currentUserId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        return resolveReadContext(userReadableResolver.resolve(currentUserId));
+    }
+
+    private CommentReadContext resolveReadContext(User viewer) {
         return commentPostAccessService.resolveReadContext(viewer);
     }
 
