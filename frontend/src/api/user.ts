@@ -205,11 +205,11 @@ export const userApi = {
         return api.get<ApiResponse<BlockListRawResponse>>('/users/me/blocks')
             .then((response) => mapApiPageResponse(response, toBlockedUserPage))
     },
-    getMyPosts(params: PaginationParams) {
-        return api.get<ApiResponse<PageResponse<PostSummary>>>('/users/me/posts', { params })
+    getMyPosts(params: PaginationParams, config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<PageResponse<PostSummary>>>('/users/me/posts', { ...config, params })
     },
-    getMyComments(params: PaginationParams) {
-        return api.get<ApiResponse<PageResponse<MyComment>>>('/users/me/comments', { params })
+    getMyComments(params: PaginationParams, config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<PageResponse<MyComment>>>('/users/me/comments', { ...config, params })
     },
     getMyScraps(params: PaginationParams, config?: AxiosRequestConfig) {
         return api.get<ApiResponse<ScrapListResponse>>('/users/me/scraps', { ...config, params })
