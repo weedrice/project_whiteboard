@@ -96,4 +96,25 @@ describe('authRedirect', () => {
     expect(addToast).not.toHaveBeenCalled()
     expect(push).not.toHaveBeenCalled()
   })
+
+  it('does not throw or handle non-object errors', () => {
+    const addToast = vi.fn()
+    const push = vi.fn()
+
+    expect(handleDeletedAccountRedirect(null, {
+      email: 'user@example.com',
+      t: (key) => key,
+      addToast,
+      push,
+    })).toBe(false)
+
+    expect(handleDeletedAccountRedirect(undefined, {
+      email: 'user@example.com',
+      t: (key) => key,
+      addToast,
+      push,
+    })).toBe(false)
+    expect(addToast).not.toHaveBeenCalled()
+    expect(push).not.toHaveBeenCalled()
+  })
 })

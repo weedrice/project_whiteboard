@@ -37,6 +37,10 @@ interface DeletedAccountRedirectOptions {
 }
 
 export function isDeletedAccountError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
   if (extractErrorResponse(error as AxiosError)?.code === DELETED_ACCOUNT_ERROR_CODE) {
     return true
   }
