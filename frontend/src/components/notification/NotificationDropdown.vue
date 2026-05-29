@@ -80,12 +80,12 @@ function handleMarkAllAsRead() {
             <!-- Icon based on type could go here -->
             <div
               class="h-8 w-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold">
-              {{ notification.actor.displayName[0] }}
+              {{ notification.actorInitial }}
             </div>
           </div>
           <div class="ml-3 w-0 flex-1">
             <p class="text-sm font-medium text-gray-900 dark:text-white">
-              {{ notification.actor.displayName }}
+              {{ notification.actorDisplayName }}
             </p>
             <p class="text-sm text-gray-500 dark:text-gray-400 truncate">
               {{ notification.message }}

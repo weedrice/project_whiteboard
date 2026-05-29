@@ -81,6 +81,8 @@ const makeNotification = (isRead: boolean): Notification => ({
     displayName: 'Tester',
     profileImageUrl: '',
   },
+  actorDisplayName: 'Tester',
+  actorInitial: 'T',
 })
 
 const makePage = (content: Notification[]): PageResponse<Notification> => ({

@@ -15,5 +15,7 @@ export interface Notification {
     isRead: boolean;
     createdAt: string;
     actor: NotificationActor;
+    actorDisplayName: string;
+    actorInitial: string;
     targetUrl?: string; // Optional if needed
 }

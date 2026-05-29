@@ -81,7 +81,41 @@ describe('notificationApi', () => {
                 displayName: 'Alice',
                 profileImageUrl: '/profile.png',
             },
+            actorDisplayName: 'Alice',
+            actorInitial: 'A',
             targetUrl: undefined,
+        })
+    })
+
+    it('normalizes blank system actors to a safe display model', () => {
+        expect(normalizeNotification({
+            notification_id: 13,
+            source_type: 'SYSTEM',
+            actor: {
+                author_type: 'SYSTEM',
+                display_name: '',
+            },
+        })).toMatchObject({
+            notificationId: 13,
+            sourceType: 'SYSTEM',
+            actor: {
+                authorType: 'SYSTEM',
+                displayName: '',
+            },
+            actorDisplayName: 'System',
+            actorInitial: 'S',
+        })
+    })
+
+    it('uses the system fallback when a system notification has no actor payload', () => {
+        expect(normalizeNotification({
+            notification_id: 14,
+            source_type: 'SYSTEM',
+        })).toMatchObject({
+            notificationId: 14,
+            sourceType: 'SYSTEM',
+            actorDisplayName: 'System',
+            actorInitial: 'S',
         })
     })
 })
