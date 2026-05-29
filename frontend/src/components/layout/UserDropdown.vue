@@ -37,10 +37,10 @@ const handleLogout = async () => {
   router.push('/')
 }
 
-// ?レ옄?ㅻ줈 ?좏깮 媛?ν븳 硫붾돱 ??ぉ??(愿由ъ옄, 寃뚯떆??留뚮뱾湲? ?몃퉬肄??쒖쇅)
+// 숫자 키로 선택 가능한 메뉴 목록
 const menuItems = computed(() => [
   { key: '1', route: '/mypage', label: 'common.myPage' },
-  // { key: '2', route: '/mypage/settings', label: 'common.settings' }, // ?④?
+  // { key: '2', route: '/mypage/settings', label: 'common.settings' }, // 숨김
   { key: '2', route: '/mypage/notifications', label: 'common.notifications' },
   { key: '3', route: '/mypage/messages', label: 'common.mailbox' },
   { key: '4', route: '/mypage/points', label: 'common.points' },
@@ -49,7 +49,7 @@ const menuItems = computed(() => [
   { key: '7', route: '/mypage/recent', label: 'layout.menu.recent' },
   { key: '8', route: '/mypage/reports', label: 'layout.menu.reports' },
   { key: '9', route: '/mypage/blocked', label: 'user.tabs.blocked' },
-  // 寃뚯떆???앹꽦? ?⑥텞??誘몄뿰寃?
+  // 게시판 생성은 단축키 미연결
 ])
 
 const navigateTo = (route: string) => {
@@ -57,7 +57,7 @@ const navigateTo = (route: string) => {
   router.push(route)
 }
 
-// ?쒕∼?ㅼ슫 ?대┫ ??keyboard store????ぉ ?깅줉
+// 드롭다운 열림 시 keyboard store에 항목 등록
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
     const dropdownItems: DropdownItem[] = menuItems.value.map((item) => ({
@@ -68,11 +68,11 @@ watch(() => props.isOpen, (isOpen) => {
   }
 }, { immediate: true })
 
-// ?ㅻ낫???대깽???몃뱾??
+// 키보드 이벤트 핸들러
 const handleKeyDown = (event: KeyboardEvent) => {
   if (!props.isOpen) return
 
-  // ESC濡??リ린
+  // ESC로 닫기
   if (event.key === 'Escape') {
     event.preventDefault()
     emit('toggle')
@@ -80,7 +80,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
     return
   }
 
-  // ?レ옄?ㅻ줈 ?좏깮 (1-9: ?몃뜳??0-8, 0: ?몃뜳??9)
+  // 숫자 키로 선택 (1-9: 인덱스 0-8, 0: 인덱스 9)
   if (event.key >= '0' && event.key <= '9') {
     let index = -1
     if (event.key >= '1' && event.key <= '9') {
