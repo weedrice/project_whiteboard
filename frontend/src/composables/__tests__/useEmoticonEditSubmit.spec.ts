@@ -112,13 +112,18 @@ describe('useEmoticonEditSubmit', () => {
 
     await handleSubmit()
 
-    expect(mocks.deleteImage).toHaveBeenCalledWith(10)
-    expect(mocks.uploadFile).toHaveBeenCalledWith(expect.any(File), { signal: expect.any(AbortSignal) })
-    expect(mocks.addImage).toHaveBeenCalledWith(7, 20)
+    expect(mocks.deleteImage).toHaveBeenCalledWith(10, { skipGlobalErrorHandler: true })
+    expect(mocks.uploadFile).toHaveBeenCalledWith(expect.any(File), {
+      signal: expect.any(AbortSignal),
+      skipGlobalErrorHandler: true,
+    })
+    expect(mocks.addImage).toHaveBeenCalledWith(7, 20, { skipGlobalErrorHandler: true })
     expect(mocks.updateEmoticon).toHaveBeenCalledWith(7, {
       name: 'Updated',
       thumbnailFileId: 10,
       tags: ['fun'],
+    }, {
+      skipGlobalErrorHandler: true,
     })
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticon', expect.any(Object)] })
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticons'] })

@@ -63,6 +63,8 @@ export function useEmoticonRegisterSubmit({
         thumbnailFileId,
         tags: submitSnapshot.tags,
         imageFileIds
+      }, {
+        skipGlobalErrorHandler: true
       })
       uploadSession.assertSubmitActive(currentRunId)
 

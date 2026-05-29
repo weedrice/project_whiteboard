@@ -40,6 +40,7 @@ export function useEmoticonEditSubmit({
   onError,
 }: UseEmoticonEditSubmitOptions) {
   const imageUploader = useEmoticonImageUploader(uploadSession)
+  const skipGlobalErrorHandler = { skipGlobalErrorHandler: true }
 
   const handleSubmit = async () => {
     if (!isFormValid.value || isSubmitting.value) return
@@ -61,19 +62,27 @@ export function useEmoticonEditSubmit({
 
       let thumbnailFileId: number | undefined
       if (submitSnapshot.thumbnail) {
-        thumbnailFileId = await imageUploader.uploadFile(submitSnapshot.thumbnail, currentRunId)
+        thumbnailFileId = await imageUploader.uploadFile(
+          submitSnapshot.thumbnail,
+          currentRunId,
+          skipGlobalErrorHandler
+        )
       }
 
       await Promise.all(submitSnapshot.imagesToDelete.map(async (imageId) => {
-        await emoticonApi.deleteImage(imageId)
+        await emoticonApi.deleteImage(imageId, skipGlobalErrorHandler)
         uploadSession.assertSubmitActive(currentRunId)
       }))
 
       if (uploadFiles.length > 0) {
-        const imageFileIds = await imageUploader.uploadFiles(uploadFiles, currentRunId)
+        const imageFileIds = await imageUploader.uploadFiles(
+          uploadFiles,
+          currentRunId,
+          skipGlobalErrorHandler
+        )
         await Promise.all(imageFileIds.map(async (fileId) => {
           uploadSession.assertSubmitActive(currentRunId)
-          await emoticonApi.addImage(submitSnapshot.emoticonId, fileId)
+          await emoticonApi.addImage(submitSnapshot.emoticonId, fileId, skipGlobalErrorHandler)
           uploadSession.assertSubmitActive(currentRunId)
         }))
       }
@@ -83,6 +92,8 @@ export function useEmoticonEditSubmit({
         name: submitSnapshot.name,
         thumbnailFileId,
         tags: submitSnapshot.tags
+      }, {
+        skipGlobalErrorHandler: true
       })
       uploadSession.assertSubmitActive(currentRunId)
 
