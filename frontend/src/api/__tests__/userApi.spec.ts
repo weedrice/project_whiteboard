@@ -157,6 +157,17 @@ describe('userApi', () => {
         expect(pointResponse.data.data.number).toBe(1)
     })
 
+    it('passes abort signals to my activity list endpoints without changing params', () => {
+        const params = { page: 0, size: 10, sort: 'createdAt,desc' }
+        const controller = new AbortController()
+
+        userApi.getMyPosts(params, { signal: controller.signal })
+        userApi.getMyComments(params, { signal: controller.signal })
+
+        expect(apiMock.get).toHaveBeenNthCalledWith(1, '/users/me/posts', { signal: controller.signal, params })
+        expect(apiMock.get).toHaveBeenNthCalledWith(2, '/users/me/comments', { signal: controller.signal, params })
+    })
+
     it('maps block list responses to a normalized page', () => {
         const result = toBlockedUserSummaryPage({
             content: [{ userId: 100, displayName: 'blocked' }],

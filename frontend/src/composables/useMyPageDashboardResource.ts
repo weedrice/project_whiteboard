@@ -2,11 +2,12 @@ import { useQueryClient } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
 import { userApi, type UserAgent } from '@/api/user'
 import { useErrorHandler } from '@/composables/useErrorHandler'
-import { useLatestAsyncTask } from '@/composables/useLatestAsyncTask'
+import { usePagination } from '@/composables/usePagination'
 import { createMyAgentsQueryOptions, createMyProfileQueryOptions } from '@/composables/useUser'
 import { useAuthStore } from '@/stores/auth'
 import type { MyComment, PostSummary, User } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
+import { getListLoadErrorMessage } from '@/utils/listLoadError'
 
 export interface MyCommentListItem {
   commentId: number
@@ -25,16 +26,39 @@ export function useMyPageDashboardResource() {
   const profile = ref<User | null>(null)
   const myAgents = ref<UserAgent[]>([])
 
-  const myPosts = ref<PostSummary[]>([])
-  const myPostsTotalCount = ref(0)
-  const myPostsCurrentPage = ref(0)
-  const myPostsSize = ref(10)
-  const myPostsSort = ref('createdAt,desc')
+  const myPostsPagination = usePagination<PostSummary>(
+    (params, { signal }) => queryClient.fetchQuery({
+      queryKey: ['user', 'me', 'posts', params],
+      queryFn: async () => {
+        const { data } = await userApi.getMyPosts(params, { signal })
+        return data
+      },
+      staleTime: QUERY_STALE_TIME.SHORT
+    }),
+    { page: 0, size: 10, sort: 'createdAt,desc' }
+  )
+  const myCommentsPagination = usePagination<MyComment>(
+    (params, { signal }) => queryClient.fetchQuery({
+      queryKey: ['user', 'me', 'comments', params],
+      queryFn: async () => {
+        const { data } = await userApi.getMyComments(params, { signal })
+        return data
+      },
+      staleTime: QUERY_STALE_TIME.SHORT
+    }),
+    { page: 0, size: 10 }
+  )
 
-  const myComments = ref<MyComment[]>([])
-  const myCommentsTotalCount = ref(0)
-  const myCommentsCurrentPage = ref(0)
-  const myCommentsSize = ref(10)
+  const myPosts = myPostsPagination.items
+  const myPostsTotalCount = myPostsPagination.totalCount
+  const myPostsCurrentPage = myPostsPagination.page
+  const myPostsSize = myPostsPagination.size
+  const myPostsSort = myPostsPagination.sort
+
+  const myComments = myCommentsPagination.items
+  const myCommentsTotalCount = myCommentsPagination.totalCount
+  const myCommentsCurrentPage = myCommentsPagination.page
+  const myCommentsSize = myCommentsPagination.size
   const myCommentItems = computed<MyCommentListItem[]>(() => myComments.value.map((comment) => ({
     commentId: comment.commentId,
     content: comment.content,
@@ -49,19 +73,11 @@ export function useMyPageDashboardResource() {
   const isAgentsLoading = ref(false)
   const profileError = ref<string | null>(null)
   const agentsError = ref<string | null>(null)
-  const loadFailedMessage = '데이터를 불러오는데 실패했습니다.'
-  const myPostsTask = useLatestAsyncTask<string>({
-    getErrorValue: () => loadFailedMessage,
-    onError: (err) => handleSilentError(err, 'Failed to load my posts')
-  })
-  const myCommentsTask = useLatestAsyncTask<string>({
-    getErrorValue: () => loadFailedMessage,
-    onError: (err) => handleSilentError(err, 'Failed to load my comments')
-  })
-  const isMyPostsLoading = myPostsTask.loading
-  const isMyCommentsLoading = myCommentsTask.loading
-  const myPostsError = myPostsTask.error
-  const myCommentsError = myCommentsTask.error
+  const loadFailedMessage = getListLoadErrorMessage()
+  const isMyPostsLoading = myPostsPagination.loading
+  const isMyCommentsLoading = myCommentsPagination.loading
+  const myPostsError = myPostsPagination.error
+  const myCommentsError = myCommentsPagination.error
 
   const error = computed(() => {
     const hasAnyError = !!(profileError.value || agentsError.value || myPostsError.value || myCommentsError.value)
@@ -120,60 +136,12 @@ export function useMyPageDashboardResource() {
     }
   }
 
-  async function fetchMyPosts() {
-    const data = await myPostsTask.run(async () => {
-      const params = {
-        page: myPostsCurrentPage.value,
-        size: myPostsSize.value,
-        sort: myPostsSort.value
-      }
-      return queryClient.fetchQuery({
-        queryKey: ['user', 'me', 'posts', params],
-        queryFn: async () => {
-          const { data } = await userApi.getMyPosts(params)
-          return data.success ? data.data : null
-        },
-        staleTime: QUERY_STALE_TIME.SHORT
-      })
-    })
+  const fetchMyPosts = () => myPostsPagination.fetch()
 
-    if (data === undefined) return
-    if (data) {
-      myPosts.value = data.content
-      myPostsTotalCount.value = data.totalElements
-    } else {
-      markLoadFailed(myPostsError)
-    }
-  }
-
-  async function fetchMyComments() {
-    const data = await myCommentsTask.run(async () => {
-      const params = {
-        page: myCommentsCurrentPage.value,
-        size: myCommentsSize.value
-      }
-      return queryClient.fetchQuery({
-        queryKey: ['user', 'me', 'comments', params],
-        queryFn: async () => {
-          const { data } = await userApi.getMyComments(params)
-          return data.success ? data.data : null
-        },
-        staleTime: QUERY_STALE_TIME.SHORT
-      })
-    })
-
-    if (data === undefined) return
-    if (data) {
-      myComments.value = data.content
-      myCommentsTotalCount.value = data.totalElements
-    } else {
-      markLoadFailed(myCommentsError)
-    }
-  }
+  const fetchMyComments = () => myCommentsPagination.fetch()
 
   function handleMyPostsPageChange(page: number) {
-    myPostsCurrentPage.value = page
-    return fetchMyPosts()
+    return myPostsPagination.handlePageChange(page)
   }
 
   function handleMyPostsSortChange(newSort: string) {
@@ -182,8 +150,7 @@ export function useMyPageDashboardResource() {
   }
 
   function handleMyCommentsPageChange(page: number) {
-    myCommentsCurrentPage.value = page
-    return fetchMyComments()
+    return myCommentsPagination.handlePageChange(page)
   }
 
   function getAgentStatusLabel(status: UserAgent['status']) {
