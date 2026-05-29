@@ -2,18 +2,14 @@
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { authApi } from '@/api/auth'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import { useToastStore } from '@/stores/toast'
 import { ChevronLeft, Lock } from 'lucide-vue-next'
-import { useAuthPasswordValidation } from '@/composables/useAuthPasswordValidation'
+import { usePasswordResetByTokenFlow } from '@/composables/usePasswordResetByTokenFlow'
 
 const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
-const toastStore = useToastStore()
-const { validatePasswordPair } = useAuthPasswordValidation()
 
 const token = computed(() => {
   const t = route.query.token
@@ -22,39 +18,11 @@ const token = computed(() => {
 
 const newPassword = ref('')
 const confirmPassword = ref('')
-const isLoading = ref(false)
-
-async function handleResetPassword() {
-  if (!token.value) {
-    toastStore.addToast(t('auth.invalidResetLink'), 'error')
-    return
-  }
-  const passwordError = validatePasswordPair(newPassword.value, confirmPassword.value, {
-    requirePassword: true,
-    messages: {
-      required: t('auth.placeholders.password'),
-      invalid: t('auth.validation.passwordStrength'),
-      mismatch: t('auth.passwordMismatch')
-    }
-  })
-  if (passwordError) {
-    toastStore.addToast(passwordError, 'error')
-    return
-  }
-
-  isLoading.value = true
-  try {
-    const { data } = await authApi.resetPasswordWithToken(token.value, newPassword.value)
-    if (data.success) {
-      toastStore.addToast(t('auth.passwordResetSuccess'), 'success')
-      router.push('/login')
-    }
-  } catch {
-    // Error handled by global interceptor
-  } finally {
-    isLoading.value = false
-  }
-}
+const { isLoading, resetPassword: handleResetPassword } = usePasswordResetByTokenFlow({
+  token,
+  newPassword,
+  confirmPassword,
+})
 </script>
 
 <template>

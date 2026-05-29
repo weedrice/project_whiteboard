@@ -149,7 +149,7 @@ describe('authApi', () => {
             4,
             '/auth/password/reset',
             { token: 'token-1', newPassword: 'new-password' },
-            { skipAuthRefresh: true },
+            { skipAuthRefresh: true, skipGlobalErrorHandler: true },
         )
     })
 })

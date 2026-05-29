@@ -96,5 +96,8 @@ export const authApi = {
         ),
 
     resetPasswordWithToken: (token: string, newPassword: string) =>
-        api.post<ApiResponse<void>>('/auth/password/reset', { token, newPassword }, { skipAuthRefresh: true }),
+        api.post<ApiResponse<void>>('/auth/password/reset', { token, newPassword }, {
+            skipAuthRefresh: true,
+            skipGlobalErrorHandler: true,
+        }),
 }
