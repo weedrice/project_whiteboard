@@ -7,6 +7,7 @@ import type { NotificationParams } from '@/api/notification'
 import type { Notification } from '@/types'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import { useNotificationListState } from '@/composables/useNotificationListState'
 import { formatTimeAgo } from '@/utils/date'
 
@@ -55,7 +56,9 @@ function handleMarkAllAsRead() {
 
     <div class="notification-scroll max-h-96 overflow-y-auto">
       <div v-if="isLoading && notifications.length === 0" class="px-4 py-4 text-center">
-        <div class="notification-spinner animate-spin rounded-full h-5 w-5 border-b-2 mx-auto"></div>
+        <div class="notification-spinner mx-auto h-5 w-5 flex items-center justify-center">
+          <BaseSpinner size="sm" class="scale-125" />
+        </div>
       </div>
 
       <div v-else-if="isError" class="space-y-3 px-4 py-4 text-center text-sm nv-form-error">
@@ -136,11 +139,6 @@ function handleMarkAllAsRead() {
 }
 .dark .notification-scroll::-webkit-scrollbar-thumb:hover {
   background: var(--nv-text-subtle);
-}
-
-.notification-spinner {
-  border-color: color-mix(in srgb, var(--nv-accent) 24%, transparent);
-  border-bottom-color: var(--nv-accent);
 }
 
 .nv-unread-surface {

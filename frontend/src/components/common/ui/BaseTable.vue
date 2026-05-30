@@ -1,5 +1,6 @@
 <script setup lang="ts" generic="T extends object">
 import { computed } from 'vue'
+import BaseSpinner from './BaseSpinner.vue'
 
 export interface TableColumn {
     key: string
@@ -175,7 +176,9 @@ const bodyCellClasses = computed(() => [
                             class="nv-base-table-status px-3 sm:px-6 py-6 sm:py-10 text-center text-xs sm:text-sm">
                             <div class="flex justify-center" role="status" aria-live="polite">
                                 <slot name="loading">
-                                    <div class="nv-base-table-spinner animate-spin rounded-full h-6 w-6 border-b-2" aria-hidden="true"></div>
+                                    <div class="nv-base-table-spinner h-6 w-6 flex items-center justify-center" aria-hidden="true">
+                                        <BaseSpinner size="sm" color="text-[var(--nv-accent)]" class="scale-150" />
+                                    </div>
                                     <span class="sr-only">Loading...</span>
                                 </slot>
                             </div>

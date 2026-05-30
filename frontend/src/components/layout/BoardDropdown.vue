@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useBoard } from '@/composables/useBoard'
 import { useKeyboardStore, type DropdownItem } from '@/stores/keyboard'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 
 const props = defineProps<{
   type: 'subscription' | 'all'
@@ -149,7 +150,9 @@ onUnmounted(() => {
       role="menu"
       class="origin-top-left absolute left-0 mt-2 w-[min(16rem,92vw)] sm:w-64 rounded-md shadow-lg py-1 sm:py-1 nv-surface border nv-border focus:outline-none z-50">
       <div v-if="loading" class="px-3 py-3 sm:py-3 text-center">
-        <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-current nv-spinner mx-auto"></div>
+        <div class="mx-auto h-5 w-5 flex items-center justify-center">
+          <BaseSpinner size="sm" class="scale-125" />
+        </div>
       </div>
 
       <div v-else-if="isError" class="px-3 py-3 sm:py-3 text-center text-xs sm:text-sm nv-form-error">

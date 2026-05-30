@@ -7,6 +7,7 @@ import { X, ArrowLeft, Search, Smile } from 'lucide-vue-next'
 import logger from '@/utils/logger'
 import { DEFAULT_EMOTICON_IMAGE_URL, applyImageFallback } from '@/utils/imageFallback'
 import { useLatestAsyncTask } from '@/composables/useLatestAsyncTask'
+import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 
 const props = defineProps<{
   show: boolean
@@ -162,7 +163,9 @@ onUnmounted(() => {
       <template v-if="selectedEmoticonId">
         <!-- 상세 로딩 중 -->
         <div v-if="isLoadingDetail" class="loading-state">
-          <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-current nv-spinner"></div>
+          <div class="h-6 w-6 flex items-center justify-center">
+            <BaseSpinner size="sm" class="scale-150" />
+          </div>
         </div>
         <!-- 이미지 그리드 -->
         <div v-else-if="selectedEmoticon" class="images-grid">
@@ -198,7 +201,9 @@ onUnmounted(() => {
 
         <!-- 로딩 -->
         <div v-if="isLoading" class="loading-state">
-          <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-current nv-spinner"></div>
+          <div class="h-6 w-6 flex items-center justify-center">
+            <BaseSpinner size="sm" class="scale-150" />
+          </div>
         </div>
 
         <div v-else-if="isListError" class="error-state">
