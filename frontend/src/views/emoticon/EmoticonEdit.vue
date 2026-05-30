@@ -7,6 +7,7 @@ import { ArrowLeft, Upload, X, Plus, EyeOff, Eye } from 'lucide-vue-next'
 import { useToastStore } from '@/stores/toast'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import EmoticonTagSection from '@/components/emoticon/EmoticonTagSection.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { useEmoticonEditForm } from '@/composables/useEmoticonEditForm'
 import { useEmoticonEditResource } from '@/composables/useEmoticonEditResource'
@@ -263,34 +264,14 @@ const goToDetail = () => {
       </div>
 
       <!-- 태그 입력 -->
-      <div class="nv-surface rounded-lg shadow-sm border nv-border p-6">
-        <label for="emoticon-tag-input" class="block text-sm font-medium nv-text-muted mb-2">
-          태그
-          <span class="text-xs font-normal nv-text-subtle ml-2">({{ tags.length }}/10개)</span>
-        </label>
-        <p class="text-xs nv-text-subtle mb-4">검색에 사용될 태그를 입력하세요.</p>
-
-        <div class="flex gap-2 mb-4">
-          <input id="emoticon-tag-input" v-model="tagInput" name="emoticonTag" autocomplete="off" @keydown.enter.prevent="addTag" type="text" placeholder="태그 입력 후 Enter"
-            class="flex-1 px-4 py-2 border nv-border rounded-lg nv-surface nv-title placeholder:text-[var(--nv-text-subtle)] focus:ring-2 focus:ring-[var(--nv-focus)] focus:border-transparent" />
-          <BaseButton type="button" @click="addTag" variant="secondary">
-            추가
-          </BaseButton>
-        </div>
-
-        <div v-if="tags.length > 0" class="flex flex-wrap gap-2">
-          <span v-for="tagItem in tagItems" :key="tagItem.clientId"
-            class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium nv-status-info">
-            #{{ tagItem.value }}
-            <button type="button" @click="removeTag(tagItem.clientId)"
-              :aria-label="$t('board.tags.remove')"
-              :title="$t('board.tags.remove')"
-              class="ml-1 nv-accent-text hover:brightness-95">
-              <X class="w-3 h-3" />
-            </button>
-          </span>
-        </div>
-      </div>
+      <EmoticonTagSection
+        v-model="tagInput"
+        input-id="emoticon-tag-input"
+        :tag-items="tagItems"
+        :tag-count="tags.length"
+        @add="addTag"
+        @remove="removeTag"
+      />
 
       <!-- 수정 버튼 -->
       <div class="flex flex-col items-end gap-2">
