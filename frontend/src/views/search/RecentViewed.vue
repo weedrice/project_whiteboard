@@ -2,6 +2,7 @@
 import { useUser } from '@/composables/useUser'
 import { Clock } from 'lucide-vue-next'
 import PostList from '@/components/board/PostList.vue'
+import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
 import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import { isInquiryPostItem, resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigation'
@@ -30,7 +31,7 @@ const { items: posts, totalPages } = usePageResponseState(recentData, page)
   >
     <template #loading>
       <div class="text-center py-10">
-        <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-current nv-spinner mx-auto"></div>
+        <BaseSpinner size="lg" />
       </div>
     </template>
 

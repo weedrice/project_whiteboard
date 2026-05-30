@@ -2,6 +2,7 @@
 import CategoryManager from '@/components/board/CategoryManager.vue'
 import BoardForm from '@/components/board/BoardForm.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import UserSelectModal from '@/components/common/widgets/UserSelectModal.vue'
 import { useBoardEditPage } from '@/composables/useBoardEditPage'
 
@@ -27,7 +28,7 @@ const {
 <template>
   <div class="max-w-3xl mx-auto">
     <div v-if="isLoading" class="text-center py-10">
-      <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-current nv-spinner mx-auto"></div>
+      <BaseSpinner size="lg" />
     </div>
 
     <div v-else-if="canManageBoard" class="nv-surface shadow sm:rounded-lg overflow-hidden">
