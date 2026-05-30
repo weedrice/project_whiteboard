@@ -7,6 +7,7 @@ import { ArrowLeft, Upload, X, Plus, EyeOff, Eye } from 'lucide-vue-next'
 import { useToastStore } from '@/stores/toast'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import EmoticonFormActions from '@/components/emoticon/EmoticonFormActions.vue'
 import EmoticonTagSection from '@/components/emoticon/EmoticonTagSection.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { useEmoticonEditForm } from '@/composables/useEmoticonEditForm'
@@ -274,19 +275,19 @@ const goToDetail = () => {
       />
 
       <!-- 수정 버튼 -->
-      <div class="flex flex-col items-end gap-2">
-        <div v-if="isSubmitting && uploadProgress.total > 0" class="text-sm nv-text-muted">
-          이미지 업로드 중... ({{ uploadProgress.current }}/{{ uploadProgress.total }})
-        </div>
-        <div class="flex gap-3">
+      <EmoticonFormActions
+        :is-submitting="isSubmitting"
+        :is-form-valid="isFormValid"
+        :upload-progress="uploadProgress"
+        submit-text="수정하기"
+        submitting-text="수정 중..."
+      >
+        <template #before-submit>
           <BaseButton type="button" @click="goToDetail" variant="secondary" size="lg">
             취소
           </BaseButton>
-          <BaseButton type="submit" :disabled="!isFormValid || isSubmitting" variant="primary" size="lg">
-            {{ isSubmitting ? '수정 중...' : '수정하기' }}
-          </BaseButton>
-        </div>
-      </div>
+        </template>
+      </EmoticonFormActions>
     </form>
   </div>
 </template>

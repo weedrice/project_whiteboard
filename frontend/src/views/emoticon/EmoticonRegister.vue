@@ -5,7 +5,7 @@ import { useHead } from '@unhead/vue'
 import { ArrowLeft, Upload, X, Plus } from 'lucide-vue-next'
 import { useToastStore } from '@/stores/toast'
 import { useI18n } from 'vue-i18n'
-import BaseButton from '@/components/common/ui/BaseButton.vue'
+import EmoticonFormActions from '@/components/emoticon/EmoticonFormActions.vue'
 import EmoticonTagSection from '@/components/emoticon/EmoticonTagSection.vue'
 import { useEmoticonImageSelection } from '@/composables/useEmoticonImageSelection'
 import { useEmoticonImageFormState } from '@/composables/useEmoticonImageFormState'
@@ -236,19 +236,13 @@ const goToList = () => {
       />
 
       <!-- 등록 버튼 -->
-      <div class="flex flex-col items-end gap-2">
-        <div v-if="isSubmitting && uploadProgress.total > 0" class="text-sm nv-text-muted">
-          이미지 업로드 중... ({{ uploadProgress.current }}/{{ uploadProgress.total }})
-        </div>
-        <BaseButton
-          type="submit"
-          :disabled="!isFormValid || isSubmitting"
-          variant="primary"
-          size="lg"
-        >
-          {{ isSubmitting ? '등록 중...' : '등록하기' }}
-        </BaseButton>
-      </div>
+      <EmoticonFormActions
+        :is-submitting="isSubmitting"
+        :is-form-valid="isFormValid"
+        :upload-progress="uploadProgress"
+        submit-text="등록하기"
+        submitting-text="등록 중..."
+      />
     </form>
   </div>
 </template>
