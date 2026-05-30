@@ -8,6 +8,7 @@ import { useToastStore } from '@/stores/toast'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import EmoticonFormActions from '@/components/emoticon/EmoticonFormActions.vue'
+import EmoticonImageTile from '@/components/emoticon/EmoticonImageTile.vue'
 import EmoticonTagSection from '@/components/emoticon/EmoticonTagSection.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { useEmoticonEditForm } from '@/composables/useEmoticonEditForm'
@@ -207,38 +208,32 @@ const goToDetail = () => {
         <!-- 이미지 그리드 -->
         <div class="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2 mb-4">
           <!-- 기존 이미지 -->
-          <div v-for="image in existingImages" :key="'existing-' + image.imageId" class="relative"
-            :class="{ 'opacity-40': imagesToDelete.includes(image.imageId) }">
-            <img :src="image.imageUrl" :alt="`이모티콘 ${image.sortOrder + 1}`"
-              class="w-full aspect-square object-contain nv-surface-muted rounded"
-              style="width: 100px; height: 100px;" />
-            <button v-if="!imagesToDelete.includes(image.imageId)" type="button"
-              @click="markImageForDeletion(image.imageId)"
-              :aria-label="$t('common.delete')"
-              class="absolute -top-1 -right-1 w-5 h-5 bg-[var(--nv-danger)] text-white rounded-full flex items-center justify-center hover:brightness-95 text-xs"
-              :title="$t('common.delete')">
-              <X class="w-3 h-3" />
-            </button>
-            <button v-else type="button" @click="unmarkImageForDeletion(image.imageId)"
-              :aria-label="$t('common.cancel')"
-              class="absolute -top-1 -right-1 w-5 h-5 bg-[var(--nv-surface-muted)] text-[var(--nv-text-muted)] rounded-full flex items-center justify-center hover:bg-[var(--nv-surface-hover)] text-xs"
-              :title="$t('common.cancel')">
-              <Plus class="w-3 h-3" />
-            </button>
-          </div>
+          <EmoticonImageTile
+            v-for="image in existingImages"
+            :key="'existing-' + image.imageId"
+            :src="image.imageUrl"
+            :alt="`이모티콘 ${image.sortOrder + 1}`"
+            :muted="imagesToDelete.includes(image.imageId)"
+            :action="imagesToDelete.includes(image.imageId) ? 'cancel' : 'delete'"
+            :action-label="imagesToDelete.includes(image.imageId) ? $t('common.cancel') : $t('common.delete')"
+            :action-title="imagesToDelete.includes(image.imageId) ? $t('common.cancel') : $t('common.delete')"
+            @action="imagesToDelete.includes(image.imageId)
+              ? unmarkImageForDeletion(image.imageId)
+              : markImageForDeletion(image.imageId)"
+          />
 
           <!-- 새로 추가할 이미지 -->
-          <div v-for="(item, index) in newEmoticonPreviews" :key="item.clientId" class="relative">
-            <img :src="item.preview" :alt="`새 이모티콘 ${index + 1}`"
-              class="w-full aspect-square object-contain bg-[var(--nv-success-bg)] rounded border-2 border-[var(--nv-success-border)]"
-              style="width: 100px; height: 100px;" />
-            <button type="button" @click="removeNewEmoticonImage(item.clientId)"
-              :aria-label="$t('common.delete')"
-              :title="$t('common.delete')"
-              class="absolute -top-1 -right-1 w-5 h-5 bg-[var(--nv-danger)] text-white rounded-full flex items-center justify-center hover:brightness-95 text-xs">
-              <X class="w-3 h-3" />
-            </button>
-          </div>
+          <EmoticonImageTile
+            v-for="(item, index) in newEmoticonPreviews"
+            :key="item.clientId"
+            :src="item.preview"
+            :alt="`새 이모티콘 ${index + 1}`"
+            :action-label="$t('common.delete')"
+            :action-title="$t('common.delete')"
+            action="delete"
+            variant="new"
+            @action="removeNewEmoticonImage(item.clientId)"
+          />
 
           <!-- 추가 버튼 -->
           <input id="emoticon-image-input" ref="emoticonInput" type="file" name="emoticonImages" :accept="SUPPORTED_IMAGE_ACCEPT" multiple :disabled="totalImageCount >= 100" @change="handleEmoticonSelect"

@@ -6,6 +6,7 @@ import { ArrowLeft, Upload, X, Plus } from 'lucide-vue-next'
 import { useToastStore } from '@/stores/toast'
 import { useI18n } from 'vue-i18n'
 import EmoticonFormActions from '@/components/emoticon/EmoticonFormActions.vue'
+import EmoticonImageTile from '@/components/emoticon/EmoticonImageTile.vue'
 import EmoticonTagSection from '@/components/emoticon/EmoticonTagSection.vue'
 import { useEmoticonImageSelection } from '@/composables/useEmoticonImageSelection'
 import { useEmoticonImageFormState } from '@/composables/useEmoticonImageFormState'
@@ -176,27 +177,16 @@ const goToList = () => {
 
         <!-- 이미지 그리드 -->
         <div class="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2 mb-4">
-          <div
+          <EmoticonImageTile
             v-for="(item, index) in emoticonPreviews"
             :key="item.clientId"
-            class="relative"
-          >
-            <img
-              :src="item.preview"
-              :alt="`이모티콘 ${index + 1}`"
-              class="w-full aspect-square object-contain nv-surface-muted rounded"
-              style="width: 100px; height: 100px;"
-            />
-            <button
-              type="button"
-              @click="removeEmoticonImage(item.clientId)"
-              :aria-label="$t('common.delete')"
-              :title="$t('common.delete')"
-              class="absolute -top-1 -right-1 w-5 h-5 bg-[var(--nv-danger)] text-white rounded-full flex items-center justify-center hover:brightness-95 text-xs"
-            >
-              <X class="w-3 h-3" />
-            </button>
-          </div>
+            :src="item.preview"
+            :alt="`이모티콘 ${index + 1}`"
+            :action-label="$t('common.delete')"
+            :action-title="$t('common.delete')"
+            action="delete"
+            @action="removeEmoticonImage(item.clientId)"
+          />
 
           <!-- 추가 버튼 -->
           <input
