@@ -5,7 +5,6 @@ import { useUser } from '@/composables/useUser'
 import { formatDate } from '@/utils/date'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
-import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import { Coins } from 'lucide-vue-next'
 import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import { getListLoadErrorMessage } from '@/utils/listLoadError'
@@ -31,22 +30,11 @@ const errorMessage = computed(() => error.value ? getListLoadErrorMessage(t) : '
     :total-pages="totalPages"
     max-width-class="max-w-2xl"
     header-class="px-3 py-3 sm:py-5 sm:px-6 gap-2"
+    loading-preset="compact-status-list"
     @retry="refetch"
     @page-change="handlePageChange"
     @size-change="handleSizeChange"
   >
-    <template #loading>
-      <div class="divide-y divide-[var(--nv-border)]">
-        <div v-for="i in 5" :key="i" class="px-3 py-2.5 sm:px-6 sm:py-4 flex justify-between items-center">
-          <div class="flex flex-col flex-1 min-w-0">
-            <BaseSkeleton width="60%" height="14px" className="mb-1" />
-            <BaseSkeleton width="40%" height="12px" />
-          </div>
-          <BaseSkeleton width="48px" height="20px" rounded="rounded-full" />
-        </div>
-      </div>
-    </template>
-
     <ul role="list" class="divide-y divide-[var(--nv-border)]">
       <li v-for="item in history" :key="item.historyId"
         class="px-3 py-2.5 sm:px-6 sm:py-4 nv-hover-surface transition-colors duration-200 flex items-center">

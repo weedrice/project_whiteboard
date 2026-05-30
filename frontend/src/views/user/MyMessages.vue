@@ -11,6 +11,7 @@
         :total-pages="totalPages"
         title-tag="h1"
         actions-visibility="always"
+        loading-preset="message-list"
         @retry="fetchMessages"
         @page-change="handlePageChange"
         @size-change="handleSizeChange"
@@ -43,21 +44,6 @@
                     {{ $t('user.message.sent') }}
                 </button>
             </span>
-        </template>
-
-        <template #loading>
-            <div class="divide-y divide-[var(--nv-border)]">
-                <div v-for="i in 5" :key="i" class="p-4 flex items-start">
-                    <BaseSkeleton width="20px" height="20px" className="mr-4 mt-1" />
-                    <div class="flex-1">
-                        <div class="flex justify-between mb-1">
-                            <BaseSkeleton width="100px" height="16px" />
-                            <BaseSkeleton width="80px" height="12px" />
-                        </div>
-                        <BaseSkeleton width="80%" height="16px" />
-                    </div>
-                </div>
-            </div>
         </template>
 
         <ul class="divide-y divide-[var(--nv-border)]">
@@ -157,7 +143,6 @@ import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
-import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
 import { Mail } from 'lucide-vue-next'
 import { useMailboxResource } from '@/composables/useMailboxResource'

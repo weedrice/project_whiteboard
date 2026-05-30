@@ -10,7 +10,12 @@ const IconStub = defineComponent({
   },
 })
 
-const mountCard = () => mount(PaginatedListCard, {
+type PaginatedListCardProps = InstanceType<typeof PaginatedListCard>['$props']
+
+const mountCard = (
+  props: Partial<PaginatedListCardProps> = {},
+  slots: Record<string, string> = { default: '<div data-testid="content">Content</div>' },
+) => mount(PaginatedListCard, {
   props: {
     title: 'Notifications',
     icon: markRaw(IconStub),
@@ -21,10 +26,9 @@ const mountCard = () => mount(PaginatedListCard, {
     page: 0,
     size: 15,
     totalPages: 1,
+    ...props,
   },
-  slots: {
-    default: '<div data-testid="content">Content</div>',
-  },
+  slots,
   global: {
     stubs: {
       PageSizeSelector: true,
@@ -43,5 +47,34 @@ describe('PaginatedListCard', () => {
     expect(wrapper.get('.nv-title').text()).toContain('Notifications')
     expect(wrapper.findAll('.nv-border').length).toBeGreaterThan(0)
     expect(wrapper.find('.nv-surface-muted').exists()).toBe(true)
+  })
+
+  it('renders an opt-in loading preset when no loading slot is provided', () => {
+    const wrapper = mountCard({
+      itemsCount: 0,
+      loading: true,
+      loadingPreset: 'post-list',
+      loadingRows: 2,
+    })
+
+    expect(wrapper.find('[data-testid="content"]').exists()).toBe(false)
+    expect(wrapper.findAll('.animate-pulse')).toHaveLength(6)
+  })
+
+  it('keeps custom loading slots ahead of loading presets', () => {
+    const wrapper = mountCard(
+      {
+        itemsCount: 0,
+        loading: true,
+        loadingPreset: 'post-list',
+      },
+      {
+        default: '<div data-testid="content">Content</div>',
+        loading: '<div data-testid="custom-loading">Custom loading</div>',
+      },
+    )
+
+    expect(wrapper.get('[data-testid="custom-loading"]').text()).toBe('Custom loading')
+    expect(wrapper.find('.animate-pulse').exists()).toBe(false)
   })
 })

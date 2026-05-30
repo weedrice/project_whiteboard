@@ -4,7 +4,6 @@ import { useI18n } from 'vue-i18n'
 import { useReport } from '@/composables/useReport'
 import { formatDate } from '@/utils/date'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
-import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import { Flag } from 'lucide-vue-next'
 import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import { getListLoadErrorMessage } from '@/utils/listLoadError'
@@ -33,22 +32,11 @@ const errorMessage = computed(() => error.value ? getListLoadErrorMessage(t) : '
     :page="page"
     :size="size"
     :total-pages="totalPages"
+    loading-preset="status-list"
     @retry="refetch"
     @page-change="handlePageChange"
     @size-change="handleSizeChange"
   >
-    <template #loading>
-      <div class="divide-y divide-[var(--nv-border)]">
-        <div v-for="i in 5" :key="i" class="px-4 py-4 sm:px-6 flex justify-between items-center">
-          <div class="flex flex-col flex-1">
-            <BaseSkeleton width="60%" height="20px" className="mb-1" />
-            <BaseSkeleton width="30%" height="14px" />
-          </div>
-          <BaseSkeleton width="60px" height="24px" rounded="rounded-full" />
-        </div>
-      </div>
-    </template>
-
     <ul role="list" class="divide-y divide-[var(--nv-border)]">
       <li v-for="report in reports" :key="report.reportId"
         class="px-4 py-4 sm:px-6 nv-hover-surface transition-colors duration-200 min-h-[44px] flex flex-row items-center justify-between gap-3">

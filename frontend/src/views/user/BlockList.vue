@@ -10,25 +10,11 @@
     :size="size"
     :total-pages="totalPages"
     :page-size-options="[20, 50, 100]"
+    loading-preset="avatar-action-list"
     @retry="fetchBlockedUsers"
     @page-change="handlePageChange"
     @size-change="handleSizeChange"
   >
-    <template #loading>
-      <div class="divide-y divide-[var(--nv-border)]">
-        <div v-for="i in 5" :key="i" class="px-4 py-4 sm:px-6 flex items-center justify-between">
-          <div class="flex items-center">
-            <BaseSkeleton width="2.5rem" height="2.5rem" rounded="rounded-full" className="mr-4" />
-            <div>
-              <BaseSkeleton width="100px" height="16px" className="mb-1" />
-              <BaseSkeleton width="150px" height="14px" />
-            </div>
-          </div>
-          <BaseSkeleton width="80px" height="32px" />
-        </div>
-      </div>
-    </template>
-
     <ul role="list" class="divide-y divide-[var(--nv-border)]">
       <li v-for="user in blockedUsers" :key="user.userId"
         class="px-4 py-4 sm:px-6 nv-hover-surface transition-colors duration-200">
@@ -62,7 +48,6 @@ import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BlockButton from '@/components/user/BlockButton.vue'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
-import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import { UserX } from 'lucide-vue-next'
 import logger from '@/utils/logger'
 import { useUser } from '@/composables/useUser'

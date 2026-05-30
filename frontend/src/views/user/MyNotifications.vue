@@ -6,7 +6,6 @@ import { Check, Bell } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import { useNotificationListState } from '@/composables/useNotificationListState'
 import { usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import { formatDate } from '@/utils/date'
@@ -49,6 +48,7 @@ function handleMarkAllAsRead() {
     :total-pages="totalPages"
     header-class="px-3 py-3 sm:py-5 sm:px-6 gap-2"
     actions-visibility="always"
+    loading-preset="notification-list"
     @retry="refetch"
     @page-change="handlePageChange"
     @size-change="handleSizeChange"
@@ -65,18 +65,6 @@ function handleMarkAllAsRead() {
         <span class="sm:hidden">{{ $t('notification.markAllReadShort') || $t('notification.markAllRead') }}</span>
         <span class="hidden sm:inline">{{ $t('notification.markAllRead') }}</span>
       </BaseButton>
-    </template>
-
-    <template #loading>
-      <div class="divide-y divide-[var(--nv-border)]">
-        <div v-for="i in 5" :key="i" class="px-3 py-3 sm:px-6 sm:py-4 flex justify-between items-center">
-          <div class="flex flex-col flex-1 min-w-0">
-            <BaseSkeleton width="80%" height="14px" className="mb-1" />
-            <BaseSkeleton width="60%" height="12px" />
-          </div>
-          <BaseSkeleton width="48px" height="16px" rounded="rounded-full" />
-        </div>
-      </div>
     </template>
 
     <ul class="divide-y divide-[var(--nv-border)]">
