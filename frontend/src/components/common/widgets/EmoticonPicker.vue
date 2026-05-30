@@ -30,17 +30,31 @@ const detailTask = useLatestAsyncTask<string>({
 const isLoadingDetail = detailTask.loading
 const detailError = detailTask.error
 
-// 구매한 이모티콘 목록 조회
+const mergeUniqueEmoticons = (...groups: EmoticonMaster[][]) => {
+  const seen = new Set<number>()
+  return groups.flat().filter((emoticon) => {
+    if (seen.has(emoticon.emoticonId)) {
+      return false
+    }
+    seen.add(emoticon.emoticonId)
+    return true
+  })
+}
+
+// 사용 가능한 이모티콘 목록 조회
 const {
-  data: purchasedEmoticons,
+  data: accessibleEmoticons,
   isLoading,
   isError: isListError,
-  refetch: refetchPurchasedEmoticons
+  refetch: refetchAccessibleEmoticons
 } = useQuery({
-  queryKey: ['emoticons', 'purchased', 'picker'],
+  queryKey: ['emoticons', 'accessible', 'picker'],
   queryFn: async () => {
-    const purchasedPage = await emoticonApi.getPurchasedEmoticonsData({ size: 100 })
-    return purchasedPage.content
+    const [purchasedPage, myPage] = await Promise.all([
+      emoticonApi.getPurchasedEmoticonsData({ size: 100 }),
+      emoticonApi.getMyEmoticonsData({ size: 100 }),
+    ])
+    return mergeUniqueEmoticons(purchasedPage.content, myPage.content)
   },
   enabled: () => props.show
 })
@@ -48,11 +62,11 @@ const listErrorMessage = '노비콘 목록을 불러오지 못했습니다.'
 
 // 검색 필터링
 const filteredEmoticons = computed(() => {
-  if (!purchasedEmoticons.value) return []
-  if (!searchKeyword.value.trim()) return purchasedEmoticons.value
+  if (!accessibleEmoticons.value) return []
+  if (!searchKeyword.value.trim()) return accessibleEmoticons.value
 
   const keyword = searchKeyword.value.toLowerCase()
-  return purchasedEmoticons.value.filter(emoticon =>
+  return accessibleEmoticons.value.filter(emoticon =>
     emoticon.name.toLowerCase().includes(keyword) ||
     emoticon.tags?.some(tag => tag.toLowerCase().includes(keyword))
   )
@@ -90,7 +104,7 @@ const retryDetailLoad = () => {
 }
 
 const retryListLoad = () => {
-  refetchPurchasedEmoticons()
+  refetchAccessibleEmoticons()
 }
 
 const handleImageClick = (image: EmoticonImage) => {
@@ -195,7 +209,7 @@ onUnmounted(() => {
         <!-- 빈 상태 -->
         <div v-else-if="!filteredEmoticons?.length" class="empty-state">
           <Smile class="w-8 h-8 nv-text-subtle mb-2" />
-          <p v-if="purchasedEmoticons?.length === 0">구매한 노비콘이 없습니다</p>
+          <p v-if="accessibleEmoticons?.length === 0">사용 가능한 노비콘이 없습니다</p>
           <p v-else>검색 결과가 없습니다</p>
         </div>
 
