@@ -1,4 +1,5 @@
 import api from './index'
+import { mapApiDataResponse } from '@/api/response'
 import type { AxiosRequestConfig } from 'axios'
 import type { ApiResponse, PageResponse, PostSummary, PopularKeyword, SearchParams, IntegratedSearchResponse } from '@/types'
 
@@ -23,13 +24,6 @@ export const searchApi = {
     // Get popular keywords
     async getPopularKeywords() {
         const response = await api.get<ApiResponse<PopularKeywordResponse>>('/search/popular')
-
-        return {
-            ...response,
-            data: {
-                ...response.data,
-                data: toPopularKeywords(response.data.data)
-            }
-        }
+        return mapApiDataResponse(response, toPopularKeywords)
     }
 }

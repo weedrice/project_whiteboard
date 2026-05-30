@@ -1,4 +1,5 @@
 import api from './index'
+import { mapApiDataResponse } from '@/api/response'
 import type { AxiosRequestConfig, AxiosResponse } from 'axios'
 import type {
     ApiResponse,
@@ -99,13 +100,7 @@ function normalizeHomeLanding(landing: HomeLandingResponse | null | undefined): 
 function mapHomeLandingResponse(
     response: AxiosResponse<ApiResponse<HomeLandingResponse>>
 ): AxiosResponse<ApiResponse<HomeLandingResponse>> {
-    return {
-        ...response,
-        data: {
-            ...response.data,
-            data: normalizeHomeLanding(response.data.data),
-        },
-    }
+    return mapApiDataResponse(response, normalizeHomeLanding, { mapNullish: true })
 }
 
 export const postApi = {

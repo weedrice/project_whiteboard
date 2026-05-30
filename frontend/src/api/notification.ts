@@ -1,4 +1,5 @@
 import api from './index'
+import { mapApiPageResponse } from '@/api/response'
 import type { ApiResponse, Notification, PageResponse } from '@/types'
 import type { AxiosResponse } from 'axios'
 import { API } from '@/utils/constants'
@@ -104,15 +105,7 @@ export const notificationApi = {
     // Get notifications
     getNotifications: async (params: NotificationParams): Promise<AxiosResponse<ApiResponse<PageResponse<Notification>>>> => {
         const response = await api.get<ApiResponse<NotificationPageRaw>>('/notifications', { params })
-        const normalizedPage = normalizeNotificationPage(response.data.data || {})
-        const normalizedResponse: AxiosResponse<ApiResponse<PageResponse<Notification>>> = {
-            ...response,
-            data: {
-                ...response.data,
-                data: normalizedPage
-            }
-        }
-        return normalizedResponse
+        return mapApiPageResponse(response, (raw) => normalizeNotificationPage(raw || {}), { mapNullish: true })
     },
 
     // Mark as read

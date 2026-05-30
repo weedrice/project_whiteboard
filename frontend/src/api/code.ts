@@ -1,4 +1,5 @@
 import axios from '@/api'
+import { mapApiDataResponse } from '@/api/response'
 import type { ApiResponse, Code } from '@/types'
 
 interface CommonCodeDetailResponse {
@@ -17,13 +18,6 @@ const toCode = (detail: CommonCodeDetailResponse): Code => ({
 export const codeApi = {
     async getCodes(typeCode: string) {
         const response = await axios.get<ApiResponse<CommonCodeDetailResponse[]>>(`/common-codes/${typeCode}/details`)
-
-        return {
-            ...response,
-            data: {
-                ...response.data,
-                data: response.data.data.map(toCode)
-            }
-        }
+        return mapApiDataResponse(response, (details) => details.map(toCode))
     }
 }

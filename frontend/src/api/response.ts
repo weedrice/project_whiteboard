@@ -8,8 +8,9 @@ export function unwrapApiData<T>(response: ApiResponse<T>): T {
 export function mapApiDataResponse<TSource, TTarget>(
     response: AxiosResponse<ApiResponse<TSource>>,
     mapper: (source: TSource) => TTarget,
+    options: { mapNullish?: boolean } = {},
 ): AxiosResponse<ApiResponse<TTarget>> {
-    if (!response.data.success || response.data.data == null) {
+    if (!response.data.success || (!options.mapNullish && response.data.data == null)) {
         return response as unknown as AxiosResponse<ApiResponse<TTarget>>
     }
 
@@ -25,6 +26,7 @@ export function mapApiDataResponse<TSource, TTarget>(
 export function mapApiPageResponse<TSource, TTarget>(
     response: AxiosResponse<ApiResponse<TSource>>,
     mapper: (source: TSource) => PageResponse<TTarget>,
+    options?: { mapNullish?: boolean },
 ): AxiosResponse<ApiResponse<PageResponse<TTarget>>> {
-    return mapApiDataResponse(response, mapper)
+    return mapApiDataResponse(response, mapper, options)
 }
