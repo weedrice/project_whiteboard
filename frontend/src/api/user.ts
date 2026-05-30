@@ -15,7 +15,8 @@ import type {
     ScrapListResponse,
     UserPoint,
 } from '@/types'
-import type { AxiosRequestConfig, AxiosResponse } from 'axios'
+import type { AxiosRequestConfig } from 'axios'
+import { mapApiPageResponse } from '@/api/response'
 import { normalizePageResponse, type PageResponseRaw } from '@/utils/pageResponse'
 
 export interface UserUpdatePayload {
@@ -126,23 +127,6 @@ export function toBlockedUserPage(response: BlockListRawResponse): PageResponse<
         ...response,
         content: (response.content ?? []).map(toBlockedUserListItem),
     })
-}
-
-function mapApiPageResponse<TSource, TTarget>(
-    response: AxiosResponse<ApiResponse<TSource>>,
-    mapper: (source: TSource) => PageResponse<TTarget>,
-): AxiosResponse<ApiResponse<PageResponse<TTarget>>> {
-    if (!response.data.success || response.data.data == null) {
-        return response as unknown as AxiosResponse<ApiResponse<PageResponse<TTarget>>>
-    }
-
-    return {
-        ...response,
-        data: {
-            ...response.data,
-            data: mapper(response.data.data),
-        },
-    }
 }
 
 export const userApi = {
