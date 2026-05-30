@@ -1,6 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
+import { useQuery, useMutation, useQueryClient, type QueryKey } from '@tanstack/vue-query'
 import { adminApi, type AdminRole } from '@/api/admin'
-import { computed, type Ref } from 'vue'
+import { computed, type ComputedRef, type Ref } from 'vue'
 import { normalizePageResponse, type PageResponseRaw } from '@/utils/pageResponse'
 import type {
     SanctionData,
@@ -24,6 +24,12 @@ import type {
 
 function unwrapAdminPageResponse<T>(response: ApiResponse<PageResponse<T> | PageResponseRaw<T>>): PageResponse<T> {
     return normalizePageResponse(response.data as PageResponseRaw<T>)
+}
+
+type AdminPageApiResponse<T> = ApiResponse<PageResponse<T> | PageResponseRaw<T>>
+type AdminPageFetcher<T> = () => Promise<{ data: AdminPageApiResponse<T> }>
+type AdminPageQueryOptions = {
+    enabled?: Ref<boolean> | ComputedRef<boolean>
 }
 
 // Admin specific types
@@ -99,16 +105,40 @@ interface BoardManagerData {
 export function useAdmin() {
     const queryClient = useQueryClient()
 
+    const adminPageQuery = <T>(
+        queryKey: QueryKey,
+        fetcher: AdminPageFetcher<T>,
+        options: AdminPageQueryOptions = {}
+    ) => useQuery({
+        queryKey,
+        queryFn: async () => {
+            const { data } = await fetcher()
+            return unwrapAdminPageResponse<T>(data)
+        },
+        enabled: options.enabled,
+        placeholderData: (previousData) => previousData
+    })
+
+    const adminNullablePageQuery = <T>(
+        queryKey: QueryKey,
+        fetcher: () => ReturnType<AdminPageFetcher<T>> | null,
+        enabled: Ref<boolean> | ComputedRef<boolean>
+    ) => useQuery({
+        queryKey,
+        queryFn: async () => {
+            const response = await fetcher()
+            return response === null ? null : unwrapAdminPageResponse<T>(response.data)
+        },
+        enabled,
+        placeholderData: (previousData) => previousData
+    })
+
     // --- Admin Management ---
     const useAdmins = (params: Ref<{ page?: number, size?: number }>) => {
-        return useQuery({
-            queryKey: ['admin', 'admins', params],
-            queryFn: async () => {
-                const { data } = await adminApi.getAdmins(params.value)
-                return unwrapAdminPageResponse<BoardAdminInfo>(data)
-            },
-            placeholderData: (previousData) => previousData
-        })
+        return adminPageQuery<BoardAdminInfo>(
+            ['admin', 'admins', params],
+            () => adminApi.getAdmins(params.value)
+        )
     }
 
     const useCreateAdmin = () => {
@@ -150,15 +180,13 @@ export function useAdmin() {
 
     // --- User Management ---
     const useUsers = (params: Ref<UserSearchParams>, enabled?: Ref<boolean>) => {
-        return useQuery({
-            queryKey: ['admin', 'users', params],
-            queryFn: async () => {
-                const { data } = await adminApi.getUsers(params.value)
-                return unwrapAdminPageResponse<User>(data)
-            },
-            enabled,
-            placeholderData: (previousData) => previousData
-        })
+        return adminPageQuery<User>(
+            ['admin', 'users', params],
+            () => adminApi.getUsers(params.value),
+            {
+                enabled,
+            }
+        )
     }
 
     const useUpdateUserStatus = () => {
@@ -184,42 +212,33 @@ export function useAdmin() {
     }
 
     const useAdminUserPosts = (userId: Ref<number | null>, params: Ref<{ page?: number, size?: number }>) => {
-        return useQuery({
-            queryKey: ['admin', 'users', 'detail', userId, 'posts', params],
-            queryFn: async () => {
-                if (userId.value == null) return null
-                const { data } = await adminApi.getUserPosts(userId.value, params.value)
-                return unwrapAdminPageResponse<AdminUserPostItem>(data)
-            },
-            enabled: computed(() => userId.value !== null),
-            placeholderData: (previousData) => previousData
-        })
+        const enabled = computed(() => userId.value !== null)
+
+        return adminNullablePageQuery<AdminUserPostItem>(
+            ['admin', 'users', 'detail', userId, 'posts', params],
+            () => userId.value == null ? null : adminApi.getUserPosts(userId.value, params.value),
+            enabled
+        )
     }
 
     const useAdminUserComments = (userId: Ref<number | null>, params: Ref<{ page?: number, size?: number }>) => {
-        return useQuery({
-            queryKey: ['admin', 'users', 'detail', userId, 'comments', params],
-            queryFn: async () => {
-                if (userId.value == null) return null
-                const { data } = await adminApi.getUserComments(userId.value, params.value)
-                return unwrapAdminPageResponse<AdminUserCommentItem>(data)
-            },
-            enabled: computed(() => userId.value !== null),
-            placeholderData: (previousData) => previousData
-        })
+        const enabled = computed(() => userId.value !== null)
+
+        return adminNullablePageQuery<AdminUserCommentItem>(
+            ['admin', 'users', 'detail', userId, 'comments', params],
+            () => userId.value == null ? null : adminApi.getUserComments(userId.value, params.value),
+            enabled
+        )
     }
 
     const useAdminUserSubscriptions = (userId: Ref<number | null>, params: Ref<{ page?: number, size?: number }>) => {
-        return useQuery({
-            queryKey: ['admin', 'users', 'detail', userId, 'subscriptions', params],
-            queryFn: async () => {
-                if (userId.value == null) return null
-                const { data } = await adminApi.getUserSubscriptions(userId.value, params.value)
-                return unwrapAdminPageResponse<AdminUserSubscriptionItem>(data)
-            },
-            enabled: computed(() => userId.value !== null),
-            placeholderData: (previousData) => previousData
-        })
+        const enabled = computed(() => userId.value !== null)
+
+        return adminNullablePageQuery<AdminUserSubscriptionItem>(
+            ['admin', 'users', 'detail', userId, 'subscriptions', params],
+            () => userId.value == null ? null : adminApi.getUserSubscriptions(userId.value, params.value),
+            enabled
+        )
     }
 
     const useSanctionUser = () => {
@@ -234,14 +253,10 @@ export function useAdmin() {
 
     // --- Report Management ---
     const useReports = (params: Ref<ReportSearchParams>) => {
-        return useQuery({
-            queryKey: ['admin', 'reports', params],
-            queryFn: async () => {
-                const { data } = await adminApi.getReports(params.value)
-                return unwrapAdminPageResponse<Report>(data)
-            },
-            placeholderData: (previousData) => previousData
-        })
+        return adminPageQuery<Report>(
+            ['admin', 'reports', params],
+            () => adminApi.getReports(params.value)
+        )
     }
 
     const useResolveReport = () => {
@@ -253,14 +268,10 @@ export function useAdmin() {
 
     // --- IP Block Management ---
     const useIpBlocks = (params: Ref<{ page?: number, size?: number }>) => {
-        return useQuery({
-            queryKey: ['admin', 'ip-blocks', params],
-            queryFn: async () => {
-                const { data } = await adminApi.getIpBlocks(params.value)
-                return unwrapAdminPageResponse<IpBlock>(data)
-            },
-            placeholderData: (previousData) => previousData
-        })
+        return adminPageQuery<IpBlock>(
+            ['admin', 'ip-blocks', params],
+            () => adminApi.getIpBlocks(params.value)
+        )
     }
 
     const useBlockIp = () => {
@@ -400,14 +411,10 @@ export function useAdmin() {
 
     // --- Error Log Management ---
     const useErrorLogs = (params: Ref<ErrorLogSearchParams>) => {
-        return useQuery({
-            queryKey: ['admin', 'error-logs', params],
-            queryFn: async () => {
-                const { data } = await adminApi.getErrorLogs(params.value)
-                return unwrapAdminPageResponse<ErrorLogListItem>(data)
-            },
-            placeholderData: (previousData) => previousData
-        })
+        return adminPageQuery<ErrorLogListItem>(
+            ['admin', 'error-logs', params],
+            () => adminApi.getErrorLogs(params.value)
+        )
     }
 
     const useErrorLog = () => {
