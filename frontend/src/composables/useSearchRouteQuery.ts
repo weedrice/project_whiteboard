@@ -1,14 +1,8 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSearchSubmitNavigation } from '@/composables/useSearchSubmitNavigation'
+import { firstQueryValue } from '@/composables/searchRouteQueryValue'
 import type { SearchParams } from '@/types'
-
-const firstQueryValue = (value: unknown): string => {
-  if (Array.isArray(value)) {
-    return String(value[0] ?? '')
-  }
-  return String(value ?? '')
-}
 
 const normalizeSearchQuery = (query: Record<string, unknown>) => (
   [
