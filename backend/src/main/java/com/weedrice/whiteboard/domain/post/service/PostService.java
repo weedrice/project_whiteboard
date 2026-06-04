@@ -10,7 +10,7 @@ import com.weedrice.whiteboard.domain.post.dto.DraftListResponse;
 import com.weedrice.whiteboard.domain.post.dto.DraftResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostDraftRequest;
-import com.weedrice.whiteboard.domain.post.dto.PostResponse; // Import PostResponse
+import com.weedrice.whiteboard.domain.post.dto.PostResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.dto.PostUpdateRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostVersionResponse;
@@ -85,7 +85,7 @@ public class PostService {
         return postCommandService.createPostAsAgent(userId, agentId, request, context);
     }
 
-    // --- boardId 湲곕컲 public/private 硫붿꽌??---
+    // --- boardId based public/private methods ---
     public Page<Post> getPosts(Long boardId, Long categoryId, String keyword, Integer minLikes, Long currentUserId,
             Boolean includeSecret, @NonNull Pageable pageable) {
         return postListReadService.getPosts(boardId, categoryId, keyword, minLikes, currentUserId, includeSecret,
