@@ -12,7 +12,6 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
@@ -257,38 +256,19 @@ class BoardProvisioningService {
     }
 
     private boolean containsBoardNameConstraint(Throwable throwable) {
-        return containsConstraint(throwable, BOARD_NAME_CONSTRAINT, LEGACY_BOARD_NAME_CONSTRAINT, BOARD_NAME_COLUMN);
+        return ConstraintNameMatcher.containsConstraint(
+                throwable,
+                BOARD_NAME_CONSTRAINT,
+                LEGACY_BOARD_NAME_CONSTRAINT,
+                BOARD_NAME_COLUMN);
     }
 
     private boolean containsBoardUrlConstraint(Throwable throwable) {
-        return containsConstraint(throwable, BOARD_URL_CONSTRAINT, LEGACY_BOARD_URL_CONSTRAINT, BOARD_URL_COLUMN);
-    }
-
-    private boolean containsConstraint(Throwable throwable, String... candidates) {
-        Throwable current = throwable;
-        while (current != null) {
-            String message = current.getMessage() != null ? current.getMessage().toLowerCase() : "";
-            if (containsAny(message, candidates)) {
-                return true;
-            }
-            if (current instanceof ConstraintViolationException constraintViolationException) {
-                String constraintName = constraintViolationException.getConstraintName();
-                if (containsAny(constraintName != null ? constraintName.toLowerCase() : "", candidates)) {
-                    return true;
-                }
-            }
-            current = current.getCause();
-        }
-        return false;
-    }
-
-    private boolean containsAny(String value, String... candidates) {
-        for (String candidate : candidates) {
-            if (value.contains(candidate)) {
-                return true;
-            }
-        }
-        return false;
+        return ConstraintNameMatcher.containsConstraint(
+                throwable,
+                BOARD_URL_CONSTRAINT,
+                LEGACY_BOARD_URL_CONSTRAINT,
+                BOARD_URL_COLUMN);
     }
 
 }
