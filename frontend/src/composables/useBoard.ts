@@ -24,7 +24,23 @@ interface BoardManagerCandidateParams {
     q?: string
 }
 
-export const boardDetailQueryKey = (boardUrl: string | Ref<string>) => ['board', boardUrl] as const
+const boardQueryKeys = {
+    all: ['boards'] as const,
+    subscriptions: ['boards', 'subscriptions'] as const,
+    subscriptionsBySize: (size: number) => ['boards', 'subscriptions', size] as const,
+    detail: (boardUrl: string | Ref<string>) => ['board', boardUrl] as const,
+    posts: (
+        boardUrl: Ref<string>,
+        params: Ref<BoardPostParams>,
+        isSearching?: Ref<boolean>,
+    ) => ['board', boardUrl, 'posts', params, isSearching] as const,
+    notices: (boardUrl: Ref<string>) => ['board', boardUrl, 'notices'] as const,
+    categories: (boardUrl: Ref<string>) => ['board', boardUrl, 'categories'] as const,
+    managerCandidates: (boardUrl: Ref<string>, params: Ref<BoardManagerCandidateParams>) =>
+        ['board', boardUrl, 'manager-candidates', params] as const,
+}
+
+export const boardDetailQueryKey = (boardUrl: string | Ref<string>) => boardQueryKeys.detail(boardUrl)
 
 export async function fetchBoardDetail(boardUrl: string, requestConfig?: AxiosRequestConfig) {
     const { data } = requestConfig
@@ -50,7 +66,7 @@ export function useBoard() {
     // Fetch all boards
     const useBoards = () => {
         return useQuery({
-            queryKey: ['boards'],
+            queryKey: boardQueryKeys.all,
             queryFn: async () => {
                 const { data } = await boardApi.getBoards()
                 return data.data
@@ -65,7 +81,7 @@ export function useBoard() {
             ? (typeof enabled === 'boolean' ? computed(() => enabled) : enabled)
             : computed(() => false)
         return useQuery({
-            queryKey: ['boards', 'subscriptions', size],
+            queryKey: boardQueryKeys.subscriptionsBySize(size),
             queryFn: async () => {
                 const { data } = await userApi.getMySubscriptions({ size })
                 return data.data.content.filter(isVisibleSubscriptionBoard)
@@ -95,7 +111,7 @@ export function useBoard() {
     ) => {
         const { requestConfig, ...queryOptions } = options
         return useQuery({
-            queryKey: ['board', boardUrl, 'posts', params, isSearching],
+            queryKey: boardQueryKeys.posts(boardUrl, params, isSearching),
             queryFn: async () => {
                 if (isSearching?.value) {
                     const { searchType, ...restParams } = params.value
@@ -128,7 +144,7 @@ export function useBoard() {
     ) => {
         const { requestConfig, ...queryOptions } = options
         return useQuery({
-            queryKey: ['board', boardUrl, 'notices'],
+            queryKey: boardQueryKeys.notices(boardUrl),
             queryFn: async () => {
                 const { data } = await boardApi.getNotices(boardUrl.value, requestConfig)
                 return data.data as PostSummary[]
@@ -160,9 +176,9 @@ export function useBoard() {
             },
             onSuccess: (_, { boardUrl }) => {
                 // Invalidate board details and boards list to refresh subscription status
-                queryClient.invalidateQueries({ queryKey: ['board', boardUrl] })
-                queryClient.invalidateQueries({ queryKey: ['boards'] })
-                queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
+                queryClient.invalidateQueries({ queryKey: boardQueryKeys.detail(boardUrl) })
+                queryClient.invalidateQueries({ queryKey: boardQueryKeys.all })
+                queryClient.invalidateQueries({ queryKey: boardQueryKeys.subscriptions })
             },
             ...mutationOptions
         })
@@ -171,7 +187,7 @@ export function useBoard() {
     // Fetch categories for a board
     const useBoardCategories = (boardUrl: Ref<string>, options = {}) => {
         return useQuery({
-            queryKey: ['board', boardUrl, 'categories'],
+            queryKey: boardQueryKeys.categories(boardUrl),
             queryFn: async () => {
                 const { data } = await boardApi.getCategories(boardUrl.value)
                 return data.data
@@ -190,8 +206,8 @@ export function useBoard() {
             },
             onSuccess: () => {
                 // Invalidate boards list and subscriptions to refresh header dropdowns
-                queryClient.invalidateQueries({ queryKey: ['boards'] })
-                queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
+                queryClient.invalidateQueries({ queryKey: boardQueryKeys.all })
+                queryClient.invalidateQueries({ queryKey: boardQueryKeys.subscriptions })
             }
         })
     }
@@ -205,13 +221,13 @@ export function useBoard() {
             },
             onSuccess: (updatedBoard, { boardUrl, data }) => {
                 // Invalidate board details, boards list, and subscriptions
-                queryClient.invalidateQueries({ queryKey: ['board', boardUrl] })
+                queryClient.invalidateQueries({ queryKey: boardQueryKeys.detail(boardUrl) })
                 const updatedBoardUrl = updatedBoard?.boardUrl ?? data.boardUrl
                 if (updatedBoardUrl && updatedBoardUrl !== boardUrl) {
-                    queryClient.invalidateQueries({ queryKey: ['board', updatedBoardUrl] })
+                    queryClient.invalidateQueries({ queryKey: boardQueryKeys.detail(updatedBoardUrl) })
                 }
-                queryClient.invalidateQueries({ queryKey: ['boards'] })
-                queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
+                queryClient.invalidateQueries({ queryKey: boardQueryKeys.all })
+                queryClient.invalidateQueries({ queryKey: boardQueryKeys.subscriptions })
             }
         })
     }
@@ -223,9 +239,9 @@ export function useBoard() {
                 return response.data
             },
             onSuccess: (_, { boardUrl }) => {
-                queryClient.invalidateQueries({ queryKey: ['board', boardUrl] })
-                queryClient.invalidateQueries({ queryKey: ['boards'] })
-                queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
+                queryClient.invalidateQueries({ queryKey: boardQueryKeys.detail(boardUrl) })
+                queryClient.invalidateQueries({ queryKey: boardQueryKeys.all })
+                queryClient.invalidateQueries({ queryKey: boardQueryKeys.subscriptions })
             }
         })
     }
@@ -236,7 +252,7 @@ export function useBoard() {
         enabled?: Ref<boolean>
     ) => {
         return useQuery({
-            queryKey: ['board', boardUrl, 'manager-candidates', params],
+            queryKey: boardQueryKeys.managerCandidates(boardUrl, params),
             queryFn: async () => {
                 const { data } = await boardApi.getBoardManagerCandidates(boardUrl.value, params.value)
                 return data.data as PageResponse<BoardManagerCandidate>
@@ -255,8 +271,8 @@ export function useBoard() {
             },
             onSuccess: () => {
                 // Invalidate boards list and subscriptions to refresh header dropdowns
-                queryClient.invalidateQueries({ queryKey: ['boards'] })
-                queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
+                queryClient.invalidateQueries({ queryKey: boardQueryKeys.all })
+                queryClient.invalidateQueries({ queryKey: boardQueryKeys.subscriptions })
             }
         })
     }
