@@ -1,5 +1,6 @@
 import { onUnmounted, ref, watch, type Ref } from 'vue'
 import { normalizeBoardUrlInput } from '@/utils/board'
+import { revokeBlobUrlIfNeeded } from '@/utils/imageFile'
 
 export interface BoardFormData {
   boardName: string
@@ -16,12 +17,6 @@ export interface BoardFormData {
 interface UseBoardFormStateOptions {
   initialData: () => BoardFormData
   isEdit: () => boolean
-}
-
-function revokePreviewUrl(previewImage: Ref<string | null>) {
-  if (previewImage.value && previewImage.value.startsWith('blob:')) {
-    URL.revokeObjectURL(previewImage.value)
-  }
 }
 
 export function useBoardFormState(options: UseBoardFormStateOptions) {
@@ -54,9 +49,7 @@ export function useBoardFormState(options: UseBoardFormStateOptions) {
   })
 
   watch(previewImage, (_newUrl, oldUrl) => {
-    if (oldUrl && oldUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(oldUrl)
-    }
+    revokeBlobUrlIfNeeded(oldUrl)
   })
 
   function handleFileChange(event: Event) {
@@ -65,12 +58,12 @@ export function useBoardFormState(options: UseBoardFormStateOptions) {
     if (!file) return
 
     selectedFile.value = file
-    revokePreviewUrl(previewImage)
+    revokeBlobUrlIfNeeded(previewImage.value)
     previewImage.value = URL.createObjectURL(file)
   }
 
   onUnmounted(() => {
-    revokePreviewUrl(previewImage)
+    revokeBlobUrlIfNeeded(previewImage.value)
   })
 
   return {
