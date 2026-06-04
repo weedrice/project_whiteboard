@@ -1,4 +1,4 @@
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, type Ref } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { adminApi } from '@/api/admin'
 import { formatDateTimeOrDash } from '@/utils/date'
@@ -45,6 +45,14 @@ function getStatusClass(post: AdminInquirySummary) {
   return post.inquiryAnswered
     ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
     : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+}
+
+const adminInquiryQueryKeys = {
+  list: ['admin', 'inquiry-posts'] as const,
+  listPage: (page: Ref<number>, size: Ref<number>, sort: Ref<string>) =>
+    ['admin', 'inquiry-posts', page, size, sort] as const,
+  detail: (selectedPostId: Ref<number | null>) =>
+    ['admin', 'inquiry-post-detail', selectedPostId] as const,
 }
 
 export function toAdminInquiryListItem(post: AdminInquirySummary): AdminInquiryListItem {
@@ -95,7 +103,7 @@ export function useAdminInquiryPosts() {
     isFetching,
     error,
   } = useQuery({
-    queryKey: ['admin', 'inquiry-posts', page, size, sort],
+    queryKey: adminInquiryQueryKeys.listPage(page, size, sort),
     queryFn: async () => {
       const { data } = await adminApi.getInquiryPosts({
         page: page.value,
@@ -113,7 +121,7 @@ export function useAdminInquiryPosts() {
     isFetching: isDetailFetching,
     error: detailError,
   } = useQuery({
-    queryKey: ['admin', 'inquiry-post-detail', selectedPostId],
+    queryKey: adminInquiryQueryKeys.detail(selectedPostId),
     queryFn: async () => {
       const postId = selectedPostId.value
       if (!postId) {
@@ -138,7 +146,7 @@ export function useAdminInquiryPosts() {
   }
 
   function closeDetail() {
-    queryClient.invalidateQueries({ queryKey: ['admin', 'inquiry-posts'] })
+    queryClient.invalidateQueries({ queryKey: adminInquiryQueryKeys.list })
     selectedPostId.value = null
   }
 
