@@ -1,4 +1,5 @@
 import DOMPurify from 'dompurify'
+import type { Config } from 'dompurify'
 
 /**
  * HTML 콘텐츠를 sanitize하여 XSS 공격을 방지합니다.
@@ -12,7 +13,7 @@ import DOMPurify from 'dompurify'
  * const safeHtml = sanitizeHtml(userInput)
  * ```
  */
-export function sanitizeHtml(html: string, options?: Record<string, unknown>): string {
+export function sanitizeHtml(html: string, options?: Config): string {
     const config = {
         // 기본 옵션: 이미지, 링크, 기본 포맷팅 허용
         ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'a', 'img'],
