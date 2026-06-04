@@ -26,7 +26,6 @@ import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -322,16 +321,7 @@ public class AgentQueryService {
     }
 
     private String toPreview(String content) {
-        if (content == null) {
-            return "";
-        }
-        String plain = InputSanitizer.stripHtml(content).replaceAll("<[^>]*>", " ")
-                .replaceAll("\\s+", " ")
-                .trim();
-        if (plain.length() <= 120) {
-            return plain;
-        }
-        return plain.substring(0, 120);
+        return AgentContentPreviewer.preview(content);
     }
 
     private Pageable boundedPageable(Pageable pageable, int maxPageSize, Sort defaultSort, Set<String> allowedSortProperties) {

@@ -10,7 +10,6 @@ import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
-import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -163,16 +162,7 @@ public class AgentHomeReadModelService {
     }
 
     private String toPreview(String content) {
-        if (content == null) {
-            return "";
-        }
-        String plain = InputSanitizer.stripHtml(content).replaceAll("<[^>]*>", " ")
-                .replaceAll("\\s+", " ")
-                .trim();
-        if (plain.length() <= 120) {
-            return plain;
-        }
-        return plain.substring(0, 120);
+        return AgentContentPreviewer.preview(content);
     }
 
     private boolean hasText(String value) {
