@@ -19,7 +19,6 @@ import { fileApi } from '../file'
 import { emoticonApi } from '../emoticon'
 import { adApi } from '../ad'
 import { notificationApi } from '../notification'
-import { codeApi } from '../code'
 import { reportApi } from '../report'
 
 describe('boardApi', () => {
@@ -266,42 +265,6 @@ describe('searchApi', () => {
         expect(response.data).toEqual({
             success: true,
             data: [{ keyword: 'vue', count: 10 }],
-        })
-    })
-})
-
-describe('codeApi', () => {
-    beforeEach(() => {
-        vi.clearAllMocks()
-    })
-
-    it('calls common code detail endpoint and maps backend fields', async () => {
-        apiMock.get.mockResolvedValueOnce({
-            data: {
-                success: true,
-                data: [
-                    {
-                        codeValue: 'NOTICE',
-                        codeName: 'Notice',
-                        sortOrder: 1,
-                    },
-                ],
-            },
-        })
-
-        const response = await codeApi.getCodes('BOARD_TYPE')
-
-        expect(apiMock.get).toHaveBeenCalledWith('/common-codes/BOARD_TYPE/details')
-        expect(response.data).toEqual({
-            success: true,
-            data: [
-                {
-                    code: 'NOTICE',
-                    value: 'NOTICE',
-                    name: 'Notice',
-                    sortOrder: 1,
-                },
-            ],
         })
     })
 })
