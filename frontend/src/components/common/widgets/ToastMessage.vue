@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-vue-next'
+import type { Component } from 'vue'
 import type { Toast } from '@/stores/toast'
 
 defineProps<{
@@ -10,7 +11,7 @@ const emit = defineEmits<{
   (e: 'close'): void
 }>()
 
-const icons: Record<Toast['type'], any> = {
+const icons: Record<Toast['type'], Component> = {
   success: CheckCircle,
   error: AlertCircle,
   info: Info,
