@@ -111,33 +111,28 @@ public class MqueueService {
     }
 
     private void persistSendResultWithRetry(Long queueId, LocalDateTime leaseStartedAt, boolean sentSuccessfully) {
-        RuntimeException lastException = null;
-        for (int attempt = 1; attempt <= SEND_RESULT_PERSIST_ATTEMPTS; attempt++) {
-            try {
-                transactionTemplate.executeWithoutResult(status ->
-                        persistSendResult(queueId, leaseStartedAt, sentSuccessfully));
-                return;
-            } catch (RuntimeException ex) {
-                lastException = ex;
-                log.error("Failed to persist email send result: queueId={}, attempt={}", queueId, attempt, ex);
-            }
-        }
-        throw lastException;
+        runWithSendResultRetry(
+                queueId,
+                "Failed to persist email send result: queueId={}, attempt={}",
+                () -> persistSendResult(queueId, leaseStartedAt, sentSuccessfully));
     }
 
     private void markDeliveredUnconfirmedWithRetry(Long queueId, LocalDateTime leaseStartedAt) {
+        runWithSendResultRetry(
+                queueId,
+                "Failed to mark email delivery as unconfirmed: queueId={}, attempt={}",
+                () -> markDeliveredUnconfirmed(queueId, leaseStartedAt));
+    }
+
+    private void runWithSendResultRetry(Long queueId, String failureLogMessage, Runnable action) {
         RuntimeException lastException = null;
         for (int attempt = 1; attempt <= SEND_RESULT_PERSIST_ATTEMPTS; attempt++) {
             try {
-                transactionTemplate.executeWithoutResult(status ->
-                        markDeliveredUnconfirmed(queueId, leaseStartedAt));
+                transactionTemplate.executeWithoutResult(status -> action.run());
                 return;
             } catch (RuntimeException ex) {
                 lastException = ex;
-                log.error("Failed to mark email delivery as unconfirmed: queueId={}, attempt={}",
-                        queueId,
-                        attempt,
-                        ex);
+                log.error(failureLogMessage, queueId, attempt, ex);
             }
         }
         throw lastException;
