@@ -29,13 +29,16 @@ function getNotificationPageNumber(data: unknown): number {
 }
 
 const RECENT_NOTIFICATION_ID_LIMIT = 200
+const notificationsQueryKey = ['notifications'] as const
+const notificationListQueryKey = (params: Ref<NotificationParams>) => [...notificationsQueryKey, params] as const
+const notificationUnreadCountQueryKey = [...notificationsQueryKey, 'unread-count'] as const
 
 export function useNotification() {
     const queryClient = useQueryClient()
 
     const useNotifications = (params: Ref<NotificationParams>) => {
         return useQuery({
-            queryKey: ['notifications', params],
+            queryKey: notificationListQueryKey(params),
             queryFn: async () => {
                 const { data } = await notificationApi.getNotifications(params.value)
                 return data.data
@@ -47,7 +50,7 @@ export function useNotification() {
     const useUnreadCount = () => {
         const authStore = useAuthStore()
         return useQuery({
-            queryKey: ['notifications', 'unread-count'],
+            queryKey: notificationUnreadCountQueryKey,
             queryFn: async () => {
                 const { data } = await notificationApi.getUnreadCount()
                 return data.data
@@ -64,8 +67,8 @@ export function useNotification() {
                 return data
             },
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['notifications'] })
-                queryClient.invalidateQueries({ queryKey: ['notifications', 'unread-count'] })
+                queryClient.invalidateQueries({ queryKey: notificationsQueryKey })
+                queryClient.invalidateQueries({ queryKey: notificationUnreadCountQueryKey })
             }
         })
     }
@@ -77,8 +80,8 @@ export function useNotification() {
                 return data
             },
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['notifications'] })
-                queryClient.setQueryData(['notifications', 'unread-count'], 0)
+                queryClient.invalidateQueries({ queryKey: notificationsQueryKey })
+                queryClient.setQueryData(notificationUnreadCountQueryKey, 0)
             }
         })
     }
@@ -122,7 +125,7 @@ export function useNotification() {
 
         let alreadyExistsInFirstPage = false
 
-        queryClient.setQueriesData({ queryKey: ['notifications'] }, (oldData: unknown) => {
+        queryClient.setQueriesData({ queryKey: notificationsQueryKey }, (oldData: unknown) => {
             if (!isNotificationPage(oldData)) return oldData
             if (getNotificationPageNumber(oldData) !== 0) return oldData
 
@@ -154,7 +157,7 @@ export function useNotification() {
             rememberNotificationId(notificationId)
         }
 
-        queryClient.setQueryData(['notifications', 'unread-count'], (old: number | undefined) => (old || 0) + 1)
+        queryClient.setQueryData(notificationUnreadCountQueryKey, (old: number | undefined) => (old || 0) + 1)
     }
 
     const handleSseEvent = (eventType: string, payload: string) => {
