@@ -112,7 +112,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
   if (event.key >= '0' && event.key <= '9') {
     let index = -1
     if (event.key >= '1' && event.key <= '9') {
-      index = parseInt(event.key) - 1
+      index = Number.parseInt(event.key, 10) - 1
     } else if (event.key === '0') {
       index = 9
     }

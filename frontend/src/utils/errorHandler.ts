@@ -39,7 +39,7 @@ interface ApiErrorResponse {
     status?: number
     code?: string
     message?: string
-    data?: any
+    data?: unknown
     details?: ValidationErrors | Record<string, unknown>
 }
 
