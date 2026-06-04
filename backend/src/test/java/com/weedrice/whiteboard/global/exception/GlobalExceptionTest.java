@@ -7,7 +7,9 @@ import org.springframework.http.HttpStatus;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Properties;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -52,6 +54,16 @@ class GlobalExceptionTest {
                     .as("English message key for %s", errorCode.name())
                     .containsKey(errorCode.getMessage());
         }
+    }
+
+    @Test
+    @DisplayName("Every ErrorCode code value is unique")
+    void errorCodeValuesAreUnique() {
+        assertThat(Arrays.stream(ErrorCode.values())
+                .collect(Collectors.groupingBy(ErrorCode::getCode)))
+                .allSatisfy((code, errorCodes) -> assertThat(errorCodes)
+                        .as("ErrorCode code %s", code)
+                        .hasSize(1));
     }
 
     private Properties loadMessages(String resourceName) throws Exception {

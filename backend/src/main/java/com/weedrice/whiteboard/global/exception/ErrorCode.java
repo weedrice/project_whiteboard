@@ -47,7 +47,7 @@ public enum ErrorCode {
     DRAFT_OUTDATED(HttpStatus.CONFLICT, "P004", "error.post.draftOutdated"),
 
     // Comment
-    COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "C001", "error.comment.notFound"),
+    COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "CM001", "error.comment.notFound"),
 
     // Point
     INSUFFICIENT_POINTS(HttpStatus.BAD_REQUEST, "PT001", "error.point.insufficientPoints"),
