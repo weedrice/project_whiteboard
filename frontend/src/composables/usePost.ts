@@ -5,10 +5,21 @@ import type { Post } from '@/types'
 import type { AxiosRequestConfig } from 'axios'
 import { normalizePostReactionFlags, type PostReactionAlias } from '@/utils/postViewModel'
 
+const postQueryKeys = {
+    detailPrefix: (postId: string | number | Ref<string | number>) => ['post', postId] as const,
+    detail: (
+        postId: string | number | Ref<string | number>,
+        incrementView = true,
+    ) => ['post', postId, { incrementView }] as const,
+    lists: ['posts'] as const,
+    boardPrefix: ['board'] as const,
+    boardPosts: (boardUrl: string) => ['board', boardUrl, 'posts'] as const,
+}
+
 export const postDetailQueryKey = (
     postId: string | number | Ref<string | number>,
     incrementView = true,
-) => ['post', postId, { incrementView }] as const
+) => postQueryKeys.detail(postId, incrementView)
 
 export function usePost() {
     const queryClient = useQueryClient()
@@ -29,14 +40,14 @@ export function usePost() {
     // 모든 게시글 캐시(상세, 트렌딩, 게시판 목록)에서 특정 postId의 데이터를 업데이트
     function updatePostInAllCaches(postId: string | number, updater: (post: Partial<Post>) => Partial<Post>) {
         // 1. 게시글 상세 캐시
-        queryClient.setQueriesData<Post>({ queryKey: ['post', postId] }, (old) => {
+        queryClient.setQueriesData<Post>({ queryKey: postQueryKeys.detailPrefix(postId) }, (old) => {
             if (!old) return old
             return updater(old) as Post
         })
 
         // 2. 트렌딩 피드 등 게시글 목록 캐시 (InfiniteQuery 구조)
         queryClient.setQueriesData<InfiniteQueryData>(
-            { queryKey: ['posts'] },
+            { queryKey: postQueryKeys.lists },
             (old) => {
                 if (!old?.pages) return old
                 return {
@@ -54,7 +65,7 @@ export function usePost() {
         )
 
         // 3. 게시판별 게시글 목록 캐시
-        queryClient.getQueriesData({ queryKey: ['board'] }).forEach(([key]) => {
+        queryClient.getQueriesData({ queryKey: postQueryKeys.boardPrefix }).forEach(([key]) => {
             const keyArr = key as unknown[]
             if (!keyArr.includes('posts')) return
             queryClient.setQueryData(key, (old: InfiniteQueryData | PageQueryData | undefined) => {
@@ -90,9 +101,9 @@ export function usePost() {
     // 롤백을 위한 스냅샷 저장
     function savePostCacheSnapshots(postId: string | number) {
         return {
-            postDetailQueries: queryClient.getQueriesData({ queryKey: ['post', postId] }),
-            postsQueries: queryClient.getQueriesData({ queryKey: ['posts'] }),
-            boardQueries: queryClient.getQueriesData({ queryKey: ['board'] })
+            postDetailQueries: queryClient.getQueriesData({ queryKey: postQueryKeys.detailPrefix(postId) }),
+            postsQueries: queryClient.getQueriesData({ queryKey: postQueryKeys.lists }),
+            boardQueries: queryClient.getQueriesData({ queryKey: postQueryKeys.boardPrefix })
                 .filter(([key]) => (key as unknown[]).includes('posts'))
         }
     }
@@ -115,8 +126,8 @@ export function usePost() {
 
     // 관련 캐시 무효화 (서버 상태와 동기화)
     function invalidatePostCaches(postId: string | number) {
-        queryClient.invalidateQueries({ queryKey: ['post', postId] })
-        queryClient.invalidateQueries({ queryKey: ['posts'] })
+        queryClient.invalidateQueries({ queryKey: postQueryKeys.detailPrefix(postId) })
+        queryClient.invalidateQueries({ queryKey: postQueryKeys.lists })
         queryClient.invalidateQueries({
             predicate: (query) => {
                 const key = query.queryKey
@@ -152,7 +163,7 @@ export function usePost() {
                 return await postApi.createPost(boardUrl, data)
             },
             onSuccess: (_, { boardUrl }) => {
-                queryClient.invalidateQueries({ queryKey: ['board', boardUrl, 'posts'] })
+                queryClient.invalidateQueries({ queryKey: postQueryKeys.boardPosts(boardUrl) })
             }
         })
     }
@@ -178,7 +189,7 @@ export function usePost() {
             onSuccess: () => {
                 // Invalidate relevant queries (e.g., board posts)
                 // Note: We might need boardUrl to be more specific, but 'posts' key usually includes boardUrl
-                queryClient.invalidateQueries({ queryKey: ['board'] })
+                queryClient.invalidateQueries({ queryKey: postQueryKeys.boardPrefix })
             }
         })
     }
@@ -190,8 +201,8 @@ export function usePost() {
                 return await postApi.likePost(postId)
             },
             onMutate: async (postId) => {
-                await queryClient.cancelQueries({ queryKey: ['post', postId] })
-                await queryClient.cancelQueries({ queryKey: ['posts'] })
+                await queryClient.cancelQueries({ queryKey: postQueryKeys.detailPrefix(postId) })
+                await queryClient.cancelQueries({ queryKey: postQueryKeys.lists })
                 const snapshots = savePostCacheSnapshots(postId)
 
                 updatePostInAllCaches(postId, (old) => ({
@@ -220,8 +231,8 @@ export function usePost() {
                 return await postApi.unlikePost(postId)
             },
             onMutate: async (postId) => {
-                await queryClient.cancelQueries({ queryKey: ['post', postId] })
-                await queryClient.cancelQueries({ queryKey: ['posts'] })
+                await queryClient.cancelQueries({ queryKey: postQueryKeys.detailPrefix(postId) })
+                await queryClient.cancelQueries({ queryKey: postQueryKeys.lists })
                 const snapshots = savePostCacheSnapshots(postId)
 
                 updatePostInAllCaches(postId, (old) => ({
@@ -250,8 +261,8 @@ export function usePost() {
                 return await postApi.scrapPost(postId)
             },
             onMutate: async (postId) => {
-                await queryClient.cancelQueries({ queryKey: ['post', postId] })
-                await queryClient.cancelQueries({ queryKey: ['posts'] })
+                await queryClient.cancelQueries({ queryKey: postQueryKeys.detailPrefix(postId) })
+                await queryClient.cancelQueries({ queryKey: postQueryKeys.lists })
                 const snapshots = savePostCacheSnapshots(postId)
 
                 updatePostInAllCaches(postId, (old) => ({
@@ -279,8 +290,8 @@ export function usePost() {
                 return await postApi.unscrapPost(postId)
             },
             onMutate: async (postId) => {
-                await queryClient.cancelQueries({ queryKey: ['post', postId] })
-                await queryClient.cancelQueries({ queryKey: ['posts'] })
+                await queryClient.cancelQueries({ queryKey: postQueryKeys.detailPrefix(postId) })
+                await queryClient.cancelQueries({ queryKey: postQueryKeys.lists })
                 const snapshots = savePostCacheSnapshots(postId)
 
                 updatePostInAllCaches(postId, (old) => ({
