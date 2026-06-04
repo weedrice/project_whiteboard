@@ -10,6 +10,7 @@ import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.weedrice.whiteboard.domain.admin.entity.QAdmin;
+import com.weedrice.whiteboard.domain.admin.entity.AdminRoles;
 import com.weedrice.whiteboard.domain.comment.entity.QComment;
 import com.weedrice.whiteboard.domain.post.entity.QPost;
 import com.weedrice.whiteboard.domain.user.dto.UserAdminSearchCondition;
@@ -37,9 +38,6 @@ import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 public class UserRepositoryCustomImpl implements UserRepositoryCustom {
-
-    private static final String ADMIN_ROLE_ADMIN = "ADMIN";
-    private static final String ADMIN_ROLE_MODERATOR = "MODERATOR";
 
     private final JPAQueryFactory queryFactory;
 
@@ -272,10 +270,10 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
                         .and(hasActiveAdmin(user).not());
                 break;
             case Role.BOARD_ADMIN:
-            case ADMIN_ROLE_MODERATOR:
+            case AdminRoles.MODERATOR:
                 builder.and(hasActiveAdminRole(user, role));
                 break;
-            case ADMIN_ROLE_ADMIN:
+            case AdminRoles.ADMIN:
                 builder.and(hasActiveAdmin(user));
                 break;
             default:
@@ -296,11 +294,11 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
                 clauses.add("not exists (select 1 from admins a where a.user_id = u.user_id and a.is_active = 'Y')");
                 break;
             case Role.BOARD_ADMIN:
-            case ADMIN_ROLE_MODERATOR:
+            case AdminRoles.MODERATOR:
                 clauses.add("exists (select 1 from admins a where a.user_id = u.user_id and a.is_active = 'Y' and a.role = :role)");
                 params.put("role", role);
                 break;
-            case ADMIN_ROLE_ADMIN:
+            case AdminRoles.ADMIN:
                 clauses.add("exists (select 1 from admins a where a.user_id = u.user_id and a.is_active = 'Y')");
                 break;
             default:

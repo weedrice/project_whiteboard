@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
+import com.weedrice.whiteboard.domain.admin.entity.AdminRoles;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.admin.service.AdminRolePriority;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
@@ -44,14 +45,12 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class UserAdminQueryService {
 
-    private static final String ADMIN_ROLE_ADMIN = "ADMIN";
-    private static final String ADMIN_ROLE_MODERATOR = "MODERATOR";
     private static final Set<String> ALLOWED_ROLES = Set.of(
             Role.SUPER_ADMIN,
             Role.USER,
             Role.BOARD_ADMIN,
-            ADMIN_ROLE_MODERATOR,
-            ADMIN_ROLE_ADMIN);
+            AdminRoles.MODERATOR,
+            AdminRoles.ADMIN);
     private static final Set<String> ALLOWED_STATUSES = Set.of(
             User.STATUS_ACTIVE,
             User.STATUS_SUSPENDED,
