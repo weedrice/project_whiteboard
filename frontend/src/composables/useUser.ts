@@ -4,6 +4,7 @@ import { computed, type Ref } from 'vue'
 import type { UserSettings } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import type { AxiosRequestConfig } from 'axios'
+import { withQuerySignal } from '@/utils/querySignal'
 
 interface PasswordUpdateData {
     currentPassword: string
@@ -16,13 +17,6 @@ interface PaginationParams {
 }
 
 export const userSettingsQueryKey = ['user', 'settings'] as const
-
-function withQuerySignal(config: AxiosRequestConfig | undefined, queryContext?: QueryFunctionContext): AxiosRequestConfig {
-    return {
-        ...config,
-        signal: config?.signal ?? queryContext?.signal,
-    }
-}
 
 export const createMyProfileQueryOptions = (config?: AxiosRequestConfig) => ({
     queryKey: ['user', 'me'] as const,

@@ -1,18 +1,11 @@
 import { computed, type Ref } from 'vue'
 import { useQuery, type QueryFunctionContext } from '@tanstack/vue-query'
 import { reportApi } from '@/api/report'
-import type { AxiosRequestConfig } from 'axios'
+import { withQuerySignal } from '@/utils/querySignal'
 
 interface PaginationParams {
   page?: number
   size?: number
-}
-
-function withQuerySignal(config: AxiosRequestConfig | undefined, queryContext?: QueryFunctionContext): AxiosRequestConfig {
-  return {
-    ...config,
-    signal: config?.signal ?? queryContext?.signal,
-  }
 }
 
 export function useReport() {
