@@ -10,9 +10,13 @@ import type { Notification, PageResponse } from '@/types'
 import { type Ref, computed } from 'vue'
 import logger from '@/utils/logger'
 import { useAuthStore } from '@/stores/auth'
+import { isCancellationError } from '@/utils/cancellationError'
 
 function isAbortError(error: unknown): boolean {
-    return error instanceof DOMException && error.name === 'AbortError'
+    return isCancellationError(error, {
+        names: ['AbortError'],
+        requireDomException: true,
+    })
 }
 
 function isNotificationPage(data: unknown): data is PageResponse<Notification> {

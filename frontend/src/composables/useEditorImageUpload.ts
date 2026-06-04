@@ -1,6 +1,7 @@
 import { ref, onBeforeUnmount } from 'vue'
 import { fileApi } from '@/api/file'
 import { validateImageFile as validateGenericImageFile } from '@/utils/imageFile'
+import { isCancellationError } from '@/utils/cancellationError'
 
 const DEFAULT_MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
 const ALLOWED_IMAGE_MIME_TYPES = new Set([
@@ -13,12 +14,10 @@ const ALLOWED_IMAGE_MIME_TYPES = new Set([
 const ALLOWED_IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp'])
 
 function isAbortUploadError(error: unknown): boolean {
-    const maybeError = error as { name?: string; code?: string }
-    return (
-        maybeError?.name === 'AbortError'
-        || maybeError?.name === 'CanceledError'
-        || maybeError?.code === 'ERR_CANCELED'
-    )
+    return isCancellationError(error, {
+        names: ['AbortError', 'CanceledError'],
+        codes: ['ERR_CANCELED'],
+    })
 }
 
 export function useEditorImageUpload(maxImageSizeBytes = DEFAULT_MAX_IMAGE_SIZE_BYTES) {

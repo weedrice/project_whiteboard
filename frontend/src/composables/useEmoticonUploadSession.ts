@@ -1,4 +1,5 @@
 import { computed, onUnmounted, ref } from 'vue'
+import { isCancellationError } from '@/utils/cancellationError'
 
 export function useEmoticonUploadSession() {
   const uploadProgress = ref({ current: 0, total: 0 })
@@ -9,16 +10,10 @@ export function useEmoticonUploadSession() {
   const createUploadCancelledError = () => new DOMException('Upload has been cancelled', 'AbortError')
 
   const isUploadCancelledError = (error: unknown) => {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      return true
-    }
-
-    if (typeof error !== 'object' || error === null) {
-      return false
-    }
-
-    const maybeCancelledError = error as { code?: string; name?: string }
-    return maybeCancelledError.code === 'ERR_CANCELED' || maybeCancelledError.name === 'AbortError'
+    return isCancellationError(error, {
+      names: ['AbortError'],
+      codes: ['ERR_CANCELED'],
+    })
   }
 
   const abortPendingUploads = () => {
