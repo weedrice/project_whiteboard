@@ -16,6 +16,7 @@ import NetworkStatus from '@/components/common/NetworkStatus.vue'
 import logger from '@/utils/logger'
 import { useGlobalShortcuts } from '@/composables/useGlobalShortcuts'
 import { BOARD_DETAIL_SEARCH_INPUT_ID } from '@/composables/useBoardDetailNavigation'
+import { userSettingsQueryKey } from '@/composables/useUser'
 import { UserSettings } from '@/types/user'
 import { useHead } from '@unhead/vue'
 
@@ -134,7 +135,7 @@ const loadSettings = async () => {
 
     try {
         const settings = await queryClient.fetchQuery({
-            queryKey: ['user', 'settings'],
+            queryKey: userSettingsQueryKey,
             queryFn: async () => {
                 const { data } = await userApi.getUserSettings()
                 return data.success ? data.data : null
@@ -152,7 +153,7 @@ watch(() => authStore.isAuthenticated, (newVal) => {
     if (newVal) {
         loadSettings()
     } else {
-        queryClient.removeQueries({ queryKey: ['user', 'settings'] })
+        queryClient.removeQueries({ queryKey: userSettingsQueryKey })
         // On logout, restore theme from localStorage (theme store will read it on next access)
         // Don't force LIGHT theme to preserve user's localStorage preference
         const storedTheme = localStorage.getItem('theme')

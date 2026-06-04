@@ -15,6 +15,8 @@ interface PaginationParams {
     size?: number
 }
 
+export const userSettingsQueryKey = ['user', 'settings'] as const
+
 function withQuerySignal(config: AxiosRequestConfig | undefined, queryContext?: QueryFunctionContext): AxiosRequestConfig {
     return {
         ...config,
@@ -62,7 +64,7 @@ export function useUser() {
 
     const useUserSettings = () => {
         return useQuery({
-            queryKey: ['user', 'settings'],
+            queryKey: userSettingsQueryKey,
             queryFn: async () => {
                 const { data } = await userApi.getUserSettings()
                 return data.data
@@ -170,7 +172,7 @@ export function useUser() {
                 return res
             },
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['user', 'settings'] })
+                queryClient.invalidateQueries({ queryKey: userSettingsQueryKey })
             }
         })
     }
