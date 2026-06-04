@@ -42,6 +42,28 @@ interface UseAdminUserDetailTabsOptions {
     tabSize?: number
 }
 
+interface PageNavigationState {
+    number: number
+    totalPages: number
+}
+
+function movePage(
+    page: Ref<number>,
+    pageData: Ref<PageNavigationState | null | undefined>,
+    direction: -1 | 1
+) {
+    const currentPage = pageData.value
+    if (!currentPage) return
+
+    if (direction < 0 && currentPage.number > 0) {
+        page.value -= 1
+    }
+
+    if (direction > 0 && currentPage.number + 1 < currentPage.totalPages) {
+        page.value += 1
+    }
+}
+
 function getAgentBadgeLabel(item: { authorType: 'USER' | 'AGENT', agentName?: string | null, agentId?: number | null }) {
     if (item.authorType !== 'AGENT') return null
     return `Agent ${item.agentName || item.agentId}`
@@ -184,33 +206,27 @@ export function useAdminUserDetailTabs({
     })
 
     function prevPostsPage() {
-        if (!userPosts.value) return
-        if (userPosts.value.number > 0) postsPage.value -= 1
+        movePage(postsPage, userPosts, -1)
     }
 
     function nextPostsPage() {
-        if (!userPosts.value) return
-        if (userPosts.value.number + 1 < userPosts.value.totalPages) postsPage.value += 1
+        movePage(postsPage, userPosts, 1)
     }
 
     function prevCommentsPage() {
-        if (!userComments.value) return
-        if (userComments.value.number > 0) commentsPage.value -= 1
+        movePage(commentsPage, userComments, -1)
     }
 
     function nextCommentsPage() {
-        if (!userComments.value) return
-        if (userComments.value.number + 1 < userComments.value.totalPages) commentsPage.value += 1
+        movePage(commentsPage, userComments, 1)
     }
 
     function prevSubscriptionsPage() {
-        if (!userSubscriptions.value) return
-        if (userSubscriptions.value.number > 0) subscriptionsPage.value -= 1
+        movePage(subscriptionsPage, userSubscriptions, -1)
     }
 
     function nextSubscriptionsPage() {
-        if (!userSubscriptions.value) return
-        if (userSubscriptions.value.number + 1 < userSubscriptions.value.totalPages) subscriptionsPage.value += 1
+        movePage(subscriptionsPage, userSubscriptions, 1)
     }
 
     return {
