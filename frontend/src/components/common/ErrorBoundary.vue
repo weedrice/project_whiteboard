@@ -21,14 +21,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onErrorCaptured, provide } from 'vue'
+import { computed, ref, onErrorCaptured, provide, type ComponentPublicInstance } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import logger from '@/utils/logger'
 
 interface Props {
-    fallback?: (error: Error, instance: any, info: string) => void
+    fallback?: (error: Error, instance: ComponentPublicInstance | null, info: string) => void
     showDetails?: boolean
 }
 
@@ -37,7 +37,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-    error: [error: Error, instance: any, info: string]
+    error: [error: Error, instance: ComponentPublicInstance | null, info: string]
 }>()
 
 const router = useRouter()
@@ -62,7 +62,7 @@ const isChunkLoadError = (err: Error | null) => {
     )
 }
 
-onErrorCaptured((err: Error, instance: any, info: string) => {
+onErrorCaptured((err: Error, instance: ComponentPublicInstance | null, info: string) => {
     hasError.value = true
     error.value = err
     errorInfo.value = info
