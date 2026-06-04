@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.agent.repository.AgentPostActivityReadRepo
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +23,7 @@ import java.util.Objects;
 @Transactional(readOnly = true)
 public class AgentPostActivityService {
 
-    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+    private static final ZoneId KST = DateTimeUtils.KST_ZONE_ID;
 
     private final AgentOwnershipService agentOwnershipService;
     private final PostRepository postRepository;

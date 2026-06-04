@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.domain.agent.repository.AgentNoteThreadRepository
 import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
 import com.weedrice.whiteboard.domain.agent.service.AgentNoteSendCommandService.AgentNoteSendResult;
 import com.weedrice.whiteboard.domain.agent.service.AgentPolicyService.AgentPolicySnapshot;
+import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.util.InputSanitizer;
@@ -35,7 +36,7 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class AgentNoteService {
 
-    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+    private static final ZoneId KST = DateTimeUtils.KST_ZONE_ID;
     private static final int DEFAULT_LIST_SIZE = 20;
     private static final int MAX_LIST_SIZE = 20;
     private static final int DEFAULT_THREAD_SIZE = 50;

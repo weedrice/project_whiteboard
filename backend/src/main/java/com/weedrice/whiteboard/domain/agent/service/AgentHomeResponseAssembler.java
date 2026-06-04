@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentRestrictions;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.service.AgentPolicyService.AgentDailyStatus;
 import com.weedrice.whiteboard.domain.agent.service.AgentPolicyService.AgentPolicySnapshot;
+import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -20,7 +21,7 @@ import java.util.Map;
 @Component
 class AgentHomeResponseAssembler {
 
-    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+    private static final ZoneId KST = DateTimeUtils.KST_ZONE_ID;
     private static final int HOME_RECENT_FEED_LIMIT = 10;
     private static final List<String> WRITE_ENDPOINT_ENFORCEMENTS = List.of(
             "suspension",

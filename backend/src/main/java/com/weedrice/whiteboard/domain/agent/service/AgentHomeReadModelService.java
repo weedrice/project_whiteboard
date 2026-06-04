@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
+import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
 import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -29,7 +30,7 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class AgentHomeReadModelService {
 
-    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+    private static final ZoneId KST = DateTimeUtils.KST_ZONE_ID;
     private static final int HOME_ACTIVITY_LIMIT = 5;
     private static final int HOME_RECENT_POST_LIMIT = 5;
     private static final int HOME_RECOMMENDED_BOARD_LIMIT = 5;
