@@ -18,13 +18,6 @@ import java.util.Objects;
 @Service
 class BoardCommandService {
 
-    private static final String BOARD_NAME_CONSTRAINT = "uk_boards_board_name";
-    private static final String BOARD_URL_CONSTRAINT = "uk_boards_board_url";
-    private static final String LEGACY_BOARD_NAME_CONSTRAINT = "boards_board_name_key";
-    private static final String LEGACY_BOARD_URL_CONSTRAINT = "boards_board_url_key";
-    private static final String BOARD_NAME_COLUMN = "board_name";
-    private static final String BOARD_URL_COLUMN = "board_url";
-
     private final BoardRepository boardRepository;
     private final UserRepository userRepository;
     private final AdminEligibleUserService adminEligibleUserService;
@@ -118,29 +111,13 @@ class BoardCommandService {
     }
 
     private BusinessException resolveBoardConflict(DataIntegrityViolationException ex) {
-        if (containsBoardUrlConstraint(ex)) {
+        if (ConstraintNameMatcher.containsBoardUrlConstraint(ex)) {
             return new BusinessException(ErrorCode.DUPLICATE_BOARD_URL);
         }
-        if (containsBoardNameConstraint(ex)) {
+        if (ConstraintNameMatcher.containsBoardNameConstraint(ex)) {
             return new BusinessException(ErrorCode.DUPLICATE_BOARD_NAME);
         }
         return new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
-    }
-
-    private boolean containsBoardNameConstraint(Throwable throwable) {
-        return ConstraintNameMatcher.containsConstraint(
-                throwable,
-                BOARD_NAME_CONSTRAINT,
-                LEGACY_BOARD_NAME_CONSTRAINT,
-                BOARD_NAME_COLUMN);
-    }
-
-    private boolean containsBoardUrlConstraint(Throwable throwable) {
-        return ConstraintNameMatcher.containsConstraint(
-                throwable,
-                BOARD_URL_CONSTRAINT,
-                LEGACY_BOARD_URL_CONSTRAINT,
-                BOARD_URL_COLUMN);
     }
 
     private void validateCreatableBoardUrl(String boardUrl) {
