@@ -11,6 +11,8 @@ interface UseEmoticonEditResourceOptions {
 type EmoticonDetailQueryKeyId = ComputedRef<number> | number
 
 export const emoticonDetailQueryKey = (emoticonId: EmoticonDetailQueryKeyId) => ['emoticon', emoticonId] as const
+export const emoticonPurchaseStatusQueryKey = (emoticonId: EmoticonDetailQueryKeyId) => ['emoticon', emoticonId, 'purchased'] as const
+export const emoticonListQueryKey = ['emoticons'] as const
 
 export interface EmoticonEditFormState {
   emoticonId: number

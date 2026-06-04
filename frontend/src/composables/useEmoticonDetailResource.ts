@@ -7,6 +7,10 @@ import { useToastStore } from '@/stores/toast'
 import { useToggleEmoticonVisibility } from '@/composables/useToggleEmoticonVisibility'
 import { useEmoticonPermissions } from '@/composables/useEmoticonPermissions'
 import { useEmoticonDetailViewModel } from '@/composables/useEmoticonDetailViewModel'
+import {
+  emoticonDetailQueryKey,
+  emoticonPurchaseStatusQueryKey,
+} from '@/composables/useEmoticonEditResource'
 import { extractErrorMessage } from '@/utils/errorHandler'
 
 export function useEmoticonDetailResource(emoticonId: ComputedRef<number>) {
@@ -16,7 +20,7 @@ export function useEmoticonDetailResource(emoticonId: ComputedRef<number>) {
   const toastStore = useToastStore()
 
   const { data: emoticon, isLoading, error } = useQuery({
-    queryKey: ['emoticon', emoticonId],
+    queryKey: emoticonDetailQueryKey(emoticonId),
     queryFn: async () => {
       return emoticonApi.getEmoticonData(emoticonId.value)
     },
@@ -28,7 +32,7 @@ export function useEmoticonDetailResource(emoticonId: ComputedRef<number>) {
     isLoading: isPurchaseStatusLoading,
     isFetching: isPurchaseStatusFetching,
   } = useQuery({
-    queryKey: ['emoticon', emoticonId, 'purchased'],
+    queryKey: emoticonPurchaseStatusQueryKey(emoticonId),
     queryFn: async () => {
       return emoticonApi.checkPurchaseStatusData(emoticonId.value)
     },
@@ -41,8 +45,8 @@ export function useEmoticonDetailResource(emoticonId: ComputedRef<number>) {
     mutationFn: () => emoticonApi.purchaseEmoticon(emoticonId.value),
     onSuccess: () => {
       toastStore.addToast(t('emoticon.purchase.success'), 'success')
-      queryClient.invalidateQueries({ queryKey: ['emoticon', emoticonId] })
-      queryClient.invalidateQueries({ queryKey: ['emoticon', emoticonId, 'purchased'] })
+      queryClient.invalidateQueries({ queryKey: emoticonDetailQueryKey(emoticonId) })
+      queryClient.invalidateQueries({ queryKey: emoticonPurchaseStatusQueryKey(emoticonId) })
       queryClient.invalidateQueries({ queryKey: ['user', 'points'] })
     },
     onError: (error: unknown) => {

@@ -4,6 +4,11 @@ import { useI18n } from 'vue-i18n'
 import { emoticonApi } from '@/api/emoticon'
 import { useToastStore } from '@/stores/toast'
 import { extractErrorMessage } from '@/utils/errorHandler'
+import {
+  emoticonDetailQueryKey,
+  emoticonListQueryKey,
+  emoticonPurchaseStatusQueryKey,
+} from '@/composables/useEmoticonEditResource'
 
 interface UseToggleEmoticonVisibilityOptions {
   invalidatePurchaseStatus?: boolean
@@ -25,11 +30,11 @@ export function useToggleEmoticonVisibility(
         isNowActive ? t('emoticon.visibility.showSuccess') : t('emoticon.visibility.hiddenSuccess'),
         'success'
       )
-      queryClient.invalidateQueries({ queryKey: ['emoticon', emoticonId] })
+      queryClient.invalidateQueries({ queryKey: emoticonDetailQueryKey(emoticonId) })
       if (options.invalidatePurchaseStatus) {
-        queryClient.invalidateQueries({ queryKey: ['emoticon', emoticonId, 'purchased'] })
+        queryClient.invalidateQueries({ queryKey: emoticonPurchaseStatusQueryKey(emoticonId) })
       }
-      queryClient.invalidateQueries({ queryKey: ['emoticons'] })
+      queryClient.invalidateQueries({ queryKey: emoticonListQueryKey })
     },
     onError: (err: unknown) => {
       const message = extractErrorMessage(err) || t('emoticon.edit.failed')

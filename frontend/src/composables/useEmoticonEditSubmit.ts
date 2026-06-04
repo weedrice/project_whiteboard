@@ -5,6 +5,7 @@ import type { EmoticonImagePreview } from '@/utils/emoticonImage'
 import { useEmoticonImageUploader } from '@/composables/useEmoticonImageUploader'
 import { useEmoticonSubmitGuard } from '@/composables/useEmoticonSubmitGuard'
 import type { useEmoticonUploadSession } from '@/composables/useEmoticonUploadSession'
+import { emoticonDetailQueryKey, emoticonListQueryKey } from '@/composables/useEmoticonEditResource'
 
 type EmoticonUploadSession = ReturnType<typeof useEmoticonUploadSession>
 
@@ -98,8 +99,8 @@ export function useEmoticonEditSubmit({
     })
     uploadSession.assertSubmitActive(currentRunId)
 
-    queryClient.invalidateQueries({ queryKey: ['emoticon', emoticonId] })
-    queryClient.invalidateQueries({ queryKey: ['emoticons'] })
+    queryClient.invalidateQueries({ queryKey: emoticonDetailQueryKey(emoticonId) })
+    queryClient.invalidateQueries({ queryKey: emoticonListQueryKey })
 
     onSuccess()
   })
