@@ -16,10 +16,26 @@ interface PaginationParams {
     size?: number
 }
 
-export const userSettingsQueryKey = ['user', 'settings'] as const
+const userQueryKeys = {
+    me: ['user', 'me'] as const,
+    profile: (userId: Ref<string | number>) => ['user', userId] as const,
+    settings: ['user', 'settings'] as const,
+    blocksRoot: ['user', 'blocks'] as const,
+    blocks: (params?: Ref<PaginationParams>) => computed(() => ['user', 'blocks', params?.value ?? {}] as const),
+    notificationSettings: ['user', 'notification-settings'] as const,
+    agents: ['user', 'agents'] as const,
+    myPoints: (userIdentity?: Ref<string | number | null | undefined>) =>
+        computed(() => ['user', 'points', 'me', userIdentity?.value ?? 'anonymous'] as const),
+    scraps: (params?: Ref<PaginationParams>) => computed(() => ['user', 'scraps', params?.value ?? {}] as const),
+    pointHistories: (params?: Ref<PaginationParams>) =>
+        computed(() => ['user', 'points', 'history', params?.value ?? {}] as const),
+    recentlyViewedPosts: (params?: Ref<PaginationParams>) => ['user', 'history', 'views', params] as const,
+}
+
+export const userSettingsQueryKey = userQueryKeys.settings
 
 export const createMyProfileQueryOptions = (config?: AxiosRequestConfig) => ({
-    queryKey: ['user', 'me'] as const,
+    queryKey: userQueryKeys.me,
     queryFn: async (context: QueryFunctionContext) => {
         const { data } = await userApi.getMyProfile(withQuerySignal(config, context))
         return data.data
@@ -28,7 +44,7 @@ export const createMyProfileQueryOptions = (config?: AxiosRequestConfig) => ({
 })
 
 export const createMyAgentsQueryOptions = (config?: AxiosRequestConfig) => ({
-    queryKey: ['user', 'agents'] as const,
+    queryKey: userQueryKeys.agents,
     queryFn: async (context: QueryFunctionContext) => {
         const { data } = await userApi.getMyAgents(withQuerySignal(config, context))
         return data.data
@@ -47,7 +63,7 @@ export function useUser() {
 
     const useUserProfile = (userId: Ref<string | number>) => {
         return useQuery({
-            queryKey: ['user', userId],
+            queryKey: userQueryKeys.profile(userId),
             queryFn: async () => {
                 const { data } = await userApi.getUserProfile(userId.value)
                 return data.data
@@ -69,7 +85,7 @@ export function useUser() {
 
     const useBlockList = (params?: Ref<PaginationParams>) => {
         return useQuery({
-            queryKey: computed(() => ['user', 'blocks', params?.value ?? {}]),
+            queryKey: userQueryKeys.blocks(params),
             queryFn: async () => {
                 const { data } = await userApi.getBlockList(params?.value)
                 return data.data
@@ -79,7 +95,7 @@ export function useUser() {
 
     const useNotificationSettings = () => {
         return useQuery({
-            queryKey: ['user', 'notification-settings'],
+            queryKey: userQueryKeys.notificationSettings,
             queryFn: async () => {
                 const { data } = await userApi.getNotificationSettings()
                 return data.data
@@ -93,7 +109,7 @@ export function useUser() {
 
     const useMyPoint = (enabled?: Ref<boolean>, userIdentity?: Ref<string | number | null | undefined>) => {
         return useQuery({
-            queryKey: computed(() => ['user', 'points', 'me', userIdentity?.value ?? 'anonymous']),
+            queryKey: userQueryKeys.myPoints(userIdentity),
             queryFn: async () => {
                 const { data } = await userApi.getMyPoint()
                 return data.data
@@ -105,7 +121,7 @@ export function useUser() {
 
     const useMyScraps = (params?: Ref<PaginationParams>) => {
         return useQuery({
-            queryKey: computed(() => ['user', 'scraps', params?.value ?? {}]),
+            queryKey: userQueryKeys.scraps(params),
             queryFn: async (context: QueryFunctionContext) => {
                 const { data } = await userApi.getMyScraps(params?.value ?? {}, withQuerySignal(undefined, context))
                 return data.data
@@ -115,7 +131,7 @@ export function useUser() {
 
     const useMyPointHistories = (params?: Ref<PaginationParams>) => {
         return useQuery({
-            queryKey: computed(() => ['user', 'points', 'history', params?.value ?? {}]),
+            queryKey: userQueryKeys.pointHistories(params),
             queryFn: async (context: QueryFunctionContext) => {
                 const { data } = await userApi.getMyPointHistories(params?.value ?? {}, withQuerySignal(undefined, context))
                 return data.data
@@ -132,7 +148,7 @@ export function useUser() {
                 return res
             },
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['user', 'me'] })
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.me })
             }
         })
     }
@@ -178,7 +194,7 @@ export function useUser() {
                 return res
             },
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['user', 'notification-settings'] })
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.notificationSettings })
             }
         })
     }
@@ -190,7 +206,7 @@ export function useUser() {
                 return data
             },
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['user', 'agents'] })
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.agents })
             }
         })
     }
@@ -202,7 +218,7 @@ export function useUser() {
                 return data
             },
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['user', 'agents'] })
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.agents })
             }
         })
     }
@@ -214,7 +230,7 @@ export function useUser() {
                 return data
             },
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['user', 'agents'] })
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.agents })
             }
         })
     }
@@ -226,7 +242,7 @@ export function useUser() {
                 return data
             },
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['user', 'agents'] })
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.agents })
             }
         })
     }
@@ -238,7 +254,7 @@ export function useUser() {
                 return data
             },
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['user', 'blocks'] })
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.blocksRoot })
             }
         })
     }
@@ -250,14 +266,14 @@ export function useUser() {
                 return data
             },
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['user', 'blocks'] })
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.blocksRoot })
             }
         })
     }
 
     const useRecentlyViewedPosts = (params?: Ref<PaginationParams>) => {
         return useQuery({
-            queryKey: ['user', 'history', 'views', params],
+            queryKey: userQueryKeys.recentlyViewedPosts(params),
             queryFn: async () => {
                 const { data } = await userApi.getRecentlyViewedPosts(params?.value || {})
                 return data.data
