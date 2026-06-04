@@ -3,6 +3,7 @@ import { searchApi } from '@/api/search'
 import type { BoardSearchItem, IntegratedSearchResponse, IntegratedSearchResultGroup, PostSummary, SearchParams } from '@/types'
 import { computed, type Ref } from 'vue'
 import { QUERY_STALE_TIME } from '@/utils/constants'
+import { searchQueryKeys } from '@/composables/searchQueryKeys'
 
 const hasSearchText = (value?: string) => !!value?.trim()
 
@@ -40,7 +41,7 @@ export function useSearch() {
 
     const useSearchPosts = (params: Ref<SearchParams>) => {
         return useQuery({
-            queryKey: ['search', 'posts', params],
+            queryKey: searchQueryKeys.posts(params),
             queryFn: async () => {
                 const { data } = await searchApi.searchPosts(params.value)
                 return data.data
@@ -52,7 +53,7 @@ export function useSearch() {
 
     const useIntegratedSearch = (params: Ref<SearchParams>) => {
         return useQuery({
-            queryKey: ['search', 'integrated', params],
+            queryKey: searchQueryKeys.integrated(params),
             queryFn: async () => {
                 const { data } = await searchApi.search(params.value)
                 return toSearchPageViewModel(data.data)
@@ -64,7 +65,7 @@ export function useSearch() {
 
     const usePopularKeywords = () => {
         return useQuery({
-            queryKey: ['search', 'popular'],
+            queryKey: searchQueryKeys.popular,
             queryFn: async () => {
                 const { data } = await searchApi.getPopularKeywords()
                 return data.data

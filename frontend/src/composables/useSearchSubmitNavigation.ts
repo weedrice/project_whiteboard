@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/vue-query'
 import { useRoute, useRouter } from 'vue-router'
+import { searchQueryKeys } from '@/composables/searchQueryKeys'
 
 interface UseSearchSubmitNavigationOptions {
   getCurrentSearchQuery?: () => string
@@ -23,7 +24,7 @@ export function useSearchSubmitNavigation(options: UseSearchSubmitNavigationOpti
 
     const currentQuery = options.getCurrentSearchQuery?.() ?? firstQueryValue(route.query.q).trim()
     if (route.name === 'search' && currentQuery === q) {
-      queryClient.invalidateQueries({ queryKey: ['search', 'integrated'] })
+      queryClient.invalidateQueries({ queryKey: searchQueryKeys.integratedAll })
       return true
     }
 
