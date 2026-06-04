@@ -45,7 +45,7 @@ public class LoggingAspect {
             method = request.getMethod();
             uri = request.getRequestURI();
             String queryString = request.getQueryString();
-            String fullUri = queryString != null ? uri + "?" + queryString : uri;
+            String fullUri = requestUriForLog(uri, queryString);
             
             // MDC에 추가 정보 설정
             MDC.put("method", method);
@@ -98,5 +98,9 @@ public class LoggingAspect {
         
         String paramsString = Arrays.toString(args);
         return SensitiveDataMaskingFilter.maskSensitiveData(paramsString);
+    }
+
+    static String requestUriForLog(String uri, String queryString) {
+        return uri;
     }
 }
