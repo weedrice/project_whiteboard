@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.comment.dto.CommentCreateRequest;
 import com.weedrice.whiteboard.domain.comment.dto.CommentListResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentUpdateRequest;
+import com.weedrice.whiteboard.domain.comment.service.CommentReadSorts;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
@@ -12,7 +13,6 @@ import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -25,8 +25,6 @@ import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.
 @RequiredArgsConstructor
 public class CommentController {
 
-    private static final Sort COMMENT_READ_SORT = Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("commentId"));
-
     private final CommentService commentService;
 
     @GetMapping("/posts/{postId}/comments")
@@ -36,7 +34,7 @@ public class CommentController {
             @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         Long userId = optionalUserId(userDetails);
-        Pageable pageable = PageRequestUtils.of(page, size, COMMENT_READ_SORT);
+        Pageable pageable = PageRequestUtils.of(page, size, CommentReadSorts.READ_ORDER);
         return ApiResponse.success(new PageResponse<>(commentService.getComments(postId, userId, pageable)));
     }
 
@@ -47,7 +45,7 @@ public class CommentController {
             @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         Long userId = optionalUserId(userDetails);
-        Pageable pageable = PageRequestUtils.of(page, size, COMMENT_READ_SORT);
+        Pageable pageable = PageRequestUtils.of(page, size, CommentReadSorts.READ_ORDER);
         return ApiResponse.success(commentService.getReplies(commentId, userId, pageable));
     }
 
