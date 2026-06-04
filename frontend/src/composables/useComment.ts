@@ -2,12 +2,23 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, type Ref } from 'vue'
 import { commentApi, type CommentParams, type CommentPayload } from '@/api/comment'
 
+const commentQueryKeys = {
+    all: ['comments'] as const,
+    list: (postId: Ref<string | number>, params: Ref<CommentParams>) => ['comments', postId, params] as const,
+    replies: (parentId: Ref<string | number>, params: Ref<CommentParams>) =>
+        ['comments', 'replies', parentId, params] as const,
+}
+
+const postQueryKeys = {
+    all: ['post'] as const,
+}
+
 export function useComment() {
     const queryClient = useQueryClient()
 
     const useComments = (postId: Ref<string | number>, params: Ref<CommentParams>) => {
         return useQuery({
-            queryKey: ['comments', postId, params],
+            queryKey: commentQueryKeys.list(postId, params),
             queryFn: async () => {
                 const { data } = await commentApi.getComments(postId.value, params.value)
                 return data.data
@@ -23,7 +34,7 @@ export function useComment() {
         enabled?: Ref<boolean>,
     ) => {
         return useQuery({
-            queryKey: ['comments', 'replies', parentId, params],
+            queryKey: commentQueryKeys.replies(parentId, params),
             queryFn: async () => {
                 const { data } = await commentApi.getReplies(parentId.value, params.value)
                 return data.data
@@ -39,8 +50,8 @@ export function useComment() {
                 return await commentApi.createComment(postId, data)
             },
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['comments'] })
-                queryClient.invalidateQueries({ queryKey: ['post'] })
+                queryClient.invalidateQueries({ queryKey: commentQueryKeys.all })
+                queryClient.invalidateQueries({ queryKey: postQueryKeys.all })
             },
         })
     }
@@ -51,7 +62,7 @@ export function useComment() {
                 return await commentApi.updateComment(commentId, data)
             },
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['comments'] })
+                queryClient.invalidateQueries({ queryKey: commentQueryKeys.all })
             },
         })
     }
@@ -62,8 +73,8 @@ export function useComment() {
                 return await commentApi.deleteComment(commentId)
             },
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['comments'] })
-                queryClient.invalidateQueries({ queryKey: ['post'] })
+                queryClient.invalidateQueries({ queryKey: commentQueryKeys.all })
+                queryClient.invalidateQueries({ queryKey: postQueryKeys.all })
             },
         })
     }
