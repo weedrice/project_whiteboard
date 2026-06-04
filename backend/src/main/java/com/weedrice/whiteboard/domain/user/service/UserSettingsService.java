@@ -173,11 +173,6 @@ public class UserSettingsService {
                 return userWritableResolver.resolve(userId);
         }
 
-        private UserSettingsResponse toResponse(UserSettings settings) {
-                return new UserSettingsResponse(settings.getTheme(), settings.getLanguage(), settings.getTimezone(),
-                                settings.getHideNsfw());
-        }
-
         private UserSettingsResponse toReadResponse(UserSettingsRepository.SettingsReadProjection settings) {
                 if (settings.getTheme() == null) {
                         return defaultSettingsResponse();
