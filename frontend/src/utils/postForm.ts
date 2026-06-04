@@ -97,7 +97,7 @@ export function buildPostFormPayload({
 }: BuildPostFormPayloadOptions) {
     const contents = normalizeLegacyFileUrls(normalizeEditorFileImageUrls(form.content))
     const parsedCategoryId = typeof form.categoryId === 'string'
-        ? parseInt(form.categoryId, 10)
+        ? Number.parseInt(form.categoryId, 10)
         : form.categoryId
     const categoryId = hideCategory || Number.isNaN(parsedCategoryId) || !parsedCategoryId
         ? undefined

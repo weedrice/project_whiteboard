@@ -1,23 +1,23 @@
 import { onScopeDispose, ref, watch, type Ref } from 'vue'
 
-export type DebouncedFunction<T extends (...args: any[]) => any> = ((...args: Parameters<T>) => void) & {
+export type DebouncedFunction<T extends (...args: never[]) => unknown> = ((...args: Parameters<T>) => void) & {
     cancel: () => void
 }
 
 /**
- * 디바운싱을 위한 composable
- * 
- * @param value 디바운싱할 값
- * @param delay 지연 시간 (밀리초)
- * @returns 디바운싱된 값
- * 
+ * Returns a debounced ref that updates after the delay.
+ *
+ * @param value source ref to debounce
+ * @param delay debounce delay in milliseconds
+ * @returns debounced ref value
+ *
  * @example
  * ```typescript
  * const searchQuery = ref('')
  * const debouncedQuery = useDebounce(searchQuery, 300)
- * 
+ *
  * watch(debouncedQuery, (value) => {
- *   // 300ms 후에 실행됨
+ *   // Runs after 300ms without changes.
  *   performSearch(value)
  * })
  * ```
@@ -48,23 +48,23 @@ export function useDebounce<T>(value: Ref<T>, delay: number = 300): Ref<T> {
 }
 
 /**
- * 디바운싱된 함수를 반환하는 composable
- * 
- * @param fn 디바운싱할 함수
- * @param delay 지연 시간 (밀리초)
- * @returns 디바운싱된 함수
- * 
+ * Returns a debounced function with a cancel helper.
+ *
+ * @param fn function to debounce
+ * @param delay debounce delay in milliseconds
+ * @returns debounced function
+ *
  * @example
  * ```typescript
  * const debouncedSearch = useDebounceFn((query: string) => {
  *   performSearch(query)
  * }, 300)
- * 
- * // 사용
+ *
+ * // Usage
  * debouncedSearch('search term')
  * ```
  */
-export function useDebounceFn<T extends (...args: any[]) => any>(
+export function useDebounceFn<T extends (...args: never[]) => unknown>(
     fn: T,
     delay: number = 300
 ): DebouncedFunction<T> {

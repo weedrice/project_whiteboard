@@ -1,23 +1,23 @@
 import { onScopeDispose, ref, watch, type Ref } from 'vue'
 
-export type ThrottledFunction<T extends (...args: any[]) => any> = ((...args: Parameters<T>) => void) & {
+export type ThrottledFunction<T extends (...args: never[]) => unknown> = ((...args: Parameters<T>) => void) & {
     cancel: () => void
 }
 
 /**
- * 스로틀링을 위한 composable
- * 
- * @param value 스로틀링할 값
- * @param delay 지연 시간 (밀리초)
- * @returns 스로틀링된 값
- * 
+ * Returns a throttled ref that updates at most once per delay.
+ *
+ * @param value source ref to throttle
+ * @param delay throttle delay in milliseconds
+ * @returns throttled ref value
+ *
  * @example
  * ```typescript
  * const scrollY = ref(0)
  * const throttledScrollY = useThrottle(scrollY, 100)
- * 
+ *
  * watch(throttledScrollY, (value) => {
- *   // 최대 100ms마다 실행됨
+ *   // Runs at most every 100ms.
  *   updateScrollPosition(value)
  * })
  * ```
@@ -35,7 +35,7 @@ export function useThrottle<T>(value: Ref<T>, delay: number = 100): Ref<T> {
             throttled.value = newValue
             lastUpdate = now
         } else {
-            // 남은 시간 후에 업데이트
+            // Schedule the trailing value update.
             if (timeoutId) {
                 clearTimeout(timeoutId)
             }
@@ -59,23 +59,23 @@ export function useThrottle<T>(value: Ref<T>, delay: number = 100): Ref<T> {
 }
 
 /**
- * 스로틀링된 함수를 반환하는 composable
- * 
- * @param fn 스로틀링할 함수
- * @param delay 지연 시간 (밀리초)
- * @returns 스로틀링된 함수
- * 
+ * Returns a throttled function with a cancel helper.
+ *
+ * @param fn function to throttle
+ * @param delay throttle delay in milliseconds
+ * @returns throttled function
+ *
  * @example
  * ```typescript
  * const throttledScroll = useThrottleFn((event: Event) => {
  *   updateScrollPosition(event)
  * }, 100)
- * 
- * // 사용
+ *
+ * // Usage
  * window.addEventListener('scroll', throttledScroll)
  * ```
  */
-export function useThrottleFn<T extends (...args: any[]) => any>(
+export function useThrottleFn<T extends (...args: never[]) => unknown>(
     fn: T,
     delay: number = 100
 ): ThrottledFunction<T> {
@@ -98,7 +98,7 @@ export function useThrottleFn<T extends (...args: any[]) => any>(
             fn(...args)
             lastCall = now
         } else {
-            // 남은 시간 후에 실행
+            // Schedule the trailing call.
             cancel()
 
             timeoutId = setTimeout(() => {
