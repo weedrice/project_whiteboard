@@ -61,6 +61,17 @@ function navigateToTab(index: number) {
     emit('navigate', tab.href)
 }
 
+function focusTab(index: number) {
+    nextTick(() => {
+        tabRefs.value[index]?.focus()
+    })
+}
+
+function navigateToTabAndFocus(index: number) {
+    navigateToTab(index)
+    focusTab(index)
+}
+
 function handleTabClick(event: MouseEvent, href: string) {
     if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) {
         return
@@ -78,35 +89,23 @@ const handleTabKeyDown = (event: KeyboardEvent, currentIndex: number) => {
         case 'ArrowLeft':
             event.preventDefault()
             const prevIndex = currentIndex > 0 ? currentIndex - 1 : (tabCount - 1)
-            navigateToTab(prevIndex)
-            nextTick(() => {
-                tabRefs.value[prevIndex]?.focus()
-            })
+            navigateToTabAndFocus(prevIndex)
             break
 
         case 'ArrowRight':
             event.preventDefault()
             const nextIndex = currentIndex < tabCount - 1 ? currentIndex + 1 : 0
-            navigateToTab(nextIndex)
-            nextTick(() => {
-                tabRefs.value[nextIndex]?.focus()
-            })
+            navigateToTabAndFocus(nextIndex)
             break
 
         case 'Home':
             event.preventDefault()
-            navigateToTab(0)
-            nextTick(() => {
-                tabRefs.value[0]?.focus()
-            })
+            navigateToTabAndFocus(0)
             break
 
         case 'End':
             event.preventDefault()
-            navigateToTab(tabCount - 1)
-            nextTick(() => {
-                tabRefs.value[tabCount - 1]?.focus()
-            })
+            navigateToTabAndFocus(tabCount - 1)
             break
     }
 }
