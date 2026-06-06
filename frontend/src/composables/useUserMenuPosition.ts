@@ -1,4 +1,5 @@
 import { nextTick, onUnmounted, ref, watch, type Ref, type CSSProperties } from 'vue'
+import { useViewportListeners } from '@/composables/useViewportListeners'
 
 export function useUserMenuPosition(
     buttonRef: Ref<HTMLElement | null>,
@@ -42,15 +43,10 @@ export function useUserMenuPosition(
         updateDropdownPosition()
     }
 
-    const bindViewportListeners = () => {
-        window.addEventListener('resize', handleViewportChange)
-        window.addEventListener('scroll', handleViewportChange, true)
-    }
-
-    const unbindViewportListeners = () => {
-        window.removeEventListener('resize', handleViewportChange)
-        window.removeEventListener('scroll', handleViewportChange, true)
-    }
+    const {
+        startListening: bindViewportListeners,
+        stopListening: unbindViewportListeners,
+    } = useViewportListeners(handleViewportChange)
 
     watch(isOpen, async (open) => {
         if (!open) {
