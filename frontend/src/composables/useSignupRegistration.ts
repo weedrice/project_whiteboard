@@ -6,6 +6,7 @@ import { useAuthPasswordValidation } from '@/composables/useAuthPasswordValidati
 import { useEmailVerificationFlow } from '@/composables/useEmailVerificationFlow'
 import { useToastStore } from '@/stores/toast'
 import { extractErrorMessage } from '@/utils/errorHandler'
+import { getSingleQueryValue } from '@/utils/oauthCallbackTokens'
 import { isEmpty, isValidDisplayName, isValidEmail, isValidLoginId } from '@/utils/validation'
 
 interface SignupRegistrationOptions {
@@ -191,8 +192,8 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
       ...formData,
       email: form.value.email.trim(),
       verificationTicket: verification.verificationTicket,
-      provider: (route.query.provider as string) || null,
-      providerId: (route.query.providerId as string) || null
+      provider: getSingleQueryValue(route.query.provider),
+      providerId: getSingleQueryValue(route.query.providerId)
     }
   }
 
@@ -263,15 +264,18 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
   }
 
   async function initializeFromRouteQuery() {
-    if (route.query.email) {
-      form.value.email = String(route.query.email)
+    const email = getSingleQueryValue(route.query.email)
+    const name = getSingleQueryValue(route.query.name)
+
+    if (email) {
+      form.value.email = email
     }
-    if (route.query.name) {
-      form.value.displayName = String(route.query.name)
+    if (name) {
+      form.value.displayName = name
     }
-    if (route.query.email) {
+    if (email) {
       try {
-        const { data } = await authApi.checkEmailForReregister(String(route.query.email))
+        const { data } = await authApi.checkEmailForReregister(email)
         if (data.success && data.data?.canReregister && data.data?.maskedLoginId) {
           isReregister.value = true
           form.value.loginId = data.data.maskedLoginId

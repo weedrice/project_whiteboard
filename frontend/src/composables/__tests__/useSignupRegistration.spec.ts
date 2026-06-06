@@ -205,6 +205,37 @@ describe('useSignupRegistration', () => {
     wrapper.unmount()
   })
 
+  it('uses the first route query value when signup query params are arrays', async () => {
+    const { composable, wrapper } = mountSignupRegistration({
+      provider: ['google', 'github'],
+      providerId: ['oauth-1', 'oauth-2'],
+      email: ['user@example.com', 'other@example.com'],
+      name: ['Display', 'Other']
+    })
+    await flushMountedAsync()
+
+    Object.assign(composable.form.value, {
+      loginId: 'login_1',
+      password: 'Password1!',
+      passwordConfirm: 'Password1!',
+      email: composable.form.value.email,
+      displayName: composable.form.value.displayName
+    })
+    composable.verification.isVerified = true
+    composable.verification.verificationTicket = 'ticket-1'
+
+    await composable.handleSignup()
+
+    expect(composable.form.value.email).toBe('user@example.com')
+    expect(composable.form.value.displayName).toBe('Display')
+    expect(authApi.checkEmailForReregister).toHaveBeenCalledWith('user@example.com')
+    expect(authApi.signup).toHaveBeenCalledWith(expect.objectContaining({
+      provider: 'google',
+      providerId: 'oauth-1'
+    }))
+    wrapper.unmount()
+  })
+
   it('blocks submit until email verification has a ticket', async () => {
     const { composable, wrapper } = mountSignupRegistration()
     Object.assign(composable.form.value, {
