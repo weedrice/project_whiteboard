@@ -3,18 +3,17 @@ package com.weedrice.whiteboard.domain.auth.service;
 import com.weedrice.whiteboard.domain.auth.dto.TokenResponse;
 import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
-import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.JwtTokenProvider;
+import com.weedrice.whiteboard.global.security.SecurityAuthorities;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,11 +21,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -110,13 +106,7 @@ public class SessionTokenService {
     }
 
     private Authentication createRefreshAuthentication(User user) {
-        Set<GrantedAuthority> authorities = new HashSet<>();
-        authorities.add(new SimpleGrantedAuthority(Role.ROLE_USER));
-        if (user.getIsSuperAdmin()) {
-            authorities.add(new SimpleGrantedAuthority(Role.ROLE_SUPER_ADMIN));
-        }
-
-        List<GrantedAuthority> authorityList = new ArrayList<>(authorities);
+        List<GrantedAuthority> authorityList = SecurityAuthorities.user(user.getIsSuperAdmin());
         return new UsernamePasswordAuthenticationToken(
                 new CustomUserDetails(user.getUserId(), user.getLoginId(), "", true, true, true, true, authorityList),
                 "",

@@ -1,8 +1,9 @@
 package com.weedrice.whiteboard.global.security.oauth;
 
+import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.global.security.SecurityAuthorities;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
@@ -10,7 +11,6 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 
-import java.util.Collections;
 import java.util.Map;
 
 @Service
@@ -40,9 +40,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
                     user,
                     attributes,
                     extractAttributes.getNameAttributeKey(),
-                    Collections.singleton(
-                            new SimpleGrantedAuthority(
-                                    user.getIsSuperAdmin() ? "ROLE_SUPER_ADMIN" : "ROLE_USER")));
+                    SecurityAuthorities.single(user.getIsSuperAdmin() ? Role.ROLE_SUPER_ADMIN : Role.ROLE_USER));
         }
 
         return new UnregisteredOAuth2User(
