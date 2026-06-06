@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/vue-query'
 import { useRoute, useRouter } from 'vue-router'
 import { searchQueryKeys } from '@/composables/searchQueryKeys'
-import { firstQueryValue } from '@/composables/searchRouteQueryValue'
+import { firstQueryValue } from '@/utils/routeQueryValue'
 
 interface UseSearchSubmitNavigationOptions {
   getCurrentSearchQuery?: () => string

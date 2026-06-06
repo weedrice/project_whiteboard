@@ -7,7 +7,8 @@ import { useI18n } from 'vue-i18n'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import logger from '@/utils/logger'
 import { clearLoginRedirect, getStoredLoginRedirect } from '@/utils/authRedirect'
-import { clearSensitiveTokensFromUrl, getHashToken, getSingleQueryValue } from '@/utils/oauthCallbackTokens'
+import { clearSensitiveTokensFromUrl, getHashToken } from '@/utils/oauthCallbackTokens'
+import { getSingleQueryValue } from '@/utils/routeQueryValue'
 
 const router = useRouter()
 const route = useRoute()

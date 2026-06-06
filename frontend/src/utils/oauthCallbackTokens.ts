@@ -1,9 +1,3 @@
-export function getSingleQueryValue(value: unknown): string | null {
-  if (typeof value === 'string' && value.length > 0) return value
-  if (Array.isArray(value) && typeof value[0] === 'string' && value[0].length > 0) return value[0]
-  return null
-}
-
 export function getHashToken(key: string): string | null {
   const rawHash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash
   if (!rawHash) return null

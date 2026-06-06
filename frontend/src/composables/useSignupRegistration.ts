@@ -6,7 +6,7 @@ import { useAuthPasswordValidation } from '@/composables/useAuthPasswordValidati
 import { useEmailVerificationFlow } from '@/composables/useEmailVerificationFlow'
 import { useToastStore } from '@/stores/toast'
 import { extractErrorMessage } from '@/utils/errorHandler'
-import { getSingleQueryValue } from '@/utils/oauthCallbackTokens'
+import { getSingleQueryValue } from '@/utils/routeQueryValue'
 import { isEmpty, isValidDisplayName, isValidEmail, isValidLoginId } from '@/utils/validation'
 
 interface SignupRegistrationOptions {
