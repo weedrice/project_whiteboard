@@ -161,28 +161,28 @@ class SemanticSearchKeywordFallbackRepository {
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
     List<SemanticSearchRow> search(SemanticSearchKeywordQuery query) {
-        String sql = buildUnionSql(query) + """
-                ORDER BY created_at DESC, content_type ASC, content_id DESC
-                LIMIT :limit OFFSET :offset
-                """;
-        return jdbcTemplate.query(sql, params(query), SemanticSearchRowMapper.INSTANCE);
+        return jdbcTemplate.query(searchSql(query), params(query), SemanticSearchRowMapper.INSTANCE);
     }
 
     long count(SemanticSearchKeywordQuery query) {
-        String sql = "SELECT COUNT(*) FROM (" + buildCountUnionSql(query) + ") semantic_keyword_count";
-        Long count = jdbcTemplate.queryForObject(sql, params(query), Long.class);
+        Long count = jdbcTemplate.queryForObject(countSql(query), params(query), Long.class);
         return count != null ? count : 0L;
     }
 
-    private String buildUnionSql(SemanticSearchKeywordQuery query) {
-        return SemanticSearchSqlFragments.buildUnionSql(query, POST_SELECT, COMMENT_SELECT);
+    String searchSql(SemanticSearchKeywordQuery query) {
+        return SemanticSearchSqlFragments.buildUnionSql(query, POST_SELECT, COMMENT_SELECT) + """
+                ORDER BY created_at DESC, content_type ASC, content_id DESC
+                LIMIT :limit OFFSET :offset
+                """;
     }
 
-    private String buildCountUnionSql(SemanticSearchKeywordQuery query) {
-        return SemanticSearchSqlFragments.buildUnionSql(query, POST_COUNT_SELECT, COMMENT_COUNT_SELECT);
+    String countSql(SemanticSearchKeywordQuery query) {
+        return "SELECT COUNT(*) FROM ("
+                + SemanticSearchSqlFragments.buildUnionSql(query, POST_COUNT_SELECT, COMMENT_COUNT_SELECT)
+                + ") semantic_keyword_count";
     }
 
-    private MapSqlParameterSource params(SemanticSearchKeywordQuery query) {
+    MapSqlParameterSource params(SemanticSearchKeywordQuery query) {
         return SemanticSearchSqlFragments.commonParams(query)
                 .addValue("keywordPattern", keywordPattern(query.keyword()));
     }

@@ -159,28 +159,28 @@ class SemanticSearchVectorRepository {
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
     List<SemanticSearchRow> search(SemanticSearchQuery query) {
-        String sql = buildUnionSql(query) + """
-                ORDER BY similarity DESC, created_at DESC, content_id DESC
-                LIMIT :limit OFFSET :offset
-                """;
-        return jdbcTemplate.query(sql, params(query), SemanticSearchRowMapper.INSTANCE);
+        return jdbcTemplate.query(searchSql(query), params(query), SemanticSearchRowMapper.INSTANCE);
     }
 
     long count(SemanticSearchQuery query) {
-        String sql = "SELECT COUNT(*) FROM (" + buildCountUnionSql(query) + ") semantic_count";
-        Long count = jdbcTemplate.queryForObject(sql, params(query), Long.class);
+        Long count = jdbcTemplate.queryForObject(countSql(query), params(query), Long.class);
         return count != null ? count : 0L;
     }
 
-    private String buildUnionSql(SemanticSearchQuery query) {
-        return SemanticSearchSqlFragments.buildUnionSql(query, POST_SELECT, COMMENT_SELECT);
+    String searchSql(SemanticSearchQuery query) {
+        return SemanticSearchSqlFragments.buildUnionSql(query, POST_SELECT, COMMENT_SELECT) + """
+                ORDER BY similarity DESC, created_at DESC, content_id DESC
+                LIMIT :limit OFFSET :offset
+                """;
     }
 
-    private String buildCountUnionSql(SemanticSearchQuery query) {
-        return SemanticSearchSqlFragments.buildUnionSql(query, POST_COUNT_SELECT, COMMENT_COUNT_SELECT);
+    String countSql(SemanticSearchQuery query) {
+        return "SELECT COUNT(*) FROM ("
+                + SemanticSearchSqlFragments.buildUnionSql(query, POST_COUNT_SELECT, COMMENT_COUNT_SELECT)
+                + ") semantic_count";
     }
 
-    private MapSqlParameterSource params(SemanticSearchQuery query) {
+    MapSqlParameterSource params(SemanticSearchQuery query) {
         return SemanticSearchSqlFragments.commonParams(query)
                 .addValue("queryEmbedding", query.embeddingVector());
     }
