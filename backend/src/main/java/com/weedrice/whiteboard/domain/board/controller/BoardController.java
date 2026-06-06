@@ -73,7 +73,7 @@ public class BoardController {
             @CurrentUserId Long userId,
             @RequestParam(required = false) String boardUrl) {
         boardService.ensureInquiryBoard(userId, boardUrl);
-        return ApiResponse.success(null);
+        return okVoid();
     }
 
     @PutMapping("/{boardUrl}")
@@ -114,7 +114,7 @@ public class BoardController {
     public ApiResponse<Void> deleteBoard(@PathVariable String boardUrl,
             @CurrentUserId Long userId) {
         boardService.deleteBoard(boardUrl, userId);
-        return ApiResponse.success(null);
+        return okVoid();
     }
 
     @GetMapping("/{boardUrl}/categories")
@@ -128,14 +128,14 @@ public class BoardController {
     public ApiResponse<Void> subscribeBoard(@PathVariable String boardUrl,
             @CurrentUserId Long userId) {
         boardService.subscribeBoard(userId, boardUrl);
-        return ApiResponse.success(null);
+        return okVoid();
     }
 
     @DeleteMapping("/{boardUrl}/subscribe")
     public ApiResponse<Void> unsubscribeBoard(@PathVariable String boardUrl,
             @CurrentUserId Long userId) {
         boardService.unsubscribeBoard(userId, boardUrl);
-        return ApiResponse.success(null);
+        return okVoid();
     }
 
     @PostMapping("/{boardUrl}/categories")
@@ -157,7 +157,7 @@ public class BoardController {
     public ApiResponse<Void> deleteCategory(@PathVariable Long categoryId,
             @CurrentUserId Long userId) {
         boardService.deleteCategory(categoryId, userId);
-        return ApiResponse.success(null);
+        return okVoid();
     }
 
     @PutMapping("/subscriptions/order")
@@ -165,6 +165,10 @@ public class BoardController {
             @Valid @RequestBody BoardSubscriptionOrderRequest request,
             @CurrentUserId Long userId) {
         boardService.updateSubscriptionOrder(userId, request.boardUrls());
-        return ApiResponse.success(null);
+        return okVoid();
+    }
+
+    private ApiResponse<Void> okVoid() {
+        return ApiResponse.success();
     }
 }
