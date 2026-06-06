@@ -76,12 +76,10 @@ export const useAuthStore = defineStore('auth', () => {
             logger.error('Logout failed:', error)
         } finally {
             clearSessionState()
-            // themeStore.setTheme('LIGHT') // Reset to default on logout -> Removed to persist theme
         }
     }
 
     async function fetchUser(config?: AxiosRequestConfig): Promise<boolean> {
-        // Double check token existence
         const token = getStoredAccessToken()
         if (!token) {
             clearSessionState()
@@ -95,7 +93,6 @@ export const useAuthStore = defineStore('auth', () => {
             if (data.success) {
                 user.value = data.data
 
-                // Check for sanctions
                 if (user.value?.status === 'SANCTIONED') {
                     await handleSanctionedSession()
                     return false
@@ -108,9 +105,6 @@ export const useAuthStore = defineStore('auth', () => {
             return false
         } catch (error: unknown) {
             logger.error('Fetch user failed:', error)
-            // 401 에러는 axios 인터셉터에서 refresh token으로 처리함
-            // 여기서는 로그만 남기고, 인터셉터가 refresh 실패 시 로그아웃 처리
-            // 네트워크 에러나 서버 에러(500 등)는 로그아웃하지 않음
             return false
         }
     }
