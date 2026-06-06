@@ -76,6 +76,6 @@ public class CommonCodeController {
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public ApiResponse<Void> deleteCommonCodeDetail(@PathVariable Long detailId) {
         commonCodeService.deleteCommonCodeDetail(detailId);
-        return ApiResponse.success(null);
+        return ApiResponse.success();
     }
 }

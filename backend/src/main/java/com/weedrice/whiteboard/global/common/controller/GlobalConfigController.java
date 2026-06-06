@@ -88,6 +88,6 @@ public class GlobalConfigController {
             @PathVariable String key,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         globalConfigService.deleteConfig(requiredUserId(userDetails), key);
-        return ApiResponse.success(null);
+        return ApiResponse.success();
     }
 }

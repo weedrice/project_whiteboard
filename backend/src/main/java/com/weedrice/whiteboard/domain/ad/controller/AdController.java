@@ -25,7 +25,7 @@ public class AdController {
     public ApiResponse<Void> recordAdImpression(
             @PathVariable Long adId) {
         adService.recordAdImpression(adId);
-        return ApiResponse.success(null);
+        return ApiResponse.success();
     }
 
     @PostMapping("/{adId}/click")

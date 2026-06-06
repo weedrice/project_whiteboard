@@ -123,7 +123,7 @@ public class AdminController {
     @PutMapping("/admins/{adminId}/deactivate")
     public ApiResponse<Void> deactivateAdmin(@PathVariable Long adminId) {
         adminAssignmentFacade.deactivateAdmin(adminId);
-        return ApiResponse.success(null);
+        return ApiResponse.success();
     }
 
     /**
@@ -135,7 +135,7 @@ public class AdminController {
     @PutMapping("/admins/{adminId}/activate")
     public ApiResponse<Void> activateAdmin(@PathVariable Long adminId) {
         adminAssignmentFacade.activateAdmin(adminId);
-        return ApiResponse.success(null);
+        return ApiResponse.success();
     }
 
     @GetMapping("/boards/{boardId}/manager")
@@ -176,7 +176,7 @@ public class AdminController {
     @DeleteMapping("/ip-blocks/{ipAddress}")
     public ApiResponse<Void> unblockIp(@PathVariable String ipAddress) {
         ipBlockService.unblockIp(ipAddress);
-        return ApiResponse.success(null);
+        return ApiResponse.success();
     }
 
     /**

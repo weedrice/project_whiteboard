@@ -61,7 +61,7 @@ public class ErrorLogController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         String memo = request != null ? request.getMemo() : null;
         errorLogService.resolveErrorLog(errorLogId, requiredUserId(userDetails), memo);
-        return ApiResponse.success(null);
+        return ApiResponse.success();
     }
 
     /**

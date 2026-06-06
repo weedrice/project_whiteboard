@@ -96,12 +96,12 @@ public class SearchController {
     public ApiResponse<Void> deleteRecentSearch(@PathVariable Long logId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         searchService.deleteRecentSearch(requiredUserId(userDetails), logId);
-        return ApiResponse.success(null);
+        return ApiResponse.success();
     }
 
     @DeleteMapping("/recent")
     public ApiResponse<Void> deleteAllRecentSearches(@AuthenticationPrincipal CustomUserDetails userDetails) {
         searchService.deleteAllRecentSearches(requiredUserId(userDetails));
-        return ApiResponse.success(null);
+        return ApiResponse.success();
     }
 }

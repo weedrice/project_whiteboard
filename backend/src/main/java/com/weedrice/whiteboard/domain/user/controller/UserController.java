@@ -80,7 +80,7 @@ public class UserController {
                                 userId,
                                 request.getEmail(),
                                 request.getVerificationTicket());
-                return ResponseEntity.ok(ApiResponse.success(null));
+                return ResponseEntity.ok(ApiResponse.success());
         }
 
         @PutMapping("/me/password")
@@ -216,7 +216,7 @@ public class UserController {
                         jakarta.servlet.http.HttpServletRequest httpServletRequest) {
                 agentLifecycleService.deleteMyAgent(userId, agentId,
                                 agentRequestContextResolver.resolve(httpServletRequest));
-                return ApiResponse.success(null);
+                return ApiResponse.success();
         }
 
         @GetMapping("/me/posts")

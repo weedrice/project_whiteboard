@@ -38,7 +38,7 @@ public class NotificationController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         Long userId = requiredUserId(userDetails);
         notificationService.readNotification(userId, notificationId);
-        return ApiResponse.success(null);
+        return ApiResponse.success();
     }
 
     @PutMapping("/read-all")
@@ -46,7 +46,7 @@ public class NotificationController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         Long userId = requiredUserId(userDetails);
         notificationService.readAllNotifications(userId);
-        return ApiResponse.success(null);
+        return ApiResponse.success();
     }
 
     @GetMapping("/unread-count")

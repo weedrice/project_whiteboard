@@ -97,7 +97,7 @@ public class AdminUserController {
             @RequestBody UserStatusUpdateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         userAdminCommandService.updateUserStatus(requiredUserId(userDetails), userId, request.getStatus());
-        return ApiResponse.success(null);
+        return ApiResponse.success();
     }
 }
 
