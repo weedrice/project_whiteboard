@@ -5,10 +5,11 @@ import { useI18n } from 'vue-i18n'
 import { useEmailVerificationFlow } from '@/composables/useEmailVerificationFlow'
 import { useFindIdFlow } from '@/composables/useFindIdFlow'
 import { usePasswordResetByVerificationFlow } from '@/composables/usePasswordResetByVerificationFlow'
+import AuthEmailVerificationSection from '@/components/auth/AuthEmailVerificationSection.vue'
 import AuthFormShell from '@/components/auth/AuthFormShell.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import { Mail, Key, User, CheckCircle } from 'lucide-vue-next'
+import { Key, User } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -144,59 +145,23 @@ const {
     </div>
 
     <div class="space-y-6">
-      <div v-if="!status.foundId && (!status.isVerified || activeTab === 'id')">
-        <div class="space-y-4">
-          <div class="flex gap-2 items-end">
-            <div class="flex-grow">
-              <BaseInput
-                id="find-account-email"
-                v-model="form.email"
-                name="email"
-                type="email"
-                autocomplete="email"
-                :label="t('auth.email')"
-                :placeholder="t('auth.placeholders.email')"
-                :disabled="status.loading"
-                hideLabel
-              >
-                <template #prefix>
-                  <Mail class="h-5 w-5 nv-text-subtle" />
-                </template>
-              </BaseInput>
-            </div>
-            <BaseButton
-              class="mb-[2px] h-[42px]"
-              :disabled="status.loading"
-              :loading="status.loading && !status.isCodeSent"
-              @click="handleSendCode"
-            >
-              {{ status.isCodeSent ? t('auth.resendCode') : t('auth.sendCode') }}
-            </BaseButton>
-          </div>
-
-          <div v-if="status.isCodeSent && !status.isVerified" class="flex gap-2 items-end animate-fade-in-down">
-            <div class="flex-grow">
-              <BaseInput
-                id="find-account-verification-code"
-                v-model="form.code"
-                name="verificationCode"
-                inputmode="numeric"
-                autocomplete="one-time-code"
-                :placeholder="t('auth.codePlaceholder')"
-                :label="t('auth.codePlaceholder')"
-                hideLabel
-              >
-                <template #prefix>
-                  <CheckCircle class="h-5 w-5 nv-text-subtle" />
-                </template>
-              </BaseInput>
-            </div>
-            <BaseButton class="mb-[2px] h-[42px]" :loading="status.loading" @click="handleVerifyCode">
-              {{ t('auth.verifyCode') }}
-            </BaseButton>
-          </div>
-        </div>
-      </div>
+      <AuthEmailVerificationSection
+        v-if="!status.foundId && (!status.isVerified || activeTab === 'id')"
+        v-model:email="form.email"
+        v-model:code="form.code"
+        id-prefix="find-account"
+        layout="inline"
+        :loading="status.loading"
+        :code-sent="status.isCodeSent"
+        :email-label="t('auth.email')"
+        :email-placeholder="t('auth.placeholders.email')"
+        :code-label="t('auth.codePlaceholder')"
+        :send-label="t('auth.sendCode')"
+        :resend-label="t('auth.resendCode')"
+        :verify-label="t('auth.verifyCode')"
+        @send="handleSendCode"
+        @verify="handleVerifyCode"
+      />
 
       <div
         v-if="activeTab === 'id' && status.foundId"

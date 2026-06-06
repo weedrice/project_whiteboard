@@ -2,7 +2,9 @@
 import { computed } from 'vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import BaseTable, { type TableColumn } from '@/components/common/ui/BaseTable.vue'
-import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
+import AdminDataPage from '@/components/admin/AdminDataPage.vue'
+import AdminFilterField from '@/components/admin/AdminFilterField.vue'
+import AdminFilterPanel from '@/components/admin/AdminFilterPanel.vue'
 import AdminPaginationFooter from '@/components/admin/AdminPaginationFooter.vue'
 import AdminPanel from '@/components/admin/AdminPanel.vue'
 import AdminInquiryDetailModal from '@/components/admin/AdminInquiryDetailModal.vue'
@@ -47,11 +49,11 @@ function handleRowClick(post: AdminInquiryListItem) {
 </script>
 
 <template>
-  <div>
-    <AdminPageHeader :title="t('admin.inquiries.title')" :description="t('admin.inquiries.description')">
-      <template #actions>
-        <div class="mt-3 flex items-center gap-2 sm:mt-0">
-          <label for="inquiry-sort" class="text-sm nv-text-muted">{{ t('admin.inquiries.sort.label') }}</label>
+  <AdminDataPage :title="t('admin.inquiries.title')" :description="t('admin.inquiries.description')">
+    <template #filters>
+      <AdminFilterPanel class-name="mt-4">
+        <div class="flex flex-wrap items-end gap-3">
+          <AdminFilterField :label="t('admin.inquiries.sort.label')" for-id="inquiry-sort" width-class="w-44">
           <select
             id="inquiry-sort"
             v-model="sort"
@@ -60,9 +62,10 @@ function handleRowClick(post: AdminInquiryListItem) {
             <option value="createdAt,desc">{{ t('admin.inquiries.sort.latest') }}</option>
             <option value="createdAt,asc">{{ t('admin.inquiries.sort.oldest') }}</option>
           </select>
+          </AdminFilterField>
         </div>
-      </template>
-    </AdminPageHeader>
+      </AdminFilterPanel>
+    </template>
 
     <AdminPanel class="mt-4 shadow-sm" padding="none" :shadow="false">
       <div v-if="isLoading" class="flex items-center justify-center py-10">
@@ -116,5 +119,5 @@ function handleRowClick(post: AdminInquiryListItem) {
       :error="detailError"
       @close="closeDetail"
     />
-  </div>
+  </AdminDataPage>
 </template>

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { CheckCircle, Copy, X } from 'lucide-vue-next'
+import { CheckCircle, Copy } from 'lucide-vue-next'
 import HttpStatusBadge from '@/components/admin/HttpStatusBadge.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseModal from '@/components/common/ui/BaseModal.vue'
 import { formatDateTimeOrDash } from '@/utils/date'
 import type { ErrorLogDetail } from '@/types'
 
@@ -18,196 +19,119 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <Teleport to="body">
-    <div v-if="isOpen && log" class="modal-overlay" @click.self="emit('close')">
-      <div class="modal-content modal-content--lg">
-        <div class="modal-header">
-          <h3>{{ $t('admin.errorLogs.detail.title') }}</h3>
-          <button type="button" class="btn-close" aria-label="상세 모달 닫기" @click="emit('close')">
-            <X class="h-5 w-5" aria-hidden="true" />
+  <BaseModal
+    :is-open="isOpen && !!log"
+    :title="$t('admin.errorLogs.detail.title')"
+    size="2xl"
+    close-aria-label="상세 모달 닫기"
+    close-button-class="btn-close"
+    @close="emit('close')"
+  >
+    <div v-if="log" class="space-y-5">
+      <section class="detail-section">
+        <h4 class="detail-section-title">{{ $t('admin.errorLogs.detail.errorInfo') }}</h4>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">{{ $t('admin.errorLogs.table.httpStatus') }}</span>
+            <HttpStatusBadge :status="log.httpStatus" />
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">{{ $t('admin.errorLogs.table.errorCode') }}</span>
+            <span class="detail-value font-mono">{{ log.errorCode || '-' }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">{{ $t('admin.errorLogs.table.errorType') }}</span>
+            <span class="detail-value">{{ log.errorType }}</span>
+          </div>
+          <div class="detail-item detail-item--full">
+            <span class="detail-label">{{ $t('admin.errorLogs.table.message') }}</span>
+            <span class="detail-value">{{ log.message }}</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="detail-section">
+        <h4 class="detail-section-title">{{ $t('admin.errorLogs.detail.requestInfo') }}</h4>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">{{ $t('admin.errorLogs.table.requestMethod') }}</span>
+            <span class="detail-value font-mono">{{ log.requestMethod }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">{{ $t('admin.errorLogs.table.requestUri') }}</span>
+            <span class="detail-value font-mono">{{ log.requestUri }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">{{ $t('admin.errorLogs.table.userId') }}</span>
+            <span class="detail-value">{{ log.userId || '-' }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">{{ $t('admin.errorLogs.table.ipAddress') }}</span>
+            <span class="detail-value font-mono">{{ log.ipAddress }}</span>
+          </div>
+          <div class="detail-item detail-item--full">
+            <span class="detail-label">User-Agent</span>
+            <span class="detail-value break-all text-xs">{{ log.userAgent || '-' }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">{{ $t('admin.errorLogs.table.createdAt') }}</span>
+            <span class="detail-value">{{ formatDateTimeOrDash(log.createdAt) }}</span>
+          </div>
+        </div>
+      </section>
+
+      <section v-if="log.stackTrace" class="detail-section">
+        <div class="stack-trace-header">
+          <h4 class="detail-section-title stack-trace-title">{{ $t('admin.errorLogs.detail.stackTrace') }}</h4>
+          <button type="button" class="btn-copy-stack-trace" @click="emit('copyStackTrace')">
+            <Copy class="h-3.5 w-3.5" />
+            {{ $t('admin.errorLogs.actions.copy') }}
           </button>
         </div>
+        <pre class="stack-trace-block">{{ log.stackTrace }}</pre>
+      </section>
 
-        <div class="modal-body">
-          <div class="detail-section">
-            <h4 class="detail-section-title">{{ $t('admin.errorLogs.detail.errorInfo') }}</h4>
-            <div class="detail-grid">
-              <div class="detail-item">
-                <span class="detail-label">{{ $t('admin.errorLogs.table.httpStatus') }}</span>
-                <HttpStatusBadge :status="log.httpStatus" />
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">{{ $t('admin.errorLogs.table.errorCode') }}</span>
-                <span class="detail-value font-mono">{{ log.errorCode || '-' }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">{{ $t('admin.errorLogs.table.errorType') }}</span>
-                <span class="detail-value">{{ log.errorType }}</span>
-              </div>
-              <div class="detail-item detail-item--full">
-                <span class="detail-label">{{ $t('admin.errorLogs.table.message') }}</span>
-                <span class="detail-value">{{ log.message }}</span>
-              </div>
-            </div>
+      <section v-if="log.isResolved === 'Y'" class="detail-section">
+        <h4 class="detail-section-title">{{ $t('admin.errorLogs.detail.resolveInfo') }}</h4>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">처리자 ID</span>
+            <span class="detail-value">{{ log.resolvedBy }}</span>
           </div>
-
-          <div class="detail-section">
-            <h4 class="detail-section-title">{{ $t('admin.errorLogs.detail.requestInfo') }}</h4>
-            <div class="detail-grid">
-              <div class="detail-item">
-                <span class="detail-label">{{ $t('admin.errorLogs.table.requestMethod') }}</span>
-                <span class="detail-value font-mono">{{ log.requestMethod }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">{{ $t('admin.errorLogs.table.requestUri') }}</span>
-                <span class="detail-value font-mono">{{ log.requestUri }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">{{ $t('admin.errorLogs.table.userId') }}</span>
-                <span class="detail-value">{{ log.userId || '-' }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">{{ $t('admin.errorLogs.table.ipAddress') }}</span>
-                <span class="detail-value font-mono">{{ log.ipAddress }}</span>
-              </div>
-              <div class="detail-item detail-item--full">
-                <span class="detail-label">User-Agent</span>
-                <span class="detail-value break-all text-xs">{{ log.userAgent || '-' }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">{{ $t('admin.errorLogs.table.createdAt') }}</span>
-                <span class="detail-value">{{ formatDateTimeOrDash(log.createdAt) }}</span>
-              </div>
-            </div>
+          <div class="detail-item">
+            <span class="detail-label">처리 일시</span>
+            <span class="detail-value">{{ formatDateTimeOrDash(log.resolvedAt) }}</span>
           </div>
-
-          <div v-if="log.stackTrace" class="detail-section">
-            <div class="stack-trace-header">
-              <h4 class="detail-section-title stack-trace-title">{{ $t('admin.errorLogs.detail.stackTrace') }}</h4>
-              <button type="button" class="btn-copy-stack-trace" @click="emit('copyStackTrace')">
-                <Copy class="h-3.5 w-3.5" />
-                {{ $t('admin.errorLogs.actions.copy') }}
-              </button>
-            </div>
-            <pre class="stack-trace-block">{{ log.stackTrace }}</pre>
-          </div>
-
-          <div v-if="log.isResolved === 'Y'" class="detail-section">
-            <h4 class="detail-section-title">{{ $t('admin.errorLogs.detail.resolveInfo') }}</h4>
-            <div class="detail-grid">
-              <div class="detail-item">
-                <span class="detail-label">처리자 ID</span>
-                <span class="detail-value">{{ log.resolvedBy }}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">처리 일시</span>
-                <span class="detail-value">{{ formatDateTimeOrDash(log.resolvedAt) }}</span>
-              </div>
-              <div v-if="log.resolvedMemo" class="detail-item detail-item--full">
-                <span class="detail-label">처리 메모</span>
-                <span class="detail-value">{{ log.resolvedMemo }}</span>
-              </div>
-            </div>
+          <div v-if="log.resolvedMemo" class="detail-item detail-item--full">
+            <span class="detail-label">처리 메모</span>
+            <span class="detail-value">{{ log.resolvedMemo }}</span>
           </div>
         </div>
-
-        <div class="modal-footer">
-          <BaseButton
-            v-if="log.isResolved === 'N'"
-            type="button"
-            variant="primary"
-            size="sm"
-            class="btn-resolve"
-            @click="emit('resolve', log)"
-          >
-            <CheckCircle class="mr-1 h-4 w-4" />
-            {{ $t('admin.errorLogs.actions.resolve') }}
-          </BaseButton>
-          <BaseButton type="button" variant="secondary" size="sm" class="btn-cancel" @click="emit('close')">
-            {{ $t('common.close') }}
-          </BaseButton>
-        </div>
-      </div>
+      </section>
     </div>
-  </Teleport>
+
+    <template v-if="log" #footer>
+      <div class="flex justify-end gap-2">
+        <BaseButton
+          v-if="log.isResolved === 'N'"
+          type="button"
+          variant="primary"
+          size="sm"
+          class="btn-resolve"
+          @click="emit('resolve', log)"
+        >
+          <CheckCircle class="mr-1 h-4 w-4" />
+          {{ $t('admin.errorLogs.actions.resolve') }}
+        </BaseButton>
+        <BaseButton type="button" variant="secondary" size="sm" class="btn-cancel" @click="emit('close')">
+          {{ $t('common.close') }}
+        </BaseButton>
+      </div>
+    </template>
+  </BaseModal>
 </template>
 
 <style scoped>
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgba(0, 0, 0, 0.5);
-}
-
-.modal-content {
-  width: 100%;
-  max-width: 500px;
-  max-height: 90vh;
-  overflow-y: auto;
-  border-radius: 12px;
-  background: var(--nv-surface);
-  color: var(--nv-text);
-  box-shadow: var(--nv-shadow-popup);
-}
-
-.modal-content--lg {
-  max-width: 720px;
-}
-
-.modal-header,
-.modal-footer {
-  display: flex;
-  align-items: center;
-  padding: 16px 20px;
-}
-
-.modal-header {
-  justify-content: space-between;
-  border-bottom: 1px solid var(--nv-border);
-}
-
-.modal-header h3 {
-  color: var(--nv-text);
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.modal-body {
-  padding: 20px;
-}
-
-.modal-footer {
-  justify-content: flex-end;
-  gap: 8px;
-  border-top: 1px solid var(--nv-border);
-}
-
-.btn-close {
-  padding: 4px;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--nv-text-muted);
-  cursor: pointer;
-}
-
-.btn-close:hover {
-  background: var(--nv-surface-hover);
-}
-
-.detail-section {
-  margin-bottom: 20px;
-}
-
-.detail-section:last-child {
-  margin-bottom: 0;
-}
-
 .detail-section-title {
   margin-bottom: 12px;
   padding-bottom: 6px;

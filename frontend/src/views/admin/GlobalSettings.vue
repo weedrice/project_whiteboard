@@ -9,7 +9,8 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import { useToastStore } from '@/stores/toast'
 import BaseTable from '@/components/common/ui/BaseTable.vue'
-import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
+import AdminActionButton from '@/components/admin/AdminActionButton.vue'
+import AdminDataPage from '@/components/admin/AdminDataPage.vue'
 import { useConfirm } from '@/composables/useConfirm'
 
 
@@ -82,16 +83,14 @@ const columns = [
 </script>
 
 <template>
-  <div>
-    <AdminPageHeader :title="t('admin.settings.title')" :description="t('admin.settings.description')">
-      <template #actions>
-        <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-          <BaseButton @click="isModalOpen = true">
-            {{ t('common.add') }}
-          </BaseButton>
-        </div>
-      </template>
-    </AdminPageHeader>
+  <AdminDataPage :title="t('admin.settings.title')" :description="t('admin.settings.description')">
+    <template #actions>
+      <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+        <BaseButton @click="isModalOpen = true">
+          {{ t('common.add') }}
+        </BaseButton>
+      </div>
+    </template>
 
     <div class="mt-8">
       <BaseTable :columns="columns" :items="configs" row-key="key" :loading="isLoading" :emptyText="t('common.noData')">
@@ -111,14 +110,12 @@ const columns = [
 
         <template #cell-actions="{ item }">
           <div class="flex justify-end space-x-2">
-            <BaseButton @click="handleSave(item.key)" variant="ghost" size="sm" :title="t('common.save')" :aria-label="t('common.save')"
-              class="p-1 nv-accent-text hover:brightness-95">
+            <AdminActionButton :label="t('common.save')" tone="accent" icon-only @click="handleSave(item.key)">
               <Save class="h-4 w-4" aria-hidden="true" />
-            </BaseButton>
-            <BaseButton @click="handleDelete(item.key)" variant="ghost" size="sm" :title="t('common.delete')" :aria-label="t('common.delete')"
-              class="p-1 text-[var(--nv-danger-text)] hover:brightness-95">
+            </AdminActionButton>
+            <AdminActionButton :label="t('common.delete')" tone="danger" icon-only @click="handleDelete(item.key)">
               <Trash2 class="h-4 w-4" aria-hidden="true" />
-            </BaseButton>
+            </AdminActionButton>
           </div>
         </template>
       </BaseTable>
@@ -142,5 +139,5 @@ const columns = [
         </div>
       </template>
     </BaseModal>
-  </div>
+  </AdminDataPage>
 </template>

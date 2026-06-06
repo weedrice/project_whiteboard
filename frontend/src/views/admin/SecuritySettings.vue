@@ -4,8 +4,9 @@ import { useAdmin } from '@/composables/useAdmin'
 import { Shield } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
-import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
-import AdminPanel from '@/components/admin/AdminPanel.vue'
+import AdminDataPage from '@/components/admin/AdminDataPage.vue'
+import AdminFilterField from '@/components/admin/AdminFilterField.vue'
+import AdminFilterPanel from '@/components/admin/AdminFilterPanel.vue'
 import AdminPaginationFooter from '@/components/admin/AdminPaginationFooter.vue'
 import IpBlockList from '@/components/admin/IpBlockList.vue'
 import IpBlockDetailModal from '@/components/admin/IpBlockDetailModal.vue'
@@ -82,29 +83,28 @@ watch(totalPages, (nextTotalPages) => {
 </script>
 
 <template>
-    <div>
-        <AdminPageHeader :title="t('admin.security.title')" :description="t('admin.security.description')" />
-
-        <!-- Block IP Form -->
-        <AdminPanel class="mt-6" padding="sm">
+    <AdminDataPage :title="t('admin.security.title')" :description="t('admin.security.description')">
+        <template #filters>
+        <AdminFilterPanel>
             <h3 class="text-lg font-medium leading-6 nv-title">{{ t('admin.security.addTitle') }}
             </h3>
             <form @submit.prevent="handleBlockIp" class="mt-5 sm:flex sm:items-end space-x-4">
-                <div class="w-full sm:max-w-xs">
+                <AdminFilterField :label="t('admin.security.ipAddress')" width-class="w-full sm:max-w-xs">
                     <BaseInput id="ipAddress" v-model="newIp" name="ipAddress" type="text"
-                        :label="t('admin.security.ipAddress')" :placeholder="t('admin.security.ipPlaceholder')" />
-                </div>
-                <div class="w-full sm:max-w-md">
+                        :label="t('admin.security.ipAddress')" :placeholder="t('admin.security.ipPlaceholder')" hideLabel />
+                </AdminFilterField>
+                <AdminFilterField :label="t('admin.security.reason')" width-class="w-full sm:max-w-md">
                     <BaseInput id="reason" v-model="blockReason" name="reason" type="text"
                         :label="t('admin.security.reason')" :placeholder="t('admin.security.reasonPlaceholder')"
-                        maxlength="255" />
-                </div>
+                        maxlength="255" hideLabel />
+                </AdminFilterField>
                 <BaseButton type="submit" variant="danger" class="mt-3 sm:mt-0">
                     <Shield class="h-4 w-4 mr-2" />
                     {{ t('common.block') }}
                 </BaseButton>
             </form>
-        </AdminPanel>
+        </AdminFilterPanel>
+        </template>
 
         <!-- IP Block List -->
         <IpBlockList :ip-blocks="ipBlocks" @unblock="handleUnblockIp" @viewDetail="openDetailModal" />
@@ -113,5 +113,5 @@ watch(totalPages, (nextTotalPages) => {
 
         <!-- IP Block Detail Modal -->
         <IpBlockDetailModal :isOpen="isDetailModalOpen" :ipBlock="selectedIpBlock" @close="isDetailModalOpen = false" />
-    </div>
+    </AdminDataPage>
 </template>

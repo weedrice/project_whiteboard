@@ -4,6 +4,7 @@ import { CheckCircle, Eye, Search } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useErrorLogDetailModal } from '@/composables/useErrorLogDetailModal'
 import { useErrorLogListState } from '@/composables/useErrorLogListState'
+import AdminActionButton from '@/components/admin/AdminActionButton.vue'
 import AdminDataPage from '@/components/admin/AdminDataPage.vue'
 import AdminFilterField from '@/components/admin/AdminFilterField.vue'
 import AdminFilterPanel from '@/components/admin/AdminFilterPanel.vue'
@@ -188,25 +189,25 @@ function resolveFromDetail(log: ErrorLogDetail) {
 
       <template #cell-actions="{ item: log }">
         <div class="action-buttons">
-          <button
+          <AdminActionButton
             type="button"
-            class="btn-icon"
-            :title="t('admin.errorLogs.actions.viewDetail')"
-            :aria-label="t('admin.errorLogs.actions.viewDetail')"
+            icon-only
+            :label="t('admin.errorLogs.actions.viewDetail')"
             @click="openDetailModal(log)"
           >
             <Eye class="h-4 w-4" aria-hidden="true" />
-          </button>
-          <button
+          </AdminActionButton>
+          <AdminActionButton
             v-if="log.isResolved === 'N'"
             type="button"
-            class="btn-icon btn-icon--resolve"
-            :title="t('admin.errorLogs.actions.resolve')"
-            :aria-label="t('admin.errorLogs.actions.resolve')"
+            icon-only
+            tone="success"
+            class="btn-icon--resolve"
+            :label="t('admin.errorLogs.actions.resolve')"
             @click="openResolveModal(log)"
           >
             <CheckCircle class="h-4 w-4" aria-hidden="true" />
-          </button>
+          </AdminActionButton>
         </div>
       </template>
     </BaseTable>

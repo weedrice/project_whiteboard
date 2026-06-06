@@ -1,16 +1,14 @@
 <template>
-  <div class="space-y-6">
-    <AdminPageHeader :title="$t('admin.boards.title')" :description="$t('admin.boards.description')">
-      <template #actions>
-        <div class="mt-4 sm:mt-0">
-          <BaseButton @click="openCreateModal">
-            {{ $t('admin.boards.addTitle') }}
-          </BaseButton>
-        </div>
-      </template>
-    </AdminPageHeader>
+  <AdminDataPage :title="$t('admin.boards.title')" :description="$t('admin.boards.description')">
+    <template #actions>
+      <div class="mt-4 sm:mt-0">
+        <BaseButton @click="openCreateModal">
+          {{ $t('admin.boards.addTitle') }}
+        </BaseButton>
+      </div>
+    </template>
 
-    <div class="grid grid-cols-1 gap-6 xl:grid-cols-12">
+    <div class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-12">
       <section class="xl:col-span-4">
         <AdminPanel padding="sm">
           <h2 class="text-sm font-semibold nv-title">{{ $t('common.board') }}</h2>
@@ -45,14 +43,12 @@
                     <GripVertical class="h-4 w-4 nv-text-subtle drag-handle cursor-move" />
                     {{ board.boardName }}
                   </p>
-                  <span
-                    class="inline-flex rounded-full px-2 py-0.5 text-xs font-semibold"
-                    :class="board.isActive
-                      ? 'nv-status-success'
-                      : 'nv-status-danger'"
-                  >
-                    {{ board.isActive ? $t('common.active') : $t('common.inactive') }}
-                  </span>
+                  <BooleanBadge
+                    :value="board.isActive"
+                    :true-label="$t('common.active')"
+                    :false-label="$t('common.inactive')"
+                    false-variant="danger"
+                  />
                 </div>
                 <div class="mt-2 text-xs nv-text-subtle">
                   {{ $t('common.sortOrder') }}: {{ board.sortOrder }}
@@ -238,7 +234,7 @@
       @close="closeManagerModal"
       @confirm="confirmManagerSelection"
     />
-  </div>
+  </AdminDataPage>
 </template>
 
 <script setup lang="ts">
@@ -250,8 +246,9 @@ import { useAdminBoardEditor } from '@/composables/useAdminBoardEditor'
 import { useAdminBoardCreateModal } from '@/composables/useAdminBoardCreateModal'
 import { useBoardIconUpload } from '@/composables/useBoardIconUpload'
 import { useBoardManagerAssignment } from '@/composables/useBoardManagerAssignment'
-import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
+import AdminDataPage from '@/components/admin/AdminDataPage.vue'
 import AdminPanel from '@/components/admin/AdminPanel.vue'
+import BooleanBadge from '@/components/admin/BooleanBadge.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'

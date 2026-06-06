@@ -5,11 +5,10 @@ import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api/auth'
 import { useEmailVerificationFlow } from '@/composables/useEmailVerificationFlow'
 import { handleDeletedAccountRedirect } from '@/utils/authRedirect'
+import AuthEmailVerificationSection from '@/components/auth/AuthEmailVerificationSection.vue'
 import AuthFormShell from '@/components/auth/AuthFormShell.vue'
-import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useToastStore } from '@/stores/toast'
-import { CheckCircle, Mail } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -66,63 +65,23 @@ const {
     :description="t('auth.forgotPasswordDescription')"
     back-to="/login"
   >
-    <div v-if="!isSent" class="space-y-6">
-      <BaseInput
-        id="forgot-password-email"
-        v-model="form.email"
-        name="email"
-        type="email"
-        autocomplete="email"
-        :placeholder="t('auth.placeholders.email')"
-        :label="t('auth.email')"
-        :disabled="isCodeSent"
-        hideLabel
-      >
-        <template #prefix>
-          <Mail class="h-5 w-5 nv-text-subtle" />
-        </template>
-      </BaseInput>
-
-      <BaseButton
-        type="button"
-        variant="primary"
-        class="w-full"
-        :loading="isLoading"
-        :disabled="isLoading"
-        @click="handleSendCode"
-      >
-        {{ isCodeSent ? t('auth.resendCode') : t('auth.sendCode') }}
-      </BaseButton>
-
-      <div v-if="isCodeSent" class="space-y-4">
-        <BaseInput
-          id="forgot-password-verification-code"
-          v-model="form.code"
-          name="verificationCode"
-          type="text"
-          inputmode="numeric"
-          autocomplete="one-time-code"
-          :placeholder="t('auth.codePlaceholder')"
-          :label="t('auth.codePlaceholder')"
-          hideLabel
-        >
-          <template #prefix>
-            <CheckCircle class="h-5 w-5 nv-text-subtle" />
-          </template>
-        </BaseInput>
-
-        <BaseButton
-          type="button"
-          variant="primary"
-          class="w-full"
-          :loading="isLoading"
-          :disabled="isLoading"
-          @click="handleSendResetLink"
-        >
-          {{ t('auth.sendResetLink') }}
-        </BaseButton>
-      </div>
-    </div>
+    <AuthEmailVerificationSection
+      v-if="!isSent"
+      v-model:email="form.email"
+      v-model:code="form.code"
+      id-prefix="forgot-password"
+      :loading="isLoading"
+      :code-sent="isCodeSent"
+      :email-disabled="isCodeSent"
+      :email-label="t('auth.email')"
+      :email-placeholder="t('auth.placeholders.email')"
+      :code-label="t('auth.codePlaceholder')"
+      :send-label="t('auth.sendCode')"
+      :resend-label="t('auth.resendCode')"
+      :verify-label="t('auth.sendResetLink')"
+      @send="handleSendCode"
+      @verify="handleSendResetLink"
+    />
 
     <div v-else class="text-center animate-fade-in">
       <BaseButton variant="primary" class="w-full" @click="router.push('/login')">

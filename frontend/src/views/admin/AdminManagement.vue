@@ -8,7 +8,8 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTable from '@/components/common/ui/BaseTable.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
-import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
+import AdminActionButton from '@/components/admin/AdminActionButton.vue'
+import AdminDataPage from '@/components/admin/AdminDataPage.vue'
 import AdminPanel from '@/components/admin/AdminPanel.vue'
 import { formatDate } from '@/utils/date'
 
@@ -77,9 +78,7 @@ const superAdminColumns: { key: string; label: string; width: string; align?: 'l
 </script>
 
 <template>
-  <div>
-    <AdminPageHeader :title="t('admin.admins.title')" :description="t('admin.admins.description')" />
-
+  <AdminDataPage :title="t('admin.admins.title')" :description="t('admin.admins.description')">
     <div class="mt-6">
       <AdminPanel padding="sm" max-width-class="max-w-xl">
         <h3 class="text-lg font-medium leading-6 nv-title">{{ t('admin.admins.addSuperAdmin') }}</h3>
@@ -126,16 +125,15 @@ const superAdminColumns: { key: string; label: string; width: string; align?: 'l
         </template>
 
         <template #cell-actions="{ item }">
-          <BaseButton
+          <AdminActionButton
+            :label="(item as SuperAdminRow).superAdmin ? t('common.deactivate') : t('common.activate')"
+            tone="accent"
             @click="toggleSuperAdminStatus(item as SuperAdminRow)"
-            variant="ghost"
-            size="sm"
-            class="p-1 nv-accent-text hover:brightness-95"
           >
             {{ (item as SuperAdminRow).superAdmin ? t('common.deactivate') : t('common.activate') }}
-          </BaseButton>
+          </AdminActionButton>
         </template>
       </BaseTable>
     </div>
-  </div>
+  </AdminDataPage>
 </template>
