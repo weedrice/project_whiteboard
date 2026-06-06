@@ -39,10 +39,7 @@ class ReportModerationService {
     }
 
     private Pageable normalizeReportPageable(Pageable pageable) {
-        if (pageable == null || pageable.isUnpaged()) {
-            return PageRequestUtils.of(0, DEFAULT_REPORT_PAGE_SIZE, DEFAULT_REPORT_SORT);
-        }
-        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), DEFAULT_REPORT_SORT);
+        return PageRequestUtils.of(pageable, DEFAULT_REPORT_PAGE_SIZE, DEFAULT_REPORT_SORT);
     }
 
     public Page<MyReportResponse> getMyReports(Long userId, Pageable pageable) {

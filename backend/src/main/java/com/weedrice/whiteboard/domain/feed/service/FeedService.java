@@ -62,10 +62,7 @@ public class FeedService {
     }
 
     private Pageable normalizeFeedPageable(Pageable pageable) {
-        if (pageable == null || pageable.isUnpaged()) {
-            return PageRequestUtils.of(0, DEFAULT_FEED_PAGE_SIZE, FEED_LIST_SORT);
-        }
-        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), FEED_LIST_SORT);
+        return PageRequestUtils.of(pageable, DEFAULT_FEED_PAGE_SIZE, FEED_LIST_SORT);
     }
 
     private Map<Long, PostSummary> resolvePostSummaries(

@@ -68,9 +68,6 @@ public class CommentService {
     }
 
     private Pageable normalizeReadPageable(Pageable pageable) {
-        if (pageable == null || pageable.isUnpaged()) {
-            return PageRequestUtils.of(0, DEFAULT_COMMENT_PAGE_SIZE, CommentReadSorts.READ_ORDER);
-        }
-        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), CommentReadSorts.READ_ORDER);
+        return PageRequestUtils.of(pageable, DEFAULT_COMMENT_PAGE_SIZE, CommentReadSorts.READ_ORDER);
     }
 }
