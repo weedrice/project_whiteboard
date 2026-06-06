@@ -154,7 +154,7 @@ public class AuthController {
             authService.logout(refreshToken);
         }
         refreshTokenCookieWriter.clearRefreshTokenCookie(httpServletResponse, httpServletRequest);
-        return ResponseEntity.ok(ApiResponse.success(null));
+        return okVoid();
     }
 
     @Hidden
@@ -185,7 +185,7 @@ public class AuthController {
                 request.getEmail(),
                 request.getPurpose().toPurpose(),
                 currentUserId);
-        return ResponseEntity.ok(ApiResponse.success(null));
+        return okVoid();
     }
 
     @PostMapping("/email/verify")
@@ -214,7 +214,7 @@ public class AuthController {
     @PostMapping("/password/send-reset-link")
     public ResponseEntity<ApiResponse<Void>> sendPasswordResetLink(@Valid @RequestBody PasswordResetRequest request) {
         authService.sendPasswordResetLink(request.getEmail(), request.getVerificationTicket());
-        return ResponseEntity.ok(ApiResponse.success(null));
+        return okVoid();
     }
 
     @Operation(summary = "비밀번호 초기화 링크 발송 (이메일 입력)", description = "이메일을 입력받아 해당 이메일로 등록된 ID와 비밀번호 초기화 링크를 발송합니다.")
@@ -222,13 +222,13 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Void>> sendPasswordResetLinkByEmail(
             @Valid @RequestBody PasswordResetRequest request) {
         authService.sendPasswordResetLinkByEmail(request.getEmail(), request.getVerificationTicket());
-        return ResponseEntity.ok(ApiResponse.success(null));
+        return okVoid();
     }
 
     @PostMapping("/password/reset")
     public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody PasswordResetConfirmRequest request) {
         authService.resetPasswordWithToken(request.getToken(), request.getNewPassword());
-        return ResponseEntity.ok(ApiResponse.success(null));
+        return okVoid();
     }
 
     @PostMapping("/password/reset-by-code")
@@ -238,6 +238,10 @@ public class AuthController {
                 request.getEmail(),
                 request.getVerificationTicket(),
                 request.getNewPassword());
+        return okVoid();
+    }
+
+    private ResponseEntity<ApiResponse<Void>> okVoid() {
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
