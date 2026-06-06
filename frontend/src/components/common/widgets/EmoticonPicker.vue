@@ -7,6 +7,7 @@ import { X, ArrowLeft, Search, Smile } from 'lucide-vue-next'
 import logger from '@/utils/logger'
 import { DEFAULT_EMOTICON_IMAGE_URL, applyImageFallback } from '@/utils/imageFallback'
 import { useLatestAsyncTask } from '@/composables/useLatestAsyncTask'
+import { accessibleEmoticonPickerQueryKey } from '@/composables/useEmoticonEditResource'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 
 const props = defineProps<{
@@ -49,7 +50,7 @@ const {
   isError: isListError,
   refetch: refetchAccessibleEmoticons
 } = useQuery({
-  queryKey: ['emoticons', 'accessible', 'picker'],
+  queryKey: accessibleEmoticonPickerQueryKey,
   queryFn: async () => {
     const [purchasedPage, myPage] = await Promise.all([
       emoticonApi.getPurchasedEmoticonsData({ size: 100 }),

@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuery } from '@tanstack/vue-query'
 import { emoticonApi } from '@/api/emoticon'
+import { popularEmoticonsQueryKey, searchableEmoticonsQueryKey } from '@/composables/useEmoticonEditResource'
 import type { EmoticonSearchParams } from '@/types/emoticon'
 
 export interface DisplayedPage {
@@ -22,12 +23,12 @@ export function useEmoticonListResource() {
   const isSearching = ref(false)
 
   const { data: popularEmoticons, isLoading: popularLoading } = useQuery({
-    queryKey: ['emoticons', 'popular', popularPeriod],
+    queryKey: popularEmoticonsQueryKey(popularPeriod),
     queryFn: async () => emoticonApi.getPopularEmoticonsData(popularPeriod.value),
   })
 
   const { data: emoticonsPage, isLoading: emoticonsLoading } = useQuery({
-    queryKey: ['emoticons', 'list', currentPage, sortBy, searchKeyword, searchType],
+    queryKey: searchableEmoticonsQueryKey(currentPage, sortBy, searchKeyword, searchType),
     queryFn: async () => {
       const params: EmoticonSearchParams = {
         page: currentPage.value,
