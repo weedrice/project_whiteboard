@@ -443,7 +443,7 @@ class SearchServiceTest {
     }
 
     @Test
-    @DisplayName("?멸린 寃?됱뼱 議고쉶 ?깃났")
+    @DisplayName("인기 검색어 조회 성공")
     void getPopularKeywords_success() {
         // given
         SearchStatisticRepository.PopularKeywordProjection result1 = popularKeyword("keyword1", 10L);

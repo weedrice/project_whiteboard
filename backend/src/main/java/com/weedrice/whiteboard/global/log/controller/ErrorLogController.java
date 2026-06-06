@@ -33,7 +33,7 @@ public class ErrorLogController {
     private final ErrorLogService errorLogService;
 
     /**
-     * 에러 로그 목록 조회 (페이징 + 필터)
+     * 에러 로그 목록 조회 (페이지 + 필터)
      */
     @GetMapping
     public ApiResponse<ErrorLogResponse> getErrorLogs(

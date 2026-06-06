@@ -1150,7 +1150,7 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 寃뚯떆湲???섏젙?????녿떎")
+    @DisplayName("활성 BAN 사용자는 게시글을 수정할 수 없다")
     void updatePost_bannedUser_forbidden() {
         PostUpdateRequest request = new PostUpdateRequest(null, "Updated Title", "Updated Contents",
                 Collections.emptyList(), false, false, false, null);
@@ -1261,7 +1261,7 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 寃뚯떆湲???쒖젣?????녿떎")
+    @DisplayName("활성 BAN 사용자는 게시글을 삭제할 수 없다")
     void deletePost_bannedUser_forbidden() {
         when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -1296,7 +1296,7 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 寃뚯떆湲 醫뗭븘?????녿떎")
+    @DisplayName("활성 BAN 사용자는 게시글 좋아요를 할 수 없다")
     void likePost_bannedUser_forbidden() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
@@ -1800,7 +1800,7 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 珥덉븞????ν븷 ???녿떎")
+    @DisplayName("활성 BAN 사용자는 초안을 저장할 수 없다")
     void saveDraftPost_bannedUser_forbidden() {
         PostDraftRequest request = new PostDraftRequest(null, "free", "Draft Title", "Draft Content", null);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -2190,7 +2190,7 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 珥덉븞???쒖젣?????녿떎")
+    @DisplayName("활성 BAN 사용자는 초안을 삭제할 수 없다")
     void deleteDraftPost_bannedUser_forbidden() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
@@ -3068,7 +3068,7 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("寃뚯떆??理쒖떊 寃뚯떆湲 諛곗튂 議고쉶 - 蹂대뱶蹂??묒쐞濡?洹몃９?묒뾽")
+    @DisplayName("게시판 최신 게시글 배치 조회 - 보드별 묶음으로 그룹화")
     void getLatestPostsByBoards_groupsSummariesByBoard() {
         when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
         when(postRepository.findLatestPostIdsByBoardIds(List.of(1L), 5, Collections.emptyList(), Set.of(1L), 1L))

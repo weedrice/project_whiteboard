@@ -49,9 +49,9 @@ public class AdminController {
     private final PostService postService;
 
     /**
-     * Super Admin 조회
-     * 
-     * @return {@link SuperAdminResponse} Super Admin List
+     * Super Admin 목록을 조회한다.
+     *
+     * @return {@link SuperAdminResponse} Super Admin 목록
      */
     @GetMapping("/super")
     public ApiResponse<List<SuperAdminResponse>> getSuperAdmin() {
@@ -59,12 +59,12 @@ public class AdminController {
     }
 
     /**
-     * Super Admin 등록
+     * Super Admin을 등록한다.
      * <p>
      * {@link BusinessException} 등록 사용자 없을 시 <code>USER_NOT_FOUND</code><br>
      * 중복 등록 시 <code>DUPLICATE_RESOURCE</code> 반환
-     * 
-     * @param request {@link SuperAdminRequest} 등록 대상 사용자의 loginId를 포함하고있는 객체
+     *
+     * @param request {@link SuperAdminRequest} 등록 대상 사용자의 loginId를 포함하는 객체
      * @return {@link SuperAdminUpdateResponse} 등록된 Super Admin 정보
      */
     @PutMapping("/super/active")
@@ -73,13 +73,13 @@ public class AdminController {
     }
 
     /**
-     * Super Admin 해제
+     * Super Admin을 해제한다.
      * <p>
      * {@link BusinessException} 등록 사용자 없을 시 <code>USER_NOT_FOUND</code><br>
-     * 미 등록 사용자 해제 시 <code>INVALID_TARGET</code> 반환
-     * 
-     * @param request {@link SuperAdminRequest} 등록 대상 사용자의 loginId를 포함하고있는 객체
-     * @return {@link SuperAdminUpdateResponse} 등록된 Super Admin 정보
+     * 미등록 사용자 해제 시 <code>INVALID_TARGET</code> 반환
+     *
+     * @param request {@link SuperAdminRequest} 해제 대상 사용자의 loginId를 포함하는 객체
+     * @return {@link SuperAdminUpdateResponse} 해제된 Super Admin 정보
      */
     @PutMapping("/super/deactive")
     public ApiResponse<SuperAdminUpdateResponse> deactivateSuperAdmin(
@@ -91,10 +91,9 @@ public class AdminController {
     }
 
     /**
-     * Admin 등록
-     * 
-     * @param request {@link AdminCreateRequest} 등록할 Admin 정보 (loginId, boardId,
-     *                role)
+     * Admin을 등록한다.
+     *
+     * @param request {@link AdminCreateRequest} 등록할 Admin 정보 (loginId, boardId, role)
      * @return {@link AdminResponse} 등록된 Admin 정보
      */
     @PostMapping("/admins")
@@ -105,8 +104,8 @@ public class AdminController {
     }
 
     /**
-     * 모든 Admin 조회
-     * 
+     * 모든 Admin 목록을 조회한다.
+     *
      * @return {@link AdminResponse} 모든 Admin 목록
      */
     @GetMapping("/admins")
@@ -116,8 +115,8 @@ public class AdminController {
     }
 
     /**
-     * Admin 비활성화
-     * 
+     * Admin을 비활성화한다.
+     *
      * @param adminId 비활성화할 Admin ID
      * @return 성공 응답
      */
@@ -151,11 +150,9 @@ public class AdminController {
     }
 
     /**
-     * IP 차단
-     * 
-     * @param request        {@link IpBlockRequest} 차단할 IP 정보 (ipAddress, reason,
-     *                       endDate)
-     * @param authentication 인증 정보
+     * IP를 차단한다.
+     *
+     * @param request {@link IpBlockRequest} 차단할 IP 정보 (ipAddress, reason, endDate)
      * @return {@link IpBlockResponse} 차단된 IP 정보
      */
     @PostMapping("/ip-blocks")
@@ -169,8 +166,8 @@ public class AdminController {
     }
 
     /**
-     * IP 차단 해제
-     * 
+     * IP 차단을 해제한다.
+     *
      * @param ipAddress 차단 해제할 IP 주소
      * @return 성공 응답
      */
@@ -181,8 +178,8 @@ public class AdminController {
     }
 
     /**
-     * 차단된 IP 목록 조회
-     * 
+     * 차단된 IP 목록을 조회한다.
+     *
      * @return {@link IpBlockResponse} 차단된 IP 목록
      */
     @GetMapping("/ip-blocks")
@@ -192,8 +189,8 @@ public class AdminController {
     }
 
     /**
-     * 대시보드 통계 조회
-     * 
+     * 대시보드 통계를 조회한다.
+     *
      * @return {@link DashboardStatsDto} 대시보드 통계 정보
      */
     @GetMapping("/stats")
