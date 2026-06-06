@@ -4,6 +4,7 @@ import { useHead } from '@unhead/vue'
 import { Search, X, PlusCircle, TrendingUp } from 'lucide-vue-next'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
+import Pagination from '@/components/common/ui/Pagination.vue'
 import { DEFAULT_EMOTICON_IMAGE_URL, applyImageFallback } from '@/utils/imageFallback'
 import { useEmoticonListResource } from '@/composables/useEmoticonListResource'
 import type { EmoticonSearchParams } from '@/types/emoticon'
@@ -22,7 +23,6 @@ const {
   emoticons,
   totalPages,
   totalElements,
-  displayedPages,
   goToPage,
   changeSortBy,
   handleSearch,
@@ -213,37 +213,7 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
 
       <!-- 페이지네이션 -->
       <div v-if="totalPages > 1" class="mt-8 flex justify-center">
-        <nav class="flex items-center gap-1">
-          <button
-            @click="goToPage(currentPage - 1)"
-            :disabled="currentPage === 0"
-            class="px-3 py-2 text-sm font-medium nv-text-muted nv-surface border nv-border rounded-md nv-hover-surface disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            이전
-          </button>
-          <template v-for="item in displayedPages" :key="item.key">
-            <button
-              v-if="item.page !== null"
-              @click="goToPage(item.page - 1)"
-              :class="[
-                'px-3 py-2 text-sm font-medium rounded-md',
-                currentPage === item.page - 1
-                  ? 'bg-[var(--nv-accent)] text-white'
-                  : 'nv-text-muted nv-surface border nv-border nv-hover-surface'
-              ]"
-            >
-              {{ item.page }}
-            </button>
-            <span v-else class="px-2 nv-text-subtle">...</span>
-          </template>
-          <button
-            @click="goToPage(currentPage + 1)"
-            :disabled="currentPage >= totalPages - 1"
-            class="px-3 py-2 text-sm font-medium nv-text-muted nv-surface border nv-border rounded-md nv-hover-surface disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            다음
-          </button>
-        </nav>
+        <Pagination :current-page="currentPage" :total-pages="totalPages" @page-change="goToPage" />
       </div>
     </section>
 

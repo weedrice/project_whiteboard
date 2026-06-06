@@ -5,11 +5,6 @@ import { emoticonApi } from '@/api/emoticon'
 import { popularEmoticonsQueryKey, searchableEmoticonsQueryKey } from '@/composables/useEmoticonEditResource'
 import type { EmoticonSearchParams } from '@/types/emoticon'
 
-export interface DisplayedPage {
-  key: string
-  page: number | null
-}
-
 const pageSize = 20
 
 export function useEmoticonListResource() {
@@ -46,43 +41,6 @@ export function useEmoticonListResource() {
   const emoticons = computed(() => emoticonsPage.value?.content || [])
   const totalPages = computed(() => emoticonsPage.value?.totalPages || 0)
   const totalElements = computed(() => emoticonsPage.value?.totalElements || 0)
-  const displayedPages = computed(() => {
-    const pages: DisplayedPage[] = []
-    const lastPage = totalPages.value
-    const current = currentPage.value + 1
-
-    if (lastPage <= 7) {
-      return Array.from({ length: lastPage }, (_, index) => ({
-        key: `page-${index + 1}`,
-        page: index + 1,
-      }))
-    }
-
-    const visiblePages = new Set<number>([1, lastPage])
-    for (let page = Math.max(2, current - 1); page <= Math.min(lastPage - 1, current + 1); page += 1) {
-      visiblePages.add(page)
-    }
-
-    let previousPage = 0
-    Array.from(visiblePages)
-      .sort((a, b) => a - b)
-      .forEach((page) => {
-        if (previousPage && page - previousPage > 1) {
-          pages.push({
-            key: `ellipsis-${previousPage}-${page}`,
-            page: null,
-          })
-        }
-        pages.push({
-          key: `page-${page}`,
-          page,
-        })
-        previousPage = page
-      })
-
-    return pages
-  })
-
   const goToPage = (page: number) => {
     if (page >= 0 && page < totalPages.value) {
       currentPage.value = page
@@ -126,7 +84,6 @@ export function useEmoticonListResource() {
     emoticons,
     totalPages,
     totalElements,
-    displayedPages,
     goToPage,
     changeSortBy,
     handleSearch,
