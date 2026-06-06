@@ -4,14 +4,13 @@ import { useI18n } from 'vue-i18n'
 import { userApi } from '@/api/user'
 import { boardApi } from '@/api/board'
 import { boardQueryKeys } from '@/composables/boardQueryKeys'
+import { useMobileViewport } from '@/composables/useMediaQuery'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import type { SubscriptionBoardListItem } from '@/types'
 
 const subscriptionsPageSize = 100
-const mobileMediaQuery = '(max-width: 639px)'
-const mobileViewportMaxWidth = 639
 
 export function isAccessibleSubscription(board: SubscriptionBoardListItem) {
   return board.accessState === 'ACCESSIBLE'
@@ -19,16 +18,6 @@ export function isAccessibleSubscription(board: SubscriptionBoardListItem) {
 
 function canReorderSubscription(board: SubscriptionBoardListItem) {
   return isAccessibleSubscription(board) && board.isActive !== false
-}
-
-function createMobileMediaQuery() {
-  return typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-    ? window.matchMedia(mobileMediaQuery)
-    : null
-}
-
-function isMobileViewportFallback() {
-  return typeof window !== 'undefined' && window.innerWidth <= mobileViewportMaxWidth
 }
 
 export function useSubscribedBoardsManager() {
@@ -41,17 +30,12 @@ export function useSubscribedBoardsManager() {
   const accessibleBoards = ref<SubscriptionBoardListItem[]>([])
   const unavailableBoards = ref<SubscriptionBoardListItem[]>([])
   const loading = ref(false)
-  const mediaQuery = createMobileMediaQuery()
-  const isMobile = ref(mediaQuery?.matches ?? isMobileViewportFallback())
+  const isMobile = useMobileViewport()
   let subscriptionsRequestId = 0
 
   const hasSubscriptions = computed(() =>
     accessibleBoards.value.length > 0 || unavailableBoards.value.length > 0
   )
-
-  function updateIsMobile(event?: MediaQueryListEvent) {
-    isMobile.value = event?.matches ?? mediaQuery?.matches ?? isMobileViewportFallback()
-  }
 
   function invalidateSubscriptionCaches() {
     queryClient.invalidateQueries({ queryKey: boardQueryKeys.all })
@@ -147,13 +131,10 @@ export function useSubscribedBoardsManager() {
 
   onMounted(() => {
     fetchSubscriptions()
-    updateIsMobile()
-    mediaQuery?.addEventListener('change', updateIsMobile)
   })
 
   onUnmounted(() => {
     subscriptionsRequestId += 1
-    mediaQuery?.removeEventListener('change', updateIsMobile)
   })
 
   return {

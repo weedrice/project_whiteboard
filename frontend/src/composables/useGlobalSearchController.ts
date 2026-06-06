@@ -1,4 +1,5 @@
 import { nextTick, onMounted, onUnmounted, ref, type Ref } from 'vue'
+import { useMobileViewport } from '@/composables/useMediaQuery'
 import { useSearchNavigation } from '@/composables/useSearchNavigation'
 import type { BoardListItem } from '@/types'
 
@@ -23,16 +24,12 @@ export function useGlobalSearchController({
   searchListboxId
 }: UseGlobalSearchControllerOptions) {
   const showDropdown = ref(false)
-  const isMobile = ref(typeof window !== 'undefined' && window.innerWidth < 640)
   const isExpanded = ref(false)
-  const mediaQuery = typeof window !== 'undefined' ? window.matchMedia('(max-width: 639px)') : null
-
-  const updateIsMobile = () => {
-    if (mediaQuery) {
-      isMobile.value = mediaQuery.matches
-      if (!mediaQuery.matches) isExpanded.value = false
+  const isMobile = useMobileViewport((matches) => {
+    if (!matches) {
+      isExpanded.value = false
     }
-  }
+  })
 
   const focusSearchInput = () => {
     const refValue = searchInputRef.value
@@ -116,15 +113,10 @@ export function useGlobalSearchController({
   }
 
   onMounted(() => {
-    if (mediaQuery) {
-      isMobile.value = mediaQuery.matches
-      mediaQuery.addEventListener('change', updateIsMobile)
-    }
     document.addEventListener('click', handleClickOutside)
   })
 
   onUnmounted(() => {
-    if (mediaQuery) mediaQuery.removeEventListener('change', updateIsMobile)
     document.removeEventListener('click', handleClickOutside)
   })
 
