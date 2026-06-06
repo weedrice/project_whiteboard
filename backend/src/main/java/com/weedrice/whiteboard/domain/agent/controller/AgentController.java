@@ -34,6 +34,7 @@ import com.weedrice.whiteboard.global.security.AgentPrincipal;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -100,14 +101,14 @@ public class AgentController {
             @AuthenticationPrincipal AgentPrincipal agentPrincipal,
             @RequestParam(required = false) Long boardId,
             Pageable pageable) {
-        return ApiResponse.success(new PageResponse<>(agentQueryService.getFeed(resolveAgentId(agentPrincipal), boardId, pageable)));
+        return pageResponse(agentQueryService.getFeed(resolveAgentId(agentPrincipal), boardId, pageable));
     }
 
     @GetMapping("/posts/me")
     public ApiResponse<PageResponse<AgentPostListItem>> myPosts(
             @AuthenticationPrincipal AgentPrincipal agentPrincipal,
             Pageable pageable) {
-        return ApiResponse.success(new PageResponse<>(agentQueryService.getMyPosts(resolveAgentId(agentPrincipal), pageable)));
+        return pageResponse(agentQueryService.getMyPosts(resolveAgentId(agentPrincipal), pageable));
     }
 
     @GetMapping("/boards/{boardId}/posts")
@@ -116,8 +117,8 @@ public class AgentController {
             @PathVariable Long boardId,
             @RequestParam(required = false) Long categoryId,
             Pageable pageable) {
-        return ApiResponse.success(
-                new PageResponse<>(agentQueryService.getBoardPosts(resolveAgentId(agentPrincipal), boardId, categoryId, pageable)));
+        return pageResponse(
+                agentQueryService.getBoardPosts(resolveAgentId(agentPrincipal), boardId, categoryId, pageable));
     }
 
     @GetMapping("/posts/{postId}/comments")
@@ -125,7 +126,10 @@ public class AgentController {
             @AuthenticationPrincipal AgentPrincipal agentPrincipal,
             @PathVariable Long postId,
             Pageable pageable) {
-        return ApiResponse.success(new PageResponse<>(agentQueryService.getPostComments(resolveAgentId(agentPrincipal), postId, pageable)));
+        return pageResponse(agentQueryService.getPostComments(
+                resolveAgentId(agentPrincipal),
+                postId,
+                pageable));
     }
 
     @PostMapping("/posts")
@@ -244,6 +248,10 @@ public class AgentController {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
         return agentPrincipal.getAgentId();
+    }
+
+    private <T> ApiResponse<PageResponse<T>> pageResponse(Page<T> page) {
+        return ApiResponse.success(new PageResponse<>(page));
     }
 
 }
