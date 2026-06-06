@@ -16,6 +16,7 @@ import { saveLoginRedirect } from '@/utils/authRedirect'
 import logger from '@/utils/logger'
 import i18n from '@/i18n'
 import { normalizePostReactionFlags, type PostReactionAlias } from '@/utils/postViewModel'
+import { reloadPage } from '@/utils/pageReload'
 import type { Post } from '@/types'
 
 const CHUNK_RELOAD_KEY = 'chunk-reload-attempted'
@@ -485,7 +486,7 @@ router.onError((error) => {
         const alreadyRetried = sessionStorage.getItem(CHUNK_RELOAD_KEY) === '1'
         if (!alreadyRetried) {
             sessionStorage.setItem(CHUNK_RELOAD_KEY, '1')
-            window.location.reload()
+            reloadPage()
             return
         }
         sessionStorage.removeItem(CHUNK_RELOAD_KEY)

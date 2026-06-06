@@ -71,6 +71,7 @@ describe('BaseTable', () => {
             props: {
                 columns: [{ key: 'title', label: 'Title' }],
                 items: [{ title: 'Default row' }],
+                rowKey: (item: object) => (item as { title: string }).title,
             },
         })
 
@@ -82,6 +83,7 @@ describe('BaseTable', () => {
             props: {
                 columns: [{ key: 'title', label: 'Title' }],
                 items: [{ title: 'Compact row' }],
+                rowKey: (item: object) => (item as { title: string }).title,
                 density: 'compact',
                 shadow: false,
                 maxHeightClass: 'max-h-[420px]',

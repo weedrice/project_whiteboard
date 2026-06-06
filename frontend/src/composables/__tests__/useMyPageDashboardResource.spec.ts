@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useMyPageDashboardResource } from '../useMyPageDashboardResource'
 import { userApi } from '@/api/user'
 import { QUERY_STALE_TIME } from '@/utils/constants'
+import logger from '@/utils/logger'
 
 const mocks = vi.hoisted(() => ({
   fetchQuery: vi.fn(),
@@ -231,6 +232,7 @@ describe('useMyPageDashboardResource', () => {
   })
 
   it('keeps successful dashboard sections visible when a resource request fails', async () => {
+    const loggerSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
     mocks.fetchQuery.mockImplementation(async (options: { queryKey: unknown[]; queryFn: () => Promise<unknown> }) => {
       if (options.queryKey[0] === 'user' && options.queryKey[2] === 'posts') {
         throw new Error('network')
@@ -246,6 +248,7 @@ describe('useMyPageDashboardResource', () => {
     expect(resource.profile.value?.email).toBe('me@example.com')
     expect(resource.myCommentsTotalCount.value).toBe(1)
     expect(resource.isLoading.value).toBe(false)
+    loggerSpy.mockRestore()
   })
 
   it('sets a section error when a dashboard resource returns an unsuccessful envelope', async () => {
