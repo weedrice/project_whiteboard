@@ -181,10 +181,7 @@ public class ShopService {
     }
 
     private Pageable normalizePurchaseHistoryPageable(Pageable pageable) {
-        if (pageable == null || pageable.isUnpaged()) {
-            return PageRequestUtils.of(0, DEFAULT_PURCHASE_HISTORY_PAGE_SIZE, DEFAULT_PURCHASE_HISTORY_SORT);
-        }
-        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), DEFAULT_PURCHASE_HISTORY_SORT);
+        return PageRequestUtils.of(pageable, DEFAULT_PURCHASE_HISTORY_PAGE_SIZE, DEFAULT_PURCHASE_HISTORY_SORT);
     }
 
     private String normalizeItemType(String itemType) {

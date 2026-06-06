@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
@@ -15,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class PageRequestUtilsTest {
 
     @Test
-    @DisplayName("페이지 번호는 0 이상이어야 한다")
+    @DisplayName("rejects negative page")
     void of_rejectsNegativePage() {
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> PageRequestUtils.of(-1, 20));
@@ -24,7 +25,7 @@ class PageRequestUtilsTest {
     }
 
     @Test
-    @DisplayName("페이지 크기는 1 이상이어야 한다")
+    @DisplayName("rejects non-positive size")
     void of_rejectsNonPositiveSize() {
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> PageRequestUtils.of(0, 0));
@@ -33,7 +34,7 @@ class PageRequestUtilsTest {
     }
 
     @Test
-    @DisplayName("페이지 크기는 최대 100으로 제한한다")
+    @DisplayName("clamps large size")
     void of_clampsLargeSize() {
         Pageable pageable = PageRequestUtils.of(2, 1000);
 
@@ -42,7 +43,7 @@ class PageRequestUtilsTest {
     }
 
     @Test
-    @DisplayName("정렬 조건은 보존한다")
+    @DisplayName("preserves sort")
     void of_preservesSort() {
         Sort sort = Sort.by(Sort.Direction.DESC, "createdAt");
 
@@ -52,7 +53,33 @@ class PageRequestUtilsTest {
     }
 
     @Test
-    @DisplayName("허용된 정렬 필드만 보존하고 페이지 크기는 상한으로 제한한다")
+    @DisplayName("pageable overload uses default page and sort when unpaged")
+    void of_pageableOverloadUsesDefaultWhenUnpaged() {
+        Sort sort = Sort.by(Sort.Order.desc("createdAt"));
+
+        Pageable pageable = PageRequestUtils.of(Pageable.unpaged(), 20, sort);
+
+        assertThat(pageable.getPageNumber()).isZero();
+        assertThat(pageable.getPageSize()).isEqualTo(20);
+        assertThat(pageable.getSort()).isEqualTo(sort);
+    }
+
+    @Test
+    @DisplayName("pageable overload preserves requested page and size with server sort")
+    void of_pageableOverloadPreservesPageAndSizeWithServerSort() {
+        Sort requestedSort = Sort.by(Sort.Order.asc("title"));
+        Sort serverSort = Sort.by(Sort.Order.desc("createdAt"));
+        Pageable requested = PageRequest.of(2, 250, requestedSort);
+
+        Pageable pageable = PageRequestUtils.of(requested, 20, serverSort);
+
+        assertThat(pageable.getPageNumber()).isEqualTo(2);
+        assertThat(pageable.getPageSize()).isEqualTo(100);
+        assertThat(pageable.getSort()).isEqualTo(serverSort);
+    }
+
+    @Test
+    @DisplayName("filters sort by allowed properties")
     void of_filtersSortByAllowedProperties() {
         Sort sort = Sort.by(Sort.Order.asc("createdAt"), Sort.Order.desc("title"));
         Sort defaultSort = Sort.by(Sort.Order.desc("createdAt"));
@@ -65,7 +92,7 @@ class PageRequestUtilsTest {
     }
 
     @Test
-    @DisplayName("허용된 요청 정렬 뒤에 누락된 기본 보조 정렬을 추가한다")
+    @DisplayName("appends missing default tie breaker sort")
     void of_appendsMissingDefaultTieBreakerSort() {
         Sort sort = Sort.by(Sort.Order.asc("createdAt"));
         Sort defaultSort = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("postId"));
@@ -78,7 +105,7 @@ class PageRequestUtilsTest {
     }
 
     @Test
-    @DisplayName("요청에 이미 포함된 기본 정렬 속성은 중복 추가하지 않는다")
+    @DisplayName("does not duplicate requested default sort properties")
     void of_doesNotDuplicateRequestedDefaultSortProperties() {
         Sort sort = Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("postId"));
         Sort defaultSort = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("postId"));
@@ -89,7 +116,7 @@ class PageRequestUtilsTest {
     }
 
     @Test
-    @DisplayName("허용 목록에 없어도 서버 기본 보조 정렬은 보존한다")
+    @DisplayName("preserves server default tie breaker outside allowed sort properties")
     void of_preservesServerDefaultTieBreakerOutsideAllowedSortProperties() {
         Sort sort = Sort.by(Sort.Order.asc("createdAt"));
         Sort defaultSort = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("notificationId"));
@@ -102,7 +129,7 @@ class PageRequestUtilsTest {
     }
 
     @Test
-    @DisplayName("허용된 정렬 필드가 없으면 기본 정렬을 사용한다")
+    @DisplayName("uses default sort when no allowed sort remains")
     void of_usesDefaultSortWhenNoAllowedSortRemains() {
         Sort defaultSort = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("postId"));
 

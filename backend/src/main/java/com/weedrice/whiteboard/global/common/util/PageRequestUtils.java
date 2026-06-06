@@ -29,6 +29,13 @@ public final class PageRequestUtils {
         return PageRequest.of(page, Math.min(size, DEFAULT_MAX_PAGE_SIZE), safeSort);
     }
 
+    public static Pageable of(Pageable pageable, int defaultPageSize, Sort defaultSort) {
+        if (pageable == null || pageable.isUnpaged()) {
+            return of(0, defaultPageSize, defaultSort);
+        }
+        return of(pageable.getPageNumber(), pageable.getPageSize(), defaultSort);
+    }
+
     public static Pageable of(int page, int size, Sort sort, Sort defaultSort, Set<String> allowedSortProperties) {
         if (page < 0 || size < 1) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
