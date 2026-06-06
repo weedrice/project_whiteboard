@@ -4,6 +4,7 @@ import type { BoardCreateData, BoardUpdateData } from '@/types'
 import { userApi } from '@/api/user'
 import { searchApi } from '@/api/search'
 import { computed, type Ref } from 'vue'
+import { boardQueryKeys } from '@/composables/boardQueryKeys'
 import type { BoardDetail, BoardListItem, BoardManagerCandidate, PageResponse, PostSummary, SubscriptionBoardListItem } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import type { AxiosRequestConfig } from 'axios'
@@ -22,22 +23,6 @@ interface BoardManagerCandidateParams {
     page?: number
     size?: number
     q?: string
-}
-
-const boardQueryKeys = {
-    all: ['boards'] as const,
-    subscriptions: ['boards', 'subscriptions'] as const,
-    subscriptionsBySize: (size: number) => ['boards', 'subscriptions', size] as const,
-    detail: (boardUrl: string | Ref<string>) => ['board', boardUrl] as const,
-    posts: (
-        boardUrl: Ref<string>,
-        params: Ref<BoardPostParams>,
-        isSearching?: Ref<boolean>,
-    ) => ['board', boardUrl, 'posts', params, isSearching] as const,
-    notices: (boardUrl: Ref<string>) => ['board', boardUrl, 'notices'] as const,
-    categories: (boardUrl: Ref<string>) => ['board', boardUrl, 'categories'] as const,
-    managerCandidates: (boardUrl: Ref<string>, params: Ref<BoardManagerCandidateParams>) =>
-        ['board', boardUrl, 'manager-candidates', params] as const,
 }
 
 export const boardDetailQueryKey = (boardUrl: string | Ref<string>) => boardQueryKeys.detail(boardUrl)

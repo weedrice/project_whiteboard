@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/vue-query'
 import { useI18n } from 'vue-i18n'
 import { userApi } from '@/api/user'
 import { boardApi } from '@/api/board'
+import { boardQueryKeys } from '@/composables/boardQueryKeys'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import { useErrorHandler } from '@/composables/useErrorHandler'
@@ -40,8 +41,8 @@ export function useSubscribedBoardsManager() {
   }
 
   function invalidateSubscriptionCaches() {
-    queryClient.invalidateQueries({ queryKey: ['boards'] })
-    queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
+    queryClient.invalidateQueries({ queryKey: boardQueryKeys.all })
+    queryClient.invalidateQueries({ queryKey: boardQueryKeys.subscriptions })
   }
 
   async function fetchAllSubscriptions() {

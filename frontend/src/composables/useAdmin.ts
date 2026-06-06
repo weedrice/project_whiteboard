@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient, type QueryKey } from '@tanstack/vue-query'
 import { adminApi, type AdminRole } from '@/api/admin'
+import { boardQueryKeys } from '@/composables/boardQueryKeys'
 import { computed, type ComputedRef, type Ref } from 'vue'
 import { normalizePageResponse, type PageResponseRaw } from '@/utils/pageResponse'
 import type {
@@ -376,8 +377,8 @@ export function useAdmin() {
             onSuccess: () => {
                 // Invalidate both admin boards and general boards list to refresh header dropdowns
                 queryClient.invalidateQueries({ queryKey: adminQueryKeys.boards })
-                queryClient.invalidateQueries({ queryKey: ['boards'] })
-                queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
+                queryClient.invalidateQueries({ queryKey: boardQueryKeys.all })
+                queryClient.invalidateQueries({ queryKey: boardQueryKeys.subscriptions })
             }
         })
     }
@@ -388,12 +389,12 @@ export function useAdmin() {
             onSuccess: (_, { boardUrl, data }) => {
                 // Invalidate both admin boards and general boards list to refresh header dropdowns
                 queryClient.invalidateQueries({ queryKey: adminQueryKeys.boards })
-                queryClient.invalidateQueries({ queryKey: ['board', boardUrl] })
+                queryClient.invalidateQueries({ queryKey: boardQueryKeys.detail(boardUrl) })
                 if (data.boardUrl && data.boardUrl !== boardUrl) {
-                    queryClient.invalidateQueries({ queryKey: ['board', data.boardUrl] })
+                    queryClient.invalidateQueries({ queryKey: boardQueryKeys.detail(data.boardUrl) })
                 }
-                queryClient.invalidateQueries({ queryKey: ['boards'] })
-                queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
+                queryClient.invalidateQueries({ queryKey: boardQueryKeys.all })
+                queryClient.invalidateQueries({ queryKey: boardQueryKeys.subscriptions })
             }
         })
     }
@@ -404,8 +405,8 @@ export function useAdmin() {
             onSuccess: () => {
                 // Invalidate both admin boards and general boards list to refresh header dropdowns
                 queryClient.invalidateQueries({ queryKey: adminQueryKeys.boards })
-                queryClient.invalidateQueries({ queryKey: ['boards'] })
-                queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
+                queryClient.invalidateQueries({ queryKey: boardQueryKeys.all })
+                queryClient.invalidateQueries({ queryKey: boardQueryKeys.subscriptions })
             }
         })
     }
@@ -432,7 +433,7 @@ export function useAdmin() {
                 queryClient.invalidateQueries({ queryKey: adminQueryKeys.boardManagerById(boardId) })
                 queryClient.invalidateQueries({ queryKey: adminQueryKeys.boards })
                 queryClient.invalidateQueries({ queryKey: adminQueryKeys.adminsRoot })
-                queryClient.invalidateQueries({ queryKey: ['boards'] })
+                queryClient.invalidateQueries({ queryKey: boardQueryKeys.all })
             }
         })
     }
