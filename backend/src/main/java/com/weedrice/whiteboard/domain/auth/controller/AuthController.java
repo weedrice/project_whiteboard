@@ -242,7 +242,7 @@ public class AuthController {
     }
 
     private ResponseEntity<ApiResponse<Void>> okVoid() {
-        return ResponseEntity.ok(ApiResponse.success(null));
+        return ResponseEntity.ok(ApiResponse.success());
     }
 
     private String resolveRefreshToken(HttpServletRequest httpServletRequest) {
