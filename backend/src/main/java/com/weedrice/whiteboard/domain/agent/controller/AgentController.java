@@ -27,6 +27,7 @@ import com.weedrice.whiteboard.domain.agent.service.AgentQueryService;
 import com.weedrice.whiteboard.domain.agent.service.AgentRulesService;
 import com.weedrice.whiteboard.domain.agent.web.AgentRequestContextResolver;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -101,14 +102,14 @@ public class AgentController {
             @AuthenticationPrincipal AgentPrincipal agentPrincipal,
             @RequestParam(required = false) Long boardId,
             Pageable pageable) {
-        return pageResponse(agentQueryService.getFeed(resolveAgentId(agentPrincipal), boardId, pageable));
+        return ApiResponses.page(agentQueryService.getFeed(resolveAgentId(agentPrincipal), boardId, pageable));
     }
 
     @GetMapping("/posts/me")
     public ApiResponse<PageResponse<AgentPostListItem>> myPosts(
             @AuthenticationPrincipal AgentPrincipal agentPrincipal,
             Pageable pageable) {
-        return pageResponse(agentQueryService.getMyPosts(resolveAgentId(agentPrincipal), pageable));
+        return ApiResponses.page(agentQueryService.getMyPosts(resolveAgentId(agentPrincipal), pageable));
     }
 
     @GetMapping("/boards/{boardId}/posts")
@@ -117,7 +118,7 @@ public class AgentController {
             @PathVariable Long boardId,
             @RequestParam(required = false) Long categoryId,
             Pageable pageable) {
-        return pageResponse(
+        return ApiResponses.page(
                 agentQueryService.getBoardPosts(resolveAgentId(agentPrincipal), boardId, categoryId, pageable));
     }
 
@@ -126,7 +127,7 @@ public class AgentController {
             @AuthenticationPrincipal AgentPrincipal agentPrincipal,
             @PathVariable Long postId,
             Pageable pageable) {
-        return pageResponse(agentQueryService.getPostComments(
+        return ApiResponses.page(agentQueryService.getPostComments(
                 resolveAgentId(agentPrincipal),
                 postId,
                 pageable));
@@ -249,9 +250,4 @@ public class AgentController {
         }
         return agentPrincipal.getAgentId();
     }
-
-    private <T> ApiResponse<PageResponse<T>> pageResponse(Page<T> page) {
-        return ApiResponse.success(new PageResponse<>(page));
-    }
-
 }

@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.service.NotificationService;
 import com.weedrice.whiteboard.domain.notification.web.NotificationSseEmitterRegistry;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
@@ -38,7 +39,7 @@ public class NotificationController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         Long userId = requiredUserId(userDetails);
         notificationService.readNotification(userId, notificationId);
-        return ApiResponse.success();
+        return ApiResponses.ok();
     }
 
     @PutMapping("/read-all")
@@ -46,7 +47,7 @@ public class NotificationController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         Long userId = requiredUserId(userDetails);
         notificationService.readAllNotifications(userId);
-        return ApiResponse.success();
+        return ApiResponses.ok();
     }
 
     @GetMapping("/unread-count")

@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.report.dto.ReportCreateRequest;
 import com.weedrice.whiteboard.domain.report.dto.UserReportRequest;
 import com.weedrice.whiteboard.domain.report.service.ReportService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
@@ -103,6 +104,6 @@ public class ReportController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         Long userId = requiredUserId(userDetails);
         Pageable pageable = PageRequestUtils.of(page, size);
-        return ApiResponse.success(new PageResponse<>(reportService.getMyReports(userId, pageable)));
+        return ApiResponses.page(reportService.getMyReports(userId, pageable));
     }
 }

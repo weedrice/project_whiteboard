@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.message.dto.MessageCreateRequest;
 import com.weedrice.whiteboard.domain.message.dto.MessageResponse;
 import com.weedrice.whiteboard.domain.message.service.MessageService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
@@ -66,7 +67,7 @@ public class MessageController {
                         @PathVariable Long messageId,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 messageService.markAsRead(requiredUserId(userDetails), messageId);
-                return okVoid();
+                return ApiResponses.ok();
         }
 
         @DeleteMapping("/{messageId}")
@@ -74,7 +75,7 @@ public class MessageController {
                         @PathVariable Long messageId,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 messageService.deleteMessage(requiredUserId(userDetails), messageId);
-                return okVoid();
+                return ApiResponses.ok();
         }
 
         @DeleteMapping
@@ -82,15 +83,11 @@ public class MessageController {
                         @RequestBody java.util.List<Long> messageIds,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 messageService.deleteMessages(requiredUserId(userDetails), messageIds);
-                return okVoid();
+                return ApiResponses.ok();
         }
 
         @GetMapping("/unread-count")
         public ApiResponse<Long> getUnreadMessageCount(@AuthenticationPrincipal CustomUserDetails userDetails) {
                 return ApiResponse.success(messageService.getUnreadMessageCount(requiredUserId(userDetails)));
-        }
-
-        private ApiResponse<Void> okVoid() {
-                return ApiResponse.success();
         }
 }

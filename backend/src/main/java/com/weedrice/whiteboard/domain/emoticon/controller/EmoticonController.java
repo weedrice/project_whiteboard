@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonPurchaseStatusRespons
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonUpdateRequest;
 import com.weedrice.whiteboard.domain.emoticon.service.EmoticonService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
@@ -45,7 +46,7 @@ public class EmoticonController {
             @RequestParam(defaultValue = "latest") String sortBy,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return pageResponse(emoticonService.getActiveEmoticons(pageable(page, size), normalizeSortBy(sortBy)));
+        return ApiResponses.page(emoticonService.getActiveEmoticons(pageable(page, size), normalizeSortBy(sortBy)));
     }
 
     @GetMapping("/popular")
@@ -61,7 +62,7 @@ public class EmoticonController {
             @RequestParam(defaultValue = "latest") String sortBy,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return pageResponse(
+        return ApiResponses.page(
                 emoticonService.searchAll(keyword, searchType, pageable(page, size), normalizeSortBy(sortBy)));
     }
 
@@ -70,7 +71,7 @@ public class EmoticonController {
             @RequestParam String tag,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return pageResponse(emoticonService.searchByTag(tag, pageable(page, size)));
+        return ApiResponses.page(emoticonService.searchByTag(tag, pageable(page, size)));
     }
 
     @GetMapping("/search")
@@ -78,7 +79,7 @@ public class EmoticonController {
             @RequestParam String keyword,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return pageResponse(emoticonService.searchByKeyword(keyword, pageable(page, size)));
+        return ApiResponses.page(emoticonService.searchByKeyword(keyword, pageable(page, size)));
     }
 
     @GetMapping("/my")
@@ -86,7 +87,7 @@ public class EmoticonController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return pageResponse(emoticonService.getMyEmoticons(requiredUserId(userDetails), pageable(page, size)));
+        return ApiResponses.page(emoticonService.getMyEmoticons(requiredUserId(userDetails), pageable(page, size)));
     }
 
     @GetMapping("/{emoticonId}")
@@ -126,7 +127,7 @@ public class EmoticonController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long emoticonId) {
         emoticonService.deleteEmoticon(requiredUserId(userDetails), emoticonId);
-        return okVoid();
+        return ApiResponses.ok();
     }
 
     @PostMapping("/{emoticonId}/images")
@@ -146,7 +147,7 @@ public class EmoticonController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long imageId) {
         emoticonService.deleteImage(requiredUserId(userDetails), imageId);
-        return okVoid();
+        return ApiResponses.ok();
     }
 
     @PostMapping("/{emoticonId}/purchase")
@@ -161,7 +162,7 @@ public class EmoticonController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return pageResponse(emoticonService.getPurchasedEmoticons(requiredUserId(userDetails), pageable(page, size)));
+        return ApiResponses.page(emoticonService.getPurchasedEmoticons(requiredUserId(userDetails), pageable(page, size)));
     }
 
     @GetMapping("/{emoticonId}/purchased")
@@ -175,16 +176,7 @@ public class EmoticonController {
     private Pageable pageable(int page, int size) {
         return PageRequestUtils.of(page, size);
     }
-
-    private <T> ApiResponse<PageResponse<T>> pageResponse(Page<T> page) {
-        return ApiResponse.success(new PageResponse<>(page));
-    }
-
-    private ApiResponse<Void> okVoid() {
-        return ApiResponse.success();
-    }
-
-    private String normalizeSortBy(String sortBy) {
+private String normalizeSortBy(String sortBy) {
         if ("popular".equalsIgnoreCase(sortBy)) {
             return "popular";
         }

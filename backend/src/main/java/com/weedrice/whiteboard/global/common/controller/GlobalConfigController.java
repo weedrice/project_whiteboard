@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.global.common.controller;
 
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.GlobalConfigCreateRequest;
 import com.weedrice.whiteboard.global.common.dto.GlobalConfigResponse;
 import com.weedrice.whiteboard.global.common.dto.GlobalConfigUpdateByKeyRequest;
@@ -88,6 +89,6 @@ public class GlobalConfigController {
             @PathVariable String key,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         globalConfigService.deleteConfig(requiredUserId(userDetails), key);
-        return ApiResponse.success();
+        return ApiResponses.ok();
     }
 }

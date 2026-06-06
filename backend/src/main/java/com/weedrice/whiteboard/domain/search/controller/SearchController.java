@@ -11,6 +11,7 @@ import com.weedrice.whiteboard.domain.search.service.SearchPreviewReadService;
 import com.weedrice.whiteboard.domain.search.service.SearchRecordFacade;
 import com.weedrice.whiteboard.domain.search.service.SearchService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
@@ -59,7 +60,7 @@ public class SearchController {
         Long userId = optionalUserId(userDetails);
         Page<PostSummary> response = searchService.searchPosts(q, searchType, boardUrl, page, size, sort, userId);
 
-        return pageResponse(response);
+        return ApiResponses.page(response);
     }
 
     @GetMapping("/semantic")
@@ -74,7 +75,7 @@ public class SearchController {
         Long userId = optionalUserId(userDetails);
         Page<SemanticSearchResultResponse> response = semanticSearchService.search(
                 q, contentType, boardUrl, page, size, userId);
-        return pageResponse(response);
+        return ApiResponses.page(response);
     }
 
     @GetMapping("/popular")
@@ -96,16 +97,12 @@ public class SearchController {
     public ApiResponse<Void> deleteRecentSearch(@PathVariable Long logId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         searchService.deleteRecentSearch(requiredUserId(userDetails), logId);
-        return ApiResponse.success();
+        return ApiResponses.ok();
     }
 
     @DeleteMapping("/recent")
     public ApiResponse<Void> deleteAllRecentSearches(@AuthenticationPrincipal CustomUserDetails userDetails) {
         searchService.deleteAllRecentSearches(requiredUserId(userDetails));
-        return ApiResponse.success();
-    }
-
-    private <T> ApiResponse<PageResponse<T>> pageResponse(Page<T> page) {
-        return ApiResponse.success(new PageResponse<>(page));
+        return ApiResponses.ok();
     }
 }

@@ -21,6 +21,7 @@ import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadata;
 import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadataResolver;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.annotation.ApiCommonResponses;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -154,7 +155,7 @@ public class AuthController {
             authService.logout(refreshToken);
         }
         refreshTokenCookieWriter.clearRefreshTokenCookie(httpServletResponse, httpServletRequest);
-        return okVoid();
+        return ResponseEntity.ok(ApiResponses.ok());
     }
 
     @Hidden
@@ -185,7 +186,7 @@ public class AuthController {
                 request.getEmail(),
                 request.getPurpose().toPurpose(),
                 currentUserId);
-        return okVoid();
+        return ResponseEntity.ok(ApiResponses.ok());
     }
 
     @PostMapping("/email/verify")
@@ -214,7 +215,7 @@ public class AuthController {
     @PostMapping("/password/send-reset-link")
     public ResponseEntity<ApiResponse<Void>> sendPasswordResetLink(@Valid @RequestBody PasswordResetRequest request) {
         authService.sendPasswordResetLink(request.getEmail(), request.getVerificationTicket());
-        return okVoid();
+        return ResponseEntity.ok(ApiResponses.ok());
     }
 
     @Operation(summary = "비밀번호 초기화 링크 발송 (이메일 입력)", description = "이메일을 입력받아 해당 이메일로 등록된 ID와 비밀번호 초기화 링크를 발송합니다.")
@@ -222,13 +223,13 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Void>> sendPasswordResetLinkByEmail(
             @Valid @RequestBody PasswordResetRequest request) {
         authService.sendPasswordResetLinkByEmail(request.getEmail(), request.getVerificationTicket());
-        return okVoid();
+        return ResponseEntity.ok(ApiResponses.ok());
     }
 
     @PostMapping("/password/reset")
     public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody PasswordResetConfirmRequest request) {
         authService.resetPasswordWithToken(request.getToken(), request.getNewPassword());
-        return okVoid();
+        return ResponseEntity.ok(ApiResponses.ok());
     }
 
     @PostMapping("/password/reset-by-code")
@@ -238,13 +239,8 @@ public class AuthController {
                 request.getEmail(),
                 request.getVerificationTicket(),
                 request.getNewPassword());
-        return okVoid();
+        return ResponseEntity.ok(ApiResponses.ok());
     }
-
-    private ResponseEntity<ApiResponse<Void>> okVoid() {
-        return ResponseEntity.ok(ApiResponse.success());
-    }
-
     private String resolveRefreshToken(HttpServletRequest httpServletRequest) {
         Cookie[] cookies = httpServletRequest.getCookies();
         if (cookies == null) {

@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.service.UserAdminCommandService;
 import com.weedrice.whiteboard.domain.user.service.UserAdminQueryService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
@@ -62,7 +63,7 @@ public class AdminUserController {
                 lastLoginTo,
                 minActivityCount,
                 pageable);
-        return pageResponse(response);
+        return ApiResponses.page(response);
     }
 
     @GetMapping("/{userId}")
@@ -74,21 +75,21 @@ public class AdminUserController {
     public ApiResponse<PageResponse<AdminUserPostResponse>> getUserPosts(
             @PathVariable Long userId,
             @PageableDefault(size = 10) Pageable pageable) {
-        return pageResponse(userAdminQueryService.getUserPostsForAdmin(userId, pageable));
+        return ApiResponses.page(userAdminQueryService.getUserPostsForAdmin(userId, pageable));
     }
 
     @GetMapping("/{userId}/comments")
     public ApiResponse<PageResponse<AdminUserCommentResponse>> getUserComments(
             @PathVariable Long userId,
             @PageableDefault(size = 10) Pageable pageable) {
-        return pageResponse(userAdminQueryService.getUserCommentsForAdmin(userId, pageable));
+        return ApiResponses.page(userAdminQueryService.getUserCommentsForAdmin(userId, pageable));
     }
 
     @GetMapping("/{userId}/subscriptions")
     public ApiResponse<PageResponse<AdminUserSubscriptionResponse>> getUserSubscriptions(
             @PathVariable Long userId,
             @PageableDefault(size = 10) Pageable pageable) {
-        return pageResponse(userAdminQueryService.getUserSubscriptionsForAdmin(userId, pageable));
+        return ApiResponses.page(userAdminQueryService.getUserSubscriptionsForAdmin(userId, pageable));
     }
 
     @PutMapping("/{userId}/status")
@@ -97,11 +98,6 @@ public class AdminUserController {
             @RequestBody UserStatusUpdateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         userAdminCommandService.updateUserStatus(requiredUserId(userDetails), userId, request.getStatus());
-        return ApiResponse.success();
-    }
-
-    private <T> ApiResponse<PageResponse<T>> pageResponse(Page<T> page) {
-        return ApiResponse.success(new PageResponse<>(page));
+        return ApiResponses.ok();
     }
 }
-

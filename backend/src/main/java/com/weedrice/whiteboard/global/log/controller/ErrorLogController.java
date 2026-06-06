@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.global.log.controller;
 
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.log.dto.*;
 import com.weedrice.whiteboard.global.log.service.ErrorLogService;
@@ -61,7 +62,7 @@ public class ErrorLogController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         String memo = request != null ? request.getMemo() : null;
         errorLogService.resolveErrorLog(errorLogId, requiredUserId(userDetails), memo);
-        return ApiResponse.success();
+        return ApiResponses.ok();
     }
 
     /**

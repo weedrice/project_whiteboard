@@ -19,6 +19,7 @@ import com.weedrice.whiteboard.domain.user.service.UserSecurityService;
 import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
 import com.weedrice.whiteboard.domain.user.web.UserActionResponseFactory;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CurrentUserId;
@@ -155,7 +156,7 @@ public class UserController {
                         @CurrentUserId Long userId) {
                 Pageable pageable = PageRequestUtils.of(page, size, sort);
                 Page<BlockedUserResponse> response = userBlockService.getBlockedUsers(userId, pageable);
-                return ResponseEntity.ok(pageResponse(response));
+                return ResponseEntity.ok(ApiResponses.page(response));
         }
 
         @GetMapping("/me/subscriptions")
@@ -170,7 +171,7 @@ public class UserController {
                                 userId,
                                 pageable,
                                 includeUnavailable);
-                return pageResponse(response);
+                return ApiResponses.page(response);
         }
 
         @PostMapping("/me/agents/claim")
@@ -216,7 +217,7 @@ public class UserController {
                         jakarta.servlet.http.HttpServletRequest httpServletRequest) {
                 agentLifecycleService.deleteMyAgent(userId, agentId,
                                 agentRequestContextResolver.resolve(httpServletRequest));
-                return ApiResponse.success();
+                return ApiResponses.ok();
         }
 
         @GetMapping("/me/posts")
@@ -226,7 +227,7 @@ public class UserController {
                 Sort sort) {
                 Pageable pageable = PageRequestUtils.of(page, size, sort);
                 Page<PostSummary> response = postService.getMyPosts(userId, pageable);
-                return pageResponse(response);
+                return ApiResponses.page(response);
         }
 
         @GetMapping("/me/comments")
@@ -237,7 +238,7 @@ public class UserController {
                 Sort sort) {
                 Pageable pageable = PageRequestUtils.of(page, size, sort);
                 Page<MyCommentResponse> response = commentService.getMyComments(userId, pageable);
-                return pageResponse(response);
+                return ApiResponses.page(response);
         }
 
         @GetMapping("/me/history/views")
@@ -248,10 +249,6 @@ public class UserController {
                 Sort sort) {
                 Pageable pageable = PageRequestUtils.of(page, size, sort);
                 Page<PostSummary> response = postService.getRecentlyViewedPosts(userId, pageable);
-                return pageResponse(response);
-        }
-
-        private <T> ApiResponse<PageResponse<T>> pageResponse(Page<T> page) {
-                return ApiResponse.success(new PageResponse<>(page));
+                return ApiResponses.page(response);
         }
 }

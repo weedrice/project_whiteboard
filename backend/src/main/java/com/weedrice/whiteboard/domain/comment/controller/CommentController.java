@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.comment.dto.CommentUpdateRequest;
 import com.weedrice.whiteboard.domain.comment.service.CommentReadSorts;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
@@ -35,7 +36,7 @@ public class CommentController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         Long userId = optionalUserId(userDetails);
         Pageable pageable = PageRequestUtils.of(page, size, CommentReadSorts.READ_ORDER);
-        return ApiResponse.success(new PageResponse<>(commentService.getComments(postId, userId, pageable)));
+        return ApiResponses.page(commentService.getComments(postId, userId, pageable));
     }
 
     @GetMapping("/comments/{commentId}/replies")
@@ -88,7 +89,7 @@ public class CommentController {
     public ApiResponse<Void> deleteComment(@PathVariable Long commentId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         commentService.deleteComment(requiredUserId(userDetails), commentId);
-        return okVoid();
+        return ApiResponses.ok();
     }
 
     @PostMapping("/comments/{commentId}/like")
@@ -96,17 +97,13 @@ public class CommentController {
     public ApiResponse<Void> likeComment(@PathVariable Long commentId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         commentService.likeComment(requiredUserId(userDetails), commentId);
-        return okVoid();
+        return ApiResponses.ok();
     }
 
     @DeleteMapping("/comments/{commentId}/like")
     public ApiResponse<Void> unlikeComment(@PathVariable Long commentId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         commentService.unlikeComment(requiredUserId(userDetails), commentId);
-        return okVoid();
-    }
-
-    private ApiResponse<Void> okVoid() {
-        return ApiResponse.success();
+        return ApiResponses.ok();
     }
 }

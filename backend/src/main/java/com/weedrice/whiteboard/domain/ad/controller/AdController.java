@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.ad.controller;
 import com.weedrice.whiteboard.domain.ad.dto.AdResponse;
 import com.weedrice.whiteboard.domain.ad.service.AdService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.util.ClientUtils;
 import com.weedrice.whiteboard.global.common.util.SecurityUtils;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,7 +26,7 @@ public class AdController {
     public ApiResponse<Void> recordAdImpression(
             @PathVariable Long adId) {
         adService.recordAdImpression(adId);
-        return ApiResponse.success();
+        return ApiResponses.ok();
     }
 
     @PostMapping("/{adId}/click")

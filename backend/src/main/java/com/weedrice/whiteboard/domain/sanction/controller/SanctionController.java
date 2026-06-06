@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.sanction.dto.SanctionCreateRequest;
 import com.weedrice.whiteboard.domain.sanction.dto.SanctionResponse;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
@@ -47,6 +48,6 @@ public class SanctionController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         Pageable pageable = PageRequestUtils.of(page, size);
-        return ApiResponse.success(new PageResponse<>(sanctionService.getSanctions(userId, pageable)));
+        return ApiResponses.page(sanctionService.getSanctions(userId, pageable));
     }
 }

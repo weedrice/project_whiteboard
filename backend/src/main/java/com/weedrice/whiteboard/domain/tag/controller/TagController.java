@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.tag.dto.TagResponse;
 import com.weedrice.whiteboard.domain.tag.service.TagService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,6 @@ public class TagController {
             @PageableDefault(size = 20) Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         Long userId = optionalUserId(userDetails);
-        return ApiResponse.success(new PageResponse<>(postService.getPostsByTag(tagId, userId, pageable)));
+        return ApiResponses.page(postService.getPostsByTag(tagId, userId, pageable));
     }
 }
