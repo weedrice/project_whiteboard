@@ -11,6 +11,7 @@ import type { SubscriptionBoardListItem } from '@/types'
 
 const subscriptionsPageSize = 100
 const mobileMediaQuery = '(max-width: 639px)'
+const mobileViewportMaxWidth = 639
 
 export function isAccessibleSubscription(board: SubscriptionBoardListItem) {
   return board.accessState === 'ACCESSIBLE'
@@ -18,6 +19,16 @@ export function isAccessibleSubscription(board: SubscriptionBoardListItem) {
 
 function canReorderSubscription(board: SubscriptionBoardListItem) {
   return isAccessibleSubscription(board) && board.isActive !== false
+}
+
+function createMobileMediaQuery() {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia(mobileMediaQuery)
+    : null
+}
+
+function isMobileViewportFallback() {
+  return typeof window !== 'undefined' && window.innerWidth <= mobileViewportMaxWidth
 }
 
 export function useSubscribedBoardsManager() {
@@ -30,8 +41,8 @@ export function useSubscribedBoardsManager() {
   const accessibleBoards = ref<SubscriptionBoardListItem[]>([])
   const unavailableBoards = ref<SubscriptionBoardListItem[]>([])
   const loading = ref(false)
-  const mediaQuery = typeof window !== 'undefined' ? window.matchMedia(mobileMediaQuery) : null
-  const isMobile = ref(mediaQuery?.matches ?? false)
+  const mediaQuery = createMobileMediaQuery()
+  const isMobile = ref(mediaQuery?.matches ?? isMobileViewportFallback())
   let subscriptionsRequestId = 0
 
   const hasSubscriptions = computed(() =>
@@ -39,7 +50,7 @@ export function useSubscribedBoardsManager() {
   )
 
   function updateIsMobile(event?: MediaQueryListEvent) {
-    isMobile.value = event?.matches ?? mediaQuery?.matches ?? false
+    isMobile.value = event?.matches ?? mediaQuery?.matches ?? isMobileViewportFallback()
   }
 
   function invalidateSubscriptionCaches() {

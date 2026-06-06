@@ -155,7 +155,7 @@ public class UserController {
                         @CurrentUserId Long userId) {
                 Pageable pageable = PageRequestUtils.of(page, size, sort);
                 Page<BlockedUserResponse> response = userBlockService.getBlockedUsers(userId, pageable);
-                return ResponseEntity.ok(ApiResponse.success(new PageResponse<>(response)));
+                return ResponseEntity.ok(pageResponse(response));
         }
 
         @GetMapping("/me/subscriptions")

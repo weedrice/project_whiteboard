@@ -105,6 +105,7 @@ function mountManager() {
 
 describe('useSubscribedBoardsManager', () => {
   const originalMatchMedia = window.matchMedia
+  const originalInnerWidth = window.innerWidth
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -120,6 +121,7 @@ describe('useSubscribedBoardsManager', () => {
 
   afterEach(() => {
     window.matchMedia = originalMatchMedia
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalInnerWidth })
   })
 
   it('partitions accessible and unavailable subscriptions after loading all pages', async () => {
@@ -165,5 +167,16 @@ describe('useSubscribedBoardsManager', () => {
 
     expect(mocks.mediaQueryAddEventListener).toHaveBeenCalledWith('change', expect.any(Function))
     expect(mocks.mediaQueryRemoveEventListener).toHaveBeenCalledWith('change', expect.any(Function))
+  })
+
+  it('falls back to window width when matchMedia is unavailable', () => {
+    mocks.getMySubscriptions.mockResolvedValue(pageResponse(0, 1, []))
+    window.matchMedia = undefined as unknown as typeof window.matchMedia
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 500 })
+
+    const { manager } = mountManager()
+
+    expect(manager.isMobile.value).toBe(true)
+    expect(mocks.mediaQueryAddEventListener).not.toHaveBeenCalled()
   })
 })
