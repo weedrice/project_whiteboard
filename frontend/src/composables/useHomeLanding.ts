@@ -6,6 +6,9 @@ import { QUERY_STALE_TIME } from '@/utils/constants'
 import { toFeedPost, toFeedPosts } from '@/utils/postViewModel'
 import type { HomeLandingPeriod } from '@/types'
 
+const homeLandingQueryKey = (period: HomeLandingPeriod, authKey: string | number) =>
+    ['home', 'landing', period, authKey] as const
+
 export function useHomeLanding() {
     const authStore = useAuthStore()
     const selectedPeriod = ref<HomeLandingPeriod>('24h')
@@ -13,10 +16,10 @@ export function useHomeLanding() {
     const authCacheKey = computed(() => authStore.isAuthenticated ? (authStore.user?.userId ?? 'member') : 'guest')
 
     const landingQuery = useQuery({
-        queryKey: computed(() => ['home', 'landing', selectedPeriod.value, authCacheKey.value]),
+        queryKey: computed(() => homeLandingQueryKey(selectedPeriod.value, authCacheKey.value)),
         enabled: isReadyToFetch,
         queryFn: async ({ queryKey }) => {
-            const [, , period] = queryKey as ['home', 'landing', HomeLandingPeriod, string | number]
+            const [, , period] = queryKey as ReturnType<typeof homeLandingQueryKey>
             const { data } = await postApi.getHomeLanding(period)
             return data.data
         },
