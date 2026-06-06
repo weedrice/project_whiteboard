@@ -66,7 +66,7 @@ public class MessageController {
                         @PathVariable Long messageId,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 messageService.markAsRead(requiredUserId(userDetails), messageId);
-                return ApiResponse.success(null);
+                return okVoid();
         }
 
         @DeleteMapping("/{messageId}")
@@ -74,7 +74,7 @@ public class MessageController {
                         @PathVariable Long messageId,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 messageService.deleteMessage(requiredUserId(userDetails), messageId);
-                return ApiResponse.success(null);
+                return okVoid();
         }
 
         @DeleteMapping
@@ -82,11 +82,15 @@ public class MessageController {
                         @RequestBody java.util.List<Long> messageIds,
                         @AuthenticationPrincipal CustomUserDetails userDetails) {
                 messageService.deleteMessages(requiredUserId(userDetails), messageIds);
-                return ApiResponse.success(null);
+                return okVoid();
         }
 
         @GetMapping("/unread-count")
         public ApiResponse<Long> getUnreadMessageCount(@AuthenticationPrincipal CustomUserDetails userDetails) {
                 return ApiResponse.success(messageService.getUnreadMessageCount(requiredUserId(userDetails)));
+        }
+
+        private ApiResponse<Void> okVoid() {
+                return ApiResponse.success();
         }
 }

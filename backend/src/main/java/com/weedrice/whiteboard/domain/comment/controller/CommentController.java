@@ -88,7 +88,7 @@ public class CommentController {
     public ApiResponse<Void> deleteComment(@PathVariable Long commentId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         commentService.deleteComment(requiredUserId(userDetails), commentId);
-        return ApiResponse.success(null);
+        return okVoid();
     }
 
     @PostMapping("/comments/{commentId}/like")
@@ -96,13 +96,17 @@ public class CommentController {
     public ApiResponse<Void> likeComment(@PathVariable Long commentId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         commentService.likeComment(requiredUserId(userDetails), commentId);
-        return ApiResponse.success(null);
+        return okVoid();
     }
 
     @DeleteMapping("/comments/{commentId}/like")
     public ApiResponse<Void> unlikeComment(@PathVariable Long commentId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         commentService.unlikeComment(requiredUserId(userDetails), commentId);
-        return ApiResponse.success(null);
+        return okVoid();
+    }
+
+    private ApiResponse<Void> okVoid() {
+        return ApiResponse.success();
     }
 }
