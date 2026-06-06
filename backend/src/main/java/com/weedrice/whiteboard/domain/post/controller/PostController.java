@@ -63,7 +63,7 @@ public class PostController {
             @PathVariable Long postId,
             @CurrentUserId(required = false) Long userId) {
         postService.incrementViewCount(postId, userId);
-        return ApiResponse.success(null);
+        return okVoid();
     }
 
     @PutMapping("/posts/{postId}/history")
@@ -72,7 +72,7 @@ public class PostController {
             @Valid @RequestBody ViewHistoryRequest request,
             @CurrentUserId Long userId) {
         postService.updateViewHistory(userId, postId, request);
-        return ApiResponse.success(null);
+        return okVoid();
     }
 
     @PostMapping("/boards/{boardUrl}/posts")
@@ -97,7 +97,7 @@ public class PostController {
             @PathVariable Long postId,
             @CurrentUserId Long userId) {
         postService.deletePost(userId, postId);
-        return ApiResponse.success(null);
+        return okVoid();
     }
 
     @PostMapping("/posts/{postId}/like")
@@ -123,7 +123,7 @@ public class PostController {
             @CurrentUserId Long userId) {
         String remark = (request != null) ? request.getRemark() : null;
         postService.scrapPost(userId, postId, remark);
-        return ApiResponse.success(null);
+        return okVoid();
     }
 
     @DeleteMapping("/posts/{postId}/scrap")
@@ -131,7 +131,7 @@ public class PostController {
             @PathVariable Long postId,
             @CurrentUserId Long userId) {
         postService.unscrapPost(userId, postId);
-        return ApiResponse.success(null);
+        return okVoid();
     }
 
     @GetMapping("/users/me/scraps")
@@ -169,7 +169,7 @@ public class PostController {
             @PathVariable Long draftId,
             @CurrentUserId Long userId) {
         postService.deleteDraftPost(userId, draftId);
-        return ApiResponse.success(null);
+        return okVoid();
     }
 
     @GetMapping("/posts/{postId}/versions")
@@ -181,5 +181,9 @@ public class PostController {
 
     private <T> ApiResponse<PageResponse<T>> pageResponse(Page<T> page) {
         return ApiResponse.success(new PageResponse<>(page));
+    }
+
+    private ApiResponse<Void> okVoid() {
+        return ApiResponse.success();
     }
 }
