@@ -1,15 +1,10 @@
 package com.weedrice.whiteboard.domain.search.semantic;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -171,7 +166,7 @@ class SemanticSearchKeywordFallbackRepository {
                 ORDER BY created_at DESC, content_type ASC, content_id DESC
                 LIMIT :limit OFFSET :offset
                 """;
-        return jdbcTemplate.query(sql, params(query), ROW_MAPPER);
+        return jdbcTemplate.query(sql, params(query), SemanticSearchRowMapper.INSTANCE);
     }
 
     long count(SemanticSearchKeywordQuery query) {
@@ -270,40 +265,4 @@ class SemanticSearchKeywordFallbackRepository {
         return builder.toString();
     }
 
-    private static final RowMapper<SemanticSearchRow> ROW_MAPPER = new RowMapper<>() {
-        @Override
-        public SemanticSearchRow mapRow(ResultSet rs, int rowNum) throws SQLException {
-            return new SemanticSearchRow(
-                    rs.getString("content_type"),
-                    rs.getLong("content_id"),
-                    rs.getLong("post_id"),
-                    rs.getLong("board_id"),
-                    rs.getString("board_url"),
-                    rs.getString("board_name"),
-                    rs.getString("title"),
-                    rs.getString("excerpt"),
-                    getNullableDouble(rs, "similarity"),
-                    rs.getString("rank_source"),
-                    toLocalDateTime(rs.getTimestamp("created_at")),
-                    getNullableLong(rs, "author_user_id"),
-                    getNullableLong(rs, "author_agent_id"),
-                    rs.getString("author_type"),
-                    rs.getString("author_display_name"),
-                    rs.getString("author_profile_image_url"));
-        }
-    };
-
-    private static Long getNullableLong(ResultSet rs, String column) throws SQLException {
-        long value = rs.getLong(column);
-        return rs.wasNull() ? null : value;
-    }
-
-    private static Double getNullableDouble(ResultSet rs, String column) throws SQLException {
-        double value = rs.getDouble(column);
-        return rs.wasNull() ? null : value;
-    }
-
-    private static LocalDateTime toLocalDateTime(Timestamp timestamp) {
-        return timestamp == null ? null : timestamp.toLocalDateTime();
-    }
 }
