@@ -1,5 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
 import { useSubscribedBoardsManager } from '../useSubscribedBoardsManager'
 import type { SubscriptionBoardListItem } from '@/types'
@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   handleSilentError: vi.fn(),
   handleError: vi.fn(),
   invalidateQueries: vi.fn(),
+  mediaQueryAddEventListener: vi.fn(),
+  mediaQueryRemoveEventListener: vi.fn(),
 }))
 
 vi.mock('@/api/user', () => ({
@@ -102,11 +104,22 @@ function mountManager() {
 }
 
 describe('useSubscribedBoardsManager', () => {
+  const originalMatchMedia = window.matchMedia
+
   beforeEach(() => {
     vi.clearAllMocks()
+    window.matchMedia = vi.fn(() => ({
+      matches: false,
+      addEventListener: mocks.mediaQueryAddEventListener,
+      removeEventListener: mocks.mediaQueryRemoveEventListener,
+    }) as unknown as MediaQueryList)
     mocks.confirm.mockResolvedValue(true)
     mocks.unsubscribeBoard.mockResolvedValue({ data: { success: true } })
     mocks.updateSubscriptionOrder.mockResolvedValue({ data: { success: true } })
+  })
+
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia
   })
 
   it('partitions accessible and unavailable subscriptions after loading all pages', async () => {
@@ -144,18 +157,13 @@ describe('useSubscribedBoardsManager', () => {
     expect(mocks.getMySubscriptions).toHaveBeenCalledTimes(2)
   })
 
-  it('removes resize listener on unmount', () => {
+  it('removes mobile media query listener on unmount', () => {
     mocks.getMySubscriptions.mockResolvedValue(pageResponse(0, 1, []))
-    const addListener = vi.spyOn(window, 'addEventListener')
-    const removeListener = vi.spyOn(window, 'removeEventListener')
 
     const { wrapper } = mountManager()
     wrapper.unmount()
 
-    expect(addListener).toHaveBeenCalledWith('resize', expect.any(Function))
-    expect(removeListener).toHaveBeenCalledWith('resize', expect.any(Function))
-
-    addListener.mockRestore()
-    removeListener.mockRestore()
+    expect(mocks.mediaQueryAddEventListener).toHaveBeenCalledWith('change', expect.any(Function))
+    expect(mocks.mediaQueryRemoveEventListener).toHaveBeenCalledWith('change', expect.any(Function))
   })
 })

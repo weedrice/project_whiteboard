@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/vue-query'
 import { userApi } from '@/api/user'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
+import { commentQueryKeys } from '@/composables/commentQueryKeys'
 import { useConfirm } from '@/composables/useConfirm'
 import logger from '@/utils/logger'
 
@@ -59,7 +60,7 @@ export function useUserMenuActions({
             const { data } = await userApi.blockUser(userId.value)
             if (data.success) {
                 toastStore.addToast(t('user.block.success', { name: displayName.value }), 'success')
-                queryClient.invalidateQueries({ queryKey: ['comments'] })
+                queryClient.invalidateQueries({ queryKey: commentQueryKeys.all })
             }
         } catch (error) {
             logger.error('Failed to block user:', error)

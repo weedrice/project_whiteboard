@@ -1,13 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, type Ref } from 'vue'
 import { commentApi, type CommentParams, type CommentPayload } from '@/api/comment'
-
-const commentQueryKeys = {
-    all: ['comments'] as const,
-    list: (postId: Ref<string | number>, params: Ref<CommentParams>) => ['comments', postId, params] as const,
-    replies: (parentId: Ref<string | number>, params: Ref<CommentParams>) =>
-        ['comments', 'replies', parentId, params] as const,
-}
+import { commentQueryKeys } from '@/composables/commentQueryKeys'
 
 const postQueryKeys = {
     all: ['post'] as const,

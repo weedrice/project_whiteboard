@@ -10,6 +10,7 @@ import { useErrorHandler } from '@/composables/useErrorHandler'
 import type { SubscriptionBoardListItem } from '@/types'
 
 const subscriptionsPageSize = 100
+const mobileMediaQuery = '(max-width: 639px)'
 
 export function isAccessibleSubscription(board: SubscriptionBoardListItem) {
   return board.accessState === 'ACCESSIBLE'
@@ -29,15 +30,16 @@ export function useSubscribedBoardsManager() {
   const accessibleBoards = ref<SubscriptionBoardListItem[]>([])
   const unavailableBoards = ref<SubscriptionBoardListItem[]>([])
   const loading = ref(false)
-  const isMobile = ref(typeof window !== 'undefined' && window.innerWidth < 640)
+  const mediaQuery = typeof window !== 'undefined' ? window.matchMedia(mobileMediaQuery) : null
+  const isMobile = ref(mediaQuery?.matches ?? false)
   let subscriptionsRequestId = 0
 
   const hasSubscriptions = computed(() =>
     accessibleBoards.value.length > 0 || unavailableBoards.value.length > 0
   )
 
-  function updateIsMobile() {
-    isMobile.value = window.innerWidth < 640
+  function updateIsMobile(event?: MediaQueryListEvent) {
+    isMobile.value = event?.matches ?? mediaQuery?.matches ?? false
   }
 
   function invalidateSubscriptionCaches() {
@@ -134,12 +136,13 @@ export function useSubscribedBoardsManager() {
 
   onMounted(() => {
     fetchSubscriptions()
-    window.addEventListener('resize', updateIsMobile)
+    updateIsMobile()
+    mediaQuery?.addEventListener('change', updateIsMobile)
   })
 
   onUnmounted(() => {
     subscriptionsRequestId += 1
-    window.removeEventListener('resize', updateIsMobile)
+    mediaQuery?.removeEventListener('change', updateIsMobile)
   })
 
   return {

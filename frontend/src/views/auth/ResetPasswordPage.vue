@@ -6,15 +6,13 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { ChevronLeft, Lock } from 'lucide-vue-next'
 import { usePasswordResetByTokenFlow } from '@/composables/usePasswordResetByTokenFlow'
+import { getSingleQueryValue } from '@/utils/routeQueryValue'
 
 const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 
-const token = computed(() => {
-  const t = route.query.token
-  return typeof t === 'string' ? t : ''
-})
+const token = computed(() => getSingleQueryValue(route.query.token) ?? '')
 
 const newPassword = ref('')
 const confirmPassword = ref('')
