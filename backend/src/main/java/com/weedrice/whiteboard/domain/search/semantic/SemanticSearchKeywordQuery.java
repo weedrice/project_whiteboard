@@ -10,13 +10,5 @@ record SemanticSearchKeywordQuery(
         boolean viewerSuperAdmin,
         List<Long> blockedUserIds,
         int limit,
-        long offset) {
-
-    boolean hasBlockedUserIds() {
-        return blockedUserIds != null && !blockedUserIds.isEmpty();
-    }
-
-    boolean hasBoardUrl() {
-        return boardUrl != null && !boardUrl.isBlank();
-    }
+        long offset) implements SemanticSearchSqlCriteria {
 }
