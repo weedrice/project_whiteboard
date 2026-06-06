@@ -6,12 +6,12 @@ import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import BaseBadge from '@/components/common/ui/BaseBadge.vue'
-import BaseTable from '@/components/common/ui/BaseTable.vue'
+import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
+import AdminActionButton from '@/components/admin/AdminActionButton.vue'
 import AdminDataPage from '@/components/admin/AdminDataPage.vue'
 import AdminFilterPanel from '@/components/admin/AdminFilterPanel.vue'
 import AdminFilterField from '@/components/admin/AdminFilterField.vue'
-import AdminPaginationFooter from '@/components/admin/AdminPaginationFooter.vue'
+import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
 import BooleanBadge from '@/components/admin/BooleanBadge.vue'
 import UserDetailModal from '@/components/admin/UserDetailModal.vue'
 import { formatDateOnly } from '@/utils/date'
@@ -265,37 +265,31 @@ const columns = computed(() => [
     </AdminFilterPanel>
     </template>
 
-    <template #footer>
-    <AdminPaginationFooter
-      :page="currentPage"
-      :total-pages="totalPages"
-      :summary="totalPages > 0 ? `총 ${totalCount.toLocaleString()}명 / ${currentPage + 1} / ${totalPages} 페이지` : `총 ${totalCount.toLocaleString()}명`"
-      @page-change="page = $event"
-    >
-      <template #description>
-        <p class="mt-1 text-xs nv-text-subtle">사용자 행을 더블클릭하면 상세 팝업이 열립니다.</p>
-      </template>
-      <template #actions>
-        <label class="text-xs nv-text-subtle">페이지 당</label>
-        <select v-model.number="size" class="input-base px-2 py-1 text-xs">
-          <option :value="10">10</option>
-          <option :value="20">20</option>
-          <option :value="50">50</option>
-        </select>
-      </template>
-    </AdminPaginationFooter>
-    </template>
-
-    <div class="mt-4">
-      <BaseTable
+    <AdminPaginatedTable
         :columns="columns"
         :items="users"
         row-key="userId"
         :loading="isLoading"
-        :emptyText="t('common.noData')"
+        :empty-text="t('common.noData')"
+        :page="currentPage"
+        :total-pages="totalPages"
+        :summary="totalPages > 0 ? `총 ${totalCount.toLocaleString()}명 / ${currentPage + 1} / ${totalPages} 페이지` : `총 ${totalCount.toLocaleString()}명`"
         @sort="handleSort"
-        @row-dblclick="openDetailModal"
+        @row-dblclick="openDetailModal($event as User)"
+        @page-change="page = $event"
       >
+        <template #footer-description>
+          <p class="mt-1 text-xs nv-text-subtle">사용자 행을 더블클릭하면 상세 팝업이 열립니다.</p>
+        </template>
+        <template #footer-actions>
+          <label class="text-xs nv-text-subtle">페이지 당</label>
+          <select v-model.number="size" class="input-base px-2 py-1 text-xs">
+            <option :value="10">10</option>
+            <option :value="20">20</option>
+            <option :value="50">50</option>
+          </select>
+        </template>
+
         <template #cell-profile="{ item }">
           <div class="flex justify-center">
             <img v-if="item.profileImageUrl" :src="item.profileImageUrl" alt="profile" class="h-8 w-8 rounded-full object-cover" />
@@ -314,9 +308,7 @@ const columns = computed(() => [
         </template>
 
         <template #cell-status="{ item }">
-          <BaseBadge :variant="getStatusVariant(item.status)" size="sm">
-            {{ getStatusLabel(item.status) }}
-          </BaseBadge>
+          <AdminStatusBadge :label="getStatusLabel(item.status)" :variant="getStatusVariant(item.status)" />
         </template>
 
         <template #cell-lastLoginAt="{ item }">
@@ -329,32 +321,23 @@ const columns = computed(() => [
 
         <template #cell-actions="{ item }">
           <div class="flex justify-end gap-1">
-            <BaseButton
-              variant="ghost"
-              size="sm"
-              class="p-1"
-              :aria-label="`${item.displayName || item.loginId} 상세 보기`"
+            <AdminActionButton
+              :label="`${item.displayName || item.loginId} 상세 보기`"
               @click.stop="openDetailModal(item)"
             >
               상세
-            </BaseButton>
-            <BaseButton
+            </AdminActionButton>
+            <AdminActionButton
               v-if="canChangeStatus(item.status)"
               @click.stop="handleStatusChange(item, getNextStatus(item.status))"
-              variant="ghost"
-              size="sm"
-              class="p-1"
-              :class="item.status === 'ACTIVE'
-                ? 'text-[var(--nv-danger-text)] hover:brightness-95'
-                : 'nv-text-muted'"
-              :title="getStatusActionLabel(item.status)"
+              :tone="item.status === 'ACTIVE' ? 'danger' : 'neutral'"
+              :label="getStatusActionLabel(item.status)"
             >
               {{ getStatusActionLabel(item.status) }}
-            </BaseButton>
+            </AdminActionButton>
           </div>
         </template>
-      </BaseTable>
-    </div>
+      </AdminPaginatedTable>
 
     <UserDetailModal
       :isOpen="isDetailModalOpen"

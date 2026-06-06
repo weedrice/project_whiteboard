@@ -2,8 +2,9 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminInlinePager from '@/components/admin/AdminInlinePager.vue'
+import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
+import BooleanBadge from '@/components/admin/BooleanBadge.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
-import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import DescriptionItem from '@/components/admin/detail/DescriptionItem.vue'
 import { useAdmin } from '@/composables/useAdmin'
@@ -106,9 +107,13 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
           <div class="truncate text-lg font-semibold nv-title">{{ userDetail.displayName }}</div>
           <div class="truncate text-sm nv-text-muted">@{{ userDetail.loginId }} · {{ userDetail.email }}</div>
           <div class="mt-2 flex items-center gap-2">
-            <BaseBadge :variant="statusVariant" size="sm">{{ getStatusLabel(userDetail.status) }}</BaseBadge>
-            <BaseBadge :variant="roleVariant" size="sm">{{ getRoleLabel(userDetail.role) }}</BaseBadge>
-            <BaseBadge :variant="userDetail.isEmailVerified ? 'success' : 'gray'" size="sm">이메일 {{ userDetail.isEmailVerified ? '인증' : '미인증' }}</BaseBadge>
+            <AdminStatusBadge :label="getStatusLabel(userDetail.status)" :variant="statusVariant" />
+            <AdminStatusBadge :label="getRoleLabel(userDetail.role)" :variant="roleVariant" />
+            <BooleanBadge
+              :value="Boolean(userDetail.isEmailVerified)"
+              true-label="이메일 인증"
+              false-label="이메일 미인증"
+            />
           </div>
         </div>
       </div>
@@ -169,7 +174,7 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
             <div v-for="post in postItems" :key="post.postId" class="rounded-lg border nv-border p-3">
               <div class="truncate text-sm font-medium nv-title">{{ post.title }}</div>
               <div class="mt-2 flex flex-wrap gap-1">
-                <BaseBadge v-for="badge in post.badges" :key="badge.label" :variant="badge.variant" size="sm">{{ badge.label }}</BaseBadge>
+                <AdminStatusBadge v-for="badge in post.badges" :key="badge.label" :label="badge.label" :variant="badge.variant" />
               </div>
               <div class="mt-2 text-xs nv-text-subtle">
                 {{ post.metaText }}
@@ -199,7 +204,7 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
           <div v-else class="max-h-72 space-y-2 overflow-y-auto pr-1">
             <div v-for="comment in commentItems" :key="comment.commentId" class="rounded-lg border nv-border p-3">
               <div class="mb-2 flex flex-wrap gap-1">
-                <BaseBadge v-for="badge in comment.badges" :key="badge.label" :variant="badge.variant" size="sm">{{ badge.label }}</BaseBadge>
+                <AdminStatusBadge v-for="badge in comment.badges" :key="badge.label" :label="badge.label" :variant="badge.variant" />
               </div>
               <div class="comment-content-list">
                 <p v-if="isCommentEmoticonOnly(comment.content)" v-html="renderCommentContent(comment.content)" class="text-sm" @error.capture="applyImageFallback"></p>
@@ -231,7 +236,7 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
               <div v-for="board in subscriptionItems" :key="board.boardId" class="rounded-lg border nv-border p-3">
                 <div class="truncate text-sm font-medium nv-title">{{ board.boardName }}</div>
                 <div class="mt-2 flex flex-wrap gap-1">
-                  <BaseBadge v-for="badge in board.badges" :key="badge.label" :variant="badge.variant" size="sm">{{ badge.label }}</BaseBadge>
+                  <AdminStatusBadge v-for="badge in board.badges" :key="badge.label" :label="badge.label" :variant="badge.variant" />
                 </div>
                 <div class="mt-1 text-xs nv-text-subtle">{{ board.boardPath }}</div>
                 <div class="mt-1 text-xs nv-text-subtle">{{ board.sortOrderText }}</div>

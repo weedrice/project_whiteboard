@@ -8,12 +8,13 @@ import AdminActionButton from '@/components/admin/AdminActionButton.vue'
 import AdminDataPage from '@/components/admin/AdminDataPage.vue'
 import AdminFilterField from '@/components/admin/AdminFilterField.vue'
 import AdminFilterPanel from '@/components/admin/AdminFilterPanel.vue'
-import AdminPaginationFooter from '@/components/admin/AdminPaginationFooter.vue'
+import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
 import ErrorLogDetailModal from '@/components/admin/ErrorLogDetailModal.vue'
 import ErrorLogResolveModal from '@/components/admin/ErrorLogResolveModal.vue'
 import HttpStatusBadge from '@/components/admin/HttpStatusBadge.vue'
 import ResolveStatusBadge from '@/components/admin/ResolveStatusBadge.vue'
-import BaseTable, { type TableColumn } from '@/components/common/ui/BaseTable.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import type { TableColumn } from '@/components/common/ui/BaseTable.vue'
 import { formatDateTimeOrDash } from '@/utils/date'
 import type { ErrorLogDetail, ErrorLogListItem } from '@/types'
 
@@ -126,26 +127,30 @@ function resolveFromDetail(log: ErrorLogDetail) {
             />
           </AdminFilterField>
           <div class="filter-item filter-item--actions flex gap-2">
-            <button type="button" class="btn-search" @click="handleSearch">
+            <BaseButton type="button" variant="primary" size="sm" class="btn-search" @click="handleSearch">
               <Search class="mr-1 h-4 w-4" />
               검색
-            </button>
-            <button type="button" class="btn-reset" @click="resetFilters">
+            </BaseButton>
+            <BaseButton type="button" variant="secondary" size="sm" class="btn-reset" @click="resetFilters">
               초기화
-            </button>
+            </BaseButton>
           </div>
         </div>
       </AdminFilterPanel>
     </template>
 
-    <BaseTable
-      class="mt-4 error-log-table-wrapper"
+    <AdminPaginatedTable
+      table-class="mt-4 error-log-table-wrapper"
       :columns="columns"
       :items="errorLogs"
       :loading="isLoading"
       empty-text="에러 로그가 없습니다."
       :row-class="getRowClass"
       row-key="errorLogId"
+      :page="page"
+      :total-pages="totalPages"
+      :summary="`총 ${totalElements.toLocaleString()}건 (${page + 1} / ${totalPages} 페이지)`"
+      @page-change="page = $event"
     >
       <template #loading>
         <div class="loading-indicator">로딩 중...</div>
@@ -210,16 +215,7 @@ function resolveFromDetail(log: ErrorLogDetail) {
           </AdminActionButton>
         </div>
       </template>
-    </BaseTable>
-
-    <template #footer>
-      <AdminPaginationFooter
-        :page="page"
-        :total-pages="totalPages"
-        :summary="`총 ${totalElements.toLocaleString()}건 (${page + 1} / ${totalPages} 페이지)`"
-        @page-change="page = $event"
-      />
-    </template>
+    </AdminPaginatedTable>
 
     <ErrorLogDetailModal
       :is-open="isDetailModalOpen"
@@ -280,40 +276,6 @@ function resolveFromDetail(log: ErrorLogDetail) {
   font-size: 0.8125rem;
 }
 
-.btn-search,
-.btn-reset {
-  display: inline-flex;
-  align-items: center;
-  height: 34px;
-  padding: 6px 14px;
-  border-radius: 6px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.btn-search {
-  border: 0;
-  background: var(--nv-accent);
-  color: white;
-}
-
-.btn-search:hover {
-  background: color-mix(in srgb, var(--nv-accent) 88%, black 12%);
-}
-
-.btn-reset {
-  border: 1px solid var(--nv-border);
-  background: var(--nv-surface);
-  color: var(--nv-text-muted);
-}
-
-.btn-reset:hover {
-  background: var(--nv-surface-hover);
-  color: var(--nv-text);
-}
-
 .error-log-table-wrapper {
   overflow-x: auto;
   border: 1px solid var(--nv-border);
@@ -352,27 +314,4 @@ function resolveFromDetail(log: ErrorLogDetail) {
   gap: 4px;
 }
 
-.btn-icon {
-  padding: 4px;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--nv-text-subtle);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn-icon:hover {
-  background: var(--nv-surface-hover);
-  color: var(--nv-text);
-}
-
-.btn-icon--resolve {
-  color: var(--nv-success-text);
-}
-
-.btn-icon--resolve:hover {
-  background: var(--nv-success-bg);
-  color: var(--nv-success-text);
-}
 </style>

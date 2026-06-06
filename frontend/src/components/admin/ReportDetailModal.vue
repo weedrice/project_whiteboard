@@ -2,8 +2,8 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminModalContentState from '@/components/admin/AdminModalContentState.vue'
+import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
-import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import DetailSection from '@/components/admin/detail/DetailSection.vue'
 import DescriptionGrid from '@/components/admin/detail/DescriptionGrid.vue'
 import DescriptionItem from '@/components/admin/detail/DescriptionItem.vue'
@@ -64,9 +64,7 @@ const targetTypeLabel = computed(() => {
               </template>
           </DescriptionItem>
           <DescriptionItem :label="t('common.status')" value-class="mt-1">
-            <BaseBadge :variant="statusVariant" size="sm">
-              {{ getAdminReportStatusLabel(t, report.status) }}
-            </BaseBadge>
+            <AdminStatusBadge :label="getAdminReportStatusLabel(t, report.status)" :variant="statusVariant" />
           </DescriptionItem>
           <DescriptionItem :label="t('common.createdAt')">
             {{ formatDate(report.createdAt) }}

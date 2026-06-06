@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Trash2, Eye } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
-import BaseButton from '@/components/common/ui/BaseButton.vue'
+import AdminActionButton from '@/components/admin/AdminActionButton.vue'
 import BaseTable from '@/components/common/ui/BaseTable.vue'
 import { computed } from 'vue'
 import type { IpBlock } from '@/types'
@@ -39,14 +39,12 @@ const columns = computed(() => [
 
       <template #cell-actions="{ item }">
         <div class="flex justify-end space-x-2">
-          <BaseButton @click="$emit('viewDetail', item)" variant="ghost" size="sm"
-            :title="t('common.viewDetail')"
-            class="p-1 nv-accent-text hover:brightness-95">
+          <AdminActionButton :label="t('common.viewDetail')" tone="accent" icon-only @click="$emit('viewDetail', item)">
             <Eye class="h-4 w-4" />
-          </BaseButton>
-          <BaseButton @click="onUnblock(item.ipAddress)" variant="danger" size="sm">
+          </AdminActionButton>
+          <AdminActionButton label="차단 해제" tone="danger" icon-only @click="onUnblock(item.ipAddress)">
             <Trash2 class="h-4 w-4" />
-          </BaseButton>
+          </AdminActionButton>
         </div>
       </template>
     </BaseTable>

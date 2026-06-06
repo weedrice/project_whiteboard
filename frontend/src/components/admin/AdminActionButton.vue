@@ -40,7 +40,6 @@ const toneClasses = {
     @click="emit('click', $event)"
   >
     <slot />
-    <span v-if="!iconOnly && $slots.default" class="sr-only">{{ label }}</span>
-    <span v-else-if="!iconOnly">{{ label }}</span>
+    <span v-if="!iconOnly && !$slots.default">{{ label }}</span>
   </button>
 </template>

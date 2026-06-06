@@ -3,7 +3,7 @@ import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api/auth'
-import { useEmailVerificationFlow } from '@/composables/useEmailVerificationFlow'
+import { useAuthEmailVerificationSection } from '@/composables/useAuthEmailVerificationSection'
 import { handleDeletedAccountRedirect } from '@/utils/authRedirect'
 import AuthEmailVerificationSection from '@/components/auth/AuthEmailVerificationSection.vue'
 import AuthFormShell from '@/components/auth/AuthFormShell.vue'
@@ -23,9 +23,16 @@ const isSent = ref(false)
 const isCodeSent = ref(false)
 
 const {
+  sectionProps: emailVerificationSectionProps,
   sendVerifyCode: handleSendCode,
   verifyEmailCode: handleSendResetLink,
-} = useEmailVerificationFlow({
+} = useAuthEmailVerificationSection({
+  t,
+  idPrefix: 'forgot-password',
+  verifyLabelKey: 'auth.sendResetLink',
+  codeSent: () => isCodeSent.value,
+  loading: () => isLoading.value,
+  emailDisabled: () => isCodeSent.value,
   getEmail: () => form.email,
   getCode: () => form.code,
   purpose: 'PASSWORD_RESET',
@@ -69,16 +76,7 @@ const {
       v-if="!isSent"
       v-model:email="form.email"
       v-model:code="form.code"
-      id-prefix="forgot-password"
-      :loading="isLoading"
-      :code-sent="isCodeSent"
-      :email-disabled="isCodeSent"
-      :email-label="t('auth.email')"
-      :email-placeholder="t('auth.placeholders.email')"
-      :code-label="t('auth.codePlaceholder')"
-      :send-label="t('auth.sendCode')"
-      :resend-label="t('auth.resendCode')"
-      :verify-label="t('auth.sendResetLink')"
+      v-bind="emailVerificationSectionProps"
       @send="handleSendCode"
       @verify="handleSendResetLink"
     />

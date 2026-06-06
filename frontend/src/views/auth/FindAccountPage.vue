@@ -2,7 +2,7 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useEmailVerificationFlow } from '@/composables/useEmailVerificationFlow'
+import { useAuthEmailVerificationSection } from '@/composables/useAuthEmailVerificationSection'
 import { useFindIdFlow } from '@/composables/useFindIdFlow'
 import { usePasswordResetByVerificationFlow } from '@/composables/usePasswordResetByVerificationFlow'
 import AuthEmailVerificationSection from '@/components/auth/AuthEmailVerificationSection.vue'
@@ -84,9 +84,16 @@ const {
 })
 
 const {
+  sectionProps: emailVerificationSectionProps,
   sendVerifyCode: handleSendCode,
   verifyEmailCode: handleVerifyCode,
-} = useEmailVerificationFlow({
+} = useAuthEmailVerificationSection({
+  t,
+  idPrefix: 'find-account',
+  layout: 'inline',
+  verifyLabelKey: 'auth.verifyCode',
+  codeSent: () => status.isCodeSent,
+  loading: () => status.loading,
   getEmail: () => form.email,
   getCode: () => form.code,
   purpose: () => activeTab.value === 'id' ? 'FIND_ID' : 'PASSWORD_RESET',
@@ -149,16 +156,7 @@ const {
         v-if="!status.foundId && (!status.isVerified || activeTab === 'id')"
         v-model:email="form.email"
         v-model:code="form.code"
-        id-prefix="find-account"
-        layout="inline"
-        :loading="status.loading"
-        :code-sent="status.isCodeSent"
-        :email-label="t('auth.email')"
-        :email-placeholder="t('auth.placeholders.email')"
-        :code-label="t('auth.codePlaceholder')"
-        :send-label="t('auth.sendCode')"
-        :resend-label="t('auth.resendCode')"
-        :verify-label="t('auth.verifyCode')"
+        v-bind="emailVerificationSectionProps"
         @send="handleSendCode"
         @verify="handleVerifyCode"
       />

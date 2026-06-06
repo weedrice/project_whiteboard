@@ -5,8 +5,9 @@ import { Shield } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
 import AdminDataPage from '@/components/admin/AdminDataPage.vue'
+import AdminFormPanel from '@/components/admin/AdminFormPanel.vue'
 import AdminFilterField from '@/components/admin/AdminFilterField.vue'
-import AdminFilterPanel from '@/components/admin/AdminFilterPanel.vue'
+import AdminInlineForm from '@/components/admin/AdminInlineForm.vue'
 import AdminPaginationFooter from '@/components/admin/AdminPaginationFooter.vue'
 import IpBlockList from '@/components/admin/IpBlockList.vue'
 import IpBlockDetailModal from '@/components/admin/IpBlockDetailModal.vue'
@@ -85,10 +86,8 @@ watch(totalPages, (nextTotalPages) => {
 <template>
     <AdminDataPage :title="t('admin.security.title')" :description="t('admin.security.description')">
         <template #filters>
-        <AdminFilterPanel>
-            <h3 class="text-lg font-medium leading-6 nv-title">{{ t('admin.security.addTitle') }}
-            </h3>
-            <form @submit.prevent="handleBlockIp" class="mt-5 sm:flex sm:items-end space-x-4">
+        <AdminFormPanel :title="t('admin.security.addTitle')">
+            <AdminInlineForm gap-class="gap-4" @submit.prevent="handleBlockIp">
                 <AdminFilterField :label="t('admin.security.ipAddress')" width-class="w-full sm:max-w-xs">
                     <BaseInput id="ipAddress" v-model="newIp" name="ipAddress" type="text"
                         :label="t('admin.security.ipAddress')" :placeholder="t('admin.security.ipPlaceholder')" hideLabel />
@@ -102,8 +101,8 @@ watch(totalPages, (nextTotalPages) => {
                     <Shield class="h-4 w-4 mr-2" />
                     {{ t('common.block') }}
                 </BaseButton>
-            </form>
-        </AdminFilterPanel>
+            </AdminInlineForm>
+        </AdminFormPanel>
         </template>
 
         <!-- IP Block List -->

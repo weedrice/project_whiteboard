@@ -25,9 +25,11 @@ const emit = defineEmits<{
     size="2xl"
     close-aria-label="상세 모달 닫기"
     close-button-class="btn-close"
+    body-class="space-y-5"
+    footer-align="end"
     @close="emit('close')"
   >
-    <div v-if="log" class="space-y-5">
+    <div v-if="log">
       <section class="detail-section">
         <h4 class="detail-section-title">{{ $t('admin.errorLogs.detail.errorInfo') }}</h4>
         <div class="detail-grid">

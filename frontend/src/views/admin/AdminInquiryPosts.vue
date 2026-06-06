@@ -7,6 +7,7 @@ import AdminFilterField from '@/components/admin/AdminFilterField.vue'
 import AdminFilterPanel from '@/components/admin/AdminFilterPanel.vue'
 import AdminPaginationFooter from '@/components/admin/AdminPaginationFooter.vue'
 import AdminPanel from '@/components/admin/AdminPanel.vue'
+import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
 import AdminInquiryDetailModal from '@/components/admin/AdminInquiryDetailModal.vue'
 import { useI18n } from 'vue-i18n'
 import { useAdminInquiryPosts, type AdminInquiryListItem } from '@/composables/useAdminInquiryPosts'
@@ -92,12 +93,7 @@ function handleRowClick(post: AdminInquiryListItem) {
         </template>
 
         <template #cell-status="{ item }">
-          <span
-            class="inline-flex rounded-full px-2 py-1 text-xs font-medium"
-            :class="item.statusClass"
-          >
-            {{ t(item.statusLabelKey) }}
-          </span>
+          <AdminStatusBadge :label="t(item.statusLabelKey)" :status-class="item.statusClass" />
         </template>
       </BaseTable>
     </AdminPanel>

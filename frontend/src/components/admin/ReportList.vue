@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { Check, X, ShieldAlert, Eye } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
-import BaseButton from '@/components/common/ui/BaseButton.vue'
+import AdminActionButton from '@/components/admin/AdminActionButton.vue'
 import BaseTable from '@/components/common/ui/BaseTable.vue'
-import BaseBadge from '@/components/common/ui/BaseBadge.vue'
+import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
 import { computed } from 'vue'
 import { formatDate } from '@/utils/date'
 import {
@@ -98,9 +98,10 @@ const columns = computed(() => [
       </template>
 
       <template #cell-status="{ item }">
-        <BaseBadge :variant="getReportStatusVariant(item.status)" size="sm">
-          {{ getAdminReportStatusLabel(t, item.status) }}
-        </BaseBadge>
+        <AdminStatusBadge
+          :label="getAdminReportStatusLabel(t, item.status)"
+          :variant="getReportStatusVariant(item.status)"
+        />
       </template>
 
       <template #cell-createdAt="{ item }">
@@ -109,24 +110,19 @@ const columns = computed(() => [
 
       <template #cell-actions="{ item }">
         <div class="flex justify-center space-x-2">
-          <BaseButton @click="$emit('viewDetail', item)" variant="ghost" size="sm"
-            :title="t('common.viewDetail')"
-            class="p-1 nv-accent-text hover:brightness-95">
+          <AdminActionButton :label="t('common.viewDetail')" tone="accent" icon-only @click="$emit('viewDetail', item)">
             <Eye class="h-4 w-4" />
-          </BaseButton>
+          </AdminActionButton>
           <template v-if="item.status === 'PENDING'">
-            <BaseButton @click="onSanction(item)" variant="ghost" size="sm" :title="t('admin.reports.actions.sanction')"
-              class="p-1 text-[var(--nv-warning-text)] hover:brightness-95">
+            <AdminActionButton :label="t('admin.reports.actions.sanction')" tone="neutral" icon-only @click="onSanction(item)">
               <ShieldAlert class="h-4 w-4" />
-            </BaseButton>
-            <BaseButton @click="onResolve(item)" variant="ghost" size="sm" :title="t('admin.reports.actions.resolve')"
-              class="p-1 text-[var(--nv-success-text)] hover:brightness-95">
+            </AdminActionButton>
+            <AdminActionButton :label="t('admin.reports.actions.resolve')" tone="success" icon-only @click="onResolve(item)">
               <Check class="h-4 w-4" />
-            </BaseButton>
-            <BaseButton @click="onReject(item)" variant="ghost" size="sm" :title="t('admin.reports.actions.reject')"
-              class="p-1 text-[var(--nv-danger-text)] hover:brightness-95">
+            </AdminActionButton>
+            <AdminActionButton :label="t('admin.reports.actions.reject')" tone="danger" icon-only @click="onReject(item)">
               <X class="h-4 w-4" />
-            </BaseButton>
+            </AdminActionButton>
           </template>
         </div>
       </template>

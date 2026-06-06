@@ -34,6 +34,34 @@ const mountModal = (isOpen = true) => mount(BaseModal, {
     },
 })
 
+const mountConfiguredModal = () => mount(BaseModal, {
+    props: {
+        isOpen: true,
+        title: 'Configured',
+        headerClass: 'custom-header',
+        bodyClass: 'custom-body',
+        footerClass: 'custom-footer',
+        footerAlign: 'between',
+        closeAriaLabel: 'Close configured modal',
+        closeButtonClass: 'custom-close',
+        closeOnBackdrop: false,
+        closeOnEscape: false,
+    },
+    slots: {
+        default: '<button type="button">Body button</button>',
+        footer: '<button type="button">Footer button</button>',
+    },
+    global: {
+        mocks: {
+            $t: (key: string) => key,
+        },
+        stubs: {
+            BaseButton: BaseButtonStub,
+            Teleport: true,
+        },
+    },
+})
+
 const mountedWrappers: VueWrapper[] = []
 
 function track(wrapper: VueWrapper) {
@@ -103,5 +131,21 @@ describe('BaseModal', () => {
 
         expect(wrapper.find('.modal-content').exists()).toBe(true)
         expect(wrapper.get('.modal-header .nv-title').text()).toBe('Modal')
+    })
+
+    it('applies shell configuration without forcing backdrop or escape close', async () => {
+        const wrapper = track(mountConfiguredModal())
+        await nextTick()
+
+        expect(wrapper.get('.modal-header').classes()).toContain('custom-header')
+        expect(wrapper.get('.modal-body').classes()).toContain('custom-body')
+        expect(wrapper.get('.modal-footer').classes()).toContain('custom-footer')
+        expect(wrapper.get('.modal-footer').classes()).toContain('justify-between')
+        expect(wrapper.get('.custom-close').attributes('aria-label')).toBe('Close configured modal')
+
+        await wrapper.get('.modal-overlay').trigger('click')
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+
+        expect(wrapper.emitted('close')).toBeUndefined()
     })
 })

@@ -9,7 +9,7 @@ import { extractErrorMessage } from '@/utils/errorHandler'
 import { isValidEmail } from '@/utils/validation'
 import type { VerificationPurpose, VerifyCodeResponse } from '@/api/auth'
 
-interface EmailVerificationFlowOptions {
+export interface EmailVerificationFlowOptions {
   getEmail: () => string
   refreshProfile?: () => Promise<void>
   purpose?: VerificationPurpose | (() => VerificationPurpose)

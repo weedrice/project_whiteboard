@@ -23,6 +23,7 @@ const emit = defineEmits<{
     :title="$t('admin.errorLogs.actions.resolve')"
     close-aria-label="확인 처리 모달 닫기"
     close-button-class="btn-close"
+    footer-align="end"
     @close="emit('close')"
   >
     <div v-if="log" class="space-y-4">

@@ -7,10 +7,11 @@ import { useToastStore } from '@/stores/toast'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTable from '@/components/common/ui/BaseTable.vue'
-import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import AdminActionButton from '@/components/admin/AdminActionButton.vue'
 import AdminDataPage from '@/components/admin/AdminDataPage.vue'
-import AdminPanel from '@/components/admin/AdminPanel.vue'
+import AdminFormPanel from '@/components/admin/AdminFormPanel.vue'
+import AdminInlineForm from '@/components/admin/AdminInlineForm.vue'
+import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
 import { formatDate } from '@/utils/date'
 
 const { t } = useI18n()
@@ -80,12 +81,13 @@ const superAdminColumns: { key: string; label: string; width: string; align?: 'l
 <template>
   <AdminDataPage :title="t('admin.admins.title')" :description="t('admin.admins.description')">
     <div class="mt-6">
-      <AdminPanel padding="sm" max-width-class="max-w-xl">
-        <h3 class="text-lg font-medium leading-6 nv-title">{{ t('admin.admins.addSuperAdmin') }}</h3>
-        <div class="mt-2 text-sm nv-text-subtle">
-          <p>{{ t('admin.admins.addSuperAdminDesc') }}</p>
-        </div>
-        <form @submit.prevent="handleCreateSuperAdmin" class="mt-5 flex gap-3">
+      <AdminFormPanel
+        :title="t('admin.admins.addSuperAdmin')"
+        :description="t('admin.admins.addSuperAdminDesc')"
+        class-name=""
+        max-width-class="max-w-xl"
+      >
+        <AdminInlineForm @submit.prevent="handleCreateSuperAdmin">
           <div class="flex-1">
             <label for="superAdminLoginId" class="sr-only">{{ t('admin.admins.table.loginId') }}</label>
             <BaseInput
@@ -99,8 +101,8 @@ const superAdminColumns: { key: string; label: string; width: string; align?: 'l
             <UserPlus class="h-4 w-4 mr-2" />
             {{ t('common.add') }}
           </BaseButton>
-        </form>
-      </AdminPanel>
+        </AdminInlineForm>
+      </AdminFormPanel>
     </div>
 
     <div class="mt-8">
@@ -115,9 +117,10 @@ const superAdminColumns: { key: string; label: string; width: string; align?: 'l
         </template>
 
         <template #cell-status="{ item }">
-          <BaseBadge :variant="item.superAdmin ? 'success' : 'danger'" size="sm">
-            {{ item.superAdmin ? t('common.active') : t('common.inactive') }}
-          </BaseBadge>
+          <AdminStatusBadge
+            :label="item.superAdmin ? t('common.active') : t('common.inactive')"
+            :variant="item.superAdmin ? 'success' : 'danger'"
+          />
         </template>
 
         <template #cell-createdAt="{ item }">
