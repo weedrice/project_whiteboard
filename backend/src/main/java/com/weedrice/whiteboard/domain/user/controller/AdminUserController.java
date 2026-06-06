@@ -62,7 +62,7 @@ public class AdminUserController {
                 lastLoginTo,
                 minActivityCount,
                 pageable);
-        return ApiResponse.success(new PageResponse<>(response));
+        return pageResponse(response);
     }
 
     @GetMapping("/{userId}")
@@ -74,21 +74,21 @@ public class AdminUserController {
     public ApiResponse<PageResponse<AdminUserPostResponse>> getUserPosts(
             @PathVariable Long userId,
             @PageableDefault(size = 10) Pageable pageable) {
-        return ApiResponse.success(new PageResponse<>(userAdminQueryService.getUserPostsForAdmin(userId, pageable)));
+        return pageResponse(userAdminQueryService.getUserPostsForAdmin(userId, pageable));
     }
 
     @GetMapping("/{userId}/comments")
     public ApiResponse<PageResponse<AdminUserCommentResponse>> getUserComments(
             @PathVariable Long userId,
             @PageableDefault(size = 10) Pageable pageable) {
-        return ApiResponse.success(new PageResponse<>(userAdminQueryService.getUserCommentsForAdmin(userId, pageable)));
+        return pageResponse(userAdminQueryService.getUserCommentsForAdmin(userId, pageable));
     }
 
     @GetMapping("/{userId}/subscriptions")
     public ApiResponse<PageResponse<AdminUserSubscriptionResponse>> getUserSubscriptions(
             @PathVariable Long userId,
             @PageableDefault(size = 10) Pageable pageable) {
-        return ApiResponse.success(new PageResponse<>(userAdminQueryService.getUserSubscriptionsForAdmin(userId, pageable)));
+        return pageResponse(userAdminQueryService.getUserSubscriptionsForAdmin(userId, pageable));
     }
 
     @PutMapping("/{userId}/status")
@@ -98,6 +98,10 @@ public class AdminUserController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         userAdminCommandService.updateUserStatus(requiredUserId(userDetails), userId, request.getStatus());
         return ApiResponse.success();
+    }
+
+    private <T> ApiResponse<PageResponse<T>> pageResponse(Page<T> page) {
+        return ApiResponse.success(new PageResponse<>(page));
     }
 }
 

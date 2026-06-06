@@ -59,7 +59,7 @@ public class SearchController {
         Long userId = optionalUserId(userDetails);
         Page<PostSummary> response = searchService.searchPosts(q, searchType, boardUrl, page, size, sort, userId);
 
-        return ApiResponse.success(new PageResponse<>(response));
+        return pageResponse(response);
     }
 
     @GetMapping("/semantic")
@@ -74,7 +74,7 @@ public class SearchController {
         Long userId = optionalUserId(userDetails);
         Page<SemanticSearchResultResponse> response = semanticSearchService.search(
                 q, contentType, boardUrl, page, size, userId);
-        return ApiResponse.success(new PageResponse<>(response));
+        return pageResponse(response);
     }
 
     @GetMapping("/popular")
@@ -103,5 +103,9 @@ public class SearchController {
     public ApiResponse<Void> deleteAllRecentSearches(@AuthenticationPrincipal CustomUserDetails userDetails) {
         searchService.deleteAllRecentSearches(requiredUserId(userDetails));
         return ApiResponse.success();
+    }
+
+    private <T> ApiResponse<PageResponse<T>> pageResponse(Page<T> page) {
+        return ApiResponse.success(new PageResponse<>(page));
     }
 }

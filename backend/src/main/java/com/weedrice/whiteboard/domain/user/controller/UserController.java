@@ -170,7 +170,7 @@ public class UserController {
                                 userId,
                                 pageable,
                                 includeUnavailable);
-                return ApiResponse.success(new PageResponse<>(response));
+                return pageResponse(response);
         }
 
         @PostMapping("/me/agents/claim")
@@ -223,10 +223,10 @@ public class UserController {
         public ApiResponse<PageResponse<PostSummary>> getMyPosts(@CurrentUserId Long userId,
                         @RequestParam(defaultValue = "0") int page,
                         @RequestParam(defaultValue = "20") int size,
-                        Sort sort) {
+                Sort sort) {
                 Pageable pageable = PageRequestUtils.of(page, size, sort);
                 Page<PostSummary> response = postService.getMyPosts(userId, pageable);
-                return ApiResponse.success(new PageResponse<>(response));
+                return pageResponse(response);
         }
 
         @GetMapping("/me/comments")
@@ -234,10 +234,10 @@ public class UserController {
                         @CurrentUserId Long userId,
                         @RequestParam(defaultValue = "0") int page,
                         @RequestParam(defaultValue = "20") int size,
-                        Sort sort) {
+                Sort sort) {
                 Pageable pageable = PageRequestUtils.of(page, size, sort);
                 Page<MyCommentResponse> response = commentService.getMyComments(userId, pageable);
-                return ApiResponse.success(new PageResponse<>(response));
+                return pageResponse(response);
         }
 
         @GetMapping("/me/history/views")
@@ -245,9 +245,13 @@ public class UserController {
                         @CurrentUserId Long userId,
                         @RequestParam(defaultValue = "0") int page,
                         @RequestParam(defaultValue = "20") int size,
-                        Sort sort) {
+                Sort sort) {
                 Pageable pageable = PageRequestUtils.of(page, size, sort);
                 Page<PostSummary> response = postService.getRecentlyViewedPosts(userId, pageable);
-                return ApiResponse.success(new PageResponse<>(response));
+                return pageResponse(response);
+        }
+
+        private <T> ApiResponse<PageResponse<T>> pageResponse(Page<T> page) {
+                return ApiResponse.success(new PageResponse<>(page));
         }
 }

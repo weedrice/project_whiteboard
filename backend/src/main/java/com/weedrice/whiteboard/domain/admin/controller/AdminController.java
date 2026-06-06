@@ -111,7 +111,7 @@ public class AdminController {
     @GetMapping("/admins")
     public ApiResponse<PageResponse<AdminResponse>> getAllAdmins(
             @PageableDefault(size = 20, sort = "adminId", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ApiResponse.success(new PageResponse<>(adminReadService.getAllAdmins(pageable)));
+        return pageResponse(adminReadService.getAllAdmins(pageable));
     }
 
     /**
@@ -187,7 +187,7 @@ public class AdminController {
     @GetMapping("/ip-blocks")
     public ApiResponse<PageResponse<IpBlockResponse>> getBlockedIps(
             @PageableDefault(size = 20, sort = "startDate", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ApiResponse.success(new PageResponse<>(ipBlockService.getBlockedIps(pageable)));
+        return pageResponse(ipBlockService.getBlockedIps(pageable));
     }
 
     /**
@@ -207,11 +207,15 @@ public class AdminController {
             Sort sort) {
         Pageable pageable = PageRequestUtils.of(page, size, sort);
         Page<AdminInquirySummaryResponse> inquiryPage = postService.getInquiryPostsForAdmin(pageable);
-        return ApiResponse.success(new PageResponse<>(inquiryPage));
+        return pageResponse(inquiryPage);
     }
 
     @GetMapping("/inquiries/{postId}")
     public ApiResponse<PostResponse> getInquiryPost(@PathVariable Long postId) {
         return ApiResponse.success(postService.getInquiryPostResponseForAdmin(postId));
+    }
+
+    private <T> ApiResponse<PageResponse<T>> pageResponse(Page<T> page) {
+        return ApiResponse.success(new PageResponse<>(page));
     }
 }
