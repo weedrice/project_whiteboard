@@ -25,13 +25,14 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { getSingleQueryValue } from '@/utils/oauthCallbackTokens'
 
 const route = useRoute()
 const { t } = useI18n()
 
 const homeHref = computed(() => import.meta.env.BASE_URL || '/')
-const status = computed(() => route.query.status || 'Error')
-const message = computed(() => route.query.message || t('common.error.defaultMessage'))
+const status = computed(() => getSingleQueryValue(route.query.status) || 'Error')
+const message = computed(() => getSingleQueryValue(route.query.message) || t('common.error.defaultMessage'))
 
 const title = computed(() => {
     switch (Number(status.value)) {
