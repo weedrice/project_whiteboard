@@ -2,10 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, type Ref } from 'vue'
 import { commentApi, type CommentParams, type CommentPayload } from '@/api/comment'
 import { commentQueryKeys } from '@/composables/commentQueryKeys'
-
-const postQueryKeys = {
-    all: ['post'] as const,
-}
+import { postQueryKeys } from '@/composables/postQueryKeys'
 
 export function useComment() {
     const queryClient = useQueryClient()
@@ -45,7 +42,7 @@ export function useComment() {
             },
             onSuccess: () => {
                 queryClient.invalidateQueries({ queryKey: commentQueryKeys.all })
-                queryClient.invalidateQueries({ queryKey: postQueryKeys.all })
+                queryClient.invalidateQueries({ queryKey: postQueryKeys.detailsRoot })
             },
         })
     }
@@ -68,7 +65,7 @@ export function useComment() {
             },
             onSuccess: () => {
                 queryClient.invalidateQueries({ queryKey: commentQueryKeys.all })
-                queryClient.invalidateQueries({ queryKey: postQueryKeys.all })
+                queryClient.invalidateQueries({ queryKey: postQueryKeys.detailsRoot })
             },
         })
     }

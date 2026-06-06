@@ -1,6 +1,7 @@
-import { computed, ref, watch, type Ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { adminApi } from '@/api/admin'
+import { adminInquiryQueryKeys } from '@/composables/adminQueryKeys'
 import { formatDateTimeOrDash } from '@/utils/date'
 import { renderPostContentHtml } from '@/utils/postContentHtml'
 import type { AdminInquirySummary, PageResponse, Post } from '@/types'
@@ -45,14 +46,6 @@ function getStatusClass(post: AdminInquirySummary) {
   return post.inquiryAnswered
     ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
     : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
-}
-
-const adminInquiryQueryKeys = {
-  list: ['admin', 'inquiry-posts'] as const,
-  listPage: (page: Ref<number>, size: Ref<number>, sort: Ref<string>) =>
-    ['admin', 'inquiry-posts', page, size, sort] as const,
-  detail: (selectedPostId: Ref<number | null>) =>
-    ['admin', 'inquiry-post-detail', selectedPostId] as const,
 }
 
 export function toAdminInquiryListItem(post: AdminInquirySummary): AdminInquiryListItem {

@@ -11,6 +11,11 @@ import { type Ref, computed } from 'vue'
 import logger from '@/utils/logger'
 import { useAuthStore } from '@/stores/auth'
 import { isCancellationError } from '@/utils/cancellationError'
+import {
+    notificationListQueryKey,
+    notificationsQueryKey,
+    notificationUnreadCountQueryKey,
+} from '@/composables/notificationQueryKeys'
 
 function isAbortError(error: unknown): boolean {
     return isCancellationError(error, {
@@ -33,9 +38,6 @@ function getNotificationPageNumber(data: unknown): number {
 }
 
 const RECENT_NOTIFICATION_ID_LIMIT = 200
-const notificationsQueryKey = ['notifications'] as const
-const notificationListQueryKey = (params: Ref<NotificationParams>) => [...notificationsQueryKey, params] as const
-const notificationUnreadCountQueryKey = [...notificationsQueryKey, 'unread-count'] as const
 
 export function useNotification() {
     const queryClient = useQueryClient()

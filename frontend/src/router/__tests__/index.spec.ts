@@ -7,7 +7,7 @@ import logger from '@/utils/logger'
 import { boardApi } from '@/api/board'
 import { emoticonApi } from '@/api/emoticon'
 import { postApi } from '@/api/post'
-import { postDetailQueryKey } from '@/composables/usePost'
+import { postDetailQueryKey } from '@/composables/postQueryKeys'
 import i18n from '@/i18n'
 import { useToastStore } from '@/stores/toast'
 

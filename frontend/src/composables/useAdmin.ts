@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient, type QueryKey } from '@tanstack/vue-query'
 import { adminApi, type AdminRole } from '@/api/admin'
+import { adminQueryKeys } from '@/composables/adminQueryKeys'
 import { boardQueryKeys } from '@/composables/boardQueryKeys'
 import { computed, type ComputedRef, type Ref } from 'vue'
 import { normalizePageResponse, type PageResponseRaw } from '@/utils/pageResponse'
@@ -101,34 +102,6 @@ interface BoardUpdateData {
 
 interface BoardManagerData {
     loginId: string
-}
-
-const adminQueryKeys = {
-    adminsRoot: ['admin', 'admins'] as const,
-    admins: (params: Ref<{ page?: number, size?: number }>) => ['admin', 'admins', params] as const,
-    superAdmins: ['admin', 'super'] as const,
-    usersRoot: ['admin', 'users'] as const,
-    users: (params: Ref<UserSearchParams>) => ['admin', 'users', params] as const,
-    userDetailRoot: ['admin', 'users', 'detail'] as const,
-    userDetail: (userId: Ref<number | null>) => ['admin', 'users', 'detail', userId] as const,
-    userPosts: (userId: Ref<number | null>, params: Ref<{ page?: number, size?: number }>) =>
-        ['admin', 'users', 'detail', userId, 'posts', params] as const,
-    userComments: (userId: Ref<number | null>, params: Ref<{ page?: number, size?: number }>) =>
-        ['admin', 'users', 'detail', userId, 'comments', params] as const,
-    userSubscriptions: (userId: Ref<number | null>, params: Ref<{ page?: number, size?: number }>) =>
-        ['admin', 'users', 'detail', userId, 'subscriptions', params] as const,
-    reportsRoot: ['admin', 'reports'] as const,
-    reports: (params: Ref<ReportSearchParams>) => ['admin', 'reports', params] as const,
-    ipBlocksRoot: ['admin', 'ip-blocks'] as const,
-    ipBlocks: (params: Ref<{ page?: number, size?: number }>) => ['admin', 'ip-blocks', params] as const,
-    configs: ['admin', 'configs'] as const,
-    stats: ['admin', 'stats'] as const,
-    boards: ['admin', 'boards'] as const,
-    boardManager: (boardId: Ref<number | null>) => computed(() => ['admin', 'board-manager', boardId.value] as const),
-    boardManagerById: (boardId: number) => ['admin', 'board-manager', boardId] as const,
-    errorLogsRoot: ['admin', 'error-logs'] as const,
-    errorLogs: (params: Ref<ErrorLogSearchParams>) => ['admin', 'error-logs', params] as const,
-    errorLogStats: ['admin', 'error-log-stats'] as const,
 }
 
 export function useAdmin() {

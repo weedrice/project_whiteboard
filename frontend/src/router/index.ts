@@ -10,7 +10,7 @@ import {
     fetchBoardForWriteAccess,
 } from '@/composables/useBoardWriteAccess'
 import { emoticonDetailQueryKey } from '@/composables/useEmoticonEditResource'
-import { postDetailQueryKey } from '@/composables/usePost'
+import { postDetailQueryKey } from '@/composables/postQueryKeys'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import { saveLoginRedirect } from '@/utils/authRedirect'
 import logger from '@/utils/logger'

@@ -1,0 +1,18 @@
+import type { Ref } from 'vue'
+
+export const postQueryKeys = {
+    detailsRoot: ['post'] as const,
+    detailPrefix: (postId: string | number | Ref<string | number>) => ['post', postId] as const,
+    detail: (
+        postId: string | number | Ref<string | number>,
+        incrementView = true,
+    ) => ['post', postId, { incrementView }] as const,
+    lists: ['posts'] as const,
+    boardPrefix: ['board'] as const,
+    boardPosts: (boardUrl: string) => ['board', boardUrl, 'posts'] as const,
+}
+
+export const postDetailQueryKey = (
+    postId: string | number | Ref<string | number>,
+    incrementView = true,
+) => postQueryKeys.detail(postId, incrementView)
