@@ -5,32 +5,16 @@ import type { UserSettings } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import type { AxiosRequestConfig } from 'axios'
 import { withQuerySignal } from '@/utils/querySignal'
+import { userQueryKeys, type UserQueryPaginationParams } from '@/composables/userQueryKeys'
 
 interface PasswordUpdateData {
     currentPassword: string
     newPassword: string
 }
 
-interface PaginationParams {
-    page?: number
-    size?: number
-}
+type PaginationParams = UserQueryPaginationParams
 
-const userQueryKeys = {
-    me: ['user', 'me'] as const,
-    profile: (userId: Ref<string | number>) => ['user', userId] as const,
-    settings: ['user', 'settings'] as const,
-    blocksRoot: ['user', 'blocks'] as const,
-    blocks: (params?: Ref<PaginationParams>) => computed(() => ['user', 'blocks', params?.value ?? {}] as const),
-    notificationSettings: ['user', 'notification-settings'] as const,
-    agents: ['user', 'agents'] as const,
-    myPoints: (userIdentity?: Ref<string | number | null | undefined>) =>
-        computed(() => ['user', 'points', 'me', userIdentity?.value ?? 'anonymous'] as const),
-    scraps: (params?: Ref<PaginationParams>) => computed(() => ['user', 'scraps', params?.value ?? {}] as const),
-    pointHistories: (params?: Ref<PaginationParams>) =>
-        computed(() => ['user', 'points', 'history', params?.value ?? {}] as const),
-    recentlyViewedPosts: (params?: Ref<PaginationParams>) => ['user', 'history', 'views', params] as const,
-}
+export { userQueryKeys } from '@/composables/userQueryKeys'
 
 export const userSettingsQueryKey = userQueryKeys.settings
 

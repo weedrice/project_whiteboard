@@ -11,6 +11,7 @@ import {
   emoticonDetailQueryKey,
   emoticonPurchaseStatusQueryKey,
 } from '@/composables/useEmoticonEditResource'
+import { userQueryKeys } from '@/composables/userQueryKeys'
 import { extractErrorMessage } from '@/utils/errorHandler'
 
 export function useEmoticonDetailResource(emoticonId: ComputedRef<number>) {
@@ -47,7 +48,7 @@ export function useEmoticonDetailResource(emoticonId: ComputedRef<number>) {
       toastStore.addToast(t('emoticon.purchase.success'), 'success')
       queryClient.invalidateQueries({ queryKey: emoticonDetailQueryKey(emoticonId) })
       queryClient.invalidateQueries({ queryKey: emoticonPurchaseStatusQueryKey(emoticonId) })
-      queryClient.invalidateQueries({ queryKey: ['user', 'points'] })
+      queryClient.invalidateQueries({ queryKey: userQueryKeys.pointsRoot })
     },
     onError: (error: unknown) => {
       const message = extractErrorMessage(error) || t('emoticon.purchase.failed')

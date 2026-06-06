@@ -5,6 +5,7 @@ import { useErrorHandler } from '@/composables/useErrorHandler'
 import { useLatestAsyncTask } from '@/composables/useLatestAsyncTask'
 import { usePagination } from '@/composables/usePagination'
 import { createMyAgentsQueryOptions, createMyProfileQueryOptions } from '@/composables/useUser'
+import { userQueryKeys } from '@/composables/userQueryKeys'
 import { useAuthStore } from '@/stores/auth'
 import type { MyComment, PostSummary, User } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
@@ -29,7 +30,7 @@ export function useMyPageDashboardResource() {
 
   const myPostsPagination = usePagination<PostSummary>(
     (params, { signal }) => queryClient.fetchQuery({
-      queryKey: ['user', 'me', 'posts', params],
+      queryKey: userQueryKeys.myPosts(params),
       queryFn: async () => {
         const { data } = await userApi.getMyPosts(params, { signal })
         return data
@@ -40,7 +41,7 @@ export function useMyPageDashboardResource() {
   )
   const myCommentsPagination = usePagination<MyComment>(
     (params, { signal }) => queryClient.fetchQuery({
-      queryKey: ['user', 'me', 'comments', params],
+      queryKey: userQueryKeys.myComments(params),
       queryFn: async () => {
         const { data } = await userApi.getMyComments(params, { signal })
         return data
@@ -100,12 +101,12 @@ export function useMyPageDashboardResource() {
 
   async function fetchMyProfile() {
     if (authStore.user) {
-      const cachedProfile = queryClient.getQueryData<User>(['user', 'me'])
+      const cachedProfile = queryClient.getQueryData<User>(userQueryKeys.me)
       if (cachedProfile?.userId === authStore.user.userId) {
         profile.value = cachedProfile
       } else {
         profile.value = authStore.user
-        queryClient.setQueryData(['user', 'me'], authStore.user)
+        queryClient.setQueryData(userQueryKeys.me, authStore.user)
       }
       return
     }
