@@ -5,10 +5,11 @@ import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api/auth'
 import { useEmailVerificationFlow } from '@/composables/useEmailVerificationFlow'
 import { handleDeletedAccountRedirect } from '@/utils/authRedirect'
+import AuthFormShell from '@/components/auth/AuthFormShell.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useToastStore } from '@/stores/toast'
-import { ChevronLeft, Mail, CheckCircle } from 'lucide-vue-next'
+import { CheckCircle, Mail } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -24,7 +25,7 @@ const isCodeSent = ref(false)
 
 const {
   sendVerifyCode: handleSendCode,
-  verifyEmailCode: handleSendResetLink
+  verifyEmailCode: handleSendResetLink,
 } = useEmailVerificationFlow({
   getEmail: () => form.email,
   getCode: () => form.code,
@@ -55,32 +56,17 @@ const {
       addToast: (message, type) => toastStore.addToast(message, type),
       push: (to) => router.push(to),
     })
-  }
+  },
 })
 </script>
 
 <template>
-  <div class="p-8 relative h-full flex flex-col justify-center">
-    <div class="absolute top-4 left-4">
-      <router-link
-        to="/login"
-        class="flex items-center nv-text-subtle hover:text-[var(--nv-text)] transition-colors"
-      >
-        <ChevronLeft class="h-5 w-5 mr-1" />
-        <span class="text-sm font-medium">{{ $t('common.back') }}</span>
-      </router-link>
-    </div>
-
-    <div class="text-center mb-8">
-      <h2 class="text-2xl font-bold nv-title">
-        {{ t('auth.forgotPassword') }}
-      </h2>
-      <p class="mt-2 text-sm nv-text-muted whitespace-pre-line">
-        {{ t('auth.forgotPasswordDescription') }}
-      </p>
-    </div>
-
-    <div v-if="!isSent" class="w-[80%] mx-auto space-y-6">
+  <AuthFormShell
+    :title="t('auth.forgotPassword')"
+    :description="t('auth.forgotPasswordDescription')"
+    back-to="/login"
+  >
+    <div v-if="!isSent" class="space-y-6">
       <BaseInput
         id="forgot-password-email"
         v-model="form.email"
@@ -138,20 +124,26 @@ const {
       </div>
     </div>
 
-    <div v-else class="w-[80%] mx-auto text-center animate-fade-in">
+    <div v-else class="text-center animate-fade-in">
       <BaseButton variant="primary" class="w-full" @click="router.push('/login')">
         {{ t('auth.login') }}
       </BaseButton>
     </div>
-  </div>
+  </AuthFormShell>
 </template>
 
 <style scoped>
 .animate-fade-in {
   animation: fadeIn 0.3s ease-out;
 }
+
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 </style>

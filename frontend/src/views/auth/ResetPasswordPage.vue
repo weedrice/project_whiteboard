@@ -2,9 +2,10 @@
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import AuthFormShell from '@/components/auth/AuthFormShell.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import { ChevronLeft, Lock } from 'lucide-vue-next'
+import { Lock } from 'lucide-vue-next'
 import { usePasswordResetByTokenFlow } from '@/composables/usePasswordResetByTokenFlow'
 import { getSingleQueryValue } from '@/utils/routeQueryValue'
 
@@ -24,34 +25,21 @@ const { isLoading, resetPassword: handleResetPassword } = usePasswordResetByToke
 </script>
 
 <template>
-  <div class="p-8 relative h-full flex flex-col justify-center">
-    <div class="absolute top-4 left-4">
-      <router-link
-        to="/login"
-        class="flex items-center nv-text-subtle hover:text-[var(--nv-text)] transition-colors"
-      >
-        <ChevronLeft class="h-5 w-5 mr-1" />
-        <span class="text-sm font-medium">{{ $t('common.back') }}</span>
-      </router-link>
-    </div>
-
-    <div v-if="!token" class="w-[80%] mx-auto text-center">
-      <h1 class="mb-3 text-2xl font-bold nv-title">
+  <AuthFormShell back-to="/login">
+    <template #header>
+      <h1 class="text-2xl font-bold nv-title">
         {{ t('auth.resetPasswordTitle') }}
       </h1>
+    </template>
+
+    <div v-if="!token" class="text-center">
       <p class="nv-text-muted">{{ t('auth.invalidResetLink') }}</p>
       <BaseButton variant="primary" class="mt-6 w-full" @click="router.push('/login')">
         {{ t('auth.login') }}
       </BaseButton>
     </div>
 
-    <div v-else class="w-[80%] mx-auto space-y-6">
-      <div class="text-center mb-8">
-        <h1 class="text-2xl font-bold nv-title">
-          {{ t('auth.resetPasswordTitle') }}
-        </h1>
-      </div>
-
+    <div v-else class="space-y-6">
       <BaseInput
         id="new-password"
         v-model="newPassword"
@@ -93,5 +81,5 @@ const { isLoading, resetPassword: handleResetPassword } = usePasswordResetByToke
         {{ t('auth.resetPassword') }}
       </BaseButton>
     </div>
-  </div>
+  </AuthFormShell>
 </template>

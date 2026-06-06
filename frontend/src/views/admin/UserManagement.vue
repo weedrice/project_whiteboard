@@ -8,9 +8,11 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import BaseTable from '@/components/common/ui/BaseTable.vue'
-import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
-import AdminPanel from '@/components/admin/AdminPanel.vue'
+import AdminDataPage from '@/components/admin/AdminDataPage.vue'
+import AdminFilterPanel from '@/components/admin/AdminFilterPanel.vue'
+import AdminFilterField from '@/components/admin/AdminFilterField.vue'
 import AdminPaginationFooter from '@/components/admin/AdminPaginationFooter.vue'
+import BooleanBadge from '@/components/admin/BooleanBadge.vue'
 import UserDetailModal from '@/components/admin/UserDetailModal.vue'
 import { formatDateOnly } from '@/utils/date'
 import { useConfirm } from '@/composables/useConfirm'
@@ -179,23 +181,20 @@ const columns = computed(() => [
 </script>
 
 <template>
-  <div>
-    <AdminPageHeader :title="t('admin.users.title')" :description="t('admin.users.description')" />
-
-    <AdminPanel class="mt-6" padding="sm" :shadow="false">
+  <AdminDataPage :title="t('admin.users.title')" :description="t('admin.users.description')">
+    <template #filters>
+    <AdminFilterPanel>
       <div class="flex flex-col items-start gap-4">
         <div class="flex flex-wrap items-end gap-3">
-          <div class="flex w-36 flex-col gap-1">
-            <label class="w-full text-left text-xs nv-text-subtle">상태</label>
+          <AdminFilterField label="상태">
             <select v-model="filterForm.status" class="input-base">
               <option value="">전체</option>
               <option value="ACTIVE">{{ getStatusLabel('ACTIVE') }}</option>
               <option value="SUSPENDED">{{ getStatusLabel('SUSPENDED') }}</option>
               <option value="DELETED">{{ getStatusLabel('DELETED') }}</option>
             </select>
-          </div>
-          <div class="flex w-36 flex-col gap-1">
-            <label class="w-full text-left text-xs nv-text-subtle">권한</label>
+          </AdminFilterField>
+          <AdminFilterField label="권한">
             <select v-model="filterForm.role" class="input-base">
               <option value="">전체</option>
               <option value="USER">{{ getRoleLabel('USER') }}</option>
@@ -203,50 +202,43 @@ const columns = computed(() => [
               <option value="BOARD_ADMIN">{{ getRoleLabel('BOARD_ADMIN') }}</option>
               <option value="MODERATOR">{{ getRoleLabel('MODERATOR') }}</option>
             </select>
-          </div>
-          <div class="flex w-36 flex-col gap-1">
-            <label class="w-full text-left text-xs nv-text-subtle">이메일 인증</label>
+          </AdminFilterField>
+          <AdminFilterField label="이메일 인증">
             <select v-model="filterForm.emailVerified" class="input-base">
               <option value="">전체</option>
               <option value="true">인증</option>
               <option value="false">미인증</option>
             </select>
-          </div>
-          <div class="flex w-36 flex-col gap-1">
-            <label class="w-full text-left text-xs nv-text-subtle">슈퍼관리자</label>
+          </AdminFilterField>
+          <AdminFilterField label="슈퍼관리자">
             <select v-model="filterForm.superAdmin" class="input-base">
               <option value="">전체</option>
               <option value="true">Y</option>
               <option value="false">N</option>
             </select>
-          </div>
-          <div class="flex w-36 flex-col gap-1">
-            <label class="w-full text-left text-xs nv-text-subtle">탈퇴 여부</label>
+          </AdminFilterField>
+          <AdminFilterField label="탈퇴 여부">
             <select v-model="filterForm.withdrawn" class="input-base">
               <option value="">전체</option>
               <option value="true">탈퇴</option>
               <option value="false">활성/정지</option>
             </select>
-          </div>
+          </AdminFilterField>
         </div>
 
         <div class="flex flex-wrap items-end gap-3">
-          <div class="flex w-44 flex-col gap-1">
-            <label class="text-xs nv-text-subtle">가입일 시작</label>
+          <AdminFilterField label="가입일 시작" width-class="w-44">
             <input v-model="filterForm.createdFrom" type="date" class="input-base" />
-          </div>
-          <div class="flex w-44 flex-col gap-1">
-            <label class="text-xs nv-text-subtle">가입일 종료</label>
+          </AdminFilterField>
+          <AdminFilterField label="가입일 종료" width-class="w-44">
             <input v-model="filterForm.createdTo" type="date" class="input-base" />
-          </div>
-          <div class="flex w-44 flex-col gap-1">
-            <label class="text-xs nv-text-subtle">최근 로그인 시작</label>
+          </AdminFilterField>
+          <AdminFilterField label="최근 로그인 시작" width-class="w-44">
             <input v-model="filterForm.lastLoginFrom" type="date" class="input-base" />
-          </div>
-          <div class="flex w-44 flex-col gap-1">
-            <label class="text-xs nv-text-subtle">최근 로그인 종료</label>
+          </AdminFilterField>
+          <AdminFilterField label="최근 로그인 종료" width-class="w-44">
             <input v-model="filterForm.lastLoginTo" type="date" class="input-base" />
-          </div>
+          </AdminFilterField>
         </div>
 
         <div class="flex flex-wrap items-end gap-3">
@@ -270,8 +262,10 @@ const columns = computed(() => [
           </div>
         </div>
       </div>
-    </AdminPanel>
+    </AdminFilterPanel>
+    </template>
 
+    <template #footer>
     <AdminPaginationFooter
       :page="currentPage"
       :total-pages="totalPages"
@@ -290,6 +284,7 @@ const columns = computed(() => [
         </select>
       </template>
     </AdminPaginationFooter>
+    </template>
 
     <div class="mt-4">
       <BaseTable
@@ -311,15 +306,11 @@ const columns = computed(() => [
         </template>
 
         <template #cell-isEmailVerified="{ item }">
-          <BaseBadge :variant="item.isEmailVerified ? 'success' : 'gray'" size="sm">
-            {{ item.isEmailVerified ? 'Y' : 'N' }}
-          </BaseBadge>
+          <BooleanBadge :value="item.isEmailVerified === true" />
         </template>
 
         <template #cell-isSuperAdmin="{ item }">
-          <BaseBadge :variant="item.isSuperAdmin ? 'danger' : 'gray'" size="sm">
-            {{ item.isSuperAdmin ? 'Y' : 'N' }}
-          </BaseBadge>
+          <BooleanBadge :value="item.isSuperAdmin === true" true-variant="danger" />
         </template>
 
         <template #cell-status="{ item }">
@@ -370,5 +361,5 @@ const columns = computed(() => [
       :userId="selectedUserId"
       @close="isDetailModalOpen = false"
     />
-  </div>
+  </AdminDataPage>
 </template>

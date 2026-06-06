@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
+import AdminDataPage from '@/components/admin/AdminDataPage.vue'
 import AdminPaginationFooter from '@/components/admin/AdminPaginationFooter.vue'
 import ReportList from '@/components/admin/ReportList.vue'
 import ReportDetailModal from '@/components/admin/ReportDetailModal.vue'
@@ -33,30 +33,42 @@ const {
 </script>
 
 <template>
-  <div>
-    <AdminPageHeader :title="t('admin.reports.title')" :description="t('admin.reports.description')" />
-
-    <div class="mt-6 flex justify-end">
-      <div class="flex items-center gap-3">
-        <span v-if="isLoading" class="text-xs nv-text-subtle">{{ t('common.loading') }}</span>
-        <PageSizeSelector v-model="size" :options="[20, 50, 100]" @change="handleSizeChange" />
+  <AdminDataPage :title="t('admin.reports.title')" :description="t('admin.reports.description')">
+    <template #toolbar>
+      <div class="mt-6 flex justify-end">
+        <div class="flex items-center gap-3">
+          <span v-if="isLoading" class="text-xs nv-text-subtle">{{ t('common.loading') }}</span>
+          <PageSizeSelector v-model="size" :options="[20, 50, 100]" @change="handleSizeChange" />
+        </div>
       </div>
-    </div>
+    </template>
 
-    <ReportList :reports="reports" @resolve="handleResolve" @reject="handleReject" @sanction="openSanctionModal"
-      @viewDetail="openDetailModal" />
-
-    <AdminPaginationFooter
-      :page="currentPage"
-      :total-pages="totalPages"
-      :summary="`총 ${totalElements}건`"
-      :loading-text="t('common.loading')"
-      @page-change="handlePageChange"
+    <ReportList
+      :reports="reports"
+      @resolve="handleResolve"
+      @reject="handleReject"
+      @sanction="openSanctionModal"
+      @viewDetail="openDetailModal"
     />
+
+    <template #footer>
+      <AdminPaginationFooter
+        :page="currentPage"
+        :total-pages="totalPages"
+        :summary="`총 ${totalElements.toLocaleString()}건`"
+        :loading-text="t('common.loading')"
+        @page-change="handlePageChange"
+      />
+    </template>
 
     <ReportDetailModal :isOpen="isDetailModalOpen" :report="selectedReport" @close="closeDetailModal" />
 
-    <SanctionModal v-if="selectedUser" :isOpen="isModalOpen" :user="selectedUser" @close="closeSanctionModal"
-      @sanctioned="refreshList" />
-  </div>
+    <SanctionModal
+      v-if="selectedUser"
+      :isOpen="isModalOpen"
+      :user="selectedUser"
+      @close="closeSanctionModal"
+      @sanctioned="refreshList"
+    />
+  </AdminDataPage>
 </template>
