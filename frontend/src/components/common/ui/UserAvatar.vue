@@ -15,6 +15,10 @@ const props = withDefaults(defineProps<{
   fallbackClass: 'text-xs font-semibold',
 })
 
+defineEmits<{
+  (e: 'image-error', event: Event): void
+}>()
+
 const fallbackInitial = computed(() => {
   const name = props.name?.trim()
   return name ? name.slice(0, 1).toUpperCase() : '?'
@@ -32,6 +36,7 @@ const fallbackInitial = computed(() => {
       :alt="alt"
       class="h-full w-full"
       :class="imageClass"
+      @error="$emit('image-error', $event)"
     />
     <span v-else :class="fallbackClass">{{ fallbackInitial }}</span>
   </div>

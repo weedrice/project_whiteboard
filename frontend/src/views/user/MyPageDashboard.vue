@@ -6,6 +6,7 @@ import PostList from '@/components/board/PostList.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
+import UserAvatar from '@/components/common/ui/UserAvatar.vue'
 import ProfileEditor from '@/components/user/ProfileEditor.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
@@ -131,12 +132,15 @@ onMounted(async () => {
         <div class="nv-surface shadow overflow-hidden sm:rounded-lg mb-6 transition-colors duration-200">
           <div class="px-4 py-4 sm:py-5 sm:px-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
             <div class="flex items-center min-w-0 flex-1">
-              <img v-if="profile?.profileImageUrl" :src="getOptimizedProfileImageUrl(profile.profileImageUrl)"
-                class="h-16 w-16 rounded-full mr-4 flex-shrink-0" alt="Profile" @error="handleImageError($event)" />
-              <div v-else
-                class="h-16 w-16 rounded-full nv-avatar-fallback flex items-center justify-center font-bold text-2xl mr-4 flex-shrink-0">
-                {{ profile?.displayName?.[0] || 'U' }}
-              </div>
+              <UserAvatar
+                :image-url="profile?.profileImageUrl ? getOptimizedProfileImageUrl(profile.profileImageUrl) : null"
+                :name="profile?.displayName || 'U'"
+                alt="Profile"
+                size-class="h-16 w-16"
+                fallback-class="font-bold text-2xl"
+                class="mr-4"
+                @image-error="handleImageError"
+              />
               <div class="min-w-0">
                 <h3 class="text-lg leading-6 font-medium nv-title truncate">{{ profile?.displayName
                 }}</h3>

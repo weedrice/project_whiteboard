@@ -28,4 +28,16 @@ describe('UserAvatar', () => {
     expect(wrapper.find('img').exists()).toBe(false)
     expect(wrapper.text()).toBe('N')
   })
+
+  it('emits image-error when the profile image fails to load', async () => {
+    const wrapper = mount(UserAvatar, {
+      props: {
+        imageUrl: '/profile.png',
+      },
+    })
+
+    await wrapper.get('img').trigger('error')
+
+    expect(wrapper.emitted('image-error')).toHaveLength(1)
+  })
 })
