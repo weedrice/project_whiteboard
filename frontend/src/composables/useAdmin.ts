@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient, type QueryKey } from '@tanstack/vue-query'
 import { adminApi, type AdminRole } from '@/api/admin'
+import { unwrapAxiosApiData } from '@/api/response'
 import { adminQueryKeys } from '@/composables/adminQueryKeys'
 import { boardQueryKeys } from '@/composables/boardQueryKeys'
 import { invalidateBoardListCaches } from '@/composables/boardCacheInvalidation'
@@ -165,8 +166,7 @@ export function useAdmin() {
         return useQuery({
             queryKey: adminQueryKeys.superAdmins,
             queryFn: async () => {
-                const { data } = await adminApi.getSuperAdmin()
-                return data.data as SuperAdminInfo[]
+                return unwrapAxiosApiData(await adminApi.getSuperAdmin()) as SuperAdminInfo[]
             }
         })
     }
@@ -207,8 +207,7 @@ export function useAdmin() {
             queryKey: adminQueryKeys.userDetail(userId),
             queryFn: async () => {
                 if (userId.value == null) return null
-                const { data } = await adminApi.getUserDetail(userId.value)
-                return data?.data as AdminUserDetail
+                return unwrapAxiosApiData(await adminApi.getUserDetail(userId.value)) as AdminUserDetail
             },
             enabled: computed(() => userId.value !== null)
         })
@@ -296,8 +295,7 @@ export function useAdmin() {
         return useQuery({
             queryKey: adminQueryKeys.configs,
             queryFn: async () => {
-                const { data } = await adminApi.getConfigs()
-                return data.data
+                return unwrapAxiosApiData(await adminApi.getConfigs())
             }
         })
     }
@@ -328,8 +326,7 @@ export function useAdmin() {
         return useQuery({
             queryKey: adminQueryKeys.stats,
             queryFn: async () => {
-                const { data } = await adminApi.getDashboardStats()
-                return data.data
+                return unwrapAxiosApiData(await adminApi.getDashboardStats())
             }
         })
     }
@@ -339,8 +336,7 @@ export function useAdmin() {
         return useQuery({
             queryKey: adminQueryKeys.boards,
             queryFn: async () => {
-                const { data } = await adminApi.getBoards()
-                return data.data as AdminBoard[]
+                return unwrapAxiosApiData(await adminApi.getBoards()) as AdminBoard[]
             }
         })
     }
@@ -389,8 +385,7 @@ export function useAdmin() {
             queryKey: boardManagerQueryKey,
             queryFn: async () => {
                 if (!boardId.value) return null
-                const { data } = await adminApi.getBoardManager(boardId.value)
-                return data?.data ?? null
+                return unwrapAxiosApiData(await adminApi.getBoardManager(boardId.value)) ?? null
             },
             enabled: computed(() => boardId.value !== null)
         })
@@ -420,8 +415,7 @@ export function useAdmin() {
     const useErrorLog = () => {
         return useMutation({
             mutationFn: async (errorLogId: number) => {
-                const { data } = await adminApi.getErrorLog(errorLogId)
-                return data.data as ErrorLogDetail
+                return unwrapAxiosApiData(await adminApi.getErrorLog(errorLogId)) as ErrorLogDetail
             }
         })
     }
@@ -437,8 +431,7 @@ export function useAdmin() {
         return useQuery({
             queryKey: adminQueryKeys.errorLogStats,
             queryFn: async () => {
-                const { data } = await adminApi.getErrorLogStats()
-                return data.data as ErrorLogStats
+                return unwrapAxiosApiData(await adminApi.getErrorLogStats()) as ErrorLogStats
             }
         })
     }
