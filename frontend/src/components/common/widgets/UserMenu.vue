@@ -63,8 +63,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, getCurrentInstance, nextTick, toRef } from 'vue'
+import { ref, computed, getCurrentInstance, nextTick, toRef } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useEventListener } from '@/composables/useEventListener'
 import { useKeyboardNavigation } from '@/composables/useKeyboardNavigation'
 import { useFocusTrap } from '@/composables/useFocusTrap'
 import { useUserMenuActions } from '@/composables/useUserMenuActions'
@@ -183,13 +184,7 @@ const handleClickOutside = (event: Event) => {
   closeDropdown()
 }
 
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
-})
+useEventListener(() => document, 'click', handleClickOutside)
 </script>
 
 <style scoped>

@@ -1,4 +1,5 @@
-import { nextTick, onMounted, onUnmounted, ref, type Ref } from 'vue'
+import { nextTick, ref, type Ref } from 'vue'
+import { useEventListener } from '@/composables/useEventListener'
 import { useMobileViewport } from '@/composables/useMediaQuery'
 import { useSearchNavigation } from '@/composables/useSearchNavigation'
 import type { BoardListItem } from '@/types'
@@ -112,13 +113,7 @@ export function useGlobalSearchController({
     }
   }
 
-  onMounted(() => {
-    document.addEventListener('click', handleClickOutside)
-  })
-
-  onUnmounted(() => {
-    document.removeEventListener('click', handleClickOutside)
-  })
+  useEventListener(() => document, 'click', handleClickOutside)
 
   return {
     activeDescendantId,
