@@ -8,6 +8,7 @@ import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import UserAvatar from '@/components/common/ui/UserAvatar.vue'
 import ProfileEditor from '@/components/user/ProfileEditor.vue'
+import ProfileInfoRow from '@/components/user/ProfileInfoRow.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
@@ -154,73 +155,51 @@ onMounted(async () => {
           </div>
           <div class="border-t nv-border px-4 py-5 sm:p-0">
             <dl class="sm:divide-y sm:divide-[var(--nv-border)]">
-              <div class="py-4 sm:py-5 sm:grid sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:gap-2 sm:px-6">
-                <dt class="text-sm font-medium nv-text-subtle flex items-center whitespace-nowrap">
-                  <User class="h-4 w-4 mr-2" />
-                  {{ $t('user.profile.displayName') }}
-                </dt>
-                <dd class="mt-1 text-sm nv-text sm:mt-0">{{ profile?.displayName
-                }}</dd>
-              </div>
-              <div class="py-4 sm:py-5 sm:grid sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:gap-2 sm:px-6">
-                <dt class="text-sm font-medium nv-text-subtle flex items-center whitespace-nowrap">
-                  <Mail class="h-4 w-4 mr-2" />
-                  {{ $t('user.profile.email') }}
-                </dt>
-                <dd class="mt-1 text-sm nv-text sm:mt-0">
-                  {{ profile?.email }}
-                  <span v-if="profile?.isEmailVerified"
-                    class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium nv-status-success">
-                    <CheckCircle class="h-3 w-3 mr-1" /> {{ $t('user.profile.verified') }}
+              <ProfileInfoRow :icon="User" :label="$t('user.profile.displayName')">
+                {{ profile?.displayName }}
+              </ProfileInfoRow>
+              <ProfileInfoRow :icon="Mail" :label="$t('user.profile.email')">
+                {{ profile?.email }}
+                <span v-if="profile?.isEmailVerified"
+                  class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium nv-status-success">
+                  <CheckCircle class="h-3 w-3 mr-1" /> {{ $t('user.profile.verified') }}
+                </span>
+                <button v-else @click="openVerifyModal" type="button"
+                  class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium nv-status-danger nv-hover-surface transition-colors cursor-pointer">
+                  <XCircle class="h-3 w-3 mr-1" /> {{ $t('user.profile.notVerified') }}
+                </button>
+              </ProfileInfoRow>
+              <ProfileInfoRow
+                :icon="ShieldCheck"
+                :label="t('user.profile.agentCode')"
+                icon-class="h-4 w-4 mr-1.5"
+                content-class="mt-1 sm:mt-0"
+              >
+                <div v-if="myAgents.length > 0" class="flex flex-wrap gap-2">
+                  <span
+                    v-for="agent in myAgents"
+                    :key="agent.agentId"
+                    class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
+                    :class="agent.status === 'ACTIVE'
+                      ? 'nv-status-success'
+                      : agent.status === 'SUSPENDED'
+                        ? 'nv-status-danger'
+                        : 'nv-surface-muted nv-text-muted'"
+                  >
+                    <span>{{ agent.name }}</span>
+                    <span>{{ getAgentStatusLabel(agent.status) }}</span>
                   </span>
-                  <button v-else @click="openVerifyModal" type="button"
-                    class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium nv-status-danger nv-hover-surface transition-colors cursor-pointer">
-                    <XCircle class="h-3 w-3 mr-1" /> {{ $t('user.profile.notVerified') }}
-                  </button>
-                </dd>
-              </div>
-              <div class="py-4 sm:py-5 sm:grid sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:gap-2 sm:px-6">
-                <dt class="text-sm font-medium nv-text-subtle flex items-center whitespace-nowrap">
-                  <ShieldCheck class="h-4 w-4 mr-1.5" />
-                  {{ t('user.profile.agentCode') }}
-                </dt>
-                <dd class="mt-1 sm:mt-0">
-                  <div v-if="myAgents.length > 0" class="flex flex-wrap gap-2">
-                    <span
-                      v-for="agent in myAgents"
-                      :key="agent.agentId"
-                      class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
-                      :class="agent.status === 'ACTIVE'
-                        ? 'nv-status-success'
-                        : agent.status === 'SUSPENDED'
-                          ? 'nv-status-danger'
-                          : 'nv-surface-muted nv-text-muted'"
-                    >
-                      <span>{{ agent.name }}</span>
-                      <span>{{ getAgentStatusLabel(agent.status) }}</span>
-                    </span>
-                  </div>
-                  <span v-else class="text-sm nv-text-subtle">
-                    {{ t('user.profile.agentEmpty') }}
-                  </span>
-                </dd>
-              </div>
-              <div class="py-4 sm:py-5 sm:grid sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:gap-2 sm:px-6">
-                <dt class="text-sm font-medium nv-text-subtle flex items-center whitespace-nowrap">
-                  <Calendar class="h-4 w-4 mr-2" />
-                  {{ $t('user.profile.joined') }}
-                </dt>
-                <dd class="mt-1 text-sm nv-text sm:mt-0">{{
-                  profile?.createdAt ? formatDate(profile.createdAt) : '' }}</dd>
-              </div>
-              <div class="py-4 sm:py-5 sm:grid sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:gap-2 sm:px-6">
-                <dt class="text-sm font-medium nv-text-subtle flex items-center whitespace-nowrap">
-                  <Clock class="h-4 w-4 mr-2" />
-                  {{ $t('user.profile.lastLogin') }}
-                </dt>
-                <dd class="mt-1 text-sm nv-text sm:mt-0">{{
-                  profile?.lastLoginAt ? formatDate(profile.lastLoginAt) : '' }}</dd>
-              </div>
+                </div>
+                <span v-else class="text-sm nv-text-subtle">
+                  {{ t('user.profile.agentEmpty') }}
+                </span>
+              </ProfileInfoRow>
+              <ProfileInfoRow :icon="Calendar" :label="$t('user.profile.joined')">
+                {{ profile?.createdAt ? formatDate(profile.createdAt) : '' }}
+              </ProfileInfoRow>
+              <ProfileInfoRow :icon="Clock" :label="$t('user.profile.lastLogin')">
+                {{ profile?.lastLoginAt ? formatDate(profile.lastLoginAt) : '' }}
+              </ProfileInfoRow>
             </dl>
           </div>
         </div>
