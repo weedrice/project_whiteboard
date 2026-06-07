@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.tag.entity.PostTag;
 import com.weedrice.whiteboard.domain.tag.entity.Tag;
 import com.weedrice.whiteboard.domain.tag.repository.PostTagRepository;
 import com.weedrice.whiteboard.domain.tag.repository.TagRepository;
+import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -138,14 +139,9 @@ public class TagAssignmentService {
 
         Set<String> normalizedTagNames = new LinkedHashSet<>();
         for (String tagName : tagNames) {
-            if (tagName == null) {
-                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-            }
-            String normalizedTagName = tagName.trim();
-            if (normalizedTagName.isBlank()
-                    || normalizedTagName.length() > TagConstraints.MAX_TAG_NAME_LENGTH) {
-                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-            }
+            String normalizedTagName = TextInputNormalizer.normalizeRequired(
+                    tagName,
+                    TagConstraints.MAX_TAG_NAME_LENGTH);
             normalizedTagNames.add(normalizedTagName);
         }
 
