@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import BaseButton from '@/components/common/ui/BaseButton.vue'
+import PostEditorPopoverActions from './PostEditorPopoverActions.vue'
 import { useI18n } from 'vue-i18n'
 
 const props = defineProps<{
@@ -62,15 +62,16 @@ function apply() {
       @keydown.escape.stop.prevent="emit('close')"
     >
   </div>
-  <div class="link-popover-actions">
-    <BaseButton type="button" variant="secondary" size="sm" @click="emit('close')">
-      {{ t('common.cancel') }}
-    </BaseButton>
-    <button v-if="canRemove" type="button" class="link-popover-remove" @click="emit('remove')">
-      {{ t('board.writePost.linkRemove') }}
-    </button>
-    <BaseButton type="button" variant="primary" size="sm" @click="apply">
-      {{ t('board.writePost.linkInsert') }}
-    </BaseButton>
-  </div>
+  <PostEditorPopoverActions
+    :cancel-label="t('common.cancel')"
+    :apply-label="t('board.writePost.linkInsert')"
+    @close="emit('close')"
+    @apply="apply"
+  >
+    <template #secondary-action>
+      <button v-if="canRemove" type="button" class="link-popover-remove" @click="emit('remove')">
+        {{ t('board.writePost.linkRemove') }}
+      </button>
+    </template>
+  </PostEditorPopoverActions>
 </template>

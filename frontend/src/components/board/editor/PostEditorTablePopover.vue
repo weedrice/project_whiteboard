@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import BaseButton from '@/components/common/ui/BaseButton.vue'
+import PostEditorPopoverActions from './PostEditorPopoverActions.vue'
 import { useI18n } from 'vue-i18n'
 
 defineProps<{
@@ -65,12 +65,10 @@ const { t } = useI18n()
     >
     <label for="table-header-row" class="link-popover-label !mb-0">{{ t('board.writePost.tableHeaderRow') }}</label>
   </div>
-  <div class="link-popover-actions">
-    <BaseButton type="button" variant="secondary" size="sm" @click="emit('close')">
-      {{ t('common.cancel') }}
-    </BaseButton>
-    <BaseButton type="button" variant="primary" size="sm" @click="emit('apply')">
-      {{ t('board.writePost.tableInsert') }}
-    </BaseButton>
-  </div>
+  <PostEditorPopoverActions
+    :cancel-label="t('common.cancel')"
+    :apply-label="t('board.writePost.tableInsert')"
+    @close="emit('close')"
+    @apply="emit('apply')"
+  />
 </template>
