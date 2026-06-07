@@ -6,6 +6,7 @@ import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
 import BooleanBadge from '@/components/admin/BooleanBadge.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import UserAvatar from '@/components/common/ui/UserAvatar.vue'
 import DescriptionItem from '@/components/admin/detail/DescriptionItem.vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { useAdminUserDetailTabs } from '@/composables/useAdminUserDetailTabs'
@@ -91,18 +92,12 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
 
     <div v-else-if="userDetail" class="space-y-6">
       <div class="flex items-center gap-4 rounded-lg border nv-border p-4">
-        <img
-          v-if="userDetail.profileImageUrl"
-          :src="userDetail.profileImageUrl"
-          alt="profile"
-          class="h-16 w-16 rounded-full object-cover"
+        <UserAvatar
+          :image-url="userDetail.profileImageUrl"
+          :name="userDetail.displayName || userDetail.loginId"
+          size-class="h-16 w-16"
+          fallback-class="text-xl font-semibold"
         />
-        <div
-          v-else
-          class="flex h-16 w-16 items-center justify-center rounded-full nv-avatar-fallback text-xl font-semibold"
-        >
-          {{ (userDetail.displayName || userDetail.loginId).slice(0, 1).toUpperCase() }}
-        </div>
         <div class="min-w-0 flex-1">
           <div class="truncate text-lg font-semibold nv-title">{{ userDetail.displayName }}</div>
           <div class="truncate text-sm nv-text-muted">@{{ userDetail.loginId }} · {{ userDetail.email }}</div>

@@ -20,11 +20,7 @@
         class="px-4 py-4 sm:px-6 nv-hover-surface transition-colors duration-200">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div class="flex items-center min-w-0 flex-1">
-            <div
-              class="flex-shrink-0 h-10 w-10 rounded-full nv-avatar-fallback flex items-center justify-center">
-              <span class="font-medium">{{ user.displayName.charAt(0).toUpperCase()
-              }}</span>
-            </div>
+            <UserAvatar :name="user.displayName" size-class="h-10 w-10" fallback-class="font-medium" />
             <div class="ml-4 min-w-0">
               <p class="text-sm font-medium nv-title truncate">{{ user.displayName }}</p>
               <p class="text-sm nv-text-subtle truncate">{{ user.secondaryText }}</p>
@@ -53,6 +49,7 @@ import logger from '@/utils/logger'
 import { useUser } from '@/composables/useUser'
 import { getListLoadErrorMessage } from '@/utils/listLoadError'
 import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
+import UserAvatar from '@/components/common/ui/UserAvatar.vue'
 
 const { t } = useI18n()
 const { useBlockList } = useUser()

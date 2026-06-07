@@ -15,6 +15,7 @@ import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
 import AdminTableActions from '@/components/admin/AdminTableActions.vue'
 import BooleanBadge from '@/components/admin/BooleanBadge.vue'
 import UserDetailModal from '@/components/admin/UserDetailModal.vue'
+import UserAvatar from '@/components/common/ui/UserAvatar.vue'
 import { formatAdminPaginationSummary } from '@/utils/adminPaginationSummary'
 import { formatDateOnly } from '@/utils/date'
 import { useConfirm } from '@/composables/useConfirm'
@@ -297,10 +298,7 @@ const columns = computed(() => [
 
         <template #cell-profile="{ item }">
           <div class="flex justify-center">
-            <img v-if="item.profileImageUrl" :src="item.profileImageUrl" alt="profile" class="h-8 w-8 rounded-full object-cover" />
-            <div v-else class="flex h-8 w-8 items-center justify-center rounded-full nv-avatar-fallback text-xs font-semibold">
-              {{ (item.displayName || item.loginId || '?').slice(0, 1).toUpperCase() }}
-            </div>
+            <UserAvatar :image-url="item.profileImageUrl" :name="item.displayName || item.loginId" />
           </div>
         </template>
 
