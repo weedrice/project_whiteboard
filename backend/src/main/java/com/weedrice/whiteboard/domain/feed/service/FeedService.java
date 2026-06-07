@@ -43,7 +43,7 @@ public class FeedService {
 
     public FeedResponse getUserFeeds(Long userId, Pageable pageable) {
         User user = userReadableResolver.resolve(userId);
-        Pageable normalizedPageable = normalizeFeedPageable(pageable);
+        Pageable normalizedPageable = PageRequestUtils.of(pageable, DEFAULT_FEED_PAGE_SIZE, FEED_LIST_SORT);
         List<Long> blockedUserIds = userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId);
         UserFeedVisibilityCondition visibilityCondition = resolveVisibilityCondition(user, blockedUserIds);
         Page<UserFeed> feedPage = userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(
@@ -59,10 +59,6 @@ public class FeedService {
     @Transactional
     public void generateFeeds() {
         feedGenerationService.generateFeeds();
-    }
-
-    private Pageable normalizeFeedPageable(Pageable pageable) {
-        return PageRequestUtils.of(pageable, DEFAULT_FEED_PAGE_SIZE, FEED_LIST_SORT);
     }
 
     private Map<Long, PostSummary> resolvePostSummaries(

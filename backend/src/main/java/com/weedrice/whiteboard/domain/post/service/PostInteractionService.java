@@ -242,7 +242,7 @@ public class PostInteractionService {
     public ScrapListResponse getMyScraps(@NonNull Long userId, @NonNull Pageable pageable) {
         PostReadContext context = postReadContextResolver.resolveForExistingUser(userId);
         User user = context.viewer();
-        Pageable safePageable = normalizeScrapPageable(pageable);
+        Pageable safePageable = PageRequestUtils.of(pageable, DEFAULT_SCRAP_PAGE_SIZE, DEFAULT_SCRAP_SORT);
         Set<Long> blockedUserIds = context.blockedUserIdSet();
         List<Long> blockedUserIdParams = blockedUserIds.isEmpty()
                 ? List.of(-1L)
@@ -260,7 +260,8 @@ public class PostInteractionService {
     public Page<PostSummary> getRecentlyViewedPosts(@NonNull Long userId, @NonNull Pageable pageable) {
         PostReadContext context = postReadContextResolver.resolveForExistingUser(userId);
         User user = context.viewer();
-        Pageable safePageable = normalizeRecentlyViewedPageable(pageable);
+        Pageable safePageable = PageRequestUtils.of(pageable, DEFAULT_RECENTLY_VIEWED_PAGE_SIZE,
+                DEFAULT_RECENTLY_VIEWED_SORT);
         Set<Long> blockedUserIds = context.blockedUserIdSet();
         List<Long> blockedUserIdParams = blockedUserIds.isEmpty()
                 ? List.of(-1L)
@@ -323,20 +324,6 @@ public class PostInteractionService {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         return normalizedRemark;
-    }
-
-    private Pageable normalizeScrapPageable(Pageable pageable) {
-        if (pageable == null || pageable.isUnpaged()) {
-            return PageRequestUtils.of(0, DEFAULT_SCRAP_PAGE_SIZE, DEFAULT_SCRAP_SORT);
-        }
-        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), DEFAULT_SCRAP_SORT);
-    }
-
-    private Pageable normalizeRecentlyViewedPageable(Pageable pageable) {
-        if (pageable == null || pageable.isUnpaged()) {
-            return PageRequestUtils.of(0, DEFAULT_RECENTLY_VIEWED_PAGE_SIZE, DEFAULT_RECENTLY_VIEWED_SORT);
-        }
-        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), DEFAULT_RECENTLY_VIEWED_SORT);
     }
 
     private Post getReadablePost(@NonNull Long postId, PostReadContext context) {

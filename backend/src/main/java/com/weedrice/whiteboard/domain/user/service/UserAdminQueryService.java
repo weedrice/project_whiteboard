@@ -240,10 +240,7 @@ public class UserAdminQueryService {
     }
 
     private Pageable normalizeDetailPageable(Pageable pageable) {
-        if (pageable == null || pageable.isUnpaged()) {
-            return PageRequestUtils.of(0, DEFAULT_ADMIN_USER_DETAIL_PAGE_SIZE, Sort.unsorted());
-        }
-        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.unsorted());
+        return PageRequestUtils.of(pageable, DEFAULT_ADMIN_USER_DETAIL_PAGE_SIZE);
     }
 
     private LocalDateTime toStartOfDay(LocalDate date) {

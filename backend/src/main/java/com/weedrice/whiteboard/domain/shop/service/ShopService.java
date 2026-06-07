@@ -48,7 +48,11 @@ public class ShopService {
     private final UserReadableResolver userReadableResolver;
 
     public ShopItemResponse getShopItems(String itemType, Pageable pageable) {
-        Pageable effectivePageable = normalizeShopItemPageable(pageable);
+        Pageable effectivePageable = PageRequestUtils.of(
+                pageable,
+                DEFAULT_SHOP_ITEM_PAGE_SIZE,
+                DEFAULT_SHOP_ITEM_SORT,
+                ALLOWED_SHOP_ITEM_SORT_PROPERTIES);
         String normalizedItemType = normalizeItemType(itemType);
         Set<String> supportedItemTypes = shopEntitlementCapabilityRegistry.getSupportedItemTypes();
         if (supportedItemTypes.isEmpty()) {
@@ -158,7 +162,8 @@ public class ShopService {
     }
 
     public PurchaseHistoryResponse getPurchaseHistories(Long userId, Pageable pageable) {
-        Pageable effectivePageable = normalizePurchaseHistoryPageable(pageable);
+        Pageable effectivePageable = PageRequestUtils.of(pageable, DEFAULT_PURCHASE_HISTORY_PAGE_SIZE,
+                DEFAULT_PURCHASE_HISTORY_SORT);
         Page<PurchaseHistory> histories = purchaseHistoryRepository.findByUser_UserIdOrderByCreatedAtDescPurchaseIdDesc(
                 userId,
                 effectivePageable);
@@ -170,18 +175,6 @@ public class ShopService {
 
     private ShopItemResponse emptyShopItems(Pageable pageable) {
         return ShopItemResponse.from(new PageImpl<>(List.of(), pageable, 0));
-    }
-
-    private Pageable normalizeShopItemPageable(Pageable pageable) {
-        return PageRequestUtils.of(
-                pageable,
-                DEFAULT_SHOP_ITEM_PAGE_SIZE,
-                DEFAULT_SHOP_ITEM_SORT,
-                ALLOWED_SHOP_ITEM_SORT_PROPERTIES);
-    }
-
-    private Pageable normalizePurchaseHistoryPageable(Pageable pageable) {
-        return PageRequestUtils.of(pageable, DEFAULT_PURCHASE_HISTORY_PAGE_SIZE, DEFAULT_PURCHASE_HISTORY_SORT);
     }
 
     private String normalizeItemType(String itemType) {

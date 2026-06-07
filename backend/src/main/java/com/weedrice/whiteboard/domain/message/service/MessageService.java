@@ -83,7 +83,11 @@ public class MessageService {
     }
 
     private MessageResponse getMessages(Long userId, Pageable pageable, MessageListDirection direction) {
-        Pageable safePageable = normalizeMessagePageable(pageable);
+        Pageable safePageable = PageRequestUtils.of(
+                pageable,
+                DEFAULT_MESSAGE_PAGE_SIZE,
+                MESSAGE_LIST_SORT,
+                ALLOWED_MESSAGE_SORTS);
         List<Long> blockedUserIds = getBlockedConversationUserIds(userId);
         Page<Message> messages = direction.findMessages(messageRepository, userId, blockedUserIds, safePageable);
         return MessageResponse.from(messages, userId);
@@ -257,11 +261,4 @@ public class MessageService {
         return userBlockService.getBlockedUserIdsEitherDirection(userId);
     }
 
-    private Pageable normalizeMessagePageable(Pageable pageable) {
-        return PageRequestUtils.of(
-                pageable,
-                DEFAULT_MESSAGE_PAGE_SIZE,
-                MESSAGE_LIST_SORT,
-                ALLOWED_MESSAGE_SORTS);
-    }
 }
