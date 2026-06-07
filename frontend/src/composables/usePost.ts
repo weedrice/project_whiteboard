@@ -124,6 +124,32 @@ export function usePost() {
     }
 
     // Fetch single post details (incrementView: true → 조회수 증가 + 로그인 시 최근 읽은 글에 반영)
+    function createOptimisticPostMutation(
+        mutationFn: (postId: string | number) => Promise<unknown>,
+        updater: (post: Partial<Post>) => Partial<Post>
+    ) {
+        return useMutation({
+            mutationFn,
+            onMutate: async (postId) => {
+                await queryClient.cancelQueries({ queryKey: postQueryKeys.detailPrefix(postId) })
+                await queryClient.cancelQueries({ queryKey: postQueryKeys.lists })
+                const snapshots = savePostCacheSnapshots(postId)
+
+                updatePostInAllCaches(postId, updater)
+
+                return { snapshots }
+            },
+            onError: (_err, postId, context) => {
+                if (context?.snapshots) {
+                    restorePostCacheSnapshots(postId, context.snapshots)
+                }
+            },
+            onSettled: (_, __, postId) => {
+                invalidatePostCaches(postId)
+            }
+        })
+    }
+
     const usePostDetail = (postId: Ref<string | number>, options: { requestConfig?: AxiosRequestConfig } & Record<string, unknown> = {}) => {
         const { requestConfig, ...queryOptions } = options
         return useQuery({
@@ -183,120 +209,48 @@ export function usePost() {
 
     // Like a post
     const useLikePost = () => {
-        return useMutation({
-            mutationFn: async (postId: string | number) => {
-                return await postApi.likePost(postId)
-            },
-            onMutate: async (postId) => {
-                await queryClient.cancelQueries({ queryKey: postQueryKeys.detailPrefix(postId) })
-                await queryClient.cancelQueries({ queryKey: postQueryKeys.lists })
-                const snapshots = savePostCacheSnapshots(postId)
-
-                updatePostInAllCaches(postId, (old) => ({
-                    ...old,
-                    liked: true,
-                    likeCount: (old.likeCount || 0) + 1
-                }))
-
-                return { snapshots }
-            },
-            onError: (_err, postId, context) => {
-                if (context?.snapshots) {
-                    restorePostCacheSnapshots(postId, context.snapshots)
-                }
-            },
-            onSettled: (_, __, postId) => {
-                invalidatePostCaches(postId)
-            }
-        })
+        return createOptimisticPostMutation(
+            (postId) => postApi.likePost(postId),
+            (old) => ({
+                ...old,
+                liked: true,
+                likeCount: (old.likeCount || 0) + 1
+            })
+        )
     }
 
     // Unlike a post
     const useUnlikePost = () => {
-        return useMutation({
-            mutationFn: async (postId: string | number) => {
-                return await postApi.unlikePost(postId)
-            },
-            onMutate: async (postId) => {
-                await queryClient.cancelQueries({ queryKey: postQueryKeys.detailPrefix(postId) })
-                await queryClient.cancelQueries({ queryKey: postQueryKeys.lists })
-                const snapshots = savePostCacheSnapshots(postId)
-
-                updatePostInAllCaches(postId, (old) => ({
-                    ...old,
-                    liked: false,
-                    likeCount: Math.max((old.likeCount || 0) - 1, 0)
-                }))
-
-                return { snapshots }
-            },
-            onError: (_err, postId, context) => {
-                if (context?.snapshots) {
-                    restorePostCacheSnapshots(postId, context.snapshots)
-                }
-            },
-            onSettled: (_, __, postId) => {
-                invalidatePostCaches(postId)
-            }
-        })
+        return createOptimisticPostMutation(
+            (postId) => postApi.unlikePost(postId),
+            (old) => ({
+                ...old,
+                liked: false,
+                likeCount: Math.max((old.likeCount || 0) - 1, 0)
+            })
+        )
     }
 
     // Scrap a post
     const useScrapPost = () => {
-        return useMutation({
-            mutationFn: async (postId: string | number) => {
-                return await postApi.scrapPost(postId)
-            },
-            onMutate: async (postId) => {
-                await queryClient.cancelQueries({ queryKey: postQueryKeys.detailPrefix(postId) })
-                await queryClient.cancelQueries({ queryKey: postQueryKeys.lists })
-                const snapshots = savePostCacheSnapshots(postId)
-
-                updatePostInAllCaches(postId, (old) => ({
-                    ...old,
-                    scrapped: true
-                }))
-
-                return { snapshots }
-            },
-            onError: (_err, postId, context) => {
-                if (context?.snapshots) {
-                    restorePostCacheSnapshots(postId, context.snapshots)
-                }
-            },
-            onSettled: (_, __, postId) => {
-                invalidatePostCaches(postId)
-            }
-        })
+        return createOptimisticPostMutation(
+            (postId) => postApi.scrapPost(postId),
+            (old) => ({
+                ...old,
+                scrapped: true
+            })
+        )
     }
 
     // Unscrap a post
     const useUnscrapPost = () => {
-        return useMutation({
-            mutationFn: async (postId: string | number) => {
-                return await postApi.unscrapPost(postId)
-            },
-            onMutate: async (postId) => {
-                await queryClient.cancelQueries({ queryKey: postQueryKeys.detailPrefix(postId) })
-                await queryClient.cancelQueries({ queryKey: postQueryKeys.lists })
-                const snapshots = savePostCacheSnapshots(postId)
-
-                updatePostInAllCaches(postId, (old) => ({
-                    ...old,
-                    scrapped: false
-                }))
-
-                return { snapshots }
-            },
-            onError: (_err, postId, context) => {
-                if (context?.snapshots) {
-                    restorePostCacheSnapshots(postId, context.snapshots)
-                }
-            },
-            onSettled: (_, __, postId) => {
-                invalidatePostCaches(postId)
-            }
-        })
+        return createOptimisticPostMutation(
+            (postId) => postApi.unscrapPost(postId),
+            (old) => ({
+                ...old,
+                scrapped: false
+            })
+        )
     }
 
     // Report a post
