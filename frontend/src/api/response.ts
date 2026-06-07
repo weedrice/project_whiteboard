@@ -5,6 +5,10 @@ export function unwrapApiData<T>(response: ApiResponse<T>): T {
     return response.data
 }
 
+export function unwrapAxiosApiData<T>(response: AxiosResponse<ApiResponse<T>>): T {
+    return unwrapApiData(response.data)
+}
+
 export function mapApiDataResponse<TSource, TTarget>(
     response: AxiosResponse<ApiResponse<TSource>>,
     mapper: (source: TSource) => TTarget,
