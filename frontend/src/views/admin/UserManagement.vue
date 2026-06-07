@@ -1,5 +1,5 @@
 ﻿<script setup lang="ts">
-import { ref, computed, reactive, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { Search } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
@@ -20,6 +20,7 @@ import { formatAdminPaginationSummary } from '@/utils/adminPaginationSummary'
 import { formatDateOnly } from '@/utils/date'
 import { useConfirm } from '@/composables/useConfirm'
 import { usePageResponseState } from '@/composables/usePaginatedQueryState'
+import { useAdminUserListState } from '@/composables/useAdminUserListState'
 import type { User } from '@/types'
 import {
   canChangeAdminUserStatus,
@@ -36,59 +37,16 @@ const toastStore = useToastStore()
 const { confirm } = useConfirm()
 const { useUsers, useUpdateUserStatus } = useAdmin()
 
-const page = ref(0)
-const size = ref(20)
-const sort = ref('createdAt,desc')
-
-type UserFilterForm = {
-  q: string
-  status: string
-  role: string
-  emailVerified: string
-  superAdmin: string
-  withdrawn: string
-  createdFrom: string
-  createdTo: string
-  lastLoginFrom: string
-  lastLoginTo: string
-}
-
-function createInitialFilters(): UserFilterForm {
-  return {
-    q: '',
-    status: '',
-    role: '',
-    emailVerified: '',
-    superAdmin: '',
-    withdrawn: '',
-    createdFrom: '',
-    createdTo: '',
-    lastLoginFrom: '',
-    lastLoginTo: ''
-  }
-}
-
-const filterForm = reactive<UserFilterForm>(createInitialFilters())
-const appliedFilters = ref<UserFilterForm>(createInitialFilters())
-
-const sortField = computed(() => sort.value.split(',')[0] || 'createdAt')
-const sortDirection = computed(() => sort.value.split(',')[1] || 'desc')
-
-const params = computed(() => ({
-  page: page.value,
-  size: size.value,
-  q: appliedFilters.value.q || undefined,
-  status: appliedFilters.value.status || undefined,
-  role: appliedFilters.value.role || undefined,
-  isEmailVerified: appliedFilters.value.emailVerified === '' ? undefined : appliedFilters.value.emailVerified === 'true',
-  isSuperAdmin: appliedFilters.value.superAdmin === '' ? undefined : appliedFilters.value.superAdmin === 'true',
-  isWithdrawn: appliedFilters.value.withdrawn === '' ? undefined : appliedFilters.value.withdrawn === 'true',
-  createdFrom: appliedFilters.value.createdFrom || undefined,
-  createdTo: appliedFilters.value.createdTo || undefined,
-  lastLoginFrom: appliedFilters.value.lastLoginFrom || undefined,
-  lastLoginTo: appliedFilters.value.lastLoginTo || undefined,
-  sort: sort.value || undefined
-}))
+const {
+  applyFilters,
+  filterForm,
+  getSortLabel,
+  handleSort,
+  page,
+  params,
+  resetFilters,
+  size,
+} = useAdminUserListState()
 
 const { data: usersData, isLoading } = useUsers(params)
 const { mutateAsync: updateUserStatus } = useUpdateUserStatus()
@@ -136,35 +94,6 @@ async function handleStatusChange(user: User, status: AdminUserMutableStatus) {
     // Error handled globally
   }
 }
-
-function resetFilters() {
-  Object.assign(filterForm, createInitialFilters())
-  appliedFilters.value = createInitialFilters()
-  sort.value = 'createdAt,desc'
-  page.value = 0
-}
-
-function applyFilters() {
-  appliedFilters.value = { ...filterForm }
-  page.value = 0
-}
-
-function getSortLabel(baseLabel: string, key: string) {
-  if (sortField.value !== key) return baseLabel
-  return `${baseLabel} ${sortDirection.value === 'asc' ? '▲' : '▼'}`
-}
-
-function handleSort(key: string) {
-  if (sortField.value === key) {
-    sort.value = `${key},${sortDirection.value === 'asc' ? 'desc' : 'asc'}`
-    return
-  }
-  sort.value = `${key},asc`
-}
-
-watch([size, sort], () => {
-  page.value = 0
-})
 
 const columns = computed(() => [
   { key: 'userId', label: getSortLabel(t('common.id'), 'userId'), width: '5%', sortable: true },
