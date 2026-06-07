@@ -7,16 +7,13 @@ import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.CurrentUserId;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-
-import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
 
 @RestController
 @RequestMapping("/api/v1/admin/reports")
@@ -38,8 +35,7 @@ public class AdminReportController {
     public ApiResponse<ReportResponse> processReport(
             @PathVariable Long reportId,
             @Valid @RequestBody ReportProcessRequest request,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long adminUserId = requiredUserId(userDetails);
+            @CurrentUserId Long adminUserId) {
         ReportResponse response = reportService.processReport(
                 adminUserId,
                 reportId,

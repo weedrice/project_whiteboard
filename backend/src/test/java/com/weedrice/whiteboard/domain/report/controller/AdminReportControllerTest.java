@@ -5,8 +5,10 @@ import com.weedrice.whiteboard.domain.report.dto.ReportProcessRequest;
 import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.entity.ReportStatus;
 import com.weedrice.whiteboard.domain.report.service.ReportService;
+import com.weedrice.whiteboard.global.config.CurrentUserIdWebMvcConfig;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.security.CurrentUserIdArgumentResolver;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
@@ -60,7 +62,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
                         classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
         })
 @AutoConfigureMockMvc
-@Import(AdminReportControllerTest.TestSecurityConfig.class)
+@Import({
+        AdminReportControllerTest.TestSecurityConfig.class,
+        CurrentUserIdWebMvcConfig.class,
+        CurrentUserIdArgumentResolver.class
+})
 class AdminReportControllerTest {
 
     @TestConfiguration
