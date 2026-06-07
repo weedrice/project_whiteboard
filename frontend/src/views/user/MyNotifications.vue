@@ -33,6 +33,12 @@ function handleMarkAllAsRead() {
 
   markAllAsRead()
 }
+
+function getNotificationSourceTypeLabel(sourceType: string) {
+  if (sourceType === 'POST') return '게시글'
+  if (sourceType === 'COMMENT') return '댓글'
+  return sourceType
+}
 </script>
 
 <template>
@@ -81,8 +87,7 @@ function handleMarkAllAsRead() {
                 </span>
                 <span
                   class="px-2 py-0.5 text-[11px] font-semibold rounded-full nv-status-success flex-shrink-0">
-                  {{ notification.sourceType === 'POST' ? '게시글' : notification.sourceType === 'COMMENT' ? '댓글' :
-                    notification.sourceType }}
+                  {{ getNotificationSourceTypeLabel(notification.sourceType) }}
                 </span>
               </div>
               <div class="text-xs sm:text-sm nv-text-subtle line-clamp-2">
