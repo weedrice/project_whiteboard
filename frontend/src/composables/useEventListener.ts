@@ -1,12 +1,16 @@
 import { onMounted, onUnmounted, toValue, type MaybeRefOrGetter } from 'vue'
 
 type EventListenerTarget = EventTarget | null | undefined
+type EventListenerLifecycleOptions = {
+  autoStart?: boolean
+}
 
 export function useEventListener<TEvent extends Event = Event>(
   target: MaybeRefOrGetter<EventListenerTarget>,
   type: string,
   listener: EventListenerOrEventListenerObject | ((event: TEvent) => void),
-  options?: AddEventListenerOptions | boolean
+  options?: AddEventListenerOptions | boolean,
+  lifecycleOptions: EventListenerLifecycleOptions = {},
 ) {
   let currentTarget: EventTarget | null = null
   const normalizedListener = listener as EventListenerOrEventListenerObject
@@ -39,7 +43,9 @@ export function useEventListener<TEvent extends Event = Event>(
     currentTarget = nextTarget
   }
 
-  onMounted(start)
+  if (lifecycleOptions.autoStart ?? true) {
+    onMounted(start)
+  }
   onUnmounted(stop)
 
   return {

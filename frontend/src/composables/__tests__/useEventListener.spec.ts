@@ -58,6 +58,24 @@ describe('useEventListener', () => {
     expect(listener).toHaveBeenCalledTimes(1)
   })
 
+  it('can defer initial registration until start is called', () => {
+    const listener = vi.fn()
+    let controls!: ReturnType<typeof useEventListener>
+    const Harness = defineComponent({
+      setup() {
+        controls = useEventListener(() => document, 'keydown', listener, undefined, { autoStart: false })
+        return () => h('div')
+      },
+    })
+
+    mountedWrappers.push(mount(Harness))
+    dispatchKey()
+    controls.start()
+    dispatchKey()
+
+    expect(listener).toHaveBeenCalledTimes(1)
+  })
+
   it('does nothing when the target is unavailable', () => {
     const listener = vi.fn()
     const Harness = defineComponent({
