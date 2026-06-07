@@ -22,9 +22,13 @@ import { useConfirm } from '@/composables/useConfirm'
 import { usePageResponseState } from '@/composables/usePaginatedQueryState'
 import type { User } from '@/types'
 import {
+  canChangeAdminUserStatus,
+  getAdminUserStatusActionLabel,
+  getNextAdminUserStatus,
   getAdminUserRoleLabel,
   getAdminUserStatusLabel,
   getAdminUserStatusVariant,
+  type AdminUserMutableStatus,
 } from '@/utils/adminUserDisplay'
 
 const { t } = useI18n()
@@ -112,23 +116,17 @@ function getStatusLabel(status: string) {
   return getAdminUserStatusLabel(t, status)
 }
 
-function canChangeStatus(status: string) {
-  return status === 'ACTIVE' || status === 'SUSPENDED'
-}
-
-function getNextStatus(status: string): 'ACTIVE' | 'SUSPENDED' {
-  return status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE'
-}
-
-function getStatusActionLabel(status: string) {
-  return status === 'ACTIVE' ? '정지' : '계정 활성화'
-}
-
 function getRoleLabel(role: string) {
   return getAdminUserRoleLabel(t, role)
 }
 
-async function handleStatusChange(user: User, status: 'ACTIVE' | 'SUSPENDED') {
+function getStatusActionLabel(status: AdminUserMutableStatus) {
+  return getAdminUserStatusActionLabel(status)
+}
+
+async function handleStatusChange(user: User, status: AdminUserMutableStatus) {
+  if (!canChangeAdminUserStatus(user.status)) return
+
   const isConfirmed = await confirm(t('admin.users.messages.confirmStatusChange', { action: getStatusActionLabel(user.status) }))
   if (!isConfirmed) return
   try {
@@ -331,8 +329,8 @@ const columns = computed(() => [
               상세
             </AdminActionButton>
             <AdminActionButton
-              v-if="canChangeStatus(item.status)"
-              @click.stop="handleStatusChange(item, getNextStatus(item.status))"
+              v-if="canChangeAdminUserStatus(item.status)"
+              @click.stop="handleStatusChange(item, getNextAdminUserStatus(item.status))"
               :tone="item.status === 'ACTIVE' ? 'danger' : 'neutral'"
               :label="getStatusActionLabel(item.status)"
             >
