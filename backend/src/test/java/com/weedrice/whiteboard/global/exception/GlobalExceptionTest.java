@@ -41,6 +41,15 @@ class GlobalExceptionTest {
     }
 
     @Test
+    @DisplayName("User not found ErrorCode properties")
+    void userNotFoundErrorCodeProperties() {
+        ErrorCode errorCode = ErrorCode.USER_NOT_FOUND;
+        assertThat(errorCode.getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(errorCode.getCode()).isEqualTo("U001");
+        assertThat(errorCode.getMessage()).isEqualTo("error.user.notFound");
+    }
+
+    @Test
     @DisplayName("Every ErrorCode message key exists in Korean and English resources")
     void errorCodeMessageKeysExistInMessageResources() throws Exception {
         Properties koreanMessages = loadMessages("messages.properties");
