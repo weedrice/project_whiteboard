@@ -125,25 +125,22 @@ public class UserAdminQueryService {
     }
 
     private String normalizeStatus(String status) {
-        if (!StringUtils.hasText(status)) {
-            return null;
-        }
-        String normalizedStatus = status.trim().toUpperCase(Locale.ROOT);
-        if (!ALLOWED_STATUSES.contains(normalizedStatus)) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
-        return normalizedStatus;
+        return normalizeAllowedFilter(status, ALLOWED_STATUSES);
     }
 
     private String normalizeRole(String role) {
-        if (!StringUtils.hasText(role)) {
+        return normalizeAllowedFilter(role, ALLOWED_ROLES);
+    }
+
+    private String normalizeAllowedFilter(String value, Set<String> allowedValues) {
+        if (!StringUtils.hasText(value)) {
             return null;
         }
-        String normalizedRole = role.trim().toUpperCase(Locale.ROOT);
-        if (!ALLOWED_ROLES.contains(normalizedRole)) {
+        String normalizedValue = value.trim().toUpperCase(Locale.ROOT);
+        if (!allowedValues.contains(normalizedValue)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        return normalizedRole;
+        return normalizedValue;
     }
 
     public AdminUserDetailResponse getUserDetailForAdmin(Long userId) {
