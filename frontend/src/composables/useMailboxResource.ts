@@ -3,7 +3,7 @@ import { useI18n } from 'vue-i18n'
 import type { AxiosError } from 'axios'
 import { messageApi, BLOCKED_BY_USER_CODE } from '@/api/message'
 import { useConfirm } from '@/composables/useConfirm'
-import { useLatestAsyncTask } from '@/composables/useLatestAsyncTask'
+import { useMailboxListState } from '@/composables/useMailboxListState'
 import { useMessageSubmit } from '@/composables/useMessageSubmit'
 import { useToastStore } from '@/stores/toast'
 import type { MailboxMessageViewModel } from '@/types'
@@ -18,19 +18,22 @@ export function useMailboxResource() {
     const toastStore = useToastStore()
     const { confirm } = useConfirm()
 
-    const viewType = ref<'received' | 'sent'>('received')
-    const messages = ref<MailboxMessageViewModel[]>([])
-    const messageListTask = useLatestAsyncTask<string>({
-        getErrorValue: () => t('common.messages.loadFailed'),
-        onError: (caughtError) => logger.error('Failed to fetch messages:', caughtError),
-    })
-    const { loading, error } = messageListTask
+    const {
+        viewType,
+        messages,
+        loading,
+        error,
+        selectedMessages,
+        page,
+        size,
+        totalPages,
+        fetchMessages,
+        handlePageChange,
+        handleSizeChange,
+        changeViewType,
+        markListMessageRead,
+    } = useMailboxListState()
     const selectedMessage = ref<MailboxMessageViewModel | null>(null)
-    const selectedMessages = ref<number[]>([])
-
-    const page = ref(0)
-    const size = ref(15)
-    const totalPages = ref(0)
 
     const isReplyModalOpen = ref(false)
     const replyTarget = ref<MailboxMessageViewModel | null>(null)
@@ -60,45 +63,6 @@ export function useMailboxResource() {
     function abortMarkAsReadRequests() {
         markAsReadAbortControllers.forEach((controller) => controller.abort())
         markAsReadAbortControllers.clear()
-    }
-
-    async function fetchMessages() {
-        messages.value = []
-        selectedMessages.value = []
-        const data = await messageListTask.run(async ({ signal }) => {
-            const params = {
-                page: page.value,
-                size: size.value
-            }
-            const response = viewType.value === 'received'
-                ? await messageApi.getReceivedMessages(params, { signal })
-                : await messageApi.getSentMessages(params, { signal })
-
-            return response.data
-        })
-
-        if (data?.success) {
-            messages.value = data.data?.content.map(toMailboxMessageViewModel) || []
-            totalPages.value = data.data?.totalPages || 0
-        }
-    }
-
-    function handlePageChange(newPage: number) {
-        page.value = newPage
-        fetchMessages()
-    }
-
-    function handleSizeChange(newSize = size.value) {
-        size.value = newSize
-        page.value = 0
-        fetchMessages()
-    }
-
-    function changeViewType(type: 'received' | 'sent') {
-        if (viewType.value === type) return
-        viewType.value = type
-        page.value = 0
-        fetchMessages()
     }
 
     async function openMessage(msg: MailboxMessageViewModel) {
@@ -131,10 +95,7 @@ export function useMailboxResource() {
                 } finally {
                     markAsReadAbortControllers.delete(markAsReadController)
                 }
-                const targetIndex = messages.value.findIndex((message) => message.id === messageId)
-                if (targetIndex >= 0) {
-                    messages.value[targetIndex] = markMailboxMessageRead(messages.value[targetIndex])
-                }
+                markListMessageRead(messageId)
                 if (requestId !== messageDetailRequestId || selectedMessage.value?.id !== messageId) {
                     return
                 }
@@ -206,7 +167,6 @@ export function useMailboxResource() {
     })
 
     onUnmounted(() => {
-        messageListTask.reset()
         messageDetailRequestId++
         abortMessageDetailRequest()
         abortMarkAsReadRequests()
