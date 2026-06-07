@@ -1,17 +1,22 @@
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuery } from '@tanstack/vue-query'
 import { emoticonApi } from '@/api/emoticon'
 import { popularEmoticonsQueryKey, searchableEmoticonsQueryKey } from '@/composables/useEmoticonEditResource'
+import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import type { EmoticonSearchParams } from '@/types/emoticon'
-
-const pageSize = 20
 
 export function useEmoticonListResource() {
   const router = useRouter()
   const popularPeriod = ref<'daily' | 'weekly' | 'monthly'>('daily')
   const sortBy = ref<NonNullable<EmoticonSearchParams['sortBy']>>('latest')
-  const currentPage = ref(0)
+  const {
+    page: currentPage,
+    size,
+    resetPage,
+  } = usePaginatedQueryState({
+    initialSize: 20,
+  })
   const searchKeyword = ref('')
   const searchInput = ref('')
   const searchType = ref<NonNullable<EmoticonSearchParams['searchType']>>('ALL')
@@ -27,7 +32,7 @@ export function useEmoticonListResource() {
     queryFn: async () => {
       const params: EmoticonSearchParams = {
         page: currentPage.value,
-        size: pageSize,
+        size: size.value,
         sortBy: sortBy.value,
       }
       if (searchKeyword.value) {
@@ -38,9 +43,12 @@ export function useEmoticonListResource() {
     },
   })
 
-  const emoticons = computed(() => emoticonsPage.value?.content || [])
-  const totalPages = computed(() => emoticonsPage.value?.totalPages || 0)
-  const totalElements = computed(() => emoticonsPage.value?.totalElements || 0)
+  const {
+    items: emoticons,
+    totalPages,
+    totalElements,
+  } = usePageResponseState(emoticonsPage, currentPage)
+
   const goToPage = (page: number) => {
     if (page >= 0 && page < totalPages.value) {
       currentPage.value = page
@@ -49,7 +57,7 @@ export function useEmoticonListResource() {
 
   const changeSortBy = (newSort: NonNullable<EmoticonSearchParams['sortBy']>) => {
     sortBy.value = newSort
-    currentPage.value = 0
+    resetPage()
   }
 
   const handleSearch = () => {
@@ -57,14 +65,14 @@ export function useEmoticonListResource() {
     if (!keyword) return
     searchKeyword.value = keyword
     isSearching.value = true
-    currentPage.value = 0
+    resetPage()
   }
 
   const clearSearch = () => {
     searchInput.value = ''
     searchKeyword.value = ''
     isSearching.value = false
-    currentPage.value = 0
+    resetPage()
   }
 
   const goToDetail = (emoticonId: number) => {
