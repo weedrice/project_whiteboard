@@ -2,6 +2,7 @@ import { useRouter, type RouteLocationRaw } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { postApi } from '@/api/post'
 import { commentApi } from '@/api/comment'
+import { unwrapApiData } from '@/api/response'
 import { useNotification } from '@/composables/useNotification'
 import { useToastStore } from '@/stores/toast'
 import logger from '@/utils/logger'
@@ -72,7 +73,7 @@ export function useNotificationNavigation(options: NotificationNavigationOptions
             try {
                 const { data } = await postApi.getPost(notification.sourceId)
                 if (data.success) {
-                    const route = mapPostNotificationRoute(data.data, notification.sourceId)
+                    const route = mapPostNotificationRoute(unwrapApiData(data), notification.sourceId)
                     if (route) {
                         router.push(route)
                     }
@@ -87,7 +88,7 @@ export function useNotificationNavigation(options: NotificationNavigationOptions
             try {
                 const { data } = await commentApi.getComment(notification.sourceId)
                 if (data.success) {
-                    const route = mapCommentNotificationRoute(data.data, notification.sourceId)
+                    const route = mapCommentNotificationRoute(unwrapApiData(data), notification.sourceId)
                     if (route) {
                         router.push(route)
                     }

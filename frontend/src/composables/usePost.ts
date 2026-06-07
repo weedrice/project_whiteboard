@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { postApi, type PostCreateData, type PostDraftData, type PostUpdateData, type ReportData } from '@/api/post'
+import { unwrapAxiosApiData } from '@/api/response'
 import { computed, type Ref } from 'vue'
 import type { Post } from '@/types'
 import type { AxiosRequestConfig } from 'axios'
@@ -155,14 +156,14 @@ export function usePost() {
         return useQuery({
             queryKey: postDetailQueryKey(postId, requestConfig?.params?.incrementView !== false),
             queryFn: async () => {
-                const { data } = await postApi.getPost(postId.value, {
+                const post = unwrapAxiosApiData(await postApi.getPost(postId.value, {
                     ...requestConfig,
                     params: {
                         incrementView: true,
                         ...(requestConfig?.params || {})
                     }
-                })
-                return normalizePostReactionFlags(data.data as PostReactionAlias)
+                }))
+                return normalizePostReactionFlags(post as PostReactionAlias)
             },
             enabled: computed(() => !!postId.value),
             ...queryOptions
