@@ -1,4 +1,5 @@
-import { onMounted, onUnmounted, type Ref } from 'vue'
+import type { Ref } from 'vue'
+import { useEventListener } from '@/composables/useEventListener'
 
 /**
  * Keeps keyboard focus inside a container while it is active.
@@ -67,13 +68,7 @@ export function useFocusTrap(
     previouslyFocusedElement = null
   }
 
-  onMounted(() => {
-    document.addEventListener('keydown', handleKeyDown)
-  })
-
-  onUnmounted(() => {
-    document.removeEventListener('keydown', handleKeyDown)
-  })
+  useEventListener(() => document, 'keydown', handleKeyDown)
 
   return {
     trapFocus,
