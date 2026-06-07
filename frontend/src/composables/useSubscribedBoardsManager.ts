@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/vue-query'
 import { useI18n } from 'vue-i18n'
 import { userApi } from '@/api/user'
 import { boardApi } from '@/api/board'
+import { unwrapApiData } from '@/api/response'
 import { invalidateBoardListCaches } from '@/composables/boardCacheInvalidation'
 import { useMobileViewport } from '@/composables/useMediaQuery'
 import { useToastStore } from '@/stores/toast'
@@ -53,7 +54,7 @@ export function useSubscribedBoardsManager() {
         return null
       }
 
-      return data.data
+      return unwrapApiData(data)
     }
 
     const firstPage = await fetchPage(0)
