@@ -47,13 +47,6 @@ public class LogService {
     @Transactional(readOnly = true)
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public Page<Log> getLogs(Pageable pageable) {
-        return logRepository.findAll(applyStableSort(pageable));
-    }
-
-    private Pageable applyStableSort(Pageable pageable) {
-        if (pageable == null || pageable.isUnpaged()) {
-            return PageRequestUtils.of(0, DEFAULT_LOG_PAGE_SIZE, LOG_LIST_SORT);
-        }
-        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), LOG_LIST_SORT);
+        return logRepository.findAll(PageRequestUtils.of(pageable, DEFAULT_LOG_PAGE_SIZE, LOG_LIST_SORT));
     }
 }
