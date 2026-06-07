@@ -1,6 +1,7 @@
 import { onScopeDispose, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { postApi } from '@/api/post'
+import { unwrapApiData } from '@/api/response'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToastStore } from '@/stores/toast'
 import { extractErrorMessage } from '@/utils/errorHandler'
@@ -46,7 +47,7 @@ export function useInquiryDetailModal(refreshPosts: () => Promise<void> | void) 
         signal: controller.signal
       })
       if (requestId === inquiryDetailRequestId && data.success) {
-        selectedInquiryPost.value = data.data
+        selectedInquiryPost.value = unwrapApiData(data)
       }
     } catch (err: unknown) {
       if (requestId === inquiryDetailRequestId && !controller.signal.aborted) {

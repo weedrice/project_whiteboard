@@ -1,6 +1,7 @@
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api/auth'
+import { unwrapApiData } from '@/api/response'
 import { useToastStore } from '@/stores/toast'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { handleDeletedAccountRedirect } from '@/utils/authRedirect'
@@ -25,8 +26,9 @@ export function useFindIdFlow(options: UseFindIdFlowOptions) {
         try {
             const { data } = await authApi.findId(email, verificationTicket)
             if (data.success) {
+                const result = unwrapApiData(data)
                 options.onSuccess({
-                    loginId: data.data.loginId,
+                    loginId: result.loginId,
                     verificationTicket
                 })
                 toastStore.addToast(t('auth.codeVerified'), 'success')
