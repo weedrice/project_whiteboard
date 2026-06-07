@@ -1,85 +1,38 @@
 package com.weedrice.whiteboard.global.validation;
 
+import com.weedrice.whiteboard.global.util.HtmlSafetyUtils;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 
-import java.util.regex.Pattern;
-
-/**
- * HTML 태그 검증 Validator
- * 
- * XSS 공격 방지를 위해 HTML 태그가 포함되어 있는지 검증합니다.
- */
 public class NoHtmlValidator implements ConstraintValidator<NoHtml, String> {
-
-    // HTML 태그를 감지하는 정규식
-    // <로 시작하고 >로 끝나는 태그 패턴
-    private static final Pattern HTML_TAG_PATTERN = Pattern.compile(
-            "<[^>]+>",
-            Pattern.CASE_INSENSITIVE | Pattern.MULTILINE
-    );
-
-    // 위험한 스크립트 태그 패턴
-    private static final Pattern SCRIPT_PATTERN = Pattern.compile(
-            "<\\s*script[^>]*>.*?</\\s*script\\s*>",
-            Pattern.CASE_INSENSITIVE | Pattern.MULTILINE | Pattern.DOTALL
-    );
-
-    // 위험한 이벤트 핸들러 패턴 (onclick, onerror 등)
-    private static final Pattern EVENT_HANDLER_PATTERN = Pattern.compile(
-            "on\\w+\\s*=",
-            Pattern.CASE_INSENSITIVE
-    );
 
     @Override
     public void initialize(NoHtml constraintAnnotation) {
-        // 초기화 로직이 필요하면 여기에 추가
+        // No initialization required.
     }
 
     @Override
     public boolean isValid(String value, ConstraintValidatorContext context) {
         if (value == null || value.isBlank()) {
-            return true; // null/blank는 다른 검증에서 처리
+            return true;
         }
 
-        // 스크립트 태그 검사
-        if (containsScriptTag(value)) {
+        if (HtmlSafetyUtils.containsScriptTag(value)) {
             context.disableDefaultConstraintViolation();
             context.buildConstraintViolationWithTemplate("스크립트 태그는 허용되지 않습니다").addConstraintViolation();
             return false;
         }
 
-        // 이벤트 핸들러 검사
-        if (containsEventHandler(value)) {
+        if (HtmlSafetyUtils.containsEventHandler(value)) {
             context.disableDefaultConstraintViolation();
             context.buildConstraintViolationWithTemplate("이벤트 핸들러는 허용되지 않습니다").addConstraintViolation();
             return false;
         }
 
-        // HTML 태그 검사
-        if (containsHtmlTag(value)) {
-            return false;
-        }
-
-        return true;
+        return !HtmlSafetyUtils.containsHtmlTag(value);
     }
 
     public static boolean containsUnsafeHtml(String value) {
-        if (value == null || value.isBlank()) {
-            return false;
-        }
-        return containsScriptTag(value) || containsEventHandler(value) || containsHtmlTag(value);
-    }
-
-    private static boolean containsScriptTag(String value) {
-        return SCRIPT_PATTERN.matcher(value).find();
-    }
-
-    private static boolean containsEventHandler(String value) {
-        return EVENT_HANDLER_PATTERN.matcher(value).find();
-    }
-
-    private static boolean containsHtmlTag(String value) {
-        return HTML_TAG_PATTERN.matcher(value).find();
+        return HtmlSafetyUtils.containsUnsafeHtml(value);
     }
 }

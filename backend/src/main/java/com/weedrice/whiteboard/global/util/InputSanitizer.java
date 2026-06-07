@@ -9,7 +9,6 @@ import org.springframework.web.util.HtmlUtils;
 import java.net.URI;
 import java.util.Locale;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 /**
  * 입력값 Sanitization 유틸리티
@@ -27,20 +26,6 @@ public class InputSanitizer {
             "line-height"
     );
 
-    // HTML 태그 제거를 위한 정규식
-    private static final Pattern HTML_TAG_PATTERN = Pattern.compile("<[^>]+>");
-
-    // 위험한 스크립트 태그 패턴
-    private static final Pattern SCRIPT_PATTERN = Pattern.compile(
-            "<\\s*script[^>]*>.*?</\\s*script\\s*>",
-            Pattern.CASE_INSENSITIVE | Pattern.MULTILINE | Pattern.DOTALL
-    );
-
-    // 위험한 이벤트 핸들러 패턴
-    private static final Pattern EVENT_HANDLER_PATTERN = Pattern.compile(
-            "on\\w+\\s*=",
-            Pattern.CASE_INSENSITIVE
-    );
     private static final Document.OutputSettings POST_HTML_OUTPUT_SETTINGS = new Document.OutputSettings()
             .prettyPrint(false);
     private static final Safelist POST_HTML_SAFELIST = Safelist.none()
@@ -92,7 +77,7 @@ public class InputSanitizer {
         if (input == null) {
             return null;
         }
-        return HTML_TAG_PATTERN.matcher(input).replaceAll("");
+        return HtmlSafetyUtils.stripTags(input);
     }
 
     /**
@@ -109,10 +94,10 @@ public class InputSanitizer {
         String sanitized = input;
         
         // 스크립트 태그 제거
-        sanitized = SCRIPT_PATTERN.matcher(sanitized).replaceAll("");
+        sanitized = HtmlSafetyUtils.removeScriptTags(sanitized);
         
         // 이벤트 핸들러 제거
-        sanitized = EVENT_HANDLER_PATTERN.matcher(sanitized).replaceAll("");
+        sanitized = HtmlSafetyUtils.removeEventHandlers(sanitized);
         
         return sanitized;
     }
@@ -220,10 +205,7 @@ public class InputSanitizer {
      * @return HTML 태그가 포함되어 있으면 true
      */
     public static boolean containsHtml(String input) {
-        if (input == null || input.isBlank()) {
-            return false;
-        }
-        return HTML_TAG_PATTERN.matcher(input).find();
+        return HtmlSafetyUtils.containsHtmlTag(input);
     }
 
     /**
@@ -233,10 +215,7 @@ public class InputSanitizer {
      * @return 위험한 스크립트가 포함되어 있으면 true
      */
     public static boolean containsScript(String input) {
-        if (input == null || input.isBlank()) {
-            return false;
-        }
-        return SCRIPT_PATTERN.matcher(input).find() || 
-               EVENT_HANDLER_PATTERN.matcher(input).find();
+        return HtmlSafetyUtils.containsScriptTag(input)
+                || HtmlSafetyUtils.containsEventHandler(input);
     }
 }
