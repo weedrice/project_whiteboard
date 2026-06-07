@@ -3,8 +3,11 @@ package com.weedrice.whiteboard.domain.notification.controller;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.service.NotificationService;
 import com.weedrice.whiteboard.domain.notification.web.NotificationSseEmitterRegistry;
+import com.weedrice.whiteboard.global.config.CurrentUserIdWebMvcConfig;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.exception.GlobalExceptionHandler;
+import com.weedrice.whiteboard.global.security.CurrentUserIdArgumentResolver;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -14,6 +17,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
@@ -44,7 +48,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
     })
 @org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
-@org.springframework.context.annotation.Import({NotificationControllerTest.TestSecurityConfig.class, com.weedrice.whiteboard.global.exception.GlobalExceptionHandler.class})
+@Import({
+        NotificationControllerTest.TestSecurityConfig.class,
+        GlobalExceptionHandler.class,
+        CurrentUserIdWebMvcConfig.class,
+        CurrentUserIdArgumentResolver.class
+})
 class NotificationControllerTest {
 
     @org.springframework.boot.test.context.TestConfiguration
