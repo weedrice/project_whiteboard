@@ -97,9 +97,6 @@ public final class SearchRequestNormalizer {
     }
 
     public static Pageable normalizeRecentSearchPageable(Pageable pageable) {
-        if (pageable == null || pageable.isUnpaged()) {
-            return PageRequestUtils.of(0, DEFAULT_RECENT_SEARCH_PAGE_SIZE, DEFAULT_RECENT_SEARCH_SORT);
-        }
-        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), DEFAULT_RECENT_SEARCH_SORT);
+        return PageRequestUtils.of(pageable, DEFAULT_RECENT_SEARCH_PAGE_SIZE, DEFAULT_RECENT_SEARCH_SORT);
     }
 }
