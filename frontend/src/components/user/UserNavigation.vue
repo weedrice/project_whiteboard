@@ -26,6 +26,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { useEventListener } from '@/composables/useEventListener'
 import { useThrottleFn } from '@/composables/useThrottle'
 import { DEBOUNCE_DELAY } from '@/utils/constants'
 import { isInputFocused } from '@/utils/keyboard'
@@ -173,16 +174,15 @@ function handleDocumentKeyDown(e: KeyboardEvent) {
     }
 }
 
+useEventListener(() => window, 'resize', throttledUpdateUnderline)
+useEventListener(() => document, 'keydown', handleDocumentKeyDown)
+
 onMounted(() => {
     nextTick(updateUnderline)
-    window.addEventListener('resize', throttledUpdateUnderline)
-    document.addEventListener('keydown', handleDocumentKeyDown)
 })
 
 onUnmounted(() => {
-    window.removeEventListener('resize', throttledUpdateUnderline)
     throttledUpdateUnderline.cancel()
-    document.removeEventListener('keydown', handleDocumentKeyDown)
 })
 </script>
 
