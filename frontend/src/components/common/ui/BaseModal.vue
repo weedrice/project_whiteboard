@@ -63,8 +63,9 @@ function unlockBodyScroll() {
 </script>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onUnmounted, nextTick } from 'vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import { useEventListener } from '@/composables/useEventListener'
 
 const props = withDefaults(defineProps<{
   isOpen: boolean
@@ -207,12 +208,9 @@ watch(() => props.isOpen, (isOpen) => {
   }
 }, { immediate: true })
 
-onMounted(() => {
-  document.addEventListener('keydown', handleKeyDown)
-})
+useEventListener(() => document, 'keydown', handleKeyDown)
 
 onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeyDown)
   // Ensure body scroll is restored
   unlockModalBodyScroll()
 })
