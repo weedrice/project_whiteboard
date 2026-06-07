@@ -2,6 +2,7 @@ import { onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { messageApi } from '@/api/message'
 import { useLatestAsyncTask } from '@/composables/useLatestAsyncTask'
+import { usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import type { MailboxMessageViewModel } from '@/types'
 import { markMailboxMessageRead, toMailboxMessageViewModel } from '@/utils/messageViewModel'
 import logger from '@/utils/logger'
@@ -13,8 +14,13 @@ export function useMailboxListState() {
     const viewType = ref<MailboxViewType>('received')
     const messages = ref<MailboxMessageViewModel[]>([])
     const selectedMessages = ref<number[]>([])
-    const page = ref(0)
-    const size = ref(15)
+    const {
+        page,
+        size,
+        handlePageChange: setPage,
+        handleSizeChange: setSize,
+        resetPage,
+    } = usePaginatedQueryState({ initialSize: 15 })
     const totalPages = ref(0)
     const messageListTask = useLatestAsyncTask<string>({
         getErrorValue: () => t('common.messages.loadFailed'),
@@ -44,20 +50,19 @@ export function useMailboxListState() {
     }
 
     function handlePageChange(newPage: number) {
-        page.value = newPage
+        setPage(newPage)
         fetchMessages()
     }
 
     function handleSizeChange(newSize = size.value) {
-        size.value = newSize
-        page.value = 0
+        setSize(newSize)
         fetchMessages()
     }
 
     function changeViewType(type: MailboxViewType) {
         if (viewType.value === type) return
         viewType.value = type
-        page.value = 0
+        resetPage()
         fetchMessages()
     }
 
