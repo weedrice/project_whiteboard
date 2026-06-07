@@ -4,6 +4,7 @@ import { adminApi } from '@/api/admin'
 import { adminInquiryQueryKeys } from '@/composables/adminQueryKeys'
 import { formatDateTimeOrDash } from '@/utils/date'
 import { renderPostContentHtml } from '@/utils/postContentHtml'
+import { stripHtmlToText, truncateWithEllipsis } from '@/utils/textExcerpt'
 import type { AdminInquirySummary, PageResponse, Post } from '@/types'
 
 type AdminInquiryStatusVariant = 'success' | 'warning'
@@ -26,16 +27,6 @@ export interface AdminInquiryDetail {
   contentsHtml: string
 }
 
-function stripHtml(value?: string) {
-  if (!value) return ''
-  return value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-}
-
-function truncateText(value: string, maxLength = 50) {
-  if (value.length <= maxLength) return value
-  return `${value.slice(0, maxLength)}...`
-}
-
 function getAuthorName(post: Pick<AdminInquirySummary, 'author'> | Pick<Post, 'author'>) {
   return post.author?.displayName || '-'
 }
@@ -49,12 +40,15 @@ function getStatusVariant(post: AdminInquirySummary): AdminInquiryStatusVariant 
 }
 
 export function toAdminInquiryListItem(post: AdminInquirySummary): AdminInquiryListItem {
-  const plainSummary = stripHtml(post.summary || '')
+  const plainSummary = stripHtmlToText(post.summary, {
+    tagReplacement: ' ',
+    collapseWhitespace: true,
+  })
 
   return {
     id: post.postId,
     title: post.title,
-    summaryText: plainSummary ? truncateText(plainSummary, 50) : '-',
+    summaryText: plainSummary ? truncateWithEllipsis(plainSummary, 50) : '-',
     authorName: getAuthorName(post),
     createdAtText: formatDateTimeOrDash(post.createdAt),
     statusLabelKey: getStatusLabelKey(post),
