@@ -180,21 +180,7 @@ const activeSortDirection = computed<'asc' | 'desc' | null>(() => {
   return currentDirection === 'asc' ? 'asc' : 'desc'
 })
 
-function onPostClick(event: Event, item: PostSummary) {
-  if (shouldInterceptInquiry(item)) {
-    event.preventDefault()
-    emit('inquiry-click', item)
-  }
-}
-
-function onTitleClick(event: Event, item: PostSummary) {
-  if (shouldInterceptInquiry(item)) {
-    event.preventDefault()
-    emit('inquiry-click', item)
-  }
-}
-
-function onBoardClick(event: Event, item: PostSummary) {
+function onNavigationClick(event: Event, item: PostSummary) {
   if (shouldInterceptInquiry(item)) {
     event.preventDefault()
     emit('inquiry-click', item)
@@ -325,7 +311,7 @@ const columns = computed(() => {
           isCurrentPost(item) ? 'nv-post-card-current' : '',
           getInteractiveTag(item) === 'div' ? 'cursor-not-allowed opacity-70' : ''
         ]"
-        @click="onPostClick($event, item)"
+        @click="onNavigationClick($event, item)"
       >
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0 flex-1">
@@ -396,7 +382,7 @@ const columns = computed(() => {
             v-if="shouldInterceptInquiry(item)"
             type="button"
             class="nv-post-board-link"
-            @click="onBoardClick($event, item)"
+            @click="onNavigationClick($event, item)"
           >
             {{ item.boardName || '-' }}
           </button>
@@ -404,7 +390,7 @@ const columns = computed(() => {
             v-else-if="hasBoardRouteTarget(item)"
             :to="getBoardLinkTarget(item)"
             class="nv-post-board-link"
-            @click="onBoardClick($event, item)"
+            @click="onNavigationClick($event, item)"
           >
             {{ item.boardName || '-' }}
           </router-link>
@@ -418,7 +404,7 @@ const columns = computed(() => {
               v-bind="getTitleProps(item)"
               class="nv-post-title-link"
               :class="{ 'text-[var(--nv-muted)]': getTitleTag(item) === 'span' }"
-              @click="onTitleClick($event, item)"
+              @click="onNavigationClick($event, item)"
             >
               <PostListTitleContent
                 :post="item"
