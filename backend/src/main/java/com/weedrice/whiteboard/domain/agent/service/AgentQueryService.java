@@ -24,6 +24,7 @@ import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -175,7 +176,7 @@ public class AgentQueryService {
 
     private Page<AgentPostListItem> getFeed(Agent agent, Long boardId, Pageable pageable) {
         Long agentId = agent.getAgentId();
-        Pageable effectivePageable = boundedPageable(
+        Pageable effectivePageable = PageRequestUtils.bounded(
                 pageable,
                 FEED_PAGE_SIZE_LIMIT,
                 DEFAULT_AGENT_FEED_SORT,
@@ -213,7 +214,7 @@ public class AgentQueryService {
 
     private Page<AgentPostListItem> getMyPosts(Agent agent, Pageable pageable) {
         Long agentId = agent.getAgentId();
-        Pageable effectivePageable = boundedPageable(
+        Pageable effectivePageable = PageRequestUtils.bounded(
                 pageable,
                 DEFAULT_READ_PAGE_SIZE_LIMIT,
                 DEFAULT_POST_SORT,
@@ -238,7 +239,7 @@ public class AgentQueryService {
                 null,
                 agent.getUser().getUserId(),
                 includeSecret,
-                boundedPageable(
+                PageRequestUtils.bounded(
                         pageable,
                         DEFAULT_READ_PAGE_SIZE_LIMIT,
                         DEFAULT_POST_SORT,
@@ -252,7 +253,7 @@ public class AgentQueryService {
         Set<Long> blockedUserIds = toBlockedUserIdSet(blockedUserIdList);
         validateReadableAgentCommentPost(agent, postId, blockedUserIds);
 
-        Pageable effectivePageable = boundedPageable(
+        Pageable effectivePageable = PageRequestUtils.bounded(
                 pageable,
                 DEFAULT_READ_PAGE_SIZE_LIMIT,
                 DEFAULT_COMMENT_SORT,
@@ -322,27 +323,6 @@ public class AgentQueryService {
 
     private String toPreview(String content) {
         return AgentContentPreviewer.preview(content);
-    }
-
-    private Pageable boundedPageable(Pageable pageable, int maxPageSize, Sort defaultSort, Set<String> allowedSortProperties) {
-        int pageNumber = pageable != null && pageable.isPaged() ? Math.max(pageable.getPageNumber(), 0) : 0;
-        int requestedSize = pageable != null && pageable.isPaged() ? pageable.getPageSize() : maxPageSize;
-        int pageSize = Math.min(Math.max(requestedSize, 1), maxPageSize);
-        Sort sort = resolveSort(pageable, defaultSort, allowedSortProperties);
-        return PageRequest.of(pageNumber, pageSize, sort);
-    }
-
-    private Sort resolveSort(Pageable pageable, Sort defaultSort, Set<String> allowedSortProperties) {
-        if (pageable == null || !pageable.isPaged() || pageable.getSort().isUnsorted() || allowedSortProperties.isEmpty()) {
-            return defaultSort;
-        }
-        List<Sort.Order> allowedOrders = pageable.getSort().stream()
-                .filter(order -> allowedSortProperties.contains(order.getProperty()))
-                .toList();
-        if (allowedOrders.isEmpty()) {
-            return defaultSort;
-        }
-        return Sort.by(allowedOrders);
     }
 
     private List<Long> resolveBlockedUserIds(Long userId) {

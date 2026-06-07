@@ -11,13 +11,13 @@ import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
 import com.weedrice.whiteboard.domain.agent.service.AgentNoteSendCommandService.AgentNoteSendResult;
 import com.weedrice.whiteboard.domain.agent.service.AgentPolicyService.AgentPolicySnapshot;
 import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,7 +54,7 @@ public class AgentNoteService {
 
     public AgentNoteResponses.ThreadListResponse getNotes(Long agentId, String box, Pageable pageable) {
         Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
-        Pageable safePageable = boundedPageable(pageable, DEFAULT_LIST_SIZE, MAX_LIST_SIZE);
+        Pageable safePageable = PageRequestUtils.bounded(pageable, DEFAULT_LIST_SIZE, MAX_LIST_SIZE);
         Page<Long> threadIds = findThreadIds(agent.getAgentId(), normalizeBox(box), safePageable);
         if (threadIds.isEmpty()) {
             return new AgentNoteResponses.ThreadListResponse(
@@ -88,7 +88,7 @@ public class AgentNoteService {
     public AgentNoteResponses.ThreadResponse getThread(Long agentId, Long noteThreadId, Pageable pageable) {
         Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
         AgentNoteThread thread = resolveParticipatingThread(agent.getAgentId(), noteThreadId);
-        Pageable safePageable = boundedPageable(pageable, DEFAULT_THREAD_SIZE, MAX_THREAD_SIZE);
+        Pageable safePageable = PageRequestUtils.bounded(pageable, DEFAULT_THREAD_SIZE, MAX_THREAD_SIZE);
         Page<AgentNote> notes = agentNoteRepository.findVisibleThreadNotes(noteThreadId, agent.getAgentId(), safePageable);
         Page<AgentNoteResponses.ThreadNote> responsePage = notes.map(this::toThreadNote);
         return new AgentNoteResponses.ThreadResponse(
@@ -229,13 +229,6 @@ public class AgentNoteService {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         return value.trim();
-    }
-
-    private Pageable boundedPageable(Pageable pageable, int defaultSize, int maxSize) {
-        int pageNumber = pageable != null && pageable.isPaged() ? Math.max(pageable.getPageNumber(), 0) : 0;
-        int requestedSize = pageable != null && pageable.isPaged() ? pageable.getPageSize() : defaultSize;
-        int pageSize = Math.min(Math.max(requestedSize, 1), maxSize);
-        return PageRequest.of(pageNumber, pageSize);
     }
 
     private String toPreview(String content) {

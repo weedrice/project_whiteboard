@@ -89,6 +89,48 @@ class PageRequestUtilsTest {
     }
 
     @Test
+    @DisplayName("bounded pageable uses default size for unpaged requests")
+    void bounded_usesDefaultSizeForUnpagedRequests() {
+        Pageable pageable = PageRequestUtils.bounded(Pageable.unpaged(), 20, 50);
+
+        assertThat(pageable.getPageNumber()).isZero();
+        assertThat(pageable.getPageSize()).isEqualTo(20);
+        assertThat(pageable.getSort().isUnsorted()).isTrue();
+    }
+
+    @Test
+    @DisplayName("bounded pageable clamps requested size to max")
+    void bounded_clampsRequestedSizeToMax() {
+        Pageable pageable = PageRequestUtils.bounded(PageRequest.of(2, 250), 20, 50);
+
+        assertThat(pageable.getPageNumber()).isEqualTo(2);
+        assertThat(pageable.getPageSize()).isEqualTo(50);
+    }
+
+    @Test
+    @DisplayName("bounded pageable keeps only allowed requested sort orders")
+    void bounded_keepsOnlyAllowedRequestedSortOrders() {
+        Sort defaultSort = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("postId"));
+        Pageable requested = PageRequest.of(0, 20,
+                Sort.by(Sort.Order.asc("createdAt"), Sort.Order.desc("title")));
+
+        Pageable pageable = PageRequestUtils.bounded(requested, 20, defaultSort, Set.of("createdAt", "postId"));
+
+        assertThat(pageable.getSort()).isEqualTo(Sort.by(Sort.Order.asc("createdAt")));
+    }
+
+    @Test
+    @DisplayName("bounded pageable uses default sort when no allowed sort remains")
+    void bounded_usesDefaultSortWhenNoAllowedSortRemains() {
+        Sort defaultSort = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("postId"));
+        Pageable requested = PageRequest.of(0, 20, Sort.by(Sort.Order.asc("title")));
+
+        Pageable pageable = PageRequestUtils.bounded(requested, 20, defaultSort, Set.of("createdAt", "postId"));
+
+        assertThat(pageable.getSort()).isEqualTo(defaultSort);
+    }
+
+    @Test
     @DisplayName("filters sort by allowed properties")
     void of_filtersSortByAllowedProperties() {
         Sort sort = Sort.by(Sort.Order.asc("createdAt"), Sort.Order.desc("title"));
