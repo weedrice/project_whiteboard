@@ -1,6 +1,7 @@
 import { onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { messageApi } from '@/api/message'
+import { unwrapApiData } from '@/api/response'
 import { useLatestAsyncTask } from '@/composables/useLatestAsyncTask'
 import { usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import type { MailboxMessageViewModel } from '@/types'
@@ -44,8 +45,9 @@ export function useMailboxListState() {
         })
 
         if (data?.success) {
-            messages.value = data.data?.content.map(toMailboxMessageViewModel) || []
-            totalPages.value = data.data?.totalPages || 0
+            const messagePage = unwrapApiData(data)
+            messages.value = messagePage?.content.map(toMailboxMessageViewModel) || []
+            totalPages.value = messagePage?.totalPages || 0
         }
     }
 

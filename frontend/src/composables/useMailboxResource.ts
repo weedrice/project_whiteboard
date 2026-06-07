@@ -2,6 +2,7 @@ import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { AxiosError } from 'axios'
 import { messageApi, BLOCKED_BY_USER_CODE } from '@/api/message'
+import { unwrapApiData } from '@/api/response'
 import { useConfirm } from '@/composables/useConfirm'
 import { useMailboxListState } from '@/composables/useMailboxListState'
 import { useMessageSubmit } from '@/composables/useMessageSubmit'
@@ -85,8 +86,9 @@ export function useMailboxResource() {
             skipGlobalErrorHandler: true,
             signal: controller.signal
         })
-        if (data.success && data.data) {
-            return toMailboxMessageViewModel(data.data)
+        const message = unwrapApiData(data)
+        if (data.success && message) {
+            return toMailboxMessageViewModel(message)
         }
         return null
     }
