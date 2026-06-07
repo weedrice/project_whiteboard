@@ -1,10 +1,11 @@
 ﻿<script setup lang="ts">
-import { onMounted, onUnmounted, watch, computed } from 'vue'
+import { watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useKeyboardStore, type DropdownItem } from '@/stores/keyboard'
 import { User, LogOut, CreditCard, FileText, Clock, AlertTriangle, PlusSquare, ChevronDown, Bell, LayoutDashboard, Mail, Star, Slash, Smile } from 'lucide-vue-next'
 import { useUser } from '@/composables/useUser'
+import { useNumberedDropdownKeyboard } from '@/composables/useNumberedDropdownKeyboard'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import UserAvatar from '@/components/common/ui/UserAvatar.vue'
 import { formatInteger } from '@/utils/numberFormat'
@@ -59,6 +60,16 @@ const navigateTo = (route: string) => {
   router.push(route)
 }
 
+useNumberedDropdownKeyboard({
+  isOpen: () => props.isOpen,
+  items: menuItems,
+  onClose: () => {
+    emit('toggle')
+    keyboardStore.closeDropdown()
+  },
+  onSelect: (item) => navigateTo(item.route),
+})
+
 // 드롭다운 열림 시 keyboard store에 항목 등록
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
@@ -70,41 +81,6 @@ watch(() => props.isOpen, (isOpen) => {
   }
 }, { immediate: true })
 
-// 키보드 이벤트 핸들러
-const handleKeyDown = (event: KeyboardEvent) => {
-  if (!props.isOpen) return
-
-  // ESC로 닫기
-  if (event.key === 'Escape') {
-    event.preventDefault()
-    emit('toggle')
-    keyboardStore.closeDropdown()
-    return
-  }
-
-  // 숫자 키로 선택 (1-9: 인덱스 0-8, 0: 인덱스 9)
-  if (event.key >= '0' && event.key <= '9') {
-    let index = -1
-    if (event.key >= '1' && event.key <= '9') {
-      index = Number.parseInt(event.key, 10) - 1
-    } else if (event.key === '0') {
-      index = 9
-    }
-
-    if (index >= 0 && index < menuItems.value.length) {
-      event.preventDefault()
-      navigateTo(menuItems.value[index].route)
-    }
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('keydown', handleKeyDown)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeyDown)
-})
 </script>
 
 <template>

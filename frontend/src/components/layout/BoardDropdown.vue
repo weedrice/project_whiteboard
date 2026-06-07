@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, watch, onMounted, onUnmounted } from 'vue'
+import { computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ChevronDown, List } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useBoard } from '@/composables/useBoard'
+import { useNumberedDropdownKeyboard } from '@/composables/useNumberedDropdownKeyboard'
 import { useKeyboardStore, type DropdownItem } from '@/stores/keyboard'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
@@ -80,6 +81,16 @@ const navigateToBoard = (boardUrl: string) => {
   router.push(`/board/${boardUrl}`)
 }
 
+useNumberedDropdownKeyboard({
+  isOpen: () => props.isOpen,
+  items: displayItems,
+  onClose: () => {
+    emit('toggle')
+    keyboardStore.closeDropdown()
+  },
+  onSelect: (board) => navigateToBoard(board.boardUrl),
+})
+
 // 드롭다운 열릴 때 keyboard store에 항목 등록
 watch([() => props.isOpen, displayItems], ([isOpen, boards]) => {
   if (!isOpen) {
@@ -96,41 +107,6 @@ watch([() => props.isOpen, displayItems], ([isOpen, boards]) => {
   keyboardStore.setOpenDropdown(props.type, dropdownItems)
 }, { immediate: true })
 
-// 키보드 이벤트 핸들러
-const handleKeyDown = (event: KeyboardEvent) => {
-  if (!props.isOpen) return
-
-  // ESC로 닫기
-  if (event.key === 'Escape') {
-    event.preventDefault()
-    emit('toggle')
-    keyboardStore.closeDropdown()
-    return
-  }
-
-  // 숫자키로 선택
-  if (event.key >= '0' && event.key <= '9') {
-    let index = -1
-    if (event.key >= '1' && event.key <= '9') {
-      index = Number.parseInt(event.key, 10) - 1
-    } else if (event.key === '0') {
-      index = 9
-    }
-
-    if (index >= 0 && index < displayItems.value.length) {
-      event.preventDefault()
-      navigateToBoard(displayItems.value[index].boardUrl)
-    }
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('keydown', handleKeyDown)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeyDown)
-})
 </script>
 
 <template>
