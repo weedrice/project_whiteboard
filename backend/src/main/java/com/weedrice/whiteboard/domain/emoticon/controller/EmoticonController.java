@@ -10,13 +10,12 @@ import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.CurrentUserId;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -30,9 +29,6 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-
-import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.optionalUserId;
-import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
 
 @RestController
 @RequestMapping("/api/v1/emoticons")
@@ -84,59 +80,58 @@ public class EmoticonController {
 
     @GetMapping("/my")
     public ApiResponse<PageResponse<EmoticonMasterDto>> getMyEmoticons(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @CurrentUserId Long userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ApiResponses.page(emoticonService.getMyEmoticons(requiredUserId(userDetails), pageable(page, size)));
+        return ApiResponses.page(emoticonService.getMyEmoticons(userId, pageable(page, size)));
     }
 
     @GetMapping("/{emoticonId}")
     public ApiResponse<EmoticonMasterDto> getEmoticonDetail(
             @PathVariable Long emoticonId,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = optionalUserId(userDetails);
+            @CurrentUserId(required = false) Long userId) {
         return ApiResponse.success(emoticonService.getEmoticonDetail(emoticonId, userId));
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<EmoticonMasterDto> createEmoticon(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @CurrentUserId Long userId,
             @Valid @RequestBody EmoticonCreateRequest request) {
-        return ApiResponse.success(emoticonService.createEmoticon(requiredUserId(userDetails), request));
+        return ApiResponse.success(emoticonService.createEmoticon(userId, request));
     }
 
     @PutMapping("/{emoticonId}")
     public ApiResponse<EmoticonMasterDto> updateEmoticon(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @CurrentUserId Long userId,
             @PathVariable Long emoticonId,
             @Valid @RequestBody EmoticonUpdateRequest request) {
-        return ApiResponse.success(emoticonService.updateEmoticon(requiredUserId(userDetails), emoticonId, request));
+        return ApiResponse.success(emoticonService.updateEmoticon(userId, emoticonId, request));
     }
 
     @PatchMapping("/{emoticonId}/visibility")
     public ApiResponse<EmoticonMasterDto> toggleVisibility(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @CurrentUserId Long userId,
             @PathVariable Long emoticonId) {
-        return ApiResponse.success(emoticonService.toggleVisibility(requiredUserId(userDetails), emoticonId));
+        return ApiResponse.success(emoticonService.toggleVisibility(userId, emoticonId));
     }
 
     @DeleteMapping("/{emoticonId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public ApiResponse<Void> deleteEmoticon(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @CurrentUserId Long userId,
             @PathVariable Long emoticonId) {
-        emoticonService.deleteEmoticon(requiredUserId(userDetails), emoticonId);
+        emoticonService.deleteEmoticon(userId, emoticonId);
         return ApiResponses.ok();
     }
 
     @PostMapping("/{emoticonId}/images")
     public ApiResponse<EmoticonMasterDto> addImage(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @CurrentUserId Long userId,
             @PathVariable Long emoticonId,
             @Valid @RequestBody EmoticonImageAddRequest request) {
         return ApiResponse.success(emoticonService.addImage(
-                requiredUserId(userDetails),
+                userId,
                 emoticonId,
                 request.getFileId()));
     }
@@ -144,32 +139,31 @@ public class EmoticonController {
     @DeleteMapping("/images/{imageId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public ApiResponse<Void> deleteImage(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @CurrentUserId Long userId,
             @PathVariable Long imageId) {
-        emoticonService.deleteImage(requiredUserId(userDetails), imageId);
+        emoticonService.deleteImage(userId, imageId);
         return ApiResponses.ok();
     }
 
     @PostMapping("/{emoticonId}/purchase")
     public ApiResponse<EmoticonMasterDto> purchaseEmoticon(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @CurrentUserId Long userId,
             @PathVariable Long emoticonId) {
-        return ApiResponse.success(emoticonService.purchaseEmoticon(requiredUserId(userDetails), emoticonId));
+        return ApiResponse.success(emoticonService.purchaseEmoticon(userId, emoticonId));
     }
 
     @GetMapping("/purchased")
     public ApiResponse<PageResponse<EmoticonMasterDto>> getPurchasedEmoticons(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @CurrentUserId Long userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ApiResponses.page(emoticonService.getPurchasedEmoticons(requiredUserId(userDetails), pageable(page, size)));
+        return ApiResponses.page(emoticonService.getPurchasedEmoticons(userId, pageable(page, size)));
     }
 
     @GetMapping("/{emoticonId}/purchased")
     public ApiResponse<EmoticonPurchaseStatusResponse> hasPurchased(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @CurrentUserId(required = false) Long userId,
             @PathVariable Long emoticonId) {
-        Long userId = optionalUserId(userDetails);
         return ApiResponse.success(emoticonService.getPurchaseStatus(userId, emoticonId));
     }
 
