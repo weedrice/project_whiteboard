@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useSlots } from 'vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
+import { formatInteger } from '@/utils/numberFormat'
 
 withDefaults(defineProps<{
   page: number
@@ -30,7 +31,7 @@ const slots = useSlots()
   >
     <div class="nv-text-muted">
       <div v-if="summary">{{ summary }}</div>
-      <div v-else-if="totalElements !== undefined">총 {{ totalElements.toLocaleString() }}건</div>
+      <div v-else-if="totalElements !== undefined">총 {{ formatInteger(totalElements) }}건</div>
       <p v-if="loading" class="mt-1 text-xs nv-text-subtle">{{ loadingText }}</p>
       <slot name="description" />
     </div>

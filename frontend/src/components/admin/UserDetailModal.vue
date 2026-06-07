@@ -11,6 +11,7 @@ import DescriptionItem from '@/components/admin/detail/DescriptionItem.vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { useAdminUserDetailTabs } from '@/composables/useAdminUserDetailTabs'
 import { formatDate } from '@/utils/date'
+import { formatInteger } from '@/utils/numberFormat'
 import { isEmoticonOnlyContent, renderCommentContentHtml } from '@/utils/commentContent'
 import { applyImageFallback } from '@/utils/imageFallback'
 import {
@@ -116,15 +117,15 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
       <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
         <div class="rounded-lg border nv-border p-3">
           <div class="text-xs nv-text-subtle">작성 글</div>
-          <div class="mt-1 text-lg font-semibold nv-title">{{ userDetail.postCount.toLocaleString() }}</div>
+          <div class="mt-1 text-lg font-semibold nv-title">{{ formatInteger(userDetail.postCount) }}</div>
         </div>
         <div class="rounded-lg border nv-border p-3">
           <div class="text-xs nv-text-subtle">작성 댓글</div>
-          <div class="mt-1 text-lg font-semibold nv-title">{{ userDetail.commentCount.toLocaleString() }}</div>
+          <div class="mt-1 text-lg font-semibold nv-title">{{ formatInteger(userDetail.commentCount) }}</div>
         </div>
         <div class="rounded-lg border nv-border p-3">
           <div class="text-xs nv-text-subtle">구독 게시판</div>
-          <div class="mt-1 text-lg font-semibold nv-title">{{ userDetail.subscriptionCount.toLocaleString() }}</div>
+          <div class="mt-1 text-lg font-semibold nv-title">{{ formatInteger(userDetail.subscriptionCount) }}</div>
         </div>
         <div class="rounded-lg border nv-border p-3">
           <div class="text-xs nv-text-subtle">신고/제재</div>

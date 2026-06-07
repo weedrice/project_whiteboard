@@ -6,6 +6,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import { DEFAULT_EMOTICON_IMAGE_URL, applyImageFallback } from '@/utils/imageFallback'
+import { formatInteger } from '@/utils/numberFormat'
 import { useEmoticonListResource } from '@/composables/useEmoticonListResource'
 import type { EmoticonSearchParams } from '@/types/emoticon'
 
@@ -129,7 +130,7 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
             <span class="block text-sm font-medium nv-title truncate">{{ emoticon.name }}</span>
             <span class="block text-xs nv-text-subtle truncate">{{ emoticon.creatorName }}</span>
             <span class="block text-xs nv-accent-text mt-1">
-              판매 {{ emoticon.purchaseCount?.toLocaleString() || 0 }}회
+              판매 {{ formatInteger(emoticon.purchaseCount) }}회
             </span>
           </span>
         </button>
@@ -143,7 +144,7 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
     <section>
       <div class="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
         <h2 class="text-lg font-semibold nv-title">
-          전체 노비콘 <span class="text-sm font-normal nv-text-subtle">({{ totalElements.toLocaleString() }}개)</span>
+          전체 노비콘 <span class="text-sm font-normal nv-text-subtle">({{ formatInteger(totalElements) }}개)</span>
         </h2>
         <div class="flex flex-wrap gap-2">
           <button
@@ -202,7 +203,7 @@ const sortOptions: Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; l
             <span class="block text-sm font-medium nv-title truncate">{{ emoticon.name }}</span>
             <span class="block text-xs nv-text-subtle truncate">{{ emoticon.creatorName }}</span>
             <span class="block text-xs nv-accent-text mt-1">
-              판매 {{ emoticon.purchaseCount?.toLocaleString() || 0 }}회
+              판매 {{ formatInteger(emoticon.purchaseCount) }}회
             </span>
           </span>
         </button>

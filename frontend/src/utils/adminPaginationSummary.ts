@@ -1,3 +1,5 @@
+import { formatInteger } from '@/utils/numberFormat'
+
 export type AdminPaginationSummaryPageFormat = 'parenthesized' | 'slash'
 
 type AdminPaginationSummaryOptions = {
@@ -13,7 +15,7 @@ export function formatAdminPaginationSummary(
   options: AdminPaginationSummaryOptions = {},
 ) {
   const unit = options.unit ?? '건'
-  const summary = `총 ${totalElements.toLocaleString()}${unit}`
+  const summary = `총 ${formatInteger(totalElements)}${unit}`
   const includePage = options.includePage ?? (
     options.page !== undefined
     && options.totalPages !== undefined

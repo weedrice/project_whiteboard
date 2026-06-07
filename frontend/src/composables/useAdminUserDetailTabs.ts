@@ -1,6 +1,7 @@
 import { computed, ref, watch, type Ref } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { formatDate } from '@/utils/date'
+import { formatInteger } from '@/utils/numberFormat'
 import type { AdminUserCommentItem, AdminUserPostItem, AdminUserSubscriptionItem } from '@/types'
 
 export type AdminUserDetailTab = 'posts' | 'comments' | 'subscriptions'
@@ -136,7 +137,7 @@ function toPostViewItem(post: AdminUserPostItem): AdminUserPostViewItem {
         badges: toPostBadges(post),
         metaText: `${post.boardName} · /${post.boardUrl} · ${formatDate(post.createdAt)}`,
         categoryText: post.categoryName ? `카테고리: ${post.categoryName}` : '',
-        statsText: `조회 ${post.viewCount.toLocaleString()} · 추천 ${post.likeCount.toLocaleString()} · 댓글 ${post.commentCount.toLocaleString()}`
+        statsText: `조회 ${formatInteger(post.viewCount)} · 추천 ${formatInteger(post.likeCount)} · 댓글 ${formatInteger(post.commentCount)}`
     }
 }
 
@@ -146,7 +147,7 @@ function toCommentViewItem(comment: AdminUserCommentItem): AdminUserCommentViewI
         content: comment.content,
         badges: toCommentBadges(comment),
         metaText: `${comment.post.title} · /${comment.post.boardUrl} · ${formatDate(comment.createdAt)}`,
-        statsText: `좋아요 ${comment.likeCount.toLocaleString()} · depth ${comment.depth}`
+        statsText: `좋아요 ${formatInteger(comment.likeCount)} · depth ${comment.depth}`
     }
 }
 
