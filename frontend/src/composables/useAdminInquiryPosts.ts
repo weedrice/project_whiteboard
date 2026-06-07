@@ -2,6 +2,7 @@ import { computed, ref, watch } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { adminApi } from '@/api/admin'
 import { adminInquiryQueryKeys } from '@/composables/adminQueryKeys'
+import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import { formatDateTimeOrDash } from '@/utils/date'
 import { renderPostContentHtml } from '@/utils/postContentHtml'
 import { stripHtmlToText, truncateWithEllipsis } from '@/utils/textExcerpt'
@@ -75,13 +76,19 @@ export function toAdminInquiryPage(page: PageResponse<AdminInquirySummary>): Pag
 
 export function useAdminInquiryPosts() {
   const queryClient = useQueryClient()
-  const page = ref(0)
-  const size = ref(20)
+  const {
+    page,
+    size,
+    handlePageChange,
+    resetPage,
+  } = usePaginatedQueryState({
+    initialSize: 20,
+  })
   const sort = ref('createdAt,desc')
   const selectedPostId = ref<number | null>(null)
 
   watch(sort, () => {
-    page.value = 0
+    resetPage()
   })
 
   const {
@@ -120,13 +127,11 @@ export function useAdminInquiryPosts() {
     enabled: computed(() => selectedPostId.value !== null)
   })
 
-  const posts = computed(() => data.value?.content || [])
-  const totalPages = computed(() => data.value?.totalPages || 0)
-  const totalElements = computed(() => data.value?.totalElements || 0)
-
-  function handlePageChange(nextPage: number) {
-    page.value = nextPage
-  }
+  const {
+    items: posts,
+    totalPages,
+    totalElements,
+  } = usePageResponseState(data, page)
 
   function openDetail(postId: number) {
     selectedPostId.value = postId
