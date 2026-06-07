@@ -1,6 +1,7 @@
 import { computed, ref, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { boardApi } from '@/api/board'
+import { unwrapApiData } from '@/api/response'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToastStore } from '@/stores/toast'
 import logger from '@/utils/logger'
@@ -33,7 +34,7 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
         try {
             const { data } = await boardApi.getCategories(boardUrl.value)
             if (data.success) {
-                categories.value = data.data.sort((left, right) => left.sortOrder - right.sortOrder)
+                categories.value = unwrapApiData(data).sort((left, right) => left.sortOrder - right.sortOrder)
             }
         } catch (err: unknown) {
             logger.error('Failed to load categories:', err)
@@ -53,7 +54,7 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
                 sortOrder: categories.value.length + 1,
             })
             if (data.success) {
-                categories.value.push(data.data)
+                categories.value.push(unwrapApiData(data))
                 newCategoryName.value = ''
                 newCategoryRole.value = 'USER'
             }
@@ -104,7 +105,7 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
             if (data.success) {
                 const index = categories.value.findIndex(item => item.categoryId === category.categoryId)
                 if (index !== -1) {
-                    categories.value[index] = data.data
+                    categories.value[index] = unwrapApiData(data)
                 }
                 cancelEdit()
             }
