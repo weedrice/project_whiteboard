@@ -70,7 +70,7 @@ public class UserBlockService {
     public Page<BlockedUserResponse> getBlockedUsers(Long userId, Pageable pageable) {
         User user = userReadableResolver.resolve(userId);
 
-        Pageable safePageable = normalizeBlockPageable(pageable);
+        Pageable safePageable = PageRequestUtils.of(pageable, DEFAULT_BLOCK_PAGE_SIZE);
         Page<UserBlock> blocks = userBlockRepository.findPageByUserWithTarget(user, safePageable);
 
         return blocks.map(block -> new BlockedUserResponse(
@@ -108,13 +108,6 @@ public class UserBlockService {
         Set<Long> blockedUserIds = new LinkedHashSet<>(
                 userBlockRepository.findBlockedUserIdsEitherDirectionByUserId(userId));
         return List.copyOf(blockedUserIds);
-    }
-
-    private Pageable normalizeBlockPageable(Pageable pageable) {
-        if (pageable == null || pageable.isUnpaged()) {
-            return PageRequestUtils.of(0, DEFAULT_BLOCK_PAGE_SIZE);
-        }
-        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize());
     }
 
     private void validateUserExists(Long userId) {

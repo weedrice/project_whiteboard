@@ -79,6 +79,16 @@ class PageRequestUtilsTest {
     }
 
     @Test
+    @DisplayName("pageable overload without sort uses unsorted default")
+    void of_pageableOverloadWithoutSortUsesUnsortedDefault() {
+        Pageable pageable = PageRequestUtils.of(Pageable.unpaged(), 20);
+
+        assertThat(pageable.getPageNumber()).isZero();
+        assertThat(pageable.getPageSize()).isEqualTo(20);
+        assertThat(pageable.getSort()).isEqualTo(Sort.unsorted());
+    }
+
+    @Test
     @DisplayName("filters sort by allowed properties")
     void of_filtersSortByAllowedProperties() {
         Sort sort = Sort.by(Sort.Order.asc("createdAt"), Sort.Order.desc("title"));

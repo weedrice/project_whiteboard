@@ -59,7 +59,7 @@ public class PointService {
 
     public PointHistoryResponse getPointHistories(@NonNull Long userId, String type, Pageable pageable) {
         String normalizedType = normalizeHistoryType(type);
-        Pageable safePageable = normalizeHistoryPageable(pageable);
+        Pageable safePageable = PageRequestUtils.of(pageable, DEFAULT_HISTORY_PAGE_SIZE);
         Page<PointHistory> historyPage;
         if (normalizedType != null) {
             historyPage = pointHistoryRepository.findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc(
@@ -207,13 +207,6 @@ public class PointService {
         if (balanceAfter > Integer.MAX_VALUE || balanceAfter < Integer.MIN_VALUE) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
-    }
-
-    private Pageable normalizeHistoryPageable(Pageable pageable) {
-        if (pageable == null || pageable.isUnpaged()) {
-            return PageRequestUtils.of(0, DEFAULT_HISTORY_PAGE_SIZE);
-        }
-        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize());
     }
 
     private String normalizeHistoryType(String type) {
