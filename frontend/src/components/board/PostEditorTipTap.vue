@@ -16,6 +16,7 @@ import { Video } from '@/extensions/tiptap-video'
 import PostEditorColorPopover from '@/components/board/editor/PostEditorColorPopover.vue'
 import PostEditorImageAltPopover from '@/components/board/editor/PostEditorImageAltPopover.vue'
 import PostEditorLinkPopover from '@/components/board/editor/PostEditorLinkPopover.vue'
+import PostEditorPopoverMask from '@/components/board/editor/PostEditorPopoverMask.vue'
 import PostEditorSlashMenu from '@/components/board/editor/PostEditorSlashMenu.vue'
 import PostEditorTablePopover from '@/components/board/editor/PostEditorTablePopover.vue'
 import PostEditorToolbar from '@/components/board/editor/PostEditorToolbar.vue'
@@ -717,24 +718,22 @@ onBeforeUnmount(() => {
       @dismiss-failed-image-upload="dismissFailedImageUpload"
     />
 
-    <Teleport to="body">
-      <div v-if="showSlashMenu" class="link-popover-mask" @click.self="showSlashMenu = false" @keydown.enter.stop @keydown.escape.stop.prevent="showSlashMenu = false">
-        <div id="editor-slash-dialog" ref="slashPopoverRef" class="link-popover slash-popover" :style="slashPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-slash-dialog-title">
-          <div class="mb-3">
-            <p class="text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">{{ t('board.writePost.toolbar.slashMenu') }}</p>
-            <h3 id="editor-slash-dialog-title" class="text-base font-semibold text-[var(--nv-ink)]">{{ t('board.writePost.toolbar.insertBlock') }}</h3>
-          </div>
-          <PostEditorSlashMenu
-            :actions="slashActions"
-            :active-index="slashActiveIndex"
-            @select="applySlashAction"
-            @move="moveSlashSelection"
-            @set-active="setSlashSelection"
-            @close="showSlashMenu = false"
-          />
+    <PostEditorPopoverMask :open="showSlashMenu" @close="showSlashMenu = false">
+      <div id="editor-slash-dialog" ref="slashPopoverRef" class="link-popover slash-popover" :style="slashPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-slash-dialog-title">
+        <div class="mb-3">
+          <p class="text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">{{ t('board.writePost.toolbar.slashMenu') }}</p>
+          <h3 id="editor-slash-dialog-title" class="text-base font-semibold text-[var(--nv-ink)]">{{ t('board.writePost.toolbar.insertBlock') }}</h3>
         </div>
+        <PostEditorSlashMenu
+          :actions="slashActions"
+          :active-index="slashActiveIndex"
+          @select="applySlashAction"
+          @move="moveSlashSelection"
+          @set-active="setSlashSelection"
+          @close="showSlashMenu = false"
+        />
       </div>
-    </Teleport>
+    </PostEditorPopoverMask>
 
     <Teleport to="body">
       <div v-if="showColorPanel" id="editor-color-dialog" ref="colorPanelRef" class="color-panel" :style="colorPosition.popoverStyle.value" role="dialog" aria-labelledby="editor-color-dialog-title" @keydown.enter.stop @keydown.escape.stop.prevent="closeColorPanel()">
@@ -751,53 +750,47 @@ onBeforeUnmount(() => {
       </div>
     </Teleport>
 
-    <Teleport to="body">
-      <div v-if="showLinkPopover" class="link-popover-mask" @click.self="closeLinkPopover" @keydown.enter.stop @keydown.escape.stop.prevent="closeLinkPopover">
-        <div ref="linkPopoverRef" class="link-popover" :style="linkPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-link-dialog-title">
-          <h3 id="editor-link-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.linkDialog') }}</h3>
-          <PostEditorLinkPopover
-            :url="linkUrl"
-            :text="linkText"
-            :can-remove="editor?.isActive('link') ?? false"
-            @apply="applyLink"
-            @close="closeLinkPopover"
-            @remove="removeLink"
-          />
-        </div>
+    <PostEditorPopoverMask :open="showLinkPopover" @close="closeLinkPopover">
+      <div ref="linkPopoverRef" class="link-popover" :style="linkPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-link-dialog-title">
+        <h3 id="editor-link-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.linkDialog') }}</h3>
+        <PostEditorLinkPopover
+          :url="linkUrl"
+          :text="linkText"
+          :can-remove="editor?.isActive('link') ?? false"
+          @apply="applyLink"
+          @close="closeLinkPopover"
+          @remove="removeLink"
+        />
       </div>
-    </Teleport>
+    </PostEditorPopoverMask>
 
-    <Teleport to="body">
-      <div v-if="showImageAltPopover" class="link-popover-mask" @click.self="closeImageAltPopover" @keydown.enter.stop @keydown.escape.stop.prevent="closeImageAltPopover">
-        <div ref="imageAltPopoverRef" class="link-popover image-alt-popover" :style="imageAltPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-image-alt-dialog-title">
-          <h3 id="editor-image-alt-dialog-title" class="sr-only">{{ t('board.writePost.imageAlt.title') }}</h3>
-          <PostEditorImageAltPopover
-            :alt="imageAltText"
-            @apply="applyImageAlt"
-            @clear="clearImageAlt"
-            @close="closeImageAltPopover"
-          />
-        </div>
+    <PostEditorPopoverMask :open="showImageAltPopover" @close="closeImageAltPopover">
+      <div ref="imageAltPopoverRef" class="link-popover image-alt-popover" :style="imageAltPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-image-alt-dialog-title">
+        <h3 id="editor-image-alt-dialog-title" class="sr-only">{{ t('board.writePost.imageAlt.title') }}</h3>
+        <PostEditorImageAltPopover
+          :alt="imageAltText"
+          @apply="applyImageAlt"
+          @clear="clearImageAlt"
+          @close="closeImageAltPopover"
+        />
       </div>
-    </Teleport>
+    </PostEditorPopoverMask>
 
-    <Teleport to="body">
-      <div v-if="showTablePopover" class="link-popover-mask" @click.self="closeTablePopover" @keydown.enter.stop @keydown.escape.stop.prevent="closeTablePopover">
-        <div ref="tablePopoverRef" class="link-popover table-popover" :style="tablePosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-table-dialog-title">
-          <h3 id="editor-table-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.tableDialog') }}</h3>
-          <PostEditorTablePopover
-            :rows="tableRows"
-            :cols="tableCols"
-            :header-row="tableHeaderRow"
-            @update:rows="tableRows = $event"
-            @update:cols="tableCols = $event"
-            @update:header-row="tableHeaderRow = $event"
-            @apply="applyTable"
-            @close="closeTablePopover"
-          />
-        </div>
+    <PostEditorPopoverMask :open="showTablePopover" @close="closeTablePopover">
+      <div ref="tablePopoverRef" class="link-popover table-popover" :style="tablePosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-table-dialog-title">
+        <h3 id="editor-table-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.tableDialog') }}</h3>
+        <PostEditorTablePopover
+          :rows="tableRows"
+          :cols="tableCols"
+          :header-row="tableHeaderRow"
+          @update:rows="tableRows = $event"
+          @update:cols="tableCols = $event"
+          @update:header-row="tableHeaderRow = $event"
+          @apply="applyTable"
+          @close="closeTablePopover"
+        />
       </div>
-    </Teleport>
+    </PostEditorPopoverMask>
 
     <div
       class="tiptap-content flex-1 min-h-0 overflow-auto cursor-text"
