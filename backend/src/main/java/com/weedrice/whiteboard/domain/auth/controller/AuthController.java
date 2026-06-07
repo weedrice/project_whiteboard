@@ -25,7 +25,7 @@ import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.annotation.ApiCommonResponses;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.CurrentUserId;
 import com.weedrice.whiteboard.global.security.RefreshTokenCookieWriter;
 import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
@@ -40,11 +40,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
-
-import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.optionalUserId;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -180,8 +177,7 @@ public class AuthController {
     @PostMapping("/email/send-verification")
     public ResponseEntity<ApiResponse<Void>> sendVerificationCode(
             @Valid @RequestBody EmailVerificationRequest request,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long currentUserId = optionalUserId(userDetails);
+            @CurrentUserId(required = false) Long currentUserId) {
         verificationCodeService.sendVerificationCode(
                 request.getEmail(),
                 request.getPurpose().toPurpose(),

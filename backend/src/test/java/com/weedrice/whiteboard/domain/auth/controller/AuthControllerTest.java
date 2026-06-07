@@ -11,8 +11,11 @@ import com.weedrice.whiteboard.domain.auth.service.AuthService;
 import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadata;
 import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadataResolver;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
+import com.weedrice.whiteboard.global.config.CurrentUserIdWebMvcConfig;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.security.CurrentUserIdArgumentResolver;
+import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.RefreshTokenCookieWriter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.Cookie;
@@ -28,11 +31,17 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.Collections;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -54,7 +63,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration.class
     })
 @TestPropertySource(properties = "jwt.refresh-token.expiration=1209600000")
-@Import(RefreshTokenCookieWriter.class)
+@Import({
+        RefreshTokenCookieWriter.class,
+        CurrentUserIdWebMvcConfig.class,
+        CurrentUserIdArgumentResolver.class
+})
 class AuthControllerTest {
 
     @Autowired
@@ -92,6 +105,7 @@ class AuthControllerTest {
 
     @BeforeEach
     void setUp() throws Exception {
+        SecurityContextHolder.clearContext();
         when(ipBlockInterceptor.preHandle(any(), any(), any())).thenReturn(true);
         when(refererCheckInterceptor.preHandle(any(), any(), any())).thenReturn(true);
         when(rateLimitInterceptor.preHandle(any(), any(), any())).thenReturn(true);
@@ -206,6 +220,47 @@ class AuthControllerTest {
 
     @Test
     @DisplayName("이메일 인증 요청은 100자를 초과하는 이메일을 거부한다")
+    void sendVerificationCode_anonymousPassesNullUserId() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/email/send-verification")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "test@example.com",
+                                  "purpose": "SIGNUP"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(verificationCodeService)
+                .sendVerificationCode(eq("test@example.com"), eq(VerificationPurpose.SIGNUP), isNull());
+    }
+
+    @Test
+    @DisplayName("email verification request passes current user id for authenticated user")
+    void sendVerificationCode_authenticatedPassesUserId() throws Exception {
+        CustomUserDetails userDetails = new CustomUserDetails(7L, "user@example.com", "password",
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities()));
+
+        mockMvc.perform(post("/api/v1/auth/email/send-verification")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "new@example.com",
+                                  "purpose": "CHANGE_EMAIL"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(verificationCodeService)
+                .sendVerificationCode(eq("new@example.com"), eq(VerificationPurpose.CHANGE_EMAIL), eq(7L));
+    }
+
+    @Test
+    @DisplayName("email verification request passes null user id for anonymous user")
     void sendVerificationCode_rejectsTooLongEmail() throws Exception {
         mockMvc.perform(post("/api/v1/auth/email/send-verification")
                         .contentType(MediaType.APPLICATION_JSON)
