@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
-import { useNotification } from '../useNotification'
+import { resetNotificationStreamStateForTest, useNotification } from '../useNotification'
 
 const mocks = vi.hoisted(() => {
     const notificationApi = {
@@ -138,6 +138,7 @@ const flushAsync = async (cycles = 4) => {
 
 describe('useNotification', () => {
     beforeEach(() => {
+        resetNotificationStreamStateForTest()
         setActivePinia(createPinia())
         vi.clearAllMocks()
         mocks.queryOptions.length = 0
@@ -398,6 +399,20 @@ describe('useNotification', () => {
         expect(mocks.notificationApi.openStream).toHaveBeenCalledWith('test-token', expect.any(AbortSignal))
         expect(fetchMock).toHaveBeenCalledTimes(1)
         closeSse()
+    })
+
+    it('prevents duplicate streams across composable instances', () => {
+        const fetchMock = vi.fn(() => new Promise(() => undefined))
+        vi.stubGlobal('fetch', fetchMock)
+
+        const first = useNotification()
+        const second = useNotification()
+        first.connectToSse()
+        second.connectToSse()
+
+        expect(mocks.notificationApi.openStream).toHaveBeenCalledTimes(1)
+        expect(fetchMock).toHaveBeenCalledTimes(1)
+        first.closeSse()
     })
 
     it('schedules reconnect after refresh success', async () => {

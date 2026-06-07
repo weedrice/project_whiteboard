@@ -4,6 +4,8 @@ import BaseTable, { type TableColumn } from '@/components/common/ui/BaseTable.vu
 import AdminPaginationFooter from '@/components/admin/AdminPaginationFooter.vue'
 
 type AdminTableRowKeyResolver<TItem> = Extract<keyof TItem, string> | ((item: TItem, index: number) => string | number)
+type AdminTableRowActionLabelResolver<TItem> = string | ((item: TItem, index: number) => string)
+type AdminTableRowActivationEvent = 'row-click' | 'row-dblclick'
 
 const props = withDefaults(defineProps<{
   columns: TableColumn[]
@@ -12,6 +14,9 @@ const props = withDefaults(defineProps<{
   emptyText?: string
   rowKey?: AdminTableRowKeyResolver<T>
   rowClass?: (item: T) => string
+  interactiveRows?: boolean
+  rowActionLabel?: AdminTableRowActionLabelResolver<T>
+  rowActivationEvent?: AdminTableRowActivationEvent
   page?: number
   totalPages?: number
   totalElements?: number
@@ -25,6 +30,9 @@ const props = withDefaults(defineProps<{
   emptyText: 'No data available',
   rowKey: undefined,
   rowClass: undefined,
+  interactiveRows: false,
+  rowActionLabel: undefined,
+  rowActivationEvent: 'row-click',
   page: 0,
   totalPages: 0,
   totalElements: undefined,
@@ -55,6 +63,9 @@ const tableSlotNames = computed(() => Object.keys(slots).filter((name) => !name.
     :empty-text="emptyText"
     :row-key="rowKey"
     :row-class="rowClass"
+    :interactive-rows="interactiveRows"
+    :row-action-label="rowActionLabel"
+    :row-activation-event="rowActivationEvent"
     @sort="emit('sort', $event)"
     @row-click="emit('rowClick', $event)"
     @row-dblclick="emit('rowDblclick', $event)"

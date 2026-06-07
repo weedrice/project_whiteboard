@@ -198,6 +198,9 @@ const columns = computed(() => [
         row-key="userId"
         :loading="isLoading"
         :empty-text="t('common.noData')"
+        interactive-rows
+        row-activation-event="row-dblclick"
+        :row-action-label="(item) => `${item.displayName || item.loginId} 상세 보기`"
         :page="currentPage"
         :total-pages="totalPages"
         :summary="formatAdminPaginationSummary(totalCount, {

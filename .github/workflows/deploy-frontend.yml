@@ -1,13 +1,21 @@
-﻿name: Deploy Frontend
+name: Deploy Frontend
 
 on:
   push:
     branches: ["main"]
   workflow_dispatch:
 
+concurrency:
+  group: deploy-frontend-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -24,6 +32,18 @@ jobs:
         run: npm ci
         working-directory: frontend
 
+      - name: Lint frontend
+        run: npm run lint:ci
+        working-directory: frontend
+
+      - name: Type check frontend
+        run: npm run type-check
+        working-directory: frontend
+
+      - name: Test frontend
+        run: npm run test:run
+        working-directory: frontend
+
       - name: Build frontend
         run: npm run build:seo
         working-directory: frontend
@@ -31,35 +51,59 @@ jobs:
           SITEMAP_SITE_URL: https://noviis.kr
           SITEMAP_API_BASE_URL: https://noviis.kr/api/v1
 
-      - name: Clean frontend directory on EC2
+      - name: Prepare frontend release directory
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            rm -rf /var/www/app/*
-            mkdir -p /var/www/app
+            set -e
+            RELEASE_DIR="/var/www/releases/frontend/${{ github.sha }}"
+            rm -rf "$RELEASE_DIR"
+            mkdir -p "$RELEASE_DIR"
 
-      - name: Upload frontend build
+      - name: Upload frontend build to release
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "frontend/dist/*"
-          target: "/var/www/app"
+          target: "/var/www/releases/frontend/${{ github.sha }}"
           strip_components: 2
 
-      - name: Verify frontend deploy
+      - name: Activate frontend release
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            set -e
+            RELEASE_DIR="/var/www/releases/frontend/${{ github.sha }}"
+            test -f "$RELEASE_DIR/index.html"
+            grep assets "$RELEASE_DIR/index.html"
+
+            if [ -L /var/www/app ]; then
+              ln -sfn "$RELEASE_DIR" /var/www/app.next
+              mv -Tf /var/www/app.next /var/www/app
+            else
+              BACKUP_DIR="/var/www/app.previous.$(date +%s)"
+              if [ -e /var/www/app ]; then
+                mv /var/www/app "$BACKUP_DIR"
+              fi
+              if ! ln -s "$RELEASE_DIR" /var/www/app; then
+                if [ -e "$BACKUP_DIR" ]; then
+                  mv "$BACKUP_DIR" /var/www/app
+                fi
+                exit 1
+              fi
+            fi
+
             ls -al /var/www/app
             grep assets /var/www/app/index.html
+            find /var/www/releases/frontend -mindepth 1 -maxdepth 1 -type d | sort | head -n -5 | xargs -r rm -rf
 
       - name: Verify SEO after deploy
         run: npm run seo:verify

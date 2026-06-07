@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import { configureAuthSessionEffects, useAuthStore } from '../auth'
+import { configureAuthSessionEffects, registerAuthStorageSync, useAuthStore } from '../auth'
 import { authApi } from '@/api/auth'
 import logger from '@/utils/logger'
+import { ACCESS_TOKEN_KEY } from '@/utils/authTokenStorage'
 
 // Mock dependencies
 vi.mock('@/api/auth', () => ({
@@ -249,6 +250,53 @@ describe('Auth Store', () => {
             expect(store.accessToken).toBe('new-access')
             expect(localStorage.getItem('accessToken')).toBe('new-access')
             expect(localStorage.getItem('refreshToken')).toBeNull()
+        })
+    })
+
+    describe('storage synchronization', () => {
+        it('hydrates state from a token changed in another tab', async () => {
+            localStorage.setItem(ACCESS_TOKEN_KEY, 'external-token')
+            const mockUser = { id: 2, username: 'synced', role: 'USER', theme: 'DARK' }
+            vi.mocked(authApi.getMe).mockResolvedValue({
+                data: { success: true, data: mockUser }
+            } as any)
+
+            const result = await store.syncFromStoredAccessToken('external-token')
+
+            expect(result).toBe(true)
+            expect(store.accessToken).toBe('external-token')
+            expect(store.user).toEqual(mockUser)
+            expect(authApi.getMe).toHaveBeenCalledWith({ skipAuthRefresh: true })
+            expect(mockSyncThemeFromUser).toHaveBeenCalledWith(mockUser)
+        })
+
+        it('clears reactive state when another tab removes the token', async () => {
+            store.accessToken = 'token'
+            store.user = { id: 1, username: 'test', role: 'USER' } as any
+
+            const result = await store.syncFromStoredAccessToken(null)
+
+            expect(result).toBe(false)
+            expect(store.accessToken).toBeNull()
+            expect(store.user).toBeNull()
+            expect(authApi.logout).not.toHaveBeenCalled()
+        })
+
+        it('registers a storage event listener for cross-tab logout', () => {
+            store.accessToken = 'token'
+            store.user = { id: 1, username: 'test', role: 'USER' } as any
+            const stop = registerAuthStorageSync(store)
+
+            window.dispatchEvent(new StorageEvent('storage', {
+                key: ACCESS_TOKEN_KEY,
+                newValue: null,
+                storageArea: localStorage,
+            }))
+
+            stop()
+
+            expect(store.accessToken).toBeNull()
+            expect(store.user).toBeNull()
         })
     })
 

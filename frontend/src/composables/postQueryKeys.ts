@@ -8,8 +8,8 @@ export const postQueryKeys = {
         incrementView = true,
     ) => ['post', postId, { incrementView }] as const,
     lists: ['posts'] as const,
-    boardPrefix: ['board'] as const,
-    boardPosts: (boardUrl: string) => ['board', boardUrl, 'posts'] as const,
+    boardPostsRoot: ['board', 'posts'] as const,
+    boardPosts: (boardUrl: string) => ['board', 'posts', boardUrl] as const,
 }
 
 export const postDetailQueryKey = (

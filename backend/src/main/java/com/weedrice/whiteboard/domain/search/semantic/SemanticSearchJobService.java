@@ -17,6 +17,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SemanticSearchJobService {
     private static final int MAX_ERROR_MESSAGE_LENGTH = 500;
+    private static final int REINDEX_ENQUEUE_CHUNK_SIZE = 500;
     private static final String STALE_PROCESSING_ERROR = "Processing lease expired";
 
     private final SemanticSearchProperties properties;
@@ -38,18 +39,17 @@ public class SemanticSearchJobService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int enqueuePostComments(Long postId) {
-        List<Long> commentIds = jobRepository.findActiveCommentIdsByPostId(postId);
-        jobRepository.enqueueAll("COMMENT", commentIds, SemanticSearchIndexAction.UPSERT);
-        return commentIds.size();
+        return enqueueInChunks("COMMENT",
+                (lastSeenId, limit) -> jobRepository.findActiveCommentIdsByPostIdAfter(postId, lastSeenId, limit));
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int enqueueBoardContent(Long boardId) {
-        List<Long> postIds = jobRepository.findActivePostIdsByBoardId(boardId);
-        List<Long> commentIds = jobRepository.findActiveCommentIdsByBoardId(boardId);
-        jobRepository.enqueueAll("POST", postIds, SemanticSearchIndexAction.UPSERT);
-        jobRepository.enqueueAll("COMMENT", commentIds, SemanticSearchIndexAction.UPSERT);
-        return postIds.size() + commentIds.size();
+        int postCount = enqueueInChunks("POST",
+                (lastSeenId, limit) -> jobRepository.findActivePostIdsByBoardIdAfter(boardId, lastSeenId, limit));
+        int commentCount = enqueueInChunks("COMMENT",
+                (lastSeenId, limit) -> jobRepository.findActiveCommentIdsByBoardIdAfter(boardId, lastSeenId, limit));
+        return postCount + commentCount;
     }
 
     public int processPendingJobs() {
@@ -115,6 +115,26 @@ public class SemanticSearchJobService {
         return LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
     }
 
+    private int enqueueInChunks(String contentType, ReindexIdPageFetcher pageFetcher) {
+        int total = 0;
+        Long lastSeenId = 0L;
+
+        while (true) {
+            List<Long> contentIds = pageFetcher.fetchAfter(lastSeenId, REINDEX_ENQUEUE_CHUNK_SIZE);
+            if (contentIds.isEmpty()) {
+                return total;
+            }
+
+            jobRepository.enqueueAll(contentType, contentIds, SemanticSearchIndexAction.UPSERT);
+            total += contentIds.size();
+            lastSeenId = contentIds.get(contentIds.size() - 1);
+
+            if (contentIds.size() < REINDEX_ENQUEUE_CHUNK_SIZE) {
+                return total;
+            }
+        }
+    }
+
     private String summarizeError(Exception ex) {
         String message = ex.getClass().getSimpleName();
         if (ex.getMessage() != null && !ex.getMessage().isBlank()) {
@@ -124,5 +144,10 @@ public class SemanticSearchJobService {
             return message;
         }
         return message.substring(0, message.offsetByCodePoints(0, MAX_ERROR_MESSAGE_LENGTH));
+    }
+
+    @FunctionalInterface
+    private interface ReindexIdPageFetcher {
+        List<Long> fetchAfter(Long lastSeenId, int limit);
     }
 }

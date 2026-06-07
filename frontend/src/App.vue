@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { onMounted, watch, computed, defineAsyncComponent, onErrorCaptured } from 'vue'
+import { onMounted, onUnmounted, watch, computed, defineAsyncComponent, onErrorCaptured } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import { useQueryClient } from '@tanstack/vue-query'
-import { useAuthStore } from '@/stores/auth'
+import { registerAuthStorageSync, useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { userApi } from '@/api/user'
 import { unwrapApiData } from '@/api/response'
@@ -169,9 +169,11 @@ const configStore = useConfigStore()
 
 // Initialize global shortcuts
 const { registerShortcut } = useGlobalShortcuts()
+let stopAuthStorageSync: (() => void) | null = null
 
 // Register search-bar focus shortcut (/)
 onMounted(() => {
+    stopAuthStorageSync = registerAuthStorageSync(authStore)
     configStore.fetchPublicConfigs()
     if (authStore.isAuthenticated) {
         loadSettings()
@@ -189,6 +191,11 @@ onMounted(() => {
         },
         description: 'Focus search bar'
     })
+})
+
+onUnmounted(() => {
+    stopAuthStorageSync?.()
+    stopAuthStorageSync = null
 })
 
 onErrorCaptured((err, _instance, info) => {

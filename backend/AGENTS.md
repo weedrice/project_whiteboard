@@ -106,14 +106,15 @@ Common production variables used by this module:
 - `AWS_SECRET_KEY`
 - `AWS_S3_REGION`
 - `S3_BUCKET`
-- `RATE_LIMIT_TRUST_PROXY_HEADERS`
+- `CLIENT_IP_TRUST_PROXY_HEADERS`
+- `CLIENT_IP_TRUSTED_PROXIES`
 - `RATE_LIMIT_BUCKET_CACHE_MAX_SIZE`
 - `RATE_LIMIT_BUCKET_CACHE_TTL_MINUTES`
-- `app.agent.internal-secret` when internal agent calls must be authenticated via header rather than loopback
+- `AGENT_INTERNAL_SECRET`
 
 Important implementation note:
 
-- `EnvironmentValidator` currently checks some AWS SES variables in production. If email or environment validation logic changes, update validation logic and runtime configuration together.
+- `EnvironmentValidator` checks production variables used by `application-prod.yml`. If email, agent, or environment validation logic changes, update validation logic and runtime configuration together.
 
 ## Backend Conventions
 

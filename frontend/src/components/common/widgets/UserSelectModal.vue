@@ -40,6 +40,8 @@
           max-height-class="max-h-[420px]"
           row-key="userId"
           :row-class="getUserRowClass"
+          interactive-rows
+          :row-action-label="getUserRowActionLabel"
           @row-click="toggleSelection"
         >
           <template #loading>
@@ -145,6 +147,10 @@ function getUserRowClass(user: SelectableUser) {
   return isSelected(user.userId)
     ? 'cursor-pointer !bg-[var(--nv-selection)]'
     : 'cursor-pointer'
+}
+
+function getUserRowActionLabel(user: SelectableUser) {
+  return `${user.displayName} 선택`
 }
 
 function toggleSelection(user: SelectableUser) {

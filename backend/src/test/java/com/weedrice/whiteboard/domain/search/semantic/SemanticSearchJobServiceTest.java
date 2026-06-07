@@ -94,7 +94,7 @@ class SemanticSearchJobServiceTest {
 
     @Test
     void enqueuePostComments_enqueuesActiveCommentsForPost() {
-        when(jobRepository.findActiveCommentIdsByPostId(10L)).thenReturn(List.of(101L, 102L));
+        when(jobRepository.findActiveCommentIdsByPostIdAfter(10L, 0L, 500)).thenReturn(List.of(101L, 102L));
 
         int count = jobService.enqueuePostComments(10L);
 
@@ -104,14 +104,31 @@ class SemanticSearchJobServiceTest {
 
     @Test
     void enqueueBoardContent_enqueuesActivePostsAndCommentsForBoard() {
-        when(jobRepository.findActivePostIdsByBoardId(20L)).thenReturn(List.of(201L));
-        when(jobRepository.findActiveCommentIdsByBoardId(20L)).thenReturn(List.of(301L, 302L));
+        when(jobRepository.findActivePostIdsByBoardIdAfter(20L, 0L, 500)).thenReturn(List.of(201L));
+        when(jobRepository.findActiveCommentIdsByBoardIdAfter(20L, 0L, 500)).thenReturn(List.of(301L, 302L));
 
         int count = jobService.enqueueBoardContent(20L);
 
         assertThat(count).isEqualTo(3);
         verify(jobRepository).enqueueAll("POST", List.of(201L), SemanticSearchIndexAction.UPSERT);
         verify(jobRepository).enqueueAll("COMMENT", List.of(301L, 302L), SemanticSearchIndexAction.UPSERT);
+    }
+
+    @Test
+    void enqueueBoardContent_enqueuesLargeBoardsInChunks() {
+        List<Long> firstChunk = java.util.stream.LongStream.rangeClosed(1, 500)
+                .boxed()
+                .toList();
+        when(jobRepository.findActivePostIdsByBoardIdAfter(20L, 0L, 500)).thenReturn(firstChunk);
+        when(jobRepository.findActivePostIdsByBoardIdAfter(20L, 500L, 500)).thenReturn(List.of(501L, 502L));
+        when(jobRepository.findActiveCommentIdsByBoardIdAfter(20L, 0L, 500)).thenReturn(List.of());
+
+        int count = jobService.enqueueBoardContent(20L);
+
+        assertThat(count).isEqualTo(502);
+        verify(jobRepository).enqueueAll("POST", firstChunk, SemanticSearchIndexAction.UPSERT);
+        verify(jobRepository).enqueueAll("POST", List.of(501L, 502L), SemanticSearchIndexAction.UPSERT);
+        verify(jobRepository, never()).enqueueAll(eq("COMMENT"), anyList(), any());
     }
 
     @Test

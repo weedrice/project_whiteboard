@@ -34,13 +34,13 @@ vi.mock('@tanstack/vue-query', () => ({
 }))
 
 vi.mock('@/composables/useBoard', () => ({
-    boardDetailQueryKey: (boardUrl: string) => ['board', boardUrl],
+    boardDetailQueryKey: (boardUrl: string) => ['board', 'detail', boardUrl],
     fetchBoardDetail: async (boardUrl: string) => {
         const { data } = await boardApi.getBoard(boardUrl)
         return data.data
     },
     createBoardDetailQueryOptions: (boardUrl: string) => ({
-        queryKey: ['board', boardUrl],
+        queryKey: ['board', 'detail', boardUrl],
         queryFn: async () => {
             const { data } = await boardApi.getBoard(boardUrl)
             return data.data
@@ -87,7 +87,7 @@ describe('useWriteBoardSheet', () => {
         await sheet.goToBoardWrite('free')
 
         expect(routerPush).not.toHaveBeenCalledWith('/board/free/write')
-        expect(fetchQuery).toHaveBeenCalledWith(expect.objectContaining({ queryKey: ['board', 'free'] }))
+        expect(fetchQuery).toHaveBeenCalledWith(expect.objectContaining({ queryKey: ['board', 'detail', 'free'] }))
         expect(useToastStore().toasts.at(-1)?.message).toBe(i18n.global.t('common.messages.boardWriteForbidden'))
     })
 

@@ -3,7 +3,12 @@ import { ref, computed } from 'vue'
 import { authApi } from '@/api/auth'
 import { unwrapApiData } from '@/api/response'
 import logger from '@/utils/logger'
-import { clearStoredAuthTokens, getStoredAccessToken, persistAccessToken } from '@/utils/authTokenStorage'
+import {
+    ACCESS_TOKEN_KEY,
+    clearStoredAuthTokens,
+    getStoredAccessToken,
+    persistAccessToken,
+} from '@/utils/authTokenStorage'
 import type { User, LoginCredentials } from '@/types'
 import type { AxiosRequestConfig } from 'axios'
 
@@ -110,6 +115,21 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
+    async function syncFromStoredAccessToken(token: string | null): Promise<boolean> {
+        if (!token) {
+            accessToken.value = null
+            user.value = null
+            return false
+        }
+
+        if (accessToken.value === token && user.value) {
+            return true
+        }
+
+        accessToken.value = token
+        return fetchUser({ skipAuthRefresh: true })
+    }
+
     function setTokens(token: string) {
         accessToken.value = token
         persistAccessToken(token)
@@ -124,7 +144,25 @@ export const useAuthStore = defineStore('auth', () => {
         logout,
         handleSanctionedSession,
         fetchUser,
+        syncFromStoredAccessToken,
         setTokens,
         clearSessionState
     }
 })
+
+export function registerAuthStorageSync(authStore = useAuthStore()) {
+    if (typeof window === 'undefined') {
+        return () => undefined
+    }
+
+    const handleStorage = (event: StorageEvent) => {
+        if (event.key !== ACCESS_TOKEN_KEY && event.key !== null) {
+            return
+        }
+
+        void authStore.syncFromStoredAccessToken(event.key === null ? null : event.newValue)
+    }
+
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
+}

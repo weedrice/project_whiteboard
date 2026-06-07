@@ -79,6 +79,8 @@ function handleRowClick(post: AdminInquiryListItem) {
       :loading="isLoading"
       :empty-text="t('admin.inquiries.empty')"
       :row-class="getRowClass"
+      interactive-rows
+      :row-action-label="(item) => `${item.title} 상세 보기`"
       :page="page"
       :total-pages="totalPages"
       :summary="t('admin.inquiries.total', { count: totalElements })"

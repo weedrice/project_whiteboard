@@ -24,6 +24,7 @@ class EnvironmentValidatorTest {
             "DB_USER",
             "DB_PASSWORD",
             "JWT_SECRET",
+            "AGENT_INTERNAL_SECRET",
             "GITHUB_CLIENT_ID",
             "GITHUB_CLIENT_SECRET",
             "GOOGLE_CLIENT_ID",
@@ -79,6 +80,18 @@ class EnvironmentValidatorTest {
 
         assertThatCode(() -> validator.onApplicationEvent(createEvent()))
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("fails when the internal agent secret used by application-prod.yml is missing")
+    void prodProfile_missingAgentInternalSecret_fail() {
+        MockEnvironment environment = prodEnvironmentExcept("AGENT_INTERNAL_SECRET");
+        EnvironmentValidator validator = new EnvironmentValidator(environment);
+
+        assertThatThrownBy(() -> validator.onApplicationEvent(createEvent()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Missing required environment variables")
+                .hasMessageContaining("AGENT_INTERNAL_SECRET");
     }
 
     @Test

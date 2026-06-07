@@ -23,42 +23,7 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
             WHERE s.user = :user
               AND p.isDeleted = false
               AND (:blockedUserIdsEmpty = true OR p.user.userId NOT IN (:blockedUserIds))
-              AND (
-                    b.isActive = true
-                    OR p.user = :user
-                    OR :viewerIsSuperAdmin = true
-                    OR EXISTS (
-                        SELECT 1
-                        FROM Admin a
-                        WHERE a.user = :user
-                          AND a.board = b
-                          AND a.isActive = true
-                    )
-              )
-              AND (
-                    b.isPublic = true
-                    OR (LOWER(b.boardUrl) = :inquiryBoardUrl AND p.user = :user)
-                    OR :viewerIsSuperAdmin = true
-                    OR EXISTS (
-                        SELECT 1
-                        FROM Admin a
-                        WHERE a.user = :user
-                          AND a.board = b
-                          AND a.isActive = true
-                    )
-                  )
-              AND (
-                    p.isSecret = false
-                    OR p.user = :user
-                    OR :viewerIsSuperAdmin = true
-                    OR EXISTS (
-                        SELECT 1
-                        FROM Admin a
-                        WHERE a.user = :user
-                          AND a.board = b
-                          AND a.isActive = true
-                    )
-                  )
+            """ + PostVisibilityJpql.VIEWER_READABLE_POST + """
             ORDER BY s.createdAt DESC, p.postId DESC
             """, countQuery = """
             SELECT COUNT(s)
@@ -68,42 +33,7 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
             WHERE s.user = :user
               AND p.isDeleted = false
               AND (:blockedUserIdsEmpty = true OR p.user.userId NOT IN (:blockedUserIds))
-              AND (
-                    b.isActive = true
-                    OR p.user = :user
-                    OR :viewerIsSuperAdmin = true
-                    OR EXISTS (
-                        SELECT 1
-                        FROM Admin a
-                        WHERE a.user = :user
-                          AND a.board = b
-                          AND a.isActive = true
-                    )
-              )
-              AND (
-                    b.isPublic = true
-                    OR (LOWER(b.boardUrl) = :inquiryBoardUrl AND p.user = :user)
-                    OR :viewerIsSuperAdmin = true
-                    OR EXISTS (
-                        SELECT 1
-                        FROM Admin a
-                        WHERE a.user = :user
-                          AND a.board = b
-                          AND a.isActive = true
-                    )
-                  )
-              AND (
-                    p.isSecret = false
-                    OR p.user = :user
-                    OR :viewerIsSuperAdmin = true
-                    OR EXISTS (
-                        SELECT 1
-                        FROM Admin a
-                        WHERE a.user = :user
-                          AND a.board = b
-                          AND a.isActive = true
-                    )
-                  )
+            """ + PostVisibilityJpql.VIEWER_READABLE_POST + """
             """)
     Page<Scrap> findPageByUserWithPostDetails(
             @Param("user") User user,

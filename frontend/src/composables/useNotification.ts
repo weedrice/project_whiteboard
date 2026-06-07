@@ -40,6 +40,31 @@ function getNotificationPageNumber(data: unknown): number {
 
 const RECENT_NOTIFICATION_ID_LIMIT = 200
 
+const notificationStreamState = {
+    streamAbortController: null as AbortController | null,
+    reconnectTimer: null as ReturnType<typeof setTimeout> | null,
+    isConnecting: false,
+    closedManually: false,
+    recentNotificationIds: new Set<number>(),
+}
+
+export function resetNotificationStreamStateForTest() {
+    notificationStreamState.closedManually = true
+
+    if (notificationStreamState.reconnectTimer) {
+        clearTimeout(notificationStreamState.reconnectTimer)
+        notificationStreamState.reconnectTimer = null
+    }
+
+    if (notificationStreamState.streamAbortController) {
+        notificationStreamState.streamAbortController.abort()
+        notificationStreamState.streamAbortController = null
+    }
+
+    notificationStreamState.isConnecting = false
+    notificationStreamState.recentNotificationIds.clear()
+}
+
 export function useNotification() {
     const queryClient = useQueryClient()
 
@@ -91,29 +116,23 @@ export function useNotification() {
         })
     }
 
-    let streamAbortController: AbortController | null = null
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
-    let isConnecting = false
-    let closedManually = false
-    const recentNotificationIds = new Set<number>()
-
     const rememberNotificationId = (notificationId: number) => {
-        recentNotificationIds.add(notificationId)
-        if (recentNotificationIds.size > RECENT_NOTIFICATION_ID_LIMIT) {
-            const oldestId = recentNotificationIds.values().next().value
+        notificationStreamState.recentNotificationIds.add(notificationId)
+        if (notificationStreamState.recentNotificationIds.size > RECENT_NOTIFICATION_ID_LIMIT) {
+            const oldestId = notificationStreamState.recentNotificationIds.values().next().value
             if (typeof oldestId === 'number') {
-                recentNotificationIds.delete(oldestId)
+                notificationStreamState.recentNotificationIds.delete(oldestId)
             }
         }
     }
 
     const scheduleReconnect = (delayMs: number) => {
-        if (closedManually) return
-        if (reconnectTimer) {
-            clearTimeout(reconnectTimer)
+        if (notificationStreamState.closedManually) return
+        if (notificationStreamState.reconnectTimer) {
+            clearTimeout(notificationStreamState.reconnectTimer)
         }
-        reconnectTimer = setTimeout(() => {
-            reconnectTimer = null
+        notificationStreamState.reconnectTimer = setTimeout(() => {
+            notificationStreamState.reconnectTimer = null
             connectToSse()
         }, delayMs)
     }
@@ -124,7 +143,7 @@ export function useNotification() {
             isRead: false,
         }
         const notificationId = normalized.notificationId
-        if (typeof notificationId === 'number' && recentNotificationIds.has(notificationId)) {
+        if (typeof notificationId === 'number' && notificationStreamState.recentNotificationIds.has(notificationId)) {
             return
         }
 
@@ -260,62 +279,62 @@ export function useNotification() {
                 throw new Error('SSE stream response is empty')
             }
 
-            isConnecting = false
+            notificationStreamState.isConnecting = false
             await consumeSseStream(response.body, controller.signal)
 
-            if (!controller.signal.aborted && !closedManually) {
+            if (!controller.signal.aborted && !notificationStreamState.closedManually) {
                 throw new Error('SSE stream closed unexpectedly')
             }
         } catch (error: unknown) {
-            if (closedManually || controller.signal.aborted || isAbortError(error)) {
+            if (notificationStreamState.closedManually || controller.signal.aborted || isAbortError(error)) {
                 return
             }
 
             logger.warn('SSE connection dropped:', error)
             await reconnectWithRefresh()
         } finally {
-            if (streamAbortController === controller) {
-                streamAbortController = null
+            if (notificationStreamState.streamAbortController === controller) {
+                notificationStreamState.streamAbortController = null
             }
-            isConnecting = false
+            notificationStreamState.isConnecting = false
         }
     }
 
     const connectToSse = () => {
-        if (streamAbortController || isConnecting) return
+        if (notificationStreamState.streamAbortController || notificationStreamState.isConnecting) return
 
-        if (reconnectTimer) {
-            clearTimeout(reconnectTimer)
-            reconnectTimer = null
+        if (notificationStreamState.reconnectTimer) {
+            clearTimeout(notificationStreamState.reconnectTimer)
+            notificationStreamState.reconnectTimer = null
         }
 
         const authStore = useAuthStore()
         const token = authStore.accessToken
         if (!token) return
 
-        closedManually = false
-        isConnecting = true
+        notificationStreamState.closedManually = false
+        notificationStreamState.isConnecting = true
 
         const controller = new AbortController()
-        streamAbortController = controller
+        notificationStreamState.streamAbortController = controller
 
         void startStream(token, controller)
     }
 
     const closeSse = () => {
-        closedManually = true
+        notificationStreamState.closedManually = true
 
-        if (reconnectTimer) {
-            clearTimeout(reconnectTimer)
-            reconnectTimer = null
+        if (notificationStreamState.reconnectTimer) {
+            clearTimeout(notificationStreamState.reconnectTimer)
+            notificationStreamState.reconnectTimer = null
         }
 
-        if (streamAbortController) {
-            streamAbortController.abort()
-            streamAbortController = null
+        if (notificationStreamState.streamAbortController) {
+            notificationStreamState.streamAbortController.abort()
+            notificationStreamState.streamAbortController = null
         }
 
-        isConnecting = false
+        notificationStreamState.isConnecting = false
     }
 
     return {

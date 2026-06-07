@@ -6,6 +6,7 @@ import type { Post } from '@/types'
 import type { AxiosRequestConfig } from 'axios'
 import { normalizePostReactionFlags, type PostReactionAlias } from '@/utils/postViewModel'
 import { postDetailQueryKey, postQueryKeys } from '@/composables/postQueryKeys'
+import { homeQueryKeys } from '@/composables/homeQueryKeys'
 
 export { postDetailQueryKey, postQueryKeys } from '@/composables/postQueryKeys'
 
@@ -53,9 +54,7 @@ export function usePost() {
         )
 
         // 3. 게시판별 게시글 목록 캐시
-        queryClient.getQueriesData({ queryKey: postQueryKeys.boardPrefix }).forEach(([key]) => {
-            const keyArr = key as unknown[]
-            if (!keyArr.includes('posts')) return
+        queryClient.getQueriesData({ queryKey: postQueryKeys.boardPostsRoot }).forEach(([key]) => {
             queryClient.setQueryData(key, (old: InfiniteQueryData | PageQueryData | undefined) => {
                 if (!old) return old
                 // InfiniteQuery 구조
@@ -91,8 +90,7 @@ export function usePost() {
         return {
             postDetailQueries: queryClient.getQueriesData({ queryKey: postQueryKeys.detailPrefix(postId) }),
             postsQueries: queryClient.getQueriesData({ queryKey: postQueryKeys.lists }),
-            boardQueries: queryClient.getQueriesData({ queryKey: postQueryKeys.boardPrefix })
-                .filter(([key]) => (key as unknown[]).includes('posts'))
+            boardQueries: queryClient.getQueriesData({ queryKey: postQueryKeys.boardPostsRoot })
         }
     }
 
@@ -116,10 +114,11 @@ export function usePost() {
     function invalidatePostCaches(postId: string | number) {
         queryClient.invalidateQueries({ queryKey: postQueryKeys.detailPrefix(postId) })
         queryClient.invalidateQueries({ queryKey: postQueryKeys.lists })
+        queryClient.invalidateQueries({ queryKey: homeQueryKeys.landingRoot })
         queryClient.invalidateQueries({
             predicate: (query) => {
                 const key = query.queryKey
-                return Array.isArray(key) && key[0] === 'board' && key.includes('posts')
+                return Array.isArray(key) && key[0] === 'board' && key[1] === 'posts'
             }
         })
     }
@@ -178,6 +177,7 @@ export function usePost() {
             },
             onSuccess: (_, { boardUrl }) => {
                 queryClient.invalidateQueries({ queryKey: postQueryKeys.boardPosts(boardUrl) })
+                queryClient.invalidateQueries({ queryKey: homeQueryKeys.landingRoot })
             }
         })
     }
@@ -201,9 +201,8 @@ export function usePost() {
                 return await postApi.deletePost(postId)
             },
             onSuccess: () => {
-                // Invalidate relevant queries (e.g., board posts)
-                // Note: We might need boardUrl to be more specific, but 'posts' key usually includes boardUrl
-                queryClient.invalidateQueries({ queryKey: postQueryKeys.boardPrefix })
+                queryClient.invalidateQueries({ queryKey: postQueryKeys.boardPostsRoot })
+                queryClient.invalidateQueries({ queryKey: homeQueryKeys.landingRoot })
             }
         })
     }
