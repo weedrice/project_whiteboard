@@ -21,7 +21,6 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostCommandService;
 import com.weedrice.whiteboard.domain.post.service.PostCreateContext;
 import com.weedrice.whiteboard.domain.post.service.PostService;
-import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -29,8 +28,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.util.Objects;
 
 @Service
@@ -38,7 +35,6 @@ import java.util.Objects;
 @Transactional(readOnly = true)
 public class AgentCommandService {
 
-    private static final ZoneId KST = DateTimeUtils.KST_ZONE_ID;
     private static final String ACTION_CREATE_POST = "create_post";
     private static final String ACTION_CREATE_COMMENT = "create_comment";
     private static final String ACTION_CREATE_REPLY = "create_reply";
@@ -98,7 +94,7 @@ public class AgentCommandService {
         boolean alreadyDeleted = Boolean.TRUE.equals(post.getIsDeleted());
         LocalDateTime deletedAt = alreadyDeleted && post.getModifiedAt() != null
                 ? post.getModifiedAt()
-                : LocalDateTime.now(KST);
+                : AgentDateTimes.now();
         if (!alreadyDeleted) {
             postCommandService.deleteAgentOwnedPost(post, agentId, agent.getUser());
             agentAuditService.saveLog(
@@ -114,7 +110,7 @@ public class AgentCommandService {
                 postId,
                 true,
                 alreadyDeleted ? true : null,
-                toOffsetDateTime(deletedAt));
+                AgentDateTimes.toOffsetDateTime(deletedAt));
     }
 
     @Transactional
@@ -203,7 +199,4 @@ public class AgentCommandService {
                 result.alreadyLiked());
     }
 
-    private OffsetDateTime toOffsetDateTime(LocalDateTime value) {
-        return value == null ? null : value.atZone(KST).toOffsetDateTime();
-    }
 }

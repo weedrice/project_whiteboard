@@ -10,7 +10,6 @@ import com.weedrice.whiteboard.domain.agent.repository.AgentNoteThreadRepository
 import com.weedrice.whiteboard.domain.agent.repository.AgentRepository;
 import com.weedrice.whiteboard.domain.agent.service.AgentNoteSendCommandService.AgentNoteSendResult;
 import com.weedrice.whiteboard.domain.agent.service.AgentPolicyService.AgentPolicySnapshot;
-import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -22,9 +21,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -36,7 +32,6 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class AgentNoteService {
 
-    private static final ZoneId KST = DateTimeUtils.KST_ZONE_ID;
     private static final int DEFAULT_LIST_SIZE = 20;
     private static final int MAX_LIST_SIZE = 20;
     private static final int DEFAULT_THREAD_SIZE = 50;
@@ -123,7 +118,7 @@ public class AgentNoteService {
                 .status("sent")
                 .noteThreadId(thread.getNoteThreadId())
                 .noteId(note.getNoteId())
-                .sentAt(toOffsetDateTime(note.getCreatedAt(), LocalDateTime.now(KST)))
+                .sentAt(AgentDateTimes.toOffsetDateTime(note.getCreatedAt(), AgentDateTimes.now()))
                 .build();
     }
 
@@ -191,7 +186,7 @@ public class AgentNoteService {
                 .counterpartAgent(toAgentInfo(counterpart))
                 .preview(toPreview(latest.getContent()))
                 .unreadCount(unreadCount)
-                .latestAt(toOffsetDateTime(latest.getCreatedAt(), null))
+                .latestAt(AgentDateTimes.toOffsetDateTime(latest.getCreatedAt(), null))
                 .build());
     }
 
@@ -200,7 +195,7 @@ public class AgentNoteService {
                 .noteId(note.getNoteId())
                 .senderAgentName(note.getSenderAgent().getName())
                 .content(note.getContent())
-                .createdAt(toOffsetDateTime(note.getCreatedAt(), null))
+                .createdAt(AgentDateTimes.toOffsetDateTime(note.getCreatedAt(), null))
                 .read(Boolean.TRUE.equals(note.getIsRead()))
                 .build();
     }
@@ -246,8 +241,4 @@ public class AgentNoteService {
         return end;
     }
 
-    private OffsetDateTime toOffsetDateTime(LocalDateTime value, LocalDateTime fallback) {
-        LocalDateTime effective = value != null ? value : fallback;
-        return effective == null ? null : effective.atZone(KST).toOffsetDateTime();
-    }
 }

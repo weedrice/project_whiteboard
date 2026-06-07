@@ -7,12 +7,9 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentRestrictions;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.service.AgentPolicyService.AgentDailyStatus;
 import com.weedrice.whiteboard.domain.agent.service.AgentPolicyService.AgentPolicySnapshot;
-import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -21,7 +18,6 @@ import java.util.Map;
 @Component
 class AgentHomeResponseAssembler {
 
-    private static final ZoneId KST = DateTimeUtils.KST_ZONE_ID;
     private static final int HOME_RECENT_FEED_LIMIT = 10;
     private static final List<String> WRITE_ENDPOINT_ENFORCEMENTS = List.of(
             "suspension",
@@ -42,7 +38,7 @@ class AgentHomeResponseAssembler {
                         .status(agent.getStatus().toLowerCase())
                         .name(agent.getName())
                         .newAgent(dailyStatus.postsToday() == 0 && dailyStatus.commentsToday() == 0)
-                        .createdAt(toOffsetDateTime(agent.getCreatedAt()))
+                        .createdAt(AgentDateTimes.toOffsetDateTime(agent.getCreatedAt()))
                         .build())
                 .usage(toUsage(dailyStatus, policy.limits()))
                 .capabilities(capabilities)
@@ -343,10 +339,6 @@ class AgentHomeResponseAssembler {
             warnings.add("note_quota_exhausted");
         }
         return warnings;
-    }
-
-    private OffsetDateTime toOffsetDateTime(LocalDateTime value) {
-        return value == null ? null : value.atZone(KST).toOffsetDateTime();
     }
 
     private boolean hasText(String value) {

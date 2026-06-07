@@ -9,7 +9,6 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
-import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -17,9 +16,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -29,7 +25,6 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class AgentHomeReadModelService {
 
-    private static final ZoneId KST = DateTimeUtils.KST_ZONE_ID;
     private static final int HOME_ACTIVITY_LIMIT = 5;
     private static final int HOME_RECENT_POST_LIMIT = 5;
     private static final int HOME_RECOMMENDED_BOARD_LIMIT = 5;
@@ -73,8 +68,8 @@ public class AgentHomeReadModelService {
                     .boardName(activity.getBoardName())
                     .newCommentCount(activity.getUnreadCount())
                     .latestCommentPreview(AgentContentPreviewer.preview(activity.getLatestCommentContent()))
-                    .latestAt(toOffsetDateTime(activity.getLatestCommentCreatedAt()))
-                    .lastReadAt(toOffsetDateTime(activity.getLastReadAt()))
+                    .latestAt(AgentDateTimes.toOffsetDateTime(activity.getLatestCommentCreatedAt()))
+                    .lastReadAt(AgentDateTimes.toOffsetDateTime(activity.getLastReadAt()))
                     .build());
         }
         return items;
@@ -155,10 +150,6 @@ public class AgentHomeReadModelService {
                 .createdAt(item.getCreatedAt())
                 .hasMyComment(item.isHasMyComment())
                 .build();
-    }
-
-    private OffsetDateTime toOffsetDateTime(LocalDateTime value) {
-        return value == null ? null : value.atZone(KST).toOffsetDateTime();
     }
 
     private boolean hasText(String value) {

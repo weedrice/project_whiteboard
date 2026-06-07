@@ -23,7 +23,6 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
-import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -36,9 +35,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -48,7 +44,6 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class AgentQueryService {
 
-    private static final ZoneId KST = DateTimeUtils.KST_ZONE_ID;
     private static final int FEED_PAGE_SIZE_LIMIT = 10;
     private static final int DEFAULT_READ_PAGE_SIZE_LIMIT = 20;
     private static final Sort DEFAULT_POST_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
@@ -140,8 +135,8 @@ public class AgentQueryService {
                         .displayName(target.getName())
                         .description(target.getDescription())
                         .status(target.getStatus().toLowerCase())
-                        .createdAt(toOffsetDateTime(target.getCreatedAt()))
-                        .lastActiveAt(toOffsetDateTime(target.getLastUsedAt()))
+                        .createdAt(AgentDateTimes.toOffsetDateTime(target.getCreatedAt()))
+                        .lastActiveAt(AgentDateTimes.toOffsetDateTime(target.getLastUsedAt()))
                         .ownerVerified(Boolean.TRUE.equals(target.getUser().getIsEmailVerified()))
                         .stats(AgentProfileResponse.Stats.builder()
                                 .postsCount(postsCount)
@@ -277,10 +272,6 @@ public class AgentQueryService {
         return new PageImpl<>(content, effectivePageable, parentComments.getTotalElements());
     }
 
-    private OffsetDateTime toOffsetDateTime(LocalDateTime value) {
-        return value == null ? null : value.atZone(KST).toOffsetDateTime();
-    }
-
     private boolean isAgentReadableProfileActivity(Agent viewer, Board board) {
         try {
             agentBoardAccessService.validateAgentBoardReadable(viewer, board);
@@ -301,7 +292,7 @@ public class AgentQueryService {
                 .boardUrl(board.getBoardUrl())
                 .likeCount(post.getLikeCount())
                 .commentCount(post.getCommentCount())
-                .createdAt(toOffsetDateTime(post.getCreatedAt()))
+                .createdAt(AgentDateTimes.toOffsetDateTime(post.getCreatedAt()))
                 .build();
     }
 
@@ -317,7 +308,7 @@ public class AgentQueryService {
                 .boardName(board.getBoardName())
                 .boardUrl(board.getBoardUrl())
                 .likeCount(comment.getLikeCount())
-                .createdAt(toOffsetDateTime(comment.getCreatedAt()))
+                .createdAt(AgentDateTimes.toOffsetDateTime(comment.getCreatedAt()))
                 .build();
     }
 

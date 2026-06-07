@@ -3,7 +3,6 @@ package com.weedrice.whiteboard.domain.agent.service;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.entity.AgentDailyQuota;
 import com.weedrice.whiteboard.domain.agent.repository.AgentDailyQuotaRepository;
-import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -11,7 +10,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -21,7 +19,6 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class AgentQuotaService {
 
-    private static final ZoneId KST = DateTimeUtils.KST_ZONE_ID;
     public static final String ACTION_POST = "POST";
     public static final String ACTION_COMMENT = "COMMENT";
     public static final String ACTION_NOTE = "NOTE";
@@ -64,7 +61,7 @@ public class AgentQuotaService {
     }
 
     private void reserve(Agent agent, String actionType, long limit, String message) {
-        LocalDate quotaDate = LocalDate.now(KST);
+        LocalDate quotaDate = AgentDateTimes.today();
         AgentDailyQuota quota = getOrCreateQuotaForUpdate(agent, quotaDate, actionType);
 
         if (quota.hasReachedLimit(limit)) {
