@@ -1,11 +1,11 @@
 package com.weedrice.whiteboard.global.validation;
 
+import com.weedrice.whiteboard.global.common.util.FileExtensionUtils;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Arrays;
-import java.util.Locale;
 
 /**
  * 파일 타입 검증 Validator
@@ -68,7 +68,7 @@ public class ValidFileTypeValidator implements ConstraintValidator<ValidFileType
 
         // 확장자 검증
         if (originalFilename != null && allowedExtensions.length > 0) {
-            String extension = getFileExtension(originalFilename);
+            String extension = FileExtensionUtils.extractLowerCaseExtension(originalFilename);
             boolean isAllowed = Arrays.stream(allowedExtensions)
                     .anyMatch(allowed -> extension.equalsIgnoreCase(allowed));
             if (!isAllowed) {
@@ -83,11 +83,4 @@ public class ValidFileTypeValidator implements ConstraintValidator<ValidFileType
         return true;
     }
 
-    private String getFileExtension(String filename) {
-        int lastDotIndex = filename.lastIndexOf('.');
-        if (lastDotIndex == -1) {
-            return "";
-        }
-        return filename.substring(lastDotIndex).toLowerCase(Locale.ROOT);
-    }
 }
