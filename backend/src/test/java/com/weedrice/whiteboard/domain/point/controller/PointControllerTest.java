@@ -3,8 +3,10 @@ package com.weedrice.whiteboard.domain.point.controller;
 import com.weedrice.whiteboard.domain.point.dto.PointHistoryResponse;
 import com.weedrice.whiteboard.domain.point.dto.UserPointResponse;
 import com.weedrice.whiteboard.domain.point.service.PointService;
+import com.weedrice.whiteboard.global.config.CurrentUserIdWebMvcConfig;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.security.CurrentUserIdArgumentResolver;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -14,6 +16,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
@@ -41,6 +44,10 @@ import static org.mockito.Mockito.doAnswer;
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class),
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
     })
+@Import({
+        CurrentUserIdWebMvcConfig.class,
+        CurrentUserIdArgumentResolver.class
+})
 class PointControllerTest {
 
     @Autowired
