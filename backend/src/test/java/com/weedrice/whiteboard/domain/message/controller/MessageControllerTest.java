@@ -4,8 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.message.dto.MessageCreateRequest;
 import com.weedrice.whiteboard.domain.message.dto.MessageResponse;
 import com.weedrice.whiteboard.domain.message.service.MessageService;
+import com.weedrice.whiteboard.global.config.CurrentUserIdWebMvcConfig;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.security.CurrentUserIdArgumentResolver;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,6 +20,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -47,6 +50,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
                 @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class),
                 @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
         })
+@Import({
+        CurrentUserIdWebMvcConfig.class,
+        CurrentUserIdArgumentResolver.class
+})
 class MessageControllerTest {
 
     @Autowired

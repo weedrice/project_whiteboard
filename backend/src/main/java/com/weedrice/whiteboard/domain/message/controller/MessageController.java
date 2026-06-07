@@ -6,16 +6,13 @@ import com.weedrice.whiteboard.domain.message.service.MessageService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.CurrentUserId;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-
-import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
 
 @RestController
 @RequestMapping("/api/v1/messages")
@@ -28,66 +25,66 @@ public class MessageController {
         @ResponseStatus(HttpStatus.CREATED)
         public ApiResponse<Long> sendMessage(
                         @Valid @RequestBody MessageCreateRequest request,
-                        @AuthenticationPrincipal CustomUserDetails userDetails) {
+                        @CurrentUserId Long userId) {
                 return ApiResponse.success(messageService.sendMessage(
-                                requiredUserId(userDetails),
+                                userId,
                                 request.getReceiverId(),
                                 request.getContent()));
         }
 
         @GetMapping("/received")
         public ApiResponse<MessageResponse> getReceivedMessages(
-                        @AuthenticationPrincipal CustomUserDetails userDetails,
                         @RequestParam(defaultValue = "0") int page,
                         @RequestParam(defaultValue = "20") int size,
-                        Sort sort) {
+                        Sort sort,
+                        @CurrentUserId Long userId) {
                 Pageable pageable = PageRequestUtils.of(page, size, sort);
-                return ApiResponse.success(messageService.getReceivedMessages(requiredUserId(userDetails), pageable));
+                return ApiResponse.success(messageService.getReceivedMessages(userId, pageable));
         }
 
         @GetMapping("/sent")
         public ApiResponse<MessageResponse> getSentMessages(
-                        @AuthenticationPrincipal CustomUserDetails userDetails,
                         @RequestParam(defaultValue = "0") int page,
                         @RequestParam(defaultValue = "20") int size,
-                        Sort sort) {
+                        Sort sort,
+                        @CurrentUserId Long userId) {
                 Pageable pageable = PageRequestUtils.of(page, size, sort);
-                return ApiResponse.success(messageService.getSentMessages(requiredUserId(userDetails), pageable));
+                return ApiResponse.success(messageService.getSentMessages(userId, pageable));
         }
 
         @GetMapping("/{messageId}")
         public ApiResponse<MessageResponse.MessageSummary> getMessage(
                         @PathVariable Long messageId,
-                        @AuthenticationPrincipal CustomUserDetails userDetails) {
-                return ApiResponse.success(messageService.getMessageSummary(requiredUserId(userDetails), messageId));
+                        @CurrentUserId Long userId) {
+                return ApiResponse.success(messageService.getMessageSummary(userId, messageId));
         }
 
         @PostMapping("/{messageId}/read")
         public ApiResponse<Void> markAsRead(
                         @PathVariable Long messageId,
-                        @AuthenticationPrincipal CustomUserDetails userDetails) {
-                messageService.markAsRead(requiredUserId(userDetails), messageId);
+                        @CurrentUserId Long userId) {
+                messageService.markAsRead(userId, messageId);
                 return ApiResponses.ok();
         }
 
         @DeleteMapping("/{messageId}")
         public ApiResponse<Void> deleteMessage(
                         @PathVariable Long messageId,
-                        @AuthenticationPrincipal CustomUserDetails userDetails) {
-                messageService.deleteMessage(requiredUserId(userDetails), messageId);
+                        @CurrentUserId Long userId) {
+                messageService.deleteMessage(userId, messageId);
                 return ApiResponses.ok();
         }
 
         @DeleteMapping
         public ApiResponse<Void> deleteMessages(
                         @RequestBody java.util.List<Long> messageIds,
-                        @AuthenticationPrincipal CustomUserDetails userDetails) {
-                messageService.deleteMessages(requiredUserId(userDetails), messageIds);
+                        @CurrentUserId Long userId) {
+                messageService.deleteMessages(userId, messageIds);
                 return ApiResponses.ok();
         }
 
         @GetMapping("/unread-count")
-        public ApiResponse<Long> getUnreadMessageCount(@AuthenticationPrincipal CustomUserDetails userDetails) {
-                return ApiResponse.success(messageService.getUnreadMessageCount(requiredUserId(userDetails)));
+        public ApiResponse<Long> getUnreadMessageCount(@CurrentUserId Long userId) {
+                return ApiResponse.success(messageService.getUnreadMessageCount(userId));
         }
 }
