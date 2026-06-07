@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.admin.dto.AdminCreateRequest;
 import com.weedrice.whiteboard.domain.admin.dto.AdminResponse;
 import com.weedrice.whiteboard.domain.admin.dto.BoardManagerUpdateRequest;
 import com.weedrice.whiteboard.domain.admin.dto.DashboardStatsDto;
+import com.weedrice.whiteboard.domain.admin.dto.IpBlockRequest;
 import com.weedrice.whiteboard.domain.admin.dto.IpBlockResponse;
 import com.weedrice.whiteboard.domain.admin.dto.SuperAdminRequest;
 import com.weedrice.whiteboard.domain.admin.dto.SuperAdminResponse;
@@ -17,10 +18,12 @@ import com.weedrice.whiteboard.domain.admin.service.AdminReadService;
 import com.weedrice.whiteboard.domain.admin.service.IpBlockService;
 import com.weedrice.whiteboard.domain.admin.service.SuperAdminService;
 import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.global.config.CurrentUserIdWebMvcConfig;
 import com.weedrice.whiteboard.global.config.SecurityConfig;
 import com.weedrice.whiteboard.global.config.WebConfig;
 import com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.CurrentUserIdArgumentResolver;
 import com.weedrice.whiteboard.global.security.JwtAuthenticationEntryPoint;
 import com.weedrice.whiteboard.global.security.JwtAuthenticationFilter;
 import com.weedrice.whiteboard.global.security.RefererCheckInterceptor;
@@ -36,6 +39,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -49,6 +53,8 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -66,6 +72,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
                 @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = WebConfig.class),
                 @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = SecurityConfig.class)
         })
+@Import({
+        CurrentUserIdWebMvcConfig.class,
+        CurrentUserIdArgumentResolver.class
+})
 class AdminControllerTest {
 
     @Autowired
@@ -292,6 +302,31 @@ class AdminControllerTest {
 
     @Test
     @DisplayName("차단 IP 목록 페이지 조회 성공")
+    void blockIp_passesActorUserId() throws Exception {
+        IpBlockRequest request = new IpBlockRequest();
+        ReflectionTestUtils.setField(request, "ipAddress", "1.1.1.1");
+        ReflectionTestUtils.setField(request, "reason", "spam");
+
+        IpBlockResponse response = IpBlockResponse.builder()
+                .ipAddress("1.1.1.1")
+                .reason("spam")
+                .build();
+        when(ipBlockService.blockIp(eq(1L), eq("1.1.1.1"), eq("spam"), isNull())).thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/admin/ip-blocks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.ipAddress").value("1.1.1.1"));
+
+        verify(ipBlockService).blockIp(1L, "1.1.1.1", "spam", null);
+    }
+
+    @Test
+    @DisplayName("李⑤떒 IP 紐⑸줉 ?섏씠吏 議고쉶 ?깃났")
     void getBlockedIps_returnsSuccess() throws Exception {
         IpBlockResponse response = IpBlockResponse.builder().ipAddress("1.1.1.1").build();
         when(ipBlockService.getBlockedIps(any())).thenReturn(new PageImpl<>(List.of(response), PageRequest.of(0, 20), 1));

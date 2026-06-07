@@ -16,12 +16,11 @@ import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.CurrentUserId;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -29,8 +28,6 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
-import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
 
 /**
  * 관리자 기능을 처리하는 컨트롤러
@@ -84,10 +81,10 @@ public class AdminController {
     @PutMapping("/super/deactive")
     public ApiResponse<SuperAdminUpdateResponse> deactivateSuperAdmin(
             @Valid @RequestBody SuperAdminRequest request,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+            @CurrentUserId Long userId) {
         return ApiResponse.success(superAdminService.deactivateSuperAdmin(
                 request.getLoginId(),
-                requiredUserId(userDetails)));
+                userId));
     }
 
     /**
@@ -159,8 +156,7 @@ public class AdminController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<IpBlockResponse> blockIp(
             @Valid @RequestBody IpBlockRequest request,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long adminUserId = requiredUserId(userDetails);
+            @CurrentUserId Long adminUserId) {
         return ApiResponse.success(ipBlockService.blockIp(adminUserId, request.getIpAddress(), request.getReason(),
                 request.getEndDate()));
     }
