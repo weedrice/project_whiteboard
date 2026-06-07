@@ -45,6 +45,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -452,6 +453,28 @@ class FileServiceTest {
         assertThat(secondFile.getRelatedType()).isEqualTo("EMOTICON_IMAGE");
         verify(fileRepository).associateIfUnassociated(10L, 1L, 100L, "EMOTICON_IMAGE");
         verify(fileRepository).associateIfUnassociated(11L, 1L, 100L, "EMOTICON_IMAGE");
+    }
+
+    @Test
+    @DisplayName("여러 업로드 파일 연결은 중복 파일 ID를 한 번만 처리한다")
+    void associateFilesWithEntity_processesDuplicateFileIdsOnce() {
+        User uploader = User.builder().build();
+        ReflectionTestUtils.setField(uploader, "userId", 1L);
+        File file = spy(uploadedFile(10L, uploader));
+
+        when(fileRepository.findByFileIdInAndStorageStatus(List.of(10L), FileStorageStatus.ACTIVE))
+                .thenReturn(List.of(file));
+        when(fileRepository.associateIfUnassociated(10L, 1L, 100L, "EMOTICON_IMAGE")).thenReturn(1);
+
+        List<String> result = fileService.associateFilesWithEntity(
+                List.of(10L, 10L),
+                1L,
+                100L,
+                "EMOTICON_IMAGE");
+
+        assertThat(result).containsExactly("/api/v1/files/10");
+        verify(file).isAssociatedWith(100L, "EMOTICON_IMAGE");
+        verify(fileRepository).associateIfUnassociated(10L, 1L, 100L, "EMOTICON_IMAGE");
     }
 
     @Test
