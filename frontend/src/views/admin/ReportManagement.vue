@@ -7,6 +7,7 @@ import ReportDetailModal from '@/components/admin/ReportDetailModal.vue'
 import SanctionModal from '@/components/admin/SanctionModal.vue'
 import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import { useReportModerationPage } from '@/composables/useReportModerationPage'
+import { formatAdminPaginationSummary } from '@/utils/adminPaginationSummary'
 
 const { t } = useI18n()
 const {
@@ -55,7 +56,7 @@ const {
       <AdminPaginationFooter
         :page="currentPage"
         :total-pages="totalPages"
-        :summary="`총 ${totalElements.toLocaleString()}건`"
+        :summary="formatAdminPaginationSummary(totalElements)"
         :loading-text="t('common.loading')"
         @page-change="handlePageChange"
       />

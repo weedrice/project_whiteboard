@@ -14,6 +14,7 @@ import AdminFilterField from '@/components/admin/AdminFilterField.vue'
 import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
 import BooleanBadge from '@/components/admin/BooleanBadge.vue'
 import UserDetailModal from '@/components/admin/UserDetailModal.vue'
+import { formatAdminPaginationSummary } from '@/utils/adminPaginationSummary'
 import { formatDateOnly } from '@/utils/date'
 import { useConfirm } from '@/composables/useConfirm'
 import { usePageResponseState } from '@/composables/usePaginatedQueryState'
@@ -270,7 +271,13 @@ const columns = computed(() => [
         :empty-text="t('common.noData')"
         :page="currentPage"
         :total-pages="totalPages"
-        :summary="totalPages > 0 ? `총 ${totalCount.toLocaleString()}명 / ${currentPage + 1} / ${totalPages} 페이지` : `총 ${totalCount.toLocaleString()}명`"
+        :summary="formatAdminPaginationSummary(totalCount, {
+          unit: '명',
+          page: currentPage,
+          totalPages,
+          pageFormat: 'slash',
+          includePage: totalPages > 0,
+        })"
         @sort="handleSort"
         @row-dblclick="openDetailModal($event as User)"
         @page-change="page = $event"

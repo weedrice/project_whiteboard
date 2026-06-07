@@ -15,6 +15,7 @@ import ErrorLogResolveModal from '@/components/admin/ErrorLogResolveModal.vue'
 import HttpStatusBadge from '@/components/admin/HttpStatusBadge.vue'
 import ResolveStatusBadge from '@/components/admin/ResolveStatusBadge.vue'
 import type { TableColumn } from '@/components/common/ui/BaseTable.vue'
+import { formatAdminPaginationSummary } from '@/utils/adminPaginationSummary'
 import { formatDateTimeOrDash } from '@/utils/date'
 import type { ErrorLogDetail, ErrorLogListItem } from '@/types'
 
@@ -141,7 +142,7 @@ function resolveFromDetail(log: ErrorLogDetail) {
       row-key="errorLogId"
       :page="page"
       :total-pages="totalPages"
-      :summary="`총 ${totalElements.toLocaleString()}건 (${page + 1} / ${totalPages} 페이지)`"
+      :summary="formatAdminPaginationSummary(totalElements, { page, totalPages })"
       @page-change="page = $event"
     >
       <template #loading>
