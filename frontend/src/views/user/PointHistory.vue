@@ -1,20 +1,26 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useUser } from '@/composables/useUser'
 import { formatDate } from '@/utils/date'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import { Coins } from 'lucide-vue-next'
-import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
-import { getListLoadErrorMessage } from '@/utils/listLoadError'
+import { usePaginatedListState } from '@/composables/usePaginatedListState'
+import type { PointHistory } from '@/types'
 
 const { t } = useI18n()
 const { useMyPointHistories } = useUser()
-const { page, size, params, handlePageChange, handleSizeChange } = usePaginatedQueryState({ initialSize: 15 })
-const { data: historyData, isLoading: loading, error, refetch } = useMyPointHistories(params)
-const { items: history, totalPages } = usePageResponseState(historyData, page)
-const errorMessage = computed(() => error.value ? getListLoadErrorMessage(t) : '')
+const {
+  page,
+  size,
+  handlePageChange,
+  handleSizeChange,
+  items: history,
+  totalPages,
+  isLoading: loading,
+  errorMessage,
+  refetch,
+} = usePaginatedListState<PointHistory>(useMyPointHistories, { initialSize: 15, t })
 </script>
 
 <template>

@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useReport } from '@/composables/useReport'
 import { formatDate } from '@/utils/date'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
 import { Flag } from 'lucide-vue-next'
-import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
-import { getListLoadErrorMessage } from '@/utils/listLoadError'
+import { usePaginatedListState } from '@/composables/usePaginatedListState'
+import type { MyReport } from '@/types'
 import {
   getMyReportStatusClass,
   getMyReportStatusLabel,
@@ -15,10 +14,17 @@ import {
 
 const { t } = useI18n()
 const { useMyReports } = useReport()
-const { page, size, params, handlePageChange, handleSizeChange } = usePaginatedQueryState({ initialSize: 15 })
-const { data: reportsData, isLoading: loading, error, refetch } = useMyReports(params)
-const { items: reports, totalPages } = usePageResponseState(reportsData, page)
-const errorMessage = computed(() => error.value ? getListLoadErrorMessage(t) : '')
+const {
+  page,
+  size,
+  handlePageChange,
+  handleSizeChange,
+  items: reports,
+  totalPages,
+  isLoading: loading,
+  errorMessage,
+  refetch,
+} = usePaginatedListState<MyReport>(useMyReports, { initialSize: 15, t })
 </script>
 
 <template>
