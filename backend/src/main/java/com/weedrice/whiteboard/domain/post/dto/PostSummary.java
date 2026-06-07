@@ -5,7 +5,6 @@ import com.weedrice.whiteboard.domain.post.entity.Post;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
-import org.jsoup.Jsoup;
 
 import java.time.LocalDateTime;
 
@@ -60,10 +59,10 @@ public class PostSummary {
     }
 
     public static PostSummary from(Post post) {
-        String summary = Jsoup.parse(post.getContents()).text().trim();
-        if (summary.length() > 1000) {
-            summary = summary.substring(0, 1000);
-        }
+        return from(post, null);
+    }
+
+    public static PostSummary from(Post post, String summary) {
         return from(post, null, null, false, false, false, false, summary);
     }
 
