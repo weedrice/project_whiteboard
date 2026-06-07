@@ -14,17 +14,13 @@ import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.security.CurrentUserId;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
-import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.optionalUserId;
 
 @RestController
 @RequestMapping("/api/v1/search")
@@ -39,9 +35,8 @@ public class SearchController {
     @GetMapping
     public ApiResponse<IntegratedSearchResponse> integratedSearch(
             @RequestParam String q,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+            @CurrentUserId(required = false) Long userId) {
 
-        Long userId = optionalUserId(userDetails);
         IntegratedSearchResponse response = searchPreviewReadService.integratedSearch(q, userId);
         searchRecordFacade.record(userId, response.getKeyword());
         return ApiResponse.success(response);
@@ -55,9 +50,8 @@ public class SearchController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             Sort sort,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+            @CurrentUserId(required = false) Long userId) {
 
-        Long userId = optionalUserId(userDetails);
         Page<PostSummary> response = searchService.searchPosts(q, searchType, boardUrl, page, size, sort, userId);
 
         return ApiResponses.page(response);
@@ -70,9 +64,8 @@ public class SearchController {
             @RequestParam(required = false) String boardUrl,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+            @CurrentUserId(required = false) Long userId) {
 
-        Long userId = optionalUserId(userDetails);
         Page<SemanticSearchResultResponse> response = semanticSearchService.search(
                 q, contentType, boardUrl, page, size, userId);
         return ApiResponses.page(response);
