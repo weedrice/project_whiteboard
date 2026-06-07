@@ -13,6 +13,7 @@ import com.weedrice.whiteboard.domain.search.service.SearchService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
+import com.weedrice.whiteboard.global.security.CurrentUserId;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -24,7 +25,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.optionalUserId;
-import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
 
 @RestController
 @RequestMapping("/api/v1/search")
@@ -89,20 +89,20 @@ public class SearchController {
     @GetMapping("/recent")
     public ApiResponse<SearchPersonalizationResponse> getRecentSearches(
             Pageable pageable,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(searchService.getRecentSearches(requiredUserId(userDetails), pageable));
+            @CurrentUserId Long userId) {
+        return ApiResponse.success(searchService.getRecentSearches(userId, pageable));
     }
 
     @DeleteMapping("/recent/{logId}")
     public ApiResponse<Void> deleteRecentSearch(@PathVariable Long logId,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        searchService.deleteRecentSearch(requiredUserId(userDetails), logId);
+            @CurrentUserId Long userId) {
+        searchService.deleteRecentSearch(userId, logId);
         return ApiResponses.ok();
     }
 
     @DeleteMapping("/recent")
-    public ApiResponse<Void> deleteAllRecentSearches(@AuthenticationPrincipal CustomUserDetails userDetails) {
-        searchService.deleteAllRecentSearches(requiredUserId(userDetails));
+    public ApiResponse<Void> deleteAllRecentSearches(@CurrentUserId Long userId) {
+        searchService.deleteAllRecentSearches(userId);
         return ApiResponses.ok();
     }
 }
