@@ -5,6 +5,7 @@ import { userApi } from '@/api/user'
 import { searchApi } from '@/api/search'
 import { computed, type Ref } from 'vue'
 import { boardQueryKeys } from '@/composables/boardQueryKeys'
+import { invalidateBoardListCaches } from '@/composables/boardCacheInvalidation'
 import type { BoardDetail, BoardListItem, BoardManagerCandidate, PageResponse, PostSummary, SubscriptionBoardListItem } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import type { AxiosRequestConfig } from 'axios'
@@ -162,8 +163,7 @@ export function useBoard() {
             onSuccess: (_, { boardUrl }) => {
                 // Invalidate board details and boards list to refresh subscription status
                 queryClient.invalidateQueries({ queryKey: boardQueryKeys.detail(boardUrl) })
-                queryClient.invalidateQueries({ queryKey: boardQueryKeys.all })
-                queryClient.invalidateQueries({ queryKey: boardQueryKeys.subscriptions })
+                invalidateBoardListCaches(queryClient)
             },
             ...mutationOptions
         })
@@ -191,8 +191,7 @@ export function useBoard() {
             },
             onSuccess: () => {
                 // Invalidate boards list and subscriptions to refresh header dropdowns
-                queryClient.invalidateQueries({ queryKey: boardQueryKeys.all })
-                queryClient.invalidateQueries({ queryKey: boardQueryKeys.subscriptions })
+                invalidateBoardListCaches(queryClient)
             }
         })
     }
@@ -211,8 +210,7 @@ export function useBoard() {
                 if (updatedBoardUrl && updatedBoardUrl !== boardUrl) {
                     queryClient.invalidateQueries({ queryKey: boardQueryKeys.detail(updatedBoardUrl) })
                 }
-                queryClient.invalidateQueries({ queryKey: boardQueryKeys.all })
-                queryClient.invalidateQueries({ queryKey: boardQueryKeys.subscriptions })
+                invalidateBoardListCaches(queryClient)
             }
         })
     }
@@ -225,8 +223,7 @@ export function useBoard() {
             },
             onSuccess: (_, { boardUrl }) => {
                 queryClient.invalidateQueries({ queryKey: boardQueryKeys.detail(boardUrl) })
-                queryClient.invalidateQueries({ queryKey: boardQueryKeys.all })
-                queryClient.invalidateQueries({ queryKey: boardQueryKeys.subscriptions })
+                invalidateBoardListCaches(queryClient)
             }
         })
     }
@@ -256,8 +253,7 @@ export function useBoard() {
             },
             onSuccess: () => {
                 // Invalidate boards list and subscriptions to refresh header dropdowns
-                queryClient.invalidateQueries({ queryKey: boardQueryKeys.all })
-                queryClient.invalidateQueries({ queryKey: boardQueryKeys.subscriptions })
+                invalidateBoardListCaches(queryClient)
             }
         })
     }

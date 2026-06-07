@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient, type QueryKey } from '@tanstack/
 import { adminApi, type AdminRole } from '@/api/admin'
 import { adminQueryKeys } from '@/composables/adminQueryKeys'
 import { boardQueryKeys } from '@/composables/boardQueryKeys'
+import { invalidateBoardListCaches } from '@/composables/boardCacheInvalidation'
 import { computed, type ComputedRef, type Ref } from 'vue'
 import { normalizePageResponse, type PageResponseRaw } from '@/utils/pageResponse'
 import type {
@@ -350,8 +351,7 @@ export function useAdmin() {
             onSuccess: () => {
                 // Invalidate both admin boards and general boards list to refresh header dropdowns
                 queryClient.invalidateQueries({ queryKey: adminQueryKeys.boards })
-                queryClient.invalidateQueries({ queryKey: boardQueryKeys.all })
-                queryClient.invalidateQueries({ queryKey: boardQueryKeys.subscriptions })
+                invalidateBoardListCaches(queryClient)
             }
         })
     }
@@ -366,8 +366,7 @@ export function useAdmin() {
                 if (data.boardUrl && data.boardUrl !== boardUrl) {
                     queryClient.invalidateQueries({ queryKey: boardQueryKeys.detail(data.boardUrl) })
                 }
-                queryClient.invalidateQueries({ queryKey: boardQueryKeys.all })
-                queryClient.invalidateQueries({ queryKey: boardQueryKeys.subscriptions })
+                invalidateBoardListCaches(queryClient)
             }
         })
     }
@@ -378,8 +377,7 @@ export function useAdmin() {
             onSuccess: () => {
                 // Invalidate both admin boards and general boards list to refresh header dropdowns
                 queryClient.invalidateQueries({ queryKey: adminQueryKeys.boards })
-                queryClient.invalidateQueries({ queryKey: boardQueryKeys.all })
-                queryClient.invalidateQueries({ queryKey: boardQueryKeys.subscriptions })
+                invalidateBoardListCaches(queryClient)
             }
         })
     }
