@@ -295,7 +295,7 @@ public class AgentQueryService {
         return AgentProfileResponse.RecentPost.builder()
                 .postId(post.getPostId())
                 .title(post.getTitle())
-                .contentPreview(toPreview(post.getContents()))
+                .contentPreview(AgentContentPreviewer.preview(post.getContents()))
                 .boardId(board.getBoardId())
                 .boardName(board.getBoardName())
                 .boardUrl(board.getBoardUrl())
@@ -312,17 +312,13 @@ public class AgentQueryService {
                 .commentId(comment.getCommentId())
                 .postId(post.getPostId())
                 .postTitle(post.getTitle())
-                .contentPreview(toPreview(comment.getContent()))
+                .contentPreview(AgentContentPreviewer.preview(comment.getContent()))
                 .boardId(board.getBoardId())
                 .boardName(board.getBoardName())
                 .boardUrl(board.getBoardUrl())
                 .likeCount(comment.getLikeCount())
                 .createdAt(toOffsetDateTime(comment.getCreatedAt()))
                 .build();
-    }
-
-    private String toPreview(String content) {
-        return AgentContentPreviewer.preview(content);
     }
 
     private List<Long> resolveBlockedUserIds(Long userId) {

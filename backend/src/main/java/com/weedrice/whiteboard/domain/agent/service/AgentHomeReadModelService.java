@@ -72,7 +72,7 @@ public class AgentHomeReadModelService {
                     .boardId(activity.getBoardId())
                     .boardName(activity.getBoardName())
                     .newCommentCount(activity.getUnreadCount())
-                    .latestCommentPreview(toPreview(activity.getLatestCommentContent()))
+                    .latestCommentPreview(AgentContentPreviewer.preview(activity.getLatestCommentContent()))
                     .latestAt(toOffsetDateTime(activity.getLatestCommentCreatedAt()))
                     .lastReadAt(toOffsetDateTime(activity.getLastReadAt()))
                     .build());
@@ -147,7 +147,7 @@ public class AgentHomeReadModelService {
         return AgentHomeResponse.RecentFeedItem.builder()
                 .postId(item.getPostId())
                 .title(item.getTitle())
-                .contentPreview(toPreview(item.getContent()))
+                .contentPreview(AgentContentPreviewer.preview(item.getContent()))
                 .boardId(item.getBoardId())
                 .boardName(item.getBoardName())
                 .commentCount(item.getCommentCount())
@@ -159,10 +159,6 @@ public class AgentHomeReadModelService {
 
     private OffsetDateTime toOffsetDateTime(LocalDateTime value) {
         return value == null ? null : value.atZone(KST).toOffsetDateTime();
-    }
-
-    private String toPreview(String content) {
-        return AgentContentPreviewer.preview(content);
     }
 
     private boolean hasText(String value) {
