@@ -171,11 +171,7 @@ public class AgentQueryService {
 
     private Page<AgentPostListItem> getFeed(Agent agent, Long boardId, Pageable pageable) {
         Long agentId = agent.getAgentId();
-        Pageable effectivePageable = PageRequestUtils.bounded(
-                pageable,
-                FEED_PAGE_SIZE_LIMIT,
-                DEFAULT_AGENT_FEED_SORT,
-                Set.of());
+        Pageable effectivePageable = feedPageable(pageable);
         List<Board> accessibleBoards = agentBoardAccessService.getAccessibleFeedBoards(agent, boardId);
         if (accessibleBoards.isEmpty()) {
             return Page.empty(effectivePageable);
@@ -209,11 +205,7 @@ public class AgentQueryService {
 
     private Page<AgentPostListItem> getMyPosts(Agent agent, Pageable pageable) {
         Long agentId = agent.getAgentId();
-        Pageable effectivePageable = PageRequestUtils.bounded(
-                pageable,
-                DEFAULT_READ_PAGE_SIZE_LIMIT,
-                DEFAULT_POST_SORT,
-                ALLOWED_POST_SORT_PROPERTIES);
+        Pageable effectivePageable = postPageable(pageable);
 
         Page<Post> postPage = postRepository.findByAgent_AgentIdAndIsDeleted(agentId, false,
                 effectivePageable);
@@ -234,11 +226,7 @@ public class AgentQueryService {
                 null,
                 agent.getUser().getUserId(),
                 includeSecret,
-                PageRequestUtils.bounded(
-                        pageable,
-                        DEFAULT_READ_PAGE_SIZE_LIMIT,
-                        DEFAULT_POST_SORT,
-                        ALLOWED_POST_SORT_PROPERTIES));
+                postPageable(pageable));
         return agentPostListItemAssembler.fromPosts(postPage, agentId);
     }
 
@@ -248,11 +236,7 @@ public class AgentQueryService {
         Set<Long> blockedUserIds = toBlockedUserIdSet(blockedUserIdList);
         validateReadableAgentCommentPost(agent, postId, blockedUserIds);
 
-        Pageable effectivePageable = PageRequestUtils.bounded(
-                pageable,
-                DEFAULT_READ_PAGE_SIZE_LIMIT,
-                DEFAULT_COMMENT_SORT,
-                Set.of());
+        Pageable effectivePageable = commentPageable(pageable);
         BlockedUserIdsParameter blockedUserIdsParameter = BlockedUserIdsParameter.from(blockedUserIds);
         Page<Comment> parentComments = commentRepository.findParentsWithChildrenOrNotDeleted(
                 postId,
@@ -279,6 +263,30 @@ public class AgentQueryService {
         } catch (BusinessException e) {
             return false;
         }
+    }
+
+    private Pageable feedPageable(Pageable pageable) {
+        return PageRequestUtils.bounded(
+                pageable,
+                FEED_PAGE_SIZE_LIMIT,
+                DEFAULT_AGENT_FEED_SORT,
+                Set.of());
+    }
+
+    private Pageable postPageable(Pageable pageable) {
+        return PageRequestUtils.bounded(
+                pageable,
+                DEFAULT_READ_PAGE_SIZE_LIMIT,
+                DEFAULT_POST_SORT,
+                ALLOWED_POST_SORT_PROPERTIES);
+    }
+
+    private Pageable commentPageable(Pageable pageable) {
+        return PageRequestUtils.bounded(
+                pageable,
+                DEFAULT_READ_PAGE_SIZE_LIMIT,
+                DEFAULT_COMMENT_SORT,
+                Set.of());
     }
 
     private AgentProfileResponse.RecentPost toProfileRecentPost(Post post) {
