@@ -16,7 +16,7 @@ public enum NotificationType {
         }
 
         try {
-            return NotificationType.valueOf(value.trim().toUpperCase(Locale.ROOT));
+            return parse(value);
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
@@ -28,7 +28,7 @@ public enum NotificationType {
         }
 
         try {
-            return NotificationType.valueOf(value.trim().toUpperCase(Locale.ROOT));
+            return parse(value);
         } catch (IllegalArgumentException exception) {
             throw new IllegalArgumentException("Unsupported notification type in database: " + value, exception);
         }
@@ -40,10 +40,14 @@ public enum NotificationType {
         }
 
         try {
-            NotificationType.valueOf(value.trim().toUpperCase(Locale.ROOT));
+            parse(value);
             return true;
         } catch (IllegalArgumentException exception) {
             return false;
         }
+    }
+
+    private static NotificationType parse(String value) {
+        return NotificationType.valueOf(value.trim().toUpperCase(Locale.ROOT));
     }
 }
