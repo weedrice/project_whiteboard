@@ -36,14 +36,13 @@ public class ReportController {
     public ApiResponse<Long> reportUser(
             @Valid @RequestBody UserReportRequest request,
             @CurrentUserId Long reporterId) {
-        Long reportId = reportService.createReport(
+        return createReportResponse(
                 reporterId,
                 ReportTargetType.USER.name(),
                 request.getTargetUserId(),
                 request.getReasonType(),
                 request.getLink(),
                 request.getReason());
-        return ApiResponse.success(reportId);
     }
 
     @PostMapping("/posts")
@@ -51,14 +50,13 @@ public class ReportController {
     public ApiResponse<Long> reportPost(
             @Valid @RequestBody PostReportRequest request,
             @CurrentUserId Long reporterId) {
-        Long reportId = reportService.createReport(
+        return createReportResponse(
                 reporterId,
                 ReportTargetType.POST.name(),
                 request.getTargetPostId(),
                 request.getReasonType(),
                 null,
                 request.getReason());
-        return ApiResponse.success(reportId);
     }
 
     @PostMapping("/comments")
@@ -66,14 +64,13 @@ public class ReportController {
     public ApiResponse<Long> reportComment(
             @Valid @RequestBody CommentReportRequest request,
             @CurrentUserId Long reporterId) {
-        Long reportId = reportService.createReport(
+        return createReportResponse(
                 reporterId,
                 ReportTargetType.COMMENT.name(),
                 request.getTargetCommentId(),
                 request.getReasonType(),
                 null,
                 request.getReason());
-        return ApiResponse.success(reportId);
     }
 
     @PostMapping
@@ -81,13 +78,29 @@ public class ReportController {
     public ApiResponse<Long> createReport(
             @Valid @RequestBody ReportCreateRequest request,
             @CurrentUserId Long reporterId) {
-        Long reportId = reportService.createReport(
+        return createReportResponse(
                 reporterId,
                 request.getTargetType().name(),
                 request.getTargetId(),
                 request.getReasonType().name(),
                 request.getRemark(),
                 request.getContents());
+    }
+
+    private ApiResponse<Long> createReportResponse(
+            Long reporterId,
+            String targetType,
+            Long targetId,
+            String reasonType,
+            String remark,
+            String contents) {
+        Long reportId = reportService.createReport(
+                reporterId,
+                targetType,
+                targetId,
+                reasonType,
+                remark,
+                contents);
         return ApiResponse.success(reportId);
     }
 
