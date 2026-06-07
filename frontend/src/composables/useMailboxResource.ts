@@ -65,7 +65,11 @@ export function useMailboxResource() {
         markAsReadAbortControllers.clear()
     }
 
-    async function openMessage(msg: MailboxMessageViewModel) {
+    function isStaleMessageDetail(requestId: number, messageId: number) {
+        return requestId !== messageDetailRequestId || selectedMessage.value?.id !== messageId
+    }
+
+    function startMessageDetailRequest(msg: MailboxMessageViewModel) {
         const requestId = ++messageDetailRequestId
         abortMessageDetailRequest()
         const controller = new AbortController()
@@ -73,53 +77,79 @@ export function useMailboxResource() {
         const messageId = msg.id
         messageFromBlockedUser.value = false
         selectedMessage.value = msg
+        return { requestId, messageId, controller }
+    }
+
+    async function loadMessageDetail(messageId: number, controller: AbortController) {
+        const { data } = await messageApi.getMessage(messageId, {
+            skipGlobalErrorHandler: true,
+            signal: controller.signal
+        })
+        if (data.success && data.data) {
+            return toMailboxMessageViewModel(data.data)
+        }
+        return null
+    }
+
+    async function markMessageAsReadIfNeeded(messageId: number, wasUnread: boolean, requestId: number) {
+        if (viewType.value !== 'received' || !wasUnread) {
+            return
+        }
+
+        const markAsReadController = new AbortController()
+        markAsReadAbortControllers.add(markAsReadController)
         try {
-            const { data } = await messageApi.getMessage(messageId, {
+            await messageApi.markAsRead(messageId, {
                 skipGlobalErrorHandler: true,
-                signal: controller.signal
+                signal: markAsReadController.signal
             })
-            if (requestId !== messageDetailRequestId || selectedMessage.value?.id !== messageId) {
+        } finally {
+            markAsReadAbortControllers.delete(markAsReadController)
+        }
+        markListMessageRead(messageId)
+        if (isStaleMessageDetail(requestId, messageId)) {
+            return
+        }
+        if (selectedMessage.value?.id === messageId) {
+            selectedMessage.value = markMailboxMessageRead(selectedMessage.value)
+        }
+    }
+
+    async function handleMessageDetailError(
+        error: unknown,
+        requestId: number,
+        messageId: number,
+        controller: AbortController
+    ) {
+        if (isStaleMessageDetail(requestId, messageId) || controller.signal.aborted) {
+            return
+        }
+
+        const errRes = extractErrorResponse(error as AxiosError)
+        if (errRes?.code === BLOCKED_BY_USER_CODE) {
+            messageFromBlockedUser.value = true
+        } else if (errRes?.code === NOT_FOUND_CODE) {
+            selectedMessage.value = null
+            await fetchMessages()
+            toastStore.addToast(t('common.messages.notFound'), 'info')
+        } else {
+            logger.error('Failed to open message:', error)
+        }
+    }
+
+    async function openMessage(msg: MailboxMessageViewModel) {
+        const { requestId, messageId, controller } = startMessageDetailRequest(msg)
+        try {
+            const detail = await loadMessageDetail(messageId, controller)
+            if (isStaleMessageDetail(requestId, messageId)) {
                 return
             }
-            if (data.success && data.data) {
-                selectedMessage.value = toMailboxMessageViewModel(data.data)
+            if (detail) {
+                selectedMessage.value = detail
             }
-            if (viewType.value === 'received' && msg.isUnread) {
-                const markAsReadController = new AbortController()
-                markAsReadAbortControllers.add(markAsReadController)
-                try {
-                    await messageApi.markAsRead(messageId, {
-                        skipGlobalErrorHandler: true,
-                        signal: markAsReadController.signal
-                    })
-                } finally {
-                    markAsReadAbortControllers.delete(markAsReadController)
-                }
-                markListMessageRead(messageId)
-                if (requestId !== messageDetailRequestId || selectedMessage.value?.id !== messageId) {
-                    return
-                }
-                if (selectedMessage.value?.id === messageId) {
-                    selectedMessage.value = markMailboxMessageRead(selectedMessage.value)
-                }
-            }
+            await markMessageAsReadIfNeeded(messageId, msg.isUnread, requestId)
         } catch (error) {
-            if (requestId !== messageDetailRequestId || selectedMessage.value?.id !== messageId) {
-                return
-            }
-            if (controller.signal.aborted) {
-                return
-            }
-            const errRes = extractErrorResponse(error as AxiosError)
-            if (errRes?.code === BLOCKED_BY_USER_CODE) {
-                messageFromBlockedUser.value = true
-            } else if (errRes?.code === NOT_FOUND_CODE) {
-                selectedMessage.value = null
-                await fetchMessages()
-                toastStore.addToast(t('common.messages.notFound'), 'info')
-            } else {
-                logger.error('Failed to open message:', error)
-            }
+            await handleMessageDetailError(error, requestId, messageId, controller)
         } finally {
             if (messageDetailAbortController === controller) {
                 messageDetailAbortController = null
