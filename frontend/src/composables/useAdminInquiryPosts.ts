@@ -1,6 +1,7 @@
 import { computed, ref, watch } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { adminApi } from '@/api/admin'
+import { unwrapAxiosApiData } from '@/api/response'
 import { adminInquiryQueryKeys } from '@/composables/adminQueryKeys'
 import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import { formatDateTimeOrDash } from '@/utils/date'
@@ -99,12 +100,12 @@ export function useAdminInquiryPosts() {
   } = useQuery({
     queryKey: adminInquiryQueryKeys.listPage(page, size, sort),
     queryFn: async () => {
-      const { data } = await adminApi.getInquiryPosts({
+      const inquiryPage = unwrapAxiosApiData(await adminApi.getInquiryPosts({
         page: page.value,
         size: size.value,
         sort: sort.value
-      })
-      return toAdminInquiryPage(data.data)
+      }))
+      return toAdminInquiryPage(inquiryPage)
     },
     placeholderData: (previousData) => previousData
   })
@@ -121,8 +122,7 @@ export function useAdminInquiryPosts() {
       if (!postId) {
         throw new Error('Invalid post id')
       }
-      const { data } = await adminApi.getInquiryPost(postId)
-      return toAdminInquiryDetail(data.data as Post)
+      return toAdminInquiryDetail(unwrapAxiosApiData(await adminApi.getInquiryPost(postId)) as Post)
     },
     enabled: computed(() => selectedPostId.value !== null)
   })
