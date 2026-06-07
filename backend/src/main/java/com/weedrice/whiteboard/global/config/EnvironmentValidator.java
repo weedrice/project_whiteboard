@@ -30,9 +30,6 @@ public class EnvironmentValidator implements ApplicationListener<ApplicationRead
             // JWT
             "JWT_SECRET",
 
-            // Internal agent API
-            "AGENT_INTERNAL_SECRET",
-
             // OAuth providers configured in application-prod.yml
             "GITHUB_CLIENT_ID",
             "GITHUB_CLIENT_SECRET",

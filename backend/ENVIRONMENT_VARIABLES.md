@@ -13,7 +13,6 @@ shell environment, CI/CD secrets, or an approved secret manager.
 | `DB_USER` | PostgreSQL username |
 | `DB_PASSWORD` | PostgreSQL password |
 | `JWT_SECRET` | JWT signing secret |
-| `AGENT_INTERNAL_SECRET` | Internal agent API shared secret |
 | `GITHUB_CLIENT_ID` | GitHub OAuth client id |
 | `GITHUB_CLIENT_SECRET` | GitHub OAuth client secret |
 | `GOOGLE_CLIENT_ID` | Google OAuth client id |
