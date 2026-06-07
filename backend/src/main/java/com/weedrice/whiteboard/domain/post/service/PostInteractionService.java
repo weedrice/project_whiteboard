@@ -25,6 +25,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.common.service.ReactionWriter;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
+import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import jakarta.persistence.EntityManager;
@@ -310,14 +311,7 @@ public class PostInteractionService {
     }
 
     private String normalizeScrapRemark(String remark) {
-        if (remark == null) {
-            return null;
-        }
-        String normalizedRemark = remark.trim();
-        if (normalizedRemark.length() > ScrapConstraints.MAX_REMARK_LENGTH) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
-        return normalizedRemark;
+        return TextInputNormalizer.normalizeOptional(remark, ScrapConstraints.MAX_REMARK_LENGTH);
     }
 
     private Post getReadablePost(@NonNull Long postId, PostReadContext context) {
