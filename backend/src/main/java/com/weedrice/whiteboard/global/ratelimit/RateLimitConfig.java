@@ -32,10 +32,7 @@ public class RateLimitConfig {
      */
     @Bean
     public Bucket defaultBucket() {
-        int limit = properties.getDefaultLimit();
-        return Bucket.builder()
-                .addLimit(Bandwidth.classic(limit, Refill.intervally(limit, Duration.ofMinutes(1))))
-                .build();
+        return createBucket(properties.getDefaultLimit());
     }
 
     /**
@@ -43,10 +40,7 @@ public class RateLimitConfig {
      */
     @Bean(name = "authBucket")
     public Bucket authBucket() {
-        int limit = properties.getAuthLimit();
-        return Bucket.builder()
-                .addLimit(Bandwidth.classic(limit, Refill.intervally(limit, Duration.ofMinutes(1))))
-                .build();
+        return createBucket(properties.getAuthLimit());
     }
 
     /**
@@ -54,10 +48,7 @@ public class RateLimitConfig {
      */
     @Bean(name = "apiBucket")
     public Bucket apiBucket() {
-        int limit = properties.getApiLimit();
-        return Bucket.builder()
-                .addLimit(Bandwidth.classic(limit, Refill.intervally(limit, Duration.ofMinutes(1))))
-                .build();
+        return createBucket(properties.getApiLimit());
     }
 
     /**
@@ -76,27 +67,24 @@ public class RateLimitConfig {
      * 사용자별 Rate Limit 생성 - rate-limit.user-limit 사용 (인증된 사용자)
      */
     public Bucket createUserBucket() {
-        int limit = properties.getUserLimit();
-        return Bucket.builder()
-                .addLimit(Bandwidth.classic(limit, Refill.intervally(limit, Duration.ofMinutes(1))))
-                .build();
+        return createBucket(properties.getUserLimit());
     }
 
     /**
      * IP별 일반 API rate limit 버킷 생성.
      */
     public Bucket createApiBucket() {
-        int limit = properties.getApiLimit();
-        return Bucket.builder()
-                .addLimit(Bandwidth.classic(limit, Refill.intervally(limit, Duration.ofMinutes(1))))
-                .build();
+        return createBucket(properties.getApiLimit());
     }
 
     /**
      * IP별 인증 API rate limit 버킷 생성.
      */
     public Bucket createAuthBucket() {
-        int limit = properties.getAuthLimit();
+        return createBucket(properties.getAuthLimit());
+    }
+
+    private Bucket createBucket(int limit) {
         return Bucket.builder()
                 .addLimit(Bandwidth.classic(limit, Refill.intervally(limit, Duration.ofMinutes(1))))
                 .build();
