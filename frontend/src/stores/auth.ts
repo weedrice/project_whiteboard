@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi } from '@/api/auth'
+import { unwrapApiData } from '@/api/response'
 import logger from '@/utils/logger'
 import { clearStoredAuthTokens, getStoredAccessToken, persistAccessToken } from '@/utils/authTokenStorage'
 import type { User, LoginCredentials } from '@/types'
@@ -56,7 +57,7 @@ export const useAuthStore = defineStore('auth', () => {
         try {
             const { data } = await authApi.login(credentials)
             if (data.success) {
-                const { accessToken: token, user: userData } = data.data
+                const { accessToken: token, user: userData } = unwrapApiData(data)
 
                 applyAuthenticatedSession(token, userData)
 
@@ -91,7 +92,7 @@ export const useAuthStore = defineStore('auth', () => {
         try {
             const { data } = await authApi.getMe(config)
             if (data.success) {
-                user.value = data.data
+                user.value = unwrapApiData(data)
 
                 if (user.value?.status === 'SANCTIONED') {
                     await handleSanctionedSession()

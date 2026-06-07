@@ -4,6 +4,7 @@ import router from '@/router'
 import { Storage } from '@/utils/storage'
 import { API } from '@/utils/constants'
 import { isValidationErrors, normalizeApiErrorMessage } from '@/utils/errorHandler'
+import { unwrapApiData } from '@/api/response'
 
 const { t } = i18n.global
 
@@ -28,7 +29,11 @@ declare module 'axios' {
     }
 }
 
-import type { ErrorResponse, ValidationErrors } from '@/types/common'
+import type { ApiResponse, ErrorResponse, ValidationErrors } from '@/types/common'
+
+type RefreshTokenResponse = {
+    accessToken: string
+}
 
 interface ApiErrorResponse {
     success?: boolean
@@ -307,12 +312,16 @@ api.interceptors.response.use(
 
             try {
                 // Use a separate instance or direct call to avoid infinite loop if refresh fails
-                const { data } = await axios.post(`${api.defaults.baseURL}${API_PATHS.REFRESH}`, undefined, {
-                    withCredentials: true,
-                })
+                const { data } = await axios.post<ApiResponse<RefreshTokenResponse>>(
+                    `${api.defaults.baseURL}${API_PATHS.REFRESH}`,
+                    undefined,
+                    {
+                        withCredentials: true,
+                    },
+                )
 
                 if (data.success) {
-                    const refreshedAccessToken = data.data.accessToken
+                    const refreshedAccessToken = unwrapApiData(data).accessToken
                     lastSessionExpiredToastAt = 0
 
                     // Update user state (permissions, etc.) with new token

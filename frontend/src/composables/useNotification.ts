@@ -237,9 +237,9 @@ export function useNotification() {
 
     const reconnectWithRefresh = async () => {
         try {
-            const { data } = await authApi.refreshToken()
+            const authTokens = unwrapAxiosApiData(await authApi.refreshToken())
             const authStore = useAuthStore()
-            authStore.setTokens(data.data.accessToken)
+            authStore.setTokens(authTokens.accessToken)
             scheduleReconnect(1000)
             return
         } catch (error: unknown) {
