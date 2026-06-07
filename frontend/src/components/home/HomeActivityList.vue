@@ -5,6 +5,7 @@ import { ChevronRight, MessageSquare } from 'lucide-vue-next'
 import type { FeedPost } from '@/types'
 import { formatRelativeDate } from '@/utils/date'
 import { buildPostDetailPath } from '@/utils/feedPreview'
+import { formatInteger } from '@/utils/numberFormat'
 
 const props = defineProps<{
   posts: FeedPost[]
@@ -43,7 +44,7 @@ const goToPost = (post: FeedPost) => {
       <div class="ml-4 flex flex-shrink-0 items-center gap-3 text-[11px] text-[var(--nv-ink-soft)]">
         <span class="inline-flex items-center gap-1">
           <MessageSquare class="h-3.5 w-3.5" />
-          {{ post.commentCount.toLocaleString() }}
+          {{ formatInteger(post.commentCount) }}
         </span>
         <ChevronRight class="h-4 w-4" />
       </div>

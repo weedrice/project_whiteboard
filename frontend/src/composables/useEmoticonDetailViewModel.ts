@@ -1,6 +1,7 @@
 import { computed, type Ref } from 'vue'
 import type { EmoticonMaster } from '@/types/emoticon'
 import { DEFAULT_EMOTICON_IMAGE_URL } from '@/utils/imageFallback'
+import { formatInteger } from '@/utils/numberFormat'
 
 export interface EmoticonDetailImageViewModel {
   imageId: number
@@ -38,7 +39,7 @@ export function toEmoticonDetailViewModel(emoticon: EmoticonMaster): EmoticonDet
     creatorId: emoticon.creatorId,
     creatorDisplayName: emoticon.creatorName ?? '',
     purchaseCount,
-    purchaseCountText: purchaseCount.toLocaleString(),
+    purchaseCountText: formatInteger(purchaseCount),
     createdAt: emoticon.createdAt,
     tags: emoticon.tags ?? [],
     thumbnailSrc: emoticon.thumbnailUrl || DEFAULT_EMOTICON_IMAGE_URL,

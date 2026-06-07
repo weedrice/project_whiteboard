@@ -7,6 +7,7 @@ import { User, LogOut, CreditCard, FileText, Clock, AlertTriangle, PlusSquare, C
 import { useUser } from '@/composables/useUser'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import UserAvatar from '@/components/common/ui/UserAvatar.vue'
+import { formatInteger } from '@/utils/numberFormat'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -143,7 +144,7 @@ onUnmounted(() => {
           class="flex items-center min-h-[40px] sm:min-h-0 py-1 text-xs sm:text-sm nv-accent-text font-medium nv-press-surface rounded touch-manipulation -mx-2 px-2"
           @click="emit('toggle')">
           <CreditCard class="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
-          {{ points.toLocaleString() }} P
+          {{ formatInteger(points) }} P
         </router-link>
       </div>
 

@@ -7,6 +7,7 @@ import type { FeedPost } from '@/types'
 import { formatTimeAgo } from '@/utils/date'
 import { getOptimizedBoardIconUrl, getOptimizedPostImageUrl, handleImageError } from '@/utils/image'
 import { buildPostDetailPath, getFeedBodyHtml, getFeedMediaPreview, isFeedSpoiler } from '@/utils/feedPreview'
+import { formatInteger } from '@/utils/numberFormat'
 
 const props = withDefaults(defineProps<{
   post: FeedPost
@@ -177,7 +178,7 @@ const handleKeydown = (event: KeyboardEvent) => {
       <span>{{ timeAgo }}</span>
       <span class="ml-auto inline-flex items-center gap-1 text-[var(--nv-ink-soft)]">
         <ThumbsUp class="h-3.5 w-3.5" />
-        {{ post.likeCount.toLocaleString() }}
+        {{ formatInteger(post.likeCount) }}
       </span>
     </div>
   </article>
