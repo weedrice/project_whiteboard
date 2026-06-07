@@ -243,15 +243,12 @@ public class PostInteractionService {
         PostReadContext context = postReadContextResolver.resolveForExistingUser(userId);
         User user = context.viewer();
         Pageable safePageable = PageRequestUtils.of(pageable, DEFAULT_SCRAP_PAGE_SIZE, DEFAULT_SCRAP_SORT);
-        Set<Long> blockedUserIds = context.blockedUserIdSet();
-        List<Long> blockedUserIdParams = blockedUserIds.isEmpty()
-                ? List.of(-1L)
-                : new ArrayList<>(blockedUserIds);
+        BlockedUserFilter blockedUsers = BlockedUserFilter.from(context.blockedUserIdSet());
         Page<Scrap> scrapPage = scrapRepository.findPageByUserWithPostDetails(
                 user,
                 user.isUsableSuperAdmin(),
-                blockedUserIds.isEmpty(),
-                blockedUserIdParams,
+                blockedUsers.empty(),
+                blockedUsers.ids(),
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
                 safePageable);
         return ScrapListResponse.from(scrapPage);
@@ -262,15 +259,12 @@ public class PostInteractionService {
         User user = context.viewer();
         Pageable safePageable = PageRequestUtils.of(pageable, DEFAULT_RECENTLY_VIEWED_PAGE_SIZE,
                 DEFAULT_RECENTLY_VIEWED_SORT);
-        Set<Long> blockedUserIds = context.blockedUserIdSet();
-        List<Long> blockedUserIdParams = blockedUserIds.isEmpty()
-                ? List.of(-1L)
-                : new ArrayList<>(blockedUserIds);
+        BlockedUserFilter blockedUsers = BlockedUserFilter.from(context.blockedUserIdSet());
         Page<Long> visiblePostIdsPage = viewHistoryRepository.findVisiblePostIdsByUserIdOrderByModifiedAtDesc(
                 userId,
                 user.isUsableSuperAdmin(),
-                blockedUserIds.isEmpty(),
-                blockedUserIdParams,
+                blockedUsers.empty(),
+                blockedUsers.ids(),
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
                 safePageable);
 
@@ -378,6 +372,17 @@ public class PostInteractionService {
             return actorAgent.getName();
         }
         return user.getDisplayName();
+    }
+
+    private record BlockedUserFilter(boolean empty, List<Long> ids) {
+        private static final List<Long> NO_BLOCKED_USER_IDS = List.of(-1L);
+
+        static BlockedUserFilter from(Set<Long> blockedUserIds) {
+            if (blockedUserIds == null || blockedUserIds.isEmpty()) {
+                return new BlockedUserFilter(true, NO_BLOCKED_USER_IDS);
+            }
+            return new BlockedUserFilter(false, new ArrayList<>(blockedUserIds));
+        }
     }
 
 }
