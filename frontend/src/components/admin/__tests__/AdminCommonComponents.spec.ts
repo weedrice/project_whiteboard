@@ -3,6 +3,7 @@ import { defineComponent } from 'vue'
 import { describe, expect, it } from 'vitest'
 import AdminActionButton from '../AdminActionButton.vue'
 import AdminDataPage from '../AdminDataPage.vue'
+import AdminDetailModalShell from '../AdminDetailModalShell.vue'
 import AdminFilterField from '../AdminFilterField.vue'
 import AdminFormPanel from '../AdminFormPanel.vue'
 import AdminInlineForm from '../AdminInlineForm.vue'
@@ -25,6 +26,22 @@ const AdminPageHeaderStub = defineComponent({
       <p>{{ description }}</p>
       <slot name="actions" />
     </header>
+  `,
+})
+
+const AdminDetailModalBaseStub = defineComponent({
+  props: {
+    isOpen: Boolean,
+    title: String,
+  },
+  emits: ['close'],
+  template: `
+    <section v-if="isOpen" data-test="modal">
+      <h1>{{ title }}</h1>
+      <button type="button" data-test="close" @click="$emit('close')">close</button>
+      <slot />
+      <slot name="footer" />
+    </section>
   `,
 })
 
@@ -56,6 +73,65 @@ describe('admin common components', () => {
     expect(wrapper.get('[data-test="toolbar"]').text()).toBe('Toolbar')
     expect(wrapper.get('main').text()).toBe('Table')
     expect(wrapper.get('footer').text()).toBe('Footer')
+  })
+
+  it('wraps admin detail modal state and forwards close events', async () => {
+    const wrapper = mount(AdminDetailModalShell, {
+      props: {
+        isOpen: true,
+        title: 'Detail',
+      },
+      slots: {
+        default: '<p data-test="content">Loaded content</p>',
+      },
+      global: {
+        stubs: {
+          BaseModal: AdminDetailModalBaseStub,
+        },
+      },
+    })
+
+    expect(wrapper.get('h1').text()).toBe('Detail')
+    expect(wrapper.get('[data-test="content"]').text()).toBe('Loaded content')
+
+    await wrapper.get('[data-test="close"]').trigger('click')
+
+    expect(wrapper.emitted('close')).toHaveLength(1)
+  })
+
+  it('renders detail shell loading, error, and empty states before content', () => {
+    const mountShell = (props: Record<string, unknown>) => mount(AdminDetailModalShell, {
+      props: {
+        isOpen: true,
+        title: 'Detail',
+        ...props,
+      },
+      slots: {
+        default: '<p>content</p>',
+      },
+      global: {
+        stubs: {
+          BaseModal: AdminDetailModalBaseStub,
+        },
+      },
+    })
+
+    expect(mountShell({
+        loading: true,
+        empty: true,
+        loadingText: 'Loading detail',
+    }).text()).toContain('Loading detail')
+
+    expect(mountShell({
+        error: new Error('failed'),
+        empty: true,
+        errorText: 'Failed detail',
+    }).text()).toContain('Failed detail')
+
+    expect(mountShell({
+        empty: true,
+        emptyText: 'No detail',
+    }).text()).toContain('No detail')
   })
 
   it('connects AdminFilterField label and sizing class', () => {

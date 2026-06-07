@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import AdminModalContentState from '@/components/admin/AdminModalContentState.vue'
+import AdminDetailModalShell from '@/components/admin/AdminDetailModalShell.vue'
 import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
-import BaseModal from '@/components/common/ui/BaseModal.vue'
 import DetailSection from '@/components/admin/detail/DetailSection.vue'
 import DescriptionGrid from '@/components/admin/detail/DescriptionGrid.vue'
 import DescriptionItem from '@/components/admin/detail/DescriptionItem.vue'
@@ -41,9 +40,13 @@ const targetTypeLabel = computed(() => {
 </script>
 
 <template>
-  <BaseModal :isOpen="isOpen" :title="t('admin.reports.detail.title')" @close="$emit('close')">
-    <AdminModalContentState :empty="!report" empty-text="">
-      <div v-if="report" class="space-y-6">
+  <AdminDetailModalShell
+    :is-open="isOpen"
+    :title="t('admin.reports.detail.title')"
+    :empty="!report"
+    @close="$emit('close')"
+  >
+    <template v-if="report">
       <DetailSection :title="t('admin.reports.detail.reportInfo')">
         <DescriptionGrid>
           <DescriptionItem :label="t('common.id')">
@@ -53,15 +56,15 @@ const targetTypeLabel = computed(() => {
             {{ report.reporterDisplayName }}
           </DescriptionItem>
           <DescriptionItem :label="t('common.target')">
-              <template v-if="report.targetDisplayName != null && report.targetLoginId != null">
-                <div class="flex flex-col">
-                  <span>{{ report.targetDisplayName }}</span>
-                  <span class="text-xs nv-text-subtle">{{ report.targetLoginId }}</span>
-                </div>
-              </template>
-              <template v-else>
-                {{ targetTypeLabel }} #{{ report.targetId }}
-              </template>
+            <template v-if="report.targetDisplayName != null && report.targetLoginId != null">
+              <div class="flex flex-col">
+                <span>{{ report.targetDisplayName }}</span>
+                <span class="text-xs nv-text-subtle">{{ report.targetLoginId }}</span>
+              </div>
+            </template>
+            <template v-else>
+              {{ targetTypeLabel }} #{{ report.targetId }}
+            </template>
           </DescriptionItem>
           <DescriptionItem :label="t('common.status')" value-class="mt-1">
             <AdminStatusBadge :label="getAdminReportStatusLabel(t, report.status)" :variant="statusVariant" />
@@ -98,7 +101,6 @@ const targetTypeLabel = computed(() => {
         <h3 class="text-sm font-medium nv-text-subtle mb-2">{{ t('admin.reports.remark') }}</h3>
         <p class="text-sm nv-text-muted whitespace-pre-wrap">{{ getReportReasonText(report) }}</p>
       </div>
-      </div>
-    </AdminModalContentState>
-  </BaseModal>
+    </template>
+  </AdminDetailModalShell>
 </template>
