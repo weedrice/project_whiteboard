@@ -1,4 +1,5 @@
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onUnmounted, ref } from 'vue'
+import { useEventListener } from '@/composables/useEventListener'
 import { usePopoverFocus } from '@/composables/usePopoverFocus'
 import { toEmbedPostVideoUrl } from '@/utils/postForm'
 import type { EmoticonImage } from '@/types/emoticon'
@@ -157,14 +158,10 @@ export function usePostComposerEffects(options: UsePostComposerEffectsOptions) {
     }
   }
 
-  onMounted(() => {
-    document.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('beforeunload', options.onBeforeUnload)
-  })
+  useEventListener(() => document, 'keydown', handleKeyDown)
+  useEventListener<BeforeUnloadEvent>(() => window, 'beforeunload', options.onBeforeUnload)
 
   onUnmounted(() => {
-    document.removeEventListener('keydown', handleKeyDown)
-    window.removeEventListener('beforeunload', options.onBeforeUnload)
     clearFocusOutTimer()
     syncEditorFocus(false)
   })
