@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -134,10 +135,7 @@ class BoardCommandService {
     }
 
     private String normalizeIconUrl(String iconUrl) {
-        if (iconUrl == null) {
-            return null;
-        }
-        String trimmedIconUrl = iconUrl.trim();
-        return trimmedIconUrl.isEmpty() ? null : trimmedIconUrl;
+        String normalizedIconUrl = TextInputNormalizer.normalizeNullable(iconUrl);
+        return normalizedIconUrl == null || normalizedIconUrl.isEmpty() ? null : normalizedIconUrl;
     }
 }
