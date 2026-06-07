@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 
-defineProps<{
+withDefaults(defineProps<{
   page: number
   totalPages: number
-  previousLabel: string
-  nextLabel: string
-}>()
+  previousLabel?: string
+  nextLabel?: string
+}>(), {
+  previousLabel: '이전',
+  nextLabel: '다음',
+})
 
 defineEmits<{
   previous: []

@@ -186,8 +186,6 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
             v-if="userPosts"
             :page="userPosts.number"
             :total-pages="userPosts.totalPages"
-            previous-label="이전"
-            next-label="다음"
             @previous="prevPostsPage"
             @next="nextPostsPage"
           />
@@ -217,8 +215,6 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
             v-if="userComments"
             :page="userComments.number"
             :total-pages="userComments.totalPages"
-            previous-label="이전"
-            next-label="다음"
             @previous="prevCommentsPage"
             @next="nextCommentsPage"
           />
@@ -241,8 +237,6 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
             v-if="userSubscriptions"
             :page="userSubscriptions.number"
             :total-pages="userSubscriptions.totalPages"
-            previous-label="이전"
-            next-label="다음"
             @previous="prevSubscriptionsPage"
             @next="nextSubscriptionsPage"
           />

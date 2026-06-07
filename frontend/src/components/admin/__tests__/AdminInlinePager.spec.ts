@@ -8,12 +8,13 @@ describe('AdminInlinePager', () => {
       props: {
         page: 1,
         totalPages: 3,
-        previousLabel: 'prev',
-        nextLabel: 'next',
       },
     })
 
     const buttons = wrapper.findAll('button')
+    expect(buttons[0].text()).toBe('이전')
+    expect(buttons[1].text()).toBe('다음')
+
     await buttons[0].trigger('click')
     await buttons[1].trigger('click')
 
@@ -26,8 +27,6 @@ describe('AdminInlinePager', () => {
       props: {
         page: 0,
         totalPages: 0,
-        previousLabel: 'prev',
-        nextLabel: 'next',
       },
     })
 
