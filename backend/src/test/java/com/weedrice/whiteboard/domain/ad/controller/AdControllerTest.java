@@ -5,10 +5,12 @@ import com.weedrice.whiteboard.domain.ad.service.AdService;
 import com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.config.CurrentUserIdWebMvcConfig;
 import com.weedrice.whiteboard.global.config.SecurityConfig;
 import com.weedrice.whiteboard.global.config.WebConfig;
 import com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.CurrentUserIdArgumentResolver;
 import com.weedrice.whiteboard.global.security.JwtAuthenticationEntryPoint;
 import com.weedrice.whiteboard.global.security.JwtAuthenticationFilter;
 import com.weedrice.whiteboard.global.security.RefererCheckInterceptor;
@@ -25,6 +27,7 @@ import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServic
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -58,6 +61,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         SecurityAutoConfiguration.class,
         UserDetailsServiceAutoConfiguration.class
     })
+@Import({
+        CurrentUserIdWebMvcConfig.class,
+        CurrentUserIdArgumentResolver.class
+})
 class AdControllerTest {
 
     @Autowired
