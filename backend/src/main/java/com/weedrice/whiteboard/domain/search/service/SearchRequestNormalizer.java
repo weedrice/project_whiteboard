@@ -29,22 +29,25 @@ public final class SearchRequestNormalizer {
     }
 
     public static String canonicalizeKeyword(String keyword) {
-        if (keyword == null) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
-        String canonicalKeyword = keyword.trim();
-        if (canonicalKeyword.isEmpty()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
-        return truncateKeyword(canonicalKeyword);
+        return canonicalizeKeyword(keyword, true);
     }
 
     public static String canonicalizeOptionalKeyword(String keyword) {
+        return canonicalizeKeyword(keyword, false);
+    }
+
+    private static String canonicalizeKeyword(String keyword, boolean required) {
         if (keyword == null) {
+            if (required) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            }
             return null;
         }
         String canonicalKeyword = keyword.trim();
         if (canonicalKeyword.isEmpty()) {
+            if (required) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            }
             return null;
         }
         return truncateKeyword(canonicalKeyword);
