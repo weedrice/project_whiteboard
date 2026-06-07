@@ -1,5 +1,11 @@
 import { computed, ref, watch } from 'vue'
 import type { LocationQuery, LocationQueryRaw, Router, RouteLocationNormalizedLoaded } from 'vue-router'
+import {
+  areQueriesEqual,
+  parseCategoryIdFromQuery,
+  parseConceptFromQuery,
+  parsePageFromQuery
+} from '@/utils/routeQueryValue'
 
 interface SearchState {
   q: string
@@ -28,34 +34,6 @@ function getResolvedSearchState(isSearching: boolean, searchQuery: string, searc
   }
 }
 
-function areQueryValuesEqual(left: unknown, right: unknown): boolean {
-  if (Array.isArray(left) || Array.isArray(right)) {
-    const leftValues = Array.isArray(left) ? left.map(String) : [String(left ?? '')]
-    const rightValues = Array.isArray(right) ? right.map(String) : [String(right ?? '')]
-    return leftValues.length === rightValues.length
-      && leftValues.every((value, index) => value === rightValues[index])
-  }
-
-  return String(left ?? '') === String(right ?? '')
-}
-
-function areQueriesEqual(
-  left: Record<string, unknown>,
-  right: Record<string, unknown>
-): boolean {
-  const leftKeys = Object.keys(left).sort()
-  const rightKeys = Object.keys(right).sort()
-
-  if (leftKeys.length !== rightKeys.length) {
-    return false
-  }
-
-  return leftKeys.every((key, index) => (
-    key === rightKeys[index]
-    && areQueryValuesEqual(left[key], right[key])
-  ))
-}
-
 export function useBoardListState(route: RouteLocationNormalizedLoaded, router: Router) {
   const page = ref(0)
   const size = ref(20)
@@ -75,27 +53,6 @@ export function useBoardListState(route: RouteLocationNormalizedLoaded, router: 
     }
 
     page.value = nextPage
-  }
-
-  const parsePageFromQuery = (value: unknown): number => {
-    const parsed = Number.parseInt(String(value ?? '1'), 10)
-    if (Number.isNaN(parsed) || parsed < 1) {
-      return 0
-    }
-    return parsed - 1
-  }
-
-  const parseCategoryIdFromQuery = (value: unknown): number | null => {
-    const parsed = Number.parseInt(String(value ?? ''), 10)
-    if (Number.isNaN(parsed) || parsed <= 0) {
-      return null
-    }
-    return parsed
-  }
-
-  const parseConceptFromQuery = (value: unknown): boolean => {
-    const raw = String(value ?? '').trim().toLowerCase()
-    return raw === '1' || raw === 'true'
   }
 
   const buildListQueryFromSource = (
