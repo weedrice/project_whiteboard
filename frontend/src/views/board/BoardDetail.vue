@@ -14,7 +14,7 @@ import { useBoardDetailNavigation } from '@/composables/useBoardDetailNavigation
 import { useBoardDetailResource } from '@/composables/useBoardDetailResource'
 import { useBoardListState } from '@/composables/useBoardListState'
 import { useBoardRecentVisit } from '@/composables/useBoardRecentVisit'
-import { useConfirm } from '@/composables/useConfirm'
+import { useBoardSubscriptionAction } from '@/composables/useBoardSubscriptionAction'
 import { useAuthStore } from '@/stores/auth'
 import { canWriteBoardPost } from '@/utils/board'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
@@ -25,7 +25,6 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-const { confirm } = useConfirm()
 
 const {
   page,
@@ -84,18 +83,11 @@ const isAllPostsActive = computed(() => (
   && selectedCategoryId.value === null
 ))
 
-async function handleSubscribe() {
-  if (!board.value || isSubscribePending.value) return
-  if (board.value.isSubscribed) {
-    const isConfirmed = await confirm(t('user.subscriptions.unsubscribeConfirm'))
-    if (!isConfirmed) return
-  }
-
-  subscribeMutate({
-    boardUrl: board.value.boardUrl,
-    isSubscribed: board.value.isSubscribed ?? false
-  })
-}
+const { handleSubscribe } = useBoardSubscriptionAction({
+  board,
+  isSubscribePending,
+  subscribeMutate,
+})
 
 const {
   buildBoardListRoute,
