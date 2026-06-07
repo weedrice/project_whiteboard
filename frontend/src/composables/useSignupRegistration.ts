@@ -2,6 +2,7 @@ import { onMounted, reactive, ref, watch } from 'vue'
 import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
 import type { ComposerTranslation } from 'vue-i18n'
 import { authApi } from '@/api/auth'
+import { unwrapApiData, unwrapAxiosApiData } from '@/api/response'
 import { useAuthPasswordValidation } from '@/composables/useAuthPasswordValidation'
 import { useEmailVerificationFlow } from '@/composables/useEmailVerificationFlow'
 import { useToastStore } from '@/stores/toast'
@@ -67,9 +68,10 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
 
   async function checkEmailForReregister(email: string) {
     const checkRes = await authApi.checkEmailForReregister(email)
-    if (checkRes.data.success && checkRes.data.data?.canReregister && checkRes.data.data?.maskedLoginId) {
+    const reregister = unwrapAxiosApiData(checkRes)
+    if (checkRes.data.success && reregister?.canReregister && reregister?.maskedLoginId) {
       isReregister.value = true
-      form.value.loginId = checkRes.data.data.maskedLoginId
+      form.value.loginId = reregister.maskedLoginId
       return
     }
 
@@ -276,9 +278,10 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
     if (email) {
       try {
         const { data } = await authApi.checkEmailForReregister(email)
-        if (data.success && data.data?.canReregister && data.data?.maskedLoginId) {
+        const reregister = unwrapApiData(data)
+        if (data.success && reregister?.canReregister && reregister?.maskedLoginId) {
           isReregister.value = true
-          form.value.loginId = data.data.maskedLoginId
+          form.value.loginId = reregister.maskedLoginId
         }
       } catch {
         // Continue as a normal signup when reregister lookup fails.
