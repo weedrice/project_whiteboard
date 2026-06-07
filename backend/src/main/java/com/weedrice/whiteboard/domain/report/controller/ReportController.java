@@ -10,12 +10,11 @@ import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.CurrentUserId;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,8 +22,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-
-import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
 
 @RestController
 @RequestMapping("/api/v1/reports")
@@ -37,8 +34,7 @@ public class ReportController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Long> reportUser(
             @Valid @RequestBody UserReportRequest request,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long reporterId = requiredUserId(userDetails);
+            @CurrentUserId Long reporterId) {
         Long reportId = reportService.createReport(
                 reporterId,
                 "USER",
@@ -53,8 +49,7 @@ public class ReportController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Long> reportPost(
             @Valid @RequestBody PostReportRequest request,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long reporterId = requiredUserId(userDetails);
+            @CurrentUserId Long reporterId) {
         Long reportId = reportService.createReport(
                 reporterId,
                 "POST",
@@ -69,8 +64,7 @@ public class ReportController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Long> reportComment(
             @Valid @RequestBody CommentReportRequest request,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long reporterId = requiredUserId(userDetails);
+            @CurrentUserId Long reporterId) {
         Long reportId = reportService.createReport(
                 reporterId,
                 "COMMENT",
@@ -85,8 +79,7 @@ public class ReportController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Long> createReport(
             @Valid @RequestBody ReportCreateRequest request,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long reporterId = requiredUserId(userDetails);
+            @CurrentUserId Long reporterId) {
         Long reportId = reportService.createReport(
                 reporterId,
                 request.getTargetType().name(),
@@ -101,8 +94,7 @@ public class ReportController {
     public ApiResponse<PageResponse<MyReportResponse>> getMyReports(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = requiredUserId(userDetails);
+            @CurrentUserId Long userId) {
         Pageable pageable = PageRequestUtils.of(page, size);
         return ApiResponses.page(reportService.getMyReports(userId, pageable));
     }
