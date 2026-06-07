@@ -16,7 +16,11 @@ export function useEventListener<TEvent extends Event = Event>(
       return
     }
 
-    currentTarget.removeEventListener(type, normalizedListener, options)
+    if (options === undefined) {
+      currentTarget.removeEventListener(type, normalizedListener)
+    } else {
+      currentTarget.removeEventListener(type, normalizedListener, options)
+    }
     currentTarget = null
   }
 
@@ -27,7 +31,11 @@ export function useEventListener<TEvent extends Event = Event>(
     }
 
     stop()
-    nextTarget.addEventListener(type, normalizedListener, options)
+    if (options === undefined) {
+      nextTarget.addEventListener(type, normalizedListener)
+    } else {
+      nextTarget.addEventListener(type, normalizedListener, options)
+    }
     currentTarget = nextTarget
   }
 

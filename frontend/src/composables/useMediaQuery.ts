@@ -1,4 +1,5 @@
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
+import { useEventListener } from '@/composables/useEventListener'
 
 export const mobileViewportMediaQuery = '(max-width: 639px)'
 export const mobileViewportMaxWidth = 639
@@ -31,12 +32,9 @@ export function useMediaQuery(
 
   onMounted(() => {
     updateMatches()
-    mediaQuery?.addEventListener('change', updateMatches)
   })
 
-  onUnmounted(() => {
-    mediaQuery?.removeEventListener('change', updateMatches)
-  })
+  useEventListener<MediaQueryListEvent>(() => mediaQuery, 'change', updateMatches)
 
   return matches
 }
