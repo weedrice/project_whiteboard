@@ -27,12 +27,12 @@
         <p class="mt-1 text-xs nv-text-subtle">{{ t('admin.sanction.durationHint') }}</p>
       </div>
 
-      <div class="flex justify-end space-x-3 mt-5">
+      <AdminModalActions class-name="mt-5">
         <BaseButton type="button" variant="secondary" @click="$emit('close')">{{ t('admin.sanction.cancel') }}</BaseButton>
         <BaseButton type="submit" variant="danger" :disabled="loading">
           {{ loading ? t('admin.sanction.processing') : t('admin.sanction.submit') }}
         </BaseButton>
-      </div>
+      </AdminModalActions>
     </form>
   </BaseModal>
 </template>
@@ -45,6 +45,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
+import AdminModalActions from '@/components/admin/AdminModalActions.vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { useToastStore } from '@/stores/toast'
 

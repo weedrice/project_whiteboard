@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { CheckCircle } from 'lucide-vue-next'
+import AdminModalActions from '@/components/admin/AdminModalActions.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import type { ErrorLogDetail, ErrorLogListItem } from '@/types'
@@ -44,7 +45,7 @@ const emit = defineEmits<{
     </div>
 
     <template #footer>
-      <div class="flex justify-end gap-2">
+      <AdminModalActions gap-class="gap-2">
         <BaseButton type="button" variant="primary" size="sm" class="btn-resolve" @click="emit('resolve')">
           <CheckCircle class="mr-1 h-4 w-4" />
           {{ $t('admin.errorLogs.actions.resolve') }}
@@ -52,7 +53,7 @@ const emit = defineEmits<{
         <BaseButton type="button" variant="secondary" size="sm" class="btn-cancel" @click="emit('close')">
           {{ $t('admin.sanction.cancel') }}
         </BaseButton>
-      </div>
+      </AdminModalActions>
     </template>
   </BaseModal>
 </template>

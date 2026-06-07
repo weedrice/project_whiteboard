@@ -218,12 +218,12 @@
           rows="5"
           maxlength="5000"
         />
-        <div class="flex justify-end gap-3 pt-2">
+        <AdminModalActions class-name="pt-2">
           <BaseButton variant="secondary" @click="closeModal">{{ $t('common.cancel') }}</BaseButton>
           <BaseButton :disabled="isCreatingBoard" @click="handleCreateBoard">
             {{ isCreatingBoard ? $t('common.messages.saving') : $t('common.save') }}
           </BaseButton>
-        </div>
+        </AdminModalActions>
       </div>
     </BaseModal>
 
@@ -247,6 +247,7 @@ import { useAdminBoardCreateModal } from '@/composables/useAdminBoardCreateModal
 import { useBoardIconUpload } from '@/composables/useBoardIconUpload'
 import { useBoardManagerAssignment } from '@/composables/useBoardManagerAssignment'
 import AdminDataPage from '@/components/admin/AdminDataPage.vue'
+import AdminModalActions from '@/components/admin/AdminModalActions.vue'
 import AdminPanel from '@/components/admin/AdminPanel.vue'
 import BooleanBadge from '@/components/admin/BooleanBadge.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'

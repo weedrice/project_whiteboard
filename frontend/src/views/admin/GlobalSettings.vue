@@ -10,6 +10,7 @@ import BaseModal from '@/components/common/ui/BaseModal.vue'
 import { useToastStore } from '@/stores/toast'
 import AdminActionButton from '@/components/admin/AdminActionButton.vue'
 import AdminDataPage from '@/components/admin/AdminDataPage.vue'
+import AdminModalActions from '@/components/admin/AdminModalActions.vue'
 import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
 import { useConfirm } from '@/composables/useConfirm'
 
@@ -137,14 +138,14 @@ const columns = [
         <BaseInput v-model="newConfig.description" :label="t('common.description')" type="text" />
       </div>
       <template #footer>
-        <div class="flex justify-end space-x-3">
+        <AdminModalActions>
           <BaseButton @click="isModalOpen = false" variant="secondary">
             {{ t('common.cancel') }}
           </BaseButton>
           <BaseButton @click="handleCreateConfig">
             {{ t('common.save') }}
           </BaseButton>
-        </div>
+        </AdminModalActions>
       </template>
     </BaseModal>
   </AdminDataPage>

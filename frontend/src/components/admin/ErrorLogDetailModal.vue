@@ -4,6 +4,7 @@ import DescriptionGrid from '@/components/admin/detail/DescriptionGrid.vue'
 import DescriptionItem from '@/components/admin/detail/DescriptionItem.vue'
 import DetailSection from '@/components/admin/detail/DetailSection.vue'
 import HttpStatusBadge from '@/components/admin/HttpStatusBadge.vue'
+import AdminModalActions from '@/components/admin/AdminModalActions.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import { formatDateTimeOrDash } from '@/utils/date'
@@ -99,7 +100,7 @@ const emit = defineEmits<{
     </div>
 
     <template v-if="log" #footer>
-      <div class="flex justify-end gap-2">
+      <AdminModalActions gap-class="gap-2">
         <BaseButton
           v-if="log.isResolved === 'N'"
           type="button"
@@ -114,7 +115,7 @@ const emit = defineEmits<{
         <BaseButton type="button" variant="secondary" size="sm" class="btn-cancel" @click="emit('close')">
           {{ $t('common.close') }}
         </BaseButton>
-      </div>
+      </AdminModalActions>
     </template>
   </BaseModal>
 </template>
