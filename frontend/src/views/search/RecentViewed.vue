@@ -4,13 +4,28 @@ import { Clock } from 'lucide-vue-next'
 import PostList from '@/components/board/PostList.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
-import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
+import { usePaginatedListState } from '@/composables/usePaginatedListState'
 import { isInquiryPostItem, resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigation'
+import { useI18n } from 'vue-i18n'
+import type { PostSummary } from '@/types'
 
+const { t } = useI18n()
 const { useRecentlyViewedPosts } = useUser()
-const { page, size, params, handlePageChange, handleSizeChange } = usePaginatedQueryState({ initialSize: 15 })
-const { data: recentData, isLoading: loading, isError, error, refetch } = useRecentlyViewedPosts(params)
-const { items: posts, totalPages } = usePageResponseState(recentData, page)
+const {
+  page,
+  size,
+  handlePageChange,
+  handleSizeChange,
+  items: posts,
+  totalPages,
+  isLoading: loading,
+  errorMessage,
+  refetch,
+} = usePaginatedListState<PostSummary>(useRecentlyViewedPosts, {
+  initialSize: 15,
+  t,
+  getErrorMessage: (error, t) => error instanceof Error ? error.message : t('common.messages.loadFailed'),
+})
 </script>
 
 <template>
@@ -19,7 +34,7 @@ const { items: posts, totalPages } = usePageResponseState(recentData, page)
     :icon="Clock"
     :items-count="posts.length"
     :loading="loading"
-    :error="isError ? (error instanceof Error ? error.message : $t('common.messages.loadFailed')) : null"
+    :error="errorMessage || null"
     :empty-title="$t('user.recentViewed.empty')"
     :page="page"
     :size="size"

@@ -4,6 +4,9 @@ import { getListLoadErrorMessage } from '@/utils/listLoadError'
 import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 
 type Translate = (key: string) => string
+type ErrorMessageResolver = (error: unknown, t: Translate) => string
+
+const defaultTranslate: Translate = (key) => key
 
 type PaginationParams = {
   page: number
@@ -24,6 +27,7 @@ interface PaginatedListStateOptions {
   initialPage?: number
   initialSize?: number
   t?: Translate
+  getErrorMessage?: ErrorMessageResolver
 }
 
 export function usePaginatedListState<
@@ -40,7 +44,15 @@ export function usePaginatedListState<
   })
   const query = usePaginatedQuery(pagination.params as unknown as Ref<TParams>)
   const pageState = usePageResponseState(query.data, pagination.page)
-  const errorMessage = computed(() => query.isError.value ? getListLoadErrorMessage(options.t) : '')
+  const errorMessage = computed(() => {
+    if (!query.isError.value) {
+      return ''
+    }
+    if (options.getErrorMessage) {
+      return options.getErrorMessage(query.error.value, options.t ?? defaultTranslate)
+    }
+    return getListLoadErrorMessage(options.t)
+  })
 
   return {
     ...pagination,
