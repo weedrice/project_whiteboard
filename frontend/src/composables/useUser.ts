@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient, type QueryFunctionContext } from '@tanstack/vue-query'
 import { userApi, type UserUpdatePayload, type NotificationSettingsBulkPayload } from '@/api/user'
+import { unwrapAxiosApiData } from '@/api/response'
 import { computed, type Ref } from 'vue'
 import type { UserSettings } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
@@ -21,8 +22,7 @@ export const userSettingsQueryKey = userQueryKeys.settings
 export const createMyProfileQueryOptions = (config?: AxiosRequestConfig) => ({
     queryKey: userQueryKeys.me,
     queryFn: async (context: QueryFunctionContext) => {
-        const { data } = await userApi.getMyProfile(withQuerySignal(config, context))
-        return data.data
+        return unwrapAxiosApiData(await userApi.getMyProfile(withQuerySignal(config, context)))
     },
     staleTime: QUERY_STALE_TIME.MEDIUM,
 })
@@ -30,8 +30,7 @@ export const createMyProfileQueryOptions = (config?: AxiosRequestConfig) => ({
 export const createMyAgentsQueryOptions = (config?: AxiosRequestConfig) => ({
     queryKey: userQueryKeys.agents,
     queryFn: async (context: QueryFunctionContext) => {
-        const { data } = await userApi.getMyAgents(withQuerySignal(config, context))
-        return data.data
+        return unwrapAxiosApiData(await userApi.getMyAgents(withQuerySignal(config, context)))
     },
     staleTime: QUERY_STALE_TIME.MEDIUM,
 })
@@ -49,8 +48,7 @@ export function useUser() {
         return useQuery({
             queryKey: userQueryKeys.profile(userId),
             queryFn: async () => {
-                const { data } = await userApi.getUserProfile(userId.value)
-                return data.data
+                return unwrapAxiosApiData(await userApi.getUserProfile(userId.value))
             },
             enabled: computed(() => !!userId.value),
         })
@@ -60,8 +58,7 @@ export function useUser() {
         return useQuery({
             queryKey: userSettingsQueryKey,
             queryFn: async () => {
-                const { data } = await userApi.getUserSettings()
-                return data.data
+                return unwrapAxiosApiData(await userApi.getUserSettings())
             },
             staleTime: QUERY_STALE_TIME.SHORT,
         })
@@ -71,8 +68,7 @@ export function useUser() {
         return useQuery({
             queryKey: userQueryKeys.blocks(params),
             queryFn: async () => {
-                const { data } = await userApi.getBlockList(params?.value)
-                return data.data
+                return unwrapAxiosApiData(await userApi.getBlockList(params?.value))
             },
         })
     }
@@ -81,8 +77,7 @@ export function useUser() {
         return useQuery({
             queryKey: userQueryKeys.notificationSettings,
             queryFn: async () => {
-                const { data } = await userApi.getNotificationSettings()
-                return data.data
+                return unwrapAxiosApiData(await userApi.getNotificationSettings())
             },
         })
     }
@@ -95,8 +90,7 @@ export function useUser() {
         return useQuery({
             queryKey: userQueryKeys.myPoints(userIdentity),
             queryFn: async () => {
-                const { data } = await userApi.getMyPoint()
-                return data.data
+                return unwrapAxiosApiData(await userApi.getMyPoint())
             },
             enabled: computed(() => enabled?.value ?? true),
             staleTime: QUERY_STALE_TIME.SHORT,
@@ -107,8 +101,7 @@ export function useUser() {
         return useQuery({
             queryKey: userQueryKeys.scraps(params),
             queryFn: async (context: QueryFunctionContext) => {
-                const { data } = await userApi.getMyScraps(params?.value ?? {}, withQuerySignal(undefined, context))
-                return data.data
+                return unwrapAxiosApiData(await userApi.getMyScraps(params?.value ?? {}, withQuerySignal(undefined, context)))
             },
         })
     }
@@ -117,8 +110,7 @@ export function useUser() {
         return useQuery({
             queryKey: userQueryKeys.pointHistories(params),
             queryFn: async (context: QueryFunctionContext) => {
-                const { data } = await userApi.getMyPointHistories(params?.value ?? {}, withQuerySignal(undefined, context))
-                return data.data
+                return unwrapAxiosApiData(await userApi.getMyPointHistories(params?.value ?? {}, withQuerySignal(undefined, context)))
             },
         })
     }
@@ -259,8 +251,7 @@ export function useUser() {
         return useQuery({
             queryKey: userQueryKeys.recentlyViewedPosts(params),
             queryFn: async () => {
-                const { data } = await userApi.getRecentlyViewedPosts(params?.value || {})
-                return data.data
+                return unwrapAxiosApiData(await userApi.getRecentlyViewedPosts(params?.value || {}))
             },
         })
     }
