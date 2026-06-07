@@ -32,7 +32,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -154,7 +153,7 @@ public class UserController {
                         @RequestParam(defaultValue = "20") int size,
                         Sort sort,
                         @CurrentUserId Long userId) {
-                Pageable pageable = PageRequestUtils.of(page, size, sort);
+                Pageable pageable = pageable(page, size, sort);
                 Page<BlockedUserResponse> response = userBlockService.getBlockedUsers(userId, pageable);
                 return ResponseEntity.ok(ApiResponses.page(response));
         }
@@ -166,7 +165,7 @@ public class UserController {
                         @RequestParam(defaultValue = "0") int page,
                         @RequestParam(defaultValue = "20") int size,
                         Sort sort) {
-                Pageable pageable = PageRequestUtils.of(page, size, sort);
+                Pageable pageable = pageable(page, size, sort);
                 Page<SubscriptionBoardResponse> response = boardService.getMySubscriptions(
                                 userId,
                                 pageable,
@@ -225,7 +224,7 @@ public class UserController {
                         @RequestParam(defaultValue = "0") int page,
                         @RequestParam(defaultValue = "20") int size,
                 Sort sort) {
-                Pageable pageable = PageRequestUtils.of(page, size, sort);
+                Pageable pageable = pageable(page, size, sort);
                 Page<PostSummary> response = postService.getMyPosts(userId, pageable);
                 return ApiResponses.page(response);
         }
@@ -236,7 +235,7 @@ public class UserController {
                         @RequestParam(defaultValue = "0") int page,
                         @RequestParam(defaultValue = "20") int size,
                 Sort sort) {
-                Pageable pageable = PageRequestUtils.of(page, size, sort);
+                Pageable pageable = pageable(page, size, sort);
                 Page<MyCommentResponse> response = commentService.getMyComments(userId, pageable);
                 return ApiResponses.page(response);
         }
@@ -247,8 +246,12 @@ public class UserController {
                         @RequestParam(defaultValue = "0") int page,
                         @RequestParam(defaultValue = "20") int size,
                 Sort sort) {
-                Pageable pageable = PageRequestUtils.of(page, size, sort);
+                Pageable pageable = pageable(page, size, sort);
                 Page<PostSummary> response = postService.getRecentlyViewedPosts(userId, pageable);
                 return ApiResponses.page(response);
+        }
+
+        private Pageable pageable(int page, int size, Sort sort) {
+                return PageRequestUtils.of(page, size, sort);
         }
 }
