@@ -441,28 +441,29 @@ function saveListSelection() {
   savedListSelection.value = from !== to ? { from, to } : null
 }
 
-function applyBulletList() {
+function applyListToggle(type: 'bullet' | 'ordered') {
   const instance = editor.value
   if (!instance) return
+  const chain = instance.chain().focus()
   const saved = savedListSelection.value
   if (saved) {
-    instance.chain().focus().setTextSelection({ from: saved.from, to: saved.to }).toggleBulletList().run()
+    chain.setTextSelection({ from: saved.from, to: saved.to })
     savedListSelection.value = null
-    return
   }
-  instance.chain().focus().toggleBulletList().run()
+
+  if (type === 'bullet') {
+    chain.toggleBulletList().run()
+  } else {
+    chain.toggleOrderedList().run()
+  }
+}
+
+function applyBulletList() {
+  applyListToggle('bullet')
 }
 
 function applyOrderedList() {
-  const instance = editor.value
-  if (!instance) return
-  const saved = savedListSelection.value
-  if (saved) {
-    instance.chain().focus().setTextSelection({ from: saved.from, to: saved.to }).toggleOrderedList().run()
-    savedListSelection.value = null
-    return
-  }
-  instance.chain().focus().toggleOrderedList().run()
+  applyListToggle('ordered')
 }
 
 function onContentAreaClick(event: MouseEvent) {
