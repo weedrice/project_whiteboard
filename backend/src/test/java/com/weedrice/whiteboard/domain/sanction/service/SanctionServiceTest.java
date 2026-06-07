@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.comment.service.CommentReadSupport;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.sanction.dto.SanctionResponse;
@@ -76,7 +77,7 @@ class SanctionServiceTest {
                 moderationActorResolver,
                 sanctionPolicyService,
                 new SanctionRequestValidator(),
-                new SanctionTargetResolver(userRepository, postRepository, commentRepository),
+                new SanctionTargetResolver(userRepository, postRepository, new CommentReadSupport(commentRepository)),
                 new SanctionEffectApplier(userLifecycleService),
                 userReadableResolver);
         lenient().when(moderationActorResolver.resolveModerationActor(1L))

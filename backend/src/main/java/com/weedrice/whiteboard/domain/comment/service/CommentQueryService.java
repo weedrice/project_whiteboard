@@ -114,8 +114,7 @@ public class CommentQueryService {
     }
 
     public CommentResponse getComment(Long commentId, Long currentUserId) {
-        Comment comment = commentRepository.findNonDeletedByIdWithRelations(commentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+        Comment comment = commentReadSupport.getNonDeletedWithRelationsOrThrow(commentId);
         CommentReadContext context = resolveReadContext(currentUserId);
         commentPostAccessService.validateReadable(comment.getPost(), context);
         return toCommentResponse(commentReadModelAssembler.from(comment, context.blockedUserIds()));

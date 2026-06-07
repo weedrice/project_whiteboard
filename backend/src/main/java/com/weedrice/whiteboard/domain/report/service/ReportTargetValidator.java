@@ -1,7 +1,7 @@
 package com.weedrice.whiteboard.domain.report.service;
 
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
-import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.comment.service.CommentReadSupport;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.report.entity.ReportTargetType;
@@ -19,9 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
 class ReportTargetValidator {
 
     private final PostRepository postRepository;
-    private final CommentRepository commentRepository;
     private final UserRepository userRepository;
     private final ReportTargetPolicy reportTargetPolicy;
+    private final CommentReadSupport commentReadSupport;
 
     void validate(String targetType, Long targetId, User reporter) {
         ReportTargetType reportTargetType;
@@ -46,8 +46,7 @@ class ReportTargetValidator {
     }
 
     private void validateComment(Long commentId, User reporter) {
-        Comment comment = commentRepository.findNonDeletedByIdWithRelations(commentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+        Comment comment = commentReadSupport.getNonDeletedWithRelationsOrThrow(commentId);
         reportTargetPolicy.validateCommentReportable(comment, reporter);
     }
 

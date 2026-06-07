@@ -2,7 +2,7 @@ package com.weedrice.whiteboard.domain.report.service;
 
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
-import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.comment.service.CommentReadSupport;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -29,11 +29,11 @@ class ReportTargetValidatorTest {
     @Mock
     private PostRepository postRepository;
     @Mock
-    private CommentRepository commentRepository;
-    @Mock
     private UserRepository userRepository;
     @Mock
     private ReportTargetPolicy reportTargetPolicy;
+    @Mock
+    private CommentReadSupport commentReadSupport;
 
     @InjectMocks
     private ReportTargetValidator reportTargetValidator;
@@ -74,7 +74,7 @@ class ReportTargetValidatorTest {
                 .content("comment")
                 .build();
 
-        when(commentRepository.findNonDeletedByIdWithRelations(20L)).thenReturn(Optional.of(comment));
+        when(commentReadSupport.getNonDeletedWithRelationsOrThrow(20L)).thenReturn(comment);
 
         reportTargetValidator.validate("COMMENT", 20L, reporter);
 
@@ -85,7 +85,8 @@ class ReportTargetValidatorTest {
     @DisplayName("missing COMMENT target maps to COMMENT_NOT_FOUND")
     void validateComment_missing_throwsCommentNotFound() {
         User reporter = user(1L);
-        when(commentRepository.findNonDeletedByIdWithRelations(20L)).thenReturn(Optional.empty());
+        when(commentReadSupport.getNonDeletedWithRelationsOrThrow(20L))
+                .thenThrow(new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
 
         assertThatThrownBy(() -> reportTargetValidator.validate("COMMENT", 20L, reporter))
                 .isInstanceOf(BusinessException.class)
