@@ -19,6 +19,11 @@ export { userQueryKeys } from '@/composables/userQueryKeys'
 
 export const userSettingsQueryKey = userQueryKeys.settings
 
+const resolveResponseData = async <T>(request: Promise<{ data: T }>): Promise<T> => {
+    const { data } = await request
+    return data
+}
+
 export const createMyProfileQueryOptions = (config?: AxiosRequestConfig) => ({
     queryKey: userQueryKeys.me,
     queryFn: async (context: QueryFunctionContext) => {
@@ -120,8 +125,7 @@ export function useUser() {
     const useUpdateMyProfile = () => {
         return useMutation({
             mutationFn: async (data: UserUpdatePayload) => {
-                const { data: res } = await userApi.updateMyProfile(data)
-                return res
+                return resolveResponseData(userApi.updateMyProfile(data))
             },
             onSuccess: () => {
                 queryClient.invalidateQueries({ queryKey: userQueryKeys.me })
@@ -132,8 +136,7 @@ export function useUser() {
     const useUpdatePassword = () => {
         return useMutation({
             mutationFn: async ({ currentPassword, newPassword }: PasswordUpdateData) => {
-                const { data } = await userApi.updatePassword(currentPassword, newPassword)
-                return data
+                return resolveResponseData(userApi.updatePassword(currentPassword, newPassword))
             }
         })
     }
@@ -141,8 +144,7 @@ export function useUser() {
     const useDeleteAccount = () => {
         return useMutation({
             mutationFn: async (password: string) => {
-                const { data } = await userApi.deleteAccount(password)
-                return data
+                return resolveResponseData(userApi.deleteAccount(password))
             },
             onSuccess: () => {
                 // Handle logout or redirect in component
@@ -154,8 +156,7 @@ export function useUser() {
     const useUpdateUserSettings = () => {
         return useMutation({
             mutationFn: async (data: Partial<UserSettings>) => {
-                const { data: res } = await userApi.updateUserSettings(data)
-                return res
+                return resolveResponseData(userApi.updateUserSettings(data))
             },
             onSuccess: () => {
                 queryClient.invalidateQueries({ queryKey: userSettingsQueryKey })
@@ -166,8 +167,7 @@ export function useUser() {
     const useUpdateNotificationSettings = () => {
         return useMutation({
             mutationFn: async (data: NotificationSettingsBulkPayload) => {
-                const { data: res } = await userApi.updateNotificationSettingsBulk(data)
-                return res
+                return resolveResponseData(userApi.updateNotificationSettingsBulk(data))
             },
             onSuccess: () => {
                 queryClient.invalidateQueries({ queryKey: userQueryKeys.notificationSettings })
@@ -178,8 +178,7 @@ export function useUser() {
     const useClaimAgent = () => {
         return useMutation({
             mutationFn: async (agentToken: string) => {
-                const { data } = await userApi.claimAgent(agentToken)
-                return data
+                return resolveResponseData(userApi.claimAgent(agentToken))
             },
             onSuccess: () => {
                 queryClient.invalidateQueries({ queryKey: userQueryKeys.agents })
@@ -190,8 +189,7 @@ export function useUser() {
     const useSuspendMyAgent = () => {
         return useMutation({
             mutationFn: async (agentId: string | number) => {
-                const { data } = await userApi.suspendMyAgent(agentId)
-                return data
+                return resolveResponseData(userApi.suspendMyAgent(agentId))
             },
             onSuccess: () => {
                 queryClient.invalidateQueries({ queryKey: userQueryKeys.agents })
@@ -202,8 +200,7 @@ export function useUser() {
     const useActivateMyAgent = () => {
         return useMutation({
             mutationFn: async (agentId: string | number) => {
-                const { data } = await userApi.activateMyAgent(agentId)
-                return data
+                return resolveResponseData(userApi.activateMyAgent(agentId))
             },
             onSuccess: () => {
                 queryClient.invalidateQueries({ queryKey: userQueryKeys.agents })
@@ -214,8 +211,7 @@ export function useUser() {
     const useDeleteMyAgent = () => {
         return useMutation({
             mutationFn: async (agentId: string | number) => {
-                const { data } = await userApi.deleteMyAgent(agentId)
-                return data
+                return resolveResponseData(userApi.deleteMyAgent(agentId))
             },
             onSuccess: () => {
                 queryClient.invalidateQueries({ queryKey: userQueryKeys.agents })
@@ -226,8 +222,7 @@ export function useUser() {
     const useBlockUser = () => {
         return useMutation({
             mutationFn: async (userId: string | number) => {
-                const { data } = await userApi.blockUser(userId)
-                return data
+                return resolveResponseData(userApi.blockUser(userId))
             },
             onSuccess: () => {
                 queryClient.invalidateQueries({ queryKey: userQueryKeys.blocksRoot })
@@ -238,8 +233,7 @@ export function useUser() {
     const useUnblockUser = () => {
         return useMutation({
             mutationFn: async (userId: string | number) => {
-                const { data } = await userApi.unblockUser(userId)
-                return data
+                return resolveResponseData(userApi.unblockUser(userId))
             },
             onSuccess: () => {
                 queryClient.invalidateQueries({ queryKey: userQueryKeys.blocksRoot })
