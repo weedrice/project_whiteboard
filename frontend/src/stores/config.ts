@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { configApi } from '@/api/config'
+import { unwrapApiData } from '@/api/response'
 import logger from '@/utils/logger'
 import type { ConfigEntry, GlobalConfig } from '@/types'
 
@@ -56,9 +57,10 @@ export const useConfigStore = defineStore('config', {
 
             return withConfigLoading(this, `Failed to fetch config ${key}:`, async () => {
                 const { data } = await configApi.getConfig(key)
-                if (data.success && data.data) {
-                    this.configs[data.data.key] = data.data.value
-                    return data.data.value
+                const config = unwrapApiData(data)
+                if (data.success && config) {
+                    this.configs[config.key] = config.value
+                    return config.value
                 }
                 return null
             }, null)
@@ -67,9 +69,10 @@ export const useConfigStore = defineStore('config', {
         async fetchAllConfigs() {
             await withConfigLoading(this, 'Failed to fetch all configs:', async () => {
                 const { data } = await configApi.getConfigs()
+                const configs = unwrapApiData(data)
 
-                if (data.success && Array.isArray(data.data)) {
-                    mergeConfigEntries(this.configs, data.data as GlobalConfig[])
+                if (data.success && Array.isArray(configs)) {
+                    mergeConfigEntries(this.configs, configs as GlobalConfig[])
                 }
             }, undefined)
         },
@@ -77,8 +80,9 @@ export const useConfigStore = defineStore('config', {
         async fetchPublicConfigs() {
             await withConfigLoading(this, 'Failed to fetch public configs:', async () => {
                 const { data } = await configApi.getPublicConfigs()
-                if (data.success && Array.isArray(data.data)) {
-                    this.configs = { ...this.configs, ...configEntriesToRecord(data.data as ConfigEntry[]) }
+                const configs = unwrapApiData(data)
+                if (data.success && Array.isArray(configs)) {
+                    this.configs = { ...this.configs, ...configEntriesToRecord(configs as ConfigEntry[]) }
                 }
             }, undefined)
         }
