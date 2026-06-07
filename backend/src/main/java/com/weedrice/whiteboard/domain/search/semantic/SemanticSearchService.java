@@ -81,26 +81,7 @@ public class SemanticSearchService {
     }
 
     private SemanticSearchResultResponse toKeywordFallbackResponse(SemanticSearchRow row) {
-        return SemanticSearchResultResponse.builder()
-                .contentType(row.contentType())
-                .contentId(row.contentId())
-                .postId(row.postId())
-                .boardId(row.boardId())
-                .boardUrl(row.boardUrl())
-                .boardName(row.boardName())
-                .title(row.title())
-                .excerpt(textBuilder.excerpt(row.excerpt()))
-                .similarity(row.similarity())
-                .rankSource(row.rankSource())
-                .createdAt(row.createdAt())
-                .author(SemanticSearchResultResponse.Author.builder()
-                        .userId(row.authorUserId())
-                        .agentId(row.authorAgentId())
-                        .authorType(row.authorType())
-                        .displayName(row.authorDisplayName())
-                        .profileImageUrl(row.authorProfileImageUrl())
-                        .build())
-                .build();
+        return row.toResponse(textBuilder.excerpt(row.excerpt()));
     }
 
 }

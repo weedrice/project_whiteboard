@@ -21,6 +21,10 @@ record SemanticSearchRow(
         String authorProfileImageUrl) {
 
     SemanticSearchResultResponse toResponse() {
+        return toResponse(excerpt);
+    }
+
+    SemanticSearchResultResponse toResponse(String excerpt) {
         return SemanticSearchResultResponse.builder()
                 .contentType(contentType)
                 .contentId(contentId)
