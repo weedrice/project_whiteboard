@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.report.dto.MyReportResponse;
 import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.entity.Report;
+import com.weedrice.whiteboard.domain.report.entity.ReportTargetType;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -164,21 +165,21 @@ class ReportReadAssembler {
     }
 
     private boolean isUserTarget(Report report) {
-        return hasTargetType(report, "USER");
+        return hasTargetType(report, ReportTargetType.USER);
     }
 
     private boolean isPostTarget(Report report) {
-        return hasTargetType(report, "POST");
+        return hasTargetType(report, ReportTargetType.POST);
     }
 
     private boolean isCommentTarget(Report report) {
-        return hasTargetType(report, "COMMENT");
+        return hasTargetType(report, ReportTargetType.COMMENT);
     }
 
-    private boolean hasTargetType(Report report, String targetType) {
+    private boolean hasTargetType(Report report, ReportTargetType targetType) {
         return report != null
                 && StringUtils.hasText(report.getTargetType())
-                && targetType.equalsIgnoreCase(report.getTargetType());
+                && targetType.name().equalsIgnoreCase(report.getTargetType());
     }
 
     private record ReportTargetMetadata(

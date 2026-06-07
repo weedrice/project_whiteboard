@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.report.entity.ReportTargetType;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -23,12 +24,18 @@ class ReportTargetValidator {
     private final ReportTargetPolicy reportTargetPolicy;
 
     void validate(String targetType, Long targetId, User reporter) {
-        switch (targetType) {
-            case "POST" -> validatePost(targetId, reporter);
-            case "COMMENT" -> validateComment(targetId, reporter);
-            case "USER" -> validateUser(targetId, reporter);
-            default -> throw new BusinessException(ErrorCode.INVALID_TARGET,
+        ReportTargetType reportTargetType;
+        try {
+            reportTargetType = ReportTargetType.from(targetType);
+        } catch (IllegalArgumentException ex) {
+            throw new BusinessException(ErrorCode.INVALID_TARGET,
                     "Invalid target type: " + targetType + ". Must be POST, COMMENT, or USER.");
+        }
+
+        switch (reportTargetType) {
+            case POST -> validatePost(targetId, reporter);
+            case COMMENT -> validateComment(targetId, reporter);
+            case USER -> validateUser(targetId, reporter);
         }
     }
 

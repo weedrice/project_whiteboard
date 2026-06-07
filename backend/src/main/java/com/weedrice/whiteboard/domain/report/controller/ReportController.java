@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.report.dto.MyReportResponse;
 import com.weedrice.whiteboard.domain.report.dto.PostReportRequest;
 import com.weedrice.whiteboard.domain.report.dto.ReportCreateRequest;
 import com.weedrice.whiteboard.domain.report.dto.UserReportRequest;
+import com.weedrice.whiteboard.domain.report.entity.ReportTargetType;
 import com.weedrice.whiteboard.domain.report.service.ReportService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.ApiResponses;
@@ -37,7 +38,7 @@ public class ReportController {
             @CurrentUserId Long reporterId) {
         Long reportId = reportService.createReport(
                 reporterId,
-                "USER",
+                ReportTargetType.USER.name(),
                 request.getTargetUserId(),
                 request.getReasonType(),
                 request.getLink(),
@@ -52,7 +53,7 @@ public class ReportController {
             @CurrentUserId Long reporterId) {
         Long reportId = reportService.createReport(
                 reporterId,
-                "POST",
+                ReportTargetType.POST.name(),
                 request.getTargetPostId(),
                 request.getReasonType(),
                 null,
@@ -67,7 +68,7 @@ public class ReportController {
             @CurrentUserId Long reporterId) {
         Long reportId = reportService.createReport(
                 reporterId,
-                "COMMENT",
+                ReportTargetType.COMMENT.name(),
                 request.getTargetCommentId(),
                 request.getReasonType(),
                 null,
