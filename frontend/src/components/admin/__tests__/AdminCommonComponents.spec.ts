@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import AdminActionButton from '../AdminActionButton.vue'
 import AdminDataPage from '../AdminDataPage.vue'
 import AdminDetailModalShell from '../AdminDetailModalShell.vue'
+import AdminFilterActions from '../AdminFilterActions.vue'
 import AdminFilterField from '../AdminFilterField.vue'
 import AdminFormPanel from '../AdminFormPanel.vue'
 import AdminInlineForm from '../AdminInlineForm.vue'
@@ -150,6 +151,24 @@ describe('admin common components', () => {
     expect(wrapper.classes()).toContain('w-40')
     expect(wrapper.get('label').attributes('for')).toBe('status')
     expect(wrapper.get('label').text()).toBe('Status')
+  })
+
+  it('renders shared admin filter action buttons and emits commands', async () => {
+    const wrapper = mount(AdminFilterActions, {
+      props: {
+        searchLabel: 'Find',
+        resetLabel: 'Clear',
+      },
+    })
+
+    expect(wrapper.get('.btn-search').text()).toContain('Find')
+    expect(wrapper.get('.btn-reset').text()).toContain('Clear')
+
+    await wrapper.get('.btn-search').trigger('click')
+    await wrapper.get('.btn-reset').trigger('click')
+
+    expect(wrapper.emitted('search')).toHaveLength(1)
+    expect(wrapper.emitted('reset')).toHaveLength(1)
   })
 
   it('renders form panel and inline form as reusable admin form layout', async () => {

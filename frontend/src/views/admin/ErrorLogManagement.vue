@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { CheckCircle, Eye, Search } from 'lucide-vue-next'
+import { CheckCircle, Eye } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useErrorLogDetailModal } from '@/composables/useErrorLogDetailModal'
 import { useErrorLogListState } from '@/composables/useErrorLogListState'
 import AdminActionButton from '@/components/admin/AdminActionButton.vue'
 import AdminDataPage from '@/components/admin/AdminDataPage.vue'
+import AdminFilterActions from '@/components/admin/AdminFilterActions.vue'
 import AdminFilterField from '@/components/admin/AdminFilterField.vue'
 import AdminFilterPanel from '@/components/admin/AdminFilterPanel.vue'
 import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
@@ -13,7 +14,6 @@ import ErrorLogDetailModal from '@/components/admin/ErrorLogDetailModal.vue'
 import ErrorLogResolveModal from '@/components/admin/ErrorLogResolveModal.vue'
 import HttpStatusBadge from '@/components/admin/HttpStatusBadge.vue'
 import ResolveStatusBadge from '@/components/admin/ResolveStatusBadge.vue'
-import BaseButton from '@/components/common/ui/BaseButton.vue'
 import type { TableColumn } from '@/components/common/ui/BaseTable.vue'
 import { formatDateTimeOrDash } from '@/utils/date'
 import type { ErrorLogDetail, ErrorLogListItem } from '@/types'
@@ -126,15 +126,7 @@ function resolveFromDetail(log: ErrorLogDetail) {
               placeholder="BusinessException..."
             />
           </AdminFilterField>
-          <div class="filter-item filter-item--actions flex gap-2">
-            <BaseButton type="button" variant="primary" size="sm" class="btn-search" @click="handleSearch">
-              <Search class="mr-1 h-4 w-4" />
-              검색
-            </BaseButton>
-            <BaseButton type="button" variant="secondary" size="sm" class="btn-reset" @click="resetFilters">
-              초기화
-            </BaseButton>
-          </div>
+          <AdminFilterActions @search="handleSearch" @reset="resetFilters" />
         </div>
       </AdminFilterPanel>
     </template>

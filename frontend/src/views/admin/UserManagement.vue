@@ -5,10 +5,10 @@ import { Search } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
-import BaseButton from '@/components/common/ui/BaseButton.vue'
 import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
 import AdminActionButton from '@/components/admin/AdminActionButton.vue'
 import AdminDataPage from '@/components/admin/AdminDataPage.vue'
+import AdminFilterActions from '@/components/admin/AdminFilterActions.vue'
 import AdminFilterPanel from '@/components/admin/AdminFilterPanel.vue'
 import AdminFilterField from '@/components/admin/AdminFilterField.vue'
 import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
@@ -256,10 +256,7 @@ const columns = computed(() => [
               </template>
             </BaseInput>
           </div>
-          <div class="flex items-center gap-2">
-            <BaseButton variant="primary" size="sm" @click="applyFilters">검색</BaseButton>
-            <BaseButton variant="secondary" size="sm" @click="resetFilters">초기화</BaseButton>
-          </div>
+          <AdminFilterActions @search="applyFilters" @reset="resetFilters" />
         </div>
       </div>
     </AdminFilterPanel>
