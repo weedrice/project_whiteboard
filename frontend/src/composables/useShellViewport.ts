@@ -1,4 +1,5 @@
-import { onMounted, onUnmounted, ref } from 'vue'
+import { ref } from 'vue'
+import { useEventListener } from '@/composables/useEventListener'
 import { useMobileViewport } from '@/composables/useMediaQuery'
 
 interface ShellViewportKeyboardStore {
@@ -18,13 +19,7 @@ export function useShellViewport(keyboardStore: ShellViewportKeyboardStore) {
     isEditorFocused.value = Boolean(customEvent.detail)
   }
 
-  onMounted(() => {
-    window.addEventListener('noviis:editor-focus-change', handleEditorFocusChange as EventListener)
-  })
-
-  onUnmounted(() => {
-    window.removeEventListener('noviis:editor-focus-change', handleEditorFocusChange as EventListener)
-  })
+  useEventListener(() => window, 'noviis:editor-focus-change', handleEditorFocusChange)
 
   return {
     isMobile,
