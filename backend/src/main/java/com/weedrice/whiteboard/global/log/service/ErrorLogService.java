@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.global.log.service;
 
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.global.common.util.ClientMetadataNormalizer;
+import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogSearchRequest;
@@ -129,13 +130,9 @@ public class ErrorLogService {
     }
 
     private String normalizeResolvedMemo(String memo) {
-        if (memo == null) {
+        String normalizedMemo = TextInputNormalizer.normalizeOptional(memo, MAX_RESOLVED_MEMO_LENGTH);
+        if (normalizedMemo == null) {
             return null;
-        }
-
-        String normalizedMemo = memo.trim();
-        if (normalizedMemo.length() > MAX_RESOLVED_MEMO_LENGTH) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         return normalizedMemo.isBlank() ? null : normalizedMemo;
     }
