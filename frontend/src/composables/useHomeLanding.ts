@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import { emptyHomeLanding, postApi } from '@/api/post'
+import { unwrapAxiosApiData } from '@/api/response'
 import { useAuthStore } from '@/stores/auth'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import { toFeedPost, toFeedPosts } from '@/utils/postViewModel'
@@ -20,8 +21,7 @@ export function useHomeLanding() {
         enabled: isReadyToFetch,
         queryFn: async ({ queryKey }) => {
             const [, , period] = queryKey as ReturnType<typeof homeLandingQueryKey>
-            const { data } = await postApi.getHomeLanding(period)
-            return data.data
+            return unwrapAxiosApiData(await postApi.getHomeLanding(period))
         },
         placeholderData: previousData => previousData,
         staleTime: QUERY_STALE_TIME.SHORT,
