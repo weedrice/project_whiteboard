@@ -13,3 +13,29 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+  mail:
+    host: localhost
+    port: 1025
+    username: smoke-test@example.com
+    password: smoke-test-password
+
+app:
+  frontend-url: http://localhost:5173
+
+jwt:
+  secret: c2VjcmV0LWtleS1mb3ItdGVzdGluZy1wdXJwb3Nlcy1vbmx5LWRvLW5vdC11c2UtaW4tcHJvZHVjdGlvbg==
+  expiration: 1800000
+  refresh-token:
+    expiration: 1209600000
+
+cloud:
+  aws:
+    credentials:
+      access-key: smoke-test-access-key
+      secret-key: smoke-test-secret-key
+    region:
+      static: us-east-1
+    s3:
+      bucket: smoke-test-bucket
+    password-reset:
+      frontend-url: http://localhost:5173/reset-password?token=
