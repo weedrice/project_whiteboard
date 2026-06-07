@@ -29,16 +29,13 @@ import com.weedrice.whiteboard.domain.agent.web.AgentRequestContextResolver;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
-import com.weedrice.whiteboard.global.exception.BusinessException;
-import com.weedrice.whiteboard.global.exception.ErrorCode;
-import com.weedrice.whiteboard.global.security.AgentPrincipal;
+import com.weedrice.whiteboard.global.security.CurrentAgentId;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -71,64 +68,64 @@ public class AgentController {
     }
 
     @GetMapping("/status")
-    public ApiResponse<AgentStatusResponse> status(@AuthenticationPrincipal AgentPrincipal agentPrincipal) {
-        return ApiResponse.success(agentQueryService.getStatus(resolveAgentId(agentPrincipal)));
+    public ApiResponse<AgentStatusResponse> status(@CurrentAgentId Long agentId) {
+        return ApiResponse.success(agentQueryService.getStatus(agentId));
     }
 
     @GetMapping("/home")
-    public ApiResponse<AgentHomeResponse> home(@AuthenticationPrincipal AgentPrincipal agentPrincipal) {
-        return ApiResponse.success(agentQueryService.getHome(resolveAgentId(agentPrincipal)));
+    public ApiResponse<AgentHomeResponse> home(@CurrentAgentId Long agentId) {
+        return ApiResponse.success(agentQueryService.getHome(agentId));
     }
 
     @GetMapping("/profile")
     public ApiResponse<AgentProfileResponse> profile(
-            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @CurrentAgentId Long agentId,
             @RequestParam String name) {
-        return ApiResponse.success(agentQueryService.getProfile(resolveAgentId(agentPrincipal), name));
+        return ApiResponse.success(agentQueryService.getProfile(agentId, name));
     }
 
     @GetMapping("/rules")
-    public ApiResponse<AgentRulesResponse> rules(@AuthenticationPrincipal AgentPrincipal agentPrincipal) {
-        return ApiResponse.success(agentRulesService.getRules(resolveAgentId(agentPrincipal)));
+    public ApiResponse<AgentRulesResponse> rules(@CurrentAgentId Long agentId) {
+        return ApiResponse.success(agentRulesService.getRules(agentId));
     }
 
     @GetMapping("/boards")
-    public ApiResponse<AgentBoardListResponse> boards(@AuthenticationPrincipal AgentPrincipal agentPrincipal) {
-        return ApiResponse.success(agentQueryService.getBoards(resolveAgentId(agentPrincipal)));
+    public ApiResponse<AgentBoardListResponse> boards(@CurrentAgentId Long agentId) {
+        return ApiResponse.success(agentQueryService.getBoards(agentId));
     }
 
     @GetMapping("/feed")
     public ApiResponse<PageResponse<AgentPostListItem>> feed(
-            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @CurrentAgentId Long agentId,
             @RequestParam(required = false) Long boardId,
             Pageable pageable) {
-        return ApiResponses.page(agentQueryService.getFeed(resolveAgentId(agentPrincipal), boardId, pageable));
+        return ApiResponses.page(agentQueryService.getFeed(agentId, boardId, pageable));
     }
 
     @GetMapping("/posts/me")
     public ApiResponse<PageResponse<AgentPostListItem>> myPosts(
-            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @CurrentAgentId Long agentId,
             Pageable pageable) {
-        return ApiResponses.page(agentQueryService.getMyPosts(resolveAgentId(agentPrincipal), pageable));
+        return ApiResponses.page(agentQueryService.getMyPosts(agentId, pageable));
     }
 
     @GetMapping("/boards/{boardId}/posts")
     public ApiResponse<PageResponse<AgentPostListItem>> boardPosts(
-            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @CurrentAgentId Long agentId,
             @PathVariable Long boardId,
             @RequestParam(required = false) Long categoryId,
             Pageable pageable) {
         return ApiResponses.page(
-                agentQueryService.getBoardPosts(resolveAgentId(agentPrincipal), boardId, categoryId, pageable));
+                agentQueryService.getBoardPosts(agentId, boardId, categoryId, pageable));
     }
 
     @GetMapping("/posts/{postId}/comments")
     public ApiResponse<PageResponse<AgentCommentItem>> comments(
-            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @CurrentAgentId Long agentId,
             @PathVariable Long postId,
             Pageable pageable) {
         return ApiResponses.page(agentQueryService.getPostComments(
-                resolveAgentId(agentPrincipal),
+                agentId,
                 postId,
                 pageable));
     }
@@ -136,118 +133,111 @@ public class AgentController {
     @PostMapping("/posts")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<AgentPostCreateResponse> createPost(
-            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @CurrentAgentId Long agentId,
             @Valid @RequestBody AgentPostCreateRequest request,
             HttpServletRequest httpServletRequest) {
         return ApiResponse.success(
-                agentCommandService.createPost(resolveAgentId(agentPrincipal), request,
+                agentCommandService.createPost(agentId, request,
                         agentRequestContextResolver.resolve(httpServletRequest)));
     }
 
     @DeleteMapping("/posts/{postId}")
     public ApiResponse<AgentPostDeleteResponse> deletePost(
-            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @CurrentAgentId Long agentId,
             @PathVariable Long postId,
             HttpServletRequest httpServletRequest) {
         return ApiResponse.success(
-                agentCommandService.deletePost(resolveAgentId(agentPrincipal), postId,
+                agentCommandService.deletePost(agentId, postId,
                         agentRequestContextResolver.resolve(httpServletRequest)));
     }
 
     @PostMapping("/posts/{postId}/comments")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<AgentCommentCreateResponse> createComment(
-            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @CurrentAgentId Long agentId,
             @PathVariable Long postId,
             @Valid @RequestBody AgentCommentCreateRequest request,
             HttpServletRequest httpServletRequest) {
         return ApiResponse.success(
-                agentCommandService.createComment(resolveAgentId(agentPrincipal), postId, request,
+                agentCommandService.createComment(agentId, postId, request,
                         agentRequestContextResolver.resolve(httpServletRequest)));
     }
 
     @PostMapping("/comments/{commentId}/replies")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<AgentCommentCreateResponse> createReply(
-            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @CurrentAgentId Long agentId,
             @PathVariable Long commentId,
             @Valid @RequestBody AgentCommentCreateRequest request,
             HttpServletRequest httpServletRequest) {
         return ApiResponse.success(
-                agentCommandService.createReply(resolveAgentId(agentPrincipal), commentId, request,
+                agentCommandService.createReply(agentId, commentId, request,
                         agentRequestContextResolver.resolve(httpServletRequest)));
     }
 
     @PostMapping("/posts/{postId}/like")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<AgentPostLikeResponse> likePost(
-            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @CurrentAgentId Long agentId,
             @PathVariable Long postId,
             HttpServletRequest httpServletRequest) {
         return ApiResponse.success(
-                agentCommandService.likePost(resolveAgentId(agentPrincipal), postId,
+                agentCommandService.likePost(agentId, postId,
                         agentRequestContextResolver.resolve(httpServletRequest)));
     }
 
     @PostMapping("/comments/{commentId}/like")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<AgentCommentLikeResponse> likeComment(
-            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @CurrentAgentId Long agentId,
             @PathVariable Long commentId,
             HttpServletRequest httpServletRequest) {
         return ApiResponse.success(
-                agentCommandService.likeComment(resolveAgentId(agentPrincipal), commentId,
+                agentCommandService.likeComment(agentId, commentId,
                         agentRequestContextResolver.resolve(httpServletRequest)));
     }
 
     @GetMapping("/notes")
     public ApiResponse<AgentNoteResponses.ThreadListResponse> notes(
-            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @CurrentAgentId Long agentId,
             @RequestParam(defaultValue = "inbox") String box,
             Pageable pageable) {
-        return ApiResponse.success(agentNoteService.getNotes(resolveAgentId(agentPrincipal), box, pageable));
+        return ApiResponse.success(agentNoteService.getNotes(agentId, box, pageable));
     }
 
     @GetMapping("/notes/{noteThreadId}")
     public ApiResponse<AgentNoteResponses.ThreadResponse> noteThread(
-            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @CurrentAgentId Long agentId,
             @PathVariable Long noteThreadId,
             Pageable pageable) {
-        return ApiResponse.success(agentNoteService.getThread(resolveAgentId(agentPrincipal), noteThreadId, pageable));
+        return ApiResponse.success(agentNoteService.getThread(agentId, noteThreadId, pageable));
     }
 
     @PostMapping("/notes")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<AgentNoteResponses.SendResponse> sendNote(
-            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @CurrentAgentId Long agentId,
             @Valid @RequestBody AgentNoteSendRequest request,
             HttpServletRequest httpServletRequest) {
         return ApiResponse.success(
-                agentNoteService.sendNote(resolveAgentId(agentPrincipal), request,
+                agentNoteService.sendNote(agentId, request,
                         agentRequestContextResolver.resolve(httpServletRequest)));
     }
 
     @PostMapping("/notes/{noteThreadId}/read")
     public ApiResponse<AgentNoteResponses.ReadResponse> markNoteRead(
-            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @CurrentAgentId Long agentId,
             @PathVariable Long noteThreadId,
             HttpServletRequest httpServletRequest) {
         return ApiResponse.success(
-                agentNoteService.markRead(resolveAgentId(agentPrincipal), noteThreadId,
+                agentNoteService.markRead(agentId, noteThreadId,
                         agentRequestContextResolver.resolve(httpServletRequest)));
     }
 
     @PostMapping("/posts/{postId}/activity/read")
     public ApiResponse<AgentPostActivityReadResponse> markPostActivityRead(
-            @AuthenticationPrincipal AgentPrincipal agentPrincipal,
+            @CurrentAgentId Long agentId,
             @PathVariable Long postId) {
-        return ApiResponse.success(agentPostActivityService.markRead(resolveAgentId(agentPrincipal), postId));
-    }
-
-    private Long resolveAgentId(AgentPrincipal agentPrincipal) {
-        if (agentPrincipal == null || agentPrincipal.getAgentId() == null) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED);
-        }
-        return agentPrincipal.getAgentId();
+        return ApiResponse.success(agentPostActivityService.markRead(agentId, postId));
     }
 }

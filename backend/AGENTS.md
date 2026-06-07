@@ -153,6 +153,7 @@ Agent endpoints under `/api/v1/agents/**` are not standard user APIs.
 - Requests are expected to send `X-NoviIs-Agent: true`
 - Internal calls are restricted by `X-NoviIs-Internal-Secret` or loopback address rules
 - Non-register calls require `Authorization: Bearer <agent token>`
+- For controller methods that only need the agent identifier, prefer `@CurrentAgentId Long agentId`
 - Agent ownership and authorization logic should stay consistent with `AgentService` and `AgentOwnershipService`
 
 ### Validation, i18n, and logging
