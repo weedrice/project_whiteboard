@@ -6,6 +6,7 @@ import { useKeyboardStore, type DropdownItem } from '@/stores/keyboard'
 import { User, LogOut, CreditCard, FileText, Clock, AlertTriangle, PlusSquare, ChevronDown, Bell, LayoutDashboard, Mail, Star, Slash, Smile } from 'lucide-vue-next'
 import { useUser } from '@/composables/useUser'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import UserAvatar from '@/components/common/ui/UserAvatar.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -113,14 +114,15 @@ onUnmounted(() => {
       :aria-expanded="isOpen ? 'true' : 'false'"
       :aria-controls="isOpen ? menuId : undefined"
       class="flex items-center justify-center sm:justify-start space-x-2 text-xs sm:text-sm nv-text-muted user-dropdown-trigger focus:outline-none min-h-[40px] min-w-[40px] sm:min-h-0 sm:min-w-0 rounded-md touch-manipulation">
-      <div
-        class="h-7 w-7 sm:h-8 sm:w-8 rounded-full nv-avatar-fallback flex items-center justify-center font-bold overflow-hidden border flex-shrink-0">
-        <img v-if="authStore.user?.profileImageUrl" :src="authStore.user.profileImageUrl" alt="Profile"
-          class="h-full w-full object-contain nv-surface-muted" />
-        <span v-else>
-          {{ authStore.user?.displayName?.[0] || authStore.user?.loginId?.[0] || 'U' }}
-        </span>
-      </div>
+      <UserAvatar
+        :image-url="authStore.user?.profileImageUrl"
+        :name="authStore.user?.displayName || authStore.user?.loginId || 'U'"
+        alt="Profile"
+        size-class="h-7 w-7 sm:h-8 sm:w-8"
+        image-class="object-contain nv-surface-muted"
+        fallback-class="font-bold"
+        class="border"
+      />
       <span class="hidden md:block font-medium">{{ authStore.user?.displayName || authStore.user?.loginId }}</span>
       <ChevronDown class="hidden sm:inline-block h-3 w-3 sm:h-4 sm:w-4 nv-text-subtle" />
     </button>
