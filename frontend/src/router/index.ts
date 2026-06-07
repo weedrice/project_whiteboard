@@ -3,6 +3,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { emoticonApi } from '@/api/emoticon'
 import { postApi } from '@/api/post'
+import { unwrapAxiosApiData } from '@/api/response'
 import { queryClient } from '@/queryClient'
 import {
     BOARD_WRITE_FORBIDDEN_MESSAGE_KEY,
@@ -53,12 +54,12 @@ async function fetchPostForAuthorGuard(postId: string): Promise<Post> {
     return queryClient.fetchQuery({
         queryKey: postDetailQueryKey(postId, false),
         queryFn: async () => {
-            const { data } = await postApi.getPost(postId, {
+            const post = unwrapAxiosApiData(await postApi.getPost(postId, {
                 params: {
                     incrementView: false,
                 },
-            })
-            return normalizePostReactionFlags(data.data as PostReactionAlias)
+            }))
+            return normalizePostReactionFlags(post as PostReactionAlias)
         },
         retry: false,
     })

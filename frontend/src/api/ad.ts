@@ -1,5 +1,6 @@
 import type { AxiosRequestConfig } from 'axios'
 import api from './index'
+import { unwrapApiData } from '@/api/response'
 import type { ApiResponse } from '@/types'
 
 export interface Ad {
@@ -16,7 +17,7 @@ export const adApi = {
             ...config,
             params: { placement },
         })
-        return data.success ? data.data : null
+        return data.success ? unwrapApiData(data) : null
     },
 
     async recordImpression(adId: number, config?: AxiosRequestConfig): Promise<void> {
@@ -25,6 +26,7 @@ export const adApi = {
 
     async recordClick(adId: number): Promise<string | null> {
         const { data } = await api.post<ApiResponse<string>>(`/ads/${adId}/click`)
-        return data.success && data.data ? data.data : null
+        const targetUrl = unwrapApiData(data)
+        return data.success && targetUrl ? targetUrl : null
     },
 }

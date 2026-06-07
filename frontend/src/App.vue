@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/vue-query'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { userApi } from '@/api/user'
+import { unwrapApiData } from '@/api/response'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
 import { useConfigStore } from '@/stores/config'
@@ -138,7 +139,7 @@ const loadSettings = async () => {
             queryKey: userSettingsQueryKey,
             queryFn: async () => {
                 const { data } = await userApi.getUserSettings()
-                return data.success ? data.data : null
+                return data.success ? unwrapApiData(data) : null
             },
         })
         if (settings) {
