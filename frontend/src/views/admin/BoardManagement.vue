@@ -72,64 +72,37 @@
                 </p>
               </div>
 
-              <div class="grid grid-cols-1 gap-x-4 gap-y-3 md:grid-cols-12">
-                <div class="md:col-span-4">
-                  <BaseInput
-                    v-model="form.boardName"
-                    :label="$t('board.form.name')"
-                    :placeholder="$t('board.form.placeholder.name')"
-                  />
-                </div>
-                <div class="md:col-span-4">
-                  <BaseInput
-                    v-model="form.boardUrl"
-                    :label="$t('board.form.url')"
-                    :placeholder="$t('board.form.placeholder.url')"
-                  />
-                </div>
-                <div class="md:col-span-2 max-w-24">
-                  <BaseInput
-                    v-model="form.sortOrder"
-                    :label="$t('common.sortOrder')"
-                    type="number"
-                  />
-                </div>
-                <div class="md:col-span-2 flex items-end justify-start md:justify-end">
-                  <button
-                    type="button"
-                    class="inline-flex items-center rounded-full px-3 py-1.5 text-sm font-semibold transition-colors"
-                    :class="form.isActive
-                      ? 'nv-status-success'
-                      : 'nv-status-danger'"
-                    @click="toggleBoardStatus"
-                  >
-                    {{ form.isActive ? $t('common.active') : $t('common.inactive') }}
-                  </button>
-                </div>
-              </div>
-
-              <BaseTextarea
-                v-model="form.description"
-                :label="$t('board.form.description')"
-                :placeholder="$t('board.form.placeholder.desc')"
-                rows="4"
-              />
-
-              <BaseCheckbox
-                v-model="form.agentUseYn"
-                :label="$t('board.form.agentUseYn')"
-                :description="$t('board.form.agentUseYnDesc')"
-                :disabled="!selectedBoard?.isPublic"
-              />
-
-              <BaseTextarea
-                v-if="form.agentUseYn"
-                v-model="form.guidePrompt"
-                :label="$t('board.form.guidePrompt')"
-                :placeholder="$t('board.form.placeholder.guidePrompt')"
-                rows="6"
-                maxlength="5000"
-              />
+              <AdminBoardFormFields
+                v-model:board-name="form.boardName"
+                v-model:board-url="form.boardUrl"
+                v-model:description="form.description"
+                v-model:agent-use-yn="form.agentUseYn"
+                v-model:guide-prompt="form.guidePrompt"
+                layout="grid"
+                :agent-disabled="!selectedBoard?.isPublic"
+              >
+                <template #after-identity>
+                  <div class="md:col-span-2 max-w-24">
+                    <BaseInput
+                      v-model="form.sortOrder"
+                      :label="$t('common.sortOrder')"
+                      type="number"
+                    />
+                  </div>
+                  <div class="md:col-span-2 flex items-end justify-start md:justify-end">
+                    <button
+                      type="button"
+                      class="inline-flex items-center rounded-full px-3 py-1.5 text-sm font-semibold transition-colors"
+                      :class="form.isActive
+                        ? 'nv-status-success'
+                        : 'nv-status-danger'"
+                      @click="toggleBoardStatus"
+                    >
+                      {{ form.isActive ? $t('common.active') : $t('common.inactive') }}
+                    </button>
+                  </div>
+                </template>
+              </AdminBoardFormFields>
 
               <div class="space-y-2">
                 <p class="text-xs sm:text-sm font-medium nv-text-muted">
@@ -202,21 +175,13 @@
 
     <BaseModal :isOpen="isModalOpen" :title="$t('admin.boards.addTitle')" @close="closeModal">
       <div class="p-4 space-y-4">
-        <BaseInput v-model="createForm.boardName" :label="$t('board.form.name')" :placeholder="$t('board.form.placeholder.name')" />
-        <BaseInput v-model="createForm.boardUrl" :label="$t('board.form.url')" :placeholder="$t('board.form.placeholder.url')" pattern="[a-z_]*" />
-        <BaseTextarea v-model="createForm.description" :label="$t('board.form.description')" :placeholder="$t('board.form.placeholder.desc')" rows="3" />
-        <BaseCheckbox
-          v-model="createForm.agentUseYn"
-          :label="$t('board.form.agentUseYn')"
-          :description="$t('board.form.agentUseYnDesc')"
-        />
-        <BaseTextarea
-          v-if="createForm.agentUseYn"
-          v-model="createForm.guidePrompt"
-          :label="$t('board.form.guidePrompt')"
-          :placeholder="$t('board.form.placeholder.guidePrompt')"
-          rows="5"
-          maxlength="5000"
+        <AdminBoardFormFields
+          v-model:board-name="createForm.boardName"
+          v-model:board-url="createForm.boardUrl"
+          v-model:description="createForm.description"
+          v-model:agent-use-yn="createForm.agentUseYn"
+          v-model:guide-prompt="createForm.guidePrompt"
+          board-url-pattern="[a-z_]*"
         />
         <AdminModalActions class-name="pt-2">
           <BaseButton variant="secondary" @click="closeModal">{{ $t('common.cancel') }}</BaseButton>
@@ -249,12 +214,11 @@ import { useBoardManagerAssignment } from '@/composables/useBoardManagerAssignme
 import AdminDataPage from '@/components/admin/AdminDataPage.vue'
 import AdminModalActions from '@/components/admin/AdminModalActions.vue'
 import AdminPanel from '@/components/admin/AdminPanel.vue'
+import AdminBoardFormFields from '@/components/admin/AdminBoardFormFields.vue'
 import BooleanBadge from '@/components/admin/BooleanBadge.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
-import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import UserSelectModal from '@/components/common/widgets/UserSelectModal.vue'
 const {
