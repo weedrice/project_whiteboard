@@ -9,6 +9,7 @@ import AdminFilterField from '../AdminFilterField.vue'
 import AdminFormPanel from '../AdminFormPanel.vue'
 import AdminInlineForm from '../AdminInlineForm.vue'
 import AdminModalActions from '../AdminModalActions.vue'
+import AdminMetricCard from '../AdminMetricCard.vue'
 import AdminPaginatedTable from '../AdminPaginatedTable.vue'
 import AdminStatusBadge from '../AdminStatusBadge.vue'
 import BooleanBadge from '../BooleanBadge.vue'
@@ -188,6 +189,20 @@ describe('admin common components', () => {
     expect(wrapper.classes()).toContain('gap-2')
     expect(wrapper.classes()).toContain('mt-5')
     expect(wrapper.findAll('button').map((button) => button.text())).toEqual(['Cancel', 'Save'])
+  })
+
+  it('renders admin metric card values with tone classes', () => {
+    const wrapper = mount(AdminMetricCard, {
+      props: {
+        label: 'Open',
+        value: 12,
+        tone: 'warning',
+      },
+    })
+
+    expect(wrapper.text()).toContain('Open')
+    expect(wrapper.text()).toContain('12')
+    expect(wrapper.classes()).toContain('admin-metric-card--warning')
   })
 
   it('renders form panel and inline form as reusable admin form layout', async () => {

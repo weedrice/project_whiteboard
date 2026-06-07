@@ -9,6 +9,7 @@ import AdminDataPage from '@/components/admin/AdminDataPage.vue'
 import AdminFilterActions from '@/components/admin/AdminFilterActions.vue'
 import AdminFilterField from '@/components/admin/AdminFilterField.vue'
 import AdminFilterPanel from '@/components/admin/AdminFilterPanel.vue'
+import AdminMetricCard from '@/components/admin/AdminMetricCard.vue'
 import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
 import ErrorLogDetailModal from '@/components/admin/ErrorLogDetailModal.vue'
 import ErrorLogResolveModal from '@/components/admin/ErrorLogResolveModal.vue'
@@ -80,18 +81,23 @@ function resolveFromDetail(log: ErrorLogDetail) {
   >
     <template #filters>
       <div v-if="statsData" class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div class="error-log-stat-card">
-          <div class="stat-label">{{ t('admin.errorLogs.stats.total') }}</div>
-          <div class="stat-value">{{ statsData.totalCount }}</div>
-        </div>
-        <div class="error-log-stat-card error-log-stat-card--warning">
-          <div class="stat-label">{{ t('admin.errorLogs.stats.unresolved') }}</div>
-          <div class="stat-value">{{ statsData.unresolvedCount }}</div>
-        </div>
-        <div class="error-log-stat-card error-log-stat-card--success">
-          <div class="stat-label">{{ t('admin.errorLogs.stats.resolved') }}</div>
-          <div class="stat-value">{{ statsData.resolvedCount }}</div>
-        </div>
+        <AdminMetricCard
+          class="error-log-stat-card"
+          :label="t('admin.errorLogs.stats.total')"
+          :value="statsData.totalCount"
+        />
+        <AdminMetricCard
+          class="error-log-stat-card error-log-stat-card--warning"
+          :label="t('admin.errorLogs.stats.unresolved')"
+          :value="statsData.unresolvedCount"
+          tone="warning"
+        />
+        <AdminMetricCard
+          class="error-log-stat-card error-log-stat-card--success"
+          :label="t('admin.errorLogs.stats.resolved')"
+          :value="statsData.resolvedCount"
+          tone="success"
+        />
       </div>
 
       <AdminFilterPanel>
@@ -228,37 +234,6 @@ function resolveFromDetail(log: ErrorLogDetail) {
 </template>
 
 <style scoped>
-.error-log-stat-card {
-  padding: 16px 20px;
-  border: 1px solid var(--nv-border);
-  border-radius: 8px;
-  background: var(--nv-surface);
-  box-shadow: var(--nv-shadow-card);
-}
-
-.error-log-stat-card--warning {
-  border-left: 4px solid var(--nv-warning);
-}
-
-.error-log-stat-card--success {
-  border-left: 4px solid var(--nv-success);
-}
-
-.stat-label {
-  color: var(--nv-text-subtle);
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.stat-value {
-  margin-top: 4px;
-  color: var(--nv-text);
-  font-size: 1.5rem;
-  font-weight: 700;
-}
-
 .filter-input {
   width: 100%;
   padding: 6px 10px;
