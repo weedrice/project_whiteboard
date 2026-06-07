@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, type Ref } from 'vue'
 import { commentApi, type CommentParams, type CommentPayload } from '@/api/comment'
+import { unwrapAxiosApiData } from '@/api/response'
 import { commentQueryKeys } from '@/composables/commentQueryKeys'
 import { postQueryKeys } from '@/composables/postQueryKeys'
 
@@ -11,8 +12,7 @@ export function useComment() {
         return useQuery({
             queryKey: commentQueryKeys.list(postId, params),
             queryFn: async () => {
-                const { data } = await commentApi.getComments(postId.value, params.value)
-                return data.data
+                return unwrapAxiosApiData(await commentApi.getComments(postId.value, params.value))
             },
             enabled: computed(() => !!postId.value),
             placeholderData: (previousData) => previousData,
@@ -27,8 +27,7 @@ export function useComment() {
         return useQuery({
             queryKey: commentQueryKeys.replies(parentId, params),
             queryFn: async () => {
-                const { data } = await commentApi.getReplies(parentId.value, params.value)
-                return data.data
+                return unwrapAxiosApiData(await commentApi.getReplies(parentId.value, params.value))
             },
             enabled: computed(() => Boolean(parentId.value) && (enabled ? enabled.value : true)),
             placeholderData: (previousData) => previousData,
