@@ -94,7 +94,7 @@ function handleRowClick(post: AdminInquiryListItem) {
       </template>
 
       <template #cell-status="{ item }">
-        <AdminStatusBadge :label="t(item.statusLabelKey)" :status-class="item.statusClass" />
+        <AdminStatusBadge :label="t(item.statusLabelKey)" :variant="item.statusVariant" />
       </template>
     </AdminPaginatedTable>
 

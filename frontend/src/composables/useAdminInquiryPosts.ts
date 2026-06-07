@@ -6,6 +6,8 @@ import { formatDateTimeOrDash } from '@/utils/date'
 import { renderPostContentHtml } from '@/utils/postContentHtml'
 import type { AdminInquirySummary, PageResponse, Post } from '@/types'
 
+type AdminInquiryStatusVariant = 'success' | 'warning'
+
 export interface AdminInquiryListItem {
   id: number
   title: string
@@ -13,7 +15,7 @@ export interface AdminInquiryListItem {
   authorName: string
   createdAtText: string
   statusLabelKey: string
-  statusClass: string
+  statusVariant: AdminInquiryStatusVariant
 }
 
 export interface AdminInquiryDetail {
@@ -42,10 +44,8 @@ function getStatusLabelKey(post: AdminInquirySummary) {
   return post.inquiryAnswered ? 'admin.inquiries.status.answered' : 'admin.inquiries.status.pending'
 }
 
-function getStatusClass(post: AdminInquirySummary) {
-  return post.inquiryAnswered
-    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+function getStatusVariant(post: AdminInquirySummary): AdminInquiryStatusVariant {
+  return post.inquiryAnswered ? 'success' : 'warning'
 }
 
 export function toAdminInquiryListItem(post: AdminInquirySummary): AdminInquiryListItem {
@@ -58,7 +58,7 @@ export function toAdminInquiryListItem(post: AdminInquirySummary): AdminInquiryL
     authorName: getAuthorName(post),
     createdAtText: formatDateTimeOrDash(post.createdAt),
     statusLabelKey: getStatusLabelKey(post),
-    statusClass: getStatusClass(post),
+    statusVariant: getStatusVariant(post),
   }
 }
 

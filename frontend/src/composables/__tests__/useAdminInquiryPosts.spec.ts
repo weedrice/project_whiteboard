@@ -100,9 +100,9 @@ describe('useAdminInquiryPosts', () => {
       title: 'Need help',
       authorName: 'Admin User',
       statusLabelKey: 'admin.inquiries.status.answered',
+      statusVariant: 'success',
     })
     expect(item.summaryText).toHaveLength(53)
-    expect(item.statusClass).toContain('emerald')
   })
 
   it('maps inquiry detail DTOs to rendered content view-model fields', () => {
