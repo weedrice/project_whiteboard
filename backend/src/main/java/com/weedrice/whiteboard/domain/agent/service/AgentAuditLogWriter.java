@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.entity.AgentActivityLog;
 import com.weedrice.whiteboard.domain.agent.repository.AgentActivityLogRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
@@ -47,10 +48,10 @@ public class AgentAuditLogWriter {
     }
 
     private String normalizeRequestMetadata(String value, int maxLength, String fieldName) {
-        if (value == null) {
+        String trimmedValue = TextInputNormalizer.normalizeNullable(value);
+        if (trimmedValue == null) {
             return null;
         }
-        String trimmedValue = value.trim();
         if (trimmedValue.length() <= maxLength) {
             return trimmedValue;
         }
