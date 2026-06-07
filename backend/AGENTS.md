@@ -141,7 +141,8 @@ Important implementation note:
 ### Security rules
 
 - Check `SecurityConfig`, filters, and method security before changing endpoint access
-- For authenticated user APIs, prefer `@AuthenticationPrincipal CustomUserDetails`
+- For authenticated user APIs, prefer `@CurrentUserId Long userId`
+- For public APIs with optional user context, use `@CurrentUserId(required = false) Long userId`
 - For agent APIs, understand `AgentAuthenticationFilter` before changing behavior
 - Do not bypass token, role, or ownership checks in controllers
 
