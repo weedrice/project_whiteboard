@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import AdminActionButton from '@/components/admin/AdminActionButton.vue'
 import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
 import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
+import AdminTableActions from '@/components/admin/AdminTableActions.vue'
 import { computed } from 'vue'
 import { formatDate } from '@/utils/date'
 import {
@@ -116,7 +117,7 @@ const columns = computed(() => [
       </template>
 
       <template #cell-actions="{ item }">
-        <div class="flex justify-center space-x-2">
+        <AdminTableActions align-class="justify-center">
           <AdminActionButton :label="t('common.viewDetail')" tone="accent" icon-only @click="$emit('viewDetail', item)">
             <Eye class="h-4 w-4" />
           </AdminActionButton>
@@ -131,7 +132,7 @@ const columns = computed(() => [
               <X class="h-4 w-4" />
             </AdminActionButton>
           </template>
-        </div>
+        </AdminTableActions>
       </template>
     </AdminPaginatedTable>
   </div>

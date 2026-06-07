@@ -12,6 +12,7 @@ import AdminActionButton from '@/components/admin/AdminActionButton.vue'
 import AdminDataPage from '@/components/admin/AdminDataPage.vue'
 import AdminModalActions from '@/components/admin/AdminModalActions.vue'
 import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
+import AdminTableActions from '@/components/admin/AdminTableActions.vue'
 import { useConfirm } from '@/composables/useConfirm'
 
 
@@ -118,14 +119,14 @@ const columns = [
         </template>
 
         <template #cell-actions="{ item }">
-          <div class="flex justify-end space-x-2">
+          <AdminTableActions>
             <AdminActionButton :label="t('common.save')" tone="accent" icon-only @click="handleSave(item.key)">
               <Save class="h-4 w-4" aria-hidden="true" />
             </AdminActionButton>
             <AdminActionButton :label="t('common.delete')" tone="danger" icon-only @click="handleDelete(item.key)">
               <Trash2 class="h-4 w-4" aria-hidden="true" />
             </AdminActionButton>
-          </div>
+          </AdminTableActions>
         </template>
       </AdminPaginatedTable>
     </div>

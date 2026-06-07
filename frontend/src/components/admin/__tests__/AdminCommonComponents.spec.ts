@@ -12,6 +12,7 @@ import AdminModalActions from '../AdminModalActions.vue'
 import AdminMetricCard from '../AdminMetricCard.vue'
 import AdminPaginatedTable from '../AdminPaginatedTable.vue'
 import AdminStatusBadge from '../AdminStatusBadge.vue'
+import AdminTableActions from '../AdminTableActions.vue'
 import BooleanBadge from '../BooleanBadge.vue'
 import DescriptionGrid from '../detail/DescriptionGrid.vue'
 import DescriptionItem from '../detail/DescriptionItem.vue'
@@ -189,6 +190,23 @@ describe('admin common components', () => {
     expect(wrapper.classes()).toContain('gap-2')
     expect(wrapper.classes()).toContain('mt-5')
     expect(wrapper.findAll('button').map((button) => button.text())).toEqual(['Cancel', 'Save'])
+  })
+
+  it('renders shared admin table action layout with configurable alignment', () => {
+    const wrapper = mount(AdminTableActions, {
+      props: {
+        alignClass: 'justify-center',
+        gapClass: 'gap-1',
+      },
+      slots: {
+        default: '<button>View</button><button>Delete</button>',
+      },
+    })
+
+    expect(wrapper.classes()).toContain('flex')
+    expect(wrapper.classes()).toContain('justify-center')
+    expect(wrapper.classes()).toContain('gap-1')
+    expect(wrapper.findAll('button').map((button) => button.text())).toEqual(['View', 'Delete'])
   })
 
   it('renders admin metric card values with tone classes', () => {

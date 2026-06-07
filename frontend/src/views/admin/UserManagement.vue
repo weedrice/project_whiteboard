@@ -12,6 +12,7 @@ import AdminFilterActions from '@/components/admin/AdminFilterActions.vue'
 import AdminFilterPanel from '@/components/admin/AdminFilterPanel.vue'
 import AdminFilterField from '@/components/admin/AdminFilterField.vue'
 import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
+import AdminTableActions from '@/components/admin/AdminTableActions.vue'
 import BooleanBadge from '@/components/admin/BooleanBadge.vue'
 import UserDetailModal from '@/components/admin/UserDetailModal.vue'
 import { formatAdminPaginationSummary } from '@/utils/adminPaginationSummary'
@@ -324,7 +325,7 @@ const columns = computed(() => [
         </template>
 
         <template #cell-actions="{ item }">
-          <div class="flex justify-end gap-1">
+          <AdminTableActions gap-class="gap-1">
             <AdminActionButton
               :label="`${item.displayName || item.loginId} 상세 보기`"
               @click.stop="openDetailModal(item)"
@@ -339,7 +340,7 @@ const columns = computed(() => [
             >
               {{ getStatusActionLabel(item.status) }}
             </AdminActionButton>
-          </div>
+          </AdminTableActions>
         </template>
       </AdminPaginatedTable>
 

@@ -3,6 +3,7 @@ import { Trash2, Eye } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import AdminActionButton from '@/components/admin/AdminActionButton.vue'
 import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
+import AdminTableActions from '@/components/admin/AdminTableActions.vue'
 import { computed } from 'vue'
 import type { IpBlock } from '@/types'
 
@@ -45,14 +46,14 @@ const columns = computed(() => [
       </template>
 
       <template #cell-actions="{ item }">
-        <div class="flex justify-end space-x-2">
+        <AdminTableActions>
           <AdminActionButton :label="t('common.viewDetail')" tone="accent" icon-only @click="$emit('viewDetail', item)">
             <Eye class="h-4 w-4" />
           </AdminActionButton>
           <AdminActionButton label="차단 해제" tone="danger" icon-only @click="onUnblock(item.ipAddress)">
             <Trash2 class="h-4 w-4" />
           </AdminActionButton>
-        </div>
+        </AdminTableActions>
       </template>
     </AdminPaginatedTable>
   </div>

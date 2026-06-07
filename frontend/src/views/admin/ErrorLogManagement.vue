@@ -11,6 +11,7 @@ import AdminFilterField from '@/components/admin/AdminFilterField.vue'
 import AdminFilterPanel from '@/components/admin/AdminFilterPanel.vue'
 import AdminMetricCard from '@/components/admin/AdminMetricCard.vue'
 import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
+import AdminTableActions from '@/components/admin/AdminTableActions.vue'
 import ErrorLogDetailModal from '@/components/admin/ErrorLogDetailModal.vue'
 import ErrorLogResolveModal from '@/components/admin/ErrorLogResolveModal.vue'
 import HttpStatusBadge from '@/components/admin/HttpStatusBadge.vue'
@@ -192,7 +193,7 @@ function resolveFromDetail(log: ErrorLogDetail) {
       </template>
 
       <template #cell-actions="{ item: log }">
-        <div class="action-buttons">
+        <AdminTableActions align-class="" gap-class="gap-1">
           <AdminActionButton
             type="button"
             icon-only
@@ -212,7 +213,7 @@ function resolveFromDetail(log: ErrorLogDetail) {
           >
             <CheckCircle class="h-4 w-4" aria-hidden="true" />
           </AdminActionButton>
-        </div>
+        </AdminTableActions>
       </template>
     </AdminPaginatedTable>
 
@@ -275,11 +276,6 @@ function resolveFromDetail(log: ErrorLogDetail) {
 
 .uri-cell {
   max-width: 180px;
-}
-
-.action-buttons {
-  display: flex;
-  gap: 4px;
 }
 
 </style>
