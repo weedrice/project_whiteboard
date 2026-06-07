@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Bell } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { useKeyboardStore } from '@/stores/keyboard'
 import { useAuthGuard } from '@/composables/useAuthGuard'
+import { useEventListener } from '@/composables/useEventListener'
 import { useNotificationStream } from '@/composables/useNotificationStream'
 import { useShellDropdowns } from '@/composables/useShellDropdowns'
 import { useShellShortcuts } from '@/composables/useShellShortcuts'
@@ -61,15 +62,8 @@ const isAdminRoute = computed(() => String(route.name ?? '').startsWith('Admin')
 const showRecentBoardsBar = computed(() => !isAuthRoute.value && !isAdminRoute.value)
 const showMobileBottomNav = computed(() => !isAuthRoute.value && !isAdminRoute.value)
 
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-  document.addEventListener('keydown', handleKeyDown)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
-  document.removeEventListener('keydown', handleKeyDown)
-})
+useEventListener(() => document, 'click', handleClickOutside)
+useEventListener(() => document, 'keydown', handleKeyDown)
 
 const skipToMainContent = (event: Event) => {
   event.preventDefault()
