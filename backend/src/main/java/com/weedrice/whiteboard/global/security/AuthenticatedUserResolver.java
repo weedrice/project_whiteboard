@@ -19,11 +19,4 @@ public final class AuthenticatedUserResolver {
         }
         return userId;
     }
-
-    public static CustomUserDetails requiredPrincipal(CustomUserDetails userDetails) {
-        if (userDetails == null || userDetails.getUserId() == null) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED);
-        }
-        return userDetails;
-    }
 }

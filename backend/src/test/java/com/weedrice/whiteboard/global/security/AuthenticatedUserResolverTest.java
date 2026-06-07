@@ -43,14 +43,6 @@ class AuthenticatedUserResolverTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.UNAUTHORIZED);
     }
 
-    @Test
-    @DisplayName("required principal returns authenticated principal")
-    void requiredPrincipal_authenticated_returnsPrincipal() {
-        CustomUserDetails userDetails = userDetails(1L);
-
-        assertThat(AuthenticatedUserResolver.requiredPrincipal(userDetails)).isSameAs(userDetails);
-    }
-
     private CustomUserDetails userDetails(Long userId) {
         return new CustomUserDetails(
                 userId,

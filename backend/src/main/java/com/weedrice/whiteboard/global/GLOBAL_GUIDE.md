@@ -82,5 +82,5 @@ throw new BusinessException(ErrorCode.USER_NOT_FOUND);
 
 ### 보안 및 인증
 - **인증 필요 API**: Spring Security 설정에 따라 보호되며, 요청 헤더에 유효한 `Bearer` 토큰이 필요합니다.
-- **현재 사용자 접근**: `SecurityContextHolder`를 직접 접근하거나, 컨트롤러 메서드 인자로 `@AuthenticationPrincipal CustomUserDetails userDetails`를 받아 현재 인증된 사용자의 ID(`userId`)를 획득할 수 있습니다.
+- **현재 사용자 접근**: 컨트롤러 메서드 인자로 `@CurrentUserId Long userId`를 받아 현재 인증된 사용자의 ID를 획득합니다. 공개 API에서 선택적 인증이 필요하면 `@CurrentUserId(required = false) Long userId`를 사용합니다.
 - **슈퍼 관리자 권한**: `SecurityUtils.validateSuperAdminPermission()`을 호출하여 관리자 권한을 강제로 체크할 수 있습니다.
