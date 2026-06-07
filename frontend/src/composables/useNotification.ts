@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { authApi } from '@/api/auth'
+import { unwrapAxiosApiData } from '@/api/response'
 import {
     notificationApi,
     normalizeNotification,
@@ -46,8 +47,7 @@ export function useNotification() {
         return useQuery({
             queryKey: notificationListQueryKey(params),
             queryFn: async () => {
-                const { data } = await notificationApi.getNotifications(params.value)
-                return data.data
+                return unwrapAxiosApiData(await notificationApi.getNotifications(params.value))
             },
             placeholderData: (previousData) => previousData
         })
@@ -58,8 +58,7 @@ export function useNotification() {
         return useQuery({
             queryKey: notificationUnreadCountQueryKey,
             queryFn: async () => {
-                const { data } = await notificationApi.getUnreadCount()
-                return data.data
+                return unwrapAxiosApiData(await notificationApi.getUnreadCount())
             },
             refetchInterval: 60000,
             enabled: computed(() => authStore.isAuthenticated),
