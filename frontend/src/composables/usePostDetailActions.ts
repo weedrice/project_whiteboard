@@ -1,25 +1,10 @@
 import { onUnmounted, ref, type ComputedRef, type Ref } from 'vue'
 import type { RouteLocationNormalizedLoaded, Router, RouteLocationRaw } from 'vue-router'
+import { useConfirm } from '@/composables/useConfirm'
+import { usePost } from '@/composables/usePost'
+import { useToastStore } from '@/stores/toast'
 import type { Post } from '@/types'
 import logger from '@/utils/logger'
-
-interface ToastStoreLike {
-  addToast: (message: string, type?: 'info' | 'success' | 'error' | 'warning') => void
-}
-
-type PostId = string | number
-type MutationFn<T = PostId> = (
-  payload: T,
-  options?: {
-    onSuccess?: () => void
-    onError?: (err: unknown) => void
-  }
-) => void
-
-interface ReportPayload {
-  targetPostId: PostId
-  reason: string
-}
 
 interface UsePostDetailActionsOptions {
   post: Ref<Post | null | undefined>
@@ -27,17 +12,9 @@ interface UsePostDetailActionsOptions {
   authStore: { isAuthenticated: boolean }
   route: RouteLocationNormalizedLoaded
   router: Router
-  toastStore: ToastStoreLike
-  confirm: (message: string) => Promise<boolean>
   t: (key: string) => string
   buildBoardListRoute: (boardUrl: string) => RouteLocationRaw
   closeOverflowMenu: () => void
-  deleteMutate: MutationFn
-  likeMutate: MutationFn
-  unlikeMutate: MutationFn
-  scrapMutate: MutationFn
-  unscrapMutate: MutationFn
-  reportMutate: MutationFn<ReportPayload>
 }
 
 export function usePostDetailActions({
@@ -46,18 +23,26 @@ export function usePostDetailActions({
   authStore,
   route,
   router,
-  toastStore,
-  confirm,
   t,
   buildBoardListRoute,
   closeOverflowMenu,
-  deleteMutate,
-  likeMutate,
-  unlikeMutate,
-  scrapMutate,
-  unscrapMutate,
-  reportMutate,
 }: UsePostDetailActionsOptions) {
+  const toastStore = useToastStore()
+  const { confirm } = useConfirm()
+  const {
+    useDeletePost,
+    useLikePost,
+    useReportPost,
+    useScrapPost,
+    useUnlikePost,
+    useUnscrapPost,
+  } = usePost()
+  const { mutate: deleteMutate } = useDeletePost()
+  const { mutate: likeMutate } = useLikePost()
+  const { mutate: unlikeMutate } = useUnlikePost()
+  const { mutate: scrapMutate } = useScrapPost()
+  const { mutate: unscrapMutate } = useUnscrapPost()
+  const { mutate: reportMutate } = useReportPost()
   const isLikeAnimating = ref(false)
   const isBookmarkAnimating = ref(false)
   const showReportModal = ref(false)

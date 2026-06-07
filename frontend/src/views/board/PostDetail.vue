@@ -25,7 +25,6 @@ import CommentList from '@/components/comment/CommentList.vue'
 import PostDetailSkeleton from '@/components/board/PostDetailSkeleton.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import PostTags from '@/components/tag/PostTags.vue'
-import { useConfirm } from '@/composables/useConfirm'
 import { usePost } from '@/composables/usePost'
 import { usePostDetailPermissions } from '@/composables/usePostDetailPermissions'
 import { usePostDetailActions } from '@/composables/usePostDetailActions'
@@ -36,7 +35,6 @@ import { usePostDetailSeo } from '@/composables/usePostDetailSeo'
 import { usePostDetailUiEffects } from '@/composables/usePostDetailUiEffects'
 import { usePostDetailViewModel } from '@/composables/usePostDetailViewModel'
 import { useAuthStore } from '@/stores/auth'
-import { useToastStore } from '@/stores/toast'
 import { formatDate } from '@/utils/date'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
 import { applyImageFallback } from '@/utils/imageFallback'
@@ -46,17 +44,9 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const { t } = useI18n()
-const toastStore = useToastStore()
-const { confirm } = useConfirm()
 
 const {
-  useDeletePost,
-  useLikePost,
   usePostDetail,
-  useReportPost,
-  useScrapPost,
-  useUnlikePost,
-  useUnscrapPost
 } = usePost()
 
 const postId = computed(() => route.params.postId as string)
@@ -76,13 +66,6 @@ usePostDetailSeo({
   postView,
   t,
 })
-
-const { mutate: deleteMutate } = useDeletePost()
-const { mutate: likeMutate } = useLikePost()
-const { mutate: unlikeMutate } = useUnlikePost()
-const { mutate: scrapMutate } = useScrapPost()
-const { mutate: unscrapMutate } = useUnscrapPost()
-const { mutate: reportMutate } = useReportPost()
 
 const error = computed(() => {
   if (!postError.value) return ''
@@ -135,7 +118,6 @@ const {
 } = usePostDetailShare({
   route,
   post,
-  toastStore,
   t,
 })
 
@@ -168,17 +150,9 @@ const {
   authStore,
   route,
   router,
-  toastStore,
-  confirm,
   t,
   buildBoardListRoute,
   closeOverflowMenu: () => {},
-  deleteMutate,
-  likeMutate,
-  unlikeMutate,
-  scrapMutate,
-  unscrapMutate,
-  reportMutate,
 })
 
 const {
