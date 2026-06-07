@@ -5,17 +5,14 @@ import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.log.dto.*;
 import com.weedrice.whiteboard.global.log.service.ErrorLogService;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.CurrentUserId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import com.weedrice.whiteboard.domain.user.entity.Role;
-
-import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
 
 /**
  * 에러 로그 관리 컨트롤러 (관리자 전용)
@@ -59,9 +56,9 @@ public class ErrorLogController {
     public ApiResponse<Void> resolveErrorLog(
             @PathVariable Long errorLogId,
             @RequestBody(required = false) ErrorLogResolveRequest request,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+            @CurrentUserId Long userId) {
         String memo = request != null ? request.getMemo() : null;
-        errorLogService.resolveErrorLog(errorLogId, requiredUserId(userDetails), memo);
+        errorLogService.resolveErrorLog(errorLogId, userId, memo);
         return ApiResponses.ok();
     }
 
