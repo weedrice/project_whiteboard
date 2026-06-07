@@ -17,6 +17,7 @@ const props = withDefaults(defineProps<{
   totalElements?: number
   summary?: string
   loadingText?: string
+  footerLoading?: boolean
   tableClass?: string
   showFooter?: boolean
 }>(), {
@@ -29,6 +30,7 @@ const props = withDefaults(defineProps<{
   totalElements: undefined,
   summary: '',
   loadingText: undefined,
+  footerLoading: undefined,
   tableClass: 'mt-4',
   showFooter: true,
 })
@@ -68,7 +70,7 @@ const tableSlotNames = computed(() => Object.keys(slots).filter((name) => !name.
     :total-pages="totalPages"
     :total-elements="totalElements"
     :summary="summary"
-    :loading="loading"
+    :loading="footerLoading ?? loading"
     :loading-text="loadingText"
     @page-change="emit('pageChange', $event)"
   >

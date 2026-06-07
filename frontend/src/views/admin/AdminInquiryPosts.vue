@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
-import BaseTable, { type TableColumn } from '@/components/common/ui/BaseTable.vue'
+import type { TableColumn } from '@/components/common/ui/BaseTable.vue'
 import AdminDataPage from '@/components/admin/AdminDataPage.vue'
 import AdminFilterField from '@/components/admin/AdminFilterField.vue'
 import AdminFilterPanel from '@/components/admin/AdminFilterPanel.vue'
-import AdminPaginationFooter from '@/components/admin/AdminPaginationFooter.vue'
-import AdminPanel from '@/components/admin/AdminPanel.vue'
+import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
 import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
 import AdminInquiryDetailModal from '@/components/admin/AdminInquiryDetailModal.vue'
 import { useI18n } from 'vue-i18n'
@@ -68,44 +66,37 @@ function handleRowClick(post: AdminInquiryListItem) {
       </AdminFilterPanel>
     </template>
 
-    <AdminPanel class="mt-4 shadow-sm" padding="none" :shadow="false">
-      <div v-if="isLoading" class="flex items-center justify-center py-10">
-        <BaseSpinner size="lg" />
-      </div>
+    <div v-if="error && !isLoading" class="mt-4 rounded-lg border nv-border px-4 py-6 text-sm nv-form-error">
+      {{ t('common.messages.loadFailed') }}
+    </div>
 
-      <div v-else-if="error" class="px-4 py-6 text-sm nv-form-error">
-        {{ t('common.messages.loadFailed') }}
-      </div>
-
-      <BaseTable
-        v-else
-        :columns="columns"
-        :items="posts"
-        row-key="id"
-        :empty-text="t('admin.inquiries.empty')"
-        :row-class="getRowClass"
-        @row-click="handleRowClick"
-      >
-        <template #cell-title="{ item }">
-          <button type="button" class="max-w-[280px] truncate text-left hover:underline" @click.stop="openDetail(item.id)">
-            {{ item.title }}
-          </button>
-        </template>
-
-        <template #cell-status="{ item }">
-          <AdminStatusBadge :label="t(item.statusLabelKey)" :status-class="item.statusClass" />
-        </template>
-      </BaseTable>
-    </AdminPanel>
-
-    <AdminPaginationFooter
+    <AdminPaginatedTable
+      v-else
+      table-class="mt-4"
+      :columns="columns"
+      :items="posts"
+      row-key="id"
+      :loading="isLoading"
+      :empty-text="t('admin.inquiries.empty')"
+      :row-class="getRowClass"
       :page="page"
       :total-pages="totalPages"
       :summary="t('admin.inquiries.total', { count: totalElements })"
-      :loading="isFetching"
+      :footer-loading="isFetching"
       :loading-text="t('admin.inquiries.refreshing')"
+      @row-click="handleRowClick"
       @page-change="handlePageChange"
-    />
+    >
+      <template #cell-title="{ item }">
+        <button type="button" class="max-w-[280px] truncate text-left hover:underline" @click.stop="openDetail(item.id)">
+          {{ item.title }}
+        </button>
+      </template>
+
+      <template #cell-status="{ item }">
+        <AdminStatusBadge :label="t(item.statusLabelKey)" :status-class="item.statusClass" />
+      </template>
+    </AdminPaginatedTable>
 
     <AdminInquiryDetailModal
       :is-open="selectedPostId !== null"

@@ -2,7 +2,7 @@
 import { Trash2, Eye } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import AdminActionButton from '@/components/admin/AdminActionButton.vue'
-import BaseTable from '@/components/common/ui/BaseTable.vue'
+import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
 import { computed } from 'vue'
 import type { IpBlock } from '@/types'
 
@@ -32,7 +32,14 @@ const columns = computed(() => [
 
 <template>
   <div class="mt-8">
-    <BaseTable :columns="columns" :items="ipBlocks" row-key="ipAddress" :emptyText="t('common.noData')">
+    <AdminPaginatedTable
+      table-class=""
+      :columns="columns"
+      :items="ipBlocks"
+      row-key="ipAddress"
+      :empty-text="t('common.noData')"
+      :show-footer="false"
+    >
       <template #cell-admin="{ item }">
         {{ item.admin.adminId }}
       </template>
@@ -47,7 +54,7 @@ const columns = computed(() => [
           </AdminActionButton>
         </div>
       </template>
-    </BaseTable>
+    </AdminPaginatedTable>
   </div>
 </template>
 

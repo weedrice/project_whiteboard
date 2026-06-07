@@ -6,11 +6,11 @@ import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import BaseTable from '@/components/common/ui/BaseTable.vue'
 import AdminActionButton from '@/components/admin/AdminActionButton.vue'
 import AdminDataPage from '@/components/admin/AdminDataPage.vue'
 import AdminFormPanel from '@/components/admin/AdminFormPanel.vue'
 import AdminInlineForm from '@/components/admin/AdminInlineForm.vue'
+import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
 import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
 import { formatDate } from '@/utils/date'
 
@@ -107,7 +107,15 @@ const superAdminColumns: { key: string; label: string; width: string; align?: 'l
 
     <div class="mt-8">
       <h3 class="text-lg font-medium leading-6 nv-title mb-4">{{ t('admin.admins.superAdmins') }}</h3>
-      <BaseTable :columns="superAdminColumns" :items="superAdmins" row-key="userId" :loading="isSuperAdminsLoading" :emptyText="t('common.noData')">
+      <AdminPaginatedTable
+        table-class=""
+        :columns="superAdminColumns"
+        :items="superAdmins"
+        row-key="userId"
+        :loading="isSuperAdminsLoading"
+        :empty-text="t('common.noData')"
+        :show-footer="false"
+      >
         <template #cell-loginId="{ item }">
           {{ item.loginId || '-' }}
         </template>
@@ -136,7 +144,7 @@ const superAdminColumns: { key: string; label: string; width: string; align?: 'l
             {{ (item as SuperAdminRow).superAdmin ? t('common.deactivate') : t('common.activate') }}
           </AdminActionButton>
         </template>
-      </BaseTable>
+      </AdminPaginatedTable>
     </div>
   </AdminDataPage>
 </template>

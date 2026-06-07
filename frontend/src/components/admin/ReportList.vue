@@ -2,7 +2,7 @@
 import { Check, X, ShieldAlert, Eye } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import AdminActionButton from '@/components/admin/AdminActionButton.vue'
-import BaseTable from '@/components/common/ui/BaseTable.vue'
+import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
 import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
 import { computed } from 'vue'
 import { formatDate } from '@/utils/date'
@@ -58,7 +58,14 @@ const columns = computed(() => [
 
 <template>
   <div class="mt-8">
-    <BaseTable :columns="columns" :items="reports" row-key="reportId" :emptyText="t('common.noData')">
+    <AdminPaginatedTable
+      table-class=""
+      :columns="columns"
+      :items="reports"
+      row-key="reportId"
+      :empty-text="t('common.noData')"
+      :show-footer="false"
+    >
       <template #cell-targetType="{ item }">
         {{ getCommonReportTargetTypeLabel(t, item.targetType) }}
       </template>
@@ -126,6 +133,6 @@ const columns = computed(() => [
           </template>
         </div>
       </template>
-    </BaseTable>
+    </AdminPaginatedTable>
   </div>
 </template>

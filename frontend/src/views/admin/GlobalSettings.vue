@@ -8,9 +8,9 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import { useToastStore } from '@/stores/toast'
-import BaseTable from '@/components/common/ui/BaseTable.vue'
 import AdminActionButton from '@/components/admin/AdminActionButton.vue'
 import AdminDataPage from '@/components/admin/AdminDataPage.vue'
+import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
 import { useConfirm } from '@/composables/useConfirm'
 
 
@@ -93,7 +93,15 @@ const columns = [
     </template>
 
     <div class="mt-8">
-      <BaseTable :columns="columns" :items="configs" row-key="key" :loading="isLoading" :emptyText="t('common.noData')">
+      <AdminPaginatedTable
+        table-class=""
+        :columns="columns"
+        :items="configs"
+        row-key="key"
+        :loading="isLoading"
+        :empty-text="t('common.noData')"
+        :show-footer="false"
+      >
         <template #cell-description="{ item }">
           <BaseInput :model-value="item.description"
             :label="`${item.key} ${t('common.description')}`" hideLabel
@@ -118,7 +126,7 @@ const columns = [
             </AdminActionButton>
           </div>
         </template>
-      </BaseTable>
+      </AdminPaginatedTable>
     </div>
 
     <!-- Add Config Modal -->

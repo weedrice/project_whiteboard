@@ -127,7 +127,7 @@ describe('admin common components', () => {
     expect(httpBadge.get('.http-status-badge').classes()).toContain('status-500')
   })
 
-  it('renders generic admin status badges and paginated table sections', () => {
+  it('renders generic admin status badges and paginated table sections', async () => {
     const statusBadge = mount(AdminStatusBadge, {
       props: {
         label: 'Pending',
@@ -143,6 +143,8 @@ describe('admin common components', () => {
         page: 0,
         totalPages: 2,
         summary: 'Total 1',
+        footerLoading: true,
+        loadingText: 'Refreshing rows',
       },
       slots: {
         'cell-name': '<template #default="{ item }"><strong>{{ item.name }}</strong></template>',
@@ -160,7 +162,27 @@ describe('admin common components', () => {
     expect(statusBadge.get('.admin-status-badge').classes()).toContain('pending-class')
     expect(table.text()).toContain('Ada')
     expect(table.text()).toContain('Total 1')
+    expect(table.text()).toContain('Refreshing rows')
     expect(table.get('[data-test="description"]').text()).toBe('Rows can be opened.')
+
+    await table.get('tbody tr').trigger('click')
+    await table.get('tbody tr').trigger('dblclick')
+
+    expect(table.emitted('rowClick')).toEqual([[{ id: 1, name: 'Ada' }]])
+    expect(table.emitted('rowDblclick')).toEqual([[{ id: 1, name: 'Ada' }]])
+  })
+
+  it('can render the admin table wrapper without a pagination footer', () => {
+    const table = mount(AdminPaginatedTable, {
+      props: {
+        columns: [{ key: 'name', label: 'Name' }],
+        items: [{ id: 1, name: 'Ada' }],
+        showFooter: false,
+      },
+    })
+
+    expect(table.text()).toContain('Ada')
+    expect(table.find('[data-test="pagination"]').exists()).toBe(false)
   })
 
   it('normalizes admin action button labels for icon-only controls', async () => {
