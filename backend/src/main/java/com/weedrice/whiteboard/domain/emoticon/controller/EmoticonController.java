@@ -42,7 +42,7 @@ public class EmoticonController {
             @RequestParam(defaultValue = "latest") String sortBy,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ApiResponses.page(emoticonService.getActiveEmoticons(pageable(page, size), normalizeSortBy(sortBy)));
+        return ApiResponses.page(emoticonService.getActiveEmoticons(pageable(page, size), sortBy));
     }
 
     @GetMapping("/popular")
@@ -59,7 +59,7 @@ public class EmoticonController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         return ApiResponses.page(
-                emoticonService.searchAll(keyword, searchType, pageable(page, size), normalizeSortBy(sortBy)));
+                emoticonService.searchAll(keyword, searchType, pageable(page, size), sortBy));
     }
 
     @GetMapping("/search/tag")
@@ -169,14 +169,5 @@ public class EmoticonController {
 
     private Pageable pageable(int page, int size) {
         return PageRequestUtils.of(page, size);
-    }
-private String normalizeSortBy(String sortBy) {
-        if ("popular".equalsIgnoreCase(sortBy)) {
-            return "popular";
-        }
-        if ("oldest".equalsIgnoreCase(sortBy)) {
-            return "oldest";
-        }
-        return "latest";
     }
 }
