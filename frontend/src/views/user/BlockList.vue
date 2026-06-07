@@ -40,26 +40,32 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BlockButton from '@/components/user/BlockButton.vue'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
 import { UserX } from 'lucide-vue-next'
 import logger from '@/utils/logger'
 import { useUser } from '@/composables/useUser'
-import { getListLoadErrorMessage } from '@/utils/listLoadError'
-import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import UserAvatar from '@/components/common/ui/UserAvatar.vue'
+import { usePaginatedListState } from '@/composables/usePaginatedListState'
+import type { BlockedUserListItem } from '@/api/user'
 
 const { t } = useI18n()
 const { useBlockList } = useUser()
-const { page, size, params: blockListParams, handlePageChange, handleSizeChange } = usePaginatedQueryState({
-  initialSize: 20,
-})
-const { data: blockListData, isLoading: loading, error, refetch } = useBlockList(blockListParams)
-const { items: blockedUsers, totalElements, totalPages } = usePageResponseState(blockListData, page)
-
-const errorMessage = computed(() => error.value ? getListLoadErrorMessage(t) : '')
+const {
+  page,
+  size,
+  handlePageChange,
+  handleSizeChange,
+  items: blockedUsers,
+  totalElements,
+  totalPages,
+  isLoading: loading,
+  error,
+  errorMessage,
+  refetch,
+} = usePaginatedListState<BlockedUserListItem>(useBlockList, { initialSize: 20, t })
 
 const fetchBlockedUsers = () => {
   refetch()

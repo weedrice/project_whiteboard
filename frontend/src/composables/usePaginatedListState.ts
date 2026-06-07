@@ -16,6 +16,7 @@ type PaginatedQueryResult<T> = {
   data: PageDataRef<T>
   isError: Ref<boolean> | ComputedRef<boolean>
   isLoading: Ref<boolean> | ComputedRef<boolean>
+  error: Ref<unknown> | ComputedRef<unknown>
   refetch: () => unknown
 }
 

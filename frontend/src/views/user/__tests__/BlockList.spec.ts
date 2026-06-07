@@ -10,6 +10,7 @@ type BlockListParams = { page: number; size: number }
 let queryState: {
   data: ReturnType<typeof ref<unknown>>
   isLoading: ReturnType<typeof ref<boolean>>
+  isError: ReturnType<typeof ref<boolean>>
   error: ReturnType<typeof ref<unknown>>
   refetch: ReturnType<typeof vi.fn>
 }
@@ -93,6 +94,7 @@ describe('BlockList', () => {
     queryState = {
       data: ref(null),
       isLoading: ref(false),
+      isError: ref(false),
       error: ref(null),
       refetch: vi.fn(),
     }
@@ -152,6 +154,7 @@ describe('BlockList', () => {
 
   it('shows an error state and retries through the query refetch', async () => {
     queryState.error.value = new Error('network')
+    queryState.isError.value = true
     const wrapper = mountList()
 
     expect(wrapper.get('[data-test="error-state"]').text()).toBe('common.messages.loadFailed')
