@@ -9,6 +9,9 @@ import AdminInlineForm from '../AdminInlineForm.vue'
 import AdminPaginatedTable from '../AdminPaginatedTable.vue'
 import AdminStatusBadge from '../AdminStatusBadge.vue'
 import BooleanBadge from '../BooleanBadge.vue'
+import DescriptionGrid from '../detail/DescriptionGrid.vue'
+import DescriptionItem from '../detail/DescriptionItem.vue'
+import DetailSection from '../detail/DetailSection.vue'
 import HttpStatusBadge from '../HttpStatusBadge.vue'
 
 const AdminPageHeaderStub = defineComponent({
@@ -183,6 +186,34 @@ describe('admin common components', () => {
 
     expect(table.text()).toContain('Ada')
     expect(table.find('[data-test="pagination"]').exists()).toBe(false)
+  })
+
+  it('renders compact detail sections with actions and full-width description items', () => {
+    const DetailSectionFixture = defineComponent({
+      components: {
+        DescriptionGrid,
+        DescriptionItem,
+        DetailSection,
+      },
+      template: `
+        <DetailSection title="Error info" compact>
+          <template #actions>
+            <button>Copy</button>
+          </template>
+            <DescriptionGrid gap-class="gap-2">
+              <DescriptionItem label="Message" full>Something failed</DescriptionItem>
+            </DescriptionGrid>
+        </DetailSection>
+      `,
+    })
+    const wrapper = mount(DetailSectionFixture)
+
+    expect(wrapper.text()).toContain('Error info')
+    expect(wrapper.text()).toContain('Copy')
+    expect(wrapper.text()).toContain('Something failed')
+    expect(wrapper.get('section > div').classes()).toContain('border-b')
+    expect(wrapper.get('dl').classes()).toContain('gap-2')
+    expect(wrapper.get('dl > div').classes()).toContain('sm:col-span-2')
   })
 
   it('normalizes admin action button labels for icon-only controls', async () => {

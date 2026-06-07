@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { CheckCircle, Copy } from 'lucide-vue-next'
+import DescriptionGrid from '@/components/admin/detail/DescriptionGrid.vue'
+import DescriptionItem from '@/components/admin/detail/DescriptionItem.vue'
+import DetailSection from '@/components/admin/detail/DetailSection.vue'
 import HttpStatusBadge from '@/components/admin/HttpStatusBadge.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
@@ -30,86 +33,69 @@ const emit = defineEmits<{
     @close="emit('close')"
   >
     <div v-if="log">
-      <section class="detail-section">
-        <h4 class="detail-section-title">{{ $t('admin.errorLogs.detail.errorInfo') }}</h4>
-        <div class="detail-grid">
-          <div class="detail-item">
-            <span class="detail-label">{{ $t('admin.errorLogs.table.httpStatus') }}</span>
+      <DetailSection :title="$t('admin.errorLogs.detail.errorInfo')" compact>
+        <DescriptionGrid gap-class="gap-2.5">
+          <DescriptionItem :label="$t('admin.errorLogs.table.httpStatus')" label-class="detail-label" value-class="mt-1">
             <HttpStatusBadge :status="log.httpStatus" />
-          </div>
-          <div class="detail-item">
-            <span class="detail-label">{{ $t('admin.errorLogs.table.errorCode') }}</span>
-            <span class="detail-value font-mono">{{ log.errorCode || '-' }}</span>
-          </div>
-          <div class="detail-item">
-            <span class="detail-label">{{ $t('admin.errorLogs.table.errorType') }}</span>
-            <span class="detail-value">{{ log.errorType }}</span>
-          </div>
-          <div class="detail-item detail-item--full">
-            <span class="detail-label">{{ $t('admin.errorLogs.table.message') }}</span>
-            <span class="detail-value">{{ log.message }}</span>
-          </div>
-        </div>
-      </section>
+          </DescriptionItem>
+          <DescriptionItem :label="$t('admin.errorLogs.table.errorCode')" label-class="detail-label" value-class="detail-value font-mono">
+            {{ log.errorCode || '-' }}
+          </DescriptionItem>
+          <DescriptionItem :label="$t('admin.errorLogs.table.errorType')" label-class="detail-label" value-class="detail-value">
+            {{ log.errorType }}
+          </DescriptionItem>
+          <DescriptionItem :label="$t('admin.errorLogs.table.message')" label-class="detail-label" value-class="detail-value" full>
+            {{ log.message }}
+          </DescriptionItem>
+        </DescriptionGrid>
+      </DetailSection>
 
-      <section class="detail-section">
-        <h4 class="detail-section-title">{{ $t('admin.errorLogs.detail.requestInfo') }}</h4>
-        <div class="detail-grid">
-          <div class="detail-item">
-            <span class="detail-label">{{ $t('admin.errorLogs.table.requestMethod') }}</span>
-            <span class="detail-value font-mono">{{ log.requestMethod }}</span>
-          </div>
-          <div class="detail-item">
-            <span class="detail-label">{{ $t('admin.errorLogs.table.requestUri') }}</span>
-            <span class="detail-value font-mono">{{ log.requestUri }}</span>
-          </div>
-          <div class="detail-item">
-            <span class="detail-label">{{ $t('admin.errorLogs.table.userId') }}</span>
-            <span class="detail-value">{{ log.userId || '-' }}</span>
-          </div>
-          <div class="detail-item">
-            <span class="detail-label">{{ $t('admin.errorLogs.table.ipAddress') }}</span>
-            <span class="detail-value font-mono">{{ log.ipAddress }}</span>
-          </div>
-          <div class="detail-item detail-item--full">
-            <span class="detail-label">User-Agent</span>
-            <span class="detail-value break-all text-xs">{{ log.userAgent || '-' }}</span>
-          </div>
-          <div class="detail-item">
-            <span class="detail-label">{{ $t('admin.errorLogs.table.createdAt') }}</span>
-            <span class="detail-value">{{ formatDateTimeOrDash(log.createdAt) }}</span>
-          </div>
-        </div>
-      </section>
+      <DetailSection :title="$t('admin.errorLogs.detail.requestInfo')" compact>
+        <DescriptionGrid gap-class="gap-2.5">
+          <DescriptionItem :label="$t('admin.errorLogs.table.requestMethod')" label-class="detail-label" value-class="detail-value font-mono">
+            {{ log.requestMethod }}
+          </DescriptionItem>
+          <DescriptionItem :label="$t('admin.errorLogs.table.requestUri')" label-class="detail-label" value-class="detail-value font-mono">
+            {{ log.requestUri }}
+          </DescriptionItem>
+          <DescriptionItem :label="$t('admin.errorLogs.table.userId')" label-class="detail-label" value-class="detail-value">
+            {{ log.userId || '-' }}
+          </DescriptionItem>
+          <DescriptionItem :label="$t('admin.errorLogs.table.ipAddress')" label-class="detail-label" value-class="detail-value font-mono">
+            {{ log.ipAddress }}
+          </DescriptionItem>
+          <DescriptionItem label="User-Agent" label-class="detail-label" value-class="detail-value break-all text-xs" full>
+            {{ log.userAgent || '-' }}
+          </DescriptionItem>
+          <DescriptionItem :label="$t('admin.errorLogs.table.createdAt')" label-class="detail-label" value-class="detail-value">
+            {{ formatDateTimeOrDash(log.createdAt) }}
+          </DescriptionItem>
+        </DescriptionGrid>
+      </DetailSection>
 
-      <section v-if="log.stackTrace" class="detail-section">
-        <div class="stack-trace-header">
-          <h4 class="detail-section-title stack-trace-title">{{ $t('admin.errorLogs.detail.stackTrace') }}</h4>
-          <button type="button" class="btn-copy-stack-trace" @click="emit('copyStackTrace')">
+      <DetailSection v-if="log.stackTrace" :title="$t('admin.errorLogs.detail.stackTrace')" compact>
+        <template #actions>
+          <BaseButton type="button" variant="secondary" size="sm" class="btn-copy-stack-trace" @click="emit('copyStackTrace')">
             <Copy class="h-3.5 w-3.5" />
             {{ $t('admin.errorLogs.actions.copy') }}
-          </button>
-        </div>
+          </BaseButton>
+        </template>
         <pre class="stack-trace-block">{{ log.stackTrace }}</pre>
-      </section>
+      </DetailSection>
 
-      <section v-if="log.isResolved === 'Y'" class="detail-section">
-        <h4 class="detail-section-title">{{ $t('admin.errorLogs.detail.resolveInfo') }}</h4>
-        <div class="detail-grid">
-          <div class="detail-item">
-            <span class="detail-label">처리자 ID</span>
-            <span class="detail-value">{{ log.resolvedBy }}</span>
-          </div>
-          <div class="detail-item">
-            <span class="detail-label">처리 일시</span>
-            <span class="detail-value">{{ formatDateTimeOrDash(log.resolvedAt) }}</span>
-          </div>
-          <div v-if="log.resolvedMemo" class="detail-item detail-item--full">
-            <span class="detail-label">처리 메모</span>
-            <span class="detail-value">{{ log.resolvedMemo }}</span>
-          </div>
-        </div>
-      </section>
+      <DetailSection v-if="log.isResolved === 'Y'" :title="$t('admin.errorLogs.detail.resolveInfo')" compact>
+        <DescriptionGrid gap-class="gap-2.5">
+          <DescriptionItem label="처리자 ID" label-class="detail-label" value-class="detail-value">
+            {{ log.resolvedBy }}
+          </DescriptionItem>
+          <DescriptionItem label="처리 일시" label-class="detail-label" value-class="detail-value">
+            {{ formatDateTimeOrDash(log.resolvedAt) }}
+          </DescriptionItem>
+          <DescriptionItem v-if="log.resolvedMemo" label="처리 메모" label-class="detail-label" value-class="detail-value" full>
+            {{ log.resolvedMemo }}
+          </DescriptionItem>
+        </DescriptionGrid>
+      </DetailSection>
     </div>
 
     <template v-if="log" #footer>
@@ -134,31 +120,6 @@ const emit = defineEmits<{
 </template>
 
 <style scoped>
-.detail-section-title {
-  margin-bottom: 12px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--nv-border);
-  color: var(--nv-text);
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-.detail-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-}
-
-.detail-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.detail-item--full {
-  grid-column: 1 / -1;
-}
-
 .detail-label {
   color: var(--nv-text-subtle);
   font-size: 0.6875rem;
@@ -171,39 +132,6 @@ const emit = defineEmits<{
   color: var(--nv-text);
   font-size: 0.8125rem;
   word-break: break-all;
-}
-
-.stack-trace-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.stack-trace-title {
-  flex: 1;
-  margin-bottom: 0;
-}
-
-.btn-copy-stack-trace {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  border: 1px solid var(--nv-border);
-  border-radius: 6px;
-  background: var(--nv-surface);
-  color: var(--nv-text-muted);
-  font-size: 0.75rem;
-  font-weight: 500;
-  line-height: 1;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.btn-copy-stack-trace:hover {
-  background: var(--nv-surface-hover);
-  color: var(--nv-text);
 }
 
 .stack-trace-block {
