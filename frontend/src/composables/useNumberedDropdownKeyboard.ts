@@ -1,4 +1,5 @@
-import { onMounted, onUnmounted, toValue, type MaybeRefOrGetter } from 'vue'
+import { toValue, type MaybeRefOrGetter } from 'vue'
+import { useEventListener } from '@/composables/useEventListener'
 
 type NumberedDropdownKeyboardOptions<T> = {
   isOpen: MaybeRefOrGetter<boolean>
@@ -38,13 +39,7 @@ export const useNumberedDropdownKeyboard = <T>(options: NumberedDropdownKeyboard
     options.onSelect(items[index], index)
   }
 
-  onMounted(() => {
-    document.addEventListener('keydown', handleKeyDown)
-  })
-
-  onUnmounted(() => {
-    document.removeEventListener('keydown', handleKeyDown)
-  })
+  useEventListener(() => document, 'keydown', handleKeyDown)
 
   return {
     handleKeyDown,
