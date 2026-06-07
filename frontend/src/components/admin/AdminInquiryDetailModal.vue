@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import AdminModalContentState from '@/components/admin/AdminModalContentState.vue'
+import AdminModalActions from '@/components/admin/AdminModalActions.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
@@ -68,9 +69,9 @@ const { t } = useI18n()
     </div>
 
     <template #footer>
-      <div class="flex justify-end">
+      <AdminModalActions>
         <BaseButton type="button" variant="secondary" @click="emit('close')">{{ t('common.close') }}</BaseButton>
-      </div>
+      </AdminModalActions>
     </template>
   </BaseModal>
 </template>
