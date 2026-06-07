@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { fileApi } from '@/api/file'
+import { unwrapApiData } from '@/api/response'
 import { useToastStore } from '@/stores/toast'
 import logger from '@/utils/logger'
 
@@ -10,7 +11,7 @@ interface UseBoardIconUploadOptions {
 
 export async function uploadBoardIconFile(file: File): Promise<string | null> {
   const { data } = await fileApi.uploadFile(file)
-  return data.success ? data.data.url : null
+  return data.success ? unwrapApiData(data).url : null
 }
 
 export function useBoardIconUpload({ setIconUrl }: UseBoardIconUploadOptions) {

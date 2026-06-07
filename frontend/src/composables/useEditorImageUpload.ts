@@ -1,5 +1,6 @@
 import { ref, onBeforeUnmount } from 'vue'
 import { fileApi } from '@/api/file'
+import { unwrapApiData } from '@/api/response'
 import { validateImageFile as validateGenericImageFile } from '@/utils/imageFile'
 import { isCancellationError } from '@/utils/cancellationError'
 
@@ -41,10 +42,11 @@ export function useEditorImageUpload(maxImageSizeBytes = DEFAULT_MAX_IMAGE_SIZE_
         try {
             const { data } = await fileApi.uploadFile(file, { signal: uploadAbortController.signal })
             if (!data.success) return null
+            const uploadedFile = unwrapApiData(data)
 
             return {
-                url: data.data.url,
-                fileId: data.data.fileId
+                url: uploadedFile.url,
+                fileId: uploadedFile.fileId
             }
         } finally {
             uploadAbortController = null

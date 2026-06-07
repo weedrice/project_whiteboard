@@ -1,4 +1,5 @@
 import { fileApi } from '@/api/file'
+import { unwrapAxiosApiData } from '@/api/response'
 import {
   createUploadableEmoticonImageFile,
   type EmoticonImagePreview
@@ -26,7 +27,7 @@ export function useEmoticonImageUploader(uploadSession: EmoticonUploadSession) {
         skipGlobalErrorHandler: options.skipGlobalErrorHandler
       })
       uploadSession.assertSubmitActive(runId)
-      return response.data.data.fileId
+      return unwrapAxiosApiData(response).fileId
     } catch (error) {
       uploadSession.abortPendingUploads()
       throw error
