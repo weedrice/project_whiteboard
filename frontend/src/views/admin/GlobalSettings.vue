@@ -1,80 +1,30 @@
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
-import { useAdmin } from '@/composables/useAdmin'
-import { useConfigEditor } from '@/composables/useConfigEditor'
 import { Save, Trash2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
-import { useToastStore } from '@/stores/toast'
 import AdminActionButton from '@/components/admin/AdminActionButton.vue'
 import AdminDataPage from '@/components/admin/AdminDataPage.vue'
 import AdminModalActions from '@/components/admin/AdminModalActions.vue'
 import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
 import AdminTableActions from '@/components/admin/AdminTableActions.vue'
-import { useConfirm } from '@/composables/useConfirm'
+import { useGlobalSettingsManager } from '@/composables/useGlobalSettingsManager'
 
 
 const { t } = useI18n()
-const toastStore = useToastStore()
-const { confirm } = useConfirm()
-const { useConfigs, useUpdateConfig, useCreateConfig, useDeleteConfig } = useAdmin()
-
-const isModalOpen = ref(false)
-const newConfig = reactive({
-  key: '',
-  value: '',
-  description: ''
-})
-
-const { data: configsData, isLoading } = useConfigs()
-const { mutateAsync: updateConfig } = useUpdateConfig()
-const { mutateAsync: createConfig } = useCreateConfig()
-const { mutateAsync: deleteConfig } = useDeleteConfig()
-const { configs, updateDraft, getDraft } = useConfigEditor(configsData)
-
-async function handleSave(key: string) {
-  const config = getDraft(key)
-  if (!config) return
-
-  try {
-    await updateConfig({ key: config.key, value: config.value, description: config.description })
-    toastStore.addToast(t('admin.settings.messages.saved'), 'success')
-  } catch {
-    // Error handled globally
-  }
-}
-
-async function handleCreateConfig() {
-  if (!newConfig.key || !newConfig.value) return
-  try {
-    await createConfig({
-      key: newConfig.key,
-      value: newConfig.value,
-      description: newConfig.description
-    })
-
-    toastStore.addToast(t('admin.settings.messages.saved'), 'success')
-    isModalOpen.value = false
-    newConfig.key = ''
-    newConfig.value = ''
-    newConfig.description = ''
-  } catch {
-    // Error handled globally
-  }
-}
-
-async function handleDelete(key: string) {
-  const isConfirmed = await confirm(t('common.confirmDelete'))
-  if (!isConfirmed) return
-  try {
-    await deleteConfig(key)
-    toastStore.addToast(t('common.deleted'), 'success')
-  } catch {
-    // Error handled globally
-  }
-}
+const {
+  closeCreateModal,
+  configs,
+  handleCreateConfig,
+  handleDelete,
+  handleSave,
+  isLoading,
+  isModalOpen,
+  newConfig,
+  openCreateModal,
+  updateDraft,
+} = useGlobalSettingsManager()
 
 const columns = [
   { key: 'key', label: t('common.key'), width: '20%' },
@@ -88,7 +38,7 @@ const columns = [
   <AdminDataPage :title="t('admin.settings.title')" :description="t('admin.settings.description')">
     <template #actions>
       <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-        <BaseButton @click="isModalOpen = true">
+        <BaseButton @click="openCreateModal">
           {{ t('common.add') }}
         </BaseButton>
       </div>
@@ -132,7 +82,7 @@ const columns = [
     </div>
 
     <!-- Add Config Modal -->
-    <BaseModal :isOpen="isModalOpen" :title="t('admin.settings.addConfig')" @close="isModalOpen = false">
+    <BaseModal :isOpen="isModalOpen" :title="t('admin.settings.addConfig')" @close="closeCreateModal">
       <div class="space-y-4">
         <BaseInput v-model="newConfig.key" :label="t('common.key')" type="text" />
         <BaseInput v-model="newConfig.value" :label="t('common.value')" type="text" />
@@ -140,7 +90,7 @@ const columns = [
       </div>
       <template #footer>
         <AdminModalActions>
-          <BaseButton @click="isModalOpen = false" variant="secondary">
+          <BaseButton @click="closeCreateModal" variant="secondary">
             {{ t('common.cancel') }}
           </BaseButton>
           <BaseButton @click="handleCreateConfig">
