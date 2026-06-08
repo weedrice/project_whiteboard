@@ -60,8 +60,9 @@ jobs:
           script: |
             set -e
             RELEASE_DIR="/var/www/releases/frontend/${{ github.sha }}"
+            sudo install -d -o ubuntu -g ubuntu -m 755 /var/www/releases/frontend
             rm -rf "$RELEASE_DIR"
-            mkdir -p "$RELEASE_DIR"
+            install -d -m 755 "$RELEASE_DIR"
 
       - name: Upload frontend build to release
         uses: appleboy/scp-action@v0.1.7
@@ -86,16 +87,16 @@ jobs:
             grep assets "$RELEASE_DIR/index.html"
 
             if [ -L /var/www/app ]; then
-              ln -sfn "$RELEASE_DIR" /var/www/app.next
-              mv -Tf /var/www/app.next /var/www/app
+              sudo ln -sfn "$RELEASE_DIR" /var/www/app.next
+              sudo mv -Tf /var/www/app.next /var/www/app
             else
               BACKUP_DIR="/var/www/app.previous.$(date +%s)"
               if [ -e /var/www/app ]; then
-                mv /var/www/app "$BACKUP_DIR"
+                sudo mv /var/www/app "$BACKUP_DIR"
               fi
-              if ! ln -s "$RELEASE_DIR" /var/www/app; then
+              if ! sudo ln -s "$RELEASE_DIR" /var/www/app; then
                 if [ -e "$BACKUP_DIR" ]; then
-                  mv "$BACKUP_DIR" /var/www/app
+                  sudo mv "$BACKUP_DIR" /var/www/app
                 fi
                 exit 1
               fi
