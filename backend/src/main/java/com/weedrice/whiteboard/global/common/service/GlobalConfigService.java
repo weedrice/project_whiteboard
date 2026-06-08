@@ -64,15 +64,8 @@ public class GlobalConfigService {
     }
 
     public static int parseIntConfigOrDefault(String value, int defaultValue, int minValue) {
-        if (value == null) {
-            return defaultValue;
-        }
-        try {
-            int parsedValue = Integer.parseInt(value.trim());
-            return parsedValue >= minValue ? parsedValue : defaultValue;
-        } catch (NumberFormatException ex) {
-            return defaultValue;
-        }
+        Integer parsedValue = parseIntConfigValue(value);
+        return parsedValue != null && parsedValue >= minValue ? parsedValue : defaultValue;
     }
 
     public List<GlobalConfigResponse> getAllConfigs(Long actorUserId) {
@@ -190,12 +183,20 @@ public class GlobalConfigService {
         if (key == null || !key.startsWith(POINT_CONFIG_PREFIX)) {
             return;
         }
-        try {
-            if (Integer.parseInt(value.trim()) < 0) {
-                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-            }
-        } catch (NullPointerException | NumberFormatException ex) {
+        Integer parsedValue = parseIntConfigValue(value);
+        if (parsedValue == null || parsedValue < 0) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+    }
+
+    private static Integer parseIntConfigValue(String value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (NumberFormatException ex) {
+            return null;
         }
     }
 

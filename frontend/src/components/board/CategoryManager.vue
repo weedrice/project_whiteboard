@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
+import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import { useBoardCategoriesManager } from '@/composables/useBoardCategoriesManager'
 
 const { t } = useI18n()
@@ -45,14 +46,14 @@ onMounted(fetchCategories)
 
 <template>
   <div class="space-y-4">
-    <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('common.category') }}</h3>
+    <h3 class="text-lg font-medium leading-6 nv-title">{{ $t('common.category') }}</h3>
 
     <!-- Add Category -->
     <form @submit.prevent="handleAdd" class="flex gap-2">
       <BaseInput v-model="newCategoryName" :label="$t('board.category.placeholder.new')" :placeholder="$t('board.category.placeholder.new')" hideLabel
-        inputClass="dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:placeholder-gray-400" class="flex-1" />
+        class="flex-1" />
       <BaseSelect v-model="newCategoryRole" :label="$t('common.role')" class="w-32" hideLabel
-        inputClass="dark:bg-gray-700 dark:text-white dark:border-gray-600">
+        >
         <option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option>
       </BaseSelect>
       <BaseButton
@@ -68,35 +69,35 @@ onMounted(fetchCategories)
 
     <!-- Category List -->
     <div v-if="isLoading" class="text-center py-4">
-      <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600 mx-auto"></div>
+      <BaseSpinner size="md" />
     </div>
 
     <div
-      class="border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800"
+      class="border nv-border rounded-md divide-y divide-[var(--nv-border)] nv-surface"
       v-else>
       <!-- Default Category (Static) -->
-      <div v-if="defaultCategory" class="px-4 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-900/50">
-        <div class="flex items-center text-gray-400 dark:text-gray-500 cursor-not-allowed p-1 mr-3">
+      <div v-if="defaultCategory" class="px-4 py-3 flex items-center justify-between nv-surface-muted">
+        <div class="flex items-center nv-text-subtle cursor-not-allowed p-1 mr-3">
           <GripVertical class="h-4 w-4" aria-hidden="true" />
         </div>
 
         <div v-if="editingId === defaultCategory.categoryId" class="flex-1 flex items-center gap-2">
-          <span class="text-sm text-gray-900 dark:text-gray-200 font-medium">{{ defaultCategory.name }} {{
+          <span class="text-sm nv-title font-medium">{{ defaultCategory.name }} {{
             $t('board.category.default') }}</span>
           <div class="ml-auto flex items-center gap-2">
             <BaseSelect v-model="editingRole" :label="$t('common.role')" class="w-32" hideLabel
-              inputClass="dark:bg-gray-700 dark:text-white dark:border-gray-600">
+              >
               <option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option>
             </BaseSelect>
             <BaseButton @click="saveEdit(defaultCategory)" variant="ghost" size="sm"
               :aria-label="$t('board.category.save')"
               :disabled="isReordering"
-              class="p-1 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300">
+              class="p-1 text-[var(--nv-success-text)]">
               <Check class="h-4 w-4" aria-hidden="true" />
             </BaseButton>
             <BaseButton @click="cancelEdit" variant="ghost" size="sm"
               :aria-label="$t('board.category.cancel')"
-              class="p-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+              class="p-1 nv-text-subtle">
               <X class="h-4 w-4" aria-hidden="true" />
             </BaseButton>
           </div>
@@ -104,75 +105,75 @@ onMounted(fetchCategories)
 
         <div v-else class="flex-1 flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <span class="text-sm text-gray-900 dark:text-gray-200 font-medium">{{ defaultCategory.name }} {{
+            <span class="text-sm nv-title font-medium">{{ defaultCategory.name }} {{
               $t('board.category.default') }}</span>
             <span
-              class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">{{
+              class="text-xs nv-text-subtle nv-surface-muted px-2 py-0.5 rounded-full">{{
                   defaultCategory.minWriteRole || 'USER' }}</span>
           </div>
           <BaseButton @click="startEdit(defaultCategory)" variant="ghost" size="sm"
             :aria-label="$t('board.category.edit')"
             :disabled="isReordering"
-            class="p-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
+            class="p-1 nv-accent-text">
             <Edit2 class="h-4 w-4" aria-hidden="true" />
           </BaseButton>
         </div>
       </div>
 
       <!-- Draggable List -->
-      <transition-group name="list" tag="ul" class="divide-y divide-gray-200 dark:divide-gray-700">
+      <transition-group name="list" tag="ul" class="divide-y divide-[var(--nv-border)]">
         <li v-for="(category, index) in draggableCategories" :key="category.categoryId"
-          class="px-4 py-3 flex items-center justify-between group bg-white dark:bg-gray-800" @dragover.prevent
+          class="px-4 py-3 flex items-center justify-between group nv-surface" @dragover.prevent
           @dragenter.prevent @drop="onDrop(index)">
           <div class="flex items-center">
             <div :draggable="!isReordering" @dragstart="onDragStart($event, index)"
-              class="mr-3 text-gray-400 dark:text-gray-500 p-1 rounded"
+              class="mr-3 nv-text-subtle p-1 rounded"
               :class="isReordering
                 ? 'cursor-not-allowed opacity-50'
-                : 'cursor-move hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'">
+                : 'cursor-move nv-hover-surface'">
               <GripVertical class="h-4 w-4" aria-hidden="true" />
             </div>
           </div>
 
           <div v-if="editingId === category.categoryId" class="flex-1 flex items-center gap-2">
             <BaseInput v-model="editingName" :label="$t('board.category.placeholder.new')" hideLabel
-              inputClass="dark:bg-gray-700 dark:text-white dark:border-gray-600" class="w-full" />
+              class="w-full" />
             <div class="ml-auto flex items-center gap-2">
               <BaseSelect v-model="editingRole" :label="$t('common.role')" class="w-32" hideLabel
-                inputClass="dark:bg-gray-700 dark:text-white dark:border-gray-600">
+                >
                 <option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option>
               </BaseSelect>
               <BaseButton @click="saveEdit(category)" variant="ghost" size="sm"
                 :aria-label="$t('board.category.save')"
                 :disabled="isReordering"
-                class="p-1 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300">
+                class="p-1 text-[var(--nv-success-text)]">
                 <Check class="h-4 w-4" aria-hidden="true" />
               </BaseButton>
               <BaseButton @click="cancelEdit" variant="ghost" size="sm"
                 :aria-label="$t('board.category.cancel')"
-                class="p-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+                class="p-1 nv-text-subtle">
                 <X class="h-4 w-4" aria-hidden="true" />
               </BaseButton>
             </div>
           </div>
           <div v-else class="flex-1 flex items-center justify-between">
             <div class="flex items-center gap-2">
-              <span class="text-sm text-gray-900 dark:text-gray-200">{{ category.name }}</span>
+              <span class="text-sm nv-text">{{ category.name }}</span>
               <span
-                class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">{{
+                class="text-xs nv-text-subtle nv-surface-muted px-2 py-0.5 rounded-full">{{
                   category.minWriteRole }}</span>
             </div>
             <div class="flex items-center gap-2">
               <BaseButton @click="startEdit(category)" variant="ghost" size="sm"
                 :aria-label="$t('board.category.edit')"
                 :disabled="isReordering"
-                class="p-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
+                class="p-1 nv-accent-text">
                 <Edit2 class="h-4 w-4" aria-hidden="true" />
               </BaseButton>
               <BaseButton @click="handleDelete(category.categoryId)" variant="ghost" size="sm"
                 :aria-label="$t('board.category.delete')"
                 :disabled="isReordering"
-                class="p-1 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300">
+                class="p-1 nv-danger-text">
                 <Trash2 class="h-4 w-4" aria-hidden="true" />
               </BaseButton>
             </div>
@@ -180,7 +181,7 @@ onMounted(fetchCategories)
         </li>
       </transition-group>
     </div>
-    <div v-if="!isLoading && categories.length === 0" class="text-sm text-gray-500 dark:text-gray-400 text-center">
+    <div v-if="!isLoading && categories.length === 0" class="text-sm nv-text-subtle text-center">
       {{ $t('board.category.empty') }}
     </div>
   </div>

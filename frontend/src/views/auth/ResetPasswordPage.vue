@@ -2,19 +2,18 @@
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import AuthFormShell from '@/components/auth/AuthFormShell.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import { ChevronLeft, Lock } from 'lucide-vue-next'
+import { Lock } from 'lucide-vue-next'
 import { usePasswordResetByTokenFlow } from '@/composables/usePasswordResetByTokenFlow'
+import { getSingleQueryValue } from '@/utils/routeQueryValue'
 
 const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 
-const token = computed(() => {
-  const t = route.query.token
-  return typeof t === 'string' ? t : ''
-})
+const token = computed(() => getSingleQueryValue(route.query.token) ?? '')
 
 const newPassword = ref('')
 const confirmPassword = ref('')
@@ -26,34 +25,21 @@ const { isLoading, resetPassword: handleResetPassword } = usePasswordResetByToke
 </script>
 
 <template>
-  <div class="p-8 relative h-full flex flex-col justify-center">
-    <div class="absolute top-4 left-4">
-      <router-link
-        to="/login"
-        class="flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
-      >
-        <ChevronLeft class="h-5 w-5 mr-1" />
-        <span class="text-sm font-medium">{{ $t('common.back') }}</span>
-      </router-link>
-    </div>
-
-    <div v-if="!token" class="w-[80%] mx-auto text-center">
-      <h1 class="mb-3 text-2xl font-bold text-gray-900 dark:text-white">
+  <AuthFormShell back-to="/login">
+    <template #header>
+      <h1 class="text-2xl font-bold nv-title">
         {{ t('auth.resetPasswordTitle') }}
       </h1>
-      <p class="text-gray-600 dark:text-gray-300">{{ t('auth.invalidResetLink') }}</p>
+    </template>
+
+    <div v-if="!token" class="text-center">
+      <p class="nv-text-muted">{{ t('auth.invalidResetLink') }}</p>
       <BaseButton variant="primary" class="mt-6 w-full" @click="router.push('/login')">
         {{ t('auth.login') }}
       </BaseButton>
     </div>
 
-    <div v-else class="w-[80%] mx-auto space-y-6">
-      <div class="text-center mb-8">
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
-          {{ t('auth.resetPasswordTitle') }}
-        </h1>
-      </div>
-
+    <div v-else class="space-y-6">
       <BaseInput
         id="new-password"
         v-model="newPassword"
@@ -65,7 +51,7 @@ const { isLoading, resetPassword: handleResetPassword } = usePasswordResetByToke
         hideLabel
       >
         <template #prefix>
-          <Lock class="h-5 w-5 text-gray-400" />
+          <Lock class="h-5 w-5 nv-text-subtle" />
         </template>
       </BaseInput>
 
@@ -80,7 +66,7 @@ const { isLoading, resetPassword: handleResetPassword } = usePasswordResetByToke
         hideLabel
       >
         <template #prefix>
-          <Lock class="h-5 w-5 text-gray-400" />
+          <Lock class="h-5 w-5 nv-text-subtle" />
         </template>
       </BaseInput>
 
@@ -95,5 +81,5 @@ const { isLoading, resetPassword: handleResetPassword } = usePasswordResetByToke
         {{ t('auth.resetPassword') }}
       </BaseButton>
     </div>
-  </div>
+  </AuthFormShell>
 </template>

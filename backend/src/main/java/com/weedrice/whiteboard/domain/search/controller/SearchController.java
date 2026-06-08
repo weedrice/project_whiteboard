@@ -11,19 +11,16 @@ import com.weedrice.whiteboard.domain.search.service.SearchPreviewReadService;
 import com.weedrice.whiteboard.domain.search.service.SearchRecordFacade;
 import com.weedrice.whiteboard.domain.search.service.SearchService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.CurrentUserId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
-import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.optionalUserId;
-import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
 
 @RestController
 @RequestMapping("/api/v1/search")
@@ -38,9 +35,8 @@ public class SearchController {
     @GetMapping
     public ApiResponse<IntegratedSearchResponse> integratedSearch(
             @RequestParam String q,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+            @CurrentUserId(required = false) Long userId) {
 
-        Long userId = optionalUserId(userDetails);
         IntegratedSearchResponse response = searchPreviewReadService.integratedSearch(q, userId);
         searchRecordFacade.record(userId, response.getKeyword());
         return ApiResponse.success(response);
@@ -54,12 +50,11 @@ public class SearchController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             Sort sort,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+            @CurrentUserId(required = false) Long userId) {
 
-        Long userId = optionalUserId(userDetails);
         Page<PostSummary> response = searchService.searchPosts(q, searchType, boardUrl, page, size, sort, userId);
 
-        return ApiResponse.success(new PageResponse<>(response));
+        return ApiResponses.page(response);
     }
 
     @GetMapping("/semantic")
@@ -69,12 +64,11 @@ public class SearchController {
             @RequestParam(required = false) String boardUrl,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+            @CurrentUserId(required = false) Long userId) {
 
-        Long userId = optionalUserId(userDetails);
         Page<SemanticSearchResultResponse> response = semanticSearchService.search(
                 q, contentType, boardUrl, page, size, userId);
-        return ApiResponse.success(new PageResponse<>(response));
+        return ApiResponses.page(response);
     }
 
     @GetMapping("/popular")
@@ -88,20 +82,20 @@ public class SearchController {
     @GetMapping("/recent")
     public ApiResponse<SearchPersonalizationResponse> getRecentSearches(
             Pageable pageable,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(searchService.getRecentSearches(requiredUserId(userDetails), pageable));
+            @CurrentUserId Long userId) {
+        return ApiResponse.success(searchService.getRecentSearches(userId, pageable));
     }
 
     @DeleteMapping("/recent/{logId}")
     public ApiResponse<Void> deleteRecentSearch(@PathVariable Long logId,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        searchService.deleteRecentSearch(requiredUserId(userDetails), logId);
-        return ApiResponse.success(null);
+            @CurrentUserId Long userId) {
+        searchService.deleteRecentSearch(userId, logId);
+        return ApiResponses.ok();
     }
 
     @DeleteMapping("/recent")
-    public ApiResponse<Void> deleteAllRecentSearches(@AuthenticationPrincipal CustomUserDetails userDetails) {
-        searchService.deleteAllRecentSearches(requiredUserId(userDetails));
-        return ApiResponse.success(null);
+    public ApiResponse<Void> deleteAllRecentSearches(@CurrentUserId Long userId) {
+        searchService.deleteAllRecentSearches(userId);
+        return ApiResponses.ok();
     }
 }

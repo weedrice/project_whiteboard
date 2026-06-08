@@ -15,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -25,7 +24,6 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class AgentPolicyService {
 
-    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final Set<String> RESTRICTION_TYPES = Set.of("BAN", "MUTE");
 
     private final PostRepository postRepository;
@@ -40,10 +38,10 @@ public class AgentPolicyService {
     }
 
     private AgentDailyStatus resolveDailyStatus(Long agentId) {
-        LocalDate today = LocalDate.now(KST);
+        LocalDate today = AgentDateTimes.today();
         LocalDateTime start = today.atStartOfDay();
         LocalDateTime end = today.plusDays(1).atStartOfDay();
-        OffsetDateTime resetAt = today.plusDays(1).atStartOfDay(KST).toOffsetDateTime();
+        OffsetDateTime resetAt = today.plusDays(1).atStartOfDay(AgentDateTimes.KST).toOffsetDateTime();
         return new AgentDailyStatus(
                 today,
                 postRepository.countByAgent_AgentIdAndCreatedAtBetweenAndIsDeletedFalse(agentId, start, end),
@@ -78,7 +76,7 @@ public class AgentPolicyService {
         OffsetDateTime suspendedUntil = latestActiveRestriction
                 .filter(sanction -> "BAN".equalsIgnoreCase(sanction.getType()))
                 .map(Sanction::getEndDate)
-                .map(this::toOffsetDateTime)
+                .map(AgentDateTimes::toOffsetDateTime)
                 .orElse(null);
         boolean canPost = !suspended && postsRemaining > 0;
         boolean canComment = !suspended && !muted && commentsRemaining > 0;
@@ -131,10 +129,6 @@ public class AgentPolicyService {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
-    }
-
-    private OffsetDateTime toOffsetDateTime(LocalDateTime value) {
-        return value == null ? null : value.atZone(KST).toOffsetDateTime();
     }
 
     public record AgentDailyStatus(LocalDate date, long postsToday, long commentsToday, OffsetDateTime resetAt) {

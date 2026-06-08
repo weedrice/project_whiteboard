@@ -165,48 +165,36 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadableException(HttpMessageNotReadableException e,
             HttpServletRequest request) {
-        String message = messageSource.getMessage("error.common.validationFailedSummary", null,
-                LocaleContextHolder.getLocale());
-
         log.warn("[{}] Request body parse exception: {}", request.getRequestURI(), e.getMessage());
 
-        saveErrorLog(ErrorCode.VALIDATION_ERROR.getCode(), "HttpMessageNotReadableException",
-                HttpStatus.BAD_REQUEST.value(), message, request, null);
-
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error(ErrorCode.VALIDATION_ERROR.getCode(), message));
+        return validationErrorResponse("HttpMessageNotReadableException", request);
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiResponse<Void>> handleMethodArgumentTypeMismatchException(
             MethodArgumentTypeMismatchException e,
             HttpServletRequest request) {
-        String message = messageSource.getMessage("error.common.validationFailedSummary", null,
-                LocaleContextHolder.getLocale());
-
         log.warn("[{}] Request parameter type mismatch: {} - {}", request.getRequestURI(), e.getName(),
                 e.getValue());
 
-        saveErrorLog(ErrorCode.VALIDATION_ERROR.getCode(), "MethodArgumentTypeMismatchException",
-                HttpStatus.BAD_REQUEST.value(), message, request, null);
-
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error(ErrorCode.VALIDATION_ERROR.getCode(), message));
+        return validationErrorResponse("MethodArgumentTypeMismatchException", request);
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<ApiResponse<Void>> handleMissingServletRequestParameterException(
             MissingServletRequestParameterException e,
             HttpServletRequest request) {
-        String message = messageSource.getMessage("error.common.validationFailedSummary", null,
-                LocaleContextHolder.getLocale());
-
         log.warn("[{}] Missing request parameter: {} ({})", request.getRequestURI(), e.getParameterName(),
                 e.getParameterType());
 
-        saveErrorLog(ErrorCode.VALIDATION_ERROR.getCode(), "MissingServletRequestParameterException",
+        return validationErrorResponse("MissingServletRequestParameterException", request);
+    }
+
+    private ResponseEntity<ApiResponse<Void>> validationErrorResponse(String errorType, HttpServletRequest request) {
+        String message = messageSource.getMessage("error.common.validationFailedSummary", null,
+                LocaleContextHolder.getLocale());
+
+        saveErrorLog(ErrorCode.VALIDATION_ERROR.getCode(), errorType,
                 HttpStatus.BAD_REQUEST.value(), message, request, null);
 
         return ResponseEntity

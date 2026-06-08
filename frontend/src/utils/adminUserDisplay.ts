@@ -1,4 +1,5 @@
 type BadgeVariant = 'success' | 'danger' | 'warning' | 'gray'
+export type AdminUserMutableStatus = 'ACTIVE' | 'SUSPENDED'
 
 export function getAdminUserStatusVariant(status: string): BadgeVariant {
   if (status === 'ACTIVE') return 'success'
@@ -26,4 +27,16 @@ export function getAdminUserStatusLabel(t: (key: string) => string, status: stri
 export function getAdminUserRoleLabel(t: (key: string) => string, role: string | undefined): string {
   if (!role) return '-'
   return t(`admin.users.role.${role}`)
+}
+
+export function canChangeAdminUserStatus(status: string): status is AdminUserMutableStatus {
+  return status === 'ACTIVE' || status === 'SUSPENDED'
+}
+
+export function getNextAdminUserStatus(status: AdminUserMutableStatus): AdminUserMutableStatus {
+  return status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE'
+}
+
+export function getAdminUserStatusActionLabel(status: AdminUserMutableStatus): string {
+  return status === 'ACTIVE' ? '정지' : '계정 활성화'
 }

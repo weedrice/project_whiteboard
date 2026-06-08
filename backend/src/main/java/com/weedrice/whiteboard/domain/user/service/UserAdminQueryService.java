@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
+import com.weedrice.whiteboard.domain.admin.entity.AdminRoles;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.admin.service.AdminRolePriority;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
@@ -44,14 +45,12 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class UserAdminQueryService {
 
-    private static final String ADMIN_ROLE_ADMIN = "ADMIN";
-    private static final String ADMIN_ROLE_MODERATOR = "MODERATOR";
     private static final Set<String> ALLOWED_ROLES = Set.of(
             Role.SUPER_ADMIN,
             Role.USER,
             Role.BOARD_ADMIN,
-            ADMIN_ROLE_MODERATOR,
-            ADMIN_ROLE_ADMIN);
+            AdminRoles.MODERATOR,
+            AdminRoles.ADMIN);
     private static final Set<String> ALLOWED_STATUSES = Set.of(
             User.STATUS_ACTIVE,
             User.STATUS_SUSPENDED,
@@ -126,25 +125,22 @@ public class UserAdminQueryService {
     }
 
     private String normalizeStatus(String status) {
-        if (!StringUtils.hasText(status)) {
-            return null;
-        }
-        String normalizedStatus = status.trim().toUpperCase(Locale.ROOT);
-        if (!ALLOWED_STATUSES.contains(normalizedStatus)) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
-        return normalizedStatus;
+        return normalizeAllowedFilter(status, ALLOWED_STATUSES);
     }
 
     private String normalizeRole(String role) {
-        if (!StringUtils.hasText(role)) {
+        return normalizeAllowedFilter(role, ALLOWED_ROLES);
+    }
+
+    private String normalizeAllowedFilter(String value, Set<String> allowedValues) {
+        if (!StringUtils.hasText(value)) {
             return null;
         }
-        String normalizedRole = role.trim().toUpperCase(Locale.ROOT);
-        if (!ALLOWED_ROLES.contains(normalizedRole)) {
+        String normalizedValue = value.trim().toUpperCase(Locale.ROOT);
+        if (!allowedValues.contains(normalizedValue)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        return normalizedRole;
+        return normalizedValue;
     }
 
     public AdminUserDetailResponse getUserDetailForAdmin(Long userId) {
@@ -241,10 +237,7 @@ public class UserAdminQueryService {
     }
 
     private Pageable normalizeDetailPageable(Pageable pageable) {
-        if (pageable == null || pageable.isUnpaged()) {
-            return PageRequestUtils.of(0, DEFAULT_ADMIN_USER_DETAIL_PAGE_SIZE, Sort.unsorted());
-        }
-        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.unsorted());
+        return PageRequestUtils.of(pageable, DEFAULT_ADMIN_USER_DETAIL_PAGE_SIZE);
     }
 
     private LocalDateTime toStartOfDay(LocalDate date) {

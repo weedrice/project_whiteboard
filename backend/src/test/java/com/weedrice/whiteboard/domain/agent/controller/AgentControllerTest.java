@@ -32,9 +32,6 @@ import com.weedrice.whiteboard.domain.agent.service.AgentRulesService;
 import com.weedrice.whiteboard.domain.agent.web.AgentRequestContextResolver;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
-import com.weedrice.whiteboard.global.exception.BusinessException;
-import com.weedrice.whiteboard.global.exception.ErrorCode;
-import com.weedrice.whiteboard.global.security.AgentPrincipal;
 import com.weedrice.whiteboard.global.validation.NoHtml;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
@@ -56,7 +53,6 @@ import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -85,8 +81,6 @@ class AgentControllerTest {
 
     @InjectMocks
     private AgentController agentController;
-
-    private final AgentPrincipal agentPrincipal = new AgentPrincipal(7L, 1L, "Writer Agent", "ACTIVE");
 
     @Test
     @DisplayName("Agent post request rejects HTML title")
@@ -119,7 +113,7 @@ class AgentControllerTest {
     }
 
     @Test
-    @DisplayName("Agent 등록 API 성공")
+    @DisplayName("Agent ?깅줉 API ?깃났")
     void register_success() {
         AgentRegisterRequest request = new AgentRegisterRequest();
         ReflectionTestUtils.setField(request, "description", "Writes posts");
@@ -148,7 +142,7 @@ class AgentControllerTest {
     }
 
     @Test
-    @DisplayName("Agent status API 성공")
+    @DisplayName("Agent status API ?깃났")
     void status_success() {
         AgentStatusResponse responseBody = AgentStatusResponse.builder()
                 .status("active")
@@ -173,7 +167,7 @@ class AgentControllerTest {
 
         given(agentQueryService.getStatus(7L)).willReturn(responseBody);
 
-        ApiResponse<AgentStatusResponse> response = agentController.status(agentPrincipal);
+        ApiResponse<AgentStatusResponse> response = agentController.status(7L);
 
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getStatus()).isEqualTo("active");
@@ -229,7 +223,7 @@ class AgentControllerTest {
 
         given(agentQueryService.getHome(7L)).willReturn(responseBody);
 
-        ApiResponse<AgentHomeResponse> response = agentController.home(agentPrincipal);
+        ApiResponse<AgentHomeResponse> response = agentController.home(7L);
 
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getAgent().getStatus()).isEqualTo("active");
@@ -240,7 +234,7 @@ class AgentControllerTest {
     }
 
     @Test
-    @DisplayName("Agent principal이 없으면 UNAUTHORIZED를 던진다")
+    @DisplayName("Agent rules API returns rules")
     void rules_success() {
         AgentRulesResponse responseBody = AgentRulesResponse.builder()
                 .title("NoviIs Agent Rules")
@@ -260,7 +254,7 @@ class AgentControllerTest {
                 .build();
         given(agentRulesService.getRules(7L)).willReturn(responseBody);
 
-        ApiResponse<AgentRulesResponse> response = agentController.rules(agentPrincipal);
+        ApiResponse<AgentRulesResponse> response = agentController.rules(7L);
 
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getVersion()).isEqualTo("2026-05-18");
@@ -285,7 +279,7 @@ class AgentControllerTest {
                 .build();
         given(agentQueryService.getProfile(7L, "other")).willReturn(responseBody);
 
-        ApiResponse<AgentProfileResponse> response = agentController.profile(agentPrincipal, "other");
+        ApiResponse<AgentProfileResponse> response = agentController.profile(7L, "other");
 
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getAgent().getName()).isEqualTo("other");
@@ -299,7 +293,7 @@ class AgentControllerTest {
                 .willReturn(new AgentCommentLikeResponse("liked", 3L, 2, false));
 
         ApiResponse<AgentCommentLikeResponse> response =
-                agentController.likeComment(agentPrincipal, 3L, httpServletRequest);
+                agentController.likeComment(7L, 3L, httpServletRequest);
 
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getCommentId()).isEqualTo(3L);
@@ -321,7 +315,7 @@ class AgentControllerTest {
                         .build());
 
         ApiResponse<AgentNoteResponses.SendResponse> response =
-                agentController.sendNote(agentPrincipal, request, httpServletRequest);
+                agentController.sendNote(7L, request, httpServletRequest);
 
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getStatus()).isEqualTo("sent");
@@ -329,27 +323,7 @@ class AgentControllerTest {
     }
 
     @Test
-    @DisplayName("Agent principal이 없으면 UNAUTHORIZED를 던진다")
-    void status_rejectsMissingPrincipal() {
-        assertThatThrownBy(() -> agentController.status(null))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.UNAUTHORIZED);
-    }
-
-    @Test
-    @DisplayName("Agent principal에 agentId가 없으면 UNAUTHORIZED를 던진다")
-    void status_rejectsMissingAgentId() {
-        AgentPrincipal missingAgentId = new AgentPrincipal(null, 1L, "Writer Agent", "ACTIVE");
-
-        assertThatThrownBy(() -> agentController.status(missingAgentId))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.UNAUTHORIZED);
-    }
-
-    @Test
-    @DisplayName("Agent feed API 성공")
+    @DisplayName("Agent feed API ?깃났")
     void feed_success() {
         AgentPostListItem item = AgentPostListItem.builder()
                 .postId(101L)
@@ -364,7 +338,7 @@ class AgentControllerTest {
         given(agentQueryService.getFeed(7L, 3L, PageRequest.of(0, 10)))
                 .willReturn(new org.springframework.data.domain.PageImpl<>(List.of(item), PageRequest.of(0, 10), 1));
 
-        ApiResponse<PageResponse<AgentPostListItem>> response = agentController.feed(agentPrincipal, 3L, PageRequest.of(0, 10));
+        ApiResponse<PageResponse<AgentPostListItem>> response = agentController.feed(7L, 3L, PageRequest.of(0, 10));
 
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getContent()).hasSize(1);
@@ -372,7 +346,7 @@ class AgentControllerTest {
     }
 
     @Test
-    @DisplayName("Agent 게시글 작성 API 성공")
+    @DisplayName("Agent 寃뚯떆湲 ?묒꽦 API ?깃났")
     void createPost_success() {
         AgentPostCreateRequest request = new AgentPostCreateRequest();
         ReflectionTestUtils.setField(request, "boardUrl", "free");
@@ -385,7 +359,7 @@ class AgentControllerTest {
                 .willReturn(new AgentPostCreateResponse(101L, "https://noviis.kr/posts/101"));
 
         ApiResponse<AgentPostCreateResponse> response = agentController.createPost(
-                agentPrincipal, request, httpServletRequest);
+                7L, request, httpServletRequest);
 
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getPostId()).isEqualTo(101L);
@@ -402,7 +376,7 @@ class AgentControllerTest {
                 .willReturn(new AgentPostDeleteResponse(101L, true, null, deletedAt));
 
         ApiResponse<AgentPostDeleteResponse> response = agentController.deletePost(
-                agentPrincipal, 101L, httpServletRequest);
+                7L, 101L, httpServletRequest);
 
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getPostId()).isEqualTo(101L);
@@ -411,7 +385,7 @@ class AgentControllerTest {
     }
 
     @Test
-    @DisplayName("Agent 댓글 작성 API 성공")
+    @DisplayName("Agent ?볤? ?묒꽦 API ?깃났")
     void createComment_success() {
         AgentCommentCreateRequest request = new AgentCommentCreateRequest();
         ReflectionTestUtils.setField(request, "content", "b".repeat(25));
@@ -423,20 +397,20 @@ class AgentControllerTest {
                 .willReturn(new AgentCommentCreateResponse(301L));
 
         ApiResponse<AgentCommentCreateResponse> response = agentController.createComment(
-                agentPrincipal, 101L, request, httpServletRequest);
+                7L, 101L, request, httpServletRequest);
 
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getCommentId()).isEqualTo(301L);
     }
 
     @Test
-    @DisplayName("Agent boards API 성공")
+    @DisplayName("Agent boards API ?깃났")
     void boards_success() {
         given(agentQueryService.getBoards(7L))
                 .willReturn(new AgentBoardListResponse(List.of(
                         AgentBoardItem.builder().boardId(3L).boardName("Free").boardUrl("free").build())));
 
-        ApiResponse<AgentBoardListResponse> response = agentController.boards(agentPrincipal);
+        ApiResponse<AgentBoardListResponse> response = agentController.boards(7L);
 
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getBoards()).hasSize(1);
@@ -444,7 +418,7 @@ class AgentControllerTest {
     }
 
     @Test
-    @DisplayName("Agent 내 게시글 API 성공")
+    @DisplayName("Agent ??寃뚯떆湲 API ?깃났")
     void myPosts_success() {
         AgentPostListItem item = AgentPostListItem.builder()
                 .postId(201L)
@@ -457,14 +431,14 @@ class AgentControllerTest {
         given(agentQueryService.getMyPosts(7L, PageRequest.of(0, 10)))
                 .willReturn(new org.springframework.data.domain.PageImpl<>(List.of(item), PageRequest.of(0, 10), 1));
 
-        ApiResponse<PageResponse<AgentPostListItem>> response = agentController.myPosts(agentPrincipal, PageRequest.of(0, 10));
+        ApiResponse<PageResponse<AgentPostListItem>> response = agentController.myPosts(7L, PageRequest.of(0, 10));
 
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getContent()).extracting(AgentPostListItem::getPostId).containsExactly(201L);
     }
 
     @Test
-    @DisplayName("Agent 게시판 게시글 API 성공")
+    @DisplayName("Agent 寃뚯떆??寃뚯떆湲 API ?깃났")
     void boardPosts_success() {
         AgentPostListItem item = AgentPostListItem.builder()
                 .postId(301L)
@@ -478,14 +452,14 @@ class AgentControllerTest {
                 .willReturn(new org.springframework.data.domain.PageImpl<>(List.of(item), PageRequest.of(0, 10), 1));
 
         ApiResponse<PageResponse<AgentPostListItem>> response = agentController.boardPosts(
-                agentPrincipal, 3L, 9L, PageRequest.of(0, 10));
+                7L, 3L, 9L, PageRequest.of(0, 10));
 
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getContent()).extracting(AgentPostListItem::getPostId).containsExactly(301L);
     }
 
     @Test
-    @DisplayName("Agent 게시글 댓글 API 성공")
+    @DisplayName("Agent 寃뚯떆湲 ?볤? API ?깃났")
     void comments_success() {
         AgentCommentItem item = AgentCommentItem.builder()
                 .commentId(401L)
@@ -498,14 +472,14 @@ class AgentControllerTest {
                 .willReturn(new org.springframework.data.domain.PageImpl<>(List.of(item), PageRequest.of(0, 10), 1));
 
         ApiResponse<PageResponse<AgentCommentItem>> response = agentController.comments(
-                agentPrincipal, 101L, PageRequest.of(0, 10));
+                7L, 101L, PageRequest.of(0, 10));
 
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getContent()).extracting(AgentCommentItem::getCommentId).containsExactly(401L);
     }
 
     @Test
-    @DisplayName("Agent 대댓글 작성 API 성공")
+    @DisplayName("Agent ??볤? ?묒꽦 API ?깃났")
     void createReply_success() {
         AgentCommentCreateRequest request = new AgentCommentCreateRequest();
         ReflectionTestUtils.setField(request, "content", "reply content");
@@ -517,14 +491,14 @@ class AgentControllerTest {
                 .willReturn(new AgentCommentCreateResponse(501L));
 
         ApiResponse<AgentCommentCreateResponse> response = agentController.createReply(
-                agentPrincipal, 301L, request, httpServletRequest);
+                7L, 301L, request, httpServletRequest);
 
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getCommentId()).isEqualTo(501L);
     }
 
     @Test
-    @DisplayName("Agent 게시글 좋아요 API 성공")
+    @DisplayName("Agent 寃뚯떆湲 醫뗭븘??API ?깃났")
     void likePost_success() {
         AgentRequestContext context = requestContext();
 
@@ -532,7 +506,7 @@ class AgentControllerTest {
         given(agentCommandService.likePost(eq(7L), eq(101L), same(context)))
                 .willReturn(new AgentPostLikeResponse(101L, 11, true));
 
-        ApiResponse<AgentPostLikeResponse> response = agentController.likePost(agentPrincipal, 101L, httpServletRequest);
+        ApiResponse<AgentPostLikeResponse> response = agentController.likePost(7L, 101L, httpServletRequest);
 
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getPostId()).isEqualTo(101L);
@@ -545,7 +519,7 @@ class AgentControllerTest {
         given(agentPostActivityService.markRead(7L, 101L))
                 .willReturn(new AgentPostActivityReadResponse(101L, true, markedAt, 0L));
 
-        ApiResponse<AgentPostActivityReadResponse> response = agentController.markPostActivityRead(agentPrincipal, 101L);
+        ApiResponse<AgentPostActivityReadResponse> response = agentController.markPostActivityRead(7L, 101L);
 
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getPostId()).isEqualTo(101L);

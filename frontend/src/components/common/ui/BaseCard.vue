@@ -7,7 +7,7 @@ const props = withDefaults(defineProps<{
 </script>
 
 <template>
-    <div class="bg-[var(--nv-surface)] shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
+    <div class="nv-surface shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
         <div :class="{ 'px-4 py-5 sm:p-6': !noPadding }">
             <slot />
         </div>

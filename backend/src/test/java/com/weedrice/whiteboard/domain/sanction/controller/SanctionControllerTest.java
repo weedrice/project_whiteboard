@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.sanction.dto.SanctionCreateRequest;
 import com.weedrice.whiteboard.domain.sanction.dto.SanctionResponse;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
+import com.weedrice.whiteboard.global.config.CurrentUserIdWebMvcConfig;
+import com.weedrice.whiteboard.global.security.CurrentUserIdArgumentResolver;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -55,7 +57,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
                 classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
     })
 @AutoConfigureMockMvc
-@Import(SanctionControllerTest.TestSecurityConfig.class)
+@Import({
+        SanctionControllerTest.TestSecurityConfig.class,
+        CurrentUserIdWebMvcConfig.class,
+        CurrentUserIdArgumentResolver.class
+})
 class SanctionControllerTest {
 
     @TestConfiguration

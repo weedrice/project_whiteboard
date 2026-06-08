@@ -1,6 +1,10 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
+import { useQuery, useMutation, useQueryClient, type QueryKey } from '@tanstack/vue-query'
 import { adminApi, type AdminRole } from '@/api/admin'
-import { computed, type Ref } from 'vue'
+import { unwrapAxiosApiData } from '@/api/response'
+import { adminQueryKeys } from '@/composables/adminQueryKeys'
+import { boardQueryKeys } from '@/composables/boardQueryKeys'
+import { invalidateBoardListCaches } from '@/composables/boardCacheInvalidation'
+import { computed, type ComputedRef, type Ref } from 'vue'
 import { normalizePageResponse, type PageResponseRaw } from '@/utils/pageResponse'
 import type {
     SanctionData,
@@ -24,6 +28,12 @@ import type {
 
 function unwrapAdminPageResponse<T>(response: ApiResponse<PageResponse<T> | PageResponseRaw<T>>): PageResponse<T> {
     return normalizePageResponse(response.data as PageResponseRaw<T>)
+}
+
+type AdminPageApiResponse<T> = ApiResponse<PageResponse<T> | PageResponseRaw<T>>
+type AdminPageFetcher<T> = () => Promise<{ data: AdminPageApiResponse<T> }>
+type AdminPageQueryOptions = {
+    enabled?: Ref<boolean> | ComputedRef<boolean>
 }
 
 // Admin specific types
@@ -99,22 +109,46 @@ interface BoardManagerData {
 export function useAdmin() {
     const queryClient = useQueryClient()
 
+    const adminPageQuery = <T>(
+        queryKey: QueryKey,
+        fetcher: AdminPageFetcher<T>,
+        options: AdminPageQueryOptions = {}
+    ) => useQuery({
+        queryKey,
+        queryFn: async () => {
+            const { data } = await fetcher()
+            return unwrapAdminPageResponse<T>(data)
+        },
+        enabled: options.enabled,
+        placeholderData: (previousData) => previousData
+    })
+
+    const adminNullablePageQuery = <T>(
+        queryKey: QueryKey,
+        fetcher: () => ReturnType<AdminPageFetcher<T>> | null,
+        enabled: Ref<boolean> | ComputedRef<boolean>
+    ) => useQuery({
+        queryKey,
+        queryFn: async () => {
+            const response = await fetcher()
+            return response === null ? null : unwrapAdminPageResponse<T>(response.data)
+        },
+        enabled,
+        placeholderData: (previousData) => previousData
+    })
+
     // --- Admin Management ---
     const useAdmins = (params: Ref<{ page?: number, size?: number }>) => {
-        return useQuery({
-            queryKey: ['admin', 'admins', params],
-            queryFn: async () => {
-                const { data } = await adminApi.getAdmins(params.value)
-                return unwrapAdminPageResponse<BoardAdminInfo>(data)
-            },
-            placeholderData: (previousData) => previousData
-        })
+        return adminPageQuery<BoardAdminInfo>(
+            adminQueryKeys.admins(params),
+            () => adminApi.getAdmins(params.value)
+        )
     }
 
     const useCreateAdmin = () => {
         return useMutation({
             mutationFn: (data: AdminCreateData) => adminApi.createAdmin(data),
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'admins'] })
+            onSuccess: () => queryClient.invalidateQueries({ queryKey: adminQueryKeys.adminsRoot })
         })
     }
 
@@ -124,16 +158,15 @@ export function useAdmin() {
                 if (action === 'activate') return adminApi.activateAdmin(adminId)
                 return adminApi.deactivateAdmin(adminId)
             },
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'admins'] })
+            onSuccess: () => queryClient.invalidateQueries({ queryKey: adminQueryKeys.adminsRoot })
         })
     }
 
     const useSuperAdmins = () => {
         return useQuery({
-            queryKey: ['admin', 'super'],
+            queryKey: adminQueryKeys.superAdmins,
             queryFn: async () => {
-                const { data } = await adminApi.getSuperAdmin()
-                return data.data as SuperAdminInfo[]
+                return unwrapAxiosApiData(await adminApi.getSuperAdmin()) as SuperAdminInfo[]
             }
         })
     }
@@ -144,146 +177,125 @@ export function useAdmin() {
                 if (action === 'activate') return adminApi.activeSuperAdmin({ loginId })
                 return adminApi.deactivateSuperAdmin({ loginId })
             },
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'super'] })
+            onSuccess: () => queryClient.invalidateQueries({ queryKey: adminQueryKeys.superAdmins })
         })
     }
 
     // --- User Management ---
     const useUsers = (params: Ref<UserSearchParams>, enabled?: Ref<boolean>) => {
-        return useQuery({
-            queryKey: ['admin', 'users', params],
-            queryFn: async () => {
-                const { data } = await adminApi.getUsers(params.value)
-                return unwrapAdminPageResponse<User>(data)
-            },
-            enabled,
-            placeholderData: (previousData) => previousData
-        })
+        return adminPageQuery<User>(
+            adminQueryKeys.users(params),
+            () => adminApi.getUsers(params.value),
+            {
+                enabled,
+            }
+        )
     }
 
     const useUpdateUserStatus = () => {
         return useMutation({
             mutationFn: ({ userId, status }: { userId: string | number, status: string }) => adminApi.updateUserStatus(userId, status),
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
-                queryClient.invalidateQueries({ queryKey: ['admin', 'users', 'detail'] })
+                queryClient.invalidateQueries({ queryKey: adminQueryKeys.usersRoot })
+                queryClient.invalidateQueries({ queryKey: adminQueryKeys.userDetailRoot })
             }
         })
     }
 
     const useAdminUserDetail = (userId: Ref<number | null>) => {
         return useQuery({
-            queryKey: ['admin', 'users', 'detail', userId],
+            queryKey: adminQueryKeys.userDetail(userId),
             queryFn: async () => {
                 if (userId.value == null) return null
-                const { data } = await adminApi.getUserDetail(userId.value)
-                return data?.data as AdminUserDetail
+                return unwrapAxiosApiData(await adminApi.getUserDetail(userId.value)) as AdminUserDetail
             },
             enabled: computed(() => userId.value !== null)
         })
     }
 
     const useAdminUserPosts = (userId: Ref<number | null>, params: Ref<{ page?: number, size?: number }>) => {
-        return useQuery({
-            queryKey: ['admin', 'users', 'detail', userId, 'posts', params],
-            queryFn: async () => {
-                if (userId.value == null) return null
-                const { data } = await adminApi.getUserPosts(userId.value, params.value)
-                return unwrapAdminPageResponse<AdminUserPostItem>(data)
-            },
-            enabled: computed(() => userId.value !== null),
-            placeholderData: (previousData) => previousData
-        })
+        const enabled = computed(() => userId.value !== null)
+
+        return adminNullablePageQuery<AdminUserPostItem>(
+            adminQueryKeys.userPosts(userId, params),
+            () => userId.value == null ? null : adminApi.getUserPosts(userId.value, params.value),
+            enabled
+        )
     }
 
     const useAdminUserComments = (userId: Ref<number | null>, params: Ref<{ page?: number, size?: number }>) => {
-        return useQuery({
-            queryKey: ['admin', 'users', 'detail', userId, 'comments', params],
-            queryFn: async () => {
-                if (userId.value == null) return null
-                const { data } = await adminApi.getUserComments(userId.value, params.value)
-                return unwrapAdminPageResponse<AdminUserCommentItem>(data)
-            },
-            enabled: computed(() => userId.value !== null),
-            placeholderData: (previousData) => previousData
-        })
+        const enabled = computed(() => userId.value !== null)
+
+        return adminNullablePageQuery<AdminUserCommentItem>(
+            adminQueryKeys.userComments(userId, params),
+            () => userId.value == null ? null : adminApi.getUserComments(userId.value, params.value),
+            enabled
+        )
     }
 
     const useAdminUserSubscriptions = (userId: Ref<number | null>, params: Ref<{ page?: number, size?: number }>) => {
-        return useQuery({
-            queryKey: ['admin', 'users', 'detail', userId, 'subscriptions', params],
-            queryFn: async () => {
-                if (userId.value == null) return null
-                const { data } = await adminApi.getUserSubscriptions(userId.value, params.value)
-                return unwrapAdminPageResponse<AdminUserSubscriptionItem>(data)
-            },
-            enabled: computed(() => userId.value !== null),
-            placeholderData: (previousData) => previousData
-        })
+        const enabled = computed(() => userId.value !== null)
+
+        return adminNullablePageQuery<AdminUserSubscriptionItem>(
+            adminQueryKeys.userSubscriptions(userId, params),
+            () => userId.value == null ? null : adminApi.getUserSubscriptions(userId.value, params.value),
+            enabled
+        )
     }
 
     const useSanctionUser = () => {
         return useMutation({
             mutationFn: (data: SanctionData) => adminApi.sanctionUser(data),
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
-                queryClient.invalidateQueries({ queryKey: ['admin', 'users', 'detail'] })
+                queryClient.invalidateQueries({ queryKey: adminQueryKeys.usersRoot })
+                queryClient.invalidateQueries({ queryKey: adminQueryKeys.userDetailRoot })
             }
         })
     }
 
     // --- Report Management ---
     const useReports = (params: Ref<ReportSearchParams>) => {
-        return useQuery({
-            queryKey: ['admin', 'reports', params],
-            queryFn: async () => {
-                const { data } = await adminApi.getReports(params.value)
-                return unwrapAdminPageResponse<Report>(data)
-            },
-            placeholderData: (previousData) => previousData
-        })
+        return adminPageQuery<Report>(
+            adminQueryKeys.reports(params),
+            () => adminApi.getReports(params.value)
+        )
     }
 
     const useResolveReport = () => {
         return useMutation({
             mutationFn: ({ reportId, data }: { reportId: string | number, data: ReportResolveData }) => adminApi.resolveReport(reportId, data),
-            onSettled: () => queryClient.invalidateQueries({ queryKey: ['admin', 'reports'] })
+            onSettled: () => queryClient.invalidateQueries({ queryKey: adminQueryKeys.reportsRoot })
         })
     }
 
     // --- IP Block Management ---
     const useIpBlocks = (params: Ref<{ page?: number, size?: number }>) => {
-        return useQuery({
-            queryKey: ['admin', 'ip-blocks', params],
-            queryFn: async () => {
-                const { data } = await adminApi.getIpBlocks(params.value)
-                return unwrapAdminPageResponse<IpBlock>(data)
-            },
-            placeholderData: (previousData) => previousData
-        })
+        return adminPageQuery<IpBlock>(
+            adminQueryKeys.ipBlocks(params),
+            () => adminApi.getIpBlocks(params.value)
+        )
     }
 
     const useBlockIp = () => {
         return useMutation({
             mutationFn: (data: IpBlockData) => adminApi.blockIp(data),
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'ip-blocks'] })
+            onSuccess: () => queryClient.invalidateQueries({ queryKey: adminQueryKeys.ipBlocksRoot })
         })
     }
 
     const useUnblockIp = () => {
         return useMutation({
             mutationFn: (ipAddress: string) => adminApi.unblockIp(ipAddress),
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'ip-blocks'] })
+            onSuccess: () => queryClient.invalidateQueries({ queryKey: adminQueryKeys.ipBlocksRoot })
         })
     }
 
     // --- Config Management ---
     const useConfigs = () => {
         return useQuery({
-            queryKey: ['admin', 'configs'],
+            queryKey: adminQueryKeys.configs,
             queryFn: async () => {
-                const { data } = await adminApi.getConfigs()
-                return data.data
+                return unwrapAxiosApiData(await adminApi.getConfigs())
             }
         })
     }
@@ -291,31 +303,30 @@ export function useAdmin() {
     const useUpdateConfig = () => {
         return useMutation({
             mutationFn: ({ key, value, description }: { key: string, value: string, description?: string }) => adminApi.updateConfig(key, value, description),
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'configs'] })
+            onSuccess: () => queryClient.invalidateQueries({ queryKey: adminQueryKeys.configs })
         })
     }
 
     const useCreateConfig = () => {
         return useMutation({
             mutationFn: (data: ConfigCreateData) => adminApi.createConfig(data),
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'configs'] })
+            onSuccess: () => queryClient.invalidateQueries({ queryKey: adminQueryKeys.configs })
         })
     }
 
     const useDeleteConfig = () => {
         return useMutation({
             mutationFn: (key: string) => adminApi.deleteConfig(key),
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'configs'] })
+            onSuccess: () => queryClient.invalidateQueries({ queryKey: adminQueryKeys.configs })
         })
     }
 
     // --- Dashboard Stats ---
     const useDashboardStats = () => {
         return useQuery({
-            queryKey: ['admin', 'stats'],
+            queryKey: adminQueryKeys.stats,
             queryFn: async () => {
-                const { data } = await adminApi.getDashboardStats()
-                return data.data
+                return unwrapAxiosApiData(await adminApi.getDashboardStats())
             }
         })
     }
@@ -323,10 +334,9 @@ export function useAdmin() {
     // --- Board Management (Admin) ---
     const useAdminBoards = () => {
         return useQuery({
-            queryKey: ['admin', 'boards'],
+            queryKey: adminQueryKeys.boards,
             queryFn: async () => {
-                const { data } = await adminApi.getBoards()
-                return data.data as AdminBoard[]
+                return unwrapAxiosApiData(await adminApi.getBoards()) as AdminBoard[]
             }
         })
     }
@@ -336,9 +346,8 @@ export function useAdmin() {
             mutationFn: (data: BoardCreateData) => adminApi.createBoard(data),
             onSuccess: () => {
                 // Invalidate both admin boards and general boards list to refresh header dropdowns
-                queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
-                queryClient.invalidateQueries({ queryKey: ['boards'] })
-                queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
+                queryClient.invalidateQueries({ queryKey: adminQueryKeys.boards })
+                invalidateBoardListCaches(queryClient)
             }
         })
     }
@@ -348,13 +357,12 @@ export function useAdmin() {
             mutationFn: ({ boardUrl, data }: { boardUrl: string, data: BoardUpdateData }) => adminApi.updateBoard(boardUrl, data),
             onSuccess: (_, { boardUrl, data }) => {
                 // Invalidate both admin boards and general boards list to refresh header dropdowns
-                queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
-                queryClient.invalidateQueries({ queryKey: ['board', boardUrl] })
+                queryClient.invalidateQueries({ queryKey: adminQueryKeys.boards })
+                queryClient.invalidateQueries({ queryKey: boardQueryKeys.detail(boardUrl) })
                 if (data.boardUrl && data.boardUrl !== boardUrl) {
-                    queryClient.invalidateQueries({ queryKey: ['board', data.boardUrl] })
+                    queryClient.invalidateQueries({ queryKey: boardQueryKeys.detail(data.boardUrl) })
                 }
-                queryClient.invalidateQueries({ queryKey: ['boards'] })
-                queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
+                invalidateBoardListCaches(queryClient)
             }
         })
     }
@@ -364,22 +372,20 @@ export function useAdmin() {
             mutationFn: (boardUrl: string) => adminApi.deleteBoard(boardUrl),
             onSuccess: () => {
                 // Invalidate both admin boards and general boards list to refresh header dropdowns
-                queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
-                queryClient.invalidateQueries({ queryKey: ['boards'] })
-                queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
+                queryClient.invalidateQueries({ queryKey: adminQueryKeys.boards })
+                invalidateBoardListCaches(queryClient)
             }
         })
     }
 
     const useBoardManager = (boardId: Ref<number | null>) => {
-        const boardManagerQueryKey = computed(() => ['admin', 'board-manager', boardId.value])
+        const boardManagerQueryKey = adminQueryKeys.boardManager(boardId)
 
         return useQuery({
             queryKey: boardManagerQueryKey,
             queryFn: async () => {
                 if (!boardId.value) return null
-                const { data } = await adminApi.getBoardManager(boardId.value)
-                return data?.data ?? null
+                return unwrapAxiosApiData(await adminApi.getBoardManager(boardId.value)) ?? null
             },
             enabled: computed(() => boardId.value !== null)
         })
@@ -390,31 +396,26 @@ export function useAdmin() {
             mutationFn: ({ boardId, data }: { boardId: number, data: BoardManagerData }) =>
                 adminApi.updateBoardManager(boardId, data),
             onSuccess: (_, { boardId }) => {
-                queryClient.invalidateQueries({ queryKey: ['admin', 'board-manager', boardId] })
-                queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
-                queryClient.invalidateQueries({ queryKey: ['admin', 'admins'] })
-                queryClient.invalidateQueries({ queryKey: ['boards'] })
+                queryClient.invalidateQueries({ queryKey: adminQueryKeys.boardManagerById(boardId) })
+                queryClient.invalidateQueries({ queryKey: adminQueryKeys.boards })
+                queryClient.invalidateQueries({ queryKey: adminQueryKeys.adminsRoot })
+                queryClient.invalidateQueries({ queryKey: boardQueryKeys.all })
             }
         })
     }
 
     // --- Error Log Management ---
     const useErrorLogs = (params: Ref<ErrorLogSearchParams>) => {
-        return useQuery({
-            queryKey: ['admin', 'error-logs', params],
-            queryFn: async () => {
-                const { data } = await adminApi.getErrorLogs(params.value)
-                return unwrapAdminPageResponse<ErrorLogListItem>(data)
-            },
-            placeholderData: (previousData) => previousData
-        })
+        return adminPageQuery<ErrorLogListItem>(
+            adminQueryKeys.errorLogs(params),
+            () => adminApi.getErrorLogs(params.value)
+        )
     }
 
     const useErrorLog = () => {
         return useMutation({
             mutationFn: async (errorLogId: number) => {
-                const { data } = await adminApi.getErrorLog(errorLogId)
-                return data.data as ErrorLogDetail
+                return unwrapAxiosApiData(await adminApi.getErrorLog(errorLogId)) as ErrorLogDetail
             }
         })
     }
@@ -422,16 +423,15 @@ export function useAdmin() {
     const useResolveErrorLog = () => {
         return useMutation({
             mutationFn: ({ errorLogId, data }: { errorLogId: number, data?: { memo?: string } }) => adminApi.resolveErrorLog(errorLogId, data),
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'error-logs'] })
+            onSuccess: () => queryClient.invalidateQueries({ queryKey: adminQueryKeys.errorLogsRoot })
         })
     }
 
     const useErrorLogStats = () => {
         return useQuery({
-            queryKey: ['admin', 'error-log-stats'],
+            queryKey: adminQueryKeys.errorLogStats,
             queryFn: async () => {
-                const { data } = await adminApi.getErrorLogStats()
-                return data.data as ErrorLogStats
+                return unwrapAxiosApiData(await adminApi.getErrorLogStats()) as ErrorLogStats
             }
         })
     }

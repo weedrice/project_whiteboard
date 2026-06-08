@@ -10,19 +10,17 @@ import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.service.UserAdminCommandService;
 import com.weedrice.whiteboard.domain.user.service.UserAdminQueryService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.CurrentUserId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
-
-import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
 
 @RestController
 @RequestMapping("/api/v1/admin/users")
@@ -62,7 +60,7 @@ public class AdminUserController {
                 lastLoginTo,
                 minActivityCount,
                 pageable);
-        return ApiResponse.success(new PageResponse<>(response));
+        return ApiResponses.page(response);
     }
 
     @GetMapping("/{userId}")
@@ -74,30 +72,29 @@ public class AdminUserController {
     public ApiResponse<PageResponse<AdminUserPostResponse>> getUserPosts(
             @PathVariable Long userId,
             @PageableDefault(size = 10) Pageable pageable) {
-        return ApiResponse.success(new PageResponse<>(userAdminQueryService.getUserPostsForAdmin(userId, pageable)));
+        return ApiResponses.page(userAdminQueryService.getUserPostsForAdmin(userId, pageable));
     }
 
     @GetMapping("/{userId}/comments")
     public ApiResponse<PageResponse<AdminUserCommentResponse>> getUserComments(
             @PathVariable Long userId,
             @PageableDefault(size = 10) Pageable pageable) {
-        return ApiResponse.success(new PageResponse<>(userAdminQueryService.getUserCommentsForAdmin(userId, pageable)));
+        return ApiResponses.page(userAdminQueryService.getUserCommentsForAdmin(userId, pageable));
     }
 
     @GetMapping("/{userId}/subscriptions")
     public ApiResponse<PageResponse<AdminUserSubscriptionResponse>> getUserSubscriptions(
             @PathVariable Long userId,
             @PageableDefault(size = 10) Pageable pageable) {
-        return ApiResponse.success(new PageResponse<>(userAdminQueryService.getUserSubscriptionsForAdmin(userId, pageable)));
+        return ApiResponses.page(userAdminQueryService.getUserSubscriptionsForAdmin(userId, pageable));
     }
 
     @PutMapping("/{userId}/status")
     public ApiResponse<Void> updateUserStatus(
             @PathVariable Long userId,
             @RequestBody UserStatusUpdateRequest request,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        userAdminCommandService.updateUserStatus(requiredUserId(userDetails), userId, request.getStatus());
-        return ApiResponse.success(null);
+            @CurrentUserId Long adminUserId) {
+        userAdminCommandService.updateUserStatus(adminUserId, userId, request.getStatus());
+        return ApiResponses.ok();
     }
 }
-

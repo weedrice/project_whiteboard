@@ -1,6 +1,7 @@
 import { computed, ref, watch, type Ref } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { formatDate } from '@/utils/date'
+import { formatInteger } from '@/utils/numberFormat'
 import type { AdminUserCommentItem, AdminUserPostItem, AdminUserSubscriptionItem } from '@/types'
 
 export type AdminUserDetailTab = 'posts' | 'comments' | 'subscriptions'
@@ -40,6 +41,28 @@ interface UseAdminUserDetailTabsOptions {
     isOpen: Ref<boolean>
     userId: Ref<number | null>
     tabSize?: number
+}
+
+interface PageNavigationState {
+    number: number
+    totalPages: number
+}
+
+function movePage(
+    page: Ref<number>,
+    pageData: Ref<PageNavigationState | null | undefined>,
+    direction: -1 | 1
+) {
+    const currentPage = pageData.value
+    if (!currentPage) return
+
+    if (direction < 0 && currentPage.number > 0) {
+        page.value -= 1
+    }
+
+    if (direction > 0 && currentPage.number + 1 < currentPage.totalPages) {
+        page.value += 1
+    }
 }
 
 function getAgentBadgeLabel(item: { authorType: 'USER' | 'AGENT', agentName?: string | null, agentId?: number | null }) {
@@ -114,7 +137,7 @@ function toPostViewItem(post: AdminUserPostItem): AdminUserPostViewItem {
         badges: toPostBadges(post),
         metaText: `${post.boardName} · /${post.boardUrl} · ${formatDate(post.createdAt)}`,
         categoryText: post.categoryName ? `카테고리: ${post.categoryName}` : '',
-        statsText: `조회 ${post.viewCount.toLocaleString()} · 추천 ${post.likeCount.toLocaleString()} · 댓글 ${post.commentCount.toLocaleString()}`
+        statsText: `조회 ${formatInteger(post.viewCount)} · 추천 ${formatInteger(post.likeCount)} · 댓글 ${formatInteger(post.commentCount)}`
     }
 }
 
@@ -124,7 +147,7 @@ function toCommentViewItem(comment: AdminUserCommentItem): AdminUserCommentViewI
         content: comment.content,
         badges: toCommentBadges(comment),
         metaText: `${comment.post.title} · /${comment.post.boardUrl} · ${formatDate(comment.createdAt)}`,
-        statsText: `좋아요 ${comment.likeCount.toLocaleString()} · depth ${comment.depth}`
+        statsText: `좋아요 ${formatInteger(comment.likeCount)} · depth ${comment.depth}`
     }
 }
 
@@ -184,33 +207,27 @@ export function useAdminUserDetailTabs({
     })
 
     function prevPostsPage() {
-        if (!userPosts.value) return
-        if (userPosts.value.number > 0) postsPage.value -= 1
+        movePage(postsPage, userPosts, -1)
     }
 
     function nextPostsPage() {
-        if (!userPosts.value) return
-        if (userPosts.value.number + 1 < userPosts.value.totalPages) postsPage.value += 1
+        movePage(postsPage, userPosts, 1)
     }
 
     function prevCommentsPage() {
-        if (!userComments.value) return
-        if (userComments.value.number > 0) commentsPage.value -= 1
+        movePage(commentsPage, userComments, -1)
     }
 
     function nextCommentsPage() {
-        if (!userComments.value) return
-        if (userComments.value.number + 1 < userComments.value.totalPages) commentsPage.value += 1
+        movePage(commentsPage, userComments, 1)
     }
 
     function prevSubscriptionsPage() {
-        if (!userSubscriptions.value) return
-        if (userSubscriptions.value.number > 0) subscriptionsPage.value -= 1
+        movePage(subscriptionsPage, userSubscriptions, -1)
     }
 
     function nextSubscriptionsPage() {
-        if (!userSubscriptions.value) return
-        if (userSubscriptions.value.number + 1 < userSubscriptions.value.totalPages) subscriptionsPage.value += 1
+        movePage(subscriptionsPage, userSubscriptions, 1)
     }
 
     return {

@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.common.dto.*;
 import com.weedrice.whiteboard.domain.common.service.CommonCodeService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -76,6 +77,6 @@ public class CommonCodeController {
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public ApiResponse<Void> deleteCommonCodeDetail(@PathVariable Long detailId) {
         commonCodeService.deleteCommonCodeDetail(detailId);
-        return ApiResponse.success(null);
+        return ApiResponses.ok();
     }
 }

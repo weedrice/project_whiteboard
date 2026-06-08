@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { Trash2, Eye } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
-import BaseButton from '@/components/common/ui/BaseButton.vue'
-import BaseTable from '@/components/common/ui/BaseTable.vue'
+import AdminActionButton from '@/components/admin/AdminActionButton.vue'
+import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
+import AdminTableActions from '@/components/admin/AdminTableActions.vue'
 import { computed } from 'vue'
 import type { IpBlock } from '@/types'
 
@@ -32,24 +33,29 @@ const columns = computed(() => [
 
 <template>
   <div class="mt-8">
-    <BaseTable :columns="columns" :items="ipBlocks" row-key="ipAddress" :emptyText="t('common.noData')">
+    <AdminPaginatedTable
+      table-class=""
+      :columns="columns"
+      :items="ipBlocks"
+      row-key="ipAddress"
+      :empty-text="t('common.noData')"
+      :show-footer="false"
+    >
       <template #cell-admin="{ item }">
         {{ item.admin.adminId }}
       </template>
 
       <template #cell-actions="{ item }">
-        <div class="flex justify-end space-x-2">
-          <BaseButton @click="$emit('viewDetail', item)" variant="ghost" size="sm"
-            :title="t('common.viewDetail')"
-            class="p-1 text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
+        <AdminTableActions>
+          <AdminActionButton :label="t('common.viewDetail')" tone="accent" icon-only @click="$emit('viewDetail', item)">
             <Eye class="h-4 w-4" />
-          </BaseButton>
-          <BaseButton @click="onUnblock(item.ipAddress)" variant="danger" size="sm">
+          </AdminActionButton>
+          <AdminActionButton label="차단 해제" tone="danger" icon-only @click="onUnblock(item.ipAddress)">
             <Trash2 class="h-4 w-4" />
-          </BaseButton>
-        </div>
+          </AdminActionButton>
+        </AdminTableActions>
       </template>
-    </BaseTable>
+    </AdminPaginatedTable>
   </div>
 </template>
 

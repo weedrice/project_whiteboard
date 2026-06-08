@@ -26,14 +26,9 @@ public class BoardManagerAssignmentService {
         adminEligibleUserService.validateActiveUser(user);
 
         List<Admin> activeManagers = adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true);
-        Admin targetActiveManager = activeManagers.stream()
-                .filter(activeManager -> Objects.equals(activeManager.getUser().getUserId(), user.getUserId()))
-                .max(Comparator.comparing(Admin::getAdminId, Comparator.nullsLast(Long::compareTo)))
-                .orElse(null);
+        Admin targetActiveManager = findLatestActiveManagerForUser(activeManagers, user);
         if (targetActiveManager != null) {
-            activeManagers.stream()
-                    .filter(activeManager -> !Objects.equals(activeManager.getAdminId(), targetActiveManager.getAdminId()))
-                    .forEach(Admin::deactivate);
+            deactivateOtherManagers(activeManagers, targetActiveManager);
             return duplicatePolicy.flushAndMapDuplicate(targetActiveManager);
         }
 
@@ -58,11 +53,22 @@ public class BoardManagerAssignmentService {
         adminEligibleUserService.validateActiveUser(admin.getUser());
 
         List<Admin> activeManagers = adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true);
-        activeManagers.stream()
-                .filter(activeManager -> !Objects.equals(activeManager.getAdminId(), admin.getAdminId()))
-                .forEach(Admin::deactivate);
+        deactivateOtherManagers(activeManagers, admin);
 
         admin.activate();
         return duplicatePolicy.flushAndMapDuplicate(admin);
+    }
+
+    private Admin findLatestActiveManagerForUser(List<Admin> activeManagers, User user) {
+        return activeManagers.stream()
+                .filter(activeManager -> Objects.equals(activeManager.getUser().getUserId(), user.getUserId()))
+                .max(Comparator.comparing(Admin::getAdminId, Comparator.nullsLast(Long::compareTo)))
+                .orElse(null);
+    }
+
+    private void deactivateOtherManagers(List<Admin> activeManagers, Admin managerToKeep) {
+        activeManagers.stream()
+                .filter(activeManager -> !Objects.equals(activeManager.getAdminId(), managerToKeep.getAdminId()))
+                .forEach(Admin::deactivate);
     }
 }

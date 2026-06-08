@@ -142,9 +142,13 @@ describe('useAdminUserDetailTabs', () => {
 
         tabs.activeTab.value = 'comments'
         tabs.nextPostsPage()
+        tabs.nextCommentsPage()
+        tabs.nextSubscriptionsPage()
         await nextTick()
 
         expect(captured.postsParams?.value.page).toBe(1)
+        expect(captured.commentsParams?.value.page).toBe(1)
+        expect(captured.subscriptionsParams?.value.page).toBe(1)
 
         isOpen.value = false
         await nextTick()

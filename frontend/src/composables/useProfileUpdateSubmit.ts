@@ -1,6 +1,7 @@
 import { reactive, ref, type Ref } from 'vue'
 import type { AxiosError } from 'axios'
 import { fileApi } from '@/api/file'
+import { unwrapAxiosApiData } from '@/api/response'
 import type { UserUpdatePayload } from '@/api/user'
 import { extractErrorMessage, extractValidationErrors, getFieldError } from '@/utils/errorHandler'
 import logger from '@/utils/logger'
@@ -29,13 +30,14 @@ export function useProfileUpdateSubmit(options: UseProfileUpdateSubmitOptions) {
 
       if (options.selectedFile.value) {
         const uploadRes = await fileApi.uploadFile(options.selectedFile.value)
+        const uploadedFile = unwrapAxiosApiData(uploadRes)
 
-        if (!uploadRes.data.success || !uploadRes.data.data?.fileId) {
+        if (!uploadRes.data.success || !uploadedFile?.fileId) {
           options.addToast(options.t('common.messages.uploadFailed'), 'error')
           return
         }
 
-        profileImageId = uploadRes.data.data.fileId
+        profileImageId = uploadedFile.fileId
       }
 
       await options.updateProfile({

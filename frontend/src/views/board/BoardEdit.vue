@@ -2,6 +2,7 @@
 import CategoryManager from '@/components/board/CategoryManager.vue'
 import BoardForm from '@/components/board/BoardForm.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import UserSelectModal from '@/components/common/widgets/UserSelectModal.vue'
 import { useBoardEditPage } from '@/composables/useBoardEditPage'
 
@@ -27,15 +28,15 @@ const {
 <template>
   <div class="max-w-3xl mx-auto">
     <div v-if="isLoading" class="text-center py-10">
-      <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
+      <BaseSpinner size="lg" />
     </div>
 
-    <div v-else-if="canManageBoard" class="bg-white dark:bg-gray-800 shadow sm:rounded-lg overflow-hidden">
+    <div v-else-if="canManageBoard" class="nv-surface shadow sm:rounded-lg overflow-hidden">
       <!-- Header -->
-      <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+      <div class="px-4 py-5 sm:px-6 border-b nv-border flex justify-between items-center">
         <div>
-          <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">{{ $t('board.form.editTitle') }}</h3>
-          <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">{{ $t('board.form.editDesc') }}</p>
+          <h3 class="text-lg leading-6 font-medium nv-title">{{ $t('board.form.editTitle') }}</h3>
+          <p class="mt-1 max-w-2xl text-sm nv-text-subtle">{{ $t('board.form.editDesc') }}</p>
         </div>
         <BaseButton type="button" @click="goBack" variant="secondary">
           {{ $t('common.back') }}
@@ -47,13 +48,13 @@ const {
         <BoardForm :initialData="form" :isEdit="true" :isSubmitting="isSubmitting" :error="error" @submit="handleUpdate"
           @cancel="goBack" />
 
-        <hr class="border-gray-200 dark:border-gray-700" />
+        <hr class="nv-border" />
 
-        <div class="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+        <div class="rounded-lg border nv-border p-4">
           <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h4 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $t('common.admin') }}</h4>
-              <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ currentManagerLabel }}</p>
+              <h4 class="text-sm font-semibold nv-title">{{ $t('common.admin') }}</h4>
+              <p class="mt-1 text-sm nv-text-muted">{{ currentManagerLabel }}</p>
             </div>
             <BaseButton type="button" @click="openManagerModal" :disabled="isTransferringManager">
               {{ isTransferringManager ? $t('common.messages.saving') : $t('common.manage') }}
@@ -61,14 +62,14 @@ const {
           </div>
         </div>
 
-        <hr class="border-gray-200 dark:border-gray-700" />
+        <hr class="nv-border" />
 
         <!-- Category Manager -->
         <div class="py-6">
           <CategoryManager :boardUrl="boardUrl" />
         </div>
 
-        <hr class="border-gray-200 dark:border-gray-700" />
+        <hr class="nv-border" />
 
         <!-- Delete Board (Moved to bottom right) -->
         <div class="flex justify-end">

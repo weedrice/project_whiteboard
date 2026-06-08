@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { onMounted, watch, computed, defineAsyncComponent, onErrorCaptured } from 'vue'
+import { onMounted, onUnmounted, watch, computed, defineAsyncComponent, onErrorCaptured } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import { useQueryClient } from '@tanstack/vue-query'
-import { useAuthStore } from '@/stores/auth'
+import { registerAuthStorageSync, useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { userApi } from '@/api/user'
+import { unwrapApiData } from '@/api/response'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
 import { useConfigStore } from '@/stores/config'
@@ -16,6 +17,7 @@ import NetworkStatus from '@/components/common/NetworkStatus.vue'
 import logger from '@/utils/logger'
 import { useGlobalShortcuts } from '@/composables/useGlobalShortcuts'
 import { BOARD_DETAIL_SEARCH_INPUT_ID } from '@/composables/useBoardDetailNavigation'
+import { userSettingsQueryKey } from '@/composables/useUser'
 import { UserSettings } from '@/types/user'
 import { useHead } from '@unhead/vue'
 
@@ -134,10 +136,10 @@ const loadSettings = async () => {
 
     try {
         const settings = await queryClient.fetchQuery({
-            queryKey: ['user', 'settings'],
+            queryKey: userSettingsQueryKey,
             queryFn: async () => {
                 const { data } = await userApi.getUserSettings()
-                return data.success ? data.data : null
+                return data.success ? unwrapApiData(data) : null
             },
         })
         if (settings) {
@@ -152,7 +154,7 @@ watch(() => authStore.isAuthenticated, (newVal) => {
     if (newVal) {
         loadSettings()
     } else {
-        queryClient.removeQueries({ queryKey: ['user', 'settings'] })
+        queryClient.removeQueries({ queryKey: userSettingsQueryKey })
         // On logout, restore theme from localStorage (theme store will read it on next access)
         // Don't force LIGHT theme to preserve user's localStorage preference
         const storedTheme = localStorage.getItem('theme')
@@ -167,9 +169,11 @@ const configStore = useConfigStore()
 
 // Initialize global shortcuts
 const { registerShortcut } = useGlobalShortcuts()
+let stopAuthStorageSync: (() => void) | null = null
 
 // Register search-bar focus shortcut (/)
 onMounted(() => {
+    stopAuthStorageSync = registerAuthStorageSync(authStore)
     configStore.fetchPublicConfigs()
     if (authStore.isAuthenticated) {
         loadSettings()
@@ -187,6 +191,11 @@ onMounted(() => {
         },
         description: 'Focus search bar'
     })
+})
+
+onUnmounted(() => {
+    stopAuthStorageSync?.()
+    stopAuthStorageSync = null
 })
 
 onErrorCaptured((err, _instance, info) => {

@@ -11,6 +11,8 @@ describe('AdminPanel', () => {
     })
 
     expect(wrapper.text()).toContain('Panel content')
+    expect(wrapper.classes()).toContain('nv-surface')
+    expect(wrapper.classes()).toContain('nv-border')
     expect(wrapper.classes()).toContain('p-5')
     expect(wrapper.classes()).toContain('shadow')
     expect(wrapper.classes()).toContain('rounded-lg')

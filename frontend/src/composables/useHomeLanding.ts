@@ -1,10 +1,12 @@
 import { computed, ref } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import { emptyHomeLanding, postApi } from '@/api/post'
+import { unwrapAxiosApiData } from '@/api/response'
 import { useAuthStore } from '@/stores/auth'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import { toFeedPost, toFeedPosts } from '@/utils/postViewModel'
 import type { HomeLandingPeriod } from '@/types'
+import { homeQueryKeys } from '@/composables/homeQueryKeys'
 
 export function useHomeLanding() {
     const authStore = useAuthStore()
@@ -13,12 +15,11 @@ export function useHomeLanding() {
     const authCacheKey = computed(() => authStore.isAuthenticated ? (authStore.user?.userId ?? 'member') : 'guest')
 
     const landingQuery = useQuery({
-        queryKey: computed(() => ['home', 'landing', selectedPeriod.value, authCacheKey.value]),
+        queryKey: computed(() => homeQueryKeys.landing(selectedPeriod.value, authCacheKey.value)),
         enabled: isReadyToFetch,
         queryFn: async ({ queryKey }) => {
-            const [, , period] = queryKey as ['home', 'landing', HomeLandingPeriod, string | number]
-            const { data } = await postApi.getHomeLanding(period)
-            return data.data
+            const [, , period] = queryKey as ReturnType<typeof homeQueryKeys.landing>
+            return unwrapAxiosApiData(await postApi.getHomeLanding(period))
         },
         placeholderData: previousData => previousData,
         staleTime: QUERY_STALE_TIME.SHORT,

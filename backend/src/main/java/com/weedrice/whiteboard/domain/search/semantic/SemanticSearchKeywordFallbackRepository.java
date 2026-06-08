@@ -1,16 +1,10 @@
 package com.weedrice.whiteboard.domain.search.semantic;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -167,92 +161,30 @@ class SemanticSearchKeywordFallbackRepository {
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
     List<SemanticSearchRow> search(SemanticSearchKeywordQuery query) {
-        String sql = buildUnionSql(query) + """
-                ORDER BY created_at DESC, content_type ASC, content_id DESC
-                LIMIT :limit OFFSET :offset
-                """;
-        return jdbcTemplate.query(sql, params(query), ROW_MAPPER);
+        return jdbcTemplate.query(searchSql(query), params(query), SemanticSearchRowMapper.INSTANCE);
     }
 
     long count(SemanticSearchKeywordQuery query) {
-        String sql = "SELECT COUNT(*) FROM (" + buildCountUnionSql(query) + ") semantic_keyword_count";
-        Long count = jdbcTemplate.queryForObject(sql, params(query), Long.class);
+        Long count = jdbcTemplate.queryForObject(countSql(query), params(query), Long.class);
         return count != null ? count : 0L;
     }
 
-    private String buildUnionSql(SemanticSearchKeywordQuery query) {
-        List<String> selects = new ArrayList<>();
-        String boardPredicate = boardPredicate(query);
-        String postPrivacyPredicate = postPrivacyPredicate(query);
-        if (query.contentType().includesPosts()) {
-            selects.add(String.format(POST_SELECT, boardPredicate, postPrivacyPredicate));
-        }
-        if (query.contentType().includesComments()) {
-            selects.add(String.format(COMMENT_SELECT, boardPredicate, postPrivacyPredicate));
-        }
-        return String.join("\nUNION ALL\n", selects) + "\n";
+    String searchSql(SemanticSearchKeywordQuery query) {
+        return SemanticSearchSqlFragments.buildUnionSql(query, POST_SELECT, COMMENT_SELECT) + """
+                ORDER BY created_at DESC, content_type ASC, content_id DESC
+                LIMIT :limit OFFSET :offset
+                """;
     }
 
-    private String buildCountUnionSql(SemanticSearchKeywordQuery query) {
-        List<String> selects = new ArrayList<>();
-        String boardPredicate = boardPredicate(query);
-        String postPrivacyPredicate = postPrivacyPredicate(query);
-        if (query.contentType().includesPosts()) {
-            selects.add(String.format(POST_COUNT_SELECT, boardPredicate, postPrivacyPredicate));
-        }
-        if (query.contentType().includesComments()) {
-            selects.add(String.format(COMMENT_COUNT_SELECT, boardPredicate, postPrivacyPredicate));
-        }
-        return String.join("\nUNION ALL\n", selects) + "\n";
+    String countSql(SemanticSearchKeywordQuery query) {
+        return "SELECT COUNT(*) FROM ("
+                + SemanticSearchSqlFragments.buildUnionSql(query, POST_COUNT_SELECT, COMMENT_COUNT_SELECT)
+                + ") semantic_keyword_count";
     }
 
-    private String boardPredicate(SemanticSearchKeywordQuery query) {
-        String blockedPost = query.hasBlockedUserIds() ? " AND p.user_id NOT IN (:blockedUserIds)" : "";
-        if (!query.hasBoardUrl()) {
-            return "b.is_active = 'Y' AND b.is_public = 'Y'" + blockedPost;
-        }
-        return """
-                b.board_url = :boardUrl
-                AND (
-                    (b.is_active = 'Y' AND b.is_public = 'Y')
-                    OR (:viewerUserId IS NOT NULL AND :viewerSuperAdmin = TRUE)
-                    OR (:viewerUserId IS NOT NULL AND EXISTS (
-                        SELECT 1 FROM admins adm
-                        WHERE adm.user_id = :viewerUserId
-                          AND adm.board_id = b.board_id
-                          AND adm.is_active = 'Y'
-                    ))
-                )
-                """ + blockedPost;
-    }
-
-    private String postPrivacyPredicate(SemanticSearchKeywordQuery query) {
-        String blockedComment = query.hasBlockedUserIds() ? " AND u.user_id NOT IN (:blockedUserIds)" : "";
-        return """
-                (
-                    p.is_secret = 'N'
-                    OR (:viewerUserId IS NOT NULL AND p.user_id = :viewerUserId)
-                    OR (:viewerUserId IS NOT NULL AND :viewerSuperAdmin = TRUE)
-                    OR (:viewerUserId IS NOT NULL AND EXISTS (
-                        SELECT 1 FROM admins adm
-                        WHERE adm.user_id = :viewerUserId
-                          AND adm.board_id = b.board_id
-                          AND adm.is_active = 'Y'
-                    ))
-                )
-                """ + blockedComment;
-    }
-
-    private MapSqlParameterSource params(SemanticSearchKeywordQuery query) {
-        List<Long> blockedUserIds = query.hasBlockedUserIds() ? query.blockedUserIds() : List.of(-1L);
-        return new MapSqlParameterSource()
-                .addValue("keywordPattern", keywordPattern(query.keyword()))
-                .addValue("boardUrl", query.boardUrl())
-                .addValue("viewerUserId", query.viewerUserId())
-                .addValue("viewerSuperAdmin", query.viewerSuperAdmin())
-                .addValue("blockedUserIds", blockedUserIds)
-                .addValue("limit", query.limit())
-                .addValue("offset", query.offset());
+    MapSqlParameterSource params(SemanticSearchKeywordQuery query) {
+        return SemanticSearchSqlFragments.commonParams(query)
+                .addValue("keywordPattern", keywordPattern(query.keyword()));
     }
 
     private String keywordPattern(String keyword) {
@@ -270,40 +202,4 @@ class SemanticSearchKeywordFallbackRepository {
         return builder.toString();
     }
 
-    private static final RowMapper<SemanticSearchRow> ROW_MAPPER = new RowMapper<>() {
-        @Override
-        public SemanticSearchRow mapRow(ResultSet rs, int rowNum) throws SQLException {
-            return new SemanticSearchRow(
-                    rs.getString("content_type"),
-                    rs.getLong("content_id"),
-                    rs.getLong("post_id"),
-                    rs.getLong("board_id"),
-                    rs.getString("board_url"),
-                    rs.getString("board_name"),
-                    rs.getString("title"),
-                    rs.getString("excerpt"),
-                    getNullableDouble(rs, "similarity"),
-                    rs.getString("rank_source"),
-                    toLocalDateTime(rs.getTimestamp("created_at")),
-                    getNullableLong(rs, "author_user_id"),
-                    getNullableLong(rs, "author_agent_id"),
-                    rs.getString("author_type"),
-                    rs.getString("author_display_name"),
-                    rs.getString("author_profile_image_url"));
-        }
-    };
-
-    private static Long getNullableLong(ResultSet rs, String column) throws SQLException {
-        long value = rs.getLong(column);
-        return rs.wasNull() ? null : value;
-    }
-
-    private static Double getNullableDouble(ResultSet rs, String column) throws SQLException {
-        double value = rs.getDouble(column);
-        return rs.wasNull() ? null : value;
-    }
-
-    private static LocalDateTime toLocalDateTime(Timestamp timestamp) {
-        return timestamp == null ? null : timestamp.toLocalDateTime();
-    }
 }

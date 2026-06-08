@@ -3,7 +3,7 @@
         <label
             v-if="label"
             :for="id"
-            :class="hideLabel ? 'sr-only' : ['text-sm font-medium text-gray-700 dark:text-gray-200', labelClass]"
+            :class="hideLabel ? 'sr-only' : ['text-sm font-medium nv-text', labelClass]"
         >
             {{ label }}
         </label>
@@ -12,10 +12,10 @@
             :aria-invalid="error ? 'true' : undefined"
             :aria-describedby="error ? `${id}-error` : undefined"
             class="input-base" :class="[
-                { 'border-red-500 focus:border-red-500 focus:ring-red-500': error },
+                { 'is-invalid': error },
                 inputClass
             ]"></textarea>
-        <p v-if="error" :id="`${id}-error`" class="text-sm text-red-600 dark:text-red-400" role="alert">{{ error }}</p>
+        <p v-if="error" :id="`${id}-error`" class="text-sm nv-form-error" role="alert">{{ error }}</p>
     </div>
 </template>
 

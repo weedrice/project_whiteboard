@@ -7,7 +7,6 @@ import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -15,7 +14,6 @@ import org.springframework.stereotype.Service;
 public class CommentService {
 
     private static final int DEFAULT_COMMENT_PAGE_SIZE = 20;
-    private static final Sort COMMENT_READ_SORT = Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("commentId"));
 
     private final CommentQueryService commentQueryService;
     private final CommentCommandService commentCommandService;
@@ -70,9 +68,6 @@ public class CommentService {
     }
 
     private Pageable normalizeReadPageable(Pageable pageable) {
-        if (pageable == null || pageable.isUnpaged()) {
-            return PageRequestUtils.of(0, DEFAULT_COMMENT_PAGE_SIZE, COMMENT_READ_SORT);
-        }
-        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), COMMENT_READ_SORT);
+        return PageRequestUtils.of(pageable, DEFAULT_COMMENT_PAGE_SIZE, CommentReadSorts.READ_ORDER);
     }
 }

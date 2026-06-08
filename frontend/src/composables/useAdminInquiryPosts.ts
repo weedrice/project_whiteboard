@@ -1,9 +1,15 @@
 import { computed, ref, watch } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { adminApi } from '@/api/admin'
+import { unwrapAxiosApiData } from '@/api/response'
+import { adminInquiryQueryKeys } from '@/composables/adminQueryKeys'
+import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import { formatDateTimeOrDash } from '@/utils/date'
 import { renderPostContentHtml } from '@/utils/postContentHtml'
+import { stripHtmlToText, truncateWithEllipsis } from '@/utils/textExcerpt'
 import type { AdminInquirySummary, PageResponse, Post } from '@/types'
+
+type AdminInquiryStatusVariant = 'success' | 'warning'
 
 export interface AdminInquiryListItem {
   id: number
@@ -12,7 +18,7 @@ export interface AdminInquiryListItem {
   authorName: string
   createdAtText: string
   statusLabelKey: string
-  statusClass: string
+  statusVariant: AdminInquiryStatusVariant
 }
 
 export interface AdminInquiryDetail {
@@ -23,16 +29,6 @@ export interface AdminInquiryDetail {
   contentsHtml: string
 }
 
-function stripHtml(value?: string) {
-  if (!value) return ''
-  return value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-}
-
-function truncateText(value: string, maxLength = 50) {
-  if (value.length <= maxLength) return value
-  return `${value.slice(0, maxLength)}...`
-}
-
 function getAuthorName(post: Pick<AdminInquirySummary, 'author'> | Pick<Post, 'author'>) {
   return post.author?.displayName || '-'
 }
@@ -41,23 +37,24 @@ function getStatusLabelKey(post: AdminInquirySummary) {
   return post.inquiryAnswered ? 'admin.inquiries.status.answered' : 'admin.inquiries.status.pending'
 }
 
-function getStatusClass(post: AdminInquirySummary) {
-  return post.inquiryAnswered
-    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+function getStatusVariant(post: AdminInquirySummary): AdminInquiryStatusVariant {
+  return post.inquiryAnswered ? 'success' : 'warning'
 }
 
 export function toAdminInquiryListItem(post: AdminInquirySummary): AdminInquiryListItem {
-  const plainSummary = stripHtml(post.summary || '')
+  const plainSummary = stripHtmlToText(post.summary, {
+    tagReplacement: ' ',
+    collapseWhitespace: true,
+  })
 
   return {
     id: post.postId,
     title: post.title,
-    summaryText: plainSummary ? truncateText(plainSummary, 50) : '-',
+    summaryText: plainSummary ? truncateWithEllipsis(plainSummary, 50) : '-',
     authorName: getAuthorName(post),
     createdAtText: formatDateTimeOrDash(post.createdAt),
     statusLabelKey: getStatusLabelKey(post),
-    statusClass: getStatusClass(post),
+    statusVariant: getStatusVariant(post),
   }
 }
 
@@ -80,13 +77,19 @@ export function toAdminInquiryPage(page: PageResponse<AdminInquirySummary>): Pag
 
 export function useAdminInquiryPosts() {
   const queryClient = useQueryClient()
-  const page = ref(0)
-  const size = ref(20)
+  const {
+    page,
+    size,
+    handlePageChange,
+    resetPage,
+  } = usePaginatedQueryState({
+    initialSize: 20,
+  })
   const sort = ref('createdAt,desc')
   const selectedPostId = ref<number | null>(null)
 
   watch(sort, () => {
-    page.value = 0
+    resetPage()
   })
 
   const {
@@ -95,14 +98,14 @@ export function useAdminInquiryPosts() {
     isFetching,
     error,
   } = useQuery({
-    queryKey: ['admin', 'inquiry-posts', page, size, sort],
+    queryKey: adminInquiryQueryKeys.listPage(page, size, sort),
     queryFn: async () => {
-      const { data } = await adminApi.getInquiryPosts({
+      const inquiryPage = unwrapAxiosApiData(await adminApi.getInquiryPosts({
         page: page.value,
         size: size.value,
         sort: sort.value
-      })
-      return toAdminInquiryPage(data.data)
+      }))
+      return toAdminInquiryPage(inquiryPage)
     },
     placeholderData: (previousData) => previousData
   })
@@ -113,32 +116,29 @@ export function useAdminInquiryPosts() {
     isFetching: isDetailFetching,
     error: detailError,
   } = useQuery({
-    queryKey: ['admin', 'inquiry-post-detail', selectedPostId],
+    queryKey: adminInquiryQueryKeys.detail(selectedPostId),
     queryFn: async () => {
       const postId = selectedPostId.value
       if (!postId) {
         throw new Error('Invalid post id')
       }
-      const { data } = await adminApi.getInquiryPost(postId)
-      return toAdminInquiryDetail(data.data as Post)
+      return toAdminInquiryDetail(unwrapAxiosApiData(await adminApi.getInquiryPost(postId)) as Post)
     },
     enabled: computed(() => selectedPostId.value !== null)
   })
 
-  const posts = computed(() => data.value?.content || [])
-  const totalPages = computed(() => data.value?.totalPages || 0)
-  const totalElements = computed(() => data.value?.totalElements || 0)
-
-  function handlePageChange(nextPage: number) {
-    page.value = nextPage
-  }
+  const {
+    items: posts,
+    totalPages,
+    totalElements,
+  } = usePageResponseState(data, page)
 
   function openDetail(postId: number) {
     selectedPostId.value = postId
   }
 
   function closeDetail() {
-    queryClient.invalidateQueries({ queryKey: ['admin', 'inquiry-posts'] })
+    queryClient.invalidateQueries({ queryKey: adminInquiryQueryKeys.list })
     selectedPostId.value = null
   }
 

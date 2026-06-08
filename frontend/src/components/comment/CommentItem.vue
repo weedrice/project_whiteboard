@@ -98,7 +98,7 @@ watch(isBlockedAuthor, (blocked) => {
       <div class="relative flex-shrink-0">
         <CornerDownRight
           v-if="depth > 0"
-          class="absolute -left-5 top-1.5 h-3.5 w-3.5 text-gray-300 sm:-left-6 sm:top-2 sm:h-4 sm:w-4 dark:text-gray-600"
+          class="absolute -left-5 top-1.5 h-3.5 w-3.5 nv-text-subtle sm:-left-6 sm:top-2 sm:h-4 sm:w-4"
         />
 
         <div
@@ -113,9 +113,9 @@ watch(isBlockedAuthor, (blocked) => {
         </div>
         <div
           v-else
-          class="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700 sm:h-10 sm:w-10"
+          class="flex h-8 w-8 items-center justify-center rounded-full nv-surface-muted sm:h-10 sm:w-10"
         >
-          <UserIcon class="h-5 w-5 text-gray-500 dark:text-gray-400 sm:h-6 sm:w-6" />
+          <UserIcon class="h-5 w-5 nv-text-subtle sm:h-6 sm:w-6" />
         </div>
       </div>
 
@@ -130,24 +130,24 @@ watch(isBlockedAuthor, (blocked) => {
             />
             <span
               v-if="!comment.isDeleted && isAgentAuthor"
-              class="inline-flex items-center rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"
+              class="inline-flex items-center rounded-full nv-status-info px-1.5 py-0.5 text-[10px] font-semibold"
             >
               {{ $t('comment.agentBadge') }}
             </span>
             <span
               v-else-if="comment.isDeleted"
-              class="text-xs font-medium text-gray-500 dark:text-gray-400 sm:text-sm"
+              class="text-xs font-medium nv-text-subtle sm:text-sm"
             >
               {{ $t('common.messages.unknown') }}
             </span>
             <span
               v-else-if="isBlockedAuthor"
-              class="text-xs font-medium text-gray-500 dark:text-gray-400 sm:text-sm"
+              class="text-xs font-medium nv-text-subtle sm:text-sm"
             >
               {{ $t('comment.blockedAuthor') }}
             </span>
           </div>
-          <p class="flex-shrink-0 text-[11px] text-gray-500 dark:text-gray-400 sm:text-sm">
+          <p class="flex-shrink-0 text-[11px] nv-text-subtle sm:text-sm">
             <span class="sm:hidden">{{ createdAtShort }}</span>
             <span class="hidden sm:inline">{{ createdAtFull }}</span>
           </p>
@@ -163,20 +163,20 @@ watch(isBlockedAuthor, (blocked) => {
           />
         </div>
 
-        <p v-else-if="comment.isDeleted" class="text-xs italic text-gray-400 sm:text-sm">
+        <p v-else-if="comment.isDeleted" class="text-xs italic nv-text-subtle sm:text-sm">
           {{ $t('comment.deleted') }}
         </p>
-        <p v-else-if="isBlockedAuthor" class="text-xs italic text-gray-400 sm:text-sm">
+        <p v-else-if="isBlockedAuthor" class="text-xs italic nv-text-subtle sm:text-sm">
           {{ $t('comment.blockedContent') }}
         </p>
         <p v-else-if="isEmoticonOnly" class="text-xs sm:text-sm" v-html="renderedContent" @error.capture="applyImageFallback"></p>
-        <p v-else class="text-xs text-gray-700 dark:text-gray-300 sm:text-sm" v-html="renderedContent" @error.capture="applyImageFallback"></p>
+        <p v-else class="text-xs nv-text-muted sm:text-sm" v-html="renderedContent" @error.capture="applyImageFallback"></p>
 
         <div class="mt-2 flex flex-wrap items-center gap-1 sm:gap-2">
           <button
             v-if="canLoadReplies"
             type="button"
-            class="rounded-md px-2 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+            class="rounded-md px-2 py-1.5 text-xs font-medium nv-text-subtle nv-hover-surface"
             @click="toggleReplies"
           >
             {{ replyToggleLabel }}
@@ -185,7 +185,7 @@ watch(isBlockedAuthor, (blocked) => {
           <button
             v-if="isAuthenticated && canUseCommentActions"
             type="button"
-            class="rounded-md px-2 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+            class="rounded-md px-2 py-1.5 text-xs font-medium nv-text-subtle nv-hover-surface"
             @click="isReplying = !isReplying"
           >
             {{ $t('comment.reply') }}
@@ -195,14 +195,14 @@ watch(isBlockedAuthor, (blocked) => {
             <button
               v-if="!isEmoticonOnly"
               type="button"
-              class="rounded-md px-2 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+              class="rounded-md px-2 py-1.5 text-xs font-medium nv-text-subtle nv-hover-surface"
               @click="isEditing = !isEditing"
             >
               {{ $t('common.edit') }}
             </button>
             <button
               type="button"
-              class="rounded-md px-2 py-1.5 text-xs font-medium text-red-500 transition-colors hover:bg-gray-100 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-900/20 dark:hover:text-red-300"
+              class="rounded-md px-2 py-1.5 text-xs font-medium text-[var(--nv-danger-text)] transition-colors hover:bg-[var(--nv-danger-bg)]"
               @click="handleDelete"
             >
               {{ $t('common.delete') }}
@@ -212,7 +212,7 @@ watch(isBlockedAuthor, (blocked) => {
 
         <div
           v-if="isReplying"
-          class="mt-3 border-l-2 border-gray-200 pl-2 dark:border-gray-700 sm:mt-4 sm:pl-4"
+          class="mt-3 border-l-2 border-[var(--nv-border)] pl-2 sm:mt-4 sm:pl-4"
         >
           <CommentForm
             :postId="postId"
@@ -224,12 +224,12 @@ watch(isBlockedAuthor, (blocked) => {
 
         <div
           v-if="isRepliesOpen"
-          class="mt-3 border-l-2 border-gray-100 pl-3 dark:border-gray-800 sm:mt-4 sm:pl-4"
+          class="mt-3 border-l-2 border-[var(--nv-border)] pl-3 sm:mt-4 sm:pl-4"
         >
-          <p v-if="isRepliesLoading" class="text-xs text-gray-500 dark:text-gray-400">
+          <p v-if="isRepliesLoading" class="text-xs nv-text-subtle">
             {{ $t('common.loading') }}
           </p>
-          <p v-else-if="repliesError" class="text-xs text-red-500 dark:text-red-300">
+          <p v-else-if="repliesError" class="text-xs nv-form-error">
             {{ $t('comment.loadRepliesFailed') }}
           </p>
           <div v-else-if="replies.length > 0" class="space-y-3 sm:space-y-4">
@@ -247,13 +247,13 @@ watch(isBlockedAuthor, (blocked) => {
             <button
               v-if="replyHasNext"
               type="button"
-              class="rounded-md px-2 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+              class="rounded-md px-2 py-1.5 text-xs font-medium nv-text-subtle nv-hover-surface"
               @click="loadMoreReplies"
             >
               {{ $t('common.loadMore') }}
             </button>
           </div>
-          <p v-else class="text-xs text-gray-500 dark:text-gray-400">
+          <p v-else class="text-xs nv-text-subtle">
             {{ $t('common.noData') }}
           </p>
         </div>

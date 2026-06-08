@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api/auth'
+import { unwrapAxiosApiData } from '@/api/response'
 import { userApi } from '@/api/user'
 import { useEmailVerificationState } from '@/composables/useEmailVerificationState'
 import { useAuthStore } from '@/stores/auth'
@@ -9,7 +10,7 @@ import { extractErrorMessage } from '@/utils/errorHandler'
 import { isValidEmail } from '@/utils/validation'
 import type { VerificationPurpose, VerifyCodeResponse } from '@/api/auth'
 
-interface EmailVerificationFlowOptions {
+export interface EmailVerificationFlowOptions {
   getEmail: () => string
   refreshProfile?: () => Promise<void>
   purpose?: VerificationPurpose | (() => VerificationPurpose)
@@ -133,7 +134,7 @@ export function useEmailVerificationFlow(options: EmailVerificationFlowOptions) 
     setLoading(true)
     try {
       const verifyResponse = await authApi.verifyCode(trimmed, code, resolvePurpose())
-      const response = verifyResponse.data.data
+      const response = unwrapAxiosApiData(verifyResponse)
       if (!verifyResponse.data.success || !response?.verificationTicket) {
         throw new Error(t('auth.verificationFailed'))
       }

@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
@@ -25,7 +25,6 @@ import CommentList from '@/components/comment/CommentList.vue'
 import PostDetailSkeleton from '@/components/board/PostDetailSkeleton.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import PostTags from '@/components/tag/PostTags.vue'
-import { useConfirm } from '@/composables/useConfirm'
 import { usePost } from '@/composables/usePost'
 import { usePostDetailPermissions } from '@/composables/usePostDetailPermissions'
 import { usePostDetailActions } from '@/composables/usePostDetailActions'
@@ -36,7 +35,6 @@ import { usePostDetailSeo } from '@/composables/usePostDetailSeo'
 import { usePostDetailUiEffects } from '@/composables/usePostDetailUiEffects'
 import { usePostDetailViewModel } from '@/composables/usePostDetailViewModel'
 import { useAuthStore } from '@/stores/auth'
-import { useToastStore } from '@/stores/toast'
 import { formatDate } from '@/utils/date'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
 import { applyImageFallback } from '@/utils/imageFallback'
@@ -46,17 +44,9 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const { t } = useI18n()
-const toastStore = useToastStore()
-const { confirm } = useConfirm()
 
 const {
-  useDeletePost,
-  useLikePost,
   usePostDetail,
-  useReportPost,
-  useScrapPost,
-  useUnlikePost,
-  useUnscrapPost
 } = usePost()
 
 const postId = computed(() => route.params.postId as string)
@@ -76,13 +66,6 @@ usePostDetailSeo({
   postView,
   t,
 })
-
-const { mutate: deleteMutate } = useDeletePost()
-const { mutate: likeMutate } = useLikePost()
-const { mutate: unlikeMutate } = useUnlikePost()
-const { mutate: scrapMutate } = useScrapPost()
-const { mutate: unscrapMutate } = useUnscrapPost()
-const { mutate: reportMutate } = useReportPost()
 
 const error = computed(() => {
   if (!postError.value) return ''
@@ -135,7 +118,6 @@ const {
 } = usePostDetailShare({
   route,
   post,
-  toastStore,
   t,
 })
 
@@ -168,17 +150,9 @@ const {
   authStore,
   route,
   router,
-  toastStore,
-  confirm,
   t,
   buildBoardListRoute,
   closeOverflowMenu: () => {},
-  deleteMutate,
-  likeMutate,
-  unlikeMutate,
-  scrapMutate,
-  unscrapMutate,
-  reportMutate,
 })
 
 const {
@@ -220,7 +194,7 @@ const {
     <BaseCard noPadding>
       <PostDetailSkeleton v-if="isLoading" />
 
-      <div v-else-if="error" class="px-4 py-12 text-center text-sm text-red-500 sm:px-6">
+      <div v-else-if="error" class="px-4 py-12 text-center text-sm nv-form-error sm:px-6">
         {{ error }}
         <div class="mt-4">
           <BaseButton @click="router.back()" variant="ghost" size="sm">
@@ -285,7 +259,7 @@ const {
                     <UserMenu :user-id="postView.authorUserId" :display-name="postView.authorDisplayName" size="inherit" />
                     <span
                       v-if="isAgentAuthor"
-                      class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"
+                      class="rounded-full nv-status-info px-1.5 py-0.5 text-[10px] font-semibold"
                     >
                       AGENT
                     </span>
@@ -478,10 +452,10 @@ const {
     <BaseModal :isOpen="showReportModal" :title="$t('common.report')" @close="showReportModal = false">
       <div class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label class="block text-sm font-medium nv-text-muted">
             {{ $t('report.target') }}
           </label>
-          <div class="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+          <div class="mt-1 text-sm font-medium nv-title">
             {{ $t('common.post') }} | {{ postView?.title }}
           </div>
         </div>
@@ -566,10 +540,11 @@ const {
 }
 
 .nv-post-copy-hint {
-  background: #ecfdf5;
+  background: var(--nv-success-bg);
+  border: 1px solid var(--nv-success-border);
   border-radius: 9999px;
   box-shadow: var(--nv-shadow-popup);
-  color: #059669;
+  color: var(--nv-success-text);
   font-size: 0.7rem;
   font-weight: 600;
   padding: 0.35rem 0.65rem;
@@ -747,7 +722,7 @@ const {
 }
 
 .nv-post-action-btn.is-bookmark {
-  color: #bb7a00;
+  color: var(--nv-warning-text);
 }
 
 .nv-post-action-btn.is-report {

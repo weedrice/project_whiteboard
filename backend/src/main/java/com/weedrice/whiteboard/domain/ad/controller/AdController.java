@@ -3,8 +3,9 @@ package com.weedrice.whiteboard.domain.ad.controller;
 import com.weedrice.whiteboard.domain.ad.dto.AdResponse;
 import com.weedrice.whiteboard.domain.ad.service.AdService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.util.ClientUtils;
-import com.weedrice.whiteboard.global.common.util.SecurityUtils;
+import com.weedrice.whiteboard.global.security.CurrentUserId;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -25,16 +26,17 @@ public class AdController {
     public ApiResponse<Void> recordAdImpression(
             @PathVariable Long adId) {
         adService.recordAdImpression(adId);
-        return ApiResponse.success(null);
+        return ApiResponses.ok();
     }
 
     @PostMapping("/{adId}/click")
     public ApiResponse<String> recordAdClick(
             @PathVariable Long adId,
+            @CurrentUserId(required = false) Long userId,
             HttpServletRequest request) {
         String targetUrl = adService.recordAdClick(
                 adId,
-                SecurityUtils.getCurrentUserIdOrNull(),
+                userId,
                 ClientUtils.getIp(request));
         return ApiResponse.success(targetUrl);
     }

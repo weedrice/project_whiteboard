@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.file.service;
 
+import com.weedrice.whiteboard.global.common.util.FileExtensionUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.springframework.stereotype.Component;
@@ -37,7 +38,7 @@ class FileUploadValidationPolicy {
             throw new BusinessException(ErrorCode.INVALID_FILE_TYPE);
         }
 
-        String extension = getFileExtension(originalFilename);
+        String extension = FileExtensionUtils.extractLowerCaseExtension(originalFilename);
         if (!isExtensionCompatible(extension, detectedMimeType)) {
             throw new BusinessException(ErrorCode.INVALID_FILE_TYPE);
         }
@@ -58,17 +59,6 @@ class FileUploadValidationPolicy {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
         return normalizedFilename;
-    }
-
-    private String getFileExtension(String filename) {
-        if (filename == null) {
-            return "";
-        }
-        int lastDotIndex = filename.lastIndexOf('.');
-        if (lastDotIndex == -1) {
-            return "";
-        }
-        return filename.substring(lastDotIndex).toLowerCase();
     }
 
     private String detectImageMimeType(MultipartFile multipartFile) {

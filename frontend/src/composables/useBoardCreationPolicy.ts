@@ -13,7 +13,7 @@ export function useBoardCreationPolicy({ isEdit }: UseBoardCreationPolicyOptions
   const userPoints = computed(() => authStore.user?.points || 0)
   const boardCreateCost = computed(() => {
     const cost = configStore.getConfig('POINT_BOARD_CREATE_COST')
-    return cost ? parseInt(cost) : 500
+    return cost ? Number.parseInt(cost, 10) : 500
   })
   const canCreate = computed(() => isEdit.value || userPoints.value >= boardCreateCost.value)
 

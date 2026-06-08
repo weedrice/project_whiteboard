@@ -20,7 +20,7 @@ describe('BaseSpinner', () => {
 
         expect(spinner.classes()).toContain('h-8')
         expect(spinner.classes()).toContain('w-8')
-        expect(spinner.classes()).toContain('text-indigo-600')
+        expect(spinner.classes()).toContain('nv-spinner')
         expect(wrapper.text()).toContain('common.loading')
     })
 

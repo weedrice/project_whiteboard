@@ -1,8 +1,14 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi } from '@/api/auth'
+import { unwrapApiData } from '@/api/response'
 import logger from '@/utils/logger'
-import { clearStoredAuthTokens, getStoredAccessToken, persistAccessToken } from '@/utils/authTokenStorage'
+import {
+    ACCESS_TOKEN_KEY,
+    clearStoredAuthTokens,
+    getStoredAccessToken,
+    persistAccessToken,
+} from '@/utils/authTokenStorage'
 import type { User, LoginCredentials } from '@/types'
 import type { AxiosRequestConfig } from 'axios'
 
@@ -56,7 +62,7 @@ export const useAuthStore = defineStore('auth', () => {
         try {
             const { data } = await authApi.login(credentials)
             if (data.success) {
-                const { accessToken: token, user: userData } = data.data
+                const { accessToken: token, user: userData } = unwrapApiData(data)
 
                 applyAuthenticatedSession(token, userData)
 
@@ -76,12 +82,10 @@ export const useAuthStore = defineStore('auth', () => {
             logger.error('Logout failed:', error)
         } finally {
             clearSessionState()
-            // themeStore.setTheme('LIGHT') // Reset to default on logout -> Removed to persist theme
         }
     }
 
     async function fetchUser(config?: AxiosRequestConfig): Promise<boolean> {
-        // Double check token existence
         const token = getStoredAccessToken()
         if (!token) {
             clearSessionState()
@@ -93,9 +97,8 @@ export const useAuthStore = defineStore('auth', () => {
         try {
             const { data } = await authApi.getMe(config)
             if (data.success) {
-                user.value = data.data
+                user.value = unwrapApiData(data)
 
-                // Check for sanctions
                 if (user.value?.status === 'SANCTIONED') {
                     await handleSanctionedSession()
                     return false
@@ -108,11 +111,23 @@ export const useAuthStore = defineStore('auth', () => {
             return false
         } catch (error: unknown) {
             logger.error('Fetch user failed:', error)
-            // 401 에러는 axios 인터셉터에서 refresh token으로 처리함
-            // 여기서는 로그만 남기고, 인터셉터가 refresh 실패 시 로그아웃 처리
-            // 네트워크 에러나 서버 에러(500 등)는 로그아웃하지 않음
             return false
         }
+    }
+
+    async function syncFromStoredAccessToken(token: string | null): Promise<boolean> {
+        if (!token) {
+            accessToken.value = null
+            user.value = null
+            return false
+        }
+
+        if (accessToken.value === token && user.value) {
+            return true
+        }
+
+        accessToken.value = token
+        return fetchUser({ skipAuthRefresh: true })
     }
 
     function setTokens(token: string) {
@@ -129,7 +144,25 @@ export const useAuthStore = defineStore('auth', () => {
         logout,
         handleSanctionedSession,
         fetchUser,
+        syncFromStoredAccessToken,
         setTokens,
         clearSessionState
     }
 })
+
+export function registerAuthStorageSync(authStore = useAuthStore()) {
+    if (typeof window === 'undefined') {
+        return () => undefined
+    }
+
+    const handleStorage = (event: StorageEvent) => {
+        if (event.key !== ACCESS_TOKEN_KEY && event.key !== null) {
+            return
+        }
+
+        void authStore.syncFromStoredAccessToken(event.key === null ? null : event.newValue)
+    }
+
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
+}

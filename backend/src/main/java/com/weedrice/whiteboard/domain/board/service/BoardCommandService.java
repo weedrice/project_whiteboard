@@ -8,9 +8,9 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
@@ -18,13 +18,6 @@ import java.util.Objects;
 
 @Service
 class BoardCommandService {
-
-    private static final String BOARD_NAME_CONSTRAINT = "uk_boards_board_name";
-    private static final String BOARD_URL_CONSTRAINT = "uk_boards_board_url";
-    private static final String LEGACY_BOARD_NAME_CONSTRAINT = "boards_board_name_key";
-    private static final String LEGACY_BOARD_URL_CONSTRAINT = "boards_board_url_key";
-    private static final String BOARD_NAME_COLUMN = "board_name";
-    private static final String BOARD_URL_COLUMN = "board_url";
 
     private final BoardRepository boardRepository;
     private final UserRepository userRepository;
@@ -119,48 +112,13 @@ class BoardCommandService {
     }
 
     private BusinessException resolveBoardConflict(DataIntegrityViolationException ex) {
-        if (containsBoardUrlConstraint(ex)) {
+        if (ConstraintNameMatcher.containsBoardUrlConstraint(ex)) {
             return new BusinessException(ErrorCode.DUPLICATE_BOARD_URL);
         }
-        if (containsBoardNameConstraint(ex)) {
+        if (ConstraintNameMatcher.containsBoardNameConstraint(ex)) {
             return new BusinessException(ErrorCode.DUPLICATE_BOARD_NAME);
         }
         return new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
-    }
-
-    private boolean containsBoardNameConstraint(Throwable throwable) {
-        return containsConstraint(throwable, BOARD_NAME_CONSTRAINT, LEGACY_BOARD_NAME_CONSTRAINT, BOARD_NAME_COLUMN);
-    }
-
-    private boolean containsBoardUrlConstraint(Throwable throwable) {
-        return containsConstraint(throwable, BOARD_URL_CONSTRAINT, LEGACY_BOARD_URL_CONSTRAINT, BOARD_URL_COLUMN);
-    }
-
-    private boolean containsConstraint(Throwable throwable, String... candidates) {
-        Throwable current = throwable;
-        while (current != null) {
-            String message = current.getMessage() != null ? current.getMessage().toLowerCase() : "";
-            if (containsAny(message, candidates)) {
-                return true;
-            }
-            if (current instanceof ConstraintViolationException constraintViolationException) {
-                String constraintName = constraintViolationException.getConstraintName();
-                if (containsAny(constraintName != null ? constraintName.toLowerCase() : "", candidates)) {
-                    return true;
-                }
-            }
-            current = current.getCause();
-        }
-        return false;
-    }
-
-    private boolean containsAny(String value, String... candidates) {
-        for (String candidate : candidates) {
-            if (value.contains(candidate)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private void validateCreatableBoardUrl(String boardUrl) {
@@ -177,10 +135,7 @@ class BoardCommandService {
     }
 
     private String normalizeIconUrl(String iconUrl) {
-        if (iconUrl == null) {
-            return null;
-        }
-        String trimmedIconUrl = iconUrl.trim();
-        return trimmedIconUrl.isEmpty() ? null : trimmedIconUrl;
+        String normalizedIconUrl = TextInputNormalizer.normalizeNullable(iconUrl);
+        return normalizedIconUrl == null || normalizedIconUrl.isEmpty() ? null : normalizedIconUrl;
     }
 }

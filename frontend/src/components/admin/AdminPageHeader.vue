@@ -8,8 +8,8 @@ defineProps<{
 <template>
   <div class="sm:flex sm:items-center sm:justify-between">
     <div class="sm:flex-auto">
-      <h1 class="text-xl font-semibold text-gray-900 dark:text-white">{{ title }}</h1>
-      <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">{{ description }}</p>
+      <h1 class="text-xl font-semibold nv-title">{{ title }}</h1>
+      <p class="mt-2 text-sm nv-text-muted">{{ description }}</p>
     </div>
     <slot name="actions" />
   </div>

@@ -75,6 +75,20 @@ describe('ErrorPage', () => {
         }
     })
 
+    it('uses the first query value when status and message are arrays', () => {
+        mocks.route.query = {
+            status: ['404', '500'],
+            message: ['first message', 'second message'],
+        }
+
+        const wrapper = mountPage()
+
+        expect(wrapper.text()).toContain('404')
+        expect(wrapper.text()).toContain('Not Found')
+        expect(wrapper.text()).toContain('first message')
+        expect(wrapper.text()).not.toContain('second message')
+    })
+
     it('navigates to home when go-home button is clicked', async () => {
         const wrapper = mountPage()
 

@@ -173,6 +173,22 @@ describe('MyPageDashboard', () => {
     mocks.isVerifyModalOpen.value = true
   })
 
+  it('renders profile information rows and email verification action', () => {
+    const wrapper = mountDashboard()
+
+    expect(wrapper.text()).toContain('user.profile.displayName')
+    expect(wrapper.text()).toContain('Tester')
+    expect(wrapper.text()).toContain('user.profile.email')
+    expect(wrapper.text()).toContain('tester@example.com')
+    expect(wrapper.text()).toContain('user.profile.notVerified')
+    expect(wrapper.text()).toContain('user.profile.agentCode')
+    expect(wrapper.text()).toContain('user.profile.agentEmpty')
+    expect(wrapper.text()).toContain('user.profile.joined')
+    expect(wrapper.text()).toContain('2026-01-01T00:00:00')
+    expect(wrapper.text()).toContain('user.profile.lastLogin')
+    expect(wrapper.text()).toContain('2026-01-02T00:00:00')
+  })
+
   it('labels email verification inputs for the modal flow', () => {
     const wrapper = mountDashboard()
 

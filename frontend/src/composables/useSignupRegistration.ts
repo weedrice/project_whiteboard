@@ -2,10 +2,12 @@ import { onMounted, reactive, ref, watch } from 'vue'
 import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
 import type { ComposerTranslation } from 'vue-i18n'
 import { authApi } from '@/api/auth'
+import { unwrapApiData, unwrapAxiosApiData } from '@/api/response'
 import { useAuthPasswordValidation } from '@/composables/useAuthPasswordValidation'
 import { useEmailVerificationFlow } from '@/composables/useEmailVerificationFlow'
 import { useToastStore } from '@/stores/toast'
 import { extractErrorMessage } from '@/utils/errorHandler'
+import { getSingleQueryValue } from '@/utils/routeQueryValue'
 import { isEmpty, isValidDisplayName, isValidEmail, isValidLoginId } from '@/utils/validation'
 
 interface SignupRegistrationOptions {
@@ -66,9 +68,10 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
 
   async function checkEmailForReregister(email: string) {
     const checkRes = await authApi.checkEmailForReregister(email)
-    if (checkRes.data.success && checkRes.data.data?.canReregister && checkRes.data.data?.maskedLoginId) {
+    const reregister = unwrapAxiosApiData(checkRes)
+    if (checkRes.data.success && reregister?.canReregister && reregister?.maskedLoginId) {
       isReregister.value = true
-      form.value.loginId = checkRes.data.data.maskedLoginId
+      form.value.loginId = reregister.maskedLoginId
       return
     }
 
@@ -191,8 +194,8 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
       ...formData,
       email: form.value.email.trim(),
       verificationTicket: verification.verificationTicket,
-      provider: (route.query.provider as string) || null,
-      providerId: (route.query.providerId as string) || null
+      provider: getSingleQueryValue(route.query.provider),
+      providerId: getSingleQueryValue(route.query.providerId)
     }
   }
 
@@ -263,18 +266,22 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
   }
 
   async function initializeFromRouteQuery() {
-    if (route.query.email) {
-      form.value.email = String(route.query.email)
+    const email = getSingleQueryValue(route.query.email)
+    const name = getSingleQueryValue(route.query.name)
+
+    if (email) {
+      form.value.email = email
     }
-    if (route.query.name) {
-      form.value.displayName = String(route.query.name)
+    if (name) {
+      form.value.displayName = name
     }
-    if (route.query.email) {
+    if (email) {
       try {
-        const { data } = await authApi.checkEmailForReregister(String(route.query.email))
-        if (data.success && data.data?.canReregister && data.data?.maskedLoginId) {
+        const { data } = await authApi.checkEmailForReregister(email)
+        const reregister = unwrapApiData(data)
+        if (data.success && reregister?.canReregister && reregister?.maskedLoginId) {
           isReregister.value = true
-          form.value.loginId = data.data.maskedLoginId
+          form.value.loginId = reregister.maskedLoginId
         }
       } catch {
         // Continue as a normal signup when reregister lookup fails.

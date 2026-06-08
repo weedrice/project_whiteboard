@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  canChangeAdminUserStatus,
+  getAdminUserStatusActionLabel,
+  getNextAdminUserStatus,
   getAdminUserRoleLabel,
   getAdminUserRoleVariant,
   getAdminUserStatusLabel,
@@ -29,5 +32,15 @@ describe('adminUserDisplay', () => {
     expect(getAdminUserStatusLabel(t, 'ACTIVE')).toBe('admin.users.status.ACTIVE')
     expect(getAdminUserRoleLabel(t, 'USER')).toBe('admin.users.role.USER')
     expect(getAdminUserRoleLabel(t, undefined)).toBe('-')
+  })
+
+  it('maps mutable statuses to admin actions', () => {
+    expect(canChangeAdminUserStatus('ACTIVE')).toBe(true)
+    expect(canChangeAdminUserStatus('SUSPENDED')).toBe(true)
+    expect(canChangeAdminUserStatus('DELETED')).toBe(false)
+    expect(getNextAdminUserStatus('ACTIVE')).toBe('SUSPENDED')
+    expect(getNextAdminUserStatus('SUSPENDED')).toBe('ACTIVE')
+    expect(getAdminUserStatusActionLabel('ACTIVE')).toBe('정지')
+    expect(getAdminUserStatusActionLabel('SUSPENDED')).toBe('계정 활성화')
   })
 })

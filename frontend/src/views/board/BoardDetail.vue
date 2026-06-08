@@ -14,7 +14,7 @@ import { useBoardDetailNavigation } from '@/composables/useBoardDetailNavigation
 import { useBoardDetailResource } from '@/composables/useBoardDetailResource'
 import { useBoardListState } from '@/composables/useBoardListState'
 import { useBoardRecentVisit } from '@/composables/useBoardRecentVisit'
-import { useConfirm } from '@/composables/useConfirm'
+import { useBoardSubscriptionAction } from '@/composables/useBoardSubscriptionAction'
 import { useAuthStore } from '@/stores/auth'
 import { canWriteBoardPost } from '@/utils/board'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
@@ -25,7 +25,6 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-const { confirm } = useConfirm()
 
 const {
   page,
@@ -84,18 +83,11 @@ const isAllPostsActive = computed(() => (
   && selectedCategoryId.value === null
 ))
 
-async function handleSubscribe() {
-  if (!board.value || isSubscribePending.value) return
-  if (board.value.isSubscribed) {
-    const isConfirmed = await confirm(t('user.subscriptions.unsubscribeConfirm'))
-    if (!isConfirmed) return
-  }
-
-  subscribeMutate({
-    boardUrl: board.value.boardUrl,
-    isSubscribed: board.value.isSubscribed ?? false
-  })
-}
+const { handleSubscribe } = useBoardSubscriptionAction({
+  board,
+  isSubscribePending,
+  subscribeMutate,
+})
 
 const {
   buildBoardListRoute,
@@ -174,7 +166,7 @@ watch([() => route.name, boardTitle], ([routeName, title]) => {
 
     <section v-else-if="blockingError" class="nv-board-panel nv-board-state-panel px-4 py-12 text-center sm:px-6">
       <p class="nv-board-state-kicker">BOARD</p>
-      <p class="mt-3 text-sm text-red-500">{{ blockingError }}</p>
+      <p class="mt-3 text-sm nv-form-error">{{ blockingError }}</p>
     </section>
 
     <template v-else-if="board">
@@ -420,7 +412,7 @@ watch([() => route.name, boardTitle], ([routeName, title]) => {
             </router-link>
           </div>
 
-          <p v-if="transientListError" class="mt-2 text-center text-xs text-red-500">
+          <p v-if="transientListError" class="mt-2 text-center text-xs nv-form-error">
             {{ transientListError }}
           </p>
         </div>
@@ -674,10 +666,10 @@ watch([() => route.name, boardTitle], ([routeName, title]) => {
 
 .nv-board-notice-badge {
   align-items: center;
-  background: color-mix(in srgb, #ef4444 12%, transparent);
-  border: 1px solid color-mix(in srgb, #ef4444 25%, var(--nv-line));
+  background: var(--nv-danger-bg);
+  border: 1px solid var(--nv-danger-border);
   border-radius: 9999px;
-  color: #dc2626;
+  color: var(--nv-danger-text);
   display: inline-flex;
   flex-shrink: 0;
   font-size: 0.62rem;
@@ -795,7 +787,7 @@ watch([() => route.name, boardTitle], ([routeName, title]) => {
 
 .nv-board-state-panel {
   background:
-    linear-gradient(180deg, color-mix(in srgb, #ef4444 8%, transparent), transparent),
+    linear-gradient(180deg, color-mix(in srgb, var(--nv-danger) 8%, transparent), transparent),
     color-mix(in srgb, var(--nv-surface) 94%, transparent);
 }
 

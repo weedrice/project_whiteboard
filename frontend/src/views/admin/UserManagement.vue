@@ -1,25 +1,35 @@
 ﻿<script setup lang="ts">
-import { ref, computed, reactive, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { Search } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
-import BaseButton from '@/components/common/ui/BaseButton.vue'
-import BaseBadge from '@/components/common/ui/BaseBadge.vue'
-import BaseTable from '@/components/common/ui/BaseTable.vue'
-import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
-import AdminPanel from '@/components/admin/AdminPanel.vue'
-import AdminPaginationFooter from '@/components/admin/AdminPaginationFooter.vue'
+import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
+import AdminActionButton from '@/components/admin/AdminActionButton.vue'
+import AdminDataPage from '@/components/admin/AdminDataPage.vue'
+import AdminFilterActions from '@/components/admin/AdminFilterActions.vue'
+import AdminFilterPanel from '@/components/admin/AdminFilterPanel.vue'
+import AdminFilterField from '@/components/admin/AdminFilterField.vue'
+import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
+import AdminTableActions from '@/components/admin/AdminTableActions.vue'
+import BooleanBadge from '@/components/admin/BooleanBadge.vue'
 import UserDetailModal from '@/components/admin/UserDetailModal.vue'
+import UserAvatar from '@/components/common/ui/UserAvatar.vue'
+import { formatAdminPaginationSummary } from '@/utils/adminPaginationSummary'
 import { formatDateOnly } from '@/utils/date'
 import { useConfirm } from '@/composables/useConfirm'
 import { usePageResponseState } from '@/composables/usePaginatedQueryState'
+import { useAdminUserListState } from '@/composables/useAdminUserListState'
 import type { User } from '@/types'
 import {
+  canChangeAdminUserStatus,
+  getAdminUserStatusActionLabel,
+  getNextAdminUserStatus,
   getAdminUserRoleLabel,
   getAdminUserStatusLabel,
   getAdminUserStatusVariant,
+  type AdminUserMutableStatus,
 } from '@/utils/adminUserDisplay'
 
 const { t } = useI18n()
@@ -27,59 +37,16 @@ const toastStore = useToastStore()
 const { confirm } = useConfirm()
 const { useUsers, useUpdateUserStatus } = useAdmin()
 
-const page = ref(0)
-const size = ref(20)
-const sort = ref('createdAt,desc')
-
-type UserFilterForm = {
-  q: string
-  status: string
-  role: string
-  emailVerified: string
-  superAdmin: string
-  withdrawn: string
-  createdFrom: string
-  createdTo: string
-  lastLoginFrom: string
-  lastLoginTo: string
-}
-
-function createInitialFilters(): UserFilterForm {
-  return {
-    q: '',
-    status: '',
-    role: '',
-    emailVerified: '',
-    superAdmin: '',
-    withdrawn: '',
-    createdFrom: '',
-    createdTo: '',
-    lastLoginFrom: '',
-    lastLoginTo: ''
-  }
-}
-
-const filterForm = reactive<UserFilterForm>(createInitialFilters())
-const appliedFilters = ref<UserFilterForm>(createInitialFilters())
-
-const sortField = computed(() => sort.value.split(',')[0] || 'createdAt')
-const sortDirection = computed(() => sort.value.split(',')[1] || 'desc')
-
-const params = computed(() => ({
-  page: page.value,
-  size: size.value,
-  q: appliedFilters.value.q || undefined,
-  status: appliedFilters.value.status || undefined,
-  role: appliedFilters.value.role || undefined,
-  isEmailVerified: appliedFilters.value.emailVerified === '' ? undefined : appliedFilters.value.emailVerified === 'true',
-  isSuperAdmin: appliedFilters.value.superAdmin === '' ? undefined : appliedFilters.value.superAdmin === 'true',
-  isWithdrawn: appliedFilters.value.withdrawn === '' ? undefined : appliedFilters.value.withdrawn === 'true',
-  createdFrom: appliedFilters.value.createdFrom || undefined,
-  createdTo: appliedFilters.value.createdTo || undefined,
-  lastLoginFrom: appliedFilters.value.lastLoginFrom || undefined,
-  lastLoginTo: appliedFilters.value.lastLoginTo || undefined,
-  sort: sort.value || undefined
-}))
+const {
+  applyFilters,
+  filterForm,
+  getSortLabel,
+  handleSort,
+  page,
+  params,
+  resetFilters,
+  size,
+} = useAdminUserListState()
 
 const { data: usersData, isLoading } = useUsers(params)
 const { mutateAsync: updateUserStatus } = useUpdateUserStatus()
@@ -107,23 +74,17 @@ function getStatusLabel(status: string) {
   return getAdminUserStatusLabel(t, status)
 }
 
-function canChangeStatus(status: string) {
-  return status === 'ACTIVE' || status === 'SUSPENDED'
-}
-
-function getNextStatus(status: string): 'ACTIVE' | 'SUSPENDED' {
-  return status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE'
-}
-
-function getStatusActionLabel(status: string) {
-  return status === 'ACTIVE' ? '정지' : '계정 활성화'
-}
-
 function getRoleLabel(role: string) {
   return getAdminUserRoleLabel(t, role)
 }
 
-async function handleStatusChange(user: User, status: 'ACTIVE' | 'SUSPENDED') {
+function getStatusActionLabel(status: AdminUserMutableStatus) {
+  return getAdminUserStatusActionLabel(status)
+}
+
+async function handleStatusChange(user: User, status: AdminUserMutableStatus) {
+  if (!canChangeAdminUserStatus(user.status)) return
+
   const isConfirmed = await confirm(t('admin.users.messages.confirmStatusChange', { action: getStatusActionLabel(user.status) }))
   if (!isConfirmed) return
   try {
@@ -133,35 +94,6 @@ async function handleStatusChange(user: User, status: 'ACTIVE' | 'SUSPENDED') {
     // Error handled globally
   }
 }
-
-function resetFilters() {
-  Object.assign(filterForm, createInitialFilters())
-  appliedFilters.value = createInitialFilters()
-  sort.value = 'createdAt,desc'
-  page.value = 0
-}
-
-function applyFilters() {
-  appliedFilters.value = { ...filterForm }
-  page.value = 0
-}
-
-function getSortLabel(baseLabel: string, key: string) {
-  if (sortField.value !== key) return baseLabel
-  return `${baseLabel} ${sortDirection.value === 'asc' ? '▲' : '▼'}`
-}
-
-function handleSort(key: string) {
-  if (sortField.value === key) {
-    sort.value = `${key},${sortDirection.value === 'asc' ? 'desc' : 'asc'}`
-    return
-  }
-  sort.value = `${key},asc`
-}
-
-watch([size, sort], () => {
-  page.value = 0
-})
 
 const columns = computed(() => [
   { key: 'userId', label: getSortLabel(t('common.id'), 'userId'), width: '5%', sortable: true },
@@ -179,79 +111,69 @@ const columns = computed(() => [
 </script>
 
 <template>
-  <div>
-    <AdminPageHeader :title="t('admin.users.title')" :description="t('admin.users.description')" />
-
-    <AdminPanel class="mt-6" padding="sm" :shadow="false">
+  <AdminDataPage :title="t('admin.users.title')" :description="t('admin.users.description')">
+    <template #filters>
+    <AdminFilterPanel>
       <div class="flex flex-col items-start gap-4">
         <div class="flex flex-wrap items-end gap-3">
-          <div class="flex w-36 flex-col gap-1">
-            <label class="w-full text-left text-xs text-gray-500 dark:text-gray-400">상태</label>
-            <select v-model="filterForm.status" class="w-full rounded-md border border-gray-300 pl-3 pr-9 py-2 text-sm dark:border-gray-600 dark:bg-gray-900">
+          <AdminFilterField label="상태">
+            <select v-model="filterForm.status" class="input-base">
               <option value="">전체</option>
               <option value="ACTIVE">{{ getStatusLabel('ACTIVE') }}</option>
               <option value="SUSPENDED">{{ getStatusLabel('SUSPENDED') }}</option>
               <option value="DELETED">{{ getStatusLabel('DELETED') }}</option>
             </select>
-          </div>
-          <div class="flex w-36 flex-col gap-1">
-            <label class="w-full text-left text-xs text-gray-500 dark:text-gray-400">권한</label>
-            <select v-model="filterForm.role" class="w-full rounded-md border border-gray-300 pl-3 pr-9 py-2 text-sm dark:border-gray-600 dark:bg-gray-900">
+          </AdminFilterField>
+          <AdminFilterField label="권한">
+            <select v-model="filterForm.role" class="input-base">
               <option value="">전체</option>
               <option value="USER">{{ getRoleLabel('USER') }}</option>
               <option value="SUPER_ADMIN">{{ getRoleLabel('SUPER_ADMIN') }}</option>
               <option value="BOARD_ADMIN">{{ getRoleLabel('BOARD_ADMIN') }}</option>
               <option value="MODERATOR">{{ getRoleLabel('MODERATOR') }}</option>
             </select>
-          </div>
-          <div class="flex w-36 flex-col gap-1">
-            <label class="w-full text-left text-xs text-gray-500 dark:text-gray-400">이메일 인증</label>
-            <select v-model="filterForm.emailVerified" class="w-full rounded-md border border-gray-300 pl-3 pr-9 py-2 text-sm dark:border-gray-600 dark:bg-gray-900">
+          </AdminFilterField>
+          <AdminFilterField label="이메일 인증">
+            <select v-model="filterForm.emailVerified" class="input-base">
               <option value="">전체</option>
               <option value="true">인증</option>
               <option value="false">미인증</option>
             </select>
-          </div>
-          <div class="flex w-36 flex-col gap-1">
-            <label class="w-full text-left text-xs text-gray-500 dark:text-gray-400">슈퍼관리자</label>
-            <select v-model="filterForm.superAdmin" class="w-full rounded-md border border-gray-300 pl-3 pr-9 py-2 text-sm dark:border-gray-600 dark:bg-gray-900">
+          </AdminFilterField>
+          <AdminFilterField label="슈퍼관리자">
+            <select v-model="filterForm.superAdmin" class="input-base">
               <option value="">전체</option>
               <option value="true">Y</option>
               <option value="false">N</option>
             </select>
-          </div>
-          <div class="flex w-36 flex-col gap-1">
-            <label class="w-full text-left text-xs text-gray-500 dark:text-gray-400">탈퇴 여부</label>
-            <select v-model="filterForm.withdrawn" class="w-full rounded-md border border-gray-300 pl-3 pr-9 py-2 text-sm dark:border-gray-600 dark:bg-gray-900">
+          </AdminFilterField>
+          <AdminFilterField label="탈퇴 여부">
+            <select v-model="filterForm.withdrawn" class="input-base">
               <option value="">전체</option>
               <option value="true">탈퇴</option>
               <option value="false">활성/정지</option>
             </select>
-          </div>
+          </AdminFilterField>
         </div>
 
         <div class="flex flex-wrap items-end gap-3">
-          <div class="flex w-44 flex-col gap-1">
-            <label class="text-xs text-gray-500 dark:text-gray-400">가입일 시작</label>
-            <input v-model="filterForm.createdFrom" type="date" class="rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900" />
-          </div>
-          <div class="flex w-44 flex-col gap-1">
-            <label class="text-xs text-gray-500 dark:text-gray-400">가입일 종료</label>
-            <input v-model="filterForm.createdTo" type="date" class="rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900" />
-          </div>
-          <div class="flex w-44 flex-col gap-1">
-            <label class="text-xs text-gray-500 dark:text-gray-400">최근 로그인 시작</label>
-            <input v-model="filterForm.lastLoginFrom" type="date" class="rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900" />
-          </div>
-          <div class="flex w-44 flex-col gap-1">
-            <label class="text-xs text-gray-500 dark:text-gray-400">최근 로그인 종료</label>
-            <input v-model="filterForm.lastLoginTo" type="date" class="rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900" />
-          </div>
+          <AdminFilterField label="가입일 시작" width-class="w-44">
+            <input v-model="filterForm.createdFrom" type="date" class="input-base" />
+          </AdminFilterField>
+          <AdminFilterField label="가입일 종료" width-class="w-44">
+            <input v-model="filterForm.createdTo" type="date" class="input-base" />
+          </AdminFilterField>
+          <AdminFilterField label="최근 로그인 시작" width-class="w-44">
+            <input v-model="filterForm.lastLoginFrom" type="date" class="input-base" />
+          </AdminFilterField>
+          <AdminFilterField label="최근 로그인 종료" width-class="w-44">
+            <input v-model="filterForm.lastLoginTo" type="date" class="input-base" />
+          </AdminFilterField>
         </div>
 
         <div class="flex flex-wrap items-end gap-3">
           <div class="w-80 max-w-full">
-            <label class="mb-1 block text-xs text-gray-500 dark:text-gray-400">사용자 검색</label>
+            <label class="mb-1 block text-xs nv-text-subtle">사용자 검색</label>
             <BaseInput
               v-model="filterForm.q"
               :label="t('admin.users.searchPlaceholder')"
@@ -260,72 +182,66 @@ const columns = computed(() => [
               @keyup.enter="applyFilters"
             >
               <template #prefix>
-                <Search class="h-5 w-5 text-gray-400 dark:text-gray-500" aria-hidden="true" />
+                <Search class="h-5 w-5 nv-text-subtle" aria-hidden="true" />
               </template>
             </BaseInput>
           </div>
-          <div class="flex items-center gap-2">
-            <BaseButton variant="primary" size="sm" @click="applyFilters">검색</BaseButton>
-            <BaseButton variant="secondary" size="sm" @click="resetFilters">초기화</BaseButton>
-          </div>
+          <AdminFilterActions @search="applyFilters" @reset="resetFilters" />
         </div>
       </div>
-    </AdminPanel>
+    </AdminFilterPanel>
+    </template>
 
-    <AdminPaginationFooter
-      :page="currentPage"
-      :total-pages="totalPages"
-      :summary="totalPages > 0 ? `총 ${totalCount.toLocaleString()}명 / ${currentPage + 1} / ${totalPages} 페이지` : `총 ${totalCount.toLocaleString()}명`"
-      @page-change="page = $event"
-    >
-      <template #description>
-        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">사용자 행을 더블클릭하면 상세 팝업이 열립니다.</p>
-      </template>
-      <template #actions>
-        <label class="text-xs text-gray-500 dark:text-gray-400">페이지 당</label>
-        <select v-model.number="size" class="rounded-md border border-gray-300 px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-900">
-          <option :value="10">10</option>
-          <option :value="20">20</option>
-          <option :value="50">50</option>
-        </select>
-      </template>
-    </AdminPaginationFooter>
-
-    <div class="mt-4">
-      <BaseTable
+    <AdminPaginatedTable
         :columns="columns"
         :items="users"
         row-key="userId"
         :loading="isLoading"
-        :emptyText="t('common.noData')"
+        :empty-text="t('common.noData')"
+        interactive-rows
+        row-activation-event="row-dblclick"
+        :row-action-label="(item) => `${item.displayName || item.loginId} 상세 보기`"
+        :page="currentPage"
+        :total-pages="totalPages"
+        :summary="formatAdminPaginationSummary(totalCount, {
+          unit: '명',
+          page: currentPage,
+          totalPages,
+          pageFormat: 'slash',
+          includePage: totalPages > 0,
+        })"
         @sort="handleSort"
-        @row-dblclick="openDetailModal"
+        @row-dblclick="openDetailModal($event as User)"
+        @page-change="page = $event"
       >
+        <template #footer-description>
+          <p class="mt-1 text-xs nv-text-subtle">사용자 행을 더블클릭하면 상세 팝업이 열립니다.</p>
+        </template>
+        <template #footer-actions>
+          <label class="text-xs nv-text-subtle">페이지 당</label>
+          <select v-model.number="size" class="input-base px-2 py-1 text-xs">
+            <option :value="10">10</option>
+            <option :value="20">20</option>
+            <option :value="50">50</option>
+          </select>
+        </template>
+
         <template #cell-profile="{ item }">
           <div class="flex justify-center">
-            <img v-if="item.profileImageUrl" :src="item.profileImageUrl" alt="profile" class="h-8 w-8 rounded-full object-cover" />
-            <div v-else class="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-xs font-semibold text-gray-600 dark:bg-gray-700 dark:text-gray-300">
-              {{ (item.displayName || item.loginId || '?').slice(0, 1).toUpperCase() }}
-            </div>
+            <UserAvatar :image-url="item.profileImageUrl" :name="item.displayName || item.loginId" />
           </div>
         </template>
 
         <template #cell-isEmailVerified="{ item }">
-          <BaseBadge :variant="item.isEmailVerified ? 'success' : 'gray'" size="sm">
-            {{ item.isEmailVerified ? 'Y' : 'N' }}
-          </BaseBadge>
+          <BooleanBadge :value="item.isEmailVerified === true" />
         </template>
 
         <template #cell-isSuperAdmin="{ item }">
-          <BaseBadge :variant="item.isSuperAdmin ? 'danger' : 'gray'" size="sm">
-            {{ item.isSuperAdmin ? 'Y' : 'N' }}
-          </BaseBadge>
+          <BooleanBadge :value="item.isSuperAdmin === true" true-variant="danger" />
         </template>
 
         <template #cell-status="{ item }">
-          <BaseBadge :variant="getStatusVariant(item.status)" size="sm">
-            {{ getStatusLabel(item.status) }}
-          </BaseBadge>
+          <AdminStatusBadge :label="getStatusLabel(item.status)" :variant="getStatusVariant(item.status)" />
         </template>
 
         <template #cell-lastLoginAt="{ item }">
@@ -337,38 +253,29 @@ const columns = computed(() => [
         </template>
 
         <template #cell-actions="{ item }">
-          <div class="flex justify-end gap-1">
-            <BaseButton
-              variant="ghost"
-              size="sm"
-              class="p-1"
-              :aria-label="`${item.displayName || item.loginId} 상세 보기`"
+          <AdminTableActions gap-class="gap-1">
+            <AdminActionButton
+              :label="`${item.displayName || item.loginId} 상세 보기`"
               @click.stop="openDetailModal(item)"
             >
               상세
-            </BaseButton>
-            <BaseButton
-              v-if="canChangeStatus(item.status)"
-              @click.stop="handleStatusChange(item, getNextStatus(item.status))"
-              variant="ghost"
-              size="sm"
-              class="p-1"
-              :class="item.status === 'ACTIVE'
-                ? 'text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300'
-                : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'"
-              :title="getStatusActionLabel(item.status)"
+            </AdminActionButton>
+            <AdminActionButton
+              v-if="canChangeAdminUserStatus(item.status)"
+              @click.stop="handleStatusChange(item, getNextAdminUserStatus(item.status))"
+              :tone="item.status === 'ACTIVE' ? 'danger' : 'neutral'"
+              :label="getStatusActionLabel(item.status)"
             >
               {{ getStatusActionLabel(item.status) }}
-            </BaseButton>
-          </div>
+            </AdminActionButton>
+          </AdminTableActions>
         </template>
-      </BaseTable>
-    </div>
+      </AdminPaginatedTable>
 
     <UserDetailModal
       :isOpen="isDetailModalOpen"
       :userId="selectedUserId"
       @close="isDetailModalOpen = false"
     />
-  </div>
+  </AdminDataPage>
 </template>

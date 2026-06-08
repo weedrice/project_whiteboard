@@ -69,9 +69,9 @@ const ErrorStateStub = defineComponent({
   },
 })
 
-const makeNotification = (isRead: boolean): Notification => ({
+const makeNotification = (isRead: boolean, sourceType: Notification['sourceType'] = 'POST'): Notification => ({
   notificationId: isRead ? 1 : 2,
-  sourceType: 'POST',
+  sourceType,
   sourceId: 10,
   message: isRead ? 'read notification' : 'unread notification',
   isRead,
@@ -146,6 +146,30 @@ describe('MyNotifications', () => {
     await button.trigger('click')
 
     expect(markAllAsRead).toHaveBeenCalledTimes(1)
+  })
+
+  it('uses tokenized surfaces for unread notification rows', () => {
+    notificationsData.value = makePage([makeNotification(false)])
+    const wrapper = mountMyNotifications()
+
+    const unreadRow = wrapper.get('li')
+
+    expect(unreadRow.classes()).toContain('nv-hover-surface')
+    expect(unreadRow.classes()).toContain('nv-unread-surface')
+    expect(unreadRow.get('a').classes()).toContain('active:bg-[var(--nv-surface-active)]')
+  })
+
+  it('renders source type labels with fallback text', () => {
+    notificationsData.value = makePage([
+      makeNotification(true, 'POST'),
+      makeNotification(false, 'COMMENT'),
+      makeNotification(true, 'SYSTEM'),
+    ])
+    const wrapper = mountMyNotifications()
+
+    expect(wrapper.text()).toContain('게시글')
+    expect(wrapper.text()).toContain('댓글')
+    expect(wrapper.text()).toContain('SYSTEM')
   })
 
   it('shows error state and retries notification loading', async () => {

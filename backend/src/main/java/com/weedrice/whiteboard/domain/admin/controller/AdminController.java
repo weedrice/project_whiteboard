@@ -12,15 +12,15 @@ import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.CurrentUserId;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -28,8 +28,6 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
-import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
 
 /**
  * 관리자 기능을 처리하는 컨트롤러
@@ -48,9 +46,9 @@ public class AdminController {
     private final PostService postService;
 
     /**
-     * Super Admin 조회
-     * 
-     * @return {@link SuperAdminResponse} Super Admin List
+     * Super Admin 목록을 조회한다.
+     *
+     * @return {@link SuperAdminResponse} Super Admin 목록
      */
     @GetMapping("/super")
     public ApiResponse<List<SuperAdminResponse>> getSuperAdmin() {
@@ -58,12 +56,12 @@ public class AdminController {
     }
 
     /**
-     * Super Admin 등록
+     * Super Admin을 등록한다.
      * <p>
      * {@link BusinessException} 등록 사용자 없을 시 <code>USER_NOT_FOUND</code><br>
      * 중복 등록 시 <code>DUPLICATE_RESOURCE</code> 반환
-     * 
-     * @param request {@link SuperAdminRequest} 등록 대상 사용자의 loginId를 포함하고있는 객체
+     *
+     * @param request {@link SuperAdminRequest} 등록 대상 사용자의 loginId를 포함하는 객체
      * @return {@link SuperAdminUpdateResponse} 등록된 Super Admin 정보
      */
     @PutMapping("/super/active")
@@ -72,28 +70,27 @@ public class AdminController {
     }
 
     /**
-     * Super Admin 해제
+     * Super Admin을 해제한다.
      * <p>
      * {@link BusinessException} 등록 사용자 없을 시 <code>USER_NOT_FOUND</code><br>
-     * 미 등록 사용자 해제 시 <code>INVALID_TARGET</code> 반환
-     * 
-     * @param request {@link SuperAdminRequest} 등록 대상 사용자의 loginId를 포함하고있는 객체
-     * @return {@link SuperAdminUpdateResponse} 등록된 Super Admin 정보
+     * 미등록 사용자 해제 시 <code>INVALID_TARGET</code> 반환
+     *
+     * @param request {@link SuperAdminRequest} 해제 대상 사용자의 loginId를 포함하는 객체
+     * @return {@link SuperAdminUpdateResponse} 해제된 Super Admin 정보
      */
     @PutMapping("/super/deactive")
     public ApiResponse<SuperAdminUpdateResponse> deactivateSuperAdmin(
             @Valid @RequestBody SuperAdminRequest request,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+            @CurrentUserId Long userId) {
         return ApiResponse.success(superAdminService.deactivateSuperAdmin(
                 request.getLoginId(),
-                requiredUserId(userDetails)));
+                userId));
     }
 
     /**
-     * Admin 등록
-     * 
-     * @param request {@link AdminCreateRequest} 등록할 Admin 정보 (loginId, boardId,
-     *                role)
+     * Admin을 등록한다.
+     *
+     * @param request {@link AdminCreateRequest} 등록할 Admin 정보 (loginId, boardId, role)
      * @return {@link AdminResponse} 등록된 Admin 정보
      */
     @PostMapping("/admins")
@@ -104,26 +101,26 @@ public class AdminController {
     }
 
     /**
-     * 모든 Admin 조회
-     * 
+     * 모든 Admin 목록을 조회한다.
+     *
      * @return {@link AdminResponse} 모든 Admin 목록
      */
     @GetMapping("/admins")
     public ApiResponse<PageResponse<AdminResponse>> getAllAdmins(
             @PageableDefault(size = 20, sort = "adminId", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ApiResponse.success(new PageResponse<>(adminReadService.getAllAdmins(pageable)));
+        return ApiResponses.page(adminReadService.getAllAdmins(pageable));
     }
 
     /**
-     * Admin 비활성화
-     * 
+     * Admin을 비활성화한다.
+     *
      * @param adminId 비활성화할 Admin ID
      * @return 성공 응답
      */
     @PutMapping("/admins/{adminId}/deactivate")
     public ApiResponse<Void> deactivateAdmin(@PathVariable Long adminId) {
         adminAssignmentFacade.deactivateAdmin(adminId);
-        return ApiResponse.success(null);
+        return ApiResponses.ok();
     }
 
     /**
@@ -135,7 +132,7 @@ public class AdminController {
     @PutMapping("/admins/{adminId}/activate")
     public ApiResponse<Void> activateAdmin(@PathVariable Long adminId) {
         adminAssignmentFacade.activateAdmin(adminId);
-        return ApiResponse.success(null);
+        return ApiResponses.ok();
     }
 
     @GetMapping("/boards/{boardId}/manager")
@@ -150,49 +147,46 @@ public class AdminController {
     }
 
     /**
-     * IP 차단
-     * 
-     * @param request        {@link IpBlockRequest} 차단할 IP 정보 (ipAddress, reason,
-     *                       endDate)
-     * @param authentication 인증 정보
+     * IP를 차단한다.
+     *
+     * @param request {@link IpBlockRequest} 차단할 IP 정보 (ipAddress, reason, endDate)
      * @return {@link IpBlockResponse} 차단된 IP 정보
      */
     @PostMapping("/ip-blocks")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<IpBlockResponse> blockIp(
             @Valid @RequestBody IpBlockRequest request,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long adminUserId = requiredUserId(userDetails);
+            @CurrentUserId Long adminUserId) {
         return ApiResponse.success(ipBlockService.blockIp(adminUserId, request.getIpAddress(), request.getReason(),
                 request.getEndDate()));
     }
 
     /**
-     * IP 차단 해제
-     * 
+     * IP 차단을 해제한다.
+     *
      * @param ipAddress 차단 해제할 IP 주소
      * @return 성공 응답
      */
     @DeleteMapping("/ip-blocks/{ipAddress}")
     public ApiResponse<Void> unblockIp(@PathVariable String ipAddress) {
         ipBlockService.unblockIp(ipAddress);
-        return ApiResponse.success(null);
+        return ApiResponses.ok();
     }
 
     /**
-     * 차단된 IP 목록 조회
-     * 
+     * 차단된 IP 목록을 조회한다.
+     *
      * @return {@link IpBlockResponse} 차단된 IP 목록
      */
     @GetMapping("/ip-blocks")
     public ApiResponse<PageResponse<IpBlockResponse>> getBlockedIps(
             @PageableDefault(size = 20, sort = "startDate", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ApiResponse.success(new PageResponse<>(ipBlockService.getBlockedIps(pageable)));
+        return ApiResponses.page(ipBlockService.getBlockedIps(pageable));
     }
 
     /**
-     * 대시보드 통계 조회
-     * 
+     * 대시보드 통계를 조회한다.
+     *
      * @return {@link DashboardStatsDto} 대시보드 통계 정보
      */
     @GetMapping("/stats")
@@ -207,7 +201,7 @@ public class AdminController {
             Sort sort) {
         Pageable pageable = PageRequestUtils.of(page, size, sort);
         Page<AdminInquirySummaryResponse> inquiryPage = postService.getInquiryPostsForAdmin(pageable);
-        return ApiResponse.success(new PageResponse<>(inquiryPage));
+        return ApiResponses.page(inquiryPage);
     }
 
     @GetMapping("/inquiries/{postId}")

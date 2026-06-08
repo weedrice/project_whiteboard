@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
-import BaseTable, { type TableColumn } from '@/components/common/ui/BaseTable.vue'
-import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
-import AdminPaginationFooter from '@/components/admin/AdminPaginationFooter.vue'
-import AdminPanel from '@/components/admin/AdminPanel.vue'
+import type { TableColumn } from '@/components/common/ui/BaseTable.vue'
+import AdminDataPage from '@/components/admin/AdminDataPage.vue'
+import AdminFilterField from '@/components/admin/AdminFilterField.vue'
+import AdminFilterPanel from '@/components/admin/AdminFilterPanel.vue'
+import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
+import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
 import AdminInquiryDetailModal from '@/components/admin/AdminInquiryDetailModal.vue'
 import { useI18n } from 'vue-i18n'
 import { useAdminInquiryPosts, type AdminInquiryListItem } from '@/composables/useAdminInquiryPosts'
@@ -47,66 +48,57 @@ function handleRowClick(post: AdminInquiryListItem) {
 </script>
 
 <template>
-  <div>
-    <AdminPageHeader :title="t('admin.inquiries.title')" :description="t('admin.inquiries.description')">
-      <template #actions>
-        <div class="mt-3 flex items-center gap-2 sm:mt-0">
-          <label for="inquiry-sort" class="text-sm text-gray-600 dark:text-gray-300">{{ t('admin.inquiries.sort.label') }}</label>
+  <AdminDataPage :title="t('admin.inquiries.title')" :description="t('admin.inquiries.description')">
+    <template #filters>
+      <AdminFilterPanel class-name="mt-4">
+        <div class="flex flex-wrap items-end gap-3">
+          <AdminFilterField :label="t('admin.inquiries.sort.label')" for-id="inquiry-sort" width-class="w-44">
           <select
             id="inquiry-sort"
             v-model="sort"
-            class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+            class="input-base rounded-md px-3 py-2 text-sm"
           >
             <option value="createdAt,desc">{{ t('admin.inquiries.sort.latest') }}</option>
             <option value="createdAt,asc">{{ t('admin.inquiries.sort.oldest') }}</option>
           </select>
+          </AdminFilterField>
         </div>
-      </template>
-    </AdminPageHeader>
+      </AdminFilterPanel>
+    </template>
 
-    <AdminPanel class="mt-4 shadow-sm" padding="none" :shadow="false">
-      <div v-if="isLoading" class="flex items-center justify-center py-10">
-        <BaseSpinner size="lg" />
-      </div>
+    <div v-if="error && !isLoading" class="mt-4 rounded-lg border nv-border px-4 py-6 text-sm nv-form-error">
+      {{ t('common.messages.loadFailed') }}
+    </div>
 
-      <div v-else-if="error" class="px-4 py-6 text-sm text-red-600 dark:text-red-400">
-        {{ t('common.messages.loadFailed') }}
-      </div>
-
-      <BaseTable
-        v-else
-        :columns="columns"
-        :items="posts"
-        row-key="id"
-        :empty-text="t('admin.inquiries.empty')"
-        :row-class="getRowClass"
-        @row-click="handleRowClick"
-      >
-        <template #cell-title="{ item }">
-          <button type="button" class="max-w-[280px] truncate text-left hover:underline" @click.stop="openDetail(item.id)">
-            {{ item.title }}
-          </button>
-        </template>
-
-        <template #cell-status="{ item }">
-          <span
-            class="inline-flex rounded-full px-2 py-1 text-xs font-medium"
-            :class="item.statusClass"
-          >
-            {{ t(item.statusLabelKey) }}
-          </span>
-        </template>
-      </BaseTable>
-    </AdminPanel>
-
-    <AdminPaginationFooter
+    <AdminPaginatedTable
+      v-else
+      table-class="mt-4"
+      :columns="columns"
+      :items="posts"
+      row-key="id"
+      :loading="isLoading"
+      :empty-text="t('admin.inquiries.empty')"
+      :row-class="getRowClass"
+      interactive-rows
+      :row-action-label="(item) => `${item.title} 상세 보기`"
       :page="page"
       :total-pages="totalPages"
       :summary="t('admin.inquiries.total', { count: totalElements })"
-      :loading="isFetching"
+      :footer-loading="isFetching"
       :loading-text="t('admin.inquiries.refreshing')"
+      @row-click="handleRowClick"
       @page-change="handlePageChange"
-    />
+    >
+      <template #cell-title="{ item }">
+        <button type="button" class="max-w-[280px] truncate text-left hover:underline" @click.stop="openDetail(item.id)">
+          {{ item.title }}
+        </button>
+      </template>
+
+      <template #cell-status="{ item }">
+        <AdminStatusBadge :label="t(item.statusLabelKey)" :variant="item.statusVariant" />
+      </template>
+    </AdminPaginatedTable>
 
     <AdminInquiryDetailModal
       :is-open="selectedPostId !== null"
@@ -116,5 +108,5 @@ function handleRowClick(post: AdminInquiryListItem) {
       :error="detailError"
       @close="closeDetail"
     />
-  </div>
+  </AdminDataPage>
 </template>

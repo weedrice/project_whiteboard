@@ -114,8 +114,7 @@ public class CommentQueryService {
     }
 
     public CommentResponse getComment(Long commentId, Long currentUserId) {
-        Comment comment = commentRepository.findNonDeletedByIdWithRelations(commentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+        Comment comment = commentReadSupport.getNonDeletedWithRelationsOrThrow(commentId);
         CommentReadContext context = resolveReadContext(currentUserId);
         commentPostAccessService.validateReadable(comment.getPost(), context);
         return toCommentResponse(commentReadModelAssembler.from(comment, context.blockedUserIds()));
@@ -123,7 +122,7 @@ public class CommentQueryService {
 
     public Page<MyCommentResponse> getMyComments(Long userId, Pageable pageable) {
         User user = userReadableResolver.resolve(userId);
-        Pageable safePageable = normalizeMyCommentPageable(pageable);
+        Pageable safePageable = PageRequestUtils.of(pageable, DEFAULT_MY_COMMENT_PAGE_SIZE, DEFAULT_MY_COMMENT_SORT);
         CommentReadContext context = resolveReadContext(user);
         Set<Long> blockedUserIds = context.blockedUserIds();
         BlockedUserIdsParameter blockedUserIdsParameter = BlockedUserIdsParameter.from(blockedUserIds);
@@ -143,13 +142,6 @@ public class CommentQueryService {
                 parentComment.getCommentId(),
                 blockedUserIdsParameter.empty(),
                 blockedUserIdsParameter.ids());
-    }
-
-    private Pageable normalizeMyCommentPageable(Pageable pageable) {
-        if (pageable == null || pageable.isUnpaged()) {
-            return PageRequestUtils.of(0, DEFAULT_MY_COMMENT_PAGE_SIZE, DEFAULT_MY_COMMENT_SORT);
-        }
-        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), DEFAULT_MY_COMMENT_SORT);
     }
 
     private CommentReadContext resolveReadContext(Long currentUserId) {

@@ -7,7 +7,7 @@ import logger from '@/utils/logger'
 import { boardApi } from '@/api/board'
 import { emoticonApi } from '@/api/emoticon'
 import { postApi } from '@/api/post'
-import { postDetailQueryKey } from '@/composables/usePost'
+import { postDetailQueryKey } from '@/composables/postQueryKeys'
 import i18n from '@/i18n'
 import { useToastStore } from '@/stores/toast'
 
@@ -22,6 +22,10 @@ vi.mock('@/stores/auth', () => ({
 
 vi.mock('@/queryClient', () => ({
     queryClient: queryClientMock
+}))
+
+vi.mock('@/utils/pageReload', () => ({
+    reloadPage: vi.fn()
 }))
 
 vi.mock('@/api/board', () => ({
@@ -268,6 +272,7 @@ describe('Router Navigation Guards', () => {
     })
 
     it('redirects to error when board write permission cannot be verified', async () => {
+        const loggerSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
         mockAuthStore.isAuthenticated = true
         mockAuthStore.user = { role: 'USER' }
         vi.mocked(boardApi.getBoard).mockRejectedValueOnce(new Error('board failed'))
@@ -276,6 +281,7 @@ describe('Router Navigation Guards', () => {
 
         expect(router.currentRoute.value.name).toBe('error')
         expect(router.currentRoute.value.query.status).toBe('500')
+        loggerSpy.mockRestore()
     })
 
     it('checks post author permission before entering post edit route', async () => {
@@ -305,6 +311,7 @@ describe('Router Navigation Guards', () => {
     })
 
     it('redirects to error when post author permission cannot be verified', async () => {
+        const loggerSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
         mockAuthStore.isAuthenticated = true
         mockAuthStore.user = { userId: 1, role: 'USER' }
         vi.mocked(postApi.getPost).mockRejectedValueOnce(new Error('post failed'))
@@ -314,6 +321,7 @@ describe('Router Navigation Guards', () => {
 
         expect(router.currentRoute.value.name).toBe('error')
         expect(router.currentRoute.value.query.status).toBe('500')
+        loggerSpy.mockRestore()
     })
 
     it('checks board manager permission before entering board edit route', async () => {

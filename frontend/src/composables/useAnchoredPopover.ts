@@ -1,4 +1,5 @@
 import { nextTick, onBeforeUnmount, ref, watch, type Ref } from 'vue'
+import { useViewportListeners } from '@/composables/useViewportListeners'
 
 type PopoverStyle = {
     top: string
@@ -28,7 +29,6 @@ function getCenteredStyle(): PopoverStyle {
 export function useAnchoredPopover(popoverRef: Ref<HTMLElement | null>, isOpen: Ref<boolean> = ref(false)) {
     const anchorElement = ref<HTMLElement | null>(null)
     const popoverStyle = ref<PopoverStyle>(getCenteredStyle())
-    let isListening = false
     let animationFrameId: number | null = null
 
     function setAnchor(element?: HTMLElement | null) {
@@ -86,20 +86,9 @@ export function useAnchoredPopover(popoverRef: Ref<HTMLElement | null>, isOpen: 
         scheduleUpdatePosition()
     }
 
-    function startListening() {
-        if (typeof window === 'undefined' || isListening) return
-        window.addEventListener('resize', onViewportChange)
-        window.addEventListener('scroll', onViewportChange, true)
-        isListening = true
-    }
-
-    function stopListening() {
-        if (typeof window === 'undefined' || !isListening) return
-        window.removeEventListener('resize', onViewportChange)
-        window.removeEventListener('scroll', onViewportChange, true)
-        isListening = false
-        cancelScheduledUpdate()
-    }
+    const { startListening, stopListening } = useViewportListeners(onViewportChange, {
+        onStop: cancelScheduledUpdate,
+    })
 
     watch(isOpen, (open) => {
         if (open) {

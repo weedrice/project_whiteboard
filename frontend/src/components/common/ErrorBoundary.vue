@@ -21,14 +21,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onErrorCaptured, provide } from 'vue'
+import { computed, ref, onErrorCaptured, provide, type ComponentPublicInstance } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import logger from '@/utils/logger'
 
 interface Props {
-    fallback?: (error: Error, instance: any, info: string) => void
+    fallback?: (error: Error, instance: ComponentPublicInstance | null, info: string) => void
     showDetails?: boolean
 }
 
@@ -37,7 +37,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-    error: [error: Error, instance: any, info: string]
+    error: [error: Error, instance: ComponentPublicInstance | null, info: string]
 }>()
 
 const router = useRouter()
@@ -62,7 +62,7 @@ const isChunkLoadError = (err: Error | null) => {
     )
 }
 
-onErrorCaptured((err: Error, instance: any, info: string) => {
+onErrorCaptured((err: Error, instance: ComponentPublicInstance | null, info: string) => {
     hasError.value = true
     error.value = err
     errorInfo.value = info
@@ -127,7 +127,7 @@ provide('resetError', resetError)
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: #f9fafb;
+    background-color: var(--nv-page);
     padding: 3rem 1rem;
 }
 
@@ -145,13 +145,13 @@ provide('resetError', resetError)
     text-align: center;
     font-size: 1.875rem;
     font-weight: 800;
-    color: #111827;
+    color: var(--nv-text);
 }
 
 .error-boundary-message {
     margin-top: 0.5rem;
     font-size: 0.875rem;
-    color: #4b5563;
+    color: var(--nv-text-muted);
 }
 
 .error-boundary-actions {
@@ -169,7 +169,7 @@ provide('resetError', resetError)
 .error-boundary-stack {
     margin-top: 0.5rem;
     padding: 1rem;
-    background-color: #f3f4f6;
+    background-color: var(--nv-surface-muted);
     border-radius: 0.375rem;
     font-size: 0.75rem;
     overflow: auto;

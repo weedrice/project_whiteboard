@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref, watch, type ComponentPublicInstance } from 'vue'
+import { nextTick, onMounted, ref, watch, type ComponentPublicInstance } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useEventListener } from '@/composables/useEventListener'
 
 type SlashAction = 'heading' | 'quote' | 'list' | 'link' | 'table' | 'codeBlock' | 'divider'
 
@@ -51,13 +52,10 @@ watch(() => props.activeIndex, () => {
 })
 
 onMounted(() => {
-  document.addEventListener('keydown', onDocumentKeydown)
   void focusActiveItem()
 })
 
-onBeforeUnmount(() => {
-  document.removeEventListener('keydown', onDocumentKeydown)
-})
+useEventListener(() => document, 'keydown', onDocumentKeydown)
 
 function onKeydown(event: KeyboardEvent) {
   if (event.key === 'ArrowDown') {

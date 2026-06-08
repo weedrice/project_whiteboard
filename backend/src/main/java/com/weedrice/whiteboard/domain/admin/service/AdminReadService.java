@@ -24,15 +24,8 @@ public class AdminReadService {
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public Page<AdminResponse> getAllAdmins(Pageable pageable) {
-        Pageable safePageable = normalizeAdminPageable(pageable);
+        Pageable safePageable = PageRequestUtils.of(pageable, DEFAULT_ADMIN_PAGE_SIZE, DEFAULT_ADMIN_SORT);
         Page<Admin> admins = adminRepository.findAllByOrderByAdminIdDesc(safePageable);
         return admins.map(AdminResponse::from);
-    }
-
-    private Pageable normalizeAdminPageable(Pageable pageable) {
-        if (pageable == null || pageable.isUnpaged()) {
-            return PageRequestUtils.of(0, DEFAULT_ADMIN_PAGE_SIZE, DEFAULT_ADMIN_SORT);
-        }
-        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), DEFAULT_ADMIN_SORT);
     }
 }

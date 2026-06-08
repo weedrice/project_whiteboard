@@ -56,7 +56,7 @@ class FileAssociationService {
         }
 
         Map<Long, File> filesById = loadActiveFilesById(orderedFileIds);
-        for (Long fileId : fileIds) {
+        for (Long fileId : orderedFileIds) {
             File file = filesById.get(fileId);
             if (file == null) {
                 throw new BusinessException(ErrorCode.NOT_FOUND);

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import BaseButton from '@/components/common/ui/BaseButton.vue'
+import PostEditorPopoverActions from './PostEditorPopoverActions.vue'
 import { useI18n } from 'vue-i18n'
 
 const props = defineProps<{
@@ -42,15 +42,16 @@ function apply() {
     >
     <p id="editor-image-alt-help" class="image-alt-help">{{ t('board.writePost.imageAlt.help') }}</p>
   </div>
-  <div class="link-popover-actions">
-    <BaseButton type="button" variant="secondary" size="sm" @click="emit('close')">
-      {{ t('common.cancel') }}
-    </BaseButton>
-    <button type="button" class="link-popover-remove" @click="emit('clear')">
-      {{ t('board.writePost.imageAlt.clear') }}
-    </button>
-    <BaseButton type="button" variant="primary" size="sm" @click="apply">
-      {{ t('board.writePost.imageAlt.apply') }}
-    </BaseButton>
-  </div>
+  <PostEditorPopoverActions
+    :cancel-label="t('common.cancel')"
+    :apply-label="t('board.writePost.imageAlt.apply')"
+    @close="emit('close')"
+    @apply="apply"
+  >
+    <template #secondary-action>
+      <button type="button" class="link-popover-remove" @click="emit('clear')">
+        {{ t('board.writePost.imageAlt.clear') }}
+      </button>
+    </template>
+  </PostEditorPopoverActions>
 </template>

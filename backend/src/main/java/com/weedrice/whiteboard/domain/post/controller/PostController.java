@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.post.dto.*;
 import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CurrentUserId;
@@ -35,7 +36,7 @@ public class PostController {
 
         Page<PostSummary> summaryPage = postService.getPosts(boardUrl, categoryId, keyword, minLikes, userId, pageable);
 
-        return pageResponse(summaryPage);
+        return ApiResponses.page(summaryPage);
     }
 
     @GetMapping("/posts/trending")
@@ -44,7 +45,7 @@ public class PostController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "24h") String period,
             @CurrentUserId(required = false) Long userId) {
-        return pageResponse(postService.getTrendingPostsPage(PageRequestUtils.of(page, size), userId, period));
+        return ApiResponses.page(postService.getTrendingPostsPage(PageRequestUtils.of(page, size), userId, period));
     }
 
     @GetMapping("/posts/{postId}")
@@ -63,7 +64,7 @@ public class PostController {
             @PathVariable Long postId,
             @CurrentUserId(required = false) Long userId) {
         postService.incrementViewCount(postId, userId);
-        return ApiResponse.success(null);
+        return ApiResponses.ok();
     }
 
     @PutMapping("/posts/{postId}/history")
@@ -72,7 +73,7 @@ public class PostController {
             @Valid @RequestBody ViewHistoryRequest request,
             @CurrentUserId Long userId) {
         postService.updateViewHistory(userId, postId, request);
-        return ApiResponse.success(null);
+        return ApiResponses.ok();
     }
 
     @PostMapping("/boards/{boardUrl}/posts")
@@ -97,7 +98,7 @@ public class PostController {
             @PathVariable Long postId,
             @CurrentUserId Long userId) {
         postService.deletePost(userId, postId);
-        return ApiResponse.success(null);
+        return ApiResponses.ok();
     }
 
     @PostMapping("/posts/{postId}/like")
@@ -123,7 +124,7 @@ public class PostController {
             @CurrentUserId Long userId) {
         String remark = (request != null) ? request.getRemark() : null;
         postService.scrapPost(userId, postId, remark);
-        return ApiResponse.success(null);
+        return ApiResponses.ok();
     }
 
     @DeleteMapping("/posts/{postId}/scrap")
@@ -131,7 +132,7 @@ public class PostController {
             @PathVariable Long postId,
             @CurrentUserId Long userId) {
         postService.unscrapPost(userId, postId);
-        return ApiResponse.success(null);
+        return ApiResponses.ok();
     }
 
     @GetMapping("/users/me/scraps")
@@ -169,7 +170,7 @@ public class PostController {
             @PathVariable Long draftId,
             @CurrentUserId Long userId) {
         postService.deleteDraftPost(userId, draftId);
-        return ApiResponse.success(null);
+        return ApiResponses.ok();
     }
 
     @GetMapping("/posts/{postId}/versions")
@@ -177,9 +178,5 @@ public class PostController {
             @PathVariable Long postId,
             @CurrentUserId Long userId) {
         return ApiResponse.success(postService.getPostVersions(postId, userId));
-    }
-
-    private <T> ApiResponse<PageResponse<T>> pageResponse(Page<T> page) {
-        return ApiResponse.success(new PageResponse<>(page));
     }
 }

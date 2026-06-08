@@ -1,21 +1,26 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { useUser } from '@/composables/useUser'
 import PostList from '@/components/board/PostList.vue'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
-import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import { Bookmark } from 'lucide-vue-next'
-import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
-import { getListLoadErrorMessage } from '@/utils/listLoadError'
+import { usePaginatedListState } from '@/composables/usePaginatedListState'
 import { isInquiryPostItem, resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigation'
 import { useI18n } from 'vue-i18n'
+import type { PostSummary } from '@/types'
 
 const { t } = useI18n()
 const { useMyScraps } = useUser()
-const { page, size, params, handlePageChange, handleSizeChange } = usePaginatedQueryState({ initialSize: 15 })
-const { data: scrapsData, isLoading: loading, error, refetch } = useMyScraps(params)
-const { items: scraps, totalPages } = usePageResponseState(scrapsData, page)
-const errorMessage = computed(() => error.value ? getListLoadErrorMessage(t) : '')
+const {
+  page,
+  size,
+  handlePageChange,
+  handleSizeChange,
+  items: scraps,
+  totalPages,
+  isLoading: loading,
+  errorMessage,
+  refetch,
+} = usePaginatedListState<PostSummary>(useMyScraps, { initialSize: 15, t })
 </script>
 
 <template>
@@ -30,24 +35,11 @@ const errorMessage = computed(() => error.value ? getListLoadErrorMessage(t) : '
     :size="size"
     :total-pages="totalPages"
     max-width-class="max-w-7xl"
+    loading-preset="post-list"
     @retry="refetch"
     @page-change="handlePageChange"
     @size-change="handleSizeChange"
   >
-    <template #loading>
-      <div class="divide-y divide-gray-200 dark:divide-gray-700">
-        <div v-for="i in 5" :key="i" class="px-4 py-4 sm:px-6 flex justify-between items-center">
-          <div class="w-full">
-            <BaseSkeleton width="70%" height="24px" className="mb-2" />
-            <div class="flex gap-2">
-              <BaseSkeleton width="40px" height="16px" />
-              <BaseSkeleton width="60px" height="16px" />
-            </div>
-          </div>
-        </div>
-      </div>
-    </template>
-
     <PostList
       :posts="scraps"
       :show-board-name="true"

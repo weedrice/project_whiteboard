@@ -1,7 +1,7 @@
 <template>
     <div class="relative mb-6">
         <div ref="scrollContainer" class="overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth">
-            <nav class="flex space-x-4 sm:space-x-6 md:space-x-8 border-b border-gray-200 dark:border-gray-700 min-w-max relative"
+            <nav class="flex space-x-4 sm:space-x-6 md:space-x-8 border-b nv-border min-w-max relative"
                 aria-label="Tabs" role="tablist">
                 <a v-for="(tab, index) in tabs" :key="tab.nameKey" :href="tab.href"
                     :ref="el => { if (el) tabRefs[index] = el as HTMLElement }"
@@ -10,14 +10,14 @@
                     class="whitespace-nowrap py-3 sm:py-4 px-1 text-xs sm:text-sm min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors duration-200 focus:outline-none rounded-t touch-manipulation"
                     :class="[
                         isActive(tab.href)
-                            ? 'text-indigo-600 dark:text-indigo-400 font-bold'
-                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 font-medium'
+                            ? 'text-[var(--nv-accent)] font-bold'
+                            : 'nv-text-subtle user-nav-link font-medium'
                     ]" :aria-current="isActive(tab.href) ? 'page' : undefined" role="tab"
                     :tabindex="isActive(tab.href) ? 0 : -1">
                     {{ $t(tab.nameKey) }}
                 </a>
 
-                <div class="absolute bottom-0 h-0.5 bg-indigo-500 dark:bg-gray-300 transition-all duration-300 ease-out"
+                <div class="absolute bottom-0 h-0.5 bg-[var(--nv-accent)] transition-all duration-300 ease-out"
                     :style="underlineStyle"></div>
             </nav>
         </div>
@@ -26,6 +26,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { useEventListener } from '@/composables/useEventListener'
 import { useThrottleFn } from '@/composables/useThrottle'
 import { DEBOUNCE_DELAY } from '@/utils/constants'
 import { isInputFocused } from '@/utils/keyboard'
@@ -61,6 +62,17 @@ function navigateToTab(index: number) {
     emit('navigate', tab.href)
 }
 
+function focusTab(index: number) {
+    nextTick(() => {
+        tabRefs.value[index]?.focus()
+    })
+}
+
+function navigateToTabAndFocus(index: number) {
+    navigateToTab(index)
+    focusTab(index)
+}
+
 function handleTabClick(event: MouseEvent, href: string) {
     if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) {
         return
@@ -78,35 +90,23 @@ const handleTabKeyDown = (event: KeyboardEvent, currentIndex: number) => {
         case 'ArrowLeft':
             event.preventDefault()
             const prevIndex = currentIndex > 0 ? currentIndex - 1 : (tabCount - 1)
-            navigateToTab(prevIndex)
-            nextTick(() => {
-                tabRefs.value[prevIndex]?.focus()
-            })
+            navigateToTabAndFocus(prevIndex)
             break
 
         case 'ArrowRight':
             event.preventDefault()
             const nextIndex = currentIndex < tabCount - 1 ? currentIndex + 1 : 0
-            navigateToTab(nextIndex)
-            nextTick(() => {
-                tabRefs.value[nextIndex]?.focus()
-            })
+            navigateToTabAndFocus(nextIndex)
             break
 
         case 'Home':
             event.preventDefault()
-            navigateToTab(0)
-            nextTick(() => {
-                tabRefs.value[0]?.focus()
-            })
+            navigateToTabAndFocus(0)
             break
 
         case 'End':
             event.preventDefault()
-            navigateToTab(tabCount - 1)
-            nextTick(() => {
-                tabRefs.value[tabCount - 1]?.focus()
-            })
+            navigateToTabAndFocus(tabCount - 1)
             break
     }
 }
@@ -174,15 +174,20 @@ function handleDocumentKeyDown(e: KeyboardEvent) {
     }
 }
 
+useEventListener(() => window, 'resize', throttledUpdateUnderline)
+useEventListener(() => document, 'keydown', handleDocumentKeyDown)
+
 onMounted(() => {
     nextTick(updateUnderline)
-    window.addEventListener('resize', throttledUpdateUnderline)
-    document.addEventListener('keydown', handleDocumentKeyDown)
 })
 
 onUnmounted(() => {
-    window.removeEventListener('resize', throttledUpdateUnderline)
     throttledUpdateUnderline.cancel()
-    document.removeEventListener('keydown', handleDocumentKeyDown)
 })
 </script>
+
+<style scoped>
+.user-nav-link:hover {
+    color: var(--nv-text);
+}
+</style>

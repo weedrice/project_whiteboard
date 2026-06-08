@@ -1,5 +1,6 @@
 import api from './index'
 import type { AxiosRequestConfig } from 'axios'
+import { unwrapApiData } from '@/api/response'
 import type { EmoticonMaster, EmoticonCreateRequest, EmoticonUpdateRequest, EmoticonSearchParams, EmoticonPurchaseStatus } from '@/types/emoticon'
 import type { ApiResponse } from '@/types'
 import type { PageResponse } from '@/types/common'
@@ -11,7 +12,7 @@ type EmoticonEnvelopeResponse<T> = {
 }
 
 export function unwrapEmoticonResponse<T>(response: EmoticonEnvelopeResponse<T>): T {
-    return response.data.data
+    return unwrapApiData(response.data as ApiResponse<T>)
 }
 
 export const emoticonApi = {

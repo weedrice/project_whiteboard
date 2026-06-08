@@ -39,10 +39,13 @@ describe('image utils', () => {
 
     it('sets placeholder image on load error when placeholder URL is provided', () => {
         const img = document.createElement('img')
+        img.srcset = 'https://example.com/original.png 1x'
         const event = { target: img } as unknown as Event
 
         handleImageError(event, 'https://example.com/placeholder.png')
         expect(img.src).toBe('https://example.com/placeholder.png')
+        expect(img.hasAttribute('srcset')).toBe(false)
+        expect(img.dataset.fallbackApplied).toBe('true')
     })
 
     it('sets default inline SVG placeholder when no placeholder is provided', () => {
@@ -51,5 +54,15 @@ describe('image utils', () => {
 
         handleImageError(event)
         expect(img.src.startsWith('data:image/svg+xml')).toBe(true)
+    })
+
+    it('does not reapply the fallback after the placeholder also fails', () => {
+        const img = document.createElement('img')
+        img.dataset.fallbackApplied = 'true'
+        img.src = 'https://example.com/placeholder.png'
+        const event = { target: img } as unknown as Event
+
+        handleImageError(event, 'https://example.com/next-placeholder.png')
+        expect(img.src).toBe('https://example.com/placeholder.png')
     })
 })

@@ -1,5 +1,6 @@
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
+import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import type { ErrorLogSearchParams } from '@/types'
 
 function toDateString(date: Date): string {
@@ -24,17 +25,13 @@ export function useErrorLogListState() {
     const { useErrorLogs, useErrorLogStats } = useAdmin()
     const { defaultStartDate, defaultEndDate } = getDefaultDateRange()
 
-    const page = ref(0)
-    const size = ref(20)
     const filterErrorType = ref('')
     const filterHttpStatus = ref<number | undefined>(undefined)
     const filterIsResolved = ref('')
     const filterStartDate = ref(defaultStartDate)
     const filterEndDate = ref(defaultEndDate)
 
-    const searchParams = ref<ErrorLogSearchParams>({
-        page: 0,
-        size: 20,
+    const filterParams = ref<ErrorLogSearchParams>({
         errorType: undefined,
         httpStatus: undefined,
         isResolved: undefined,
@@ -42,22 +39,25 @@ export function useErrorLogListState() {
         endDate: defaultEndDate
     })
 
-    const params = computed(() => ({
-        ...searchParams.value,
-        page: page.value
-    }))
+    const {
+        page,
+        size,
+        params,
+        resetPage,
+    } = usePaginatedQueryState({
+        initialSize: 20,
+        extraParams: filterParams,
+    })
 
     function handleSearch() {
-        searchParams.value = {
-            page: 0,
-            size: size.value,
+        filterParams.value = {
             errorType: filterErrorType.value || undefined,
             httpStatus: filterHttpStatus.value || undefined,
             isResolved: filterIsResolved.value || undefined,
             startDate: filterStartDate.value || undefined,
             endDate: filterEndDate.value || undefined
         }
-        page.value = 0
+        resetPage()
     }
 
     function resetFilters() {
@@ -66,16 +66,17 @@ export function useErrorLogListState() {
         filterIsResolved.value = ''
         filterStartDate.value = defaultStartDate
         filterEndDate.value = defaultEndDate
-        page.value = 0
         handleSearch()
     }
 
     const { data: errorLogsData, isLoading } = useErrorLogs(params)
     const { data: statsData } = useErrorLogStats()
 
-    const errorLogs = computed(() => errorLogsData.value?.content || [])
-    const totalPages = computed(() => errorLogsData.value?.totalPages || 0)
-    const totalElements = computed(() => errorLogsData.value?.totalElements || 0)
+    const {
+        items: errorLogs,
+        totalPages,
+        totalElements,
+    } = usePageResponseState(errorLogsData, page)
 
     return {
         errorLogs,

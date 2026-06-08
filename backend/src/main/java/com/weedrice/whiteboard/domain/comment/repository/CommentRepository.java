@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.comment.repository;
 
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
+import com.weedrice.whiteboard.domain.post.repository.PostVisibilityJpql;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -196,42 +197,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                           AND c.isDeleted = false
                           AND p.isDeleted = false
                           AND (:blockedUserIdsEmpty = true OR p.user.userId NOT IN (:blockedUserIds))
-                          AND (
-                                b.isActive = true
-                                OR p.user = :user
-                                OR :viewerIsSuperAdmin = true
-                                OR EXISTS (
-                                        SELECT 1
-                                        FROM Admin a
-                                        WHERE a.user = :user
-                                          AND a.board = b
-                                          AND a.isActive = true
-                                )
-                          )
-                          AND (
-                                b.isPublic = true
-                                OR (LOWER(b.boardUrl) = :inquiryBoardUrl AND p.user = :user)
-                                OR :viewerIsSuperAdmin = true
-                                OR EXISTS (
-                                        SELECT 1
-                                        FROM Admin a
-                                        WHERE a.user = :user
-                                          AND a.board = b
-                                          AND a.isActive = true
-                                )
-                          )
-                          AND (
-                                p.isSecret = false
-                                OR p.user = :user
-                                OR :viewerIsSuperAdmin = true
-                                OR EXISTS (
-                                        SELECT 1
-                                        FROM Admin a
-                                        WHERE a.user = :user
-                                          AND a.board = b
-                                          AND a.isActive = true
-                                )
-                          )
+            """ + PostVisibilityJpql.VIEWER_READABLE_POST + """
                         ORDER BY c.createdAt DESC, c.commentId DESC
                         """, countQuery = """
                         SELECT COUNT(DISTINCT c)
@@ -242,42 +208,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                           AND c.isDeleted = false
                           AND p.isDeleted = false
                           AND (:blockedUserIdsEmpty = true OR p.user.userId NOT IN (:blockedUserIds))
-                          AND (
-                                b.isActive = true
-                                OR p.user = :user
-                                OR :viewerIsSuperAdmin = true
-                                OR EXISTS (
-                                        SELECT 1
-                                        FROM Admin a
-                                        WHERE a.user = :user
-                                          AND a.board = b
-                                          AND a.isActive = true
-                                )
-                          )
-                          AND (
-                                b.isPublic = true
-                                OR (LOWER(b.boardUrl) = :inquiryBoardUrl AND p.user = :user)
-                                OR :viewerIsSuperAdmin = true
-                                OR EXISTS (
-                                        SELECT 1
-                                        FROM Admin a
-                                        WHERE a.user = :user
-                                          AND a.board = b
-                                          AND a.isActive = true
-                                )
-                          )
-                          AND (
-                                p.isSecret = false
-                                OR p.user = :user
-                                OR :viewerIsSuperAdmin = true
-                                OR EXISTS (
-                                        SELECT 1
-                                        FROM Admin a
-                                        WHERE a.user = :user
-                                          AND a.board = b
-                                          AND a.isActive = true
-                                )
-                          )
+            """ + PostVisibilityJpql.VIEWER_READABLE_POST + """
                         """)
         Page<Comment> findVisibleMyComments(
                         @org.springframework.data.repository.query.Param("user") User user,

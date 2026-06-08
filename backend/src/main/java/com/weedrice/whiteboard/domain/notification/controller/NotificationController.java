@@ -4,15 +4,13 @@ import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.service.NotificationService;
 import com.weedrice.whiteboard.domain.notification.web.NotificationSseEmitterRegistry;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.CurrentUserId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-
-import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
 
 @RestController
 @RequestMapping("/api/v1/notifications")
@@ -26,8 +24,7 @@ public class NotificationController {
     public ApiResponse<NotificationResponse> getNotifications(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = requiredUserId(userDetails);
+            @CurrentUserId Long userId) {
         Pageable pageable = PageRequestUtils.of(page, size);
         return ApiResponse.success(notificationService.getNotifications(userId, pageable));
     }
@@ -35,30 +32,26 @@ public class NotificationController {
     @PutMapping("/{notificationId}/read")
     public ApiResponse<Void> readNotification(
             @PathVariable Long notificationId,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = requiredUserId(userDetails);
+            @CurrentUserId Long userId) {
         notificationService.readNotification(userId, notificationId);
-        return ApiResponse.success(null);
+        return ApiResponses.ok();
     }
 
     @PutMapping("/read-all")
     public ApiResponse<Void> readAllNotifications(
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = requiredUserId(userDetails);
+            @CurrentUserId Long userId) {
         notificationService.readAllNotifications(userId);
-        return ApiResponse.success(null);
+        return ApiResponses.ok();
     }
 
     @GetMapping("/unread-count")
     public ApiResponse<Long> getUnreadNotificationCount(
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = requiredUserId(userDetails);
+            @CurrentUserId Long userId) {
         return ApiResponse.success(notificationService.getUnreadNotificationCount(userId));
     }
 
     @GetMapping(value = "/stream", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter subscribe(@AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = requiredUserId(userDetails);
+    public SseEmitter subscribe(@CurrentUserId Long userId) {
         notificationService.validateStreamSubscription(userId);
         return notificationSseEmitterRegistry.subscribe(userId);
     }

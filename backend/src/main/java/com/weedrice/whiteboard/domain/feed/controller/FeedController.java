@@ -4,17 +4,14 @@ import com.weedrice.whiteboard.domain.feed.dto.FeedResponse;
 import com.weedrice.whiteboard.domain.feed.service.FeedService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.CurrentUserId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
 
 @RestController
 @RequestMapping("/api/v1/users/me/feeds")
@@ -28,8 +25,7 @@ public class FeedController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             Sort sort,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = requiredUserId(userDetails);
+            @CurrentUserId Long userId) {
         Pageable pageable = PageRequestUtils.of(page, size, sort);
         return ApiResponse.success(feedService.getUserFeeds(userId, pageable));
     }

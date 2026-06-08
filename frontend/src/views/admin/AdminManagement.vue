@@ -6,10 +6,12 @@ import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import BaseTable from '@/components/common/ui/BaseTable.vue'
-import BaseBadge from '@/components/common/ui/BaseBadge.vue'
-import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
-import AdminPanel from '@/components/admin/AdminPanel.vue'
+import AdminActionButton from '@/components/admin/AdminActionButton.vue'
+import AdminDataPage from '@/components/admin/AdminDataPage.vue'
+import AdminFormPanel from '@/components/admin/AdminFormPanel.vue'
+import AdminInlineForm from '@/components/admin/AdminInlineForm.vue'
+import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
+import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
 import { formatDate } from '@/utils/date'
 
 const { t } = useI18n()
@@ -77,16 +79,15 @@ const superAdminColumns: { key: string; label: string; width: string; align?: 'l
 </script>
 
 <template>
-  <div>
-    <AdminPageHeader :title="t('admin.admins.title')" :description="t('admin.admins.description')" />
-
+  <AdminDataPage :title="t('admin.admins.title')" :description="t('admin.admins.description')">
     <div class="mt-6">
-      <AdminPanel padding="sm" max-width-class="max-w-xl">
-        <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ t('admin.admins.addSuperAdmin') }}</h3>
-        <div class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-          <p>{{ t('admin.admins.addSuperAdminDesc') }}</p>
-        </div>
-        <form @submit.prevent="handleCreateSuperAdmin" class="mt-5 flex gap-3">
+      <AdminFormPanel
+        :title="t('admin.admins.addSuperAdmin')"
+        :description="t('admin.admins.addSuperAdminDesc')"
+        class-name=""
+        max-width-class="max-w-xl"
+      >
+        <AdminInlineForm @submit.prevent="handleCreateSuperAdmin">
           <div class="flex-1">
             <label for="superAdminLoginId" class="sr-only">{{ t('admin.admins.table.loginId') }}</label>
             <BaseInput
@@ -100,13 +101,21 @@ const superAdminColumns: { key: string; label: string; width: string; align?: 'l
             <UserPlus class="h-4 w-4 mr-2" />
             {{ t('common.add') }}
           </BaseButton>
-        </form>
-      </AdminPanel>
+        </AdminInlineForm>
+      </AdminFormPanel>
     </div>
 
     <div class="mt-8">
-      <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white mb-4">{{ t('admin.admins.superAdmins') }}</h3>
-      <BaseTable :columns="superAdminColumns" :items="superAdmins" row-key="userId" :loading="isSuperAdminsLoading" :emptyText="t('common.noData')">
+      <h3 class="text-lg font-medium leading-6 nv-title mb-4">{{ t('admin.admins.superAdmins') }}</h3>
+      <AdminPaginatedTable
+        table-class=""
+        :columns="superAdminColumns"
+        :items="superAdmins"
+        row-key="userId"
+        :loading="isSuperAdminsLoading"
+        :empty-text="t('common.noData')"
+        :show-footer="false"
+      >
         <template #cell-loginId="{ item }">
           {{ item.loginId || '-' }}
         </template>
@@ -116,9 +125,10 @@ const superAdminColumns: { key: string; label: string; width: string; align?: 'l
         </template>
 
         <template #cell-status="{ item }">
-          <BaseBadge :variant="item.superAdmin ? 'success' : 'danger'" size="sm">
-            {{ item.superAdmin ? t('common.active') : t('common.inactive') }}
-          </BaseBadge>
+          <AdminStatusBadge
+            :label="item.superAdmin ? t('common.active') : t('common.inactive')"
+            :variant="item.superAdmin ? 'success' : 'danger'"
+          />
         </template>
 
         <template #cell-createdAt="{ item }">
@@ -126,16 +136,15 @@ const superAdminColumns: { key: string; label: string; width: string; align?: 'l
         </template>
 
         <template #cell-actions="{ item }">
-          <BaseButton
+          <AdminActionButton
+            :label="(item as SuperAdminRow).superAdmin ? t('common.deactivate') : t('common.activate')"
+            tone="accent"
             @click="toggleSuperAdminStatus(item as SuperAdminRow)"
-            variant="ghost"
-            size="sm"
-            class="p-1 text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
           >
             {{ (item as SuperAdminRow).superAdmin ? t('common.deactivate') : t('common.activate') }}
-          </BaseButton>
+          </AdminActionButton>
         </template>
-      </BaseTable>
+      </AdminPaginatedTable>
     </div>
-  </div>
+  </AdminDataPage>
 </template>

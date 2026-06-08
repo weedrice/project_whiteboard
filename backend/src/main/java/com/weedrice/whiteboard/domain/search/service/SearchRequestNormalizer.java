@@ -29,22 +29,25 @@ public final class SearchRequestNormalizer {
     }
 
     public static String canonicalizeKeyword(String keyword) {
-        if (keyword == null) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
-        String canonicalKeyword = keyword.trim();
-        if (canonicalKeyword.isEmpty()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
-        return truncateKeyword(canonicalKeyword);
+        return canonicalizeKeyword(keyword, true);
     }
 
     public static String canonicalizeOptionalKeyword(String keyword) {
+        return canonicalizeKeyword(keyword, false);
+    }
+
+    private static String canonicalizeKeyword(String keyword, boolean required) {
         if (keyword == null) {
+            if (required) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            }
             return null;
         }
         String canonicalKeyword = keyword.trim();
         if (canonicalKeyword.isEmpty()) {
+            if (required) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            }
             return null;
         }
         return truncateKeyword(canonicalKeyword);
@@ -97,9 +100,6 @@ public final class SearchRequestNormalizer {
     }
 
     public static Pageable normalizeRecentSearchPageable(Pageable pageable) {
-        if (pageable == null || pageable.isUnpaged()) {
-            return PageRequestUtils.of(0, DEFAULT_RECENT_SEARCH_PAGE_SIZE, DEFAULT_RECENT_SEARCH_SORT);
-        }
-        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), DEFAULT_RECENT_SEARCH_SORT);
+        return PageRequestUtils.of(pageable, DEFAULT_RECENT_SEARCH_PAGE_SIZE, DEFAULT_RECENT_SEARCH_SORT);
     }
 }

@@ -4,28 +4,23 @@ import com.weedrice.whiteboard.domain.comment.dto.CommentCreateRequest;
 import com.weedrice.whiteboard.domain.comment.dto.CommentListResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentUpdateRequest;
+import com.weedrice.whiteboard.domain.comment.service.CommentReadSorts;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.CurrentUserId;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-
-import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.optionalUserId;
-import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
 
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class CommentController {
-
-    private static final Sort COMMENT_READ_SORT = Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("commentId"));
 
     private final CommentService commentService;
 
@@ -34,10 +29,9 @@ public class CommentController {
             @PathVariable Long postId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = optionalUserId(userDetails);
-        Pageable pageable = PageRequestUtils.of(page, size, COMMENT_READ_SORT);
-        return ApiResponse.success(new PageResponse<>(commentService.getComments(postId, userId, pageable)));
+            @CurrentUserId(required = false) Long userId) {
+        Pageable pageable = PageRequestUtils.of(page, size, CommentReadSorts.READ_ORDER);
+        return ApiResponses.page(commentService.getComments(postId, userId, pageable));
     }
 
     @GetMapping("/comments/{commentId}/replies")
@@ -45,17 +39,15 @@ public class CommentController {
             @PathVariable Long commentId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = optionalUserId(userDetails);
-        Pageable pageable = PageRequestUtils.of(page, size, COMMENT_READ_SORT);
+            @CurrentUserId(required = false) Long userId) {
+        Pageable pageable = PageRequestUtils.of(page, size, CommentReadSorts.READ_ORDER);
         return ApiResponse.success(commentService.getReplies(commentId, userId, pageable));
     }
 
     @GetMapping("/comments/{commentId}")
     public ApiResponse<CommentResponse> getComment(
             @PathVariable Long commentId,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = optionalUserId(userDetails);
+            @CurrentUserId(required = false) Long userId) {
         CommentResponse comment = commentService.getComment(commentId, userId);
         return ApiResponse.success(comment);
     }
@@ -65,9 +57,9 @@ public class CommentController {
     public ApiResponse<Long> createComment(
             @PathVariable Long postId,
             @Valid @RequestBody CommentCreateRequest request,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+            @CurrentUserId Long userId) {
         Long commentId = commentService.createComment(
-                requiredUserId(userDetails),
+                userId,
                 postId,
                 request.getParentId(),
                 request.getContent());
@@ -78,9 +70,9 @@ public class CommentController {
     public ApiResponse<Long> updateComment(
             @PathVariable Long commentId,
             @Valid @RequestBody CommentUpdateRequest request,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+            @CurrentUserId Long userId) {
         Long updatedCommentId = commentService.updateComment(
-                requiredUserId(userDetails),
+                userId,
                 commentId,
                 request.getContent());
         return ApiResponse.success(updatedCommentId);
@@ -88,23 +80,23 @@ public class CommentController {
 
     @DeleteMapping("/comments/{commentId}")
     public ApiResponse<Void> deleteComment(@PathVariable Long commentId,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        commentService.deleteComment(requiredUserId(userDetails), commentId);
-        return ApiResponse.success(null);
+            @CurrentUserId Long userId) {
+        commentService.deleteComment(userId, commentId);
+        return ApiResponses.ok();
     }
 
     @PostMapping("/comments/{commentId}/like")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<Void> likeComment(@PathVariable Long commentId,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        commentService.likeComment(requiredUserId(userDetails), commentId);
-        return ApiResponse.success(null);
+            @CurrentUserId Long userId) {
+        commentService.likeComment(userId, commentId);
+        return ApiResponses.ok();
     }
 
     @DeleteMapping("/comments/{commentId}/like")
     public ApiResponse<Void> unlikeComment(@PathVariable Long commentId,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        commentService.unlikeComment(requiredUserId(userDetails), commentId);
-        return ApiResponse.success(null);
+            @CurrentUserId Long userId) {
+        commentService.unlikeComment(userId, commentId);
+        return ApiResponses.ok();
     }
 }

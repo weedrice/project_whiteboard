@@ -141,7 +141,7 @@ describe('useBoard', () => {
 
         useBoardDetail(boardUrl)
         const options = mocks.queryOptions.at(-1)!
-        expect(options.queryKey).toEqual(['board', boardUrl])
+        expect(options.queryKey).toEqual(['board', 'detail', boardUrl])
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
         const result = await (options.queryFn as () => Promise<unknown>)()
         expect(result).toEqual({ boardId: 2, boardUrl: 'free' })
@@ -158,7 +158,7 @@ describe('useBoard', () => {
 
         useBoardNotices(boardUrl, enabled)
         const options = mocks.queryOptions.at(-1)!
-        expect(options.queryKey).toEqual(['board', boardUrl, 'notices'])
+        expect(options.queryKey).toEqual(['board', 'notices', boardUrl])
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
         const result = await (options.queryFn as () => Promise<unknown>)()
         expect(result).toEqual([{ postId: 11, title: 'Notice' }])
@@ -313,7 +313,7 @@ describe('useBoard', () => {
         await mutation.mutateAsync({ boardUrl: 'free', isSubscribed: true })
         expect(boardApi.unsubscribeBoard).toHaveBeenCalledWith('free')
 
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'free'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'detail', 'free'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards', 'subscriptions'] })
     })
@@ -360,7 +360,7 @@ describe('useBoard', () => {
 
         expect(boardApi.updateBoard).toHaveBeenCalledWith('free', { boardName: 'updated' })
         expect(result).toEqual({ boardId: 4, boardUrl: 'free', boardName: 'updated' })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'free'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'detail', 'free'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards', 'subscriptions'] })
     })
@@ -374,8 +374,8 @@ describe('useBoard', () => {
         const mutation = useUpdateBoard()
         await mutation.mutateAsync({ boardUrl: 'free', data: { boardName: 'updated', boardUrl: 'new-free' } })
 
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'free'] })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'new-free'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'detail', 'free'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'detail', 'new-free'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards', 'subscriptions'] })
     })
@@ -391,7 +391,7 @@ describe('useBoard', () => {
 
         expect(boardApi.updateBoardManager).toHaveBeenCalledWith('free', { loginId: 'manager' })
         expect(result).toEqual({ boardId: 4, boardUrl: 'free', adminDisplayName: 'manager' })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'free'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'detail', 'free'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards', 'subscriptions'] })
     })
@@ -408,7 +408,7 @@ describe('useBoard', () => {
 
         useBoardManagerCandidates(boardUrl, params, enabled)
         let options = mocks.queryOptions.at(-1)!
-        expect(options.queryKey).toEqual(['board', boardUrl, 'manager-candidates', params])
+        expect(options.queryKey).toEqual(['board', 'manager-candidates', boardUrl, params])
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(false)
 
         enabled.value = true

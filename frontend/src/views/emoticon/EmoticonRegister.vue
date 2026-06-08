@@ -5,7 +5,9 @@ import { useHead } from '@unhead/vue'
 import { ArrowLeft, Upload, X, Plus } from 'lucide-vue-next'
 import { useToastStore } from '@/stores/toast'
 import { useI18n } from 'vue-i18n'
-import BaseButton from '@/components/common/ui/BaseButton.vue'
+import EmoticonFormActions from '@/components/emoticon/EmoticonFormActions.vue'
+import EmoticonImageTile from '@/components/emoticon/EmoticonImageTile.vue'
+import EmoticonTagSection from '@/components/emoticon/EmoticonTagSection.vue'
 import { useEmoticonImageSelection } from '@/composables/useEmoticonImageSelection'
 import { useEmoticonImageFormState } from '@/composables/useEmoticonImageFormState'
 import { useEmoticonRegisterSubmit } from '@/composables/useEmoticonRegisterSubmit'
@@ -84,12 +86,12 @@ const goToList = () => {
     <!-- 페이지 제목과 목록으로 버튼 -->
     <div class="mb-8 flex items-start justify-between">
       <div>
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">노비콘 등록</h1>
-        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">나만의 노비콘을 등록해보세요!</p>
+        <h1 class="text-2xl font-bold nv-title">노비콘 등록</h1>
+        <p class="mt-1 text-sm nv-text-subtle">나만의 노비콘을 등록해보세요!</p>
       </div>
       <button
         @click="goToList"
-        class="inline-flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+        class="inline-flex items-center text-sm nv-text-muted hover:text-[var(--nv-accent)] transition-colors"
       >
         <ArrowLeft class="w-4 h-4 mr-1" />
         목록으로
@@ -98,14 +100,14 @@ const goToList = () => {
 
     <form @submit.prevent="handleSubmit" class="space-y-8">
       <!-- 이모티콘 이름과 썸네일 -->
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+      <div class="nv-surface rounded-lg shadow-sm border nv-border p-6">
         <div class="flex flex-col md:flex-row gap-6">
           <!-- 썸네일 업로드 -->
           <div class="order-2 md:order-1 shrink-0">
-            <label for="emoticon-register-thumbnail-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              썸네일 이미지 <span class="text-red-500">*</span>
+            <label for="emoticon-register-thumbnail-input" class="block text-sm font-medium nv-text-muted mb-2">
+              썸네일 이미지 <span class="nv-form-error">*</span>
             </label>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">대표 이미지로 노비콘 목록에 표시됩니다. 500x500px 이하의 이미지만 업로드 가능합니다.</p>
+            <p class="text-xs nv-text-subtle mb-4">대표 이미지로 노비콘 목록에 표시됩니다. 500x500px 이하의 이미지만 업로드 가능합니다.</p>
             <input
               id="emoticon-register-thumbnail-input"
               ref="thumbnailInput"
@@ -120,14 +122,14 @@ const goToList = () => {
               <img
                 :src="thumbnailPreview"
                 alt="썸네일 미리보기"
-                class="w-32 h-32 object-contain bg-gray-100 dark:bg-gray-700 rounded-lg"
+                class="w-32 h-32 object-contain nv-surface-muted rounded-lg"
               />
               <button
                 type="button"
                 @click="removeThumbnail"
                 :aria-label="$t('common.delete')"
                 :title="$t('common.delete')"
-                class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600"
+                class="absolute -top-2 -right-2 w-6 h-6 bg-[var(--nv-danger)] text-white rounded-full flex items-center justify-center hover:brightness-95"
               >
                 <X class="w-4 h-4" />
               </button>
@@ -136,7 +138,7 @@ const goToList = () => {
               <button
                 type="button"
                 @click="thumbnailInput?.click()"
-                class="w-32 h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 hover:border-indigo-500 hover:text-indigo-500 transition-colors"
+                class="w-32 h-32 border-2 border-dashed nv-border rounded-lg flex flex-col items-center justify-center nv-text-subtle hover:border-[var(--nv-focus)] hover:text-[var(--nv-accent)] transition-colors"
               >
                 <Upload class="w-8 h-8 mb-2" />
                 <span class="text-xs">이미지 선택</span>
@@ -146,8 +148,8 @@ const goToList = () => {
 
           <!-- 이모티콘 이름 -->
           <div class="order-1 md:order-2 flex-1">
-            <label for="emoticon-register-name-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              이모티콘 이름 <span class="text-red-500">*</span>
+            <label for="emoticon-register-name-input" class="block text-sm font-medium nv-text-muted mb-2">
+              이모티콘 이름 <span class="nv-form-error">*</span>
             </label>
             <input
               id="emoticon-register-name-input"
@@ -157,45 +159,34 @@ const goToList = () => {
               autocomplete="off"
               maxlength="100"
               placeholder="이모티콘 이름을 입력하세요"
-              class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              class="w-full px-4 py-2 border nv-border rounded-lg nv-surface nv-title placeholder:text-[var(--nv-text-subtle)] focus:ring-2 focus:ring-[var(--nv-focus)] focus:border-transparent"
             />
           </div>
         </div>
       </div>
 
       <!-- 이모티콘 이미지 업로드 -->
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <label for="emoticon-register-image-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          이모티콘 이미지 <span class="text-red-500">*</span>
-          <span class="text-xs font-normal text-gray-500 ml-2">({{ emoticonPreviews.length }}/100개)</span>
+      <div class="nv-surface rounded-lg shadow-sm border nv-border p-6">
+        <label for="emoticon-register-image-input" class="block text-sm font-medium nv-text-muted mb-2">
+          이모티콘 이미지 <span class="nv-form-error">*</span>
+          <span class="text-xs font-normal nv-text-subtle ml-2">({{ emoticonPreviews.length }}/100개)</span>
         </label>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">
+        <p class="text-xs nv-text-subtle mb-4">
           최대 100개까지 업로드 가능합니다. 500x500px 이하의 이미지만 업로드 가능하며, 100px 초과 시 자동으로 리사이징됩니다.
         </p>
 
         <!-- 이미지 그리드 -->
         <div class="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2 mb-4">
-          <div
+          <EmoticonImageTile
             v-for="(item, index) in emoticonPreviews"
             :key="item.clientId"
-            class="relative"
-          >
-            <img
-              :src="item.preview"
-              :alt="`이모티콘 ${index + 1}`"
-              class="w-full aspect-square object-contain bg-gray-100 dark:bg-gray-700 rounded"
-              style="width: 100px; height: 100px;"
-            />
-            <button
-              type="button"
-              @click="removeEmoticonImage(item.clientId)"
-              :aria-label="$t('common.delete')"
-              :title="$t('common.delete')"
-              class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 text-xs"
-            >
-              <X class="w-3 h-3" />
-            </button>
-          </div>
+            :src="item.preview"
+            :alt="`이모티콘 ${index + 1}`"
+            :action-label="$t('common.delete')"
+            :action-title="$t('common.delete')"
+            action="delete"
+            @action="removeEmoticonImage(item.clientId)"
+          />
 
           <!-- 추가 버튼 -->
           <input
@@ -215,7 +206,7 @@ const goToList = () => {
               @click="emoticonInput?.click()"
               :aria-label="$t('common.add')"
               :title="$t('common.add')"
-              class="w-full aspect-square border-2 border-dashed border-gray-300 dark:border-gray-600 rounded flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 hover:border-indigo-500 hover:text-indigo-500 transition-colors"
+              class="w-full aspect-square border-2 border-dashed nv-border rounded flex flex-col items-center justify-center nv-text-subtle hover:border-[var(--nv-focus)] hover:text-[var(--nv-accent)] transition-colors"
               style="width: 100px; height: 100px;"
             >
               <Plus class="w-6 h-6" />
@@ -225,63 +216,23 @@ const goToList = () => {
       </div>
 
       <!-- 태그 입력 -->
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <label for="emoticon-register-tag-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          태그
-          <span class="text-xs font-normal text-gray-500 ml-2">({{ tags.length }}/10개)</span>
-        </label>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">검색에 사용될 태그를 입력하세요.</p>
-
-        <div class="flex gap-2 mb-4">
-          <input
-            id="emoticon-register-tag-input"
-            v-model="tagInput"
-            name="emoticonTag"
-            autocomplete="off"
-            @keydown.enter.prevent="addTag"
-            type="text"
-            placeholder="태그 입력 후 Enter"
-            class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          />
-          <BaseButton type="button" @click="addTag" variant="secondary">
-            추가
-          </BaseButton>
-        </div>
-
-        <div v-if="tags.length > 0" class="flex flex-wrap gap-2">
-          <span
-            v-for="tagItem in tagItems"
-            :key="tagItem.clientId"
-            class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300"
-          >
-            #{{ tagItem.value }}
-            <button
-              type="button"
-              @click="removeTag(tagItem.clientId)"
-              :aria-label="$t('board.tags.remove')"
-              :title="$t('board.tags.remove')"
-              class="ml-1 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-200"
-            >
-              <X class="w-3 h-3" />
-            </button>
-          </span>
-        </div>
-      </div>
+      <EmoticonTagSection
+        v-model="tagInput"
+        input-id="emoticon-register-tag-input"
+        :tag-items="tagItems"
+        :tag-count="tags.length"
+        @add="addTag"
+        @remove="removeTag"
+      />
 
       <!-- 등록 버튼 -->
-      <div class="flex flex-col items-end gap-2">
-        <div v-if="isSubmitting && uploadProgress.total > 0" class="text-sm text-gray-600 dark:text-gray-400">
-          이미지 업로드 중... ({{ uploadProgress.current }}/{{ uploadProgress.total }})
-        </div>
-        <BaseButton
-          type="submit"
-          :disabled="!isFormValid || isSubmitting"
-          variant="primary"
-          size="lg"
-        >
-          {{ isSubmitting ? '등록 중...' : '등록하기' }}
-        </BaseButton>
-      </div>
+      <EmoticonFormActions
+        :is-submitting="isSubmitting"
+        :is-form-valid="isFormValid"
+        :upload-progress="uploadProgress"
+        submit-text="등록하기"
+        submitting-text="등록 중..."
+      />
     </form>
   </div>
 </template>

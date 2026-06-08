@@ -68,4 +68,36 @@ describe('ReportDetailModal', () => {
 
         expect(wrapper.text()).toContain('legacy link or remark')
     })
+
+    it('renders status, processor, reporter, and target display information', () => {
+        const wrapper = mountModal({
+            ...baseReport,
+            status: 'RESOLVED',
+            adminId: 9,
+            targetDisplayName: 'Target Name',
+            targetLoginId: 'target-login',
+            contents: 'resolved reason'
+        })
+
+        expect(wrapper.text()).toContain('Reporter')
+        expect(wrapper.text()).toContain('Target Name')
+        expect(wrapper.text()).toContain('target-login')
+        expect(wrapper.text()).toContain('admin.reports.status.RESOLVED')
+        expect(wrapper.text()).toContain('ADMIN #9')
+        expect(wrapper.text()).toContain('resolved reason')
+    })
+
+    it('falls back to target type and id when target user labels are missing', () => {
+        const wrapper = mountModal({
+            ...baseReport,
+            targetDisplayName: null,
+            targetLoginId: null,
+            targetType: 'COMMENT',
+            targetId: 42,
+            processorUserId: 5
+        })
+
+        expect(wrapper.text()).toContain('common.comment #42')
+        expect(wrapper.text()).toContain('USER #5')
+    })
 })

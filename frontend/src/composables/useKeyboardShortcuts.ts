@@ -1,7 +1,7 @@
-import { onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useKeyboardStore } from '@/stores/keyboard'
 import { useAuthStore } from '@/stores/auth'
+import { useEventListener } from '@/composables/useEventListener'
 import { useThemePreference } from '@/composables/useThemePreference'
 import { isInputFocused } from '@/utils/keyboard'
 
@@ -111,13 +111,7 @@ export function useKeyboardShortcuts(handlers: KeyboardShortcutHandlers = {}) {
         }
     }
 
-    onMounted(() => {
-        document.addEventListener('keydown', handleKeyDown)
-    })
-
-    onUnmounted(() => {
-        document.removeEventListener('keydown', handleKeyDown)
-    })
+    useEventListener(() => document, 'keydown', handleKeyDown)
 
     return {
         keyboardStore,
@@ -199,11 +193,5 @@ export function useBoardDetailShortcuts(handlers: BoardDetailShortcutHandlers) {
         }
     }
 
-    onMounted(() => {
-        document.addEventListener('keydown', handleKeyDown)
-    })
-
-    onUnmounted(() => {
-        document.removeEventListener('keydown', handleKeyDown)
-    })
+    useEventListener(() => document, 'keydown', handleKeyDown)
 }

@@ -13,5 +13,5 @@ withDefaults(defineProps<{
 </script>
 
 <template>
-    <div :class="['bg-gray-200 dark:bg-gray-700 animate-pulse', rounded, className]" :style="{ width, height }"></div>
+    <div :class="['nv-surface-muted animate-pulse', rounded, className]" :style="{ width, height }"></div>
 </template>

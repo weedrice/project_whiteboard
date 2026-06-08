@@ -20,8 +20,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.util.Set;
-
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
@@ -31,11 +29,9 @@ import java.util.Set;
         @Index(name = "idx_reports_target", columnList = "target_type, target_id")
 })
 public class Report extends BaseTimeEntity {
-    public static final String STATUS_PENDING = "PENDING";
-    public static final String STATUS_RESOLVED = "RESOLVED";
-    public static final String STATUS_REJECTED = "REJECTED";
-
-    private static final Set<String> TERMINAL_STATUSES = Set.of(STATUS_RESOLVED, STATUS_REJECTED);
+    public static final String STATUS_PENDING = ReportStatus.PENDING.name();
+    public static final String STATUS_RESOLVED = ReportStatus.RESOLVED.name();
+    public static final String STATUS_REJECTED = ReportStatus.REJECTED.name();
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -99,7 +95,7 @@ public class Report extends BaseTimeEntity {
             throw new BusinessException(ErrorCode.REPORT_ALREADY_PROCESSED);
         }
 
-        if (!TERMINAL_STATUSES.contains(nextStatus.name())) {
+        if (!nextStatus.isTerminal()) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
     }

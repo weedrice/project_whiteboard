@@ -6,6 +6,8 @@ import com.weedrice.whiteboard.domain.comment.dto.CommentListResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentUpdateRequest;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
+import com.weedrice.whiteboard.global.config.CurrentUserIdWebMvcConfig;
+import com.weedrice.whiteboard.global.security.CurrentUserIdArgumentResolver;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -34,7 +36,6 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -51,7 +52,11 @@ import static org.mockito.Mockito.doAnswer;
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
     })
 @org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
-@org.springframework.context.annotation.Import(CommentControllerTest.TestSecurityConfig.class)
+@org.springframework.context.annotation.Import({
+        CommentControllerTest.TestSecurityConfig.class,
+        CurrentUserIdWebMvcConfig.class,
+        CurrentUserIdArgumentResolver.class
+})
 class CommentControllerTest {
 
     @org.springframework.boot.test.context.TestConfiguration
@@ -235,7 +240,7 @@ class CommentControllerTest {
         Long postId = 1L;
         CommentCreateRequest request = new CommentCreateRequest();
         org.springframework.test.util.ReflectionTestUtils.setField(request, "content", "Test comment");
-        when(commentService.createComment(any(), eq(postId), isNull(), eq("Test comment"))).thenReturn(1L);
+        when(commentService.createComment(eq(1L), eq(postId), isNull(), eq("Test comment"))).thenReturn(1L);
 
         // when & then
         mockMvc.perform(post("/api/v1/posts/{postId}/comments", postId)
@@ -253,7 +258,7 @@ class CommentControllerTest {
         Long commentId = 1L;
         CommentUpdateRequest request = new CommentUpdateRequest();
         org.springframework.test.util.ReflectionTestUtils.setField(request, "content", "Updated comment");
-        when(commentService.updateComment(any(), eq(commentId), eq("Updated comment"))).thenReturn(commentId);
+        when(commentService.updateComment(eq(1L), eq(commentId), eq("Updated comment"))).thenReturn(commentId);
 
         // when & then
         mockMvc.perform(put("/api/v1/comments/{commentId}", commentId)
@@ -269,7 +274,7 @@ class CommentControllerTest {
     void deleteComment_returnsSuccess() throws Exception {
         // given
         Long commentId = 1L;
-        doNothing().when(commentService).deleteComment(any(), eq(commentId));
+        doNothing().when(commentService).deleteComment(eq(1L), eq(commentId));
 
         // when & then
         mockMvc.perform(delete("/api/v1/comments/{commentId}", commentId)
@@ -283,7 +288,7 @@ class CommentControllerTest {
     void likeComment_returnsSuccess() throws Exception {
         // given
         Long commentId = 1L;
-        doNothing().when(commentService).likeComment(any(), eq(commentId));
+        doNothing().when(commentService).likeComment(eq(1L), eq(commentId));
 
         // when & then
         mockMvc.perform(post("/api/v1/comments/{commentId}/like", commentId)
@@ -297,7 +302,7 @@ class CommentControllerTest {
     void unlikeComment_returnsSuccess() throws Exception {
         // given
         Long commentId = 1L;
-        doNothing().when(commentService).unlikeComment(any(), eq(commentId));
+        doNothing().when(commentService).unlikeComment(eq(1L), eq(commentId));
 
         // when & then
         mockMvc.perform(delete("/api/v1/comments/{commentId}/like", commentId)

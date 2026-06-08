@@ -2,21 +2,19 @@ package com.weedrice.whiteboard.global.common.controller;
 
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.GlobalConfigCreateRequest;
 import com.weedrice.whiteboard.global.common.dto.GlobalConfigResponse;
 import com.weedrice.whiteboard.global.common.dto.GlobalConfigUpdateByKeyRequest;
 import com.weedrice.whiteboard.global.common.dto.GlobalConfigUpdateRequest;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.CurrentUserId;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
-import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
 
 @RestController
 @RequiredArgsConstructor
@@ -29,15 +27,15 @@ public class GlobalConfigController {
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public ApiResponse<GlobalConfigResponse> getConfig(
             @PathVariable String key,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(globalConfigService.getConfigResponseOrThrow(requiredUserId(userDetails), key));
+            @CurrentUserId Long userId) {
+        return ApiResponse.success(globalConfigService.getConfigResponseOrThrow(userId, key));
     }
 
     @GetMapping("/admin/configs")
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public ApiResponse<List<GlobalConfigResponse>> getAllConfigs(
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(globalConfigService.getAllConfigs(requiredUserId(userDetails)));
+            @CurrentUserId Long userId) {
+        return ApiResponse.success(globalConfigService.getAllConfigs(userId));
     }
 
     @GetMapping("/configs/public")
@@ -49,9 +47,9 @@ public class GlobalConfigController {
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public ApiResponse<GlobalConfigResponse> createConfig(
             @Valid @RequestBody GlobalConfigCreateRequest request,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+            @CurrentUserId Long userId) {
         return ApiResponse.success(globalConfigService.createConfig(
-                requiredUserId(userDetails),
+                userId,
                 request.getKey(),
                 request.getValue(),
                 request.getDescription()));
@@ -61,9 +59,9 @@ public class GlobalConfigController {
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public ApiResponse<GlobalConfigResponse> updateConfig(
             @Valid @RequestBody GlobalConfigUpdateRequest request,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+            @CurrentUserId Long userId) {
         return ApiResponse.success(globalConfigService.updateConfig(
-                requiredUserId(userDetails),
+                userId,
                 request.getKey(),
                 request.getValue(),
                 request.getDescription()));
@@ -74,9 +72,9 @@ public class GlobalConfigController {
     public ApiResponse<GlobalConfigResponse> updateConfigByKey(
             @PathVariable String key,
             @Valid @RequestBody GlobalConfigUpdateByKeyRequest request,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+            @CurrentUserId Long userId) {
         return ApiResponse.success(globalConfigService.updateConfig(
-                requiredUserId(userDetails),
+                userId,
                 key,
                 request.getValue(),
                 request.getDescription()));
@@ -86,8 +84,8 @@ public class GlobalConfigController {
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public ApiResponse<Void> deleteConfig(
             @PathVariable String key,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        globalConfigService.deleteConfig(requiredUserId(userDetails), key);
-        return ApiResponse.success(null);
+            @CurrentUserId Long userId) {
+        globalConfigService.deleteConfig(userId, key);
+        return ApiResponses.ok();
     }
 }

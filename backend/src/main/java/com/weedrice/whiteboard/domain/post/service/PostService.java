@@ -10,32 +10,34 @@ import com.weedrice.whiteboard.domain.post.dto.DraftListResponse;
 import com.weedrice.whiteboard.domain.post.dto.DraftResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostDraftRequest;
-import com.weedrice.whiteboard.domain.post.dto.PostResponse; // Import PostResponse
+import com.weedrice.whiteboard.domain.post.dto.PostResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.dto.PostUpdateRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostVersionResponse;
 import com.weedrice.whiteboard.domain.post.dto.ScrapListResponse;
 import com.weedrice.whiteboard.domain.post.dto.ViewHistoryRequest;
-import com.weedrice.whiteboard.domain.post.entity.*;
-import com.weedrice.whiteboard.domain.post.repository.*;
+import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-@SuppressWarnings({ "null" })
 public class PostService {
     private static final int DEFAULT_BOARD_POST_PAGE_SIZE = 20;
 
@@ -85,7 +87,7 @@ public class PostService {
         return postCommandService.createPostAsAgent(userId, agentId, request, context);
     }
 
-    // --- boardId 湲곕컲 public/private 硫붿꽌??---
+    // --- boardId based public/private methods ---
     public Page<Post> getPosts(Long boardId, Long categoryId, String keyword, Integer minLikes, Long currentUserId,
             Boolean includeSecret, @NonNull Pageable pageable) {
         return postListReadService.getPosts(boardId, categoryId, keyword, minLikes, currentUserId, includeSecret,
@@ -296,14 +298,17 @@ public class PostService {
     }
 
     public boolean isBoardAdmin(Long userId, Long boardId) {
-        if (userId == null)
+        if (userId == null) {
             return false;
+        }
         User user = userRepository.findById(userId).orElse(null);
-        if (user == null)
+        if (user == null) {
             return false;
+        }
         Board board = boardRepository.findById(boardId).orElse(null);
-        if (board == null)
+        if (board == null) {
             return false;
+        }
         return boardAccessPolicy.hasBoardAdminAccess(board, user);
     }
 

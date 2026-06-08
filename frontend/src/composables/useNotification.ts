@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { authApi } from '@/api/auth'
+import { unwrapAxiosApiData } from '@/api/response'
 import {
     notificationApi,
     normalizeNotification,
@@ -10,9 +11,18 @@ import type { Notification, PageResponse } from '@/types'
 import { type Ref, computed } from 'vue'
 import logger from '@/utils/logger'
 import { useAuthStore } from '@/stores/auth'
+import { isCancellationError } from '@/utils/cancellationError'
+import {
+    notificationListQueryKey,
+    notificationsQueryKey,
+    notificationUnreadCountQueryKey,
+} from '@/composables/notificationQueryKeys'
 
 function isAbortError(error: unknown): boolean {
-    return error instanceof DOMException && error.name === 'AbortError'
+    return isCancellationError(error, {
+        names: ['AbortError'],
+        requireDomException: true,
+    })
 }
 
 function isNotificationPage(data: unknown): data is PageResponse<Notification> {
@@ -30,15 +40,39 @@ function getNotificationPageNumber(data: unknown): number {
 
 const RECENT_NOTIFICATION_ID_LIMIT = 200
 
+const notificationStreamState = {
+    streamAbortController: null as AbortController | null,
+    reconnectTimer: null as ReturnType<typeof setTimeout> | null,
+    isConnecting: false,
+    closedManually: false,
+    recentNotificationIds: new Set<number>(),
+}
+
+export function resetNotificationStreamStateForTest() {
+    notificationStreamState.closedManually = true
+
+    if (notificationStreamState.reconnectTimer) {
+        clearTimeout(notificationStreamState.reconnectTimer)
+        notificationStreamState.reconnectTimer = null
+    }
+
+    if (notificationStreamState.streamAbortController) {
+        notificationStreamState.streamAbortController.abort()
+        notificationStreamState.streamAbortController = null
+    }
+
+    notificationStreamState.isConnecting = false
+    notificationStreamState.recentNotificationIds.clear()
+}
+
 export function useNotification() {
     const queryClient = useQueryClient()
 
     const useNotifications = (params: Ref<NotificationParams>) => {
         return useQuery({
-            queryKey: ['notifications', params],
+            queryKey: notificationListQueryKey(params),
             queryFn: async () => {
-                const { data } = await notificationApi.getNotifications(params.value)
-                return data.data
+                return unwrapAxiosApiData(await notificationApi.getNotifications(params.value))
             },
             placeholderData: (previousData) => previousData
         })
@@ -47,10 +81,9 @@ export function useNotification() {
     const useUnreadCount = () => {
         const authStore = useAuthStore()
         return useQuery({
-            queryKey: ['notifications', 'unread-count'],
+            queryKey: notificationUnreadCountQueryKey,
             queryFn: async () => {
-                const { data } = await notificationApi.getUnreadCount()
-                return data.data
+                return unwrapAxiosApiData(await notificationApi.getUnreadCount())
             },
             refetchInterval: 60000,
             enabled: computed(() => authStore.isAuthenticated),
@@ -64,8 +97,8 @@ export function useNotification() {
                 return data
             },
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['notifications'] })
-                queryClient.invalidateQueries({ queryKey: ['notifications', 'unread-count'] })
+                queryClient.invalidateQueries({ queryKey: notificationsQueryKey })
+                queryClient.invalidateQueries({ queryKey: notificationUnreadCountQueryKey })
             }
         })
     }
@@ -77,35 +110,29 @@ export function useNotification() {
                 return data
             },
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['notifications'] })
-                queryClient.setQueryData(['notifications', 'unread-count'], 0)
+                queryClient.invalidateQueries({ queryKey: notificationsQueryKey })
+                queryClient.setQueryData(notificationUnreadCountQueryKey, 0)
             }
         })
     }
 
-    let streamAbortController: AbortController | null = null
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
-    let isConnecting = false
-    let closedManually = false
-    const recentNotificationIds = new Set<number>()
-
     const rememberNotificationId = (notificationId: number) => {
-        recentNotificationIds.add(notificationId)
-        if (recentNotificationIds.size > RECENT_NOTIFICATION_ID_LIMIT) {
-            const oldestId = recentNotificationIds.values().next().value
+        notificationStreamState.recentNotificationIds.add(notificationId)
+        if (notificationStreamState.recentNotificationIds.size > RECENT_NOTIFICATION_ID_LIMIT) {
+            const oldestId = notificationStreamState.recentNotificationIds.values().next().value
             if (typeof oldestId === 'number') {
-                recentNotificationIds.delete(oldestId)
+                notificationStreamState.recentNotificationIds.delete(oldestId)
             }
         }
     }
 
     const scheduleReconnect = (delayMs: number) => {
-        if (closedManually) return
-        if (reconnectTimer) {
-            clearTimeout(reconnectTimer)
+        if (notificationStreamState.closedManually) return
+        if (notificationStreamState.reconnectTimer) {
+            clearTimeout(notificationStreamState.reconnectTimer)
         }
-        reconnectTimer = setTimeout(() => {
-            reconnectTimer = null
+        notificationStreamState.reconnectTimer = setTimeout(() => {
+            notificationStreamState.reconnectTimer = null
             connectToSse()
         }, delayMs)
     }
@@ -116,13 +143,13 @@ export function useNotification() {
             isRead: false,
         }
         const notificationId = normalized.notificationId
-        if (typeof notificationId === 'number' && recentNotificationIds.has(notificationId)) {
+        if (typeof notificationId === 'number' && notificationStreamState.recentNotificationIds.has(notificationId)) {
             return
         }
 
         let alreadyExistsInFirstPage = false
 
-        queryClient.setQueriesData({ queryKey: ['notifications'] }, (oldData: unknown) => {
+        queryClient.setQueriesData({ queryKey: notificationsQueryKey }, (oldData: unknown) => {
             if (!isNotificationPage(oldData)) return oldData
             if (getNotificationPageNumber(oldData) !== 0) return oldData
 
@@ -154,7 +181,7 @@ export function useNotification() {
             rememberNotificationId(notificationId)
         }
 
-        queryClient.setQueryData(['notifications', 'unread-count'], (old: number | undefined) => (old || 0) + 1)
+        queryClient.setQueryData(notificationUnreadCountQueryKey, (old: number | undefined) => (old || 0) + 1)
     }
 
     const handleSseEvent = (eventType: string, payload: string) => {
@@ -229,9 +256,9 @@ export function useNotification() {
 
     const reconnectWithRefresh = async () => {
         try {
-            const { data } = await authApi.refreshToken()
+            const authTokens = unwrapAxiosApiData(await authApi.refreshToken())
             const authStore = useAuthStore()
-            authStore.setTokens(data.data.accessToken)
+            authStore.setTokens(authTokens.accessToken)
             scheduleReconnect(1000)
             return
         } catch (error: unknown) {
@@ -252,62 +279,62 @@ export function useNotification() {
                 throw new Error('SSE stream response is empty')
             }
 
-            isConnecting = false
+            notificationStreamState.isConnecting = false
             await consumeSseStream(response.body, controller.signal)
 
-            if (!controller.signal.aborted && !closedManually) {
+            if (!controller.signal.aborted && !notificationStreamState.closedManually) {
                 throw new Error('SSE stream closed unexpectedly')
             }
         } catch (error: unknown) {
-            if (closedManually || controller.signal.aborted || isAbortError(error)) {
+            if (notificationStreamState.closedManually || controller.signal.aborted || isAbortError(error)) {
                 return
             }
 
             logger.warn('SSE connection dropped:', error)
             await reconnectWithRefresh()
         } finally {
-            if (streamAbortController === controller) {
-                streamAbortController = null
+            if (notificationStreamState.streamAbortController === controller) {
+                notificationStreamState.streamAbortController = null
             }
-            isConnecting = false
+            notificationStreamState.isConnecting = false
         }
     }
 
     const connectToSse = () => {
-        if (streamAbortController || isConnecting) return
+        if (notificationStreamState.streamAbortController || notificationStreamState.isConnecting) return
 
-        if (reconnectTimer) {
-            clearTimeout(reconnectTimer)
-            reconnectTimer = null
+        if (notificationStreamState.reconnectTimer) {
+            clearTimeout(notificationStreamState.reconnectTimer)
+            notificationStreamState.reconnectTimer = null
         }
 
         const authStore = useAuthStore()
         const token = authStore.accessToken
         if (!token) return
 
-        closedManually = false
-        isConnecting = true
+        notificationStreamState.closedManually = false
+        notificationStreamState.isConnecting = true
 
         const controller = new AbortController()
-        streamAbortController = controller
+        notificationStreamState.streamAbortController = controller
 
         void startStream(token, controller)
     }
 
     const closeSse = () => {
-        closedManually = true
+        notificationStreamState.closedManually = true
 
-        if (reconnectTimer) {
-            clearTimeout(reconnectTimer)
-            reconnectTimer = null
+        if (notificationStreamState.reconnectTimer) {
+            clearTimeout(notificationStreamState.reconnectTimer)
+            notificationStreamState.reconnectTimer = null
         }
 
-        if (streamAbortController) {
-            streamAbortController.abort()
-            streamAbortController = null
+        if (notificationStreamState.streamAbortController) {
+            notificationStreamState.streamAbortController.abort()
+            notificationStreamState.streamAbortController = null
         }
 
-        isConnecting = false
+        notificationStreamState.isConnecting = false
     }
 
     return {

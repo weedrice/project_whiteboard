@@ -79,7 +79,8 @@ class SemanticSearchKeywordFallbackRepositoryTest {
 
         assertThat(count).isEqualTo(3L);
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
-        verify(jdbcTemplate).queryForObject(sqlCaptor.capture(), any(MapSqlParameterSource.class), eq(Long.class));
+        ArgumentCaptor<MapSqlParameterSource> paramsCaptor = ArgumentCaptor.forClass(MapSqlParameterSource.class);
+        verify(jdbcTemplate).queryForObject(sqlCaptor.capture(), paramsCaptor.capture(), eq(Long.class));
         assertThat(sqlCaptor.getValue())
                 .contains("SELECT COUNT(*) FROM")
                 .contains("UNION ALL")
@@ -94,5 +95,7 @@ class SemanticSearchKeywordFallbackRepositoryTest {
                 .doesNotContain("ORDER BY")
                 .doesNotContain("LIMIT :limit")
                 .doesNotContain("OFFSET :offset");
+        assertThat(paramsCaptor.getValue().getValue("blockedUserIds")).isEqualTo(List.of(-1L));
+        assertThat(paramsCaptor.getValue().getValue("keywordPattern")).isEqualTo("%hello%");
     }
 }

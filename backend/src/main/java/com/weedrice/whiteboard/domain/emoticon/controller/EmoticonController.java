@@ -7,20 +7,28 @@ import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonPurchaseStatusRespons
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonUpdateRequest;
 import com.weedrice.whiteboard.domain.emoticon.service.EmoticonService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
-import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.CurrentUserId;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-
-import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.optionalUserId;
-import static com.weedrice.whiteboard.global.security.AuthenticatedUserResolver.requiredUserId;
 
 @RestController
 @RequestMapping("/api/v1/emoticons")
@@ -29,33 +37,20 @@ public class EmoticonController {
 
     private final EmoticonService emoticonService;
 
-    /**
-     * 이모티콘 목록 조회
-     * @param sortBy "latest" (최신순), "oldest" (오래된순), "popular" (판매순)
-     */
     @GetMapping
     public ApiResponse<PageResponse<EmoticonMasterDto>> getEmoticons(
             @RequestParam(defaultValue = "latest") String sortBy,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ApiResponse.success(new PageResponse<>(
-                emoticonService.getActiveEmoticons(pageable(page, size), normalizeSortBy(sortBy))));
+        return ApiResponses.page(emoticonService.getActiveEmoticons(pageable(page, size), sortBy));
     }
 
-    /**
-     * 인기 이모티콘 조회 (일간/주간/월간)
-     * @param period "daily", "weekly", "monthly"
-     */
     @GetMapping("/popular")
     public ApiResponse<List<EmoticonMasterDto>> getPopularEmoticons(
             @RequestParam(defaultValue = "daily") String period) {
         return ApiResponse.success(emoticonService.getPopularEmoticons(period));
     }
 
-    /**
-     * 통합 검색 (태그, 등록자명, 이모티콘 이름)
-     * @param searchType ALL(전체), NAME(이름), CREATOR(등록자), TAG(태그)
-     */
     @GetMapping("/search/all")
     public ApiResponse<PageResponse<EmoticonMasterDto>> searchAll(
             @RequestParam(required = false) String keyword,
@@ -63,170 +58,116 @@ public class EmoticonController {
             @RequestParam(defaultValue = "latest") String sortBy,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ApiResponse.success(new PageResponse<>(
-                emoticonService.searchAll(keyword, searchType, pageable(page, size), normalizeSortBy(sortBy))));
+        return ApiResponses.page(
+                emoticonService.searchAll(keyword, searchType, pageable(page, size), sortBy));
     }
 
-    /**
-     * 태그로 이모티콘 검색
-     */
     @GetMapping("/search/tag")
     public ApiResponse<PageResponse<EmoticonMasterDto>> searchByTag(
             @RequestParam String tag,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ApiResponse.success(new PageResponse<>(emoticonService.searchByTag(tag, pageable(page, size))));
+        return ApiResponses.page(emoticonService.searchByTag(tag, pageable(page, size)));
     }
 
-    /**
-     * 키워드로 이모티콘 검색
-     */
     @GetMapping("/search")
     public ApiResponse<PageResponse<EmoticonMasterDto>> searchByKeyword(
             @RequestParam String keyword,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ApiResponse.success(new PageResponse<>(emoticonService.searchByKeyword(keyword, pageable(page, size))));
+        return ApiResponses.page(emoticonService.searchByKeyword(keyword, pageable(page, size)));
     }
 
-    /**
-     * 내 이모티콘 목록
-     */
     @GetMapping("/my")
     public ApiResponse<PageResponse<EmoticonMasterDto>> getMyEmoticons(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @CurrentUserId Long userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ApiResponse.success(new PageResponse<>(
-                emoticonService.getMyEmoticons(requiredUserId(userDetails), pageable(page, size))));
+        return ApiResponses.page(emoticonService.getMyEmoticons(userId, pageable(page, size)));
     }
 
-    /**
-     * 이모티콘 상세 조회
-     * 숨김 처리된 경우: 등록자 또는 구매자만 조회 가능
-     */
     @GetMapping("/{emoticonId}")
     public ApiResponse<EmoticonMasterDto> getEmoticonDetail(
             @PathVariable Long emoticonId,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = optionalUserId(userDetails);
+            @CurrentUserId(required = false) Long userId) {
         return ApiResponse.success(emoticonService.getEmoticonDetail(emoticonId, userId));
     }
 
-    /**
-     * 이모티콘 생성
-     */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<EmoticonMasterDto> createEmoticon(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @CurrentUserId Long userId,
             @Valid @RequestBody EmoticonCreateRequest request) {
-        return ApiResponse.success(emoticonService.createEmoticon(requiredUserId(userDetails), request));
+        return ApiResponse.success(emoticonService.createEmoticon(userId, request));
     }
 
-    /**
-     * 이모티콘 수정
-     */
     @PutMapping("/{emoticonId}")
     public ApiResponse<EmoticonMasterDto> updateEmoticon(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @CurrentUserId Long userId,
             @PathVariable Long emoticonId,
             @Valid @RequestBody EmoticonUpdateRequest request) {
-        return ApiResponse.success(emoticonService.updateEmoticon(requiredUserId(userDetails), emoticonId, request));
+        return ApiResponse.success(emoticonService.updateEmoticon(userId, emoticonId, request));
     }
 
-    /**
-     * 노비콘 숨김/표시 전환 (판매 중단 시 사용)
-     */
     @PatchMapping("/{emoticonId}/visibility")
     public ApiResponse<EmoticonMasterDto> toggleVisibility(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @CurrentUserId Long userId,
             @PathVariable Long emoticonId) {
-        return ApiResponse.success(emoticonService.toggleVisibility(requiredUserId(userDetails), emoticonId));
+        return ApiResponse.success(emoticonService.toggleVisibility(userId, emoticonId));
     }
 
-    /**
-     * 이모티콘 삭제
-     */
     @DeleteMapping("/{emoticonId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public ApiResponse<Void> deleteEmoticon(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @CurrentUserId Long userId,
             @PathVariable Long emoticonId) {
-        emoticonService.deleteEmoticon(requiredUserId(userDetails), emoticonId);
-        return ApiResponse.success(null);
+        emoticonService.deleteEmoticon(userId, emoticonId);
+        return ApiResponses.ok();
     }
 
-    /**
-     * 이미지 추가
-     */
     @PostMapping("/{emoticonId}/images")
     public ApiResponse<EmoticonMasterDto> addImage(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @CurrentUserId Long userId,
             @PathVariable Long emoticonId,
             @Valid @RequestBody EmoticonImageAddRequest request) {
         return ApiResponse.success(emoticonService.addImage(
-                requiredUserId(userDetails),
+                userId,
                 emoticonId,
                 request.getFileId()));
     }
 
-    /**
-     * 이미지 삭제
-     */
     @DeleteMapping("/images/{imageId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public ApiResponse<Void> deleteImage(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @CurrentUserId Long userId,
             @PathVariable Long imageId) {
-        emoticonService.deleteImage(requiredUserId(userDetails), imageId);
-        return ApiResponse.success(null);
+        emoticonService.deleteImage(userId, imageId);
+        return ApiResponses.ok();
     }
 
-    /**
-     * 이모티콘 구매
-     */
     @PostMapping("/{emoticonId}/purchase")
     public ApiResponse<EmoticonMasterDto> purchaseEmoticon(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @CurrentUserId Long userId,
             @PathVariable Long emoticonId) {
-        return ApiResponse.success(emoticonService.purchaseEmoticon(requiredUserId(userDetails), emoticonId));
+        return ApiResponse.success(emoticonService.purchaseEmoticon(userId, emoticonId));
     }
 
-    /**
-     * 구매한 이모티콘 목록
-     */
     @GetMapping("/purchased")
     public ApiResponse<PageResponse<EmoticonMasterDto>> getPurchasedEmoticons(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @CurrentUserId Long userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ApiResponse.success(new PageResponse<>(
-                emoticonService.getPurchasedEmoticons(requiredUserId(userDetails), pageable(page, size))));
+        return ApiResponses.page(emoticonService.getPurchasedEmoticons(userId, pageable(page, size)));
     }
 
-    /**
-     * 이모티콘 구매 여부 확인
-     */
     @GetMapping("/{emoticonId}/purchased")
     public ApiResponse<EmoticonPurchaseStatusResponse> hasPurchased(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @CurrentUserId(required = false) Long userId,
             @PathVariable Long emoticonId) {
-        Long userId = optionalUserId(userDetails);
         return ApiResponse.success(emoticonService.getPurchaseStatus(userId, emoticonId));
     }
 
     private Pageable pageable(int page, int size) {
         return PageRequestUtils.of(page, size);
-    }
-
-    private String normalizeSortBy(String sortBy) {
-        if ("popular".equalsIgnoreCase(sortBy)) {
-            return "popular";
-        }
-        if ("oldest".equalsIgnoreCase(sortBy)) {
-            return "oldest";
-        }
-        return "latest";
     }
 }

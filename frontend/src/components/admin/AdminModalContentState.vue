@@ -23,7 +23,7 @@ withDefaults(defineProps<{
 <template>
   <div v-if="loading" :class="paddingClass">
     <slot name="loading">
-      <div class="flex flex-col items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+      <div class="flex flex-col items-center justify-center gap-2 text-sm nv-text-subtle">
         <BaseSpinner size="lg" />
         <span v-if="loadingText">{{ loadingText }}</span>
       </div>
@@ -32,7 +32,7 @@ withDefaults(defineProps<{
 
   <div v-else-if="error" :class="paddingClass">
     <slot name="error">
-      <div class="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+      <div class="rounded nv-status-danger px-4 py-3 text-sm">
         {{ errorText }}
       </div>
     </slot>
@@ -40,7 +40,7 @@ withDefaults(defineProps<{
 
   <div v-else-if="empty" :class="paddingClass">
     <slot name="empty">
-      <p v-if="emptyText" class="text-center text-sm text-gray-500 dark:text-gray-400">{{ emptyText }}</p>
+      <p v-if="emptyText" class="text-center text-sm nv-text-subtle">{{ emptyText }}</p>
     </slot>
   </div>
 

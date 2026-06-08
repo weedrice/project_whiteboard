@@ -1,7 +1,7 @@
 package com.weedrice.whiteboard.domain.sanction.service;
 
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
-import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.comment.service.CommentReadSupport;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.report.entity.ReportTargetType;
@@ -18,7 +18,7 @@ class SanctionTargetResolver {
 
     private final UserRepository userRepository;
     private final PostRepository postRepository;
-    private final CommentRepository commentRepository;
+    private final CommentReadSupport commentReadSupport;
 
     User resolveTargetUser(Long targetUserId, Long contentId, String normalizedContentType) {
         User targetUser = findSanctionTargetUser(targetUserId);
@@ -61,8 +61,7 @@ class SanctionTargetResolver {
     }
 
     private void validateCommentTarget(Long commentId, User targetUser) {
-        Comment comment = commentRepository.findNonDeletedByIdWithRelations(commentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+        Comment comment = commentReadSupport.getNonDeletedWithRelationsOrThrow(commentId);
         if (Boolean.TRUE.equals(comment.getPost().getIsDeleted())) {
             throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
         }

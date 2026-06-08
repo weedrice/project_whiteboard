@@ -1,7 +1,5 @@
 package com.weedrice.whiteboard.domain.file.service;
 
-import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepository;
-import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,9 +30,7 @@ class FileTemporaryCleanupWorkerTest {
     @Mock
     private FileRepository fileRepository;
     @Mock
-    private EmoticonImageRepository emoticonImageRepository;
-    @Mock
-    private EmoticonMasterRepository emoticonMasterRepository;
+    private EmoticonFileReferenceService emoticonFileReferenceService;
 
     @InjectMocks
     private FileTemporaryCleanupWorker worker;
@@ -101,10 +97,8 @@ class FileTemporaryCleanupWorkerTest {
                         cleanupCandidate(10L, firstCreatedAt),
                         cleanupCandidate(11L, secondCreatedAt),
                         cleanupCandidate(12L, thirdCreatedAt)));
-        when(emoticonImageRepository.findReferencedImageUrls(any()))
-                .thenReturn(List.of("/api/v1/files/10"));
-        when(emoticonMasterRepository.findReferencedThumbnailUrls(any()))
-                .thenReturn(List.of("/files/11"));
+        when(emoticonFileReferenceService.excludeReferencedFileIds(List.of(10L, 11L, 12L)))
+                .thenReturn(List.of(12L));
         when(fileRepository.requestDeletionForTemporaryFiles(List.of(12L), deleteRequestedAt)).thenReturn(1);
 
         FileTemporaryCleanupWorker.CleanupBatchResult result = worker.requestDeletionBatch(
@@ -133,10 +127,7 @@ class FileTemporaryCleanupWorkerTest {
                 .thenReturn(List.of(
                         cleanupCandidate(10L, firstCreatedAt),
                         cleanupCandidate(11L, secondCreatedAt)));
-        when(emoticonImageRepository.findReferencedImageUrls(any()))
-                .thenReturn(List.of("/api/v1/files/10"));
-        when(emoticonMasterRepository.findReferencedThumbnailUrls(any()))
-                .thenReturn(List.of("/files/11"));
+        when(emoticonFileReferenceService.excludeReferencedFileIds(List.of(10L, 11L))).thenReturn(List.of());
 
         FileTemporaryCleanupWorker.CleanupBatchResult result = worker.requestDeletionBatch(
                 cutoff, null, null, 500, deleteRequestedAt);
@@ -167,7 +158,7 @@ class FileTemporaryCleanupWorkerTest {
         assertThat(result.finished()).isTrue();
         assertThat(result.candidateCount()).isZero();
         assertThat(result.requestedCount()).isZero();
-        verifyNoInteractions(emoticonImageRepository, emoticonMasterRepository);
+        verifyNoInteractions(emoticonFileReferenceService);
         verify(fileRepository, never()).requestDeletionForTemporaryFiles(any(), any());
     }
 

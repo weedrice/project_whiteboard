@@ -48,7 +48,7 @@ async function handleDelete(comment: Comment) {
 
 <template>
   <div class="mt-6 sm:mt-8">
-    <h3 class="mb-4 text-base font-medium text-gray-900 dark:text-gray-100 sm:mb-6 sm:text-lg">
+    <h3 class="mb-4 text-base font-medium nv-title sm:mb-6 sm:text-lg">
       {{ $t('comment.title') }}
     </h3>
 
@@ -59,10 +59,10 @@ async function handleDelete(comment: Comment) {
       <div v-if="authStore.isAuthenticated">
         <CommentForm :postId="postId" />
       </div>
-      <div v-else class="text-xs text-gray-500 dark:text-gray-400 sm:text-sm">
+      <div v-else class="text-xs nv-text-subtle sm:text-sm">
         <router-link
           to="/login"
-          class="text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
+          class="nv-accent-text hover:brightness-95"
         >
           {{ $t('common.login') }}
         </router-link>
@@ -84,7 +84,7 @@ async function handleDelete(comment: Comment) {
       </div>
     </div>
 
-    <div v-else-if="commentsError" class="py-4 text-center text-xs text-red-500 sm:text-sm">
+    <div v-else-if="commentsError" class="py-4 text-center text-xs nv-form-error sm:text-sm">
       {{ commentLoadFailedMessage }}
     </div>
 
@@ -101,7 +101,7 @@ async function handleDelete(comment: Comment) {
 
       <div
         v-if="comments.length === 0"
-        class="py-3 text-center text-xs text-gray-500 dark:text-gray-400 sm:py-4 sm:text-sm"
+        class="py-3 text-center text-xs nv-text-subtle sm:py-4 sm:text-sm"
       >
         {{ $t('comment.empty') }}
       </div>

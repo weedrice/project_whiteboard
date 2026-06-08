@@ -31,20 +31,20 @@ const navigation = computed(() => [
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-100 dark:bg-gray-900 flex transition-colors duration-200">
+  <div class="min-h-screen nv-page flex transition-colors duration-200">
     <!-- Sidebar -->
     <div class="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
-      <div class="flex-1 flex flex-col min-h-0 bg-indigo-800">
-        <div class="flex items-center h-16 flex-shrink-0 px-4 bg-indigo-900">
-          <router-link to="/" class="text-xl font-bold text-white hover:text-indigo-200">{{ t('admin.layout.title')
+      <div class="flex-1 flex flex-col min-h-0 nv-admin-sidebar">
+        <div class="flex items-center h-16 flex-shrink-0 px-4 nv-admin-sidebar-header">
+          <router-link to="/" class="text-xl font-bold nv-admin-sidebar-title">{{ t('admin.layout.title')
           }}</router-link>
         </div>
         <div class="flex-1 flex flex-col overflow-y-auto">
           <nav class="flex-1 px-2 py-4 space-y-1">
             <router-link v-for="item in navigation" :key="item.name" :to="item.href"
-              class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-indigo-100 hover:bg-indigo-700 hover:text-white"
-              :class="{ 'bg-indigo-900 text-white': route.path.startsWith(item.href) }">
-              <component :is="item.icon" class="mr-3 flex-shrink-0 h-6 w-6 text-indigo-300 group-hover:text-white"
+              class="nv-admin-sidebar-link flex items-center px-2 py-2 text-sm font-medium rounded-md"
+              :class="{ 'nv-admin-sidebar-link-active': route.path.startsWith(item.href) }">
+              <component :is="item.icon" class="nv-admin-sidebar-icon mr-3 flex-shrink-0 h-6 w-6"
                 aria-hidden="true" />
               {{ item.name }}
             </router-link>

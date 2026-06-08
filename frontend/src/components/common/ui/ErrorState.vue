@@ -1,12 +1,12 @@
 <template>
   <div class="text-center py-12">
-    <div class="mx-auto h-12 w-12 text-red-400 dark:text-red-500 mb-4">
+    <div class="mx-auto h-12 w-12 text-[var(--nv-danger-text)] mb-4">
       <component :is="icon" class="h-full w-full" aria-hidden="true" />
     </div>
-    <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+    <h3 class="text-lg font-medium nv-title mb-2">
       {{ title || $t('common.messages.defaultTitle') }}
     </h3>
-    <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
+    <p class="text-sm nv-text-subtle mb-6">
       {{ message || $t('common.error.defaultMessage') }}
     </p>
     <div v-if="showRetry || $slots.action" class="flex justify-center gap-3">

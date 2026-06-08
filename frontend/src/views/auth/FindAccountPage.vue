@@ -2,237 +2,231 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useEmailVerificationFlow } from '@/composables/useEmailVerificationFlow'
+import { useAuthEmailVerificationSection } from '@/composables/useAuthEmailVerificationSection'
 import { useFindIdFlow } from '@/composables/useFindIdFlow'
 import { usePasswordResetByVerificationFlow } from '@/composables/usePasswordResetByVerificationFlow'
+import AuthEmailVerificationSection from '@/components/auth/AuthEmailVerificationSection.vue'
+import AuthFormShell from '@/components/auth/AuthFormShell.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import { Mail, ChevronLeft, Key, User, CheckCircle } from 'lucide-vue-next'
+import { Key, User } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const router = useRouter()
 
 const activeTab = ref('id')
 const form = reactive({
-    email: '',
-    code: '',
-    newPassword: '',
-    confirmPassword: ''
+  email: '',
+  code: '',
+  newPassword: '',
+  confirmPassword: '',
 })
 
 const status = reactive({
-    isCodeSent: false,
-    isVerified: false,
-    verificationTicket: '',
-    loading: false,
-    foundId: ''
+  isCodeSent: false,
+  isVerified: false,
+  verificationTicket: '',
+  loading: false,
+  foundId: '',
 })
 
 const resetState = () => {
-    form.email = ''
-    form.code = ''
-    form.newPassword = ''
-    form.confirmPassword = ''
-    status.isCodeSent = false
-    status.isVerified = false
-    status.verificationTicket = ''
-    status.foundId = ''
-    status.loading = false
+  form.email = ''
+  form.code = ''
+  form.newPassword = ''
+  form.confirmPassword = ''
+  status.isCodeSent = false
+  status.isVerified = false
+  status.verificationTicket = ''
+  status.foundId = ''
+  status.loading = false
 }
 
 const resetVerificationState = () => {
-    form.code = ''
-    status.isCodeSent = false
-    status.isVerified = false
-    status.verificationTicket = ''
+  form.code = ''
+  status.isCodeSent = false
+  status.isVerified = false
+  status.verificationTicket = ''
 }
 
 const switchTab = (tab: string) => {
-    activeTab.value = tab
-    resetState()
+  activeTab.value = tab
+  resetState()
 }
 
 const { findId } = useFindIdFlow({
-    getEmail: () => form.email,
-    onLoadingChange: (loading) => {
-        status.loading = loading
-    },
-    onSuccess: ({ loginId, verificationTicket }) => {
-        status.isVerified = true
-        status.verificationTicket = verificationTicket
-        status.foundId = loginId
-    }
+  getEmail: () => form.email,
+  onLoadingChange: (loading) => {
+    status.loading = loading
+  },
+  onSuccess: ({ loginId, verificationTicket }) => {
+    status.isVerified = true
+    status.verificationTicket = verificationTicket
+    status.foundId = loginId
+  },
 })
 
 const {
-    completeVerification: completePasswordResetVerification,
-    resetPassword: handleResetPassword
+  completeVerification: completePasswordResetVerification,
+  resetPassword: handleResetPassword,
 } = usePasswordResetByVerificationFlow({
-    getEmail: () => form.email,
-    getVerificationTicket: () => status.verificationTicket,
-    getNewPassword: () => form.newPassword,
-    getConfirmPassword: () => form.confirmPassword,
-    onLoadingChange: (loading) => {
-        status.loading = loading
-    },
-    onVerified: (verificationTicket) => {
-        status.isVerified = true
-        status.verificationTicket = verificationTicket
-    }
+  getEmail: () => form.email,
+  getVerificationTicket: () => status.verificationTicket,
+  getNewPassword: () => form.newPassword,
+  getConfirmPassword: () => form.confirmPassword,
+  onLoadingChange: (loading) => {
+    status.loading = loading
+  },
+  onVerified: (verificationTicket) => {
+    status.isVerified = true
+    status.verificationTicket = verificationTicket
+  },
 })
 
 const {
-    sendVerifyCode: handleSendCode,
-    verifyEmailCode: handleVerifyCode
-} = useEmailVerificationFlow({
-    getEmail: () => form.email,
-    getCode: () => form.code,
-    purpose: () => activeTab.value === 'id' ? 'FIND_ID' : 'PASSWORD_RESET',
-    validateEmailFormat: false,
-    useTimer: false,
-    closeOnVerifySuccess: false,
-    showVerifySuccessToast: false,
-    emailRequiredMessage: t('auth.placeholders.email'),
-    onLoadingChange: (loading) => {
-        status.loading = loading
-    },
-    afterSend: () => {
-        resetVerificationState()
-        status.isCodeSent = true
-        status.foundId = ''
-    },
-    afterVerify: async ({ verificationTicket }) => {
-        if (activeTab.value === 'id') {
-            await findId(verificationTicket)
-        } else {
-            completePasswordResetVerification(verificationTicket)
-        }
+  sectionProps: emailVerificationSectionProps,
+  sendVerifyCode: handleSendCode,
+  verifyEmailCode: handleVerifyCode,
+} = useAuthEmailVerificationSection({
+  t,
+  idPrefix: 'find-account',
+  layout: 'inline',
+  verifyLabelKey: 'auth.verifyCode',
+  codeSent: () => status.isCodeSent,
+  loading: () => status.loading,
+  getEmail: () => form.email,
+  getCode: () => form.code,
+  purpose: () => activeTab.value === 'id' ? 'FIND_ID' : 'PASSWORD_RESET',
+  validateEmailFormat: false,
+  useTimer: false,
+  closeOnVerifySuccess: false,
+  showVerifySuccessToast: false,
+  emailRequiredMessage: t('auth.placeholders.email'),
+  onLoadingChange: (loading) => {
+    status.loading = loading
+  },
+  afterSend: () => {
+    resetVerificationState()
+    status.isCodeSent = true
+    status.foundId = ''
+  },
+  afterVerify: async ({ verificationTicket }) => {
+    if (activeTab.value === 'id') {
+      await findId(verificationTicket)
+    } else {
+      completePasswordResetVerification(verificationTicket)
     }
+  },
 })
 </script>
 
 <template>
-    <div class="p-8 relative h-full flex flex-col justify-center">
-        <!-- Back Button -->
-        <div class="absolute top-4 left-4">
-            <router-link to="/login"
-                class="flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors">
-                <ChevronLeft class="h-5 w-5 mr-1" />
-                <span class="text-sm font-medium">{{ $t('common.back') }}</span>
-            </router-link>
-        </div>
-
-        <div class="w-[80%] mx-auto">
-            <!-- Tabs -->
-            <div class="flex border-b border-gray-200 dark:border-gray-700 mb-6" role="tablist"
-                :aria-label="t('auth.findAccount')">
-                <BaseButton @click="switchTab('id')" variant="ghost" class="flex-1 rounded-b-none border-b-2"
-                    role="tab" :aria-selected="activeTab === 'id'"
-                    :class="activeTab === 'id' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'">
-                    <User class="w-4 h-4 mr-2" />
-                    {{ t('auth.findId') }}
-                </BaseButton>
-                <BaseButton @click="switchTab('password')" variant="ghost" class="flex-1 rounded-b-none border-b-2"
-                    role="tab" :aria-selected="activeTab === 'password'"
-                    :class="activeTab === 'password' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'">
-                    <Key class="w-4 h-4 mr-2" />
-                    {{ t('auth.findPassword') }}
-                </BaseButton>
-            </div>
-
-            <!-- Content -->
-            <div class="space-y-6">
-                <!-- Step 1: Email & Code -->
-                <div v-if="!status.foundId && (!status.isVerified || activeTab === 'id')">
-                    <div class="space-y-4">
-                        <div class="flex gap-2 items-end">
-                            <div class="flex-grow">
-                                <BaseInput id="find-account-email" v-model="form.email" name="email" type="email"
-                                    autocomplete="email" :label="t('auth.email')"
-                                    :placeholder="t('auth.placeholders.email')" :disabled="status.loading" hideLabel>
-                                    <template #prefix>
-                                        <Mail class="h-5 w-5 text-gray-400" />
-                                    </template>
-                                </BaseInput>
-                            </div>
-                            <BaseButton @click="handleSendCode" :disabled="status.loading"
-                                :loading="status.loading && !status.isCodeSent" class="mb-[2px] h-[42px]">
-                                {{ status.isCodeSent ? t('auth.resendCode') : t('auth.sendCode') }}
-                            </BaseButton>
-                        </div>
-
-                        <div v-if="status.isCodeSent && !status.isVerified"
-                            class="flex gap-2 items-end animate-fade-in-down">
-                            <div class="flex-grow">
-                                <BaseInput id="find-account-verification-code" v-model="form.code"
-                                    name="verificationCode" inputmode="numeric" autocomplete="one-time-code"
-                                    :placeholder="t('auth.codePlaceholder')" :label="t('auth.codePlaceholder')" hideLabel>
-                                    <template #prefix>
-                                        <CheckCircle class="h-5 w-5 text-gray-400" />
-                                    </template>
-                                </BaseInput>
-                            </div>
-                            <BaseButton @click="handleVerifyCode" :loading="status.loading" class="mb-[2px] h-[42px]">
-                                {{ t('auth.verifyCode') }}
-                            </BaseButton>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Step 2: Result (Find ID) -->
-                <div v-if="activeTab === 'id' && status.foundId"
-                    class="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 animate-fade-in">
-                    <p class="text-gray-600 dark:text-gray-300 mb-2">{{ t('auth.yourIdIs', { id: '' }).replace('{id}',
-                        '') }}</p>
-                    <p class="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mb-6">{{ status.foundId }}</p>
-                    <BaseButton @click="router.push('/login')" full-width>
-                        {{ t('auth.login') }}
-                    </BaseButton>
-                </div>
-
-                <!-- Step 2: Reset Password (Find Password) -->
-                <div v-if="activeTab === 'password' && status.isVerified" class="space-y-6 animate-fade-in">
-                    <BaseInput id="find-account-new-password" v-model="form.newPassword" name="newPassword"
-                        type="password" autocomplete="new-password" :label="t('auth.newPassword')" required />
-                    <BaseInput id="find-account-confirm-password" v-model="form.confirmPassword" name="confirmPassword"
-                        type="password" autocomplete="new-password" :label="t('auth.newPasswordConfirm')" required />
-                    <BaseButton @click="handleResetPassword" :loading="status.loading" full-width variant="primary">
-                        {{ t('auth.resetPassword') }}
-                    </BaseButton>
-                </div>
-            </div>
-        </div>
+  <AuthFormShell back-to="/login">
+    <div class="flex border-b nv-border mb-6" role="tablist" :aria-label="t('auth.findAccount')">
+      <BaseButton
+        variant="ghost"
+        class="flex-1 rounded-b-none border-b-2"
+        role="tab"
+        :aria-selected="activeTab === 'id'"
+        :class="activeTab === 'id'
+          ? 'border-[var(--nv-accent)] text-[var(--nv-accent)]'
+          : 'border-transparent nv-text-subtle hover:text-[var(--nv-text)]'"
+        @click="switchTab('id')"
+      >
+        <User class="mr-2 h-4 w-4" />
+        {{ t('auth.findId') }}
+      </BaseButton>
+      <BaseButton
+        variant="ghost"
+        class="flex-1 rounded-b-none border-b-2"
+        role="tab"
+        :aria-selected="activeTab === 'password'"
+        :class="activeTab === 'password'
+          ? 'border-[var(--nv-accent)] text-[var(--nv-accent)]'
+          : 'border-transparent nv-text-subtle hover:text-[var(--nv-text)]'"
+        @click="switchTab('password')"
+      >
+        <Key class="mr-2 h-4 w-4" />
+        {{ t('auth.findPassword') }}
+      </BaseButton>
     </div>
+
+    <div class="space-y-6">
+      <AuthEmailVerificationSection
+        v-if="!status.foundId && (!status.isVerified || activeTab === 'id')"
+        v-model:email="form.email"
+        v-model:code="form.code"
+        v-bind="emailVerificationSectionProps"
+        @send="handleSendCode"
+        @verify="handleVerifyCode"
+      />
+
+      <div
+        v-if="activeTab === 'id' && status.foundId"
+        class="text-center py-8 nv-surface-muted rounded-lg border nv-border animate-fade-in"
+      >
+        <p class="nv-text-muted mb-2">{{ t('auth.yourIdIs', { id: '' }).replace('{id}', '') }}</p>
+        <p class="text-2xl font-bold nv-accent-text mb-6">{{ status.foundId }}</p>
+        <BaseButton full-width @click="router.push('/login')">
+          {{ t('auth.login') }}
+        </BaseButton>
+      </div>
+
+      <div v-if="activeTab === 'password' && status.isVerified" class="space-y-6 animate-fade-in">
+        <BaseInput
+          id="find-account-new-password"
+          v-model="form.newPassword"
+          name="newPassword"
+          type="password"
+          autocomplete="new-password"
+          :label="t('auth.newPassword')"
+          required
+        />
+        <BaseInput
+          id="find-account-confirm-password"
+          v-model="form.confirmPassword"
+          name="confirmPassword"
+          type="password"
+          autocomplete="new-password"
+          :label="t('auth.newPasswordConfirm')"
+          required
+        />
+        <BaseButton full-width variant="primary" :loading="status.loading" @click="handleResetPassword">
+          {{ t('auth.resetPassword') }}
+        </BaseButton>
+      </div>
+    </div>
+  </AuthFormShell>
 </template>
 
 <style scoped>
 .animate-fade-in-down {
-    animation: fadeInDown 0.3s ease-out;
+  animation: fadeInDown 0.3s ease-out;
 }
 
 .animate-fade-in {
-    animation: fadeIn 0.3s ease-out;
+  animation: fadeIn 0.3s ease-out;
 }
 
 @keyframes fadeInDown {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
 
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
+  from {
+    opacity: 0;
+  }
 
-    to {
-        opacity: 1;
-    }
+  to {
+    opacity: 1;
+  }
 }
 </style>

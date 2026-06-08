@@ -53,7 +53,7 @@ export const useKeyboardStore = defineStore('keyboard', () => {
 
         let index = -1
         if (key >= '1' && key <= '9') {
-            index = parseInt(key) - 1
+            index = Number.parseInt(key, 10) - 1
         } else if (key === '0') {
             index = 9
         }

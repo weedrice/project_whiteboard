@@ -1,5 +1,6 @@
 <script setup lang="ts" generic="T extends object">
 import { computed } from 'vue'
+import BaseSpinner from './BaseSpinner.vue'
 
 export interface TableColumn {
     key: string
@@ -10,6 +11,8 @@ export interface TableColumn {
 }
 
 type RowKeyResolver<TItem> = Extract<keyof TItem, string> | ((item: TItem, index: number) => string | number)
+type RowActionLabelResolver<TItem> = string | ((item: TItem, index: number) => string)
+type RowActivationEvent = 'row-click' | 'row-dblclick'
 
 const props = withDefaults(defineProps<{
     columns: TableColumn[]
@@ -23,6 +26,9 @@ const props = withDefaults(defineProps<{
     currentSortDirection?: 'asc' | 'desc' | null
     rowClass?: (item: T) => string
     rowKey?: RowKeyResolver<T>
+    interactiveRows?: boolean
+    rowActionLabel?: RowActionLabelResolver<T>
+    rowActivationEvent?: RowActivationEvent
 }>(), {
     loading: false,
     emptyText: 'No data available',
@@ -32,7 +38,10 @@ const props = withDefaults(defineProps<{
     currentSortKey: null,
     currentSortDirection: null,
     rowClass: undefined,
-    rowKey: undefined
+    rowKey: undefined,
+    interactiveRows: false,
+    rowActionLabel: undefined,
+    rowActivationEvent: 'row-click'
 })
 
 const emit = defineEmits<{
@@ -115,6 +124,36 @@ const getCellValue = (item: T, key: string): unknown => {
     return record[key]
 }
 
+const getRowActionLabel = (item: T, index: number): string | undefined => {
+    if (!props.interactiveRows) {
+        return undefined
+    }
+
+    if (typeof props.rowActionLabel === 'function') {
+        return props.rowActionLabel(item, index)
+    }
+
+    return props.rowActionLabel
+}
+
+const emitRowActivation = (item: T) => {
+    if (props.rowActivationEvent === 'row-dblclick') {
+        emit('row-dblclick', item)
+        return
+    }
+
+    emit('row-click', item)
+}
+
+const handleRowKeydown = (event: KeyboardEvent, item: T) => {
+    if (!props.interactiveRows || (event.key !== 'Enter' && event.key !== ' ')) {
+        return
+    }
+
+    event.preventDefault()
+    emitRowActivation(item)
+}
+
 const rootClasses = computed(() => [
     'nv-base-table overflow-hidden',
     props.shadow ? 'shadow' : '',
@@ -175,7 +214,9 @@ const bodyCellClasses = computed(() => [
                             class="nv-base-table-status px-3 sm:px-6 py-6 sm:py-10 text-center text-xs sm:text-sm">
                             <div class="flex justify-center" role="status" aria-live="polite">
                                 <slot name="loading">
-                                    <div class="nv-base-table-spinner animate-spin rounded-full h-6 w-6 border-b-2" aria-hidden="true"></div>
+                                    <div class="nv-base-table-spinner h-6 w-6 flex items-center justify-center" aria-hidden="true">
+                                        <BaseSpinner size="sm" color="text-[var(--nv-accent)]" class="scale-150" />
+                                    </div>
                                     <span class="sr-only">Loading...</span>
                                 </slot>
                             </div>
@@ -191,8 +232,12 @@ const bodyCellClasses = computed(() => [
                         <tr v-for="(item, index) in items" :key="getRowKey(item, index)"
                             class="nv-base-table-row transition-colors duration-150"
                             :class="rowClass?.(item) || ''"
+                            :role="interactiveRows ? 'button' : undefined"
+                            :tabindex="interactiveRows ? 0 : undefined"
+                            :aria-label="getRowActionLabel(item, index)"
                             @click="emit('row-click', item)"
-                            @dblclick="emit('row-dblclick', item)">
+                            @dblclick="emit('row-dblclick', item)"
+                            @keydown="handleRowKeydown($event, item)">
                             <td v-for="col in columns" :key="col.key"
                                 :class="[bodyCellClasses, alignClass(col.align)]">
                                 <slot :name="`cell-${col.key}`" :item="item" :value="getCellValue(item, col.key)">

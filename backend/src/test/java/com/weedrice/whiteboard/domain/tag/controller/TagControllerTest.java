@@ -5,6 +5,8 @@ import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.tag.dto.TagResponse;
 import com.weedrice.whiteboard.domain.tag.service.TagService;
+import com.weedrice.whiteboard.global.config.CurrentUserIdWebMvcConfig;
+import com.weedrice.whiteboard.global.security.CurrentUserIdArgumentResolver;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -50,7 +52,11 @@ import static org.mockito.Mockito.when;
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
     })
 @org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
-@org.springframework.context.annotation.Import(TagControllerTest.TestSecurityConfig.class)
+@org.springframework.context.annotation.Import({
+        TagControllerTest.TestSecurityConfig.class,
+        CurrentUserIdWebMvcConfig.class,
+        CurrentUserIdArgumentResolver.class
+})
 class TagControllerTest {
 
     @org.springframework.boot.test.context.TestConfiguration

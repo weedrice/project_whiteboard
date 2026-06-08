@@ -1,77 +1,30 @@
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
-import { useAdmin } from '@/composables/useAdmin'
-import { useConfigEditor } from '@/composables/useConfigEditor'
 import { Save, Trash2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
-import { useToastStore } from '@/stores/toast'
-import BaseTable from '@/components/common/ui/BaseTable.vue'
-import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
-import { useConfirm } from '@/composables/useConfirm'
+import AdminActionButton from '@/components/admin/AdminActionButton.vue'
+import AdminDataPage from '@/components/admin/AdminDataPage.vue'
+import AdminModalActions from '@/components/admin/AdminModalActions.vue'
+import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
+import AdminTableActions from '@/components/admin/AdminTableActions.vue'
+import { useGlobalSettingsManager } from '@/composables/useGlobalSettingsManager'
 
 
 const { t } = useI18n()
-const toastStore = useToastStore()
-const { confirm } = useConfirm()
-const { useConfigs, useUpdateConfig, useCreateConfig, useDeleteConfig } = useAdmin()
-
-const isModalOpen = ref(false)
-const newConfig = reactive({
-  key: '',
-  value: '',
-  description: ''
-})
-
-const { data: configsData, isLoading } = useConfigs()
-const { mutateAsync: updateConfig } = useUpdateConfig()
-const { mutateAsync: createConfig } = useCreateConfig()
-const { mutateAsync: deleteConfig } = useDeleteConfig()
-const { configs, updateDraft, getDraft } = useConfigEditor(configsData)
-
-async function handleSave(key: string) {
-  const config = getDraft(key)
-  if (!config) return
-
-  try {
-    await updateConfig({ key: config.key, value: config.value, description: config.description })
-    toastStore.addToast(t('admin.settings.messages.saved'), 'success')
-  } catch {
-    // Error handled globally
-  }
-}
-
-async function handleCreateConfig() {
-  if (!newConfig.key || !newConfig.value) return
-  try {
-    await createConfig({
-      key: newConfig.key,
-      value: newConfig.value,
-      description: newConfig.description
-    })
-
-    toastStore.addToast(t('admin.settings.messages.saved'), 'success')
-    isModalOpen.value = false
-    newConfig.key = ''
-    newConfig.value = ''
-    newConfig.description = ''
-  } catch {
-    // Error handled globally
-  }
-}
-
-async function handleDelete(key: string) {
-  const isConfirmed = await confirm(t('common.confirmDelete'))
-  if (!isConfirmed) return
-  try {
-    await deleteConfig(key)
-    toastStore.addToast(t('common.deleted'), 'success')
-  } catch {
-    // Error handled globally
-  }
-}
+const {
+  closeCreateModal,
+  configs,
+  handleCreateConfig,
+  handleDelete,
+  handleSave,
+  isLoading,
+  isModalOpen,
+  newConfig,
+  openCreateModal,
+  updateDraft,
+} = useGlobalSettingsManager()
 
 const columns = [
   { key: 'key', label: t('common.key'), width: '20%' },
@@ -82,65 +35,69 @@ const columns = [
 </script>
 
 <template>
-  <div>
-    <AdminPageHeader :title="t('admin.settings.title')" :description="t('admin.settings.description')">
-      <template #actions>
-        <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-          <BaseButton @click="isModalOpen = true">
-            {{ t('common.add') }}
-          </BaseButton>
-        </div>
-      </template>
-    </AdminPageHeader>
+  <AdminDataPage :title="t('admin.settings.title')" :description="t('admin.settings.description')">
+    <template #actions>
+      <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+        <BaseButton @click="openCreateModal">
+          {{ t('common.add') }}
+        </BaseButton>
+      </div>
+    </template>
 
     <div class="mt-8">
-      <BaseTable :columns="columns" :items="configs" row-key="key" :loading="isLoading" :emptyText="t('common.noData')">
+      <AdminPaginatedTable
+        table-class=""
+        :columns="columns"
+        :items="configs"
+        row-key="key"
+        :loading="isLoading"
+        :empty-text="t('common.noData')"
+        :show-footer="false"
+      >
         <template #cell-description="{ item }">
           <BaseInput :model-value="item.description"
             :label="`${item.key} ${t('common.description')}`" hideLabel
             @update:model-value="updateDraft(item.key, { description: String($event) })"
-            inputClass="block w-full border-0 p-0 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-500 focus:ring-0 sm:text-sm bg-transparent shadow-none" />
+            inputClass="block w-full border-0 p-0 nv-text placeholder-[var(--nv-text-subtle)] focus:ring-0 sm:text-sm bg-transparent shadow-none" />
         </template>
 
         <template #cell-value="{ item }">
           <BaseInput :model-value="item.value"
             :label="`${item.key} ${t('common.value')}`" hideLabel
             @update:model-value="updateDraft(item.key, { value: String($event) })"
-            inputClass="block w-full border-0 p-0 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-500 focus:ring-0 sm:text-sm bg-transparent shadow-none" />
+            inputClass="block w-full border-0 p-0 nv-text placeholder-[var(--nv-text-subtle)] focus:ring-0 sm:text-sm bg-transparent shadow-none" />
         </template>
 
         <template #cell-actions="{ item }">
-          <div class="flex justify-end space-x-2">
-            <BaseButton @click="handleSave(item.key)" variant="ghost" size="sm" :title="t('common.save')" :aria-label="t('common.save')"
-              class="p-1 text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
+          <AdminTableActions>
+            <AdminActionButton :label="t('common.save')" tone="accent" icon-only @click="handleSave(item.key)">
               <Save class="h-4 w-4" aria-hidden="true" />
-            </BaseButton>
-            <BaseButton @click="handleDelete(item.key)" variant="ghost" size="sm" :title="t('common.delete')" :aria-label="t('common.delete')"
-              class="p-1 text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">
+            </AdminActionButton>
+            <AdminActionButton :label="t('common.delete')" tone="danger" icon-only @click="handleDelete(item.key)">
               <Trash2 class="h-4 w-4" aria-hidden="true" />
-            </BaseButton>
-          </div>
+            </AdminActionButton>
+          </AdminTableActions>
         </template>
-      </BaseTable>
+      </AdminPaginatedTable>
     </div>
 
     <!-- Add Config Modal -->
-    <BaseModal :isOpen="isModalOpen" :title="t('admin.settings.addConfig')" @close="isModalOpen = false">
+    <BaseModal :isOpen="isModalOpen" :title="t('admin.settings.addConfig')" @close="closeCreateModal">
       <div class="space-y-4">
         <BaseInput v-model="newConfig.key" :label="t('common.key')" type="text" />
         <BaseInput v-model="newConfig.value" :label="t('common.value')" type="text" />
         <BaseInput v-model="newConfig.description" :label="t('common.description')" type="text" />
       </div>
       <template #footer>
-        <div class="flex justify-end space-x-3">
-          <BaseButton @click="isModalOpen = false" variant="secondary">
+        <AdminModalActions>
+          <BaseButton @click="closeCreateModal" variant="secondary">
             {{ t('common.cancel') }}
           </BaseButton>
           <BaseButton @click="handleCreateConfig">
             {{ t('common.save') }}
           </BaseButton>
-        </div>
+        </AdminModalActions>
       </template>
     </BaseModal>
-  </div>
+  </AdminDataPage>
 </template>

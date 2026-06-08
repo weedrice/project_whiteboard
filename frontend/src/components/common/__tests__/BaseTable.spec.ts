@@ -71,6 +71,7 @@ describe('BaseTable', () => {
             props: {
                 columns: [{ key: 'title', label: 'Title' }],
                 items: [{ title: 'Default row' }],
+                rowKey: (item: object) => (item as { title: string }).title,
             },
         })
 
@@ -82,6 +83,7 @@ describe('BaseTable', () => {
             props: {
                 columns: [{ key: 'title', label: 'Title' }],
                 items: [{ title: 'Compact row' }],
+                rowKey: (item: object) => (item as { title: string }).title,
                 density: 'compact',
                 shadow: false,
                 maxHeightClass: 'max-h-[420px]',
@@ -92,6 +94,60 @@ describe('BaseTable', () => {
         expect(compactWrapper.get('.overflow-x-auto').classes()).toEqual(expect.arrayContaining(['max-h-[420px]', 'overflow-y-auto']))
         expect(compactWrapper.get('th').classes()).toEqual(expect.arrayContaining(['px-2', 'py-2']))
         expect(compactWrapper.get('td').classes()).toEqual(expect.arrayContaining(['px-2', 'py-1.5']))
+    })
+
+    it('keeps table chrome on nv token classes', () => {
+        const wrapper = mount(BaseTable, {
+            props: {
+                columns: [{ key: 'title', label: 'Title' }],
+                items: [{ id: 1, title: 'Token row' }],
+            },
+        })
+
+        expect(wrapper.find('.nv-base-table').exists()).toBe(true)
+        expect(wrapper.find('.nv-base-table-head').exists()).toBe(true)
+        expect(wrapper.find('.nv-base-table-row').exists()).toBe(true)
+        expect(wrapper.find('.nv-base-table-cell').exists()).toBe(true)
+    })
+
+    it('supports keyboard activation when rows opt into interactive behavior', async () => {
+        const wrapper = mount(BaseTable, {
+            props: {
+                columns: [{ key: 'title', label: 'Title' }],
+                items: [{ id: 1, title: 'Accessible row' }],
+                interactiveRows: true,
+                rowActionLabel: (item: object) => `${(item as { title: string }).title} open`,
+            },
+        })
+
+        const row = wrapper.get('tbody tr')
+
+        expect(row.attributes('role')).toBe('button')
+        expect(row.attributes('tabindex')).toBe('0')
+        expect(row.attributes('aria-label')).toBe('Accessible row open')
+
+        await row.trigger('keydown', { key: 'Enter' })
+        await row.trigger('keydown', { key: ' ' })
+
+        expect(wrapper.emitted('row-click')).toHaveLength(2)
+        expect(wrapper.emitted('row-click')?.[0]).toEqual([{ id: 1, title: 'Accessible row' }])
+    })
+
+    it('routes keyboard activation to double click event when configured', async () => {
+        const wrapper = mount(BaseTable, {
+            props: {
+                columns: [{ key: 'title', label: 'Title' }],
+                items: [{ id: 1, title: 'Detail row' }],
+                interactiveRows: true,
+                rowActionLabel: 'Open detail',
+                rowActivationEvent: 'row-dblclick',
+            },
+        })
+
+        await wrapper.get('tbody tr').trigger('keydown', { key: 'Enter' })
+
+        expect(wrapper.emitted('row-dblclick')).toHaveLength(1)
+        expect(wrapper.emitted('row-click')).toBeUndefined()
     })
 
     it('uses stable fallback row keys before falling back to index', async () => {

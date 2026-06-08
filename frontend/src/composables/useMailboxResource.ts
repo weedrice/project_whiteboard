@@ -2,8 +2,9 @@ import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { AxiosError } from 'axios'
 import { messageApi, BLOCKED_BY_USER_CODE } from '@/api/message'
+import { unwrapApiData } from '@/api/response'
 import { useConfirm } from '@/composables/useConfirm'
-import { useLatestAsyncTask } from '@/composables/useLatestAsyncTask'
+import { useMailboxListState } from '@/composables/useMailboxListState'
 import { useMessageSubmit } from '@/composables/useMessageSubmit'
 import { useToastStore } from '@/stores/toast'
 import type { MailboxMessageViewModel } from '@/types'
@@ -18,19 +19,22 @@ export function useMailboxResource() {
     const toastStore = useToastStore()
     const { confirm } = useConfirm()
 
-    const viewType = ref<'received' | 'sent'>('received')
-    const messages = ref<MailboxMessageViewModel[]>([])
-    const messageListTask = useLatestAsyncTask<string>({
-        getErrorValue: () => t('common.messages.loadFailed'),
-        onError: (caughtError) => logger.error('Failed to fetch messages:', caughtError),
-    })
-    const { loading, error } = messageListTask
+    const {
+        viewType,
+        messages,
+        loading,
+        error,
+        selectedMessages,
+        page,
+        size,
+        totalPages,
+        fetchMessages,
+        handlePageChange,
+        handleSizeChange,
+        changeViewType,
+        markListMessageRead,
+    } = useMailboxListState()
     const selectedMessage = ref<MailboxMessageViewModel | null>(null)
-    const selectedMessages = ref<number[]>([])
-
-    const page = ref(0)
-    const size = ref(15)
-    const totalPages = ref(0)
 
     const isReplyModalOpen = ref(false)
     const replyTarget = ref<MailboxMessageViewModel | null>(null)
@@ -62,46 +66,11 @@ export function useMailboxResource() {
         markAsReadAbortControllers.clear()
     }
 
-    async function fetchMessages() {
-        messages.value = []
-        selectedMessages.value = []
-        const data = await messageListTask.run(async ({ signal }) => {
-            const params = {
-                page: page.value,
-                size: size.value
-            }
-            const response = viewType.value === 'received'
-                ? await messageApi.getReceivedMessages(params, { signal })
-                : await messageApi.getSentMessages(params, { signal })
-
-            return response.data
-        })
-
-        if (data?.success) {
-            messages.value = data.data?.content.map(toMailboxMessageViewModel) || []
-            totalPages.value = data.data?.totalPages || 0
-        }
+    function isStaleMessageDetail(requestId: number, messageId: number) {
+        return requestId !== messageDetailRequestId || selectedMessage.value?.id !== messageId
     }
 
-    function handlePageChange(newPage: number) {
-        page.value = newPage
-        fetchMessages()
-    }
-
-    function handleSizeChange(newSize = size.value) {
-        size.value = newSize
-        page.value = 0
-        fetchMessages()
-    }
-
-    function changeViewType(type: 'received' | 'sent') {
-        if (viewType.value === type) return
-        viewType.value = type
-        page.value = 0
-        fetchMessages()
-    }
-
-    async function openMessage(msg: MailboxMessageViewModel) {
+    function startMessageDetailRequest(msg: MailboxMessageViewModel) {
         const requestId = ++messageDetailRequestId
         abortMessageDetailRequest()
         const controller = new AbortController()
@@ -109,56 +78,80 @@ export function useMailboxResource() {
         const messageId = msg.id
         messageFromBlockedUser.value = false
         selectedMessage.value = msg
+        return { requestId, messageId, controller }
+    }
+
+    async function loadMessageDetail(messageId: number, controller: AbortController) {
+        const { data } = await messageApi.getMessage(messageId, {
+            skipGlobalErrorHandler: true,
+            signal: controller.signal
+        })
+        const message = unwrapApiData(data)
+        if (data.success && message) {
+            return toMailboxMessageViewModel(message)
+        }
+        return null
+    }
+
+    async function markMessageAsReadIfNeeded(messageId: number, wasUnread: boolean, requestId: number) {
+        if (viewType.value !== 'received' || !wasUnread) {
+            return
+        }
+
+        const markAsReadController = new AbortController()
+        markAsReadAbortControllers.add(markAsReadController)
         try {
-            const { data } = await messageApi.getMessage(messageId, {
+            await messageApi.markAsRead(messageId, {
                 skipGlobalErrorHandler: true,
-                signal: controller.signal
+                signal: markAsReadController.signal
             })
-            if (requestId !== messageDetailRequestId || selectedMessage.value?.id !== messageId) {
+        } finally {
+            markAsReadAbortControllers.delete(markAsReadController)
+        }
+        markListMessageRead(messageId)
+        if (isStaleMessageDetail(requestId, messageId)) {
+            return
+        }
+        if (selectedMessage.value?.id === messageId) {
+            selectedMessage.value = markMailboxMessageRead(selectedMessage.value)
+        }
+    }
+
+    async function handleMessageDetailError(
+        error: unknown,
+        requestId: number,
+        messageId: number,
+        controller: AbortController
+    ) {
+        if (isStaleMessageDetail(requestId, messageId) || controller.signal.aborted) {
+            return
+        }
+
+        const errRes = extractErrorResponse(error as AxiosError)
+        if (errRes?.code === BLOCKED_BY_USER_CODE) {
+            messageFromBlockedUser.value = true
+        } else if (errRes?.code === NOT_FOUND_CODE) {
+            selectedMessage.value = null
+            await fetchMessages()
+            toastStore.addToast(t('common.messages.notFound'), 'info')
+        } else {
+            logger.error('Failed to open message:', error)
+        }
+    }
+
+    async function openMessage(msg: MailboxMessageViewModel) {
+        const { requestId, messageId, controller } = startMessageDetailRequest(msg)
+        try {
+            const detail = await loadMessageDetail(messageId, controller)
+            if (isStaleMessageDetail(requestId, messageId)) {
                 return
             }
-            if (data.success && data.data) {
-                selectedMessage.value = toMailboxMessageViewModel(data.data)
+            if (detail) {
+                selectedMessage.value = detail
             }
-            if (viewType.value === 'received' && msg.isUnread) {
-                const markAsReadController = new AbortController()
-                markAsReadAbortControllers.add(markAsReadController)
-                try {
-                    await messageApi.markAsRead(messageId, {
-                        skipGlobalErrorHandler: true,
-                        signal: markAsReadController.signal
-                    })
-                } finally {
-                    markAsReadAbortControllers.delete(markAsReadController)
-                }
-                const targetIndex = messages.value.findIndex((message) => message.id === messageId)
-                if (targetIndex >= 0) {
-                    messages.value[targetIndex] = markMailboxMessageRead(messages.value[targetIndex])
-                }
-                if (requestId !== messageDetailRequestId || selectedMessage.value?.id !== messageId) {
-                    return
-                }
-                if (selectedMessage.value?.id === messageId) {
-                    selectedMessage.value = markMailboxMessageRead(selectedMessage.value)
-                }
-            }
+            await markMessageAsReadIfNeeded(messageId, msg.isUnread, requestId)
         } catch (error) {
-            if (requestId !== messageDetailRequestId || selectedMessage.value?.id !== messageId) {
-                return
-            }
-            if (controller.signal.aborted) {
-                return
-            }
-            const errRes = extractErrorResponse(error as AxiosError)
-            if (errRes?.code === BLOCKED_BY_USER_CODE) {
-                messageFromBlockedUser.value = true
-            } else if (errRes?.code === NOT_FOUND_CODE) {
-                selectedMessage.value = null
-                await fetchMessages()
-                toastStore.addToast(t('common.messages.notFound'), 'info')
-            } else {
-                logger.error('Failed to open message:', error)
-            }
+            await handleMessageDetailError(error, requestId, messageId, controller)
         } finally {
             if (messageDetailAbortController === controller) {
                 messageDetailAbortController = null
@@ -206,7 +199,6 @@ export function useMailboxResource() {
     })
 
     onUnmounted(() => {
-        messageListTask.reset()
         messageDetailRequestId++
         abortMessageDetailRequest()
         abortMarkAsReadRequests()

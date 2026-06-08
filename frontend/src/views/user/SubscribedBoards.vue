@@ -1,12 +1,12 @@
 <template>
     <div class="max-w-4xl mx-auto py-4 sm:py-6 md:py-8 px-4 sm:px-6 lg:px-8">
-        <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
-            <div class="px-4 py-4 sm:py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex items-center">
-                <Users class="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400 flex-shrink-0" />
-                <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">{{ $t('user.subscriptions.title') }}</h3>
+        <div class="nv-surface shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
+            <div class="px-4 py-4 sm:py-5 sm:px-6 border-b nv-border flex items-center">
+                <Users class="h-5 w-5 mr-2 nv-text-subtle flex-shrink-0" />
+                <h3 class="text-lg leading-6 font-medium nv-title">{{ $t('user.subscriptions.title') }}</h3>
             </div>
 
-            <div v-if="loading" class="divide-y divide-gray-200 dark:divide-gray-700">
+            <div v-if="loading" class="divide-y divide-[var(--nv-border)]">
                 <div v-for="i in 5" :key="i" class="px-4 py-4 sm:px-6 flex justify-between items-center">
                     <div class="flex items-center flex-1">
                         <BaseSkeleton width="20px" height="20px" className="mr-4" />
@@ -25,11 +25,11 @@
                 :icon="Users"
             />
 
-            <draggable v-else-if="accessibleBoards.length > 0" v-model="accessibleBoards" item-key="boardId" class="divide-y divide-gray-200 dark:divide-gray-700"
+            <draggable v-else-if="accessibleBoards.length > 0" v-model="accessibleBoards" item-key="boardId" class="divide-y divide-[var(--nv-border)]"
                 tag="ul" :handle="isMobile ? undefined : '.handle'" :disabled="isMobile" @end="handleDragEnd">
                 <template #item="{ element: board }">
                     <li
-                        class="px-3 py-3 sm:px-6 sm:py-4 hover:bg-gray-50 dark:hover:bg-gray-700 flex flex-row items-center justify-between gap-2 sm:gap-3 bg-white dark:bg-gray-800 transition-colors duration-200">
+                        class="px-3 py-3 sm:px-6 sm:py-4 nv-hover-surface flex flex-row items-center justify-between gap-2 sm:gap-3 transition-colors duration-200">
                         <router-link
                             v-if="isAccessibleSubscription(board)"
                             :to="`/board/${board.boardUrl}`"
@@ -37,22 +37,22 @@
                             :aria-label="board.boardName || $t('user.subscriptions.unavailableBoard')">
                             <div
                                 v-if="!isMobile && isAccessibleSubscription(board)"
-                                class="handle mr-3 sm:mr-4 p-2 -m-2 cursor-move text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+                                class="handle mr-3 sm:mr-4 p-2 -m-2 cursor-move nv-text-subtle touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
                                 @click.prevent.stop>
                                 <Menu class="h-5 w-5" />
                             </div>
                             <div class="flex-1 min-w-0 py-1 sm:py-0">
-                                <div class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">{{
+                                <div class="text-sm font-medium nv-accent-text truncate">{{
                                     board.boardName || $t('user.subscriptions.unavailableBoard') }}</div>
-                                <p class="mt-0.5 sm:mt-1 text-xs sm:text-sm text-gray-500 dark:text-gray-400 line-clamp-1 sm:line-clamp-2">{{
+                                <p class="mt-0.5 sm:mt-1 text-xs sm:text-sm nv-text-subtle line-clamp-1 sm:line-clamp-2">{{
                                     board.description || $t('user.subscriptions.unavailableBoardDescription') }}</p>
                             </div>
                         </router-link>
                         <div v-else class="flex items-center flex-1 min-w-0 cursor-default">
                             <div class="flex-1 min-w-0 py-1 sm:py-0">
-                                <div class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">{{
+                                <div class="text-sm font-medium nv-accent-text truncate">{{
                                     board.boardName || $t('user.subscriptions.unavailableBoard') }}</div>
-                                <p class="mt-0.5 sm:mt-1 text-xs sm:text-sm text-gray-500 dark:text-gray-400 line-clamp-1 sm:line-clamp-2">{{
+                                <p class="mt-0.5 sm:mt-1 text-xs sm:text-sm nv-text-subtle line-clamp-1 sm:line-clamp-2">{{
                                     board.description || $t('user.subscriptions.unavailableBoardDescription') }}</p>
                             </div>
                         </div>
@@ -67,16 +67,16 @@
                 </template>
             </draggable>
 
-            <ul v-if="unavailableBoards.length > 0" class="divide-y divide-gray-200 dark:divide-gray-700">
+            <ul v-if="unavailableBoards.length > 0" class="divide-y divide-[var(--nv-border)]">
                 <li
                     v-for="board in unavailableBoards"
                     :key="board.boardId"
-                    class="px-3 py-3 sm:px-6 sm:py-4 hover:bg-gray-50 dark:hover:bg-gray-700 flex flex-row items-center justify-between gap-2 sm:gap-3 bg-white dark:bg-gray-800 transition-colors duration-200">
+                    class="px-3 py-3 sm:px-6 sm:py-4 nv-hover-surface flex flex-row items-center justify-between gap-2 sm:gap-3 transition-colors duration-200">
                     <div class="flex items-center flex-1 min-w-0 cursor-default">
                         <div class="flex-1 min-w-0 py-1 sm:py-0">
-                            <div class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">{{
+                            <div class="text-sm font-medium nv-accent-text truncate">{{
                                 board.boardName || $t('user.subscriptions.unavailableBoard') }}</div>
-                            <p class="mt-0.5 sm:mt-1 text-xs sm:text-sm text-gray-500 dark:text-gray-400 line-clamp-1 sm:line-clamp-2">{{
+                            <p class="mt-0.5 sm:mt-1 text-xs sm:text-sm nv-text-subtle line-clamp-1 sm:line-clamp-2">{{
                                 board.description || $t('user.subscriptions.unavailableBoardDescription') }}</p>
                         </div>
                     </div>

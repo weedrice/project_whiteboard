@@ -31,13 +31,13 @@ const {
   <div class="p-8 relative h-full flex flex-col justify-center">
     <div class="absolute top-4 left-4">
       <router-link to="/login"
-        class="flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors">
+        class="flex items-center nv-text-subtle hover:text-[var(--nv-text)] transition-colors">
         <ChevronLeft class="h-5 w-5 mr-1" />
         <span class="text-sm font-medium">{{ $t('common.back') }}</span>
       </router-link>
     </div>
     <div class="text-center mb-12 mt-16">
-      <h2 class="text-3xl font-extrabold text-gray-900 dark:text-white">
+      <h2 class="text-3xl font-extrabold nv-title">
         {{ $t('auth.createAccountTitle') }}
       </h2>
     </div>
@@ -49,10 +49,10 @@ const {
             :placeholder="$t('auth.placeholders.loginId')" :label="$t('common.loginId')" hideLabel
             :disabled="isReregister">
             <template #prefix>
-              <User class="h-5 w-5 text-gray-400" />
+              <User class="h-5 w-5 nv-text-subtle" />
             </template>
           </BaseInput>
-          <p v-if="fieldErrors.loginId" class="text-xs text-red-500 mt-1 ml-1">
+          <p v-if="fieldErrors.loginId" class="text-xs nv-form-error mt-1 ml-1">
             {{ fieldErrors.loginId }}
           </p>
         </div>
@@ -60,10 +60,10 @@ const {
           <BaseInput id="password" v-model="form.password" name="password" type="password" required
             :placeholder="$t('auth.placeholders.password')" :label="$t('common.password')" hideLabel>
             <template #prefix>
-              <Lock class="h-5 w-5 text-gray-400" />
+              <Lock class="h-5 w-5 nv-text-subtle" />
             </template>
           </BaseInput>
-          <p v-if="fieldErrors.password" class="text-xs text-red-500 mt-1 ml-1">
+          <p v-if="fieldErrors.password" class="text-xs nv-form-error mt-1 ml-1">
             {{ fieldErrors.password }}
           </p>
         </div>
@@ -71,10 +71,10 @@ const {
           <BaseInput id="password-confirm" v-model="form.passwordConfirm" name="passwordConfirm" type="password"
             required :placeholder="$t('auth.newPasswordConfirm')" :label="$t('auth.newPasswordConfirm')" hideLabel>
             <template #prefix>
-              <Lock class="h-5 w-5 text-gray-400" />
+              <Lock class="h-5 w-5 nv-text-subtle" />
             </template>
           </BaseInput>
-          <p v-if="fieldErrors.passwordConfirm" class="text-xs text-red-500 mt-1 ml-1">
+          <p v-if="fieldErrors.passwordConfirm" class="text-xs nv-form-error mt-1 ml-1">
             {{ fieldErrors.passwordConfirm }}
           </p>
         </div>
@@ -87,7 +87,7 @@ const {
                 :placeholder="$t('auth.placeholders.newEmail')" :label="$t('common.email')" hideLabel
                 :disabled="verification.isVerified || verification.loading">
                 <template #prefix>
-                  <Mail class="h-5 w-5 text-gray-400" />
+                  <Mail class="h-5 w-5 nv-text-subtle" />
                 </template>
               </BaseInput>
             </div>
@@ -103,12 +103,12 @@ const {
                 {{ t('auth.sendCode') }}
               </span>
             </BaseButton>
-            <span v-else class="flex items-center text-green-500 text-sm font-medium whitespace-nowrap py-2 px-3">
+            <span v-else class="flex items-center text-[var(--nv-success-text)] text-sm font-medium whitespace-nowrap py-2 px-3">
               <CheckCircle class="h-4 w-4 mr-1" />
               {{ t('auth.codeVerified') }}
             </span>
           </div>
-          <p v-if="fieldErrors.email" class="text-xs text-red-500 mt-1 ml-1">
+          <p v-if="fieldErrors.email" class="text-xs nv-form-error mt-1 ml-1">
             {{ fieldErrors.email }}
           </p>
 
@@ -119,11 +119,11 @@ const {
                 inputmode="numeric" autocomplete="one-time-code" :placeholder="t('auth.codePlaceholder')"
                 :label="t('auth.codePlaceholder')" hideLabel :disabled="verification.timeLeft <= 0">
                 <template #prefix>
-                  <CheckCircle class="h-5 w-5 text-gray-400" />
+                  <CheckCircle class="h-5 w-5 nv-text-subtle" />
                 </template>
               </BaseInput>
               <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium"
-                :class="verification.timeLeft <= 60 ? 'text-red-500' : 'text-gray-500'">
+                :class="verification.timeLeft <= 60 ? 'nv-form-error' : 'nv-text-subtle'">
                 {{ formatTime(verification.timeLeft) }}
               </span>
             </div>
@@ -133,7 +133,7 @@ const {
             </BaseButton>
           </div>
           <p v-if="verification.isCodeSent && verification.timeLeft <= 0 && !verification.isVerified"
-            class="text-xs text-red-500 mt-1 ml-1">
+            class="text-xs nv-form-error mt-1 ml-1">
             {{ t('auth.codeExpired') }}
           </p>
         </div>
@@ -142,10 +142,10 @@ const {
           <BaseInput id="display-name" v-model="form.displayName" name="displayName" type="text" required
             :placeholder="$t('auth.placeholders.displayName')" :label="$t('common.displayName')" hideLabel>
             <template #prefix>
-              <Smile class="h-5 w-5 text-gray-400" />
+              <Smile class="h-5 w-5 nv-text-subtle" />
             </template>
           </BaseInput>
-          <p v-if="fieldErrors.displayName" class="text-xs text-red-500 mt-1 ml-1">
+          <p v-if="fieldErrors.displayName" class="text-xs nv-form-error mt-1 ml-1">
             {{ fieldErrors.displayName }}
           </p>
         </div>

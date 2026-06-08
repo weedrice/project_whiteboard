@@ -5,13 +5,13 @@
         <label :for="inputId" class="sr-only">{{ $t('board.tags.placeholder') }}</label>
         <input :id="inputId" v-model="newTag" name="postTag" autocomplete="off" @keydown.enter.prevent="addTag" type="text"
           :placeholder="$t('board.tags.placeholder')"
-          class="flex-1 min-w-0 px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400" />
+          class="flex-1 min-w-0 input-base rounded-full py-1 text-sm" />
         <button type="button" @click="addTag"
-          class="sm:hidden flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-full border border-indigo-600 dark:border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-transparent hover:bg-indigo-50 dark:hover:bg-indigo-900/30 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          class="sm:hidden flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-full border border-[var(--nv-accent)] nv-accent-text bg-transparent nv-hover-surface nv-focus-ring">
           {{ $t('common.add') }}
         </button>
       </div>
-      <span class="hidden sm:inline text-xs text-gray-500 dark:text-gray-400">{{ $t('board.tags.help') }}</span>
+      <span class="hidden sm:inline text-xs nv-text-subtle">{{ $t('board.tags.help') }}</span>
     </div>
 
     <div class="flex flex-wrap" :class="compact && readOnly ? 'gap-x-2 gap-y-1' : 'gap-2'">
@@ -20,8 +20,8 @@
           :class="[
             'inline-flex items-center rounded-full font-medium transition-colors cursor-pointer',
             compact
-              ? 'px-2.5 py-1 text-[11px] text-slate-700 bg-slate-100 border border-slate-200 hover:bg-slate-200 dark:text-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700'
-              : 'px-2 py-0.5 text-xs sm:text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-800'
+              ? 'px-2.5 py-1 text-[11px] nv-surface-muted nv-border border nv-hover-surface'
+              : 'px-2 py-0.5 text-xs sm:text-sm nv-status-info nv-hover-surface'
           ]">
           #{{ tag }}
         </button>
@@ -29,12 +29,12 @@
           :class="[
             'inline-flex items-center rounded-full font-medium',
             compact && readOnly
-              ? 'px-2.5 py-1 text-[11px] text-slate-700 bg-slate-100 border border-slate-200 dark:text-slate-200 dark:bg-slate-800 dark:border-slate-700'
-              : 'px-2 py-0.5 sm:px-2.5 sm:py-0.5 text-xs sm:text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200'
+              ? 'px-2.5 py-1 text-[11px] nv-surface-muted nv-border border'
+              : 'px-2 py-0.5 sm:px-2.5 sm:py-0.5 text-xs sm:text-sm nv-status-info'
           ]">
           #{{ tag }}
           <button v-if="!readOnly" @click="removeTag(index)" type="button"
-            class="ml-1 sm:ml-1.5 inline-flex items-center justify-center h-3 w-3 sm:h-4 sm:w-4 rounded-full text-blue-400 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 hover:text-blue-500 dark:hover:text-blue-100 focus:outline-none">
+            class="ml-1 sm:ml-1.5 inline-flex items-center justify-center h-3 w-3 sm:h-4 sm:w-4 rounded-full nv-accent-text nv-hover-surface nv-focus-ring">
             <span class="sr-only">{{ $t('board.tags.remove') }}</span>
             <svg class="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
               <path stroke-linecap="round" stroke-width="1.5" d="M1 1l6 6m0-6L1 7" />

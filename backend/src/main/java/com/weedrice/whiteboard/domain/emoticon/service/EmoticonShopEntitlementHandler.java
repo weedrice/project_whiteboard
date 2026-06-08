@@ -10,8 +10,6 @@ import java.util.Set;
 @Component
 class EmoticonShopEntitlementHandler implements ShopEntitlementHandler {
 
-    private static final String ITEM_TYPE = "EMOTICON";
-
     private final EmoticonEntitlementGrantService emoticonEntitlementGrantService;
 
     EmoticonShopEntitlementHandler(EmoticonEntitlementGrantService emoticonEntitlementGrantService) {
@@ -20,7 +18,7 @@ class EmoticonShopEntitlementHandler implements ShopEntitlementHandler {
 
     @Override
     public Set<String> getSupportedItemTypes() {
-        return Set.of(ITEM_TYPE);
+        return Set.of(EmoticonShopItemTypes.EMOTICON);
     }
 
     @Override

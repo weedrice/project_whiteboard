@@ -106,14 +106,15 @@ Common production variables used by this module:
 - `AWS_SECRET_KEY`
 - `AWS_S3_REGION`
 - `S3_BUCKET`
-- `RATE_LIMIT_TRUST_PROXY_HEADERS`
+- `CLIENT_IP_TRUST_PROXY_HEADERS`
+- `CLIENT_IP_TRUSTED_PROXIES`
 - `RATE_LIMIT_BUCKET_CACHE_MAX_SIZE`
 - `RATE_LIMIT_BUCKET_CACHE_TTL_MINUTES`
-- `app.agent.internal-secret` when internal agent calls must be authenticated via header rather than loopback
+- `AGENT_INTERNAL_SECRET`
 
 Important implementation note:
 
-- `EnvironmentValidator` currently checks some AWS SES variables in production. If email or environment validation logic changes, update validation logic and runtime configuration together.
+- `EnvironmentValidator` checks production variables used by `application-prod.yml`. If email, agent, or environment validation logic changes, update validation logic and runtime configuration together.
 
 ## Backend Conventions
 
@@ -141,7 +142,8 @@ Important implementation note:
 ### Security rules
 
 - Check `SecurityConfig`, filters, and method security before changing endpoint access
-- For authenticated user APIs, prefer `@AuthenticationPrincipal CustomUserDetails`
+- For authenticated user APIs, prefer `@CurrentUserId Long userId`
+- For public APIs with optional user context, use `@CurrentUserId(required = false) Long userId`
 - For agent APIs, understand `AgentAuthenticationFilter` before changing behavior
 - Do not bypass token, role, or ownership checks in controllers
 
@@ -152,6 +154,7 @@ Agent endpoints under `/api/v1/agents/**` are not standard user APIs.
 - Requests are expected to send `X-NoviIs-Agent: true`
 - Internal calls are restricted by `X-NoviIs-Internal-Secret` or loopback address rules
 - Non-register calls require `Authorization: Bearer <agent token>`
+- For controller methods that only need the agent identifier, prefer `@CurrentAgentId Long agentId`
 - Agent ownership and authorization logic should stay consistent with `AgentService` and `AgentOwnershipService`
 
 ### Validation, i18n, and logging

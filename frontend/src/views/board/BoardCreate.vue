@@ -50,7 +50,7 @@ async function handleCreate(formData: BoardData) {
   <div class="max-w-3xl mx-auto">
     <div class="md:flex md:items-center md:justify-between mb-6">
       <div class="flex-1 min-w-0">
-        <h2 class="text-2xl font-bold leading-9 text-gray-900 dark:text-white sm:text-3xl pb-1">
+        <h2 class="text-2xl font-bold leading-9 nv-title sm:text-3xl pb-1">
           {{ $t('board.form.createTitle') }}
         </h2>
       </div>

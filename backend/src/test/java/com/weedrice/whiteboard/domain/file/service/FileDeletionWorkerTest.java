@@ -1,7 +1,5 @@
 package com.weedrice.whiteboard.domain.file.service;
 
-import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepository;
-import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository;
@@ -19,7 +17,6 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -43,9 +40,7 @@ class FileDeletionWorkerTest {
     @Mock
     private TransactionTemplate transactionTemplate;
     @Mock
-    private EmoticonImageRepository emoticonImageRepository;
-    @Mock
-    private EmoticonMasterRepository emoticonMasterRepository;
+    private EmoticonFileReferenceService emoticonFileReferenceService;
 
     @InjectMocks
     private FileDeletionWorker fileDeletionWorker;
@@ -75,8 +70,7 @@ class FileDeletionWorkerTest {
         when(fileRepository.findDeletionClaimCandidateForUpdate(eq(10L), eq(5), any()))
                 .thenReturn(Optional.of(file));
         when(fileRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(file));
-        when(emoticonImageRepository.existsByImageUrlIn(List.of("/api/v1/files/10", "/files/10")))
-                .thenReturn(true);
+        when(emoticonFileReferenceService.isReferenced(10L)).thenReturn(true);
         executeTransactionCallbackOnly();
 
         fileDeletionWorker.processDeletion(10L);
@@ -102,8 +96,7 @@ class FileDeletionWorkerTest {
 
         verify(fileStorageService).deleteFileOrThrow("stored.jpg");
         verify(fileRepository).delete(file);
-        verify(emoticonImageRepository, never()).existsByImageUrlIn(any());
-        verify(emoticonMasterRepository, never()).existsByThumbnailUrlIn(any());
+        verify(emoticonFileReferenceService, never()).isReferenced(any());
         assertThat(file.getStorageStatus()).isEqualTo(FileStorageStatus.DELETING);
         assertThat(file.getDeleteRetryCount()).isZero();
     }
@@ -159,16 +152,14 @@ class FileDeletionWorkerTest {
         when(fileRepository.findDeletionClaimCandidateForUpdate(eq(10L), eq(5), any()))
                 .thenReturn(Optional.of(file));
         when(fileRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(file), Optional.of(file));
-        when(emoticonImageRepository.existsByImageUrlIn(List.of("/api/v1/files/10", "/files/10")))
-                .thenReturn(false);
+        when(emoticonFileReferenceService.isReferenced(10L)).thenReturn(false);
         executeTransactions();
 
         fileDeletionWorker.processDeletion(10L);
 
         verify(fileStorageService).deleteFileOrThrow("stored.jpg");
         verify(fileRepository).delete(file);
-        verify(emoticonImageRepository, times(1))
-                .existsByImageUrlIn(List.of("/api/v1/files/10", "/files/10"));
+        verify(emoticonFileReferenceService, times(1)).isReferenced(10L);
         assertThat(file.getStorageStatus()).isEqualTo(FileStorageStatus.DELETING);
         assertThat(file.getDeleteRetryCount()).isZero();
     }

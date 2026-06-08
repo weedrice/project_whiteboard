@@ -1,7 +1,7 @@
 import { Storage } from '@/utils/storage'
 
-const ACCESS_TOKEN_KEY = 'accessToken'
-const LEGACY_REFRESH_TOKEN_KEY = 'refreshToken'
+export const ACCESS_TOKEN_KEY = 'accessToken'
+export const LEGACY_REFRESH_TOKEN_KEY = 'refreshToken'
 
 export function getStoredAccessToken(): string | null {
     return Storage.getString(ACCESS_TOKEN_KEY)

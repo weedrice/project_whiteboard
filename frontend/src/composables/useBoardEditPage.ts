@@ -1,4 +1,4 @@
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
@@ -13,6 +13,7 @@ import {
   toBoardEditForm,
   type BoardEditFormData
 } from '@/composables/useBoardEditResource'
+import { useBoardEditManagerAssignment } from '@/composables/useBoardEditManagerAssignment'
 import type { BoardUpdateData } from '@/types'
 
 export function useBoardEditPage() {
@@ -34,19 +35,25 @@ export function useBoardEditPage() {
 
   const error = ref('')
   const canManageBoard = ref(true)
-  const isManagerModalOpen = ref(false)
-  const isTransferringManager = ref(false)
-  const currentManagerLabel = ref('')
-  let managerTransferRequestId = 0
+  const {
+    closeManagerModal,
+    confirmManagerSelection,
+    currentManagerLabel,
+    isManagerModalOpen,
+    isTransferringManager,
+    openManagerModal,
+    resetManagerAssignmentState,
+    setCurrentManagerLabel,
+  } = useBoardEditManagerAssignment({
+    boardUrl,
+    transferBoardManager,
+  })
 
   function resetBoardState() {
-    managerTransferRequestId += 1
     form.value = createEmptyBoardEditForm()
     error.value = ''
     canManageBoard.value = true
-    currentManagerLabel.value = ''
-    isManagerModalOpen.value = false
-    isTransferringManager.value = false
+    resetManagerAssignmentState()
   }
 
   async function handleUpdate(formData: BoardEditFormData) {
@@ -78,41 +85,6 @@ export function useBoardEditPage() {
     }
   }
 
-  function openManagerModal() {
-    isManagerModalOpen.value = true
-  }
-
-  function closeManagerModal() {
-    isManagerModalOpen.value = false
-  }
-
-  async function confirmManagerSelection(users: Array<{ loginId: string; displayName?: string }>) {
-    if (users.length === 0) return
-
-    const selectedUser = users[0]
-    const transferBoardUrl = boardUrl.value
-    const requestId = ++managerTransferRequestId
-
-    isTransferringManager.value = true
-    try {
-      const updatedBoard = await transferBoardManager({
-        boardUrl: transferBoardUrl,
-        loginId: selectedUser.loginId
-      })
-      if (requestId !== managerTransferRequestId || transferBoardUrl !== boardUrl.value) return
-      currentManagerLabel.value = updatedBoard.adminDisplayName || `${selectedUser.displayName} (${selectedUser.loginId})`
-      closeManagerModal()
-      toastStore.addToast(t('common.messages.saveSuccess'), 'success')
-    } catch (err: unknown) {
-      if (requestId !== managerTransferRequestId || transferBoardUrl !== boardUrl.value) return
-      handleError(err, t('common.messages.saveFailed'))
-    } finally {
-      if (requestId === managerTransferRequestId && transferBoardUrl === boardUrl.value) {
-        isTransferringManager.value = false
-      }
-    }
-  }
-
   watch(boardUrl, () => {
     resetBoardState()
   }, { immediate: true })
@@ -129,7 +101,7 @@ export function useBoardEditPage() {
     }
 
     form.value = toBoardEditForm(board)
-    currentManagerLabel.value = resolveBoardManagerLabel(board, t('common.noData'))
+    setCurrentManagerLabel(resolveBoardManagerLabel(board, t('common.noData')))
   }, { immediate: true })
 
   watch(boardLoadError, (err) => {
@@ -138,10 +110,6 @@ export function useBoardEditPage() {
 
     handleError(err, t('board.loadFailed'))
     router.push(`/board/${currentBoardUrl}`)
-  })
-
-  onUnmounted(() => {
-    managerTransferRequestId += 1
   })
 
   return {

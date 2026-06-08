@@ -84,12 +84,12 @@ public class ErrorLogRepositoryCustomImpl implements ErrorLogRepositoryCustom {
         }
 
         // 에러 타입 필터
-        if (condition.getErrorType() != null && !condition.getErrorType().trim().isEmpty()) {
+        if (hasText(condition.getErrorType())) {
             predicate = combineAnd(predicate, errorLog.errorType.containsIgnoreCase(condition.getErrorType()));
         }
 
         // 에러 코드 필터
-        if (condition.getErrorCode() != null && !condition.getErrorCode().trim().isEmpty()) {
+        if (hasText(condition.getErrorCode())) {
             predicate = combineAnd(predicate, errorLog.errorCode.eq(condition.getErrorCode()));
         }
 
@@ -99,7 +99,7 @@ public class ErrorLogRepositoryCustomImpl implements ErrorLogRepositoryCustom {
         }
 
         // 확인 여부 필터
-        if (condition.getIsResolved() != null && !condition.getIsResolved().trim().isEmpty()) {
+        if (hasText(condition.getIsResolved())) {
             predicate = combineAnd(predicate, errorLog.isResolved.eq(condition.getIsResolved()));
         }
 
@@ -114,11 +114,15 @@ public class ErrorLogRepositoryCustomImpl implements ErrorLogRepositoryCustom {
         }
 
         // 요청 URI 필터
-        if (condition.getRequestUri() != null && !condition.getRequestUri().trim().isEmpty()) {
+        if (hasText(condition.getRequestUri())) {
             predicate = combineAnd(predicate, errorLog.requestUri.containsIgnoreCase(condition.getRequestUri()));
         }
 
         return predicate;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 
     private BooleanExpression combineAnd(BooleanExpression base, BooleanExpression condition) {

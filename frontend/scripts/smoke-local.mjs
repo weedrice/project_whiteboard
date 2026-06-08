@@ -15,6 +15,7 @@ const spaRoutes = [
   '/mypage/blocked',
   '/mypage/recent',
   '/admin/dashboard',
+  '/admin/boards',
   '/admin/users',
   '/admin/reports',
   '/admin/security',
@@ -42,6 +43,17 @@ const apiPaths = [
   '/admin/error-logs?page=0&size=5',
   '/admin/stats',
   '/home/landing?period=24h',
+]
+
+const darkModeReviewRoutes = [
+  '/mypage',
+  '/mypage/messages',
+  '/mypage/notifications',
+  '/admin/dashboard',
+  '/admin/boards',
+  '/auth/login',
+  '/boards',
+  '/emoticons',
 ]
 
 function requirePassword() {
@@ -159,6 +171,12 @@ printResults('Login', loginResults)
 
 const apiResults = authResult.token ? await runApiSmoke(authResult.token) : []
 printResults('API routes', apiResults)
+
+console.log('\nDark mode visual review routes')
+console.table(darkModeReviewRoutes.map((target) => ({
+  target,
+  check: 'card/modal/table/tab/dropdown surfaces use nv tokens',
+})))
 
 if (!assertAllPassed(spaResults) || !assertAllPassed(loginResults) || !assertAllPassed(apiResults)) {
   console.error('\nSmoke failed.')

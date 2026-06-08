@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-transparent dark:bg-transparent shadow-none rounded-lg p-0 sm:p-6 sm:bg-white sm:dark:bg-gray-800 sm:shadow transition-colors duration-200">
+  <div class="bg-transparent shadow-none rounded-lg p-0 sm:p-6 sm:bg-[var(--nv-surface)] sm:shadow transition-colors duration-200">
     <ProfileBasicForm
       v-model:display-name="form.displayName"
       v-model:profile-image-error="profileImageError"
@@ -10,7 +10,7 @@
       @submit="updateProfile"
     />
 
-    <hr class="border-gray-200 dark:border-gray-700 my-4 sm:my-6" />
+    <hr class="nv-border my-4 sm:my-6" />
 
     <ProfileAgentPanel
       v-model:agent-token="agentToken"
@@ -25,7 +25,7 @@
       @suspend="handleSuspendAgent"
     />
 
-    <hr class="border-gray-200 dark:border-gray-700 my-4 sm:my-6" />
+    <hr class="nv-border my-4 sm:my-6" />
 
     <AccountDeletionSection
       v-model:show-delete-modal="showDeleteModal"

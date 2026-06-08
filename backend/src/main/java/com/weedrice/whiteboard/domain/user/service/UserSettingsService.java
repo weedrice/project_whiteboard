@@ -34,10 +34,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserSettingsService {
-        private static final String DEFAULT_THEME = "LIGHT";
-        private static final String DEFAULT_LANGUAGE = "ko";
-        private static final String DEFAULT_TIMEZONE = "Asia/Seoul";
-        private static final boolean DEFAULT_HIDE_NSFW = true;
         private static final Set<String> SUPPORTED_THEMES = Set.of("LIGHT", "DARK");
         private static final Set<String> SUPPORTED_LANGUAGES = Set.of("ko", "en");
 
@@ -173,11 +169,6 @@ public class UserSettingsService {
                 return userWritableResolver.resolve(userId);
         }
 
-        private UserSettingsResponse toResponse(UserSettings settings) {
-                return new UserSettingsResponse(settings.getTheme(), settings.getLanguage(), settings.getTimezone(),
-                                settings.getHideNsfw());
-        }
-
         private UserSettingsResponse toReadResponse(UserSettingsRepository.SettingsReadProjection settings) {
                 if (settings.getTheme() == null) {
                         return defaultSettingsResponse();
@@ -190,7 +181,11 @@ public class UserSettingsService {
         }
 
         private UserSettingsResponse defaultSettingsResponse() {
-                return new UserSettingsResponse(DEFAULT_THEME, DEFAULT_LANGUAGE, DEFAULT_TIMEZONE, DEFAULT_HIDE_NSFW);
+                return new UserSettingsResponse(
+                                UserSettingsDefaults.THEME,
+                                UserSettingsDefaults.LANGUAGE,
+                                UserSettingsDefaults.TIMEZONE,
+                                UserSettingsDefaults.HIDE_NSFW);
         }
 
         private String normalizeTheme(String theme) {

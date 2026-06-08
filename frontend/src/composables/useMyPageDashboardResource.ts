@@ -1,14 +1,15 @@
 import { useQueryClient } from '@tanstack/vue-query'
-import { computed, ref } from 'vue'
+import { computed, ref, type Ref } from 'vue'
 import { userApi, type UserAgent } from '@/api/user'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { useLatestAsyncTask } from '@/composables/useLatestAsyncTask'
-import { usePagination } from '@/composables/usePagination'
 import { createMyAgentsQueryOptions, createMyProfileQueryOptions } from '@/composables/useUser'
+import { userQueryKeys } from '@/composables/userQueryKeys'
 import { useAuthStore } from '@/stores/auth'
-import type { MyComment, PostSummary, User } from '@/types'
+import type { ApiResponse, MyComment, PageResponse, PostSummary, User } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import { getListLoadErrorMessage } from '@/utils/listLoadError'
+import logger from '@/utils/logger'
 
 export interface MyCommentListItem {
   commentId: number
@@ -19,6 +20,79 @@ export interface MyCommentListItem {
   boardLabel: string
 }
 
+interface DashboardPaginationParams {
+  page?: number
+  size?: number
+  sort?: string
+  [key: string]: unknown
+}
+
+interface DashboardPaginationFetchContext {
+  signal: AbortSignal
+}
+
+function useDashboardPagination<T>(
+  fetchFn: (
+    params: DashboardPaginationParams,
+    context: DashboardPaginationFetchContext,
+  ) => Promise<ApiResponse<PageResponse<T>>>,
+  initialParams: DashboardPaginationParams,
+) {
+  const page = ref(initialParams.page ?? 0)
+  const size = ref(initialParams.size ?? 20)
+  const sort = ref<string | undefined>(initialParams.sort)
+  const items = ref<T[]>([]) as Ref<T[]>
+  const totalCount = ref(0)
+  const totalPages = ref(0)
+  const failedMessage = getListLoadErrorMessage()
+  const fetchTask = useLatestAsyncTask<string>({
+    getErrorValue: () => failedMessage,
+    onError: (err) => logger.error('Failed to fetch paginated data:', err),
+  })
+  const { loading, error } = fetchTask
+
+  const fetch = async (additionalParams: Record<string, unknown> = {}) => {
+    const result = await fetchTask.run(({ signal }) => {
+      const params: DashboardPaginationParams = {
+        page: page.value,
+        size: size.value,
+        ...(sort.value && { sort: sort.value }),
+        ...additionalParams,
+      }
+
+      return fetchFn(params, { signal })
+    })
+
+    if (!result) return
+
+    if (result.success) {
+      items.value = result.data.content
+      totalCount.value = result.data.totalElements
+      totalPages.value = result.data.totalPages
+    } else {
+      error.value = failedMessage
+    }
+  }
+
+  const handlePageChange = (newPage: number) => {
+    page.value = newPage
+    return fetch()
+  }
+
+  return {
+    page,
+    size,
+    sort,
+    items,
+    totalCount,
+    totalPages,
+    loading,
+    error,
+    fetch,
+    handlePageChange,
+  }
+}
+
 export function useMyPageDashboardResource() {
   const { handleSilentError } = useErrorHandler()
   const queryClient = useQueryClient()
@@ -27,9 +101,9 @@ export function useMyPageDashboardResource() {
   const profile = ref<User | null>(null)
   const myAgents = ref<UserAgent[]>([])
 
-  const myPostsPagination = usePagination<PostSummary>(
+  const myPostsPagination = useDashboardPagination<PostSummary>(
     (params, { signal }) => queryClient.fetchQuery({
-      queryKey: ['user', 'me', 'posts', params],
+      queryKey: userQueryKeys.myPosts(params),
       queryFn: async () => {
         const { data } = await userApi.getMyPosts(params, { signal })
         return data
@@ -38,9 +112,9 @@ export function useMyPageDashboardResource() {
     }),
     { page: 0, size: 10, sort: 'createdAt,desc' }
   )
-  const myCommentsPagination = usePagination<MyComment>(
+  const myCommentsPagination = useDashboardPagination<MyComment>(
     (params, { signal }) => queryClient.fetchQuery({
-      queryKey: ['user', 'me', 'comments', params],
+      queryKey: userQueryKeys.myComments(params),
       queryFn: async () => {
         const { data } = await userApi.getMyComments(params, { signal })
         return data
@@ -100,12 +174,12 @@ export function useMyPageDashboardResource() {
 
   async function fetchMyProfile() {
     if (authStore.user) {
-      const cachedProfile = queryClient.getQueryData<User>(['user', 'me'])
+      const cachedProfile = queryClient.getQueryData<User>(userQueryKeys.me)
       if (cachedProfile?.userId === authStore.user.userId) {
         profile.value = cachedProfile
       } else {
         profile.value = authStore.user
-        queryClient.setQueryData(['user', 'me'], authStore.user)
+        queryClient.setQueryData(userQueryKeys.me, authStore.user)
       }
       return
     }

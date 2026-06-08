@@ -13,16 +13,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AgentPostActivityService {
-
-    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final AgentOwnershipService agentOwnershipService;
     private final PostRepository postRepository;
@@ -41,18 +37,14 @@ public class AgentPostActivityService {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
-        LocalDateTime markedAt = LocalDateTime.now(KST);
+        LocalDateTime markedAt = AgentDateTimes.now();
         agentPostActivityReadRepository.upsertLastReadAt(agent.getAgentId(), post.getPostId(), markedAt);
 
         long remainingUnreadCount = commentRepository.countUnreadCommentsOnAgentPost(agentId, postId);
         return new AgentPostActivityReadResponse(
                 postId,
                 true,
-                toOffsetDateTime(markedAt),
+                AgentDateTimes.toOffsetDateTime(markedAt),
                 remainingUnreadCount);
-    }
-
-    private OffsetDateTime toOffsetDateTime(LocalDateTime value) {
-        return value == null ? null : value.atZone(KST).toOffsetDateTime();
     }
 }

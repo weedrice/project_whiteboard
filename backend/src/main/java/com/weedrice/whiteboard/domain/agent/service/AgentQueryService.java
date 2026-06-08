@@ -23,9 +23,9 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -35,9 +35,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -47,7 +44,6 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class AgentQueryService {
 
-    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final int FEED_PAGE_SIZE_LIMIT = 10;
     private static final int DEFAULT_READ_PAGE_SIZE_LIMIT = 20;
     private static final Sort DEFAULT_POST_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
@@ -139,8 +135,8 @@ public class AgentQueryService {
                         .displayName(target.getName())
                         .description(target.getDescription())
                         .status(target.getStatus().toLowerCase())
-                        .createdAt(toOffsetDateTime(target.getCreatedAt()))
-                        .lastActiveAt(toOffsetDateTime(target.getLastUsedAt()))
+                        .createdAt(AgentDateTimes.toOffsetDateTime(target.getCreatedAt()))
+                        .lastActiveAt(AgentDateTimes.toOffsetDateTime(target.getLastUsedAt()))
                         .ownerVerified(Boolean.TRUE.equals(target.getUser().getIsEmailVerified()))
                         .stats(AgentProfileResponse.Stats.builder()
                                 .postsCount(postsCount)
@@ -175,11 +171,7 @@ public class AgentQueryService {
 
     private Page<AgentPostListItem> getFeed(Agent agent, Long boardId, Pageable pageable) {
         Long agentId = agent.getAgentId();
-        Pageable effectivePageable = boundedPageable(
-                pageable,
-                FEED_PAGE_SIZE_LIMIT,
-                DEFAULT_AGENT_FEED_SORT,
-                Set.of());
+        Pageable effectivePageable = feedPageable(pageable);
         List<Board> accessibleBoards = agentBoardAccessService.getAccessibleFeedBoards(agent, boardId);
         if (accessibleBoards.isEmpty()) {
             return Page.empty(effectivePageable);
@@ -213,11 +205,7 @@ public class AgentQueryService {
 
     private Page<AgentPostListItem> getMyPosts(Agent agent, Pageable pageable) {
         Long agentId = agent.getAgentId();
-        Pageable effectivePageable = boundedPageable(
-                pageable,
-                DEFAULT_READ_PAGE_SIZE_LIMIT,
-                DEFAULT_POST_SORT,
-                ALLOWED_POST_SORT_PROPERTIES);
+        Pageable effectivePageable = postPageable(pageable);
 
         Page<Post> postPage = postRepository.findByAgent_AgentIdAndIsDeleted(agentId, false,
                 effectivePageable);
@@ -238,11 +226,7 @@ public class AgentQueryService {
                 null,
                 agent.getUser().getUserId(),
                 includeSecret,
-                boundedPageable(
-                        pageable,
-                        DEFAULT_READ_PAGE_SIZE_LIMIT,
-                        DEFAULT_POST_SORT,
-                        ALLOWED_POST_SORT_PROPERTIES));
+                postPageable(pageable));
         return agentPostListItemAssembler.fromPosts(postPage, agentId);
     }
 
@@ -252,11 +236,7 @@ public class AgentQueryService {
         Set<Long> blockedUserIds = toBlockedUserIdSet(blockedUserIdList);
         validateReadableAgentCommentPost(agent, postId, blockedUserIds);
 
-        Pageable effectivePageable = boundedPageable(
-                pageable,
-                DEFAULT_READ_PAGE_SIZE_LIMIT,
-                DEFAULT_COMMENT_SORT,
-                Set.of());
+        Pageable effectivePageable = commentPageable(pageable);
         BlockedUserIdsParameter blockedUserIdsParameter = BlockedUserIdsParameter.from(blockedUserIds);
         Page<Comment> parentComments = commentRepository.findParentsWithChildrenOrNotDeleted(
                 postId,
@@ -276,10 +256,6 @@ public class AgentQueryService {
         return new PageImpl<>(content, effectivePageable, parentComments.getTotalElements());
     }
 
-    private OffsetDateTime toOffsetDateTime(LocalDateTime value) {
-        return value == null ? null : value.atZone(KST).toOffsetDateTime();
-    }
-
     private boolean isAgentReadableProfileActivity(Agent viewer, Board board) {
         try {
             agentBoardAccessService.validateAgentBoardReadable(viewer, board);
@@ -289,18 +265,42 @@ public class AgentQueryService {
         }
     }
 
+    private Pageable feedPageable(Pageable pageable) {
+        return PageRequestUtils.bounded(
+                pageable,
+                FEED_PAGE_SIZE_LIMIT,
+                DEFAULT_AGENT_FEED_SORT,
+                Set.of());
+    }
+
+    private Pageable postPageable(Pageable pageable) {
+        return PageRequestUtils.bounded(
+                pageable,
+                DEFAULT_READ_PAGE_SIZE_LIMIT,
+                DEFAULT_POST_SORT,
+                ALLOWED_POST_SORT_PROPERTIES);
+    }
+
+    private Pageable commentPageable(Pageable pageable) {
+        return PageRequestUtils.bounded(
+                pageable,
+                DEFAULT_READ_PAGE_SIZE_LIMIT,
+                DEFAULT_COMMENT_SORT,
+                Set.of());
+    }
+
     private AgentProfileResponse.RecentPost toProfileRecentPost(Post post) {
         Board board = post.getBoard();
         return AgentProfileResponse.RecentPost.builder()
                 .postId(post.getPostId())
                 .title(post.getTitle())
-                .contentPreview(toPreview(post.getContents()))
+                .contentPreview(AgentContentPreviewer.preview(post.getContents()))
                 .boardId(board.getBoardId())
                 .boardName(board.getBoardName())
                 .boardUrl(board.getBoardUrl())
                 .likeCount(post.getLikeCount())
                 .commentCount(post.getCommentCount())
-                .createdAt(toOffsetDateTime(post.getCreatedAt()))
+                .createdAt(AgentDateTimes.toOffsetDateTime(post.getCreatedAt()))
                 .build();
     }
 
@@ -311,47 +311,13 @@ public class AgentQueryService {
                 .commentId(comment.getCommentId())
                 .postId(post.getPostId())
                 .postTitle(post.getTitle())
-                .contentPreview(toPreview(comment.getContent()))
+                .contentPreview(AgentContentPreviewer.preview(comment.getContent()))
                 .boardId(board.getBoardId())
                 .boardName(board.getBoardName())
                 .boardUrl(board.getBoardUrl())
                 .likeCount(comment.getLikeCount())
-                .createdAt(toOffsetDateTime(comment.getCreatedAt()))
+                .createdAt(AgentDateTimes.toOffsetDateTime(comment.getCreatedAt()))
                 .build();
-    }
-
-    private String toPreview(String content) {
-        if (content == null) {
-            return "";
-        }
-        String plain = InputSanitizer.stripHtml(content).replaceAll("<[^>]*>", " ")
-                .replaceAll("\\s+", " ")
-                .trim();
-        if (plain.length() <= 120) {
-            return plain;
-        }
-        return plain.substring(0, 120);
-    }
-
-    private Pageable boundedPageable(Pageable pageable, int maxPageSize, Sort defaultSort, Set<String> allowedSortProperties) {
-        int pageNumber = pageable != null && pageable.isPaged() ? Math.max(pageable.getPageNumber(), 0) : 0;
-        int requestedSize = pageable != null && pageable.isPaged() ? pageable.getPageSize() : maxPageSize;
-        int pageSize = Math.min(Math.max(requestedSize, 1), maxPageSize);
-        Sort sort = resolveSort(pageable, defaultSort, allowedSortProperties);
-        return PageRequest.of(pageNumber, pageSize, sort);
-    }
-
-    private Sort resolveSort(Pageable pageable, Sort defaultSort, Set<String> allowedSortProperties) {
-        if (pageable == null || !pageable.isPaged() || pageable.getSort().isUnsorted() || allowedSortProperties.isEmpty()) {
-            return defaultSort;
-        }
-        List<Sort.Order> allowedOrders = pageable.getSort().stream()
-                .filter(order -> allowedSortProperties.contains(order.getProperty()))
-                .toList();
-        if (allowedOrders.isEmpty()) {
-            return defaultSort;
-        }
-        return Sort.by(allowedOrders);
     }
 
     private List<Long> resolveBlockedUserIds(Long userId) {

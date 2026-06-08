@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { Check, X, ShieldAlert, Eye } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
-import BaseButton from '@/components/common/ui/BaseButton.vue'
-import BaseTable from '@/components/common/ui/BaseTable.vue'
-import BaseBadge from '@/components/common/ui/BaseBadge.vue'
+import AdminActionButton from '@/components/admin/AdminActionButton.vue'
+import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
+import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
+import AdminTableActions from '@/components/admin/AdminTableActions.vue'
 import { computed } from 'vue'
 import { formatDate } from '@/utils/date'
 import {
@@ -58,7 +59,14 @@ const columns = computed(() => [
 
 <template>
   <div class="mt-8">
-    <BaseTable :columns="columns" :items="reports" row-key="reportId" :emptyText="t('common.noData')">
+    <AdminPaginatedTable
+      table-class=""
+      :columns="columns"
+      :items="reports"
+      row-key="reportId"
+      :empty-text="t('common.noData')"
+      :show-footer="false"
+    >
       <template #cell-targetType="{ item }">
         {{ getCommonReportTargetTypeLabel(t, item.targetType) }}
       </template>
@@ -70,7 +78,7 @@ const columns = computed(() => [
         >
           <template v-if="item.targetDisplayName != null && item.targetLoginId != null">
             <span class="text-xs font-medium">{{ item.targetDisplayName }}</span>
-            <span class="text-[11px] text-gray-500 dark:text-gray-400">{{ item.targetLoginId }}</span>
+            <span class="text-[11px] nv-text-subtle">{{ item.targetLoginId }}</span>
           </template>
           <template v-else>
             <span class="text-xs">{{ getReportTargetDisplayText(t, item) }}</span>
@@ -84,7 +92,7 @@ const columns = computed(() => [
 
       <template #cell-contents="{ item }">
         <span v-if="item.targetType === 'POST' || item.targetType === 'COMMENT'">{{ item.targetId }}</span>
-        <span v-else class="text-gray-400">-</span>
+        <span v-else class="nv-text-subtle">-</span>
       </template>
 
       <template #cell-processor="{ item }">
@@ -98,9 +106,10 @@ const columns = computed(() => [
       </template>
 
       <template #cell-status="{ item }">
-        <BaseBadge :variant="getReportStatusVariant(item.status)" size="sm">
-          {{ getAdminReportStatusLabel(t, item.status) }}
-        </BaseBadge>
+        <AdminStatusBadge
+          :label="getAdminReportStatusLabel(t, item.status)"
+          :variant="getReportStatusVariant(item.status)"
+        />
       </template>
 
       <template #cell-createdAt="{ item }">
@@ -108,28 +117,23 @@ const columns = computed(() => [
       </template>
 
       <template #cell-actions="{ item }">
-        <div class="flex justify-center space-x-2">
-          <BaseButton @click="$emit('viewDetail', item)" variant="ghost" size="sm"
-            :title="t('common.viewDetail')"
-            class="p-1 text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
+        <AdminTableActions align-class="justify-center">
+          <AdminActionButton :label="t('common.viewDetail')" tone="accent" icon-only @click="$emit('viewDetail', item)">
             <Eye class="h-4 w-4" />
-          </BaseButton>
+          </AdminActionButton>
           <template v-if="item.status === 'PENDING'">
-            <BaseButton @click="onSanction(item)" variant="ghost" size="sm" :title="t('admin.reports.actions.sanction')"
-              class="p-1 text-orange-600 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-300">
+            <AdminActionButton :label="t('admin.reports.actions.sanction')" tone="neutral" icon-only @click="onSanction(item)">
               <ShieldAlert class="h-4 w-4" />
-            </BaseButton>
-            <BaseButton @click="onResolve(item)" variant="ghost" size="sm" :title="t('admin.reports.actions.resolve')"
-              class="p-1 text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300">
+            </AdminActionButton>
+            <AdminActionButton :label="t('admin.reports.actions.resolve')" tone="success" icon-only @click="onResolve(item)">
               <Check class="h-4 w-4" />
-            </BaseButton>
-            <BaseButton @click="onReject(item)" variant="ghost" size="sm" :title="t('admin.reports.actions.reject')"
-              class="p-1 text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">
+            </AdminActionButton>
+            <AdminActionButton :label="t('admin.reports.actions.reject')" tone="danger" icon-only @click="onReject(item)">
               <X class="h-4 w-4" />
-            </BaseButton>
+            </AdminActionButton>
           </template>
-        </div>
+        </AdminTableActions>
       </template>
-    </BaseTable>
+    </AdminPaginatedTable>
   </div>
 </template>

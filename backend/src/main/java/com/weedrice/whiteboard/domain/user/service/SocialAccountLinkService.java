@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.user.service;
 import com.weedrice.whiteboard.domain.user.entity.SocialAccount;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.SocialAccountRepository;
+import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -105,22 +106,11 @@ public class SocialAccountLinkService {
     }
 
     private String normalizeProvider(String provider) {
-        String normalizedProvider = normalizeRequiredValue(provider, MAX_PROVIDER_LENGTH);
+        String normalizedProvider = TextInputNormalizer.normalizeRequired(provider, MAX_PROVIDER_LENGTH);
         return normalizedProvider.toLowerCase(Locale.ROOT);
     }
 
     private String normalizeProviderId(String providerId) {
-        return normalizeRequiredValue(providerId, MAX_PROVIDER_ID_LENGTH);
-    }
-
-    private String normalizeRequiredValue(String value, int maxLength) {
-        if (value == null) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
-        String trimmedValue = value.trim();
-        if (trimmedValue.isBlank() || trimmedValue.length() > maxLength) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
-        return trimmedValue;
+        return TextInputNormalizer.normalizeRequired(providerId, MAX_PROVIDER_ID_LENGTH);
     }
 }

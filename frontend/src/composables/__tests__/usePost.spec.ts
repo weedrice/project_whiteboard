@@ -203,7 +203,8 @@ describe('usePost', () => {
         await mutation.mutate({ boardUrl: 'free', data: { title: 'new', contents: 'body' } })
 
         expect(postApi.createPost).toHaveBeenCalledWith('free', { title: 'new', contents: 'body' })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'free', 'posts'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'posts', 'free'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['home', 'landing'] })
     })
 
     it('invalidates related post caches after update', async () => {
@@ -216,6 +217,7 @@ describe('usePost', () => {
         expect(postApi.updatePost).toHaveBeenCalledWith(1, { title: 'updated' })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['post', 1] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['posts'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['home', 'landing'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({
             predicate: expect.any(Function),
         })
@@ -229,7 +231,8 @@ describe('usePost', () => {
         await mutation.mutate(1)
 
         expect(postApi.deletePost).toHaveBeenCalledWith(1)
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'posts'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['home', 'landing'] })
     })
 
     it('applies optimistic like updates across all caches and invalidates on settle', async () => {
@@ -243,14 +246,14 @@ describe('usePost', () => {
             ],
             pageParams: [],
         })
-        seedQueryData(['board', 'free', 'posts'], {
+        seedQueryData(['board', 'posts', 'free'], {
             pages: [{ content: [{ postId: 1, likeCount: 2, liked: false }, { postId: 99, likeCount: 10, liked: false }] }],
             pageParams: [],
         })
-        seedQueryData(['board', 'hot', 'posts'], {
+        seedQueryData(['board', 'posts', 'hot'], {
             content: [{ postId: 1, likeCount: 2, liked: false }],
         })
-        seedQueryData(['board', 'free', 'meta'], { anything: true })
+        seedQueryData(['board', 'detail', 'free'], { anything: true })
 
         const { useLikePost } = usePost()
         const mutation = useLikePost()
@@ -262,9 +265,9 @@ describe('usePost', () => {
         expect((getQueryDataValue(['posts']) as any).pages[0].content[0]).toMatchObject({ liked: true, likeCount: 3 })
         expect((getQueryDataValue(['posts']) as any).pages[0].content[1]).toMatchObject({ postId: 2, likeCount: 7, liked: false })
         expect((getQueryDataValue(['posts']) as any).pages[1].content).toBe('not-an-array')
-        expect((getQueryDataValue(['board', 'free', 'posts']) as any).pages[0].content[0]).toMatchObject({ liked: true, likeCount: 3 })
-        expect((getQueryDataValue(['board', 'free', 'posts']) as any).pages[0].content[1]).toMatchObject({ postId: 99, likeCount: 10, liked: false })
-        expect((getQueryDataValue(['board', 'hot', 'posts']) as any).content[0]).toMatchObject({ liked: true, likeCount: 3 })
+        expect((getQueryDataValue(['board', 'posts', 'free']) as any).pages[0].content[0]).toMatchObject({ liked: true, likeCount: 3 })
+        expect((getQueryDataValue(['board', 'posts', 'free']) as any).pages[0].content[1]).toMatchObject({ postId: 99, likeCount: 10, liked: false })
+        expect((getQueryDataValue(['board', 'posts', 'hot']) as any).content[0]).toMatchObject({ liked: true, likeCount: 3 })
         expect(postApi.likePost).toHaveBeenCalledWith(1)
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['post', 1] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['posts'] })
@@ -281,15 +284,15 @@ describe('usePost', () => {
             pageParams: [],
         })
         seedQueryData(['posts', 'recent'], { content: [{ postId: 1 }] })
-        seedQueryData(['board', 'mix', 'posts'], {
+        seedQueryData(['board', 'posts', 'mix'], {
             pages: [{ content: 'not-an-array' }],
             pageParams: [],
         })
-        seedQueryData(['board', 'page', 'posts'], {
+        seedQueryData(['board', 'posts', 'page'], {
             content: [{ postId: 2, liked: false }, { postId: 1, liked: false }],
         })
-        seedQueryData(['board', 'empty', 'posts'], undefined)
-        seedQueryData(['board', 'odd', 'posts'], { anything: true })
+        seedQueryData(['board', 'posts', 'empty'], undefined)
+        seedQueryData(['board', 'posts', 'odd'], { anything: true })
 
         const { useLikePost } = usePost()
         await useLikePost().mutate(1)
@@ -304,21 +307,21 @@ describe('usePost', () => {
             likeCount: 1,
         })
         expect(getQueryDataValue(['posts', 'recent'])).toEqual({ content: [{ postId: 1 }] })
-        expect((getQueryDataValue(['board', 'page', 'posts']) as any).content[0]).toMatchObject({ postId: 2, liked: false })
-        expect((getQueryDataValue(['board', 'page', 'posts']) as any).content[1]).toMatchObject({ postId: 1, liked: true })
-        expect(getQueryDataValue(['board', 'mix', 'posts'])).toEqual({
+        expect((getQueryDataValue(['board', 'posts', 'page']) as any).content[0]).toMatchObject({ postId: 2, liked: false })
+        expect((getQueryDataValue(['board', 'posts', 'page']) as any).content[1]).toMatchObject({ postId: 1, liked: true })
+        expect(getQueryDataValue(['board', 'posts', 'mix'])).toEqual({
             pages: [{ content: 'not-an-array' }],
             pageParams: [],
         })
-        expect(getQueryDataValue(['board', 'empty', 'posts'])).toBeUndefined()
-        expect(getQueryDataValue(['board', 'odd', 'posts'])).toEqual({ anything: true })
+        expect(getQueryDataValue(['board', 'posts', 'empty'])).toBeUndefined()
+        expect(getQueryDataValue(['board', 'posts', 'odd'])).toEqual({ anything: true })
 
         const predicate = mocks.invalidateQueries.mock.calls.find((call) => call[0]?.predicate)?.[0]?.predicate as
             | ((query: { queryKey: unknown }) => boolean)
             | undefined
         expect(predicate).toBeTypeOf('function')
-        expect(predicate?.({ queryKey: ['board', 'free', 'posts'] })).toBe(true)
-        expect(predicate?.({ queryKey: ['board', 'free', 'meta'] })).toBe(false)
+        expect(predicate?.({ queryKey: ['board', 'posts', 'free'] })).toBe(true)
+        expect(predicate?.({ queryKey: ['board', 'detail', 'free'] })).toBe(false)
         expect(predicate?.({ queryKey: 'not-array' })).toBe(false)
     })
 
@@ -331,7 +334,7 @@ describe('usePost', () => {
             pages: [{ content: [{ postId: 1, likeCount: 4, liked: false }] }],
             pageParams: [],
         })
-        seedQueryData(['board', 'free', 'posts'], {
+        seedQueryData(['board', 'posts', 'free'], {
             content: [{ postId: 1, likeCount: 4, liked: false }],
         })
 
@@ -345,7 +348,7 @@ describe('usePost', () => {
             likeCount: 4,
             liked: false,
         })
-        expect((getQueryDataValue(['board', 'free', 'posts']) as any).content[0]).toMatchObject({
+        expect((getQueryDataValue(['board', 'posts', 'free']) as any).content[0]).toMatchObject({
             likeCount: 4,
             liked: false,
         })
@@ -387,7 +390,7 @@ describe('usePost', () => {
             pages: [{ content: [{ postId: 1, scrapped: false }] }],
             pageParams: [],
         })
-        seedQueryData(['board', 'free', 'posts'], {
+        seedQueryData(['board', 'posts', 'free'], {
             content: [{ postId: 1, scrapped: false }],
         })
 
@@ -442,7 +445,7 @@ describe('usePost', () => {
             pages: [{ content: [{ postId: 1, likeCount: 2, liked: false }] }],
             pageParams: [],
         })
-        seedQueryData(['board', 'free', 'posts'], {
+        seedQueryData(['board', 'posts', 'free'], {
             content: [{ postId: 1, likeCount: 2, liked: false }],
         })
 
@@ -454,7 +457,7 @@ describe('usePost', () => {
             likeCount: 2,
             liked: false,
         })
-        expect((getQueryDataValue(['board', 'free', 'posts']) as any).content[0]).toMatchObject({
+        expect((getQueryDataValue(['board', 'posts', 'free']) as any).content[0]).toMatchObject({
             postId: 1,
             likeCount: 2,
             liked: false,

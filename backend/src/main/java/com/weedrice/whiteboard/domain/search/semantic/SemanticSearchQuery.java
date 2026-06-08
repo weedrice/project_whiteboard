@@ -10,13 +10,5 @@ record SemanticSearchQuery(
         List<Long> blockedUserIds,
         String embeddingVector,
         int limit,
-        long offset) {
-
-    boolean hasBoardUrl() {
-        return boardUrl != null && !boardUrl.isBlank();
-    }
-
-    boolean hasBlockedUserIds() {
-        return blockedUserIds != null && !blockedUserIds.isEmpty();
-    }
+        long offset) implements SemanticSearchSqlCriteria {
 }

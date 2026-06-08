@@ -6,7 +6,9 @@ import PostList from '@/components/board/PostList.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
+import UserAvatar from '@/components/common/ui/UserAvatar.vue'
 import ProfileEditor from '@/components/user/ProfileEditor.vue'
+import ProfileInfoRow from '@/components/user/ProfileInfoRow.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
@@ -100,7 +102,7 @@ onMounted(async () => {
   <div>
     <div v-if="isLoading" class="space-y-6">
       <!-- Profile Skeleton -->
-      <div class="max-w-full mx-auto bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+      <div class="max-w-full mx-auto nv-surface shadow rounded-lg p-6">
         <div class="flex items-center mb-6">
           <BaseSkeleton width="4rem" height="4rem" rounded="rounded-full" className="mr-4" />
           <div class="flex-1">
@@ -113,7 +115,7 @@ onMounted(async () => {
         </div>
       </div>
       <!-- Posts Skeleton -->
-      <div class="max-w-full mx-auto bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+      <div class="max-w-full mx-auto nv-surface shadow rounded-lg p-6">
         <BaseSkeleton width="120px" height="24px" className="mb-4" />
         <div class="space-y-4">
           <BaseSkeleton v-for="i in 3" :key="i" width="100%" height="60px" />
@@ -121,26 +123,29 @@ onMounted(async () => {
       </div>
     </div>
 
-    <div v-else-if="error" class="text-center py-10 text-red-500 dark:text-red-400">
+    <div v-else-if="error" class="text-center py-10 nv-form-error">
       {{ error }}
     </div>
 
     <div v-else>
       <!-- Profile Section -->
       <div class="max-w-full mx-auto">
-        <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg mb-6 transition-colors duration-200">
+        <div class="nv-surface shadow overflow-hidden sm:rounded-lg mb-6 transition-colors duration-200">
           <div class="px-4 py-4 sm:py-5 sm:px-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
             <div class="flex items-center min-w-0 flex-1">
-              <img v-if="profile?.profileImageUrl" :src="getOptimizedProfileImageUrl(profile.profileImageUrl)"
-                class="h-16 w-16 rounded-full mr-4 flex-shrink-0" alt="Profile" @error="handleImageError($event)" />
-              <div v-else
-                class="h-16 w-16 rounded-full bg-indigo-100 dark:bg-gray-700 flex items-center justify-center text-indigo-600 dark:text-gray-200 font-bold text-2xl mr-4 flex-shrink-0">
-                {{ profile?.displayName?.[0] || 'U' }}
-              </div>
+              <UserAvatar
+                :image-url="profile?.profileImageUrl ? getOptimizedProfileImageUrl(profile.profileImageUrl) : null"
+                :name="profile?.displayName || 'U'"
+                alt="Profile"
+                size-class="h-16 w-16"
+                fallback-class="font-bold text-2xl"
+                class="mr-4"
+                @image-error="handleImageError"
+              />
               <div class="min-w-0">
-                <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white truncate">{{ profile?.displayName
+                <h3 class="text-lg leading-6 font-medium nv-title truncate">{{ profile?.displayName
                 }}</h3>
-                <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">{{ $t('user.profile.personalDetails')
+                <p class="mt-1 max-w-2xl text-sm nv-text-subtle">{{ $t('user.profile.personalDetails')
                 }}</p>
               </div>
             </div>
@@ -148,75 +153,53 @@ onMounted(async () => {
               class="w-full sm:w-auto min-h-[44px] sm:min-h-0 flex items-center justify-center">{{
                 $t('user.profile.edit') }}</BaseButton>
           </div>
-          <div class="border-t border-gray-200 dark:border-gray-700 px-4 py-5 sm:p-0">
-            <dl class="sm:divide-y sm:divide-gray-200 dark:sm:divide-gray-700">
-              <div class="py-4 sm:py-5 sm:grid sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:gap-2 sm:px-6">
-                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center whitespace-nowrap">
-                  <User class="h-4 w-4 mr-2" />
-                  {{ $t('user.profile.displayName') }}
-                </dt>
-                <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0">{{ profile?.displayName
-                }}</dd>
-              </div>
-              <div class="py-4 sm:py-5 sm:grid sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:gap-2 sm:px-6">
-                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center whitespace-nowrap">
-                  <Mail class="h-4 w-4 mr-2" />
-                  {{ $t('user.profile.email') }}
-                </dt>
-                <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0">
-                  {{ profile?.email }}
-                  <span v-if="profile?.isEmailVerified"
-                    class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-400">
-                    <CheckCircle class="h-3 w-3 mr-1" /> {{ $t('user.profile.verified') }}
+          <div class="border-t nv-border px-4 py-5 sm:p-0">
+            <dl class="sm:divide-y sm:divide-[var(--nv-border)]">
+              <ProfileInfoRow :icon="User" :label="$t('user.profile.displayName')">
+                {{ profile?.displayName }}
+              </ProfileInfoRow>
+              <ProfileInfoRow :icon="Mail" :label="$t('user.profile.email')">
+                {{ profile?.email }}
+                <span v-if="profile?.isEmailVerified"
+                  class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium nv-status-success">
+                  <CheckCircle class="h-3 w-3 mr-1" /> {{ $t('user.profile.verified') }}
+                </span>
+                <button v-else @click="openVerifyModal" type="button"
+                  class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium nv-status-danger nv-hover-surface transition-colors cursor-pointer">
+                  <XCircle class="h-3 w-3 mr-1" /> {{ $t('user.profile.notVerified') }}
+                </button>
+              </ProfileInfoRow>
+              <ProfileInfoRow
+                :icon="ShieldCheck"
+                :label="t('user.profile.agentCode')"
+                icon-class="h-4 w-4 mr-1.5"
+                content-class="mt-1 sm:mt-0"
+              >
+                <div v-if="myAgents.length > 0" class="flex flex-wrap gap-2">
+                  <span
+                    v-for="agent in myAgents"
+                    :key="agent.agentId"
+                    class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
+                    :class="agent.status === 'ACTIVE'
+                      ? 'nv-status-success'
+                      : agent.status === 'SUSPENDED'
+                        ? 'nv-status-danger'
+                        : 'nv-surface-muted nv-text-muted'"
+                  >
+                    <span>{{ agent.name }}</span>
+                    <span>{{ getAgentStatusLabel(agent.status) }}</span>
                   </span>
-                  <button v-else @click="openVerifyModal" type="button"
-                    class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-800/50 transition-colors cursor-pointer">
-                    <XCircle class="h-3 w-3 mr-1" /> {{ $t('user.profile.notVerified') }}
-                  </button>
-                </dd>
-              </div>
-              <div class="py-4 sm:py-5 sm:grid sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:gap-2 sm:px-6">
-                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center whitespace-nowrap">
-                  <ShieldCheck class="h-4 w-4 mr-1.5" />
-                  {{ t('user.profile.agentCode') }}
-                </dt>
-                <dd class="mt-1 sm:mt-0">
-                  <div v-if="myAgents.length > 0" class="flex flex-wrap gap-2">
-                    <span
-                      v-for="agent in myAgents"
-                      :key="agent.agentId"
-                      class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
-                      :class="agent.status === 'ACTIVE'
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
-                        : agent.status === 'SUSPENDED'
-                          ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
-                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'"
-                    >
-                      <span>{{ agent.name }}</span>
-                      <span>{{ getAgentStatusLabel(agent.status) }}</span>
-                    </span>
-                  </div>
-                  <span v-else class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ t('user.profile.agentEmpty') }}
-                  </span>
-                </dd>
-              </div>
-              <div class="py-4 sm:py-5 sm:grid sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:gap-2 sm:px-6">
-                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center whitespace-nowrap">
-                  <Calendar class="h-4 w-4 mr-2" />
-                  {{ $t('user.profile.joined') }}
-                </dt>
-                <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0">{{
-                  profile?.createdAt ? formatDate(profile.createdAt) : '' }}</dd>
-              </div>
-              <div class="py-4 sm:py-5 sm:grid sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:gap-2 sm:px-6">
-                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center whitespace-nowrap">
-                  <Clock class="h-4 w-4 mr-2" />
-                  {{ $t('user.profile.lastLogin') }}
-                </dt>
-                <dd class="mt-1 text-sm text-gray-900 dark:text-gray-100 sm:mt-0">{{
-                  profile?.lastLoginAt ? formatDate(profile.lastLoginAt) : '' }}</dd>
-              </div>
+                </div>
+                <span v-else class="text-sm nv-text-subtle">
+                  {{ t('user.profile.agentEmpty') }}
+                </span>
+              </ProfileInfoRow>
+              <ProfileInfoRow :icon="Calendar" :label="$t('user.profile.joined')">
+                {{ profile?.createdAt ? formatDate(profile.createdAt) : '' }}
+              </ProfileInfoRow>
+              <ProfileInfoRow :icon="Clock" :label="$t('user.profile.lastLogin')">
+                {{ profile?.lastLoginAt ? formatDate(profile.lastLoginAt) : '' }}
+              </ProfileInfoRow>
             </dl>
           </div>
         </div>
@@ -225,15 +208,15 @@ onMounted(async () => {
       <!-- My Posts Section -->
       <div class="max-w-full mx-auto">
         <div
-          class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg mb-6 pb-6 transition-colors duration-200">
-          <div class="px-4 py-4 sm:py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex items-center">
-            <FileText class="h-5 w-5 text-gray-500 dark:text-gray-400 mr-2 flex-shrink-0" />
-            <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">{{ $t('user.myPosts') }}</h3>
+          class="nv-surface shadow overflow-hidden sm:rounded-lg mb-6 pb-6 transition-colors duration-200">
+          <div class="px-4 py-4 sm:py-5 sm:px-6 border-b nv-border flex items-center">
+            <FileText class="h-5 w-5 nv-text-subtle mr-2 flex-shrink-0" />
+            <h3 class="text-lg leading-6 font-medium nv-title">{{ $t('user.myPosts') }}</h3>
           </div>
 
           <div
             v-if="myPostsError"
-            class="mx-4 mt-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
+            class="mx-4 mt-4 rounded border px-4 py-3 text-sm nv-danger-surface"
           >
             {{ myPostsError }}
           </div>
@@ -244,7 +227,7 @@ onMounted(async () => {
               :resolve-board-route="resolveBoardRoute"
               :show-inquiry-status="isInquiryPostItem"
               @update:sort="handleMyPostsSortChange" @inquiry-click="openMyInquiryPost" />
-            <div class="bg-gray-50 dark:bg-gray-900/50 px-4 py-4 sm:px-6 flex justify-center">
+            <div class="nv-surface-muted px-4 py-4 sm:px-6 flex justify-center">
               <Pagination :current-page="myPostsCurrentPage" :total-pages="Math.ceil(myPostsTotalCount / myPostsSize)"
                 @page-change="handleMyPostsPageChange" />
             </div>
@@ -253,52 +236,52 @@ onMounted(async () => {
         </div>
 
         <!-- My Comments Section -->
-        <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
-          <div class="px-4 py-4 sm:py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex items-center">
-            <MessageSquare class="h-5 w-5 text-gray-500 dark:text-gray-400 mr-2 flex-shrink-0" />
-            <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">{{ $t('user.myComments') }}</h3>
+        <div class="nv-surface shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
+          <div class="px-4 py-4 sm:py-5 sm:px-6 border-b nv-border flex items-center">
+            <MessageSquare class="h-5 w-5 nv-text-subtle mr-2 flex-shrink-0" />
+            <h3 class="text-lg leading-6 font-medium nv-title">{{ $t('user.myComments') }}</h3>
           </div>
 
           <div
             v-if="myCommentsError"
-            class="mx-4 mt-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
+            class="mx-4 mt-4 rounded border px-4 py-3 text-sm nv-danger-surface"
           >
             {{ myCommentsError }}
           </div>
           <div v-else-if="myCommentItems.length > 0">
-            <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
+            <ul role="list" class="divide-y divide-[var(--nv-border)]">
               <li v-for="comment in myCommentItems" :key="comment.commentId"
-                class="px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 min-h-[44px]">
+                class="px-4 py-4 sm:px-6 nv-hover-surface transition-colors duration-200 min-h-[44px]">
                 <router-link v-if="comment.postLink" :to="comment.postLink"
                   class="block">
                   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
                     <div class="flex flex-wrap items-center gap-2 min-w-0">
                       <span
-                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 flex-shrink-0">
+                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium nv-surface-muted nv-text-muted flex-shrink-0">
                         {{ comment.boardLabel }}
                       </span>
-                      <p class="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate min-w-0">
+                      <p class="text-sm font-medium nv-accent-text truncate min-w-0">
                         {{ comment.postTitle }}
                       </p>
                     </div>
-                    <p class="flex-shrink-0 font-normal text-gray-500 dark:text-gray-400 text-xs">{{
+                    <p class="flex-shrink-0 font-normal nv-text-subtle text-xs">{{
                       formatDate(comment.createdAt) }}</p>
                   </div>
                   <div class="mt-1 comment-content-list">
-                    <p class="text-sm text-gray-900 dark:text-gray-300 line-clamp-2"
+                    <p class="text-sm nv-text-muted line-clamp-2"
                       v-html="renderCommentContent(comment.content)" @error.capture="applyImageFallback"></p>
                   </div>
                 </router-link>
                 <div v-else class="block">
-                  <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('user.comments.deletedPost') }}</p>
+                  <p class="text-sm nv-text-subtle">{{ t('user.comments.deletedPost') }}</p>
                   <div class="comment-content-list mt-1">
-                    <p class="text-sm text-gray-900 dark:text-gray-300 line-clamp-2"
+                    <p class="text-sm nv-text-muted line-clamp-2"
                       v-html="renderCommentContent(comment.content)" @error.capture="applyImageFallback"></p>
                   </div>
                 </div>
               </li>
             </ul>
-            <div class="bg-gray-50 dark:bg-gray-900/50 px-4 py-4 sm:px-6 flex justify-center">
+            <div class="nv-surface-muted px-4 py-4 sm:px-6 flex justify-center">
               <Pagination :current-page="myCommentsCurrentPage"
                 :total-pages="Math.ceil(myCommentsTotalCount / myCommentsSize)"
                 @page-change="handleMyCommentsPageChange" />
@@ -318,7 +301,7 @@ onMounted(async () => {
         <div class="space-y-6 p-4">
           <!-- Email Input & Send Button -->
           <div class="flex flex-col">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label class="block text-sm font-medium nv-text mb-1">
               {{ t('user.profile.email') }}
             </label>
             <div class="flex gap-2 items-end">
@@ -341,7 +324,7 @@ onMounted(async () => {
               </BaseButton>
             </div>
             <p v-if="emailVerification.email.trim() && !isValidEmail(emailVerification.email)"
-              class="text-xs sm:text-sm text-red-600 dark:text-red-400 mt-1" role="alert">
+              class="text-xs sm:text-sm nv-form-error mt-1" role="alert">
               {{ t('auth.validation.emailFormat') }}
             </p>
           </div>
@@ -353,16 +336,16 @@ onMounted(async () => {
                 inputmode="numeric" autocomplete="one-time-code" :label="t('auth.codePlaceholder')"
                 :placeholder="t('auth.codePlaceholder')" hideLabel :disabled="emailVerification.timeLeft <= 0">
                 <template #prefix>
-                  <ShieldCheck class="h-5 w-5 text-gray-400" />
+                  <ShieldCheck class="h-5 w-5 nv-text-subtle" />
                 </template>
               </BaseInput>
               <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium"
-                :class="emailVerification.timeLeft <= 60 ? 'text-red-500' : 'text-gray-500'">
+                :class="emailVerification.timeLeft <= 60 ? 'nv-form-error' : 'nv-text-subtle'">
                 {{ formatVerifyTime(emailVerification.timeLeft) }}
               </span>
             </div>
 
-            <p v-if="emailVerification.timeLeft <= 0" class="text-xs text-red-500">
+            <p v-if="emailVerification.timeLeft <= 0" class="text-xs nv-form-error">
               {{ t('auth.codeExpired') }}
             </p>
 
@@ -383,25 +366,25 @@ onMounted(async () => {
 
           <div
             v-else-if="inquiryDetailError"
-            class="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
+            class="rounded border px-4 py-3 text-sm nv-danger-surface"
           >
             {{ inquiryDetailError }}
           </div>
 
           <template v-else-if="selectedInquiryPost">
-            <div class="space-y-2 border-b border-gray-200 pb-3 dark:border-gray-700">
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ selectedInquiryPost.title }}</h2>
-              <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+            <div class="space-y-2 border-b nv-border pb-3">
+              <h2 class="text-lg font-semibold nv-title">{{ selectedInquiryPost.title }}</h2>
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs nv-text-subtle">
                 <span>{{ t('common.createdAt') }} {{ formatDate(selectedInquiryPost.createdAt) }}</span>
               </div>
             </div>
 
-            <div class="max-h-[60vh] overflow-y-auto rounded-md bg-gray-50 p-4 text-sm text-gray-800 dark:bg-gray-900/30 dark:text-gray-200">
+            <div class="max-h-[60vh] overflow-y-auto rounded-md nv-surface-muted p-4 text-sm">
               <div v-if="selectedInquiryPostContentsHtml" class="break-words leading-6" v-html="selectedInquiryPostContentsHtml" @error.capture="applyImageFallback" />
               <div v-else>-</div>
             </div>
 
-            <div class="border-t border-gray-200 pt-4 dark:border-gray-700">
+            <div class="border-t nv-border pt-4">
               <CommentList :postId="selectedInquiryPost.postId" boardUrl="inquiry" />
             </div>
           </template>

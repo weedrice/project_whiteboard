@@ -25,6 +25,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.common.service.ReactionWriter;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
+import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import jakarta.persistence.EntityManager;
@@ -242,16 +243,13 @@ public class PostInteractionService {
     public ScrapListResponse getMyScraps(@NonNull Long userId, @NonNull Pageable pageable) {
         PostReadContext context = postReadContextResolver.resolveForExistingUser(userId);
         User user = context.viewer();
-        Pageable safePageable = normalizeScrapPageable(pageable);
-        Set<Long> blockedUserIds = context.blockedUserIdSet();
-        List<Long> blockedUserIdParams = blockedUserIds.isEmpty()
-                ? List.of(-1L)
-                : new ArrayList<>(blockedUserIds);
+        Pageable safePageable = PageRequestUtils.of(pageable, DEFAULT_SCRAP_PAGE_SIZE, DEFAULT_SCRAP_SORT);
+        BlockedUserFilter blockedUsers = BlockedUserFilter.from(context.blockedUserIdSet());
         Page<Scrap> scrapPage = scrapRepository.findPageByUserWithPostDetails(
                 user,
                 user.isUsableSuperAdmin(),
-                blockedUserIds.isEmpty(),
-                blockedUserIdParams,
+                blockedUsers.empty(),
+                blockedUsers.ids(),
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
                 safePageable);
         return ScrapListResponse.from(scrapPage);
@@ -260,16 +258,14 @@ public class PostInteractionService {
     public Page<PostSummary> getRecentlyViewedPosts(@NonNull Long userId, @NonNull Pageable pageable) {
         PostReadContext context = postReadContextResolver.resolveForExistingUser(userId);
         User user = context.viewer();
-        Pageable safePageable = normalizeRecentlyViewedPageable(pageable);
-        Set<Long> blockedUserIds = context.blockedUserIdSet();
-        List<Long> blockedUserIdParams = blockedUserIds.isEmpty()
-                ? List.of(-1L)
-                : new ArrayList<>(blockedUserIds);
+        Pageable safePageable = PageRequestUtils.of(pageable, DEFAULT_RECENTLY_VIEWED_PAGE_SIZE,
+                DEFAULT_RECENTLY_VIEWED_SORT);
+        BlockedUserFilter blockedUsers = BlockedUserFilter.from(context.blockedUserIdSet());
         Page<Long> visiblePostIdsPage = viewHistoryRepository.findVisiblePostIdsByUserIdOrderByModifiedAtDesc(
                 userId,
                 user.isUsableSuperAdmin(),
-                blockedUserIds.isEmpty(),
-                blockedUserIdParams,
+                blockedUsers.empty(),
+                blockedUsers.ids(),
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
                 safePageable);
 
@@ -315,28 +311,7 @@ public class PostInteractionService {
     }
 
     private String normalizeScrapRemark(String remark) {
-        if (remark == null) {
-            return null;
-        }
-        String normalizedRemark = remark.trim();
-        if (normalizedRemark.length() > ScrapConstraints.MAX_REMARK_LENGTH) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
-        return normalizedRemark;
-    }
-
-    private Pageable normalizeScrapPageable(Pageable pageable) {
-        if (pageable == null || pageable.isUnpaged()) {
-            return PageRequestUtils.of(0, DEFAULT_SCRAP_PAGE_SIZE, DEFAULT_SCRAP_SORT);
-        }
-        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), DEFAULT_SCRAP_SORT);
-    }
-
-    private Pageable normalizeRecentlyViewedPageable(Pageable pageable) {
-        if (pageable == null || pageable.isUnpaged()) {
-            return PageRequestUtils.of(0, DEFAULT_RECENTLY_VIEWED_PAGE_SIZE, DEFAULT_RECENTLY_VIEWED_SORT);
-        }
-        return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), DEFAULT_RECENTLY_VIEWED_SORT);
+        return TextInputNormalizer.normalizeOptional(remark, ScrapConstraints.MAX_REMARK_LENGTH);
     }
 
     private Post getReadablePost(@NonNull Long postId, PostReadContext context) {
@@ -391,6 +366,17 @@ public class PostInteractionService {
             return actorAgent.getName();
         }
         return user.getDisplayName();
+    }
+
+    private record BlockedUserFilter(boolean empty, List<Long> ids) {
+        private static final List<Long> NO_BLOCKED_USER_IDS = List.of(-1L);
+
+        static BlockedUserFilter from(Set<Long> blockedUserIds) {
+            if (blockedUserIds == null || blockedUserIds.isEmpty()) {
+                return new BlockedUserFilter(true, NO_BLOCKED_USER_IDS);
+            }
+            return new BlockedUserFilter(false, new ArrayList<>(blockedUserIds));
+        }
     }
 
 }

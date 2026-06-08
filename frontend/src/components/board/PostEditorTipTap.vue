@@ -1,24 +1,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
-import StarterKit from '@tiptap/starter-kit'
-import Underline from '@tiptap/extension-underline'
-import { TextStyle } from '@tiptap/extension-text-style'
-import { Color } from '@tiptap/extension-color'
-import Highlight from '@tiptap/extension-highlight'
-import Link from '@tiptap/extension-link'
-import Image from '@tiptap/extension-image'
-import TextAlign from '@tiptap/extension-text-align'
-import { TableKit } from '@tiptap/extension-table'
-import HorizontalRule from '@tiptap/extension-horizontal-rule'
-import { FontSize, LineHeight } from '@tiptap/extension-text-style'
-import { Video } from '@/extensions/tiptap-video'
 import PostEditorColorPopover from '@/components/board/editor/PostEditorColorPopover.vue'
 import PostEditorImageAltPopover from '@/components/board/editor/PostEditorImageAltPopover.vue'
 import PostEditorLinkPopover from '@/components/board/editor/PostEditorLinkPopover.vue'
+import PostEditorPopoverMask from '@/components/board/editor/PostEditorPopoverMask.vue'
 import PostEditorSlashMenu from '@/components/board/editor/PostEditorSlashMenu.vue'
 import PostEditorTablePopover from '@/components/board/editor/PostEditorTablePopover.vue'
 import PostEditorToolbar from '@/components/board/editor/PostEditorToolbar.vue'
+import { createPostEditorExtensions } from '@/components/board/editor/postEditorExtensions'
 import '@/components/board/editor/editor.css'
 import { useEditorImageUpload } from '@/composables/useEditorImageUpload'
 import { usePostEditorImageUploadState } from '@/composables/usePostEditorImageUploadState'
@@ -109,28 +99,6 @@ const {
   abort: abortImageUpload,
 })
 
-const EditorImage = Image.extend({
-  addAttributes() {
-    return {
-      ...this.parent?.(),
-      fileId: {
-        default: null,
-        parseHTML: (element: HTMLElement) => element.getAttribute('data-file-id'),
-        renderHTML: (attributes: { fileId?: string | number | null }) => (
-          attributes.fileId ? { 'data-file-id': String(attributes.fileId) } : {}
-        ),
-      },
-      serverSrc: {
-        default: null,
-        parseHTML: (element: HTMLElement) => element.getAttribute('data-server-src'),
-        renderHTML: (attributes: { serverSrc?: string | null }) => (
-          attributes.serverSrc ? { 'data-server-src': attributes.serverSrc } : {}
-        ),
-      },
-    }
-  },
-})
-
 const colorPresets = [
   '#000000', '#374151', '#6b7280', '#9ca3af',
   '#ef4444', '#f97316', '#eab308', '#22c55e',
@@ -194,45 +162,7 @@ const editor = useEditor({
       return false
     },
   },
-  extensions: [
-    StarterKit.configure({
-      heading: { levels: [1, 2, 3, 4, 5, 6] },
-      horizontalRule: false,
-      link: false,
-      underline: false,
-    }),
-    Underline,
-    TextStyle,
-    Color.configure({ types: ['textStyle'] }),
-    Highlight.configure({ multicolor: true }),
-    FontSize.configure({ types: ['textStyle'] }),
-    LineHeight.configure({ types: ['textStyle'] }),
-    Link.configure({
-      openOnClick: false,
-      HTMLAttributes: {
-        rel: 'noopener noreferrer',
-        target: '_blank',
-        class: 'tiptap-link',
-      },
-    }),
-    EditorImage.configure({
-      inline: true,
-      allowBase64: false,
-      HTMLAttributes: { class: 'tiptap-image-inline max-w-full h-auto align-baseline' },
-    }),
-    TextAlign.configure({
-      types: ['heading', 'paragraph', 'tableCell', 'tableHeader'],
-    }),
-    TableKit.configure({
-      table: {
-        resizable: true,
-        handleWidth: 6,
-        cellMinWidth: 40,
-      },
-    }),
-    HorizontalRule,
-    Video,
-  ],
+  extensions: createPostEditorExtensions(),
   onUpdate: ({ editor: instance }) => {
     emit('update:modelValue', instance.getHTML())
   },
@@ -441,28 +371,29 @@ function saveListSelection() {
   savedListSelection.value = from !== to ? { from, to } : null
 }
 
-function applyBulletList() {
+function applyListToggle(type: 'bullet' | 'ordered') {
   const instance = editor.value
   if (!instance) return
+  const chain = instance.chain().focus()
   const saved = savedListSelection.value
   if (saved) {
-    instance.chain().focus().setTextSelection({ from: saved.from, to: saved.to }).toggleBulletList().run()
+    chain.setTextSelection({ from: saved.from, to: saved.to })
     savedListSelection.value = null
-    return
   }
-  instance.chain().focus().toggleBulletList().run()
+
+  if (type === 'bullet') {
+    chain.toggleBulletList().run()
+  } else {
+    chain.toggleOrderedList().run()
+  }
+}
+
+function applyBulletList() {
+  applyListToggle('bullet')
 }
 
 function applyOrderedList() {
-  const instance = editor.value
-  if (!instance) return
-  const saved = savedListSelection.value
-  if (saved) {
-    instance.chain().focus().setTextSelection({ from: saved.from, to: saved.to }).toggleOrderedList().run()
-    savedListSelection.value = null
-    return
-  }
-  instance.chain().focus().toggleOrderedList().run()
+  applyListToggle('ordered')
 }
 
 function onContentAreaClick(event: MouseEvent) {
@@ -716,24 +647,22 @@ onBeforeUnmount(() => {
       @dismiss-failed-image-upload="dismissFailedImageUpload"
     />
 
-    <Teleport to="body">
-      <div v-if="showSlashMenu" class="link-popover-mask" @click.self="showSlashMenu = false" @keydown.enter.stop @keydown.escape.stop.prevent="showSlashMenu = false">
-        <div id="editor-slash-dialog" ref="slashPopoverRef" class="link-popover slash-popover" :style="slashPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-slash-dialog-title">
-          <div class="mb-3">
-            <p class="text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">{{ t('board.writePost.toolbar.slashMenu') }}</p>
-            <h3 id="editor-slash-dialog-title" class="text-base font-semibold text-[var(--nv-ink)]">{{ t('board.writePost.toolbar.insertBlock') }}</h3>
-          </div>
-          <PostEditorSlashMenu
-            :actions="slashActions"
-            :active-index="slashActiveIndex"
-            @select="applySlashAction"
-            @move="moveSlashSelection"
-            @set-active="setSlashSelection"
-            @close="showSlashMenu = false"
-          />
+    <PostEditorPopoverMask :open="showSlashMenu" @close="showSlashMenu = false">
+      <div id="editor-slash-dialog" ref="slashPopoverRef" class="link-popover slash-popover" :style="slashPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-slash-dialog-title">
+        <div class="mb-3">
+          <p class="text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">{{ t('board.writePost.toolbar.slashMenu') }}</p>
+          <h3 id="editor-slash-dialog-title" class="text-base font-semibold text-[var(--nv-ink)]">{{ t('board.writePost.toolbar.insertBlock') }}</h3>
         </div>
+        <PostEditorSlashMenu
+          :actions="slashActions"
+          :active-index="slashActiveIndex"
+          @select="applySlashAction"
+          @move="moveSlashSelection"
+          @set-active="setSlashSelection"
+          @close="showSlashMenu = false"
+        />
       </div>
-    </Teleport>
+    </PostEditorPopoverMask>
 
     <Teleport to="body">
       <div v-if="showColorPanel" id="editor-color-dialog" ref="colorPanelRef" class="color-panel" :style="colorPosition.popoverStyle.value" role="dialog" aria-labelledby="editor-color-dialog-title" @keydown.enter.stop @keydown.escape.stop.prevent="closeColorPanel()">
@@ -750,53 +679,47 @@ onBeforeUnmount(() => {
       </div>
     </Teleport>
 
-    <Teleport to="body">
-      <div v-if="showLinkPopover" class="link-popover-mask" @click.self="closeLinkPopover" @keydown.enter.stop @keydown.escape.stop.prevent="closeLinkPopover">
-        <div ref="linkPopoverRef" class="link-popover" :style="linkPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-link-dialog-title">
-          <h3 id="editor-link-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.linkDialog') }}</h3>
-          <PostEditorLinkPopover
-            :url="linkUrl"
-            :text="linkText"
-            :can-remove="editor?.isActive('link') ?? false"
-            @apply="applyLink"
-            @close="closeLinkPopover"
-            @remove="removeLink"
-          />
-        </div>
+    <PostEditorPopoverMask :open="showLinkPopover" @close="closeLinkPopover">
+      <div ref="linkPopoverRef" class="link-popover" :style="linkPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-link-dialog-title">
+        <h3 id="editor-link-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.linkDialog') }}</h3>
+        <PostEditorLinkPopover
+          :url="linkUrl"
+          :text="linkText"
+          :can-remove="editor?.isActive('link') ?? false"
+          @apply="applyLink"
+          @close="closeLinkPopover"
+          @remove="removeLink"
+        />
       </div>
-    </Teleport>
+    </PostEditorPopoverMask>
 
-    <Teleport to="body">
-      <div v-if="showImageAltPopover" class="link-popover-mask" @click.self="closeImageAltPopover" @keydown.enter.stop @keydown.escape.stop.prevent="closeImageAltPopover">
-        <div ref="imageAltPopoverRef" class="link-popover image-alt-popover" :style="imageAltPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-image-alt-dialog-title">
-          <h3 id="editor-image-alt-dialog-title" class="sr-only">{{ t('board.writePost.imageAlt.title') }}</h3>
-          <PostEditorImageAltPopover
-            :alt="imageAltText"
-            @apply="applyImageAlt"
-            @clear="clearImageAlt"
-            @close="closeImageAltPopover"
-          />
-        </div>
+    <PostEditorPopoverMask :open="showImageAltPopover" @close="closeImageAltPopover">
+      <div ref="imageAltPopoverRef" class="link-popover image-alt-popover" :style="imageAltPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-image-alt-dialog-title">
+        <h3 id="editor-image-alt-dialog-title" class="sr-only">{{ t('board.writePost.imageAlt.title') }}</h3>
+        <PostEditorImageAltPopover
+          :alt="imageAltText"
+          @apply="applyImageAlt"
+          @clear="clearImageAlt"
+          @close="closeImageAltPopover"
+        />
       </div>
-    </Teleport>
+    </PostEditorPopoverMask>
 
-    <Teleport to="body">
-      <div v-if="showTablePopover" class="link-popover-mask" @click.self="closeTablePopover" @keydown.enter.stop @keydown.escape.stop.prevent="closeTablePopover">
-        <div ref="tablePopoverRef" class="link-popover table-popover" :style="tablePosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-table-dialog-title">
-          <h3 id="editor-table-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.tableDialog') }}</h3>
-          <PostEditorTablePopover
-            :rows="tableRows"
-            :cols="tableCols"
-            :header-row="tableHeaderRow"
-            @update:rows="tableRows = $event"
-            @update:cols="tableCols = $event"
-            @update:header-row="tableHeaderRow = $event"
-            @apply="applyTable"
-            @close="closeTablePopover"
-          />
-        </div>
+    <PostEditorPopoverMask :open="showTablePopover" @close="closeTablePopover">
+      <div ref="tablePopoverRef" class="link-popover table-popover" :style="tablePosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-table-dialog-title">
+        <h3 id="editor-table-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.tableDialog') }}</h3>
+        <PostEditorTablePopover
+          :rows="tableRows"
+          :cols="tableCols"
+          :header-row="tableHeaderRow"
+          @update:rows="tableRows = $event"
+          @update:cols="tableCols = $event"
+          @update:header-row="tableHeaderRow = $event"
+          @apply="applyTable"
+          @close="closeTablePopover"
+        />
       </div>
-    </Teleport>
+    </PostEditorPopoverMask>
 
     <div
       class="tiptap-content flex-1 min-h-0 overflow-auto cursor-text"

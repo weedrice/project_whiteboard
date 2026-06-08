@@ -2,29 +2,29 @@
   <form @submit.prevent="$emit('submit')" class="space-y-3 sm:space-y-4">
     <div class="flex flex-col sm:flex-row sm:items-stretch gap-3 sm:gap-6">
       <div class="flex flex-col items-center shrink-0 sm:min-h-[88px]">
-        <button
-          type="button"
-          class="shrink-0 border-2 border-gray-200 dark:border-gray-700 rounded-full overflow-hidden h-16 w-16 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          <button
+            type="button"
+            class="shrink-0 border-2 nv-border rounded-full overflow-hidden h-16 w-16 cursor-pointer nv-focus-ring"
           :aria-label="$t('user.profile.choosePhoto')"
           @click="fileInputRef?.click()"
         >
           <img
             v-if="profileImageDisplayUrl"
-            class="h-full w-full object-contain bg-white dark:bg-gray-700"
+            class="h-full w-full object-contain nv-surface-muted"
             :src="profileImageDisplayUrl"
             alt="Current profile photo"
             @error="$emit('update:profileImageError', true)"
           />
           <div
             v-else
-            class="h-full w-full rounded-full bg-indigo-100 dark:bg-gray-700 flex items-center justify-center text-indigo-600 dark:text-gray-200 font-bold text-2xl"
+            class="h-full w-full rounded-full nv-avatar-fallback flex items-center justify-center font-bold text-2xl"
           >
             {{ fallbackInitial }}
           </div>
         </button>
         <button
           type="button"
-          class="mt-1.5 sm:mt-auto text-xs text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"
+            class="mt-1.5 sm:mt-auto text-xs nv-text-subtle profile-photo-button"
           @click="fileInputRef?.click()"
         >
           {{ $t('user.profile.choosePhoto') }}
@@ -75,3 +75,9 @@ defineEmits<{
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const fallbackInitial = computed(() => (props.displayName || props.fallbackDisplayName)?.[0] || 'U')
 </script>
+
+<style scoped>
+.profile-photo-button:hover {
+  color: var(--nv-text);
+}
+</style>

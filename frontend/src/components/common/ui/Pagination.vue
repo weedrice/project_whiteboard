@@ -9,7 +9,7 @@
       </span>
 
       <template v-for="(page, index) in displayedPages" :key="getPageKey(page, index)">
-        <span v-if="page === '...'" class="px-2 sm:px-3 py-2 sm:py-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400 min-h-[44px] sm:min-h-0 flex items-center">...</span>
+        <span v-if="page === '...'" class="px-2 sm:px-3 py-2 sm:py-2 text-xs sm:text-sm nv-text-subtle min-h-[44px] sm:min-h-0 flex items-center">...</span>
         <span v-else-if="currentPage === (page as number) - 1" :class="activePageClass" aria-current="page">
           {{ page }}
         </span>
@@ -33,7 +33,7 @@
       </BaseButton>
 
       <template v-for="(page, index) in displayedPages" :key="getPageKey(page, index)">
-        <span v-if="page === '...'" class="px-2 sm:px-3 py-2 sm:py-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400 min-h-[44px] sm:min-h-0 flex items-center">...</span>
+        <span v-if="page === '...'" class="px-2 sm:px-3 py-2 sm:py-2 text-xs sm:text-sm nv-text-subtle min-h-[44px] sm:min-h-0 flex items-center">...</span>
         <BaseButton v-else @click="$emit('page-change', (page as number) - 1)"
           :variant="currentPage === (page as number) - 1 ? 'primary' : 'secondary'"
           :aria-current="currentPage === (page as number) - 1 ? 'page' : undefined"

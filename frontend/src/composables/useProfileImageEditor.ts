@@ -1,6 +1,7 @@
-import { computed, onUnmounted, ref, watch, type Ref } from 'vue'
+import { computed, ref, watch, type Ref } from 'vue'
 import { getOptimizedProfileImageUrl } from '@/utils/image'
-import { resizeImageToBoundsFile, revokeBlobUrlIfNeeded } from '@/utils/imageFile'
+import { useObjectUrlPreview } from '@/composables/useObjectUrlPreview'
+import { resizeImageToBoundsFile } from '@/utils/imageFile'
 import logger from '@/utils/logger'
 
 interface UseProfileImageEditorOptions {
@@ -22,7 +23,10 @@ export function useProfileImageEditor(options: UseProfileImageEditorOptions): {
 } {
   const fileInputRef = ref<HTMLInputElement | null>(null)
   const selectedFile = ref<File | null>(null)
-  const previewImage = ref<string | null>(null)
+  const {
+    previewUrl: previewImage,
+    setPreviewFile,
+  } = useObjectUrlPreview()
   const profileImageError = ref(false)
 
   const profileImageDisplayUrl = computed(() => {
@@ -33,14 +37,6 @@ export function useProfileImageEditor(options: UseProfileImageEditorOptions): {
 
   watch(options.profileImageUrl, () => {
     profileImageError.value = false
-  })
-
-  watch(previewImage, (_newUrl, oldUrl) => {
-    revokeBlobUrlIfNeeded(oldUrl)
-  })
-
-  onUnmounted(() => {
-    revokeBlobUrlIfNeeded(previewImage.value)
   })
 
   const handleFileChange = async (event: Event) => {
@@ -56,7 +52,7 @@ export function useProfileImageEditor(options: UseProfileImageEditorOptions): {
     try {
       const resizedImage = await resizeImageToBoundsFile(file, PROFILE_IMAGE_MAX_WIDTH, PROFILE_IMAGE_MAX_HEIGHT)
       selectedFile.value = resizedImage
-      previewImage.value = URL.createObjectURL(resizedImage)
+      setPreviewFile(resizedImage)
     } catch (error) {
       logger.error('Image resize failed', error)
       options.onProcessFailed()

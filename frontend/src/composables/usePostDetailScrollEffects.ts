@@ -2,6 +2,7 @@ import { nextTick, onMounted, onUnmounted, ref, watch, type ComputedRef, type Re
 import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
 import type { Post } from '@/types'
 import type { PostDetailViewModel } from '@/composables/usePostDetailViewModel'
+import { useEventListener } from '@/composables/useEventListener'
 import { isInputFocused } from '@/utils/keyboard'
 
 interface UsePostDetailScrollEffectsOptions {
@@ -267,15 +268,12 @@ export function usePostDetailScrollEffects({
   onMounted(() => {
     markPostDetailUiMounted()
     nextTick(() => setupComposerObserver())
-
-    document.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('resize', handleResize)
   })
 
-  onUnmounted(() => {
-    document.removeEventListener('keydown', handleKeyDown)
-    window.removeEventListener('resize', handleResize)
+  useEventListener(() => document, 'keydown', handleKeyDown)
+  useEventListener(() => window, 'resize', handleResize)
 
+  onUnmounted(() => {
     disposePostDetailUiEffects()
   })
 

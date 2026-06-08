@@ -2,7 +2,9 @@ import { useQuery } from '@tanstack/vue-query'
 import { searchApi } from '@/api/search'
 import type { BoardSearchItem, IntegratedSearchResponse, IntegratedSearchResultGroup, PostSummary, SearchParams } from '@/types'
 import { computed, type Ref } from 'vue'
+import { unwrapAxiosApiData } from '@/api/response'
 import { QUERY_STALE_TIME } from '@/utils/constants'
+import { searchQueryKeys } from '@/composables/searchQueryKeys'
 
 const hasSearchText = (value?: string) => !!value?.trim()
 
@@ -40,10 +42,9 @@ export function useSearch() {
 
     const useSearchPosts = (params: Ref<SearchParams>) => {
         return useQuery({
-            queryKey: ['search', 'posts', params],
+            queryKey: searchQueryKeys.posts(params),
             queryFn: async () => {
-                const { data } = await searchApi.searchPosts(params.value)
-                return data.data
+                return unwrapAxiosApiData(await searchApi.searchPosts(params.value))
             },
             enabled: computed(() => hasSearchText(params.value.q) || hasSearchText(params.value.keyword)),
             placeholderData: (previousData) => previousData // keepPreviousData renamed/changed in v5
@@ -52,10 +53,9 @@ export function useSearch() {
 
     const useIntegratedSearch = (params: Ref<SearchParams>) => {
         return useQuery({
-            queryKey: ['search', 'integrated', params],
+            queryKey: searchQueryKeys.integrated(params),
             queryFn: async () => {
-                const { data } = await searchApi.search(params.value)
-                return toSearchPageViewModel(data.data)
+                return toSearchPageViewModel(unwrapAxiosApiData(await searchApi.search(params.value)))
             },
             enabled: computed(() => hasSearchText(params.value.q)),
             placeholderData: (previousData) => previousData
@@ -64,10 +64,9 @@ export function useSearch() {
 
     const usePopularKeywords = () => {
         return useQuery({
-            queryKey: ['search', 'popular'],
+            queryKey: searchQueryKeys.popular,
             queryFn: async () => {
-                const { data } = await searchApi.getPopularKeywords()
-                return data.data
+                return unwrapAxiosApiData(await searchApi.getPopularKeywords())
             },
             staleTime: QUERY_STALE_TIME.MEDIUM // 5 minutes
         })

@@ -27,7 +27,7 @@ const state = reactive({
       authorName: 'Ada',
       createdAtText: '2026-05-26',
       statusLabelKey: 'admin.inquiries.status.pending',
-      statusClass: 'pending-class',
+      statusVariant: 'warning',
     },
   ],
   selectedInquiry: {
@@ -105,7 +105,7 @@ describe('AdminInquiryPosts', () => {
         authorName: 'Ada',
         createdAtText: '2026-05-26',
         statusLabelKey: 'admin.inquiries.status.pending',
-        statusClass: 'pending-class',
+        statusVariant: 'warning',
       },
     ]
     state.selectedInquiry = {

@@ -3,6 +3,7 @@ import { useHead } from '@unhead/vue'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import type { Post } from '@/types'
 import type { PostDetailViewModel } from '@/composables/usePostDetailViewModel'
+import { stripHtmlToText, truncateWithEllipsis } from '@/utils/textExcerpt'
 
 interface UsePostDetailSeoOptions {
   route: RouteLocationNormalizedLoaded
@@ -29,8 +30,8 @@ export function usePostDetailSeo({
 
   const postDescription = computed(() => {
     if (!post.value?.contents) return 'Post content'
-    const text = post.value.contents.replace(/<[^>]*>/g, '').trim().slice(0, 160)
-    return text + (text.length >= 160 ? '...' : '')
+    const text = stripHtmlToText(post.value.contents)
+    return truncateWithEllipsis(text, 160, { ellipsisAtLength: true })
   })
 
   const canonicalUrl = computed(() => {

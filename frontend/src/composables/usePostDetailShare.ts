@@ -1,25 +1,21 @@
 import { computed, onUnmounted, ref, type Ref } from 'vue'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
+import { useToastStore } from '@/stores/toast'
 import type { Post } from '@/types'
 import logger from '@/utils/logger'
-
-interface ToastStoreLike {
-  addToast: (message: string, type?: 'info' | 'success' | 'error' | 'warning') => void
-}
 
 interface UsePostDetailShareOptions {
   route: RouteLocationNormalizedLoaded
   post: Ref<Post | null | undefined>
-  toastStore: ToastStoreLike
   t: (key: string) => string
 }
 
 export function usePostDetailShare({
   route,
   post,
-  toastStore,
   t,
 }: UsePostDetailShareOptions) {
+  const toastStore = useToastStore()
   const showCopyHint = ref(false)
   let copyHintTimer: ReturnType<typeof setTimeout> | null = null
 

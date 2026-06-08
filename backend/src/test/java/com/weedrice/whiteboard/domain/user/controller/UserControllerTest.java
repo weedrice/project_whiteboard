@@ -97,7 +97,7 @@ class UserControllerTest {
 
         @BeforeEach
         void setUp() {
-                // ?뚯뒪?몄슜 User 媛앹껜 ?앹꽦
+                // 테스트용 User 객체 생성
                 testUser = User.builder()
                                 .loginId("testuser")
                                 .displayName("Test User")
@@ -115,11 +115,11 @@ class UserControllerTest {
         }
 
         @Nested
-        @DisplayName("???뺣낫 愿??API")
+        @DisplayName("내 정보 관련 API")
         class MyInfoTests {
 
                 @Test
-                @DisplayName("?뚮┝ ?ㅼ젙 bulk ?섏젙 API ?깃났")
+                @DisplayName("알림 설정 bulk 수정 API 성공")
                 void updateMyNotificationSettings_success() {
                         // given
                         UpdateNotificationSettingsRequest request = new UpdateNotificationSettingsRequest();
@@ -155,11 +155,11 @@ class UserControllerTest {
         }
 
         @Nested
-        @DisplayName("?ъ슜??李⑤떒 愿??API")
+        @DisplayName("사용자 차단 관련 API")
         class BlockUserTests {
 
                 @Test
-                @DisplayName("?ъ슜??李⑤떒 API ?깃났")
+                @DisplayName("사용자 차단 API 성공")
                 void blockUser_success() {
                         // given
                         Long targetUserId = 2L;
@@ -180,7 +180,7 @@ class UserControllerTest {
                 }
 
                 @Test
-                @DisplayName("?ъ슜??李⑤떒 ?댁젣 API ?깃났")
+                @DisplayName("사용자 차단 해제 API 성공")
                 void unblockUser_success() {
                         // given
                         Long targetUserId = 2L;
@@ -201,7 +201,7 @@ class UserControllerTest {
                 }
 
                 @Test
-                @DisplayName("李⑤떒 紐⑸줉 議고쉶 API ?깃났")
+                @DisplayName("차단 목록 조회 API 성공")
                 void getBlockedUsers_success() {
                         // given
                         BlockedUserResponse blockedUser = new BlockedUserResponse(
@@ -225,11 +225,11 @@ class UserControllerTest {
         }
 
         @Nested
-        @DisplayName("援щ룆 諛??쒕룞 ?댁뿭 API")
+        @DisplayName("구독 및 활동 내역 API")
         class ActivityTests {
 
                 @Test
-                @DisplayName("??援щ룆 紐⑸줉 議고쉶 API ?깃났")
+                @DisplayName("내 구독 목록 조회 API 성공")
                 void getMySubscriptions_success() {
                         // given
                         Board board = Board.builder()
@@ -262,7 +262,7 @@ class UserControllerTest {
                 }
 
                 @Test
-                @DisplayName("??寃뚯떆湲 紐⑸줉 議고쉶 API ?깃났")
+                @DisplayName("내 게시글 목록 조회 API 성공")
                 void getMyPosts_success() {
                         // given
                         Board board = Board.builder()
@@ -303,7 +303,7 @@ class UserControllerTest {
                 }
 
                 @Test
-                @DisplayName("???볤? 紐⑸줉 議고쉶 API ?깃났")
+                @DisplayName("내 댓글 목록 조회 API 성공")
                 void getMyComments_success() {
                         // given
                         Board board = Board.builder()
@@ -345,7 +345,7 @@ class UserControllerTest {
                 }
 
                 @Test
-                @DisplayName("理쒓렐 蹂?寃뚯떆湲 紐⑸줉 議고쉶 API ?깃났")
+                @DisplayName("최근 본 게시글 목록 조회 API 성공")
                 void getRecentlyViewedPosts_success() {
                         // given
                         PostSummary postSummary = PostSummary.builder()
@@ -416,7 +416,7 @@ class UserControllerTest {
         class AgentTests {
 
                 @Test
-                @DisplayName("??Agent claim API ?깃났")
+                @DisplayName("내 Agent claim API 성공")
                 void claimAgent_success() {
                         AgentClaimRequest request = new AgentClaimRequest();
                         ReflectionTestUtils.setField(request, "agentToken", "noviis_agt_token");
@@ -445,7 +445,7 @@ class UserControllerTest {
                 }
 
                 @Test
-                @DisplayName("??Agent 紐⑸줉 議고쉶 API ?깃났")
+                @DisplayName("내 Agent 목록 조회 API 성공")
                 void getMyAgents_success() {
                         AgentResponse first = AgentResponse.builder()
                                         .agentId(10L)
@@ -473,7 +473,7 @@ class UserControllerTest {
                 }
 
                 @Test
-                @DisplayName("??Agent ?뺤? API ?깃났")
+                @DisplayName("내 Agent 정지 API 성공")
                 void suspendMyAgent_success() {
                         AgentResponse agentResponse = AgentResponse.builder()
                                         .agentId(10L)
@@ -520,7 +520,7 @@ class UserControllerTest {
                 }
 
                 @Test
-                @DisplayName("??Agent ??젣 API ?깃났")
+                @DisplayName("내 Agent 삭제 API 성공")
                 void deleteMyAgent_success() {
                         AgentRequestContext context = AgentRequestContext.empty();
 

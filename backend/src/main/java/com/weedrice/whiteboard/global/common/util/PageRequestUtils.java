@@ -29,6 +29,38 @@ public final class PageRequestUtils {
         return PageRequest.of(page, Math.min(size, DEFAULT_MAX_PAGE_SIZE), safeSort);
     }
 
+    public static Pageable of(Pageable pageable, int defaultPageSize, Sort defaultSort) {
+        if (pageable == null || pageable.isUnpaged()) {
+            return of(0, defaultPageSize, defaultSort);
+        }
+        return of(pageable.getPageNumber(), pageable.getPageSize(), defaultSort);
+    }
+
+    public static Pageable of(Pageable pageable, int defaultPageSize) {
+        return of(pageable, defaultPageSize, Sort.unsorted());
+    }
+
+    public static Pageable bounded(Pageable pageable, int defaultPageSize, int maxPageSize) {
+        return bounded(pageable, defaultPageSize, maxPageSize, Sort.unsorted(), Set.of());
+    }
+
+    public static Pageable bounded(Pageable pageable, int maxPageSize, Sort defaultSort,
+            Set<String> allowedSortProperties) {
+        return bounded(pageable, maxPageSize, maxPageSize, defaultSort, allowedSortProperties);
+    }
+
+    public static Pageable bounded(Pageable pageable, int defaultPageSize, int maxPageSize, Sort defaultSort,
+            Set<String> allowedSortProperties) {
+        if (defaultPageSize < 1 || maxPageSize < 1) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+        int pageNumber = pageable != null && pageable.isPaged() ? Math.max(pageable.getPageNumber(), 0) : 0;
+        int requestedSize = pageable != null && pageable.isPaged() ? pageable.getPageSize() : defaultPageSize;
+        int pageSize = Math.min(Math.max(requestedSize, 1), maxPageSize);
+        return PageRequest.of(pageNumber, pageSize,
+                normalizeBoundedSort(pageable, defaultSort, allowedSortProperties));
+    }
+
     public static Pageable of(int page, int size, Sort sort, Sort defaultSort, Set<String> allowedSortProperties) {
         if (page < 0 || size < 1) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
@@ -74,5 +106,18 @@ public final class PageRequestUtils {
                         .noneMatch(normalizedOrder -> normalizedOrder.getProperty().equals(order.getProperty())))
                 .forEach(normalizedOrders::add);
         return Sort.by(normalizedOrders);
+    }
+
+    private static Sort normalizeBoundedSort(Pageable pageable, Sort defaultSort, Set<String> allowedSortProperties) {
+        Sort fallbackSort = defaultSort != null ? defaultSort : Sort.unsorted();
+        if (pageable == null || !pageable.isPaged() || pageable.getSort().isUnsorted()
+                || allowedSortProperties == null || allowedSortProperties.isEmpty()) {
+            return fallbackSort;
+        }
+
+        List<Sort.Order> allowedOrders = pageable.getSort().stream()
+                .filter(order -> allowedSortProperties.contains(order.getProperty()))
+                .toList();
+        return allowedOrders.isEmpty() ? fallbackSort : Sort.by(allowedOrders);
     }
 }

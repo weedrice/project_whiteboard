@@ -1,15 +1,15 @@
 <template>
   <section class="space-y-4">
     <div>
-      <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $t('user.profile.agentTitle') }}</h3>
-      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+      <h3 class="text-sm font-semibold nv-title">{{ $t('user.profile.agentTitle') }}</h3>
+      <p class="mt-1 text-xs nv-text-subtle">
         {{ $t('user.profile.agentDescription') }}
       </p>
     </div>
 
     <p
       v-if="!isEmailVerified && !activeAgent"
-      class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300"
+      class="rounded-lg border px-3 py-2 text-sm nv-status-warning"
     >
       {{ $t('user.profile.agentEmailVerificationRequired') }}
     </p>

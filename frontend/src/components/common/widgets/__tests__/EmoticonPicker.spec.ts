@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => {
     const error: { __v_isRef: true; value: Error | null } = { __v_isRef: true, value: null }
     const queryOptions: Array<Record<string, unknown>> = []
     const getPurchasedEmoticons = vi.fn()
+    const getMyEmoticons = vi.fn()
     const getEmoticon = vi.fn()
     const refetchPurchasedEmoticons = vi.fn()
     const loggerError = vi.fn()
@@ -21,6 +22,7 @@ const mocks = vi.hoisted(() => {
         error,
         queryOptions,
         getPurchasedEmoticons,
+        getMyEmoticons,
         getEmoticon,
         refetchPurchasedEmoticons,
         loggerError,
@@ -43,6 +45,7 @@ vi.mock('@tanstack/vue-query', () => ({
 vi.mock('@/api/emoticon', () => ({
     emoticonApi: {
         getPurchasedEmoticonsData: mocks.getPurchasedEmoticons,
+        getMyEmoticonsData: mocks.getMyEmoticons,
         getEmoticonData: mocks.getEmoticon,
     },
 }))
@@ -101,21 +104,43 @@ describe('EmoticonPicker', () => {
         mocks.error.value = null
     })
 
-    it('configures purchased emoticon query and respects show flag', async () => {
-        const mockList = [createEmoticon(1, 'Cat')]
+    it('configures accessible emoticon query and respects show flag', async () => {
+        const purchasedList = [createEmoticon(1, 'Cat')]
+        const myList = [createEmoticon(2, 'OwnerPack')]
         mocks.getPurchasedEmoticons.mockResolvedValueOnce({
-            content: mockList,
+            content: purchasedList,
+        })
+        mocks.getMyEmoticons.mockResolvedValueOnce({
+            content: myList,
         })
 
         mountPicker(false)
         const options = mocks.queryOptions[0]
 
-        expect(options.queryKey).toEqual(['emoticons', 'purchased', 'picker'])
+        expect(options.queryKey).toEqual(['emoticons', 'accessible', 'picker'])
         expect((options.enabled as () => boolean)()).toBe(false)
 
         const result = await (options.queryFn as () => Promise<unknown>)()
         expect(mocks.getPurchasedEmoticons).toHaveBeenCalledWith({ size: 100 })
-        expect(result).toEqual(mockList)
+        expect(mocks.getMyEmoticons).toHaveBeenCalledWith({ size: 100 })
+        expect(result).toEqual([...purchasedList, ...myList])
+    })
+
+    it('deduplicates emoticons that appear in purchased and owned lists', async () => {
+        const shared = createEmoticon(1, 'SharedPack')
+        mocks.getPurchasedEmoticons.mockResolvedValueOnce({
+            content: [shared],
+        })
+        mocks.getMyEmoticons.mockResolvedValueOnce({
+            content: [shared, createEmoticon(2, 'OwnerPack')],
+        })
+
+        mountPicker(false)
+        const options = mocks.queryOptions[0]
+
+        const result = await (options.queryFn as () => Promise<EmoticonMaster[]>)()
+
+        expect(result.map((emoticon) => emoticon.emoticonId)).toEqual([1, 2])
     })
 
     it('renders empty-state safely when purchased emoticons are undefined', () => {

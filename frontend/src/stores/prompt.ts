@@ -18,6 +18,11 @@ export const usePromptStore = defineStore('prompt', () => {
         confirmTxt: string = 'Confirm',
         cancelTxt: string = 'Cancel'
     ): Promise<string | null> {
+        if (resolvePromise.value) {
+            resolvePromise.value(null)
+            resolvePromise.value = null
+        }
+
         title.value = ttl
         message.value = msg
         placeholder.value = placeholderText

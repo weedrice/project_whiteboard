@@ -1,5 +1,6 @@
 import { computed, type Ref } from 'vue'
 import { useNotification } from '@/composables/useNotification'
+import { usePageResponseState } from '@/composables/usePaginatedQueryState'
 import { getListLoadErrorMessage } from '@/utils/listLoadError'
 import type { NotificationParams } from '@/api/notification'
 
@@ -9,8 +10,8 @@ export function useNotificationListState(params: Ref<NotificationParams>, t?: Tr
   const { useNotifications } = useNotification()
   const query = useNotifications(params)
 
-  const notifications = computed(() => query.data.value?.content ?? [])
-  const totalPages = computed(() => query.data.value?.totalPages ?? 0)
+  const fallbackPage = computed(() => params.value.page ?? 0)
+  const { items: notifications, totalPages } = usePageResponseState(query.data, fallbackPage)
   const errorMessage = computed(() => query.isError.value ? getListLoadErrorMessage(t) : '')
 
   return {

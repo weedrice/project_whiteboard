@@ -12,7 +12,6 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
@@ -28,13 +27,6 @@ class BoardProvisioningService {
 
     private static final String DEFAULT_INQUIRY_BOARD_NAME = "문의";
     private static final String DEFAULT_INQUIRY_BOARD_DESCRIPTION = "운영진에게 문의를 남기는 비공개 게시판입니다.";
-    private static final String BOARD_NAME_CONSTRAINT = "uk_boards_board_name";
-    private static final String BOARD_URL_CONSTRAINT = "uk_boards_board_url";
-    private static final String LEGACY_BOARD_NAME_CONSTRAINT = "boards_board_name_key";
-    private static final String LEGACY_BOARD_URL_CONSTRAINT = "boards_board_url_key";
-    private static final String BOARD_NAME_COLUMN = "board_name";
-    private static final String BOARD_URL_COLUMN = "board_url";
-
     private final BoardRepository boardRepository;
     private final BoardCategoryRepository boardCategoryRepository;
     private final BoardSubscriptionRepository boardSubscriptionRepository;
@@ -135,7 +127,8 @@ class BoardProvisioningService {
         try {
             savedBoard = boardRepository.saveAndFlush(board);
         } catch (DataIntegrityViolationException ex) {
-            if (!containsBoardUrlConstraint(ex) && !containsBoardNameConstraint(ex)) {
+            if (!ConstraintNameMatcher.containsBoardUrlConstraint(ex)
+                    && !ConstraintNameMatcher.containsBoardNameConstraint(ex)) {
                 throw ex;
             }
             return boardRepository.findByBoardUrlForUpdate(inquiryBoardUrl)
@@ -254,41 +247,6 @@ class BoardProvisioningService {
 
     private String trimToMaxLength(String value, int maxLength) {
         return value.length() <= maxLength ? value : value.substring(0, maxLength);
-    }
-
-    private boolean containsBoardNameConstraint(Throwable throwable) {
-        return containsConstraint(throwable, BOARD_NAME_CONSTRAINT, LEGACY_BOARD_NAME_CONSTRAINT, BOARD_NAME_COLUMN);
-    }
-
-    private boolean containsBoardUrlConstraint(Throwable throwable) {
-        return containsConstraint(throwable, BOARD_URL_CONSTRAINT, LEGACY_BOARD_URL_CONSTRAINT, BOARD_URL_COLUMN);
-    }
-
-    private boolean containsConstraint(Throwable throwable, String... candidates) {
-        Throwable current = throwable;
-        while (current != null) {
-            String message = current.getMessage() != null ? current.getMessage().toLowerCase() : "";
-            if (containsAny(message, candidates)) {
-                return true;
-            }
-            if (current instanceof ConstraintViolationException constraintViolationException) {
-                String constraintName = constraintViolationException.getConstraintName();
-                if (containsAny(constraintName != null ? constraintName.toLowerCase() : "", candidates)) {
-                    return true;
-                }
-            }
-            current = current.getCause();
-        }
-        return false;
-    }
-
-    private boolean containsAny(String value, String... candidates) {
-        for (String candidate : candidates) {
-            if (value.contains(candidate)) {
-                return true;
-            }
-        }
-        return false;
     }
 
 }

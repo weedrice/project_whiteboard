@@ -5,9 +5,17 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+concurrency:
+  group: deploy-backend-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -30,41 +38,67 @@ jobs:
       - name: Generate test coverage report
         run: ./gradlew jacocoTestReport
         working-directory: backend
-        continue-on-error: true  # 커버리지 목표 미달 시에도 배포 진행
+
+      - name: Verify test coverage
+        run: ./gradlew jacocoTestCoverageVerification
+        working-directory: backend
 
       - name: Build Spring Boot JAR
         run: ./gradlew clean bootJar
         working-directory: backend
 
-      # 서비스 중지
-      - name: Stop backend service
+      - name: Prepare backend release directory
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            sudo systemctl stop app || true
+            set -e
+            RELEASE_DIR="/opt/app/backend/releases/${{ github.sha }}"
+            rm -rf "$RELEASE_DIR"
+            mkdir -p "$RELEASE_DIR"
 
-      # JAR 업로드
-      - name: Upload backend jar
+      - name: Upload backend jar to release
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "backend/build/libs/*.jar"
-          target: "/opt/app/backend"
+          target: "/opt/app/backend/releases/${{ github.sha }}"
           strip_components: 3
 
-      # 서비스 재시작
-      - name: Start backend service
+      - name: Activate backend release
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            set -e
+            APP_DIR="/opt/app/backend"
+            RELEASE_DIR="$APP_DIR/releases/${{ github.sha }}"
+            NEXT_JAR="$(find "$RELEASE_DIR" -maxdepth 1 -type f -name '*.jar' | head -n 1)"
+            test -n "$NEXT_JAR"
+
+            if [ -f "$APP_DIR/app.jar" ]; then
+              sudo cp "$APP_DIR/app.jar" "$APP_DIR/app.jar.rollback"
+            fi
+
+            sudo install -m 0644 "$NEXT_JAR" "$APP_DIR/app.jar.next"
+            sudo systemctl stop app || true
+            sudo mv "$APP_DIR/app.jar.next" "$APP_DIR/app.jar"
             sudo systemctl daemon-reload
-            sudo systemctl start app
+
+            if ! sudo systemctl start app; then
+              if [ -f "$APP_DIR/app.jar.rollback" ]; then
+                sudo cp "$APP_DIR/app.jar.rollback" "$APP_DIR/app.jar"
+                sudo systemctl start app || true
+              fi
+              sudo systemctl status app --no-pager || true
+              exit 1
+            fi
+
             sudo systemctl status app --no-pager
+            find "$APP_DIR/releases" -mindepth 1 -maxdepth 1 -type d | sort | head -n -5 | xargs -r rm -rf

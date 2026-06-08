@@ -2,6 +2,8 @@ package com.weedrice.whiteboard.domain.comment.service;
 
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -16,6 +18,11 @@ import java.util.stream.Collectors;
 public class CommentReadSupport {
 
     private final CommentRepository commentRepository;
+
+    public Comment getNonDeletedWithRelationsOrThrow(Long commentId) {
+        return commentRepository.findNonDeletedByIdWithRelations(commentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+    }
 
     public Map<Long, Long> loadVisibleReplyCounts(List<Comment> comments, Set<Long> blockedUserIds) {
         List<Long> commentIds = comments.stream()

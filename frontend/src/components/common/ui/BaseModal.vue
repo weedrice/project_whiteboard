@@ -1,32 +1,37 @@
 <template>
   <Teleport to="body">
-    <div v-if="isOpen" class="modal-overlay" :style="{ zIndex: String(zIndex) }" @click.self="close" role="dialog" aria-modal="true"
+    <div v-if="isOpen" class="modal-overlay" :style="{ zIndex: String(zIndex) }" @click.self="handleBackdropClick" role="dialog" aria-modal="true"
       :aria-labelledby="titleId" :aria-describedby="descriptionId">
       <div :class="['modal-container', sizeClass, { 'modal-container-mobile-full': mobileFull && !mobileFitContent, 'modal-container-mobile-fit': mobileFitContent }]" ref="modalRef">
         <!-- Modal content -->
         <div class="modal-content">
           <!-- Modal header -->
-          <div class="modal-header">
-            <h3 :id="titleId" class="text-xl font-medium text-gray-900 dark:text-white">
+          <div :class="['modal-header', headerClass]">
+            <h3 :id="titleId" class="text-xl font-medium nv-title">
               {{ title || 'Modal' }}
             </h3>
-            <BaseButton @click="close" variant="ghost" size="sm" class="ml-auto p-1.5 rounded-lg"
-              :aria-label="$t('common.close') || 'Close modal'">
+            <BaseButton
+              @click="close"
+              variant="ghost"
+              size="sm"
+              :class="['ml-auto p-1.5 rounded-lg', closeButtonClass]"
+              :aria-label="closeAriaLabel || $t('common.close') || 'Close modal'"
+            >
               <svg aria-hidden="true" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"
                 xmlns="http://www.w3.org/2000/svg">
                 <path fill-rule="evenodd"
                   d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
                   clip-rule="evenodd"></path>
               </svg>
-              <span class="sr-only">{{ $t('common.close') || 'Close modal' }}</span>
+              <span class="sr-only">{{ closeAriaLabel || $t('common.close') || 'Close modal' }}</span>
             </BaseButton>
           </div>
           <!-- Modal body -->
-          <div :id="descriptionId" class="modal-body">
+          <div :id="descriptionId" :class="['modal-body', bodyClass]">
             <slot></slot>
           </div>
           <!-- Modal footer -->
-          <div v-if="$slots.footer" class="modal-footer">
+          <div v-if="$slots.footer" :class="['modal-footer', footerAlignClass, footerClass]">
             <slot name="footer"></slot>
           </div>
         </div>
@@ -58,8 +63,9 @@ function unlockBodyScroll() {
 </script>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onUnmounted, nextTick } from 'vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import { useEventListener } from '@/composables/useEventListener'
 
 const props = withDefaults(defineProps<{
   isOpen: boolean
@@ -68,11 +74,27 @@ const props = withDefaults(defineProps<{
   mobileFull?: boolean
   mobileFitContent?: boolean
   zIndex?: number
+  closeAriaLabel?: string
+  closeButtonClass?: string
+  headerClass?: string
+  bodyClass?: string
+  footerClass?: string
+  footerAlign?: 'start' | 'center' | 'end' | 'between'
+  closeOnBackdrop?: boolean
+  closeOnEscape?: boolean
 }>(), {
   size: 'md',
   mobileFull: false,
   mobileFitContent: false,
-  zIndex: 50
+  zIndex: 50,
+  closeAriaLabel: '',
+  closeButtonClass: '',
+  headerClass: '',
+  bodyClass: '',
+  footerClass: '',
+  footerAlign: 'end',
+  closeOnBackdrop: true,
+  closeOnEscape: true,
 })
 
 const emit = defineEmits<{
@@ -91,6 +113,16 @@ const sizeClass = computed(() => {
   return sizes[props.size] || 'max-w-md'
 })
 
+const footerAlignClass = computed(() => {
+  const classes = {
+    start: 'justify-start',
+    center: 'justify-center',
+    end: 'justify-end',
+    between: 'justify-between'
+  }
+  return classes[props.footerAlign]
+})
+
 const modalRef = ref<HTMLElement | null>(null)
 const titleId = `modal-title-${Math.random().toString(36).substr(2, 9)}`
 const descriptionId = `modal-description-${Math.random().toString(36).substr(2, 9)}`
@@ -100,6 +132,12 @@ let hasLockedBodyScroll = false
 
 const close = () => {
   emit('close')
+}
+
+const handleBackdropClick = () => {
+  if (props.closeOnBackdrop) {
+    close()
+  }
 }
 
 function lockModalBodyScroll() {
@@ -116,7 +154,7 @@ function unlockModalBodyScroll() {
 
 // Keyboard navigation: Escape key to close
 const handleKeyDown = (event: KeyboardEvent) => {
-  if (event.key === 'Escape' && props.isOpen) {
+  if (event.key === 'Escape' && props.isOpen && props.closeOnEscape) {
     close()
   }
 
@@ -170,12 +208,9 @@ watch(() => props.isOpen, (isOpen) => {
   }
 }, { immediate: true })
 
-onMounted(() => {
-  document.addEventListener('keydown', handleKeyDown)
-})
+useEventListener(() => document, 'keydown', handleKeyDown)
 
 onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeyDown)
   // Ensure body scroll is restored
   unlockModalBodyScroll()
 })

@@ -26,6 +26,7 @@ import java.util.List;
 public class HomeLandingService {
 
     private static final int LANDING_BOARD_LIMIT = 7;
+    private static final int LANDING_CURATED_POST_LIMIT = 16;
     private static final int LANDING_LATEST_POST_LIMIT = 6;
 
     private final PostService postService;
@@ -51,23 +52,19 @@ public class HomeLandingService {
     }
 
     private HomeLandingResponse.Stats getStats() {
-        LocalDate today = LocalDate.now(clock);
-        LocalDateTime todayStart = today.atStartOfDay();
-        LocalDateTime tomorrowStart = today.plusDays(1).atStartOfDay();
-        LocalDateTime yesterdayStart = today.minusDays(1).atStartOfDay();
-        LocalDateTime twentyFourHoursAgo = LocalDateTime.now(clock).minusHours(24);
+        LandingStatsWindow statsWindow = currentStatsWindow();
 
         PostRepository.PublicLandingPostStatsProjection postStats = postRepository.countPublicLandingPostStats(
-                todayStart,
-                tomorrowStart,
-                yesterdayStart,
+                statsWindow.todayStart(),
+                statsWindow.tomorrowStart(),
+                statsWindow.yesterdayStart(),
                 BoardPolicyConstants.INQUIRY_BOARD_URL);
         long activeBoardCount = boardRepository.countPublicLandingVisibleBoards(BoardPolicyConstants.INQUIRY_BOARD_URL);
         UserRepository.PublicLandingUserStatsProjection userStats =
-                userRepository.countPublicLandingUserStats(twentyFourHoursAgo);
+                userRepository.countPublicLandingUserStats(statsWindow.twentyFourHoursAgo());
         long commentsToday = commentRepository.countPublicLandingVisibleCommentsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
-                todayStart,
-                tomorrowStart,
+                statsWindow.todayStart(),
+                statsWindow.tomorrowStart(),
                 BoardPolicyConstants.INQUIRY_BOARD_URL);
         long totalPosts = countOrZero(postStats.getTotalPosts());
         long postsToday = countOrZero(postStats.getPostsToday());
@@ -88,6 +85,15 @@ public class HomeLandingService {
                 .build();
     }
 
+    private LandingStatsWindow currentStatsWindow() {
+        LocalDate today = LocalDate.now(clock);
+        return new LandingStatsWindow(
+                today.atStartOfDay(),
+                today.plusDays(1).atStartOfDay(),
+                today.minusDays(1).atStartOfDay(),
+                LocalDateTime.now(clock).minusHours(24));
+    }
+
     private Integer calculateDeltaPercent(long current, long previous) {
         if (previous <= 0L) {
             return null;
@@ -100,7 +106,7 @@ public class HomeLandingService {
     }
 
     private List<FeedPostSummary> getCuratedPosts(Long userId, String period) {
-        return postService.getTrendingFeedPosts(PageRequest.of(0, 16), userId, period);
+        return postService.getTrendingFeedPosts(PageRequest.of(0, LANDING_CURATED_POST_LIMIT), userId, period);
     }
 
     private List<FeedPostSummary> getLatestPosts(Long userId) {
@@ -113,5 +119,12 @@ public class HomeLandingService {
 
     private <T> List<T> safeList(List<T> items) {
         return items == null ? List.of() : items;
+    }
+
+    private record LandingStatsWindow(
+            LocalDateTime todayStart,
+            LocalDateTime tomorrowStart,
+            LocalDateTime yesterdayStart,
+            LocalDateTime twentyFourHoursAgo) {
     }
 }

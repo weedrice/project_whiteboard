@@ -14,6 +14,7 @@ import com.weedrice.whiteboard.domain.board.service.BoardApplicationService;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CurrentUserId;
@@ -73,7 +74,7 @@ public class BoardController {
             @CurrentUserId Long userId,
             @RequestParam(required = false) String boardUrl) {
         boardService.ensureInquiryBoard(userId, boardUrl);
-        return ApiResponse.success(null);
+        return ApiResponses.ok();
     }
 
     @PutMapping("/{boardUrl}")
@@ -103,18 +104,18 @@ public class BoardController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @CurrentUserId Long userId) {
-        return ApiResponse.success(new PageResponse<>(boardService.getBoardManagerCandidates(
+        return ApiResponses.page(boardService.getBoardManagerCandidates(
                 boardUrl,
                 userId,
                 keyword,
-                PageRequestUtils.of(page, size))));
+                PageRequestUtils.of(page, size)));
     }
 
     @DeleteMapping("/{boardUrl}")
     public ApiResponse<Void> deleteBoard(@PathVariable String boardUrl,
             @CurrentUserId Long userId) {
         boardService.deleteBoard(boardUrl, userId);
-        return ApiResponse.success(null);
+        return ApiResponses.ok();
     }
 
     @GetMapping("/{boardUrl}/categories")
@@ -128,14 +129,14 @@ public class BoardController {
     public ApiResponse<Void> subscribeBoard(@PathVariable String boardUrl,
             @CurrentUserId Long userId) {
         boardService.subscribeBoard(userId, boardUrl);
-        return ApiResponse.success(null);
+        return ApiResponses.ok();
     }
 
     @DeleteMapping("/{boardUrl}/subscribe")
     public ApiResponse<Void> unsubscribeBoard(@PathVariable String boardUrl,
             @CurrentUserId Long userId) {
         boardService.unsubscribeBoard(userId, boardUrl);
-        return ApiResponse.success(null);
+        return ApiResponses.ok();
     }
 
     @PostMapping("/{boardUrl}/categories")
@@ -157,7 +158,7 @@ public class BoardController {
     public ApiResponse<Void> deleteCategory(@PathVariable Long categoryId,
             @CurrentUserId Long userId) {
         boardService.deleteCategory(categoryId, userId);
-        return ApiResponse.success(null);
+        return ApiResponses.ok();
     }
 
     @PutMapping("/subscriptions/order")
@@ -165,6 +166,6 @@ public class BoardController {
             @Valid @RequestBody BoardSubscriptionOrderRequest request,
             @CurrentUserId Long userId) {
         boardService.updateSubscriptionOrder(userId, request.boardUrls());
-        return ApiResponse.success(null);
+        return ApiResponses.ok();
     }
 }

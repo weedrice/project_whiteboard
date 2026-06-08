@@ -3,6 +3,9 @@ import { useQueryClient } from '@tanstack/vue-query'
 import { useI18n } from 'vue-i18n'
 import { userApi } from '@/api/user'
 import { boardApi } from '@/api/board'
+import { unwrapApiData } from '@/api/response'
+import { invalidateBoardListCaches } from '@/composables/boardCacheInvalidation'
+import { useMobileViewport } from '@/composables/useMediaQuery'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import { useErrorHandler } from '@/composables/useErrorHandler'
@@ -28,20 +31,15 @@ export function useSubscribedBoardsManager() {
   const accessibleBoards = ref<SubscriptionBoardListItem[]>([])
   const unavailableBoards = ref<SubscriptionBoardListItem[]>([])
   const loading = ref(false)
-  const isMobile = ref(typeof window !== 'undefined' && window.innerWidth < 640)
+  const isMobile = useMobileViewport()
   let subscriptionsRequestId = 0
 
   const hasSubscriptions = computed(() =>
     accessibleBoards.value.length > 0 || unavailableBoards.value.length > 0
   )
 
-  function updateIsMobile() {
-    isMobile.value = window.innerWidth < 640
-  }
-
   function invalidateSubscriptionCaches() {
-    queryClient.invalidateQueries({ queryKey: ['boards'] })
-    queryClient.invalidateQueries({ queryKey: ['boards', 'subscriptions'] })
+    invalidateBoardListCaches(queryClient)
   }
 
   async function fetchAllSubscriptions() {
@@ -56,7 +54,7 @@ export function useSubscribedBoardsManager() {
         return null
       }
 
-      return data.data
+      return unwrapApiData(data)
     }
 
     const firstPage = await fetchPage(0)
@@ -133,12 +131,10 @@ export function useSubscribedBoardsManager() {
 
   onMounted(() => {
     fetchSubscriptions()
-    window.addEventListener('resize', updateIsMobile)
   })
 
   onUnmounted(() => {
     subscriptionsRequestId += 1
-    window.removeEventListener('resize', updateIsMobile)
   })
 
   return {

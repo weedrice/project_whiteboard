@@ -3,8 +3,10 @@ package com.weedrice.whiteboard.domain.emoticon.controller;
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonMasterDto;
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonPurchaseStatusResponse;
 import com.weedrice.whiteboard.domain.emoticon.service.EmoticonService;
+import com.weedrice.whiteboard.global.config.CurrentUserIdWebMvcConfig;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.security.CurrentUserIdArgumentResolver;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
@@ -48,7 +50,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
     })
 @org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
-@org.springframework.context.annotation.Import(EmoticonControllerTest.TestSecurityConfig.class)
+@org.springframework.context.annotation.Import({
+        EmoticonControllerTest.TestSecurityConfig.class,
+        CurrentUserIdWebMvcConfig.class,
+        CurrentUserIdArgumentResolver.class
+})
 @DisplayName("EmoticonController 테스트")
 class EmoticonControllerTest {
 
@@ -171,7 +177,7 @@ class EmoticonControllerTest {
                     List.of(EmoticonMasterDto.builder().emoticonId(1L).build()),
                     PageRequest.of(2, 100),
                     1);
-            when(emoticonService.getActiveEmoticons(any(), eq("latest"))).thenReturn(page);
+            when(emoticonService.getActiveEmoticons(any(), eq("createdAt"))).thenReturn(page);
 
             mockMvc.perform(get("/api/v1/emoticons")
                             .param("sortBy", "createdAt")
@@ -183,7 +189,7 @@ class EmoticonControllerTest {
                     .andExpect(jsonPath("$.success").value(true));
 
             ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-            verify(emoticonService).getActiveEmoticons(pageableCaptor.capture(), eq("latest"));
+            verify(emoticonService).getActiveEmoticons(pageableCaptor.capture(), eq("createdAt"));
             Pageable pageable = pageableCaptor.getValue();
             assertThat(pageable.getPageNumber()).isEqualTo(2);
             assertThat(pageable.getPageSize()).isEqualTo(100);
@@ -277,7 +283,7 @@ class EmoticonControllerTest {
                     List.of(EmoticonMasterDto.builder().emoticonId(1L).build()),
                     PageRequest.of(1, 50),
                     1);
-            when(emoticonService.searchAll(anyString(), anyString(), any(), eq("popular"))).thenReturn(page);
+            when(emoticonService.searchAll(anyString(), anyString(), any(), eq("POPULAR"))).thenReturn(page);
 
             mockMvc.perform(get("/api/v1/emoticons/search/all")
                             .param("keyword", "test")
@@ -291,7 +297,7 @@ class EmoticonControllerTest {
                     .andExpect(jsonPath("$.success").value(true));
 
             ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-            verify(emoticonService).searchAll(eq("test"), eq("NAME"), pageableCaptor.capture(), eq("popular"));
+            verify(emoticonService).searchAll(eq("test"), eq("NAME"), pageableCaptor.capture(), eq("POPULAR"));
             Pageable pageable = pageableCaptor.getValue();
             assertThat(pageable.getPageNumber()).isEqualTo(1);
             assertThat(pageable.getPageSize()).isEqualTo(50);
@@ -305,7 +311,7 @@ class EmoticonControllerTest {
                     List.of(EmoticonMasterDto.builder().emoticonId(1L).build()),
                     PageRequest.of(0, 20),
                     1);
-            when(emoticonService.searchAll(anyString(), anyString(), any(), eq("oldest"))).thenReturn(page);
+            when(emoticonService.searchAll(anyString(), anyString(), any(), eq("OLDEST"))).thenReturn(page);
 
             mockMvc.perform(get("/api/v1/emoticons/search/all")
                             .param("keyword", "test")
@@ -315,7 +321,7 @@ class EmoticonControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true));
 
-            verify(emoticonService).searchAll(eq("test"), eq("NAME"), any(), eq("oldest"));
+            verify(emoticonService).searchAll(eq("test"), eq("NAME"), any(), eq("OLDEST"));
         }
 
         @Test

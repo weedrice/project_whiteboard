@@ -45,7 +45,8 @@ class SemanticSearchVectorRepositoryTest {
         repository.search(query);
 
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
-        verify(jdbcTemplate).query(sqlCaptor.capture(), any(MapSqlParameterSource.class), any(RowMapper.class));
+        ArgumentCaptor<MapSqlParameterSource> paramsCaptor = ArgumentCaptor.forClass(MapSqlParameterSource.class);
+        verify(jdbcTemplate).query(sqlCaptor.capture(), paramsCaptor.capture(), any(RowMapper.class));
 
         assertThat(sqlCaptor.getValue())
                 .contains("1 - (e.embedding <=> CAST(:queryEmbedding AS vector)) AS similarity")
@@ -53,6 +54,10 @@ class SemanticSearchVectorRepositoryTest {
                 .contains("author_display_name")
                 .contains("ORDER BY similarity DESC, created_at DESC, content_id DESC")
                 .contains("LIMIT :limit OFFSET :offset");
+        assertThat(paramsCaptor.getValue().getValue("queryEmbedding")).isEqualTo("[0.1,0.2]");
+        assertThat(paramsCaptor.getValue().getValue("blockedUserIds")).isEqualTo(List.of(9L));
+        assertThat(paramsCaptor.getValue().getValue("limit")).isEqualTo(20);
+        assertThat(paramsCaptor.getValue().getValue("offset")).isEqualTo(40L);
     }
 
     @Test

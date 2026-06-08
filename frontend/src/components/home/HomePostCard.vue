@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Eye, ThumbsUp, Video } from 'lucide-vue-next'
@@ -7,6 +7,7 @@ import type { FeedPost } from '@/types'
 import { formatTimeAgo } from '@/utils/date'
 import { getOptimizedBoardIconUrl, getOptimizedPostImageUrl, handleImageError } from '@/utils/image'
 import { buildPostDetailPath, getFeedBodyHtml, getFeedMediaPreview, isFeedSpoiler } from '@/utils/feedPreview'
+import { formatInteger } from '@/utils/numberFormat'
 
 const props = withDefaults(defineProps<{
   post: FeedPost
@@ -20,6 +21,7 @@ const { t } = useI18n()
 
 const bodyHtml = computed(() => getFeedBodyHtml(props.post))
 const mediaPreview = computed(() => getFeedMediaPreview(props.post))
+const isVideoPreviewLoaded = ref(false)
 const showFirstVideo = computed(() => mediaPreview.value.showFirstVideo)
 const showFirstImageUrl = computed(() => mediaPreview.value.imageUrl)
 const isSpoiler = computed(() => isFeedSpoiler(props.post))
@@ -54,12 +56,20 @@ const navigateToPost = () => {
   router.push(buildPostDetailPath(props.post.boardUrl, props.post.postId))
 }
 
+const loadVideoPreview = () => {
+  isVideoPreviewLoaded.value = true
+}
+
 const handleKeydown = (event: KeyboardEvent) => {
   if (event.key === 'Enter' || event.key === ' ') {
     event.preventDefault()
     navigateToPost()
   }
 }
+
+watch(() => props.post.postId, () => {
+  isVideoPreviewLoaded.value = false
+})
 </script>
 
 <template>
@@ -119,18 +129,32 @@ const handleKeydown = (event: KeyboardEvent) => {
       >
         <div class="absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-1 text-[10px] font-medium text-white">
           <Video class="h-3 w-3" />
-          {{ $t('home.card.video') }}
+          {{ t('home.card.video') }}
         </div>
         <iframe
+          v-if="isVideoPreviewLoaded"
           :src="post.firstMediaUrl"
           :title="t('home.card.videoPreview')"
           frameborder="0"
           allowfullscreen
           loading="lazy"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          class="pointer-events-none aspect-video rounded-[inherit]"
+          class="aspect-video rounded-[inherit]"
           :class="isFeatured ? 'max-w-[38rem] w-full' : 'w-full'"
+          @click.stop
         />
+        <button
+          v-else
+          type="button"
+          class="flex aspect-video items-center justify-center rounded-[inherit] text-white"
+          :class="isFeatured ? 'max-w-[38rem] w-full' : 'w-full'"
+          :aria-label="t('home.card.videoPreview')"
+          @click.stop="loadVideoPreview"
+        >
+          <span class="inline-flex h-12 w-12 items-center justify-center rounded-full bg-black/70 shadow-lg">
+            <Video class="h-5 w-5" aria-hidden="true" />
+          </span>
+        </button>
       </div>
       <img
         v-else-if="showFirstImageUrl"
@@ -177,7 +201,7 @@ const handleKeydown = (event: KeyboardEvent) => {
       <span>{{ timeAgo }}</span>
       <span class="ml-auto inline-flex items-center gap-1 text-[var(--nv-ink-soft)]">
         <ThumbsUp class="h-3.5 w-3.5" />
-        {{ post.likeCount.toLocaleString() }}
+        {{ formatInteger(post.likeCount) }}
       </span>
     </div>
   </article>

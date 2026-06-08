@@ -59,16 +59,16 @@ onUnmounted(() => {
     padding: 0.75rem 1rem;
     text-align: center;
     font-weight: 500;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--nv-shadow-card);
 }
 
 .network-status.offline {
-    background-color: #ef4444;
+    background-color: var(--nv-danger);
     color: white;
 }
 
 .network-status.online {
-    background-color: #10b981;
+    background-color: var(--nv-success);
     color: white;
 }
 

@@ -1,14 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { postApi, type PostCreateData, type PostDraftData, type PostUpdateData, type ReportData } from '@/api/post'
+import { unwrapAxiosApiData } from '@/api/response'
 import { computed, type Ref } from 'vue'
 import type { Post } from '@/types'
 import type { AxiosRequestConfig } from 'axios'
 import { normalizePostReactionFlags, type PostReactionAlias } from '@/utils/postViewModel'
+import { postDetailQueryKey, postQueryKeys } from '@/composables/postQueryKeys'
+import { homeQueryKeys } from '@/composables/homeQueryKeys'
 
-export const postDetailQueryKey = (
-    postId: string | number | Ref<string | number>,
-    incrementView = true,
-) => ['post', postId, { incrementView }] as const
+export { postDetailQueryKey, postQueryKeys } from '@/composables/postQueryKeys'
 
 export function usePost() {
     const queryClient = useQueryClient()
@@ -29,14 +29,14 @@ export function usePost() {
     // 모든 게시글 캐시(상세, 트렌딩, 게시판 목록)에서 특정 postId의 데이터를 업데이트
     function updatePostInAllCaches(postId: string | number, updater: (post: Partial<Post>) => Partial<Post>) {
         // 1. 게시글 상세 캐시
-        queryClient.setQueriesData<Post>({ queryKey: ['post', postId] }, (old) => {
+        queryClient.setQueriesData<Post>({ queryKey: postQueryKeys.detailPrefix(postId) }, (old) => {
             if (!old) return old
             return updater(old) as Post
         })
 
         // 2. 트렌딩 피드 등 게시글 목록 캐시 (InfiniteQuery 구조)
         queryClient.setQueriesData<InfiniteQueryData>(
-            { queryKey: ['posts'] },
+            { queryKey: postQueryKeys.lists },
             (old) => {
                 if (!old?.pages) return old
                 return {
@@ -54,9 +54,7 @@ export function usePost() {
         )
 
         // 3. 게시판별 게시글 목록 캐시
-        queryClient.getQueriesData({ queryKey: ['board'] }).forEach(([key]) => {
-            const keyArr = key as unknown[]
-            if (!keyArr.includes('posts')) return
+        queryClient.getQueriesData({ queryKey: postQueryKeys.boardPostsRoot }).forEach(([key]) => {
             queryClient.setQueryData(key, (old: InfiniteQueryData | PageQueryData | undefined) => {
                 if (!old) return old
                 // InfiniteQuery 구조
@@ -90,10 +88,9 @@ export function usePost() {
     // 롤백을 위한 스냅샷 저장
     function savePostCacheSnapshots(postId: string | number) {
         return {
-            postDetailQueries: queryClient.getQueriesData({ queryKey: ['post', postId] }),
-            postsQueries: queryClient.getQueriesData({ queryKey: ['posts'] }),
-            boardQueries: queryClient.getQueriesData({ queryKey: ['board'] })
-                .filter(([key]) => (key as unknown[]).includes('posts'))
+            postDetailQueries: queryClient.getQueriesData({ queryKey: postQueryKeys.detailPrefix(postId) }),
+            postsQueries: queryClient.getQueriesData({ queryKey: postQueryKeys.lists }),
+            boardQueries: queryClient.getQueriesData({ queryKey: postQueryKeys.boardPostsRoot })
         }
     }
 
@@ -115,30 +112,57 @@ export function usePost() {
 
     // 관련 캐시 무효화 (서버 상태와 동기화)
     function invalidatePostCaches(postId: string | number) {
-        queryClient.invalidateQueries({ queryKey: ['post', postId] })
-        queryClient.invalidateQueries({ queryKey: ['posts'] })
+        queryClient.invalidateQueries({ queryKey: postQueryKeys.detailPrefix(postId) })
+        queryClient.invalidateQueries({ queryKey: postQueryKeys.lists })
+        queryClient.invalidateQueries({ queryKey: homeQueryKeys.landingRoot })
         queryClient.invalidateQueries({
             predicate: (query) => {
                 const key = query.queryKey
-                return Array.isArray(key) && key[0] === 'board' && key.includes('posts')
+                return Array.isArray(key) && key[0] === 'board' && key[1] === 'posts'
             }
         })
     }
 
     // Fetch single post details (incrementView: true → 조회수 증가 + 로그인 시 최근 읽은 글에 반영)
+    function createOptimisticPostMutation(
+        mutationFn: (postId: string | number) => Promise<unknown>,
+        updater: (post: Partial<Post>) => Partial<Post>
+    ) {
+        return useMutation({
+            mutationFn,
+            onMutate: async (postId) => {
+                await queryClient.cancelQueries({ queryKey: postQueryKeys.detailPrefix(postId) })
+                await queryClient.cancelQueries({ queryKey: postQueryKeys.lists })
+                const snapshots = savePostCacheSnapshots(postId)
+
+                updatePostInAllCaches(postId, updater)
+
+                return { snapshots }
+            },
+            onError: (_err, postId, context) => {
+                if (context?.snapshots) {
+                    restorePostCacheSnapshots(postId, context.snapshots)
+                }
+            },
+            onSettled: (_, __, postId) => {
+                invalidatePostCaches(postId)
+            }
+        })
+    }
+
     const usePostDetail = (postId: Ref<string | number>, options: { requestConfig?: AxiosRequestConfig } & Record<string, unknown> = {}) => {
         const { requestConfig, ...queryOptions } = options
         return useQuery({
             queryKey: postDetailQueryKey(postId, requestConfig?.params?.incrementView !== false),
             queryFn: async () => {
-                const { data } = await postApi.getPost(postId.value, {
+                const post = unwrapAxiosApiData(await postApi.getPost(postId.value, {
                     ...requestConfig,
                     params: {
                         incrementView: true,
                         ...(requestConfig?.params || {})
                     }
-                })
-                return normalizePostReactionFlags(data.data as PostReactionAlias)
+                }))
+                return normalizePostReactionFlags(post as PostReactionAlias)
             },
             enabled: computed(() => !!postId.value),
             ...queryOptions
@@ -152,7 +176,8 @@ export function usePost() {
                 return await postApi.createPost(boardUrl, data)
             },
             onSuccess: (_, { boardUrl }) => {
-                queryClient.invalidateQueries({ queryKey: ['board', boardUrl, 'posts'] })
+                queryClient.invalidateQueries({ queryKey: postQueryKeys.boardPosts(boardUrl) })
+                queryClient.invalidateQueries({ queryKey: homeQueryKeys.landingRoot })
             }
         })
     }
@@ -176,129 +201,56 @@ export function usePost() {
                 return await postApi.deletePost(postId)
             },
             onSuccess: () => {
-                // Invalidate relevant queries (e.g., board posts)
-                // Note: We might need boardUrl to be more specific, but 'posts' key usually includes boardUrl
-                queryClient.invalidateQueries({ queryKey: ['board'] })
+                queryClient.invalidateQueries({ queryKey: postQueryKeys.boardPostsRoot })
+                queryClient.invalidateQueries({ queryKey: homeQueryKeys.landingRoot })
             }
         })
     }
 
     // Like a post
     const useLikePost = () => {
-        return useMutation({
-            mutationFn: async (postId: string | number) => {
-                return await postApi.likePost(postId)
-            },
-            onMutate: async (postId) => {
-                await queryClient.cancelQueries({ queryKey: ['post', postId] })
-                await queryClient.cancelQueries({ queryKey: ['posts'] })
-                const snapshots = savePostCacheSnapshots(postId)
-
-                updatePostInAllCaches(postId, (old) => ({
-                    ...old,
-                    liked: true,
-                    likeCount: (old.likeCount || 0) + 1
-                }))
-
-                return { snapshots }
-            },
-            onError: (_err, postId, context) => {
-                if (context?.snapshots) {
-                    restorePostCacheSnapshots(postId, context.snapshots)
-                }
-            },
-            onSettled: (_, __, postId) => {
-                invalidatePostCaches(postId)
-            }
-        })
+        return createOptimisticPostMutation(
+            (postId) => postApi.likePost(postId),
+            (old) => ({
+                ...old,
+                liked: true,
+                likeCount: (old.likeCount || 0) + 1
+            })
+        )
     }
 
     // Unlike a post
     const useUnlikePost = () => {
-        return useMutation({
-            mutationFn: async (postId: string | number) => {
-                return await postApi.unlikePost(postId)
-            },
-            onMutate: async (postId) => {
-                await queryClient.cancelQueries({ queryKey: ['post', postId] })
-                await queryClient.cancelQueries({ queryKey: ['posts'] })
-                const snapshots = savePostCacheSnapshots(postId)
-
-                updatePostInAllCaches(postId, (old) => ({
-                    ...old,
-                    liked: false,
-                    likeCount: Math.max((old.likeCount || 0) - 1, 0)
-                }))
-
-                return { snapshots }
-            },
-            onError: (_err, postId, context) => {
-                if (context?.snapshots) {
-                    restorePostCacheSnapshots(postId, context.snapshots)
-                }
-            },
-            onSettled: (_, __, postId) => {
-                invalidatePostCaches(postId)
-            }
-        })
+        return createOptimisticPostMutation(
+            (postId) => postApi.unlikePost(postId),
+            (old) => ({
+                ...old,
+                liked: false,
+                likeCount: Math.max((old.likeCount || 0) - 1, 0)
+            })
+        )
     }
 
     // Scrap a post
     const useScrapPost = () => {
-        return useMutation({
-            mutationFn: async (postId: string | number) => {
-                return await postApi.scrapPost(postId)
-            },
-            onMutate: async (postId) => {
-                await queryClient.cancelQueries({ queryKey: ['post', postId] })
-                await queryClient.cancelQueries({ queryKey: ['posts'] })
-                const snapshots = savePostCacheSnapshots(postId)
-
-                updatePostInAllCaches(postId, (old) => ({
-                    ...old,
-                    scrapped: true
-                }))
-
-                return { snapshots }
-            },
-            onError: (_err, postId, context) => {
-                if (context?.snapshots) {
-                    restorePostCacheSnapshots(postId, context.snapshots)
-                }
-            },
-            onSettled: (_, __, postId) => {
-                invalidatePostCaches(postId)
-            }
-        })
+        return createOptimisticPostMutation(
+            (postId) => postApi.scrapPost(postId),
+            (old) => ({
+                ...old,
+                scrapped: true
+            })
+        )
     }
 
     // Unscrap a post
     const useUnscrapPost = () => {
-        return useMutation({
-            mutationFn: async (postId: string | number) => {
-                return await postApi.unscrapPost(postId)
-            },
-            onMutate: async (postId) => {
-                await queryClient.cancelQueries({ queryKey: ['post', postId] })
-                await queryClient.cancelQueries({ queryKey: ['posts'] })
-                const snapshots = savePostCacheSnapshots(postId)
-
-                updatePostInAllCaches(postId, (old) => ({
-                    ...old,
-                    scrapped: false
-                }))
-
-                return { snapshots }
-            },
-            onError: (_err, postId, context) => {
-                if (context?.snapshots) {
-                    restorePostCacheSnapshots(postId, context.snapshots)
-                }
-            },
-            onSettled: (_, __, postId) => {
-                invalidatePostCaches(postId)
-            }
-        })
+        return createOptimisticPostMutation(
+            (postId) => postApi.unscrapPost(postId),
+            (old) => ({
+                ...old,
+                scrapped: false
+            })
+        )
     }
 
     // Report a post

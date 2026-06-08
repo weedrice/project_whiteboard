@@ -1,5 +1,6 @@
 import { computed, ref, watch, type Ref } from 'vue'
 import { useBoard } from '@/composables/useBoard'
+import { usePageResponseState } from '@/composables/usePaginatedQueryState'
 import { resolveDefaultCategory } from '@/utils/board'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
 
@@ -81,7 +82,11 @@ export function useBoardDetailResource({
   const categories = computed(() => (
     board.value?.categories?.filter((category) => category.categoryId !== defaultCategory.value?.categoryId) ?? []
   ))
-  const posts = computed(() => postsData.value?.content ?? [])
+  const fallbackPostPage = computed(() => queryParams.value.page ?? 0)
+  const {
+    items: posts,
+    totalPages,
+  } = usePageResponseState(postsData, fallbackPostPage)
   const isNoticesExpanded = ref(false)
   const notices = computed(() => (
     [...(noticesData.value ?? [])].sort((left, right) => {
@@ -97,7 +102,6 @@ export function useBoardDetailResource({
     isNoticesExpanded.value ? notices.value : notices.value.slice(0, NOTICE_PREVIEW_LIMIT)
   ))
   const hasNoticeOverflow = computed(() => notices.value.length > NOTICE_PREVIEW_LIMIT)
-  const totalPages = computed(() => postsData.value?.totalPages || 0)
   const isInitialLoading = computed(() => isBoardLoading.value && !board.value)
   const currentListKey = computed(() => JSON.stringify({
     boardUrl: boardUrl.value,

@@ -31,7 +31,7 @@ const recentActivity = ref([])
 
 <template>
   <div>
-    <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">{{ t('admin.dashboard.title') }}</h1>
+    <h1 class="text-2xl font-semibold nv-title">{{ t('admin.dashboard.title') }}</h1>
 
     <div class="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
       <AdminPanel
@@ -44,15 +44,15 @@ const recentActivity = ref([])
         <div class="p-5">
           <div class="flex items-center">
             <div class="flex-shrink-0">
-              <component :is="item.icon" class="h-6 w-6 text-gray-400 dark:text-gray-500" aria-hidden="true" />
+              <component :is="item.icon" class="h-6 w-6 nv-text-subtle" aria-hidden="true" />
             </div>
             <div class="ml-5 w-0 flex-1">
               <dl>
-                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                <dt class="text-sm font-medium nv-text-subtle truncate">
                   {{ item.name }}
                 </dt>
                 <dd>
-                  <div class="text-lg font-medium text-gray-900 dark:text-white">
+                  <div class="text-lg font-medium nv-title">
                     {{ item.stat }}
                   </div>
                 </dd>
@@ -60,10 +60,10 @@ const recentActivity = ref([])
             </div>
           </div>
         </div>
-        <div class="bg-gray-50 dark:bg-gray-700 px-5 py-3">
+        <div class="nv-surface-muted px-5 py-3">
           <div class="text-sm">
             <router-link :to="item.path"
-              class="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300">
+              class="font-medium nv-accent-text hover:brightness-95">
               {{ t('admin.dashboard.viewDetail') }}
             </router-link>
           </div>
@@ -72,10 +72,10 @@ const recentActivity = ref([])
     </div>
 
     <div class="mt-8">
-      <h2 class="text-lg font-medium text-gray-900 dark:text-white">{{ t('admin.dashboard.recentActivity') }}</h2>
+      <h2 class="text-lg font-medium nv-title">{{ t('admin.dashboard.recentActivity') }}</h2>
       <AdminPanel class="mt-4 sm:rounded-md" padding="none" border="transparent" overflow="hidden">
-        <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
-          <li v-if="recentActivity.length === 0" class="px-4 py-4 sm:px-6 text-center text-gray-500 dark:text-gray-400">
+        <ul role="list" class="divide-y divide-[var(--nv-border)]">
+          <li v-if="recentActivity.length === 0" class="px-4 py-4 sm:px-6 text-center nv-text-subtle">
             {{ t('admin.dashboard.noActivity') }}
           </li>
           <!-- Activity items would go here -->

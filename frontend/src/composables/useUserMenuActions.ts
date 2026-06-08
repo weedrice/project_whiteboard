@@ -2,9 +2,8 @@ import { computed, ref, type Ref } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
 import { userApi } from '@/api/user'
 import { useAuthStore } from '@/stores/auth'
-import { useToastStore } from '@/stores/toast'
-import { useConfirm } from '@/composables/useConfirm'
-import logger from '@/utils/logger'
+import { commentQueryKeys } from '@/composables/commentQueryKeys'
+import { useUserBlockAction } from '@/composables/useUserBlockAction'
 
 interface UseUserMenuActionsOptions {
     userId: Ref<number>
@@ -20,9 +19,8 @@ export function useUserMenuActions({
     t,
 }: UseUserMenuActionsOptions) {
     const authStore = useAuthStore()
-    const toastStore = useToastStore()
-    const { confirm } = useConfirm()
     const queryClient = useQueryClient()
+    const { runUserBlockAction } = useUserBlockAction()
     const isMessageModalOpen = ref(false)
     const isReportModalOpen = ref(false)
     const isSelf = computed(() => !!(authStore.user && authStore.user.userId === userId.value))
@@ -52,19 +50,17 @@ export function useUserMenuActions({
         closeDropdown()
         if (isSelf.value) return
 
-        const isConfirmed = await confirm(t('user.block.confirm', { name: displayName.value }))
-        if (!isConfirmed) return
-
-        try {
-            const { data } = await userApi.blockUser(userId.value)
-            if (data.success) {
-                toastStore.addToast(t('user.block.success', { name: displayName.value }), 'success')
-                queryClient.invalidateQueries({ queryKey: ['comments'] })
-            }
-        } catch (error) {
-            logger.error('Failed to block user:', error)
-            toastStore.addToast(t('user.block.failed'), 'error')
-        }
+        await runUserBlockAction({
+            confirmMessage: t('user.block.confirm', { name: displayName.value }),
+            failureMessage: t('user.block.failed'),
+            logMessage: 'Failed to block user:',
+            successMessage: t('user.block.success', { name: displayName.value }),
+            action: () => userApi.blockUser(userId.value),
+            isSuccess: ({ data }) => data.success,
+            onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: commentQueryKeys.all })
+            },
+        })
     }
 
     const menuItems = computed(() => {

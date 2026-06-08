@@ -1,5 +1,6 @@
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useEventListener } from '@/composables/useEventListener'
 import { isInputFocused } from '@/utils/keyboard'
 
 interface ShortcutConfig {
@@ -12,26 +13,10 @@ interface ShortcutConfig {
   description?: string
 }
 
-/**
- * 전역 키보드 단축키를 관리하는 composable
- * 
- * @example
- * ```typescript
- * const { registerShortcut, unregisterShortcut } = useGlobalShortcuts()
- * 
- * registerShortcut({
- *   key: '/',
- *   handler: () => focusSearchBar()
- * })
- * ```
- */
 export function useGlobalShortcuts() {
   const shortcuts = ref<Map<string, ShortcutConfig>>(new Map())
   const router = useRouter()
 
-  /**
-   * 단축키 키 생성
-   */
   const createShortcutKey = (config: Omit<ShortcutConfig, 'handler' | 'description'>): string => {
     const parts: string[] = []
     if (config.ctrl) parts.push('ctrl')
@@ -42,11 +27,7 @@ export function useGlobalShortcuts() {
     return parts.join('+')
   }
 
-  /**
-   * 키보드 이벤트 핸들러
-   */
   const handleKeyDown = (event: KeyboardEvent) => {
-    // 입력 필드에 포커스가 있으면 단축키 무시 (Escape만 예외: 모달/드롭다운 닫기 등)
     const alwaysActiveKeys = ['Escape']
     if (isInputFocused() && !alwaysActiveKeys.includes(event.key)) {
       return
@@ -57,7 +38,7 @@ export function useGlobalShortcuts() {
       ctrl: event.ctrlKey,
       shift: event.shiftKey,
       alt: event.altKey,
-      meta: event.metaKey
+      meta: event.metaKey,
     })
 
     const shortcut = shortcuts.value.get(shortcutKey)
@@ -67,111 +48,86 @@ export function useGlobalShortcuts() {
     }
   }
 
-  /**
-   * 단축키 등록
-   */
   const registerShortcut = (config: ShortcutConfig) => {
     const key = createShortcutKey(config)
     shortcuts.value.set(key, config)
   }
 
-  /**
-   * 단축키 해제
-   */
   const unregisterShortcut = (config: Omit<ShortcutConfig, 'handler' | 'description'>) => {
     const key = createShortcutKey(config)
     shortcuts.value.delete(key)
   }
 
-  /**
-   * 모든 단축키 해제
-   */
   const clearShortcuts = () => {
     shortcuts.value.clear()
   }
 
-  // 기본 단축키 등록
-  const registerDefaultShortcuts = () => {
-    // g + h: 홈으로 이동 (g 키 조합)
-    let gKeyPressed = false
-    let gKeyTimer: ReturnType<typeof setTimeout> | null = null
+  let gKeyPressed = false
+  let gKeyTimer: ReturnType<typeof setTimeout> | null = null
 
-    const handleGKey = () => {
-      if (!isInputFocused()) {
-        gKeyPressed = true
-        if (gKeyTimer) clearTimeout(gKeyTimer)
-        gKeyTimer = setTimeout(() => {
-          gKeyPressed = false
-        }, 1000) // 1초 내에 다음 키를 눌러야 함
-      }
-    }
-
-    const handleNavigationKey = (route: string) => {
-      if (gKeyPressed) {
-        router.push(route)
-        gKeyPressed = false
-        if (gKeyTimer) {
-          clearTimeout(gKeyTimer)
-          gKeyTimer = null
-        }
-      }
-    }
-
-    // g 키 감지를 위한 별도 리스너
-    const gKeyHandler = (e: KeyboardEvent) => {
-      if (e.key === 'g' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
-        handleGKey()
-      } else if (gKeyPressed) {
-        // g 키가 눌린 상태에서 다른 키 처리
-        if (e.key === 'h' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-          e.preventDefault()
-          handleNavigationKey('/')
-        } else if (e.key === 'b' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-          e.preventDefault()
-          handleNavigationKey('/boards')
-        } else if (e.key === 'm' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-          e.preventDefault()
-          handleNavigationKey('/mypage')
-        } else {
-          // 다른 키가 눌리면 g 키 상태 리셋
-          gKeyPressed = false
-          if (gKeyTimer) {
-            clearTimeout(gKeyTimer)
-            gKeyTimer = null
-          }
-        }
-      }
-    }
-
-    document.addEventListener('keydown', gKeyHandler)
-
-    return () => {
-      document.removeEventListener('keydown', gKeyHandler)
-      // gKeyTimer cleanup
-      if (gKeyTimer) {
-        clearTimeout(gKeyTimer)
-        gKeyTimer = null
-      }
+  const clearGKeyTimer = () => {
+    if (gKeyTimer) {
+      clearTimeout(gKeyTimer)
+      gKeyTimer = null
     }
   }
 
-  let cleanupDefaultShortcuts: (() => void) | null = null
+  const handleGKey = () => {
+    if (!isInputFocused()) {
+      gKeyPressed = true
+      clearGKeyTimer()
+      gKeyTimer = setTimeout(() => {
+        gKeyPressed = false
+      }, 1000)
+    }
+  }
 
-  onMounted(() => {
-    document.addEventListener('keydown', handleKeyDown)
-    cleanupDefaultShortcuts = registerDefaultShortcuts()
-  })
+  const handleNavigationKey = (route: string) => {
+    if (gKeyPressed) {
+      router.push(route)
+      gKeyPressed = false
+      clearGKeyTimer()
+    }
+  }
+
+  const gKeyHandler = (event: KeyboardEvent) => {
+    if (event.key === 'g' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
+      handleGKey()
+      return
+    }
+
+    if (!gKeyPressed) {
+      return
+    }
+
+    if (event.key === 'h' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      event.preventDefault()
+      handleNavigationKey('/')
+    } else if (event.key === 'b' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      event.preventDefault()
+      handleNavigationKey('/boards')
+    } else if (event.key === 'm' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      event.preventDefault()
+      handleNavigationKey('/mypage')
+    } else {
+      gKeyPressed = false
+      clearGKeyTimer()
+    }
+  }
+
+  const documentTarget = () => typeof document === 'undefined' ? null : document
+
+  useEventListener<KeyboardEvent>(documentTarget, 'keydown', handleKeyDown)
+  useEventListener<KeyboardEvent>(documentTarget, 'keydown', gKeyHandler)
 
   onUnmounted(() => {
-    document.removeEventListener('keydown', handleKeyDown)
-    cleanupDefaultShortcuts?.()
-    cleanupDefaultShortcuts = null
+    clearGKeyTimer()
     clearShortcuts()
   })
 
   return {
     registerShortcut,
     unregisterShortcut,
-    clearShortcuts
+    clearShortcuts,
   }
 }

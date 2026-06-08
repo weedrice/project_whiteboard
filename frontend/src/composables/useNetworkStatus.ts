@@ -1,4 +1,5 @@
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed } from 'vue'
+import { useEventListener } from '@/composables/useEventListener'
 
 /**
  * 네트워크 상태 모니터링 Composable
@@ -26,15 +27,8 @@ export function useNetworkStatus() {
         wasOffline.value = false
     }
 
-    onMounted(() => {
-        window.addEventListener('online', updateOnlineStatus)
-        window.addEventListener('offline', updateOnlineStatus)
-    })
-
-    onUnmounted(() => {
-        window.removeEventListener('online', updateOnlineStatus)
-        window.removeEventListener('offline', updateOnlineStatus)
-    })
+    useEventListener(() => window, 'online', updateOnlineStatus)
+    useEventListener(() => window, 'offline', updateOnlineStatus)
 
     return {
         isOnline,

@@ -2,8 +2,8 @@
   <BaseModal :isOpen="isOpen" :title="t('admin.sanction.title')" @close="$emit('close')">
     <form @submit.prevent="submitSanction" class="space-y-4">
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.sanction.userLabel') }}</label>
-        <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+        <label class="block text-sm font-medium nv-text-muted">{{ t('admin.sanction.userLabel') }}</label>
+        <p class="mt-1 text-sm nv-text">
           {{ sanctionTargetName }}<span v-if="user?.email"> ({{ user.email }})</span>
         </p>
       </div>
@@ -24,15 +24,15 @@
 
       <div>
         <BaseInput id="duration" v-model="form.duration" type="number" :label="t('admin.sanction.duration')" min="1" />
-        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.sanction.durationHint') }}</p>
+        <p class="mt-1 text-xs nv-text-subtle">{{ t('admin.sanction.durationHint') }}</p>
       </div>
 
-      <div class="flex justify-end space-x-3 mt-5">
+      <AdminModalActions class-name="mt-5">
         <BaseButton type="button" variant="secondary" @click="$emit('close')">{{ t('admin.sanction.cancel') }}</BaseButton>
         <BaseButton type="submit" variant="danger" :disabled="loading">
           {{ loading ? t('admin.sanction.processing') : t('admin.sanction.submit') }}
         </BaseButton>
-      </div>
+      </AdminModalActions>
     </form>
   </BaseModal>
 </template>
@@ -45,6 +45,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
+import AdminModalActions from '@/components/admin/AdminModalActions.vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { useToastStore } from '@/stores/toast'
 

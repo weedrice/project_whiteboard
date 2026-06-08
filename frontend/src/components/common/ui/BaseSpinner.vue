@@ -6,7 +6,7 @@ withDefaults(defineProps<{
     color?: string
 }>(), {
     size: 'md',
-    color: 'text-indigo-600 dark:text-indigo-400'
+    color: 'nv-spinner'
 })
 
 const sizeClasses = {

@@ -19,6 +19,7 @@ import com.weedrice.whiteboard.domain.user.service.UserSecurityService;
 import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
 import com.weedrice.whiteboard.domain.user.web.UserActionResponseFactory;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CurrentUserId;
@@ -31,7 +32,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -80,7 +80,7 @@ public class UserController {
                                 userId,
                                 request.getEmail(),
                                 request.getVerificationTicket());
-                return ResponseEntity.ok(ApiResponse.success(null));
+                return ResponseEntity.ok(ApiResponse.success());
         }
 
         @PutMapping("/me/password")
@@ -153,9 +153,9 @@ public class UserController {
                         @RequestParam(defaultValue = "20") int size,
                         Sort sort,
                         @CurrentUserId Long userId) {
-                Pageable pageable = PageRequestUtils.of(page, size, sort);
+                Pageable pageable = pageable(page, size, sort);
                 Page<BlockedUserResponse> response = userBlockService.getBlockedUsers(userId, pageable);
-                return ResponseEntity.ok(ApiResponse.success(new PageResponse<>(response)));
+                return ResponseEntity.ok(ApiResponses.page(response));
         }
 
         @GetMapping("/me/subscriptions")
@@ -165,12 +165,12 @@ public class UserController {
                         @RequestParam(defaultValue = "0") int page,
                         @RequestParam(defaultValue = "20") int size,
                         Sort sort) {
-                Pageable pageable = PageRequestUtils.of(page, size, sort);
+                Pageable pageable = pageable(page, size, sort);
                 Page<SubscriptionBoardResponse> response = boardService.getMySubscriptions(
                                 userId,
                                 pageable,
                                 includeUnavailable);
-                return ApiResponse.success(new PageResponse<>(response));
+                return ApiResponses.page(response);
         }
 
         @PostMapping("/me/agents/claim")
@@ -216,17 +216,17 @@ public class UserController {
                         jakarta.servlet.http.HttpServletRequest httpServletRequest) {
                 agentLifecycleService.deleteMyAgent(userId, agentId,
                                 agentRequestContextResolver.resolve(httpServletRequest));
-                return ApiResponse.success(null);
+                return ApiResponses.ok();
         }
 
         @GetMapping("/me/posts")
         public ApiResponse<PageResponse<PostSummary>> getMyPosts(@CurrentUserId Long userId,
                         @RequestParam(defaultValue = "0") int page,
                         @RequestParam(defaultValue = "20") int size,
-                        Sort sort) {
-                Pageable pageable = PageRequestUtils.of(page, size, sort);
+                Sort sort) {
+                Pageable pageable = pageable(page, size, sort);
                 Page<PostSummary> response = postService.getMyPosts(userId, pageable);
-                return ApiResponse.success(new PageResponse<>(response));
+                return ApiResponses.page(response);
         }
 
         @GetMapping("/me/comments")
@@ -234,10 +234,10 @@ public class UserController {
                         @CurrentUserId Long userId,
                         @RequestParam(defaultValue = "0") int page,
                         @RequestParam(defaultValue = "20") int size,
-                        Sort sort) {
-                Pageable pageable = PageRequestUtils.of(page, size, sort);
+                Sort sort) {
+                Pageable pageable = pageable(page, size, sort);
                 Page<MyCommentResponse> response = commentService.getMyComments(userId, pageable);
-                return ApiResponse.success(new PageResponse<>(response));
+                return ApiResponses.page(response);
         }
 
         @GetMapping("/me/history/views")
@@ -245,9 +245,13 @@ public class UserController {
                         @CurrentUserId Long userId,
                         @RequestParam(defaultValue = "0") int page,
                         @RequestParam(defaultValue = "20") int size,
-                        Sort sort) {
-                Pageable pageable = PageRequestUtils.of(page, size, sort);
+                Sort sort) {
+                Pageable pageable = pageable(page, size, sort);
                 Page<PostSummary> response = postService.getRecentlyViewedPosts(userId, pageable);
-                return ApiResponse.success(new PageResponse<>(response));
+                return ApiResponses.page(response);
+        }
+
+        private Pageable pageable(int page, int size, Sort sort) {
+                return PageRequestUtils.of(page, size, sort);
         }
 }

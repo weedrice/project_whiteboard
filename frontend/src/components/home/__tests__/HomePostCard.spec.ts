@@ -139,4 +139,23 @@ describe('HomePostCard', () => {
     expect(body.find('em').text()).toBe('fallback')
     expect(body.html()).not.toContain('<script>')
   })
+
+  it('defers video iframe rendering until the preview is requested', async () => {
+    const wrapper = mount(HomePostCard, {
+      props: {
+        post: makePost({
+          firstMediaType: 'video',
+          firstMediaUrl: 'https://www.youtube.com/embed/video-id',
+        }),
+      },
+    })
+
+    expect(wrapper.find('iframe').exists()).toBe(false)
+
+    await wrapper.get('button[aria-label="home.card.videoPreview"]').trigger('click')
+
+    const iframe = wrapper.get('iframe')
+    expect(iframe.attributes('src')).toBe('https://www.youtube.com/embed/video-id')
+    expect(push).not.toHaveBeenCalled()
+  })
 })

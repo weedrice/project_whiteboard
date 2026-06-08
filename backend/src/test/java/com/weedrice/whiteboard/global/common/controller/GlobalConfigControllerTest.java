@@ -4,8 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.global.common.dto.GlobalConfigResponse;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
+import com.weedrice.whiteboard.global.config.CurrentUserIdWebMvcConfig;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.security.CurrentUserIdArgumentResolver;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -48,6 +51,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class),
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
     })
+@Import({
+        CurrentUserIdWebMvcConfig.class,
+        CurrentUserIdArgumentResolver.class
+})
 class GlobalConfigControllerTest {
 
     private static final Long ACTOR_USER_ID = 1L;
@@ -258,19 +265,19 @@ class GlobalConfigControllerTest {
     @Test
     @DisplayName("admin config endpoints require SUPER_ADMIN")
     void adminConfigEndpoints_requireSuperAdminPreAuthorize() throws Exception {
-        assertRequiresSuperAdmin("getConfig", String.class, CustomUserDetails.class);
-        assertRequiresSuperAdmin("getAllConfigs", CustomUserDetails.class);
+        assertRequiresSuperAdmin("getConfig", String.class, Long.class);
+        assertRequiresSuperAdmin("getAllConfigs", Long.class);
         assertRequiresSuperAdmin("createConfig",
                 com.weedrice.whiteboard.global.common.dto.GlobalConfigCreateRequest.class,
-                CustomUserDetails.class);
+                Long.class);
         assertRequiresSuperAdmin("updateConfig",
                 com.weedrice.whiteboard.global.common.dto.GlobalConfigUpdateRequest.class,
-                CustomUserDetails.class);
+                Long.class);
         assertRequiresSuperAdmin("updateConfigByKey",
                 String.class,
                 com.weedrice.whiteboard.global.common.dto.GlobalConfigUpdateByKeyRequest.class,
-                CustomUserDetails.class);
-        assertRequiresSuperAdmin("deleteConfig", String.class, CustomUserDetails.class);
+                Long.class);
+        assertRequiresSuperAdmin("deleteConfig", String.class, Long.class);
     }
 
     @Test

@@ -13,7 +13,9 @@ describe('BaseSelect', () => {
         })
 
         expect(wrapper.find('label[for="test-select"]').text()).toBe('Category')
-        expect(wrapper.find('p.text-red-600').text()).toBe('Required')
+        expect(wrapper.get('[role="alert"]').text()).toBe('Required')
+        expect(wrapper.get('[role="alert"]').classes()).toContain('nv-form-error')
+        expect(wrapper.get('select').classes()).toContain('is-invalid')
         expect(wrapper.get('select').attributes('aria-invalid')).toBe('true')
         expect(wrapper.get('select').attributes('aria-describedby')).toBe('test-select-error')
         expect(wrapper.get('#test-select-error').attributes('role')).toBe('alert')

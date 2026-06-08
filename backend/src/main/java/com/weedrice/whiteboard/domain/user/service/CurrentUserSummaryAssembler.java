@@ -15,8 +15,6 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class CurrentUserSummaryAssembler {
 
-    private static final String DEFAULT_THEME = "LIGHT";
-
     private final UserPointRepository userPointRepository;
     private final UserSettingsRepository userSettingsRepository;
 
@@ -44,14 +42,14 @@ public class CurrentUserSummaryAssembler {
         return userSettingsRepository.findById(userId)
                 .map(UserSettings::getTheme)
                 .map(this::normalizeTheme)
-                .orElse(DEFAULT_THEME);
+                .orElse(UserSettingsDefaults.THEME);
     }
 
     private String normalizeTheme(String theme) {
         if ("DARK".equalsIgnoreCase(theme)) {
             return "DARK";
         }
-        return DEFAULT_THEME;
+        return UserSettingsDefaults.THEME;
     }
 
     private Integer resolvePoints(Long userId) {

@@ -61,7 +61,7 @@ public class PostSummaryAssembler {
         Set<Long> postIdsWithImages = new HashSet<>(getThumbnailFileIdsByPostId(postIds).keySet());
 
         return posts.map(post -> {
-            PostSummary summary = PostSummary.from(post);
+            PostSummary summary = PostSummary.from(post, contentSummaryExtractor.extractSummary(post));
             summary.setHasImage(postIdsWithImages.contains(post.getPostId()));
             return summary;
         });
@@ -90,7 +90,7 @@ public class PostSummaryAssembler {
         List<PostSummary> summaries = new ArrayList<>();
         for (int i = 0; i < posts.getContent().size(); i++) {
             Post post = posts.getContent().get(i);
-            PostSummary summary = PostSummary.from(post);
+            PostSummary summary = PostSummary.from(post, contentSummaryExtractor.extractSummary(post));
             if (includeImages) {
                 summary.setHasImage(postIdsWithImages.contains(post.getPostId()));
             }
@@ -200,7 +200,9 @@ public class PostSummaryAssembler {
         Set<Long> postIdsWithImages = new HashSet<>(getThumbnailFileIdsByPostId(postIds).keySet());
 
         return historyPage.map(viewHistory -> {
-            PostSummary summary = PostSummary.from(viewHistory.getPost());
+            PostSummary summary = PostSummary.from(
+                    viewHistory.getPost(),
+                    contentSummaryExtractor.extractSummary(viewHistory.getPost()));
             summary.setHasImage(postIdsWithImages.contains(viewHistory.getPost().getPostId()));
             return summary;
         });

@@ -1,41 +1,41 @@
 import { useQuery, useMutation, useQueryClient, type QueryFunctionContext } from '@tanstack/vue-query'
 import { userApi, type UserUpdatePayload, type NotificationSettingsBulkPayload } from '@/api/user'
+import { unwrapAxiosApiData } from '@/api/response'
 import { computed, type Ref } from 'vue'
 import type { UserSettings } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import type { AxiosRequestConfig } from 'axios'
+import { withQuerySignal } from '@/utils/querySignal'
+import { userQueryKeys, type UserQueryPaginationParams } from '@/composables/userQueryKeys'
 
 interface PasswordUpdateData {
     currentPassword: string
     newPassword: string
 }
 
-interface PaginationParams {
-    page?: number
-    size?: number
-}
+type PaginationParams = UserQueryPaginationParams
 
-function withQuerySignal(config: AxiosRequestConfig | undefined, queryContext?: QueryFunctionContext): AxiosRequestConfig {
-    return {
-        ...config,
-        signal: config?.signal ?? queryContext?.signal,
-    }
+export { userQueryKeys } from '@/composables/userQueryKeys'
+
+export const userSettingsQueryKey = userQueryKeys.settings
+
+const resolveResponseData = async <T>(request: Promise<{ data: T }>): Promise<T> => {
+    const { data } = await request
+    return data
 }
 
 export const createMyProfileQueryOptions = (config?: AxiosRequestConfig) => ({
-    queryKey: ['user', 'me'] as const,
+    queryKey: userQueryKeys.me,
     queryFn: async (context: QueryFunctionContext) => {
-        const { data } = await userApi.getMyProfile(withQuerySignal(config, context))
-        return data.data
+        return unwrapAxiosApiData(await userApi.getMyProfile(withQuerySignal(config, context)))
     },
     staleTime: QUERY_STALE_TIME.MEDIUM,
 })
 
 export const createMyAgentsQueryOptions = (config?: AxiosRequestConfig) => ({
-    queryKey: ['user', 'agents'] as const,
+    queryKey: userQueryKeys.agents,
     queryFn: async (context: QueryFunctionContext) => {
-        const { data } = await userApi.getMyAgents(withQuerySignal(config, context))
-        return data.data
+        return unwrapAxiosApiData(await userApi.getMyAgents(withQuerySignal(config, context)))
     },
     staleTime: QUERY_STALE_TIME.MEDIUM,
 })
@@ -51,10 +51,9 @@ export function useUser() {
 
     const useUserProfile = (userId: Ref<string | number>) => {
         return useQuery({
-            queryKey: ['user', userId],
+            queryKey: userQueryKeys.profile(userId),
             queryFn: async () => {
-                const { data } = await userApi.getUserProfile(userId.value)
-                return data.data
+                return unwrapAxiosApiData(await userApi.getUserProfile(userId.value))
             },
             enabled: computed(() => !!userId.value),
         })
@@ -62,10 +61,9 @@ export function useUser() {
 
     const useUserSettings = () => {
         return useQuery({
-            queryKey: ['user', 'settings'],
+            queryKey: userSettingsQueryKey,
             queryFn: async () => {
-                const { data } = await userApi.getUserSettings()
-                return data.data
+                return unwrapAxiosApiData(await userApi.getUserSettings())
             },
             staleTime: QUERY_STALE_TIME.SHORT,
         })
@@ -73,20 +71,18 @@ export function useUser() {
 
     const useBlockList = (params?: Ref<PaginationParams>) => {
         return useQuery({
-            queryKey: computed(() => ['user', 'blocks', params?.value ?? {}]),
+            queryKey: userQueryKeys.blocks(params),
             queryFn: async () => {
-                const { data } = await userApi.getBlockList(params?.value)
-                return data.data
+                return unwrapAxiosApiData(await userApi.getBlockList(params?.value))
             },
         })
     }
 
     const useNotificationSettings = () => {
         return useQuery({
-            queryKey: ['user', 'notification-settings'],
+            queryKey: userQueryKeys.notificationSettings,
             queryFn: async () => {
-                const { data } = await userApi.getNotificationSettings()
-                return data.data
+                return unwrapAxiosApiData(await userApi.getNotificationSettings())
             },
         })
     }
@@ -97,10 +93,9 @@ export function useUser() {
 
     const useMyPoint = (enabled?: Ref<boolean>, userIdentity?: Ref<string | number | null | undefined>) => {
         return useQuery({
-            queryKey: computed(() => ['user', 'points', 'me', userIdentity?.value ?? 'anonymous']),
+            queryKey: userQueryKeys.myPoints(userIdentity),
             queryFn: async () => {
-                const { data } = await userApi.getMyPoint()
-                return data.data
+                return unwrapAxiosApiData(await userApi.getMyPoint())
             },
             enabled: computed(() => enabled?.value ?? true),
             staleTime: QUERY_STALE_TIME.SHORT,
@@ -109,20 +104,18 @@ export function useUser() {
 
     const useMyScraps = (params?: Ref<PaginationParams>) => {
         return useQuery({
-            queryKey: computed(() => ['user', 'scraps', params?.value ?? {}]),
+            queryKey: userQueryKeys.scraps(params),
             queryFn: async (context: QueryFunctionContext) => {
-                const { data } = await userApi.getMyScraps(params?.value ?? {}, withQuerySignal(undefined, context))
-                return data.data
+                return unwrapAxiosApiData(await userApi.getMyScraps(params?.value ?? {}, withQuerySignal(undefined, context)))
             },
         })
     }
 
     const useMyPointHistories = (params?: Ref<PaginationParams>) => {
         return useQuery({
-            queryKey: computed(() => ['user', 'points', 'history', params?.value ?? {}]),
+            queryKey: userQueryKeys.pointHistories(params),
             queryFn: async (context: QueryFunctionContext) => {
-                const { data } = await userApi.getMyPointHistories(params?.value ?? {}, withQuerySignal(undefined, context))
-                return data.data
+                return unwrapAxiosApiData(await userApi.getMyPointHistories(params?.value ?? {}, withQuerySignal(undefined, context)))
             },
         })
     }
@@ -132,11 +125,10 @@ export function useUser() {
     const useUpdateMyProfile = () => {
         return useMutation({
             mutationFn: async (data: UserUpdatePayload) => {
-                const { data: res } = await userApi.updateMyProfile(data)
-                return res
+                return resolveResponseData(userApi.updateMyProfile(data))
             },
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['user', 'me'] })
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.me })
             }
         })
     }
@@ -144,8 +136,7 @@ export function useUser() {
     const useUpdatePassword = () => {
         return useMutation({
             mutationFn: async ({ currentPassword, newPassword }: PasswordUpdateData) => {
-                const { data } = await userApi.updatePassword(currentPassword, newPassword)
-                return data
+                return resolveResponseData(userApi.updatePassword(currentPassword, newPassword))
             }
         })
     }
@@ -153,8 +144,7 @@ export function useUser() {
     const useDeleteAccount = () => {
         return useMutation({
             mutationFn: async (password: string) => {
-                const { data } = await userApi.deleteAccount(password)
-                return data
+                return resolveResponseData(userApi.deleteAccount(password))
             },
             onSuccess: () => {
                 // Handle logout or redirect in component
@@ -166,11 +156,10 @@ export function useUser() {
     const useUpdateUserSettings = () => {
         return useMutation({
             mutationFn: async (data: Partial<UserSettings>) => {
-                const { data: res } = await userApi.updateUserSettings(data)
-                return res
+                return resolveResponseData(userApi.updateUserSettings(data))
             },
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['user', 'settings'] })
+                queryClient.invalidateQueries({ queryKey: userSettingsQueryKey })
             }
         })
     }
@@ -178,11 +167,10 @@ export function useUser() {
     const useUpdateNotificationSettings = () => {
         return useMutation({
             mutationFn: async (data: NotificationSettingsBulkPayload) => {
-                const { data: res } = await userApi.updateNotificationSettingsBulk(data)
-                return res
+                return resolveResponseData(userApi.updateNotificationSettingsBulk(data))
             },
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['user', 'notification-settings'] })
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.notificationSettings })
             }
         })
     }
@@ -190,11 +178,10 @@ export function useUser() {
     const useClaimAgent = () => {
         return useMutation({
             mutationFn: async (agentToken: string) => {
-                const { data } = await userApi.claimAgent(agentToken)
-                return data
+                return resolveResponseData(userApi.claimAgent(agentToken))
             },
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['user', 'agents'] })
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.agents })
             }
         })
     }
@@ -202,11 +189,10 @@ export function useUser() {
     const useSuspendMyAgent = () => {
         return useMutation({
             mutationFn: async (agentId: string | number) => {
-                const { data } = await userApi.suspendMyAgent(agentId)
-                return data
+                return resolveResponseData(userApi.suspendMyAgent(agentId))
             },
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['user', 'agents'] })
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.agents })
             }
         })
     }
@@ -214,11 +200,10 @@ export function useUser() {
     const useActivateMyAgent = () => {
         return useMutation({
             mutationFn: async (agentId: string | number) => {
-                const { data } = await userApi.activateMyAgent(agentId)
-                return data
+                return resolveResponseData(userApi.activateMyAgent(agentId))
             },
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['user', 'agents'] })
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.agents })
             }
         })
     }
@@ -226,11 +211,10 @@ export function useUser() {
     const useDeleteMyAgent = () => {
         return useMutation({
             mutationFn: async (agentId: string | number) => {
-                const { data } = await userApi.deleteMyAgent(agentId)
-                return data
+                return resolveResponseData(userApi.deleteMyAgent(agentId))
             },
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['user', 'agents'] })
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.agents })
             }
         })
     }
@@ -238,11 +222,10 @@ export function useUser() {
     const useBlockUser = () => {
         return useMutation({
             mutationFn: async (userId: string | number) => {
-                const { data } = await userApi.blockUser(userId)
-                return data
+                return resolveResponseData(userApi.blockUser(userId))
             },
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['user', 'blocks'] })
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.blocksRoot })
             }
         })
     }
@@ -250,21 +233,19 @@ export function useUser() {
     const useUnblockUser = () => {
         return useMutation({
             mutationFn: async (userId: string | number) => {
-                const { data } = await userApi.unblockUser(userId)
-                return data
+                return resolveResponseData(userApi.unblockUser(userId))
             },
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ['user', 'blocks'] })
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.blocksRoot })
             }
         })
     }
 
     const useRecentlyViewedPosts = (params?: Ref<PaginationParams>) => {
         return useQuery({
-            queryKey: ['user', 'history', 'views', params],
+            queryKey: userQueryKeys.recentlyViewedPosts(params),
             queryFn: async () => {
-                const { data } = await userApi.getRecentlyViewedPosts(params?.value || {})
-                return data.data
+                return unwrapAxiosApiData(await userApi.getRecentlyViewedPosts(params?.value || {}))
             },
         })
     }

@@ -1464,7 +1464,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 ?볤? 醫뗭븘?????녿떎")
+    @DisplayName("활성 BAN 사용자는 댓글 좋아요를 할 수 없다")
     void likeComment_bannedUser_forbidden() {
         User user = User.builder().displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -1746,7 +1746,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 ?볤????섏젙?????녿떎")
+    @DisplayName("활성 BAN 사용자는 댓글을 수정할 수 없다")
     void updateComment_bannedUser_forbidden() {
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -1795,7 +1795,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 ?볤????쒖젣?????녿떎")
+    @DisplayName("활성 BAN 사용자는 댓글을 삭제할 수 없다")
     void deleteComment_bannedUser_forbidden() {
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);

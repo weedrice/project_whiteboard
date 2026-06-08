@@ -14,13 +14,7 @@ public enum AgentAuditTargetType {
     private final String code;
 
     AgentAuditTargetType(String code) {
-        validateCode(code, MAX_CODE_LENGTH);
+        AgentAuditCodeValidator.validate(code, MAX_CODE_LENGTH, "Invalid agent audit target type code");
         this.code = code;
-    }
-
-    private static void validateCode(String code, int maxLength) {
-        if (code == null || code.isBlank() || code.length() > maxLength) {
-            throw new IllegalArgumentException("Invalid agent audit target type code");
-        }
     }
 }

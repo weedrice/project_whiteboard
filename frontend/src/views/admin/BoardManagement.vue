@@ -1,25 +1,23 @@
 <template>
-  <div class="space-y-6">
-    <AdminPageHeader :title="$t('admin.boards.title')" :description="$t('admin.boards.description')">
-      <template #actions>
-        <div class="mt-4 sm:mt-0">
-          <BaseButton @click="openCreateModal">
-            {{ $t('admin.boards.addTitle') }}
-          </BaseButton>
-        </div>
-      </template>
-    </AdminPageHeader>
+  <AdminDataPage :title="$t('admin.boards.title')" :description="$t('admin.boards.description')">
+    <template #actions>
+      <div class="mt-4 sm:mt-0">
+        <BaseButton @click="openCreateModal">
+          {{ $t('admin.boards.addTitle') }}
+        </BaseButton>
+      </div>
+    </template>
 
-    <div class="grid grid-cols-1 gap-6 xl:grid-cols-12">
+    <div class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-12">
       <section class="xl:col-span-4">
         <AdminPanel padding="sm">
-          <h2 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $t('common.board') }}</h2>
+          <h2 class="text-sm font-semibold nv-title">{{ $t('common.board') }}</h2>
 
           <div v-if="loading" class="py-8 flex justify-center">
             <BaseSpinner />
           </div>
 
-          <div v-else-if="boards.length === 0" class="py-8 text-sm text-gray-500 dark:text-gray-400 text-center">
+          <div v-else-if="boards.length === 0" class="py-8 text-sm nv-text-subtle text-center">
             {{ $t('common.noData') }}
           </div>
 
@@ -37,24 +35,22 @@
                 @click="selectBoard(board)"
                 class="w-full rounded-lg border px-3 py-3 text-left transition-colors"
                 :class="selectedBoardId === board.boardId
-                  ? 'border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-900/30'
-                  : 'border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700'"
+                  ? 'board-row-selected'
+                  : 'nv-border nv-hover-surface'"
               >
                 <div class="flex items-start justify-between gap-2">
-                  <p class="truncate text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    <GripVertical class="h-4 w-4 text-gray-400 dark:text-gray-500 drag-handle cursor-move" />
+                  <p class="truncate text-sm font-semibold nv-title flex items-center gap-2">
+                    <GripVertical class="h-4 w-4 nv-text-subtle drag-handle cursor-move" />
                     {{ board.boardName }}
                   </p>
-                  <span
-                    class="inline-flex rounded-full px-2 py-0.5 text-xs font-semibold"
-                    :class="board.isActive
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                      : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'"
-                  >
-                    {{ board.isActive ? $t('common.active') : $t('common.inactive') }}
-                  </span>
+                  <BooleanBadge
+                    :value="board.isActive"
+                    :true-label="$t('common.active')"
+                    :false-label="$t('common.inactive')"
+                    false-variant="danger"
+                  />
                 </div>
-                <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                <div class="mt-2 text-xs nv-text-subtle">
                   {{ $t('common.sortOrder') }}: {{ board.sortOrder }}
                 </div>
               </button>
@@ -68,80 +64,53 @@
           <template v-if="selectedBoard">
             <div class="space-y-7">
               <div>
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                <h2 class="text-lg font-semibold nv-title">
                   {{ selectedBoard.boardName }}
                 </h2>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                <p class="mt-1 text-sm nv-text-subtle">
                   {{ selectedBoard.boardUrl }}
                 </p>
               </div>
 
-              <div class="grid grid-cols-1 gap-x-4 gap-y-3 md:grid-cols-12">
-                <div class="md:col-span-4">
-                  <BaseInput
-                    v-model="form.boardName"
-                    :label="$t('board.form.name')"
-                    :placeholder="$t('board.form.placeholder.name')"
-                  />
-                </div>
-                <div class="md:col-span-4">
-                  <BaseInput
-                    v-model="form.boardUrl"
-                    :label="$t('board.form.url')"
-                    :placeholder="$t('board.form.placeholder.url')"
-                  />
-                </div>
-                <div class="md:col-span-2 max-w-24">
-                  <BaseInput
-                    v-model="form.sortOrder"
-                    :label="$t('common.sortOrder')"
-                    type="number"
-                  />
-                </div>
-                <div class="md:col-span-2 flex items-end justify-start md:justify-end">
-                  <button
-                    type="button"
-                    class="inline-flex items-center rounded-full px-3 py-1.5 text-sm font-semibold transition-colors"
-                    :class="form.isActive
-                      ? 'bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-200 dark:hover:bg-green-800'
-                      : 'bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800'"
-                    @click="toggleBoardStatus"
-                  >
-                    {{ form.isActive ? $t('common.active') : $t('common.inactive') }}
-                  </button>
-                </div>
-              </div>
-
-              <BaseTextarea
-                v-model="form.description"
-                :label="$t('board.form.description')"
-                :placeholder="$t('board.form.placeholder.desc')"
-                rows="4"
-              />
-
-              <BaseCheckbox
-                v-model="form.agentUseYn"
-                :label="$t('board.form.agentUseYn')"
-                :description="$t('board.form.agentUseYnDesc')"
-                :disabled="!selectedBoard?.isPublic"
-              />
-
-              <BaseTextarea
-                v-if="form.agentUseYn"
-                v-model="form.guidePrompt"
-                :label="$t('board.form.guidePrompt')"
-                :placeholder="$t('board.form.placeholder.guidePrompt')"
-                rows="6"
-                maxlength="5000"
-              />
+              <AdminBoardFormFields
+                v-model:board-name="form.boardName"
+                v-model:board-url="form.boardUrl"
+                v-model:description="form.description"
+                v-model:agent-use-yn="form.agentUseYn"
+                v-model:guide-prompt="form.guidePrompt"
+                layout="grid"
+                :agent-disabled="!selectedBoard?.isPublic"
+              >
+                <template #after-identity>
+                  <div class="md:col-span-2 max-w-24">
+                    <BaseInput
+                      v-model="form.sortOrder"
+                      :label="$t('common.sortOrder')"
+                      type="number"
+                    />
+                  </div>
+                  <div class="md:col-span-2 flex items-end justify-start md:justify-end">
+                    <button
+                      type="button"
+                      class="inline-flex items-center rounded-full px-3 py-1.5 text-sm font-semibold transition-colors"
+                      :class="form.isActive
+                        ? 'nv-status-success'
+                        : 'nv-status-danger'"
+                      @click="toggleBoardStatus"
+                    >
+                      {{ form.isActive ? $t('common.active') : $t('common.inactive') }}
+                    </button>
+                  </div>
+                </template>
+              </AdminBoardFormFields>
 
               <div class="space-y-2">
-                <p class="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-200">
+                <p class="text-xs sm:text-sm font-medium nv-text-muted">
                   {{ $t('board.form.iconUrl') }}
                 </p>
                 <div class="flex items-start gap-4">
                   <div
-                    class="h-20 w-20 flex-shrink-0 overflow-hidden rounded-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 flex items-center justify-center"
+                    class="h-20 w-20 flex-shrink-0 overflow-hidden rounded-full border nv-border nv-surface-muted flex items-center justify-center"
                   >
                     <img
                       v-if="form.iconUrl"
@@ -149,13 +118,13 @@
                       alt="icon"
                       class="h-full w-full object-contain"
                     />
-                    <span v-else class="text-[11px] text-gray-400 dark:text-gray-500">{{ $t('admin.boards.iconEmpty') }}</span>
+                    <span v-else class="text-[11px] nv-text-subtle">{{ $t('admin.boards.iconEmpty') }}</span>
                   </div>
 
                   <div class="flex-1 min-w-0 space-y-2 pt-1">
                     <p
                       class="break-all text-sm leading-5"
-                      :class="form.iconUrl ? 'text-gray-700 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'"
+                      :class="form.iconUrl ? 'nv-text-muted' : 'nv-text-subtle'"
                     >
                       {{ form.iconUrl || $t('admin.boards.iconUrlEmpty') }}
                     </p>
@@ -174,13 +143,13 @@
                 </div>
               </div>
 
-              <div class="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $t('admin.boards.managerTitle') }}</h3>
+              <div class="rounded-lg border nv-border p-4">
+                <h3 class="text-sm font-semibold nv-title">{{ $t('admin.boards.managerTitle') }}</h3>
                 <div v-if="isBoardManagerLoading" class="mt-3 flex justify-center">
                   <BaseSpinner />
                 </div>
                 <div v-else class="mt-3 space-y-3">
-                  <p class="text-sm text-gray-700 dark:text-gray-300">
+                  <p class="text-sm nv-text-muted">
                     {{ currentManagerLabel }}
                   </p>
                   <BaseButton @click="openManagerModal('single')" :disabled="isAssigningManager">
@@ -197,7 +166,7 @@
             </div>
           </template>
 
-          <div v-else class="py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+          <div v-else class="py-12 text-center text-sm nv-text-subtle">
             {{ $t('common.noData') }}
           </div>
         </AdminPanel>
@@ -206,28 +175,20 @@
 
     <BaseModal :isOpen="isModalOpen" :title="$t('admin.boards.addTitle')" @close="closeModal">
       <div class="p-4 space-y-4">
-        <BaseInput v-model="createForm.boardName" :label="$t('board.form.name')" :placeholder="$t('board.form.placeholder.name')" />
-        <BaseInput v-model="createForm.boardUrl" :label="$t('board.form.url')" :placeholder="$t('board.form.placeholder.url')" pattern="[a-z_]*" />
-        <BaseTextarea v-model="createForm.description" :label="$t('board.form.description')" :placeholder="$t('board.form.placeholder.desc')" rows="3" />
-        <BaseCheckbox
-          v-model="createForm.agentUseYn"
-          :label="$t('board.form.agentUseYn')"
-          :description="$t('board.form.agentUseYnDesc')"
+        <AdminBoardFormFields
+          v-model:board-name="createForm.boardName"
+          v-model:board-url="createForm.boardUrl"
+          v-model:description="createForm.description"
+          v-model:agent-use-yn="createForm.agentUseYn"
+          v-model:guide-prompt="createForm.guidePrompt"
+          board-url-pattern="[a-z_]*"
         />
-        <BaseTextarea
-          v-if="createForm.agentUseYn"
-          v-model="createForm.guidePrompt"
-          :label="$t('board.form.guidePrompt')"
-          :placeholder="$t('board.form.placeholder.guidePrompt')"
-          rows="5"
-          maxlength="5000"
-        />
-        <div class="flex justify-end gap-3 pt-2">
+        <AdminModalActions class-name="pt-2">
           <BaseButton variant="secondary" @click="closeModal">{{ $t('common.cancel') }}</BaseButton>
           <BaseButton :disabled="isCreatingBoard" @click="handleCreateBoard">
             {{ isCreatingBoard ? $t('common.messages.saving') : $t('common.save') }}
           </BaseButton>
-        </div>
+        </AdminModalActions>
       </div>
     </BaseModal>
 
@@ -238,7 +199,7 @@
       @close="closeManagerModal"
       @confirm="confirmManagerSelection"
     />
-  </div>
+  </AdminDataPage>
 </template>
 
 <script setup lang="ts">
@@ -250,13 +211,14 @@ import { useAdminBoardEditor } from '@/composables/useAdminBoardEditor'
 import { useAdminBoardCreateModal } from '@/composables/useAdminBoardCreateModal'
 import { useBoardIconUpload } from '@/composables/useBoardIconUpload'
 import { useBoardManagerAssignment } from '@/composables/useBoardManagerAssignment'
-import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
+import AdminDataPage from '@/components/admin/AdminDataPage.vue'
+import AdminModalActions from '@/components/admin/AdminModalActions.vue'
 import AdminPanel from '@/components/admin/AdminPanel.vue'
+import AdminBoardFormFields from '@/components/admin/AdminBoardFormFields.vue'
+import BooleanBadge from '@/components/admin/BooleanBadge.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
-import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import UserSelectModal from '@/components/common/widgets/UserSelectModal.vue'
 const {
@@ -323,3 +285,10 @@ const {
   updateBoardManager
 })
 </script>
+
+<style scoped>
+.board-row-selected {
+  background: var(--nv-selection);
+  border-color: var(--nv-focus);
+}
+</style>

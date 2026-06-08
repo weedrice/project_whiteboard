@@ -65,17 +65,19 @@ class SemanticSearchJobRepository {
                 .toList());
     }
 
-    List<Long> findActivePostIdsByBoardId(Long boardId) {
+    List<Long> findActivePostIdsByBoardIdAfter(Long boardId, Long lastSeenPostId, int limit) {
         return jdbcTemplate.queryForList("""
                 SELECT p.post_id
                 FROM posts p
                 WHERE p.board_id = ?
                   AND p.is_deleted = 'N'
+                  AND p.post_id > ?
                 ORDER BY p.post_id ASC
-                """, Long.class, boardId);
+                LIMIT ?
+                """, Long.class, boardId, lastSeenPostId, limit);
     }
 
-    List<Long> findActiveCommentIdsByPostId(Long postId) {
+    List<Long> findActiveCommentIdsByPostIdAfter(Long postId, Long lastSeenCommentId, int limit) {
         return jdbcTemplate.queryForList("""
                 SELECT c.comment_id
                 FROM comments c
@@ -83,11 +85,13 @@ class SemanticSearchJobRepository {
                 WHERE c.post_id = ?
                   AND c.is_deleted = 'N'
                   AND p.is_deleted = 'N'
+                  AND c.comment_id > ?
                 ORDER BY c.comment_id ASC
-                """, Long.class, postId);
+                LIMIT ?
+                """, Long.class, postId, lastSeenCommentId, limit);
     }
 
-    List<Long> findActiveCommentIdsByBoardId(Long boardId) {
+    List<Long> findActiveCommentIdsByBoardIdAfter(Long boardId, Long lastSeenCommentId, int limit) {
         return jdbcTemplate.queryForList("""
                 SELECT c.comment_id
                 FROM comments c
@@ -95,8 +99,10 @@ class SemanticSearchJobRepository {
                 WHERE p.board_id = ?
                   AND c.is_deleted = 'N'
                   AND p.is_deleted = 'N'
+                  AND c.comment_id > ?
                 ORDER BY c.comment_id ASC
-                """, Long.class, boardId);
+                LIMIT ?
+                """, Long.class, boardId, lastSeenCommentId, limit);
     }
 
     int recoverStaleProcessingJobs(LocalDateTime staleBefore, int maxRetryCount, String lastErrorMessage) {
