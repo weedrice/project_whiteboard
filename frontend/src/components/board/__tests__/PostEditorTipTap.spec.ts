@@ -459,6 +459,7 @@ describe('PostEditorTipTap', () => {
         expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('src="blob:https://noviis.kr/local-preview"'))
         expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-file-id="88"'))
         expect(mocks.chain.insertContent).toHaveBeenCalledWith(expect.stringContaining('data-server-src="https://cdn.test/u1.png"'))
+        expect(wrapper.find('.image-alt-popover').exists()).toBe(false)
 
         const firstFile = new File(['a'], 'first.png', { type: 'image/png' })
         const secondFile = new File(['b'], 'second.webp', { type: 'image/webp' })

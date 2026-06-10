@@ -4,7 +4,12 @@ import type { AxiosRequestConfig } from 'axios'
 
 export interface FileUploadResponse {
     fileId: number
-    url: string
+    url?: string
+    fileUrl?: string
+}
+
+export function resolveFileUploadUrl(uploadedFile: FileUploadResponse): string | null {
+    return uploadedFile.url ?? uploadedFile.fileUrl ?? null
 }
 
 export const fileApi = {

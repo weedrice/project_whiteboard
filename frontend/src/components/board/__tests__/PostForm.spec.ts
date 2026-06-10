@@ -1015,6 +1015,25 @@ describe('PostForm', () => {
         expect(wrapper.emitted('cancel')).toHaveLength(1)
     })
 
+    it('normalizes uploaded image preview sources when switching html source mode', async () => {
+        const wrapper = mountPostForm('create')
+        const uploadedImageContent = '<p><img src="blob:https://noviis.kr/local" data-file-id="157" data-server-src="/files/157"></p>'
+
+        await wrapper.get('[data-testid="editor-input"]').setValue(uploadedImageContent)
+
+        const modeButtons = wrapper.findAll('.editor-view-toggle-btn')
+        await modeButtons[1].trigger('click')
+
+        const htmlSource = wrapper.get('#content').element as HTMLTextAreaElement
+        expect(htmlSource.value).toContain('src="/api/v1/files/157"')
+        expect(htmlSource.value).toContain('data-file-id="157"')
+        expect(htmlSource.value).toContain('data-server-src="/files/157"')
+        expect(htmlSource.value).not.toContain('blob:https://noviis.kr/local')
+
+        await modeButtons[0].trigger('click')
+        expect((wrapper.get('[data-testid="editor-input"]').element as HTMLTextAreaElement).value).toContain('src="/api/v1/files/157"')
+    })
+
     it('keeps uploaded file ids after switching to html source mode', async () => {
         const UploadingEditorStub = defineComponent({
             name: 'PostEditorTipTap',

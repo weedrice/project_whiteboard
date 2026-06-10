@@ -19,6 +19,7 @@ import PostEditorTipTap from '@/components/board/PostEditorTipTap.vue'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
 import { canWriteCategory } from '@/utils/board'
 import { usePostComposerState } from '@/composables/usePostComposerState'
+import { normalizeEditorFileImagePreviewSources } from '@/utils/fileUrl'
 
 const props = defineProps<{
   mode: 'create' | 'edit'
@@ -231,6 +232,11 @@ function handleCancel() {
   emit('cancel')
 }
 
+function setEditorViewMode(mode: 'visual' | 'html') {
+  form.value.content = normalizeEditorFileImagePreviewSources(form.value.content)
+  editorViewMode.value = mode
+}
+
 const {
   tiptapEditorRef,
   editorWrapperRef,
@@ -360,7 +366,7 @@ defineExpose({
                     type="button"
                     class="editor-view-toggle-btn"
                     :class="{ active: editorViewMode === 'visual' }"
-                    @click="editorViewMode = 'visual'"
+                    @click="setEditorViewMode('visual')"
                   >
                     {{ $t('board.writePost.visualMode') }}
                   </button>
@@ -368,7 +374,7 @@ defineExpose({
                     type="button"
                     class="editor-view-toggle-btn"
                     :class="{ active: editorViewMode === 'html' }"
-                    @click="editorViewMode = 'html'"
+                    @click="setEditorViewMode('html')"
                   >
                     {{ $t('board.writePost.viewHtmlSource') }}
                   </button>

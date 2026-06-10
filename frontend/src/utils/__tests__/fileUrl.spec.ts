@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeEditorFileImageUrls, normalizeFileUrl, normalizeLegacyFileUrls } from '../fileUrl'
+import {
+    normalizeEditorFileImagePreviewSources,
+    normalizeEditorFileImageUrls,
+    normalizeFileUrl,
+    normalizeLegacyFileUrls,
+} from '../fileUrl'
 
 describe('fileUrl', () => {
     it('normalizes legacy direct file URLs', () => {
@@ -29,5 +34,16 @@ describe('fileUrl', () => {
         expect(normalized).not.toContain('blob:https://noviis.kr/local')
         expect(normalized).not.toContain('data-file-id')
         expect(normalized).not.toContain('data-server-src')
+    })
+
+    it('replaces editor preview image sources without removing editor tracking attributes', () => {
+        const content = '<p><img src="blob:https://noviis.kr/local" data-file-id="157" data-server-src="/files/157"></p>'
+
+        const normalized = normalizeEditorFileImagePreviewSources(content)
+
+        expect(normalized).toContain('src="/api/v1/files/157"')
+        expect(normalized).toContain('data-file-id="157"')
+        expect(normalized).toContain('data-server-src="/files/157"')
+        expect(normalized).not.toContain('blob:https://noviis.kr/local')
     })
 })

@@ -32,3 +32,20 @@ export function normalizeEditorFileImageUrls(content: string): string {
 
     return doc.body.innerHTML
 }
+
+export function normalizeEditorFileImagePreviewSources(content: string): string {
+    if (!content || typeof DOMParser === 'undefined') {
+        return content
+    }
+
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(content, 'text/html')
+    doc.querySelectorAll<HTMLImageElement>(`img[${EDITOR_IMAGE_URL_ATTRIBUTE}]`).forEach((image) => {
+        const serverSrc = image.getAttribute(EDITOR_IMAGE_URL_ATTRIBUTE)
+        if (!serverSrc) return
+
+        image.setAttribute('src', normalizeFileUrl(serverSrc))
+    })
+
+    return doc.body.innerHTML
+}

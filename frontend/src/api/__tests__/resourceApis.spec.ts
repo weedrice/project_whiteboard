@@ -15,7 +15,7 @@ vi.mock('../index', () => ({
 import { boardApi } from '../board'
 import { postApi } from '../post'
 import { searchApi } from '../search'
-import { fileApi } from '../file'
+import { fileApi, resolveFileUploadUrl } from '../file'
 import { emoticonApi } from '../emoticon'
 import { adApi } from '../ad'
 import { notificationApi } from '../notification'
@@ -312,6 +312,12 @@ describe('fileApi', () => {
                 }),
             }),
         )
+    })
+
+    it('resolves upload URL from current and legacy response fields', () => {
+        expect(resolveFileUploadUrl({ fileId: 1, fileUrl: '/api/v1/files/1' })).toBe('/api/v1/files/1')
+        expect(resolveFileUploadUrl({ fileId: 2, url: 'https://cdn.test/2.png' })).toBe('https://cdn.test/2.png')
+        expect(resolveFileUploadUrl({ fileId: 3 })).toBeNull()
     })
 })
 

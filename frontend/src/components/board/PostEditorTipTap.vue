@@ -453,12 +453,6 @@ function insertUploadedImage(uploaded: { url: string; fileId?: number }, file: F
     `data-server-src="${escapeHtmlAttr(uploaded.url)}"`,
   ].filter(Boolean).join(' ')
   editor.value?.chain().focus().insertContent(`<img src="${escapeHtmlAttr(previewUrl)}" ${serverAttributes}>`).run()
-  const editorRoot = editor.value?.view.dom
-  const image = Array.from(editorRoot?.querySelectorAll('img') ?? [])
-    .find((candidate) => candidate.getAttribute('src') === previewUrl)
-  if (image instanceof HTMLImageElement) {
-    openImageAltPopover(image, '')
-  }
 }
 
 function queueImageFiles(files: File[]) {

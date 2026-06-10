@@ -9,6 +9,7 @@ vi.mock('@/api/file', () => ({
     fileApi: {
         uploadFile: uploadFileMock,
     },
+    resolveFileUploadUrl: (uploadedFile: { url?: string; fileUrl?: string }) => uploadedFile.url ?? uploadedFile.fileUrl ?? null,
 }))
 
 const createHarness = (maxImageSizeBytes = 1024) => {
@@ -80,6 +81,25 @@ describe('useEditorImageUpload', () => {
             fileId: 77,
         })
         expect(composable.isUploadingImage.value).toBe(false)
+    })
+
+    it('accepts backend fileUrl upload responses', async () => {
+        const { composable } = createHarness()
+        const image = new File([new ArrayBuffer(10)], 'img.png', { type: 'image/png' })
+        uploadFileMock.mockResolvedValueOnce({
+            data: {
+                success: true,
+                data: {
+                    fileUrl: '/api/v1/files/77',
+                    fileId: 77,
+                },
+            },
+        })
+
+        await expect(composable.uploadImage(image)).resolves.toEqual({
+            url: '/api/v1/files/77',
+            fileId: 77,
+        })
     })
 
     it('returns null when upload result is not successful', async () => {
