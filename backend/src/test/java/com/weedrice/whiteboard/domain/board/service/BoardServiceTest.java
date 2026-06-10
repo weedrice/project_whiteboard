@@ -919,6 +919,32 @@ class BoardServiceTest {
     }
 
     @Test
+    @DisplayName("Board update skips icon reassociation when icon URL is unchanged")
+    void updateBoard_sameBoardIconSkipsReplacement() {
+        BoardUpdateRequest request = new BoardUpdateRequest();
+        ReflectionTestUtils.setField(request, "boardName", "Updated Board");
+        ReflectionTestUtils.setField(request, "description", "Updated Description");
+        ReflectionTestUtils.setField(request, "boardUrl", "test-board");
+        ReflectionTestUtils.setField(request, "iconUrl", "/api/v1/files/77");
+        ReflectionTestUtils.setField(request, "sortOrder", 1);
+        ReflectionTestUtils.setField(request, "isActive", true);
+        ReflectionTestUtils.setField(request, "isPublic", true);
+        ReflectionTestUtils.setField(request, "agentUseYn", true);
+
+        ReflectionTestUtils.setField(board, "iconUrl", "/api/v1/files/77");
+        ReflectionTestUtils.setField(board, "agentUseYn", false);
+
+        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
+
+        BoardCommandResult result = boardService.updateBoard("test-board", request, 1L);
+
+        assertThat(result.boardUrl()).isEqualTo("test-board");
+        assertThat(board.isAgentEnabled()).isTrue();
+        verify(fileService, never()).replaceBoardIcon(anyLong(), anyLong(), anyLong());
+        verify(fileService, never()).deleteFileWithStorageIfAssociated(anyLong(), anyLong(), anyString());
+    }
+
+    @Test
     @DisplayName("게시판 수정 실패 - 저장 시 board_name 충돌이면 DUPLICATE_BOARD_NAME")
     void updateBoard_duplicateBoardNameDuringFlush() {
         BoardUpdateRequest request = createBoardUpdateRequest("Updated Board", "test-board", "/api/v1/files/88");

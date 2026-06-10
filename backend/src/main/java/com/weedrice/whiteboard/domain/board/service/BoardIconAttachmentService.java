@@ -19,7 +19,7 @@ class BoardIconAttachmentService {
         Long currentFileId = FileService.extractFileIdFromUrl(board.getIconUrl());
         Long previousFileId = FileService.extractFileIdFromUrl(previousIconUrl);
 
-        if (currentFileId != null) {
+        if (currentFileId != null && !Objects.equals(currentFileId, previousFileId)) {
             fileService.replaceBoardIcon(currentFileId, ownerUserId, board.getBoardId());
         }
 
