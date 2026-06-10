@@ -45,6 +45,8 @@ const PostFormStub = defineComponent({
     hideSpoiler: { type: Boolean, default: false },
     hideSecret: { type: Boolean, default: false },
     skipBoardLookup: { type: Boolean, default: false },
+    hideBoardLabel: { type: Boolean, default: false },
+    hidePreview: { type: Boolean, default: false },
   },
   setup(props) {
     return () => h('div', { 'data-testid': 'post-form' }, props.boardUrl)
@@ -121,6 +123,8 @@ describe('InquiryWrite', () => {
       hideSpoiler: true,
       hideSecret: true,
       skipBoardLookup: true,
+      hideBoardLabel: true,
+      hidePreview: true,
     }))
     expect(typeof postForm.props('onSubmitted')).toBe('function')
   })

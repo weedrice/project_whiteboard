@@ -97,6 +97,8 @@ onUnmounted(() => {
       :hide-spoiler="true"
       :hide-secret="true"
       :skip-board-lookup="true"
+      :hide-board-label="true"
+      :hide-preview="true"
       @cancel="handleSubmitted"
     />
   </div>

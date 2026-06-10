@@ -36,6 +36,8 @@ const props = defineProps<{
   hideSpoiler?: boolean
   hideSecret?: boolean
   skipBoardLookup?: boolean
+  hideBoardLabel?: boolean
+  hidePreview?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -283,7 +285,7 @@ defineExpose({
           <h2 class="truncate text-2xl font-semibold tracking-[-0.05em] text-[var(--nv-ink)] sm:text-3xl">
             {{ pageTitle }}
           </h2>
-          <p class="mt-2 text-sm text-[var(--nv-ink-soft)]">
+          <p v-if="!props.hideBoardLabel" class="mt-2 text-sm text-[var(--nv-ink-soft)]">
             {{ board?.boardName || boardUrl }}
           </p>
         </div>
@@ -292,7 +294,7 @@ defineExpose({
           <BaseButton type="button" variant="secondary" size="sm" @click="handleCancel">
             {{ $t('common.cancel') }}
           </BaseButton>
-          <BaseButton type="button" variant="secondary" size="sm" @click="showPreview = true">
+          <BaseButton v-if="!props.hidePreview" type="button" variant="secondary" size="sm" @click="showPreview = true">
             {{ $t('board.writePost.actions.preview') }}
           </BaseButton>
           <BaseButton
@@ -497,10 +499,10 @@ defineExpose({
       </form>
     </div>
 
-    <BaseModal :is-open="showPreview" :title="$t('board.writePost.preview.title')" size="2xl" mobile-fit-content @close="showPreview = false">
+    <BaseModal v-if="!props.hidePreview" :is-open="showPreview" :title="$t('board.writePost.preview.title')" size="2xl" mobile-fit-content @close="showPreview = false">
       <div class="space-y-4">
         <div>
-          <p class="text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">{{ board?.boardName || boardUrl }}</p>
+          <p v-if="!props.hideBoardLabel" class="text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">{{ board?.boardName || boardUrl }}</p>
           <h3 class="mt-2 text-2xl font-semibold text-[var(--nv-ink)]">{{ form.title || $t('board.writePost.preview.untitledPost') }}</h3>
         </div>
         <div v-if="!props.hideTags && form.tags.length" class="flex flex-wrap gap-2">

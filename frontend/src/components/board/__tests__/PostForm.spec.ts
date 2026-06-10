@@ -437,6 +437,17 @@ describe('PostForm', () => {
         expect(wrapper.text()).toContain('문의 작성')
     })
 
+    it('hides board label and preview action when configured', async () => {
+        const wrapper = mountPostForm('create', {}, {}, {
+            hideBoardLabel: true,
+            hidePreview: true,
+        })
+        await nextTick()
+
+        expect(wrapper.text()).not.toContain(routeState.params.boardUrl)
+        expect(wrapper.text()).not.toContain('board.writePost.actions.preview')
+    })
+
     it('passes expected post detail ref and enabled option by mode', () => {
         mountPostForm('create')
         mountPostForm('edit')
