@@ -149,6 +149,29 @@ describe('HomeFeed', () => {
         state.isBoardsLoading.value = false
         state.isBoardsError.value = false
         state.refetch.mockReset()
+        document.title = ''
+    })
+
+    it('restores the document title when returning home', () => {
+        document.title = 'Post title - Board'
+
+        mount(HomeFeed, {
+            global: {
+                mocks: {
+                    $t: (key: string) => key,
+                },
+                stubs: {
+                    RouterLink: RouterLinkStub,
+                    HomePostCard: HomePostCardStub,
+                    HomeActivityList: HomeActivityListStub,
+                    EmptyState: EmptyStateStub,
+                    ErrorState: ErrorStateStub,
+                    HomeLandingSkeleton: HomeLandingSkeletonStub,
+                },
+            },
+        })
+
+        expect(document.title).toBe('common.appName')
     })
 
     it('keeps the fallback hero post out of duplicate post cards and renders site stats', () => {
