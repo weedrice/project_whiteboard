@@ -21,12 +21,12 @@
 작업:
 
 - Backend: Java 21 설정, Gradle test, JaCoCo report, coverage verification
-- Frontend: Node 20 설정, `npm ci`, `npm run test:run`, `npm run type-check`
-- Frontend coverage artifact 업로드 단계는 남아 있지만, 현재 CI는 `npm run coverage`를 실행하지 않으므로 `frontend/coverage`가 없으면 무시된다.
+- Frontend: Node 22 설정, `npm ci`, `npm run lint:ci`, `npm run type-check`, `npm run coverage`, `npm run build`
+- Frontend coverage artifact 업로드 단계는 `npm run coverage` 결과인 `frontend/coverage`를 업로드한다.
 
 특징:
 
-- backend coverage verification은 `continue-on-error`로 경고 처리한다.
+- backend coverage verification은 실패 시 CI를 실패시킨다.
 - backend test/coverage artifact와 frontend coverage 경로를 업로드한다.
 - Actions는 현재 `checkout@v5`, `setup-java@v5`, `setup-node@v5`, `upload-artifact@v6`를 사용한다.
 
@@ -64,7 +64,7 @@
 
 작업:
 
-1. Node 20 설정
+1. Node 22 설정
 2. `npm ci`
 3. `npm run build:seo` 실행
    - `sitemap:generate`

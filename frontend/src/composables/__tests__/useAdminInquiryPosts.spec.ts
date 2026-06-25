@@ -106,7 +106,9 @@ describe('useAdminInquiryPosts', () => {
   })
 
   it('maps inquiry detail DTOs to rendered content view-model fields', () => {
-    const detail = toAdminInquiryDetail(postDetail())
+    const detail = toAdminInquiryDetail(postDetail({
+      contents: '<p>Question body</p><img src="/files/1" onerror="alert(1)"><script>alert(2)</script>',
+    }))
 
     expect(detail).toMatchObject({
       id: 7,
@@ -114,6 +116,9 @@ describe('useAdminInquiryPosts', () => {
       authorName: 'Admin User',
     })
     expect(detail.contentsHtml).toContain('Question body')
+    expect(detail.contentsHtml).toContain('loading="lazy"')
+    expect(detail.contentsHtml).not.toContain('<script')
+    expect(detail.contentsHtml).not.toContain('onerror')
   })
 
   it('maps query results before exposing them to the view', async () => {

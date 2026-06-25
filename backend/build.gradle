@@ -4,7 +4,7 @@ plugins {
 	id 'io.spring.dependency-management' version '1.1.6'
 	id 'jacoco'
 }
-build
+
 bootJar {
     archiveFileName = "app.jar"
 }
@@ -59,7 +59,7 @@ dependencies {
 	testImplementation 'org.springframework.security:spring-security-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testRuntimeOnly 'com.h2database:h2'
-	testImplementation 'org.springframework.boot:spring-boot-autoconfigure' // Add this line
+	testImplementation 'org.springframework.boot:spring-boot-autoconfigure'
 
 	// Spring Mail (Google SMTP)
 	implementation 'org.springframework.boot:spring-boot-starter-mail'

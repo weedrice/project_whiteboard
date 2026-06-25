@@ -7,7 +7,12 @@ COPY gradle ./gradle
 RUN sed -i 's/\r$//' gradlew && chmod +x gradlew
 
 COPY src ./src
-RUN sh ./gradlew bootJar -x test --no-daemon
+ARG SKIP_TESTS=true
+RUN if [ "$SKIP_TESTS" = "true" ]; then \
+        sh ./gradlew bootJar -x test --no-daemon; \
+    else \
+        sh ./gradlew test bootJar --no-daemon; \
+    fi
 
 FROM eclipse-temurin:21-jre-alpine
 

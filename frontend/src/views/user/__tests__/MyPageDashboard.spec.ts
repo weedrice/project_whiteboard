@@ -25,6 +25,11 @@ const mocks = vi.hoisted(() => ({
   },
   myPostsError: { __v_isRef: true, value: '' },
   myCommentsError: { __v_isRef: true, value: '' },
+  isInquiryDetailOpen: { __v_isRef: true, value: false },
+  selectedInquiryPost: { __v_isRef: true, value: null as null | { postId: number; title: string; contents: string; createdAt: string } },
+  renderPostContentHtml: vi.fn((value: string | null | undefined) =>
+    value ? `safe:${value.replace(/<script.*?<\/script>/gi, '')}` : ''
+  ),
 }))
 
 vi.mock('vue-i18n', () => ({
@@ -68,8 +73,8 @@ vi.mock('@/composables/useMyPageDashboardResource', () => ({
 
 vi.mock('@/composables/useInquiryDetailModal', () => ({
   useInquiryDetailModal: () => ({
-    isInquiryDetailOpen: ref(false),
-    selectedInquiryPost: ref(null),
+    isInquiryDetailOpen: mocks.isInquiryDetailOpen,
+    selectedInquiryPost: mocks.selectedInquiryPost,
     isInquiryDetailLoading: ref(false),
     inquiryDetailError: ref(''),
     isDeletingInquiry: ref(false),
@@ -111,7 +116,7 @@ vi.mock('@/utils/imageFallback', () => ({
 }))
 
 vi.mock('@/utils/postContentHtml', () => ({
-  renderPostContentHtml: (value: string) => value,
+  renderPostContentHtml: mocks.renderPostContentHtml,
 }))
 
 const BaseInputStub = defineComponent({
@@ -171,6 +176,9 @@ describe('MyPageDashboard', () => {
     mocks.myPostsError.value = ''
     mocks.myCommentsError.value = ''
     mocks.isVerifyModalOpen.value = true
+    mocks.isInquiryDetailOpen.value = false
+    mocks.selectedInquiryPost.value = null
+    mocks.renderPostContentHtml.mockClear()
   })
 
   it('renders profile information rows and email verification action', () => {
@@ -219,5 +227,21 @@ describe('MyPageDashboard', () => {
 
     expect(wrapper.text()).toContain('comments failed')
     expect(wrapper.findAll('[data-testid="empty-state"]')).toHaveLength(1)
+  })
+
+  it('renders inquiry detail content through the sanitized post HTML helper', () => {
+    mocks.isInquiryDetailOpen.value = true
+    mocks.selectedInquiryPost.value = {
+      postId: 9,
+      title: 'Inquiry title',
+      contents: '<p>Unsafe</p><script>alert(1)</script>',
+      createdAt: '2026-01-03T00:00:00',
+    }
+
+    const wrapper = mountDashboard()
+
+    expect(mocks.renderPostContentHtml).toHaveBeenCalledWith('<p>Unsafe</p><script>alert(1)</script>')
+    expect(wrapper.html()).toContain('safe:<p>Unsafe</p>')
+    expect(wrapper.html()).not.toContain('<script')
   })
 })
