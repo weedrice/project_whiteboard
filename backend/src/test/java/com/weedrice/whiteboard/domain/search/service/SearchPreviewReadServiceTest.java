@@ -204,7 +204,7 @@ class SearchPreviewReadServiceTest {
     }
 
     @Test
-    @DisplayName("통합 검색 preview - 보드는 공개 활성 게시판 5개만 조회한다")
+    @DisplayName("통합 검색 preview - 보드는 공개 활성 노드 5개만 조회한다")
     void integratedSearch_limitsBoardPreviewAtRepositoryLevel() {
         String keyword = "test";
         Pageable previewPageable = PageRequest.of(0, 5);

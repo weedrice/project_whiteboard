@@ -77,7 +77,7 @@ class AdminAssignmentServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 관리자 생성은 공통 배정 서비스로 위임한다")
+    @DisplayName("노드 관리자 생성은 공통 배정 서비스로 위임한다")
     void createAdmin_boardAdmin_delegatesToBoardManagerAssignmentService() {
         when(adminEligibleUserService.getActiveUserByLoginId("testUser")).thenReturn(user);
         when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
@@ -218,7 +218,7 @@ class AdminAssignmentServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 관리자 조회 성공")
+    @DisplayName("노드 관리자 조회 성공")
     void getBoardManager_success() {
         when(boardRepository.findById(10L)).thenReturn(Optional.of(board));
         when(adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(board, Role.BOARD_ADMIN, true))

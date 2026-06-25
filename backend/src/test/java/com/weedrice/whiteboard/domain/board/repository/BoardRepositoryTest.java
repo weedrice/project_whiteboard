@@ -53,7 +53,7 @@ class BoardRepositoryTest {
     }
 
     @Test
-    @DisplayName("게시판 URL로 조회 성공")
+    @DisplayName("노드 URL로 조회 성공")
     void findByBoardUrl_success() {
         // when
         Optional<Board> found = boardRepository.findByBoardUrl("test-board");
@@ -64,7 +64,7 @@ class BoardRepositoryTest {
     }
 
     @Test
-    @DisplayName("게시판 저장 및 조회 성공")
+    @DisplayName("노드 저장 및 조회 성공")
     void saveAndFind_success() {
         // given
         Board newBoard = Board.builder()
@@ -83,7 +83,7 @@ class BoardRepositoryTest {
     }
 
     @Test
-    @DisplayName("후보 이름 목록 중 이미 존재하는 게시판 이름만 조회한다")
+    @DisplayName("후보 이름 목록 중 이미 존재하는 노드 이름만 조회한다")
     void findExistingBoardNamesIn_returnsOnlyExistingNames() {
         persistBoard("Inquiry", "inquiry-board", 10, true, true);
         entityManager.flush();
@@ -95,7 +95,7 @@ class BoardRepositoryTest {
     }
 
     @Test
-    @DisplayName("홈 랜딩 게시판 수는 문의 게시판을 제외한 공개 활성 게시판만 집계한다")
+    @DisplayName("홈 랜딩 노드 수는 문의 노드을 제외한 공개 활성 노드만 집계한다")
     void countPublicLandingVisibleBoards_countsOnlyPublicActiveNonInquiryBoards() {
         persistBoard("Landing Public Board", "landing-public-board", 10, true, true);
         persistBoard("Landing Private Board", "landing-private-board", 20, true, false);
@@ -109,7 +109,7 @@ class BoardRepositoryTest {
     }
 
     @Test
-    @DisplayName("보드 이름 검색 미리보기는 공개 활성 게시판만 정렬된 5개로 제한")
+    @DisplayName("보드 이름 검색 미리보기는 공개 활성 노드만 정렬된 5개로 제한")
     void findBoardPreviewByKeyword_returnsOnlyPublicActiveBoardsWithinLimit() {
         persistBoard("Search 1", "search-1", 30, true, true);
         persistBoard("Search 2", "search-2", 10, true, true);
@@ -149,7 +149,7 @@ class BoardRepositoryTest {
     }
 
     @Test
-    @DisplayName("인기 게시판 조회는 공개 활성 게시판만 남기고 동률은 sortOrder와 boardId로 정렬한다")
+    @DisplayName("인기 노드 조회는 공개 활성 노드만 남기고 동률은 sortOrder와 boardId로 정렬한다")
     void findTopPublicBoardsByPostCount_filtersAndOrdersByTieBreakers() {
         Board visibleTop = persistBoard("Visible Top", "visible-top", 30, true, true);
         Board visibleTieFirst = persistBoard("Visible Tie First", "visible-tie-first", 10, true, true);

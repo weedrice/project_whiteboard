@@ -187,8 +187,8 @@ describe('useAdminUserDetailTabs', () => {
             '삭제됨',
             '답글',
             '원문 삭제',
-            '게시판 비활성',
-            '비공개 게시판'
+            '노드 비활성',
+            '비공개 노드'
         ])
         expect(tabs.subscriptionItems.value[0]).toMatchObject({
             boardId: 8,

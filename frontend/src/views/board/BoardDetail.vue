@@ -115,9 +115,9 @@ const {
 useHead({
   title: computed(() => (currentPostId.value ? undefined : boardTitle.value)),
   meta: [
-    { name: 'description', content: computed(() => board.value?.description || 'Board posts and discussions') },
-    { property: 'og:title', content: computed(() => `${board.value?.boardName || 'Board'} - ${t('common.appName')}`) },
-    { property: 'og:description', content: computed(() => board.value?.description || 'Board posts and discussions') }
+    { name: 'description', content: computed(() => board.value?.description || 'Node posts and discussions') },
+    { property: 'og:title', content: computed(() => `${board.value?.boardName || 'Node'} - ${t('common.appName')}`) },
+    { property: 'og:description', content: computed(() => board.value?.description || 'Node posts and discussions') }
   ]
 })
 
@@ -165,7 +165,7 @@ watch([() => route.name, boardTitle], ([routeName, title]) => {
     </div>
 
     <section v-else-if="blockingError" class="nv-board-panel nv-board-state-panel px-4 py-12 text-center sm:px-6">
-      <p class="nv-board-state-kicker">BOARD</p>
+      <p class="nv-board-state-kicker">NODE</p>
       <p class="mt-3 text-sm nv-form-error">{{ blockingError }}</p>
     </section>
 

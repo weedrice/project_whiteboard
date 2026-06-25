@@ -120,7 +120,7 @@ class BoardControllerTest {
     }
 
     @Test
-    @DisplayName("게시판 목록 조회 성공")
+    @DisplayName("노드 목록 조회 성공")
     void getBoards_returnsSuccess() throws Exception {
         when(boardService.getActiveBoards(eq(1L))).thenReturn(List.of(boardListResponse("Admin")));
 
@@ -133,7 +133,7 @@ class BoardControllerTest {
     }
 
     @Test
-    @DisplayName("게시판 상세 조회 성공")
+    @DisplayName("노드 상세 조회 성공")
     void getBoardDetails_returnsSuccess() throws Exception {
         String boardUrl = "free";
         when(boardService.getBoardDetails(eq(boardUrl), eq(1L)))
@@ -147,7 +147,7 @@ class BoardControllerTest {
     }
 
     @Test
-    @DisplayName("인기 게시판 목록 조회 성공")
+    @DisplayName("인기 노드 목록 조회 성공")
     void getTopBoards_returnsSuccess() throws Exception {
         when(boardService.getTopBoards(eq(1L))).thenReturn(List.of(boardListResponse("Admin")));
 
@@ -175,7 +175,7 @@ class BoardControllerTest {
     }
 
     @Test
-    @DisplayName("게시판 생성 성공")
+    @DisplayName("노드 생성 성공")
     void createBoard_returnsSuccess() throws Exception {
         BoardCreateRequest request = new BoardCreateRequest("New Board", "newboard", "Description", "icon.png", true);
 
@@ -192,7 +192,7 @@ class BoardControllerTest {
     }
 
     @Test
-    @DisplayName("게시판 수정 성공")
+    @DisplayName("노드 수정 성공")
     void updateBoard_returnsSuccess() throws Exception {
         String boardUrl = "free";
         BoardUpdateRequest request = new BoardUpdateRequest();
@@ -211,7 +211,7 @@ class BoardControllerTest {
     }
 
     @Test
-    @DisplayName("게시판 수정은 음수 sortOrder를 거부한다")
+    @DisplayName("노드 수정은 음수 sortOrder를 거부한다")
     void updateBoard_rejectsNegativeSortOrder() throws Exception {
         mockMvc.perform(put("/api/v1/boards/{boardUrl}", "free")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -224,7 +224,7 @@ class BoardControllerTest {
     }
 
     @Test
-    @DisplayName("게시판 생성은 255자를 초과하는 iconUrl을 거부한다")
+    @DisplayName("노드 생성은 255자를 초과하는 iconUrl을 거부한다")
     void createBoard_rejectsTooLongIconUrl() throws Exception {
         mockMvc.perform(post("/api/v1/boards")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -244,7 +244,7 @@ class BoardControllerTest {
     }
 
     @Test
-    @DisplayName("게시판 수정은 255자를 초과하는 iconUrl을 거부한다")
+    @DisplayName("노드 수정은 255자를 초과하는 iconUrl을 거부한다")
     void updateBoard_rejectsTooLongIconUrl() throws Exception {
         mockMvc.perform(put("/api/v1/boards/{boardUrl}", "free")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -262,7 +262,7 @@ class BoardControllerTest {
     }
 
     @Test
-    @DisplayName("게시판 관리자 이양 성공")
+    @DisplayName("노드 관리자 이양 성공")
     void transferBoardManager_returnsSuccess() throws Exception {
         String boardUrl = "free";
         BoardManagerTransferRequest request = new BoardManagerTransferRequest();
@@ -281,7 +281,7 @@ class BoardControllerTest {
     }
 
     @Test
-    @DisplayName("게시판 관리자 이양은 잘못된 loginId 형식을 거부한다")
+    @DisplayName("노드 관리자 이양은 잘못된 loginId 형식을 거부한다")
     void transferBoardManager_rejectsInvalidLoginId() throws Exception {
         mockMvc.perform(put("/api/v1/boards/{boardUrl}/manager", "free")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -294,7 +294,7 @@ class BoardControllerTest {
     }
 
     @Test
-    @DisplayName("게시판 관리자 후보 조회 성공")
+    @DisplayName("노드 관리자 후보 조회 성공")
     void getBoardManagerCandidates_returnsSuccess() throws Exception {
         String boardUrl = "free";
         User candidateUser = User.builder()
@@ -430,7 +430,7 @@ class BoardControllerTest {
     }
 
     @Test
-    @DisplayName("문의 게시판 URL 상세 조회는 404로 차단한다")
+    @DisplayName("문의 노드 URL 상세 조회는 404로 차단한다")
     void getBoardDetails_inquiryBoardUrlReturnsNotFound() throws Exception {
         when(boardService.getBoardDetails(eq("inquiry"), eq(1L)))
                 .thenThrow(new BusinessException(ErrorCode.BOARD_NOT_FOUND));

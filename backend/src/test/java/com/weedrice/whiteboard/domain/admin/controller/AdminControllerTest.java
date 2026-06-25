@@ -268,7 +268,7 @@ class AdminControllerTest {
     }
 
     @Test
-    @DisplayName("게시판 관리자 조회 성공")
+    @DisplayName("노드 관리자 조회 성공")
     void getBoardManager_returnsSuccess() throws Exception {
         AdminResponse response = AdminResponse.builder().adminId(1L).role("BOARD_ADMIN").isActive(true).build();
         when(adminAssignmentFacade.getBoardManager(1L)).thenReturn(response);
@@ -282,7 +282,7 @@ class AdminControllerTest {
     }
 
     @Test
-    @DisplayName("게시판 관리자 교체 성공")
+    @DisplayName("노드 관리자 교체 성공")
     void replaceBoardManager_returnsSuccess() throws Exception {
         BoardManagerUpdateRequest request = new BoardManagerUpdateRequest();
         ReflectionTestUtils.setField(request, "loginId", "newadmin");

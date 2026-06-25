@@ -217,7 +217,7 @@ class PostRepositoryTest {
     }
 
     @Test
-    @DisplayName("공개 프로필 게시글 수는 공개 활성 게시판의 비밀글이 아닌 미삭제 게시글만 집계한다")
+    @DisplayName("공개 프로필 게시글 수는 공개 활성 노드의 비밀글이 아닌 미삭제 게시글만 집계한다")
     void countPublicProfilePostsByUser_countsOnlyPublicVisiblePosts() {
         Board privateBoard = Board.builder()
                 .boardName("Private Board")
@@ -273,7 +273,7 @@ class PostRepositoryTest {
     }
 
     @Test
-    @DisplayName("홈 랜딩 게시글 수는 공개 활성 게시판의 비밀글이 아닌 미삭제 게시글만 집계한다")
+    @DisplayName("홈 랜딩 게시글 수는 공개 활성 노드의 비밀글이 아닌 미삭제 게시글만 집계한다")
     void countPublicLandingVisiblePosts_countsOnlyPublicLandingVisiblePosts() {
         Board privateBoard = persistBoard("Landing Private Board", "landing-private-board", false);
         Board inactiveBoard = persistBoard("Landing Inactive Board", "landing-inactive-board", true);
@@ -294,7 +294,7 @@ class PostRepositoryTest {
     }
 
     @Test
-    @DisplayName("게시판별 공개 게시글 수는 비밀글과 비공개/비활성 게시판을 제외한다")
+    @DisplayName("노드별 공개 게시글 수는 비밀글과 비공개/비활성 노드을 제외한다")
     void countPublicVisiblePostsByBoardIds_countsOnlyPublicVisiblePosts() {
         Board publicBoard = persistBoard("Count Public Board", "count-public-board", true);
         Board privateBoard = persistBoard("Count Private Board", "count-private-board", false);
@@ -427,7 +427,7 @@ class PostRepositoryTest {
     }
 
     @Test
-    @DisplayName("게시판별 공지사항 조회 성공")
+    @DisplayName("노드별 공지사항 조회 성공")
     void findByBoardAndIsNotice_fetchesSummaryRelations() {
         Agent agent = Agent.builder()
                 .user(user)
@@ -516,7 +516,7 @@ class PostRepositoryTest {
     }
 
     @Test
-    @DisplayName("요약용 게시글 ID 조회는 게시판 작성자까지 함께 로드한다")
+    @DisplayName("요약용 게시글 ID 조회는 노드 작성자까지 함께 로드한다")
     void findByPostIdInAndIsDeletedFalse_fetchesSummaryRelationsAndBoardCreator() {
         User boardCreator = User.builder()
                 .loginId("summaryCreator")
@@ -666,7 +666,7 @@ class PostRepositoryTest {
     }
 
     @Test
-    @DisplayName("게시판 삭제 시 게시글 삭제 성공")
+    @DisplayName("노드 삭제 시 게시글 삭제 성공")
     void deleteByBoard_success() {
         // when
         postRepository.deleteByBoard(board);
@@ -679,7 +679,7 @@ class PostRepositoryTest {
     }
 
     @Test
-    @DisplayName("게시판 ID와 카테고리 ID로 게시글 조회 성공")
+    @DisplayName("노드 ID와 카테고리 ID로 게시글 조회 성공")
     void findByBoardIdAndCategoryId_success() {
         // given
         PageRequest pageRequest = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt"));
@@ -1040,7 +1040,7 @@ class PostRepositoryTest {
     }
 
     @Test
-    @DisplayName("홈 랜딩 최신글은 공개 게시판의 공개 글을 최신순으로 조회한다")
+    @DisplayName("홈 랜딩 최신글은 공개 노드의 공개 글을 최신순으로 조회한다")
     void findTrendingPosts_ordersTiesByCreatedAtAndPostId() {
         Post sameCreatedOlderId = post;
         Post sameCreatedNewerId = Post.builder()
@@ -1190,7 +1190,7 @@ class PostRepositoryTest {
     }
 
     @Test
-    @DisplayName("비활성 게시판의 게시글은 키워드 검색에서 제외됨")
+    @DisplayName("비활성 노드의 게시글은 키워드 검색에서 제외됨")
     void searchPostsByKeyword_inactiveBoard_excluded() {
         // given
         Board inactiveBoard = Board.builder()
@@ -1227,7 +1227,7 @@ class PostRepositoryTest {
     }
 
     @Test
-    @DisplayName("비활성 게시판의 게시글은 복합 조건 검색에서 제외됨")
+    @DisplayName("비활성 노드의 게시글은 복합 조건 검색에서 제외됨")
     void searchPosts_inactiveBoard_excluded() {
         // given
         Board inactiveBoard = Board.builder()
@@ -1417,7 +1417,7 @@ class PostRepositoryTest {
     }
 
     @Test
-    @DisplayName("findActiveByIdAndBoardIdForUpdate는 게시글, 게시판, 삭제 상태를 함께 검증한다")
+    @DisplayName("findActiveByIdAndBoardIdForUpdate는 게시글, 노드, 삭제 상태를 함께 검증한다")
     void findActiveByIdAndBoardIdForUpdate_filtersByBoardAndDeletedState() {
         Board otherBoard = Board.builder()
                 .boardName("Other Board")

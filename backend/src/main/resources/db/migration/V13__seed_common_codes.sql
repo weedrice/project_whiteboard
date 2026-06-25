@@ -84,7 +84,7 @@ INSERT INTO common_code_details (id, type_code, code_value, code_name, sort_orde
 
 -- ADMIN_ROLE (관리자 역할 코드)
 (18, 'ADMIN_ROLE', 'GLOBAL_ADMIN', '전역 관리자', 10, 'Y', NOW(), NOW()),
-(19, 'ADMIN_ROLE', 'BOARD_MANAGER', '게시판 관리자', 20, 'Y', NOW(), NOW()),
+(19, 'ADMIN_ROLE', 'BOARD_MANAGER', '노드 관리자', 20, 'Y', NOW(), NOW()),
 (20, 'ADMIN_ROLE', 'SANCTION_STAFF', '제재 담당자', 30, 'Y', NOW(), NOW()),
 
 -- REPORT_REASON (신고 사유 코드) - ID 21부터 시작
@@ -107,7 +107,7 @@ INSERT INTO common_code_details (id, type_code, code_value, code_name, sort_orde
 (33, 'ACTION_TYPE', 'POST_LIKE', '게시글 좋아요', 90, 'Y', NOW(), NOW()),
 (34, 'ACTION_TYPE', 'COMMENT_LIKE', '댓글 좋아요', 100, 'Y', NOW(), NOW()),
 (35, 'ACTION_TYPE', 'SCRAP', '게시글 스크랩', 110, 'Y', NOW(), NOW()),
-(36, 'ACTION_TYPE', 'FAVORITE_BOARD', '게시판 즐겨찾기', 120, 'Y', NOW(), NOW()),
+(36, 'ACTION_TYPE', 'FAVORITE_BOARD', '노드 즐겨찾기', 120, 'Y', NOW(), NOW()),
 (37, 'ACTION_TYPE', 'POINT_EARN', '포인트 획득', 130, 'Y', NOW(), NOW()),
 (38, 'ACTION_TYPE', 'ITEM_PURCHASE', '아이템 구매', 140, 'Y', NOW(), NOW()),
 (39, 'ACTION_TYPE', 'FILE_UPLOAD', '파일 업로드', 150, 'Y', NOW(), NOW()),

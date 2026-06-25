@@ -254,7 +254,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("활성화된 게시판 목록 조회 성공")
+    @DisplayName("활성화된 노드 목록 조회 성공")
     void getActiveBoards_success() {
         // given
         when(boardRepository.findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc(
@@ -272,7 +272,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("super admin은 전체 게시판 목록을 조회할 수 있다")
+    @DisplayName("super admin은 전체 노드 목록을 조회할 수 있다")
     void getAllBoards_superAdmin_success() {
         user.grantSuperAdminRole();
         when(boardRepository.findAllByOrderBySortOrderAscBoardIdAsc()).thenReturn(List.of(board));
@@ -285,7 +285,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("일반 사용자는 전체 게시판 목록을 조회할 수 없다")
+    @DisplayName("일반 사용자는 전체 노드 목록을 조회할 수 없다")
     void getAllBoards_normalUser_forbidden() {
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> boardService.getAllBoards(1L));
@@ -295,7 +295,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("비인증 요청은 전체 게시판 목록을 조회할 수 없다")
+    @DisplayName("비인증 요청은 전체 노드 목록을 조회할 수 없다")
     void getAllBoards_nullPrincipal_forbidden() {
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> boardService.getAllBoards(null));
@@ -305,7 +305,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("비활성 super admin은 전체 게시판 목록을 조회할 수 없다")
+    @DisplayName("비활성 super admin은 전체 노드 목록을 조회할 수 없다")
     void getAllBoards_inactiveSuperAdmin_forbidden() {
         user.grantSuperAdminRole();
         user.suspend();
@@ -318,7 +318,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("없는 사용자의 전체 게시판 목록 조회는 USER_NOT_FOUND를 반환한다")
+    @DisplayName("없는 사용자의 전체 노드 목록 조회는 USER_NOT_FOUND를 반환한다")
     void getAllBoards_missingUser_userNotFound() {
         when(userRepository.findById(99L)).thenReturn(Optional.empty());
 
@@ -330,7 +330,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 관리자는 해당 게시판 구독자 후보를 조회할 수 있다")
+    @DisplayName("노드 관리자는 해당 노드 구독자 후보를 조회할 수 있다")
     void getBoardManagerCandidates_boardAdmin_success() {
         User candidate = User.builder()
                 .loginId("candidate")
@@ -370,7 +370,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("슈퍼 관리자는 게시판 관리자 후보를 조회할 수 있다")
+    @DisplayName("슈퍼 관리자는 노드 관리자 후보를 조회할 수 있다")
     void getBoardManagerCandidates_superAdmin_success() {
         User superUser = User.builder()
                 .loginId("super")
@@ -399,7 +399,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 관리자 권한이 없으면 후보 조회를 거부한다")
+    @DisplayName("노드 관리자 권한이 없으면 후보 조회를 거부한다")
     void getBoardManagerCandidates_forbidden() {
         User otherUser = User.builder()
                 .loginId("other")
@@ -422,7 +422,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 구독 성공")
+    @DisplayName("노드 구독 성공")
     void subscribeBoard_success() {
         // given
         Long userId = 1L;
@@ -443,7 +443,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("쓰기 불가 사용자는 게시판을 구독할 수 없다")
+    @DisplayName("쓰기 불가 사용자는 노드을 구독할 수 없다")
     void subscribeBoard_rejectsNotWritableUser() {
         // given
         Long userId = 1L;
@@ -461,7 +461,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("이미 구독한 게시판은 다시 구독할 수 없다")
+    @DisplayName("이미 구독한 노드은 다시 구독할 수 없다")
     void subscribeBoard_fail_alreadySubscribed() {
         // given
         Long userId = 1L;
@@ -520,7 +520,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 관리자 이관은 잠금 조회한 게시판으로 권한 검증 후 위임한다")
+    @DisplayName("노드 관리자 이관은 잠금 조회한 노드으로 권한 검증 후 위임한다")
     void transferBoardManager_usesLockedBoardLookup() {
         User nextManager = User.builder()
                 .loginId("nextmanager")
@@ -543,7 +543,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 관리자 이관 상세 응답은 이관 후 상세 조회 결과를 반환한다")
+    @DisplayName("노드 관리자 이관 상세 응답은 이관 후 상세 조회 결과를 반환한다")
     void transferBoardManagerDetail_returnsDetailAfterTransfer() {
         User nextManager = User.builder()
                 .loginId("nextmanager")
@@ -568,7 +568,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 관리자 이관 대상이 구독자가 아니면 FORBIDDEN을 반환한다")
+    @DisplayName("노드 관리자 이관 대상이 구독자가 아니면 FORBIDDEN을 반환한다")
     void transferBoardManager_rejectsNonSubscriber() {
         User nextManager = User.builder()
                 .loginId("nextmanager")
@@ -590,7 +590,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 관리자 이관은 권한이 없으면 대상 사용자 조회와 배정을 하지 않는다")
+    @DisplayName("노드 관리자 이관은 권한이 없으면 대상 사용자 조회와 배정을 하지 않는다")
     void transferBoardManager_forbiddenSkipsManagerAssignment() {
         User otherUser = User.builder()
                 .loginId("other")
@@ -616,7 +616,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 관리자 이관은 잠금 조회에서 게시판이 없으면 BOARD_NOT_FOUND를 던진다")
+    @DisplayName("노드 관리자 이관은 잠금 조회에서 노드이 없으면 BOARD_NOT_FOUND를 던진다")
     void transferBoardManager_lockedBoardNotFound() {
         when(boardRepository.findByBoardUrlForUpdate("missing-board")).thenReturn(Optional.empty());
 
@@ -631,7 +631,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 생성 성공")
+    @DisplayName("노드 생성 성공")
     void createBoard_success() {
         // given
         Long creatorId = 1L;
@@ -654,7 +654,7 @@ class BoardServiceTest {
         inOrder.verify(pointService).spendPoint(
                 eq(creatorId),
                 eq(500),
-                eq("게시판 생성 (Test Board)"),
+                eq("노드 생성 (Test Board)"),
                 eq(1L),
                 eq("BOARD_CREATE"));
         ArgumentCaptor<BoardCategory> categoryCaptor = ArgumentCaptor.forClass(BoardCategory.class);
@@ -665,7 +665,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 생성 상세 응답은 저장 후 상세 조회 결과를 반환한다")
+    @DisplayName("노드 생성 상세 응답은 저장 후 상세 조회 결과를 반환한다")
     void createBoardDetail_returnsDetailAfterCreate() {
         Long creatorId = 1L;
         BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
@@ -686,7 +686,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 생성 비용 설정이 잘못되면 기본값으로 차감한다")
+    @DisplayName("노드 생성 비용 설정이 잘못되면 기본값으로 차감한다")
     void createBoard_invalidCostConfig_usesDefaultCost() {
         Long creatorId = 1L;
         BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
@@ -702,13 +702,13 @@ class BoardServiceTest {
         verify(pointService).spendPoint(
                 eq(creatorId),
                 eq(500),
-                eq("게시판 생성 (Test Board)"),
+                eq("노드 생성 (Test Board)"),
                 eq(1L),
                 eq("BOARD_CREATE"));
     }
 
     @Test
-    @DisplayName("게시판 생성 비용 설정이 0이면 포인트를 차감하지 않는다")
+    @DisplayName("노드 생성 비용 설정이 0이면 포인트를 차감하지 않는다")
     void createBoard_zeroCostConfig_skipsPointSpend() {
         Long creatorId = 1L;
         BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
@@ -727,7 +727,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 생성 시 파일 기반 아이콘이면 영구 연관한다")
+    @DisplayName("노드 생성 시 파일 기반 아이콘이면 영구 연관한다")
     void createBoard_withUploadedIcon_associatesBoardIcon() {
         Long creatorId = 1L;
         BoardCreateRequest request = new BoardCreateRequest(
@@ -756,7 +756,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 생성 전 작성자의 활성 상태를 검증한다")
+    @DisplayName("노드 생성 전 작성자의 활성 상태를 검증한다")
     void createBoard_requiresActiveCreator() {
         Long creatorId = 1L;
         BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
@@ -775,7 +775,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("AI 사용 게시판 생성 시 BoardAiInfo를 생성한다")
+    @DisplayName("AI 사용 노드 생성 시 BoardAiInfo를 생성한다")
     void createBoard_agentEnabled_createsBoardAiInfo() {
         Long creatorId = 1L;
         BoardCreateRequest request = new BoardCreateRequest("AI Board", "ai-board", null, null, true, true, null);
@@ -831,7 +831,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 수정 상세 응답은 변경된 URL로 상세 조회한다")
+    @DisplayName("노드 수정 상세 응답은 변경된 URL로 상세 조회한다")
     void updateBoardDetail_returnsDetailForUpdatedUrl() {
         BoardUpdateRequest request = createBoardUpdateRequest("Updated Board", "updated-board", null);
 
@@ -875,7 +875,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 수정 시 sortOrder를 생략하면 기존 정렬값을 유지한다")
+    @DisplayName("노드 수정 시 sortOrder를 생략하면 기존 정렬값을 유지한다")
     void updateBoard_omittedSortOrderKeepsExistingValue() {
         BoardUpdateRequest request = new BoardUpdateRequest();
         ReflectionTestUtils.setField(request, "boardName", "Updated Board");
@@ -945,7 +945,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 수정 실패 - 저장 시 board_name 충돌이면 DUPLICATE_BOARD_NAME")
+    @DisplayName("노드 수정 실패 - 저장 시 board_name 충돌이면 DUPLICATE_BOARD_NAME")
     void updateBoard_duplicateBoardNameDuringFlush() {
         BoardUpdateRequest request = createBoardUpdateRequest("Updated Board", "test-board", "/api/v1/files/88");
 
@@ -964,7 +964,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 수정 실패 - 저장 시 board_url 충돌이면 DUPLICATE_BOARD_URL")
+    @DisplayName("노드 수정 실패 - 저장 시 board_url 충돌이면 DUPLICATE_BOARD_URL")
     void updateBoard_duplicateBoardUrlDuringFlush() {
         BoardUpdateRequest request = createBoardUpdateRequest("Test Board", "updated-board", "/api/v1/files/88");
 
@@ -986,7 +986,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 수정 실패 - 제약 메시지를 식별할 수 없으면 DUPLICATE_RESOURCE")
+    @DisplayName("노드 수정 실패 - 제약 메시지를 식별할 수 없으면 DUPLICATE_RESOURCE")
     void updateBoard_duplicateFallbackDuringFlush() {
         BoardUpdateRequest request = createBoardUpdateRequest("Updated Board", "test-board", "/api/v1/files/88");
 
@@ -1005,7 +1005,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 삭제는 잠금 조회한 게시판을 비활성화한다")
+    @DisplayName("노드 삭제는 잠금 조회한 노드을 비활성화한다")
     void deleteBoard_usesLockedBoardLookup() {
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
 
@@ -1066,7 +1066,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("카테고리 생성은 같은 게시판의 활성 이름 중복을 거부한다")
+    @DisplayName("카테고리 생성은 같은 노드의 활성 이름 중복을 거부한다")
     void createCategory_duplicateActiveName_throwsDuplicateResource() {
         CategoryRequest request = categoryRequest("General", 1, "USER");
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
@@ -1311,7 +1311,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 생성 포인트 부족 예외는 PointService 경로로 유지된다")
+    @DisplayName("노드 생성 포인트 부족 예외는 PointService 경로로 유지된다")
     void createBoard_insufficientPoints_propagatesFromPointService() {
         Long creatorId = 1L;
         BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
@@ -1335,7 +1335,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 생성 실패 - 저장 시 board_name 충돌이면 DUPLICATE_BOARD_NAME")
+    @DisplayName("노드 생성 실패 - 저장 시 board_name 충돌이면 DUPLICATE_BOARD_NAME")
     void createBoard_duplicateBoardNameDuringFlush() {
         Long creatorId = 1L;
         BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
@@ -1353,7 +1353,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 생성 실패 - 저장 시 board_url 충돌이면 DUPLICATE_BOARD_URL")
+    @DisplayName("노드 생성 실패 - 저장 시 board_url 충돌이면 DUPLICATE_BOARD_URL")
     void createBoard_duplicateBoardUrlDuringFlush() {
         Long creatorId = 1L;
         BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
@@ -1371,7 +1371,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 생성 실패 - 제약 메시지를 식별할 수 없으면 DUPLICATE_RESOURCE")
+    @DisplayName("노드 생성 실패 - 제약 메시지를 식별할 수 없으면 DUPLICATE_RESOURCE")
     void createBoard_duplicateFallbackDuringFlush() {
         Long creatorId = 1L;
         BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
@@ -1388,7 +1388,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 생성 실패 - 중첩 ConstraintViolationException의 제약명으로 board_url 충돌을 판별한다")
+    @DisplayName("노드 생성 실패 - 중첩 ConstraintViolationException의 제약명으로 board_url 충돌을 판별한다")
     void createBoard_duplicateBoardUrlByConstraintName() {
         Long creatorId = 1L;
         BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
@@ -1407,7 +1407,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 생성 실패 - 중첩 ConstraintViolationException의 제약명으로 board_name 충돌을 판별한다")
+    @DisplayName("노드 생성 실패 - 중첩 ConstraintViolationException의 제약명으로 board_name 충돌을 판별한다")
     void createBoard_duplicateBoardNameByConstraintName() {
         Long creatorId = 1L;
         BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
@@ -1426,7 +1426,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 생성 실패 - legacy 제약명으로도 board_url 충돌을 판별한다")
+    @DisplayName("노드 생성 실패 - legacy 제약명으로도 board_url 충돌을 판별한다")
     void createBoard_duplicateBoardUrlByLegacyConstraintName() {
         Long creatorId = 1L;
         BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
@@ -1445,7 +1445,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("인기 게시판 목록 조회 성공")
+    @DisplayName("인기 노드 목록 조회 성공")
     void getTopBoards_success() {
         // given
         when(boardRepository.findTopPublicBoardPostCounts(anyString(), any()))
@@ -1465,7 +1465,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("일반 로그인 사용자는 공개 인기 게시판 전용 쿼리를 사용한다")
+    @DisplayName("일반 로그인 사용자는 공개 인기 노드 전용 쿼리를 사용한다")
     void getTopBoards_authenticatedUsesPublicQueryWhenUserHasNoElevatedAccess() {
         when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(false);
         when(boardRepository.findTopPublicBoardPostCounts(anyString(), any()))
@@ -1483,7 +1483,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("userId 기반 인기 게시판 조회는 principal 해석 없이 사용자 ID로 조회한다")
+    @DisplayName("userId 기반 인기 노드 조회는 principal 해석 없이 사용자 ID로 조회한다")
     void getTopBoards_userIdUsesPublicQueryWhenUserHasNoElevatedAccess() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(false);
@@ -1500,7 +1500,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("userId 기반 인기 게시판 조회는 요청 limit을 공개 게시판 쿼리에 전달한다")
+    @DisplayName("userId 기반 인기 노드 조회는 요청 limit을 공개 노드 쿼리에 전달한다")
     void getTopBoardsByUserId_usesRequestedLimitForPublicQuery() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(false);
@@ -1514,7 +1514,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("userId 기반 인기 게시판 조회는 없는 사용자면 USER_NOT_FOUND를 반환한다")
+    @DisplayName("userId 기반 인기 노드 조회는 없는 사용자면 USER_NOT_FOUND를 반환한다")
     void getTopBoards_userIdNotFound() {
         when(userRepository.findById(99L)).thenReturn(Optional.empty());
 
@@ -1527,7 +1527,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("userId 기반 인기 게시판 조회는 권한 사용자의 readable 게시판 쿼리를 사용한다")
+    @DisplayName("userId 기반 인기 노드 조회는 권한 사용자의 readable 노드 쿼리를 사용한다")
     void getTopBoards_userIdBoardAdminUsesReadableQuery() {
         Board privateBoard = Board.builder()
                 .boardName("Private Board")
@@ -1556,7 +1556,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("userId 기반 인기 게시판 조회는 요청 limit을 readable 게시판 쿼리에 전달한다")
+    @DisplayName("userId 기반 인기 노드 조회는 요청 limit을 readable 노드 쿼리에 전달한다")
     void getTopBoardsByUserId_usesRequestedLimitForReadableQuery() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(adminRepository.existsByUserAndIsActive(user, true)).thenReturn(true);
@@ -1575,7 +1575,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 관리자는 읽을 수 있는 인기 게시판 조회 쿼리를 사용한다")
+    @DisplayName("노드 관리자는 읽을 수 있는 인기 노드 조회 쿼리를 사용한다")
     void getTopBoards_boardAdminUsesReadableQuery() {
         Board privateBoard = Board.builder()
                 .boardName("Private Board")
@@ -1604,7 +1604,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("권한 사용자는 읽을 수 있는 비공개 게시판도 인기 게시판에 포함한다")
+    @DisplayName("권한 사용자는 읽을 수 있는 비공개 노드도 인기 노드에 포함한다")
     void getTopBoards_privilegedUserIncludesReadablePrivateBoard() {
         Board privateBoard = Board.builder()
                 .boardName("Private Board")
@@ -1629,7 +1629,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 상세 조회 성공")
+    @DisplayName("노드 상세 조회 성공")
     void getBoardDetails_success() {
         // given
         String boardUrl = "test-board";
@@ -1644,7 +1644,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 공지 요약 조회 성공")
+    @DisplayName("노드 공지 요약 조회 성공")
     void getNoticeSummaries_success() {
         PostSummary noticeSummary = PostSummary.builder()
                 .postId(10L)
@@ -1662,7 +1662,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("비공개 게시판 공지 요약은 권한이 없으면 차단한다")
+    @DisplayName("비공개 노드 공지 요약은 권한이 없으면 차단한다")
     void getNoticeSummaries_privateBoardWithoutAccess_throwsBoardNotFound() {
         Board privateBoard = Board.builder()
                 .boardName("Private Board")
@@ -1683,7 +1683,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("비활성 게시판 공지 요약은 권한이 없으면 차단한다")
+    @DisplayName("비활성 노드 공지 요약은 권한이 없으면 차단한다")
     void getNoticeSummaries_inactiveBoardWithoutAccess_throwsBoardNotFound() {
         Board inactiveBoard = Board.builder()
                 .boardName("Inactive Board")
@@ -1704,7 +1704,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("문의 게시판 공지 요약 조회는 차단한다")
+    @DisplayName("문의 노드 공지 요약 조회는 차단한다")
     void getNoticeSummaries_inquiryBoard_throwsBoardNotFound() {
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> boardService.getNoticeSummaries("inquiry", null));
@@ -1729,7 +1729,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 구독 해제 성공")
+    @DisplayName("노드 구독 해제 성공")
     void unsubscribeBoard_success() {
         // given
         Long userId = 1L;
@@ -1752,7 +1752,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("읽을 수 없게 된 게시판도 기존 구독은 해지할 수 있다")
+    @DisplayName("읽을 수 없게 된 노드도 기존 구독은 해지할 수 있다")
     void unsubscribeBoard_allowsHiddenBoardSubscription() {
         Board hiddenBoard = Board.builder()
                 .boardName("Hidden Board")
@@ -1780,7 +1780,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("내 구독 게시판 조회는 total 과 구독 플래그를 유지한다")
+    @DisplayName("내 구독 노드 조회는 total 과 구독 플래그를 유지한다")
     void getMySubscriptions_preservesTotalAndFlags() {
         BoardSubscription subscription = BoardSubscription.builder()
                 .user(user)
@@ -2010,7 +2010,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("문의 게시판 생성 시 탈퇴한 super admin을 creator 후보에서 제외한다")
+    @DisplayName("문의 노드 생성 시 탈퇴한 super admin을 creator 후보에서 제외한다")
     void ensureInquiryBoard_usesActiveSuperAdminCreator() {
         User activeSuperAdmin = User.builder()
                 .loginId("super-admin")
@@ -2049,7 +2049,7 @@ class BoardServiceTest {
         verify(boardCategoryRepository, org.mockito.Mockito.atLeastOnce()).saveAndFlush(categoryCaptor.capture());
         assertThat(boardCaptor.getValue().getCreator()).isEqualTo(activeSuperAdmin);
         assertThat(boardCaptor.getValue().getBoardName()).isEqualTo("문의");
-        assertThat(boardCaptor.getValue().getDescription()).isEqualTo("운영진에게 문의를 남기는 비공개 게시판입니다.");
+        assertThat(boardCaptor.getValue().getDescription()).isEqualTo("운영진에게 문의를 남기는 비공개 노드입니다.");
         assertThat(categoryCaptor.getAllValues())
                 .extracting(BoardCategory::getName)
                 .containsOnly("일반");
@@ -2061,7 +2061,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("문의 게시판 이름 후보는 한 번 조회한 기존 이름을 제외하고 선택한다")
+    @DisplayName("문의 노드 이름 후보는 한 번 조회한 기존 이름을 제외하고 선택한다")
     void ensureInquiryBoard_usesFirstAvailableNameFromSingleExistingNameLookup() {
         User superAdmin = User.builder()
                 .loginId("super-admin")
@@ -2098,7 +2098,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("문의 게시판 보정은 공개 설정과 중복 기본 카테고리 및 관리자 행을 정리한다")
+    @DisplayName("문의 노드 보정은 공개 설정과 중복 기본 카테고리 및 관리자 행을 정리한다")
     void ensureInquiryBoard_normalizesExistingBoardState() {
         User superAdmin = User.builder()
                 .loginId("super-admin")
@@ -2142,7 +2142,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("문의 게시판 보정은 기존 활성 관리자를 먼저 비활성화한 뒤 목표 관리자를 재활성화한다")
+    @DisplayName("문의 노드 보정은 기존 활성 관리자를 먼저 비활성화한 뒤 목표 관리자를 재활성화한다")
     void ensureInquiryBoard_reactivatesCanonicalManagerAfterDeactivatingWrongManager() {
         User superAdmin = User.builder()
                 .loginId("super-admin")
@@ -2166,7 +2166,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("문의 게시판 생성 중 URL 중복 예외가 나면 잠금을 다시 잡아 기존 보드를 재사용한다")
+    @DisplayName("문의 노드 생성 중 URL 중복 예외가 나면 잠금을 다시 잡아 기존 보드를 재사용한다")
     void ensureInquiryBoard_reusesBoardAfterDuplicateCreateConflict() {
         User superAdmin = User.builder()
                 .loginId("super-admin")
@@ -2199,7 +2199,7 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("문의 게시판 생성 중 이름 중복 예외가 나도 기존 보드를 다시 잠가 재사용한다")
+    @DisplayName("문의 노드 생성 중 이름 중복 예외가 나도 기존 보드를 다시 잠가 재사용한다")
     void ensureInquiryBoard_reusesBoardAfterDuplicateNameConflict() {
         User superAdmin = User.builder()
                 .loginId("super-admin")

@@ -18,7 +18,7 @@
       <h2 class="text-xl font-semibold mt-6 mb-3 nv-title">제3조 (서비스의 제공)</h2>
       <p class="mb-4 nv-text-muted">
         1. 회사는 다음과 같은 서비스를 제공합니다:<br>
-        &nbsp;&nbsp;- 커뮤니티 게시판 서비스<br>
+        &nbsp;&nbsp;- 커뮤니티 노드 서비스<br>
         &nbsp;&nbsp;- 게시물 작성, 수정, 삭제 기능<br>
         &nbsp;&nbsp;- 댓글 및 좋아요 기능<br>
         &nbsp;&nbsp;- 사용자 간 소통 기능<br>

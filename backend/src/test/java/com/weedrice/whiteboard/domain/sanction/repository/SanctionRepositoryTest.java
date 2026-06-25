@@ -103,7 +103,7 @@ class SanctionRepositoryTest {
     }
 
     private TestSanctionActors persistActors() {
-        User boardCreator = persistUser("creator", "creator@test.com", "게시판생성자");
+        User boardCreator = persistUser("creator", "creator@test.com", "노드생성자");
         User adminUser = persistUser("admin", "admin@test.com", "관리자");
         User targetUser = persistUser("target", "target@test.com", "대상자");
 

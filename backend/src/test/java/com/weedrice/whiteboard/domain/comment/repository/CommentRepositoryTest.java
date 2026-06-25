@@ -665,7 +665,7 @@ class CommentRepositoryTest {
     }
 
     @Test
-    @DisplayName("내 댓글 목록은 게시판 관리자에게 비공개 게시판 댓글을 노출한다")
+    @DisplayName("내 댓글 목록은 노드 관리자에게 비공개 노드 댓글을 노출한다")
     void findVisibleMyComments_allowsActiveBoardAdmin() {
         Board privateBoard = persistBoard("Managed Private Board", "managed-private-board", false);
         entityManager.persist(Admin.builder()

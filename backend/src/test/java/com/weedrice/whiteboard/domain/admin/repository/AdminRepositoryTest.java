@@ -43,7 +43,7 @@ class AdminRepositoryTest {
                 .loginId("creator")
                 .email("creator@test.com")
                 .password("password")
-                .displayName("게시판생성자")
+                .displayName("노드생성자")
                 .build();
         User adminUser1 = User.builder()
                 .loginId("admin1")

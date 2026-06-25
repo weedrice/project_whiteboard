@@ -321,7 +321,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("읽을 수 있지만 쓸 수 없는 게시판에는 댓글을 작성할 수 없다")
+    @DisplayName("읽을 수 있지만 쓸 수 없는 노드에는 댓글을 작성할 수 없다")
     void createComment_readableButNotWritableBoard_throwsBoardNotFound() {
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);

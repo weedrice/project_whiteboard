@@ -268,7 +268,7 @@ describe('Router Navigation Guards', () => {
 
         await router.push('/board/restricted/write')
 
-        expect(useToastStore().toasts.at(-1)?.message).toBe('You do not have permission to write on this board.')
+        expect(useToastStore().toasts.at(-1)?.message).toBe('You do not have permission to write on this node.')
     })
 
     it('redirects to error when board write permission cannot be verified', async () => {

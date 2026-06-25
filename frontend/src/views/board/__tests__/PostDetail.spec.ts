@@ -1,4 +1,4 @@
-﻿import { defineComponent, ref } from 'vue'
+import { defineComponent, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import PostDetail from '../PostDetail.vue'
@@ -53,7 +53,7 @@ const {
     },
     board: {
       boardId: 1,
-      boardName: '자유게시판',
+      boardName: '자유노드',
       boardUrl: 'free',
       isAdmin: false
     },
@@ -200,7 +200,7 @@ describe('PostDetail', () => {
     }
     postValue.board = {
       boardId: 1,
-      boardName: '자유게시판',
+      boardName: '자유노드',
       boardUrl: 'free',
       isAdmin: false
     }

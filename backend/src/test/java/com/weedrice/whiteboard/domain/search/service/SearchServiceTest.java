@@ -333,7 +333,7 @@ class SearchServiceTest {
     }
 
     @Test
-    @DisplayName("게시글 검색 - 비공개 게시판 접근 불가 시 BOARD_NOT_FOUND")
+    @DisplayName("게시글 검색 - 비공개 노드 접근 불가 시 BOARD_NOT_FOUND")
     void searchPosts_privateBoardDenied_throwsBoardNotFound() {
         Board privateBoard = board(2L, "Private", "private");
         User owner = User.builder().loginId("owner").build();
@@ -353,7 +353,7 @@ class SearchServiceTest {
     }
 
     @Test
-    @DisplayName("게시글 검색 - 비활성 게시판 접근 불가 시 BOARD_NOT_FOUND")
+    @DisplayName("게시글 검색 - 비활성 노드 접근 불가 시 BOARD_NOT_FOUND")
     void searchPosts_inactiveBoardDenied_throwsBoardNotFound() {
         Board inactiveBoard = board(2L, "Inactive", "inactive");
         User owner = User.builder().loginId("owner").build();
@@ -373,7 +373,7 @@ class SearchServiceTest {
     }
 
     @Test
-    @DisplayName("게시글 검색 - 게시판 관리자는 secret 포함 검색")
+    @DisplayName("게시글 검색 - 노드 관리자는 secret 포함 검색")
     void searchPosts_boardAdmin_includesSecretPosts() {
         Board privateBoard = board(2L, "Private", "private");
         User owner = User.builder().loginId("owner").build();
@@ -398,7 +398,7 @@ class SearchServiceTest {
     }
 
     @Test
-    @DisplayName("게시글 검색 - 게시판 생성자는 관리자 권한 없으면 비공개 게시판 검색 불가")
+    @DisplayName("게시글 검색 - 노드 생성자는 관리자 권한 없으면 비공개 노드 검색 불가")
     void searchPosts_boardCreator_deniedWithoutBoardAdminRole() {
         Board privateBoard = board(2L, "Private", "private");
         ReflectionTestUtils.setField(privateBoard, "isPublic", false);

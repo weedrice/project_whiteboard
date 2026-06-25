@@ -167,11 +167,11 @@ class ScrapRepositoryTest {
         deletedPost.deletePost();
 
         Board privateBoard = persistBoard("private-board", otherAuthor, false);
-        Post privatePost = persistPost(privateBoard, otherAuthor, "비공개 게시판 글", false);
+        Post privatePost = persistPost(privateBoard, otherAuthor, "비공개 노드 글", false);
 
         Board inactiveBoard = persistBoard("inactive-board", otherAuthor, true);
         inactiveBoard.deactivate();
-        Post inactivePost = persistPost(inactiveBoard, otherAuthor, "비활성 게시판 글", false);
+        Post inactivePost = persistPost(inactiveBoard, otherAuthor, "비활성 노드 글", false);
 
         Post secretPost = persistPost(publicBoard, otherAuthor, "비밀글", true);
 

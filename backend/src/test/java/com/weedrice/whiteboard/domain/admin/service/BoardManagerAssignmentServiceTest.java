@@ -72,7 +72,7 @@ class BoardManagerAssignmentServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 관리자 교체 시 기존 활성 관리자를 비활성화하고 신규 관리자를 저장한다")
+    @DisplayName("노드 관리자 교체 시 기존 활성 관리자를 비활성화하고 신규 관리자를 저장한다")
     void assignBoardManager_replaceBoardManager() {
         Admin currentManager = Admin.builder().user(anotherUser).board(board).role(Role.BOARD_ADMIN).build();
 
@@ -132,7 +132,7 @@ class BoardManagerAssignmentServiceTest {
     }
 
     @Test
-    @DisplayName("비활성 사용자는 게시판 관리자로 배정할 수 없다")
+    @DisplayName("비활성 사용자는 노드 관리자로 배정할 수 없다")
     void assignBoardManager_rejectsInactiveUser() {
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
                 .when(adminEligibleUserService)
@@ -168,7 +168,7 @@ class BoardManagerAssignmentServiceTest {
     }
 
     @Test
-    @DisplayName("동시성으로 게시판 관리자 저장이 충돌하면 DUPLICATE_RESOURCE로 변환한다")
+    @DisplayName("동시성으로 노드 관리자 저장이 충돌하면 DUPLICATE_RESOURCE로 변환한다")
     void assignBoardManager_duplicateSave_throwsBusinessException() {
         when(adminRepository.findByBoardAndRoleAndIsActive(board, Role.BOARD_ADMIN, true))
                 .thenReturn(List.of());

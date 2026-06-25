@@ -55,7 +55,7 @@ class BoardSubscriptionRepositoryTest {
                 .build();
         superAdmin.grantSuperAdminRole();
         entityManager.persist(superAdmin);
-        owner = persistUser("owner", "owner@test.com", "게시판주인");
+        owner = persistUser("owner", "owner@test.com", "노드주인");
 
         adminOnlyBoard = persistBoard("Admin Only", "admin-only", owner, false, false);
         ownPrivateBoard = persistBoard("Own Private", "own-private", viewer, false, false);
@@ -100,7 +100,7 @@ class BoardSubscriptionRepositoryTest {
     }
 
     @Test
-    @DisplayName("슈퍼 관리자는 비공개 또는 비활성 게시판 구독도 그대로 조회한다")
+    @DisplayName("슈퍼 관리자는 비공개 또는 비활성 노드 구독도 그대로 조회한다")
     void findVisibleByUserOrderBySortOrderAsc_includesAllSubscribedBoardsForSuperAdmin() {
         Page<BoardSubscription> result = boardSubscriptionRepository.findVisibleByUserOrderBySortOrderAsc(
                 superAdmin,
@@ -124,7 +124,7 @@ class BoardSubscriptionRepositoryTest {
     }
 
     @Test
-    @DisplayName("관리자 후보 조회는 해당 게시판의 활성 구독자만 반환한다")
+    @DisplayName("관리자 후보 조회는 해당 노드의 활성 구독자만 반환한다")
     void findManagerCandidatesByBoard_returnsOnlyActiveSubscribers() {
         Board candidateBoard = persistBoard("Candidates", "candidates", owner, true, true);
         User alpha = persistUser("alpha", "alpha@test.com", "Alpha");

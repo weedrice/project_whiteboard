@@ -32,7 +32,7 @@ class BoardTest {
     }
 
     @Test
-    @DisplayName("게시판 생성 시 초기값 확인")
+    @DisplayName("노드 생성 시 초기값 확인")
     void createBoard_initialValues() {
         // then
         assertThat(board.getIsActive()).isTrue();
@@ -41,7 +41,7 @@ class BoardTest {
     }
 
     @Test
-    @DisplayName("게시판 생성 시 sortOrder 기본값 확인")
+    @DisplayName("노드 생성 시 sortOrder 기본값 확인")
     void createBoard_defaultSortOrder() {
         // given
         Board boardWithoutSortOrder = Board.builder()
@@ -55,7 +55,7 @@ class BoardTest {
     }
 
     @Test
-    @DisplayName("게시판 정보 수정")
+    @DisplayName("노드 정보 수정")
     void update_success() {
         // when
         board.update("Updated Board", "Updated Description", "new-icon.png", 2, true, false, true);
@@ -70,7 +70,7 @@ class BoardTest {
     }
 
     @Test
-    @DisplayName("게시판 URL 변경")
+    @DisplayName("노드 URL 변경")
     void updateBoardUrl_success() {
         // when
         board.updateBoardUrl("new-url");
@@ -80,7 +80,7 @@ class BoardTest {
     }
 
     @Test
-    @DisplayName("게시판 비활성화")
+    @DisplayName("노드 비활성화")
     void deactivate_success() {
         // when
         board.deactivate();

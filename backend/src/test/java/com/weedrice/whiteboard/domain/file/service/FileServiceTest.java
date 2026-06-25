@@ -594,7 +594,7 @@ class FileServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 아이콘 교체 시 기존 아이콘 파일은 삭제 예정 상태로 전환한다")
+    @DisplayName("노드 아이콘 교체 시 기존 아이콘 파일은 삭제 예정 상태로 전환한다")
     void replaceBoardIcon_marksPreviousFilesPendingDelete() {
         User uploader = User.builder().build();
         ReflectionTestUtils.setField(uploader, "userId", 1L);

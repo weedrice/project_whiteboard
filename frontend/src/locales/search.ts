@@ -1,7 +1,7 @@
 import type { SearchMessages } from './types'
 
 export const search: SearchMessages = {
-  boards: '게시판',
+  boards: '노드',
   doSearch: '검색',
   results: '검색 결과',
   query: '검색어',

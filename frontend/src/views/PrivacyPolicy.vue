@@ -28,7 +28,7 @@
         회사는 수집한 개인정보를 다음의 목적으로 이용합니다:<br><br>
         <strong class="nv-title">1. 서비스 제공</strong><br>
         &nbsp;&nbsp;- 회원 식별 및 인증<br>
-        &nbsp;&nbsp;- 게시판 서비스 제공<br>
+        &nbsp;&nbsp;- 노드 서비스 제공<br>
         &nbsp;&nbsp;- 커뮤니티 활동 지원<br><br>
         <strong class="nv-title">2. 회원 관리</strong><br>
         &nbsp;&nbsp;- 본인 확인 및 개인 식별<br>

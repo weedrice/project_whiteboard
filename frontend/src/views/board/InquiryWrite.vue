@@ -71,7 +71,7 @@ onUnmounted(() => {
     <div v-if="isPreparingBoard" class="rounded-lg border nv-border nv-surface p-6">
       <div class="flex items-center gap-3 text-sm nv-text-muted">
         <BaseSpinner size="sm" />
-        <span>문의 게시판을 준비하고 있습니다.</span>
+        <span>문의 노드를 준비하고 있습니다.</span>
       </div>
     </div>
 

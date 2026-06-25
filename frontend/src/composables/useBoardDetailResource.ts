@@ -50,7 +50,7 @@ export function useBoardDetailResource({
   const boardTitle = computed(() => {
     const boardName = board.value?.boardName?.trim()
     if (boardName) return boardName
-    return decodeBoardUrlTitle(boardUrl.value || '') || 'Board'
+    return decodeBoardUrlTitle(boardUrl.value || '') || 'Node'
   })
 
   const boardContentEnabled = computed(() => !boardError.value)

@@ -788,7 +788,7 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("게시글 조회 실패 - 비활성 게시판, 권한 없음")
+    @DisplayName("게시글 조회 실패 - 비활성 노드, 권한 없음")
     void getPostById_inactiveBoard_forbidden() {
         ReflectionTestUtils.setField(board, "isActive", false);
 
@@ -914,7 +914,7 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("게시글 목록 조회 실패 - 비활성 게시판, 권한 없음")
+    @DisplayName("게시글 목록 조회 실패 - 비활성 노드, 권한 없음")
     void getPosts_inactiveBoard_forbidden() {
         ReflectionTestUtils.setField(board, "isActive", false);
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
@@ -2348,7 +2348,7 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("공지사항 조회 실패 - 비활성 게시판, 권한 없음")
+    @DisplayName("공지사항 조회 실패 - 비활성 노드, 권한 없음")
     void getNotices_inactiveBoard_forbidden() {
         ReflectionTestUtils.setField(board, "isActive", false);
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
@@ -2920,7 +2920,7 @@ class PostServiceTest {
     // --- Board Admin Check ---
 
     @Test
-    @DisplayName("게시판 관리자 확인 - Super Admin")
+    @DisplayName("노드 관리자 확인 - Super Admin")
     void isBoardAdmin_superAdmin() {
         ReflectionTestUtils.setField(user, "isSuperAdmin", true);
         lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -2932,7 +2932,7 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 관리자 확인 - Board Admin")
+    @DisplayName("노드 관리자 확인 - Board Admin")
     void isBoardAdmin_boardAdmin() {
         User boardOwner = User.builder().loginId("owner").build();
         ReflectionTestUtils.setField(boardOwner, "userId", 99L);
@@ -2947,7 +2947,7 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 관리자 확인 - 일반 유저")
+    @DisplayName("노드 관리자 확인 - 일반 유저")
     void isBoardAdmin_normalUser() {
         User boardOwner = User.builder().loginId("owner").build();
         ReflectionTestUtils.setField(boardOwner, "userId", 99L);
@@ -2962,7 +2962,7 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 관리자 확인 - userId가 null")
+    @DisplayName("노드 관리자 확인 - userId가 null")
     void isBoardAdmin_nullUserId() {
         boolean result = postService.isBoardAdmin(null, 1L);
 
@@ -2972,7 +2972,7 @@ class PostServiceTest {
     // --- Latest Posts by Board ---
 
     @Test
-    @DisplayName("게시판 최신 게시글 조회 - 로그인 사용자")
+    @DisplayName("노드 최신 게시글 조회 - 로그인 사용자")
     void getLatestPostsByBoard_loggedIn() {
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
@@ -3002,7 +3002,7 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 최신 게시글 조회 - 비로그인 사용자")
+    @DisplayName("노드 최신 게시글 조회 - 비로그인 사용자")
     void getLatestPostsByBoard_notLoggedIn() {
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
         when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), isNull(), eq(false), isNull(),
@@ -3016,7 +3016,7 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 최신 게시글 조회 - 결과 없음")
+    @DisplayName("노드 최신 게시글 조회 - 결과 없음")
     void getLatestPostsByBoard_empty() {
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
         when(postRepository.findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), isNull(), eq(false), isNull(),
@@ -3068,7 +3068,7 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("게시판 최신 게시글 배치 조회 - 보드별 묶음으로 그룹화")
+    @DisplayName("노드 최신 게시글 배치 조회 - 보드별 묶음으로 그룹화")
     void getLatestPostsByBoards_groupsSummariesByBoard() {
         when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
         when(postRepository.findLatestPostIdsByBoardIds(List.of(1L), 5, Collections.emptyList(), Set.of(1L), 1L))
@@ -3094,7 +3094,7 @@ class PostServiceTest {
     // --- Edge Cases ---
 
     @Test
-    @DisplayName("게시글 생성 실패 - 비활성 게시판")
+    @DisplayName("게시글 생성 실패 - 비활성 노드")
     void createPost_inactiveBoard() {
         ReflectionTestUtils.setField(board, "isActive", false);
         User boardOwner = User.builder().loginId("owner").build();
@@ -3230,7 +3230,7 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("게시글 수정 - 비활성 게시판으로 전환되면 차단")
+    @DisplayName("게시글 수정 - 비활성 노드으로 전환되면 차단")
     void updatePost_inactiveBoard_forbidden() {
         User boardOwner = User.builder().loginId("owner").build();
         ReflectionTestUtils.setField(boardOwner, "userId", 99L);
@@ -3338,7 +3338,7 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("게시글 삭제는 게시판 공개 상태 변경과 무관하게 작성자를 허용한다")
+    @DisplayName("게시글 삭제는 노드 공개 상태 변경과 무관하게 작성자를 허용한다")
     void deletePost_privateBoard_allowsAuthor() {
         User boardOwner = User.builder().loginId("owner").build();
         ReflectionTestUtils.setField(boardOwner, "userId", 99L);
@@ -3471,7 +3471,7 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("비활성 게시판 - Super Admin 접근 가능")
+    @DisplayName("비활성 노드 - Super Admin 접근 가능")
     void getPostById_inactiveBoard_superAdmin() {
         ReflectionTestUtils.setField(board, "isActive", false);
         ReflectionTestUtils.setField(user, "isSuperAdmin", true);
@@ -3488,7 +3488,7 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("비활성 게시판 - Board Admin 접근 가능")
+    @DisplayName("비활성 노드 - Board Admin 접근 가능")
     void getPostById_inactiveBoard_boardAdmin() {
         ReflectionTestUtils.setField(board, "isActive", false);
         User otherUser = User.builder().loginId("admin").build();
@@ -3510,7 +3510,7 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("비활성 게시판 - 작성자 접근 가능")
+    @DisplayName("비활성 노드 - 작성자 접근 가능")
     void getPostById_inactiveBoard_author() {
         ReflectionTestUtils.setField(board, "isActive", false);
 

@@ -87,7 +87,7 @@ public class OpenApiConfig {
         List<Tag> tags = new ArrayList<>();
         tags.add(new Tag().name("인증").description("회원가입, 로그인, 토큰 갱신 등 인증 관련 API"));
         tags.add(new Tag().name("사용자").description("사용자 정보 조회 및 관리 API"));
-        tags.add(new Tag().name("게시판").description("게시판 조회 및 관리 API"));
+        tags.add(new Tag().name("노드").description("노드 조회 및 관리 API"));
         tags.add(new Tag().name("게시글").description("게시글 작성, 수정, 삭제, 조회 API"));
         tags.add(new Tag().name("댓글").description("댓글 작성, 수정, 삭제, 조회 API"));
         tags.add(new Tag().name("태그").description("태그 관련 API"));

@@ -15,11 +15,11 @@ const { data: boards, isLoading, error } = useBoards()
 const { t } = useI18n()
 
 useHead({
-  title: 'All Boards',
+  title: 'All Nodes',
   meta: [
-    { name: 'description', content: computed(() => `${t('common.appName')}에서 모든 게시판과 커뮤니티를 둘러보세요.`) },
+    { name: 'description', content: computed(() => `${t('common.appName')}에서 모든 노드와 커뮤니티를 둘러보세요.`) },
     { property: 'og:title', content: computed(() => `${t('board.list.title')} - ${t('common.appName')}`) },
-    { property: 'og:description', content: computed(() => `${t('common.appName')}에서 모든 게시판과 커뮤니티를 둘러보세요.`) }
+    { property: 'og:description', content: computed(() => `${t('common.appName')}에서 모든 노드와 커뮤니티를 둘러보세요.`) }
   ]
 })
 

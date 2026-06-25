@@ -128,7 +128,7 @@ class OperationalPrivilegeRevocationGuardTest {
     }
 
     @Test
-    @DisplayName("게시판의 마지막 활성 매니저는 단건 회수할 수 없다")
+    @DisplayName("노드의 마지막 활성 매니저는 단건 회수할 수 없다")
     void validateBoardAdminCanBeRevoked_lastActiveBoardAdmin_validationError() {
         when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
         when(adminRepository.countByBoardAndRoleAndIsActiveAndAdminIdNot(
@@ -141,7 +141,7 @@ class OperationalPrivilegeRevocationGuardTest {
     }
 
     @Test
-    @DisplayName("다른 활성 매니저가 있으면 게시판 매니저를 단건 회수할 수 있다")
+    @DisplayName("다른 활성 매니저가 있으면 노드 매니저를 단건 회수할 수 있다")
     void validateBoardAdminCanBeRevoked_otherActiveBoardAdminExists_success() {
         when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
         when(adminRepository.countByBoardAndRoleAndIsActiveAndAdminIdNot(
@@ -155,7 +155,7 @@ class OperationalPrivilegeRevocationGuardTest {
     }
 
     @Test
-    @DisplayName("일괄 권한 정리도 게시판별 남는 활성 매니저를 요구한다")
+    @DisplayName("일괄 권한 정리도 노드별 남는 활성 매니저를 요구한다")
     void validateOperationalPrivilegesCanBeRevoked_batchLastBoardAdmin_validationError() {
         when(boardRepository.findByBoardIdInForUpdate(List.of(10L))).thenReturn(List.of(board));
         when(adminRepository.countActiveAdminsByBoardIdsExcludingAdminIds(

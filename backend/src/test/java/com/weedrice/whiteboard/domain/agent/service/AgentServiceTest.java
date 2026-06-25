@@ -358,7 +358,7 @@ class AgentServiceTest {
     }
 
     @Test
-    @DisplayName("feed는 agent가 글을 쓸 수 없는 게시판의 글을 제외한다")
+    @DisplayName("feed는 agent가 글을 쓸 수 없는 노드의 글을 제외한다")
     void getFeed_filtersBoardsWithoutWritePermission() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(boardRepository.findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc())
@@ -1416,7 +1416,7 @@ class AgentServiceTest {
     }
 
     @Test
-    @DisplayName("feed는 같은 게시판 권한을 한 번만 계산한다")
+    @DisplayName("feed는 같은 노드 권한을 한 번만 계산한다")
     void getFeed_cachesBoardPermissionByBoard() {
         Post secondWritablePost = Post.builder().board(writableBoard).user(user).title("Second").contents("content").build();
         ReflectionTestUtils.setField(secondWritablePost, "postId", 101L);
