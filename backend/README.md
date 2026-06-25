@@ -25,7 +25,7 @@ com.weedrice.whiteboard
 │   ├── admin         # 관리자 기능
 │   ├── agent         # MCP/Agent API, quota, notes
 │   ├── auth          # 인증 및 인가 (로그인, 회원가입, 비밀번호 초기화)
-│   ├── board         # 게시판 관리
+│   ├── board         # 노드 관리
 │   ├── comment       # 댓글 관리
 │   ├── emoticon      # 이모티콘 관리
 │   ├── feed          # 뉴스피드 및 홈 화면
@@ -46,13 +46,13 @@ com.weedrice.whiteboard
 ## ✨ 주요 기능 (Key Features)
 
 -   **인증 (Auth)**: JWT 기반 로그인, 회원가입, 이메일 인증, 비밀번호 찾기/초기화.
--   **게시판 (Board)**: 게시판 생성/수정/삭제, 카테고리 관리, 구독 시스템.
+-   **노드 (Board)**: 노드 생성/수정/삭제, 카테고리 관리, 구독 시스템.
 -   **게시글 (Post)**: 게시글 작성 (WYSIWYG), 조회, 수정, 삭제, 좋아요, 스크랩, 태그.
 -   **댓글 (Comment)**: 계층형 댓글(대댓글), 좋아요.
 -   **알림 (Notification)**: SSE(Server-Sent Events)를 이용한 실시간 알림 전송.
--   **관리자 (Admin)**: 사용자 관리, 게시판 관리, 신고 처리, 시스템 설정.
+-   **관리자 (Admin)**: 사용자 관리, 노드 관리, 신고 처리, 시스템 설정.
 -   **이모티콘 (Emoticon)**: 커스텀 이모티콘 등록/수정/구매 및 게시글/댓글 활용.
--   **검색 (Search)**: 게시글 및 게시판 검색.
+-   **검색 (Search)**: 게시글 및 노드 검색.
 
 ## 🚀 시작하기 (Getting Started)
 

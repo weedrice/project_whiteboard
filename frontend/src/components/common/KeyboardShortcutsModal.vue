@@ -122,7 +122,7 @@ const shortcutGroups = computed(() => [
                 </div>
             </div>
 
-            <!-- 중앙 열: 게시판 목록 + 글쓰기/수정 -->
+            <!-- 중앙 열: 노드 목록 + 글쓰기/수정 -->
             <div class="space-y-6">
                 <div v-for="group in [shortcutGroups[2], shortcutGroups[4]]" :key="group.title">
                     <h3 class="text-sm font-semibold nv-title mb-3 flex items-center">

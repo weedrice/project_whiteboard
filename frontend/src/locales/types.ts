@@ -370,7 +370,7 @@ export interface AuthMessages {
   }
 }
 
-// 게시판 메시지 타입
+// 노드 메시지 타입
 export interface BoardMessages {
   list: {
     subscribed: string

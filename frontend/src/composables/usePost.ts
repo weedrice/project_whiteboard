@@ -26,7 +26,7 @@ export function usePost() {
         [key: string]: unknown
     }
 
-    // 모든 게시글 캐시(상세, 트렌딩, 게시판 목록)에서 특정 postId의 데이터를 업데이트
+    // 모든 게시글 캐시(상세, 트렌딩, 노드 목록)에서 특정 postId의 데이터를 업데이트
     function updatePostInAllCaches(postId: string | number, updater: (post: Partial<Post>) => Partial<Post>) {
         // 1. 게시글 상세 캐시
         queryClient.setQueriesData<Post>({ queryKey: postQueryKeys.detailPrefix(postId) }, (old) => {
@@ -53,7 +53,7 @@ export function usePost() {
             }
         )
 
-        // 3. 게시판별 게시글 목록 캐시
+        // 3. 노드별 게시글 목록 캐시
         queryClient.getQueriesData({ queryKey: postQueryKeys.boardPostsRoot }).forEach(([key]) => {
             queryClient.setQueryData(key, (old: InfiniteQueryData | PageQueryData | undefined) => {
                 if (!old) return old

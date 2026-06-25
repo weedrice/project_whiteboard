@@ -38,21 +38,21 @@ CREATE INDEX IF NOT EXISTS idx_comments_content_trgm
 
 - API: `GET /api/v1/search?q=...`
 - 서비스: `SearchService.integratedSearch`
-- 대상: 게시글, 댓글, 사용자, 게시판
+- 대상: 게시글, 댓글, 사용자, 노드
 - 게시글/댓글 조건: 삭제 제외, 공개/권한 필터, 비밀글 정책, 차단 관계 반영
 
 ### 게시글 검색
 
 - API: `GET /api/v1/search/posts`
 - 대상: 제목, 본문, 작성자
-- 게시판 범위 지정 시 `BoardAccessPolicy`를 먼저 적용한다.
+- 노드 범위 지정 시 `BoardAccessPolicy`를 먼저 적용한다.
 - 허용 정렬은 repository/service 정책을 따른다.
 
-### 게시판 내 목록 검색
+### 노드 내 목록 검색
 
 - API: `GET /api/v1/boards/{boardUrl}/posts?keyword=...`
 - 대상: 제목 또는 본문
-- 조건: 게시판, 카테고리, 최소 좋아요, 삭제 여부, 비밀글 정책, 차단 작성자 제외
+- 조건: 노드, 카테고리, 최소 좋아요, 삭제 여부, 비밀글 정책, 차단 작성자 제외
 
 ### Semantic Search
 
