@@ -50,7 +50,7 @@ const {
 
 // 페이지 제목 설정
 useHead({
-  title: computed(() => emoticonView.value?.name ? `${emoticonView.value.name} - 노비콘` : '노비콘')
+  title: computed(() => emoticonView.value?.name ? `${emoticonView.value.name} - ${t('emoticon.title')}` : t('emoticon.title'))
 })
 </script>
 
@@ -61,7 +61,7 @@ useHead({
       <button @click="goToList"
         class="inline-flex items-center text-sm nv-text-muted hover:text-[var(--nv-accent)] transition-colors">
         <ArrowLeft class="w-4 h-4 mr-1" />
-        목록으로
+        {{ t('emoticon.detail.backToList') }}
       </button>
     </div>
 
@@ -111,9 +111,9 @@ useHead({
 
     <!-- 에러 -->
     <div v-else-if="error" class="text-center py-20">
-      <p class="nv-form-error">이모티콘을 불러오는데 실패했습니다.</p>
+      <p class="nv-form-error">{{ t('emoticon.detail.loadFailed') }}</p>
       <BaseButton @click="goToList" variant="secondary" class="mt-4">
-        목록으로 돌아가기
+        {{ t('emoticon.detail.backToListFull') }}
       </BaseButton>
     </div>
 
@@ -152,7 +152,7 @@ useHead({
                 <button @click="goToEdit"
                   class="inline-flex items-center px-3 py-1.5 text-sm nv-status-info nv-hover-surface rounded-lg transition-colors">
                   <Pencil class="w-4 h-4 mr-1" />
-                  수정
+                  {{ t('common.edit') }}
                 </button>
               </div>
             </div>
@@ -160,15 +160,15 @@ useHead({
             <div class="space-y-2 text-sm">
               <div class="flex items-center nv-text-muted">
                 <User class="w-4 h-4 mr-2" />
-                <span>등록자: {{ emoticonView.creatorDisplayName }}</span>
+                <span>{{ t('emoticon.detail.creator') }}: {{ emoticonView.creatorDisplayName }}</span>
               </div>
               <div class="flex items-center nv-text-muted">
                 <Calendar class="w-4 h-4 mr-2" />
-                <span>등록일: {{ formatDateOnlyLongOrDash(emoticonView.createdAt) }}</span>
+                <span>{{ t('emoticon.detail.createdAt') }}: {{ formatDateOnlyLongOrDash(emoticonView.createdAt) }}</span>
               </div>
               <div class="flex items-center nv-accent-text">
                 <TrendingUp class="w-4 h-4 mr-2" />
-                <span>판매 수량: {{ emoticonView.purchaseCountText }}개</span>
+                <span>{{ t('emoticon.detail.purchaseCount') }}: {{ t('emoticon.list.itemCount', { count: emoticonView.purchaseCountText }) }}</span>
               </div>
             </div>
           </div>
@@ -178,7 +178,7 @@ useHead({
       <!-- 이모티콘 이미지 목록 -->
       <div class="nv-surface rounded-lg shadow-sm border nv-border p-6 mb-8">
         <h2 class="text-lg font-semibold nv-title mb-4">
-          이모티콘 목록 <span class="text-sm font-normal nv-text-subtle">({{ emoticonView.imageCount }}개)</span>
+          {{ t('emoticon.detail.imageList') }} <span class="text-sm font-normal nv-text-subtle">({{ t('emoticon.list.itemCount', { count: emoticonView.imageCount }) }})</span>
         </h2>
 
         <div v-if="emoticonView.imageItems.length > 0"
@@ -191,7 +191,7 @@ useHead({
           </div>
         </div>
         <div v-else class="text-center py-8 nv-text-subtle">
-          등록된 이미지가 없습니다.
+          {{ t('emoticon.detail.imageEmpty') }}
         </div>
       </div>
 
@@ -200,7 +200,7 @@ useHead({
         class="nv-surface rounded-lg shadow-sm border nv-border p-6 mb-8">
         <h2 class="text-lg font-semibold nv-title mb-4 flex items-center">
           <Tag class="w-4 h-4 mr-2" />
-          태그
+          {{ t('emoticon.detail.tags') }}
         </h2>
         <div class="flex flex-wrap gap-2">
           <span v-for="tag in emoticonView.tags" :key="tag"

@@ -91,7 +91,7 @@ const menuInstanceId = `user-menu-${getCurrentInstance()?.uid ?? props.userId}`
 const menuButtonId = `${menuInstanceId}-button`
 const menuDropdownId = `${menuInstanceId}-dropdown`
 
-const buttonLabel = computed(() => formatUserDisplayName(props.displayName, props.maxLabelLength))
+const buttonLabel = computed(() => formatUserDisplayName(props.displayName, props.maxLabelLength, t('user.deletedUser')))
 
 const buttonRef = ref<HTMLButtonElement | null>(null)
 const dropdownRef = ref<HTMLElement | null>(null)

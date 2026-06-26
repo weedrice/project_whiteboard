@@ -55,7 +55,8 @@ const {
   userSubscriptions,
 } = useAdminUserDetailTabs({
   isOpen: computed(() => props.isOpen),
-  userId: computed(() => props.userId)
+  userId: computed(() => props.userId),
+  t,
 })
 
 const statusVariant = computed(() => {
@@ -88,7 +89,7 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
 <template>
   <BaseModal :isOpen="isOpen" :title="t('admin.users.detail.title')" size="2xl" @close="$emit('close')">
     <div v-if="isDetailLoading" class="py-10 text-center text-sm nv-text-subtle">
-      로딩 중...
+      {{ t('common.loading') }}
     </div>
 
     <div v-else-if="userDetail" class="space-y-6">
@@ -107,8 +108,8 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
             <AdminStatusBadge :label="getRoleLabel(userDetail.role)" :variant="roleVariant" />
             <BooleanBadge
               :value="Boolean(userDetail.isEmailVerified)"
-              true-label="이메일 인증"
-              false-label="이메일 미인증"
+              :true-label="t('admin.users.detail.emailVerified')"
+              :false-label="t('admin.users.detail.emailNotVerified')"
             />
           </div>
         </div>
@@ -116,19 +117,19 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
 
       <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
         <div class="rounded-lg border nv-border p-3">
-          <div class="text-xs nv-text-subtle">작성 글</div>
+          <div class="text-xs nv-text-subtle">{{ t('admin.users.detail.writtenPosts') }}</div>
           <div class="mt-1 text-lg font-semibold nv-title">{{ formatInteger(userDetail.postCount) }}</div>
         </div>
         <div class="rounded-lg border nv-border p-3">
-          <div class="text-xs nv-text-subtle">작성 댓글</div>
+          <div class="text-xs nv-text-subtle">{{ t('admin.users.detail.writtenComments') }}</div>
           <div class="mt-1 text-lg font-semibold nv-title">{{ formatInteger(userDetail.commentCount) }}</div>
         </div>
         <div class="rounded-lg border nv-border p-3">
-          <div class="text-xs nv-text-subtle">구독 스페이스</div>
+          <div class="text-xs nv-text-subtle">{{ t('admin.users.detail.subscribedBoards') }}</div>
           <div class="mt-1 text-lg font-semibold nv-title">{{ formatInteger(userDetail.subscriptionCount) }}</div>
         </div>
         <div class="rounded-lg border nv-border p-3">
-          <div class="text-xs nv-text-subtle">신고/제재</div>
+          <div class="text-xs nv-text-subtle">{{ t('admin.users.detail.reportsAndSanctions') }}</div>
           <div class="mt-1 text-lg font-semibold nv-title">
             {{ userDetail.reportSummary?.pendingCount || 0 }} / {{ userDetail.sanctionSummary?.count || 0 }}
           </div>
@@ -138,18 +139,18 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div class="rounded-lg border nv-border p-3">
           <dl class="space-y-2">
-            <DescriptionItem label="가입일 / 최근 로그인" value-class="mt-2 space-y-0.5 text-sm nv-text">
-              <div>가입: {{ formatDate(userDetail.createdAt) }}</div>
-              <div>최근 로그인: {{ userDetail.lastLoginAt ? formatDate(userDetail.lastLoginAt) : '-' }}</div>
-              <div v-if="userDetail.deletedAt" class="text-[var(--nv-danger-text)]">탈퇴일: {{ formatDate(userDetail.deletedAt) }}</div>
+            <DescriptionItem :label="t('admin.users.detail.joinedAndRecentLogin')" value-class="mt-2 space-y-0.5 text-sm nv-text">
+              <div>{{ t('admin.users.detail.joined') }}: {{ formatDate(userDetail.createdAt) }}</div>
+              <div>{{ t('admin.users.detail.lastLoginAt') }}: {{ userDetail.lastLoginAt ? formatDate(userDetail.lastLoginAt) : '-' }}</div>
+              <div v-if="userDetail.deletedAt" class="text-[var(--nv-danger-text)]">{{ t('admin.users.detail.deletedAt') }}: {{ formatDate(userDetail.deletedAt) }}</div>
             </DescriptionItem>
           </dl>
         </div>
         <div class="rounded-lg border nv-border p-3">
           <dl class="space-y-2">
-            <DescriptionItem label="최근 접속" value-class="mt-2 space-y-0.5 text-sm nv-text">
+            <DescriptionItem :label="t('admin.users.detail.recentAccess')" value-class="mt-2 space-y-0.5 text-sm nv-text">
               <div>IP: {{ userDetail.recentLogin?.ipAddress || '-' }}</div>
-              <div>시간: {{ userDetail.recentLogin?.loggedAt ? formatDate(userDetail.recentLogin.loggedAt) : '-' }}</div>
+              <div>{{ t('admin.users.detail.accessTime') }}: {{ userDetail.recentLogin?.loggedAt ? formatDate(userDetail.recentLogin.loggedAt) : '-' }}</div>
               <div class="truncate nv-text-subtle">UA: {{ userDetail.recentLogin?.userAgent || '-' }}</div>
             </DescriptionItem>
           </dl>
@@ -158,14 +159,14 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
 
       <div>
         <div class="mb-3 flex items-center gap-2 border-b nv-border pb-2">
-          <BaseButton :variant="activeTab === 'posts' ? 'primary' : 'secondary'" size="sm" @click="activeTab = 'posts'">작성 글</BaseButton>
-          <BaseButton :variant="activeTab === 'comments' ? 'primary' : 'secondary'" size="sm" @click="activeTab = 'comments'">작성 댓글</BaseButton>
-          <BaseButton :variant="activeTab === 'subscriptions' ? 'primary' : 'secondary'" size="sm" @click="activeTab = 'subscriptions'">구독 스페이스</BaseButton>
+          <BaseButton :variant="activeTab === 'posts' ? 'primary' : 'secondary'" size="sm" @click="activeTab = 'posts'">{{ t('admin.users.detail.writtenPosts') }}</BaseButton>
+          <BaseButton :variant="activeTab === 'comments' ? 'primary' : 'secondary'" size="sm" @click="activeTab = 'comments'">{{ t('admin.users.detail.writtenComments') }}</BaseButton>
+          <BaseButton :variant="activeTab === 'subscriptions' ? 'primary' : 'secondary'" size="sm" @click="activeTab = 'subscriptions'">{{ t('admin.users.detail.subscribedBoards') }}</BaseButton>
         </div>
 
         <div v-if="activeTab === 'posts'" class="space-y-2">
-          <div v-if="isPostsLoading" class="py-6 text-center text-sm nv-text-subtle">로딩 중...</div>
-          <div v-else-if="!postItems.length" class="py-6 text-center text-sm nv-text-subtle">작성한 글이 없습니다.</div>
+          <div v-if="isPostsLoading" class="py-6 text-center text-sm nv-text-subtle">{{ t('common.loading') }}</div>
+          <div v-else-if="!postItems.length" class="py-6 text-center text-sm nv-text-subtle">{{ t('admin.users.detail.postsEmpty') }}</div>
           <div v-else class="max-h-72 space-y-2 overflow-y-auto pr-1">
             <div v-for="post in postItems" :key="post.postId" class="rounded-lg border nv-border p-3">
               <div class="truncate text-sm font-medium nv-title">{{ post.title }}</div>
@@ -193,8 +194,8 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
         </div>
 
         <div v-else-if="activeTab === 'comments'" class="space-y-2">
-          <div v-if="isCommentsLoading" class="py-6 text-center text-sm nv-text-subtle">로딩 중...</div>
-          <div v-else-if="!commentItems.length" class="py-6 text-center text-sm nv-text-subtle">작성한 댓글이 없습니다.</div>
+          <div v-if="isCommentsLoading" class="py-6 text-center text-sm nv-text-subtle">{{ t('common.loading') }}</div>
+          <div v-else-if="!commentItems.length" class="py-6 text-center text-sm nv-text-subtle">{{ t('admin.users.detail.commentsEmpty') }}</div>
           <div v-else class="max-h-72 space-y-2 overflow-y-auto pr-1">
             <div v-for="comment in commentItems" :key="comment.commentId" class="rounded-lg border nv-border p-3">
               <div class="mb-2 flex flex-wrap gap-1">
@@ -222,8 +223,8 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
         </div>
 
         <div v-else class="space-y-2">
-          <div v-if="isSubscriptionsLoading" class="py-6 text-center text-sm nv-text-subtle">로딩 중...</div>
-          <div v-else-if="!subscriptionItems.length" class="py-6 text-center text-sm nv-text-subtle">구독한 스페이스가 없습니다.</div>
+          <div v-if="isSubscriptionsLoading" class="py-6 text-center text-sm nv-text-subtle">{{ t('common.loading') }}</div>
+          <div v-else-if="!subscriptionItems.length" class="py-6 text-center text-sm nv-text-subtle">{{ t('admin.users.detail.subscriptionsEmpty') }}</div>
             <div v-else class="max-h-72 space-y-2 overflow-y-auto pr-1">
               <div v-for="board in subscriptionItems" :key="board.boardId" class="rounded-lg border nv-border p-3">
                 <div class="truncate text-sm font-medium nv-title">{{ board.boardName }}</div>
@@ -246,7 +247,7 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
     </div>
 
     <div v-else class="py-10 text-center text-sm nv-text-subtle">
-      사용자 정보를 불러올 수 없습니다.
+      {{ t('admin.users.detail.loadFailed') }}
     </div>
   </BaseModal>
 </template>

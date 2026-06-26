@@ -35,8 +35,8 @@ function handleMarkAllAsRead() {
 }
 
 function getNotificationSourceTypeLabel(sourceType: string) {
-  if (sourceType === 'POST') return '게시글'
-  if (sourceType === 'COMMENT') return '댓글'
+  if (sourceType === 'POST') return t('notification.sourceTypes.post')
+  if (sourceType === 'COMMENT') return t('notification.sourceTypes.comment')
   return sourceType
 }
 </script>

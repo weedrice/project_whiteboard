@@ -166,7 +166,7 @@ const shortcutGroups = computed(() => [
         <template #footer>
             <div class="flex justify-end items-center gap-4">
                 <span class="text-xs nv-text-subtle">
-                    Shift+/ 로 언제든지 열기
+                    {{ $t('layout.shortcuts.openAnytime') }}
                 </span>
                 <button @click="close"
                     class="px-4 py-2 text-sm font-medium nv-text nv-surface-muted nv-hover-surface rounded-md transition-colors">

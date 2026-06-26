@@ -22,7 +22,7 @@ const stats = computed(() => {
   return [
     { name: t('admin.dashboard.totalUsers'), stat: data.totalUsers || '0', icon: Users, change: '0%', changeType: 'increase', path: '/admin/users' },
     { name: t('admin.dashboard.pendingReports'), stat: data.pendingReports || '0', icon: FileText, change: '0%', changeType: 'decrease', path: '/admin/reports' },
-    { name: '24시간 활성 사용자', stat: data.activeUsers || '0', icon: Activity, change: '0%', changeType: 'increase', path: '/admin/users' },
+    { name: t('admin.dashboard.activeUsers24h'), stat: data.activeUsers || '0', icon: Activity, change: '0%', changeType: 'increase', path: '/admin/users' },
   ]
 })
 

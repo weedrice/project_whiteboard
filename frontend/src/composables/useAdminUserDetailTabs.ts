@@ -6,6 +6,7 @@ import type { AdminUserCommentItem, AdminUserPostItem, AdminUserSubscriptionItem
 
 export type AdminUserDetailTab = 'posts' | 'comments' | 'subscriptions'
 type AdminUserTabBadgeVariant = 'success' | 'danger' | 'warning' | 'gray'
+type Translate = (key: string, params?: Record<string, unknown>) => string
 
 interface AdminUserTabBadge {
     label: string
@@ -41,6 +42,7 @@ interface UseAdminUserDetailTabsOptions {
     isOpen: Ref<boolean>
     userId: Ref<number | null>
     tabSize?: number
+    t: Translate
 }
 
 interface PageNavigationState {
@@ -70,57 +72,57 @@ function getAgentBadgeLabel(item: { authorType: 'USER' | 'AGENT', agentName?: st
     return `Agent ${item.agentName || item.agentId}`
 }
 
-function getSubscriptionStateLabel(reason?: string | null) {
-    if (reason === 'INACTIVE') return '비활성'
-    if (reason === 'PRIVATE') return '비공개'
-    if (reason === 'RESTRICTED') return '접근 제한'
-    return '접근 가능'
+function getSubscriptionStateLabel(t: Translate, reason?: string | null) {
+    if (reason === 'INACTIVE') return t('admin.users.detailTabs.subscriptionInactive')
+    if (reason === 'PRIVATE') return t('admin.users.detailTabs.subscriptionPrivate')
+    if (reason === 'RESTRICTED') return t('admin.users.detailTabs.subscriptionRestricted')
+    return t('admin.users.detailTabs.subscriptionAccessible')
 }
 
-function toPostBadges(post: AdminUserPostItem): AdminUserTabBadge[] {
+function toPostBadges(post: AdminUserPostItem, t: Translate): AdminUserTabBadge[] {
     const badges: AdminUserTabBadge[] = [{
-        label: post.deleted ? '삭제됨' : '노출중',
+        label: post.deleted ? t('common.deleted') : t('admin.users.detailTabs.visible'),
         variant: post.deleted ? 'danger' : 'gray'
     }]
     const agentBadgeLabel = getAgentBadgeLabel(post)
 
-    if (post.notice) badges.push({ label: '공지', variant: 'warning' })
-    if (post.secret) badges.push({ label: '비밀글', variant: 'warning' })
+    if (post.notice) badges.push({ label: t('admin.users.detailTabs.notice'), variant: 'warning' })
+    if (post.secret) badges.push({ label: t('admin.users.detailTabs.secret'), variant: 'warning' })
     if (post.nsfw) badges.push({ label: 'NSFW', variant: 'danger' })
-    if (post.spoiler) badges.push({ label: '스포일러', variant: 'gray' })
+    if (post.spoiler) badges.push({ label: t('admin.users.detailTabs.spoiler'), variant: 'gray' })
     if (agentBadgeLabel) badges.push({ label: agentBadgeLabel, variant: 'gray' })
 
     return badges
 }
 
-function toCommentBadges(comment: AdminUserCommentItem): AdminUserTabBadge[] {
+function toCommentBadges(comment: AdminUserCommentItem, t: Translate): AdminUserTabBadge[] {
     const badges: AdminUserTabBadge[] = [{
-        label: comment.deleted ? '삭제됨' : '노출중',
+        label: comment.deleted ? t('common.deleted') : t('admin.users.detailTabs.visible'),
         variant: comment.deleted ? 'danger' : 'gray'
     }]
     const agentBadgeLabel = getAgentBadgeLabel(comment)
 
-    if (comment.parentId) badges.push({ label: '답글', variant: 'gray' })
-    if (comment.post.deleted) badges.push({ label: '원문 삭제', variant: 'warning' })
-    if (!comment.post.boardActive) badges.push({ label: '스페이스 비활성', variant: 'warning' })
-    if (!comment.post.boardPublic) badges.push({ label: '비공개 스페이스', variant: 'gray' })
+    if (comment.parentId) badges.push({ label: t('admin.users.detailTabs.reply'), variant: 'gray' })
+    if (comment.post.deleted) badges.push({ label: t('admin.users.detailTabs.sourceDeleted'), variant: 'warning' })
+    if (!comment.post.boardActive) badges.push({ label: t('admin.users.detailTabs.boardInactive'), variant: 'warning' })
+    if (!comment.post.boardPublic) badges.push({ label: t('admin.users.detailTabs.boardPrivate'), variant: 'gray' })
     if (agentBadgeLabel) badges.push({ label: agentBadgeLabel, variant: 'gray' })
 
     return badges
 }
 
-function toSubscriptionBadges(board: AdminUserSubscriptionItem): AdminUserTabBadge[] {
+function toSubscriptionBadges(board: AdminUserSubscriptionItem, t: Translate): AdminUserTabBadge[] {
     return [
         {
-            label: getSubscriptionStateLabel(board.inaccessibleReason),
+            label: getSubscriptionStateLabel(t, board.inaccessibleReason),
             variant: board.subscriptionAccessible ? 'success' : 'warning'
         },
         {
-            label: board.boardActive ? '활성' : '비활성',
+            label: board.boardActive ? t('admin.users.detailTabs.boardActive') : t('admin.users.detailTabs.boardInactiveShort'),
             variant: board.boardActive ? 'success' : 'warning'
         },
         {
-            label: board.boardPublic ? '공개' : '비공개',
+            label: board.boardPublic ? t('admin.users.detailTabs.boardPublic') : t('admin.users.detailTabs.boardPrivateShort'),
             variant: board.boardPublic ? 'gray' : 'warning'
         },
         {
@@ -130,41 +132,46 @@ function toSubscriptionBadges(board: AdminUserSubscriptionItem): AdminUserTabBad
     ]
 }
 
-function toPostViewItem(post: AdminUserPostItem): AdminUserPostViewItem {
+function toPostViewItem(post: AdminUserPostItem, t: Translate): AdminUserPostViewItem {
     return {
         postId: post.postId,
         title: post.title,
-        badges: toPostBadges(post),
+        badges: toPostBadges(post, t),
         metaText: `${post.boardName} · /${post.boardUrl} · ${formatDate(post.createdAt)}`,
-        categoryText: post.categoryName ? `카테고리: ${post.categoryName}` : '',
-        statsText: `조회 ${formatInteger(post.viewCount)} · 추천 ${formatInteger(post.likeCount)} · 댓글 ${formatInteger(post.commentCount)}`
+        categoryText: post.categoryName ? t('admin.users.detailTabs.category', { name: post.categoryName }) : '',
+        statsText: t('admin.users.detailTabs.postStats', {
+            views: formatInteger(post.viewCount),
+            likes: formatInteger(post.likeCount),
+            comments: formatInteger(post.commentCount)
+        })
     }
 }
 
-function toCommentViewItem(comment: AdminUserCommentItem): AdminUserCommentViewItem {
+function toCommentViewItem(comment: AdminUserCommentItem, t: Translate): AdminUserCommentViewItem {
     return {
         commentId: comment.commentId,
         content: comment.content,
-        badges: toCommentBadges(comment),
+        badges: toCommentBadges(comment, t),
         metaText: `${comment.post.title} · /${comment.post.boardUrl} · ${formatDate(comment.createdAt)}`,
-        statsText: `좋아요 ${formatInteger(comment.likeCount)} · depth ${comment.depth}`
+        statsText: t('admin.users.detailTabs.commentStats', { likes: formatInteger(comment.likeCount), depth: comment.depth })
     }
 }
 
-function toSubscriptionViewItem(board: AdminUserSubscriptionItem): AdminUserSubscriptionViewItem {
+function toSubscriptionViewItem(board: AdminUserSubscriptionItem, t: Translate): AdminUserSubscriptionViewItem {
     return {
         boardId: board.boardId,
         boardName: board.boardName,
-        badges: toSubscriptionBadges(board),
+        badges: toSubscriptionBadges(board, t),
         boardPath: `/${board.boardUrl}`,
-        sortOrderText: `정렬 순서 ${board.sortOrder ?? '-'}`
+        sortOrderText: t('admin.users.detailTabs.sortOrder', { order: board.sortOrder ?? '-' })
     }
 }
 
 export function useAdminUserDetailTabs({
     isOpen,
     userId,
-    tabSize = 10
+    tabSize = 10,
+    t
 }: UseAdminUserDetailTabsOptions) {
     const { useAdminUserPosts, useAdminUserComments, useAdminUserSubscriptions } = useAdmin()
 
@@ -194,9 +201,9 @@ export function useAdminUserDetailTabs({
         activeSubscriptionsUserId,
         subscriptionsParams
     )
-    const postItems = computed(() => userPosts.value?.content.map(toPostViewItem) ?? [])
-    const commentItems = computed(() => userComments.value?.content.map(toCommentViewItem) ?? [])
-    const subscriptionItems = computed(() => userSubscriptions.value?.content.map(toSubscriptionViewItem) ?? [])
+    const postItems = computed(() => userPosts.value?.content.map((post) => toPostViewItem(post, t)) ?? [])
+    const commentItems = computed(() => userComments.value?.content.map((comment) => toCommentViewItem(comment, t)) ?? [])
+    const subscriptionItems = computed(() => userSubscriptions.value?.content.map((board) => toSubscriptionViewItem(board, t)) ?? [])
 
     watch(isOpen, (open) => {
         if (!open) return

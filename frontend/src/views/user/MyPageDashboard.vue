@@ -59,7 +59,7 @@ const {
   handleMyCommentsPageChange,
   getAgentStatusLabel,
   loadDashboard
-} = useMyPageDashboardResource()
+} = useMyPageDashboardResource(t)
 
 const {
   isInquiryDetailOpen,

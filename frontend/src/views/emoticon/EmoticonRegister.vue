@@ -21,7 +21,7 @@ const toastStore = useToastStore()
 const { selectThumbnailImage, selectEmoticonImages } = useEmoticonImageSelection(t, toastStore)
 
 useHead({
-  title: '노비콘 등록'
+  title: computed(() => t('emoticon.register.title'))
 })
 
 const emoticonName = ref('')
@@ -86,15 +86,15 @@ const goToList = () => {
     <!-- 페이지 제목과 목록으로 버튼 -->
     <div class="mb-8 flex items-start justify-between">
       <div>
-        <h1 class="text-2xl font-bold nv-title">노비콘 등록</h1>
-        <p class="mt-1 text-sm nv-text-subtle">나만의 노비콘을 등록해보세요!</p>
+        <h1 class="text-2xl font-bold nv-title">{{ t('emoticon.register.title') }}</h1>
+        <p class="mt-1 text-sm nv-text-subtle">{{ t('emoticon.register.description') }}</p>
       </div>
       <button
         @click="goToList"
         class="inline-flex items-center text-sm nv-text-muted hover:text-[var(--nv-accent)] transition-colors"
       >
         <ArrowLeft class="w-4 h-4 mr-1" />
-        목록으로
+        {{ t('emoticon.detail.backToList') }}
       </button>
     </div>
 
@@ -105,9 +105,9 @@ const goToList = () => {
           <!-- 썸네일 업로드 -->
           <div class="order-2 md:order-1 shrink-0">
             <label for="emoticon-register-thumbnail-input" class="block text-sm font-medium nv-text-muted mb-2">
-              썸네일 이미지 <span class="nv-form-error">*</span>
+              {{ t('emoticon.form.thumbnailImage') }} <span class="nv-form-error">*</span>
             </label>
-            <p class="text-xs nv-text-subtle mb-4">대표 이미지로 노비콘 목록에 표시됩니다. 500x500px 이하의 이미지만 업로드 가능합니다.</p>
+            <p class="text-xs nv-text-subtle mb-4">{{ t('emoticon.form.thumbnailHelp') }}</p>
             <input
               id="emoticon-register-thumbnail-input"
               ref="thumbnailInput"
@@ -121,7 +121,7 @@ const goToList = () => {
             <div v-if="thumbnailPreview" class="relative inline-block">
               <img
                 :src="thumbnailPreview"
-                alt="썸네일 미리보기"
+                :alt="t('emoticon.form.thumbnailPreview')"
                 class="w-32 h-32 object-contain nv-surface-muted rounded-lg"
               />
               <button
@@ -141,7 +141,7 @@ const goToList = () => {
                 class="w-32 h-32 border-2 border-dashed nv-border rounded-lg flex flex-col items-center justify-center nv-text-subtle hover:border-[var(--nv-focus)] hover:text-[var(--nv-accent)] transition-colors"
               >
                 <Upload class="w-8 h-8 mb-2" />
-                <span class="text-xs">이미지 선택</span>
+                <span class="text-xs">{{ t('emoticon.form.chooseImage') }}</span>
               </button>
             </div>
           </div>
@@ -149,7 +149,7 @@ const goToList = () => {
           <!-- 이모티콘 이름 -->
           <div class="order-1 md:order-2 flex-1">
             <label for="emoticon-register-name-input" class="block text-sm font-medium nv-text-muted mb-2">
-              이모티콘 이름 <span class="nv-form-error">*</span>
+              {{ t('emoticon.form.name') }} <span class="nv-form-error">*</span>
             </label>
             <input
               id="emoticon-register-name-input"
@@ -158,7 +158,7 @@ const goToList = () => {
               name="emoticonName"
               autocomplete="off"
               maxlength="100"
-              placeholder="이모티콘 이름을 입력하세요"
+              :placeholder="t('emoticon.form.namePlaceholder')"
               class="w-full px-4 py-2 border nv-border rounded-lg nv-surface nv-title placeholder:text-[var(--nv-text-subtle)] focus:ring-2 focus:ring-[var(--nv-focus)] focus:border-transparent"
             />
           </div>
@@ -168,11 +168,11 @@ const goToList = () => {
       <!-- 이모티콘 이미지 업로드 -->
       <div class="nv-surface rounded-lg shadow-sm border nv-border p-6">
         <label for="emoticon-register-image-input" class="block text-sm font-medium nv-text-muted mb-2">
-          이모티콘 이미지 <span class="nv-form-error">*</span>
-          <span class="text-xs font-normal nv-text-subtle ml-2">({{ emoticonPreviews.length }}/100개)</span>
+          {{ t('emoticon.form.image') }} <span class="nv-form-error">*</span>
+          <span class="text-xs font-normal nv-text-subtle ml-2">({{ t('emoticon.form.count', { current: emoticonPreviews.length, total: 100 }) }})</span>
         </label>
         <p class="text-xs nv-text-subtle mb-4">
-          최대 100개까지 업로드 가능합니다. 500x500px 이하의 이미지만 업로드 가능하며, 100px 초과 시 자동으로 리사이징됩니다.
+          {{ t('emoticon.form.imageHelp') }}
         </p>
 
         <!-- 이미지 그리드 -->
@@ -181,7 +181,7 @@ const goToList = () => {
             v-for="(item, index) in emoticonPreviews"
             :key="item.clientId"
             :src="item.preview"
-            :alt="`이모티콘 ${index + 1}`"
+            :alt="t('emoticon.form.imageAlt', { index: index + 1 })"
             :action-label="$t('common.delete')"
             :action-title="$t('common.delete')"
             action="delete"
@@ -230,8 +230,8 @@ const goToList = () => {
         :is-submitting="isSubmitting"
         :is-form-valid="isFormValid"
         :upload-progress="uploadProgress"
-        submit-text="등록하기"
-        submitting-text="등록 중..."
+        :submit-text="t('emoticon.form.createSubmit')"
+        :submitting-text="t('emoticon.form.creatingSubmit')"
       />
     </form>
   </div>

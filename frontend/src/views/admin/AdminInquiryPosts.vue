@@ -80,7 +80,7 @@ function handleRowClick(post: AdminInquiryListItem) {
       :empty-text="t('admin.inquiries.empty')"
       :row-class="getRowClass"
       interactive-rows
-      :row-action-label="(item) => `${item.title} 상세 보기`"
+      :row-action-label="(item) => t('admin.common.rowDetailAria', { name: item.title })"
       :page="page"
       :total-pages="totalPages"
       :summary="t('admin.inquiries.total', { count: totalElements })"

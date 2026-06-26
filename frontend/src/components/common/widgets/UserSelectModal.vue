@@ -2,7 +2,7 @@
   <BaseModal
     :isOpen="isOpen"
     size="2xl"
-    :title="title"
+    :title="modalTitle"
     @close="emit('close')"
   >
     <div class="p-4 space-y-4">
@@ -23,10 +23,10 @@
       <div class="rounded-xl border nv-border overflow-hidden">
         <div class="flex items-center justify-between border-b nv-border nv-surface-muted px-3 py-2">
           <p class="text-xs font-medium nv-text-muted">
-            {{ isMultiMode ? '멀티 선택 모드' : '단일 선택 모드' }}
+            {{ isMultiMode ? $t('user.selectModal.multiMode') : $t('user.selectModal.singleMode') }}
           </p>
           <p class="text-xs nv-text-subtle">
-            {{ selectedUsers.length > 0 ? `선택 ${selectedUsers.length}명` : '선택된 사용자 없음' }}
+            {{ selectedUsers.length > 0 ? $t('user.selectModal.selectedCount', { count: selectedUsers.length }) : $t('user.selectModal.selectedEmpty') }}
           </p>
         </div>
 
@@ -66,7 +66,7 @@
                 v-if="item.currentManager"
                 class="rounded nv-status-info px-1.5 py-0.5 text-[11px] font-medium"
               >
-                current
+                {{ $t('user.selectModal.currentManager') }}
               </span>
             </span>
           </template>
@@ -83,6 +83,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Search, Check } from 'lucide-vue-next'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
@@ -105,13 +106,14 @@ const props = withDefaults(defineProps<{
   initialSelectedIds?: number[]
   excludeUserIds?: number[]
 }>(), {
-  title: '사용자 선택',
   selectionMode: 'single',
   source: 'admin',
   boardUrl: '',
   initialSelectedIds: () => [],
   excludeUserIds: () => []
 })
+const { t } = useI18n()
+const modalTitle = computed(() => props.title ?? t('user.selectModal.title'))
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -150,7 +152,7 @@ function getUserRowClass(user: SelectableUser) {
 }
 
 function getUserRowActionLabel(user: SelectableUser) {
-  return `${user.displayName} 선택`
+  return t('user.selectModal.selectUser', { name: user.displayName })
 }
 
 function toggleSelection(user: SelectableUser) {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useSlots } from 'vue'
+import { useI18n } from 'vue-i18n'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import { formatInteger } from '@/utils/numberFormat'
 
@@ -14,8 +15,8 @@ withDefaults(defineProps<{
   totalElements: undefined,
   loading: false,
   summary: '',
-  loadingText: '로딩 중...',
 })
+const { t } = useI18n()
 
 const emit = defineEmits<{
   'page-change': [page: number]
@@ -31,8 +32,8 @@ const slots = useSlots()
   >
     <div class="nv-text-muted">
       <div v-if="summary">{{ summary }}</div>
-      <div v-else-if="totalElements !== undefined">총 {{ formatInteger(totalElements) }}건</div>
-      <p v-if="loading" class="mt-1 text-xs nv-text-subtle">{{ loadingText }}</p>
+      <div v-else-if="totalElements !== undefined">{{ t('common.paginationSummary.total', { count: formatInteger(totalElements), unit: t('common.paginationSummary.itemUnit') }) }}</div>
+      <p v-if="loading" class="mt-1 text-xs nv-text-subtle">{{ loadingText ?? t('common.loading') }}</p>
       <slot name="description" />
     </div>
 

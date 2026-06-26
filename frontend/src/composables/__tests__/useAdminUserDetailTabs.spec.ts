@@ -101,6 +101,27 @@ vi.mock('@/composables/useAdmin', () => ({
     })
 }))
 
+const t = (key: string, params?: Record<string, unknown>) => {
+    const messages: Record<string, string> = {
+        'common.deleted': '삭제됨',
+        'admin.users.detailTabs.visible': '노출중',
+        'admin.users.detailTabs.notice': '공지',
+        'admin.users.detailTabs.spoiler': '스포일러',
+        'admin.users.detailTabs.reply': '답글',
+        'admin.users.detailTabs.sourceDeleted': '원문 삭제',
+        'admin.users.detailTabs.boardInactive': '스페이스 비활성',
+        'admin.users.detailTabs.boardPrivate': '비공개 스페이스',
+        'admin.users.detailTabs.subscriptionInactive': '비활성',
+        'admin.users.detailTabs.boardInactiveShort': '비활성',
+        'admin.users.detailTabs.boardPrivateShort': '비공개',
+    }
+    if (key === 'admin.users.detailTabs.category') return `카테고리: ${params?.name}`
+    if (key === 'admin.users.detailTabs.postStats') return `조회 ${params?.views} · 추천 ${params?.likes} · 댓글 ${params?.comments}`
+    if (key === 'admin.users.detailTabs.commentStats') return `좋아요 ${params?.likes} · depth ${params?.depth}`
+    if (key === 'admin.users.detailTabs.sortOrder') return `정렬 순서 ${params?.order}`
+    return messages[key] ?? key
+}
+
 describe('useAdminUserDetailTabs', () => {
     beforeEach(() => {
         captured.postsUserId = null
@@ -114,7 +135,7 @@ describe('useAdminUserDetailTabs', () => {
     it('passes the user id only to the active tab query', async () => {
         const isOpen = ref(true)
         const userId = ref<number | null>(7)
-        const tabs = useAdminUserDetailTabs({ isOpen, userId })
+        const tabs = useAdminUserDetailTabs({ isOpen, userId, t })
 
         expect(captured.postsUserId?.value).toBe(7)
         expect(captured.commentsUserId?.value).toBeNull()
@@ -138,7 +159,7 @@ describe('useAdminUserDetailTabs', () => {
     it('resets the active tab and page params when the modal opens', async () => {
         const isOpen = ref(true)
         const userId = ref<number | null>(7)
-        const tabs = useAdminUserDetailTabs({ isOpen, userId })
+        const tabs = useAdminUserDetailTabs({ isOpen, userId, t })
 
         tabs.activeTab.value = 'comments'
         tabs.nextPostsPage()
@@ -164,7 +185,7 @@ describe('useAdminUserDetailTabs', () => {
     it('maps raw admin tab DTOs to view-model items', () => {
         const isOpen = ref(true)
         const userId = ref<number | null>(7)
-        const tabs = useAdminUserDetailTabs({ isOpen, userId })
+        const tabs = useAdminUserDetailTabs({ isOpen, userId, t })
 
         expect(tabs.postItems.value[0]).toMatchObject({
             postId: 1,

@@ -13,7 +13,7 @@ import { useLatestAsyncTask } from '@/composables/useLatestAsyncTask'
 const postFormRef = ref<InstanceType<typeof PostForm> | null>(null)
 const { t } = useI18n()
 const router = useRouter()
-const leaveConfirmMessage = '페이지에서 나가시겠습니까? 변경사항이 저장되지 않을 수 있습니다.'
+const leaveConfirmMessage = t('board.inquiryWrite.leaveConfirm')
 const hasPreparedBoard = ref(false)
 
 const inquiryBoardUrl = computed(() => {
@@ -61,17 +61,17 @@ onUnmounted(() => {
   <div class="space-y-4">
     <section class="rounded-lg nv-status-info px-4 py-3">
       <h1 class="text-base font-semibold">
-        운영진에게 문의하기
+        {{ t('board.inquiryWrite.title') }}
       </h1>
       <p class="mt-1 text-sm">
-        문의 글은 운영진이 확인합니다. 필요한 내용을 상세히 작성해 주세요.
+        {{ t('board.inquiryWrite.description') }}
       </p>
     </section>
 
     <div v-if="isPreparingBoard" class="rounded-lg border nv-border nv-surface p-6">
       <div class="flex items-center gap-3 text-sm nv-text-muted">
         <BaseSpinner size="sm" />
-        <span>문의 스페이스를 준비하고 있습니다.</span>
+        <span>{{ t('board.inquiryWrite.preparing') }}</span>
       </div>
     </div>
 
@@ -80,7 +80,7 @@ onUnmounted(() => {
       class="rounded-lg nv-status-danger px-4 py-3 text-sm"
     >
       <p>{{ prepareError }}</p>
-      <button type="button" class="mt-2 underline" @click="ensureInquiryBoard">다시 시도</button>
+      <button type="button" class="mt-2 underline" @click="ensureInquiryBoard">{{ t('common.error.retry') }}</button>
     </div>
 
     <PostForm
@@ -89,8 +89,8 @@ onUnmounted(() => {
       mode="create"
       :board-url="inquiryBoardUrl"
       :on-submitted="handleSubmitted"
-      create-title-override="문의 작성"
-      create-success-toast-message="문의가 성공적으로 등록되었습니다."
+      :create-title-override="t('board.inquiryWrite.createTitle')"
+      :create-success-toast-message="t('board.inquiryWrite.createSuccess')"
       :hide-category="true"
       :hide-tags="true"
       :hide-notice="true"

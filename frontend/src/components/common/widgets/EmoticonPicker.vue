@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted, watch } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
+import { useI18n } from 'vue-i18n'
 import { emoticonApi } from '@/api/emoticon'
 import type { EmoticonMaster, EmoticonImage } from '@/types/emoticon'
 import { X, ArrowLeft, Search, Smile } from 'lucide-vue-next'
@@ -18,13 +19,14 @@ const emit = defineEmits<{
   (e: 'select', image: EmoticonImage): void
   (e: 'close'): void
 }>()
+const { t } = useI18n()
 
 const selectedEmoticon = ref<EmoticonMaster | null>(null)
 const selectedEmoticonId = ref<number | null>(null)
 const selectedEmoticonSource = ref<EmoticonMaster | null>(null)
 const searchKeyword = ref('')
 const detailTask = useLatestAsyncTask<string>({
-  getErrorValue: () => '노비콘 정보를 불러오지 못했습니다.',
+  getErrorValue: () => t('emoticon.picker.detailLoadFailed'),
   onError: (error) => {
     logger.error('Failed to load emoticon detail:', error)
   },
@@ -60,7 +62,7 @@ const {
   },
   enabled: () => props.show
 })
-const listErrorMessage = '노비콘 목록을 불러오지 못했습니다.'
+const listErrorMessage = computed(() => t('emoticon.picker.listLoadFailed'))
 
 // 검색 필터링
 const filteredEmoticons = computed(() => {
@@ -147,13 +149,13 @@ onUnmounted(() => {
   >
     <!-- 헤더 -->
     <div class="picker-header">
-      <button v-if="selectedEmoticonId" type="button" aria-label="이모티콘 목록으로 돌아가기" @click="goBack" class="back-btn">
+      <button v-if="selectedEmoticonId" type="button" :aria-label="t('emoticon.picker.backToListAria')" @click="goBack" class="back-btn">
         <ArrowLeft class="w-4 h-4" />
       </button>
       <span id="emoticon-picker-title" class="header-title">
-        {{ selectedEmoticon?.name || '노비콘' }}
+        {{ selectedEmoticon?.name || t('emoticon.title') }}
       </span>
-      <button type="button" aria-label="이모티콘 선택기 닫기" @click="close" class="close-btn">
+      <button type="button" :aria-label="t('emoticon.picker.closeAria')" @click="close" class="close-btn">
         <X class="w-4 h-4" />
       </button>
     </div>
@@ -174,7 +176,7 @@ onUnmounted(() => {
             v-for="image in selectedImages"
             :key="image.imageId"
             type="button"
-            :aria-label="`${selectedEmoticon.name} 이미지 선택`"
+            :aria-label="t('emoticon.picker.imageSelectAria', { name: selectedEmoticon.name })"
             @click="handleImageClick(image)"
             class="image-btn"
           >
@@ -184,8 +186,8 @@ onUnmounted(() => {
         <div v-else-if="detailError" class="error-state">
           <p>{{ detailError }}</p>
           <div class="error-actions">
-            <button type="button" class="retry-btn" @click="retryDetailLoad">다시 시도</button>
-            <button type="button" class="retry-btn secondary" @click="goBack">목록으로</button>
+            <button type="button" class="retry-btn" @click="retryDetailLoad">{{ t('common.error.retry') }}</button>
+            <button type="button" class="retry-btn secondary" @click="goBack">{{ t('emoticon.detail.backToList') }}</button>
           </div>
         </div>
       </template>
@@ -196,7 +198,7 @@ onUnmounted(() => {
         <div class="search-area">
           <div class="relative">
             <Search class="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 nv-text-subtle" />
-            <input v-model="searchKeyword" type="text" aria-label="노비콘 검색" placeholder="검색..." class="search-input" />
+            <input v-model="searchKeyword" type="text" :aria-label="t('emoticon.picker.searchAria')" :placeholder="t('search.placeholder')" class="search-input" />
           </div>
         </div>
 
@@ -209,14 +211,14 @@ onUnmounted(() => {
 
         <div v-else-if="isListError" class="error-state">
           <p>{{ listErrorMessage }}</p>
-          <button type="button" class="retry-btn" @click="retryListLoad">다시 시도</button>
+          <button type="button" class="retry-btn" @click="retryListLoad">{{ t('common.error.retry') }}</button>
         </div>
 
         <!-- 빈 상태 -->
         <div v-else-if="!filteredEmoticons?.length" class="empty-state">
           <Smile class="w-8 h-8 nv-text-subtle mb-2" />
-          <p v-if="accessibleEmoticons?.length === 0">사용 가능한 노비콘이 없습니다</p>
-          <p v-else>검색 결과가 없습니다</p>
+          <p v-if="accessibleEmoticons?.length === 0">{{ t('emoticon.picker.availableEmpty') }}</p>
+          <p v-else>{{ t('common.messages.noResults') }}</p>
         </div>
 
         <!-- 이모티콘 목록 -->

@@ -50,7 +50,7 @@ const columns = computed(() => [
           <AdminActionButton :label="t('common.viewDetail')" tone="accent" icon-only @click="$emit('viewDetail', item)">
             <Eye class="h-4 w-4" />
           </AdminActionButton>
-          <AdminActionButton label="차단 해제" tone="danger" icon-only @click="onUnblock(item.ipAddress)">
+          <AdminActionButton :label="t('admin.security.actions.unblock')" tone="danger" icon-only @click="onUnblock(item.ipAddress)">
             <Trash2 class="h-4 w-4" />
           </AdminActionButton>
         </AdminTableActions>

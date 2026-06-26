@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 
 defineProps<{
@@ -11,12 +12,13 @@ defineProps<{
   submitText: string
   submittingText: string
 }>()
+const { t } = useI18n()
 </script>
 
 <template>
   <div class="flex flex-col items-end gap-2">
     <div v-if="isSubmitting && uploadProgress.total > 0" class="text-sm nv-text-muted">
-      이미지 업로드 중... ({{ uploadProgress.current }}/{{ uploadProgress.total }})
+      {{ t('emoticon.upload.progress', { current: uploadProgress.current, total: uploadProgress.total }) }}
     </div>
     <div class="flex gap-3">
       <slot name="before-submit" />

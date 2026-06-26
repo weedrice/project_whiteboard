@@ -2,7 +2,7 @@
   <div class="mt-6 grid grid-cols-3 gap-3">
     <a
       href="/oauth2/authorization/google"
-      aria-label="Google 로그인"
+      :aria-label="$t('auth.oauth.googleLogin')"
       class="flex items-center justify-center rounded-md border px-4 py-2 shadow-sm nv-border nv-surface transition-colors duration-200 nv-hover-surface"
     >
       <span class="sr-only">Google</span>
@@ -17,7 +17,7 @@
     </a>
     <a
       href="/oauth2/authorization/discord"
-      aria-label="Discord 로그인"
+      :aria-label="$t('auth.oauth.discordLogin')"
       class="flex items-center justify-center rounded-md border px-4 py-2 shadow-sm nv-border nv-surface transition-colors duration-200 nv-hover-surface"
     >
       <span class="sr-only">Discord</span>
@@ -27,7 +27,7 @@
     </a>
     <a
       href="/oauth2/authorization/github"
-      aria-label="GitHub 로그인"
+      :aria-label="$t('auth.oauth.githubLogin')"
       class="flex items-center justify-center rounded-md border px-4 py-2 shadow-sm nv-border nv-surface transition-colors duration-200 nv-hover-surface"
     >
       <span class="sr-only">GitHub</span>

@@ -73,16 +73,9 @@ function getSearchInput(): HTMLInputElement | null {
         }
     }
 
-    const searchSelectors = [
-        'input[placeholder*="search" i]',
-        'input[placeholder*="검색" i]',
-    ]
-
-    for (const selector of searchSelectors) {
-        const searchInput = document.querySelector(selector) as HTMLInputElement | null
-        if (searchInput) {
-            return searchInput
-        }
+    const globalSearchInput = document.getElementById('global-search-input') as HTMLInputElement | null
+    if (globalSearchInput) {
+        return globalSearchInput
     }
 
     return null
@@ -107,7 +100,7 @@ useHead({
     meta: [
         {
             name: 'description',
-            content: computed(() => `${t('common.appName')} - 다양한 주제의 스페이스에서 인기 게시글을 발견하고, 의견을 나누는 커뮤니티. 지금 가입하고 관심 스페이스를 구독하세요.`)
+            content: computed(() => t('common.seo.description'))
         },
         { property: 'og:site_name', content: computed(() => t('common.appName')) },
         { property: 'og:type', content: 'website' },
@@ -189,7 +182,7 @@ onMounted(() => {
                 searchInput.select()
             }
         },
-        description: 'Focus search bar'
+        description: t('layout.shortcuts.focusSearch')
     })
 })
 

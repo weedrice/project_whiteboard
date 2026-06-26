@@ -1,6 +1,7 @@
 import type { UserMessages } from './types'
 
 export const user: UserMessages = {
+  deletedUser: '탈퇴한 사용자',
   myPosts: '내 글 목록',
   myComments: '내 댓글 목록',
   scraps: '스크랩 목록',
@@ -63,6 +64,22 @@ export const user: UserMessages = {
   blockList: {
     title: '차단 사용자 목록',
     empty: '차단된 사용자가 없습니다.',
+  },
+  selectModal: {
+    title: '사용자 선택',
+    multiMode: '멀티 선택 모드',
+    singleMode: '단일 선택 모드',
+    selectedCount: '선택 {count}명',
+    selectedEmpty: '선택된 사용자 없음',
+    selectUser: '{name} 선택',
+    currentManager: 'current',
+  },
+  dashboard: {
+    agentStatus: {
+      active: '활성',
+      unregistered: '미등록',
+      pending: '대기',
+    },
   },
   recentViewed: {
     empty: '최근 읽은 글이 없습니다.',

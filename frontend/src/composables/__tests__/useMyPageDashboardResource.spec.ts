@@ -42,6 +42,7 @@ vi.mock('@/composables/useErrorHandler', () => ({
 
 const loadFailedMessage = 'common.messages.loadFailed'
 const signalConfig = expect.objectContaining({ signal: expect.any(AbortSignal) })
+const t = (key: string) => key
 
 const createDeferred = <T>() => {
   let resolve!: (value: T) => void
@@ -90,7 +91,7 @@ describe('useMyPageDashboardResource', () => {
   })
 
   it('loads dashboard resources with the existing pagination defaults', async () => {
-    const resource = useMyPageDashboardResource()
+    const resource = useMyPageDashboardResource(t)
 
     await resource.loadDashboard()
 
@@ -147,7 +148,7 @@ describe('useMyPageDashboardResource', () => {
       status: 'ACTIVE',
       createdAt: '2026-05-20T10:00:00',
     }
-    const resource = useMyPageDashboardResource()
+    const resource = useMyPageDashboardResource(t)
 
     await resource.fetchMyProfile()
 
@@ -174,7 +175,7 @@ describe('useMyPageDashboardResource', () => {
       status: 'ACTIVE',
       createdAt: '2026-05-20T10:00:00',
     })
-    const resource = useMyPageDashboardResource()
+    const resource = useMyPageDashboardResource(t)
 
     await resource.fetchMyProfile()
 
@@ -200,7 +201,7 @@ describe('useMyPageDashboardResource', () => {
       status: 'ACTIVE',
       createdAt: '2026-05-20T10:00:00',
     })
-    const resource = useMyPageDashboardResource()
+    const resource = useMyPageDashboardResource(t)
 
     await resource.fetchMyProfile()
 
@@ -210,7 +211,7 @@ describe('useMyPageDashboardResource', () => {
   })
 
   it('updates post sort before refetching my posts', async () => {
-    const resource = useMyPageDashboardResource()
+    const resource = useMyPageDashboardResource(t)
     await resource.handleMyPostsPageChange(2)
     vi.mocked(userApi.getMyPosts).mockClear()
     mocks.fetchQuery.mockClear()
@@ -239,7 +240,7 @@ describe('useMyPageDashboardResource', () => {
       }
       return options.queryFn()
     })
-    const resource = useMyPageDashboardResource()
+    const resource = useMyPageDashboardResource(t)
 
     await resource.loadDashboard()
 
@@ -255,7 +256,7 @@ describe('useMyPageDashboardResource', () => {
     vi.mocked(userApi.getMyComments).mockResolvedValueOnce({
       data: { success: false },
     } as never)
-    const resource = useMyPageDashboardResource()
+    const resource = useMyPageDashboardResource(t)
 
     await resource.loadDashboard()
 
@@ -280,7 +281,7 @@ describe('useMyPageDashboardResource', () => {
     vi.mocked(userApi.getMyPosts)
       .mockReturnValueOnce(firstRequest.promise as never)
       .mockReturnValueOnce(secondRequest.promise as never)
-    const resource = useMyPageDashboardResource()
+    const resource = useMyPageDashboardResource(t)
 
     const firstFetch = resource.handleMyPostsPageChange(1)
     const firstSignal = vi.mocked(userApi.getMyPosts).mock.calls[0][1]?.signal
@@ -314,7 +315,7 @@ describe('useMyPageDashboardResource', () => {
     vi.mocked(userApi.getMyComments)
       .mockReturnValueOnce(firstRequest.promise as never)
       .mockReturnValueOnce(secondRequest.promise as never)
-    const resource = useMyPageDashboardResource()
+    const resource = useMyPageDashboardResource(t)
 
     const firstFetch = resource.handleMyCommentsPageChange(1)
     const firstSignal = vi.mocked(userApi.getMyComments).mock.calls[0][1]?.signal

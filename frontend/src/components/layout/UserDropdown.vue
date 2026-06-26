@@ -86,7 +86,7 @@ watch(() => props.isOpen, (isOpen) => {
 <template>
   <div class="relative">
     <button type="button" @click.stop="toggleDropdown"
-      aria-label="사용자 메뉴"
+      :aria-label="$t('layout.userMenu.ariaLabel')"
       aria-haspopup="menu"
       :aria-expanded="isOpen ? 'true' : 'false'"
       :aria-controls="isOpen ? menuId : undefined"
@@ -94,7 +94,7 @@ watch(() => props.isOpen, (isOpen) => {
       <UserAvatar
         :image-url="authStore.user?.profileImageUrl"
         :name="authStore.user?.displayName || authStore.user?.loginId || 'U'"
-        alt="Profile"
+        :alt="$t('common.profile')"
         size-class="h-7 w-7 sm:h-8 sm:w-8"
         image-class="object-contain nv-surface-muted"
         fallback-class="font-bold"
@@ -256,7 +256,7 @@ watch(() => props.isOpen, (isOpen) => {
           @click="emit('toggle')">
           <Smile
             class="mr-2.5 sm:mr-3 h-3 w-3 sm:h-4 sm:w-4 nv-text-subtle flex-shrink-0" />
-          노비콘
+          {{ $t('emoticon.title') }}
         </router-link>
       </div>
 

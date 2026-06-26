@@ -25,6 +25,9 @@ export const board: BoardMessages = {
   createBoard: '스페이스 만들기',
   loadFailed: '스페이스 정보를 불러오지 못했습니다.',
   invalidUrl: '잘못된 스페이스 URL입니다.',
+  seo: {
+    allBoardsDescription: '노비스에서 모든 스페이스와 커뮤니티를 둘러보세요.',
+  },
   detail: {
     searchPlaceholder: '스페이스에서 검색',
     filterLabel: '스페이스 필터',
@@ -130,6 +133,15 @@ export const board: BoardMessages = {
     reportReasonRequired: '신고 사유를 입력해 주세요.',
     reportSuccess: '신고가 접수되었습니다.',
     reportFailed: '신고 접수에 실패했습니다.',
+    restricted: '접근 권한이 없는 게시글입니다.',
+  },
+  inquiryWrite: {
+    title: '운영진에게 문의하기',
+    description: '문의 글은 운영진이 확인합니다. 필요한 내용을 상세히 작성해 주세요.',
+    preparing: '문의 스페이스를 준비하고 있습니다.',
+    leaveConfirm: '페이지에서 나가시겠습니까? 변경사항이 저장되지 않을 수 있습니다.',
+    createTitle: '문의 작성',
+    createSuccess: '문의가 성공적으로 등록되었습니다.',
   },
   writePost: {
     createTitle: '글 작성',
@@ -315,6 +327,9 @@ export const boardEn: BoardMessages = {
   createBoard: 'Create space',
   loadFailed: 'Failed to load space information.',
   invalidUrl: 'Invalid space URL.',
+  seo: {
+    allBoardsDescription: 'Browse every space and community on Noviis.',
+  },
   detail: {
     ...board.detail,
     searchPlaceholder: 'Search this space',
@@ -423,6 +438,15 @@ export const boardEn: BoardMessages = {
     reportReasonRequired: 'Please enter a report reason.',
     reportSuccess: 'Report submitted.',
     reportFailed: 'Failed to submit report.',
+    restricted: 'You do not have permission to access this post.',
+  },
+  inquiryWrite: {
+    title: 'Contact the moderators',
+    description: 'Moderators will review your inquiry. Please describe the details clearly.',
+    preparing: 'Preparing the inquiry space.',
+    leaveConfirm: 'Leave this page? Unsaved changes may be lost.',
+    createTitle: 'Write inquiry',
+    createSuccess: 'Your inquiry has been submitted.',
   },
   writePost: {
     ...board.writePost,

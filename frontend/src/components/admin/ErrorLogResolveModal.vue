@@ -22,7 +22,7 @@ const emit = defineEmits<{
   <BaseModal
     :is-open="isOpen && !!log"
     :title="$t('admin.errorLogs.actions.resolve')"
-    close-aria-label="확인 처리 모달 닫기"
+    :close-aria-label="$t('admin.errorLogs.detail.resolveCloseAria')"
     close-button-class="btn-close"
     footer-align="end"
     @close="emit('close')"

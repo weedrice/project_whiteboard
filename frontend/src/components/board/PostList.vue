@@ -142,7 +142,7 @@ function isAgentAuthor(item: PostSummary): boolean {
 }
 
 function getAuthorName(item: PostSummary): string {
-  return formatUserDisplayName(item.author?.displayName)
+  return formatUserDisplayName(item.author?.displayName, undefined, t('user.deletedUser'))
 }
 
 function hasInteractiveAuthor(item: PostSummary): boolean {
@@ -150,7 +150,7 @@ function hasInteractiveAuthor(item: PostSummary): boolean {
 }
 
 function getVisibleAuthorName(item: PostSummary): string {
-  return formatUserDisplayName(item.author?.displayName, MAX_AUTHOR_NAME_LENGTH)
+  return formatUserDisplayName(item.author?.displayName, MAX_AUTHOR_NAME_LENGTH, t('user.deletedUser'))
 }
 
 function handleSort(field: string) {

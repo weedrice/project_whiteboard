@@ -34,7 +34,9 @@
     </ul>
 
     <template #footer-meta>
-      <div class="mb-3 text-center text-sm nv-text-muted">총 {{ totalElements }}건</div>
+      <div class="mb-3 text-center text-sm nv-text-muted">
+        {{ t('common.paginationSummary.total', { count: totalElements, unit: t('common.paginationSummary.itemUnit') }) }}
+      </div>
     </template>
   </PaginatedListCard>
 </template>

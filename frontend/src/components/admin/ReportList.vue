@@ -49,7 +49,7 @@ const columns = computed(() => [
   { key: 'target', label: t('common.target'), width: '10%', align: 'center' as const },
   { key: 'contents', label: t('admin.reports.targetContentId'), width: '7%', align: 'center' as const },
   { key: 'reasonType', label: t('admin.reports.reasonType'), width: '7%', align: 'center' as const },
-  { key: 'processor', label: '처리자', width: '8%', align: 'center' as const },
+  { key: 'processor', label: t('admin.reports.table.processor'), width: '8%', align: 'center' as const },
   { key: 'remark', label: t('admin.reports.remark'), width: '20%', align: 'left' as const },
   { key: 'status', label: t('common.status'), width: '8%', align: 'center' as const },
   { key: 'createdAt', label: t('common.createdAt'), width: '10%', align: 'center' as const },

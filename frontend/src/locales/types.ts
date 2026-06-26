@@ -13,6 +13,7 @@ export interface CommonMessages {
   loadMore: string
   add: string
   save: string
+  reset: string
   warning: string
   cancel: string
   delete: string
@@ -21,6 +22,7 @@ export interface CommonMessages {
   post: string
   comment: string
   user: string
+  profile: string
   previous: string
   next: string
   pagination: string
@@ -163,6 +165,16 @@ export interface CommonMessages {
   viewAll: string
   viewDetail: string
   sent: string
+  seo: {
+    description: string
+  }
+  paginationSummary: {
+    total: string
+    itemUnit: string
+    page: string
+    slash: string
+    parenthesized: string
+  }
   languages: {
     ko: string
     en: string
@@ -244,6 +256,10 @@ export interface LayoutMessages {
     title: string
     empty: string
     clear: string
+    removeAria: string
+  }
+  userMenu: {
+    ariaLabel: string
   }
   topNav: {
     home: string
@@ -305,6 +321,7 @@ export interface LayoutMessages {
     mypageTabs: string
     nextTab: string
     prevTab: string
+    openAnytime: string
   }
 }
 
@@ -356,6 +373,11 @@ export interface AuthMessages {
   email: string
   login: string
   loginSuccess: string
+  oauth: {
+    googleLogin: string
+    discordLogin: string
+    githubLogin: string
+  }
   emailNotVerified: string
   passwordMismatch: string
   verificationFailed: string
@@ -396,6 +418,9 @@ export interface BoardMessages {
   createBoard: string
   loadFailed: string
   invalidUrl: string
+  seo: {
+    allBoardsDescription: string
+  }
   detail: {
     searchPlaceholder: string
     filterLabel: string
@@ -501,6 +526,15 @@ export interface BoardMessages {
     reportReasonRequired: string
     reportSuccess: string
     reportFailed: string
+    restricted: string
+  }
+  inquiryWrite: {
+    title: string
+    description: string
+    preparing: string
+    leaveConfirm: string
+    createTitle: string
+    createSuccess: string
   }
   writePost: {
     createTitle: string
@@ -670,6 +704,7 @@ export interface CommentMessages {
   viewReplies: string
   hideReplies: string
   loadRepliesFailed: string
+  loadFailed: string
   empty: string
   loginRequired: string
   deleteFailed: string
@@ -686,10 +721,15 @@ export interface NotificationMessages {
   markAllRead: string
   markAllReadShort?: string
   empty: string
+  sourceTypes: {
+    post: string
+    comment: string
+  }
 }
 
 // 사용자 메시지 타입
 export interface UserMessages {
+  deletedUser: string
   myPosts: string
   myComments: string
   scraps: string
@@ -752,6 +792,22 @@ export interface UserMessages {
   blockList: {
     title: string
     empty: string
+  }
+  selectModal: {
+    title: string
+    multiMode: string
+    singleMode: string
+    selectedCount: string
+    selectedEmpty: string
+    selectUser: string
+    currentManager: string
+  }
+  dashboard: {
+    agentStatus: {
+      active: string
+      unregistered: string
+      pending: string
+    }
   }
   recentViewed: {
     empty: string
@@ -852,6 +908,7 @@ export interface ReportMessages {
 
 // 노비콘(이모티콘) 메시지 타입
 export interface EmoticonMessages {
+  title: string
   purchase: {
     success: string
     failed: string
@@ -879,8 +936,86 @@ export interface EmoticonMessages {
     showSuccess: string
   }
   register: {
+    title: string
+    description: string
     created: string
     failed: string
+  }
+  list: {
+    description: string
+    popular: string
+    popularEmpty: string
+    all: string
+    itemCount: string
+    empty: string
+    salesCount: string
+    register: string
+    period: {
+      daily: string
+      weekly: string
+      monthly: string
+    }
+    sort: {
+      latest: string
+      oldest: string
+      popular: string
+    }
+    searchType: {
+      all: string
+      name: string
+      creator: string
+      tag: string
+    }
+  }
+  detail: {
+    backToList: string
+    loadFailed: string
+    backToListFull: string
+    creator: string
+    createdAt: string
+    purchaseCount: string
+    imageList: string
+    imageEmpty: string
+    tags: string
+  }
+  form: {
+    editTitle: string
+    editDescription: string
+    back: string
+    onSale: string
+    thumbnailImage: string
+    thumbnailHelp: string
+    thumbnailPreview: string
+    changeImageTitle: string
+    name: string
+    namePlaceholder: string
+    image: string
+    imageHelp: string
+    chooseImage: string
+    imageAlt: string
+    newImageAlt: string
+    deletePending: string
+    addPending: string
+    updateSubmit: string
+    updatingSubmit: string
+    createSubmit: string
+    creatingSubmit: string
+    count: string
+  }
+  picker: {
+    detailLoadFailed: string
+    listLoadFailed: string
+    backToListAria: string
+    closeAria: string
+    imageSelectAria: string
+    searchAria: string
+    availableEmpty: string
+  }
+  tag: {
+    label: string
+    help: string
+    placeholder: string
+    count: string
   }
   search: {
     typeLabel: string
@@ -898,10 +1033,22 @@ export interface EmoticonMessages {
     maxImages: string
     maxTags: string
   }
+  upload: {
+    progress: string
+  }
 }
 
 // 관리자 메시지 타입
 export interface AdminMessages {
+  common: {
+    search: string
+    reset: string
+    all: string
+    pageSize: string
+    detail: string
+    rowDetailAria: string
+    footerDoubleClickHint: string
+  }
   layout: {
     title: string
   }
@@ -921,6 +1068,7 @@ export interface AdminMessages {
     totalUsers: string
     pendingReports: string
     blockedIps: string
+    activeUsers24h: string
     viewDetail: string
     recentActivity: string
     noActivity: string
@@ -935,11 +1083,66 @@ export interface AdminMessages {
       status: string
       role: string
       emailVerified: string
+      emailNotVerified: string
       dateInfo: string
       createdAt: string
       modifiedAt: string
       lastLoginAt: string
       bio: string
+      profile: string
+      superAdmin: string
+      writtenPosts: string
+      writtenComments: string
+      subscribedBoards: string
+      reportsAndSanctions: string
+      joinedAndRecentLogin: string
+      joined: string
+      deletedAt: string
+      recentAccess: string
+      accessTime: string
+      postsEmpty: string
+      commentsEmpty: string
+      subscriptionsEmpty: string
+      loadFailed: string
+    }
+    filters: {
+      status: string
+      role: string
+      emailVerified: string
+      superAdmin: string
+      withdrawn: string
+      verified: string
+      unverified: string
+      withdrawnOnly: string
+      activeOrSuspended: string
+      createdFrom: string
+      createdTo: string
+      lastLoginFrom: string
+      lastLoginTo: string
+      userSearch: string
+      unit: string
+    }
+    detailTabs: {
+      visible: string
+      notice: string
+      secret: string
+      spoiler: string
+      reply: string
+      sourceDeleted: string
+      boardInactive: string
+      boardPrivate: string
+      subscriptionInactive: string
+      subscriptionPrivate: string
+      subscriptionRestricted: string
+      subscriptionAccessible: string
+      boardActive: string
+      boardInactiveShort: string
+      boardPublic: string
+      boardPrivateShort: string
+      category: string
+      postStats: string
+      commentStats: string
+      sortOrder: string
     }
     table: {
       nickname: string
@@ -1030,6 +1233,7 @@ export interface AdminMessages {
     table: {
       reporter: string
       createdAt: string
+      processor: string
     }
     status: {
       PENDING: string
@@ -1091,6 +1295,9 @@ export interface AdminMessages {
       adminId: string
       createdAt: string
     }
+    actions: {
+      unblock: string
+    }
     messages: {
       blocked: string
       blockFailed: string
@@ -1142,6 +1349,7 @@ export interface AdminMessages {
   errorLogs: {
     title: string
     description: string
+    empty: string
     table: {
       errorCode: string
       errorType: string
@@ -1173,6 +1381,11 @@ export interface AdminMessages {
       requestInfo: string
       stackTrace: string
       resolveInfo: string
+      closeAria: string
+      resolveCloseAria: string
+      resolvedBy: string
+      resolvedAt: string
+      resolvedMemo: string
     }
     actions: {
       resolve: string

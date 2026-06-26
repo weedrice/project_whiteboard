@@ -25,10 +25,7 @@ const params = ref({ page: 0, size: 50 })
 const postId = computed(() => props.postId)
 const { data: commentsData, isLoading, error: commentsError } = useComments(postId, params)
 const comments = computed<Comment[]>(() => commentsData.value?.content || [])
-const commentLoadFailedMessage = computed(() => {
-  const translated = t('common.messages.loadFailed')
-  return translated === 'common.messages.loadFailed' ? '댓글을 불러오지 못했습니다.' : translated
-})
+const commentLoadFailedMessage = computed(() => t('comment.loadFailed'))
 
 const { mutate: deleteComment } = useDeleteComment()
 

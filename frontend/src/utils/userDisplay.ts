@@ -1,7 +1,9 @@
-const DELETED_USER_LABEL = '탈퇴한 사용자'
-
-export function formatUserDisplayName(displayName?: string | null, maxLength?: number): string {
-  const normalizedName = displayName?.trim() || DELETED_USER_LABEL
+export function formatUserDisplayName(
+  displayName?: string | null,
+  maxLength?: number,
+  fallbackLabel = '',
+): string {
+  const normalizedName = displayName?.trim() || fallbackLabel
 
   if (!maxLength || maxLength <= 0) {
     return normalizedName

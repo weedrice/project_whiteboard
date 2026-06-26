@@ -27,7 +27,7 @@ const emit = defineEmits<{
     :is-open="isOpen && !!log"
     :title="$t('admin.errorLogs.detail.title')"
     size="2xl"
-    close-aria-label="상세 모달 닫기"
+    :close-aria-label="$t('admin.errorLogs.detail.closeAria')"
     close-button-class="btn-close"
     body-class="space-y-5"
     footer-align="end"
@@ -86,13 +86,13 @@ const emit = defineEmits<{
 
       <DetailSection v-if="log.isResolved === 'Y'" :title="$t('admin.errorLogs.detail.resolveInfo')" compact>
         <DescriptionGrid gap-class="gap-2.5">
-          <DescriptionItem label="처리자 ID" label-class="detail-label" value-class="detail-value">
+          <DescriptionItem :label="$t('admin.errorLogs.detail.resolvedBy')" label-class="detail-label" value-class="detail-value">
             {{ log.resolvedBy }}
           </DescriptionItem>
-          <DescriptionItem label="처리 일시" label-class="detail-label" value-class="detail-value">
+          <DescriptionItem :label="$t('admin.errorLogs.detail.resolvedAt')" label-class="detail-label" value-class="detail-value">
             {{ formatDateTimeOrDash(log.resolvedAt) }}
           </DescriptionItem>
-          <DescriptionItem v-if="log.resolvedMemo" label="처리 메모" label-class="detail-label" value-class="detail-value" full>
+          <DescriptionItem v-if="log.resolvedMemo" :label="$t('admin.errorLogs.detail.resolvedMemo')" label-class="detail-label" value-class="detail-value" full>
             {{ log.resolvedMemo }}
           </DescriptionItem>
         </DescriptionGrid>

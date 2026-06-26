@@ -15,11 +15,11 @@ const { data: boards, isLoading, error } = useBoards()
 const { t } = useI18n()
 
 useHead({
-  title: 'All Spaces',
+  title: computed(() => t('board.list.title')),
   meta: [
-    { name: 'description', content: computed(() => `${t('common.appName')}에서 모든 스페이스와 커뮤니티를 둘러보세요.`) },
+    { name: 'description', content: computed(() => t('board.seo.allBoardsDescription')) },
     { property: 'og:title', content: computed(() => `${t('board.list.title')} - ${t('common.appName')}`) },
-    { property: 'og:description', content: computed(() => `${t('common.appName')}에서 모든 스페이스와 커뮤니티를 둘러보세요.`) }
+    { property: 'og:description', content: computed(() => t('board.seo.allBoardsDescription')) }
   ]
 })
 

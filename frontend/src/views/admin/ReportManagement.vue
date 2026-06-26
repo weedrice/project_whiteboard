@@ -56,7 +56,7 @@ const {
       <AdminPaginationFooter
         :page="currentPage"
         :total-pages="totalPages"
-        :summary="formatAdminPaginationSummary(totalElements)"
+        :summary="formatAdminPaginationSummary(totalElements, { t })"
         :loading-text="t('common.loading')"
         @page-change="handlePageChange"
       />

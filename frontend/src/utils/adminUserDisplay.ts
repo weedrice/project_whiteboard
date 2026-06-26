@@ -37,6 +37,11 @@ export function getNextAdminUserStatus(status: AdminUserMutableStatus): AdminUse
   return status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE'
 }
 
-export function getAdminUserStatusActionLabel(status: AdminUserMutableStatus): string {
-  return status === 'ACTIVE' ? '정지' : '계정 활성화'
+export function getAdminUserStatusActionLabel(
+  t: (key: string) => string,
+  status: AdminUserMutableStatus,
+): string {
+  return status === 'ACTIVE'
+    ? t('admin.users.status.SUSPENDED')
+    : t('admin.users.status.ACTIVE')
 }

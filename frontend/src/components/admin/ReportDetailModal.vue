@@ -72,7 +72,7 @@ const targetTypeLabel = computed(() => {
           <DescriptionItem :label="t('common.createdAt')">
             {{ formatDate(report.createdAt) }}
           </DescriptionItem>
-          <DescriptionItem label="처리자">
+          <DescriptionItem :label="t('admin.reports.table.processor')">
             {{ getReportProcessorText(report) }}
           </DescriptionItem>
         </DescriptionGrid>

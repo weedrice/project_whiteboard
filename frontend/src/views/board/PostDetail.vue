@@ -70,7 +70,7 @@ usePostDetailSeo({
 const error = computed(() => {
   if (!postError.value) return ''
   if (isRestrictedResourceError(postError.value)) {
-    return '접근 권한이 없는 게시글입니다.'
+    return t('board.postDetail.restricted')
   }
   return t('board.postDetail.loadFailed')
 })

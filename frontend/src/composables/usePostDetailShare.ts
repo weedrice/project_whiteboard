@@ -19,11 +19,6 @@ export function usePostDetailShare({
   const showCopyHint = ref(false)
   let copyHintTimer: ReturnType<typeof setTimeout> | null = null
 
-  const translateOrFallback = (key: string, fallback: string) => {
-    const translated = t(key)
-    return translated === key ? fallback : translated
-  }
-
   const currentUrl = computed(() => {
     if (typeof window === 'undefined') return ''
     return `${window.location.origin}${route.fullPath}`
@@ -65,7 +60,7 @@ export function usePostDetailShare({
       ;(document.activeElement as HTMLElement | null)?.blur()
     }).catch((err) => {
       logger.error('Failed to copy URL:', err)
-      toastStore.addToast(translateOrFallback('common.messages.processFailed', '주소 복사에 실패했습니다.'), 'error')
+      toastStore.addToast(t('common.messages.processFailed'), 'error')
     })
   }
 
@@ -86,7 +81,7 @@ export function usePostDetailShare({
       }).catch((err) => {
         if (err.name !== 'AbortError') {
           logger.error('Share failed:', err)
-          toastStore.addToast(translateOrFallback('common.messages.processFailed', '공유에 실패했습니다.'), 'error')
+          toastStore.addToast(t('common.messages.processFailed'), 'error')
         }
       })
       return

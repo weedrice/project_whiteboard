@@ -144,16 +144,16 @@ function resolveFromDetail(log: ErrorLogDetail) {
       :columns="columns"
       :items="errorLogs"
       :loading="isLoading"
-      empty-text="에러 로그가 없습니다."
+      :empty-text="t('admin.errorLogs.empty')"
       :row-class="getRowClass"
       row-key="errorLogId"
       :page="page"
       :total-pages="totalPages"
-      :summary="formatAdminPaginationSummary(totalElements, { page, totalPages })"
+      :summary="formatAdminPaginationSummary(totalElements, { page, totalPages, t })"
       @page-change="page = $event"
     >
       <template #loading>
-        <div class="loading-indicator">로딩 중...</div>
+        <div class="loading-indicator">{{ t('common.loading') }}</div>
       </template>
 
       <template #cell-httpStatus="{ item: log }">

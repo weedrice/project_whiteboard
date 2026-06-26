@@ -23,10 +23,10 @@ const { t } = useI18n()
 <template>
   <div class="nv-surface rounded-lg shadow-sm border nv-border p-6">
     <label :for="inputId" class="block text-sm font-medium nv-text-muted mb-2">
-      태그
-      <span class="text-xs font-normal nv-text-subtle ml-2">({{ tagCount }}/10개)</span>
+      {{ t('emoticon.tag.label') }}
+      <span class="text-xs font-normal nv-text-subtle ml-2">({{ t('emoticon.tag.count', { count: tagCount }) }})</span>
     </label>
-    <p class="text-xs nv-text-subtle mb-4">검색에 사용될 태그를 입력하세요.</p>
+    <p class="text-xs nv-text-subtle mb-4">{{ t('emoticon.tag.help') }}</p>
 
     <div class="flex gap-2 mb-4">
       <input
@@ -35,13 +35,13 @@ const { t } = useI18n()
         name="emoticonTag"
         autocomplete="off"
         type="text"
-        placeholder="태그 입력 후 Enter"
+        :placeholder="t('emoticon.tag.placeholder')"
         class="flex-1 px-4 py-2 border nv-border rounded-lg nv-surface nv-title placeholder:text-[var(--nv-text-subtle)] focus:ring-2 focus:ring-[var(--nv-focus)] focus:border-transparent"
         @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
         @keydown.enter.prevent="emit('add')"
       />
       <BaseButton type="button" @click="emit('add')" variant="secondary">
-        추가
+        {{ t('common.add') }}
       </BaseButton>
     </div>
 

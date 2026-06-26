@@ -11,6 +11,8 @@ import { QUERY_STALE_TIME } from '@/utils/constants'
 import { getListLoadErrorMessage } from '@/utils/listLoadError'
 import logger from '@/utils/logger'
 
+type Translate = (key: string) => string
+
 export interface MyCommentListItem {
   commentId: number
   content: string | null
@@ -37,6 +39,7 @@ function useDashboardPagination<T>(
     context: DashboardPaginationFetchContext,
   ) => Promise<ApiResponse<PageResponse<T>>>,
   initialParams: DashboardPaginationParams,
+  t: Translate,
 ) {
   const page = ref(initialParams.page ?? 0)
   const size = ref(initialParams.size ?? 20)
@@ -44,7 +47,7 @@ function useDashboardPagination<T>(
   const items = ref<T[]>([]) as Ref<T[]>
   const totalCount = ref(0)
   const totalPages = ref(0)
-  const failedMessage = getListLoadErrorMessage()
+  const failedMessage = getListLoadErrorMessage(t)
   const fetchTask = useLatestAsyncTask<string>({
     getErrorValue: () => failedMessage,
     onError: (err) => logger.error('Failed to fetch paginated data:', err),
@@ -93,7 +96,7 @@ function useDashboardPagination<T>(
   }
 }
 
-export function useMyPageDashboardResource() {
+export function useMyPageDashboardResource(t: Translate) {
   const { handleSilentError } = useErrorHandler()
   const queryClient = useQueryClient()
   const authStore = useAuthStore()
@@ -110,7 +113,8 @@ export function useMyPageDashboardResource() {
       },
       staleTime: QUERY_STALE_TIME.SHORT
     }),
-    { page: 0, size: 10, sort: 'createdAt,desc' }
+    { page: 0, size: 10, sort: 'createdAt,desc' },
+    t,
   )
   const myCommentsPagination = useDashboardPagination<MyComment>(
     (params, { signal }) => queryClient.fetchQuery({
@@ -121,7 +125,8 @@ export function useMyPageDashboardResource() {
       },
       staleTime: QUERY_STALE_TIME.SHORT
     }),
-    { page: 0, size: 10 }
+    { page: 0, size: 10 },
+    t,
   )
 
   const myPosts = myPostsPagination.items
@@ -144,7 +149,7 @@ export function useMyPageDashboardResource() {
   })))
 
   const isLoading = ref(true)
-  const loadFailedMessage = getListLoadErrorMessage()
+  const loadFailedMessage = getListLoadErrorMessage(t)
   const profileTask = useLatestAsyncTask<string>({
     getErrorValue: () => loadFailedMessage,
     onError: (err) => handleSilentError(err, 'Failed to load my profile')
@@ -223,9 +228,9 @@ export function useMyPageDashboardResource() {
   }
 
   function getAgentStatusLabel(status: UserAgent['status']) {
-    if (status === 'ACTIVE') return '활성'
-    if (status === 'SUSPENDED') return '미등록'
-    return '대기'
+    if (status === 'ACTIVE') return t('user.dashboard.agentStatus.active')
+    if (status === 'SUSPENDED') return t('user.dashboard.agentStatus.unregistered')
+    return t('user.dashboard.agentStatus.pending')
   }
 
   async function loadDashboard() {
