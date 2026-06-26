@@ -26,7 +26,7 @@ import java.util.Set;
 class BoardProvisioningService {
 
     private static final String DEFAULT_INQUIRY_BOARD_NAME = "문의";
-    private static final String DEFAULT_INQUIRY_BOARD_DESCRIPTION = "운영진에게 문의를 남기는 비공개 노드입니다.";
+    private static final String DEFAULT_INQUIRY_BOARD_DESCRIPTION = "운영진에게 문의를 남기는 비공개 스페이스입니다.";
     private final BoardRepository boardRepository;
     private final BoardCategoryRepository boardCategoryRepository;
     private final BoardSubscriptionRepository boardSubscriptionRepository;

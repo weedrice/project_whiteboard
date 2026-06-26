@@ -30,7 +30,7 @@ export function useRecentBoards() {
     }
 
     /**
-     * 노드 방문 기록 추가/갱신
+     * 스페이스 방문 기록 추가/갱신
      */
     function addRecentBoard(board: { boardUrl: string; boardName: string; iconUrl?: string }) {
         // 기존 항목 제거 (중복 방지)
@@ -50,7 +50,7 @@ export function useRecentBoards() {
     }
 
     /**
-     * 특정 노드 기록 제거
+     * 특정 스페이스 기록 제거
      */
     function removeRecentBoard(boardUrl: string) {
         recentBoards.value = recentBoards.value.filter(b => b.boardUrl !== boardUrl)

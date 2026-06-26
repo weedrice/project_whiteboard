@@ -107,7 +107,7 @@ useHead({
     meta: [
         {
             name: 'description',
-            content: computed(() => `${t('common.appName')} - 다양한 주제의 노드에서 인기 게시글을 발견하고, 의견을 나누는 커뮤니티. 지금 가입하고 관심 노드를 구독하세요.`)
+            content: computed(() => `${t('common.appName')} - 다양한 주제의 스페이스에서 인기 게시글을 발견하고, 의견을 나누는 커뮤니티. 지금 가입하고 관심 스페이스를 구독하세요.`)
         },
         { property: 'og:site_name', content: computed(() => t('common.appName')) },
         { property: 'og:type', content: 'website' },

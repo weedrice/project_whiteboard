@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import PostForm from '@/components/board/PostForm.vue'
@@ -71,7 +71,7 @@ onUnmounted(() => {
     <div v-if="isPreparingBoard" class="rounded-lg border nv-border nv-surface p-6">
       <div class="flex items-center gap-3 text-sm nv-text-muted">
         <BaseSpinner size="sm" />
-        <span>문의 노드를 준비하고 있습니다.</span>
+        <span>문의 스페이스를 준비하고 있습니다.</span>
       </div>
     </div>
 

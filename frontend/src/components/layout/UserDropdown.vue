@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -52,7 +52,7 @@ const menuItems = computed(() => [
   { key: '7', route: '/mypage/recent', label: 'layout.menu.recent' },
   { key: '8', route: '/mypage/reports', label: 'layout.menu.reports' },
   { key: '9', route: '/mypage/blocked', label: 'user.tabs.blocked' },
-  // 노드 생성은 단축키 미연결
+  // 스페이스 생성은 단축키 미연결
 ])
 
 const navigateTo = (route: string) => {

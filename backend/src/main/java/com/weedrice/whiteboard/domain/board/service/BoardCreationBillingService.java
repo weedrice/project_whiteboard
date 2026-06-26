@@ -27,7 +27,7 @@ class BoardCreationBillingService {
         pointService.spendPoint(
                 creatorId,
                 boardCreateCost,
-                "노드 생성 (" + board.getBoardName() + ")",
+                "스페이스 생성 (" + board.getBoardName() + ")",
                 board.getBoardId(),
                 "BOARD_CREATE");
     }

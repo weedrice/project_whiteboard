@@ -115,9 +115,9 @@ const {
 useHead({
   title: computed(() => (currentPostId.value ? undefined : boardTitle.value)),
   meta: [
-    { name: 'description', content: computed(() => board.value?.description || 'Node posts and discussions') },
-    { property: 'og:title', content: computed(() => `${board.value?.boardName || 'Node'} - ${t('common.appName')}`) },
-    { property: 'og:description', content: computed(() => board.value?.description || 'Node posts and discussions') }
+    { name: 'description', content: computed(() => board.value?.description || 'Space posts and discussions') },
+    { property: 'og:title', content: computed(() => `${board.value?.boardName || 'Space'} - ${t('common.appName')}`) },
+    { property: 'og:description', content: computed(() => board.value?.description || 'Space posts and discussions') }
   ]
 })
 

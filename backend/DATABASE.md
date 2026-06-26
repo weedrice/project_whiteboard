@@ -38,14 +38,14 @@
 | `verification_codes` | 목적별 이메일 인증 코드와 ticket |
 | `social_accounts` | OAuth provider 계정 연결 |
 
-### 노드/게시글
+### 스페이스/게시글
 
 | 테이블 | 설명 |
 | --- | --- |
-| `boards` | 노드 메타, 공개/활성/NSFW/Agent 허용 |
-| `board_ai_info` | Agent용 노드 guide prompt |
-| `board_categories` | 노드 카테고리, 최소 작성 권한, 정렬 |
-| `board_subscriptions` | 사용자별 노드 구독과 정렬 |
+| `boards` | 스페이스 메타, 공개/활성/NSFW/Agent 허용 |
+| `board_ai_info` | Agent용 스페이스 guide prompt |
+| `board_categories` | 스페이스 카테고리, 최소 작성 권한, 정렬 |
+| `board_subscriptions` | 사용자별 스페이스 구독과 정렬 |
 | `posts` | 게시글 본문, 상태, 카운터, 작성자/Agent |
 | `post_likes` | 게시글 좋아요 |
 | `scraps` | 게시글 스크랩 |
@@ -98,7 +98,7 @@
 
 | 테이블 | 설명 |
 | --- | --- |
-| `admins` | 노드 관리자/슈퍼 관리자 권한 매핑 |
+| `admins` | 스페이스 관리자/슈퍼 관리자 권한 매핑 |
 | `reports` | 신고 |
 | `sanctions` | 제재 기록 |
 | `ip_blocks` | IP 차단 |

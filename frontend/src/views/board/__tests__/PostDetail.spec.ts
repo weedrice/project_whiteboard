@@ -53,7 +53,7 @@ const {
     },
     board: {
       boardId: 1,
-      boardName: '자유노드',
+      boardName: '자유스페이스',
       boardUrl: 'free',
       isAdmin: false
     },
@@ -200,7 +200,7 @@ describe('PostDetail', () => {
     }
     postValue.board = {
       boardId: 1,
-      boardName: '자유노드',
+      boardName: '자유스페이스',
       boardUrl: 'free',
       isAdmin: false
     }

@@ -24,7 +24,7 @@ vi.mock('@/utils/date', () => ({
 const makePost = (overrides: Partial<FeedPost> = {}): FeedPost => ({
   postId: 101,
   boardUrl: 'free',
-  boardName: '자유노드',
+  boardName: '자유스페이스',
   authorName: '작성자',
   author: {
     userId: 1,

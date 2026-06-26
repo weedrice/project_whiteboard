@@ -654,7 +654,7 @@ class BoardServiceTest {
         inOrder.verify(pointService).spendPoint(
                 eq(creatorId),
                 eq(500),
-                eq("노드 생성 (Test Board)"),
+                eq("스페이스 생성 (Test Board)"),
                 eq(1L),
                 eq("BOARD_CREATE"));
         ArgumentCaptor<BoardCategory> categoryCaptor = ArgumentCaptor.forClass(BoardCategory.class);
@@ -702,7 +702,7 @@ class BoardServiceTest {
         verify(pointService).spendPoint(
                 eq(creatorId),
                 eq(500),
-                eq("노드 생성 (Test Board)"),
+                eq("스페이스 생성 (Test Board)"),
                 eq(1L),
                 eq("BOARD_CREATE"));
     }
@@ -2049,7 +2049,7 @@ class BoardServiceTest {
         verify(boardCategoryRepository, org.mockito.Mockito.atLeastOnce()).saveAndFlush(categoryCaptor.capture());
         assertThat(boardCaptor.getValue().getCreator()).isEqualTo(activeSuperAdmin);
         assertThat(boardCaptor.getValue().getBoardName()).isEqualTo("문의");
-        assertThat(boardCaptor.getValue().getDescription()).isEqualTo("운영진에게 문의를 남기는 비공개 노드입니다.");
+        assertThat(boardCaptor.getValue().getDescription()).isEqualTo("운영진에게 문의를 남기는 비공개 스페이스입니다.");
         assertThat(categoryCaptor.getAllValues())
                 .extracting(BoardCategory::getName)
                 .containsOnly("일반");

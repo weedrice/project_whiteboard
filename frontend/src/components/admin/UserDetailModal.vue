@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminInlinePager from '@/components/admin/AdminInlinePager.vue'
@@ -124,7 +124,7 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
           <div class="mt-1 text-lg font-semibold nv-title">{{ formatInteger(userDetail.commentCount) }}</div>
         </div>
         <div class="rounded-lg border nv-border p-3">
-          <div class="text-xs nv-text-subtle">구독 노드</div>
+          <div class="text-xs nv-text-subtle">구독 스페이스</div>
           <div class="mt-1 text-lg font-semibold nv-title">{{ formatInteger(userDetail.subscriptionCount) }}</div>
         </div>
         <div class="rounded-lg border nv-border p-3">
@@ -160,7 +160,7 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
         <div class="mb-3 flex items-center gap-2 border-b nv-border pb-2">
           <BaseButton :variant="activeTab === 'posts' ? 'primary' : 'secondary'" size="sm" @click="activeTab = 'posts'">작성 글</BaseButton>
           <BaseButton :variant="activeTab === 'comments' ? 'primary' : 'secondary'" size="sm" @click="activeTab = 'comments'">작성 댓글</BaseButton>
-          <BaseButton :variant="activeTab === 'subscriptions' ? 'primary' : 'secondary'" size="sm" @click="activeTab = 'subscriptions'">구독 노드</BaseButton>
+          <BaseButton :variant="activeTab === 'subscriptions' ? 'primary' : 'secondary'" size="sm" @click="activeTab = 'subscriptions'">구독 스페이스</BaseButton>
         </div>
 
         <div v-if="activeTab === 'posts'" class="space-y-2">
@@ -223,7 +223,7 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
 
         <div v-else class="space-y-2">
           <div v-if="isSubscriptionsLoading" class="py-6 text-center text-sm nv-text-subtle">로딩 중...</div>
-          <div v-else-if="!subscriptionItems.length" class="py-6 text-center text-sm nv-text-subtle">구독한 노드가 없습니다.</div>
+          <div v-else-if="!subscriptionItems.length" class="py-6 text-center text-sm nv-text-subtle">구독한 스페이스가 없습니다.</div>
             <div v-else class="max-h-72 space-y-2 overflow-y-auto pr-1">
               <div v-for="board in subscriptionItems" :key="board.boardId" class="rounded-lg border nv-border p-3">
                 <div class="truncate text-sm font-medium nv-title">{{ board.boardName }}</div>

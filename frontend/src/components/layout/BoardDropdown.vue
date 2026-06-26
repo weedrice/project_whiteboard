@@ -132,7 +132,7 @@ watch([() => props.isOpen, displayItems], ([isOpen, boards]) => {
       </div>
 
       <div v-else-if="isError" class="px-3 py-3 sm:py-3 text-center text-xs sm:text-sm nv-form-error">
-        <span>Unable to load nodes.</span>
+        <span>Unable to load spaces.</span>
       </div>
 
       <div v-else-if="items.length > 0">

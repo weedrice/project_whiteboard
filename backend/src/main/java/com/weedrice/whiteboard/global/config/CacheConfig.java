@@ -39,7 +39,7 @@ public class CacheConfig {
         cacheManager.registerCustomCache("globalConfig", globalConfigCache);
         
         // 필요시 다른 캐시도 여기에 추가 가능
-        // 예: 사용자 정보, 노드 목록 등
+        // 예: 사용자 정보, 스페이스 목록 등
         
         return cacheManager;
     }

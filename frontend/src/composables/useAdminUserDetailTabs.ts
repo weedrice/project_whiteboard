@@ -102,8 +102,8 @@ function toCommentBadges(comment: AdminUserCommentItem): AdminUserTabBadge[] {
 
     if (comment.parentId) badges.push({ label: '답글', variant: 'gray' })
     if (comment.post.deleted) badges.push({ label: '원문 삭제', variant: 'warning' })
-    if (!comment.post.boardActive) badges.push({ label: '노드 비활성', variant: 'warning' })
-    if (!comment.post.boardPublic) badges.push({ label: '비공개 노드', variant: 'gray' })
+    if (!comment.post.boardActive) badges.push({ label: '스페이스 비활성', variant: 'warning' })
+    if (!comment.post.boardPublic) badges.push({ label: '비공개 스페이스', variant: 'gray' })
     if (agentBadgeLabel) badges.push({ label: agentBadgeLabel, variant: 'gray' })
 
     return badges
