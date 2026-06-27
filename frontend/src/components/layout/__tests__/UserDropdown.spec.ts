@@ -79,11 +79,15 @@ const RouterLinkStub = defineComponent({
   },
 })
 
+const t = (key: string) => ({
+  'layout.userMenu.ariaLabel': '사용자 메뉴',
+}[key] ?? key)
+
 const mountDropdown = (isOpen = false) => mount(UserDropdown, {
   props: { isOpen },
   global: {
     mocks: {
-      $t: (key: string) => key,
+      $t: t,
     },
     stubs: {
       'router-link': RouterLinkStub,

@@ -23,7 +23,12 @@ vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
   return {
     ...actual,
-    useI18n: () => ({ t: (key: string) => key }),
+    useI18n: () => ({
+      t: (key: string) => ({
+        'board.inquiryWrite.createTitle': '문의 작성',
+        'board.inquiryWrite.createSuccess': '문의가 성공적으로 등록되었습니다.',
+      }[key] ?? key),
+    }),
   }
 })
 

@@ -23,7 +23,9 @@ vi.mock('vue-i18n', async (importOriginal) => {
   return {
     ...actual,
     useI18n: () => ({
-      t: (key: string) => key
+      t: (key: string) => ({
+        'comment.loadFailed': '댓글을 불러오지 못했습니다.',
+      })[key] ?? key
     })
   }
 })

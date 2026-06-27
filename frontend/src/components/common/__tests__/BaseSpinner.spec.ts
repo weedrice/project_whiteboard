@@ -21,7 +21,7 @@ describe('BaseSpinner', () => {
         expect(spinner.classes()).toContain('h-8')
         expect(spinner.classes()).toContain('w-8')
         expect(spinner.classes()).toContain('nv-spinner')
-        expect(wrapper.text()).toContain('common.loading')
+        expect(wrapper.text()).toContain('로딩 중...')
     })
 
     it('applies custom size and color classes', () => {

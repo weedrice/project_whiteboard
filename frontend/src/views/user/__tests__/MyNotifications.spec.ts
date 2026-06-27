@@ -15,7 +15,12 @@ const navigateFromNotification = vi.fn()
 let latestParams: Ref<{ page: number; size: number }> | undefined
 
 vi.mock('vue-i18n', () => ({
-  useI18n: () => ({ t: (key: string) => key }),
+  useI18n: () => ({
+    t: (key: string) => ({
+      'notification.sourceTypes.post': '게시글',
+      'notification.sourceTypes.comment': '댓글',
+    }[key] ?? key),
+  }),
 }))
 
 vi.mock('@/composables/useNotification', () => ({
@@ -100,7 +105,10 @@ const mountMyNotifications = () =>
   mount(MyNotifications, {
     global: {
       mocks: {
-        $t: (key: string) => key,
+        $t: (key: string) => ({
+          'notification.sourceTypes.post': '게시글',
+          'notification.sourceTypes.comment': '댓글',
+        }[key] ?? key),
       },
       stubs: {
         BaseButton: BaseButtonStub,

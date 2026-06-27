@@ -59,7 +59,10 @@ vi.mock('@/composables/useBoard', () => ({
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
-    t: (key: string) => key,
+    t: (key: string, params?: Record<string, unknown>) => {
+      if (key === 'user.selectModal.selectedCount') return `선택 ${params?.count}명`
+      return key
+    },
   }),
 }))
 
@@ -75,7 +78,10 @@ const mountModal = (props: {
   props,
   global: {
     mocks: {
-      $t: (key: string) => key,
+      $t: (key: string, params?: Record<string, unknown>) => {
+        if (key === 'user.selectModal.selectedCount') return `선택 ${params?.count}명`
+        return key
+      },
     },
     stubs: {
       BaseModal: {

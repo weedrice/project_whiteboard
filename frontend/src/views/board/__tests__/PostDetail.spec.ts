@@ -318,7 +318,7 @@ describe('PostDetail', () => {
     await wrapper.find('.nv-post-url-chip').trigger('click')
 
     await vi.waitFor(() => {
-      expect(toastAdd).toHaveBeenCalledWith('주소 복사에 실패했습니다.', 'error')
+      expect(toastAdd).toHaveBeenCalledWith('common.messages.processFailed', 'error')
     })
   })
 

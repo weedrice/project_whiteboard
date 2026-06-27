@@ -131,7 +131,7 @@ describe('UserDetailModal', () => {
 
         await wrapper.findAll('button')[1]?.trigger('click')
         expect(wrapper.text()).toContain('hidden comment')
-        expect(wrapper.text()).toContain('depth 1')
+        expect(wrapper.text()).toContain('admin.users.detailTabs.reply')
 
         await wrapper.findAll('button')[2]?.trigger('click')
         expect(wrapper.text()).toContain('/hidden')

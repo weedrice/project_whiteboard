@@ -13,7 +13,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
   return {
     ...actual,
     useI18n: () => ({
-      t: (key: string) => key
+      t: (key: string) => key === 'user.deletedUser' ? '탈퇴한 사용자' : key
     })
   }
 })

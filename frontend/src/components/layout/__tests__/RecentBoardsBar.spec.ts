@@ -32,7 +32,10 @@ describe('RecentBoardsBar', () => {
           RouterLink: RouterLinkStub
         },
         mocks: {
-          $t: (key: string) => key
+          $t: (key: string, params?: Record<string, string>) => {
+            if (key === 'layout.recentBoards.removeAria') return `${params?.name} 제거`
+            return key
+          }
         }
       }
     })

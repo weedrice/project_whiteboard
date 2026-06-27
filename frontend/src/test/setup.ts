@@ -1,5 +1,17 @@
 // Test setup file for jsdom environment
+import { config } from '@vue/test-utils'
 import { vi } from 'vitest'
+import i18n from '@/i18n'
+
+config.global.plugins = [
+    ...(config.global.plugins ?? []),
+    i18n,
+]
+
+config.global.mocks = {
+    ...(config.global.mocks ?? {}),
+    $t: i18n.global.t,
+}
 
 // Mock window.matchMedia for jsdom
 Object.defineProperty(window, 'matchMedia', {

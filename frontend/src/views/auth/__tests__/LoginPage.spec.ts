@@ -39,7 +39,11 @@ vi.mock('@/stores/toast', () => ({
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
-    t: (key: string) => key,
+    t: (key: string) => ({
+      'auth.oauth.googleLogin': 'Google 로그인',
+      'auth.oauth.discordLogin': 'Discord 로그인',
+      'auth.oauth.githubLogin': 'GitHub 로그인',
+    }[key] ?? key),
   }),
 }))
 
@@ -55,7 +59,11 @@ describe('LoginPage', () => {
     return mount(LoginPage, {
       global: {
         mocks: {
-          $t: (key: string) => key,
+          $t: (key: string) => ({
+            'auth.oauth.googleLogin': 'Google 로그인',
+            'auth.oauth.discordLogin': 'Discord 로그인',
+            'auth.oauth.githubLogin': 'GitHub 로그인',
+          }[key] ?? key),
         },
         stubs: {
           RouterLink: {

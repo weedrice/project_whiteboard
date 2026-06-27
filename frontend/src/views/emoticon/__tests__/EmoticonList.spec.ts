@@ -139,8 +139,8 @@ describe('EmoticonList', () => {
     const wrapper = mountList()
     const label = wrapper.get('label.sr-only')
 
-    expect(label.text()).toContain('노비콘 검색어')
-    expect(wrapper.get('input[placeholder="검색어를 입력하세요"]').attributes('placeholder')).toBe('검색어를 입력하세요')
+    expect(label.text()).toContain('노비콘 검색')
+    expect(wrapper.get('input[placeholder="검색어"]').attributes('placeholder')).toBe('검색어')
   })
 
   it('marks toggle buttons with aria-pressed state', () => {

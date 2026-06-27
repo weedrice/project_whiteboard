@@ -24,12 +24,14 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('vue-i18n', () => ({
     useI18n: () => ({
-        t: (key: string) => ({
+        t: (key: string, params?: Record<string, string>) => ({
             'admin.users.title': '사용자 관리',
             'admin.users.description': '사용자를 관리합니다.',
             'admin.users.searchPlaceholder': '사용자 검색',
             'admin.users.table.status': '상태',
             'admin.users.table.joinedAt': '가입일',
+            'admin.common.detail': '상세',
+            'admin.common.rowDetailAria': `${params?.name} 상세 보기`,
             'common.id': 'ID',
             'common.loginId': '로그인 ID',
             'common.displayName': '닉네임',

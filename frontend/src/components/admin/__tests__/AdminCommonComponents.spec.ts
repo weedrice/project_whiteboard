@@ -1,6 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import AdminActionButton from '../AdminActionButton.vue'
 import AdminDataPage from '../AdminDataPage.vue'
 import AdminDetailModalShell from '../AdminDetailModalShell.vue'
@@ -18,6 +18,20 @@ import DescriptionGrid from '../detail/DescriptionGrid.vue'
 import DescriptionItem from '../detail/DescriptionItem.vue'
 import DetailSection from '../detail/DetailSection.vue'
 import HttpStatusBadge from '../HttpStatusBadge.vue'
+
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({
+    t: (key: string) => ({
+      'admin.common.search': '검색',
+      'admin.common.reset': '초기화',
+      'admin.common.loading': '로딩 중...',
+      'common.paginationSummary.itemUnit': '건',
+      'common.paginationSummary.total': '총 1건',
+      'common.previous': '이전',
+      'common.next': '다음',
+    })[key] ?? key,
+  }),
+}))
 
 const AdminPageHeaderStub = defineComponent({
   props: {

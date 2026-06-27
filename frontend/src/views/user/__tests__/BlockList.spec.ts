@@ -112,12 +112,20 @@ describe('BlockList', () => {
     vi.doMock('vue-i18n', () => ({
       createI18n: () => ({
         global: {
-          t: (key: string) => key,
+          t: (key: string, params?: Record<string, unknown>) => {
+            if (key === 'common.paginationSummary.itemUnit') return '건'
+            if (key === 'common.paginationSummary.total') return `총 ${params?.count}${params?.unit}`
+            return key
+          },
         },
         install: vi.fn(),
       }),
       useI18n: () => ({
-        t: (key: string) => key,
+        t: (key: string, params?: Record<string, unknown>) => {
+          if (key === 'common.paginationSummary.itemUnit') return '건'
+          if (key === 'common.paginationSummary.total') return `총 ${params?.count}${params?.unit}`
+          return key
+        },
       }),
     }))
     BlockList = (await import('../BlockList.vue')).default
