@@ -1,5 +1,6 @@
 import type { AxiosResponse } from 'axios'
 import type { ApiResponse, PageResponse } from '@/types'
+import { normalizePageResponse, type PageResponseRaw } from '@/utils/pageResponse'
 
 export function unwrapApiData<T>(response: ApiResponse<T>): T {
     return response.data
@@ -7,6 +8,16 @@ export function unwrapApiData<T>(response: ApiResponse<T>): T {
 
 export function unwrapAxiosApiData<T>(response: AxiosResponse<ApiResponse<T>>): T {
     return unwrapApiData(response.data)
+}
+
+export function unwrapApiPageData<T>(response: ApiResponse<PageResponse<T> | PageResponseRaw<T>>): PageResponse<T> {
+    return normalizePageResponse(unwrapApiData(response))
+}
+
+export function unwrapAxiosApiPageData<T>(
+    response: AxiosResponse<ApiResponse<PageResponse<T> | PageResponseRaw<T>>>
+): PageResponse<T> {
+    return unwrapApiPageData(response.data)
 }
 
 export function mapApiDataResponse<TSource, TTarget>(

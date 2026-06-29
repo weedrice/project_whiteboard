@@ -1,11 +1,14 @@
 import { useQuery, useMutation, useQueryClient, type QueryKey } from '@tanstack/vue-query'
 import { adminApi, type AdminRole } from '@/api/admin'
 import { unwrapAxiosApiData } from '@/api/response'
+import type { AxiosResponse } from 'axios'
 import { adminQueryKeys } from '@/composables/adminQueryKeys'
 import { boardQueryKeys } from '@/composables/boardQueryKeys'
+import { invalidateAdminBoardCaches, invalidateAdminUserCaches } from '@/composables/adminCacheInvalidation'
 import { invalidateBoardListCaches } from '@/composables/boardCacheInvalidation'
+import { useApiPageQuery, useNullableApiPageQuery } from '@/composables/useApiQuery'
 import { computed, type ComputedRef, type Ref } from 'vue'
-import { normalizePageResponse, type PageResponseRaw } from '@/utils/pageResponse'
+import type { PageResponseRaw } from '@/utils/pageResponse'
 import type {
     SanctionData,
     ApiResponse,
@@ -26,15 +29,8 @@ import type {
     IpBlock
 } from '@/types'
 
-function unwrapAdminPageResponse<T>(response: ApiResponse<PageResponse<T> | PageResponseRaw<T>>): PageResponse<T> {
-    return normalizePageResponse(response.data as PageResponseRaw<T>)
-}
-
-type AdminPageApiResponse<T> = ApiResponse<PageResponse<T> | PageResponseRaw<T>>
-type AdminPageFetcher<T> = () => Promise<{ data: AdminPageApiResponse<T> }>
-type AdminPageQueryOptions = {
-    enabled?: Ref<boolean> | ComputedRef<boolean>
-}
+type AdminPageFetcher<T> = () => Promise<AxiosResponse<ApiResponse<PageResponse<T> | PageResponseRaw<T>>>>
+type AdminQueryKey = QueryKey | Ref<QueryKey> | ComputedRef<QueryKey>
 
 // Admin specific types
 interface AdminCreateData {
@@ -110,31 +106,23 @@ export function useAdmin() {
     const queryClient = useQueryClient()
 
     const adminPageQuery = <T>(
-        queryKey: QueryKey,
+        queryKey: AdminQueryKey,
         fetcher: AdminPageFetcher<T>,
-        options: AdminPageQueryOptions = {}
-    ) => useQuery({
+        options: { enabled?: Ref<boolean> | ComputedRef<boolean> } = {}
+    ) => useApiPageQuery<T>({
         queryKey,
-        queryFn: async () => {
-            const { data } = await fetcher()
-            return unwrapAdminPageResponse<T>(data)
-        },
+        request: () => fetcher(),
         enabled: options.enabled,
-        placeholderData: (previousData) => previousData
     })
 
     const adminNullablePageQuery = <T>(
-        queryKey: QueryKey,
+        queryKey: AdminQueryKey,
         fetcher: () => ReturnType<AdminPageFetcher<T>> | null,
         enabled: Ref<boolean> | ComputedRef<boolean>
-    ) => useQuery({
+    ) => useNullableApiPageQuery<T>({
         queryKey,
-        queryFn: async () => {
-            const response = await fetcher()
-            return response === null ? null : unwrapAdminPageResponse<T>(response.data)
-        },
+        request: async () => fetcher(),
         enabled,
-        placeholderData: (previousData) => previousData
     })
 
     // --- Admin Management ---
@@ -196,8 +184,7 @@ export function useAdmin() {
         return useMutation({
             mutationFn: ({ userId, status }: { userId: string | number, status: string }) => adminApi.updateUserStatus(userId, status),
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: adminQueryKeys.usersRoot })
-                queryClient.invalidateQueries({ queryKey: adminQueryKeys.userDetailRoot })
+                invalidateAdminUserCaches(queryClient)
             }
         })
     }
@@ -247,8 +234,7 @@ export function useAdmin() {
         return useMutation({
             mutationFn: (data: SanctionData) => adminApi.sanctionUser(data),
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: adminQueryKeys.usersRoot })
-                queryClient.invalidateQueries({ queryKey: adminQueryKeys.userDetailRoot })
+                invalidateAdminUserCaches(queryClient)
             }
         })
     }
@@ -397,8 +383,7 @@ export function useAdmin() {
                 adminApi.updateBoardManager(boardId, data),
             onSuccess: (_, { boardId }) => {
                 queryClient.invalidateQueries({ queryKey: adminQueryKeys.boardManagerById(boardId) })
-                queryClient.invalidateQueries({ queryKey: adminQueryKeys.boards })
-                queryClient.invalidateQueries({ queryKey: adminQueryKeys.adminsRoot })
+                invalidateAdminBoardCaches(queryClient)
                 queryClient.invalidateQueries({ queryKey: boardQueryKeys.all })
             }
         })

@@ -6,6 +6,7 @@ import type { UserSettings } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import type { AxiosRequestConfig } from 'axios'
 import { withQuerySignal } from '@/utils/querySignal'
+import { useApiQuery } from '@/composables/useApiQuery'
 import { userQueryKeys, type UserQueryPaginationParams } from '@/composables/userQueryKeys'
 
 interface PasswordUpdateData {
@@ -50,40 +51,32 @@ export function useUser() {
     }
 
     const useUserProfile = (userId: Ref<string | number>) => {
-        return useQuery({
+        return useApiQuery({
             queryKey: userQueryKeys.profile(userId),
-            queryFn: async () => {
-                return unwrapAxiosApiData(await userApi.getUserProfile(userId.value))
-            },
+            request: () => userApi.getUserProfile(userId.value),
             enabled: computed(() => !!userId.value),
         })
     }
 
     const useUserSettings = () => {
-        return useQuery({
+        return useApiQuery({
             queryKey: userSettingsQueryKey,
-            queryFn: async () => {
-                return unwrapAxiosApiData(await userApi.getUserSettings())
-            },
+            request: () => userApi.getUserSettings(),
             staleTime: QUERY_STALE_TIME.SHORT,
         })
     }
 
     const useBlockList = (params?: Ref<PaginationParams>) => {
-        return useQuery({
+        return useApiQuery({
             queryKey: userQueryKeys.blocks(params),
-            queryFn: async () => {
-                return unwrapAxiosApiData(await userApi.getBlockList(params?.value))
-            },
+            request: () => userApi.getBlockList(params?.value),
         })
     }
 
     const useNotificationSettings = () => {
-        return useQuery({
+        return useApiQuery({
             queryKey: userQueryKeys.notificationSettings,
-            queryFn: async () => {
-                return unwrapAxiosApiData(await userApi.getNotificationSettings())
-            },
+            request: () => userApi.getNotificationSettings(),
         })
     }
 
@@ -92,31 +85,25 @@ export function useUser() {
     }
 
     const useMyPoint = (enabled?: Ref<boolean>, userIdentity?: Ref<string | number | null | undefined>) => {
-        return useQuery({
+        return useApiQuery({
             queryKey: userQueryKeys.myPoints(userIdentity),
-            queryFn: async () => {
-                return unwrapAxiosApiData(await userApi.getMyPoint())
-            },
+            request: () => userApi.getMyPoint(),
             enabled: computed(() => enabled?.value ?? true),
             staleTime: QUERY_STALE_TIME.SHORT,
         })
     }
 
     const useMyScraps = (params?: Ref<PaginationParams>) => {
-        return useQuery({
+        return useApiQuery({
             queryKey: userQueryKeys.scraps(params),
-            queryFn: async (context: QueryFunctionContext) => {
-                return unwrapAxiosApiData(await userApi.getMyScraps(params?.value ?? {}, withQuerySignal(undefined, context)))
-            },
+            request: (context) => userApi.getMyScraps(params?.value ?? {}, withQuerySignal(undefined, context)),
         })
     }
 
     const useMyPointHistories = (params?: Ref<PaginationParams>) => {
-        return useQuery({
+        return useApiQuery({
             queryKey: userQueryKeys.pointHistories(params),
-            queryFn: async (context: QueryFunctionContext) => {
-                return unwrapAxiosApiData(await userApi.getMyPointHistories(params?.value ?? {}, withQuerySignal(undefined, context)))
-            },
+            request: (context) => userApi.getMyPointHistories(params?.value ?? {}, withQuerySignal(undefined, context)),
         })
     }
 
@@ -242,11 +229,9 @@ export function useUser() {
     }
 
     const useRecentlyViewedPosts = (params?: Ref<PaginationParams>) => {
-        return useQuery({
+        return useApiQuery({
             queryKey: userQueryKeys.recentlyViewedPosts(params),
-            queryFn: async () => {
-                return unwrapAxiosApiData(await userApi.getRecentlyViewedPosts(params?.value || {}))
-            },
+            request: () => userApi.getRecentlyViewedPosts(params?.value || {}),
         })
     }
 
