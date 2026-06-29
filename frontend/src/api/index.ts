@@ -1,10 +1,22 @@
-import axios, { AxiosError, type AxiosInstance, type AxiosRequestConfig, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
+import axios, { AxiosError, type AxiosInstance, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import i18n from '@/i18n'
 import router from '@/router'
 import { Storage } from '@/utils/storage'
 import { API } from '@/utils/constants'
 import { isValidationErrors, normalizeApiErrorMessage } from '@/utils/errorHandler'
 import { unwrapApiData } from '@/api/response'
+import {
+    applyRefreshedAccessToken,
+    clearExpiredAuthSession,
+    enqueueFailedRequest,
+    isRefreshInProgress,
+    notifySessionExpired,
+    processRefreshQueue,
+    resetSessionExpiredToastDebounce,
+    setRefreshInProgress,
+    type AuthStoreLike,
+    type ToastStore,
+} from '@/api/authRefreshSession'
 
 const { t } = i18n.global
 
@@ -13,7 +25,6 @@ const API_PATHS = {
     REFRESH: '/auth/refresh',
     LOGIN: '/login'
 }
-const SESSION_EXPIRED_TOAST_DEBOUNCE_MS = 5000
 
 // Extend InternalAxiosRequestConfig to include _retry property
 declare module 'axios' {
@@ -49,21 +60,6 @@ interface SuppressibleApiError extends AxiosError {
     suppressGlobalErrorToast?: boolean
     isAuthRefreshFailure?: boolean
     isUserHydrationFailure?: boolean
-}
-
-interface FailedRequest {
-    resolve: (token: string | null) => void
-    reject: (error: unknown) => void
-}
-
-interface ToastStore {
-    addToast: (message: string, type?: 'info' | 'success' | 'warning' | 'error', duration?: number, position?: 'top-center' | 'bottom-center') => void
-}
-
-interface AuthStoreLike {
-    fetchUser: (config?: AxiosRequestConfig) => Promise<boolean>
-    setTokens: (token: string) => void
-    clearSessionState: () => void
 }
 
 interface ApiStoreResolvers {
@@ -136,57 +132,6 @@ api.interceptors.request.use(
         return Promise.reject(error)
     }
 )
-
-// Concurrency handling for token refresh
-let isRefreshing = false
-let failedQueue: FailedRequest[] = []
-let lastSessionExpiredToastAt = 0
-
-const processQueue = (error: unknown, token: string | null = null) => {
-    failedQueue.forEach((prom) => {
-        if (error) {
-            prom.reject(error)
-        } else {
-            prom.resolve(token)
-        }
-    })
-    failedQueue = []
-}
-
-const notifySessionExpired = (toastStore: ToastStore) => {
-    const now = Date.now()
-    if (now - lastSessionExpiredToastAt < SESSION_EXPIRED_TOAST_DEBOUNCE_MS) {
-        return
-    }
-
-    lastSessionExpiredToastAt = now
-    toastStore.addToast(t('common.messages.sessionExpired'), 'warning', 3000, 'top-center')
-}
-
-const applyRefreshedAccessToken = (authStore: AuthStoreLike | null, token: unknown): string | null => {
-    if (typeof token !== 'string' || token.length === 0) {
-        return null
-    }
-
-    if (authStore) {
-        authStore.setTokens(token)
-    } else {
-        Storage.setString('accessToken', token)
-        Storage.remove('refreshToken')
-    }
-
-    return token
-}
-
-const clearExpiredAuthSession = (authStore: AuthStoreLike | null) => {
-    if (authStore) {
-        authStore.clearSessionState()
-        return
-    }
-
-    Storage.remove('accessToken')
-    Storage.remove('refreshToken')
-}
 
 const handleApiError = (error: AxiosError, toastStore: ToastStore) => {
     if (error.response) {
@@ -290,9 +235,9 @@ api.interceptors.response.use(
 
         // If 401 and not already retrying
         if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.skipAuthRefresh) {
-            if (isRefreshing) {
+            if (isRefreshInProgress()) {
                 return new Promise<string | null>((resolve, reject) => {
-                    failedQueue.push({ resolve, reject })
+                    enqueueFailedRequest({ resolve, reject })
                 })
                     .then((token) => {
                         if (originalRequest.headers && token) {
@@ -306,7 +251,7 @@ api.interceptors.response.use(
             }
 
             originalRequest._retry = true
-            isRefreshing = true
+            setRefreshInProgress(true)
 
             try {
                 // Use a separate instance or direct call to avoid infinite loop if refresh fails
@@ -320,7 +265,7 @@ api.interceptors.response.use(
 
                 if (data.success) {
                     const refreshedAccessToken = unwrapApiData(data).accessToken
-                    lastSessionExpiredToastAt = 0
+                    resetSessionExpiredToastDebounce()
 
                     // Update user state (permissions, etc.) with new token
                     const authStore = await resolveAuthStore()
@@ -337,7 +282,7 @@ api.interceptors.response.use(
                     }
 
                     // Process queued requests
-                    processQueue(null, newAccessToken)
+                    processRefreshQueue(null, newAccessToken)
 
                     // Retry original request with new token
                     if (originalRequest.headers) {
@@ -352,7 +297,7 @@ api.interceptors.response.use(
                 suppressibleRefreshError.suppressGlobalErrorToast = true
                 suppressibleRefreshError.isAuthRefreshFailure = true
 
-                processQueue(suppressibleRefreshError, null)
+                processRefreshQueue(suppressibleRefreshError, null)
 
                 const axiosRefreshError = refreshError as AxiosError
                 const refreshStatus = axiosRefreshError.response?.status
@@ -366,7 +311,7 @@ api.interceptors.response.use(
 
                     if (!isLoginPage) {
                         if (router.currentRoute.value.meta.requiresAuth) {
-                            notifySessionExpired(toastStore)
+                            notifySessionExpired(toastStore, t('common.messages.sessionExpired'))
                             void router.push({
                                 path: API_PATHS.LOGIN,
                                 query: { redirect: router.currentRoute.value.fullPath }
@@ -376,7 +321,7 @@ api.interceptors.response.use(
                 }
                 return Promise.reject(suppressibleRefreshError)
             } finally {
-                isRefreshing = false
+                setRefreshInProgress(false)
             }
         }
 
