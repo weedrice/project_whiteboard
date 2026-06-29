@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import type { EmoticonMaster } from '@/types/emoticon'
@@ -80,9 +80,10 @@ const createEmoticon = (id: number, name: string, tags: string[] = []): Emoticon
     modifiedAt: '2026-01-01T00:00:00.000Z',
 })
 
-const mountPicker = (show = true) => {
+const mountPicker = (show = true, attachTo?: HTMLElement) => {
     return mount(EmoticonPicker, {
         props: { show },
+        attachTo,
         global: {
             stubs: {
                 X: true,
@@ -95,6 +96,10 @@ const mountPicker = (show = true) => {
 }
 
 describe('EmoticonPicker', () => {
+    afterEach(() => {
+        document.body.innerHTML = ''
+    })
+
     beforeEach(() => {
         vi.clearAllMocks()
         mocks.queryOptions.length = 0
@@ -367,5 +372,33 @@ describe('EmoticonPicker', () => {
         expect((wrapper.get('.search-input').element as HTMLInputElement).value).toBe('')
         expect(wrapper.find('.back-btn').exists()).toBe(false)
         expect(wrapper.findAll('.emoticon-btn')).toHaveLength(1)
+    })
+
+    it('closes on Escape key', async () => {
+        const wrapper = mountPicker(true)
+
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+        await nextTick()
+
+        expect(wrapper.emitted('close')).toHaveLength(1)
+    })
+
+    it('moves focus into the dialog and restores previous focus when hidden', async () => {
+        const trigger = document.createElement('button')
+        document.body.appendChild(trigger)
+        trigger.focus()
+
+        const host = document.createElement('div')
+        document.body.appendChild(host)
+        const wrapper = mountPicker(true, host)
+        await nextTick()
+        await nextTick()
+
+        expect(document.activeElement).toBe(wrapper.get('.close-btn').element)
+
+        await wrapper.setProps({ show: false })
+        await nextTick()
+
+        expect(document.activeElement).toBe(trigger)
     })
 })

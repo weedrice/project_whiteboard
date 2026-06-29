@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onUnmounted, watch } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { emoticonApi } from '@/api/emoticon'
 import type { EmoticonMaster, EmoticonImage } from '@/types/emoticon'
@@ -8,6 +8,8 @@ import logger from '@/utils/logger'
 import { DEFAULT_EMOTICON_IMAGE_URL, applyImageFallback } from '@/utils/imageFallback'
 import { useLatestAsyncTask } from '@/composables/useLatestAsyncTask'
 import { useAccessibleEmoticonPicker } from '@/composables/useAccessibleEmoticonPicker'
+import { useEventListener } from '@/composables/useEventListener'
+import { useFocusTrap } from '@/composables/useFocusTrap'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 
 const props = defineProps<{
@@ -20,6 +22,7 @@ const emit = defineEmits<{
 }>()
 const { t } = useI18n()
 
+const pickerRef = ref<HTMLElement | null>(null)
 const selectedEmoticon = ref<EmoticonMaster | null>(null)
 const selectedEmoticonId = ref<number | null>(null)
 const selectedEmoticonSource = ref<EmoticonMaster | null>(null)
@@ -41,6 +44,7 @@ const {
   refetch: refetchAccessibleEmoticons
 } = useAccessibleEmoticonPicker(() => props.show)
 const listErrorMessage = computed(() => t('emoticon.picker.listLoadFailed'))
+const { trapFocus, restoreFocus } = useFocusTrap(pickerRef, () => props.show)
 
 // 검색 필터링
 const filteredEmoticons = computed(() => {
@@ -102,15 +106,43 @@ const close = () => {
   emit('close')
 }
 
+const handleDocumentKeydown = (event: KeyboardEvent) => {
+  if (!props.show || event.key !== 'Escape') return
+
+  event.preventDefault()
+  close()
+}
+
 // 팝업이 닫힐 때 상태 초기화
 watch(() => props.show, (newVal) => {
   if (!newVal) {
     resetDetailState({ clearSearch: true })
+    restoreFocus()
+    return
   }
+
+  nextTick(() => {
+    if (props.show) {
+      trapFocus()
+    }
+  })
+})
+
+useEventListener(() => document, 'keydown', handleDocumentKeydown)
+
+onMounted(() => {
+  if (!props.show) return
+
+  nextTick(() => {
+    if (props.show) {
+      trapFocus()
+    }
+  })
 })
 
 onUnmounted(() => {
   resetDetailState({ clearSearch: true })
+  restoreFocus()
 })
 </script>
 
@@ -119,6 +151,7 @@ onUnmounted(() => {
   <div v-if="show" class="emoticon-picker-backdrop" @click="close" aria-hidden="true" />
   <div
     v-if="show"
+    ref="pickerRef"
     class="emoticon-picker"
     role="dialog"
     aria-modal="true"
