@@ -324,6 +324,11 @@ const findButtonByText = (wrapper: ReturnType<typeof mount>, text: string) => {
     return button
 }
 
+const findEditorModeButtons = (wrapper: ReturnType<typeof mount>) => ({
+    visual: findButtonByText(wrapper, 'board.writePost.visualMode'),
+    html: findButtonByText(wrapper, 'board.writePost.viewHtmlSource'),
+})
+
 describe('PostForm', () => {
     afterEach(() => {
         while (mountedWrappers.length > 0) {
@@ -1007,17 +1012,17 @@ describe('PostForm', () => {
         }
         const wrapper = mountPostForm('create')
 
-        const modeButtons = wrapper.findAll('.editor-view-toggle-btn')
-        expect(modeButtons[0].attributes('aria-pressed')).toBe('true')
-        expect(modeButtons[1].attributes('aria-pressed')).toBe('false')
+        const modeButtons = findEditorModeButtons(wrapper)
+        expect(modeButtons.visual.attributes('aria-pressed')).toBe('true')
+        expect(modeButtons.html.attributes('aria-pressed')).toBe('false')
 
-        await modeButtons[1].trigger('click')
+        await modeButtons.html.trigger('click')
         expect(wrapper.find('#content').exists()).toBe(true)
-        expect(modeButtons[0].attributes('aria-pressed')).toBe('false')
-        expect(modeButtons[1].attributes('aria-pressed')).toBe('true')
+        expect(modeButtons.visual.attributes('aria-pressed')).toBe('false')
+        expect(modeButtons.html.attributes('aria-pressed')).toBe('true')
 
         await wrapper.get('#content').setValue('<p>html-source</p>')
-        await modeButtons[0].trigger('click')
+        await modeButtons.visual.trigger('click')
         expect((wrapper.get('[data-testid=\"editor-input\"]').element as HTMLTextAreaElement).value).toBe('<p>html-source</p>')
 
         expect(wrapper.find('#isNotice').exists()).toBe(true)
@@ -1037,8 +1042,8 @@ describe('PostForm', () => {
 
         await wrapper.get('[data-testid="editor-input"]').setValue(uploadedImageContent)
 
-        const modeButtons = wrapper.findAll('.editor-view-toggle-btn')
-        await modeButtons[1].trigger('click')
+        const modeButtons = findEditorModeButtons(wrapper)
+        await modeButtons.html.trigger('click')
 
         const htmlSource = wrapper.get('#content').element as HTMLTextAreaElement
         expect(htmlSource.value).toContain('src="/api/v1/files/157"')
@@ -1046,7 +1051,7 @@ describe('PostForm', () => {
         expect(htmlSource.value).toContain('data-server-src="/files/157"')
         expect(htmlSource.value).not.toContain('blob:https://noviis.kr/local')
 
-        await modeButtons[0].trigger('click')
+        await modeButtons.visual.trigger('click')
         expect((wrapper.get('[data-testid="editor-input"]').element as HTMLTextAreaElement).value).toContain('src="/api/v1/files/157"')
     })
 
@@ -1092,8 +1097,8 @@ describe('PostForm', () => {
         await wrapper.get('#category').setValue('1')
         await wrapper.get('[data-testid="upload-image"]').trigger('click')
 
-        const modeButtons = wrapper.findAll('.editor-view-toggle-btn')
-        await modeButtons[1].trigger('click')
+        const modeButtons = findEditorModeButtons(wrapper)
+        await modeButtons.html.trigger('click')
         expect(wrapper.find('[data-testid="editor-input"]').exists()).toBe(false)
 
         await wrapper.get('form').trigger('submit')

@@ -8,6 +8,7 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseSegmentedControl, { type SegmentedControlOption } from '@/components/common/ui/BaseSegmentedControl.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import PostTags from '@/components/tag/PostTags.vue'
 import { useToastStore } from '@/stores/toast'
@@ -138,6 +139,45 @@ const {
 })
 const previewHtml = computed(() => sanitizeQuillHtml(form.value.content || `<p>${t('board.writePost.preview.emptyContent')}</p>`))
 const leaveConfirmMessage = computed(() => t('board.writePost.leaveConfirm'))
+const editorViewOptions = computed<SegmentedControlOption[]>(() => [
+  { value: 'visual', label: t('board.writePost.visualMode') },
+  { value: 'html', label: t('board.writePost.viewHtmlSource') },
+])
+const metadataPanelProps = computed(() => ({
+  categories: filteredCategories.value,
+  categoryId: form.value.categoryId,
+  tags: form.value.tags,
+  isNotice: form.value.isNotice,
+  isNsfw: form.value.isNsfw,
+  isSpoiler: form.value.isSpoiler,
+  isSecret: form.value.isSecret,
+  hideCategory: props.hideCategory,
+  hideTags: props.hideTags,
+  showNotice: showNotice.value,
+  canShowNsfw: canShowNsfw.value,
+  hideSpoiler: props.hideSpoiler,
+  hideSecret: props.hideSecret,
+}))
+const metadataPanelHandlers = {
+  'update:categoryId': (value: string | number) => {
+    form.value.categoryId = value
+  },
+  'update:tags': (value: string[]) => {
+    form.value.tags = value
+  },
+  'update:isNotice': (value: boolean) => {
+    form.value.isNotice = value
+  },
+  'update:isNsfw': (value: boolean) => {
+    form.value.isNsfw = value
+  },
+  'update:isSpoiler': (value: boolean) => {
+    form.value.isSpoiler = value
+  },
+  'update:isSecret': (value: boolean) => {
+    form.value.isSecret = value
+  },
+}
 
 function onBeforeUnload(event: BeforeUnloadEvent) {
   if (!isDirty.value) return
@@ -238,6 +278,12 @@ function setEditorViewMode(mode: 'visual' | 'html') {
   editorViewMode.value = mode
 }
 
+function handleEditorViewModeChange(mode: string) {
+  if (mode === 'visual' || mode === 'html') {
+    setEditorViewMode(mode)
+  }
+}
+
 const {
   tiptapEditorRef,
   editorWrapperRef,
@@ -324,25 +370,8 @@ defineExpose({
           <div class="nv-compose-main-card rounded-2xl border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)] sm:p-5">
             <PostFormMetadataPanel
               layout="mobile"
-              :categories="filteredCategories"
-              :category-id="form.categoryId"
-              :tags="form.tags"
-              :is-notice="form.isNotice"
-              :is-nsfw="form.isNsfw"
-              :is-spoiler="form.isSpoiler"
-              :is-secret="form.isSecret"
-              :hide-category="props.hideCategory"
-              :hide-tags="props.hideTags"
-              :show-notice="showNotice"
-              :can-show-nsfw="canShowNsfw"
-              :hide-spoiler="props.hideSpoiler"
-              :hide-secret="props.hideSecret"
-              @update:category-id="form.categoryId = $event"
-              @update:tags="form.tags = $event"
-              @update:is-notice="form.isNotice = $event"
-              @update:is-nsfw="form.isNsfw = $event"
-              @update:is-spoiler="form.isSpoiler = $event"
-              @update:is-secret="form.isSecret = $event"
+              v-bind="metadataPanelProps"
+              v-on="metadataPanelHandlers"
             />
 
             <BaseInput
@@ -362,26 +391,13 @@ defineExpose({
                 <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
                   <span>{{ $t('board.writePost.sections.editor') }}</span>
                 </div>
-                <div class="flex items-center gap-2">
-                  <button
-                    type="button"
-                    class="editor-view-toggle-btn"
-                    :class="{ active: editorViewMode === 'visual' }"
-                    :aria-pressed="editorViewMode === 'visual'"
-                    @click="setEditorViewMode('visual')"
-                  >
-                    {{ $t('board.writePost.visualMode') }}
-                  </button>
-                  <button
-                    type="button"
-                    class="editor-view-toggle-btn"
-                    :class="{ active: editorViewMode === 'html' }"
-                    :aria-pressed="editorViewMode === 'html'"
-                    @click="setEditorViewMode('html')"
-                  >
-                    {{ $t('board.writePost.viewHtmlSource') }}
-                  </button>
-                </div>
+                <BaseSegmentedControl
+                  :model-value="editorViewMode"
+                  :options="editorViewOptions"
+                  :label="$t('board.writePost.sections.editor')"
+                  variant="pill"
+                  @update:model-value="handleEditorViewModeChange"
+                />
               </div>
 
               <div class="editor-area-container rounded-b-xl border border-[var(--nv-line)]">
@@ -463,25 +479,8 @@ defineExpose({
 
             <PostFormMetadataPanel
               layout="desktop"
-              :categories="filteredCategories"
-              :category-id="form.categoryId"
-              :tags="form.tags"
-              :is-notice="form.isNotice"
-              :is-nsfw="form.isNsfw"
-              :is-spoiler="form.isSpoiler"
-              :is-secret="form.isSecret"
-              :hide-category="props.hideCategory"
-              :hide-tags="props.hideTags"
-              :show-notice="showNotice"
-              :can-show-nsfw="canShowNsfw"
-              :hide-spoiler="props.hideSpoiler"
-              :hide-secret="props.hideSecret"
-              @update:category-id="form.categoryId = $event"
-              @update:tags="form.tags = $event"
-              @update:is-notice="form.isNotice = $event"
-              @update:is-nsfw="form.isNsfw = $event"
-              @update:is-spoiler="form.isSpoiler = $event"
-              @update:is-secret="form.isSecret = $event"
+              v-bind="metadataPanelProps"
+              v-on="metadataPanelHandlers"
             />
           </section>
 
@@ -551,28 +550,6 @@ defineExpose({
   min-height: 26rem;
   flex-direction: column;
   overflow: hidden;
-}
-
-.editor-view-toggle-btn {
-  border-radius: 10px;
-  border: 1px solid transparent;
-  padding: 0.45rem 0.85rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--nv-muted);
-  transition: all 0.15s ease;
-}
-
-.editor-view-toggle-btn:hover {
-  border-color: var(--nv-line);
-  background: var(--nv-surface-alt);
-  color: var(--nv-ink);
-}
-
-.editor-view-toggle-btn.active {
-  border-color: color-mix(in srgb, var(--nv-accent) 35%, transparent);
-  background: color-mix(in srgb, var(--nv-accent) 14%, var(--nv-surface));
-  color: var(--nv-accent);
 }
 
 .nv-compose-side-card {
