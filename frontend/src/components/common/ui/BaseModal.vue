@@ -66,6 +66,7 @@ function unlockBodyScroll() {
 import { ref, computed, watch, onUnmounted, nextTick } from 'vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useEventListener } from '@/composables/useEventListener'
+import { useFocusTrap } from '@/composables/useFocusTrap'
 
 const props = withDefaults(defineProps<{
   isOpen: boolean
@@ -126,8 +127,8 @@ const footerAlignClass = computed(() => {
 const modalRef = ref<HTMLElement | null>(null)
 const titleId = `modal-title-${Math.random().toString(36).substr(2, 9)}`
 const descriptionId = `modal-description-${Math.random().toString(36).substr(2, 9)}`
+const { trapFocus, restoreFocus } = useFocusTrap(modalRef, () => props.isOpen)
 
-let previouslyFocusedElement: HTMLElement | null = null
 let hasLockedBodyScroll = false
 
 const close = () => {
@@ -152,59 +153,23 @@ function unlockModalBodyScroll() {
   hasLockedBodyScroll = false
 }
 
-// Keyboard navigation: Escape key to close
 const handleKeyDown = (event: KeyboardEvent) => {
   if (event.key === 'Escape' && props.isOpen && props.closeOnEscape) {
     close()
-  }
-
-  // Focus trap: Tab key within modal
-  if (event.key === 'Tab' && props.isOpen && modalRef.value) {
-    const focusableElements = modalRef.value.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    )
-    const firstElement = focusableElements[0]
-    const lastElement = focusableElements[focusableElements.length - 1]
-
-    if (event.shiftKey && document.activeElement === firstElement) {
-      event.preventDefault()
-      lastElement?.focus()
-    } else if (!event.shiftKey && document.activeElement === lastElement) {
-      event.preventDefault()
-      firstElement?.focus()
-    }
   }
 }
 
 // Focus management
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
-    // Store previously focused element
-    previouslyFocusedElement = document.activeElement as HTMLElement
-
     nextTick(() => {
       if (!props.isOpen) return
-
-      // Focus first focusable element in modal
-      if (modalRef.value) {
-        const focusableElements = modalRef.value.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        )
-        focusableElements[0]?.focus()
-      }
-
-      // Prevent body scroll when modal is open
+      trapFocus()
       lockModalBodyScroll()
     })
   } else {
-    // Restore body scroll
     unlockModalBodyScroll()
-
-    // Restore focus to previously focused element
-    if (previouslyFocusedElement) {
-      previouslyFocusedElement.focus()
-      previouslyFocusedElement = null
-    }
+    restoreFocus()
   }
 }, { immediate: true })
 
@@ -213,5 +178,6 @@ useEventListener(() => document, 'keydown', handleKeyDown)
 onUnmounted(() => {
   // Ensure body scroll is restored
   unlockModalBodyScroll()
+  restoreFocus()
 })
 </script>
