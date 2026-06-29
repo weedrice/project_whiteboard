@@ -145,6 +145,22 @@ const emitRowActivation = (item: T) => {
     emit('row-click', item)
 }
 
+const handleRowClick = (item: T) => {
+    if (!props.interactiveRows || props.rowActivationEvent !== 'row-click') {
+        return
+    }
+
+    emit('row-click', item)
+}
+
+const handleRowDblclick = (item: T) => {
+    if (!props.interactiveRows || props.rowActivationEvent !== 'row-dblclick') {
+        return
+    }
+
+    emit('row-dblclick', item)
+}
+
 const handleRowKeydown = (event: KeyboardEvent, item: T) => {
     if (!props.interactiveRows || (event.key !== 'Enter' && event.key !== ' ')) {
         return
@@ -235,8 +251,8 @@ const bodyCellClasses = computed(() => [
                             :role="interactiveRows ? 'button' : undefined"
                             :tabindex="interactiveRows ? 0 : undefined"
                             :aria-label="getRowActionLabel(item, index)"
-                            @click="emit('row-click', item)"
-                            @dblclick="emit('row-dblclick', item)"
+                            @click="handleRowClick(item)"
+                            @dblclick="handleRowDblclick(item)"
                             @keydown="handleRowKeydown($event, item)">
                             <td v-for="col in columns" :key="col.key"
                                 :class="[bodyCellClasses, alignClass(col.align)]">

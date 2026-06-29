@@ -133,6 +133,43 @@ describe('BaseTable', () => {
         expect(wrapper.emitted('row-click')?.[0]).toEqual([{ id: 1, title: 'Accessible row' }])
     })
 
+    it('does not emit row activation events when rows are not interactive', async () => {
+        const wrapper = mount(BaseTable, {
+            props: {
+                columns: [{ key: 'title', label: 'Title' }],
+                items: [{ id: 1, title: 'Static row' }],
+            },
+        })
+
+        const row = wrapper.get('tbody tr')
+        await row.trigger('click')
+        await row.trigger('dblclick')
+        await row.trigger('keydown', { key: 'Enter' })
+
+        expect(row.attributes('role')).toBeUndefined()
+        expect(row.attributes('tabindex')).toBeUndefined()
+        expect(wrapper.emitted('row-click')).toBeUndefined()
+        expect(wrapper.emitted('row-dblclick')).toBeUndefined()
+    })
+
+    it('only emits the configured pointer activation event for interactive rows', async () => {
+        const wrapper = mount(BaseTable, {
+            props: {
+                columns: [{ key: 'title', label: 'Title' }],
+                items: [{ id: 1, title: 'Detail row' }],
+                interactiveRows: true,
+                rowActivationEvent: 'row-dblclick',
+            },
+        })
+
+        const row = wrapper.get('tbody tr')
+        await row.trigger('click')
+        await row.trigger('dblclick')
+
+        expect(wrapper.emitted('row-click')).toBeUndefined()
+        expect(wrapper.emitted('row-dblclick')).toHaveLength(1)
+    })
+
     it('routes keyboard activation to double click event when configured', async () => {
         const wrapper = mount(BaseTable, {
             props: {
