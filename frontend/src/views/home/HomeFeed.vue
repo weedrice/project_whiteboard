@@ -4,7 +4,6 @@ import { RouterLink } from 'vue-router'
 import { CircleDot, FileText, TrendingUp as TrendingUpIcon } from 'lucide-vue-next'
 import { useHead } from '@unhead/vue'
 import { useI18n } from 'vue-i18n'
-import EmptyState from '@/components/common/ui/EmptyState.vue'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
 import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
 import HomeLandingSkeleton from '@/components/home/HomeLandingSkeleton.vue'
@@ -23,7 +22,6 @@ const {
   trending,
   liveActivity,
   spotlightBoards,
-  boards,
   stats,
   selectedPeriod,
   setPeriod,
@@ -35,15 +33,6 @@ const {
   refetch,
 } = useHomeLanding()
 
-const hasLandingContent = computed(() =>
-  Boolean(
-    featured.value
-    || editorPicks.value.length
-    || trending.value.length
-    || liveActivity.value.length
-    || boards.value.length,
-  ),
-)
 const heroPost = computed(() =>
   featured.value
   ?? editorPicks.value[0]
@@ -51,7 +40,6 @@ const heroPost = computed(() =>
   ?? null,
 )
 const heroPostId = computed(() => heroPost.value?.postId ?? null)
-const showHeroSlot = computed(() => Boolean(heroPost.value || isFetching.value))
 const visibleTrending = computed(() => trending.value.filter((post) => post.postId !== heroPostId.value))
 const visibleLiveActivity = computed(() => liveActivity.value.filter((post) => post.postId !== heroPostId.value))
 const boardStrip = computed(() => spotlightBoards.value.slice(0, BOARD_STRIP_LIMIT))
@@ -133,14 +121,6 @@ watch(homeTitle, (title) => {
       @retry="refetch"
     />
 
-    <EmptyState
-      v-else-if="!hasLandingContent"
-      :title="$t('common.noData')"
-      :description="$t('board.list.noPosts')"
-      :icon="FileText"
-      container-class="nv-home-empty"
-    />
-
     <template v-else>
       <section class="nv-home-hero">
         <h1 class="sr-only">{{ $t('home.landing.curatedToday') }}</h1>
@@ -157,16 +137,33 @@ watch(homeTitle, (title) => {
           </p>
         </div>
 
-        <div
-          class="mt-5 grid gap-5"
-          :class="showHeroSlot ? 'lg:grid-cols-[1.45fr_0.95fr]' : ''"
-        >
+        <div class="mt-5 grid gap-5 lg:grid-cols-[1.45fr_0.95fr]">
           <HomePostCard v-if="heroPost" :post="heroPost" variant="featured" />
           <div
-            v-else-if="isFetching"
-            class="rounded-[28px] border border-dashed border-[var(--nv-line)] px-6 py-8 text-sm text-[var(--nv-muted)]"
+            v-else
+            class="flex min-h-[15rem] flex-col justify-center rounded-[28px] border border-dashed border-[var(--nv-line)] px-6 py-8 text-sm text-[var(--nv-muted)]"
           >
-            {{ $t('home.landing.featuredLoading') }}
+            <FileText class="mb-4 h-8 w-8 text-[var(--nv-ink-soft)]" />
+            <p class="text-base font-semibold text-[var(--nv-ink)]">
+              {{ isFetching ? $t('home.landing.featuredLoading') : $t('home.landing.emptyTitle') }}
+            </p>
+            <p v-if="!isFetching" class="mt-2 max-w-md text-sm leading-6 text-[var(--nv-muted)]">
+              {{ $t('home.landing.emptyDescription') }}
+            </p>
+            <div v-if="!isFetching" class="mt-5 flex flex-wrap gap-2">
+              <RouterLink
+                to="/board/create"
+                class="inline-flex items-center justify-center rounded-full bg-[var(--nv-accent)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-95"
+              >
+                {{ $t('home.landing.emptyPrimaryAction') }}
+              </RouterLink>
+              <RouterLink
+                to="/boards"
+                class="inline-flex items-center justify-center rounded-full border border-[var(--nv-line)] px-4 py-2 text-sm font-semibold text-[var(--nv-ink)] transition hover:bg-[var(--nv-surface-2)]"
+              >
+                {{ $t('home.landing.emptySecondaryAction') }}
+              </RouterLink>
+            </div>
           </div>
 
           <div class="space-y-3">
@@ -298,7 +295,13 @@ watch(homeTitle, (title) => {
             <h2 class="text-xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)]">{{ $t('home.landing.liveActivityTitle') }}</h2>
           </div>
         </div>
-        <HomeActivityList :posts="visibleLiveActivity" />
+        <HomeActivityList v-if="visibleLiveActivity.length" :posts="visibleLiveActivity" />
+        <div
+          v-else
+          class="rounded-[24px] border border-dashed border-[var(--nv-line)] px-5 py-6 text-sm text-[var(--nv-muted)]"
+        >
+          {{ $t('home.landing.liveActivityEmpty') }}
+        </div>
       </section>
     </template>
   </div>

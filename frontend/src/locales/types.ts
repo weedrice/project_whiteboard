@@ -212,6 +212,10 @@ export interface HomeMessages {
     subscribers: string
     boardsUnavailable: string
     emptyBoards: string
+    emptyTitle: string
+    emptyDescription: string
+    emptyPrimaryAction: string
+    emptySecondaryAction: string
     trending: string
     trendingNow: string
     trendingEmpty: string
@@ -222,6 +226,7 @@ export interface HomeMessages {
     }
     liveActivity: string
     liveActivityTitle: string
+    liveActivityEmpty: string
     siteStats: string
     statsCards: {
       postsToday: string

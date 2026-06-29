@@ -294,7 +294,7 @@ describe('HomeFeed', () => {
         expect(viewAllSlot?.attributes('style')).toContain('--remaining-board-slots: 1')
     })
 
-    it('shows the empty state when every landing source is empty', () => {
+    it('keeps the home shell visible with actions when every landing source is empty', () => {
         const wrapper = mount(HomeFeed, {
             global: {
                 mocks: {
@@ -310,8 +310,20 @@ describe('HomeFeed', () => {
                 },
             },
         })
-        expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(true)
+        expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(false)
         expect(wrapper.findAll('[data-testid="post-card"]')).toHaveLength(0)
+        expect(wrapper.text()).toContain('home.landing.emptyTitle')
+        expect(wrapper.text()).toContain('home.landing.emptyDescription')
+        expect(wrapper.text()).toContain('home.landing.emptyPrimaryAction')
+        expect(wrapper.text()).toContain('home.landing.emptySecondaryAction')
+        expect(wrapper.text()).toContain('home.landing.siteStats')
+        expect(wrapper.text()).toContain('home.landing.emptyBoards')
+        expect(wrapper.text()).toContain('home.landing.trendingEmpty')
+        expect(wrapper.text()).toContain('home.landing.liveActivityEmpty')
+
+        const links = wrapper.findAllComponents(RouterLinkStub)
+        expect(links.some((link) => link.props('to') === '/board/create')).toBe(true)
+        expect(links.some((link) => link.props('to') === '/boards')).toBe(true)
     })
 
     it('uses the home landing skeleton while the landing data is loading', () => {
