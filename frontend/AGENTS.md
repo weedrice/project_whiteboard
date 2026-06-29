@@ -57,7 +57,7 @@ frontend/
 From `frontend/`:
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
@@ -133,6 +133,11 @@ Run from `frontend/`:
 npm run lint
 npm run type-check
 npm run test:run
+```
+
+Run coverage only when the task calls for coverage data or the risk level justifies it:
+
+```bash
 npm run coverage
 ```
 
@@ -153,6 +158,28 @@ Test notes:
 - When backend API behavior, DTO fields, validation, or error responses change with frontend impact, run `npm run type-check` and the narrowest related Vitest target before broader checks
 - If a frontend change is made only to mirror backend normalization, add or update a component/composable test that proves the UI state follows the server rule
 
+## Build And Docker Image
+
+For frontend changes that should be reflected in the local Docker runtime, rebuild the frontend Docker image after verification.
+
+For a standalone production build check, run from `frontend/`:
+
+```bash
+npm run build
+```
+
+For a refreshed local Docker image, run from the repository root:
+
+```bash
+docker compose build frontend
+```
+
+Notes:
+
+- The compose service builds `noviis-frontend:local` from `frontend/Dockerfile`.
+- The Docker build runs `npm run build` inside the image build stage, so `docker compose build frontend` is enough when the user specifically asks to refresh the frontend image.
+- If only running local Vite dev server work, Docker rebuild is not required unless the user asks for the frontend image to be refreshed.
+
 ## Commit Guidance
 
 Use the repository-wide commit style:
@@ -163,9 +190,9 @@ Type: short summary
 
 Examples for this module:
 
-- `Feat: add agent management section to my page`
-- `Fix: refresh board post cache after edit`
-- `Refactor: centralize auth error normalization`
+- `Feat: 마이페이지 에이전트 관리 섹션 추가`
+- `Fix: 게시글 수정 후 게시판 캐시 갱신`
+- `Refactor: 인증 에러 정규화 로직 공통화`
 
 ## Security Notes
 
