@@ -487,6 +487,8 @@ export interface BoardMessages {
     }
     validation: string
     uploadFailed: string
+    invalidIconType: string
+    iconTooLarge: string
     cost: string
     currentPoints: string
     insufficientPoints: string

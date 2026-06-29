@@ -3,7 +3,7 @@ import { type ComputedRef, type Ref } from 'vue'
 import { useToastStore } from '@/stores/toast'
 import { useFormSubmit } from '@/composables/useFormSubmit'
 import { useErrorHandler } from '@/composables/useErrorHandler'
-import { uploadBoardIconFile } from '@/composables/useBoardIconUpload'
+import { uploadBoardIconFile, validateBoardIconFile } from '@/composables/useBoardIconUpload'
 import { validateRequiredBoardFields } from '@/utils/board'
 import type { BoardFormData } from '@/composables/useBoardFormState'
 
@@ -39,6 +39,16 @@ export function useBoardFormSubmit(options: UseBoardFormSubmitOptions) {
 
       try {
         if (options.selectedFile.value) {
+          const validationError = validateBoardIconFile(options.selectedFile.value)
+          if (validationError === 'type') {
+            toastStore.addToast(t('board.form.invalidIconType'), 'error')
+            return
+          }
+          if (validationError === 'size') {
+            toastStore.addToast(t('board.form.iconTooLarge'), 'error')
+            return
+          }
+
           iconUrl = await uploadBoardIconFile(options.selectedFile.value) ?? iconUrl
         }
 
