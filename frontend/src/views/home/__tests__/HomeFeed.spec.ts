@@ -253,7 +253,8 @@ describe('HomeFeed', () => {
         expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(false)
         expect(wrapper.find('[data-testid="activity-list"]').text()).toContain('404')
         expect(wrapper.findAll('[data-testid="post-card"]')).toHaveLength(0)
-        expect(wrapper.text()).toContain('home.landing.featuredLoading')
+        expect(wrapper.text()).not.toContain('home.landing.featuredLoading')
+        expect(wrapper.text()).toContain('home.landing.siteStats')
     })
 
     it('links the remaining board strip area to the all boards page', () => {

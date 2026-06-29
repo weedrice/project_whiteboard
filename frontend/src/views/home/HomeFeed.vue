@@ -6,6 +6,7 @@ import { useHead } from '@unhead/vue'
 import { useI18n } from 'vue-i18n'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
+import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
 import HomeLandingSkeleton from '@/components/home/HomeLandingSkeleton.vue'
 import HomePostCard from '@/components/home/HomePostCard.vue'
 import HomeActivityList from '@/components/home/HomeActivityList.vue'
@@ -50,6 +51,7 @@ const heroPost = computed(() =>
   ?? null,
 )
 const heroPostId = computed(() => heroPost.value?.postId ?? null)
+const showHeroSlot = computed(() => Boolean(heroPost.value || isFetching.value))
 const visibleTrending = computed(() => trending.value.filter((post) => post.postId !== heroPostId.value))
 const visibleLiveActivity = computed(() => liveActivity.value.filter((post) => post.postId !== heroPostId.value))
 const boardStrip = computed(() => spotlightBoards.value.slice(0, BOARD_STRIP_LIMIT))
@@ -155,10 +157,13 @@ watch(homeTitle, (title) => {
           </p>
         </div>
 
-        <div class="mt-5 grid gap-5 lg:grid-cols-[1.45fr_0.95fr]">
+        <div
+          class="mt-5 grid gap-5"
+          :class="showHeroSlot ? 'lg:grid-cols-[1.45fr_0.95fr]' : ''"
+        >
           <HomePostCard v-if="heroPost" :post="heroPost" variant="featured" />
           <div
-            v-else
+            v-else-if="isFetching"
             class="rounded-[28px] border border-dashed border-[var(--nv-line)] px-6 py-8 text-sm text-[var(--nv-muted)]"
           >
             {{ $t('home.landing.featuredLoading') }}
@@ -261,20 +266,14 @@ watch(homeTitle, (title) => {
           <div>
             <h2 class="text-xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)]">{{ $t('home.landing.trendingNow') }}</h2>
           </div>
-          <div class="flex items-center gap-1 rounded-full border border-[var(--nv-line)] bg-[var(--nv-surface)] p-1">
-            <button
-              v-for="period in trendingPeriods"
-              :key="period.value"
-              type="button"
-              class="rounded-full px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.12em] transition-colors"
-              :class="selectedPeriod === period.value ? 'bg-[var(--nv-ink)] text-[var(--nv-bg)]' : 'text-[var(--nv-ink-soft)] hover:text-[var(--nv-ink)]'"
-              :aria-pressed="selectedPeriod === period.value"
-              :disabled="isFetching"
-              @click="setPeriod(period.value)"
-            >
-              {{ period.label }}
-            </button>
-          </div>
+          <BaseSegmentedControl
+            :model-value="selectedPeriod"
+            :options="trendingPeriods"
+            :label="$t('home.landing.trendingNow')"
+            variant="pill"
+            :disabled="isFetching"
+            @update:model-value="setPeriod($event as HomeLandingPeriod)"
+          />
         </div>
 
         <div v-if="visibleTrending.length" class="grid gap-4 lg:grid-cols-2">
