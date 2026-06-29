@@ -11,11 +11,11 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
-import BaseModal from '@/components/common/ui/BaseModal.vue'
 import PostTags from '@/components/tag/PostTags.vue'
 import { useToastStore } from '@/stores/toast'
 import EmoticonPicker from '@/components/common/widgets/EmoticonPicker.vue'
 import PostEditorTipTap from '@/components/board/PostEditorTipTap.vue'
+import PostPreviewModal from '@/components/board/PostPreviewModal.vue'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
 import { canWriteCategory } from '@/utils/board'
 import { usePostComposerState } from '@/composables/usePostComposerState'
@@ -250,7 +250,6 @@ const {
   videoUrl,
   videoPopoverStyle,
   editorViewMode,
-  isEditorFocusWithin,
   openVideoPopover,
   closeVideoPopover,
   insertVideoFromPopover,
@@ -499,31 +498,17 @@ defineExpose({
       </form>
     </div>
 
-    <BaseModal v-if="!props.hidePreview" :is-open="showPreview" :title="$t('board.writePost.preview.title')" size="2xl" mobile-fit-content @close="showPreview = false">
-      <div class="space-y-4">
-        <div>
-          <p v-if="!props.hideBoardLabel" class="text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">{{ board?.boardName || boardUrl }}</p>
-          <h3 class="mt-2 text-2xl font-semibold text-[var(--nv-ink)]">{{ form.title || $t('board.writePost.preview.untitledPost') }}</h3>
-        </div>
-        <div v-if="!props.hideTags && form.tags.length" class="flex flex-wrap gap-2">
-          <span
-            v-for="tag in form.tags"
-            :key="tag"
-            class="rounded-full border border-[var(--nv-line)] px-3 py-1 text-xs text-[var(--nv-ink-soft)]"
-          >
-            #{{ tag }}
-          </span>
-        </div>
-        <article class="nv-rich-content prose max-w-none dark:prose-invert" v-html="previewHtml" />
-      </div>
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <BaseButton type="button" variant="secondary" size="sm" @click="showPreview = false">
-            {{ $t('common.close') }}
-          </BaseButton>
-        </div>
-      </template>
-    </BaseModal>
+    <PostPreviewModal
+      v-if="!props.hidePreview"
+      :is-open="showPreview"
+      :board-label="board?.boardName || boardUrl"
+      :post-title="form.title"
+      :tags="form.tags"
+      :html="previewHtml"
+      :hide-board-label="props.hideBoardLabel"
+      :hide-tags="props.hideTags"
+      @close="showPreview = false"
+    />
   </div>
 </template>
 
