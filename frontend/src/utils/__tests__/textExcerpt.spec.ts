@@ -17,6 +17,17 @@ describe('stripHtmlToText', () => {
     expect(stripHtmlToText(null)).toBe('')
     expect(stripHtmlToText(undefined)).toBe('')
   })
+
+  it('decodes entities and keeps comparison text intact', () => {
+    expect(stripHtmlToText('<p>Tom &amp; Jerry</p><p>1 &lt; 2</p>', {
+      tagReplacement: ' ',
+      collapseWhitespace: true,
+    })).toBe('Tom & Jerry 1 < 2')
+  })
+
+  it('removes script and style contents from excerpts', () => {
+    expect(stripHtmlToText('<p>Hello</p><script>alert(1)</script><style>body{}</style>')).toBe('Hello')
+  })
 })
 
 describe('truncateWithEllipsis', () => {

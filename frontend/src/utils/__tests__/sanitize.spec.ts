@@ -22,13 +22,40 @@ describe('sanitize', () => {
         expect(clean).toContain('<mark data-value="1">tag</mark>')
     })
 
-    it('sanitizeQuillHtml allows quill/tiptap tags and strips dangerous attrs', () => {
-        const html = '<video src="/a.mp4" onerror="x()"></video><mark data-color="#fff">m</mark><hr>'
+    it('sanitizeQuillHtml allows editor tags and strips dangerous attrs', () => {
+        const html = '<iframe src="https://www.youtube.com/embed/abc" onerror="x()"></iframe><mark data-evil="1">m</mark><hr>'
         const clean = sanitizeQuillHtml(html)
 
-        expect(clean).toContain('<video src="/a.mp4"></video>')
-        expect(clean).toContain('<mark data-color="#fff">m</mark>')
+        expect(clean).toContain('<iframe')
+        expect(clean).toContain('src="https://www.youtube.com/embed/abc"')
+        expect(clean).toContain('<mark>m</mark>')
         expect(clean).toContain('<hr>')
         expect(clean).not.toContain('onerror=')
+        expect(clean).not.toContain('data-evil')
+    })
+
+    it('sanitizeQuillHtml removes disallowed media tags and iframe sources', () => {
+        const html = [
+            '<video src="/a.mp4"></video>',
+            '<iframe src="javascript:alert(1)"></iframe>',
+            '<iframe src="https://evil.example/embed/abc"></iframe>',
+            '<iframe src="https://player.vimeo.com/video/123/"></iframe>',
+        ].join('')
+        const clean = sanitizeQuillHtml(html)
+
+        expect(clean).not.toContain('<video')
+        expect(clean).not.toContain('javascript:')
+        expect(clean).not.toContain('evil.example')
+        expect(clean).toContain('https://player.vimeo.com/video/123/')
+    })
+
+    it('sanitizeQuillHtml keeps only safe editor inline styles', () => {
+        const html = '<p style="color: red; position: fixed; background-image: url(javascript:alert(1)); text-align: center; line-height: 1.5">hello</p>'
+        const clean = sanitizeQuillHtml(html)
+
+        expect(clean).toContain('style="color: red; text-align: center; line-height: 1.5"')
+        expect(clean).not.toContain('position')
+        expect(clean).not.toContain('background-image')
+        expect(clean).not.toContain('javascript:')
     })
 })
