@@ -1,16 +1,31 @@
 <template>
-  <button :type="type" :class="[
+  <button
+    :type="type"
+    :class="[
     btnClass,
     sizeClass,
     'flex justify-center items-center',
-    disabled ? 'opacity-50 cursor-not-allowed' : ''
-  ]" :disabled="disabled" @click="$emit('click', $event)">
+    loading ? 'gap-2' : '',
+    isDisabled ? 'opacity-50 cursor-not-allowed' : ''
+  ]"
+    :disabled="isDisabled"
+    :aria-busy="loading ? 'true' : undefined"
+    @click="$emit('click', $event)"
+  >
+    <BaseSpinner
+      v-if="loading"
+      size="sm"
+      color="border-current"
+      aria-hidden="true"
+      class="shrink-0"
+    />
     <slot></slot>
   </button>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 
 type ButtonType = 'button' | 'submit' | 'reset'
 type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost'
@@ -21,12 +36,14 @@ const props = withDefaults(defineProps<{
   size?: 'sm' | 'md' | 'lg'
   disabled?: boolean
   fullWidth?: boolean
+  loading?: boolean
 }>(), {
   type: 'button',
   variant: 'primary',
   size: 'md',
   disabled: false,
-  fullWidth: false
+  fullWidth: false,
+  loading: false
 })
 
 defineEmits<{
@@ -48,6 +65,8 @@ const btnClass = computed(() => {
       return base + 'btn-primary'
   }
 })
+
+const isDisabled = computed(() => props.disabled || props.loading)
 
 const sizeClass = computed(() => {
   switch (props.size) {
