@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Eye, MessageSquare, ThumbsUp, User } from 'lucide-vue-next'
+import { ThumbsUp } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { LocationQueryRaw, RouteLocationRaw } from 'vue-router'
 import type { PostSummary } from '@/types'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import BaseTable from '@/components/common/ui/BaseTable.vue'
+import PostListMobileItem from '@/components/board/PostListMobileItem.vue'
 import PostListTitleContent from '@/components/board/PostListTitleContent.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import { formatRelativeDate } from '@/utils/date'
@@ -296,67 +297,22 @@ const columns = computed(() => {
         </div>
       </template>
 
-      <component
+      <PostListMobileItem
         v-else
         v-for="item in posts"
-        :is="getInteractiveTag(item)"
         :key="item.postId"
-        :to="getInteractiveTag(item) === 'router-link' ? getPostLink(item) : undefined"
-        :type="getInteractiveTag(item) === 'button' ? 'button' : undefined"
-        :aria-current="isCurrentPost(item) ? 'page' : undefined"
-        :aria-disabled="getInteractiveTag(item) === 'div' ? 'true' : undefined"
-        :class="[
-          'nv-post-card block w-full px-4 py-4 text-left transition-colors',
-          props.showNoticeBadge && item.isNotice ? 'nv-post-card-notice' : '',
-          isCurrentPost(item) ? 'nv-post-card-current' : '',
-          getInteractiveTag(item) === 'div' ? 'cursor-not-allowed opacity-70' : ''
-        ]"
-        @click="onNavigationClick($event, item)"
-      >
-        <div class="flex items-start justify-between gap-3">
-          <div class="min-w-0 flex-1">
-            <div class="mt-2 flex items-center gap-2 text-sm font-medium text-[var(--nv-ink)]">
-              <PostListTitleContent
-                :post="item"
-                :show-inquiry-status="shouldShowInquiryStatus(item)"
-                :show-notice-badge="props.showNoticeBadge"
-                :show-comment-count="props.showCommentCount"
-                :show-preview-indicator="props.showPreviewIndicator"
-                :show-secret-indicator="props.showSecretIndicator"
-              />
-            </div>
-          </div>
-
-          <span class="mt-0.5 flex-shrink-0 text-[11px] text-[var(--nv-muted)]">
-            {{ formatRelativeDate(item.createdAt) }}
-          </span>
-        </div>
-
-        <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] text-[var(--nv-ink-soft)]">
-          <span class="inline-flex min-w-0 max-w-full items-center gap-1 overflow-hidden">
-            <User class="h-3.5 w-3.5" />
-            <span class="block max-w-[10ch] truncate" :title="getAuthorName(item)">{{ getVisibleAuthorName(item) }}</span>
-            <span
-              v-if="isAgentAuthor(item)"
-              class="nv-post-badge nv-post-badge-agent"
-            >
-              AGENT
-            </span>
-          </span>
-          <span class="inline-flex items-center gap-1">
-            <ThumbsUp class="h-3.5 w-3.5" />
-            {{ item.likeCount }}
-          </span>
-          <span class="inline-flex items-center gap-1">
-            <Eye class="h-3.5 w-3.5" />
-            {{ item.viewCount }}
-          </span>
-          <span v-if="props.showCommentCount" class="nv-post-mobile-comments inline-flex items-center gap-1">
-            <MessageSquare class="h-3.5 w-3.5" />
-            {{ item.commentCount }}
-          </span>
-        </div>
-      </component>
+        :post="item"
+        :interactive-tag="getInteractiveTag(item)"
+        :post-link="getPostLink(item)"
+        :is-current="isCurrentPost(item)"
+        :show-inquiry-status="shouldShowInquiryStatus(item)"
+        :show-notice-badge="props.showNoticeBadge"
+        :show-comment-count="props.showCommentCount"
+        :show-preview-indicator="props.showPreviewIndicator"
+        :show-secret-indicator="props.showSecretIndicator"
+        :deleted-user-label="t('user.deletedUser')"
+        @navigate="onNavigationClick"
+      />
     </div>
 
     <div class="hidden sm:block table-container">
@@ -481,41 +437,6 @@ const columns = computed(() => {
   background: var(--nv-info-bg);
   border: 1px solid var(--nv-info-border);
   color: var(--nv-info-text);
-}
-
-.nv-post-card {
-  background: transparent;
-  position: relative;
-}
-
-.nv-post-card::before {
-  background: transparent;
-  border-radius: 9999px;
-  content: '';
-  height: calc(100% - 1.5rem);
-  left: 0.8rem;
-  position: absolute;
-  top: 0.75rem;
-  transition: background-color 0.15s ease;
-  width: 0.2rem;
-}
-
-.nv-post-card:hover {
-  background: color-mix(in srgb, var(--nv-surface-2) 72%, transparent);
-}
-
-.nv-post-card:hover::before,
-.nv-post-card-current::before {
-  background: var(--nv-accent);
-}
-
-.nv-post-card-notice {
-  background: color-mix(in srgb, var(--nv-surface-2) 80%, transparent);
-}
-
-.nv-post-card-current {
-  background: color-mix(in srgb, var(--nv-accent-bg) 82%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--nv-accent) 20%, transparent);
 }
 
 .nv-post-table-emphasis {
