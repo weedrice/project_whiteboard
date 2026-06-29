@@ -170,6 +170,8 @@ describe('EmoticonPicker', () => {
         const wrapper = mountPicker(true)
 
         expect(wrapper.findAll('.emoticon-btn')).toHaveLength(2)
+        expect(wrapper.get('.emoticons-grid').attributes('role')).toBe('list')
+        expect(wrapper.findAll('[role="listitem"]')).toHaveLength(2)
         expect(wrapper.get('.emoticon-btn').attributes('aria-label')).toBe('HappyCat 이미지 선택')
 
         await wrapper.get('.search-input').setValue('happy')
@@ -249,6 +251,8 @@ describe('EmoticonPicker', () => {
         expect(mocks.getEmoticon).toHaveBeenCalledWith(10, {
             signal: expect.any(AbortSignal),
         })
+        expect(wrapper.get('.images-grid').attributes('role')).toBe('list')
+        expect(wrapper.findAll('[role="listitem"]')).toHaveLength(2)
         expect(wrapper.findAll('.image-btn')).toHaveLength(2)
         expect(wrapper.get('.back-btn').attributes('type')).toBe('button')
         expect(wrapper.get('.back-btn').attributes('aria-label')).toBe('이모티콘 목록으로 돌아가기')

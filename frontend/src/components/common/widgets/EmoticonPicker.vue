@@ -182,17 +182,27 @@ onUnmounted(() => {
           </div>
         </div>
         <!-- 이미지 그리드 -->
-        <div v-else-if="selectedEmoticon && selectedImages.length > 0" class="images-grid">
-          <button
+        <div
+          v-else-if="selectedEmoticon && selectedImages.length > 0"
+          class="images-grid"
+          role="list"
+          :aria-label="`${selectedEmoticon.name} ${selectedImages.length}`"
+        >
+          <div
             v-for="image in selectedImages"
             :key="image.imageId"
-            type="button"
-            :aria-label="t('emoticon.picker.imageSelectAria', { name: selectedEmoticon.name })"
-            @click="handleImageClick(image)"
-            class="image-btn"
+            class="emoticon-grid-item"
+            role="listitem"
           >
-            <img :src="image.imageUrl || DEFAULT_EMOTICON_IMAGE_URL" :alt="selectedEmoticon.name" @error="applyImageFallback" />
-          </button>
+            <button
+              type="button"
+              :aria-label="t('emoticon.picker.imageSelectAria', { name: selectedEmoticon.name })"
+              @click="handleImageClick(image)"
+              class="image-btn"
+            >
+              <img :src="image.imageUrl || DEFAULT_EMOTICON_IMAGE_URL" :alt="selectedEmoticon.name" @error="applyImageFallback" />
+            </button>
+          </div>
         </div>
         <div v-else-if="selectedEmoticon" class="empty-state">
           <Smile class="w-8 h-8 nv-text-subtle mb-2" />
@@ -237,17 +247,29 @@ onUnmounted(() => {
         </div>
 
         <!-- 이모티콘 목록 -->
-        <div v-else class="emoticons-grid">
-          <button v-for="emoticon in filteredEmoticons" :key="emoticon.emoticonId" type="button"
-            :aria-label="t('emoticon.picker.imageSelectAria', { name: emoticon.name })"
-            @click="handleEmoticonClick(emoticon)" class="emoticon-btn">
-            <img
-              :src="emoticon.thumbnailUrl || emoticon.images?.[0]?.imageUrl || DEFAULT_EMOTICON_IMAGE_URL"
-              :alt="emoticon.name"
-              @error="applyImageFallback"
-            />
-            <span class="emoticon-name">{{ emoticon.name }}</span>
-          </button>
+        <div
+          v-else
+          class="emoticons-grid"
+          role="list"
+          :aria-label="`${t('emoticon.title')} ${filteredEmoticons.length}`"
+        >
+          <div
+            v-for="emoticon in filteredEmoticons"
+            :key="emoticon.emoticonId"
+            class="emoticon-grid-item"
+            role="listitem"
+          >
+            <button type="button"
+              :aria-label="t('emoticon.picker.imageSelectAria', { name: emoticon.name })"
+              @click="handleEmoticonClick(emoticon)" class="emoticon-btn">
+              <img
+                :src="emoticon.thumbnailUrl || emoticon.images?.[0]?.imageUrl || DEFAULT_EMOTICON_IMAGE_URL"
+                :alt="emoticon.name"
+                @error="applyImageFallback"
+              />
+              <span class="emoticon-name">{{ emoticon.name }}</span>
+            </button>
+          </div>
         </div>
       </template>
     </div>
@@ -440,6 +462,10 @@ onUnmounted(() => {
   gap: 8px;
 }
 
+.emoticon-grid-item {
+  min-width: 0;
+}
+
 @media (max-width: 639px) {
   .emoticons-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -448,6 +474,7 @@ onUnmounted(() => {
 }
 
 .emoticon-btn {
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -514,6 +541,7 @@ onUnmounted(() => {
 }
 
 .image-btn {
+  width: 100%;
   padding: 6px;
   border-radius: 6px;
   cursor: pointer;

@@ -19,6 +19,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const noticeListId = `board-notice-list-${Math.random().toString(36).slice(2, 9)}`
 </script>
 
 <template>
@@ -33,7 +34,7 @@ const { t } = useI18n()
       </span>
     </div>
 
-    <div class="divide-y divide-[var(--nv-line-soft)]">
+    <div :id="noticeListId" class="divide-y divide-[var(--nv-line-soft)]">
       <router-link
         v-for="notice in visibleNotices"
         :key="notice.postId"
@@ -56,6 +57,7 @@ const { t } = useI18n()
       type="button"
       class="nv-board-notice-more"
       :aria-expanded="isExpanded"
+      :aria-controls="noticeListId"
       @click="emit('update:isExpanded', !isExpanded)"
     >
       <span></span>
