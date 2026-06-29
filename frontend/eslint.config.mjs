@@ -31,7 +31,11 @@ export default [
             'no-case-declarations': 'off',
             '@typescript-eslint/no-explicit-any': 'off',
             '@typescript-eslint/no-empty-object-type': 'off',
-            '@typescript-eslint/no-unused-vars': 'off',
+            '@typescript-eslint/no-unused-vars': ['error', {
+                argsIgnorePattern: '^_',
+                varsIgnorePattern: '^_',
+                caughtErrorsIgnorePattern: '^_',
+            }],
         },
     },
     {
@@ -56,9 +60,13 @@ export default [
             'no-unused-vars': 'off',
             'no-case-declarations': 'off',
             '@typescript-eslint/no-explicit-any': 'off',
-            '@typescript-eslint/no-unused-vars': 'off',
+            '@typescript-eslint/no-unused-vars': ['error', {
+                argsIgnorePattern: '^_',
+                varsIgnorePattern: '^_',
+                caughtErrorsIgnorePattern: '^_',
+            }],
             'vue/multi-word-component-names': 'off',
-            'vue/no-unused-vars': 'off',
+            'vue/no-unused-vars': 'error',
             'vue/valid-v-memo': 'off',
         },
     },
@@ -74,6 +82,9 @@ export default [
         },
         rules: {
             ...vitest.configs.recommended.rules,
+            '@typescript-eslint/no-explicit-any': 'off',
+            '@typescript-eslint/no-unused-vars': 'off',
+            'vue/no-unused-vars': 'off',
         },
     },
 ]

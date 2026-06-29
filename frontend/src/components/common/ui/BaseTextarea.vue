@@ -24,7 +24,7 @@ defineOptions({
     inheritAttrs: false
 })
 
-const props = withDefaults(defineProps<{
+withDefaults(defineProps<{
     id?: string
     label?: string
     modelValue?: string

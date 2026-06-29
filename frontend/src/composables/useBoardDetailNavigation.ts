@@ -56,7 +56,7 @@ export function useBoardDetailNavigation({
 }: UseBoardDetailNavigationOptions) {
   const suppressedCurrentPostId = ref<string | null>(null)
   const listQuery = computed<LocationQuery>(() => {
-    const { fromCreate, ...query } = route.query
+    const { fromCreate: _fromCreate, ...query } = route.query
     return query
   })
   const highlightedPostId = computed(() => (

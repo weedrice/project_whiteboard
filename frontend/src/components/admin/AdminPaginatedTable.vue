@@ -7,7 +7,7 @@ type AdminTableRowKeyResolver<TItem> = Extract<keyof TItem, string> | ((item: TI
 type AdminTableRowActionLabelResolver<TItem> = string | ((item: TItem, index: number) => string)
 type AdminTableRowActivationEvent = 'row-click' | 'row-dblclick'
 
-const props = withDefaults(defineProps<{
+withDefaults(defineProps<{
   columns: TableColumn[]
   items: T[]
   loading?: boolean

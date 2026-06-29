@@ -17,7 +17,7 @@ export function usePostDetailNavigation({
   postView,
 }: UsePostDetailNavigationOptions) {
   function buildBoardListRoute(boardUrl: string): RouteLocationRaw {
-    const { fromCreate, ...query } = route.query
+    const { fromCreate: _fromCreate, ...query } = route.query
     return {
       path: `/board/${boardUrl}`,
       query

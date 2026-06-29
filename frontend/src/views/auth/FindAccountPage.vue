@@ -8,7 +8,6 @@ import { usePasswordResetByVerificationFlow } from '@/composables/usePasswordRes
 import AuthEmailVerificationSection from '@/components/auth/AuthEmailVerificationSection.vue'
 import AuthFormShell from '@/components/auth/AuthFormShell.vue'
 import AuthPasswordPairFields from '@/components/auth/AuthPasswordPairFields.vue'
-import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
 import { Key, User } from 'lucide-vue-next'
