@@ -2,10 +2,9 @@
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import AuthPasswordPairFields from '@/components/auth/AuthPasswordPairFields.vue'
 import AuthFormShell from '@/components/auth/AuthFormShell.vue'
-import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import { Lock } from 'lucide-vue-next'
 import { usePasswordResetByTokenFlow } from '@/composables/usePasswordResetByTokenFlow'
 import { getSingleQueryValue } from '@/utils/routeQueryValue'
 
@@ -40,35 +39,19 @@ const { isLoading, resetPassword: handleResetPassword } = usePasswordResetByToke
     </div>
 
     <div v-else class="space-y-6">
-      <BaseInput
-        id="new-password"
-        v-model="newPassword"
-        type="password"
-        name="new-password"
-        autocomplete="new-password"
-        :placeholder="t('auth.newPassword')"
-        :label="t('auth.newPassword')"
-        hideLabel
-      >
-        <template #prefix>
-          <Lock class="h-5 w-5 nv-text-subtle" />
-        </template>
-      </BaseInput>
-
-      <BaseInput
-        id="confirm-password"
-        v-model="confirmPassword"
-        type="password"
-        name="confirm-password"
-        autocomplete="new-password"
-        :placeholder="t('auth.newPasswordConfirm')"
-        :label="t('auth.newPasswordConfirm')"
-        hideLabel
-      >
-        <template #prefix>
-          <Lock class="h-5 w-5 nv-text-subtle" />
-        </template>
-      </BaseInput>
+      <AuthPasswordPairFields
+        v-model:password="newPassword"
+        v-model:confirm-password="confirmPassword"
+        password-id="new-password"
+        confirm-password-id="confirm-password"
+        password-name="new-password"
+        confirm-password-name="confirm-password"
+        :password-label="t('auth.newPassword')"
+        :confirm-password-label="t('auth.newPasswordConfirm')"
+        :password-placeholder="t('auth.newPassword')"
+        :confirm-password-placeholder="t('auth.newPasswordConfirm')"
+        hide-labels
+      />
 
       <BaseButton
         type="button"

@@ -51,19 +51,12 @@
               {{ $t('common.board') }}
             </h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <router-link v-for="board in boards" :key="board.boardId" :to="`/board/${board.boardUrl}`"
-                class="block p-4 nv-surface rounded-lg shadow hover:shadow-md transition-shadow border nv-border flex items-center gap-3">
-                <div
-                  class="flex-shrink-0 h-10 w-10 rounded bg-[var(--nv-accent-bg)] flex items-center justify-center text-[var(--nv-accent)] font-bold overflow-hidden border nv-border">
-                  <img v-if="board.iconUrl" :src="getOptimizedBoardIconUrl(board.iconUrl)"
-                    class="h-full w-full object-contain bg-[var(--nv-surface)]" alt="" @error="handleImageError($event)" />
-                  <span v-else class="text-sm">{{ board.boardName.substring(0, 1) }}</span>
-                </div>
-                <div class="flex-1 min-w-0">
-                  <h4 class="font-medium nv-title truncate">{{ board.boardName }}</h4>
-                  <p class="text-sm nv-text-subtle mt-1 line-clamp-2">{{ board.description }}</p>
-                </div>
-              </router-link>
+              <BoardCard
+                v-for="board in boards"
+                :key="board.boardId"
+                :board="board"
+                variant="compact"
+              />
             </div>
           </div>
 
@@ -92,13 +85,13 @@
 import { computed } from 'vue'
 import { useSearch } from '@/composables/useSearch'
 import { useSearchRouteQuery } from '@/composables/useSearchRouteQuery'
+import BoardCard from '@/components/board/BoardCard.vue'
 import PostList from '@/components/board/PostList.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import { Search, Layout } from 'lucide-vue-next'
-import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
 import { isInquiryPostItem, resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigation'
 
 const { useIntegratedSearch } = useSearch()

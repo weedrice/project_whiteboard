@@ -4,9 +4,9 @@ import DescriptionGrid from '@/components/admin/detail/DescriptionGrid.vue'
 import DescriptionItem from '@/components/admin/detail/DescriptionItem.vue'
 import DetailSection from '@/components/admin/detail/DetailSection.vue'
 import HttpStatusBadge from '@/components/admin/HttpStatusBadge.vue'
+import AdminDetailModalShell from '@/components/admin/AdminDetailModalShell.vue'
 import AdminModalActions from '@/components/admin/AdminModalActions.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import BaseModal from '@/components/common/ui/BaseModal.vue'
 import { formatDateTimeOrDash } from '@/utils/date'
 import type { ErrorLogDetail } from '@/types'
 
@@ -23,17 +23,17 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <BaseModal
+  <AdminDetailModalShell
     :is-open="isOpen && !!log"
     :title="$t('admin.errorLogs.detail.title')"
     size="2xl"
     :close-aria-label="$t('admin.errorLogs.detail.closeAria')"
     close-button-class="btn-close"
     body-class="space-y-5"
-    footer-align="end"
+    content-class="space-y-5"
     @close="emit('close')"
   >
-    <div v-if="log">
+    <template v-if="log">
       <DetailSection :title="$t('admin.errorLogs.detail.errorInfo')" compact>
         <DescriptionGrid gap-class="gap-2.5">
           <DescriptionItem :label="$t('admin.errorLogs.table.httpStatus')" label-class="detail-label" value-class="mt-1">
@@ -97,7 +97,7 @@ const emit = defineEmits<{
           </DescriptionItem>
         </DescriptionGrid>
       </DetailSection>
-    </div>
+    </template>
 
     <template v-if="log" #footer>
       <AdminModalActions gap-class="gap-2">
@@ -117,7 +117,7 @@ const emit = defineEmits<{
         </BaseButton>
       </AdminModalActions>
     </template>
-  </BaseModal>
+  </AdminDetailModalShell>
 </template>
 
 <style scoped>

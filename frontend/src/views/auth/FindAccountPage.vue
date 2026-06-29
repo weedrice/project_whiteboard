@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { computed, ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthEmailVerificationSection } from '@/composables/useAuthEmailVerificationSection'
@@ -7,14 +7,20 @@ import { useFindIdFlow } from '@/composables/useFindIdFlow'
 import { usePasswordResetByVerificationFlow } from '@/composables/usePasswordResetByVerificationFlow'
 import AuthEmailVerificationSection from '@/components/auth/AuthEmailVerificationSection.vue'
 import AuthFormShell from '@/components/auth/AuthFormShell.vue'
+import AuthPasswordPairFields from '@/components/auth/AuthPasswordPairFields.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
 import { Key, User } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const router = useRouter()
 
 const activeTab = ref('id')
+const findAccountTabs = computed(() => [
+  { value: 'id', label: t('auth.findId'), icon: User },
+  { value: 'password', label: t('auth.findPassword'), icon: Key },
+])
 const form = reactive({
   email: '',
   code: '',
@@ -122,34 +128,15 @@ const {
 
 <template>
   <AuthFormShell back-to="/login">
-    <div class="flex border-b nv-border mb-6" role="tablist" :aria-label="t('auth.findAccount')">
-      <BaseButton
-        variant="ghost"
-        class="flex-1 rounded-b-none border-b-2"
-        role="tab"
-        :aria-selected="activeTab === 'id'"
-        :class="activeTab === 'id'
-          ? 'border-[var(--nv-accent)] text-[var(--nv-accent)]'
-          : 'border-transparent nv-text-subtle hover:text-[var(--nv-text)]'"
-        @click="switchTab('id')"
-      >
-        <User class="mr-2 h-4 w-4" />
-        {{ t('auth.findId') }}
-      </BaseButton>
-      <BaseButton
-        variant="ghost"
-        class="flex-1 rounded-b-none border-b-2"
-        role="tab"
-        :aria-selected="activeTab === 'password'"
-        :class="activeTab === 'password'
-          ? 'border-[var(--nv-accent)] text-[var(--nv-accent)]'
-          : 'border-transparent nv-text-subtle hover:text-[var(--nv-text)]'"
-        @click="switchTab('password')"
-      >
-        <Key class="mr-2 h-4 w-4" />
-        {{ t('auth.findPassword') }}
-      </BaseButton>
-    </div>
+    <BaseSegmentedControl
+      :model-value="activeTab"
+      :options="findAccountTabs"
+      :label="t('auth.findAccount')"
+      variant="underline"
+      selection-mode="tab"
+      class="mb-6"
+      @update:model-value="switchTab"
+    />
 
     <div class="space-y-6">
       <AuthEmailVerificationSection
@@ -173,23 +160,15 @@ const {
       </div>
 
       <div v-if="activeTab === 'password' && status.isVerified" class="space-y-6 animate-fade-in">
-        <BaseInput
-          id="find-account-new-password"
-          v-model="form.newPassword"
-          name="newPassword"
-          type="password"
-          autocomplete="new-password"
-          :label="t('auth.newPassword')"
-          required
-        />
-        <BaseInput
-          id="find-account-confirm-password"
-          v-model="form.confirmPassword"
-          name="confirmPassword"
-          type="password"
-          autocomplete="new-password"
-          :label="t('auth.newPasswordConfirm')"
-          required
+        <AuthPasswordPairFields
+          v-model:password="form.newPassword"
+          v-model:confirm-password="form.confirmPassword"
+          password-id="find-account-new-password"
+          confirm-password-id="find-account-confirm-password"
+          password-name="newPassword"
+          confirm-password-name="confirmPassword"
+          :password-label="t('auth.newPassword')"
+          :confirm-password-label="t('auth.newPasswordConfirm')"
         />
         <BaseButton full-width variant="primary" :loading="status.loading" @click="handleResetPassword">
           {{ t('auth.resetPassword') }}

@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { useRouter, useRoute } from 'vue-router'
-import { Lock, User, Mail, Smile, ChevronLeft, CheckCircle } from 'lucide-vue-next'
+import { User, Smile, ChevronLeft } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
+import AuthEmailVerificationSection from '@/components/auth/AuthEmailVerificationSection.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import AuthPasswordPairFields from '@/components/auth/AuthPasswordPairFields.vue'
 import { useSignupRegistration } from '@/composables/useSignupRegistration'
 
 const { t } = useI18n()
@@ -56,85 +58,45 @@ const {
             {{ fieldErrors.loginId }}
           </p>
         </div>
-        <div>
-          <BaseInput id="password" v-model="form.password" name="password" type="password" required
-            :placeholder="$t('auth.placeholders.password')" :label="$t('common.password')" hideLabel>
-            <template #prefix>
-              <Lock class="h-5 w-5 nv-text-subtle" />
-            </template>
-          </BaseInput>
-          <p v-if="fieldErrors.password" class="text-xs nv-form-error mt-1 ml-1">
-            {{ fieldErrors.password }}
-          </p>
-        </div>
-        <div>
-          <BaseInput id="password-confirm" v-model="form.passwordConfirm" name="passwordConfirm" type="password"
-            required :placeholder="$t('auth.newPasswordConfirm')" :label="$t('auth.newPasswordConfirm')" hideLabel>
-            <template #prefix>
-              <Lock class="h-5 w-5 nv-text-subtle" />
-            </template>
-          </BaseInput>
-          <p v-if="fieldErrors.passwordConfirm" class="text-xs nv-form-error mt-1 ml-1">
-            {{ fieldErrors.passwordConfirm }}
-          </p>
-        </div>
+        <AuthPasswordPairFields
+          v-model:password="form.password"
+          v-model:confirm-password="form.passwordConfirm"
+          :password-label="$t('common.password')"
+          :confirm-password-label="$t('auth.newPasswordConfirm')"
+          :password-placeholder="$t('auth.placeholders.password')"
+          :confirm-password-placeholder="$t('auth.newPasswordConfirm')"
+          :password-error="fieldErrors.password"
+          :confirm-password-error="fieldErrors.passwordConfirm"
+          hide-labels
+        />
 
-        <!-- Email Verification -->
         <div>
-          <div class="flex gap-2 items-start">
-            <div class="flex-grow">
-              <BaseInput id="email" v-model="form.email" name="email" type="email" required
-                :placeholder="$t('auth.placeholders.newEmail')" :label="$t('common.email')" hideLabel
-                :disabled="verification.isVerified || verification.loading">
-                <template #prefix>
-                  <Mail class="h-5 w-5 nv-text-subtle" />
-                </template>
-              </BaseInput>
-            </div>
-            <BaseButton v-if="!verification.isVerified" type="button" @click="sendVerificationCode"
-              :disabled="verification.resendCooldown > 0 || verification.loading" :loading="verification.loading">
-              <span v-if="verification.resendCooldown > 0">
-                {{ t('common.sent') }}
-              </span>
-              <span v-else-if="verification.isCodeSent">
-                {{ t('auth.resendCode') }}
-              </span>
-              <span v-else>
-                {{ t('auth.sendCode') }}
-              </span>
-            </BaseButton>
-            <span v-else class="flex items-center text-[var(--nv-success-text)] text-sm font-medium whitespace-nowrap py-2 px-3">
-              <CheckCircle class="h-4 w-4 mr-1" />
-              {{ t('auth.codeVerified') }}
-            </span>
-          </div>
+          <AuthEmailVerificationSection
+            v-model:email="form.email"
+            v-model:code="verification.code"
+            id-prefix="signup"
+            layout="inline"
+            :loading="verification.loading"
+            :code-sent="verification.isCodeSent"
+            :verified="verification.isVerified"
+            :email-disabled="verification.isVerified || verification.loading"
+            :resend-cooldown="verification.resendCooldown"
+            :time-left="verification.timeLeft"
+            :email-label="$t('common.email')"
+            :email-placeholder="$t('auth.placeholders.newEmail')"
+            :code-label="t('auth.codePlaceholder')"
+            :send-label="t('auth.sendCode')"
+            :sent-label="t('common.sent')"
+            :resend-label="t('auth.resendCode')"
+            :verify-label="t('auth.verifyCode')"
+            :verified-label="t('auth.codeVerified')"
+            :expired-label="t('auth.codeExpired')"
+            :format-time="formatTime"
+            @send="sendVerificationCode"
+            @verify="verifyCode"
+          />
           <p v-if="fieldErrors.email" class="text-xs nv-form-error mt-1 ml-1">
             {{ fieldErrors.email }}
-          </p>
-
-          <div v-if="verification.isCodeSent && !verification.isVerified"
-            class="flex gap-2 items-start mt-4 animate-fade-in-down">
-            <div class="flex-grow relative">
-              <BaseInput id="signup-verification-code" v-model="verification.code" name="verificationCode"
-                inputmode="numeric" autocomplete="one-time-code" :placeholder="t('auth.codePlaceholder')"
-                :label="t('auth.codePlaceholder')" hideLabel :disabled="verification.timeLeft <= 0">
-                <template #prefix>
-                  <CheckCircle class="h-5 w-5 nv-text-subtle" />
-                </template>
-              </BaseInput>
-              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium"
-                :class="verification.timeLeft <= 60 ? 'nv-form-error' : 'nv-text-subtle'">
-                {{ formatTime(verification.timeLeft) }}
-              </span>
-            </div>
-            <BaseButton type="button" @click="verifyCode" :disabled="verification.loading || verification.timeLeft <= 0"
-              :loading="verification.loading">
-              {{ t('auth.verifyCode') }}
-            </BaseButton>
-          </div>
-          <p v-if="verification.isCodeSent && verification.timeLeft <= 0 && !verification.isVerified"
-            class="text-xs nv-form-error mt-1 ml-1">
-            {{ t('auth.codeExpired') }}
           </p>
         </div>
 
@@ -161,21 +123,3 @@ const {
     </form>
   </div>
 </template>
-
-<style scoped>
-.animate-fade-in-down {
-  animation: fadeInDown 0.3s ease-out;
-}
-
-@keyframes fadeInDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-</style>

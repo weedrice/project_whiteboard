@@ -9,10 +9,9 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import UserAvatar from '@/components/common/ui/UserAvatar.vue'
 import ProfileEditor from '@/components/user/ProfileEditor.vue'
 import ProfileInfoRow from '@/components/user/ProfileInfoRow.vue'
-import Pagination from '@/components/common/ui/Pagination.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
-import EmptyState from '@/components/common/ui/EmptyState.vue'
 import CommentList from '@/components/comment/CommentList.vue'
+import DashboardListSection from '@/components/user/DashboardListSection.vue'
 import { useMyPageDashboardResource } from '@/composables/useMyPageDashboardResource'
 import { useInquiryDetailModal } from '@/composables/useInquiryDetailModal'
 import { useEmailVerificationFlow } from '@/composables/useEmailVerificationFlow'
@@ -76,6 +75,9 @@ const {
 const selectedInquiryPostContentsHtml = computed(() =>
   renderPostContentHtml(selectedInquiryPost.value?.contents)
 )
+
+const myPostsTotalPages = computed(() => Math.ceil(myPostsTotalCount.value / myPostsSize.value))
+const myCommentsTotalPages = computed(() => Math.ceil(myCommentsTotalCount.value / myCommentsSize.value))
 
 
 const {
@@ -207,48 +209,36 @@ onMounted(async () => {
 
       <!-- My Posts Section -->
       <div class="max-w-full mx-auto">
-        <div
-          class="nv-surface shadow overflow-hidden sm:rounded-lg mb-6 pb-6 transition-colors duration-200">
-          <div class="px-4 py-4 sm:py-5 sm:px-6 border-b nv-border flex items-center">
-            <FileText class="h-5 w-5 nv-text-subtle mr-2 flex-shrink-0" />
-            <h3 class="text-lg leading-6 font-medium nv-title">{{ $t('user.myPosts') }}</h3>
-          </div>
-
-          <div
-            v-if="myPostsError"
-            class="mx-4 mt-4 rounded border px-4 py-3 text-sm nv-danger-surface"
-          >
-            {{ myPostsError }}
-          </div>
-          <div v-else-if="myPosts.length > 0">
-            <PostList :posts="myPosts" :totalCount="myPostsTotalCount" :page="myPostsCurrentPage" :size="myPostsSize"
-              :current-sort="myPostsSort" :show-board-name="true" :intercept-inquiry="true"
-              :resolve-post-route="resolvePostDetailRoute" :should-intercept-post="isInquiryPostItem"
-              :resolve-board-route="resolveBoardRoute"
-              :show-inquiry-status="isInquiryPostItem"
-              @update:sort="handleMyPostsSortChange" @inquiry-click="openMyInquiryPost" />
-            <div class="nv-surface-muted px-4 py-4 sm:px-6 flex justify-center">
-              <Pagination :current-page="myPostsCurrentPage" :total-pages="Math.ceil(myPostsTotalCount / myPostsSize)"
-                @page-change="handleMyPostsPageChange" />
-            </div>
-          </div>
-          <EmptyState v-else :title="$t('common.noData')" :icon="FileText" />
-        </div>
+        <DashboardListSection
+          :title="$t('user.myPosts')"
+          :icon="FileText"
+          :error="myPostsError"
+          :item-count="myPosts.length"
+          :empty-title="$t('common.noData')"
+          :current-page="myPostsCurrentPage"
+          :total-pages="myPostsTotalPages"
+          with-bottom-spacing
+          @page-change="handleMyPostsPageChange"
+        >
+          <PostList :posts="myPosts" :totalCount="myPostsTotalCount" :page="myPostsCurrentPage" :size="myPostsSize"
+            :current-sort="myPostsSort" :show-board-name="true" :intercept-inquiry="true"
+            :resolve-post-route="resolvePostDetailRoute" :should-intercept-post="isInquiryPostItem"
+            :resolve-board-route="resolveBoardRoute"
+            :show-inquiry-status="isInquiryPostItem"
+            @update:sort="handleMyPostsSortChange" @inquiry-click="openMyInquiryPost" />
+        </DashboardListSection>
 
         <!-- My Comments Section -->
-        <div class="nv-surface shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
-          <div class="px-4 py-4 sm:py-5 sm:px-6 border-b nv-border flex items-center">
-            <MessageSquare class="h-5 w-5 nv-text-subtle mr-2 flex-shrink-0" />
-            <h3 class="text-lg leading-6 font-medium nv-title">{{ $t('user.myComments') }}</h3>
-          </div>
-
-          <div
-            v-if="myCommentsError"
-            class="mx-4 mt-4 rounded border px-4 py-3 text-sm nv-danger-surface"
-          >
-            {{ myCommentsError }}
-          </div>
-          <div v-else-if="myCommentItems.length > 0">
+        <DashboardListSection
+          :title="$t('user.myComments')"
+          :icon="MessageSquare"
+          :error="myCommentsError"
+          :item-count="myCommentItems.length"
+          :empty-title="t('common.noData')"
+          :current-page="myCommentsCurrentPage"
+          :total-pages="myCommentsTotalPages"
+          @page-change="handleMyCommentsPageChange"
+        >
             <ul role="list" class="divide-y divide-[var(--nv-border)]">
               <li v-for="comment in myCommentItems" :key="comment.commentId"
                 class="px-4 py-4 sm:px-6 nv-hover-surface transition-colors duration-200 min-h-[44px]">
@@ -281,14 +271,7 @@ onMounted(async () => {
                 </div>
               </li>
             </ul>
-            <div class="nv-surface-muted px-4 py-4 sm:px-6 flex justify-center">
-              <Pagination :current-page="myCommentsCurrentPage"
-                :total-pages="Math.ceil(myCommentsTotalCount / myCommentsSize)"
-                @page-change="handleMyCommentsPageChange" />
-            </div>
-          </div>
-          <EmptyState v-else :title="t('common.noData')" :icon="MessageSquare" />
-        </div>
+        </DashboardListSection>
       </div>
 
       <BaseModal :isOpen="isEditModalOpen" :title="$t('user.profile.edit')" @close="isEditModalOpen = false" mobile-full

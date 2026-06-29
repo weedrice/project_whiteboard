@@ -13,6 +13,10 @@ withDefaults(defineProps<{
   errorText?: string
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full'
   mobileFull?: boolean
+  mobileFitContent?: boolean
+  closeAriaLabel?: string
+  closeButtonClass?: string
+  footerAlign?: 'start' | 'center' | 'end' | 'between'
   bodyClass?: string
   contentClass?: string
   paddingClass?: string
@@ -25,6 +29,10 @@ withDefaults(defineProps<{
   errorText: 'Failed to load data.',
   size: 'md',
   mobileFull: false,
+  mobileFitContent: false,
+  closeAriaLabel: '',
+  closeButtonClass: '',
+  footerAlign: 'end',
   bodyClass: '',
   contentClass: 'space-y-6',
   paddingClass: 'py-10',
@@ -41,6 +49,10 @@ const emit = defineEmits<{
     :title="title"
     :size="size"
     :mobile-full="mobileFull"
+    :mobile-fit-content="mobileFitContent"
+    :close-aria-label="closeAriaLabel"
+    :close-button-class="closeButtonClass"
+    :footer-align="footerAlign"
     :body-class="bodyClass"
     @close="emit('close')"
   >

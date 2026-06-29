@@ -2,12 +2,13 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useHead } from '@unhead/vue'
-import { ArrowLeft, Upload, X, Plus } from 'lucide-vue-next'
+import { ArrowLeft } from 'lucide-vue-next'
 import { useToastStore } from '@/stores/toast'
 import { useI18n } from 'vue-i18n'
 import EmoticonFormActions from '@/components/emoticon/EmoticonFormActions.vue'
-import EmoticonImageTile from '@/components/emoticon/EmoticonImageTile.vue'
+import EmoticonImageGridUploader from '@/components/emoticon/EmoticonImageGridUploader.vue'
 import EmoticonTagSection from '@/components/emoticon/EmoticonTagSection.vue'
+import EmoticonThumbnailField from '@/components/emoticon/EmoticonThumbnailField.vue'
 import { useEmoticonImageSelection } from '@/composables/useEmoticonImageSelection'
 import { useEmoticonImageFormState } from '@/composables/useEmoticonImageFormState'
 import { useEmoticonRegisterSubmit } from '@/composables/useEmoticonRegisterSubmit'
@@ -39,8 +40,6 @@ const {
   thumbnailFile,
   thumbnailPreview,
   imagePreviews: emoticonPreviews,
-  thumbnailInput,
-  emoticonInput,
   handleThumbnailSelect,
   removeThumbnail,
   handleEmoticonSelect,
@@ -102,49 +101,13 @@ const goToList = () => {
       <!-- 이모티콘 이름과 썸네일 -->
       <div class="nv-surface rounded-lg shadow-sm border nv-border p-6">
         <div class="flex flex-col md:flex-row gap-6">
-          <!-- 썸네일 업로드 -->
-          <div class="order-2 md:order-1 shrink-0">
-            <label for="emoticon-register-thumbnail-input" class="block text-sm font-medium nv-text-muted mb-2">
-              {{ t('emoticon.form.thumbnailImage') }} <span class="nv-form-error">*</span>
-            </label>
-            <p class="text-xs nv-text-subtle mb-4">{{ t('emoticon.form.thumbnailHelp') }}</p>
-            <input
-              id="emoticon-register-thumbnail-input"
-              ref="thumbnailInput"
-              type="file"
-              name="thumbnailImage"
-              :accept="SUPPORTED_IMAGE_ACCEPT"
-              @change="handleThumbnailSelect"
-              class="hidden"
-            />
-
-            <div v-if="thumbnailPreview" class="relative inline-block">
-              <img
-                :src="thumbnailPreview"
-                :alt="t('emoticon.form.thumbnailPreview')"
-                class="w-32 h-32 object-contain nv-surface-muted rounded-lg"
-              />
-              <button
-                type="button"
-                @click="removeThumbnail"
-                :aria-label="$t('common.delete')"
-                :title="$t('common.delete')"
-                class="absolute -top-2 -right-2 w-6 h-6 bg-[var(--nv-danger)] text-white rounded-full flex items-center justify-center hover:brightness-95"
-              >
-                <X class="w-4 h-4" />
-              </button>
-            </div>
-            <div v-else>
-              <button
-                type="button"
-                @click="thumbnailInput?.click()"
-                class="w-32 h-32 border-2 border-dashed nv-border rounded-lg flex flex-col items-center justify-center nv-text-subtle hover:border-[var(--nv-focus)] hover:text-[var(--nv-accent)] transition-colors"
-              >
-                <Upload class="w-8 h-8 mb-2" />
-                <span class="text-xs">{{ t('emoticon.form.chooseImage') }}</span>
-              </button>
-            </div>
-          </div>
+          <EmoticonThumbnailField
+            input-id="emoticon-register-thumbnail-input"
+            :accept="SUPPORTED_IMAGE_ACCEPT"
+            :preview="thumbnailPreview"
+            @change="handleThumbnailSelect"
+            @remove="removeThumbnail"
+          />
 
           <!-- 이모티콘 이름 -->
           <div class="order-1 md:order-2 flex-1">
@@ -165,55 +128,14 @@ const goToList = () => {
         </div>
       </div>
 
-      <!-- 이모티콘 이미지 업로드 -->
-      <div class="nv-surface rounded-lg shadow-sm border nv-border p-6">
-        <label for="emoticon-register-image-input" class="block text-sm font-medium nv-text-muted mb-2">
-          {{ t('emoticon.form.image') }} <span class="nv-form-error">*</span>
-          <span class="text-xs font-normal nv-text-subtle ml-2">({{ t('emoticon.form.count', { current: emoticonPreviews.length, total: 100 }) }})</span>
-        </label>
-        <p class="text-xs nv-text-subtle mb-4">
-          {{ t('emoticon.form.imageHelp') }}
-        </p>
-
-        <!-- 이미지 그리드 -->
-        <div class="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2 mb-4">
-          <EmoticonImageTile
-            v-for="(item, index) in emoticonPreviews"
-            :key="item.clientId"
-            :src="item.preview"
-            :alt="t('emoticon.form.imageAlt', { index: index + 1 })"
-            :action-label="$t('common.delete')"
-            :action-title="$t('common.delete')"
-            action="delete"
-            @action="removeEmoticonImage(item.clientId)"
-          />
-
-          <!-- 추가 버튼 -->
-          <input
-            id="emoticon-register-image-input"
-            ref="emoticonInput"
-            type="file"
-            name="emoticonImages"
-            :accept="SUPPORTED_IMAGE_ACCEPT"
-            multiple
-            :disabled="emoticonPreviews.length >= 100"
-            @change="handleEmoticonSelect"
-            class="hidden"
-          />
-          <div v-if="emoticonPreviews.length < 100">
-            <button
-              type="button"
-              @click="emoticonInput?.click()"
-              :aria-label="$t('common.add')"
-              :title="$t('common.add')"
-              class="w-full aspect-square border-2 border-dashed nv-border rounded flex flex-col items-center justify-center nv-text-subtle hover:border-[var(--nv-focus)] hover:text-[var(--nv-accent)] transition-colors"
-              style="width: 100px; height: 100px;"
-            >
-              <Plus class="w-6 h-6" />
-            </button>
-          </div>
-        </div>
-      </div>
+      <EmoticonImageGridUploader
+        input-id="emoticon-register-image-input"
+        :accept="SUPPORTED_IMAGE_ACCEPT"
+        :current-count="emoticonPreviews.length"
+        :new-images="emoticonPreviews"
+        @select="handleEmoticonSelect"
+        @remove-new="removeEmoticonImage"
+      />
 
       <!-- 태그 입력 -->
       <EmoticonTagSection

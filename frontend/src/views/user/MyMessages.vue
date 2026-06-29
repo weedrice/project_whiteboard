@@ -24,26 +24,12 @@
         </template>
 
         <template #subheader>
-            <span
-                class="isolate inline-flex rounded-lg sm:rounded-md shadow-sm w-full sm:w-auto"
-                role="group"
-                :aria-label="$t('user.message.boxTitle')"
-            >
-                <button type="button" :aria-pressed="viewType === 'received'" @click="changeViewType('received')"
-                    class="flex-1 sm:flex-initial relative inline-flex items-center justify-center rounded-l-lg sm:rounded-l-md px-3 py-2.5 sm:py-2 text-sm font-medium ring-1 ring-inset min-h-[44px] sm:min-h-0 focus:z-10"
-                    :class="viewType === 'received'
-                        ? 'message-tab-active'
-                        : 'message-tab-inactive'">
-                    {{ $t('user.message.received') }}
-                </button>
-                <button type="button" :aria-pressed="viewType === 'sent'" @click="changeViewType('sent')"
-                    class="flex-1 sm:flex-initial relative -ml-px inline-flex items-center justify-center rounded-r-lg sm:rounded-r-md px-3 py-2.5 sm:py-2 text-sm font-medium ring-1 ring-inset min-h-[44px] sm:min-h-0 focus:z-10"
-                    :class="viewType === 'sent'
-                        ? 'message-tab-active'
-                        : 'message-tab-inactive'">
-                    {{ $t('user.message.sent') }}
-                </button>
-            </span>
+            <BaseSegmentedControl
+                :model-value="viewType"
+                :options="messageBoxOptions"
+                :label="$t('user.message.boxTitle')"
+                @update:model-value="changeViewType($event as MailboxViewType)"
+            />
         </template>
 
         <ul class="divide-y divide-[var(--nv-border)]">
@@ -143,10 +129,20 @@ import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
+import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
 import { Mail } from 'lucide-vue-next'
 import { useMailboxResource } from '@/composables/useMailboxResource'
+import type { MailboxViewType } from '@/composables/useMailboxListState'
 import { formatDate } from '@/utils/date'
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+const messageBoxOptions = computed(() => [
+    { value: 'received', label: t('user.message.received') },
+    { value: 'sent', label: t('user.message.sent') },
+])
 
 const {
     viewType,
@@ -173,25 +169,3 @@ const {
     sendReply,
 } = useMailboxResource()
 </script>
-
-<style scoped>
-.message-tab-active {
-    background: var(--nv-accent);
-    border-color: var(--nv-accent);
-    color: #fff;
-}
-
-.message-tab-active:hover {
-    background: color-mix(in srgb, var(--nv-accent) 88%, black 12%);
-}
-
-.message-tab-inactive {
-    background: var(--nv-surface);
-    border-color: var(--nv-border-strong);
-    color: var(--nv-text);
-}
-
-.message-tab-inactive:hover {
-    background: var(--nv-surface-hover);
-}
-</style>

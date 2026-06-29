@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AdminDetailModalShell from '@/components/admin/AdminDetailModalShell.vue'
 import AdminInlinePager from '@/components/admin/AdminInlinePager.vue'
 import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
 import BooleanBadge from '@/components/admin/BooleanBadge.vue'
-import BaseModal from '@/components/common/ui/BaseModal.vue'
-import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
 import UserAvatar from '@/components/common/ui/UserAvatar.vue'
 import DescriptionItem from '@/components/admin/detail/DescriptionItem.vue'
 import { useAdmin } from '@/composables/useAdmin'
@@ -76,6 +76,12 @@ const roleVariant = computed(() => {
   return getAdminUserRoleVariant(userDetail.value?.role)
 })
 
+const detailTabOptions = computed(() => [
+  { value: 'posts', label: t('admin.users.detail.writtenPosts') },
+  { value: 'comments', label: t('admin.users.detail.writtenComments') },
+  { value: 'subscriptions', label: t('admin.users.detail.subscribedBoards') },
+])
+
 function renderCommentContent(content: string | null | undefined): string {
   return renderCommentContentHtml(content, 'comment-emoticon comment-emoticon-list')
 }
@@ -87,12 +93,17 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
 </script>
 
 <template>
-  <BaseModal :isOpen="isOpen" :title="t('admin.users.detail.title')" size="2xl" @close="$emit('close')">
-    <div v-if="isDetailLoading" class="py-10 text-center text-sm nv-text-subtle">
-      {{ t('common.loading') }}
-    </div>
-
-    <div v-else-if="userDetail" class="space-y-6">
+  <AdminDetailModalShell
+    :is-open="isOpen"
+    :title="t('admin.users.detail.title')"
+    size="2xl"
+    :loading="isDetailLoading"
+    :empty="!userDetail"
+    :loading-text="t('common.loading')"
+    :empty-text="t('admin.users.detail.loadFailed')"
+    @close="$emit('close')"
+  >
+    <div v-if="userDetail" class="space-y-6">
       <div class="flex items-center gap-4 rounded-lg border nv-border p-4">
         <UserAvatar
           :image-url="userDetail.profileImageUrl"
@@ -159,9 +170,12 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
 
       <div>
         <div class="mb-3 flex items-center gap-2 border-b nv-border pb-2">
-          <BaseButton :variant="activeTab === 'posts' ? 'primary' : 'secondary'" size="sm" @click="activeTab = 'posts'">{{ t('admin.users.detail.writtenPosts') }}</BaseButton>
-          <BaseButton :variant="activeTab === 'comments' ? 'primary' : 'secondary'" size="sm" @click="activeTab = 'comments'">{{ t('admin.users.detail.writtenComments') }}</BaseButton>
-          <BaseButton :variant="activeTab === 'subscriptions' ? 'primary' : 'secondary'" size="sm" @click="activeTab = 'subscriptions'">{{ t('admin.users.detail.subscribedBoards') }}</BaseButton>
+          <BaseSegmentedControl
+            v-model="activeTab"
+            :options="detailTabOptions"
+            :label="t('admin.users.detail.title')"
+            variant="joined"
+          />
         </div>
 
         <div v-if="activeTab === 'posts'" class="space-y-2">
@@ -245,9 +259,5 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
         </div>
       </div>
     </div>
-
-    <div v-else class="py-10 text-center text-sm nv-text-subtle">
-      {{ t('admin.users.detail.loadFailed') }}
-    </div>
-  </BaseModal>
+  </AdminDetailModalShell>
 </template>

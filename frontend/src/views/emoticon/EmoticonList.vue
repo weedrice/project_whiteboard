@@ -6,6 +6,7 @@ import { useI18n } from 'vue-i18n'
 import { Search, X, PlusCircle, TrendingUp } from 'lucide-vue-next'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import { DEFAULT_EMOTICON_IMAGE_URL, applyImageFallback } from '@/utils/imageFallback'
 import { formatInteger } from '@/utils/numberFormat'
@@ -41,19 +42,28 @@ useHead({
   ]
 })
 
-// 등록 페이지 이동
-// 기간 버튼 텍스트
-const periodLabels = computed(() => ({
-  daily: t('emoticon.list.period.daily'),
-  weekly: t('emoticon.list.period.weekly'),
-  monthly: t('emoticon.list.period.monthly')
-}))
+type PopularPeriod = 'daily' | 'weekly' | 'monthly'
+type SortOption = NonNullable<EmoticonSearchParams['sortBy']>
 
-const sortOptions = computed<Array<{ value: NonNullable<EmoticonSearchParams['sortBy']>; label: string }>>(() => [
+const periodOptions = computed<Array<{ value: PopularPeriod; label: string }>>(() => [
+  { value: 'daily', label: t('emoticon.list.period.daily') },
+  { value: 'weekly', label: t('emoticon.list.period.weekly') },
+  { value: 'monthly', label: t('emoticon.list.period.monthly') }
+])
+
+const sortOptions = computed<Array<{ value: SortOption; label: string }>>(() => [
   { value: 'latest', label: t('emoticon.list.sort.latest') },
   { value: 'oldest', label: t('emoticon.list.sort.oldest') },
   { value: 'popular', label: t('emoticon.list.sort.popular') }
 ])
+
+function changePopularPeriod(period: string) {
+  popularPeriod.value = period as PopularPeriod
+}
+
+function selectSortBy(value: string) {
+  changeSortBy(value as SortOption)
+}
 </script>
 
 <template>
@@ -71,23 +81,13 @@ const sortOptions = computed<Array<{ value: NonNullable<EmoticonSearchParams['so
           <TrendingUp class="w-5 h-5 nv-accent-text" />
           <h2 class="text-lg font-semibold nv-title">{{ t('emoticon.list.popular') }}</h2>
         </div>
-        <div class="flex gap-2">
-          <button
-            v-for="(label, period) in periodLabels"
-            :key="period"
-            type="button"
-            :aria-pressed="popularPeriod === period"
-            @click="popularPeriod = period as 'daily' | 'weekly' | 'monthly'"
-            :class="[
-              'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
-              popularPeriod === period
-                ? 'bg-[var(--nv-accent)] text-white'
-                : 'nv-surface-muted nv-text-muted nv-hover-surface'
-            ]"
-          >
-            {{ label }}
-          </button>
-        </div>
+        <BaseSegmentedControl
+          :model-value="popularPeriod"
+          :options="periodOptions"
+          :label="t('emoticon.list.popular')"
+          variant="pill"
+          @change="changePopularPeriod"
+        />
       </div>
 
       <!-- 인기 노비콘 그리드 -->
@@ -149,23 +149,13 @@ const sortOptions = computed<Array<{ value: NonNullable<EmoticonSearchParams['so
         <h2 class="text-lg font-semibold nv-title">
           {{ t('emoticon.list.all') }} <span class="text-sm font-normal nv-text-subtle">({{ t('emoticon.list.itemCount', { count: formatInteger(totalElements) }) }})</span>
         </h2>
-        <div class="flex flex-wrap gap-2">
-          <button
-            v-for="option in sortOptions"
-            :key="option.value"
-            type="button"
-            :aria-pressed="sortBy === option.value"
-            @click="changeSortBy(option.value)"
-            :class="[
-              'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
-              sortBy === option.value
-                ? 'bg-[var(--nv-accent)] text-white'
-                : 'nv-surface-muted nv-text-muted nv-hover-surface'
-            ]"
-          >
-            {{ option.label }}
-          </button>
-        </div>
+        <BaseSegmentedControl
+          :model-value="sortBy"
+          :options="sortOptions"
+          :label="t('emoticon.list.all')"
+          variant="pill"
+          @change="selectSortBy"
+        />
       </div>
 
       <!-- 전체 노비콘 그리드 -->
