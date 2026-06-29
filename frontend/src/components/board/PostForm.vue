@@ -8,13 +8,12 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import BaseSelect from '@/components/common/ui/BaseSelect.vue'
-import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import PostTags from '@/components/tag/PostTags.vue'
 import { useToastStore } from '@/stores/toast'
 import EmoticonPicker from '@/components/common/widgets/EmoticonPicker.vue'
 import PostEditorTipTap from '@/components/board/PostEditorTipTap.vue'
+import PostFormMetadataPanel from '@/components/board/PostFormMetadataPanel.vue'
 import PostPreviewModal from '@/components/board/PostPreviewModal.vue'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
 import { canWriteCategory } from '@/utils/board'
@@ -323,27 +322,28 @@ defineExpose({
       >
         <section class="nv-compose-main">
           <div class="nv-compose-main-card rounded-2xl border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)] sm:p-5">
-            <div class="mb-4 flex flex-wrap items-center gap-2 lg:hidden">
-              <div v-if="!props.hideCategory && filteredCategories.length > 0" class="min-w-[10rem] flex-1">
-                <BaseSelect id="category-mobile" v-model="form.categoryId" :label="$t('common.category')">
-                  <option value="" disabled>{{ $t('board.writePost.selectCategory') }}</option>
-                  <option
-                    v-for="cat in filteredCategories"
-                    :key="cat.categoryId"
-                    :value="cat.categoryId"
-                    :disabled="cat.disabled"
-                  >
-                    {{ cat.name }}
-                  </option>
-                </BaseSelect>
-              </div>
-              <div class="flex flex-wrap gap-2">
-                <BaseCheckbox v-if="showNotice" id="isNotice-m" v-model="form.isNotice" :label="$t('common.notice')" />
-                <BaseCheckbox v-if="canShowNsfw" id="nsfw-m" v-model="form.isNsfw" :label="$t('board.writePost.nsfw')" />
-                <BaseCheckbox v-if="!props.hideSpoiler" id="spoiler-m" v-model="form.isSpoiler" :label="$t('board.writePost.spoiler')" />
-                <BaseCheckbox v-if="!props.hideSecret" id="secret-m" v-model="form.isSecret" :label="$t('board.writePost.secret')" />
-              </div>
-            </div>
+            <PostFormMetadataPanel
+              layout="mobile"
+              :categories="filteredCategories"
+              :category-id="form.categoryId"
+              :tags="form.tags"
+              :is-notice="form.isNotice"
+              :is-nsfw="form.isNsfw"
+              :is-spoiler="form.isSpoiler"
+              :is-secret="form.isSecret"
+              :hide-category="props.hideCategory"
+              :hide-tags="props.hideTags"
+              :show-notice="showNotice"
+              :can-show-nsfw="canShowNsfw"
+              :hide-spoiler="props.hideSpoiler"
+              :hide-secret="props.hideSecret"
+              @update:category-id="form.categoryId = $event"
+              @update:tags="form.tags = $event"
+              @update:is-notice="form.isNotice = $event"
+              @update:is-nsfw="form.isNsfw = $event"
+              @update:is-spoiler="form.isSpoiler = $event"
+              @update:is-secret="form.isSecret = $event"
+            />
 
             <BaseInput
               id="title"
@@ -367,6 +367,7 @@ defineExpose({
                     type="button"
                     class="editor-view-toggle-btn"
                     :class="{ active: editorViewMode === 'visual' }"
+                    :aria-pressed="editorViewMode === 'visual'"
                     @click="setEditorViewMode('visual')"
                   >
                     {{ $t('board.writePost.visualMode') }}
@@ -375,6 +376,7 @@ defineExpose({
                     type="button"
                     class="editor-view-toggle-btn"
                     :class="{ active: editorViewMode === 'html' }"
+                    :aria-pressed="editorViewMode === 'html'"
                     @click="setEditorViewMode('html')"
                   >
                     {{ $t('board.writePost.viewHtmlSource') }}
@@ -459,33 +461,28 @@ defineExpose({
               <h3 class="text-lg font-semibold text-[var(--nv-ink)]">{{ $t('board.writePost.sections.postSettings') }}</h3>
             </div>
 
-            <div v-if="!props.hideCategory && filteredCategories.length > 0" class="nv-compose-side-section mb-4 hidden lg:block">
-              <BaseSelect id="category" v-model="form.categoryId" :label="$t('common.category')">
-                <option value="" disabled>{{ $t('board.writePost.selectCategory') }}</option>
-                <option
-                  v-for="cat in filteredCategories"
-                  :key="cat.categoryId"
-                  :value="cat.categoryId"
-                  :disabled="cat.disabled"
-                >
-                  {{ cat.name }}
-                </option>
-              </BaseSelect>
-            </div>
-
-            <div v-if="!props.hideTags" class="nv-compose-side-section mb-4 hidden lg:block">
-              <label for="post-tags-input-desktop" class="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
-                {{ $t('common.tags') }}
-              </label>
-              <PostTags v-model="form.tags" input-id="post-tags-input-desktop" />
-            </div>
-
-            <div class="nv-compose-side-section space-y-3">
-              <BaseCheckbox v-if="showNotice" id="isNotice" v-model="form.isNotice" :label="$t('common.notice')" :description="$t('board.writePost.noticeDesc')" />
-              <BaseCheckbox v-if="canShowNsfw" id="nsfw" v-model="form.isNsfw" :label="$t('board.writePost.nsfw')" :description="$t('board.writePost.nsfwDesc')" />
-              <BaseCheckbox v-if="!props.hideSpoiler" id="spoiler" v-model="form.isSpoiler" :label="$t('board.writePost.spoiler')" :description="$t('board.writePost.spoilerDesc')" />
-              <BaseCheckbox v-if="!props.hideSecret" id="secret" v-model="form.isSecret" :label="$t('board.writePost.secret')" :description="$t('board.writePost.secretDesc')" />
-            </div>
+            <PostFormMetadataPanel
+              layout="desktop"
+              :categories="filteredCategories"
+              :category-id="form.categoryId"
+              :tags="form.tags"
+              :is-notice="form.isNotice"
+              :is-nsfw="form.isNsfw"
+              :is-spoiler="form.isSpoiler"
+              :is-secret="form.isSecret"
+              :hide-category="props.hideCategory"
+              :hide-tags="props.hideTags"
+              :show-notice="showNotice"
+              :can-show-nsfw="canShowNsfw"
+              :hide-spoiler="props.hideSpoiler"
+              :hide-secret="props.hideSecret"
+              @update:category-id="form.categoryId = $event"
+              @update:tags="form.tags = $event"
+              @update:is-notice="form.isNotice = $event"
+              @update:is-nsfw="form.isNsfw = $event"
+              @update:is-spoiler="form.isSpoiler = $event"
+              @update:is-secret="form.isSecret = $event"
+            />
           </section>
 
           <section class="nv-compose-side-card rounded-2xl border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)]">

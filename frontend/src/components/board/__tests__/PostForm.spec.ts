@@ -1008,8 +1008,13 @@ describe('PostForm', () => {
         const wrapper = mountPostForm('create')
 
         const modeButtons = wrapper.findAll('.editor-view-toggle-btn')
+        expect(modeButtons[0].attributes('aria-pressed')).toBe('true')
+        expect(modeButtons[1].attributes('aria-pressed')).toBe('false')
+
         await modeButtons[1].trigger('click')
         expect(wrapper.find('#content').exists()).toBe(true)
+        expect(modeButtons[0].attributes('aria-pressed')).toBe('false')
+        expect(modeButtons[1].attributes('aria-pressed')).toBe('true')
 
         await wrapper.get('#content').setValue('<p>html-source</p>')
         await modeButtons[0].trigger('click')
