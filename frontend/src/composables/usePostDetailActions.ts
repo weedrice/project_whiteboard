@@ -46,7 +46,6 @@ export function usePostDetailActions({
   const isLikeAnimating = ref(false)
   const isBookmarkAnimating = ref(false)
   const showReportModal = ref(false)
-  const reportReason = ref('')
   let likeAnimationTimer: ReturnType<typeof setTimeout> | null = null
   let bookmarkAnimationTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -120,28 +119,26 @@ export function usePostDetailActions({
   function openReportModal() {
     if (!canReport.value) return
     showReportModal.value = true
-    reportReason.value = ''
     closeOverflowMenu()
   }
 
-  async function submitReport() {
-    if (!reportReason.value.trim()) {
-      toastStore.addToast(t('board.postDetail.reportReasonRequired'), 'error')
-      return
-    }
-
-    reportMutate({
-      targetPostId: route.params.postId as string | number,
-      reason: reportReason.value
-    }, {
-      onSuccess: () => {
-        toastStore.addToast(t('board.postDetail.reportSuccess'), 'success')
-        showReportModal.value = false
-      },
-      onError: (err) => {
-        logger.error('Report failed:', err)
-        toastStore.addToast(t('board.postDetail.reportFailed'), 'error')
-      }
+  async function submitReport(reason: string) {
+    return await new Promise<boolean>((resolve) => {
+      reportMutate({
+        targetPostId: route.params.postId as string | number,
+        reason,
+      }, {
+        onSuccess: () => {
+          toastStore.addToast(t('board.postDetail.reportSuccess'), 'success')
+          showReportModal.value = false
+          resolve(true)
+        },
+        onError: (err) => {
+          logger.error('Report failed:', err)
+          toastStore.addToast(t('board.postDetail.reportFailed'), 'error')
+          resolve(false)
+        },
+      })
     })
   }
 
@@ -160,7 +157,6 @@ export function usePostDetailActions({
     isLikeAnimating,
     isBookmarkAnimating,
     showReportModal,
-    reportReason,
     handleDelete,
     handleLike,
     handleBookmark,

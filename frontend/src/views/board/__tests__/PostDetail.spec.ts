@@ -236,7 +236,8 @@ describe('PostDetail', () => {
           CommentList: true,
           PostTags: true,
           UserMenu: true,
-          BaseModal: true
+          BaseModal: true,
+          ReportModal: true
         }
       }
     })
@@ -279,7 +280,8 @@ describe('PostDetail', () => {
           CommentList: true,
           PostTags: true,
           UserMenu: true,
-          BaseModal: true
+          BaseModal: true,
+          ReportModal: true
         }
       }
     })
@@ -310,7 +312,8 @@ describe('PostDetail', () => {
           CommentList: true,
           PostTags: true,
           UserMenu: true,
-          BaseModal: true
+          BaseModal: true,
+          ReportModal: true
         }
       }
     })
@@ -337,7 +340,8 @@ describe('PostDetail', () => {
           CommentList: true,
           PostTags: true,
           UserMenu: true,
-          BaseModal: true
+          BaseModal: true,
+          ReportModal: true
         }
       }
     })
@@ -367,7 +371,8 @@ describe('PostDetail', () => {
           CommentList: true,
           PostTags: true,
           UserMenu: true,
-          BaseModal: true
+          BaseModal: true,
+          ReportModal: true
         }
       }
     })
@@ -389,7 +394,8 @@ describe('PostDetail', () => {
           CommentList: true,
           PostTags: true,
           UserMenu: true,
-          BaseModal: true
+          BaseModal: true,
+          ReportModal: true
         }
       }
     })
@@ -425,7 +431,8 @@ describe('PostDetail', () => {
           CommentList: true,
           PostTags: true,
           UserMenu: true,
-          BaseModal: true
+          BaseModal: true,
+          ReportModal: true
         }
       }
     })
@@ -466,7 +473,8 @@ describe('PostDetail', () => {
           CommentList: composerStub,
           PostTags: true,
           UserMenu: true,
-          BaseModal: true
+          BaseModal: true,
+          ReportModal: true
         }
       }
     })
@@ -518,7 +526,8 @@ describe('PostDetail', () => {
           CommentList: true,
           PostTags: true,
           UserMenu: true,
-          BaseModal: true
+          BaseModal: true,
+          ReportModal: true
         }
       }
     })
@@ -545,7 +554,8 @@ describe('PostDetail', () => {
           CommentList: true,
           PostTags: true,
           UserMenu: true,
-          BaseModal: true
+          BaseModal: true,
+          ReportModal: true
         }
       }
     })
@@ -572,7 +582,8 @@ describe('PostDetail', () => {
           CommentList: true,
           PostTags: true,
           UserMenu: true,
-          BaseModal: true
+          BaseModal: true,
+          ReportModal: true
         }
       }
     })
@@ -594,7 +605,8 @@ describe('PostDetail', () => {
           CommentList: true,
           PostTags: PostTagsStub,
           UserMenu: true,
-          BaseModal: true
+          BaseModal: true,
+          ReportModal: true
         }
       }
     })

@@ -19,11 +19,10 @@ import {
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseCard from '@/components/common/ui/BaseCard.vue'
-import BaseModal from '@/components/common/ui/BaseModal.vue'
-import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import CommentList from '@/components/comment/CommentList.vue'
 import PostDetailSkeleton from '@/components/board/PostDetailSkeleton.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
+import ReportModal from '@/components/report/ReportModal.vue'
 import PostTags from '@/components/tag/PostTags.vue'
 import { usePost } from '@/composables/usePost'
 import { usePostDetailPermissions } from '@/composables/usePostDetailPermissions'
@@ -138,7 +137,6 @@ const {
   isLikeAnimating,
   isBookmarkAnimating,
   showReportModal,
-  reportReason,
   handleDelete,
   handleLike,
   handleBookmark,
@@ -449,37 +447,15 @@ const {
       </button>
     </Transition>
 
-    <BaseModal :isOpen="showReportModal" :title="$t('common.report')" @close="showReportModal = false">
-      <div class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium nv-text-muted">
-            {{ $t('report.target') }}
-          </label>
-          <div class="mt-1 text-sm font-medium nv-title">
-            {{ $t('common.post') }} | {{ postView?.title }}
-          </div>
-        </div>
-        <div>
-          <BaseTextarea
-            id="report-reason"
-            v-model="reportReason"
-            :label="$t('report.reason')"
-            rows="4"
-            :placeholder="$t('report.inputReason')"
-          />
-        </div>
-      </div>
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <BaseButton @click="showReportModal = false" variant="secondary" size="sm">
-            {{ $t('common.cancel') }}
-          </BaseButton>
-          <BaseButton @click="submitReport" variant="danger" size="sm">
-            {{ $t('common.submit') }}
-          </BaseButton>
-        </div>
-      </template>
-    </BaseModal>
+    <ReportModal
+      :isOpen="showReportModal"
+      :title="$t('common.report')"
+      :targetText="`${$t('common.post')} | ${postView?.title ?? ''}`"
+      :submit="submitReport"
+      :submitLabel="$t('common.submit')"
+      submitVariant="danger"
+      @close="showReportModal = false"
+    />
   </div>
 </template>
 

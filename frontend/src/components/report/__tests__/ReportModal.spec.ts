@@ -5,27 +5,13 @@ import ReportModal from '../ReportModal.vue'
 import { BaseButtonStub, BaseModalStub, flushAll, getButtonByText, identityT } from '@/test/vue-test-helpers'
 
 const mocks = vi.hoisted(() => ({
-    reportUser: vi.fn(),
     addToast: vi.fn(),
-    loggerError: vi.fn(),
-}))
-
-vi.mock('@/api/report', () => ({
-    reportApi: {
-        reportUser: mocks.reportUser,
-    },
 }))
 
 vi.mock('@/stores/toast', () => ({
     useToastStore: () => ({
         addToast: mocks.addToast,
     }),
-}))
-
-vi.mock('@/utils/logger', () => ({
-    default: {
-        error: mocks.loggerError,
-    },
 }))
 
 vi.mock('vue-i18n', () => ({
@@ -47,11 +33,11 @@ const BaseTextareaStub = defineComponent({
     },
 })
 
-const mountModal = () => mount(ReportModal, {
+const mountModal = (submit = vi.fn(async () => true)) => mount(ReportModal, {
     props: {
         isOpen: true,
-        userId: 9,
-        displayName: '신고 대상',
+        targetText: '신고 대상',
+        submit,
     },
     global: {
         mocks: {
@@ -70,48 +56,47 @@ describe('ReportModal', () => {
         vi.clearAllMocks()
     })
 
-    it('shows a warning and skips the request when reason is blank', async () => {
-        const wrapper = mountModal()
+    it('shows a warning and skips submit when reason is blank', async () => {
+        const submit = vi.fn(async () => true)
+        const wrapper = mountModal(submit)
 
         await wrapper.get('textarea').setValue('   ')
         await getButtonByText(wrapper, 'common.report').trigger('click')
 
         expect(mocks.addToast).toHaveBeenCalledWith('report.inputReason', 'warning')
-        expect(mocks.reportUser).not.toHaveBeenCalled()
+        expect(submit).not.toHaveBeenCalled()
     })
 
-    it('ignores repeated reports while a report request is pending', async () => {
-        let resolveReport: (value: unknown) => void = () => undefined
-        mocks.reportUser.mockReturnValue(new Promise((resolve) => {
-            resolveReport = resolve
+    it('ignores repeated submits while a request is pending', async () => {
+        let resolveSubmit: (value: boolean) => void = () => undefined
+        const submit = vi.fn(() => new Promise<boolean>((resolve) => {
+            resolveSubmit = resolve
         }))
 
-        const wrapper = mountModal()
+        const wrapper = mountModal(submit)
         await wrapper.get('textarea').setValue('신고 사유')
 
         const reportButton = getButtonByText(wrapper, 'common.report')
         await reportButton.trigger('click')
         await reportButton.trigger('click')
 
-        expect(mocks.reportUser).toHaveBeenCalledTimes(1)
-        expect(mocks.reportUser).toHaveBeenCalledWith(9, '신고 사유', '', { skipGlobalErrorHandler: true })
+        expect(submit).toHaveBeenCalledTimes(1)
+        expect(submit).toHaveBeenCalledWith('신고 사유')
 
-        resolveReport({ data: { success: true } })
+        resolveSubmit(true)
         await flushAll()
         expect(wrapper.emitted('close')).toHaveLength(1)
-        expect(mocks.addToast).toHaveBeenCalledWith('report.reportSuccess', 'success')
     })
 
-    it('shows an error toast and keeps the modal open when the request fails', async () => {
-        mocks.reportUser.mockRejectedValue(new Error('failed'))
+    it('keeps the modal open when submit returns false', async () => {
+        const submit = vi.fn(async () => false)
+        const wrapper = mountModal(submit)
 
-        const wrapper = mountModal()
         await wrapper.get('textarea').setValue('신고 사유')
         await getButtonByText(wrapper, 'common.report').trigger('click')
         await flushAll()
 
+        expect(submit).toHaveBeenCalledWith('신고 사유')
         expect(wrapper.emitted('close')).toBeUndefined()
-        expect(mocks.loggerError).toHaveBeenCalled()
-        expect(mocks.addToast).toHaveBeenCalledWith('report.reportFailed', 'error')
     })
 })

@@ -1,13 +1,20 @@
 <template>
-    <BaseModal :isOpen="isOpen" :title="$t('report.title')" @close="$emit('close')">
+    <BaseModal :isOpen="isOpen" :title="title" @close="emit('close')">
         <div class="p-4">
-            <BaseInput :label="$t('report.target')" :modelValue="displayName" :disabled="true" class="mb-4" />
-            <BaseTextarea id="reportReason" v-model="reportReason" :label="$t('report.reason')" rows="4" />
+            <BaseInput :label="$t('report.target')" :modelValue="targetText" :disabled="true" class="mb-4" />
+            <BaseTextarea
+                id="reportReason"
+                v-model="reportReason"
+                :label="$t('report.reason')"
+                rows="4"
+                :placeholder="$t('report.inputReason')"
+            />
             <div class="mt-4 flex justify-end">
-                <BaseButton @click="$emit('close')" variant="secondary" class="mr-2">{{ $t('common.cancel') }}
+                <BaseButton @click="emit('close')" variant="secondary" class="mr-2">
+                    {{ $t('common.cancel') }}
                 </BaseButton>
-                <BaseButton @click="handleReportUser" :disabled="isReporting">
-                    {{ isReporting ? $t('common.messages.reporting') : $t('common.report') }}
+                <BaseButton @click="handleReport" :disabled="isReporting" :variant="submitVariant">
+                    {{ isReporting ? pendingLabel : submitLabel }}
                 </BaseButton>
             </div>
         </div>
@@ -15,50 +22,51 @@
 </template>
 
 <script setup lang="ts">
-import { reportApi } from '@/api/report'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import { useModalSubmit } from '@/composables/useModalSubmit'
 import { useI18n } from 'vue-i18n'
-import logger from '@/utils/logger'
 import { useToastStore } from '@/stores/toast'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     isOpen: boolean
-    userId: number
-    displayName: string
+    targetText: string
+    title?: string
+    submitLabel?: string
+    pendingLabel?: string
+    submitVariant?: 'primary' | 'secondary' | 'danger' | 'ghost'
+    submit: (reason: string) => boolean | Promise<boolean>
+}>(), {
+    title: undefined,
+    submitLabel: undefined,
+    pendingLabel: undefined,
+    submitVariant: 'primary',
+})
+
+const emit = defineEmits<{
+    close: []
 }>()
 
-const emit = defineEmits(['close'])
+const title = props.title ?? t('report.title')
+const submitLabel = props.submitLabel ?? t('common.report')
+const pendingLabel = props.pendingLabel ?? t('common.messages.reporting')
 
 const {
     value: reportReason,
     isSubmitting: isReporting,
-    submit: handleReportUser
+    submit: handleReport,
 } = useModalSubmit({
     initialValue: '',
     isValid: (reason) => reason.trim().length > 0,
     onInvalid: () => toastStore.addToast(t('report.inputReason'), 'warning'),
-    onSubmit: async (reason) => {
-        try {
-            const { data } = await reportApi.reportUser(props.userId, reason, '', { skipGlobalErrorHandler: true })
-            if (!data.success) return false
-
-            toastStore.addToast(t('report.reportSuccess'), 'success')
-            return true
-        } catch (error) {
-            logger.error('Failed to report user:', error)
-            toastStore.addToast(t('report.reportFailed'), 'error')
-            return false
-        }
-    },
+    onSubmit: async (reason) => props.submit(reason.trim()),
     onSuccess: () => {
         emit('close')
-    }
+    },
 })
 </script>

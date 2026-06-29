@@ -210,22 +210,11 @@ describe('usePostDetailActions', () => {
     expect(blocked.actions.showReportModal.value).toBe(false)
   })
 
-  it('requires a non-empty report reason', async () => {
-    const { actions } = createActions()
-    actions.reportReason.value = '   '
-
-    await actions.submitReport()
-
-    expect(mocks.reportMutate).not.toHaveBeenCalled()
-    expect(mocks.addToast).toHaveBeenCalledWith('board.postDetail.reportReasonRequired', 'error')
-  })
-
   it('submits a report and handles success and failure callbacks', async () => {
     const { actions } = createActions()
     actions.showReportModal.value = true
-    actions.reportReason.value = 'Spam'
 
-    await actions.submitReport()
+    const successPromise = actions.submitReport('Spam')
 
     expect(mocks.reportMutate).toHaveBeenCalledWith({
       targetPostId: '7',
@@ -237,10 +226,14 @@ describe('usePostDetailActions', () => {
 
     const options = mocks.reportMutate.mock.calls[0][1]
     options.onSuccess()
+    await expect(successPromise).resolves.toBe(true)
     expect(mocks.addToast).toHaveBeenCalledWith('board.postDetail.reportSuccess', 'success')
     expect(actions.showReportModal.value).toBe(false)
 
-    options.onError(new Error('failed'))
+    const failurePromise = actions.submitReport('Abuse')
+    const failureOptions = mocks.reportMutate.mock.calls[1][1]
+    failureOptions.onError(new Error('failed'))
+    await expect(failurePromise).resolves.toBe(false)
     expect(mocks.addToast).toHaveBeenCalledWith('board.postDetail.reportFailed', 'error')
   })
 })

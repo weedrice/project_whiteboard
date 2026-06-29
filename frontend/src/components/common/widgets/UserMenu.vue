@@ -58,7 +58,12 @@
     </Teleport>
 
     <MessageModal :isOpen="isMessageModalOpen" :userId="userId" :displayName="displayName" @close="closeMessageModal" />
-    <ReportModal :isOpen="isReportModalOpen" :userId="userId" :displayName="displayName" @close="closeReportModal" />
+    <ReportModal
+      :isOpen="isReportModalOpen"
+      :targetText="displayName"
+      :submit="submitUserReport"
+      @close="closeReportModal"
+    />
   </div>
 </template>
 
@@ -72,9 +77,13 @@ import { useUserMenuActions } from '@/composables/useUserMenuActions'
 import { useUserMenuPosition } from '@/composables/useUserMenuPosition'
 import MessageModal from '@/components/user/MessageModal.vue'
 import ReportModal from '@/components/report/ReportModal.vue'
+import { reportApi } from '@/api/report'
+import { useToastStore } from '@/stores/toast'
+import logger from '@/utils/logger'
 import { formatUserDisplayName } from '@/utils/userDisplay'
 
 const { t } = useI18n()
+const toastStore = useToastStore()
 
 const props = withDefaults(defineProps<{
   userId: number
@@ -182,6 +191,20 @@ const handleClickOutside = (event: Event) => {
   }
 
   closeDropdown()
+}
+
+async function submitUserReport(reason: string) {
+  try {
+    const { data } = await reportApi.reportUser(props.userId, reason, '', { skipGlobalErrorHandler: true })
+    if (!data.success) return false
+
+    toastStore.addToast(t('report.reportSuccess'), 'success')
+    return true
+  } catch (error) {
+    logger.error('Failed to report user:', error)
+    toastStore.addToast(t('report.reportFailed'), 'error')
+    return false
+  }
 }
 
 useEventListener(() => document, 'click', handleClickOutside)

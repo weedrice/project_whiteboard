@@ -66,6 +66,12 @@ vi.mock('@/api/user', () => ({
   }
 }))
 
+vi.mock('@/api/report', () => ({
+  reportApi: {
+    reportUser: vi.fn()
+  }
+}))
+
 vi.mock('@/utils/logger', () => ({
   default: {
     error: vi.fn()
