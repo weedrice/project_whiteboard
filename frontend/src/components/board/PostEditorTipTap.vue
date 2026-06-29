@@ -9,6 +9,9 @@ import PostEditorSlashMenu from '@/components/board/editor/PostEditorSlashMenu.v
 import PostEditorTablePopover from '@/components/board/editor/PostEditorTablePopover.vue'
 import PostEditorToolbar from '@/components/board/editor/PostEditorToolbar.vue'
 import { createPostEditorExtensions } from '@/components/board/editor/postEditorExtensions'
+import { colorLabelKeys, colorPresets, fontSizes, lineHeights, slashActions, type SlashAction } from '@/components/board/editor/postEditorOptions'
+import { escapeHtmlAttr, escapeHtmlText } from '@/components/board/editor/postEditorHtml'
+import { hasCandidateImageFiles, isCandidateImageFile } from '@/components/board/editor/postEditorImageFiles'
 import '@/components/board/editor/editor.css'
 import { useEditorImageUpload } from '@/composables/useEditorImageUpload'
 import { usePostEditorImageUploadState } from '@/composables/usePostEditorImageUploadState'
@@ -31,7 +34,6 @@ const emit = defineEmits<{
   (e: 'file-uploaded', fileId: number): void
 }>()
 
-type SlashAction = 'heading' | 'quote' | 'list' | 'link' | 'table' | 'codeBlock' | 'divider'
 type UploadedEditorImage = { url: string; fileId?: number }
 
 const { t } = useI18n()
@@ -98,22 +100,6 @@ const {
   },
   abort: abortImageUpload,
 })
-
-const colorPresets = [
-  '#000000', '#374151', '#6b7280', '#9ca3af',
-  '#ef4444', '#f97316', '#eab308', '#22c55e',
-  '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6',
-  '#ffffff', '#1f2937', '#4b5563', '#d1d5db',
-]
-const colorLabelKeys = [
-  'black', 'gray', 'muted', 'lightGray',
-  'red', 'orange', 'yellow', 'green',
-  'blue', 'purple', 'pink', 'teal',
-  'white', 'dark', 'slate', 'paleGray',
-]
-const slashActions: SlashAction[] = ['heading', 'quote', 'list', 'link', 'table', 'codeBlock', 'divider']
-const fontSizes = ['12px', '14px', '16px', '18px', '24px']
-const lineHeights = ['1', '1.25', '1.5', '1.75', '2']
 
 const editor = useEditor({
   content: props.modelValue || '',
@@ -297,22 +283,6 @@ function clearImageAlt() {
   closeImageAltPopover()
 }
 
-function escapeHtmlAttr(value: string) {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-}
-
-function escapeHtmlText(value: string) {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
 function applyLink(nextUrl = linkUrl.value, nextText = linkText.value) {
   linkUrl.value = nextUrl
   linkText.value = nextText
@@ -422,15 +392,6 @@ function onContentAreaClick(event: MouseEvent) {
 
 function triggerImageUpload() {
   imageInput.value?.click()
-}
-
-function isCandidateImageFile(file: File) {
-  return file.type.toLowerCase().startsWith('image/')
-    || /\.(jpe?g|png|gif|webp|svg)$/i.test(file.name)
-}
-
-function hasCandidateImageFiles(files: File[]) {
-  return files.some(isCandidateImageFile)
 }
 
 function reportImageValidationError(validationError: 'type' | 'size') {
