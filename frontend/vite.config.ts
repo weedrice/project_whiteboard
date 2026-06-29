@@ -22,12 +22,13 @@ export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), '')
     const apiBaseUrl = env.VITE_API_BASE_URL || 'http://localhost:8080'
     const isProduction = mode === 'production'
+    const shouldAnalyzeBundle = isProduction && env.VITE_ANALYZE === 'true'
 
     return {
         plugins: [
             vue(),
             ...(!isProduction ? [vueDevTools()] : []),
-            ...(isProduction
+            ...(shouldAnalyzeBundle
                 ? [
                     visualizer({
                         filename: 'dist/stats.html',
@@ -73,8 +74,6 @@ export default defineConfig(({ mode }) => {
                                 || normalizedId.includes('/node_modules/prosemirror-')
                                 || normalizedId.includes('/node_modules/prosemirror/')
                                 || normalizedId.includes('/node_modules/linkifyjs/')
-                                || normalizedId.includes('/node_modules/vue-quill/')
-                                || normalizedId.includes('/node_modules/quill/')
                             ) {
                                 return 'vendor-editor'
                             }
