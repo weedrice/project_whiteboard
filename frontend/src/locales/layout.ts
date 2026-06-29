@@ -17,6 +17,11 @@ export const layout: LayoutMessages = {
   userMenu: {
     ariaLabel: '사용자 메뉴',
   },
+  a11y: {
+    homeLink: '{appName} 홈',
+    openNotifications: '알림 열기',
+    goToNotifications: '알림 페이지로 이동',
+  },
   topNav: {
     home: '홈',
     subscribedBoards: '구독 스페이스',
@@ -98,6 +103,11 @@ export const layoutEn: LayoutMessages = {
   },
   userMenu: {
     ariaLabel: 'User menu',
+  },
+  a11y: {
+    homeLink: '{appName} home',
+    openNotifications: 'Open notifications',
+    goToNotifications: 'Go to notifications',
   },
   topNav: {
     home: 'Home',

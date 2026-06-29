@@ -25,11 +25,11 @@ export function usePostDetailSeo({
     if (postTitle && boardName) {
       return `${postTitle} - ${boardName}`
     }
-    return postTitle || 'Post'
+    return postTitle || t('board.seo.postTitleFallback')
   })
 
   const postDescription = computed(() => {
-    if (!post.value?.contents) return 'Post content'
+    if (!post.value?.contents) return t('board.seo.postDescriptionFallback')
     const text = stripHtmlToText(post.value.contents)
     return truncateWithEllipsis(text, 160, { ellipsisAtLength: true })
   })
@@ -67,7 +67,7 @@ export function usePostDetailSeo({
     ],
     meta: [
       { name: 'description', content: postDescription },
-      { property: 'og:title', content: computed(() => `${postView.value?.title || 'Post'} - ${t('common.appName')}`) },
+      { property: 'og:title', content: computed(() => `${postView.value?.title || t('board.seo.postTitleFallback')} - ${t('common.appName')}`) },
       { property: 'og:description', content: postDescription },
       { property: 'og:type', content: 'article' },
       { property: 'og:url', content: canonicalUrl }

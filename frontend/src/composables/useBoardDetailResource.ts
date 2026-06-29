@@ -50,7 +50,7 @@ export function useBoardDetailResource({
   const boardTitle = computed(() => {
     const boardName = board.value?.boardName?.trim()
     if (boardName) return boardName
-    return decodeBoardUrlTitle(boardUrl.value || '') || 'Space'
+    return decodeBoardUrlTitle(boardUrl.value || '') || t('board.seo.spaceTitleFallback')
   })
 
   const boardContentEnabled = computed(() => !boardError.value)
@@ -117,7 +117,7 @@ export function useBoardDetailResource({
     const sourceError = boardError.value ?? (posts.value.length === 0 ? postsError.value : null)
     if (!sourceError) return ''
     if (isRestrictedResourceError(sourceError)) {
-      return 'This board is restricted.'
+      return t('board.detail.restricted')
     }
     return t('board.loadFailed')
   })

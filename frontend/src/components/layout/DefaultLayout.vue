@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Bell } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { useKeyboardStore } from '@/stores/keyboard'
@@ -26,6 +27,7 @@ import logoDark from '@/assets/noviis_logo_dark.webp'
 
 const router = useRouter()
 const route = useRoute()
+const { t } = useI18n()
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
 const keyboardStore = useKeyboardStore()
@@ -90,13 +92,13 @@ const goToNotificationsPage = async () => {
       class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[70] focus:rounded-full focus:bg-[var(--nv-accent)] focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-white"
       @click="skipToMainContent"
     >
-      Skip to content
+      {{ t('common.skipToContent') }}
     </a>
 
     <nav class="nv-topnav">
       <div class="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
         <div class="flex min-w-0 items-center gap-3">
-          <router-link to="/" class="flex items-center gap-2" :aria-label="`${$t('common.appName')} home`">
+          <router-link to="/" class="flex items-center gap-2" :aria-label="t('layout.a11y.homeLink', { appName: t('common.appName') })">
             <img :src="themeStore.isDark ? '/favicon_dark.ico' : '/favicon.ico'" alt="" class="h-8 w-8 rounded md:hidden" />
             <img :src="logoSrc" :alt="$t('common.appName')" class="hidden h-8 w-auto md:block" />
             <span class="text-lg font-semibold tracking-[-0.04em] text-[var(--nv-ink)] md:hidden">{{ $t('common.appName') }}</span>
@@ -133,7 +135,7 @@ const goToNotificationsPage = async () => {
             <button
               type="button"
               class="nv-shell-icon-button"
-              aria-label="Open notifications"
+              :aria-label="t('layout.a11y.openNotifications')"
               aria-controls="notification-dropdown-panel"
               :aria-expanded="isNotificationOpen"
               @click.stop="toggleNotification"
@@ -151,7 +153,7 @@ const goToNotificationsPage = async () => {
             v-if="authStore.isAuthenticated"
             type="button"
             class="nv-shell-icon-button sm:hidden"
-            aria-label="Go to notifications"
+            :aria-label="t('layout.a11y.goToNotifications')"
             @click="goToNotificationsPage"
           >
             <Bell class="h-5 w-5" />

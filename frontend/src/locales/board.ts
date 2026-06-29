@@ -27,6 +27,10 @@ export const board: BoardMessages = {
   invalidUrl: '잘못된 스페이스 URL입니다.',
   seo: {
     allBoardsDescription: '노비스에서 모든 스페이스와 커뮤니티를 둘러보세요.',
+    spaceTitleFallback: '스페이스',
+    spaceDescriptionFallback: '스페이스 게시글과 대화',
+    postTitleFallback: '게시글',
+    postDescriptionFallback: '게시글 본문',
   },
   detail: {
     searchPlaceholder: '스페이스에서 검색',
@@ -51,6 +55,7 @@ export const board: BoardMessages = {
       collapse: '접기',
     },
     defaultAdminName: '관리자',
+    restricted: '접근 권한이 없는 스페이스입니다.',
   },
   form: {
     createTitle: '스페이스 생성',
@@ -331,6 +336,10 @@ export const boardEn: BoardMessages = {
   invalidUrl: 'Invalid space URL.',
   seo: {
     allBoardsDescription: 'Browse every space and community on Noviis.',
+    spaceTitleFallback: 'Space',
+    spaceDescriptionFallback: 'Space posts and discussions',
+    postTitleFallback: 'Post',
+    postDescriptionFallback: 'Post content',
   },
   detail: {
     ...board.detail,
@@ -356,6 +365,7 @@ export const boardEn: BoardMessages = {
       collapse: 'Collapse',
     },
     defaultAdminName: 'Admin',
+    restricted: 'This board is restricted.',
   },
   form: {
     ...board.form,

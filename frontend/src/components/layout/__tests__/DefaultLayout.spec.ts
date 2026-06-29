@@ -74,6 +74,23 @@ vi.mock('@/stores/keyboard', () => ({
     useKeyboardStore: () => keyboardStore,
 }))
 
+vi.mock('vue-i18n', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('vue-i18n')>()
+    return {
+        ...actual,
+        useI18n: () => ({
+            t: (key: string, values?: Record<string, string>) => {
+                if (key === 'layout.a11y.openNotifications') return 'Open notifications'
+                if (key === 'layout.a11y.goToNotifications') return 'Go to notifications'
+                if (key === 'layout.a11y.homeLink') return `${values?.appName ?? 'Noviis'} home`
+                if (key === 'common.skipToContent') return 'Skip to content'
+                if (key === 'common.appName') return 'Noviis'
+                return key
+            },
+        }),
+    }
+})
+
 vi.mock('@/composables/useNotification', () => ({
     useNotification: () => ({
         useUnreadCount: () => ({ data: ref(0) }),

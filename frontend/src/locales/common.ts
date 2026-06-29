@@ -187,6 +187,7 @@ export const commonEn: CommonMessages = {
   confirm: 'Confirm',
   boards: 'Spaces',
   tags: 'Tags',
+  skipToContent: 'Skip to content',
   notifications: 'Alerts',
   myPage: 'My',
   profile: 'Profile',

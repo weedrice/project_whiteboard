@@ -266,6 +266,11 @@ export interface LayoutMessages {
   userMenu: {
     ariaLabel: string
   }
+  a11y: {
+    homeLink: string
+    openNotifications: string
+    goToNotifications: string
+  }
   topNav: {
     home: string
     subscribedBoards: string
@@ -425,6 +430,10 @@ export interface BoardMessages {
   invalidUrl: string
   seo: {
     allBoardsDescription: string
+    spaceTitleFallback: string
+    spaceDescriptionFallback: string
+    postTitleFallback: string
+    postDescriptionFallback: string
   }
   detail: {
     searchPlaceholder: string
@@ -449,6 +458,7 @@ export interface BoardMessages {
       collapse: string
     }
     defaultAdminName: string
+    restricted: string
   }
   form: {
     createTitle: string
