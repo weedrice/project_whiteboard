@@ -1,8 +1,9 @@
 import { cloneBlobWithType, resizeImageToMaxDimensionBlob, revokeBlobUrlIfNeeded } from '@/utils/imageFile'
 
-export const MAX_EMOTICON_GIF_SIZE_BYTES = 1024 * 1024
-export const MAX_EMOTICON_IMAGE_DIMENSION = 500
-export const EMOTICON_UPLOAD_MAX_DIMENSION = 100
+export const MAX_EMOTICON_GIF_SIZE_BYTES = 3 * 1024 * 1024
+export const MAX_EMOTICON_SOURCE_DIMENSION = 2048
+export const EMOTICON_IMAGE_UPLOAD_MAX_DIMENSION = 160
+export const EMOTICON_THUMBNAIL_UPLOAD_MAX_DIMENSION = 256
 export const SUPPORTED_EMOTICON_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp'])
 export const SUPPORTED_EMOTICON_IMAGE_ACCEPT = 'image/jpeg,image/png,image/gif,image/webp'
 
@@ -60,7 +61,9 @@ export function createEmoticonImagePreview(file: File): Promise<EmoticonImagePre
     const preview = URL.createObjectURL(file)
 
     img.onload = () => {
-      if (img.width > MAX_EMOTICON_IMAGE_DIMENSION || img.height > MAX_EMOTICON_IMAGE_DIMENSION) {
+      const exceedsSourceDimension = img.width > MAX_EMOTICON_SOURCE_DIMENSION
+        || img.height > MAX_EMOTICON_SOURCE_DIMENSION
+      if (file.type !== 'image/gif' && exceedsSourceDimension) {
         revokeEmoticonPreviewUrl(preview)
         resolve({ ok: false, reason: 'sizeExceeded', width: img.width, height: img.height })
         return
@@ -87,29 +90,40 @@ export function createEmoticonImagePreview(file: File): Promise<EmoticonImagePre
   })
 }
 
-export function resizeEmoticonImage(file: File, maxSize: number = EMOTICON_UPLOAD_MAX_DIMENSION): Promise<Blob> {
+export function resizeEmoticonImage(file: File, maxSize: number = EMOTICON_IMAGE_UPLOAD_MAX_DIMENSION): Promise<Blob> {
   if (file.type === 'image/gif') {
     return cloneBlobWithType(file, 'image/gif')
   }
   return resizeImageToMaxDimensionBlob(file, maxSize)
 }
 
+function wrapUploadBlob(fileToUpload: File | Blob, originalFile: File): File {
+  if (fileToUpload instanceof File) {
+    return fileToUpload
+  }
+
+  return new File([fileToUpload], originalFile.name, {
+    type: fileToUpload.type || originalFile.type || 'image/png'
+  })
+}
+
 export async function createUploadableEmoticonImageFile(
   item: EmoticonImagePreview,
-  maxSize: number = EMOTICON_UPLOAD_MAX_DIMENSION
+  maxSize: number = EMOTICON_IMAGE_UPLOAD_MAX_DIMENSION
 ): Promise<File> {
   const needsResize = item.file.type !== 'image/gif' && (item.width > maxSize || item.height > maxSize)
   const fileToUpload: File | Blob = needsResize
     ? await resizeEmoticonImage(item.file, maxSize)
     : item.file
 
-  if (fileToUpload instanceof File) {
-    return fileToUpload
-  }
+  return wrapUploadBlob(fileToUpload, item.file)
+}
 
-  return new File([fileToUpload], item.file.name, {
-    type: fileToUpload.type || item.file.type || 'image/png'
-  })
+export async function createUploadableEmoticonThumbnailFile(
+  file: File,
+  maxSize: number = EMOTICON_THUMBNAIL_UPLOAD_MAX_DIMENSION
+): Promise<File> {
+  return wrapUploadBlob(await resizeEmoticonImage(file, maxSize), file)
 }
 
 export async function uploadEmoticonImagePreviews<T>(

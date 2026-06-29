@@ -60,7 +60,7 @@ describe('useEmoticonImageSelection', () => {
     await expect(selectThumbnailImage(new File(['text'], 'note.txt', { type: 'text/plain' }))).resolves.toBeNull()
     expect(addToast).toHaveBeenCalledWith('emoticon.validation.imageOnly', 'error')
 
-    await expect(selectThumbnailImage(new File([new Uint8Array(1024 * 1024 + 1)], 'large.gif', { type: 'image/gif' }))).resolves.toBeNull()
+    await expect(selectThumbnailImage(new File([new Uint8Array(3 * 1024 * 1024 + 1)], 'large.gif', { type: 'image/gif' }))).resolves.toBeNull()
     expect(addToast).toHaveBeenLastCalledWith('emoticon.validation.fileSizeExceeded', 'error')
   })
 

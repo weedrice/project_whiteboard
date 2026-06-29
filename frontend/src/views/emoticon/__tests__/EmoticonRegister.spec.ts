@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   createEmoticon: vi.fn(),
   uploadFile: vi.fn(),
   createUploadableEmoticonImageFile: vi.fn(),
+  createUploadableEmoticonThumbnailFile: vi.fn(),
   addToast: vi.fn(),
   uploadEmoticonImagePreviews: vi.fn(),
   revokeEmoticonPreviewUrl: vi.fn(),
@@ -59,6 +60,7 @@ vi.mock('vue-i18n', () => ({
 
 vi.mock('@/utils/emoticonImage', () => ({
   createUploadableEmoticonImageFile: mocks.createUploadableEmoticonImageFile,
+  createUploadableEmoticonThumbnailFile: mocks.createUploadableEmoticonThumbnailFile,
   resolveEmoticonTagAddition: vi.fn(() => ({ tag: 'tag' })),
   revokeEmoticonPreviewUrl: mocks.revokeEmoticonPreviewUrl,
   SUPPORTED_EMOTICON_IMAGE_ACCEPT: 'image/png',
@@ -117,6 +119,7 @@ describe('EmoticonRegister', () => {
     }))
     mocks.createEmoticon.mockResolvedValue({ data: { success: true } })
     mocks.createUploadableEmoticonImageFile.mockImplementation(async (item) => item.file)
+    mocks.createUploadableEmoticonThumbnailFile.mockImplementation(async (file) => file)
     mocks.uploadEmoticonImagePreviews.mockImplementation(async (items, uploadFile, onProgress) => {
       const results = []
       for (const [index, item] of items.entries()) {

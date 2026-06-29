@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   updateEmoticon: vi.fn(),
   uploadFile: vi.fn(),
   createUploadableEmoticonImageFile: vi.fn(),
+  createUploadableEmoticonThumbnailFile: vi.fn(),
 }))
 
 vi.mock('@/api/emoticon', () => ({
@@ -31,6 +32,7 @@ vi.mock('@/utils/emoticonImage', async (importOriginal) => {
   return {
     ...actual,
     createUploadableEmoticonImageFile: mocks.createUploadableEmoticonImageFile,
+    createUploadableEmoticonThumbnailFile: mocks.createUploadableEmoticonThumbnailFile,
   }
 })
 
@@ -79,6 +81,7 @@ describe('useEmoticonEditSubmit', () => {
     mocks.addImage.mockResolvedValue({ data: { success: true } })
     mocks.updateEmoticon.mockResolvedValue({ data: { success: true } })
     mocks.createUploadableEmoticonImageFile.mockImplementation((item) => Promise.resolve(item.file))
+    mocks.createUploadableEmoticonThumbnailFile.mockImplementation((file) => Promise.resolve(file))
     mocks.uploadFile.mockImplementation((file: File) => Promise.resolve({
       data: {
         data: {
@@ -113,6 +116,9 @@ describe('useEmoticonEditSubmit', () => {
     await handleSubmit()
 
     expect(mocks.deleteImage).toHaveBeenCalledWith(10, { skipGlobalErrorHandler: true })
+    expect(mocks.createUploadableEmoticonThumbnailFile).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'thumb.png',
+    }))
     expect(mocks.uploadFile).toHaveBeenCalledWith(expect.any(File), {
       signal: expect.any(AbortSignal),
       skipGlobalErrorHandler: true,

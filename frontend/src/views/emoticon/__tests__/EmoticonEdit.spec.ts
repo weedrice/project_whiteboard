@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   toggleVisibility: vi.fn(),
   selectEmoticonImages: vi.fn(),
   createUploadableEmoticonImageFile: vi.fn(),
+  createUploadableEmoticonThumbnailFile: vi.fn(),
 }))
 
 vi.mock('vue-router', () => ({
@@ -124,6 +125,7 @@ vi.mock('@/utils/emoticonImage', async (importOriginal) => {
   return {
     ...actual,
     createUploadableEmoticonImageFile: mocks.createUploadableEmoticonImageFile,
+    createUploadableEmoticonThumbnailFile: mocks.createUploadableEmoticonThumbnailFile,
   }
 })
 
@@ -153,6 +155,7 @@ describe('EmoticonEdit', () => {
     mocks.addImage.mockResolvedValue({ data: { success: true } })
     mocks.updateEmoticon.mockResolvedValue({ data: { success: true } })
     mocks.createUploadableEmoticonImageFile.mockImplementation((item) => Promise.resolve(item.file))
+    mocks.createUploadableEmoticonThumbnailFile.mockImplementation((file) => Promise.resolve(file))
     mocks.uploadFile.mockImplementation((file: File) => Promise.resolve({
       data: {
         data: {

@@ -1,6 +1,7 @@
 import type { ComputedRef, Ref } from 'vue'
 import type { QueryClient } from '@tanstack/vue-query'
 import { emoticonApi } from '@/api/emoticon'
+import { createUploadableEmoticonThumbnailFile } from '@/utils/emoticonImage'
 import type { EmoticonImagePreview } from '@/utils/emoticonImage'
 import { useEmoticonImageUploader } from '@/composables/useEmoticonImageUploader'
 import { useEmoticonSubmitGuard } from '@/composables/useEmoticonSubmitGuard'
@@ -64,8 +65,10 @@ export function useEmoticonEditSubmit({
 
     let thumbnailFileId: number | undefined
     if (submitSnapshot.thumbnail) {
+      const uploadableThumbnail = await createUploadableEmoticonThumbnailFile(submitSnapshot.thumbnail)
+      uploadSession.assertSubmitActive(currentRunId)
       thumbnailFileId = await imageUploader.uploadFile(
-        submitSnapshot.thumbnail,
+        uploadableThumbnail,
         currentRunId,
         skipGlobalErrorHandler
       )

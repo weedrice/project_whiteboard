@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createEmoticonImagePreview,
   createUploadableEmoticonImageFile,
+  createUploadableEmoticonThumbnailFile,
   resolveEmoticonTagAddition,
   resizeEmoticonImage,
   revokeEmoticonPreviewUrl,
@@ -56,12 +57,14 @@ describe('emoticonImage utilities', () => {
   it('validates supported image types and GIF size limits', () => {
     const textFile = new File(['text'], 'note.txt', { type: 'text/plain' })
     const unsupportedImage = new File(['image'], 'vector.svg', { type: 'image/svg+xml' })
-    const oversizedGif = new File([new Uint8Array(1024 * 1024 + 1)], 'large.gif', { type: 'image/gif' })
+    const gifOverOldLimit = new File([new Uint8Array(1024 * 1024 + 1)], 'ok.gif', { type: 'image/gif' })
+    const oversizedGif = new File([new Uint8Array(3 * 1024 * 1024 + 1)], 'large.gif', { type: 'image/gif' })
     const validPng = new File(['image'], 'valid.png', { type: 'image/png' })
 
     expect(validateEmoticonImageFile(textFile, { nonImageReason: 'imageOnly' })).toBe('imageOnly')
     expect(validateEmoticonImageFile(textFile)).toBe('notImage')
     expect(validateEmoticonImageFile(unsupportedImage)).toBe('notImage')
+    expect(validateEmoticonImageFile(gifOverOldLimit)).toBeNull()
     expect(validateEmoticonImageFile(oversizedGif)).toBe('gifSizeExceeded')
     expect(validateEmoticonImageFile(validPng)).toBeNull()
   })
@@ -81,11 +84,11 @@ describe('emoticonImage utilities', () => {
     })
     expect(revokeObjectURL).not.toHaveBeenCalled()
 
-    nextImageSize = { width: 501, height: 400 }
+    nextImageSize = { width: 2049, height: 400 }
     await expect(createEmoticonImagePreview(file)).resolves.toEqual({
       ok: false,
       reason: 'sizeExceeded',
-      width: 501,
+      width: 2049,
       height: 400
     })
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:ok.png')
@@ -96,6 +99,23 @@ describe('emoticonImage utilities', () => {
       reason: 'loadFailed'
     })
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:ok.png')
+  })
+
+  it('allows GIF previews over the static image source dimension limit', async () => {
+    nextImageSize = { width: 4096, height: 4096 }
+    const gif = new File(['gif'], 'animated.gif', { type: 'image/gif' })
+
+    await expect(createEmoticonImagePreview(gif)).resolves.toEqual({
+      ok: true,
+      item: {
+        clientId: expect.any(String),
+        file: gif,
+        preview: 'blob:animated.gif',
+        width: 4096,
+        height: 4096
+      }
+    })
+    expect(revokeObjectURL).not.toHaveBeenCalled()
   })
 
   it('revokes only object preview URLs', () => {
@@ -156,6 +176,37 @@ describe('emoticonImage utilities', () => {
     expect(uploadFile.name).toBe('big.png')
     expect(uploadFile.type).toBe('image/png')
     expect(drawImage).toHaveBeenCalled()
+  })
+
+  it('resizes thumbnail uploads with the thumbnail dimension limit', async () => {
+    const originalCreateElement = document.createElement.bind(document)
+    const drawImage = vi.fn()
+    const canvasSizes: Array<{ width: number; height: number }> = []
+
+    vi.spyOn(document, 'createElement').mockImplementation((tagName: string) => {
+      if (tagName === 'canvas') {
+        const canvas = {
+          width: 0,
+          height: 0,
+          getContext: () => ({ drawImage }),
+          toBlob: (callback: BlobCallback, type?: string) => {
+            canvasSizes.push({ width: canvas.width, height: canvas.height })
+            callback(new Blob(['resized-thumbnail'], { type }))
+          }
+        } as unknown as HTMLCanvasElement
+        return canvas
+      }
+      return originalCreateElement(tagName)
+    })
+
+    nextImageSize = { width: 1024, height: 512 }
+    const thumbnail = new File(['thumbnail'], 'thumb.png', { type: 'image/png' })
+    const uploadFile = await createUploadableEmoticonThumbnailFile(thumbnail)
+
+    expect(uploadFile).toBeInstanceOf(File)
+    expect(uploadFile.name).toBe('thumb.png')
+    expect(uploadFile.type).toBe('image/png')
+    expect(canvasSizes).toEqual([{ width: 256, height: 128 }])
   })
 
   it('uploads previews concurrently while preserving original result order', async () => {

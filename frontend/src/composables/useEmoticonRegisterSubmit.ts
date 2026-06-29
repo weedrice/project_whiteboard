@@ -3,6 +3,7 @@ import { emoticonApi } from '@/api/emoticon'
 import { useEmoticonImageUploader } from '@/composables/useEmoticonImageUploader'
 import { useEmoticonSubmitGuard } from '@/composables/useEmoticonSubmitGuard'
 import type { useEmoticonUploadSession } from '@/composables/useEmoticonUploadSession'
+import { createUploadableEmoticonThumbnailFile } from '@/utils/emoticonImage'
 import type { EmoticonImagePreview } from '@/utils/emoticonImage'
 
 type EmoticonUploadSession = ReturnType<typeof useEmoticonUploadSession>
@@ -42,8 +43,11 @@ export function useEmoticonRegisterSubmit({
   })
 
   const handleSubmit = () => runSubmit(async (currentRunId) => {
+    const uploadableThumbnail = await createUploadableEmoticonThumbnailFile(thumbnailFile.value!)
+    uploadSession.assertSubmitActive(currentRunId)
+
     const submitSnapshot = {
-      thumbnail: thumbnailFile.value!,
+      thumbnail: uploadableThumbnail,
       previews: [...emoticonPreviews.value],
       name: emoticonName.value.trim(),
       tags: [...tags.value],
