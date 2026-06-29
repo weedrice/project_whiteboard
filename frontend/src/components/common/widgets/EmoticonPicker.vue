@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted, watch } from 'vue'
-import { useQuery } from '@tanstack/vue-query'
 import { useI18n } from 'vue-i18n'
 import { emoticonApi } from '@/api/emoticon'
 import type { EmoticonMaster, EmoticonImage } from '@/types/emoticon'
@@ -8,7 +7,7 @@ import { X, ArrowLeft, Search, Smile } from 'lucide-vue-next'
 import logger from '@/utils/logger'
 import { DEFAULT_EMOTICON_IMAGE_URL, applyImageFallback } from '@/utils/imageFallback'
 import { useLatestAsyncTask } from '@/composables/useLatestAsyncTask'
-import { accessibleEmoticonPickerQueryKey } from '@/composables/useEmoticonEditResource'
+import { useAccessibleEmoticonPicker } from '@/composables/useAccessibleEmoticonPicker'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 
 const props = defineProps<{
@@ -34,34 +33,13 @@ const detailTask = useLatestAsyncTask<string>({
 const isLoadingDetail = detailTask.loading
 const detailError = detailTask.error
 
-const mergeUniqueEmoticons = (...groups: EmoticonMaster[][]) => {
-  const seen = new Set<number>()
-  return groups.flat().filter((emoticon) => {
-    if (seen.has(emoticon.emoticonId)) {
-      return false
-    }
-    seen.add(emoticon.emoticonId)
-    return true
-  })
-}
-
 // 사용 가능한 이모티콘 목록 조회
 const {
   data: accessibleEmoticons,
   isLoading,
   isError: isListError,
   refetch: refetchAccessibleEmoticons
-} = useQuery({
-  queryKey: accessibleEmoticonPickerQueryKey,
-  queryFn: async () => {
-    const [purchasedPage, myPage] = await Promise.all([
-      emoticonApi.getPurchasedEmoticonsData({ size: 100 }),
-      emoticonApi.getMyEmoticonsData({ size: 100 }),
-    ])
-    return mergeUniqueEmoticons(purchasedPage.content, myPage.content)
-  },
-  enabled: () => props.show
-})
+} = useAccessibleEmoticonPicker(() => props.show)
 const listErrorMessage = computed(() => t('emoticon.picker.listLoadFailed'))
 
 // 검색 필터링
@@ -171,7 +149,7 @@ onUnmounted(() => {
           </div>
         </div>
         <!-- 이미지 그리드 -->
-        <div v-else-if="selectedEmoticon" class="images-grid">
+        <div v-else-if="selectedEmoticon && selectedImages.length > 0" class="images-grid">
           <button
             v-for="image in selectedImages"
             :key="image.imageId"
@@ -182,6 +160,10 @@ onUnmounted(() => {
           >
             <img :src="image.imageUrl || DEFAULT_EMOTICON_IMAGE_URL" :alt="selectedEmoticon.name" @error="applyImageFallback" />
           </button>
+        </div>
+        <div v-else-if="selectedEmoticon" class="empty-state">
+          <Smile class="w-8 h-8 nv-text-subtle mb-2" />
+          <p>{{ t('emoticon.detail.imageEmpty') }}</p>
         </div>
         <div v-else-if="detailError" class="error-state">
           <p>{{ detailError }}</p>
@@ -224,6 +206,7 @@ onUnmounted(() => {
         <!-- 이모티콘 목록 -->
         <div v-else class="emoticons-grid">
           <button v-for="emoticon in filteredEmoticons" :key="emoticon.emoticonId" type="button"
+            :aria-label="t('emoticon.picker.imageSelectAria', { name: emoticon.name })"
             @click="handleEmoticonClick(emoticon)" class="emoticon-btn">
             <img
               :src="emoticon.thumbnailUrl || emoticon.images?.[0]?.imageUrl || DEFAULT_EMOTICON_IMAGE_URL"

@@ -1,10 +1,12 @@
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useQuery } from '@tanstack/vue-query'
+import type { AxiosResponse } from 'axios'
 import { emoticonApi } from '@/api/emoticon'
 import { popularEmoticonsQueryKey, searchableEmoticonsQueryKey } from '@/composables/useEmoticonEditResource'
+import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
 import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
-import type { EmoticonSearchParams } from '@/types/emoticon'
+import type { ApiResponse, PageResponse } from '@/types'
+import type { EmoticonMaster, EmoticonSearchParams } from '@/types/emoticon'
 
 export function useEmoticonListResource() {
   const router = useRouter()
@@ -22,14 +24,21 @@ export function useEmoticonListResource() {
   const searchType = ref<NonNullable<EmoticonSearchParams['searchType']>>('ALL')
   const isSearching = ref(false)
 
-  const { data: popularEmoticons, isLoading: popularLoading } = useQuery({
-    queryKey: popularEmoticonsQueryKey(popularPeriod),
-    queryFn: async () => emoticonApi.getPopularEmoticonsData(popularPeriod.value),
+  const { data: popularEmoticons, isLoading: popularLoading } = useApiQuery({
+    queryKey: computed(() => popularEmoticonsQueryKey(popularPeriod.value)),
+    request: () => (
+      emoticonApi.getPopularEmoticons(popularPeriod.value) as Promise<AxiosResponse<ApiResponse<EmoticonMaster[]>>>
+    ),
   })
 
-  const { data: emoticonsPage, isLoading: emoticonsLoading } = useQuery({
-    queryKey: searchableEmoticonsQueryKey(currentPage, sortBy, searchKeyword, searchType),
-    queryFn: async () => {
+  const { data: emoticonsPage, isLoading: emoticonsLoading } = useApiPageQuery<EmoticonMaster>({
+    queryKey: computed(() => searchableEmoticonsQueryKey(
+      currentPage.value,
+      sortBy.value,
+      searchKeyword.value,
+      searchType.value
+    )),
+    request: () => {
       const params: EmoticonSearchParams = {
         page: currentPage.value,
         size: size.value,
@@ -39,7 +48,7 @@ export function useEmoticonListResource() {
         params.keyword = searchKeyword.value
         params.searchType = searchType.value
       }
-      return emoticonApi.searchAllData(params)
+      return emoticonApi.searchAll(params) as Promise<AxiosResponse<ApiResponse<PageResponse<EmoticonMaster>>>>
     },
   })
 

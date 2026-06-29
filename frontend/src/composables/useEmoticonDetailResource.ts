@@ -1,7 +1,9 @@
 import { computed, type ComputedRef } from 'vue'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { useMutation, useQueryClient } from '@tanstack/vue-query'
+import type { AxiosResponse } from 'axios'
 import { useI18n } from 'vue-i18n'
 import { emoticonApi } from '@/api/emoticon'
+import { useApiQuery } from '@/composables/useApiQuery'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { useToggleEmoticonVisibility } from '@/composables/useToggleEmoticonVisibility'
@@ -13,6 +15,8 @@ import {
 } from '@/composables/useEmoticonEditResource'
 import { userQueryKeys } from '@/composables/userQueryKeys'
 import { extractErrorMessage } from '@/utils/errorHandler'
+import type { ApiResponse } from '@/types'
+import type { EmoticonMaster, EmoticonPurchaseStatus } from '@/types/emoticon'
 
 export function useEmoticonDetailResource(emoticonId: ComputedRef<number>) {
   const { t } = useI18n()
@@ -20,24 +24,20 @@ export function useEmoticonDetailResource(emoticonId: ComputedRef<number>) {
   const queryClient = useQueryClient()
   const toastStore = useToastStore()
 
-  const { data: emoticon, isLoading, error } = useQuery({
+  const { data: emoticon, isLoading, error } = useApiQuery({
     queryKey: emoticonDetailQueryKey(emoticonId),
-    queryFn: async () => {
-      return emoticonApi.getEmoticonData(emoticonId.value)
-    },
-    enabled: () => !!emoticonId.value,
+    request: () => emoticonApi.getEmoticon(emoticonId.value) as Promise<AxiosResponse<ApiResponse<EmoticonMaster>>>,
+    enabled: computed(() => !!emoticonId.value),
   })
 
   const {
     data: purchaseStatus,
     isLoading: isPurchaseStatusLoading,
     isFetching: isPurchaseStatusFetching,
-  } = useQuery({
+  } = useApiQuery({
     queryKey: emoticonPurchaseStatusQueryKey(emoticonId),
-    queryFn: async () => {
-      return emoticonApi.checkPurchaseStatusData(emoticonId.value)
-    },
-    enabled: () => !!emoticonId.value && authStore.isAuthenticated,
+    request: () => emoticonApi.checkPurchaseStatus(emoticonId.value) as Promise<AxiosResponse<ApiResponse<EmoticonPurchaseStatus>>>,
+    enabled: computed(() => !!emoticonId.value && authStore.isAuthenticated),
   })
 
   const emoticonView = useEmoticonDetailViewModel(emoticon)

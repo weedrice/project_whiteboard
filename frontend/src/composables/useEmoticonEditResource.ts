@@ -1,7 +1,9 @@
 import { computed, type ComputedRef } from 'vue'
-import { useQuery } from '@tanstack/vue-query'
+import type { AxiosResponse } from 'axios'
 import { emoticonApi } from '@/api/emoticon'
+import { useApiQuery } from '@/composables/useApiQuery'
 import { QUERY_STALE_TIME } from '@/utils/constants'
+import type { ApiResponse } from '@/types'
 import type { EmoticonImage, EmoticonMaster } from '@/types/emoticon'
 
 interface UseEmoticonEditResourceOptions {
@@ -43,12 +45,10 @@ export function toEmoticonEditFormState(emoticon: EmoticonMaster): EmoticonEditF
 export function useEmoticonEditResource({
   emoticonId,
 }: UseEmoticonEditResourceOptions) {
-  const { data: emoticon, isLoading } = useQuery({
+  const { data: emoticon, isLoading } = useApiQuery({
     queryKey: emoticonDetailQueryKey(emoticonId),
-    queryFn: async () => {
-      return emoticonApi.getEmoticonData(emoticonId.value)
-    },
-    enabled: () => !!emoticonId.value,
+    request: () => emoticonApi.getEmoticon(emoticonId.value) as Promise<AxiosResponse<ApiResponse<EmoticonMaster>>>,
+    enabled: computed(() => !!emoticonId.value),
     staleTime: QUERY_STALE_TIME.SHORT,
   })
   const editFormState = computed(() => {

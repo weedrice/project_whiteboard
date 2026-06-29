@@ -165,6 +165,7 @@ describe('EmoticonPicker', () => {
         const wrapper = mountPicker(true)
 
         expect(wrapper.findAll('.emoticon-btn')).toHaveLength(2)
+        expect(wrapper.get('.emoticon-btn').attributes('aria-label')).toBe('HappyCat 이미지 선택')
 
         await wrapper.get('.search-input').setValue('happy')
         expect(wrapper.findAll('.emoticon-btn')).toHaveLength(1)
@@ -324,7 +325,7 @@ describe('EmoticonPicker', () => {
         expect(wrapper.findAll('.retry-btn')).toHaveLength(2)
     })
 
-    it('handles detail payload without images by rendering empty image list', async () => {
+    it('handles detail payload without images by rendering empty state', async () => {
         const listItem = createEmoticon(21, 'NoImagesPack', ['edge'])
         mocks.purchasedEmoticons.value = [listItem]
         mocks.getEmoticon.mockResolvedValueOnce({
@@ -338,7 +339,7 @@ describe('EmoticonPicker', () => {
         await wrapper.get('.emoticon-btn').trigger('click')
         await flushPromises()
 
-        expect(wrapper.find('.images-grid').exists()).toBe(true)
+        expect(wrapper.find('.empty-state').exists()).toBe(true)
         expect(wrapper.findAll('.image-btn')).toHaveLength(0)
     })
 
