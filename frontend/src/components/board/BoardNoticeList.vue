@@ -5,7 +5,7 @@ import type { RouteLocationRaw } from 'vue-router'
 import type { PostSummary } from '@/types'
 import { formatRelativeDate } from '@/utils/date'
 
-const props = defineProps<{
+defineProps<{
   notices: PostSummary[]
   visibleNotices: PostSummary[]
   hasNoticeOverflow: boolean
