@@ -18,18 +18,28 @@ const toneClass = computed(() => {
 
 <template>
   <div class="admin-metric-card" :class="toneClass">
-    <div class="admin-metric-card__label">{{ label }}</div>
-    <div class="admin-metric-card__value">{{ value }}</div>
+    <div class="admin-metric-card__body">
+      <div v-if="$slots.icon" class="admin-metric-card__icon" aria-hidden="true">
+        <slot name="icon" />
+      </div>
+      <div class="admin-metric-card__content">
+        <div class="admin-metric-card__label">{{ label }}</div>
+        <div class="admin-metric-card__value">{{ value }}</div>
+      </div>
+    </div>
+    <div v-if="$slots.footer" class="admin-metric-card__footer">
+      <slot name="footer" />
+    </div>
   </div>
 </template>
 
 <style scoped>
 .admin-metric-card {
-  padding: 16px 20px;
   border: 1px solid var(--nv-border);
   border-radius: 8px;
   background: var(--nv-surface);
   box-shadow: var(--nv-shadow-card);
+  overflow: hidden;
 }
 
 .admin-metric-card--warning {
@@ -38,6 +48,22 @@ const toneClass = computed(() => {
 
 .admin-metric-card--success {
   border-left: 4px solid var(--nv-success);
+}
+
+.admin-metric-card__body {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  padding: 16px 20px;
+}
+
+.admin-metric-card__icon {
+  color: var(--nv-text-subtle);
+  flex-shrink: 0;
+}
+
+.admin-metric-card__content {
+  min-width: 0;
 }
 
 .admin-metric-card__label {
@@ -53,5 +79,11 @@ const toneClass = computed(() => {
   color: var(--nv-text);
   font-size: 1.5rem;
   font-weight: 700;
+}
+
+.admin-metric-card__footer {
+  background: var(--nv-surface-muted);
+  border-top: 1px solid var(--nv-border);
+  padding: 10px 20px;
 }
 </style>

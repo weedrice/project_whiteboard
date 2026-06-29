@@ -237,6 +237,22 @@ describe('admin common components', () => {
     expect(wrapper.classes()).toContain('admin-metric-card--warning')
   })
 
+  it('renders admin metric card icon and footer slots', () => {
+    const wrapper = mount(AdminMetricCard, {
+      props: {
+        label: 'Users',
+        value: 42,
+      },
+      slots: {
+        icon: '<span data-testid="icon">I</span>',
+        footer: '<a href="/admin/users">View detail</a>',
+      },
+    })
+
+    expect(wrapper.get('[data-testid="icon"]').text()).toBe('I')
+    expect(wrapper.get('.admin-metric-card__footer').text()).toContain('View detail')
+  })
+
   it('renders form panel and inline form as reusable admin form layout', async () => {
     const panel = mount(AdminFormPanel, {
       props: {
