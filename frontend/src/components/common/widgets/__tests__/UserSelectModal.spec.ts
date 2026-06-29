@@ -1,5 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest'
 import { ref, type Ref } from 'vue'
 import UserSelectModal from '../UserSelectModal.vue'
 
@@ -140,6 +140,10 @@ describe('UserSelectModal', () => {
     mocks.boardLoading = false
   })
 
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('uses admin users by default', () => {
     const wrapper = mountModal({ isOpen: true })
 
@@ -181,10 +185,20 @@ describe('UserSelectModal', () => {
     expect(mocks.boardCalls.at(-1)?.enabled.value).toBe(false)
   })
 
-  it('updates search params when the search field changes', async () => {
+  it('updates search params after the search field settles', async () => {
+    vi.useFakeTimers()
     const wrapper = mountModal({ isOpen: true })
 
     await wrapper.get('#user-select-search').setValue('admin')
+
+    expect(mocks.adminCalls.at(-1)?.params.value).toMatchObject({
+      page: 0,
+      size: 10,
+      q: '',
+    })
+
+    vi.advanceTimersByTime(300)
+    await flushPromises()
 
     expect(mocks.adminCalls.at(-1)?.params.value).toMatchObject({
       page: 0,

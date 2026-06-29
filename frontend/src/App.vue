@@ -15,6 +15,7 @@ import GlobalPromptModal from '@/components/common/widgets/GlobalPromptModal.vue
 import ErrorBoundary from '@/components/common/ErrorBoundary.vue'
 import NetworkStatus from '@/components/common/NetworkStatus.vue'
 import logger from '@/utils/logger'
+import { Storage } from '@/utils/storage'
 import { useGlobalShortcuts } from '@/composables/useGlobalShortcuts'
 import { BOARD_DETAIL_SEARCH_INPUT_ID } from '@/composables/useBoardDetailNavigation'
 import { userSettingsQueryKey } from '@/composables/useUser'
@@ -150,7 +151,7 @@ watch(() => authStore.isAuthenticated, (newVal) => {
         queryClient.removeQueries({ queryKey: userSettingsQueryKey })
         // On logout, restore theme from localStorage (theme store will read it on next access)
         // Don't force LIGHT theme to preserve user's localStorage preference
-        const storedTheme = localStorage.getItem('theme')
+        const storedTheme = Storage.getString('theme')
         if (storedTheme) {
             themeStore.setTheme(storedTheme === 'dark' ? 'DARK' : 'LIGHT')
         }

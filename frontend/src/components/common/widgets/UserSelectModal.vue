@@ -96,6 +96,7 @@ import {
   type SelectionMode,
   type UserSelectSource
 } from '@/composables/useUserSelectSource'
+import { useDebounce } from '@/composables/useDebounce'
 
 const props = withDefaults(defineProps<{
   isOpen: boolean
@@ -121,6 +122,7 @@ const emit = defineEmits<{
 }>()
 
 const searchQuery = ref('')
+const debouncedSearchQuery = useDebounce(searchQuery, 300)
 const selectedMap = ref<Record<number, SelectableUser>>({})
 const hasUserSelectionChanged = ref(false)
 const hasAppliedInitialSelection = ref(false)
@@ -136,7 +138,7 @@ const {
   source: computed(() => props.source),
   boardUrl: computed(() => props.boardUrl),
   excludeUserIds: computed(() => props.excludeUserIds),
-  searchQuery,
+  searchQuery: debouncedSearchQuery,
 })
 
 const selectedUsers = computed<SelectableUser[]>(() => Object.values(selectedMap.value))
