@@ -37,6 +37,28 @@ export async function fetchBoardDetail(boardUrl: string, requestConfig?: AxiosRe
     return unwrapAxiosApiData(response) as BoardDetail
 }
 
+export async function fetchBoardPosts(
+    boardUrl: string,
+    params: BoardPostParams,
+    isSearching = false,
+    requestConfig?: AxiosRequestConfig
+) {
+    if (isSearching) {
+        const { searchType, ...restParams } = params
+        const response = requestConfig
+            ? await searchApi.searchPosts({ ...restParams, searchType, boardUrl }, requestConfig)
+            : await searchApi.searchPosts({ ...restParams, searchType, boardUrl })
+
+        return unwrapAxiosApiData(response)
+    }
+
+    const response = requestConfig
+        ? await boardApi.getPosts(boardUrl, params, requestConfig)
+        : await boardApi.getPosts(boardUrl, params)
+
+    return unwrapAxiosApiData(response)
+}
+
 export const createBoardDetailQueryOptions = (boardUrl: string | Ref<string>, requestConfig?: AxiosRequestConfig) => ({
     queryKey: boardDetailQueryKey(boardUrl),
     queryFn: () => fetchBoardDetail(typeof boardUrl === 'string' ? boardUrl : boardUrl.value, requestConfig),
@@ -96,25 +118,7 @@ export function useBoard() {
         const { requestConfig, ...queryOptions } = options
         return useQuery({
             queryKey: boardQueryKeys.posts(boardUrl, params, isSearching),
-            queryFn: async () => {
-                if (isSearching?.value) {
-                    const { searchType, ...restParams } = params.value
-                    const searchParams = {
-                        ...restParams,
-                        searchType,
-                        boardUrl: boardUrl.value
-                    }
-                    const response = requestConfig
-                        ? await searchApi.searchPosts(searchParams, requestConfig)
-                        : await searchApi.searchPosts(searchParams)
-                    return unwrapAxiosApiData(response)
-                } else {
-                    const response = requestConfig
-                        ? await boardApi.getPosts(boardUrl.value, params.value, requestConfig)
-                        : await boardApi.getPosts(boardUrl.value, params.value)
-                    return unwrapAxiosApiData(response)
-                }
-            },
+            queryFn: () => fetchBoardPosts(boardUrl.value, params.value, Boolean(isSearching?.value), requestConfig),
             enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
             placeholderData: (previousData) => previousData,
             ...queryOptions
