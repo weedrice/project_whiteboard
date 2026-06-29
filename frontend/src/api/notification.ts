@@ -10,7 +10,7 @@ export interface NotificationParams {
     size?: number;
 }
 
-// API 응답 원본 타입 (snake_case)
+// API response source shape, including snake_case fields.
 export interface NotificationActorRaw {
     userId?: number;
     user_id?: number;
@@ -117,6 +117,7 @@ export const notificationApi = {
     // Get unread count
     getUnreadCount: () => api.get<ApiResponse<number>>('/notifications/unread-count'),
 
+    // Use fetch for SSE because Axios does not expose a browser ReadableStream body.
     openStream: (token: string, signal: AbortSignal): Promise<Response> => {
         return fetch(getNotificationStreamUrl(), {
             method: 'GET',

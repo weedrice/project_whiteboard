@@ -123,7 +123,7 @@ api.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
         const token = Storage.getString('accessToken')
         // Skip adding token for auth endpoints to avoid 401s with expired tokens on public endpoints.
-        // 단, 이메일 인증 발송/검증은 로그인 상태에서도 호출되므로(마이페이지) 토큰을 붙여서 서버가 중복 검사 가능하도록 함.
+        // Email verification endpoints still need the token when called after login.
         const isAuthEndpoint = config.url?.includes('/auth/')
         const isEmailVerificationApi = config.url?.includes('/auth/email/send-verification') || config.url?.includes('/auth/email/verify')
 
@@ -193,17 +193,15 @@ const handleApiError = (error: AxiosError, toastStore: ToastStore) => {
         const status = error.response.status
         const errorData = error.response.data as ApiErrorResponse | undefined
 
-        // ApiResponse 형태의 에러 응답 처리
+        // Handle ApiResponse-style error payloads.
         const apiError = errorData?.error || errorData
         const rawMessage = apiError?.message || errorData?.message || error.message
         const message = normalizeApiErrorMessage(rawMessage)
 
         switch (status) {
             case 400:
-                // Validation 에러인 경우 details가 있을 수 있음
-                // Validation 에러는 필드별로 표시되므로 여기서는 요약 메시지만 표시
+                // Validation errors may include field-level details. Show the first field error.
                 if (isValidationErrors(apiError?.details)) {
-                    // Validation 에러의 경우 첫 번째 필드의 첫 번째 에러만 토스트로 표시
                     const firstField = Object.keys(apiError.details)[0]
                     const firstError = firstField ? apiError.details[firstField]?.[0] : null
                     toastStore.addToast(
@@ -234,7 +232,7 @@ const handleApiError = (error: AxiosError, toastStore: ToastStore) => {
                 }
         }
     } else if (error.request) {
-        // Network error - 재시도 가능한 오류인지 확인
+        // Network error: distinguish retryable transport failures from generic request errors.
         const isRetryable = !error.response && (
             error.code === 'ECONNABORTED' || // Timeout
             error.code === 'ERR_NETWORK' || // Network error
