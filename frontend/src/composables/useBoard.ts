@@ -7,7 +7,8 @@ import { searchApi } from '@/api/search'
 import { computed, type Ref } from 'vue'
 import { boardQueryKeys } from '@/composables/boardQueryKeys'
 import { invalidateBoardListCaches } from '@/composables/boardCacheInvalidation'
-import type { BoardDetail, BoardListItem, BoardManagerCandidate, PageResponse, PostSummary, SubscriptionBoardListItem } from '@/types'
+import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
+import type { BoardDetail, BoardListItem, BoardManagerCandidate, PostSummary, SubscriptionBoardListItem } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import type { AxiosRequestConfig } from 'axios'
 
@@ -52,11 +53,9 @@ export function useBoard() {
 
     // Fetch all boards
     const useBoards = () => {
-        return useQuery({
+        return useApiQuery<BoardListItem[]>({
             queryKey: boardQueryKeys.all,
-            queryFn: async () => {
-                return unwrapAxiosApiData(await boardApi.getBoards())
-            },
+            request: () => boardApi.getBoards(),
             staleTime: QUERY_STALE_TIME.MEDIUM, // 5 minutes
         })
     }
@@ -66,15 +65,13 @@ export function useBoard() {
         const enabledValue = enabled !== undefined
             ? (typeof enabled === 'boolean' ? computed(() => enabled) : enabled)
             : computed(() => false)
-        return useQuery({
+        return useApiPageQuery<SubscriptionBoardListItem, BoardListItem[]>({
             queryKey: boardQueryKeys.subscriptionsBySize(size),
-            queryFn: async () => {
-                return unwrapAxiosApiData(await userApi.getMySubscriptions({ size }))
-                    .content
-                    .filter(isVisibleSubscriptionBoard)
-            },
+            request: () => userApi.getMySubscriptions({ size }),
+            selectData: (page) => page.content.filter(isVisibleSubscriptionBoard),
             staleTime: QUERY_STALE_TIME.MEDIUM, // 5 minutes
             enabled: enabledValue,
+            keepPreviousData: false,
         })
     }
 
@@ -130,13 +127,9 @@ export function useBoard() {
         options: { requestConfig?: AxiosRequestConfig } & Record<string, unknown> = {}
     ) => {
         const { requestConfig, ...queryOptions } = options
-        return useQuery({
+        return useApiQuery<PostSummary[]>({
             queryKey: boardQueryKeys.notices(boardUrl),
-            queryFn: async () => {
-                return unwrapAxiosApiData(
-                    await boardApi.getNotices(boardUrl.value, requestConfig)
-                ) as PostSummary[]
-            },
+            request: () => boardApi.getNotices(boardUrl.value, requestConfig),
             enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
             staleTime: QUERY_STALE_TIME.SHORT,
             ...queryOptions
@@ -173,11 +166,9 @@ export function useBoard() {
 
     // Fetch categories for a board
     const useBoardCategories = (boardUrl: Ref<string>, options = {}) => {
-        return useQuery({
+        return useApiQuery({
             queryKey: boardQueryKeys.categories(boardUrl),
-            queryFn: async () => {
-                return unwrapAxiosApiData(await boardApi.getCategories(boardUrl.value))
-            },
+            request: () => boardApi.getCategories(boardUrl.value),
             enabled: computed(() => !!boardUrl.value),
             ...options
         })
@@ -231,15 +222,10 @@ export function useBoard() {
         params: Ref<BoardManagerCandidateParams>,
         enabled?: Ref<boolean>
     ) => {
-        return useQuery({
+        return useApiPageQuery<BoardManagerCandidate>({
             queryKey: boardQueryKeys.managerCandidates(boardUrl, params),
-            queryFn: async () => {
-                return unwrapAxiosApiData(
-                    await boardApi.getBoardManagerCandidates(boardUrl.value, params.value)
-                ) as PageResponse<BoardManagerCandidate>
-            },
+            request: () => boardApi.getBoardManagerCandidates(boardUrl.value, params.value),
             enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
-            placeholderData: (previousData) => previousData
         })
     }
 

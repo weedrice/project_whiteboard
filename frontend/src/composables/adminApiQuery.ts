@@ -35,7 +35,7 @@ export function useAdminNullablePageQuery<T>(
 ) {
   return useNullableApiPageQuery<T>({
     queryKey,
-    request: async () => fetcher(),
+    request: () => fetcher(),
     enabled,
   })
 }
@@ -57,7 +57,7 @@ export function useAdminNullableDataQuery<T>(
 ) {
   return useNullableApiQuery<T>({
     queryKey,
-    request: async () => fetcher(),
+    request: () => fetcher(),
     enabled,
   })
 }

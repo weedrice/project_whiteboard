@@ -416,7 +416,16 @@ describe('useBoard', () => {
         const result = await (options.queryFn as () => Promise<unknown>)()
 
         expect(boardApi.getBoardManagerCandidates).toHaveBeenCalledWith('free', { page: 0, size: 10, q: 'manager' })
-        expect(result).toEqual({ content: [{ userId: 1, loginId: 'manager', currentManager: true }] })
+        expect(result).toEqual({
+            content: [{ userId: 1, loginId: 'manager', currentManager: true }],
+            empty: false,
+            first: true,
+            last: true,
+            number: 0,
+            size: 1,
+            totalElements: 1,
+            totalPages: 1,
+        })
 
         boardUrl.value = ''
         useBoardManagerCandidates(boardUrl, params, ref(true))

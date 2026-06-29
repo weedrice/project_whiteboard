@@ -72,7 +72,16 @@ describe('useComment', () => {
         expect((options.enabled as { value: boolean }).value).toBe(true)
         expect((options.placeholderData as (prev: unknown) => unknown)('keep')).toBe('keep')
         expect(commentApi.getComments).toHaveBeenCalledWith(1, { page: 0, size: 10 })
-        expect(result).toEqual({ content: [{ commentId: 1, content: 'hello' }] })
+        expect(result).toEqual({
+            content: [{ commentId: 1, content: 'hello' }],
+            empty: false,
+            first: true,
+            last: true,
+            number: 0,
+            size: 1,
+            totalElements: 1,
+            totalPages: 1,
+        })
     })
 
     it('fetches replies with a dedicated query key', async () => {

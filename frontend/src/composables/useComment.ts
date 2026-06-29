@@ -1,21 +1,19 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { computed, type Ref } from 'vue'
 import { commentApi, type CommentParams, type CommentPayload } from '@/api/comment'
-import { unwrapAxiosApiData } from '@/api/response'
 import { commentQueryKeys } from '@/composables/commentQueryKeys'
 import { postQueryKeys } from '@/composables/postQueryKeys'
+import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
+import type { Comment, CommentListResponse } from '@/types'
 
 export function useComment() {
     const queryClient = useQueryClient()
 
     const useComments = (postId: Ref<string | number>, params: Ref<CommentParams>) => {
-        return useQuery({
+        return useApiPageQuery<Comment>({
             queryKey: commentQueryKeys.list(postId, params),
-            queryFn: async () => {
-                return unwrapAxiosApiData(await commentApi.getComments(postId.value, params.value))
-            },
+            request: () => commentApi.getComments(postId.value, params.value),
             enabled: computed(() => !!postId.value),
-            placeholderData: (previousData) => previousData,
         })
     }
 
@@ -24,13 +22,11 @@ export function useComment() {
         params: Ref<CommentParams>,
         enabled?: Ref<boolean>,
     ) => {
-        return useQuery({
+        return useApiQuery<CommentListResponse>({
             queryKey: commentQueryKeys.replies(parentId, params),
-            queryFn: async () => {
-                return unwrapAxiosApiData(await commentApi.getReplies(parentId.value, params.value))
-            },
+            request: () => commentApi.getReplies(parentId.value, params.value),
             enabled: computed(() => Boolean(parentId.value) && (enabled ? enabled.value : true)),
-            placeholderData: (previousData) => previousData,
+            keepPreviousData: true,
         })
     }
 

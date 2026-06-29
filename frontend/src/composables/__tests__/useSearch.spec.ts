@@ -56,7 +56,16 @@ describe('useSearch', () => {
 
         const result = await (options.queryFn as () => Promise<unknown>)()
         expect(searchApi.searchPosts).toHaveBeenCalledWith({ q: 'vue', page: 0, size: 20 })
-        expect(result).toEqual({ content: [{ postId: 1 }] })
+        expect(result).toEqual({
+            content: [{ postId: 1 }],
+            empty: false,
+            first: true,
+            last: true,
+            number: 0,
+            size: 1,
+            totalElements: 1,
+            totalPages: 1,
+        })
 
         const keywordParams = ref({ keyword: 'vite' })
         useSearchPosts(keywordParams as never)

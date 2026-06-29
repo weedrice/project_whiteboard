@@ -1,8 +1,8 @@
 import { computed, ref, watch } from 'vue'
-import { useQuery, useQueryClient } from '@tanstack/vue-query'
+import { useQueryClient } from '@tanstack/vue-query'
 import { adminApi } from '@/api/admin'
-import { unwrapAxiosApiData } from '@/api/response'
 import { adminInquiryQueryKeys } from '@/composables/adminQueryKeys'
+import { useApiPageQuery, useNullableApiQuery } from '@/composables/useApiQuery'
 import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import { formatDateTimeOrDash } from '@/utils/date'
 import { renderPostContentHtml } from '@/utils/postContentHtml'
@@ -97,17 +97,14 @@ export function useAdminInquiryPosts() {
     isLoading,
     isFetching,
     error,
-  } = useQuery({
+  } = useApiPageQuery<AdminInquirySummary, PageResponse<AdminInquiryListItem>>({
     queryKey: adminInquiryQueryKeys.listPage(page, size, sort),
-    queryFn: async () => {
-      const inquiryPage = unwrapAxiosApiData(await adminApi.getInquiryPosts({
+    request: () => adminApi.getInquiryPosts({
         page: page.value,
         size: size.value,
         sort: sort.value
-      }))
-      return toAdminInquiryPage(inquiryPage)
-    },
-    placeholderData: (previousData) => previousData
+    }),
+    selectData: toAdminInquiryPage,
   })
 
   const {
@@ -115,15 +112,13 @@ export function useAdminInquiryPosts() {
     isLoading: isDetailLoading,
     isFetching: isDetailFetching,
     error: detailError,
-  } = useQuery({
+  } = useNullableApiQuery<Post, AdminInquiryDetail>({
     queryKey: adminInquiryQueryKeys.detail(selectedPostId),
-    queryFn: async () => {
+    request: () => {
       const postId = selectedPostId.value
-      if (!postId) {
-        throw new Error('Invalid post id')
-      }
-      return toAdminInquiryDetail(unwrapAxiosApiData(await adminApi.getInquiryPost(postId)) as Post)
+      return postId ? adminApi.getInquiryPost(postId) : null
     },
+    selectData: toAdminInquiryDetail,
     enabled: computed(() => selectedPostId.value !== null)
   })
 
