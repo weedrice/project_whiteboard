@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { EditorContent, useEditor } from '@tiptap/vue-3'
+import { useEditor } from '@tiptap/vue-3'
 import PostEditorColorPopover from '@/components/board/editor/PostEditorColorPopover.vue'
+import PostEditorContentArea from '@/components/board/editor/PostEditorContentArea.vue'
 import PostEditorImageAltPopover from '@/components/board/editor/PostEditorImageAltPopover.vue'
 import PostEditorLinkPopover from '@/components/board/editor/PostEditorLinkPopover.vue'
 import PostEditorPopoverMask from '@/components/board/editor/PostEditorPopoverMask.vue'
@@ -676,20 +677,15 @@ onBeforeUnmount(() => {
       </div>
     </PostEditorPopoverMask>
 
-    <div
-      class="tiptap-content flex-1 min-h-0 overflow-auto cursor-text"
-      :class="{ 'tiptap-content--dragging-image': isDraggingImage }"
-      @mousedown="onContentAreaClick"
-      @paste="onEditorPaste"
-      @drop="onEditorDrop"
-      @dragenter.prevent="onEditorDragEnter"
-      @dragleave="onEditorDragLeave"
-      @dragover.prevent
-    >
-      <EditorContent :editor="editor" />
-      <div v-if="isDraggingImage" class="image-drop-overlay" aria-live="polite">
-        {{ t('board.writePost.dropImageHint') }}
-      </div>
-    </div>
+    <PostEditorContentArea
+      :editor="editor"
+      :is-dragging-image="isDraggingImage"
+      :drop-image-hint="t('board.writePost.dropImageHint')"
+      @content-mousedown="onContentAreaClick"
+      @content-paste="onEditorPaste"
+      @content-drop="onEditorDrop"
+      @content-dragenter="onEditorDragEnter"
+      @content-dragleave="onEditorDragLeave"
+    />
   </div>
 </template>
