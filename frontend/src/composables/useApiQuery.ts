@@ -17,7 +17,16 @@ interface ApiQueryOptions<TData> {
   request: ApiRequest<TData>
   enabled?: QueryEnabled
   staleTime?: number
+  refetchInterval?: number
   keepPreviousData?: boolean
+}
+
+interface ApiNullableQueryOptions<TData> {
+  queryKey: ApiQueryKey
+  request: ApiNullableRequest<TData>
+  enabled?: QueryEnabled
+  staleTime?: number
+  refetchInterval?: number
 }
 
 interface ApiPageQueryOptions<TItem> {
@@ -45,12 +54,37 @@ export function useApiQuery<TData>({
   request,
   enabled,
   staleTime,
+  refetchInterval,
 }: ApiQueryOptions<TData>) {
   return useQuery<TData, Error, TData>({
     queryKey,
     queryFn: async (context) => unwrapAxiosApiData(await request(context)),
     enabled,
     staleTime,
+    refetchInterval,
+  })
+}
+
+export function useNullableApiQuery<TData>({
+  queryKey,
+  request,
+  enabled,
+  staleTime,
+  refetchInterval,
+}: ApiNullableQueryOptions<TData>) {
+  return useQuery<TData | null, Error, TData | null>({
+    queryKey,
+    queryFn: async (context) => {
+      const response = await request(context)
+      if (response === null) {
+        return null
+      }
+
+      return unwrapAxiosApiData(response)
+    },
+    enabled,
+    staleTime,
+    refetchInterval,
   })
 }
 

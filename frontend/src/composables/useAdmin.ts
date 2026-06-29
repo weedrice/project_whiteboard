@@ -1,18 +1,19 @@
-import { useQuery, useMutation, useQueryClient, type QueryKey } from '@tanstack/vue-query'
+import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { adminApi, type AdminRole } from '@/api/admin'
 import { unwrapAxiosApiData } from '@/api/response'
-import type { AxiosResponse } from 'axios'
 import { adminQueryKeys } from '@/composables/adminQueryKeys'
 import { boardQueryKeys } from '@/composables/boardQueryKeys'
 import { invalidateAdminBoardCaches, invalidateAdminUserCaches } from '@/composables/adminCacheInvalidation'
 import { invalidateBoardListCaches } from '@/composables/boardCacheInvalidation'
-import { useApiPageQuery, useNullableApiPageQuery } from '@/composables/useApiQuery'
-import { computed, type ComputedRef, type Ref } from 'vue'
-import type { PageResponseRaw } from '@/utils/pageResponse'
+import {
+    useAdminDataQuery,
+    useAdminNullableDataQuery,
+    useAdminNullablePageQuery,
+    useAdminPageQuery,
+} from '@/composables/adminApiQuery'
+import { computed, type Ref } from 'vue'
 import type {
     SanctionData,
-    ApiResponse,
-    PageResponse,
     User,
     Report,
     ErrorLogDetail,
@@ -28,9 +29,6 @@ import type {
     SuperAdminInfo,
     IpBlock
 } from '@/types'
-
-type AdminPageFetcher<T> = () => Promise<AxiosResponse<ApiResponse<PageResponse<T> | PageResponseRaw<T>>>>
-type AdminQueryKey = QueryKey | Ref<QueryKey> | ComputedRef<QueryKey>
 
 // Admin specific types
 interface AdminCreateData {
@@ -105,29 +103,9 @@ interface BoardManagerData {
 export function useAdmin() {
     const queryClient = useQueryClient()
 
-    const adminPageQuery = <T>(
-        queryKey: AdminQueryKey,
-        fetcher: AdminPageFetcher<T>,
-        options: { enabled?: Ref<boolean> | ComputedRef<boolean> } = {}
-    ) => useApiPageQuery<T>({
-        queryKey,
-        request: () => fetcher(),
-        enabled: options.enabled,
-    })
-
-    const adminNullablePageQuery = <T>(
-        queryKey: AdminQueryKey,
-        fetcher: () => ReturnType<AdminPageFetcher<T>> | null,
-        enabled: Ref<boolean> | ComputedRef<boolean>
-    ) => useNullableApiPageQuery<T>({
-        queryKey,
-        request: async () => fetcher(),
-        enabled,
-    })
-
     // --- Admin Management ---
     const useAdmins = (params: Ref<{ page?: number, size?: number }>) => {
-        return adminPageQuery<BoardAdminInfo>(
+        return useAdminPageQuery<BoardAdminInfo>(
             adminQueryKeys.admins(params),
             () => adminApi.getAdmins(params.value)
         )
@@ -151,12 +129,7 @@ export function useAdmin() {
     }
 
     const useSuperAdmins = () => {
-        return useQuery({
-            queryKey: adminQueryKeys.superAdmins,
-            queryFn: async () => {
-                return unwrapAxiosApiData(await adminApi.getSuperAdmin()) as SuperAdminInfo[]
-            }
-        })
+        return useAdminDataQuery<SuperAdminInfo[]>(adminQueryKeys.superAdmins, () => adminApi.getSuperAdmin())
     }
 
     const useUpdateSuperAdminStatus = () => {
@@ -171,7 +144,7 @@ export function useAdmin() {
 
     // --- User Management ---
     const useUsers = (params: Ref<UserSearchParams>, enabled?: Ref<boolean>) => {
-        return adminPageQuery<User>(
+        return useAdminPageQuery<User>(
             adminQueryKeys.users(params),
             () => adminApi.getUsers(params.value),
             {
@@ -190,20 +163,18 @@ export function useAdmin() {
     }
 
     const useAdminUserDetail = (userId: Ref<number | null>) => {
-        return useQuery({
-            queryKey: adminQueryKeys.userDetail(userId),
-            queryFn: async () => {
-                if (userId.value == null) return null
-                return unwrapAxiosApiData(await adminApi.getUserDetail(userId.value)) as AdminUserDetail
-            },
-            enabled: computed(() => userId.value !== null)
-        })
+        const enabled = computed(() => userId.value !== null)
+        return useAdminNullableDataQuery<AdminUserDetail>(
+            adminQueryKeys.userDetail(userId),
+            () => userId.value == null ? null : adminApi.getUserDetail(userId.value),
+            enabled
+        )
     }
 
     const useAdminUserPosts = (userId: Ref<number | null>, params: Ref<{ page?: number, size?: number }>) => {
         const enabled = computed(() => userId.value !== null)
 
-        return adminNullablePageQuery<AdminUserPostItem>(
+        return useAdminNullablePageQuery<AdminUserPostItem>(
             adminQueryKeys.userPosts(userId, params),
             () => userId.value == null ? null : adminApi.getUserPosts(userId.value, params.value),
             enabled
@@ -213,7 +184,7 @@ export function useAdmin() {
     const useAdminUserComments = (userId: Ref<number | null>, params: Ref<{ page?: number, size?: number }>) => {
         const enabled = computed(() => userId.value !== null)
 
-        return adminNullablePageQuery<AdminUserCommentItem>(
+        return useAdminNullablePageQuery<AdminUserCommentItem>(
             adminQueryKeys.userComments(userId, params),
             () => userId.value == null ? null : adminApi.getUserComments(userId.value, params.value),
             enabled
@@ -223,7 +194,7 @@ export function useAdmin() {
     const useAdminUserSubscriptions = (userId: Ref<number | null>, params: Ref<{ page?: number, size?: number }>) => {
         const enabled = computed(() => userId.value !== null)
 
-        return adminNullablePageQuery<AdminUserSubscriptionItem>(
+        return useAdminNullablePageQuery<AdminUserSubscriptionItem>(
             adminQueryKeys.userSubscriptions(userId, params),
             () => userId.value == null ? null : adminApi.getUserSubscriptions(userId.value, params.value),
             enabled
@@ -241,7 +212,7 @@ export function useAdmin() {
 
     // --- Report Management ---
     const useReports = (params: Ref<ReportSearchParams>) => {
-        return adminPageQuery<Report>(
+        return useAdminPageQuery<Report>(
             adminQueryKeys.reports(params),
             () => adminApi.getReports(params.value)
         )
@@ -256,7 +227,7 @@ export function useAdmin() {
 
     // --- IP Block Management ---
     const useIpBlocks = (params: Ref<{ page?: number, size?: number }>) => {
-        return adminPageQuery<IpBlock>(
+        return useAdminPageQuery<IpBlock>(
             adminQueryKeys.ipBlocks(params),
             () => adminApi.getIpBlocks(params.value)
         )
@@ -278,12 +249,7 @@ export function useAdmin() {
 
     // --- Config Management ---
     const useConfigs = () => {
-        return useQuery({
-            queryKey: adminQueryKeys.configs,
-            queryFn: async () => {
-                return unwrapAxiosApiData(await adminApi.getConfigs())
-            }
-        })
+        return useAdminDataQuery(adminQueryKeys.configs, () => adminApi.getConfigs())
     }
 
     const useUpdateConfig = () => {
@@ -309,22 +275,12 @@ export function useAdmin() {
 
     // --- Dashboard Stats ---
     const useDashboardStats = () => {
-        return useQuery({
-            queryKey: adminQueryKeys.stats,
-            queryFn: async () => {
-                return unwrapAxiosApiData(await adminApi.getDashboardStats())
-            }
-        })
+        return useAdminDataQuery(adminQueryKeys.stats, () => adminApi.getDashboardStats())
     }
 
     // --- Board Management (Admin) ---
     const useAdminBoards = () => {
-        return useQuery({
-            queryKey: adminQueryKeys.boards,
-            queryFn: async () => {
-                return unwrapAxiosApiData(await adminApi.getBoards()) as AdminBoard[]
-            }
-        })
+        return useAdminDataQuery<AdminBoard[]>(adminQueryKeys.boards, () => adminApi.getBoards())
     }
 
     const useCreateBoard = () => {
@@ -366,15 +322,13 @@ export function useAdmin() {
 
     const useBoardManager = (boardId: Ref<number | null>) => {
         const boardManagerQueryKey = adminQueryKeys.boardManager(boardId)
+        const enabled = computed(() => boardId.value !== null)
 
-        return useQuery({
-            queryKey: boardManagerQueryKey,
-            queryFn: async () => {
-                if (!boardId.value) return null
-                return unwrapAxiosApiData(await adminApi.getBoardManager(boardId.value)) ?? null
-            },
-            enabled: computed(() => boardId.value !== null)
-        })
+        return useAdminNullableDataQuery<BoardAdminInfo | null>(
+            boardManagerQueryKey,
+            () => !boardId.value ? null : adminApi.getBoardManager(boardId.value),
+            enabled
+        )
     }
 
     const useUpdateBoardManager = () => {
@@ -391,7 +345,7 @@ export function useAdmin() {
 
     // --- Error Log Management ---
     const useErrorLogs = (params: Ref<ErrorLogSearchParams>) => {
-        return adminPageQuery<ErrorLogListItem>(
+        return useAdminPageQuery<ErrorLogListItem>(
             adminQueryKeys.errorLogs(params),
             () => adminApi.getErrorLogs(params.value)
         )
@@ -413,12 +367,7 @@ export function useAdmin() {
     }
 
     const useErrorLogStats = () => {
-        return useQuery({
-            queryKey: adminQueryKeys.errorLogStats,
-            queryFn: async () => {
-                return unwrapAxiosApiData(await adminApi.getErrorLogStats()) as ErrorLogStats
-            }
-        })
+        return useAdminDataQuery<ErrorLogStats>(adminQueryKeys.errorLogStats, () => adminApi.getErrorLogStats())
     }
 
     return {

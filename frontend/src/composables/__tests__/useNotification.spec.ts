@@ -176,7 +176,12 @@ describe('useNotification', () => {
         const result = await (options.queryFn as () => Promise<unknown>)()
 
         expect(mocks.notificationApi.getNotifications).toHaveBeenCalledWith(params.value)
-        expect(result).toEqual(pageResponse)
+        expect(result).toEqual({
+            ...pageResponse,
+            first: true,
+            last: true,
+            totalPages: 1,
+        })
         expect((options.placeholderData as (prev: unknown) => unknown)('keep-me')).toBe('keep-me')
     })
 

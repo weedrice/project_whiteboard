@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
+import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { authApi } from '@/api/auth'
 import { unwrapAxiosApiData } from '@/api/response'
 import {
@@ -17,6 +17,7 @@ import {
     notificationsQueryKey,
     notificationUnreadCountQueryKey,
 } from '@/composables/notificationQueryKeys'
+import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
 
 function isAbortError(error: unknown): boolean {
     return isCancellationError(error, {
@@ -69,22 +70,17 @@ export function useNotification() {
     const queryClient = useQueryClient()
 
     const useNotifications = (params: Ref<NotificationParams>) => {
-        return useQuery({
+        return useApiPageQuery<Notification>({
             queryKey: notificationListQueryKey(params),
-            queryFn: async () => {
-                return unwrapAxiosApiData(await notificationApi.getNotifications(params.value))
-            },
-            placeholderData: (previousData) => previousData
+            request: () => notificationApi.getNotifications(params.value),
         })
     }
 
     const useUnreadCount = () => {
         const authStore = useAuthStore()
-        return useQuery({
+        return useApiQuery<number>({
             queryKey: notificationUnreadCountQueryKey,
-            queryFn: async () => {
-                return unwrapAxiosApiData(await notificationApi.getUnreadCount())
-            },
+            request: () => notificationApi.getUnreadCount(),
             refetchInterval: 60000,
             enabled: computed(() => authStore.isAuthenticated),
         })
