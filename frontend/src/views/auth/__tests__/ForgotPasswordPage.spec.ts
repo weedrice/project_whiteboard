@@ -1,11 +1,12 @@
 import { mount } from '@vue/test-utils'
 import { defineComponent, h, type Component } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { EmailVerificationFlowOptions } from '@/composables/useEmailVerificationFlow'
 import ForgotPasswordPage from '../ForgotPasswordPage.vue'
 
 const routerPush = vi.fn()
 const addToast = vi.fn()
-let emailVerificationOptions: any
+let emailVerificationOptions: EmailVerificationFlowOptions | undefined
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({
@@ -42,7 +43,7 @@ vi.mock('@/stores/toast', () => ({
 }))
 
 vi.mock('@/composables/useEmailVerificationFlow', () => ({
-  useEmailVerificationFlow: (options: any) => {
+  useEmailVerificationFlow: (options: EmailVerificationFlowOptions) => {
     emailVerificationOptions = options
     return {
       sendVerifyCode: vi.fn(),
@@ -88,10 +89,18 @@ const mountPage = () => mount(ForgotPasswordPage, {
   },
 })
 
+const getOnVerifyError = () => {
+  const onVerifyError = emailVerificationOptions?.onVerifyError
+  if (!onVerifyError) {
+    throw new Error('onVerifyError was not registered')
+  }
+  return onVerifyError
+}
+
 describe('ForgotPasswordPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    emailVerificationOptions = null
+    emailVerificationOptions = undefined
   })
 
   it('marks deleted-account verification errors as handled and redirects to signup', async () => {
@@ -108,7 +117,7 @@ describe('ForgotPasswordPage', () => {
       },
     }
 
-    const handled = emailVerificationOptions.onVerifyError(error)
+    const handled = getOnVerifyError()(error)
 
     expect(handled).toBe(true)
     expect(addToast).toHaveBeenCalledWith('auth.userDeleted', 'info')
@@ -128,7 +137,7 @@ describe('ForgotPasswordPage', () => {
       },
     }
 
-    expect(emailVerificationOptions.onVerifyError(error)).toBe(false)
+    expect(getOnVerifyError()(error)).toBe(false)
     expect(addToast).not.toHaveBeenCalled()
     expect(routerPush).not.toHaveBeenCalled()
   })

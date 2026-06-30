@@ -2,21 +2,57 @@ import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, nextTick, ref, type Ref } from 'vue'
 
-import type BlockListComponent from '../BlockList.vue'
+import BlockList from '../BlockList.vue'
 
-type BlockList = typeof BlockListComponent
 type BlockListParams = { page: number; size: number }
 
-let queryState: {
-  data: ReturnType<typeof ref<unknown>>
-  isLoading: ReturnType<typeof ref<boolean>>
-  isError: ReturnType<typeof ref<boolean>>
-  error: ReturnType<typeof ref<unknown>>
+type BlockListQueryState = {
+  data: Ref<unknown>
+  isLoading: Ref<boolean>
+  isError: Ref<boolean>
+  error: Ref<unknown>
   refetch: ReturnType<typeof vi.fn>
 }
-let BlockList: BlockList
-let latestParams: Ref<BlockListParams> | undefined
-let loggerError: ReturnType<typeof vi.fn>
+
+const blockListMock = vi.hoisted(() => ({
+  latestParams: undefined as Ref<BlockListParams> | undefined,
+  queryState: undefined as unknown as BlockListQueryState,
+  loggerError: vi.fn(),
+}))
+
+const translate = (key: string, params?: Record<string, unknown>) => {
+  if (key === 'common.paginationSummary.itemUnit') return 'items'
+  if (key === 'common.paginationSummary.total') return `Total ${params?.count} ${params?.unit}`
+  if (key === 'common.messages.loadFailed') return 'Load failed'
+  if (key === 'user.blockList.title') return 'Blocked users'
+  if (key === 'user.blockList.empty') return 'No blocked users'
+  return key
+}
+
+vi.mock('@/composables/useUser', () => ({
+  useUser: () => ({
+    useBlockList: (params?: Ref<BlockListParams>) => {
+      blockListMock.latestParams = params
+      return blockListMock.queryState
+    },
+  }),
+}))
+
+vi.mock('@/utils/logger', () => ({
+  default: { error: blockListMock.loggerError },
+}))
+
+vi.mock('vue-i18n', () => ({
+  createI18n: () => ({
+    global: {
+      t: translate,
+    },
+    install: vi.fn(),
+  }),
+  useI18n: () => ({
+    t: translate,
+  }),
+}))
 
 const PageSizeSelectorStub = defineComponent({
   name: 'PageSizeSelectorStub',
@@ -69,7 +105,7 @@ const ErrorStateStub = defineComponent({
 const mountList = () => mount(BlockList, {
   global: {
     mocks: {
-      $t: (key: string) => key,
+      $t: translate,
     },
     stubs: {
       BaseSkeleton: true,
@@ -87,52 +123,20 @@ const mountList = () => mount(BlockList, {
 })
 
 describe('BlockList', () => {
-  beforeEach(async () => {
-    vi.resetModules()
-    latestParams = undefined
-    loggerError = vi.fn()
-    queryState = {
+  beforeEach(() => {
+    blockListMock.latestParams = undefined
+    blockListMock.loggerError.mockReset()
+    blockListMock.queryState = {
       data: ref(null),
       isLoading: ref(false),
       isError: ref(false),
       error: ref(null),
       refetch: vi.fn(),
     }
-    vi.doMock('@/composables/useUser', () => ({
-      useUser: () => ({
-        useBlockList: (params?: Ref<BlockListParams>) => {
-          latestParams = params
-          return queryState
-        },
-      }),
-    }))
-    vi.doMock('@/utils/logger', () => ({
-      default: { error: loggerError },
-    }))
-    vi.doMock('vue-i18n', () => ({
-      createI18n: () => ({
-        global: {
-          t: (key: string, params?: Record<string, unknown>) => {
-            if (key === 'common.paginationSummary.itemUnit') return '건'
-            if (key === 'common.paginationSummary.total') return `총 ${params?.count}${params?.unit}`
-            return key
-          },
-        },
-        install: vi.fn(),
-      }),
-      useI18n: () => ({
-        t: (key: string, params?: Record<string, unknown>) => {
-          if (key === 'common.paginationSummary.itemUnit') return '건'
-          if (key === 'common.paginationSummary.total') return `총 ${params?.count}${params?.unit}`
-          return key
-        },
-      }),
-    }))
-    BlockList = (await import('../BlockList.vue')).default
-  }, 30000)
+  })
 
   it('renders users from the paged block list query cache', () => {
-    queryState.data.value = {
+    blockListMock.queryState.data.value = {
       content: [
         { userId: 1, displayName: 'Ada', secondaryText: 'ada-login' },
         { userId: 2, displayName: 'Grace', secondaryText: 'grace-login' },
@@ -147,12 +151,12 @@ describe('BlockList', () => {
     expect(wrapper.text()).toContain('Grace')
     expect(wrapper.text()).toContain('ada-login')
     expect(wrapper.text()).toContain('grace-login')
-    expect(wrapper.text()).toContain('총 2건')
+    expect(wrapper.text()).toContain('Total 2 items')
     expect(wrapper.get('[data-test="page-change"]').text()).toContain('0/3')
     expect(wrapper.findAll('[data-test="block-button"]')).toHaveLength(2)
   })
   it('renders an empty list before block list data is loaded', () => {
-    queryState.data.value = null
+    blockListMock.queryState.data.value = null
 
     const wrapper = mountList()
 
@@ -161,37 +165,37 @@ describe('BlockList', () => {
   })
 
   it('shows an error state and retries through the query refetch', async () => {
-    queryState.error.value = new Error('network')
-    queryState.isError.value = true
+    blockListMock.queryState.error.value = new Error('network')
+    blockListMock.queryState.isError.value = true
     const wrapper = mountList()
 
-    expect(wrapper.get('[data-test="error-state"]').text()).toBe('common.messages.loadFailed')
+    expect(wrapper.get('[data-test="error-state"]').text()).toBe('Load failed')
     expect(wrapper.findComponent({ name: 'EmptyState' }).exists()).toBe(false)
 
     await wrapper.get('[data-test="error-state"]').trigger('click')
 
-    expect(queryState.refetch).toHaveBeenCalledTimes(1)
+    expect(blockListMock.queryState.refetch).toHaveBeenCalledTimes(1)
   })
 
   it('updates query params when page or page size changes', async () => {
-    queryState.data.value = {
+    blockListMock.queryState.data.value = {
       content: [{ userId: 1, displayName: 'Ada', secondaryText: 'ada-login' }],
       totalElements: 1,
       totalPages: 2,
     }
     const wrapper = mountList()
 
-    expect(latestParams?.value).toEqual({ page: 0, size: 20 })
+    expect(blockListMock.latestParams?.value).toEqual({ page: 0, size: 20 })
 
     await wrapper.get('[data-test="page-change"]').trigger('click')
-    expect(latestParams?.value).toEqual({ page: 1, size: 20 })
+    expect(blockListMock.latestParams?.value).toEqual({ page: 1, size: 20 })
 
     await wrapper.get('[data-test="size-change"]').trigger('click')
-    expect(latestParams?.value).toEqual({ page: 0, size: 50 })
+    expect(blockListMock.latestParams?.value).toEqual({ page: 0, size: 50 })
   })
 
   it('moves to the previous page after the last visible user is unblocked without manual refetch', async () => {
-    queryState.data.value = {
+    blockListMock.queryState.data.value = {
       content: [{ userId: 1, displayName: 'Ada', secondaryText: 'ada-login' }],
       totalElements: 21,
       totalPages: 2,
@@ -199,22 +203,22 @@ describe('BlockList', () => {
     const wrapper = mountList()
 
     await wrapper.get('[data-test="page-change"]').trigger('click')
-    expect(latestParams?.value).toEqual({ page: 1, size: 20 })
+    expect(blockListMock.latestParams?.value).toEqual({ page: 1, size: 20 })
 
     await wrapper.get('[data-test="block-button"]').trigger('click')
 
-    expect(latestParams?.value).toEqual({ page: 0, size: 20 })
-    expect(queryState.refetch).not.toHaveBeenCalled()
+    expect(blockListMock.latestParams?.value).toEqual({ page: 0, size: 20 })
+    expect(blockListMock.queryState.refetch).not.toHaveBeenCalled()
   })
 
   it('logs query errors from the block list query', async () => {
     const wrapper = mountList()
     const error = new Error('load failed')
 
-    queryState.error.value = error
+    blockListMock.queryState.error.value = error
     await nextTick()
 
-    expect(loggerError).toHaveBeenCalledWith('Failed to fetch blocked users:', error)
+    expect(blockListMock.loggerError).toHaveBeenCalledWith('Failed to fetch blocked users:', error)
     wrapper.unmount()
   })
 })
