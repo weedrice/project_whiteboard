@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { defineComponent, h, unref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { emoticonApiData } from '@/test/emoticonApiFixtures'
 
 const mocks = vi.hoisted(() => {
   const queryOptions: Array<Record<string, unknown>> = []
@@ -112,15 +113,11 @@ describe('EmoticonList', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.queryOptions.length = 0
-    mocks.searchAll.mockResolvedValue({
-      data: {
-        data: mocks.listPage,
-      },
-    })
+    mocks.searchAll.mockResolvedValue(emoticonApiData(mocks.listPage))
     mocks.listPage.content = []
     mocks.listPage.totalPages = 0
     mocks.listPage.totalElements = 0
-    mocks.getPopularEmoticons.mockResolvedValue([])
+    mocks.getPopularEmoticons.mockResolvedValue(emoticonApiData([]))
   })
 
   it('renders latest, oldest, and popular sort buttons', () => {

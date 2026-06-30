@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, ref, type ComputedRef } from 'vue'
 import { useEmoticonDetailResource } from '../useEmoticonDetailResource'
+import { emoticonApiData, emoticonApiSuccess } from '@/test/emoticonApiFixtures'
 
 const mocks = vi.hoisted(() => ({
   apiQueryOptions: [] as Array<Record<string, unknown>>,
@@ -86,8 +87,8 @@ describe('useEmoticonDetailResource', () => {
     expect((detailOptions.enabled as ComputedRef<boolean>).value).toBe(true)
     expect((purchaseOptions.enabled as ComputedRef<boolean>).value).toBe(true)
 
-    mocks.getEmoticon.mockResolvedValueOnce({ data: { success: true, data: { emoticonId: 11 } } })
-    mocks.checkPurchaseStatus.mockResolvedValueOnce({ data: { success: true, data: { purchased: false, price: 100 } } })
+    mocks.getEmoticon.mockResolvedValueOnce(emoticonApiData({ emoticonId: 11 }))
+    mocks.checkPurchaseStatus.mockResolvedValueOnce(emoticonApiData({ purchased: false, price: 100 }))
 
     await (detailOptions.request as () => Promise<unknown>)()
     await (purchaseOptions.request as () => Promise<unknown>)()
@@ -98,7 +99,7 @@ describe('useEmoticonDetailResource', () => {
 
   it('keeps purchase cache invalidation behavior', async () => {
     const emoticonId = computed(() => 12)
-    mocks.purchaseEmoticon.mockResolvedValueOnce({ data: { success: true } })
+    mocks.purchaseEmoticon.mockResolvedValueOnce(emoticonApiSuccess())
 
     const resource = useEmoticonDetailResource(emoticonId)
     await resource.purchase()

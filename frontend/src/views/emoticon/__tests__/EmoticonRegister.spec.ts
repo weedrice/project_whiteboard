@@ -1,6 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import EmoticonRegister from '../EmoticonRegister.vue'
+import { emoticonApiData, emoticonApiSuccess } from '@/test/emoticonApiFixtures'
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
@@ -110,14 +111,10 @@ const setValidForm = (wrapper: ReturnType<typeof mountRegister>) => {
 describe('EmoticonRegister', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.uploadFile.mockImplementation((file: File) => Promise.resolve({
-      data: {
-        data: {
-          fileId: file.name === 'thumb.png' ? 10 : 20,
-        },
-      },
-    }))
-    mocks.createEmoticon.mockResolvedValue({ data: { success: true } })
+    mocks.uploadFile.mockImplementation((file: File) => Promise.resolve(
+      emoticonApiData({ fileId: file.name === 'thumb.png' ? 10 : 20 })
+    ))
+    mocks.createEmoticon.mockResolvedValue(emoticonApiSuccess())
     mocks.createUploadableEmoticonImageFile.mockImplementation(async (item) => item.file)
     mocks.createUploadableEmoticonThumbnailFile.mockImplementation(async (file) => file)
     mocks.uploadEmoticonImagePreviews.mockImplementation(async (items, uploadFile, onProgress) => {

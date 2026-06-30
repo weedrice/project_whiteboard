@@ -1,6 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { nextTick, ref } from 'vue'
+import { emoticonApiData, emoticonApiSuccess } from '@/test/emoticonApiFixtures'
 
 const mocks = vi.hoisted(() => ({
   route: {
@@ -151,18 +152,14 @@ describe('EmoticonEdit', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.confirm.mockResolvedValue(true)
-    mocks.deleteImage.mockResolvedValue({ data: { success: true } })
-    mocks.addImage.mockResolvedValue({ data: { success: true } })
-    mocks.updateEmoticon.mockResolvedValue({ data: { success: true } })
+    mocks.deleteImage.mockResolvedValue(emoticonApiSuccess())
+    mocks.addImage.mockResolvedValue(emoticonApiSuccess())
+    mocks.updateEmoticon.mockResolvedValue(emoticonApiSuccess())
     mocks.createUploadableEmoticonImageFile.mockImplementation((item) => Promise.resolve(item.file))
     mocks.createUploadableEmoticonThumbnailFile.mockImplementation((file) => Promise.resolve(file))
-    mocks.uploadFile.mockImplementation((file: File) => Promise.resolve({
-      data: {
-        data: {
-          fileId: file.name === 'new-a.png' ? 101 : 102,
-        }
-      }
-    }))
+    mocks.uploadFile.mockImplementation((file: File) => Promise.resolve(
+      emoticonApiData({ fileId: file.name === 'new-a.png' ? 101 : 102 })
+    ))
     mocks.selectEmoticonImages.mockResolvedValue([
       {
         clientId: 'new-preview-a',
@@ -306,8 +303,8 @@ describe('EmoticonEdit', () => {
   })
 
   it('starts image add requests together and waits for all before updating metadata', async () => {
-    const firstAdd = createDeferred<{ data: { success: boolean } }>()
-    const secondAdd = createDeferred<{ data: { success: boolean } }>()
+    const firstAdd = createDeferred<ReturnType<typeof emoticonApiSuccess>>()
+    const secondAdd = createDeferred<ReturnType<typeof emoticonApiSuccess>>()
     mocks.addImage.mockImplementation((_: number, fileId: number) => (
       fileId === 101 ? firstAdd.promise : secondAdd.promise
     ))
@@ -345,11 +342,11 @@ describe('EmoticonEdit', () => {
     expect(mocks.addImage).toHaveBeenCalledTimes(2)
     expect(mocks.updateEmoticon).not.toHaveBeenCalled()
 
-    secondAdd.resolve({ data: { success: true } })
+    secondAdd.resolve(emoticonApiSuccess())
     await flushPromises()
     expect(mocks.updateEmoticon).not.toHaveBeenCalled()
 
-    firstAdd.resolve({ data: { success: true } })
+    firstAdd.resolve(emoticonApiSuccess())
     await flushPromises()
     expect(mocks.updateEmoticon).toHaveBeenCalledWith(7, {
       name: 'Original',

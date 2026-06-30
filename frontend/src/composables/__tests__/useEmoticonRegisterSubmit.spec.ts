@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useEmoticonRegisterSubmit } from '../useEmoticonRegisterSubmit'
 import type { EmoticonImagePreview } from '@/utils/emoticonImage'
+import { emoticonApiData, emoticonApiSuccess } from '@/test/emoticonApiFixtures'
 
 const mocks = vi.hoisted(() => ({
   createEmoticon: vi.fn(),
@@ -73,16 +74,12 @@ const createPreview = (fileName: string): EmoticonImagePreview => ({
 describe('useEmoticonRegisterSubmit', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.createEmoticon.mockResolvedValue({ data: { success: true } })
+    mocks.createEmoticon.mockResolvedValue(emoticonApiSuccess())
     mocks.createUploadableEmoticonImageFile.mockImplementation((item) => Promise.resolve(item.file))
     mocks.createUploadableEmoticonThumbnailFile.mockImplementation((file) => Promise.resolve(file))
-    mocks.uploadFile.mockImplementation((file: File) => Promise.resolve({
-      data: {
-        data: {
-          fileId: file.name === 'thumb.png' ? 10 : 20,
-        },
-      },
-    }))
+    mocks.uploadFile.mockImplementation((file: File) => Promise.resolve(
+      emoticonApiData({ fileId: file.name === 'thumb.png' ? 10 : 20 })
+    ))
   })
 
   it('uploads thumbnail and images before creating the emoticon', async () => {
