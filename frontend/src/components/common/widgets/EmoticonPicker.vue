@@ -1,12 +1,10 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { emoticonApi } from '@/api/emoticon'
-import type { EmoticonMaster, EmoticonImage } from '@/types/emoticon'
+import type { EmoticonImage } from '@/types/emoticon'
 import { X, ArrowLeft, Search, Smile } from 'lucide-vue-next'
-import logger from '@/utils/logger'
-import { useLatestAsyncTask } from '@/composables/useLatestAsyncTask'
 import { useAccessibleEmoticonPicker } from '@/composables/useAccessibleEmoticonPicker'
+import { useEmoticonPickerDetail } from '@/composables/useEmoticonPickerDetail'
 import { useEventListener } from '@/composables/useEventListener'
 import { useFocusTrap } from '@/composables/useFocusTrap'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
@@ -24,20 +22,18 @@ const emit = defineEmits<{
 const { t } = useI18n()
 
 const pickerRef = ref<HTMLElement | null>(null)
-const selectedEmoticon = ref<EmoticonMaster | null>(null)
-const selectedEmoticonId = ref<number | null>(null)
-const selectedEmoticonSource = ref<EmoticonMaster | null>(null)
 const searchKeyword = ref('')
-const detailTask = useLatestAsyncTask<string>({
-  getErrorValue: () => t('emoticon.picker.detailLoadFailed'),
-  onError: (error) => {
-    logger.error('Failed to load emoticon detail:', error)
-  },
-})
-const isLoadingDetail = detailTask.loading
-const detailError = detailTask.error
+const {
+  selectedEmoticon,
+  selectedEmoticonId,
+  selectedImages,
+  isLoadingDetail,
+  detailError,
+  resetDetailState,
+  handleEmoticonClick,
+  retryDetailLoad,
+} = useEmoticonPickerDetail(t)
 
-// 사용 가능한 이모티콘 목록 조회
 const {
   data: accessibleEmoticons,
   isLoading,
@@ -47,7 +43,6 @@ const {
 const listErrorMessage = computed(() => t('emoticon.picker.listLoadFailed'))
 const { trapFocus, restoreFocus } = useFocusTrap(pickerRef, () => props.show)
 
-// 검색 필터링
 const filteredEmoticons = computed(() => {
   if (!accessibleEmoticons.value) return []
   if (!searchKeyword.value.trim()) return accessibleEmoticons.value
@@ -59,35 +54,11 @@ const filteredEmoticons = computed(() => {
   )
 })
 
-// 선택된 이모티콘의 이미지 목록
-const selectedImages = computed(() => {
-  return selectedEmoticon.value?.images || []
-})
-
-const resetDetailState = (options: { clearSearch?: boolean } = {}) => {
-  detailTask.reset()
-  selectedEmoticon.value = null
-  selectedEmoticonId.value = null
-  selectedEmoticonSource.value = null
+const resetPickerState = (options: { clearSearch?: boolean } = {}) => {
+  resetDetailState()
   if (options.clearSearch) {
     searchKeyword.value = ''
   }
-}
-
-const handleEmoticonClick = async (emoticon: EmoticonMaster) => {
-  // 상세 정보 조회 (이미지 포함)
-  selectedEmoticonId.value = emoticon.emoticonId
-  selectedEmoticonSource.value = emoticon
-  selectedEmoticon.value = null
-
-  const emoticonDetail = await detailTask.run(({ signal }) => emoticonApi.getEmoticonData(emoticon.emoticonId, { signal }))
-  if (!emoticonDetail || selectedEmoticonId.value !== emoticon.emoticonId) return
-  selectedEmoticon.value = emoticonDetail
-}
-
-const retryDetailLoad = () => {
-  if (!selectedEmoticonSource.value) return
-  handleEmoticonClick(selectedEmoticonSource.value)
 }
 
 const retryListLoad = () => {
@@ -99,11 +70,11 @@ const handleImageClick = (image: EmoticonImage) => {
 }
 
 const goBack = () => {
-  resetDetailState()
+  resetPickerState()
 }
 
 const close = () => {
-  resetDetailState({ clearSearch: true })
+  resetPickerState({ clearSearch: true })
   emit('close')
 }
 
@@ -114,10 +85,9 @@ const handleDocumentKeydown = (event: KeyboardEvent) => {
   close()
 }
 
-// 팝업이 닫힐 때 상태 초기화
 watch(() => props.show, (newVal) => {
   if (!newVal) {
-    resetDetailState({ clearSearch: true })
+    resetPickerState({ clearSearch: true })
     restoreFocus()
     return
   }
@@ -142,13 +112,12 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  resetDetailState({ clearSearch: true })
+  resetPickerState({ clearSearch: true })
   restoreFocus()
 })
 </script>
 
 <template>
-  <!-- 팝업 밖 클릭 시 닫기 위한 투명 백드롭 -->
   <div v-if="show" class="emoticon-picker-backdrop" @click="close" aria-hidden="true" />
   <div
     v-if="show"
@@ -159,7 +128,6 @@ onUnmounted(() => {
     aria-labelledby="emoticon-picker-title"
     @click.stop
   >
-    <!-- 헤더 -->
     <div class="picker-header">
       <button v-if="selectedEmoticonId" type="button" :aria-label="t('emoticon.picker.backToListAria')" @click="goBack" class="back-btn">
         <ArrowLeft class="w-4 h-4" />
@@ -172,17 +140,13 @@ onUnmounted(() => {
       </button>
     </div>
 
-    <!-- 컨텐츠 -->
     <div class="picker-content">
-      <!-- 이모티콘 상세 (이미지 목록) -->
       <template v-if="selectedEmoticonId">
-        <!-- 상세 로딩 중 -->
         <div v-if="isLoadingDetail" class="loading-state">
           <div class="h-6 w-6 flex items-center justify-center">
             <BaseSpinner size="sm" class="scale-150" />
           </div>
         </div>
-        <!-- 이미지 그리드 -->
         <EmoticonPickerImageGrid
           v-else-if="selectedEmoticon && selectedImages.length > 0"
           :images="selectedImages"
@@ -202,9 +166,7 @@ onUnmounted(() => {
         </div>
       </template>
 
-      <!-- 이모티콘 목록 -->
       <template v-else-if="!selectedEmoticonId">
-        <!-- 검색 -->
         <div class="search-area">
           <div class="relative">
             <Search class="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 nv-text-subtle" />
@@ -212,7 +174,6 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- 로딩 -->
         <div v-if="isLoading" class="loading-state">
           <div class="h-6 w-6 flex items-center justify-center">
             <BaseSpinner size="sm" class="scale-150" />
@@ -224,14 +185,12 @@ onUnmounted(() => {
           <button type="button" class="retry-btn" @click="retryListLoad">{{ t('common.error.retry') }}</button>
         </div>
 
-        <!-- 빈 상태 -->
         <div v-else-if="!filteredEmoticons?.length" class="empty-state">
           <Smile class="w-8 h-8 nv-text-subtle mb-2" />
           <p v-if="accessibleEmoticons?.length === 0">{{ t('emoticon.picker.availableEmpty') }}</p>
           <p v-else>{{ t('common.messages.noResults') }}</p>
         </div>
 
-        <!-- 이모티콘 목록 -->
         <EmoticonPickerGrid
           v-else
           :emoticons="filteredEmoticons"
@@ -267,7 +226,6 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-/* 모바일: 뷰포트 기준 고정 위치로 화면 밖 이탈 방지 */
 @media (max-width: 639px) {
   .emoticon-picker {
     position: fixed;
