@@ -1,4 +1,9 @@
-import { useQuery, type QueryFunctionContext, type QueryKey } from '@tanstack/vue-query'
+import {
+  useQuery,
+  type PlaceholderDataFunction,
+  type QueryFunctionContext,
+  type QueryKey,
+} from '@tanstack/vue-query'
 import type { AxiosResponse } from 'axios'
 import type { ComputedRef, Ref } from 'vue'
 import type { ApiResponse, PageResponse } from '@/types'
@@ -49,8 +54,10 @@ interface ApiNullablePageQueryOptions<TItem, TData = PageResponse<TItem>> {
   keepPreviousData?: boolean
 }
 
-function previousDataPlaceholder<TData>(enabled?: boolean) {
-  return enabled ? (previousData: TData | undefined) => previousData : undefined
+function previousDataPlaceholder<TData>(
+  enabled?: boolean
+): PlaceholderDataFunction<TData, Error, TData, QueryKey> | undefined {
+  return enabled ? (previousData) => previousData : undefined
 }
 
 export function useApiQuery<TResponse, TData = TResponse>({
@@ -73,7 +80,7 @@ export function useApiQuery<TResponse, TData = TResponse>({
     enabled,
     staleTime,
     refetchInterval,
-    placeholderData: previousDataPlaceholder<TData>(keepPreviousData) as never,
+    placeholderData: previousDataPlaceholder<TData>(keepPreviousData),
   })
 }
 
@@ -122,7 +129,7 @@ export function useApiPageQuery<TItem, TData = PageResponse<TItem>>({
     },
     enabled,
     staleTime,
-    placeholderData: previousDataPlaceholder<TData>(keepPreviousData) as never,
+    placeholderData: previousDataPlaceholder<TData>(keepPreviousData),
   })
 }
 
@@ -149,6 +156,6 @@ export function useNullableApiPageQuery<TItem, TData = PageResponse<TItem>>({
     },
     enabled,
     staleTime,
-    placeholderData: previousDataPlaceholder<TData | null>(keepPreviousData) as never,
+    placeholderData: previousDataPlaceholder<TData | null>(keepPreviousData),
   })
 }
