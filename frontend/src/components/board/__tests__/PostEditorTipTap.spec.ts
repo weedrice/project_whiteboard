@@ -2,10 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import {
     cleanupPostEditorTipTapTestState,
+    getEditorDomEventHandler,
     getPostEditorTipTapMocks,
+    mockNextEditorPositionAtCoords,
     mountEditor,
     resetPostEditorTipTapTestState,
     selectors,
+    setEditorRefValue,
+    setEditorSelection,
+    triggerEditorUpdate,
 } from './PostEditorTipTapTestHarness'
 
 const mocks = getPostEditorTipTapMocks()
@@ -21,8 +26,7 @@ describe('PostEditorTipTap', () => {
     it('emits updated html and syncs external model changes', async () => {
         const wrapper = mountEditor('<p>old</p>')
 
-        const onUpdate = mocks.editorOptions.value?.onUpdate as ({ editor }: { editor: typeof mocks.editor }) => void
-        onUpdate({ editor: mocks.editor })
+        triggerEditorUpdate()
         expect(wrapper.emitted('update:modelValue')?.[0]).toEqual(['<p>editor-html</p>'])
 
         await wrapper.setProps({ modelValue: '<p>remote</p>' })
@@ -35,8 +39,8 @@ describe('PostEditorTipTap', () => {
 
     it('handles link click guards and slash key opening', async () => {
         const wrapper = mountEditor()
-        const clickHandler = (mocks.editorOptions.value?.editorProps as any).handleDOMEvents.click
-        const keyHandler = (mocks.editorOptions.value?.editorProps as any).handleDOMEvents.keydown
+        const clickHandler = getEditorDomEventHandler<MouseEvent>('click')
+        const keyHandler = getEditorDomEventHandler<KeyboardEvent>('keydown')
 
         const link = document.createElement('a')
         link.href = 'https://example.com'
@@ -61,14 +65,14 @@ describe('PostEditorTipTap', () => {
         expect(keyHandler(null, slashEvent)).toBe(false)
         expect(wrapper.find('.slash-popover').exists()).toBe(false)
 
-        mocks.editor.state.selection = {
+        setEditorSelection({
             from: 1,
             to: 1,
             $from: {
                 parent: { textContent: '' },
                 parentOffset: 0,
             },
-        } as any
+        })
         const emptyParagraphSlashEvent = {
             key: '/',
             preventDefault: vi.fn(),
@@ -303,7 +307,7 @@ describe('PostEditorTipTap', () => {
         await nextTick()
         expect(mocks.editor.commands.setTextSelection).toHaveBeenCalledWith(3)
 
-        mocks.editor.view.posAtCoords.mockReturnValueOnce(null as any)
+        mockNextEditorPositionAtCoords(null)
         mocks.editor.state.doc.content.size = 10
         const secondEvent = new MouseEvent('mousedown', {
             bubbles: true,
@@ -315,7 +319,7 @@ describe('PostEditorTipTap', () => {
         await nextTick()
         expect(mocks.editor.commands.setTextSelection).toHaveBeenCalledWith(9)
 
-        mocks.editorRef.value = null as any
+        setEditorRefValue(null)
         const nullWrapper = mountEditor('')
         await nullWrapper.setProps({ modelValue: '<p>next-value</p>' })
         expect(mocks.editor.commands.setContent).not.toHaveBeenCalled()

@@ -3,6 +3,8 @@ import { defineComponent, h, nextTick } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 
 const mocks = vi.hoisted(() => {
+    type EditorPosition = { pos: number }
+
     const chain = {
         focus: vi.fn(),
         toggleBold: vi.fn(),
@@ -65,16 +67,25 @@ const mocks = vi.hoisted(() => {
         view: {
             dom: document.createElement('div'),
             focus: vi.fn(),
-            posAtCoords: vi.fn((): any => ({ pos: 3 })),
+            posAtCoords: vi.fn((): EditorPosition | null => ({ pos: 3 })),
         },
         destroy: vi.fn(),
     }
 
-    const editorRef = {
+    const editorRef: { __v_isRef: true; value: typeof editor | null } = {
         __v_isRef: true as const,
         value: editor,
     }
-    const editorOptions: { value: Record<string, unknown> | null } = { value: null }
+    type EditorOptions = {
+        onUpdate?: (payload: { editor: typeof editor }) => void
+        editorProps?: {
+            handleDOMEvents?: {
+                click?: (view: unknown, event: MouseEvent) => boolean
+                keydown?: (view: unknown, event: KeyboardEvent) => boolean
+            }
+        }
+    }
+    const editorOptions: { value: EditorOptions | null } = { value: null }
 
     const toastAdd = vi.fn()
     const loggerError = vi.fn()
@@ -105,7 +116,7 @@ const mocks = vi.hoisted(() => {
 })
 
 vi.mock('@tiptap/vue-3', () => ({
-    useEditor: vi.fn((options: Record<string, unknown>) => {
+    useEditor: vi.fn((options: NonNullable<typeof mocks.editorOptions.value>) => {
         mocks.editorOptions.value = options
         return mocks.editorRef
     }),
@@ -235,6 +246,38 @@ const selectors = {
 
 export const getPostEditorTipTapMocks = () => mocks
 
+export const triggerEditorUpdate = () => {
+    const onUpdate = mocks.editorOptions.value?.onUpdate
+    if (!onUpdate) {
+        throw new Error('Editor onUpdate handler was not registered')
+    }
+    onUpdate({ editor: mocks.editor })
+}
+
+export const getEditorDomEventHandler = <TEvent extends MouseEvent | KeyboardEvent>(
+    eventName: keyof NonNullable<
+        NonNullable<NonNullable<typeof mocks.editorOptions.value>['editorProps']>['handleDOMEvents']
+    >,
+) => {
+    const handler = mocks.editorOptions.value?.editorProps?.handleDOMEvents?.[eventName]
+    if (!handler) {
+        throw new Error(`Editor DOM event handler was not registered: ${String(eventName)}`)
+    }
+    return handler as (view: unknown, event: TEvent) => boolean
+}
+
+export const setEditorSelection = (selection: unknown) => {
+    mocks.editor.state.selection = selection as typeof mocks.editor.state.selection
+}
+
+export const mockNextEditorPositionAtCoords = (position: { pos: number } | null) => {
+    mocks.editor.view.posAtCoords.mockReturnValueOnce(position)
+}
+
+export const setEditorRefValue = (editor: typeof mocks.editor | null) => {
+    mocks.editorRef.value = editor
+}
+
 export const cleanupPostEditorTipTapTestState = () => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
@@ -244,7 +287,7 @@ export const resetPostEditorTipTapTestState = () => {
     vi.clearAllMocks()
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:https://noviis.kr/local-preview')
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
-    mocks.editorRef.value = mocks.editor
+    setEditorRefValue(mocks.editor)
     mocks.themeStore.isDark = false
     mocks.editor.getHTML.mockReturnValue('<p>editor-html</p>')
     mocks.editor.state.selection = { from: 1, to: 1 }

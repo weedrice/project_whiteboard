@@ -7,6 +7,7 @@ import { useBoard } from '@/composables/useBoard'
 import { usePost } from '@/composables/usePost'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
+import type { User } from '@/types'
 import logger from '@/utils/logger'
 
 vi.mock('vue-i18n', () => ({
@@ -273,9 +274,10 @@ const routeState = {
 
 type TestCategory = { categoryId: number; name: string; minWriteRole?: string }
 type TestBoard = { allowNsfw?: boolean; isAdmin?: boolean; categories?: TestCategory[] }
+type TestUserOverrides = Partial<User>
 
 const boardRef = ref<TestBoard | null>({ allowNsfw: false, isAdmin: false, categories: [] })
-const postRef = ref<any>(null)
+const postRef = ref<unknown>(null)
 const isBoardLoadingRef = ref(false)
 const isPostLoadingRef = ref(false)
 const isCreatePendingRef = ref(false)
@@ -329,6 +331,26 @@ const findEditorModeButtons = (wrapper: ReturnType<typeof mount>) => ({
     html: findButtonByText(wrapper, 'board.writePost.viewHtmlSource'),
 })
 
+const createTestUser = (overrides: TestUserOverrides = {}): User => ({
+    userId: 1,
+    loginId: 'test',
+    displayName: 'Test User',
+    email: 'test@example.com',
+    role: 'USER',
+    status: 'ACTIVE',
+    createdAt: '2026-05-27T00:00:00Z',
+    ...overrides,
+})
+
+const mockPostFormAuthStore = (
+    overrides: { isAuthenticated?: boolean; user?: TestUserOverrides | null } = {},
+) => {
+    vi.mocked(useAuthStore).mockReturnValue({
+        isAuthenticated: overrides.isAuthenticated ?? false,
+        user: overrides.user === null ? null : createTestUser(overrides.user),
+    } as ReturnType<typeof useAuthStore>)
+}
+
 export const unmountPostFormWrappers = () => {
     while (mountedWrappers.length > 0) {
         mountedWrappers.pop()?.unmount()
@@ -355,12 +377,12 @@ export const resetPostFormTestState = () => {
     isCreatePendingRef.value = false
     isUpdatePendingRef.value = false
 
-    vi.mocked(useAuthStore).mockReturnValue({ user: { role: 'USER' } } as any)
-    vi.mocked(useToastStore).mockReturnValue({ addToast: mockAddToast } as any)
+    mockPostFormAuthStore({ user: { role: 'USER' } })
+    vi.mocked(useToastStore).mockReturnValue({ addToast: mockAddToast } as ReturnType<typeof useToastStore>)
 
     vi.mocked(useBoard).mockReturnValue({
         useBoardDetail: () => ({ data: boardRef, isLoading: isBoardLoadingRef }),
-    } as any)
+    } as ReturnType<typeof useBoard>)
 
     vi.mocked(usePost).mockReturnValue({
         usePostDetail: mockUsePostDetail,
@@ -368,7 +390,7 @@ export const resetPostFormTestState = () => {
         useUpdatePost: mockUseUpdatePost,
         useSaveDraft: () => ({ isPending: isSaveDraftPendingRef, mutateAsync: mockSaveDraftMutateAsync }),
         useDeleteDraft: () => ({ isPending: isDeleteDraftPendingRef, mutateAsync: mockDeleteDraftMutateAsync }),
-    } as any)
+    } as ReturnType<typeof usePost>)
 
     mockUsePostDetail.mockImplementation(() => ({ data: postRef, isLoading: isPostLoadingRef }))
     mockUseCreatePost.mockImplementation(() => ({ mutate: mockCreateMutate, isPending: isCreatePendingRef }))
@@ -410,6 +432,7 @@ export {
     mockSaveDraftMutateAsync,
     mockUpdateMutate,
     mockUsePostDetail,
+    mockPostFormAuthStore,
     mountPostForm,
     postRef,
     routeState,

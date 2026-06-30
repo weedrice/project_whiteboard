@@ -12,6 +12,7 @@ import {
     isUpdatePendingRef,
     mockAddToast,
     mockCreateMutate,
+    mockPostFormAuthStore,
     mockSaveDraftMutateAsync,
     mockUpdateMutate,
     mockUsePostDetail,
@@ -23,7 +24,6 @@ import {
     unmountPostFormWrappers,
 } from './PostFormTestHarness'
 
-import { useAuthStore } from '@/stores/auth'
 import logger from '@/utils/logger'
 
 describe('PostForm', () => {
@@ -49,10 +49,10 @@ describe('PostForm', () => {
     })
 
     it('saves a draft from the header action when drafts are enabled', async () => {
-        vi.mocked(useAuthStore).mockReturnValue({
+        mockPostFormAuthStore({
             isAuthenticated: true,
             user: { userId: 1, role: 'USER' },
-        } as any)
+        })
         const wrapper = mountPostForm('create')
 
         await wrapper.get('#title').setValue('Draft title')
@@ -232,10 +232,10 @@ describe('PostForm', () => {
     })
 
     it('saves the draft before create submit and includes draft id', async () => {
-        vi.mocked(useAuthStore).mockReturnValue({
+        mockPostFormAuthStore({
             isAuthenticated: true,
             user: { userId: 1, role: 'USER' },
-        } as any)
+        })
         setBoardCategories([{ categoryId: 12, name: 'General', minWriteRole: 'USER' }])
         const wrapper = mountPostForm('create')
 
@@ -428,10 +428,10 @@ describe('PostForm', () => {
     })
 
     it('saves the draft before update submit and includes draft id', async () => {
-        vi.mocked(useAuthStore).mockReturnValue({
+        mockPostFormAuthStore({
             isAuthenticated: true,
             user: { userId: 1, role: 'USER' },
-        } as any)
+        })
         routeState.params.postId = '77'
         postRef.value = {
             postId: 77,
