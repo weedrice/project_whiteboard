@@ -10,6 +10,7 @@ import { postApi } from '@/api/post'
 import { postDetailQueryKey } from '@/composables/postQueryKeys'
 import i18n from '@/i18n'
 import { useToastStore } from '@/stores/toast'
+import { apiDataResponse } from '@/test/apiResponseFixtures'
 
 const queryClientMock = vi.hoisted(() => ({
     fetchQuery: vi.fn(({ queryFn }: { queryFn: () => Promise<unknown> }) => queryFn())
@@ -104,6 +105,73 @@ const collectLazyLoaders = (routes: RouteRecordRaw[]): Array<() => Promise<unkno
     return loaders
 }
 
+type BoardPermissionResponse = {
+    isAdmin: boolean
+    categories: Array<{
+        categoryId: number
+        name: string
+        minWriteRole: string
+    }>
+}
+
+const boardPermissionResponse = (data: BoardPermissionResponse) =>
+    apiDataResponse<typeof boardApi.getBoard>(data)
+
+const postDetailResponse = (authorUserId: number) =>
+    apiDataResponse<typeof postApi.getPost>({
+        postId: 10,
+        title: 'Editable post',
+        contents: 'content',
+        viewCount: 0,
+        likeCount: 0,
+        commentCount: 0,
+        isNotice: false,
+        isNsfw: false,
+        isSpoiler: false,
+        author: {
+            userId: authorUserId,
+            displayName: 'Author',
+            authorType: 'USER',
+        },
+        board: {
+            boardId: 1,
+            boardName: 'Open',
+            boardUrl: 'open',
+        },
+        createdAt: '2026-05-27T00:00:00Z',
+    })
+
+const emoticonDetailResponse = (
+    creatorId: number,
+    overrides: Partial<Awaited<ReturnType<typeof emoticonApi.getEmoticonData>>> = {},
+) => ({
+    emoticonId: 7,
+    creatorId,
+    name: 'Owned',
+    ...overrides,
+}) as Awaited<ReturnType<typeof emoticonApi.getEmoticonData>>
+
+const scrollRoute = (
+    overrides: Partial<Parameters<NonNullable<typeof router.options.scrollBehavior>>[0]>,
+) => ({
+    path: '/',
+    fullPath: '/',
+    hash: '',
+    query: {},
+    params: {},
+    matched: [],
+    meta: {},
+    redirectedFrom: undefined,
+    name: undefined,
+    ...overrides,
+}) as Parameters<NonNullable<typeof router.options.scrollBehavior>>[0]
+
+const failingRoute = (path: string, name: string, message: string): RouteRecordRaw => ({
+    path,
+    name,
+    component: () => Promise.reject(new Error(message)),
+})
+
 describe('Router Navigation Guards', () => {
     let mockAuthStore: any
 
@@ -129,45 +197,12 @@ describe('Router Navigation Guards', () => {
         }
         vi.mocked(useAuthStore).mockReturnValue(mockAuthStore)
         i18n.global.locale.value = 'ko'
-        vi.mocked(boardApi.getBoard).mockResolvedValue({
-            data: {
-                data: {
-                    isAdmin: false,
-                    categories: [{ categoryId: 1, name: 'Open', minWriteRole: 'USER' }]
-                }
-            }
-        } as never)
-        vi.mocked(emoticonApi.getEmoticonData).mockResolvedValue({
-            emoticonId: 7,
-            creatorId: 1,
-            name: 'Owned',
-        } as never)
-        vi.mocked(postApi.getPost).mockResolvedValue({
-            data: {
-                data: {
-                    postId: 10,
-                    title: 'Editable post',
-                    contents: 'content',
-                    viewCount: 0,
-                    likeCount: 0,
-                    commentCount: 0,
-                    isNotice: false,
-                    isNsfw: false,
-                    isSpoiler: false,
-                    author: {
-                        userId: 1,
-                        displayName: 'Author',
-                        authorType: 'USER',
-                    },
-                    board: {
-                        boardId: 1,
-                        boardName: 'Open',
-                        boardUrl: 'open',
-                    },
-                    createdAt: '2026-05-27T00:00:00Z',
-                }
-            }
-        } as never)
+        vi.mocked(boardApi.getBoard).mockResolvedValue(boardPermissionResponse({
+            isAdmin: false,
+            categories: [{ categoryId: 1, name: 'Open', minWriteRole: 'USER' }]
+        }))
+        vi.mocked(emoticonApi.getEmoticonData).mockResolvedValue(emoticonDetailResponse(1))
+        vi.mocked(postApi.getPost).mockResolvedValue(postDetailResponse(1))
         history.pushState({}, '', '/')
     })
 
@@ -238,14 +273,10 @@ describe('Router Navigation Guards', () => {
     it('redirects to board detail when the user cannot write any category', async () => {
         mockAuthStore.isAuthenticated = true
         mockAuthStore.user = { role: 'USER' }
-        vi.mocked(boardApi.getBoard).mockResolvedValueOnce({
-            data: {
-                data: {
-                    isAdmin: false,
-                    categories: [{ categoryId: 1, name: 'Admins', minWriteRole: 'BOARD_ADMIN' }]
-                }
-            }
-        } as never)
+        vi.mocked(boardApi.getBoard).mockResolvedValueOnce(boardPermissionResponse({
+            isAdmin: false,
+            categories: [{ categoryId: 1, name: 'Admins', minWriteRole: 'BOARD_ADMIN' }]
+        }))
 
         await router.push('/board/restricted/write')
 
@@ -257,14 +288,10 @@ describe('Router Navigation Guards', () => {
         mockAuthStore.isAuthenticated = true
         mockAuthStore.user = { role: 'USER' }
         i18n.global.locale.value = 'en'
-        vi.mocked(boardApi.getBoard).mockResolvedValueOnce({
-            data: {
-                data: {
-                    isAdmin: false,
-                    categories: [{ categoryId: 1, name: 'Admins', minWriteRole: 'BOARD_ADMIN' }]
-                }
-            }
-        } as never)
+        vi.mocked(boardApi.getBoard).mockResolvedValueOnce(boardPermissionResponse({
+            isAdmin: false,
+            categories: [{ categoryId: 1, name: 'Admins', minWriteRole: 'BOARD_ADMIN' }]
+        }))
 
         await router.push('/board/restricted/write')
 
@@ -327,14 +354,10 @@ describe('Router Navigation Guards', () => {
     it('checks board manager permission before entering board edit route', async () => {
         mockAuthStore.isAuthenticated = true
         mockAuthStore.user = { role: 'USER' }
-        vi.mocked(boardApi.getBoard).mockResolvedValueOnce({
-            data: {
-                data: {
-                    isAdmin: true,
-                    categories: []
-                }
-            }
-        } as never)
+        vi.mocked(boardApi.getBoard).mockResolvedValueOnce(boardPermissionResponse({
+            isAdmin: true,
+            categories: []
+        }))
 
         await router.push('/board/free/edit')
 
@@ -345,14 +368,10 @@ describe('Router Navigation Guards', () => {
     it('redirects to board detail when the user cannot manage the board', async () => {
         mockAuthStore.isAuthenticated = true
         mockAuthStore.user = { role: 'USER' }
-        vi.mocked(boardApi.getBoard).mockResolvedValueOnce({
-            data: {
-                data: {
-                    isAdmin: false,
-                    categories: []
-                }
-            }
-        } as never)
+        vi.mocked(boardApi.getBoard).mockResolvedValueOnce(boardPermissionResponse({
+            isAdmin: false,
+            categories: []
+        }))
 
         await router.push('/board/restricted/edit')
 
@@ -377,11 +396,10 @@ describe('Router Navigation Guards', () => {
     it('redirects to emoticon detail when the user does not own the emoticon', async () => {
         mockAuthStore.isAuthenticated = true
         mockAuthStore.user = { userId: 1, role: 'USER' }
-        vi.mocked(emoticonApi.getEmoticonData).mockResolvedValueOnce({
+        vi.mocked(emoticonApi.getEmoticonData).mockResolvedValueOnce(emoticonDetailResponse(2, {
             emoticonId: 8,
-            creatorId: 2,
             name: 'Not owned',
-        } as never)
+        }))
 
         await router.push('/emoticons/8/edit')
 
@@ -488,15 +506,15 @@ describe('Router Navigation Guards', () => {
     it('applies scroll behavior for saved position, hash and default top', () => {
         const scrollBehavior = router.options.scrollBehavior!
 
-        expect(scrollBehavior({ hash: '' } as any, {} as any, { left: 10, top: 20 })).toEqual({ left: 10, top: 20 })
-        expect(scrollBehavior({ hash: '#section-1' } as any, {} as any, null)).toEqual({ el: '#section-1', behavior: 'smooth' })
-        expect(scrollBehavior({ hash: '' } as any, {} as any, null)).toEqual({ top: 0 })
+        expect(scrollBehavior(scrollRoute({ hash: '' }), scrollRoute({}), { left: 10, top: 20 })).toEqual({ left: 10, top: 20 })
+        expect(scrollBehavior(scrollRoute({ hash: '#section-1' }), scrollRoute({}), null)).toEqual({ el: '#section-1', behavior: 'smooth' })
+        expect(scrollBehavior(scrollRoute({ hash: '' }), scrollRoute({}), null)).toEqual({ top: 0 })
     })
 
     it('preserves scroll when paginating the board list with a post open', () => {
         const scrollBehavior = router.options.scrollBehavior!
 
-        const from = {
+        const from = scrollRoute({
             name: 'post-detail',
             hash: '',
             params: {
@@ -506,8 +524,8 @@ describe('Router Navigation Guards', () => {
             query: {
                 page: '1',
             },
-        }
-        const to = {
+        })
+        const to = scrollRoute({
             name: 'post-detail',
             hash: '',
             params: {
@@ -517,9 +535,9 @@ describe('Router Navigation Guards', () => {
             query: {
                 page: '2',
             },
-        }
+        })
 
-        expect(scrollBehavior(to as any, from as any, null)).toBe(false)
+        expect(scrollBehavior(to, from, null)).toBe(false)
     })
 
     it('clears chunk reload key in afterEach hook', async () => {
@@ -532,11 +550,11 @@ describe('Router Navigation Guards', () => {
 
     it('redirects to error route after repeated chunk load failure', async () => {
         const pushSpy = vi.spyOn(router, 'push')
-        const removeRoute = router.addRoute({
-            path: '/chunk-fail-retry',
-            name: 'chunk-fail-retry',
-            component: () => Promise.reject(new Error('Importing a module script failed')) as any,
-        })
+        const removeRoute = router.addRoute(failingRoute(
+            '/chunk-fail-retry',
+            'chunk-fail-retry',
+            'Importing a module script failed',
+        ))
         sessionStorage.setItem('chunk-reload-attempted', '1')
 
         await router.push('/chunk-fail-retry').catch(() => undefined)
@@ -555,11 +573,11 @@ describe('Router Navigation Guards', () => {
     })
 
     it('sets chunk reload marker on first chunk load failure', async () => {
-        const removeRoute = router.addRoute({
-            path: '/chunk-fail-first',
-            name: 'chunk-fail-first',
-            component: () => Promise.reject(new Error('Failed to fetch dynamically imported module')) as any,
-        })
+        const removeRoute = router.addRoute(failingRoute(
+            '/chunk-fail-first',
+            'chunk-fail-first',
+            'Failed to fetch dynamically imported module',
+        ))
         sessionStorage.removeItem('chunk-reload-attempted')
 
         await router.push('/chunk-fail-first').catch(() => undefined)
@@ -573,11 +591,11 @@ describe('Router Navigation Guards', () => {
     it('logs and redirects to error route for non-chunk navigation errors', async () => {
         const loggerSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
         const pushSpy = vi.spyOn(router, 'push')
-        const removeRoute = router.addRoute({
-            path: '/general-error',
-            name: 'general-error',
-            component: () => Promise.reject(new Error('general failure')) as any,
-        })
+        const removeRoute = router.addRoute(failingRoute(
+            '/general-error',
+            'general-error',
+            'general failure',
+        ))
 
         await router.push('/general-error').catch(() => undefined)
 
