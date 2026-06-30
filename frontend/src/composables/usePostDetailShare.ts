@@ -44,6 +44,10 @@ export function usePostDetailShare({
 
   function handleCopyUrl(showToast = true) {
     if (!currentUrl.value) return
+    if (typeof navigator === 'undefined' || typeof navigator.clipboard?.writeText !== 'function') {
+      toastStore.addToast(t('common.messages.processFailed'), 'error')
+      return
+    }
 
     navigator.clipboard.writeText(currentUrl.value).then(() => {
       if (showToast) {
@@ -74,7 +78,7 @@ export function usePostDetailShare({
   }
 
   function handleShare() {
-    if (navigator.share && post.value) {
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function' && post.value) {
       navigator.share({
         title: post.value.title,
         url: currentUrl.value

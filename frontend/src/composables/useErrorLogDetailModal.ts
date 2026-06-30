@@ -61,6 +61,10 @@ export function useErrorLogDetailModal() {
     async function copyStackTrace() {
         const stackTrace = selectedLog.value?.stackTrace
         if (!stackTrace) return
+        if (typeof navigator === 'undefined' || typeof navigator.clipboard?.writeText !== 'function') {
+            toastStore.addToast(t('admin.errorLogs.messages.stackTraceCopyFailed'), 'error')
+            return
+        }
 
         try {
             await navigator.clipboard.writeText(stackTrace)

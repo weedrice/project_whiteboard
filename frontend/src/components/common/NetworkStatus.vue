@@ -2,13 +2,13 @@
     <Transition name="slide-down">
         <div v-if="isOffline" class="network-status offline" role="status" aria-live="polite">
             <div class="network-status-content">
-                <span class="network-status-icon" aria-hidden="true">📡</span>
+                <span class="network-status-icon" aria-hidden="true">!</span>
                 <span class="network-status-message">{{ t('common.network.offline') }}</span>
             </div>
         </div>
         <div v-else-if="wasOffline" class="network-status online" role="status" aria-live="polite">
             <div class="network-status-content">
-                <span class="network-status-icon" aria-hidden="true">✅</span>
+                <span class="network-status-icon" aria-hidden="true">OK</span>
                 <span class="network-status-message">{{ t('common.network.online') }}</span>
             </div>
         </div>
@@ -25,22 +25,23 @@ const { t } = useI18n()
 
 let timeoutId: ReturnType<typeof setTimeout> | null = null
 
-// 온라인 상태로 복귀 시 일정 시간 후 메시지 숨김
-watch([isOnline, wasOffline], ([newIsOnline, newWasOffline]) => {
-    // 기존 타이머가 있으면 클리어
-    if (timeoutId) {
-        clearTimeout(timeoutId)
-        timeoutId = null
-    }
-
-    if (newIsOnline && newWasOffline) {
-        // 3초 후 메시지 숨김
-        timeoutId = setTimeout(() => {
-            resetWasOffline()
+watch(
+    [isOnline, wasOffline],
+    ([newIsOnline, newWasOffline]) => {
+        if (timeoutId) {
+            clearTimeout(timeoutId)
             timeoutId = null
-        }, 3000)
-    }
-})
+        }
+
+        if (newIsOnline && newWasOffline) {
+            timeoutId = setTimeout(() => {
+                resetWasOffline()
+                timeoutId = null
+            }, 3000)
+        }
+    },
+    { immediate: true },
+)
 
 onUnmounted(() => {
     if (timeoutId) {
