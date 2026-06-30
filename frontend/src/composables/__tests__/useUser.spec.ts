@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useUser } from '../useUser'
 import { userApi } from '@/api/user'
 import { QUERY_STALE_TIME } from '@/utils/constants'
+import { apiDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
 
 const mocks = vi.hoisted(() => {
     const invalidateQueries = vi.fn()
@@ -78,9 +79,9 @@ describe('useUser', () => {
     })
 
     it('fetches my profile with medium staleTime', async () => {
-        vi.mocked(userApi.getMyProfile).mockResolvedValueOnce({
-            data: { data: { userId: 1, displayName: 'me' } },
-        } as never)
+        vi.mocked(userApi.getMyProfile).mockResolvedValueOnce(
+            apiDataResponse<typeof userApi.getMyProfile>({ userId: 1, displayName: 'me' })
+        )
 
         const { useMyProfile } = useUser()
         useMyProfile()
@@ -97,9 +98,9 @@ describe('useUser', () => {
     })
 
     it('fetches user profile and supports enabled guard', async () => {
-        vi.mocked(userApi.getUserProfile).mockResolvedValueOnce({
-            data: { data: { userId: 9 } },
-        } as never)
+        vi.mocked(userApi.getUserProfile).mockResolvedValueOnce(
+            apiDataResponse<typeof userApi.getUserProfile>({ userId: 9 })
+        )
 
         const { useUserProfile } = useUser()
         const userId = ref(9)
@@ -118,30 +119,30 @@ describe('useUser', () => {
     })
 
     it('fetches settings, blocks and notification settings queries', async () => {
-        vi.mocked(userApi.getUserSettings).mockResolvedValueOnce({
-            data: { data: { theme: 'LIGHT' } },
-        } as never)
-        vi.mocked(userApi.getBlockList).mockResolvedValueOnce({
-            data: {
-                data: {
-                    content: [{ userId: 100, displayName: 'blocked', secondaryText: 'blocked-login' }],
-                    totalElements: 1,
-                    totalPages: 1,
-                    size: 20,
-                    number: 0,
-                    first: true,
-                    last: true,
-                    empty: false,
-                },
-            },
-        } as never)
-        vi.mocked(userApi.getNotificationSettings).mockResolvedValueOnce({
-            data: { data: [{ notificationType: 'COMMENT', isEnabled: true }] },
-        } as never)
+        vi.mocked(userApi.getUserSettings).mockResolvedValueOnce(
+            apiDataResponse<typeof userApi.getUserSettings>({ theme: 'LIGHT' })
+        )
+        vi.mocked(userApi.getBlockList).mockResolvedValueOnce(
+            apiDataResponse<typeof userApi.getBlockList>({
+                content: [{ userId: 100, displayName: 'blocked', secondaryText: 'blocked-login' }],
+                totalElements: 1,
+                totalPages: 1,
+                size: 20,
+                number: 0,
+                first: true,
+                last: true,
+                empty: false,
+            })
+        )
+        vi.mocked(userApi.getNotificationSettings).mockResolvedValueOnce(
+            apiDataResponse<typeof userApi.getNotificationSettings>([
+                { notificationType: 'COMMENT', isEnabled: true },
+            ])
+        )
 
-        vi.mocked(userApi.getMyAgents).mockResolvedValueOnce({
-            data: { data: { agents: [{ agentId: 10 }] } },
-        } as never)
+        vi.mocked(userApi.getMyAgents).mockResolvedValueOnce(
+            apiDataResponse<typeof userApi.getMyAgents>({ agents: [{ agentId: 10 }] })
+        )
 
         const { useUserSettings, useBlockList, useNotificationSettings, useMyAgents } = useUser()
 
@@ -187,8 +188,8 @@ describe('useUser', () => {
 
     it('fetches recently viewed posts with optional params', async () => {
         vi.mocked(userApi.getRecentlyViewedPosts)
-            .mockResolvedValueOnce({ data: { data: { content: [{ postId: 1 }] } } } as never)
-            .mockResolvedValueOnce({ data: { data: { content: [{ postId: 2 }] } } } as never)
+            .mockResolvedValueOnce(apiDataResponse<typeof userApi.getRecentlyViewedPosts>({ content: [{ postId: 1 }] }))
+            .mockResolvedValueOnce(apiDataResponse<typeof userApi.getRecentlyViewedPosts>({ content: [{ postId: 2 }] }))
 
         const { useRecentlyViewedPosts } = useUser()
 
@@ -209,9 +210,9 @@ describe('useUser', () => {
     })
 
     it('fetches my points with user-scoped query key and enabled guard', async () => {
-        vi.mocked(userApi.getMyPoint).mockResolvedValueOnce({
-            data: { data: { currentPoint: 12345 } },
-        } as never)
+        vi.mocked(userApi.getMyPoint).mockResolvedValueOnce(
+            apiDataResponse<typeof userApi.getMyPoint>({ currentPoint: 12345 })
+        )
 
         const { useMyPoint } = useUser()
         const enabled = ref(false)
@@ -232,12 +233,12 @@ describe('useUser', () => {
     })
 
     it('fetches my scraps and point history with paginated query state', async () => {
-        vi.mocked(userApi.getMyScraps).mockResolvedValueOnce({
-            data: { data: { content: [{ postId: 1 }], totalPages: 1 } },
-        } as never)
-        vi.mocked(userApi.getMyPointHistories).mockResolvedValueOnce({
-            data: { data: { content: [{ historyId: 2 }], totalPages: 1 } },
-        } as never)
+        vi.mocked(userApi.getMyScraps).mockResolvedValueOnce(
+            apiDataResponse<typeof userApi.getMyScraps>({ content: [{ postId: 1 }], totalPages: 1 })
+        )
+        vi.mocked(userApi.getMyPointHistories).mockResolvedValueOnce(
+            apiDataResponse<typeof userApi.getMyPointHistories>({ content: [{ historyId: 2 }], totalPages: 1 })
+        )
 
         const { useMyScraps, useMyPointHistories } = useUser()
         const params = ref({ page: 1, size: 15 })
@@ -262,9 +263,7 @@ describe('useUser', () => {
     })
 
     it('updates profile and invalidates my profile cache', async () => {
-        vi.mocked(userApi.updateMyProfile).mockResolvedValueOnce({
-            data: { success: true },
-        } as never)
+        vi.mocked(userApi.updateMyProfile).mockResolvedValueOnce(apiSuccessResponse<typeof userApi.updateMyProfile>())
 
         const { useUpdateMyProfile } = useUser()
         const mutation = useUpdateMyProfile()
@@ -275,9 +274,7 @@ describe('useUser', () => {
     })
 
     it('updates password without cache invalidation side effects', async () => {
-        vi.mocked(userApi.updatePassword).mockResolvedValueOnce({
-            data: { success: true },
-        } as never)
+        vi.mocked(userApi.updatePassword).mockResolvedValueOnce(apiSuccessResponse<typeof userApi.updatePassword>())
 
         const { useUpdatePassword } = useUser()
         await useUpdatePassword().mutateAsync({ currentPassword: 'old', newPassword: 'new' })
@@ -286,9 +283,7 @@ describe('useUser', () => {
     })
 
     it('deletes account and clears query client cache', async () => {
-        vi.mocked(userApi.deleteAccount).mockResolvedValueOnce({
-            data: { success: true },
-        } as never)
+        vi.mocked(userApi.deleteAccount).mockResolvedValueOnce(apiSuccessResponse<typeof userApi.deleteAccount>())
 
         const { useDeleteAccount } = useUser()
         await useDeleteAccount().mutateAsync('password')
@@ -298,9 +293,7 @@ describe('useUser', () => {
     })
 
     it('updates user settings and invalidates settings query', async () => {
-        vi.mocked(userApi.updateUserSettings).mockResolvedValueOnce({
-            data: { success: true },
-        } as never)
+        vi.mocked(userApi.updateUserSettings).mockResolvedValueOnce(apiSuccessResponse<typeof userApi.updateUserSettings>())
 
         const { useUpdateUserSettings } = useUser()
         await useUpdateUserSettings().mutateAsync({ theme: 'DARK' })
@@ -310,9 +303,9 @@ describe('useUser', () => {
     })
 
     it('updates notification settings and invalidates notification settings query', async () => {
-        vi.mocked(userApi.updateNotificationSettingsBulk).mockResolvedValueOnce({
-            data: { success: true },
-        } as never)
+        vi.mocked(userApi.updateNotificationSettingsBulk).mockResolvedValueOnce(
+            apiSuccessResponse<typeof userApi.updateNotificationSettingsBulk>()
+        )
 
         const { useUpdateNotificationSettings } = useUser()
         await useUpdateNotificationSettings().mutateAsync({
@@ -326,10 +319,10 @@ describe('useUser', () => {
     })
 
     it('claims, suspends, activates and deletes agents and invalidates agent list', async () => {
-        vi.mocked(userApi.claimAgent).mockResolvedValueOnce({ data: { success: true } } as never)
-        vi.mocked(userApi.suspendMyAgent).mockResolvedValueOnce({ data: { success: true } } as never)
-        vi.mocked(userApi.activateMyAgent).mockResolvedValueOnce({ data: { success: true } } as never)
-        vi.mocked(userApi.deleteMyAgent).mockResolvedValueOnce({ data: { success: true } } as never)
+        vi.mocked(userApi.claimAgent).mockResolvedValueOnce(apiSuccessResponse<typeof userApi.claimAgent>())
+        vi.mocked(userApi.suspendMyAgent).mockResolvedValueOnce(apiSuccessResponse<typeof userApi.suspendMyAgent>())
+        vi.mocked(userApi.activateMyAgent).mockResolvedValueOnce(apiSuccessResponse<typeof userApi.activateMyAgent>())
+        vi.mocked(userApi.deleteMyAgent).mockResolvedValueOnce(apiSuccessResponse<typeof userApi.deleteMyAgent>())
 
         const { useClaimAgent, useSuspendMyAgent, useActivateMyAgent, useDeleteMyAgent } = useUser()
 
@@ -349,8 +342,8 @@ describe('useUser', () => {
     })
 
     it('blocks and unblocks user and invalidates block list', async () => {
-        vi.mocked(userApi.blockUser).mockResolvedValueOnce({ data: { success: true } } as never)
-        vi.mocked(userApi.unblockUser).mockResolvedValueOnce({ data: { success: true } } as never)
+        vi.mocked(userApi.blockUser).mockResolvedValueOnce(apiSuccessResponse<typeof userApi.blockUser>())
+        vi.mocked(userApi.unblockUser).mockResolvedValueOnce(apiSuccessResponse<typeof userApi.unblockUser>())
 
         const { useBlockUser, useUnblockUser } = useUser()
 

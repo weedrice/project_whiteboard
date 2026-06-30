@@ -3,6 +3,8 @@ import { computed, ref } from 'vue'
 import { useSearch } from '../useSearch'
 import { searchApi } from '@/api/search'
 import { QUERY_STALE_TIME } from '@/utils/constants'
+import { apiDataResponse, apiSuccessDataResponse } from '@/test/apiResponseFixtures'
+import type { SearchParams } from '@/types'
 
 const mocks = vi.hoisted(() => {
     const queryOptions: Array<Record<string, unknown>> = []
@@ -41,13 +43,13 @@ describe('useSearch', () => {
     })
 
     it('fetches search posts and supports q/keyword enabled conditions', async () => {
-        vi.mocked(searchApi.searchPosts).mockResolvedValueOnce({
-            data: { data: { content: [{ postId: 1 }] } },
-        } as never)
+        vi.mocked(searchApi.searchPosts).mockResolvedValueOnce(
+            apiDataResponse<typeof searchApi.searchPosts>({ content: [{ postId: 1 }] })
+        )
 
         const { useSearchPosts } = useSearch()
-        const params = ref({ q: 'vue', page: 0, size: 20 })
-        useSearchPosts(params as never)
+        const params = ref<SearchParams>({ q: 'vue', page: 0, size: 20 })
+        useSearchPosts(params)
 
         const options = mocks.queryOptions.at(-1)!
         expect(options.queryKey).toEqual(['search', 'posts', params])
@@ -67,59 +69,57 @@ describe('useSearch', () => {
             totalPages: 1,
         })
 
-        const keywordParams = ref({ keyword: 'vite' })
-        useSearchPosts(keywordParams as never)
+        const keywordParams = ref<SearchParams>({ keyword: 'vite' })
+        useSearchPosts(keywordParams)
         const keywordOptions = mocks.queryOptions.at(-1)!
         expect((keywordOptions.enabled as ReturnType<typeof computed>).value).toBe(true)
 
-        const disabledParams = ref({})
-        useSearchPosts(disabledParams as never)
+        const disabledParams = ref<SearchParams>({})
+        useSearchPosts(disabledParams)
         const disabledOptions = mocks.queryOptions.at(-1)!
         expect((disabledOptions.enabled as ReturnType<typeof computed>).value).toBe(false)
 
-        const blankParams = ref({ q: '   ', keyword: '  ' })
-        useSearchPosts(blankParams as never)
+        const blankParams = ref<SearchParams>({ q: '   ', keyword: '  ' })
+        useSearchPosts(blankParams)
         const blankOptions = mocks.queryOptions.at(-1)!
         expect((blankOptions.enabled as ReturnType<typeof computed>).value).toBe(false)
     })
 
     it('fetches integrated search and uses q-only enabled condition', async () => {
-        vi.mocked(searchApi.search).mockResolvedValueOnce({
-            data: {
-                data: {
-                    keyword: 'pinia',
-                    postResults: {
-                        items: [{ postId: 2 }],
-                        totalElements: 1,
-                        totalPages: 1,
-                        page: 0,
-                        size: 5,
-                        hasMore: false,
-                    },
-                    commentResults: {
-                        items: [],
-                        totalElements: 0,
-                        totalPages: 0,
-                        page: 0,
-                        size: 5,
-                        hasMore: false,
-                    },
-                    userResults: {
-                        items: [],
-                        totalElements: 0,
-                        totalPages: 0,
-                        page: 0,
-                        size: 5,
-                        hasMore: false,
-                    },
-                    boardResults: [],
-                }
-            },
-        } as never)
+        vi.mocked(searchApi.search).mockResolvedValueOnce(
+            apiDataResponse<typeof searchApi.search>({
+                keyword: 'pinia',
+                postResults: {
+                    items: [{ postId: 2 }],
+                    totalElements: 1,
+                    totalPages: 1,
+                    page: 0,
+                    size: 5,
+                    hasMore: false,
+                },
+                commentResults: {
+                    items: [],
+                    totalElements: 0,
+                    totalPages: 0,
+                    page: 0,
+                    size: 5,
+                    hasMore: false,
+                },
+                userResults: {
+                    items: [],
+                    totalElements: 0,
+                    totalPages: 0,
+                    page: 0,
+                    size: 5,
+                    hasMore: false,
+                },
+                boardResults: [],
+            })
+        )
 
         const { useIntegratedSearch } = useSearch()
-        const params = ref({ q: 'pinia', size: 5 })
-        useIntegratedSearch(params as never)
+        const params = ref<SearchParams>({ q: 'pinia', size: 5 })
+        useIntegratedSearch(params)
 
         const options = mocks.queryOptions.at(-1)!
         expect(options.queryKey).toEqual(['search', 'integrated', params])
@@ -141,27 +141,24 @@ describe('useSearch', () => {
             },
         })
 
-        const disabledParams = ref({ keyword: 'only-keyword' })
-        useIntegratedSearch(disabledParams as never)
+        const disabledParams = ref<SearchParams>({ keyword: 'only-keyword' })
+        useIntegratedSearch(disabledParams)
         const disabledOptions = mocks.queryOptions.at(-1)!
         expect((disabledOptions.enabled as ReturnType<typeof computed>).value).toBe(false)
 
-        const blankParams = ref({ q: '   ' })
-        useIntegratedSearch(blankParams as never)
+        const blankParams = ref<SearchParams>({ q: '   ' })
+        useIntegratedSearch(blankParams)
         const blankOptions = mocks.queryOptions.at(-1)!
         expect((blankOptions.enabled as ReturnType<typeof computed>).value).toBe(false)
     })
 
     it('fetches popular keywords with medium staleTime', async () => {
-        vi.mocked(searchApi.getPopularKeywords).mockResolvedValueOnce({
-            data: {
-                success: true,
-                data: [
-                    { keyword: 'Vue 3', count: 120 },
-                    { keyword: 'Tailwind', count: 95 },
-                ],
-            },
-        } as never)
+        vi.mocked(searchApi.getPopularKeywords).mockResolvedValueOnce(
+            apiSuccessDataResponse<typeof searchApi.getPopularKeywords>([
+                { keyword: 'Vue 3', count: 120 },
+                { keyword: 'Tailwind', count: 95 },
+            ])
+        )
 
         const { usePopularKeywords } = useSearch()
         usePopularKeywords()

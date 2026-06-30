@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, ref } from 'vue'
 import { postDetailQueryKey, usePost } from '../usePost'
 import { postApi } from '@/api/post'
+import { apiDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
 
 type QueryKey = unknown[]
 type StoreEntry = { key: QueryKey; data: unknown }
@@ -159,9 +160,9 @@ describe('usePost', () => {
     })
 
     it('registers post detail query and fetches post data with incrementView', async () => {
-        vi.mocked(postApi.getPost).mockResolvedValueOnce({
-            data: { data: { postId: 1, title: 'Test Post' } },
-        } as never)
+        vi.mocked(postApi.getPost).mockResolvedValueOnce(
+            apiDataResponse<typeof postApi.getPost>({ postId: 1, title: 'Test Post' })
+        )
 
         const { usePostDetail } = usePost()
         const postId = ref(1)
@@ -177,9 +178,9 @@ describe('usePost', () => {
     })
 
     it('registers post detail query without incrementing views when requested', async () => {
-        vi.mocked(postApi.getPost).mockResolvedValueOnce({
-            data: { data: { postId: 1, title: 'Edit Post' } },
-        } as never)
+        vi.mocked(postApi.getPost).mockResolvedValueOnce(
+            apiDataResponse<typeof postApi.getPost>({ postId: 1, title: 'Edit Post' })
+        )
 
         const { usePostDetail } = usePost()
         const postId = ref(1)
@@ -193,16 +194,14 @@ describe('usePost', () => {
     })
 
     it('normalizes post detail reaction aliases from the API response', async () => {
-        vi.mocked(postApi.getPost).mockResolvedValueOnce({
-            data: {
-                data: {
-                    postId: 1,
-                    title: 'Alias Post',
-                    isLiked: true,
-                    isScrapped: true,
-                },
-            },
-        } as never)
+        vi.mocked(postApi.getPost).mockResolvedValueOnce(
+            apiDataResponse<typeof postApi.getPost>({
+                postId: 1,
+                title: 'Alias Post',
+                isLiked: true,
+                isScrapped: true,
+            })
+        )
 
         const { usePostDetail } = usePost()
         usePostDetail(ref(1))
@@ -227,7 +226,9 @@ describe('usePost', () => {
     })
 
     it('invalidates board post list after create', async () => {
-        vi.mocked(postApi.createPost).mockResolvedValueOnce({ data: { postId: 2 } } as never)
+        vi.mocked(postApi.createPost).mockResolvedValueOnce(
+            apiDataResponse<typeof postApi.createPost>({ postId: 2 })
+        )
 
         const { useCreatePost } = usePost()
         const mutation = useCreatePost()
@@ -239,7 +240,9 @@ describe('usePost', () => {
     })
 
     it('invalidates related post caches after update', async () => {
-        vi.mocked(postApi.updatePost).mockResolvedValueOnce({ data: { postId: 1 } } as never)
+        vi.mocked(postApi.updatePost).mockResolvedValueOnce(
+            apiDataResponse<typeof postApi.updatePost>({ postId: 1 })
+        )
 
         const { useUpdatePost } = usePost()
         const mutation = useUpdatePost()
@@ -255,7 +258,7 @@ describe('usePost', () => {
     })
 
     it('invalidates board queries after delete', async () => {
-        vi.mocked(postApi.deletePost).mockResolvedValueOnce({ data: { success: true } } as never)
+        vi.mocked(postApi.deletePost).mockResolvedValueOnce(apiSuccessResponse<typeof postApi.deletePost>())
 
         const { useDeletePost } = usePost()
         const mutation = useDeletePost()
@@ -267,7 +270,7 @@ describe('usePost', () => {
     })
 
     it('applies optimistic like updates across all caches and invalidates on settle', async () => {
-        vi.mocked(postApi.likePost).mockResolvedValueOnce({ data: { success: true } } as never)
+        vi.mocked(postApi.likePost).mockResolvedValueOnce(apiSuccessResponse<typeof postApi.likePost>())
 
         seedQueryData(['post', 1], { postId: 1, likeCount: 2, liked: false })
         seedQueryData(['posts'], {
@@ -308,7 +311,7 @@ describe('usePost', () => {
     })
 
     it('handles missing/unsupported cache shapes during optimistic like update', async () => {
-        vi.mocked(postApi.likePost).mockResolvedValueOnce({ data: { success: true } } as never)
+        vi.mocked(postApi.likePost).mockResolvedValueOnce(apiSuccessResponse<typeof postApi.likePost>())
 
         seedQueryData(['posts'], {
             pages: [{ content: [{ postId: 2, likeCount: 10 }, { postId: 1, liked: false }] }],
@@ -386,7 +389,7 @@ describe('usePost', () => {
     })
 
     it('unlikes without dropping below zero', async () => {
-        vi.mocked(postApi.unlikePost).mockResolvedValueOnce({ data: { success: true } } as never)
+        vi.mocked(postApi.unlikePost).mockResolvedValueOnce(apiSuccessResponse<typeof postApi.unlikePost>())
         seedQueryData(['post', 1], { postId: 1, likeCount: 0, liked: true })
 
         const { useUnlikePost } = usePost()
@@ -425,7 +428,7 @@ describe('usePost', () => {
             content: [{ postId: 1, scrapped: false }],
         })
 
-        vi.mocked(postApi.scrapPost).mockResolvedValueOnce({ data: { success: true } } as never)
+        vi.mocked(postApi.scrapPost).mockResolvedValueOnce(apiSuccessResponse<typeof postApi.scrapPost>())
         const { useScrapPost } = usePost()
         await useScrapPost().mutate(1)
         expect(getQueryDataValue(['post', 1])).toMatchObject({ scrapped: true })
@@ -496,7 +499,7 @@ describe('usePost', () => {
     })
 
     it('calls report post API', async () => {
-        vi.mocked(postApi.reportPost).mockResolvedValueOnce({ data: { success: true } } as never)
+        vi.mocked(postApi.reportPost).mockResolvedValueOnce(apiSuccessResponse<typeof postApi.reportPost>())
         const payload = { targetPostId: 1, reason: 'spam' }
 
         const { useReportPost } = usePost()

@@ -5,6 +5,7 @@ import { boardApi } from '@/api/board'
 import { userApi } from '@/api/user'
 import { searchApi } from '@/api/search'
 import { QUERY_STALE_TIME } from '@/utils/constants'
+import { apiDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
 
 const mocks = vi.hoisted(() => {
     const invalidateQueries = vi.fn()
@@ -81,9 +82,9 @@ describe('useBoard', () => {
     })
 
     it('fetches boards with medium staleTime', async () => {
-        vi.mocked(boardApi.getBoards).mockResolvedValueOnce({
-            data: { data: [{ boardId: 1 }] },
-        } as never)
+        vi.mocked(boardApi.getBoards).mockResolvedValueOnce(
+            apiDataResponse<typeof boardApi.getBoards>([{ boardId: 1 }])
+        )
 
         const { useBoards } = useBoard()
         const query = useBoards()
@@ -97,21 +98,19 @@ describe('useBoard', () => {
     })
 
     it('fetches subscribed boards and supports enabled variations', async () => {
-        vi.mocked(userApi.getMySubscriptions).mockResolvedValue({
-            data: {
-                data: {
-                    content: [
-                        { boardId: 11, boardName: 'General', accessState: 'ACCESSIBLE' },
-                        {
-                            boardId: 12,
-                            boardName: null,
-                            accessState: 'INACCESSIBLE',
-                            inaccessibleReason: 'PRIVATE',
-                        },
-                    ],
-                },
-            },
-        } as never)
+        vi.mocked(userApi.getMySubscriptions).mockResolvedValue(
+            apiDataResponse<typeof userApi.getMySubscriptions>({
+                content: [
+                    { boardId: 11, boardName: 'General', accessState: 'ACCESSIBLE' },
+                    {
+                        boardId: 12,
+                        boardName: null,
+                        accessState: 'INACCESSIBLE',
+                        inaccessibleReason: 'PRIVATE',
+                    },
+                ],
+            })
+        )
 
         const { useSubscribedBoards } = useBoard()
 
@@ -133,9 +132,9 @@ describe('useBoard', () => {
     })
 
     it('fetches board detail with enabled guards', async () => {
-        vi.mocked(boardApi.getBoard).mockResolvedValueOnce({
-            data: { data: { boardId: 2, boardUrl: 'free' } },
-        } as never)
+        vi.mocked(boardApi.getBoard).mockResolvedValueOnce(
+            apiDataResponse<typeof boardApi.getBoard>({ boardId: 2, boardUrl: 'free' })
+        )
         const { useBoardDetail } = useBoard()
         const boardUrl = ref('free')
 
@@ -149,9 +148,9 @@ describe('useBoard', () => {
     })
 
     it('fetches board notices with enabled guards', async () => {
-        vi.mocked(boardApi.getNotices).mockResolvedValueOnce({
-            data: { data: [{ postId: 11, title: 'Notice' }] },
-        } as never)
+        vi.mocked(boardApi.getNotices).mockResolvedValueOnce(
+            apiDataResponse<typeof boardApi.getNotices>([{ postId: 11, title: 'Notice' }])
+        )
         const { useBoardNotices } = useBoard()
         const boardUrl = ref('free')
         const enabled = ref(true)
@@ -166,9 +165,9 @@ describe('useBoard', () => {
     })
 
     it('fetches board posts through boardApi when not searching', async () => {
-        vi.mocked(boardApi.getPosts).mockResolvedValueOnce({
-            data: { data: { content: [{ postId: 1 }] } },
-        } as never)
+        vi.mocked(boardApi.getPosts).mockResolvedValueOnce(
+            apiDataResponse<typeof boardApi.getPosts>({ content: [{ postId: 1 }] })
+        )
 
         const { useBoardPosts } = useBoard()
         const boardUrl = ref('free')
@@ -200,9 +199,9 @@ describe('useBoard', () => {
     })
 
     it('fetches board posts through searchApi when searching', async () => {
-        vi.mocked(searchApi.searchPosts).mockResolvedValueOnce({
-            data: { data: { content: [{ postId: 2 }] } },
-        } as never)
+        vi.mocked(searchApi.searchPosts).mockResolvedValueOnce(
+            apiDataResponse<typeof searchApi.searchPosts>({ content: [{ postId: 2 }] })
+        )
 
         const { useBoardPosts } = useBoard()
         const boardUrl = ref('free')
@@ -224,9 +223,9 @@ describe('useBoard', () => {
     })
 
     it('forwards board post requestConfig and query options when provided', async () => {
-        vi.mocked(boardApi.getPosts).mockResolvedValueOnce({
-            data: { data: { content: [] } },
-        } as never)
+        vi.mocked(boardApi.getPosts).mockResolvedValueOnce(
+            apiDataResponse<typeof boardApi.getPosts>({ content: [] })
+        )
 
         const { useBoardPosts } = useBoard()
         const boardUrl = ref('free')
@@ -249,9 +248,9 @@ describe('useBoard', () => {
     })
 
     it('forwards search requestConfig when board posts are fetched through searchApi', async () => {
-        vi.mocked(searchApi.searchPosts).mockResolvedValueOnce({
-            data: { data: { content: [] } },
-        } as never)
+        vi.mocked(searchApi.searchPosts).mockResolvedValueOnce(
+            apiDataResponse<typeof searchApi.searchPosts>({ content: [] })
+        )
 
         const { useBoardPosts } = useBoard()
         const boardUrl = ref('free')
@@ -277,9 +276,9 @@ describe('useBoard', () => {
     })
 
     it('fetches board categories', async () => {
-        vi.mocked(boardApi.getCategories).mockResolvedValueOnce({
-            data: { data: [{ categoryId: 1, name: 'notice' }] },
-        } as never)
+        vi.mocked(boardApi.getCategories).mockResolvedValueOnce(
+            apiDataResponse<typeof boardApi.getCategories>([{ categoryId: 1, name: 'notice' }])
+        )
 
         const { useBoardCategories } = useBoard()
         const boardUrl = ref('free')
@@ -301,8 +300,8 @@ describe('useBoard', () => {
     })
 
     it('subscribes or unsubscribes and invalidates related caches', async () => {
-        vi.mocked(boardApi.subscribeBoard).mockResolvedValueOnce({ data: { success: true } } as never)
-        vi.mocked(boardApi.unsubscribeBoard).mockResolvedValueOnce({ data: { success: true } } as never)
+        vi.mocked(boardApi.subscribeBoard).mockResolvedValueOnce(apiSuccessResponse<typeof boardApi.subscribeBoard>())
+        vi.mocked(boardApi.unsubscribeBoard).mockResolvedValueOnce(apiSuccessResponse<typeof boardApi.unsubscribeBoard>())
 
         const { useSubscribeBoard } = useBoard()
         const mutation = useSubscribeBoard()
@@ -319,8 +318,8 @@ describe('useBoard', () => {
     })
 
     it('forwards subscribe requestConfig when provided', async () => {
-        vi.mocked(boardApi.subscribeBoard).mockResolvedValueOnce({ data: { success: true } } as never)
-        vi.mocked(boardApi.unsubscribeBoard).mockResolvedValueOnce({ data: { success: true } } as never)
+        vi.mocked(boardApi.subscribeBoard).mockResolvedValueOnce(apiSuccessResponse<typeof boardApi.subscribeBoard>())
+        vi.mocked(boardApi.unsubscribeBoard).mockResolvedValueOnce(apiSuccessResponse<typeof boardApi.unsubscribeBoard>())
 
         const { useSubscribeBoard } = useBoard()
         const mutation = useSubscribeBoard({
@@ -335,9 +334,9 @@ describe('useBoard', () => {
     })
 
     it('creates board and invalidates board lists', async () => {
-        vi.mocked(boardApi.createBoard).mockResolvedValueOnce({
-            data: { data: { boardId: 3, boardUrl: 'new' } },
-        } as never)
+        vi.mocked(boardApi.createBoard).mockResolvedValueOnce(
+            apiDataResponse<typeof boardApi.createBoard>({ boardId: 3, boardUrl: 'new' })
+        )
 
         const { useCreateBoard } = useBoard()
         const mutation = useCreateBoard()
@@ -350,9 +349,9 @@ describe('useBoard', () => {
     })
 
     it('updates board and invalidates detail plus lists', async () => {
-        vi.mocked(boardApi.updateBoard).mockResolvedValueOnce({
-            data: { data: { boardId: 4, boardUrl: 'free', boardName: 'updated' } },
-        } as never)
+        vi.mocked(boardApi.updateBoard).mockResolvedValueOnce(
+            apiDataResponse<typeof boardApi.updateBoard>({ boardId: 4, boardUrl: 'free', boardName: 'updated' })
+        )
 
         const { useUpdateBoard } = useBoard()
         const mutation = useUpdateBoard()
@@ -366,9 +365,9 @@ describe('useBoard', () => {
     })
 
     it('invalidates old and new board detail caches when board URL changes', async () => {
-        vi.mocked(boardApi.updateBoard).mockResolvedValueOnce({
-            data: { data: { boardId: 4, boardUrl: 'new-free', boardName: 'updated' } },
-        } as never)
+        vi.mocked(boardApi.updateBoard).mockResolvedValueOnce(
+            apiDataResponse<typeof boardApi.updateBoard>({ boardId: 4, boardUrl: 'new-free', boardName: 'updated' })
+        )
 
         const { useUpdateBoard } = useBoard()
         const mutation = useUpdateBoard()
@@ -381,9 +380,9 @@ describe('useBoard', () => {
     })
 
     it('transfers board manager and invalidates detail plus lists', async () => {
-        vi.mocked(boardApi.updateBoardManager).mockResolvedValueOnce({
-            data: { data: { boardId: 4, boardUrl: 'free', adminDisplayName: 'manager' } },
-        } as never)
+        vi.mocked(boardApi.updateBoardManager).mockResolvedValueOnce(
+            apiDataResponse<typeof boardApi.updateBoardManager>({ boardId: 4, boardUrl: 'free', adminDisplayName: 'manager' })
+        )
 
         const { useTransferBoardManager } = useBoard()
         const mutation = useTransferBoardManager()
@@ -397,9 +396,11 @@ describe('useBoard', () => {
     })
 
     it('fetches board manager candidates with enabled guard', async () => {
-        vi.mocked(boardApi.getBoardManagerCandidates).mockResolvedValueOnce({
-            data: { data: { content: [{ userId: 1, loginId: 'manager', currentManager: true }] } },
-        } as never)
+        vi.mocked(boardApi.getBoardManagerCandidates).mockResolvedValueOnce(
+            apiDataResponse<typeof boardApi.getBoardManagerCandidates>({
+                content: [{ userId: 1, loginId: 'manager', currentManager: true }],
+            })
+        )
 
         const { useBoardManagerCandidates } = useBoard()
         const boardUrl = ref('free')
@@ -434,9 +435,9 @@ describe('useBoard', () => {
     })
 
     it('deletes board and invalidates board lists', async () => {
-        vi.mocked(boardApi.deleteBoard).mockResolvedValueOnce({
-            data: { data: null },
-        } as never)
+        vi.mocked(boardApi.deleteBoard).mockResolvedValueOnce(
+            apiDataResponse<typeof boardApi.deleteBoard>(null)
+        )
 
         const { useDeleteBoard } = useBoard()
         const mutation = useDeleteBoard()
