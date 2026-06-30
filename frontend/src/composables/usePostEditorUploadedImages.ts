@@ -1,4 +1,4 @@
-import { ref, type Ref } from 'vue'
+import { onScopeDispose, ref, type Ref } from 'vue'
 import type { Editor } from '@tiptap/core'
 import { escapeHtmlAttr } from '@/components/board/editor/postEditorHtml'
 
@@ -30,6 +30,8 @@ export function usePostEditorUploadedImages(
     editorImagePreviewUrls.forEach((url) => URL.revokeObjectURL(url))
     editorImagePreviewUrls.clear()
   }
+
+  onScopeDispose(disposeUploadedImagePreviews, true)
 
   return {
     fileIds,

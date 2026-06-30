@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ref } from 'vue'
+import { effectScope, ref } from 'vue'
 import type { Editor } from '@tiptap/core'
 import { usePostEditorUploadedImages } from '../usePostEditorUploadedImages'
 
@@ -66,5 +66,19 @@ describe('usePostEditorUploadedImages', () => {
         expect(chain.insertContent.mock.calls[0][0]).not.toContain('data-file-id')
         expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:https://noviis.kr/one')
         expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:https://noviis.kr/two')
+    })
+
+    it('revokes preview urls when the owning effect scope is disposed', () => {
+        const scope = effectScope()
+        const { editorRef } = createEditorRef()
+
+        scope.run(() => {
+            const { insertUploadedImage } = usePostEditorUploadedImages(editorRef, vi.fn())
+            insertUploadedImage({ url: 'https://cdn.test/scoped.png' }, new File(['scoped'], 'scoped.png', { type: 'image/png' }))
+        })
+
+        scope.stop()
+
+        expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:https://noviis.kr/preview"unsafe')
     })
 })

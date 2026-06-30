@@ -3,7 +3,7 @@ import type { LocaleMessage } from '@intlify/core-base'
 import type { VueMessageType } from 'vue-i18n'
 import messages from './locales'
 
-const i18nMessages = messages as unknown as Record<keyof typeof messages, LocaleMessage<VueMessageType>>
+const i18nMessages: Record<keyof typeof messages, LocaleMessage<VueMessageType>> = messages
 
 const rawI18n = createI18n({
     legacy: false,
