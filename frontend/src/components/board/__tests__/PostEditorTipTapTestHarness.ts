@@ -2,6 +2,12 @@ import { vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 
+export type PostEditorTipTapAttributes =
+    | { color: string; fontSize: string; lineHeight: string }
+    | { color: string }
+    | { href: string }
+    | Record<string, never>
+
 const mocks = vi.hoisted(() => {
     type EditorPosition = { pos: number }
 
@@ -50,7 +56,7 @@ const mocks = vi.hoisted(() => {
         setTextSelection: vi.fn(),
         updateAttributes: vi.fn(),
         },
-        getAttributes: vi.fn((name: string): any => {
+        getAttributes: vi.fn((name: string): PostEditorTipTapAttributes => {
             if (name === 'textStyle') return { color: '', fontSize: '', lineHeight: '' }
             if (name === 'highlight') return { color: '#fef08a' }
             if (name === 'link') return { href: '' }

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { defineComponent, h, nextTick, reactive, type PropType } from 'vue'
+import { defineComponent, h, nextTick, reactive, ref, watch, type PropType } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { AxiosHeaders, type AxiosResponse } from 'axios'
 import BoardEdit from '../BoardEdit.vue'
@@ -10,6 +10,12 @@ import { getExposedVm } from '@/test/vue-test-helpers'
 type BoardEditExposed = {
   confirmManagerSelection(users: Array<{ loginId: string; displayName?: string }>): Promise<void>
 }
+
+type BoardDetailResponse = AxiosResponse<ApiResponse<BoardDetail>>
+
+const boardApiMock = vi.hoisted(() => ({
+  getBoard: vi.fn<(boardUrl: string) => Promise<BoardDetailResponse>>(),
+}))
 
 const routeState = reactive({
   params: {
@@ -44,9 +50,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
 })
 
 vi.mock('@/api/board', () => ({
-  boardApi: {
-    getBoard: vi.fn(),
-  },
+  boardApi: boardApiMock,
 }))
 
 vi.mock('@/stores/toast', () => ({
@@ -68,39 +72,34 @@ vi.mock('@/composables/useErrorHandler', () => ({
   useErrorHandler: () => ({ handleError: vi.fn() }),
 }))
 
-vi.mock('@/composables/useBoard', async () => {
-  const { ref, watch } = await import('vue')
-  const { boardApi: mockedBoardApi } = await import('@/api/board')
+vi.mock('@/composables/useBoard', () => ({
+  useBoard: () => ({
+    useBoardDetail: (boardUrl: { value: string }) => {
+      const data = ref<BoardDetail | null>(null)
+      const isLoading = ref(false)
+      const error = ref<unknown>(null)
 
-  return {
-    useBoard: () => ({
-      useBoardDetail: (boardUrl: { value: string }) => {
-        const data = ref<unknown>(null)
-        const isLoading = ref(false)
-        const error = ref<unknown>(null)
+      watch(() => boardUrl.value, async (nextBoardUrl) => {
+        if (!nextBoardUrl) return
+        isLoading.value = true
+        error.value = null
+        try {
+          const response = await boardApiMock.getBoard(nextBoardUrl)
+          data.value = response.data.data
+        } catch (err: unknown) {
+          error.value = err
+        } finally {
+          isLoading.value = false
+        }
+      }, { immediate: true })
 
-        watch(() => boardUrl.value, async (nextBoardUrl) => {
-          if (!nextBoardUrl) return
-          isLoading.value = true
-          error.value = null
-          try {
-            const response = await mockedBoardApi.getBoard(nextBoardUrl)
-            data.value = response.data.data
-          } catch (err: unknown) {
-            error.value = err
-          } finally {
-            isLoading.value = false
-          }
-        }, { immediate: true })
-
-        return { data, isLoading, error }
-      },
-      useUpdateBoard: () => ({ mutateAsync: updateBoard }),
-      useDeleteBoard: () => ({ mutateAsync: deleteBoard }),
-      useTransferBoardManager: () => ({ mutateAsync: transferBoardManager }),
-    }),
-  }
-})
+      return { data, isLoading, error }
+    },
+    useUpdateBoard: () => ({ mutateAsync: updateBoard }),
+    useDeleteBoard: () => ({ mutateAsync: deleteBoard }),
+    useTransferBoardManager: () => ({ mutateAsync: transferBoardManager }),
+  }),
+}))
 
 const BoardFormStub = defineComponent({
   name: 'BoardForm',
@@ -145,7 +144,6 @@ const BaseButtonStub = defineComponent({
 
 describe('BoardEdit', () => {
   const mountedWrappers: Array<ReturnType<typeof mount>> = []
-  type BoardDetailResponse = AxiosResponse<ApiResponse<BoardDetail>>
 
   beforeEach(() => {
     routeState.params.boardUrl = 'free'

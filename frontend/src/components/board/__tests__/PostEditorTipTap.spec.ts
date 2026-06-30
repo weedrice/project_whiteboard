@@ -12,6 +12,7 @@ import {
     setEditorSelection,
     triggerEditorUpdate,
 } from './PostEditorTipTapTestHarness'
+import type { PostEditorTipTapAttributes } from './PostEditorTipTapTestHarness'
 import { getExposedVm } from '@/test/vue-test-helpers'
 
 type PostEditorTipTapExposed = {
@@ -96,7 +97,7 @@ describe('PostEditorTipTap', () => {
             if (key === 'board.writePost.lineHeight') return ''
             return key
         })
-        mocks.editor.getAttributes.mockImplementation((name: string): any => {
+        mocks.editor.getAttributes.mockImplementation((name: string): PostEditorTipTapAttributes => {
             if (name === 'textStyle') return { color: '#22c55e', fontSize: '', lineHeight: '' }
             if (name === 'highlight') return { color: '' }
             return {}

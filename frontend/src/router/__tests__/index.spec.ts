@@ -172,8 +172,23 @@ const failingRoute = (path: string, name: string, message: string): RouteRecordR
     component: () => Promise.reject(new Error(message)),
 })
 
+type MockAuthUser = {
+    userId?: number
+    role?: 'USER' | 'ADMIN' | 'SUPER_ADMIN' | 'BOARD_ADMIN' | 'MODERATOR'
+    status?: 'ACTIVE' | 'INACTIVE' | 'SANCTIONED' | 'SUSPENDED' | 'DELETED'
+}
+
+type MockAuthStore = {
+    user: MockAuthUser | null
+    accessToken: string | null
+    isAuthenticated: boolean
+    fetchUser: ReturnType<typeof vi.fn<() => Promise<boolean | void>>>
+    logout: ReturnType<typeof vi.fn<() => void>>
+    handleSanctionedSession: ReturnType<typeof vi.fn<() => void>>
+}
+
 describe('Router Navigation Guards', () => {
-    let mockAuthStore: any
+    let mockAuthStore: MockAuthStore
 
     beforeEach(() => {
         setActivePinia(createPinia())
@@ -195,7 +210,7 @@ describe('Router Navigation Guards', () => {
                 mockAuthStore.isAuthenticated = false
             })
         }
-        vi.mocked(useAuthStore).mockReturnValue(mockAuthStore)
+        vi.mocked(useAuthStore).mockReturnValue(mockAuthStore as unknown as ReturnType<typeof useAuthStore>)
         i18n.global.locale.value = 'ko'
         vi.mocked(boardApi.getBoard).mockResolvedValue(boardPermissionResponse({
             isAdmin: false,
