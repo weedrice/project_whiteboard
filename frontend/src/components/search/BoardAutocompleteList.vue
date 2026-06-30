@@ -25,7 +25,7 @@ const { t } = useI18n()
     <div class="nv-global-search-section nv-global-search-section-text px-3 py-2 text-xs font-semibold">
       {{ t('search.boards') }}
     </div>
-    <ul :id="listboxId" role="listbox" aria-label="Space search results">
+    <ul :id="listboxId" role="listbox" :aria-label="t('search.boardResultsLabel')">
       <li
         v-for="(board, index) in boards"
         :id="`${listboxId}-${board.boardUrl}`"

@@ -2,6 +2,7 @@ import type { SearchMessages } from './types'
 
 export const search: SearchMessages = {
   boards: '스페이스',
+  boardResultsLabel: '스페이스 검색 결과',
   doSearch: '검색',
   results: '검색 결과',
   query: '검색어',

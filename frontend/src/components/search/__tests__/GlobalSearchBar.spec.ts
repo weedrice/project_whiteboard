@@ -96,6 +96,7 @@ describe('GlobalSearchBar', () => {
 
         expect(input.attributes('aria-expanded')).toBe('true')
         expect(listbox.attributes('role')).toBe('listbox')
+        expect(listbox.attributes('aria-label')).toBe('search.boardResultsLabel')
         expect(option.attributes('role')).toBe('option')
         expect(option.attributes('aria-selected')).toBe('false')
 

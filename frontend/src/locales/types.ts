@@ -184,6 +184,7 @@ export interface CommonMessages {
 // 검색 메시지 타입
 export interface SearchMessages {
   boards: string
+  boardResultsLabel: string
   doSearch: string
   results: string
   query: string
