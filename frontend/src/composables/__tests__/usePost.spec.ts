@@ -120,6 +120,37 @@ const seedQueryData = (key: QueryKey, data: unknown) => {
 
 const getQueryDataValue = (key: QueryKey) => mocks.queryStore.get(mocks.keyToString(key))?.data
 
+type TestPostCacheItem = {
+    postId: number
+    likeCount?: number
+    liked?: boolean
+    scrapped?: boolean
+}
+
+type TestInfinitePostCache = {
+    pages: Array<{ content: TestPostCacheItem[] | string }>
+    pageParams?: unknown[]
+}
+
+type TestPostPageCache = {
+    content: TestPostCacheItem[]
+}
+
+const getInfinitePostCache = (key: QueryKey) => getQueryDataValue(key) as TestInfinitePostCache
+
+const getInfinitePostContent = (key: QueryKey, pageIndex = 0) => getInfinitePostCache(key).pages[pageIndex].content
+
+const getInfinitePostItem = (key: QueryKey, itemIndex: number, pageIndex = 0) => {
+    const content = getInfinitePostContent(key, pageIndex)
+    if (!Array.isArray(content)) {
+        throw new Error(`Expected post cache content to be an array for ${JSON.stringify(key)}`)
+    }
+
+    return content[itemIndex]
+}
+
+const getPostPageItem = (key: QueryKey, itemIndex: number) => (getQueryDataValue(key) as TestPostPageCache).content[itemIndex]
+
 describe('usePost', () => {
     beforeEach(() => {
         vi.clearAllMocks()
@@ -262,12 +293,12 @@ describe('usePost', () => {
         expect(mocks.cancelQueries).toHaveBeenCalledWith({ queryKey: ['post', 1] })
         expect(mocks.cancelQueries).toHaveBeenCalledWith({ queryKey: ['posts'] })
         expect(getQueryDataValue(['post', 1])).toMatchObject({ liked: true, likeCount: 3 })
-        expect((getQueryDataValue(['posts']) as any).pages[0].content[0]).toMatchObject({ liked: true, likeCount: 3 })
-        expect((getQueryDataValue(['posts']) as any).pages[0].content[1]).toMatchObject({ postId: 2, likeCount: 7, liked: false })
-        expect((getQueryDataValue(['posts']) as any).pages[1].content).toBe('not-an-array')
-        expect((getQueryDataValue(['board', 'posts', 'free']) as any).pages[0].content[0]).toMatchObject({ liked: true, likeCount: 3 })
-        expect((getQueryDataValue(['board', 'posts', 'free']) as any).pages[0].content[1]).toMatchObject({ postId: 99, likeCount: 10, liked: false })
-        expect((getQueryDataValue(['board', 'posts', 'hot']) as any).content[0]).toMatchObject({ liked: true, likeCount: 3 })
+        expect(getInfinitePostItem(['posts'], 0)).toMatchObject({ liked: true, likeCount: 3 })
+        expect(getInfinitePostItem(['posts'], 1)).toMatchObject({ postId: 2, likeCount: 7, liked: false })
+        expect(getInfinitePostContent(['posts'], 1)).toBe('not-an-array')
+        expect(getInfinitePostItem(['board', 'posts', 'free'], 0)).toMatchObject({ liked: true, likeCount: 3 })
+        expect(getInfinitePostItem(['board', 'posts', 'free'], 1)).toMatchObject({ postId: 99, likeCount: 10, liked: false })
+        expect(getPostPageItem(['board', 'posts', 'hot'], 0)).toMatchObject({ liked: true, likeCount: 3 })
         expect(postApi.likePost).toHaveBeenCalledWith(1)
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['post', 1] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['posts'] })
@@ -297,18 +328,18 @@ describe('usePost', () => {
         const { useLikePost } = usePost()
         await useLikePost().mutate(1)
 
-        expect((getQueryDataValue(['posts']) as any).pages[0].content[0]).toMatchObject({
+        expect(getInfinitePostItem(['posts'], 0)).toMatchObject({
             postId: 2,
             likeCount: 10,
         })
-        expect((getQueryDataValue(['posts']) as any).pages[0].content[1]).toMatchObject({
+        expect(getInfinitePostItem(['posts'], 1)).toMatchObject({
             postId: 1,
             liked: true,
             likeCount: 1,
         })
         expect(getQueryDataValue(['posts', 'recent'])).toEqual({ content: [{ postId: 1 }] })
-        expect((getQueryDataValue(['board', 'posts', 'page']) as any).content[0]).toMatchObject({ postId: 2, liked: false })
-        expect((getQueryDataValue(['board', 'posts', 'page']) as any).content[1]).toMatchObject({ postId: 1, liked: true })
+        expect(getPostPageItem(['board', 'posts', 'page'], 0)).toMatchObject({ postId: 2, liked: false })
+        expect(getPostPageItem(['board', 'posts', 'page'], 1)).toMatchObject({ postId: 1, liked: true })
         expect(getQueryDataValue(['board', 'posts', 'mix'])).toEqual({
             pages: [{ content: 'not-an-array' }],
             pageParams: [],
@@ -344,11 +375,11 @@ describe('usePost', () => {
         await expect(mutation.mutate(1)).rejects.toThrow('like failed')
 
         expect(getQueryDataValue(['post', 1])).toEqual(snapshot)
-        expect((getQueryDataValue(['posts']) as any).pages[0].content[0]).toMatchObject({
+        expect(getInfinitePostItem(['posts'], 0)).toMatchObject({
             likeCount: 4,
             liked: false,
         })
-        expect((getQueryDataValue(['board', 'posts', 'free']) as any).content[0]).toMatchObject({
+        expect(getPostPageItem(['board', 'posts', 'free'], 0)).toMatchObject({
             likeCount: 4,
             liked: false,
         })
@@ -377,7 +408,7 @@ describe('usePost', () => {
         await expect(useUnlikePost().mutate(1)).rejects.toThrow('unlike failed')
 
         expect(getQueryDataValue(['post', 1])).toMatchObject({ postId: 1, likeCount: 3, liked: true })
-        expect((getQueryDataValue(['posts']) as any).pages[0].content[0]).toMatchObject({
+        expect(getInfinitePostItem(['posts'], 0)).toMatchObject({
             postId: 1,
             likeCount: 3,
             liked: true,
@@ -417,7 +448,7 @@ describe('usePost', () => {
         await expect(useScrapPost().mutate(1)).rejects.toThrow('scrap failed')
 
         expect(getQueryDataValue(['post', 1])).toMatchObject({ postId: 1, scrapped: false })
-        expect((getQueryDataValue(['posts']) as any).pages[0].content[0]).toMatchObject({
+        expect(getInfinitePostItem(['posts'], 0)).toMatchObject({
             postId: 1,
             scrapped: false,
         })
@@ -452,12 +483,12 @@ describe('usePost', () => {
         const { useLikePost } = usePost()
         await expect(useLikePost().mutate(1)).rejects.toThrow('like failed without detail')
 
-        expect((getQueryDataValue(['posts']) as any).pages[0].content[0]).toMatchObject({
+        expect(getInfinitePostItem(['posts'], 0)).toMatchObject({
             postId: 1,
             likeCount: 2,
             liked: false,
         })
-        expect((getQueryDataValue(['board', 'posts', 'free']) as any).content[0]).toMatchObject({
+        expect(getPostPageItem(['board', 'posts', 'free'], 0)).toMatchObject({
             postId: 1,
             likeCount: 2,
             liked: false,
