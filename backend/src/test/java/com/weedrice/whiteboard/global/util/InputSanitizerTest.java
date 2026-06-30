@@ -41,6 +41,21 @@ class InputSanitizerTest {
     }
 
     @Test
+    @DisplayName("게시글 본문 sanitizer는 샌드박스 HTML 마커의 인코딩 값을 유지한다")
+    void sanitizePostHtml_preservesSandboxedHtmlMarker() {
+        String input = """
+                <div class="noviis-sandboxed-post-html" data-value="7JeY6raM"></div>
+                <script>alert(1)</script>
+                """;
+
+        String sanitized = InputSanitizer.sanitizePostHtml(input);
+
+        assertThat(sanitized).contains("class=\"noviis-sandboxed-post-html\"");
+        assertThat(sanitized).contains("data-value=\"7JeY6raM\"");
+        assertThat(sanitized).doesNotContain("<script");
+    }
+
+    @Test
     @DisplayName("게시글 본문 sanitizer는 위험한 URL scheme을 제거한다")
     void sanitizePostHtml_removesDangerousUrlSchemes() {
         String input = """
