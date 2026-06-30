@@ -1,6 +1,6 @@
 import {
+  keepPreviousData as keepPreviousQueryData,
   useQuery,
-  type PlaceholderDataFunction,
   type QueryFunctionContext,
   type QueryKey,
 } from '@tanstack/vue-query'
@@ -54,12 +54,16 @@ interface ApiNullablePageQueryOptions<TItem, TData = PageResponse<TItem>> {
   keepPreviousData?: boolean
 }
 
-function previousDataPlaceholder<TData>(
-  enabled?: boolean
-): PlaceholderDataFunction<TData, Error, TData, QueryKey> | undefined {
-  return enabled ? (previousData) => previousData : undefined
+function previousDataPlaceholder(enabled?: boolean) {
+  return enabled ? keepPreviousQueryData : undefined
 }
 
+export function useApiQuery<TResponse>(
+  options: ApiQueryOptions<TResponse> & { selectData?: undefined } & Record<string, unknown>
+): ReturnType<typeof useQuery<TResponse, Error, TResponse>>
+export function useApiQuery<TResponse, TData>(
+  options: ApiQueryOptions<TResponse, TData> & { selectData: (data: TResponse) => TData } & Record<string, unknown>
+): ReturnType<typeof useQuery<TData, Error, TData>>
 export function useApiQuery<TResponse, TData = TResponse>({
   queryKey,
   request,
@@ -80,10 +84,16 @@ export function useApiQuery<TResponse, TData = TResponse>({
     enabled,
     staleTime,
     refetchInterval,
-    placeholderData: previousDataPlaceholder<TData>(keepPreviousData),
+    placeholderData: previousDataPlaceholder(keepPreviousData),
   })
 }
 
+export function useNullableApiQuery<TResponse>(
+  options: ApiNullableQueryOptions<TResponse> & { selectData?: undefined } & Record<string, unknown>
+): ReturnType<typeof useQuery<TResponse | null, Error, TResponse | null>>
+export function useNullableApiQuery<TResponse, TData>(
+  options: ApiNullableQueryOptions<TResponse, TData> & { selectData: (data: TResponse) => TData } & Record<string, unknown>
+): ReturnType<typeof useQuery<TData | null, Error, TData | null>>
 export function useNullableApiQuery<TResponse, TData = TResponse>({
   queryKey,
   request,
@@ -111,6 +121,12 @@ export function useNullableApiQuery<TResponse, TData = TResponse>({
   })
 }
 
+export function useApiPageQuery<TItem>(
+  options: ApiPageQueryOptions<TItem> & { selectData?: undefined } & Record<string, unknown>
+): ReturnType<typeof useQuery<PageResponse<TItem>, Error, PageResponse<TItem>>>
+export function useApiPageQuery<TItem, TData>(
+  options: ApiPageQueryOptions<TItem, TData> & { selectData: (data: PageResponse<TItem>) => TData } & Record<string, unknown>
+): ReturnType<typeof useQuery<TData, Error, TData>>
 export function useApiPageQuery<TItem, TData = PageResponse<TItem>>({
   queryKey,
   request,
@@ -129,10 +145,16 @@ export function useApiPageQuery<TItem, TData = PageResponse<TItem>>({
     },
     enabled,
     staleTime,
-    placeholderData: previousDataPlaceholder<TData>(keepPreviousData),
+    placeholderData: previousDataPlaceholder(keepPreviousData),
   })
 }
 
+export function useNullableApiPageQuery<TItem>(
+  options: ApiNullablePageQueryOptions<TItem> & { selectData?: undefined } & Record<string, unknown>
+): ReturnType<typeof useQuery<PageResponse<TItem> | null, Error, PageResponse<TItem> | null>>
+export function useNullableApiPageQuery<TItem, TData>(
+  options: ApiNullablePageQueryOptions<TItem, TData> & { selectData: (data: PageResponse<TItem>) => TData } & Record<string, unknown>
+): ReturnType<typeof useQuery<TData | null, Error, TData | null>>
 export function useNullableApiPageQuery<TItem, TData = PageResponse<TItem>>({
   queryKey,
   request,
@@ -156,6 +178,6 @@ export function useNullableApiPageQuery<TItem, TData = PageResponse<TItem>>({
     },
     enabled,
     staleTime,
-    placeholderData: previousDataPlaceholder<TData | null>(keepPreviousData),
+    placeholderData: previousDataPlaceholder(keepPreviousData),
   })
 }

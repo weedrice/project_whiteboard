@@ -26,7 +26,13 @@ export function mapApiDataResponse<TSource, TTarget>(
     options: { mapNullish?: boolean } = {},
 ): AxiosResponse<ApiResponse<TTarget>> {
     if (!response.data.success || (!options.mapNullish && response.data.data == null)) {
-        return response as unknown as AxiosResponse<ApiResponse<TTarget>>
+        return {
+            ...response,
+            data: {
+                ...response.data,
+                data: response.data.data as null as TTarget,
+            },
+        }
     }
 
     return {
