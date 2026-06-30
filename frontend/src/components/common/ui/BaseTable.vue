@@ -33,7 +33,7 @@ const props = withDefaults(defineProps<{
     rowActivationEvent?: RowActivationEvent
 }>(), {
     loading: false,
-    emptyText: 'No data available',
+    emptyText: undefined,
     density: 'default',
     shadow: true,
     maxHeightClass: undefined,
@@ -53,6 +53,8 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+const effectiveEmptyText = computed(() => props.emptyText ?? t('common.noData'))
 
 const alignClass = (align?: string) => {
     switch (align) {
@@ -92,11 +94,11 @@ const getSortIndicator = (column: TableColumn): string => {
 
 const getSortButtonLabel = (column: TableColumn): string => {
     if (props.currentSortKey !== column.key) {
-        return `Sort by ${column.label}`
+        return `${t('common.sortOrder')} ${column.label}`
     }
 
-    const direction = props.currentSortDirection === 'asc' ? 'ascending' : 'descending'
-    return `Sort by ${column.label}, currently ${direction}`
+    const direction = getAriaSort(column)
+    return `${t('common.sortOrder')} ${column.label}: ${direction}`
 }
 
 const getRowKey = (item: T, index: number): string | number => {
@@ -255,7 +257,7 @@ const bodyCellClasses = computed(() => [
                     <tr v-else-if="items.length === 0">
                         <td :colspan="columns.length"
                             class="nv-base-table-status px-3 sm:px-6 py-6 sm:py-10 text-center text-xs sm:text-sm">
-                            {{ emptyText }}
+                            {{ effectiveEmptyText }}
                         </td>
                     </tr>
                     <template v-else>

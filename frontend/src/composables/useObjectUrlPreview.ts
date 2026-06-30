@@ -1,4 +1,4 @@
-import { onUnmounted, ref } from 'vue'
+import { onScopeDispose, ref } from 'vue'
 import { revokeBlobUrlIfNeeded } from '@/utils/imageFile'
 
 export function useObjectUrlPreview(initialUrl: string | null = null) {
@@ -22,9 +22,9 @@ export function useObjectUrlPreview(initialUrl: string | null = null) {
     setPreviewUrl(null)
   }
 
-  onUnmounted(() => {
+  onScopeDispose(() => {
     revokeBlobUrlIfNeeded(previewUrl.value)
-  })
+  }, true)
 
   return {
     previewUrl,

@@ -27,7 +27,7 @@ withDefaults(defineProps<{
   showFooter?: boolean
 }>(), {
   loading: false,
-  emptyText: 'No data available',
+  emptyText: undefined,
   rowKey: undefined,
   rowClass: undefined,
   interactiveRows: false,

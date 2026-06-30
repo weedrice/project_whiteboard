@@ -2,10 +2,13 @@ import { defineComponent, h, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import BaseTable from '../ui/BaseTable.vue'
+import i18n from '@/i18n'
 
 const loggerMock = vi.hoisted(() => ({
     warn: vi.fn(),
 }))
+
+const commonSortOrder = () => String(i18n.global.t('common.sortOrder'))
 
 vi.mock('@/utils/logger', () => ({
     default: loggerMock,
@@ -37,7 +40,7 @@ describe('BaseTable', () => {
         expect(spans).toHaveLength(2)
         expect(spans[0].text()).toBe('^')
         expect(spans[1].text()).toBe('Title')
-        expect(wrapper.get('.nv-base-table-header-button').attributes('aria-label')).toBe('Sort by Title, currently ascending')
+        expect(wrapper.get('.nv-base-table-header-button').attributes('aria-label')).toBe(`${commonSortOrder()} Title: ascending`)
     })
 
     it('does not show a visual placeholder for inactive sortable headers', () => {
@@ -59,7 +62,7 @@ describe('BaseTable', () => {
         const spans = wrapper.find('.nv-base-table-header-button').findAll('span')
 
         expect(wrapper.get('th').attributes('aria-sort')).toBe('none')
-        expect(wrapper.get('.nv-base-table-header-button').attributes('aria-label')).toBe('Sort by Title')
+        expect(wrapper.get('.nv-base-table-header-button').attributes('aria-label')).toBe(`${commonSortOrder()} Title`)
         expect(spans[0].text()).toBe('')
         expect(spans[1].text()).toBe('Title')
     })
