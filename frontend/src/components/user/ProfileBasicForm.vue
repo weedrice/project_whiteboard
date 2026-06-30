@@ -12,7 +12,7 @@
             v-if="profileImageDisplayUrl"
             class="h-full w-full object-contain nv-surface-muted"
             :src="profileImageDisplayUrl"
-            alt="Current profile photo"
+            :alt="$t('user.profile.currentPhotoAlt')"
             @error="$emit('update:profileImageError', true)"
           />
           <div

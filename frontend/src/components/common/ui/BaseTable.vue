@@ -1,5 +1,6 @@
 <script setup lang="ts" generic="T extends object">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import BaseSpinner from './BaseSpinner.vue'
 import logger from '@/utils/logger'
 
@@ -50,6 +51,8 @@ const emit = defineEmits<{
     (e: 'row-click', item: T): void
     (e: 'row-dblclick', item: T): void
 }>()
+
+const { t } = useI18n()
 
 const alignClass = (align?: string) => {
     switch (align) {
@@ -244,7 +247,7 @@ const bodyCellClasses = computed(() => [
                                     <div class="nv-base-table-spinner h-6 w-6 flex items-center justify-center" aria-hidden="true">
                                         <BaseSpinner size="sm" color="text-[var(--nv-accent)]" class="scale-150" />
                                     </div>
-                                    <span class="sr-only">Loading...</span>
+                                    <span class="sr-only">{{ t('common.loading') }}</span>
                                 </slot>
                             </div>
                         </td>

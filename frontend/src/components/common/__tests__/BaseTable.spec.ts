@@ -76,7 +76,7 @@ describe('BaseTable', () => {
         const status = wrapper.get('[role="status"]')
 
         expect(status.attributes('aria-live')).toBe('polite')
-        expect(status.text()).toContain('Loading...')
+        expect(status.text()).toContain('로딩 중...')
         expect(status.get('.nv-base-table-spinner').attributes('aria-hidden')).toBe('true')
     })
 

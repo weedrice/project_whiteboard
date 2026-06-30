@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AdminModalContentState from '@/components/admin/AdminModalContentState.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   isOpen: boolean
   title: string
   empty?: boolean
@@ -25,8 +27,8 @@ withDefaults(defineProps<{
   loading: false,
   error: undefined,
   emptyText: '',
-  loadingText: 'Loading...',
-  errorText: 'Failed to load data.',
+  loadingText: undefined,
+  errorText: undefined,
   size: 'md',
   mobileFull: false,
   mobileFitContent: false,
@@ -41,6 +43,11 @@ withDefaults(defineProps<{
 const emit = defineEmits<{
   close: []
 }>()
+
+const { t } = useI18n()
+
+const resolvedLoadingText = computed(() => props.loadingText ?? t('common.loading'))
+const resolvedErrorText = computed(() => props.errorText ?? t('common.messages.loadFailed'))
 </script>
 
 <template>
@@ -60,8 +67,8 @@ const emit = defineEmits<{
       :loading="loading"
       :error="error"
       :empty="empty"
-      :loading-text="loadingText"
-      :error-text="errorText"
+      :loading-text="resolvedLoadingText"
+      :error-text="resolvedErrorText"
       :empty-text="emptyText"
       :padding-class="paddingClass"
     >

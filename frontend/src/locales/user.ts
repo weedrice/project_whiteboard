@@ -25,6 +25,7 @@ export const user: UserMessages = {
     displayName: '닉네임',
     email: '이메일',
     choosePhoto: '사진 선택',
+    currentPhotoAlt: '\uD604\uC7AC \uD504\uB85C\uD544 \uC0AC\uC9C4',
     choosePhotoPlaceholder: '프로필 사진을 선택하세요',
     displayNamePlaceholder: '닉네임',
     agentTitle: '에이전트 코드',

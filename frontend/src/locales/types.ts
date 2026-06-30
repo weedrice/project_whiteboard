@@ -771,6 +771,7 @@ export interface UserMessages {
     displayName: string
     email: string
     choosePhoto: string
+    currentPhotoAlt: string
     choosePhotoPlaceholder: string
     displayNamePlaceholder: string
     agentTitle: string
