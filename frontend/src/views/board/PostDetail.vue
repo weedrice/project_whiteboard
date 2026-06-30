@@ -2,20 +2,15 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  AlertTriangle,
-  ArrowLeft,
-  Bookmark,
   Copy,
-  List,
-  MessageSquare,
-  Share2,
-  ThumbsUp,
 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseCard from '@/components/common/ui/BaseCard.vue'
 import CommentList from '@/components/comment/CommentList.vue'
 import PostDetailHeader from '@/components/board/PostDetailHeader.vue'
+import PostDetailQuickActions from '@/components/board/PostDetailQuickActions.vue'
+import PostDetailReactionBar from '@/components/board/PostDetailReactionBar.vue'
 import PostDetailSkeleton from '@/components/board/PostDetailSkeleton.vue'
 import ReportModal from '@/components/report/ReportModal.vue'
 import PostTags from '@/components/tag/PostTags.vue'
@@ -271,52 +266,19 @@ const {
             </div>
 
             <div class="hidden sm:block">
-              <div class="nv-post-reaction-row">
-                <button
-                  type="button"
-                  class="nv-post-action-btn nv-post-action-btn-circle"
-                  :class="{ 'is-active': postView.liked }"
-                  :aria-label="$t('common.likes')"
-                  :aria-pressed="postView.liked"
-                  :title="$t('common.likes')"
-                  :disabled="!authStore.isAuthenticated"
-                  @click="handleLike"
-                >
-                  <ThumbsUp class="h-5 w-5" :class="{ 'fill-current bounce-in': isLikeAnimating }" />
-                  <span class="nv-post-action-count">{{ postView.likeCount }}</span>
-                </button>
-                <button
-                  type="button"
-                  class="nv-post-action-btn nv-post-action-btn-circle"
-                  :class="{ 'is-active is-bookmark': postView.scrapped }"
-                  :aria-label="$t('board.postDetail.bookmark')"
-                  :aria-pressed="postView.scrapped"
-                  :title="$t('board.postDetail.bookmark')"
-                  :disabled="!authStore.isAuthenticated"
-                  @click="handleBookmark"
-                >
-                  <Bookmark class="h-5 w-5" :class="{ 'fill-current bounce-in': isBookmarkAnimating }" />
-                </button>
-                <button
-                  type="button"
-                  class="nv-post-action-btn nv-post-action-btn-circle"
-                  :aria-label="$t('common.share')"
-                  :title="$t('common.share')"
-                  @click="handleShare"
-                >
-                  <Share2 class="h-5 w-5" />
-                </button>
-                <button
-                  v-if="canReport"
-                  type="button"
-                  class="nv-post-action-btn nv-post-action-btn-circle is-report"
-                  :aria-label="$t('common.report')"
-                  :title="$t('common.report')"
-                  @click="openReportModal"
-                >
-                  <AlertTriangle class="h-5 w-5" />
-                </button>
-              </div>
+              <PostDetailReactionBar
+                :liked="postView.liked"
+                :scrapped="postView.scrapped"
+                :like-count="postView.likeCount"
+                :is-authenticated="authStore.isAuthenticated"
+                :can-report="canReport"
+                :is-like-animating="isLikeAnimating"
+                :is-bookmark-animating="isBookmarkAnimating"
+                @like="handleLike"
+                @bookmark="handleBookmark"
+                @share="handleShare"
+                @report="openReportModal"
+              />
             </div>
 
             <section id="comments" ref="commentsRef" class="nv-post-comments">
@@ -327,40 +289,12 @@ const {
       </template>
     </BaseCard>
 
-    <div
-      v-if="postView"
-      class="nv-post-board-actions hidden xl:flex"
-      role="navigation"
-      :aria-label="$t('board.postDetail.quickActions')"
-    >
-      <button
-        type="button"
-        class="nv-post-board-action"
-        :aria-label="$t('board.postDetail.comments')"
-        :title="$t('board.postDetail.comments')"
-        @click="scrollToComments"
-      >
-        <MessageSquare class="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        class="nv-post-board-action"
-        :aria-label="$t('board.postDetail.toList')"
-        :title="$t('board.postDetail.toList')"
-        @click="goToList"
-      >
-        <List class="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        class="nv-post-board-action"
-        :aria-label="$t('board.postDetail.scrollTop')"
-        :title="$t('board.postDetail.scrollTop')"
-        @click="scrollToTop"
-      >
-        <ArrowLeft class="h-4 w-4 rotate-90" />
-      </button>
-    </div>
+    <PostDetailQuickActions
+      :visible="!!postView"
+      @comments="scrollToComments"
+      @list="goToList"
+      @top="scrollToTop"
+    />
 
     <Transition name="slide-up">
       <button
@@ -483,13 +417,6 @@ const {
   text-transform: uppercase;
 }
 
-.nv-post-reaction-row {
-  display: flex;
-  gap: 0.75rem;
-  justify-content: center;
-  margin-top: 1rem;
-}
-
 .nv-post-spoiler {
   align-items: flex-start;
   background: color-mix(in srgb, var(--nv-surface) 45%, transparent);
@@ -519,92 +446,6 @@ const {
   display: flex;
   justify-content: center;
   margin-top: 1rem;
-}
-
-.nv-post-action-btn,
-.nv-post-board-action {
-  align-items: center;
-  background: var(--nv-surface);
-  border: 1px solid var(--nv-line);
-  border-radius: 1.1rem;
-  color: var(--nv-ink-soft);
-  display: inline-flex;
-  gap: 0.55rem;
-  justify-content: center;
-  min-height: 3rem;
-  min-width: 0;
-  padding: 0.8rem 1rem;
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-}
-
-.nv-post-action-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.nv-post-action-count {
-  align-items: center;
-  background: color-mix(in srgb, var(--nv-surface-2) 92%, transparent);
-  border: 1px solid var(--nv-line);
-  border-radius: 9999px;
-  color: var(--nv-ink);
-  display: inline-flex;
-  font-size: 0.68rem;
-  font-weight: 700;
-  justify-content: center;
-  min-width: 1.45rem;
-  padding: 0.12rem 0.38rem;
-  position: absolute;
-  right: -0.35rem;
-  top: -0.2rem;
-}
-
-.nv-post-action-btn:hover,
-.nv-post-board-action:hover {
-  background: var(--nv-surface-2);
-  color: var(--nv-ink);
-}
-
-.nv-post-action-btn.is-active {
-  background: var(--nv-accent-bg);
-  border-color: color-mix(in srgb, var(--nv-accent) 30%, var(--nv-line));
-  color: var(--nv-accent);
-}
-
-.nv-post-action-btn.is-bookmark {
-  color: var(--nv-warning-text);
-}
-
-.nv-post-action-btn.is-report {
-  color: var(--nv-danger);
-}
-
-.nv-post-action-btn-circle {
-  border-radius: 9999px;
-  height: 3.1rem;
-  justify-content: center;
-  padding: 0;
-  position: relative;
-  width: 3.1rem;
-}
-
-.nv-post-board-actions {
-  flex-direction: column;
-  gap: 0.75rem;
-  position: fixed;
-  right: clamp(0.5rem, calc((100vw - 1120px) / 2 - 4.5rem), 3.5rem);
-  top: 10rem;
-  z-index: 25;
-}
-
-.nv-post-board-action {
-  box-shadow: var(--nv-shadow-card);
-  height: 2.9rem;
-  justify-content: center;
-  padding: 0;
-  width: 2.9rem;
 }
 
 .nv-post-mobile-comment-cta {
@@ -638,22 +479,6 @@ const {
 .slide-up-enter-from,
 .slide-up-leave-to {
   transform: translate(-50%, 0.4rem);
-}
-
-.bounce-in {
-  animation: bounce-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-@keyframes bounce-in {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.3);
-  }
-  100% {
-    transform: scale(1);
-  }
 }
 
 @media (min-width: 640px) {
