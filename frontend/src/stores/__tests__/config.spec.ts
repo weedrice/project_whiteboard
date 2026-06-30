@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { useConfigStore } from '../config'
 import { configApi } from '@/api/config'
 import logger from '@/utils/logger'
+import { apiSuccessDataResponse } from '@/test/apiResponseFixtures'
 
 vi.mock('@/api/config', () => ({
     configApi: {
@@ -25,15 +26,10 @@ describe('Config Store', () => {
     })
 
     it('stores single config DTO by key/value fields', async () => {
-        vi.mocked(configApi.getConfig).mockResolvedValue({
-            data: {
-                success: true,
-                data: {
-                    key: 'site.name',
-                    value: 'Noviis'
-                }
-            }
-        } as never)
+        vi.mocked(configApi.getConfig).mockResolvedValue(apiSuccessDataResponse<typeof configApi.getConfig>({
+            key: 'site.name',
+            value: 'Noviis'
+        }))
 
         const store = useConfigStore()
         const value = await store.fetchConfig('site.name')
@@ -43,15 +39,10 @@ describe('Config Store', () => {
     })
 
     it('merges public config DTO list into keyed store state', async () => {
-        vi.mocked(configApi.getPublicConfigs).mockResolvedValue({
-            data: {
-                success: true,
-                data: [
-                    { key: 'site.name', value: 'Noviis' },
-                    { key: 'board.create.enabled', value: 'true' }
-                ]
-            }
-        } as never)
+        vi.mocked(configApi.getPublicConfigs).mockResolvedValue(apiSuccessDataResponse<typeof configApi.getPublicConfigs>([
+            { key: 'site.name', value: 'Noviis' },
+            { key: 'board.create.enabled', value: 'true' }
+        ]))
 
         const store = useConfigStore()
         await store.fetchPublicConfigs()
@@ -61,15 +52,10 @@ describe('Config Store', () => {
     })
 
     it('merges admin config DTO list into existing keyed store state', async () => {
-        vi.mocked(configApi.getConfigs).mockResolvedValue({
-            data: {
-                success: true,
-                data: [
-                    { key: 'site.name', value: 'Noviis' },
-                    { key: 'points.post', value: '10' }
-                ]
-            }
-        } as never)
+        vi.mocked(configApi.getConfigs).mockResolvedValue(apiSuccessDataResponse<typeof configApi.getConfigs>([
+            { key: 'site.name', value: 'Noviis' },
+            { key: 'points.post', value: '10' }
+        ]))
 
         const store = useConfigStore()
         store.configs.existing = 'keep'

@@ -4,6 +4,14 @@ import { configureAuthSessionEffects, registerAuthStorageSync, useAuthStore } fr
 import { authApi } from '@/api/auth'
 import logger from '@/utils/logger'
 import { ACCESS_TOKEN_KEY } from '@/utils/authTokenStorage'
+import {
+    authLoginFailureResponse,
+    authLoginResponse,
+    authLogoutResponse,
+    authUser,
+    authUserFailureResponse,
+    authUserResponse,
+} from './storeTestFixtures'
 
 // Mock dependencies
 vi.mock('@/api/auth', () => ({
@@ -61,27 +69,18 @@ describe('Auth Store', () => {
 
     describe('login', () => {
         it('handles successful login', async () => {
-            const mockResponse = {
-                data: {
-                    success: true,
-                    data: {
-                        accessToken: 'new-token',
-                        expiresIn: 1800,
-                        user: { id: 1, username: 'test', role: 'USER', theme: 'DARK' }
-                    }
-                }
-            }
-            vi.mocked(authApi.login).mockResolvedValue(mockResponse as any)
+            const user = authUser({ theme: 'DARK' })
+            vi.mocked(authApi.login).mockResolvedValue(authLoginResponse(user))
 
             const result = await store.login({ loginId: 'test', password: 'password' })
 
             expect(result).toBe(true)
             expect(store.accessToken).toBe('new-token')
-            expect(store.user).toEqual(mockResponse.data.data.user)
+            expect(store.user).toEqual(user)
             expect(localStorage.getItem('accessToken')).toBe('new-token')
             expect(localStorage.getItem('refreshToken')).toBeNull()
 
-            expect(mockSyncThemeFromUser).toHaveBeenCalledWith(mockResponse.data.data.user)
+            expect(mockSyncThemeFromUser).toHaveBeenCalledWith(user)
         })
 
         it('handles login failure', async () => {
@@ -94,16 +93,7 @@ describe('Auth Store', () => {
         })
 
         it('returns false and keeps state when success flag is false', async () => {
-            vi.mocked(authApi.login).mockResolvedValue({
-                data: {
-                    success: false,
-                    data: {
-                        accessToken: 'ignored-token',
-                        expiresIn: 1800,
-                        user: { id: 1, username: 'ignored', role: 'USER' }
-                    }
-                }
-            } as any)
+            vi.mocked(authApi.login).mockResolvedValue(authLoginFailureResponse(authUser({ loginId: 'ignored' })))
 
             const result = await store.login({ loginId: 'test', password: 'password' })
 
@@ -117,12 +107,12 @@ describe('Auth Store', () => {
     describe('logout', () => {
         beforeEach(() => {
             store.accessToken = 'token'
-            store.user = { id: 1, username: 'test', role: 'USER' } as any
+            store.user = authUser()
             localStorage.setItem('accessToken', 'token')
         })
 
         it('handles successful logout', async () => {
-            vi.mocked(authApi.logout).mockResolvedValue({ data: { success: true } } as any)
+            vi.mocked(authApi.logout).mockResolvedValue(authLogoutResponse())
 
             await store.logout()
 
@@ -146,9 +136,9 @@ describe('Auth Store', () => {
     describe('handleSanctionedSession', () => {
         it('shows sanction toast and clears auth state', async () => {
             store.accessToken = 'token'
-            store.user = { id: 1, username: 'test', role: 'USER', status: 'SANCTIONED' } as any
+            store.user = authUser({ status: 'SANCTIONED' })
             localStorage.setItem('accessToken', 'token')
-            vi.mocked(authApi.logout).mockResolvedValue({ data: { success: true } } as any)
+            vi.mocked(authApi.logout).mockResolvedValue(authLogoutResponse())
 
             await store.handleSanctionedSession()
 
@@ -171,10 +161,8 @@ describe('Auth Store', () => {
         it('fetches user successfully', async () => {
             localStorage.setItem('accessToken', 'token')
             store.accessToken = 'token'
-            const mockUser = { id: 1, username: 'test', role: 'USER' }
-            vi.mocked(authApi.getMe).mockResolvedValue({
-                data: { success: true, data: mockUser }
-            } as any)
+            const mockUser = authUser()
+            vi.mocked(authApi.getMe).mockResolvedValue(authUserResponse(mockUser))
 
             const result = await store.fetchUser()
 
@@ -185,10 +173,8 @@ describe('Auth Store', () => {
         it('hydrates access token from storage and syncs theme', async () => {
             localStorage.setItem('accessToken', 'stored-token')
             store.accessToken = null
-            const mockUser = { id: 1, username: 'test', role: 'USER', theme: 'DARK' }
-            vi.mocked(authApi.getMe).mockResolvedValue({
-                data: { success: true, data: mockUser }
-            } as any)
+            const mockUser = authUser({ theme: 'DARK' })
+            vi.mocked(authApi.getMe).mockResolvedValue(authUserResponse(mockUser))
 
             const result = await store.fetchUser({ headers: { 'x-test': '1' } })
 
@@ -202,9 +188,7 @@ describe('Auth Store', () => {
         it('returns false when getMe response is unsuccessful', async () => {
             localStorage.setItem('accessToken', 'token')
             store.accessToken = 'token'
-            vi.mocked(authApi.getMe).mockResolvedValue({
-                data: { success: false, data: null }
-            } as any)
+            vi.mocked(authApi.getMe).mockResolvedValue(authUserFailureResponse())
 
             const result = await store.fetchUser()
 
@@ -215,10 +199,8 @@ describe('Auth Store', () => {
         it('handles sanctioned user', async () => {
             localStorage.setItem('accessToken', 'token')
             store.accessToken = 'token'
-            const mockUser = { id: 1, username: 'test', role: 'USER', status: 'SANCTIONED' }
-            vi.mocked(authApi.getMe).mockResolvedValue({
-                data: { success: true, data: mockUser }
-            } as any)
+            const mockUser = authUser({ status: 'SANCTIONED' })
+            vi.mocked(authApi.getMe).mockResolvedValue(authUserResponse(mockUser))
 
             const result = await store.fetchUser()
 
@@ -256,10 +238,8 @@ describe('Auth Store', () => {
     describe('storage synchronization', () => {
         it('hydrates state from a token changed in another tab', async () => {
             localStorage.setItem(ACCESS_TOKEN_KEY, 'external-token')
-            const mockUser = { id: 2, username: 'synced', role: 'USER', theme: 'DARK' }
-            vi.mocked(authApi.getMe).mockResolvedValue({
-                data: { success: true, data: mockUser }
-            } as any)
+            const mockUser = authUser({ userId: 2, loginId: 'synced', displayName: 'Synced User', theme: 'DARK' })
+            vi.mocked(authApi.getMe).mockResolvedValue(authUserResponse(mockUser))
 
             const result = await store.syncFromStoredAccessToken('external-token')
 
@@ -272,7 +252,7 @@ describe('Auth Store', () => {
 
         it('clears reactive state when another tab removes the token', async () => {
             store.accessToken = 'token'
-            store.user = { id: 1, username: 'test', role: 'USER' } as any
+            store.user = authUser()
 
             const result = await store.syncFromStoredAccessToken(null)
 
@@ -284,7 +264,7 @@ describe('Auth Store', () => {
 
         it('registers a storage event listener for cross-tab logout', () => {
             store.accessToken = 'token'
-            store.user = { id: 1, username: 'test', role: 'USER' } as any
+            store.user = authUser()
             const stop = registerAuthStorageSync(store)
 
             window.dispatchEvent(new StorageEvent('storage', {
@@ -303,7 +283,7 @@ describe('Auth Store', () => {
     describe('clearSessionState', () => {
         it('clears reactive auth state and stored tokens without calling logout api', () => {
             store.accessToken = 'token'
-            store.user = { id: 1, username: 'test', role: 'USER' } as any
+            store.user = authUser()
             localStorage.setItem('accessToken', 'token')
             localStorage.setItem('refreshToken', 'stale-refresh')
 
@@ -319,10 +299,10 @@ describe('Auth Store', () => {
 
     describe('getters', () => {
         it('isAdmin returns correct value', () => {
-            store.user = { id: 1, role: 'ADMIN' } as any
+            store.user = authUser({ role: 'ADMIN' })
             expect(store.isAdmin).toBe(true)
 
-            store.user = { id: 1, role: 'USER' } as any
+            store.user = authUser({ role: 'USER' })
             expect(store.isAdmin).toBe(false)
 
             store.user = null
