@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick, type Ref } from 'vue'
 import { useAdminIpBlocksManager } from '../useAdminIpBlocksManager'
+import { apiSuccessResponse } from '@/test/apiResponseFixtures'
 import type { IpBlock, PageResponse } from '@/types'
 
 const mocks = vi.hoisted(() => ({
@@ -79,8 +80,8 @@ describe('useAdminIpBlocksManager', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.confirm.mockResolvedValue(true)
-    mocks.blockIp.mockResolvedValue({ data: { success: true } })
-    mocks.unblockIp.mockResolvedValue({ data: { success: true } })
+    mocks.blockIp.mockResolvedValue(apiSuccessResponse<() => Promise<unknown>>())
+    mocks.unblockIp.mockResolvedValue(apiSuccessResponse<() => Promise<unknown>>())
     mocks.ipBlocksData!.value = pageResponse([ipBlock()])
     mocks.useIpBlocksParams = undefined
   })

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useGlobalSettingsManager } from '../useGlobalSettingsManager'
+import { apiSuccessResponse } from '@/test/apiResponseFixtures'
 
 const mocks = vi.hoisted(() => ({
   addToast: vi.fn(),
@@ -67,9 +68,9 @@ describe('useGlobalSettingsManager', () => {
       },
     ]
     mocks.confirm.mockResolvedValue(true)
-    mocks.createConfig.mockResolvedValue({ data: { success: true } })
-    mocks.deleteConfig.mockResolvedValue({ data: { success: true } })
-    mocks.updateConfig.mockResolvedValue({ data: { success: true } })
+    mocks.createConfig.mockResolvedValue(apiSuccessResponse<() => Promise<unknown>>())
+    mocks.deleteConfig.mockResolvedValue(apiSuccessResponse<() => Promise<unknown>>())
+    mocks.updateConfig.mockResolvedValue(apiSuccessResponse<() => Promise<unknown>>())
   })
 
   it('saves the current draft and shows a success toast', async () => {

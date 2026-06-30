@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref, type Ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 import { resetNotificationStreamStateForTest, useNotification } from '../useNotification'
+import { apiSuccessResponse } from '@/test/apiResponseFixtures'
 
 const mocks = vi.hoisted(() => {
     const notificationApi = {
@@ -203,9 +204,7 @@ describe('useNotification', () => {
     })
 
     it('marks notification as read and invalidates related queries', async () => {
-        mocks.notificationApi.markAsRead.mockResolvedValueOnce({
-            data: { success: true },
-        })
+        mocks.notificationApi.markAsRead.mockResolvedValueOnce(apiSuccessResponse<typeof mocks.notificationApi.markAsRead>())
         const { useMarkAsRead } = useNotification()
         const mutation = useMarkAsRead()
 
@@ -217,9 +216,7 @@ describe('useNotification', () => {
     })
 
     it('marks all as read and sets unread-count cache to zero', async () => {
-        mocks.notificationApi.markAllAsRead.mockResolvedValueOnce({
-            data: { success: true },
-        })
+        mocks.notificationApi.markAllAsRead.mockResolvedValueOnce(apiSuccessResponse<typeof mocks.notificationApi.markAllAsRead>())
         const { useMarkAllAsRead } = useNotification()
         const mutation = useMarkAllAsRead()
 

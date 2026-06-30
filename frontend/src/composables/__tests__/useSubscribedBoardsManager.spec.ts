@@ -2,6 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
 import { useSubscribedBoardsManager } from '../useSubscribedBoardsManager'
+import { apiEmptySuccess, axiosApiResponse, axiosApiSuccess, pageResponse as createPageResponse } from '@/test/factories'
 import type { SubscriptionBoardListItem } from '@/types'
 
 const mocks = vi.hoisted(() => ({
@@ -53,21 +54,16 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }))
 
-const pageResponse = (page: number, totalPages: number, content: SubscriptionBoardListItem[]) => ({
-  data: {
-    success: true,
-    data: {
-      content,
-      number: page,
-      size: 100,
-      totalElements: content.length,
-      totalPages,
-      first: page === 0,
-      last: page === totalPages - 1,
-      empty: content.length === 0,
-    },
-  },
-})
+const pageResponse = (page: number, totalPages: number, content: SubscriptionBoardListItem[]) =>
+  axiosApiSuccess(createPageResponse(content, {
+    number: page,
+    size: 100,
+    totalElements: content.length,
+    totalPages,
+    first: page === 0,
+    last: page === totalPages - 1,
+    empty: content.length === 0,
+  }))
 
 const subscription = (overrides: Partial<SubscriptionBoardListItem> = {}): SubscriptionBoardListItem => ({
   boardId: 1,
@@ -115,8 +111,8 @@ describe('useSubscribedBoardsManager', () => {
       removeEventListener: mocks.mediaQueryRemoveEventListener,
     }) as unknown as MediaQueryList)
     mocks.confirm.mockResolvedValue(true)
-    mocks.unsubscribeBoard.mockResolvedValue({ data: { success: true } })
-    mocks.updateSubscriptionOrder.mockResolvedValue({ data: { success: true } })
+    mocks.unsubscribeBoard.mockResolvedValue(axiosApiResponse(apiEmptySuccess()))
+    mocks.updateSubscriptionOrder.mockResolvedValue(axiosApiResponse(apiEmptySuccess()))
   })
 
   afterEach(() => {

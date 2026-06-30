@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { QueryClient } from '@tanstack/vue-query'
 import { useEmoticonEditSubmit } from '../useEmoticonEditSubmit'
+import { apiSuccessResponse } from '@/test/apiResponseFixtures'
 import type { EmoticonImagePreview } from '@/utils/emoticonImage'
 
 const mocks = vi.hoisted(() => ({
@@ -78,9 +79,9 @@ const createPreview = (fileName: string): EmoticonImagePreview => ({
 describe('useEmoticonEditSubmit', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.deleteImage.mockResolvedValue({ data: { success: true } })
-    mocks.addImage.mockResolvedValue({ data: { success: true } })
-    mocks.updateEmoticon.mockResolvedValue({ data: { success: true } })
+    mocks.deleteImage.mockResolvedValue(apiSuccessResponse<() => Promise<unknown>>())
+    mocks.addImage.mockResolvedValue(apiSuccessResponse<() => Promise<unknown>>())
+    mocks.updateEmoticon.mockResolvedValue(apiSuccessResponse<() => Promise<unknown>>())
     mocks.createUploadableEmoticonImageFile.mockImplementation((item) => Promise.resolve(item.file))
     mocks.createUploadableEmoticonThumbnailFile.mockImplementation((file) => Promise.resolve(file))
     mocks.uploadFile.mockImplementation((file: File) => Promise.resolve({

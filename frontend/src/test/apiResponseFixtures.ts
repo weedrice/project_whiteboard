@@ -1,4 +1,4 @@
-type AsyncApiFunction = (...args: any[]) => Promise<unknown>
+type AsyncApiFunction = (...args: never[]) => Promise<unknown>
 type AsyncApiReturn<TFunction extends AsyncApiFunction> = Awaited<ReturnType<TFunction>>
 
 export const apiDataResponse = <

@@ -20,6 +20,7 @@ import { emoticonApi } from '../emoticon'
 import { adApi } from '../ad'
 import { notificationApi } from '../notification'
 import { reportApi } from '../report'
+import { apiEmptySuccess, apiSuccess, axiosApiResponse, axiosApiSuccess } from '@/test/factories'
 import type { BoardCreateData, BoardUpdateData, SearchParams } from '@/types'
 import type { EmoticonCreateRequest, EmoticonUpdateRequest } from '@/types/emoticon'
 
@@ -96,17 +97,12 @@ describe('postApi', () => {
     })
 
     it('calls post endpoints with correct path and payload', () => {
-        apiMock.get.mockResolvedValue({
-            data: {
-                success: true,
-                data: {
-                    curatedPosts: [],
-                    latestPosts: [],
-                    boards: [],
-                    stats: {},
-                },
-            },
-        })
+        apiMock.get.mockResolvedValue(axiosApiSuccess({
+            curatedPosts: [],
+            latestPosts: [],
+            boards: [],
+            stats: {},
+        }))
         const postData = { title: 'title', contents: 'body', isNotice: false }
         const updateData = { title: 'updated title', tags: ['a'] }
         const reportData = { targetPostId: 3, reason: 'spam' }
@@ -142,31 +138,26 @@ describe('postApi', () => {
     })
 
     it('passes through source home landing response fields in the API layer', async () => {
-        apiMock.get.mockResolvedValueOnce({
-            data: {
-                success: true,
-                data: {
-                    curatedPosts: [
-                        { postId: 1, title: 'Featured' },
-                        { postId: 2, title: 'Pick' },
-                        { postId: 3, title: 'Trend' },
-                    ],
-                    latestPosts: [{ postId: 4, title: 'Live' }],
-                    boards: [{ boardId: 1, boardUrl: 'free', boardName: 'Free' }],
-                    stats: {
-                        boardCount: 0,
-                        postCount: 0,
-                        liveCount: 0,
-                        onlineCount: 0,
-                        postsToday: 0,
-                        postsTodayDeltaPercent: null,
-                        activeBoardCount: 0,
-                        newMembersLast24Hours: 0,
-                        commentsToday: 0,
-                    },
-                },
+        apiMock.get.mockResolvedValueOnce(axiosApiSuccess({
+            curatedPosts: [
+                { postId: 1, title: 'Featured' },
+                { postId: 2, title: 'Pick' },
+                { postId: 3, title: 'Trend' },
+            ],
+            latestPosts: [{ postId: 4, title: 'Live' }],
+            boards: [{ boardId: 1, boardUrl: 'free', boardName: 'Free' }],
+            stats: {
+                boardCount: 0,
+                postCount: 0,
+                liveCount: 0,
+                onlineCount: 0,
+                postsToday: 0,
+                postsTodayDeltaPercent: null,
+                activeBoardCount: 0,
+                newMembersLast24Hours: 0,
+                commentsToday: 0,
             },
-        })
+        }))
 
         const response = await postApi.getHomeLanding()
 
@@ -178,25 +169,20 @@ describe('postApi', () => {
     })
 
     it('normalizes missing home landing source arrays to empty arrays', async () => {
-        apiMock.get.mockResolvedValueOnce({
-            data: {
-                success: true,
-                data: {
-                    boards: [],
-                    stats: {
-                        boardCount: 0,
-                        postCount: 0,
-                        liveCount: 0,
-                        onlineCount: 0,
-                        postsToday: 0,
-                        postsTodayDeltaPercent: null,
-                        activeBoardCount: 0,
-                        newMembersLast24Hours: 0,
-                        commentsToday: 0,
-                    },
-                },
+        apiMock.get.mockResolvedValueOnce(axiosApiSuccess({
+            boards: [],
+            stats: {
+                boardCount: 0,
+                postCount: 0,
+                liveCount: 0,
+                onlineCount: 0,
+                postsToday: 0,
+                postsTodayDeltaPercent: null,
+                activeBoardCount: 0,
+                newMembersLast24Hours: 0,
+                commentsToday: 0,
             },
-        })
+        }))
 
         const response = await postApi.getHomeLanding()
 
@@ -246,16 +232,11 @@ describe('searchApi', () => {
 
     it('calls search endpoints with params', async () => {
         const params: SearchParams = { keyword: 'vue', page: 1, size: 20, type: 'post' }
-        apiMock.get.mockResolvedValue({
-            data: {
-                success: true,
-                data: {
-                    keywords: [
-                        { rank: 1, keyword: 'vue', count: 10 },
-                    ],
-                },
-            },
-        })
+        apiMock.get.mockResolvedValue(axiosApiSuccess({
+            keywords: [
+                { rank: 1, keyword: 'vue', count: 10 },
+            ],
+        }))
 
         searchApi.search(params)
         searchApi.searchPosts(params)
@@ -330,10 +311,10 @@ describe('adApi', () => {
 
     it('calls ad endpoints and unwraps response envelopes', async () => {
         const ad = { adId: 1, title: 'Ad', imageUrl: null, targetUrl: 'https://example.com' }
-        apiMock.get.mockResolvedValueOnce({ data: { success: true, data: ad } })
+        apiMock.get.mockResolvedValueOnce(axiosApiSuccess(ad))
         apiMock.post
-            .mockResolvedValueOnce({ data: { success: true } })
-            .mockResolvedValueOnce({ data: { success: true, data: 'https://example.com' } })
+            .mockResolvedValueOnce(axiosApiResponse(apiEmptySuccess()))
+            .mockResolvedValueOnce(axiosApiSuccess('https://example.com'))
 
         await expect(adApi.getAd('SIDEBAR')).resolves.toEqual(ad)
         await adApi.recordImpression(1)
@@ -428,10 +409,10 @@ describe('emoticonApi', () => {
         const purchaseStatus = { purchased: false, price: 100 }
 
         apiMock.get
-            .mockResolvedValueOnce({ data: { success: true, data: listPage } })
-            .mockResolvedValueOnce({ data: { success: true, data: detail } })
-            .mockResolvedValueOnce({ data: { success: true, data: purchaseStatus } })
-        apiMock.patch.mockResolvedValueOnce({ data: { success: true, data: { ...detail, isActive: false } } })
+            .mockResolvedValueOnce(axiosApiSuccess(listPage))
+            .mockResolvedValueOnce(axiosApiSuccess(detail))
+            .mockResolvedValueOnce(axiosApiSuccess(purchaseStatus))
+        apiMock.patch.mockResolvedValueOnce(axiosApiResponse(apiSuccess({ ...detail, isActive: false })))
 
         await expect(emoticonApi.searchAllData({ keyword: 'cat' })).resolves.toBe(listPage)
         await expect(emoticonApi.getEmoticonData(1)).resolves.toBe(detail)

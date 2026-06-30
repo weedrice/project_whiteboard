@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref, type ComputedRef } from 'vue'
 import { useEmoticonListResource } from '../useEmoticonListResource'
+import { apiSuccessDataResponse } from '@/test/apiResponseFixtures'
 
 const mocks = vi.hoisted(() => ({
   useApiQueryOptions: [] as Array<Record<string, unknown>>,
@@ -64,11 +65,11 @@ describe('useEmoticonListResource', () => {
     expect((popularOptions.queryKey as ComputedRef<unknown[]>).value).toEqual(['emoticons', 'popular', 'daily'])
     expect((pageOptions.queryKey as ComputedRef<unknown[]>).value).toEqual(['emoticons', 'list', 0, 'latest', '', 'ALL'])
 
-    mocks.getPopularEmoticons.mockResolvedValueOnce({ data: { success: true, data: [] } })
+    mocks.getPopularEmoticons.mockResolvedValueOnce(apiSuccessDataResponse<typeof mocks.getPopularEmoticons>([]))
     await (popularOptions.request as () => Promise<unknown>)()
     expect(mocks.getPopularEmoticons).toHaveBeenCalledWith('daily')
 
-    mocks.searchAll.mockResolvedValueOnce({ data: { success: true, data: { content: [] } } })
+    mocks.searchAll.mockResolvedValueOnce(apiSuccessDataResponse<typeof mocks.searchAll>({ content: [] }))
     await (pageOptions.request as () => Promise<unknown>)()
     expect(mocks.searchAll).toHaveBeenCalledWith({
       page: 0,
