@@ -43,9 +43,13 @@ function areQueryValuesEqual(left: unknown, right: unknown): boolean {
   return String(left ?? '') === String(right ?? '')
 }
 
+function getQueryValue(query: object, key: string): unknown {
+  return (query as Record<string, unknown>)[key]
+}
+
 export function areQueriesEqual(
-  left: Record<string, unknown>,
-  right: Record<string, unknown>
+  left: object,
+  right: object
 ): boolean {
   const leftKeys = Object.keys(left).sort()
   const rightKeys = Object.keys(right).sort()
@@ -56,6 +60,6 @@ export function areQueriesEqual(
 
   return leftKeys.every((key, index) => (
     key === rightKeys[index]
-    && areQueryValuesEqual(left[key], right[key])
+    && areQueryValuesEqual(getQueryValue(left, key), getQueryValue(right, key))
   ))
 }

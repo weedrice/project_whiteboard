@@ -263,7 +263,7 @@ export function useBoardListState(route: BoardListRoute, router: BoardListRouter
       nextConceptOnly
     )
 
-    if (!areQueriesEqual(newQuery as Record<string, unknown>, normalizedQuery)) {
+    if (!areQueriesEqual(newQuery, normalizedQuery)) {
       router.replace({
         path: route.path,
         query: normalizedQuery

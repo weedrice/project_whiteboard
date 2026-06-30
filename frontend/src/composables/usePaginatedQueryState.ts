@@ -1,6 +1,11 @@
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
 import type { PageResponse } from '@/types'
 
+type PaginationParams = {
+  page: number
+  size: number
+}
+
 export interface PaginatedQueryStateOptions<TExtraParams extends Record<string, unknown> = Record<string, unknown>> {
   initialPage?: number
   initialSize?: number
@@ -13,11 +18,11 @@ export function usePaginatedQueryState<TExtraParams extends Record<string, unkno
   const page = ref(options.initialPage ?? 0)
   const size = ref(options.initialSize ?? 20)
 
-  const params = computed(() => ({
+  const params = computed<PaginationParams & TExtraParams>(() => ({
     page: page.value,
     size: size.value,
     ...(options.extraParams?.value ?? {}),
-  }))
+  }) as PaginationParams & TExtraParams) as Ref<PaginationParams & TExtraParams>
 
   function handlePageChange(nextPage: number) {
     page.value = nextPage

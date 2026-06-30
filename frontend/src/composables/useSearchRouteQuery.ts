@@ -18,7 +18,7 @@ export function useSearchRouteQuery() {
   const route = useRoute()
   const searchInput = ref('')
 
-  const searchQuery = computed(() => normalizeSearchQuery(route.query as Record<string, unknown>))
+  const searchQuery = computed(() => normalizeSearchQuery(route.query))
   const { submitSearch } = useSearchSubmitNavigation({
     getCurrentSearchQuery: () => searchQuery.value,
   })

@@ -42,7 +42,7 @@ export function usePaginatedListState<
     initialPage: options.initialPage,
     initialSize: options.initialSize,
   })
-  const query = usePaginatedQuery(pagination.params as unknown as Ref<TParams>)
+  const query = usePaginatedQuery(pagination.params)
   const pageState = usePageResponseState(query.data, pagination.page)
   const errorMessage = computed(() => {
     if (!query.isError.value) {
