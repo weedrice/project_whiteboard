@@ -25,6 +25,10 @@ export const adminQueryKeys = {
     boardManagerById: (boardId: number) => ['admin', 'board-manager', boardId] as const,
     errorLogsRoot: ['admin', 'error-logs'] as const,
     errorLogs: (params: Ref<unknown>) => computed(() => ['admin', 'error-logs', params.value ?? {}] as const),
+    errorLogDetailRoot: ['admin', 'error-logs', 'detail'] as const,
+    errorLogDetail: (errorLogId: Ref<number | null>) =>
+        computed(() => ['admin', 'error-logs', 'detail', errorLogId.value] as const),
+    errorLogDetailById: (errorLogId: number) => ['admin', 'error-logs', 'detail', errorLogId] as const,
     errorLogStats: ['admin', 'error-log-stats'] as const,
 }
 

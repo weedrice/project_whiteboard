@@ -678,15 +678,64 @@ describe('useAdmin', () => {
             expect(query.placeholderData('prev-error-logs')).toBe('prev-error-logs')
         })
 
-        it('useErrorLog mutation returns detail payload', async () => {
+        it('useErrorLogs queryFn forwards AbortSignal to API config', async () => {
+            const { useErrorLogs } = useAdmin()
+            const params = ref({ page: 0, size: 20 })
+            const signal = new AbortController().signal
+            const response = {
+                content: [],
+                number: 0,
+                size: 20,
+                totalElements: 0,
+                totalPages: 0,
+                first: true,
+                last: true,
+                empty: true
+            }
+            vi.mocked(adminApi.getErrorLogs).mockResolvedValueOnce(apiDataResponse<typeof adminApi.getErrorLogs>(response))
+
+            useErrorLogs(params)
+            const query = mockQueryOptions.at(-1) as {
+                queryFn: (context?: { signal?: AbortSignal }) => Promise<unknown>
+            }
+
+            await expect(query.queryFn({ signal })).resolves.toEqual(response)
+            expect(adminApi.getErrorLogs).toHaveBeenCalledWith(params.value, { signal })
+        })
+
+        it('useErrorLog uses detail query key and returns detail payload', async () => {
             const { useErrorLog } = useAdmin()
+            const errorLogId = ref<number | null>(1)
+            const signal = new AbortController().signal
             const detailResponse = { errorLogId: 1, stackTrace: 'stack trace' }
             vi.mocked(adminApi.getErrorLog).mockResolvedValueOnce(apiDataResponse<typeof adminApi.getErrorLog>(detailResponse))
 
-            const mutation = useErrorLog()
+            useErrorLog(errorLogId)
+            const query = mockQueryOptions.at(-1) as {
+                enabled: { value: boolean }
+                queryKey: { value: unknown[] }
+                queryFn: (context?: { signal?: AbortSignal }) => Promise<unknown>
+            }
 
-            await expect(mutation.mutateAsync(1)).resolves.toEqual(detailResponse)
-            expect(adminApi.getErrorLog).toHaveBeenCalledWith(1)
+            await expect(query.queryFn({ signal })).resolves.toEqual(detailResponse)
+            expect(query.queryKey.value).toEqual(['admin', 'error-logs', 'detail', 1])
+            expect(query.enabled.value).toBe(true)
+            expect(adminApi.getErrorLog).toHaveBeenCalledWith(1, { signal })
+        })
+
+        it('useErrorLog detail query stays disabled and skips API when id is null', async () => {
+            const { useErrorLog } = useAdmin()
+            const errorLogId = ref<number | null>(null)
+
+            useErrorLog(errorLogId)
+            const query = mockQueryOptions.at(-1) as {
+                enabled: { value: boolean }
+                queryFn: () => Promise<unknown>
+            }
+
+            await expect(query.queryFn()).resolves.toBeNull()
+            expect(query.enabled.value).toBe(false)
+            expect(adminApi.getErrorLog).not.toHaveBeenCalled()
         })
 
         it('useResolveErrorLog calls adminApi.resolveErrorLog with memo', async () => {
@@ -699,6 +748,8 @@ describe('useAdmin', () => {
 
             expect(adminApi.resolveErrorLog).toHaveBeenCalledWith(1, { memo: '확인 완료' })
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'error-logs'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'error-log-stats'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'error-logs', 'detail', 1] })
         })
 
         it('useResolveErrorLog calls adminApi.resolveErrorLog without memo', async () => {
@@ -711,6 +762,8 @@ describe('useAdmin', () => {
 
             expect(adminApi.resolveErrorLog).toHaveBeenCalledWith(2, undefined)
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'error-logs'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'error-log-stats'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'error-logs', 'detail', 2] })
         })
 
         it('useErrorLogStats returns query hooks', () => {

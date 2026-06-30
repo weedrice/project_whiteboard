@@ -4,6 +4,7 @@ import { adminApi } from '@/api/admin'
 import { adminQueryKeys } from '@/composables/adminQueryKeys'
 import { invalidateAdminUserCaches } from '@/composables/adminCacheInvalidation'
 import {
+    type AdminApiRequestConfig,
     useAdminDataQuery,
     useAdminNullableDataQuery,
     useAdminNullablePageQuery,
@@ -24,11 +25,21 @@ import type {
     User,
 } from '@/types'
 
+const withConfig = <T>(
+    config: AdminApiRequestConfig | undefined,
+    requestWithConfig: (config: AdminApiRequestConfig) => T,
+    requestWithoutConfig: () => T,
+) => (config ? requestWithConfig(config) : requestWithoutConfig())
+
 export function useAdminAccountManagement(queryClient: QueryClient) {
     const useAdmins = (params: Ref<{ page?: number, size?: number }>) => {
         return useAdminPageQuery<BoardAdminInfo>(
             adminQueryKeys.admins(params),
-            () => adminApi.getAdmins(params.value)
+            (config) => withConfig(
+                config,
+                (requestConfig) => adminApi.getAdmins(params.value, requestConfig),
+                () => adminApi.getAdmins(params.value),
+            )
         )
     }
 
@@ -50,7 +61,10 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
     }
 
     const useSuperAdmins = () => {
-        return useAdminDataQuery<SuperAdminInfo[]>(adminQueryKeys.superAdmins, () => adminApi.getSuperAdmin())
+        return useAdminDataQuery<SuperAdminInfo[]>(
+            adminQueryKeys.superAdmins,
+            (config) => withConfig(config, adminApi.getSuperAdmin, () => adminApi.getSuperAdmin()),
+        )
     }
 
     const useUpdateSuperAdminStatus = () => {
@@ -66,7 +80,11 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
     const useUsers = (params: Ref<UserSearchParams>, enabled?: Ref<boolean>) => {
         return useAdminPageQuery<User>(
             adminQueryKeys.users(params),
-            () => adminApi.getUsers(params.value),
+            (config) => withConfig(
+                config,
+                (requestConfig) => adminApi.getUsers(params.value, requestConfig),
+                () => adminApi.getUsers(params.value),
+            ),
             {
                 enabled,
             }
@@ -86,7 +104,13 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
         const enabled = computed(() => userId.value !== null)
         return useAdminNullableDataQuery<AdminUserDetail>(
             adminQueryKeys.userDetail(userId),
-            () => userId.value == null ? null : adminApi.getUserDetail(userId.value),
+            (config) => userId.value == null
+                ? null
+                : withConfig(
+                    config,
+                    (requestConfig) => adminApi.getUserDetail(userId.value as number, requestConfig),
+                    () => adminApi.getUserDetail(userId.value as number),
+                ),
             enabled
         )
     }
@@ -96,7 +120,13 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
 
         return useAdminNullablePageQuery<AdminUserPostItem>(
             adminQueryKeys.userPosts(userId, params),
-            () => userId.value == null ? null : adminApi.getUserPosts(userId.value, params.value),
+            (config) => userId.value == null
+                ? null
+                : withConfig(
+                    config,
+                    (requestConfig) => adminApi.getUserPosts(userId.value as number, params.value, requestConfig),
+                    () => adminApi.getUserPosts(userId.value as number, params.value),
+                ),
             enabled
         )
     }
@@ -106,7 +136,13 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
 
         return useAdminNullablePageQuery<AdminUserCommentItem>(
             adminQueryKeys.userComments(userId, params),
-            () => userId.value == null ? null : adminApi.getUserComments(userId.value, params.value),
+            (config) => userId.value == null
+                ? null
+                : withConfig(
+                    config,
+                    (requestConfig) => adminApi.getUserComments(userId.value as number, params.value, requestConfig),
+                    () => adminApi.getUserComments(userId.value as number, params.value),
+                ),
             enabled
         )
     }
@@ -116,7 +152,13 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
 
         return useAdminNullablePageQuery<AdminUserSubscriptionItem>(
             adminQueryKeys.userSubscriptions(userId, params),
-            () => userId.value == null ? null : adminApi.getUserSubscriptions(userId.value, params.value),
+            (config) => userId.value == null
+                ? null
+                : withConfig(
+                    config,
+                    (requestConfig) => adminApi.getUserSubscriptions(userId.value as number, params.value, requestConfig),
+                    () => adminApi.getUserSubscriptions(userId.value as number, params.value),
+                ),
             enabled
         )
     }

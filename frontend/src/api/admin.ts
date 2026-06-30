@@ -1,4 +1,5 @@
 import api from '@/api'
+import type { AxiosRequestConfig } from 'axios'
 import type {
     ApiResponse,
     PageResponse,
@@ -27,6 +28,10 @@ import type {
 } from '@/types'
 
 export type AdminRole = 'BOARD_ADMIN' | 'MODERATOR'
+
+const getWithOptionalConfig = <T>(url: string, config?: AxiosRequestConfig) => (
+    config ? api.get<T>(url, config) : api.get<T>(url)
+)
 
 // Admin types
 interface AdminCreateData {
@@ -79,8 +84,8 @@ interface BoardManagerUpdateData {
 
 export const adminApi = {
     // Admin management
-    getAdmins(params: PaginationParams) {
-        return api.get<ApiResponse<PageResponse<BoardAdminInfo>>>('/admin/admins', { params })
+    getAdmins(params: PaginationParams, config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<PageResponse<BoardAdminInfo>>>('/admin/admins', { ...config, params })
     },
     createAdmin(data: AdminCreateData) {
         return api.post<ApiResponse<BoardAdminInfo>>('/admin/admins', data)
@@ -91,14 +96,14 @@ export const adminApi = {
     activateAdmin(adminId: string | number) {
         return api.put<ApiResponse<void>>(`/admin/admins/${adminId}/activate`)
     },
-    getBoardManager(boardId: number) {
-        return api.get<ApiResponse<BoardAdminInfo | null>>(`/admin/boards/${boardId}/manager`)
+    getBoardManager(boardId: number, config?: AxiosRequestConfig) {
+        return getWithOptionalConfig<ApiResponse<BoardAdminInfo | null>>(`/admin/boards/${boardId}/manager`, config)
     },
     updateBoardManager(boardId: number, data: BoardManagerUpdateData) {
         return api.put<ApiResponse<BoardAdminInfo>>(`/admin/boards/${boardId}/manager`, data)
     },
-    getSuperAdmin() {
-        return api.get<ApiResponse<SuperAdminInfo[]>>('/admin/super')
+    getSuperAdmin(config?: AxiosRequestConfig) {
+        return getWithOptionalConfig<ApiResponse<SuperAdminInfo[]>>('/admin/super', config)
     },
     activeSuperAdmin(data: SuperAdminData) {
         return api.put<ApiResponse<void>>('/admin/super/active', data)
@@ -108,8 +113,8 @@ export const adminApi = {
     },
 
     // IP block management
-    getIpBlocks(params: PaginationParams) {
-        return api.get<ApiResponse<PageResponse<IpBlock>>>('/admin/ip-blocks', { params })
+    getIpBlocks(params: PaginationParams, config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<PageResponse<IpBlock>>>('/admin/ip-blocks', { ...config, params })
     },
     blockIp(data: IpBlockData) {
         return api.post<ApiResponse<IpBlock>>('/admin/ip-blocks', data)
@@ -119,20 +124,20 @@ export const adminApi = {
     },
 
     // User management
-    getUsers(params: UserSearchParams) {
-        return api.get<ApiResponse<PageResponse<User>>>('/admin/users', { params })
+    getUsers(params: UserSearchParams, config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<PageResponse<User>>>('/admin/users', { ...config, params })
     },
-    getUserDetail(userId: string | number) {
-        return api.get<ApiResponse<AdminUserDetail>>(`/admin/users/${userId}`)
+    getUserDetail(userId: string | number, config?: AxiosRequestConfig) {
+        return getWithOptionalConfig<ApiResponse<AdminUserDetail>>(`/admin/users/${userId}`, config)
     },
-    getUserPosts(userId: string | number, params: PaginationParams) {
-        return api.get<ApiResponse<PageResponse<AdminUserPostItem>>>(`/admin/users/${userId}/posts`, { params })
+    getUserPosts(userId: string | number, params: PaginationParams, config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<PageResponse<AdminUserPostItem>>>(`/admin/users/${userId}/posts`, { ...config, params })
     },
-    getUserComments(userId: string | number, params: PaginationParams) {
-        return api.get<ApiResponse<PageResponse<AdminUserCommentItem>>>(`/admin/users/${userId}/comments`, { params })
+    getUserComments(userId: string | number, params: PaginationParams, config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<PageResponse<AdminUserCommentItem>>>(`/admin/users/${userId}/comments`, { ...config, params })
     },
-    getUserSubscriptions(userId: string | number, params: PaginationParams) {
-        return api.get<ApiResponse<PageResponse<AdminUserSubscriptionItem>>>(`/admin/users/${userId}/subscriptions`, { params })
+    getUserSubscriptions(userId: string | number, params: PaginationParams, config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<PageResponse<AdminUserSubscriptionItem>>>(`/admin/users/${userId}/subscriptions`, { ...config, params })
     },
     updateUserStatus(userId: string | number, status: string) {
         return api.put<ApiResponse<void>>(`/admin/users/${userId}/status`, { status })
@@ -142,16 +147,16 @@ export const adminApi = {
     },
 
     // Report management
-    getReports(params: PaginationParams) {
-        return api.get<ApiResponse<PageResponse<Report>>>('/admin/reports', { params })
+    getReports(params: PaginationParams, config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<PageResponse<Report>>>('/admin/reports', { ...config, params })
     },
     resolveReport(reportId: string | number, data: ReportResolveData) {
         return api.put<ApiResponse<void>>(`/admin/reports/${reportId}`, data)
     },
 
     // Global settings
-    getConfigs() {
-        return api.get<ApiResponse<GlobalConfig[]>>('/admin/configs')
+    getConfigs(config?: AxiosRequestConfig) {
+        return getWithOptionalConfig<ApiResponse<GlobalConfig[]>>('/admin/configs', config)
     },
 
     updateConfig(key: string, value: string, description?: string) {
@@ -167,8 +172,8 @@ export const adminApi = {
     },
 
     // Dashboard statistics
-    getDashboardStats() {
-        return api.get<ApiResponse<DashboardStats>>('/admin/stats')
+    getDashboardStats(config?: AxiosRequestConfig) {
+        return getWithOptionalConfig<ApiResponse<DashboardStats>>('/admin/stats', config)
     },
     getInquiryPosts(params: PaginationParams & { sort?: string }) {
         return api.get<ApiResponse<PageResponse<AdminInquirySummary>>>('/admin/inquiries', { params })
@@ -178,8 +183,8 @@ export const adminApi = {
     },
 
     // Board management
-    getBoards() {
-        return api.get<ApiResponse<AdminBoard[]>>('/boards/all')
+    getBoards(config?: AxiosRequestConfig) {
+        return getWithOptionalConfig<ApiResponse<AdminBoard[]>>('/boards/all', config)
     },
     createBoard(data: BoardCreateData) {
         return api.post<ApiResponse<BoardDetail>>('/boards', data)
@@ -192,17 +197,17 @@ export const adminApi = {
     },
 
     // Error log management
-    getErrorLogs(params: ErrorLogSearchParams) {
-        return api.get<ApiResponse<PageResponse<ErrorLogListItem>>>('/admin/error-logs', { params })
+    getErrorLogs(params: ErrorLogSearchParams, config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<PageResponse<ErrorLogListItem>>>('/admin/error-logs', { ...config, params })
     },
-    getErrorLog(errorLogId: number) {
-        return api.get<ApiResponse<ErrorLogDetail>>(`/admin/error-logs/${errorLogId}`)
+    getErrorLog(errorLogId: number, config?: AxiosRequestConfig) {
+        return getWithOptionalConfig<ApiResponse<ErrorLogDetail>>(`/admin/error-logs/${errorLogId}`, config)
     },
     resolveErrorLog(errorLogId: number, data?: { memo?: string }) {
         return api.put<ApiResponse<void>>(`/admin/error-logs/${errorLogId}/resolve`, data)
     },
-    getErrorLogStats() {
-        return api.get<ApiResponse<ErrorLogStats>>('/admin/error-logs/stats')
+    getErrorLogStats(config?: AxiosRequestConfig) {
+        return getWithOptionalConfig<ApiResponse<ErrorLogStats>>('/admin/error-logs/stats', config)
     }
 }
 
