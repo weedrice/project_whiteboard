@@ -86,6 +86,15 @@ const getSortIndicator = (column: TableColumn): string => {
     return props.currentSortDirection === 'asc' ? '^' : 'v'
 }
 
+const getSortButtonLabel = (column: TableColumn): string => {
+    if (props.currentSortKey !== column.key) {
+        return `Sort by ${column.label}`
+    }
+
+    const direction = props.currentSortDirection === 'asc' ? 'ascending' : 'descending'
+    return `Sort by ${column.label}, currently ${direction}`
+}
+
 const getRowKey = (item: T, index: number): string | number => {
     if (typeof props.rowKey === 'function') {
         return props.rowKey(item, index)
@@ -214,6 +223,7 @@ const bodyCellClasses = computed(() => [
                                 type="button"
                                 class="nv-base-table-header-button inline-flex w-full items-center gap-2 focus:outline-none focus-visible:ring-2"
                                 :class="alignButtonClass(col.align)"
+                                :aria-label="getSortButtonLabel(col)"
                                 @click="emit('sort', col.key)">
                                 <span aria-hidden="true" class="text-[9px] sm:text-[10px]">
                                     {{ getSortIndicator(col) }}

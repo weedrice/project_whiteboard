@@ -25,6 +25,7 @@ describe('BaseTable', () => {
         expect(spans).toHaveLength(2)
         expect(spans[0].text()).toBe('^')
         expect(spans[1].text()).toBe('Title')
+        expect(wrapper.get('.nv-base-table-header-button').attributes('aria-label')).toBe('Sort by Title, currently ascending')
     })
 
     it('does not show a visual placeholder for inactive sortable headers', () => {
@@ -46,6 +47,7 @@ describe('BaseTable', () => {
         const spans = wrapper.find('.nv-base-table-header-button').findAll('span')
 
         expect(wrapper.get('th').attributes('aria-sort')).toBe('none')
+        expect(wrapper.get('.nv-base-table-header-button').attributes('aria-label')).toBe('Sort by Title')
         expect(spans[0].text()).toBe('')
         expect(spans[1].text()).toBe('Title')
     })
