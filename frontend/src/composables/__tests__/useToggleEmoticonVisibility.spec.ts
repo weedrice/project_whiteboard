@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useToggleEmoticonVisibility } from '../useToggleEmoticonVisibility'
 import { emoticonApi } from '@/api/emoticon'
 import { extractErrorMessage } from '@/utils/errorHandler'
+import type { EmoticonMaster } from '@/types/emoticon'
 
 const mocks = vi.hoisted(() => {
   const mutationOptions: Array<Record<string, unknown>> = []
@@ -51,6 +52,17 @@ vi.mock('@/utils/errorHandler', () => ({
   extractErrorMessage: vi.fn(),
 }))
 
+const createToggleResult = (overrides: Partial<EmoticonMaster> = {}): EmoticonMaster => ({
+  emoticonId: 1,
+  name: 'Test Emoticon',
+  tags: [],
+  isActive: false,
+  images: [],
+  createdAt: '2026-01-01T00:00:00',
+  modifiedAt: '2026-01-01T00:00:00',
+  ...overrides,
+})
+
 describe('useToggleEmoticonVisibility', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -58,13 +70,14 @@ describe('useToggleEmoticonVisibility', () => {
   })
 
   it('toggles visibility and invalidates detail, purchased status, and list queries when requested', async () => {
-    vi.mocked(emoticonApi.toggleVisibilityData).mockResolvedValueOnce({ isActive: false })
+    const toggleResult = createToggleResult({ isActive: false })
+    vi.mocked(emoticonApi.toggleVisibilityData).mockResolvedValueOnce(toggleResult)
     const emoticonId = computed(() => 7)
 
     useToggleEmoticonVisibility(emoticonId, { invalidatePurchaseStatus: true })
     const options = mocks.mutationOptions.at(-1)!
 
-    await expect((options.mutationFn as () => Promise<unknown>)()).resolves.toEqual({ isActive: false })
+    await expect((options.mutationFn as () => Promise<unknown>)()).resolves.toEqual(toggleResult)
     ;(options.onSuccess as (value: { isActive: boolean }) => void)({ isActive: false })
 
     expect(emoticonApi.toggleVisibilityData).toHaveBeenCalledWith(7)

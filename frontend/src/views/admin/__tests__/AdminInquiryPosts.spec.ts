@@ -1,46 +1,55 @@
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, reactive } from 'vue'
-import { createPaginationStub, identityT } from '@/test/vue-test-helpers'
-import type AdminInquiryPostsComponent from '../AdminInquiryPosts.vue'
+import { defineComponent } from 'vue'
+import { createPaginationStub } from '@/test/vue-test-helpers'
+import AdminInquiryPosts from '../AdminInquiryPosts.vue'
 
-type AdminInquiryPosts = typeof AdminInquiryPostsComponent
+const { identityT, state } = vi.hoisted(() => {
+  const refOf = <T>(value: T) => ({ __v_isRef: true, value })
+  const identityT = (key: string, params?: Record<string, unknown>) => {
+    if (params?.count !== undefined) {
+      return `${key}:${params.count}`
+    }
+    return key
+  }
 
-let AdminInquiryPosts: AdminInquiryPosts
-
-const state = reactive({
-  closeDetail: vi.fn(),
-  detailError: null as unknown,
-  error: null as unknown,
-  handlePageChange: vi.fn(),
-  isDetailFetching: false,
-  isDetailLoading: false,
-  isFetching: false,
-  isLoading: false,
-  openDetail: vi.fn(),
-  page: 0,
-  posts: [
-    {
-      id: 7,
-      title: 'Need help',
-      summaryText: 'Question summary',
-      authorName: 'Ada',
-      createdAtText: '2026-05-26',
-      statusLabelKey: 'admin.inquiries.status.pending',
-      statusVariant: 'warning',
+  return {
+    identityT,
+    state: {
+      closeDetail: vi.fn(),
+      detailError: refOf(null as unknown),
+      error: refOf(null as unknown),
+      handlePageChange: vi.fn(),
+      isDetailFetching: refOf(false),
+      isDetailLoading: refOf(false),
+      isFetching: refOf(false),
+      isLoading: refOf(false),
+      openDetail: vi.fn(),
+      page: refOf(0),
+      posts: refOf([
+        {
+          id: 7,
+          title: 'Need help',
+          summaryText: 'Question summary',
+          authorName: 'Ada',
+          createdAtText: '2026-05-26',
+          statusLabelKey: 'admin.inquiries.status.pending',
+          statusVariant: 'warning',
+        },
+      ]),
+      selectedInquiry: refOf({
+        id: 7,
+        title: 'Need help',
+        authorName: 'Ada',
+        createdAtText: '2026-05-26',
+        contentsHtml: '<p>Question body</p>',
+      }),
+      selectedPostId: refOf(null as number | null),
+      sort: refOf('createdAt,desc'),
+      totalElements: refOf(1),
+      totalPages: refOf(3),
     },
-  ],
-  selectedInquiry: {
-    id: 7,
-    title: 'Need help',
-    authorName: 'Ada',
-    createdAtText: '2026-05-26',
-    contentsHtml: '<p>Question body</p>',
-  },
-  selectedPostId: null as number | null,
-  sort: 'createdAt,desc',
-  totalElements: 1,
-  totalPages: 3,
+  }
 })
 
 vi.mock('@/composables/useAdminInquiryPosts', () => ({
@@ -90,14 +99,14 @@ describe('AdminInquiryPosts', () => {
     state.closeDetail = vi.fn()
     state.handlePageChange = vi.fn()
     state.openDetail = vi.fn()
-    state.detailError = null
-    state.error = null
-    state.isDetailFetching = false
-    state.isDetailLoading = false
-    state.isFetching = false
-    state.isLoading = false
-    state.page = 0
-    state.posts = [
+    state.detailError.value = null
+    state.error.value = null
+    state.isDetailFetching.value = false
+    state.isDetailLoading.value = false
+    state.isFetching.value = false
+    state.isLoading.value = false
+    state.page.value = 0
+    state.posts.value = [
       {
         id: 7,
         title: 'Need help',
@@ -108,21 +117,17 @@ describe('AdminInquiryPosts', () => {
         statusVariant: 'warning',
       },
     ]
-    state.selectedInquiry = {
+    state.selectedInquiry.value = {
       id: 7,
       title: 'Need help',
       authorName: 'Ada',
       createdAtText: '2026-05-26',
       contentsHtml: '<p>Question body</p>',
     }
-    state.selectedPostId = null
-    state.sort = 'createdAt,desc'
-    state.totalElements = 1
-    state.totalPages = 3
-  })
-
-  beforeEach(async () => {
-    AdminInquiryPosts = (await import('../AdminInquiryPosts.vue')).default
+    state.selectedPostId.value = null
+    state.sort.value = 'createdAt,desc'
+    state.totalElements.value = 1
+    state.totalPages.value = 3
   })
 
   it('renders inquiry rows and forwards pagination events through the shared footer', async () => {
@@ -139,7 +144,7 @@ describe('AdminInquiryPosts', () => {
   })
 
   it('opens inquiry detail from row clicks and closes the extracted detail modal', async () => {
-    state.selectedPostId = 7
+    state.selectedPostId.value = 7
     const wrapper = mountView()
 
     await wrapper.get('tbody tr.cursor-pointer').trigger('click')
@@ -150,7 +155,7 @@ describe('AdminInquiryPosts', () => {
   })
 
   it('shows the shared footer loading message while refreshing', () => {
-    state.isFetching = true
+    state.isFetching.value = true
     const wrapper = mountView()
 
     expect(wrapper.text()).toContain('admin.inquiries.refreshing')

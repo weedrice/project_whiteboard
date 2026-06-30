@@ -97,7 +97,7 @@ function createActions(overrides: {
         post: ref(overrides.post === undefined ? postFactory() : overrides.post),
         canReport: computed(() => overrides.canReport ?? true),
         authStore: { isAuthenticated: overrides.authenticated ?? true },
-        route: route as RouteLocationNormalizedLoaded,
+        route: route as unknown as RouteLocationNormalizedLoaded,
         router: router as Partial<Router> as Router,
         t: (key: string) => key,
         buildBoardListRoute: (boardUrl: string) => ({ name: 'board-detail', params: { boardUrl } }),

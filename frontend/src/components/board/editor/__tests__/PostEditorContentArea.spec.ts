@@ -25,7 +25,7 @@ describe('PostEditorContentArea', () => {
     await wrapper.get('.tiptap-content').trigger('dragenter')
     await wrapper.get('.tiptap-content').trigger('dragleave')
 
-    expect(wrapper.get('[data-testid="editor-content"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="editor-content"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('Drop image here')
     expect(wrapper.emitted('content-mousedown')).toHaveLength(1)
     expect(wrapper.emitted('content-paste')).toHaveLength(1)

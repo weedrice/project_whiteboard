@@ -72,7 +72,7 @@ describe('extracted board components', () => {
 
     expect(button.attributes('aria-expanded')).toBe('false')
     expect(listId).toBeTruthy()
-    expect(wrapper.get(`#${listId}`).exists()).toBe(true)
+    expect(wrapper.find(`#${listId}`).exists()).toBe(true)
     expect(wrapper.getComponent(RouterLinkStub).props('to')).toBe('/board/free/post/1')
 
     await button.trigger('click')

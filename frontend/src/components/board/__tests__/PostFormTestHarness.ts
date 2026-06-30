@@ -378,11 +378,11 @@ export const resetPostFormTestState = () => {
     isUpdatePendingRef.value = false
 
     mockPostFormAuthStore({ user: { role: 'USER' } })
-    vi.mocked(useToastStore).mockReturnValue({ addToast: mockAddToast } as ReturnType<typeof useToastStore>)
+    vi.mocked(useToastStore).mockReturnValue({ addToast: mockAddToast } as unknown as ReturnType<typeof useToastStore>)
 
     vi.mocked(useBoard).mockReturnValue({
         useBoardDetail: () => ({ data: boardRef, isLoading: isBoardLoadingRef }),
-    } as ReturnType<typeof useBoard>)
+    } as unknown as ReturnType<typeof useBoard>)
 
     vi.mocked(usePost).mockReturnValue({
         usePostDetail: mockUsePostDetail,
@@ -390,7 +390,7 @@ export const resetPostFormTestState = () => {
         useUpdatePost: mockUseUpdatePost,
         useSaveDraft: () => ({ isPending: isSaveDraftPendingRef, mutateAsync: mockSaveDraftMutateAsync }),
         useDeleteDraft: () => ({ isPending: isDeleteDraftPendingRef, mutateAsync: mockDeleteDraftMutateAsync }),
-    } as ReturnType<typeof usePost>)
+    } as unknown as ReturnType<typeof usePost>)
 
     mockUsePostDetail.mockImplementation(() => ({ data: postRef, isLoading: isPostLoadingRef }))
     mockUseCreatePost.mockImplementation(() => ({ mutate: mockCreateMutate, isPending: isCreatePendingRef }))
