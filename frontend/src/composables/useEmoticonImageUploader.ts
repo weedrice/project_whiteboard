@@ -12,9 +12,66 @@ type UploadOptions = {
   skipGlobalErrorHandler?: boolean
 }
 
+const EMOTICON_IMAGE_CONCURRENCY_LIMIT = 3
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  task: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  if (items.length === 0) {
+    return []
+  }
+
+  const results: R[] = new Array(items.length)
+  let activeCount = 0
+  let completedCount = 0
+  let nextIndex = 0
+  let stopped = false
+
+  return new Promise<R[]>((resolve, reject) => {
+    const runNext = () => {
+      if (stopped) {
+        return
+      }
+
+      if (completedCount === items.length) {
+        resolve(results)
+        return
+      }
+
+      while (activeCount < limit && nextIndex < items.length) {
+        const currentIndex = nextIndex
+        nextIndex += 1
+        activeCount += 1
+
+        Promise.resolve()
+          .then(() => task(items[currentIndex], currentIndex))
+          .then((result) => {
+            activeCount -= 1
+            completedCount += 1
+            results[currentIndex] = result
+            runNext()
+          })
+          .catch((error) => {
+            activeCount -= 1
+            stopped = true
+            reject(error)
+          })
+      }
+    }
+
+    runNext()
+  })
+}
+
 export function useEmoticonImageUploader(uploadSession: EmoticonUploadSession) {
   async function preparePreviewFiles(previews: EmoticonImagePreview[]) {
-    return Promise.all(previews.map((preview) => createUploadableEmoticonImageFile(preview)))
+    return mapWithConcurrency(
+      previews,
+      EMOTICON_IMAGE_CONCURRENCY_LIMIT,
+      (preview) => createUploadableEmoticonImageFile(preview)
+    )
   }
 
   async function uploadFile(file: File, runId: number, options: UploadOptions = {}) {
@@ -60,7 +117,7 @@ export function useEmoticonImageUploader(uploadSession: EmoticonUploadSession) {
     let uploadFailed = false
     let completed = 0
 
-    return Promise.all(files.map(async (file) => {
+    return mapWithConcurrency(files, EMOTICON_IMAGE_CONCURRENCY_LIMIT, async (file) => {
       if (uploadFailed) {
         throw uploadSession.createUploadCancelledError()
       }
@@ -79,7 +136,7 @@ export function useEmoticonImageUploader(uploadSession: EmoticonUploadSession) {
         uploadSession.abortPendingUploads()
         throw error
       }
-    }))
+    })
   }
 
   return {

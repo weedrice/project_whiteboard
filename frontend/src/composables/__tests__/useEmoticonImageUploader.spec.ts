@@ -16,6 +16,23 @@ vi.mock('@/utils/emoticonImage', () => ({
   createUploadableEmoticonImageFile
 }))
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (error: unknown) => void
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve
+    reject = promiseReject
+  })
+
+  return { promise, resolve, reject }
+}
+
+async function flushPromises() {
+  await Promise.resolve()
+  await Promise.resolve()
+  await new Promise((resolve) => setTimeout(resolve, 0))
+}
+
 function createSession() {
   const controller = new AbortController()
 
@@ -75,5 +92,99 @@ describe('useEmoticonImageUploader', () => {
     ], 7)).rejects.toBe(error)
 
     expect(session.abortPendingUploads).toHaveBeenCalled()
+  })
+
+  it('limits concurrent preview file preparation', async () => {
+    const { session } = createSession()
+    const uploader = useEmoticonImageUploader(session)
+    const previews = Array.from({ length: 5 }, (_, index) => ({
+      clientId: `preview-${index}`,
+      file: new File([`image-${index}`], `image-${index}.png`),
+      preview: `blob:image-${index}`,
+      width: 80,
+      height: 80
+    }))
+    const deferreds = previews.map(() => createDeferred<File>())
+    const started: string[] = []
+    let activeCount = 0
+    let maxActiveCount = 0
+
+    createUploadableEmoticonImageFile.mockImplementation(async (preview) => {
+      const index = Number(preview.clientId.replace('preview-', ''))
+      started.push(preview.clientId)
+      activeCount += 1
+      maxActiveCount = Math.max(maxActiveCount, activeCount)
+
+      try {
+        return await deferreds[index].promise
+      } finally {
+        activeCount -= 1
+      }
+    })
+
+    const resultPromise = uploader.preparePreviewFiles(previews)
+
+    await flushPromises()
+
+    expect(started).toEqual(['preview-0', 'preview-1', 'preview-2'])
+    expect(maxActiveCount).toBe(3)
+
+    deferreds[0].resolve(previews[0].file)
+    await flushPromises()
+    expect(started).toEqual(['preview-0', 'preview-1', 'preview-2', 'preview-3'])
+
+    deferreds[1].resolve(previews[1].file)
+    await flushPromises()
+    expect(started).toEqual(['preview-0', 'preview-1', 'preview-2', 'preview-3', 'preview-4'])
+
+    deferreds[2].resolve(previews[2].file)
+    deferreds[3].resolve(previews[3].file)
+    deferreds[4].resolve(previews[4].file)
+
+    await expect(resultPromise).resolves.toEqual(previews.map((preview) => preview.file))
+    expect(maxActiveCount).toBe(3)
+  })
+
+  it('limits concurrent uploads and stops queued files after a failure', async () => {
+    const { session } = createSession()
+    const uploader = useEmoticonImageUploader(session)
+    const files = Array.from({ length: 5 }, (_, index) => (
+      new File([`image-${index}`], `image-${index}.png`)
+    ))
+    const deferreds = files.map(() => (
+      createDeferred<Awaited<ReturnType<typeof fileApi.uploadFile>>>()
+    ))
+    const started: string[] = []
+    const error = new Error('upload failed')
+    let activeCount = 0
+    let maxActiveCount = 0
+
+    vi.mocked(fileApi.uploadFile).mockImplementation(async (file) => {
+      const index = Number(file.name.replace('image-', '').replace('.png', ''))
+      started.push(file.name)
+      activeCount += 1
+      maxActiveCount = Math.max(maxActiveCount, activeCount)
+
+      try {
+        return await deferreds[index].promise
+      } finally {
+        activeCount -= 1
+      }
+    })
+
+    const resultPromise = uploader.uploadFiles(files, 7)
+
+    await flushPromises()
+
+    expect(started).toEqual(['image-0.png', 'image-1.png', 'image-2.png'])
+    expect(maxActiveCount).toBe(3)
+
+    deferreds[0].reject(error)
+
+    await expect(resultPromise).rejects.toBe(error)
+    expect(started).toEqual(['image-0.png', 'image-1.png', 'image-2.png'])
+    expect(fileApi.uploadFile).toHaveBeenCalledTimes(3)
+    expect(session.abortPendingUploads).toHaveBeenCalled()
+    expect(maxActiveCount).toBe(3)
   })
 })
