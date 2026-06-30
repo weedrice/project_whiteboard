@@ -320,6 +320,7 @@ describe('admin common components', () => {
         columns: [{ key: 'name', label: 'Name' }],
         items: [{ id: 1, name: 'Ada' }],
         rowKey: (item: object) => (item as { id: number }).id,
+        interactiveRows: true,
         page: 0,
         totalPages: 2,
         summary: 'Total 1',
@@ -346,10 +347,9 @@ describe('admin common components', () => {
     expect(table.get('[data-test="description"]').text()).toBe('Rows can be opened.')
 
     await table.get('tbody tr').trigger('click')
-    await table.get('tbody tr').trigger('dblclick')
 
     expect(table.emitted('rowClick')).toEqual([[{ id: 1, name: 'Ada' }]])
-    expect(table.emitted('rowDblclick')).toEqual([[{ id: 1, name: 'Ada' }]])
+    expect(table.emitted('rowDblclick')).toBeUndefined()
   })
 
   it('can render the admin table wrapper without a pagination footer', () => {

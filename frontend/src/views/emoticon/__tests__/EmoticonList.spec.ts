@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils'
-import { defineComponent, h } from 'vue'
+import { defineComponent, h, unref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => {
@@ -49,8 +49,8 @@ vi.mock('vue-router', () => ({
 
 vi.mock('@/api/emoticon', () => ({
   emoticonApi: {
-    getPopularEmoticonsData: mocks.getPopularEmoticons,
-    searchAllData: mocks.searchAll,
+    getPopularEmoticons: mocks.getPopularEmoticons,
+    searchAll: mocks.searchAll,
   },
 }))
 
@@ -100,7 +100,7 @@ const mountList = () => mount(EmoticonList, {
 
 const getListQuery = () => {
   const listQuery = mocks.queryOptions.find((option) => {
-    const queryKey = option.queryKey
+    const queryKey = unref(option.queryKey as any)
     return Array.isArray(queryKey) && queryKey[0] === 'emoticons' && queryKey[1] === 'list'
   })
 
@@ -113,7 +113,9 @@ describe('EmoticonList', () => {
     vi.clearAllMocks()
     mocks.queryOptions.length = 0
     mocks.searchAll.mockResolvedValue({
-      ...mocks.listPage,
+      data: {
+        data: mocks.listPage,
+      },
     })
     mocks.listPage.content = []
     mocks.listPage.totalPages = 0
