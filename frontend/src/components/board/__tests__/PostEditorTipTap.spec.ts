@@ -12,6 +12,13 @@ import {
     setEditorSelection,
     triggerEditorUpdate,
 } from './PostEditorTipTapTestHarness'
+import { getExposedVm } from '@/test/vue-test-helpers'
+
+type PostEditorTipTapExposed = {
+    setVideo: (src: string) => void
+    setEmoticon: (image: { imageUrl: string }) => void
+    fileIds: { value: number[] }
+}
 
 const mocks = getPostEditorTipTapMocks()
 describe('PostEditorTipTap', () => {
@@ -328,11 +335,7 @@ describe('PostEditorTipTap', () => {
 
     it('exposes helpers for video and emoticon and emits toolbar events', async () => {
         const wrapper = mountEditor()
-        const vm = wrapper.vm as unknown as {
-            setVideo: (src: string) => void
-            setEmoticon: (image: { imageUrl: string }) => void
-            fileIds: { value: number[] }
-        }
+        const vm = getExposedVm<PostEditorTipTapExposed>(wrapper)
 
         vm.setVideo('https://cdn.test/video')
         expect(mocks.chain.setVideo).toHaveBeenCalledWith({ src: 'https://cdn.test/video' })

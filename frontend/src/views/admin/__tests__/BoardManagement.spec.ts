@@ -2,7 +2,11 @@ import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import BoardManagement from '../BoardManagement.vue'
-import { BaseButtonStub, BaseModalStub, flushAll, getButtonByText, identityT } from '@/test/vue-test-helpers'
+import { BaseButtonStub, BaseModalStub, flushAll, getButtonByText, getExposedVm, identityT } from '@/test/vue-test-helpers'
+
+type BoardManagementExposed = {
+  createForm: { boardName: string; boardUrl: string }
+}
 
 const mocks = vi.hoisted(() => ({
   createBoard: vi.fn(),
@@ -131,9 +135,7 @@ describe('BoardManagement', () => {
         },
       },
     })
-    const vm = wrapper.vm as unknown as {
-      createForm: { boardName: string; boardUrl: string }
-    }
+    const vm = getExposedVm<BoardManagementExposed>(wrapper)
 
     await getButtonByText(wrapper, 'admin.boards.addTitle').trigger('click')
     vm.createForm.boardName = 'New board'

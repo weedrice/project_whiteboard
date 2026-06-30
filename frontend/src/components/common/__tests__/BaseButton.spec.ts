@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import BaseButton from '../ui/BaseButton.vue'
 
+type BaseButtonProps = InstanceType<typeof BaseButton>['$props']
+
 describe('BaseButton', () => {
     it('renders slot content', () => {
         const wrapper = mount(BaseButton, {
@@ -74,8 +76,8 @@ describe('BaseButton', () => {
     it('falls back to primary variant for unknown variant values', () => {
         const wrapper = mount(BaseButton, {
             props: {
-                variant: 'not-supported' as any,
-            },
+                variant: 'not-supported',
+            } as unknown as BaseButtonProps,
         })
 
         expect(wrapper.classes()).toContain('btn-primary')

@@ -3,6 +3,13 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import MyMessages from '../MyMessages.vue'
 import { extractErrorResponse } from '@/utils/errorHandler'
 import { toMailboxMessageViewModel } from '@/utils/messageViewModel'
+import { getExposedVm } from '@/test/vue-test-helpers'
+
+type MyMessagesExposed = {
+    startReply: (message: ReturnType<typeof toMailboxMessageViewModel>) => void
+    replyContent: string
+    sendReply: () => Promise<void>
+}
 
 const messageApi = vi.hoisted(() => ({
     getReceivedMessages: vi.fn(),
@@ -182,11 +189,7 @@ describe('MyMessages', () => {
         const wrapper = mountMyMessages()
         await flushPromises()
 
-        const exposed = wrapper.vm as unknown as {
-            startReply: (message: ReturnType<typeof toMailboxMessageViewModel>) => void
-            replyContent: string
-            sendReply: () => Promise<void>
-        }
+        const exposed = getExposedVm<MyMessagesExposed>(wrapper)
         exposed.startReply(toMailboxMessageViewModel(listedMessage))
         exposed.replyContent = '   '
         await exposed.sendReply()

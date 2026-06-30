@@ -2,6 +2,16 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { nextTick, ref } from 'vue'
 import { emoticonApiData, emoticonApiSuccess } from '@/test/emoticonApiFixtures'
+import { getExposedVm } from '@/test/vue-test-helpers'
+
+type ExistingEmoticonImageFixture = { imageId: number; emoticonId: number; imageUrl: string; sortOrder: number }
+type EmoticonEditExposed = {
+  existingImages: ExistingEmoticonImageFixture[]
+  imagesToDelete: number[]
+  tags: string[]
+  tagItems: Array<{ clientId: string; value: string }>
+  removeTag: (clientId: string) => void
+}
 
 const mocks = vi.hoisted(() => ({
   route: {
@@ -242,7 +252,7 @@ describe('EmoticonEdit', () => {
 
     await flushPromises()
 
-    ;(wrapper.vm as unknown as { existingImages: Array<{ imageId: number; emoticonId: number; imageUrl: string; sortOrder: number }> }).existingImages = Array.from({ length: 100 }, (_, index) => ({
+    getExposedVm<Pick<EmoticonEditExposed, 'existingImages'>>(wrapper).existingImages = Array.from({ length: 100 }, (_, index) => ({
       imageId: index + 1,
       emoticonId: 7,
       imageUrl: `https://cdn.example.com/${index + 1}.png`,
@@ -387,7 +397,7 @@ describe('EmoticonEdit', () => {
     await fileInput.trigger('change')
     await flushPromises()
 
-    ;(wrapper.vm as unknown as { imagesToDelete: number[] }).imagesToDelete = [10]
+    getExposedVm<Pick<EmoticonEditExposed, 'imagesToDelete'>>(wrapper).imagesToDelete = [10]
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
@@ -505,11 +515,7 @@ describe('EmoticonEdit', () => {
 
     await flushPromises()
 
-    const vm = wrapper.vm as unknown as {
-      tags: string[]
-      tagItems: Array<{ clientId: string; value: string }>
-      removeTag: (clientId: string) => void
-    }
+    const vm = getExposedVm<Pick<EmoticonEditExposed, 'tags' | 'tagItems' | 'removeTag'>>(wrapper)
     vm.tags = ['same', 'same', 'tail']
     await nextTick()
 

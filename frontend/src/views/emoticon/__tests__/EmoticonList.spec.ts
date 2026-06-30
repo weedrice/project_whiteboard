@@ -1,10 +1,14 @@
 import { mount } from '@vue/test-utils'
-import { defineComponent, h, unref } from 'vue'
+import { defineComponent, h, unref, type MaybeRefOrGetter } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { emoticonApiData } from '@/test/emoticonApiFixtures'
 
 const mocks = vi.hoisted(() => {
-  const queryOptions: Array<Record<string, unknown>> = []
+  type QueryOptionMock = {
+    queryKey?: MaybeRefOrGetter<unknown>
+    queryFn?: () => Promise<unknown>
+  }
+  const queryOptions: QueryOptionMock[] = []
   const searchAll = vi.fn()
   const getPopularEmoticons = vi.fn()
   const push = vi.fn()
@@ -24,7 +28,7 @@ const mocks = vi.hoisted(() => {
 })
 
 vi.mock('@tanstack/vue-query', () => ({
-  useQuery: vi.fn((options: Record<string, unknown>) => {
+  useQuery: vi.fn((options: { queryKey?: MaybeRefOrGetter<unknown>; queryFn?: () => Promise<unknown> }) => {
     mocks.queryOptions.push(options)
     if (mocks.queryOptions.length === 1) {
       return {
@@ -101,7 +105,7 @@ const mountList = () => mount(EmoticonList, {
 
 const getListQuery = () => {
   const listQuery = mocks.queryOptions.find((option) => {
-    const queryKey = unref(option.queryKey as any)
+    const queryKey = unref(option.queryKey)
     return Array.isArray(queryKey) && queryKey[0] === 'emoticons' && queryKey[1] === 'list'
   })
 

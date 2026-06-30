@@ -1,22 +1,42 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick, ref } from 'vue'
 import { mount } from '@vue/test-utils'
-import type { NotificationSettingsPayload } from '@/api/user'
+import type { NotificationSettingsBulkPayload, NotificationSettingsPayload } from '@/api/user'
+import type { UserSettings as UserSettingsData } from '@/types'
 import UserSettings from '../UserSettings.vue'
-import { useUser } from '@/composables/useUser'
-import { useThemeStore } from '@/stores/theme'
 import { BaseButtonStub, flushAll, identityT } from '@/test/vue-test-helpers'
+
+type UserSettingsFixture = Omit<UserSettingsData, 'language'> & { language: string }
+type ThemeStoreMock = {
+  readonly isDark: boolean
+  setTheme: (theme: UserSettingsData['theme']) => void
+}
+type UserComposableMock = {
+  useUserSettings: () => { data: typeof settingsData; isLoading: typeof isSettingsLoading }
+  useNotificationSettings: () => { data: typeof notificationData; isLoading: typeof isNotifLoading }
+  useUpdateUserSettings: () => {
+    mutateAsync: (payload: Partial<UserSettingsFixture>) => Promise<void>
+    isPending: typeof isUpdatingSettings
+  }
+  useUpdateNotificationSettings: () => {
+    mutateAsync: (payload: NotificationSettingsBulkPayload) => Promise<void>
+    isPending: typeof isUpdatingNotifications
+  }
+}
+
+const useUserMock = vi.hoisted(() => vi.fn<() => UserComposableMock>())
+const useThemeStoreMock = vi.hoisted(() => vi.fn<() => ThemeStoreMock>())
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: identityT }),
 }))
 
 vi.mock('@/composables/useUser', () => ({
-  useUser: vi.fn(),
+  useUser: useUserMock,
 }))
 
 vi.mock('@/stores/theme', () => ({
-  useThemeStore: vi.fn(),
+  useThemeStore: useThemeStoreMock,
 }))
 
 vi.mock('@/utils/logger', () => ({
@@ -84,11 +104,13 @@ const BaseSpinnerStub = defineComponent({
 })
 
 const themeIsDark = ref(false)
-const settingsData = ref({
+const settingsData = ref<UserSettingsFixture>({
   theme: 'LIGHT' as const,
   language: 'ko',
   timezone: 'Asia/Seoul',
   hideNsfw: true,
+  emailNotification: true,
+  pushNotification: true,
 })
 const notificationData = ref<NotificationSettingsPayload[]>([
   { notificationType: 'LIKE' as const, isEnabled: false },
@@ -142,6 +164,8 @@ describe('UserSettings', () => {
       language: 'ko',
       timezone: 'Asia/Seoul',
       hideNsfw: true,
+      emailNotification: true,
+      pushNotification: true,
     }
     notificationData.value = [
       { notificationType: 'LIKE', isEnabled: false },
@@ -154,12 +178,14 @@ describe('UserSettings', () => {
     updateSettings.mockResolvedValue(undefined)
     updateNotificationSettings.mockResolvedValue(undefined)
 
-    vi.mocked(useThemeStore).mockReturnValue({
-      isDark: themeIsDark,
+    useThemeStoreMock.mockReturnValue({
+      get isDark() {
+        return themeIsDark.value
+      },
       setTheme,
-    } as never)
+    })
 
-    vi.mocked(useUser).mockReturnValue({
+    useUserMock.mockReturnValue({
       useUserSettings: () => ({ data: settingsData, isLoading: isSettingsLoading }),
       useNotificationSettings: () => ({ data: notificationData, isLoading: isNotifLoading }),
       useUpdateUserSettings: () => ({
@@ -170,7 +196,7 @@ describe('UserSettings', () => {
         mutateAsync: updateNotificationSettings,
         isPending: isUpdatingNotifications,
       }),
-    } as never)
+    })
   })
 
   afterEach(() => {

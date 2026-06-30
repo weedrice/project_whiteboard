@@ -25,6 +25,12 @@ import {
 } from './PostFormTestHarness'
 
 import logger from '@/utils/logger'
+import { getExposedVm } from '@/test/vue-test-helpers'
+
+type PostFormExposed = {
+    hasUnsavedChanges: () => boolean
+    getLeaveConfirmMessage: () => string
+}
 
 describe('PostForm', () => {
     afterEach(() => {
@@ -597,10 +603,7 @@ describe('PostForm', () => {
         document.dispatchEvent(escapeForCancel)
         expect(wrapper.emitted('cancel')).toHaveLength(1)
 
-        const exposed = wrapper.vm as unknown as {
-            hasUnsavedChanges: () => boolean
-            getLeaveConfirmMessage: () => string
-        }
+        const exposed = getExposedVm<PostFormExposed>(wrapper)
         expect(exposed.hasUnsavedChanges()).toBe(true)
         expect(exposed.getLeaveConfirmMessage()).toBe('board.writePost.leaveConfirm')
 
@@ -619,7 +622,7 @@ describe('PostForm', () => {
     it('covers unsaved-change helper branches for empty snapshot, category and tag changes', async () => {
         setBoardCategories([])
         const noCategoryWrapper = mountPostForm('create')
-        const noCategoryExposed = noCategoryWrapper.vm as unknown as { hasUnsavedChanges: () => boolean }
+        const noCategoryExposed = getExposedVm<Pick<PostFormExposed, 'hasUnsavedChanges'>>(noCategoryWrapper)
         expect(noCategoryExposed.hasUnsavedChanges()).toBe(false)
 
         setBoardCategories([
@@ -629,13 +632,13 @@ describe('PostForm', () => {
         const categoryDirtyWrapper = mountPostForm('create')
         await nextTick()
         await categoryDirtyWrapper.get('#category').setValue('2')
-        const categoryDirtyExposed = categoryDirtyWrapper.vm as unknown as { hasUnsavedChanges: () => boolean }
+        const categoryDirtyExposed = getExposedVm<Pick<PostFormExposed, 'hasUnsavedChanges'>>(categoryDirtyWrapper)
         expect(categoryDirtyExposed.hasUnsavedChanges()).toBe(true)
 
         const tagsLengthDirtyWrapper = mountPostForm('create')
         await nextTick()
         await tagsLengthDirtyWrapper.get('[data-testid=\"set-tags\"]').trigger('click')
-        const tagsLengthDirtyExposed = tagsLengthDirtyWrapper.vm as unknown as { hasUnsavedChanges: () => boolean }
+        const tagsLengthDirtyExposed = getExposedVm<Pick<PostFormExposed, 'hasUnsavedChanges'>>(tagsLengthDirtyWrapper)
         expect(tagsLengthDirtyExposed.hasUnsavedChanges()).toBe(true)
 
         postRef.value = {
@@ -650,7 +653,7 @@ describe('PostForm', () => {
         const tagsValueDirtyWrapper = mountPostForm('edit')
         await nextTick()
         await tagsValueDirtyWrapper.get('[data-testid=\"set-tags\"]').trigger('click')
-        const tagsValueDirtyExposed = tagsValueDirtyWrapper.vm as unknown as { hasUnsavedChanges: () => boolean }
+        const tagsValueDirtyExposed = getExposedVm<Pick<PostFormExposed, 'hasUnsavedChanges'>>(tagsValueDirtyWrapper)
         expect(tagsValueDirtyExposed.hasUnsavedChanges()).toBe(true)
     })
 

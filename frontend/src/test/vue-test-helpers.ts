@@ -1,4 +1,4 @@
-import { flushPromises, type DOMWrapper } from '@vue/test-utils'
+import { flushPromises, type DOMWrapper, type VueWrapper } from '@vue/test-utils'
 import { defineComponent, h, nextTick } from 'vue'
 
 export const identityT = (key: string, params?: Record<string, unknown>) => {
@@ -105,6 +105,10 @@ export function getButtonByAriaLabel(root: ButtonSearchRoot, label: string) {
   }
 
   return button
+}
+
+export function getExposedVm<TExposed extends object>(wrapper: VueWrapper): TExposed {
+  return wrapper.vm as unknown as TExposed
 }
 
 export async function flushAll() {

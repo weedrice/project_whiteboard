@@ -2,6 +2,11 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ProfileEditor from '../ProfileEditor.vue'
 import { IMAGE_UPLOAD_ACCEPT } from '@/utils/imageUploadPolicy'
+import { getExposedVm } from '@/test/vue-test-helpers'
+
+type ProfileEditorExposed = {
+  selectedFile: File
+}
 
 const mocks = vi.hoisted(() => ({
   agentsData: { value: { agents: [] as Array<Record<string, unknown>> }, __v_isRef: true },
@@ -311,7 +316,7 @@ describe('ProfileEditor', () => {
       },
     })
     const wrapper = mountProfileEditor()
-    ;(wrapper.vm as unknown as { selectedFile: File }).selectedFile = new File(['avatar'], 'avatar.png', {
+    getExposedVm<ProfileEditorExposed>(wrapper).selectedFile = new File(['avatar'], 'avatar.png', {
       type: 'image/png',
     })
 

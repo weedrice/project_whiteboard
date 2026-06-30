@@ -1,40 +1,46 @@
-import { defineComponent, h } from 'vue'
+import { defineComponent, h, type PropType } from 'vue'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useHead } from '@unhead/vue'
-import type { HomeLandingPeriod } from '@/types'
+import type { BoardListItem, FeedPost, HomeLandingPeriod, HomeLandingStats } from '@/types'
 
-const state = vi.hoisted(() => ({
-    featured: { __v_isRef: true, value: null as any },
-    editorPicks: { __v_isRef: true, value: [] as any[] },
-    trending: { __v_isRef: true, value: [] as any[] },
-    liveActivity: { __v_isRef: true, value: [] as any[] },
-    spotlightBoards: { __v_isRef: true, value: [] as any[] },
-    posts: { __v_isRef: true, value: [] as any[] },
-    boards: { __v_isRef: true, value: [] as any[] },
-    selectedPeriod: { __v_isRef: true, value: '24h' as HomeLandingPeriod },
-    setPeriod: vi.fn(),
-    stats: {
-        __v_isRef: true,
-        value: {
+type MockRef<T> = {
+    __v_isRef: true
+    value: T
+}
+
+const state = vi.hoisted(() => {
+    const mockRef = <T>(value: T): MockRef<T> => ({ __v_isRef: true, value })
+
+    return {
+        featured: mockRef<FeedPost | null>(null),
+        editorPicks: mockRef<FeedPost[]>([]),
+        trending: mockRef<FeedPost[]>([]),
+        liveActivity: mockRef<FeedPost[]>([]),
+        spotlightBoards: mockRef<BoardListItem[]>([]),
+        posts: mockRef<FeedPost[]>([]),
+        boards: mockRef<BoardListItem[]>([]),
+        selectedPeriod: mockRef<HomeLandingPeriod>('24h'),
+        setPeriod: vi.fn(),
+        stats: mockRef<HomeLandingStats>({
             boardCount: 0,
             postCount: 0,
             liveCount: 0,
             onlineCount: 0,
             postsToday: 0,
-            postsTodayDeltaPercent: null as number | null,
+            postsTodayDeltaPercent: null,
             activeBoardCount: 0,
             newMembersLast24Hours: 0,
             commentsToday: 0,
-        },
-    },
-    isLoading: { __v_isRef: true, value: false },
-    isFetching: { __v_isRef: true, value: false },
-    isError: { __v_isRef: true, value: false },
-    isBoardsLoading: { __v_isRef: true, value: false },
-    isBoardsError: { __v_isRef: true, value: false },
-    refetch: vi.fn(),
-}))
+        }),
+        isLoading: mockRef(false),
+        isFetching: mockRef(false),
+        isError: mockRef(false),
+        isBoardsLoading: mockRef(false),
+        isBoardsError: mockRef(false),
+        refetch: vi.fn(),
+    }
+})
 
 vi.mock('@unhead/vue', () => ({
     useHead: vi.fn(),
@@ -64,22 +70,22 @@ const { default: HomeFeed } = await import('../HomeFeed.vue')
 const HomePostCardStub = defineComponent({
     name: 'HomePostCardStub',
     props: {
-        post: { type: Object, required: true },
+        post: { type: Object as PropType<FeedPost>, required: true },
         variant: { type: String, default: 'grid' },
     },
     setup(props) {
         return () => h('div', {
             'data-testid': 'post-card',
-            'data-post-id': String((props.post as { postId: number }).postId),
+            'data-post-id': String(props.post.postId),
             'data-variant': props.variant,
-        }, String((props.post as { postId: number }).postId))
+        }, String(props.post.postId))
     },
 })
 
 const HomeActivityListStub = defineComponent({
     name: 'HomeActivityListStub',
     props: {
-        posts: { type: Array, default: () => [] },
+        posts: { type: Array as PropType<FeedPost[]>, default: () => [] },
     },
     setup(props) {
         return () => h('div', { 'data-testid': 'activity-list' }, JSON.stringify(props.posts))
@@ -107,10 +113,14 @@ const HomeLandingSkeletonStub = defineComponent({
     },
 })
 
-const makePost = (postId: number, title = `Post ${postId}`) => ({
+const makePost = (postId: number, title = `Post ${postId}`): FeedPost => ({
     postId,
     boardUrl: 'free',
     boardName: 'Free',
+    author: {
+        userId: postId,
+        displayName: `Author ${postId}`,
+    },
     authorName: `Author ${postId}`,
     title,
     viewCount: 1,
@@ -120,7 +130,35 @@ const makePost = (postId: number, title = `Post ${postId}`) => ({
     isNsfw: false,
     isSpoiler: false,
     createdAt: '2025-01-01',
+    liked: false,
+    scrapped: false,
+    subscribed: false,
 })
+
+const makeBoard = (boardId: number): BoardListItem => ({
+    boardId,
+    boardUrl: `board-${boardId}`,
+    boardName: `Board ${boardId}`,
+    sortOrder: boardId,
+    subscriberCount: boardId * 10,
+    postCount: boardId * 100,
+    isSubscribed: false,
+    isActive: true,
+    isPublic: true,
+    subscriptionAccessible: true,
+})
+
+const isHeadOptionsWithTitle = (value: unknown): value is { title: MockRef<string> } => {
+    if (typeof value !== 'object' || value === null || !('title' in value)) {
+        return false
+    }
+
+    const title = value.title
+    return typeof title === 'object'
+        && title !== null
+        && 'value' in title
+        && typeof title.value === 'string'
+}
 
 describe('HomeFeed', () => {
     beforeEach(() => {
@@ -172,10 +210,12 @@ describe('HomeFeed', () => {
             },
         })
 
-        const headOptions = vi.mocked(useHead).mock.calls.at(-1)?.[0] as {
-            title: { value: string }
-        }
+        const headOptions = vi.mocked(useHead).mock.calls.at(-1)?.[0]
 
+        expect(isHeadOptionsWithTitle(headOptions)).toBe(true)
+        if (!isHeadOptionsWithTitle(headOptions)) {
+            throw new Error('Expected useHead to receive a reactive title option')
+        }
         expect(headOptions.title.value).toBe('common.appName')
     })
 
@@ -183,13 +223,7 @@ describe('HomeFeed', () => {
         state.editorPicks.value = [makePost(101, 'Hero'), makePost(202, 'Second pick')]
         state.trending.value = [makePost(303, 'Trending')]
         state.liveActivity.value = [makePost(404, 'Live')]
-        state.spotlightBoards.value = Array.from({ length: 6 }, (_, index) => ({
-            boardId: index + 1,
-            boardUrl: `board-${index + 1}`,
-            boardName: `Board ${index + 1}`,
-            subscriberCount: (index + 1) * 10,
-            postCount: (index + 1) * 100,
-        }))
+        state.spotlightBoards.value = Array.from({ length: 6 }, (_, index) => makeBoard(index + 1))
         state.stats.value = {
             boardCount: 11,
             postCount: 8421,
@@ -264,13 +298,7 @@ describe('HomeFeed', () => {
 
     it('links the remaining board strip area to the all boards page', () => {
         state.editorPicks.value = [makePost(101, 'Hero')]
-        state.spotlightBoards.value = Array.from({ length: 6 }, (_, index) => ({
-            boardId: index + 1,
-            boardUrl: `board-${index + 1}`,
-            boardName: `Board ${index + 1}`,
-            subscriberCount: (index + 1) * 10,
-            postCount: (index + 1) * 100,
-        }))
+        state.spotlightBoards.value = Array.from({ length: 6 }, (_, index) => makeBoard(index + 1))
         state.boards.value = state.spotlightBoards.value
 
         const wrapper = mount(HomeFeed, {

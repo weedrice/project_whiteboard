@@ -1,8 +1,15 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { defineComponent, h, nextTick, reactive } from 'vue'
+import { defineComponent, h, nextTick, reactive, type PropType } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
+import { AxiosHeaders, type AxiosResponse } from 'axios'
 import BoardEdit from '../BoardEdit.vue'
 import { boardApi } from '@/api/board'
+import type { ApiResponse, BoardDetail } from '@/types'
+import { getExposedVm } from '@/test/vue-test-helpers'
+
+type BoardEditExposed = {
+  confirmManagerSelection(users: Array<{ loginId: string; displayName?: string }>): Promise<void>
+}
 
 const routeState = reactive({
   params: {
@@ -99,7 +106,7 @@ const BoardFormStub = defineComponent({
   name: 'BoardForm',
   props: {
     initialData: {
-      type: Object,
+      type: Object as PropType<Partial<BoardDetail>>,
       required: true,
     },
   },
@@ -109,9 +116,9 @@ const BoardFormStub = defineComponent({
       h('button', {
         type: 'button',
         'data-testid': 'board-form',
-        'data-board-url': (props.initialData as { boardUrl?: string }).boardUrl,
+        'data-board-url': props.initialData.boardUrl,
         onClick: () => emit('submit', props.initialData),
-      }, (props.initialData as { boardName?: string }).boardName)
+      }, props.initialData.boardName)
   },
 })
 
@@ -138,6 +145,7 @@ const BaseButtonStub = defineComponent({
 
 describe('BoardEdit', () => {
   const mountedWrappers: Array<ReturnType<typeof mount>> = []
+  type BoardDetailResponse = AxiosResponse<ApiResponse<BoardDetail>>
 
   beforeEach(() => {
     routeState.params.boardUrl = 'free'
@@ -154,23 +162,37 @@ describe('BoardEdit', () => {
     mountedWrappers.length = 0
   })
 
-  function mockBoard(boardUrl: string, boardName = boardUrl) {
+  function mockBoard(boardUrl: string, boardName = boardUrl): BoardDetailResponse {
     return {
       data: {
         success: true,
         data: {
+          boardId: 1,
           boardName,
           boardUrl,
           description: '',
           iconUrl: '',
           sortOrder: 0,
+          subscriberCount: 0,
+          postCount: 0,
           allowNsfw: false,
           isPublic: true,
+          isActive: true,
+          isSubscribed: false,
+          subscriptionAccessible: true,
           agentUseYn: false,
           guidePrompt: '',
           adminDisplayName: 'Manager',
           isAdmin: true,
+          categories: [],
+          latestPosts: [],
         },
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: new AxiosHeaders(),
+      config: {
+        headers: new AxiosHeaders(),
       },
     }
   }
@@ -196,8 +218,8 @@ describe('BoardEdit', () => {
 
   it('reloads board state when the route boardUrl param changes', async () => {
     vi.mocked(boardApi.getBoard)
-      .mockResolvedValueOnce(mockBoard('free', 'Free Board') as never)
-      .mockResolvedValueOnce(mockBoard('qna', 'Q&A Board') as never)
+      .mockResolvedValueOnce(mockBoard('free', 'Free Board'))
+      .mockResolvedValueOnce(mockBoard('qna', 'Q&A Board'))
 
     const wrapper = await mountBoardEdit()
 
@@ -221,8 +243,8 @@ describe('BoardEdit', () => {
 
   it('submits updates with the current route boardUrl', async () => {
     vi.mocked(boardApi.getBoard)
-      .mockResolvedValueOnce(mockBoard('free', 'Free Board') as never)
-      .mockResolvedValueOnce(mockBoard('qna', 'Q&A Board') as never)
+      .mockResolvedValueOnce(mockBoard('free', 'Free Board'))
+      .mockResolvedValueOnce(mockBoard('qna', 'Q&A Board'))
     updateBoard.mockResolvedValue({ boardUrl: 'qna' })
 
     const wrapper = await mountBoardEdit()
@@ -250,7 +272,7 @@ describe('BoardEdit', () => {
           isAdmin: false,
         },
       },
-    } as never)
+    })
 
     const wrapper = await mountBoardEdit()
 
@@ -263,7 +285,7 @@ describe('BoardEdit', () => {
     vi.mocked(boardApi.getBoard).mockImplementationOnce(() => {
       return new Promise((resolve) => {
         resolveBoard = resolve
-      }) as never
+      })
     })
 
     const wrapper = mount(BoardEdit, {
@@ -299,8 +321,8 @@ describe('BoardEdit', () => {
 
   it('ignores stale manager transfer results after the route boardUrl changes', async () => {
     vi.mocked(boardApi.getBoard)
-      .mockResolvedValueOnce(mockBoard('free', 'Free Board') as never)
-      .mockResolvedValueOnce(mockBoard('qna', 'Q&A Board') as never)
+      .mockResolvedValueOnce(mockBoard('free', 'Free Board'))
+      .mockResolvedValueOnce(mockBoard('qna', 'Q&A Board'))
     let resolveTransfer: (value: { adminDisplayName: string }) => void = () => undefined
     transferBoardManager.mockImplementationOnce(() => new Promise((resolve) => {
       resolveTransfer = resolve
@@ -308,9 +330,8 @@ describe('BoardEdit', () => {
 
     const wrapper = await mountBoardEdit()
 
-    const transferPromise = (wrapper.vm as unknown as {
-      confirmManagerSelection(users: Array<{ loginId: string; displayName?: string }>): Promise<void>
-    }).confirmManagerSelection([{ loginId: 'next-manager', displayName: 'Next Manager' }])
+    const transferPromise = getExposedVm<BoardEditExposed>(wrapper)
+      .confirmManagerSelection([{ loginId: 'next-manager', displayName: 'Next Manager' }])
 
     routeState.params.boardUrl = 'qna'
     await nextTick()

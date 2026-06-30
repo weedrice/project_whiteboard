@@ -2,6 +2,16 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import EmoticonRegister from '../EmoticonRegister.vue'
 import { emoticonApiData, emoticonApiSuccess } from '@/test/emoticonApiFixtures'
+import { getExposedVm } from '@/test/vue-test-helpers'
+
+type EmoticonPreviewFixture = { clientId: string; file: File; preview: string; width: number; height: number }
+type EmoticonRegisterExposed = {
+  emoticonName: string
+  thumbnailFile: File
+  thumbnailPreview: string
+  emoticonPreviews: EmoticonPreviewFixture[]
+  tags: string[]
+}
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
@@ -89,12 +99,7 @@ const mountRegister = () => mount(EmoticonRegister, {
 })
 
 const setValidForm = (wrapper: ReturnType<typeof mountRegister>) => {
-  const vm = wrapper.vm as unknown as {
-    emoticonName: string
-    thumbnailFile: File
-    emoticonPreviews: Array<{ clientId: string; file: File; preview: string; width: number; height: number }>
-    tags: string[]
-  }
+  const vm = getExposedVm<EmoticonRegisterExposed>(wrapper)
 
   vm.emoticonName = 'Test pack'
   vm.thumbnailFile = new File(['thumb'], 'thumb.png', { type: 'image/png' })
@@ -161,9 +166,7 @@ describe('EmoticonRegister', () => {
 
     await flushPromises()
 
-    ;(wrapper.vm as unknown as {
-      emoticonPreviews: Array<{ clientId: string; file: File; preview: string; width: number; height: number }>
-    }).emoticonPreviews = Array.from({ length: 100 }, (_, index) => ({
+    getExposedVm<Pick<EmoticonRegisterExposed, 'emoticonPreviews'>>(wrapper).emoticonPreviews = Array.from({ length: 100 }, (_, index) => ({
       clientId: `image-${index + 1}`,
       file: new File(['image'], `${index + 1}.png`, { type: 'image/png' }),
       preview: `blob:${index + 1}.png`,
@@ -181,11 +184,7 @@ describe('EmoticonRegister', () => {
 
     await flushPromises()
 
-    const vm = wrapper.vm as unknown as {
-      thumbnailPreview: string
-      emoticonPreviews: Array<{ clientId: string; file: File; preview: string; width: number; height: number }>
-      tags: string[]
-    }
+    const vm = getExposedVm<Pick<EmoticonRegisterExposed, 'thumbnailPreview' | 'emoticonPreviews' | 'tags'>>(wrapper)
     vm.thumbnailPreview = 'blob:thumbnail.png'
     vm.emoticonPreviews = [{
       clientId: 'image-one',

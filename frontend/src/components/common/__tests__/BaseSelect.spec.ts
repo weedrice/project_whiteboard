@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import BaseSelect from '../ui/BaseSelect.vue'
+import { getExposedVm } from '@/test/vue-test-helpers'
+
+type BaseSelectProps = InstanceType<typeof BaseSelect>['$props']
 
 describe('BaseSelect', () => {
     it('renders label and error text', () => {
@@ -105,14 +108,15 @@ describe('BaseSelect', () => {
     it('handles null options safely and falls back to slot content', () => {
         const wrapper = mount(BaseSelect, {
             props: {
-                options: null as unknown as never[],
-            },
+                options: null,
+            } as unknown as BaseSelectProps,
             slots: {
                 default: '<option value="fallback">Fallback</option>',
             },
         })
 
-        expect((wrapper.vm as unknown as { normalizedOptions: unknown[] }).normalizedOptions).toEqual([])
+        const exposed = getExposedVm<{ normalizedOptions: unknown[] }>(wrapper)
+        expect(exposed.normalizedOptions).toEqual([])
         expect(wrapper.find('option[value="fallback"]').exists()).toBe(true)
     })
 })
