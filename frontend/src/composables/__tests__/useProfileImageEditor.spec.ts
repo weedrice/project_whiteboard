@@ -1,0 +1,102 @@
+import { defineComponent, h } from 'vue'
+import { mount } from '@vue/test-utils'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { useProfileImageEditor } from '../useProfileImageEditor'
+
+const resizeImageToBoundsFileMock = vi.hoisted(() => vi.fn())
+
+vi.mock('@/utils/imageFile', () => ({
+  resizeImageToBoundsFile: resizeImageToBoundsFileMock,
+}))
+
+vi.mock('@/utils/image', () => ({
+  getOptimizedProfileImageUrl: (url: string) => url,
+}))
+
+vi.mock('@/utils/logger', () => ({
+  default: {
+    error: vi.fn(),
+  },
+}))
+
+function createHarness() {
+  const onFileSizeExceeded = vi.fn()
+  const onProcessFailed = vi.fn()
+  let composable!: ReturnType<typeof useProfileImageEditor>
+
+  const Harness = defineComponent({
+    setup() {
+      composable = useProfileImageEditor({
+        profileImageUrl: () => null,
+        onFileSizeExceeded,
+        onProcessFailed,
+      })
+      return () => h('div')
+    },
+  })
+
+  mount(Harness)
+
+  return {
+    composable,
+    onFileSizeExceeded,
+    onProcessFailed,
+  }
+}
+
+function createInputEvent(file: File) {
+  const input = document.createElement('input')
+  input.type = 'file'
+  Object.defineProperty(input, 'files', {
+    configurable: true,
+    value: [file],
+  })
+  Object.defineProperty(input, 'value', {
+    configurable: true,
+    writable: true,
+    value: 'C:\\fakepath\\avatar.png',
+  })
+
+  return {
+    input,
+    event: { target: input } as unknown as Event,
+  }
+}
+
+describe('useProfileImageEditor', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => `blob:${(blob as File).name || 'preview'}`)
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
+  })
+
+  it('resizes a selected profile image and resets the file input', async () => {
+    const { composable } = createHarness()
+    const file = new File(['avatar'], 'avatar.png', { type: 'image/png' })
+    const resizedFile = new File(['resized'], 'avatar-resized.png', { type: 'image/png' })
+    const { event, input } = createInputEvent(file)
+
+    resizeImageToBoundsFileMock.mockResolvedValueOnce(resizedFile)
+
+    await composable.handleFileChange(event)
+
+    expect(input.value).toBe('')
+    expect(resizeImageToBoundsFileMock).toHaveBeenCalledWith(file, 100, 100)
+    expect(composable.selectedFile.value).toBe(resizedFile)
+    expect(composable.profileImageDisplayUrl.value).toBe('blob:avatar-resized.png')
+  })
+
+  it('resets the file input before blocking oversized images', async () => {
+    const { composable, onFileSizeExceeded } = createHarness()
+    const tooLargeFile = new File([new ArrayBuffer(10 * 1024 * 1024 + 1)], 'avatar.png', {
+      type: 'image/png',
+    })
+    const { event, input } = createInputEvent(tooLargeFile)
+
+    await composable.handleFileChange(event)
+
+    expect(input.value).toBe('')
+    expect(onFileSizeExceeded).toHaveBeenCalledTimes(1)
+    expect(resizeImageToBoundsFileMock).not.toHaveBeenCalled()
+  })
+})

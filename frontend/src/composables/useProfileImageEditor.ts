@@ -43,6 +43,7 @@ export function useProfileImageEditor(options: UseProfileImageEditorOptions): {
     const target = event.target as HTMLInputElement
     const file = target.files?.[0]
     if (!file) return
+    target.value = ''
 
     if (file.size > MAX_PROFILE_IMAGE_SIZE) {
       options.onFileSizeExceeded()

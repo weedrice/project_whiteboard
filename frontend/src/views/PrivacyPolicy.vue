@@ -2,7 +2,7 @@
   <div class="container mx-auto px-4 py-8">
     <h1 class="text-3xl font-bold mb-6 nv-title">개인정보 처리방침</h1>
     <div class="nv-rich-content prose max-w-none dark:prose-invert">
-      <p class="nv-text-muted">최종 수정일: {{ new Date().toLocaleDateString() }}</p>
+      <p class="nv-text-muted">최종 수정일: {{ privacyPolicyLastRevisedDate }}</p>
 
       <h2 class="text-xl font-semibold mt-6 mb-3 nv-title">제1조 (목적)</h2>
       <p class="mb-4 nv-text-muted">
@@ -95,5 +95,6 @@
 </template>
 
 <script setup lang="ts">
-// Privacy Policy Page
+const PRIVACY_POLICY_LAST_REVISED_AT = new Date(2026, 5, 30)
+const privacyPolicyLastRevisedDate = PRIVACY_POLICY_LAST_REVISED_AT.toLocaleDateString()
 </script>
