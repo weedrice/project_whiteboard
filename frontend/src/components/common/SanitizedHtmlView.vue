@@ -23,7 +23,7 @@ defineExpose({
   <component
     :is="tag"
     ref="element"
-    v-html="html"
+    :innerHTML="html"
     @error.capture="useImageFallback ? applyImageFallback($event) : undefined"
   />
 </template>
