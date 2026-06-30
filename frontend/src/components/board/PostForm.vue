@@ -15,6 +15,7 @@ import PostTags from '@/components/tag/PostTags.vue'
 import { useToastStore } from '@/stores/toast'
 import EmoticonPicker from '@/components/common/widgets/EmoticonPicker.vue'
 import PostEditorTipTap from '@/components/board/PostEditorTipTap.vue'
+import PostFormHeader from '@/components/board/PostFormHeader.vue'
 import PostFormMetadataPanel from '@/components/board/PostFormMetadataPanel.vue'
 import PostPreviewModal from '@/components/board/PostPreviewModal.vue'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
@@ -112,6 +113,7 @@ const pageTitle = computed(() =>
     ? (props.createTitleOverride || t('board.writePost.createTitle'))
     : t('board.writePost.editTitle'),
 )
+const boardLabel = computed(() => board.value?.boardName || boardUrl.value)
 
 const submitLabel = computed(() =>
   isSubmitting.value
@@ -322,38 +324,20 @@ defineExpose({
       @focusin="handleFocusIn"
       @focusout="handleFocusOut"
     >
-      <div class="nv-compose-header">
-        <div class="min-w-0">
-          <h2 class="truncate text-2xl font-semibold tracking-[-0.05em] text-[var(--nv-ink)] sm:text-3xl">
-            {{ pageTitle }}
-          </h2>
-          <p v-if="!props.hideBoardLabel" class="mt-2 text-sm text-[var(--nv-ink-soft)]">
-            {{ board?.boardName || boardUrl }}
-          </p>
-        </div>
-
-        <div class="flex flex-wrap items-center justify-end gap-2">
-          <BaseButton type="button" variant="secondary" size="sm" @click="handleCancel">
-            {{ $t('common.cancel') }}
-          </BaseButton>
-          <BaseButton v-if="!props.hidePreview" type="button" variant="secondary" size="sm" @click="showPreview = true">
-            {{ $t('board.writePost.actions.preview') }}
-          </BaseButton>
-          <BaseButton
-            v-if="draftEnabled"
-            type="button"
-            variant="secondary"
-            size="sm"
-            :disabled="isSavingDraft"
-            @click="handleSaveDraft"
-          >
-            {{ isSavingDraft ? $t('board.writePost.draftStatus.saving') : $t('board.writePost.actions.saveDraft') }}
-          </BaseButton>
-          <BaseButton type="button" variant="primary" size="sm" :loading="isSubmitting" @click="handleSubmit">
-            {{ submitLabel }}
-          </BaseButton>
-        </div>
-      </div>
+      <PostFormHeader
+        :page-title="pageTitle"
+        :board-label="boardLabel"
+        :hide-board-label="props.hideBoardLabel"
+        :hide-preview="props.hidePreview"
+        :draft-enabled="draftEnabled"
+        :is-saving-draft="isSavingDraft"
+        :is-submitting="isSubmitting"
+        :submit-label="submitLabel"
+        @cancel="handleCancel"
+        @preview="showPreview = true"
+        @save-draft="handleSaveDraft"
+        @submit="handleSubmit"
+      />
 
       <div v-if="isLoading" class="py-10 text-center">
         <BaseSpinner size="lg" />
@@ -511,14 +495,6 @@ defineExpose({
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-}
-
-.nv-compose-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
 }
 
 .nv-compose-kicker {
