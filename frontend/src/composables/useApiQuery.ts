@@ -1,5 +1,4 @@
 import {
-  keepPreviousData as keepPreviousQueryData,
   useQuery,
   type QueryFunctionContext,
   type QueryKey,
@@ -15,7 +14,7 @@ type ApiQueryKey = QueryKey | Ref<QueryKey> | ComputedRef<QueryKey>
 type ApiRequest<TResponse> = (context: QueryFunctionContext) => Promise<AxiosResponse<ApiResponse<TResponse>>>
 type ApiNullableRequest<TResponse> = (
   context: QueryFunctionContext
-) => Promise<AxiosResponse<ApiResponse<TResponse>>> | null
+) => Promise<AxiosResponse<ApiResponse<TResponse>> | null> | null
 type RefetchTriggerOption = boolean | 'always'
 type RetryOption = boolean | number | ((failureCount: number, error: Error) => boolean)
 type RetryDelayOption = number | ((attemptIndex: number, error: Error) => number)
@@ -68,8 +67,8 @@ interface ApiNullablePageQueryOptions<TItem, TData = PageResponse<TItem>> extend
   keepPreviousData?: boolean
 }
 
-function previousDataPlaceholder(enabled?: boolean) {
-  return enabled ? keepPreviousQueryData : undefined
+function previousDataPlaceholder<TData>(enabled?: boolean) {
+  return enabled ? ((previousData: TData | undefined) => previousData) : undefined
 }
 
 export function useApiQuery<TResponse>(
