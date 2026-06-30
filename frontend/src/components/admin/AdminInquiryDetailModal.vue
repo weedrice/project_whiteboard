@@ -2,6 +2,7 @@
 import { useI18n } from 'vue-i18n'
 import AdminDetailModalShell from '@/components/admin/AdminDetailModalShell.vue'
 import AdminModalActions from '@/components/admin/AdminModalActions.vue'
+import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import CommentList from '@/components/comment/CommentList.vue'
@@ -60,7 +61,12 @@ const { t } = useI18n()
       </div>
 
       <div class="max-h-[60vh] overflow-y-auto rounded-md nv-surface-muted p-4 text-sm nv-text-muted">
-        <div v-if="inquiry.contentsHtml" class="break-words leading-6" v-html="inquiry.contentsHtml" />
+        <SanitizedHtmlView
+          v-if="inquiry.contentsHtml"
+          tag="div"
+          class="break-words leading-6"
+          :html="inquiry.contentsHtml"
+        />
         <div v-else>-</div>
       </div>
 

@@ -8,8 +8,8 @@ import { useCommentAuthorState } from '@/composables/useCommentAuthorState'
 import { useAuthStore } from '@/stores/auth'
 import { formatDate, formatDateShort } from '@/utils/date'
 import { isEmoticonOnlyContent, renderCommentContentHtml } from '@/utils/commentContent'
-import { applyImageFallback } from '@/utils/imageFallback'
 import type { SanitizedHtml } from '@/utils/sanitize'
+import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
 import CommentForm from './CommentForm.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
 
@@ -170,8 +170,18 @@ watch(isBlockedAuthor, (blocked) => {
         <p v-else-if="isBlockedAuthor" class="text-xs italic nv-text-subtle sm:text-sm">
           {{ $t('comment.blockedContent') }}
         </p>
-        <p v-else-if="isEmoticonOnly" class="text-xs sm:text-sm" v-html="renderedContent" @error.capture="applyImageFallback"></p>
-        <p v-else class="text-xs nv-text-muted sm:text-sm" v-html="renderedContent" @error.capture="applyImageFallback"></p>
+        <SanitizedHtmlView
+          v-else-if="isEmoticonOnly"
+          tag="p"
+          class="text-xs sm:text-sm"
+          :html="renderedContent"
+        />
+        <SanitizedHtmlView
+          v-else
+          tag="p"
+          class="text-xs nv-text-muted sm:text-sm"
+          :html="renderedContent"
+        />
 
         <div class="mt-2 flex flex-wrap items-center gap-1 sm:gap-2">
           <button

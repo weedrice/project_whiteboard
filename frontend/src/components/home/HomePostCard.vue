@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Eye, ThumbsUp, Video } from 'lucide-vue-next'
+import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
 import type { FeedPost } from '@/types'
 import { formatTimeAgo } from '@/utils/date'
 import { getOptimizedBoardIconUrl, getOptimizedPostImageUrl, handleImageError } from '@/utils/image'
@@ -173,9 +174,9 @@ watch(() => props.post.postId, () => {
         v-if="bodyHtml"
         :class="bodyClass"
       >
-        <div
+        <SanitizedHtmlView
           :class="bodyContentClass"
-          v-html="bodyHtml"
+          :html="bodyHtml"
         />
       </div>
       <p

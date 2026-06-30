@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, type ComponentPublicInstance } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Copy,
@@ -7,6 +7,7 @@ import {
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseCard from '@/components/common/ui/BaseCard.vue'
+import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
 import CommentList from '@/components/comment/CommentList.vue'
 import PostDetailHeader from '@/components/board/PostDetailHeader.vue'
 import PostDetailQuickActions from '@/components/board/PostDetailQuickActions.vue'
@@ -25,7 +26,6 @@ import { usePostDetailUiEffects } from '@/composables/usePostDetailUiEffects'
 import { usePostDetailViewModel } from '@/composables/usePostDetailViewModel'
 import { useAuthStore } from '@/stores/auth'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
-import { applyImageFallback } from '@/utils/imageFallback'
 import { renderPostContentHtml } from '@/utils/postContentHtml'
 import type { SanitizedHtml } from '@/utils/sanitize'
 
@@ -175,6 +175,19 @@ const {
   handleCopyUrl,
   handleLike,
 })
+
+type SanitizedHtmlViewExpose = ComponentPublicInstance & {
+  element?: HTMLElement | { value: HTMLElement | null } | null
+}
+
+const assignContentRef = (value: Element | ComponentPublicInstance | null) => {
+  const exposedElement = (value as SanitizedHtmlViewExpose | null)?.element
+  if (exposedElement && typeof exposedElement === 'object' && 'value' in exposedElement) {
+    contentRef.value = exposedElement.value
+    return
+  }
+  contentRef.value = exposedElement instanceof HTMLElement ? exposedElement : null
+}
 </script>
 
 <template>
@@ -227,13 +240,13 @@ const {
             </div>
 
             <div class="nv-post-article relative overflow-hidden">
-              <div
-                ref="contentRef"
+              <SanitizedHtmlView
+                :ref="assignContentRef"
+                tag="div"
                 class="ql-editor nv-rich-content prose prose-sm max-w-none sm:prose-base dark:prose-invert"
                 :class="{ 'blur-md select-none': isBlurred }"
-                v-html="processedContents"
-                @error.capture="applyImageFallback"
-              ></div>
+                :html="processedContents"
+              />
 
               <div v-if="isBlurred" class="nv-post-spoiler">
                 <div class="nv-post-spoiler-card">

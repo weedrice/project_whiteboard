@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
 import type { MyCommentListItem } from '@/composables/useMyPageDashboardResource'
 import { formatDate } from '@/utils/date'
 import { renderCommentContentHtml } from '@/utils/commentContent'
-import { applyImageFallback } from '@/utils/imageFallback'
 import type { SanitizedHtml } from '@/utils/sanitize'
 
 defineProps<{
@@ -39,20 +39,20 @@ function renderCommentContent(content: string | null | undefined): SanitizedHtml
           </p>
         </div>
         <div class="mt-1 comment-content-list">
-          <p
+          <SanitizedHtmlView
+            tag="p"
             class="text-sm nv-text-muted line-clamp-2"
-            v-html="renderCommentContent(comment.content)"
-            @error.capture="applyImageFallback"
+            :html="renderCommentContent(comment.content)"
           />
         </div>
       </router-link>
       <div v-else class="block">
         <p class="text-sm nv-text-subtle">{{ t('user.comments.deletedPost') }}</p>
         <div class="comment-content-list mt-1">
-          <p
+          <SanitizedHtmlView
+            tag="p"
             class="text-sm nv-text-muted line-clamp-2"
-            v-html="renderCommentContent(comment.content)"
-            @error.capture="applyImageFallback"
+            :html="renderCommentContent(comment.content)"
           />
         </div>
       </div>

@@ -5,6 +5,7 @@ import AdminDetailModalShell from '@/components/admin/AdminDetailModalShell.vue'
 import AdminInlinePager from '@/components/admin/AdminInlinePager.vue'
 import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
 import BooleanBadge from '@/components/admin/BooleanBadge.vue'
+import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
 import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
 import UserAvatar from '@/components/common/ui/UserAvatar.vue'
 import DescriptionItem from '@/components/admin/detail/DescriptionItem.vue'
@@ -13,7 +14,6 @@ import { useAdminUserDetailTabs } from '@/composables/useAdminUserDetailTabs'
 import { formatDate } from '@/utils/date'
 import { formatInteger } from '@/utils/numberFormat'
 import { isEmoticonOnlyContent, renderCommentContentHtml } from '@/utils/commentContent'
-import { applyImageFallback } from '@/utils/imageFallback'
 import type { SanitizedHtml } from '@/utils/sanitize'
 import {
   getAdminUserRoleLabel,
@@ -217,8 +217,18 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
                 <AdminStatusBadge v-for="badge in comment.badges" :key="badge.label" :label="badge.label" :variant="badge.variant" />
               </div>
               <div class="comment-content-list">
-                <p v-if="isCommentEmoticonOnly(comment.content)" v-html="renderCommentContent(comment.content)" class="text-sm" @error.capture="applyImageFallback"></p>
-                <p v-else v-html="renderCommentContent(comment.content)" class="line-clamp-2 break-words text-sm nv-text" @error.capture="applyImageFallback"></p>
+                <SanitizedHtmlView
+                  v-if="isCommentEmoticonOnly(comment.content)"
+                  tag="p"
+                  :html="renderCommentContent(comment.content)"
+                  class="text-sm"
+                />
+                <SanitizedHtmlView
+                  v-else
+                  tag="p"
+                  :html="renderCommentContent(comment.content)"
+                  class="line-clamp-2 break-words text-sm nv-text"
+                />
               </div>
               <div class="mt-1 text-xs nv-text-subtle">
                 {{ comment.metaText }}

@@ -3,9 +3,9 @@ import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
+import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
 import CommentList from '@/components/comment/CommentList.vue'
 import { formatDate } from '@/utils/date'
-import { applyImageFallback } from '@/utils/imageFallback'
 import type { SanitizedHtml } from '@/utils/sanitize'
 
 interface InquiryDetailPost {
@@ -52,11 +52,11 @@ const { t } = useI18n()
         </div>
 
         <div class="max-h-[60vh] overflow-y-auto rounded-md nv-surface-muted p-4 text-sm">
-          <div
+          <SanitizedHtmlView
             v-if="contentsHtml"
+            tag="div"
             class="break-words leading-6"
-            v-html="contentsHtml"
-            @error.capture="applyImageFallback"
+            :html="contentsHtml"
           />
           <div v-else>-</div>
         </div>

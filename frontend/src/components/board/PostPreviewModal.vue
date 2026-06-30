@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import type { SanitizedHtml } from '@/utils/sanitize'
@@ -50,7 +51,11 @@ const { t } = useI18n()
           #{{ tag }}
         </span>
       </div>
-      <article class="nv-rich-content prose max-w-none dark:prose-invert" v-html="html" />
+      <SanitizedHtmlView
+        tag="article"
+        class="nv-rich-content prose max-w-none dark:prose-invert"
+        :html="html"
+      />
     </div>
     <template #footer>
       <div class="flex justify-end gap-2">
