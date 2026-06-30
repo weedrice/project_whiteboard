@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+﻿import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick, ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import type { EmoticonImage } from '@/types/emoticon'
@@ -397,15 +397,6 @@ describe('PostForm', () => {
         mockDeleteDraftMutateAsync.mockResolvedValue({ data: { data: null } })
     })
 
-    it('renders create and edit titles', async () => {
-        const createWrapper = mountPostForm('create')
-        const editWrapper = mountPostForm('edit')
-        await nextTick()
-
-        expect(createWrapper.text()).toContain('board.writePost.createTitle')
-        expect(editWrapper.text()).toContain('board.writePost.editTitle')
-    })
-
     it('opens the preview modal from the header action', async () => {
         const wrapper = mountPostForm('create')
 
@@ -435,23 +426,6 @@ describe('PostForm', () => {
         expect(mockAddToast).toHaveBeenCalledWith('board.writePost.draftStatus.saved', 'success')
     })
 
-    it('renders overridden create title when provided', async () => {
-        const wrapper = mountPostForm('create', {}, {}, { createTitleOverride: '문의 작성' })
-        await nextTick()
-
-        expect(wrapper.text()).toContain('문의 작성')
-    })
-
-    it('hides board label and preview action when configured', async () => {
-        const wrapper = mountPostForm('create', {}, {}, {
-            hideBoardLabel: true,
-            hidePreview: true,
-        })
-        await nextTick()
-
-        expect(wrapper.text()).not.toContain(routeState.params.boardUrl)
-        expect(wrapper.text()).not.toContain('board.writePost.actions.preview')
-    })
 
     it('passes expected post detail ref and enabled option by mode', () => {
         mountPostForm('create')

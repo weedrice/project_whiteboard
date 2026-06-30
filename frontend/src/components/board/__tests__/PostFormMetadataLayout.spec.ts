@@ -130,11 +130,12 @@ const stubs = {
   Teleport: true,
 }
 
-const mountPostForm = () => mount(PostForm, {
+const mountPostForm = (props: Partial<InstanceType<typeof PostForm>['$props']> = {}) => mount(PostForm, {
   props: {
     mode: 'create',
     boardUrl: 'free',
     postId: '1',
+    ...props,
   },
   global: {
     mocks: {
@@ -167,6 +168,33 @@ describe('PostForm metadata layout', () => {
 
     expect(wrapper.findAll('.nv-compose-side-card').length).toBeGreaterThanOrEqual(2)
     expect(wrapper.find('aside').classes()).toContain('lg:sticky')
+  })
+
+  it('renders create and edit titles', () => {
+    const createWrapper = mountPostForm({ mode: 'create' })
+    const editWrapper = mountPostForm({ mode: 'edit' })
+
+    expect(createWrapper.text()).toContain('board.writePost.createTitle')
+    expect(editWrapper.text()).toContain('board.writePost.editTitle')
+  })
+
+  it('renders overridden create title when provided', () => {
+    const wrapper = mountPostForm({
+      mode: 'create',
+      createTitleOverride: '문의 작성',
+    })
+
+    expect(wrapper.text()).toContain('문의 작성')
+  })
+
+  it('hides board label and preview action when configured', () => {
+    const wrapper = mountPostForm({
+      hideBoardLabel: true,
+      hidePreview: true,
+    })
+
+    expect(wrapper.text()).not.toContain('free')
+    expect(wrapper.text()).not.toContain('board.writePost.actions.preview')
   })
 
   it('connects mobile and desktop tag labels to unique inputs', () => {
