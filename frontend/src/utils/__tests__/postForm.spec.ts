@@ -7,6 +7,7 @@ import {
     toEmbedPostVideoUrl,
     toSafePostLinkUrl,
 } from '../postForm'
+import { decodeSandboxedPostHtml } from '../postHtmlSandbox'
 
 const baseForm = {
     title: 'Title',
@@ -79,6 +80,25 @@ describe('postForm', () => {
             isSecret: false,
             fileIds: [],
         })
+    })
+
+    it('encodes script-style html widgets before submit', () => {
+        const rawWidget = '<style>.cl{display:grid}</style><button onclick="toggle()">여권</button><script>function toggle(){}</script>'
+        const payload = buildPostFormPayload({
+            form: {
+                ...baseForm,
+                content: rawWidget,
+            },
+            mode: 'create',
+            showNotice: true,
+            canShowNsfw: true,
+            fileIds: [],
+        })
+
+        expect(payload.contents).toContain('noviis-sandboxed-post-html')
+        expect(payload.contents).not.toContain('<script>')
+        expect(payload.contents).not.toContain('onclick=')
+        expect(decodeSandboxedPostHtml(payload.contents)).toBe(rawWidget)
     })
 
     it('normalizes supported video URLs to backend-allowed embed URLs', () => {

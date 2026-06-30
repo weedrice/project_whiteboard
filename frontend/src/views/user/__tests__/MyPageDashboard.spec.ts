@@ -27,9 +27,6 @@ const mocks = vi.hoisted(() => ({
   myCommentsError: { __v_isRef: true, value: '' },
   isInquiryDetailOpen: { __v_isRef: true, value: false },
   selectedInquiryPost: { __v_isRef: true, value: null as null | { postId: number; title: string; contents: string; createdAt: string } },
-  renderPostContentHtml: vi.fn((value: string | null | undefined) =>
-    value ? `safe:${value.replace(/<script.*?<\/script>/gi, '')}` : ''
-  ),
 }))
 
 vi.mock('vue-i18n', () => ({
@@ -115,10 +112,6 @@ vi.mock('@/utils/imageFallback', () => ({
   applyImageFallback: vi.fn(),
 }))
 
-vi.mock('@/utils/postContentHtml', () => ({
-  renderPostContentHtml: mocks.renderPostContentHtml,
-}))
-
 const BaseInputStub = defineComponent({
   name: 'BaseInput',
   props: {
@@ -178,7 +171,6 @@ describe('MyPageDashboard', () => {
     mocks.isVerifyModalOpen.value = true
     mocks.isInquiryDetailOpen.value = false
     mocks.selectedInquiryPost.value = null
-    mocks.renderPostContentHtml.mockClear()
   })
 
   it('renders profile information rows and email verification action', () => {
@@ -229,7 +221,7 @@ describe('MyPageDashboard', () => {
     expect(wrapper.findAll('[data-testid="empty-state"]')).toHaveLength(1)
   })
 
-  it('renders inquiry detail content through the sanitized post HTML helper', () => {
+  it('renders inquiry detail widget html through the shared post content view', () => {
     mocks.isInquiryDetailOpen.value = true
     mocks.selectedInquiryPost.value = {
       postId: 9,
@@ -240,8 +232,8 @@ describe('MyPageDashboard', () => {
 
     const wrapper = mountDashboard()
 
-    expect(mocks.renderPostContentHtml).toHaveBeenCalledWith('<p>Unsafe</p><script>alert(1)</script>')
-    expect(wrapper.html()).toContain('safe:<p>Unsafe</p>')
-    expect(wrapper.html()).not.toContain('<script')
+    const frame = wrapper.get('iframe')
+    expect(frame.attributes('sandbox')).toBe('allow-scripts')
+    expect(frame.attributes('srcdoc')).toContain('<p>Unsafe</p><script>alert(1)</script>')
   })
 })

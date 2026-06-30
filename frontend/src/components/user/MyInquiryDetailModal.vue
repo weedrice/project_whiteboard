@@ -3,10 +3,9 @@ import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
-import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
+import PostContentView from '@/components/board/PostContentView.vue'
 import CommentList from '@/components/comment/CommentList.vue'
 import { formatDate } from '@/utils/date'
-import type { SanitizedHtml } from '@/utils/sanitize'
 
 interface InquiryDetailPost {
   postId: number
@@ -21,7 +20,6 @@ defineProps<{
   isLoading: boolean
   error?: string | null
   isDeleting: boolean
-  contentsHtml: SanitizedHtml
 }>()
 
 defineEmits<{
@@ -52,11 +50,11 @@ const { t } = useI18n()
         </div>
 
         <div class="max-h-[60vh] overflow-y-auto rounded-md nv-surface-muted p-4 text-sm">
-          <SanitizedHtmlView
-            v-if="contentsHtml"
-            tag="div"
+          <PostContentView
+            v-if="post.contents"
             class="break-words leading-6"
-            :html="contentsHtml"
+            :content="post.contents"
+            :sandbox-title="post.title"
           />
           <div v-else>-</div>
         </div>

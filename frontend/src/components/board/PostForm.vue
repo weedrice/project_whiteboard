@@ -18,8 +18,8 @@ import PostEditorTipTap from '@/components/board/PostEditorTipTap.vue'
 import PostFormHeader from '@/components/board/PostFormHeader.vue'
 import PostFormMetadataPanel from '@/components/board/PostFormMetadataPanel.vue'
 import PostPreviewModal from '@/components/board/PostPreviewModal.vue'
-import { sanitizeQuillHtml } from '@/utils/sanitize'
 import { canWriteCategory } from '@/utils/board'
+import { requiresSandboxedPostHtml } from '@/utils/postHtmlSandbox'
 import { usePostComposerState } from '@/composables/usePostComposerState'
 
 const props = defineProps<{
@@ -139,7 +139,7 @@ const {
   showNotice,
   canShowNsfw,
 })
-const previewHtml = computed(() => sanitizeQuillHtml(form.value.content || `<p>${t('board.writePost.preview.emptyContent')}</p>`))
+const previewContent = computed(() => form.value.content || `<p>${t('board.writePost.preview.emptyContent')}</p>`)
 const leaveConfirmMessage = computed(() => t('board.writePost.leaveConfirm'))
 const editorViewOptions = computed<SegmentedControlOption[]>(() => [
   { value: 'visual', label: t('board.writePost.visualMode') },
@@ -284,6 +284,16 @@ const {
     form.value.content = content
   },
 }))
+
+watch(
+  () => form.value.content,
+  (content) => {
+    if (editorViewMode.value === 'visual' && requiresSandboxedPostHtml(content)) {
+      handleEditorViewModeChange('html')
+    }
+  },
+  { flush: 'sync', immediate: true },
+)
 
 const {
   tiptapEditorRef,
@@ -482,7 +492,7 @@ defineExpose({
       :board-label="board?.boardName || boardUrl"
       :post-title="form.title"
       :tags="form.tags"
-      :html="previewHtml"
+      :content="previewContent"
       :hide-board-label="props.hideBoardLabel"
       :hide-tags="props.hideTags"
       @close="showPreview = false"

@@ -4,6 +4,7 @@ import {
   resolvePostFormFileIds,
   type PostFormFileIdScope,
 } from '@/utils/postForm'
+import { decodeSandboxedPostHtml } from '@/utils/postHtmlSandbox'
 
 export type PostComposerMode = 'create' | 'edit'
 
@@ -100,7 +101,7 @@ export function usePostComposerState(options: UsePostComposerStateOptions) {
   function applyDraftSnapshot(draft: PostComposerSnapshot) {
     form.value = {
       title: draft.title ?? '',
-      content: draft.contents ?? '',
+      content: decodeSandboxedPostHtml(draft.contents) ?? draft.contents ?? '',
       categoryId: draft.categoryId ?? '',
       tags: [...(draft.tags ?? [])],
       isNsfw: Boolean(draft.isNsfw),

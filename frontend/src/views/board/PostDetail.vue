@@ -7,8 +7,8 @@ import {
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseCard from '@/components/common/ui/BaseCard.vue'
-import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
 import CommentList from '@/components/comment/CommentList.vue'
+import PostContentView from '@/components/board/PostContentView.vue'
 import PostDetailHeader from '@/components/board/PostDetailHeader.vue'
 import PostDetailQuickActions from '@/components/board/PostDetailQuickActions.vue'
 import PostDetailReactionBar from '@/components/board/PostDetailReactionBar.vue'
@@ -26,8 +26,6 @@ import { usePostDetailUiEffects } from '@/composables/usePostDetailUiEffects'
 import { usePostDetailViewModel } from '@/composables/usePostDetailViewModel'
 import { useAuthStore } from '@/stores/auth'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
-import { renderPostContentHtml } from '@/utils/postContentHtml'
-import type { SanitizedHtml } from '@/utils/sanitize'
 
 const route = useRoute()
 const router = useRouter()
@@ -78,9 +76,7 @@ const {
   isAdmin: authIsAdmin
 })
 
-const processedContents = computed<SanitizedHtml>(() => {
-  return renderPostContentHtml(post.value?.contents)
-})
+const postContents = computed(() => post.value?.contents ?? '')
 
 const {
   isBlurred,
@@ -176,12 +172,12 @@ const {
   handleLike,
 })
 
-type SanitizedHtmlViewExpose = ComponentPublicInstance & {
+type PostContentViewExpose = ComponentPublicInstance & {
   element?: HTMLElement | { value: HTMLElement | null } | null
 }
 
 const assignContentRef = (value: Element | ComponentPublicInstance | null) => {
-  const exposedElement = (value as SanitizedHtmlViewExpose | null)?.element
+  const exposedElement = (value as PostContentViewExpose | null)?.element
   if (exposedElement && typeof exposedElement === 'object' && 'value' in exposedElement) {
     contentRef.value = exposedElement.value
     return
@@ -240,12 +236,12 @@ const assignContentRef = (value: Element | ComponentPublicInstance | null) => {
             </div>
 
             <div class="nv-post-article relative overflow-hidden">
-              <SanitizedHtmlView
+              <PostContentView
                 :ref="assignContentRef"
-                tag="div"
                 class="ql-editor nv-rich-content prose prose-sm max-w-none sm:prose-base dark:prose-invert"
                 :class="{ 'blur-md select-none': isBlurred }"
-                :html="processedContents"
+                :content="postContents"
+                :sandbox-title="postView.title"
               />
 
               <div v-if="isBlurred" class="nv-post-spoiler">

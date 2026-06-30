@@ -1,4 +1,5 @@
 import { normalizeEditorFileImageUrls, normalizeLegacyFileUrls } from '@/utils/fileUrl'
+import { encodeSandboxedPostHtml, requiresSandboxedPostHtml } from '@/utils/postHtmlSandbox'
 
 export type PostFormFileIdScope = 'content' | 'draft'
 
@@ -95,7 +96,10 @@ export function buildPostFormPayload({
     canShowNsfw,
     fileIds,
 }: BuildPostFormPayloadOptions) {
-    const contents = normalizeLegacyFileUrls(normalizeEditorFileImageUrls(form.content))
+    const normalizedContents = requiresSandboxedPostHtml(form.content)
+        ? normalizeLegacyFileUrls(form.content)
+        : normalizeLegacyFileUrls(normalizeEditorFileImageUrls(form.content))
+    const contents = encodeSandboxedPostHtml(normalizedContents)
     const parsedCategoryId = typeof form.categoryId === 'string'
         ? Number.parseInt(form.categoryId, 10)
         : form.categoryId

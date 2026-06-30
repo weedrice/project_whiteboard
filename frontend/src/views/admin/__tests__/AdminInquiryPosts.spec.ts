@@ -42,7 +42,7 @@ const { identityT, state } = vi.hoisted(() => {
         title: 'Need help',
         authorName: 'Ada',
         createdAtText: '2026-05-26',
-        contentsHtml: '<p>Question body</p>',
+        contents: '<p>Question body</p>',
       }),
       selectedPostId: refOf(null as number | null),
       sort: refOf('createdAt,desc'),
@@ -122,7 +122,7 @@ describe('AdminInquiryPosts', () => {
       title: 'Need help',
       authorName: 'Ada',
       createdAtText: '2026-05-26',
-      contentsHtml: '<p>Question body</p>',
+      contents: '<p>Question body</p>',
     }
     state.selectedPostId.value = null
     state.sort.value = 'createdAt,desc'

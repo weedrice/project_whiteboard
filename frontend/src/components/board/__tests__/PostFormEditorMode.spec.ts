@@ -120,4 +120,18 @@ describe('PostForm editor mode', () => {
         expect(variables.data.fileIds).toEqual([42])
     })
 
+    it('keeps script-style html widgets in html source mode', async () => {
+        const wrapper = mountPostForm('create')
+        const modeButtons = findEditorModeButtons(wrapper)
+        const rawWidget = '<style>.cl{display:grid}</style><button onclick="toggle()">여권</button><script>function toggle(){}</script>'
+
+        await modeButtons.html.trigger('click')
+        await wrapper.get('#content').setValue(rawWidget)
+        await modeButtons.visual.trigger('click')
+
+        expect(wrapper.find('#content').exists()).toBe(true)
+        expect((wrapper.get('#content').element as HTMLTextAreaElement).value).toBe(rawWidget)
+        expect(findEditorModeButtons(wrapper).html.attributes('aria-pressed')).toBe('true')
+    })
+
 })

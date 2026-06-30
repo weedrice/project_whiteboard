@@ -14,7 +14,6 @@ import MyPageProfileCard from '@/components/user/MyPageProfileCard.vue'
 import { useMyPageDashboardResource } from '@/composables/useMyPageDashboardResource'
 import { useInquiryDetailModal } from '@/composables/useInquiryDetailModal'
 import { useEmailVerificationFlow } from '@/composables/useEmailVerificationFlow'
-import { renderPostContentHtml } from '@/utils/postContentHtml'
 import { resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigation'
 
 const { t } = useI18n()
@@ -61,10 +60,6 @@ const {
   closeInquiryModal,
   deleteInquiryPost
 } = useInquiryDetailModal(fetchMyPosts)
-
-const selectedInquiryPostContentsHtml = computed(() =>
-  renderPostContentHtml(selectedInquiryPost.value?.contents)
-)
 
 const myPostsTotalPages = computed(() => Math.ceil(myPostsTotalCount.value / myPostsSize.value))
 const myCommentsTotalPages = computed(() => Math.ceil(myCommentsTotalCount.value / myCommentsSize.value))
@@ -190,7 +185,6 @@ onMounted(async () => {
         :is-loading="isInquiryDetailLoading"
         :error="inquiryDetailError"
         :is-deleting="isDeletingInquiry"
-        :contents-html="selectedInquiryPostContentsHtml"
         @close="closeInquiryModal"
         @delete-post="deleteInquiryPost"
       />

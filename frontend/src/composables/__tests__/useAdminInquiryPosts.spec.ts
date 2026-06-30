@@ -106,7 +106,7 @@ describe('useAdminInquiryPosts', () => {
     expect(item.summaryText).toHaveLength(53)
   })
 
-  it('maps inquiry detail DTOs to rendered content view-model fields', () => {
+  it('maps inquiry detail DTOs to raw content view-model fields', () => {
     const detail = toAdminInquiryDetail(postDetail({
       contents: '<p>Question body</p><img src="/files/1" onerror="alert(1)"><script>alert(2)</script>',
     }))
@@ -116,10 +116,9 @@ describe('useAdminInquiryPosts', () => {
       title: 'Need help',
       authorName: 'Admin User',
     })
-    expect(detail.contentsHtml).toContain('Question body')
-    expect(detail.contentsHtml).toContain('loading="lazy"')
-    expect(detail.contentsHtml).not.toContain('<script')
-    expect(detail.contentsHtml).not.toContain('onerror')
+    expect(detail.contents).toContain('Question body')
+    expect(detail.contents).toContain('<script>alert(2)</script>')
+    expect(detail.contents).toContain('onerror="alert(1)"')
   })
 
   it('maps query results before exposing them to the view', async () => {

@@ -5,10 +5,8 @@ import { adminInquiryQueryKeys } from '@/composables/adminQueryKeys'
 import { useApiPageQuery, useNullableApiQuery } from '@/composables/useApiQuery'
 import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import { formatDateTimeOrDash } from '@/utils/date'
-import { renderPostContentHtml } from '@/utils/postContentHtml'
 import { stripHtmlToText, truncateWithEllipsis } from '@/utils/textExcerpt'
 import type { AdminInquirySummary, PageResponse, Post } from '@/types'
-import type { SanitizedHtml } from '@/utils/sanitize'
 
 type AdminInquiryStatusVariant = 'success' | 'warning'
 
@@ -27,7 +25,7 @@ export interface AdminInquiryDetail {
   title: string
   authorName: string
   createdAtText: string
-  contentsHtml: SanitizedHtml
+  contents: string
 }
 
 function getAuthorName(post: Pick<AdminInquirySummary, 'author'> | Pick<Post, 'author'>) {
@@ -65,7 +63,7 @@ export function toAdminInquiryDetail(post: Post): AdminInquiryDetail {
     title: post.title,
     authorName: getAuthorName(post),
     createdAtText: formatDateTimeOrDash(post.createdAt),
-    contentsHtml: renderPostContentHtml(post.contents),
+    contents: post.contents ?? '',
   }
 }
 

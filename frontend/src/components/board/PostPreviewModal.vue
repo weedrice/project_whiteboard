@@ -1,16 +1,15 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
+import PostContentView from '@/components/board/PostContentView.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
-import type { SanitizedHtml } from '@/utils/sanitize'
 
 defineProps<{
   isOpen: boolean
   boardLabel?: string
   postTitle: string
   tags: string[]
-  html: SanitizedHtml
+  content: string
   hideBoardLabel?: boolean
   hideTags?: boolean
 }>()
@@ -51,10 +50,10 @@ const { t } = useI18n()
           #{{ tag }}
         </span>
       </div>
-      <SanitizedHtmlView
-        tag="article"
+      <PostContentView
         class="nv-rich-content prose max-w-none dark:prose-invert"
-        :html="html"
+        :content="content"
+        :sandbox-title="postTitle || t('board.writePost.preview.untitledPost')"
       />
     </div>
     <template #footer>
