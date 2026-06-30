@@ -9,6 +9,7 @@ import { useAuthStore } from '@/stores/auth'
 import { formatDate, formatDateShort } from '@/utils/date'
 import { isEmoticonOnlyContent, renderCommentContentHtml } from '@/utils/commentContent'
 import { applyImageFallback } from '@/utils/imageFallback'
+import type { SanitizedHtml } from '@/utils/sanitize'
 import CommentForm from './CommentForm.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
 
@@ -55,7 +56,7 @@ const {
   isAuthenticated,
   isCommentAuthor,
 } = useCommentAuthorState(commentRef, authStore)
-const renderedContent = computed(() => renderCommentContentHtml(props.comment.content ?? ''))
+const renderedContent = computed<SanitizedHtml>(() => renderCommentContentHtml(props.comment.content ?? ''))
 const isEmoticonOnly = computed(() => isEmoticonOnlyContent(props.comment.content ?? ''))
 const createdAtShort = computed(() => formatDateShort(props.comment.createdAt))
 const createdAtFull = computed(() => formatDate(props.comment.createdAt))

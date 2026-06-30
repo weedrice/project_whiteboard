@@ -14,6 +14,7 @@ import { formatDate } from '@/utils/date'
 import { formatInteger } from '@/utils/numberFormat'
 import { isEmoticonOnlyContent, renderCommentContentHtml } from '@/utils/commentContent'
 import { applyImageFallback } from '@/utils/imageFallback'
+import type { SanitizedHtml } from '@/utils/sanitize'
 import {
   getAdminUserRoleLabel,
   getAdminUserRoleVariant,
@@ -82,7 +83,7 @@ const detailTabOptions = computed(() => [
   { value: 'subscriptions', label: t('admin.users.detail.subscribedBoards') },
 ])
 
-function renderCommentContent(content: string | null | undefined): string {
+function renderCommentContent(content: string | null | undefined): SanitizedHtml {
   return renderCommentContentHtml(content, 'comment-emoticon comment-emoticon-list')
 }
 

@@ -27,6 +27,7 @@ import { useAuthStore } from '@/stores/auth'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
 import { applyImageFallback } from '@/utils/imageFallback'
 import { renderPostContentHtml } from '@/utils/postContentHtml'
+import type { SanitizedHtml } from '@/utils/sanitize'
 
 const route = useRoute()
 const router = useRouter()
@@ -77,7 +78,7 @@ const {
   isAdmin: authIsAdmin
 })
 
-const processedContents = computed(() => {
+const processedContents = computed<SanitizedHtml>(() => {
   return renderPostContentHtml(post.value?.contents)
 })
 

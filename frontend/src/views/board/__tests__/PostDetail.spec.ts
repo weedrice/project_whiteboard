@@ -135,6 +135,7 @@ vi.mock('@/utils/logger', () => ({
 }))
 
 vi.mock('@/utils/sanitize', () => ({
+  asSanitizedHtml: (html: string) => html,
   sanitizeQuillHtml: (html: string) => html
 }))
 
