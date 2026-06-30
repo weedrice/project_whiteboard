@@ -131,6 +131,12 @@ export const loadApiModule = async (
 
 type MutableHeaders = Record<string, string | undefined>
 
+type TestApiRequestConfigInput =
+    | InternalAxiosRequestConfig
+    | (Partial<Omit<InternalAxiosRequestConfig, 'headers'>> & {
+        headers?: MutableHeaders
+    })
+
 export type TestApiRequestConfig = InternalAxiosRequestConfig & {
     headers: MutableHeaders
 }
@@ -142,7 +148,7 @@ export type TestApiError = AxiosError & {
 }
 
 export const createApiRequestConfig = (
-    overrides: Partial<InternalAxiosRequestConfig> = {},
+    overrides: TestApiRequestConfigInput = {},
 ): TestApiRequestConfig => {
     const { headers, ...rest } = overrides
 
@@ -175,7 +181,7 @@ export const createApiError = ({
     name,
 }: {
     message?: string
-    config?: Partial<InternalAxiosRequestConfig>
+    config?: TestApiRequestConfigInput
     response?: {
         status?: number
         data?: unknown
