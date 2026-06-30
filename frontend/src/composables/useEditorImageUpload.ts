@@ -2,17 +2,13 @@ import { ref, onBeforeUnmount } from 'vue'
 import { fileApi, resolveFileUploadUrl } from '@/api/file'
 import { unwrapApiData } from '@/api/response'
 import { validateImageFile as validateGenericImageFile } from '@/utils/imageFile'
+import {
+    ALLOWED_UPLOAD_IMAGE_EXTENSION_SET,
+    ALLOWED_UPLOAD_IMAGE_MIME_TYPE_SET,
+} from '@/utils/imageUploadPolicy'
 import { isCancellationError } from '@/utils/cancellationError'
 
 const DEFAULT_MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
-const ALLOWED_IMAGE_MIME_TYPES = new Set([
-    'image/jpeg',
-    'image/jpg',
-    'image/png',
-    'image/gif',
-    'image/webp',
-])
-const ALLOWED_IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp'])
 
 function isAbortUploadError(error: unknown): boolean {
     return isCancellationError(error, {
@@ -27,8 +23,8 @@ export function useEditorImageUpload(maxImageSizeBytes = DEFAULT_MAX_IMAGE_SIZE_
 
     const validateImageFile = (file: File): 'type' | 'size' | null => {
         return validateGenericImageFile(file, {
-            allowedMimeTypes: ALLOWED_IMAGE_MIME_TYPES,
-            allowedExtensions: ALLOWED_IMAGE_EXTENSIONS,
+            allowedMimeTypes: ALLOWED_UPLOAD_IMAGE_MIME_TYPE_SET,
+            allowedExtensions: ALLOWED_UPLOAD_IMAGE_EXTENSION_SET,
             maxSizeBytes: maxImageSizeBytes,
         })
     }

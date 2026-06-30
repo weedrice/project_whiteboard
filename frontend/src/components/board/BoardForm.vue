@@ -7,6 +7,7 @@ import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import { useBoardCreationPolicy } from '@/composables/useBoardCreationPolicy'
 import { useBoardFormState, type BoardFormData } from '@/composables/useBoardFormState'
 import { useBoardFormSubmit } from '@/composables/useBoardFormSubmit'
+import { IMAGE_UPLOAD_ACCEPT } from '@/utils/imageUploadPolicy'
 
 type BoardData = BoardFormData
 
@@ -96,7 +97,7 @@ const isSubmitting = computed(() => props.isSubmitting || localIsSubmitting.valu
                   d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
-            <input id="icon-upload" type="file" @change="handleFileChange" accept="image/*" class="hidden" />
+            <input id="icon-upload" type="file" @change="handleFileChange" :accept="IMAGE_UPLOAD_ACCEPT" class="hidden" />
             <span class="text-xs nv-text-subtle text-center block mt-1">{{ $t('board.form.iconImage')
             }}</span>
           </label>

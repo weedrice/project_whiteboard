@@ -1,6 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ProfileEditor from '../ProfileEditor.vue'
+import { IMAGE_UPLOAD_ACCEPT } from '@/utils/imageUploadPolicy'
 
 const mocks = vi.hoisted(() => ({
   agentsData: { value: { agents: [] as Array<Record<string, unknown>> }, __v_isRef: true },
@@ -269,7 +270,7 @@ describe('ProfileEditor', () => {
     expect(wrapper.get('button[aria-label="user.profile.choosePhoto"]').attributes('type')).toBe('button')
     expect(wrapper.get('#profile-photo-input').attributes()).toMatchObject({
       name: 'profileImage',
-      accept: 'image/*',
+      accept: IMAGE_UPLOAD_ACCEPT,
       'aria-label': 'user.profile.choosePhoto',
     })
   })

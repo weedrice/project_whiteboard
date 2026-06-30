@@ -23,6 +23,7 @@ import { useI18n } from 'vue-i18n'
 import { useThemeStore } from '@/stores/theme'
 import { useToastStore } from '@/stores/toast'
 import type { EmoticonImage } from '@/types/emoticon'
+import { IMAGE_UPLOAD_ACCEPT } from '@/utils/imageUploadPolicy'
 import logger from '@/utils/logger'
 import { toSafePostLinkUrl } from '@/utils/postForm'
 
@@ -514,7 +515,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="tiptap-editor-wrap flex min-h-0 flex-1 flex-col">
-    <input ref="imageInput" type="file" accept=".jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp" multiple class="hidden" @change="onImageChange">
+    <input ref="imageInput" type="file" :accept="IMAGE_UPLOAD_ACCEPT" multiple class="hidden" @change="onImageChange">
 
     <PostEditorToolbar
       v-if="editor"

@@ -35,7 +35,7 @@
           type="file"
           name="profileImage"
           class="sr-only"
-          accept="image/*"
+          :accept="IMAGE_UPLOAD_ACCEPT"
           :aria-label="$t('user.profile.choosePhoto')"
           @change="$emit('file-change', $event)"
         />
@@ -56,6 +56,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
+import { IMAGE_UPLOAD_ACCEPT } from '@/utils/imageUploadPolicy'
 
 const props = defineProps<{
   displayName: string
