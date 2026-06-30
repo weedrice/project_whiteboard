@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref } from 'vue'
 import { useAdmin } from '../useAdmin'
 import { adminApi } from '@/api/admin'
+import { apiDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
 
 // Mock dependencies
 vi.mock('@/api/admin', () => ({
@@ -120,7 +121,7 @@ describe('useAdmin', () => {
             }
 
             vi.mocked(adminApi.getAdmins)
-                .mockResolvedValueOnce({ data: { data: response } } as any)
+                .mockResolvedValueOnce(apiDataResponse<typeof adminApi.getAdmins>(response))
 
             useAdmins(params)
             const query = mockQueryOptions.at(-1) as {
@@ -146,7 +147,7 @@ describe('useAdmin', () => {
             const { useCreateAdmin } = useAdmin()
             const mutation = useCreateAdmin()
 
-            vi.mocked(adminApi.createAdmin).mockResolvedValue({ data: { success: true } } as any)
+            vi.mocked(adminApi.createAdmin).mockResolvedValue(apiSuccessResponse<typeof adminApi.createAdmin>())
 
             await mutation.mutateAsync({ loginId: 'newadmin', boardId: 1, role: 'BOARD_ADMIN' })
 
@@ -158,7 +159,7 @@ describe('useAdmin', () => {
             const { useCreateAdmin } = useAdmin()
             const mutation = useCreateAdmin()
 
-            vi.mocked(adminApi.createAdmin).mockResolvedValue({ data: { success: true } } as any)
+            vi.mocked(adminApi.createAdmin).mockResolvedValue(apiSuccessResponse<typeof adminApi.createAdmin>())
 
             await mutation.mutateAsync({ loginId: 'modadmin', boardId: 1, role: 'MODERATOR' })
 
@@ -169,7 +170,7 @@ describe('useAdmin', () => {
             const { useUpdateAdminStatus } = useAdmin()
             const mutation = useUpdateAdminStatus()
 
-            vi.mocked(adminApi.activateAdmin).mockResolvedValue({ data: { success: true } } as any)
+            vi.mocked(adminApi.activateAdmin).mockResolvedValue(apiSuccessResponse<typeof adminApi.activateAdmin>())
 
             await mutation.mutateAsync({ adminId: 1, action: 'activate' })
 
@@ -181,7 +182,7 @@ describe('useAdmin', () => {
             const { useUpdateAdminStatus } = useAdmin()
             const mutation = useUpdateAdminStatus()
 
-            vi.mocked(adminApi.deactivateAdmin).mockResolvedValue({ data: { success: true } } as any)
+            vi.mocked(adminApi.deactivateAdmin).mockResolvedValue(apiSuccessResponse<typeof adminApi.deactivateAdmin>())
 
             await mutation.mutateAsync({ adminId: 1, action: 'deactivate' })
 
@@ -202,7 +203,7 @@ describe('useAdmin', () => {
             const { useSuperAdmins } = useAdmin()
 
             vi.mocked(adminApi.getSuperAdmin)
-                .mockResolvedValueOnce({ data: { data: [{ loginId: 'super' }] } } as any)
+                .mockResolvedValueOnce(apiDataResponse<typeof adminApi.getSuperAdmin>([{ loginId: 'super' }]))
 
             useSuperAdmins()
             const query = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
@@ -213,7 +214,7 @@ describe('useAdmin', () => {
             const { useUpdateSuperAdminStatus } = useAdmin()
             const mutation = useUpdateSuperAdminStatus()
 
-            vi.mocked(adminApi.activeSuperAdmin).mockResolvedValue({ data: { success: true } } as any)
+            vi.mocked(adminApi.activeSuperAdmin).mockResolvedValue(apiSuccessResponse<typeof adminApi.activeSuperAdmin>())
 
             await mutation.mutateAsync({ loginId: 'superadmin', action: 'activate' })
 
@@ -225,7 +226,7 @@ describe('useAdmin', () => {
             const { useUpdateSuperAdminStatus } = useAdmin()
             const mutation = useUpdateSuperAdminStatus()
 
-            vi.mocked(adminApi.deactivateSuperAdmin).mockResolvedValue({ data: { success: true } } as any)
+            vi.mocked(adminApi.deactivateSuperAdmin).mockResolvedValue(apiSuccessResponse<typeof adminApi.deactivateSuperAdmin>())
 
             await mutation.mutateAsync({ loginId: 'superadmin', action: 'deactivate' })
 
@@ -256,7 +257,7 @@ describe('useAdmin', () => {
                 last: false,
                 empty: false
             }
-            vi.mocked(adminApi.getUsers).mockResolvedValueOnce({ data: { data: response } } as any)
+            vi.mocked(adminApi.getUsers).mockResolvedValueOnce(apiDataResponse<typeof adminApi.getUsers>(response))
 
             useUsers(params)
             const query = mockQueryOptions.at(-1) as {
@@ -273,7 +274,7 @@ describe('useAdmin', () => {
             const { useUpdateUserStatus } = useAdmin()
             const mutation = useUpdateUserStatus()
 
-            vi.mocked(adminApi.updateUserStatus).mockResolvedValue({ data: { success: true } } as any)
+            vi.mocked(adminApi.updateUserStatus).mockResolvedValue(apiSuccessResponse<typeof adminApi.updateUserStatus>())
 
             await mutation.mutateAsync({ userId: 1, status: 'ACTIVE' })
 
@@ -286,7 +287,7 @@ describe('useAdmin', () => {
             const { useSanctionUser } = useAdmin()
             const mutation = useSanctionUser()
 
-            vi.mocked(adminApi.sanctionUser).mockResolvedValue({ data: { success: true } } as any)
+            vi.mocked(adminApi.sanctionUser).mockResolvedValue(apiSuccessResponse<typeof adminApi.sanctionUser>())
 
             await mutation.mutateAsync({ targetUserId: 1, type: 'BAN', remark: 'Violation' })
 
@@ -300,10 +301,10 @@ describe('useAdmin', () => {
             const userId = ref(5)
             const params = ref({ page: 1, size: 10 })
 
-            vi.mocked(adminApi.getUserDetail).mockResolvedValueOnce({ data: { data: { userId: 5 } } } as any)
-            vi.mocked(adminApi.getUserPosts).mockResolvedValueOnce({ data: { data: { content: [{ postId: 1, deleted: true }], page: 1, size: 10, totalElements: 21, totalPages: 3, hasNext: true, hasPrevious: true } } } as any)
-            vi.mocked(adminApi.getUserComments).mockResolvedValueOnce({ data: { data: { content: [{ commentId: 2, deleted: true }], page: 0, size: 10, totalElements: 2, totalPages: 1, hasNext: false, hasPrevious: false } } } as any)
-            vi.mocked(adminApi.getUserSubscriptions).mockResolvedValueOnce({ data: { data: { content: [{ boardId: 3, subscriptionAccessible: false }], page: 2, size: 10, totalElements: 23, totalPages: 3, hasNext: false, hasPrevious: true } } } as any)
+            vi.mocked(adminApi.getUserDetail).mockResolvedValueOnce(apiDataResponse<typeof adminApi.getUserDetail>({ userId: 5 }))
+            vi.mocked(adminApi.getUserPosts).mockResolvedValueOnce(apiDataResponse<typeof adminApi.getUserPosts>({ content: [{ postId: 1, deleted: true }], page: 1, size: 10, totalElements: 21, totalPages: 3, hasNext: true, hasPrevious: true }))
+            vi.mocked(adminApi.getUserComments).mockResolvedValueOnce(apiDataResponse<typeof adminApi.getUserComments>({ content: [{ commentId: 2, deleted: true }], page: 0, size: 10, totalElements: 2, totalPages: 1, hasNext: false, hasPrevious: false }))
+            vi.mocked(adminApi.getUserSubscriptions).mockResolvedValueOnce(apiDataResponse<typeof adminApi.getUserSubscriptions>({ content: [{ boardId: 3, subscriptionAccessible: false }], page: 2, size: 10, totalElements: 23, totalPages: 3, hasNext: false, hasPrevious: true }))
 
             useAdminUserDetail(userId)
             const detailQuery = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
@@ -377,7 +378,7 @@ describe('useAdmin', () => {
                 last: true,
                 empty: false
             }
-            vi.mocked(adminApi.getReports).mockResolvedValueOnce({ data: { data: response } } as any)
+            vi.mocked(adminApi.getReports).mockResolvedValueOnce(apiDataResponse<typeof adminApi.getReports>(response))
 
             useReports(params)
             const query = mockQueryOptions.at(-1) as {
@@ -394,7 +395,7 @@ describe('useAdmin', () => {
             const { useResolveReport } = useAdmin()
             const mutation = useResolveReport()
 
-            vi.mocked(adminApi.resolveReport).mockResolvedValue({ data: { success: true } } as any)
+            vi.mocked(adminApi.resolveReport).mockResolvedValue(apiSuccessResponse<typeof adminApi.resolveReport>())
 
             await mutation.mutateAsync({ reportId: 1, data: { status: 'RESOLVED' } })
 
@@ -437,7 +438,7 @@ describe('useAdmin', () => {
                 hasNext: false,
                 hasPrevious: false
             }
-            vi.mocked(adminApi.getIpBlocks).mockResolvedValueOnce({ data: { data: response } } as any)
+            vi.mocked(adminApi.getIpBlocks).mockResolvedValueOnce(apiDataResponse<typeof adminApi.getIpBlocks>(response))
 
             useIpBlocks(params)
             const query = mockQueryOptions.at(-1) as {
@@ -462,7 +463,7 @@ describe('useAdmin', () => {
             const { useBlockIp } = useAdmin()
             const mutation = useBlockIp()
 
-            vi.mocked(adminApi.blockIp).mockResolvedValue({ data: { success: true } } as any)
+            vi.mocked(adminApi.blockIp).mockResolvedValue(apiSuccessResponse<typeof adminApi.blockIp>())
 
             await mutation.mutateAsync({ ipAddress: '192.168.1.1', reason: 'Spam' })
 
@@ -474,7 +475,7 @@ describe('useAdmin', () => {
             const { useUnblockIp } = useAdmin()
             const mutation = useUnblockIp()
 
-            vi.mocked(adminApi.unblockIp).mockResolvedValue({ data: { success: true } } as any)
+            vi.mocked(adminApi.unblockIp).mockResolvedValue(apiSuccessResponse<typeof adminApi.unblockIp>())
 
             await mutation.mutateAsync('192.168.1.1')
 
@@ -494,7 +495,7 @@ describe('useAdmin', () => {
 
         it('useConfigs queryFn returns api data', async () => {
             const { useConfigs } = useAdmin()
-            vi.mocked(adminApi.getConfigs).mockResolvedValueOnce({ data: { data: [{ key: 'site.name' }] } } as any)
+            vi.mocked(adminApi.getConfigs).mockResolvedValueOnce(apiDataResponse<typeof adminApi.getConfigs>([{ key: 'site.name' }]))
 
             useConfigs()
             const query = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
@@ -505,7 +506,7 @@ describe('useAdmin', () => {
             const { useCreateConfig } = useAdmin()
             const mutation = useCreateConfig()
 
-            vi.mocked(adminApi.createConfig).mockResolvedValue({ data: { success: true } } as any)
+            vi.mocked(adminApi.createConfig).mockResolvedValue(apiSuccessResponse<typeof adminApi.createConfig>())
 
             await mutation.mutateAsync({ key: 'test_key', value: 'test_value' })
 
@@ -517,7 +518,7 @@ describe('useAdmin', () => {
             const { useUpdateConfig } = useAdmin()
             const mutation = useUpdateConfig()
 
-            vi.mocked(adminApi.updateConfig).mockResolvedValue({ data: { success: true } } as any)
+            vi.mocked(adminApi.updateConfig).mockResolvedValue(apiSuccessResponse<typeof adminApi.updateConfig>())
 
             await mutation.mutateAsync({ key: 'test_key', value: 'new_value', description: 'Updated' })
 
@@ -529,7 +530,7 @@ describe('useAdmin', () => {
             const { useDeleteConfig } = useAdmin()
             const mutation = useDeleteConfig()
 
-            vi.mocked(adminApi.deleteConfig).mockResolvedValue({ data: { success: true } } as any)
+            vi.mocked(adminApi.deleteConfig).mockResolvedValue(apiSuccessResponse<typeof adminApi.deleteConfig>())
 
             await mutation.mutateAsync('test_key')
 
@@ -549,7 +550,7 @@ describe('useAdmin', () => {
 
         it('useDashboardStats queryFn returns stats payload', async () => {
             const { useDashboardStats } = useAdmin()
-            vi.mocked(adminApi.getDashboardStats).mockResolvedValueOnce({ data: { data: { users: 10 } } } as any)
+            vi.mocked(adminApi.getDashboardStats).mockResolvedValueOnce(apiDataResponse<typeof adminApi.getDashboardStats>({ users: 10 }))
 
             useDashboardStats()
             const query = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
@@ -568,7 +569,7 @@ describe('useAdmin', () => {
 
         it('useAdminBoards queryFn returns board list', async () => {
             const { useAdminBoards } = useAdmin()
-            vi.mocked(adminApi.getBoards).mockResolvedValueOnce({ data: { data: [{ boardUrl: 'free' }] } } as any)
+            vi.mocked(adminApi.getBoards).mockResolvedValueOnce(apiDataResponse<typeof adminApi.getBoards>([{ boardUrl: 'free' }]))
 
             useAdminBoards()
             const query = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
@@ -579,7 +580,7 @@ describe('useAdmin', () => {
             const { useCreateBoard } = useAdmin()
             const mutation = useCreateBoard()
 
-            vi.mocked(adminApi.createBoard).mockResolvedValue({ data: { success: true } } as any)
+            vi.mocked(adminApi.createBoard).mockResolvedValue(apiSuccessResponse<typeof adminApi.createBoard>())
 
             await mutation.mutateAsync({ boardName: 'New Board', boardUrl: 'new-board' })
 
@@ -591,7 +592,7 @@ describe('useAdmin', () => {
             const { useUpdateBoard } = useAdmin()
             const mutation = useUpdateBoard()
 
-            vi.mocked(adminApi.updateBoard).mockResolvedValue({ data: { success: true } } as any)
+            vi.mocked(adminApi.updateBoard).mockResolvedValue(apiSuccessResponse<typeof adminApi.updateBoard>())
 
             await mutation.mutateAsync({ boardUrl: 'test-board', data: { boardName: 'Updated Name' } })
 
@@ -603,7 +604,7 @@ describe('useAdmin', () => {
             const { useDeleteBoard } = useAdmin()
             const mutation = useDeleteBoard()
 
-            vi.mocked(adminApi.deleteBoard).mockResolvedValue({ data: { success: true } } as any)
+            vi.mocked(adminApi.deleteBoard).mockResolvedValue(apiSuccessResponse<typeof adminApi.deleteBoard>())
 
             await mutation.mutateAsync('test-board')
 
@@ -614,7 +615,7 @@ describe('useAdmin', () => {
         it('useBoardManager queryFn returns manager payload', async () => {
             const { useBoardManager } = useAdmin()
             const boardId = ref(3)
-            vi.mocked(adminApi.getBoardManager).mockResolvedValueOnce({ data: { data: { adminId: 99 } } } as any)
+            vi.mocked(adminApi.getBoardManager).mockResolvedValueOnce(apiDataResponse<typeof adminApi.getBoardManager>({ adminId: 99 }))
 
             useBoardManager(boardId)
             const query = mockQueryOptions.at(-1) as {
@@ -631,7 +632,7 @@ describe('useAdmin', () => {
             const { useUpdateBoardManager } = useAdmin()
             const mutation = useUpdateBoardManager()
 
-            vi.mocked(adminApi.updateBoardManager).mockResolvedValue({ data: { success: true } } as any)
+            vi.mocked(adminApi.updateBoardManager).mockResolvedValue(apiSuccessResponse<typeof adminApi.updateBoardManager>())
 
             await mutation.mutateAsync({ boardId: 5, data: { loginId: 'manager' } })
 
@@ -663,7 +664,7 @@ describe('useAdmin', () => {
                 last: true,
                 empty: false
             }
-            vi.mocked(adminApi.getErrorLogs).mockResolvedValueOnce({ data: { data: response } } as any)
+            vi.mocked(adminApi.getErrorLogs).mockResolvedValueOnce(apiDataResponse<typeof adminApi.getErrorLogs>(response))
 
             useErrorLogs(params)
             const query = mockQueryOptions.at(-1) as {
@@ -679,7 +680,7 @@ describe('useAdmin', () => {
         it('useErrorLog mutation returns detail payload', async () => {
             const { useErrorLog } = useAdmin()
             const detailResponse = { errorLogId: 1, stackTrace: 'stack trace' }
-            vi.mocked(adminApi.getErrorLog).mockResolvedValueOnce({ data: { data: detailResponse } } as any)
+            vi.mocked(adminApi.getErrorLog).mockResolvedValueOnce(apiDataResponse<typeof adminApi.getErrorLog>(detailResponse))
 
             const mutation = useErrorLog()
 
@@ -691,7 +692,7 @@ describe('useAdmin', () => {
             const { useResolveErrorLog } = useAdmin()
             const mutation = useResolveErrorLog()
 
-            vi.mocked(adminApi.resolveErrorLog).mockResolvedValue({ data: { success: true } } as any)
+            vi.mocked(adminApi.resolveErrorLog).mockResolvedValue(apiSuccessResponse<typeof adminApi.resolveErrorLog>())
 
             await mutation.mutateAsync({ errorLogId: 1, data: { memo: '확인 완료' } })
 
@@ -703,7 +704,7 @@ describe('useAdmin', () => {
             const { useResolveErrorLog } = useAdmin()
             const mutation = useResolveErrorLog()
 
-            vi.mocked(adminApi.resolveErrorLog).mockResolvedValue({ data: { success: true } } as any)
+            vi.mocked(adminApi.resolveErrorLog).mockResolvedValue(apiSuccessResponse<typeof adminApi.resolveErrorLog>())
 
             await mutation.mutateAsync({ errorLogId: 2, data: undefined })
 
@@ -722,7 +723,7 @@ describe('useAdmin', () => {
         it('useErrorLogStats queryFn returns stats payload', async () => {
             const { useErrorLogStats } = useAdmin()
             const statsResponse = { totalCount: 100, unresolvedCount: 30, resolvedCount: 70 }
-            vi.mocked(adminApi.getErrorLogStats).mockResolvedValueOnce({ data: { data: statsResponse } } as any)
+            vi.mocked(adminApi.getErrorLogStats).mockResolvedValueOnce(apiDataResponse<typeof adminApi.getErrorLogStats>(statsResponse))
 
             useErrorLogStats()
             const query = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
