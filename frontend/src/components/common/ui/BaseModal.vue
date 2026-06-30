@@ -63,7 +63,7 @@ function unlockBodyScroll() {
 </script>
 
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onUnmounted, nextTick, useId } from 'vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useEventListener } from '@/composables/useEventListener'
 import { useFocusTrap } from '@/composables/useFocusTrap'
@@ -125,8 +125,9 @@ const footerAlignClass = computed(() => {
 })
 
 const modalRef = ref<HTMLElement | null>(null)
-const titleId = `modal-title-${Math.random().toString(36).substr(2, 9)}`
-const descriptionId = `modal-description-${Math.random().toString(36).substr(2, 9)}`
+const modalId = useId()
+const titleId = `${modalId}-title`
+const descriptionId = `${modalId}-description`
 const { trapFocus, restoreFocus } = useFocusTrap(modalRef, () => props.isOpen)
 
 let hasLockedBodyScroll = false

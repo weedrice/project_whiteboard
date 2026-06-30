@@ -2,7 +2,7 @@
   <div class="flex flex-col gap-1" :class="$attrs.class as string" :style="$attrs.style as StyleValue">
     <label
       v-if="label"
-      :for="id"
+      :for="inputId"
       :class="hideLabel ? 'sr-only' : ['text-xs sm:text-sm font-medium nv-text', labelClass]"
     >
       {{ label }}
@@ -12,13 +12,13 @@
         <slot name="prefix"></slot>
       </div>
       <input v-bind="{ ...$attrs, class: undefined, style: undefined }" 
-        :id="id" 
+        :id="inputId" 
         :type="type" 
         :value="modelValue"
         :placeholder="placeholder" 
         :disabled="disabled"
         :aria-invalid="error ? 'true' : undefined"
-        :aria-describedby="error ? `${id}-error` : undefined"
+        :aria-describedby="error ? `${inputId}-error` : undefined"
         class="input-base"
         :class="[
           { 'is-invalid': error },
@@ -32,18 +32,18 @@
         <slot name="suffix"></slot>
       </div>
     </div>
-    <p v-if="error && !hideErrorText" :id="`${id}-error`" class="text-xs sm:text-sm nv-form-error" role="alert">{{ error }}</p>
+    <p v-if="error && !hideErrorText" :id="`${inputId}-error`" class="text-xs sm:text-sm nv-form-error" role="alert">{{ error }}</p>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { StyleValue } from 'vue'
+import { computed, useId, type StyleValue } from 'vue'
 
 defineOptions({
   inheritAttrs: false
 })
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   id?: string
   label?: string
   type?: string
@@ -57,7 +57,6 @@ withDefaults(defineProps<{
   /** Applies the invalid input state without rendering inline error text. */
   hideErrorText?: boolean
 }>(), {
-  id: () => `input-${Math.random().toString(36).substr(2, 9)}`,
   label: '',
   type: 'text',
   modelValue: '',
@@ -69,6 +68,9 @@ withDefaults(defineProps<{
   hideLabel: false,
   hideErrorText: false
 })
+
+const generatedId = useId()
+const inputId = computed(() => props.id ?? generatedId)
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string | number): void

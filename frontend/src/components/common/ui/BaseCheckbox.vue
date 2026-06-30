@@ -1,12 +1,12 @@
 <template>
     <div class="flex items-start" :class="$attrs.class">
         <div class="flex items-center h-5">
-            <input :id="id" type="checkbox" :checked="checked" @change="updateValue" :disabled="disabled"
+            <input :id="checkboxId" type="checkbox" :checked="checked" @change="updateValue" :disabled="disabled"
                 class="nv-checkbox h-4 w-4 rounded cursor-pointer"
                 :class="inputClass" />
         </div>
         <div class="ml-3 text-sm">
-            <label :for="id" class="font-medium nv-text-muted cursor-pointer" :class="labelClass">
+            <label :for="checkboxId" class="font-medium nv-text-muted cursor-pointer" :class="labelClass">
                 {{ label }}
             </label>
             <p v-if="description" class="nv-text-subtle">{{ description }}</p>
@@ -15,7 +15,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, useId } from 'vue'
 
 defineOptions({
     inheritAttrs: false
@@ -33,7 +33,6 @@ const props = withDefaults(defineProps<{
     labelClass?: string
     inputClass?: string
 }>(), {
-    id: () => `checkbox-${Math.random().toString(36).substr(2, 9)}`,
     label: '',
     description: '',
     modelValue: false,
@@ -42,6 +41,9 @@ const props = withDefaults(defineProps<{
     labelClass: '',
     inputClass: ''
 })
+
+const generatedId = useId()
+const checkboxId = computed(() => props.id ?? generatedId)
 
 const emit = defineEmits<{
     (e: 'update:modelValue', value: boolean | unknown[]): void

@@ -2,29 +2,31 @@
     <div class="flex flex-col gap-1" :class="$attrs.class">
         <label
             v-if="label"
-            :for="id"
+            :for="textareaId"
             :class="hideLabel ? 'sr-only' : ['text-sm font-medium nv-text', labelClass]"
         >
             {{ label }}
         </label>
-        <textarea v-bind="{ ...$attrs, class: undefined }" :id="id" :value="modelValue" @input="updateValue"
+        <textarea v-bind="{ ...$attrs, class: undefined }" :id="textareaId" :value="modelValue" @input="updateValue"
             :disabled="disabled"
             :aria-invalid="error ? 'true' : undefined"
-            :aria-describedby="error ? `${id}-error` : undefined"
+            :aria-describedby="error ? `${textareaId}-error` : undefined"
             class="input-base" :class="[
                 { 'is-invalid': error },
                 inputClass
             ]"></textarea>
-        <p v-if="error" :id="`${id}-error`" class="text-sm nv-form-error" role="alert">{{ error }}</p>
+        <p v-if="error" :id="`${textareaId}-error`" class="text-sm nv-form-error" role="alert">{{ error }}</p>
     </div>
 </template>
 
 <script setup lang="ts">
+import { computed, useId } from 'vue'
+
 defineOptions({
     inheritAttrs: false
 })
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
     id?: string
     label?: string
     modelValue?: string
@@ -34,7 +36,6 @@ withDefaults(defineProps<{
     inputClass?: string
     hideLabel?: boolean
 }>(), {
-    id: () => `textarea-${Math.random().toString(36).substr(2, 9)}`,
     label: '',
     modelValue: '',
     disabled: false,
@@ -43,6 +44,9 @@ withDefaults(defineProps<{
     inputClass: '',
     hideLabel: false
 })
+
+const generatedId = useId()
+const textareaId = computed(() => props.id ?? generatedId)
 
 const emit = defineEmits<{
     (e: 'update:modelValue', value: string): void

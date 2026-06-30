@@ -133,6 +133,20 @@ describe('BaseModal', () => {
         expect(wrapper.get('.modal-header .nv-title').text()).toBe('Modal')
     })
 
+    it('generates matching aria ids for the dialog title and body', async () => {
+        const wrapper = track(mountModal(true))
+        await nextTick()
+
+        const dialog = wrapper.get('[role="dialog"]')
+        const titleId = dialog.attributes('aria-labelledby')
+        const descriptionId = dialog.attributes('aria-describedby')
+
+        expect(titleId).toBeTruthy()
+        expect(descriptionId).toBeTruthy()
+        expect(wrapper.findAll('[id]').find((node) => node.attributes('id') === titleId)?.text()).toBe('Modal')
+        expect(wrapper.findAll('[id]').find((node) => node.attributes('id') === descriptionId)?.classes()).toContain('modal-body')
+    })
+
     it('applies shell configuration without forcing backdrop or escape close', async () => {
         const wrapper = track(mountConfiguredModal())
         await nextTick()

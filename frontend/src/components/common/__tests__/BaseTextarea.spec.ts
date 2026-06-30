@@ -34,6 +34,21 @@ describe('BaseTextarea', () => {
         expect(wrapper.get('#bio-error').attributes('role')).toBe('alert')
     })
 
+    it('generates one stable id for label and error attributes when id is omitted', () => {
+        const wrapper = mount(BaseTextarea, {
+            props: {
+                label: 'Bio',
+                error: 'Bio is required',
+            },
+        })
+
+        const textareaId = wrapper.get('textarea').attributes('id')
+        expect(textareaId).toBeTruthy()
+        expect(wrapper.get('label').attributes('for')).toBe(textareaId)
+        expect(wrapper.get('[role="alert"]').attributes('id')).toBe(`${textareaId}-error`)
+        expect(wrapper.get('textarea').attributes('aria-describedby')).toBe(`${textareaId}-error`)
+    })
+
     it('emits update:modelValue on input', async () => {
         const wrapper = mount(BaseTextarea, {
             props: {

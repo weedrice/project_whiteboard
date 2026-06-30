@@ -50,6 +50,21 @@ describe('BaseInput', () => {
         expect(wrapper.get('input').classes()).toContain('is-invalid')
     })
 
+    it('generates one stable id for label and error attributes when id is omitted', () => {
+        const wrapper = mount(BaseInput, {
+            props: {
+                label: 'Generated label',
+                error: 'Generated error',
+            },
+        })
+
+        const inputId = wrapper.get('input').attributes('id')
+        expect(inputId).toBeTruthy()
+        expect(wrapper.get('label').attributes('for')).toBe(inputId)
+        expect(wrapper.get('[role="alert"]').attributes('id')).toBe(`${inputId}-error`)
+        expect(wrapper.get('input').attributes('aria-describedby')).toBe(`${inputId}-error`)
+    })
+
     it('disables input when disabled prop is true', () => {
         const wrapper = mount(BaseInput, {
             props: {

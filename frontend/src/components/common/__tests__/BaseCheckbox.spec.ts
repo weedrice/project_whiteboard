@@ -16,6 +16,18 @@ describe('BaseCheckbox', () => {
         expect(wrapper.find('p').text()).toBe('You must agree')
     })
 
+    it('generates one stable id for label linkage when id is omitted', () => {
+        const wrapper = mount(BaseCheckbox, {
+            props: {
+                label: 'Accept terms',
+            },
+        })
+
+        const checkboxId = wrapper.get('input').attributes('id')
+        expect(checkboxId).toBeTruthy()
+        expect(wrapper.get('label').attributes('for')).toBe(checkboxId)
+    })
+
     it('emits boolean value in single mode', async () => {
         const wrapper = mount(BaseCheckbox, {
             props: {

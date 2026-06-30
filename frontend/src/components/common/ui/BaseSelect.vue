@@ -2,15 +2,15 @@
     <div class="flex flex-col gap-1" :class="$attrs.class">
         <label
             v-if="label"
-            :for="id"
+            :for="selectId"
             :class="hideLabel ? 'sr-only' : ['text-sm font-medium nv-text', labelClass]"
         >
             {{ label }}
         </label>
-        <select v-bind="{ ...$attrs, class: undefined }" :id="id" :value="modelValue" @change="updateValue"
+        <select v-bind="{ ...$attrs, class: undefined }" :id="selectId" :value="modelValue" @change="updateValue"
             :disabled="disabled"
             :aria-invalid="error ? 'true' : undefined"
-            :aria-describedby="error ? `${id}-error` : undefined"
+            :aria-describedby="error ? `${selectId}-error` : undefined"
             class="input-base" :class="[
                 { 'is-invalid': error },
                 inputClass
@@ -23,12 +23,12 @@
             </template>
             <slot v-else></slot>
         </select>
-        <p v-if="error" :id="`${id}-error`" class="text-sm nv-form-error" role="alert">{{ error }}</p>
+        <p v-if="error" :id="`${selectId}-error`" class="text-sm nv-form-error" role="alert">{{ error }}</p>
     </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, useId } from 'vue'
 
 defineOptions({
     inheritAttrs: false
@@ -51,7 +51,6 @@ const props = withDefaults(defineProps<{
     options?: (string | number | Option)[]
     placeholder?: string
 }>(), {
-    id: () => `select-${Math.random().toString(36).substr(2, 9)}`,
     label: '',
     modelValue: '',
     disabled: false,
@@ -62,6 +61,9 @@ const props = withDefaults(defineProps<{
     options: () => [],
     placeholder: ''
 })
+
+const generatedId = useId()
+const selectId = computed(() => props.id ?? generatedId)
 
 const emit = defineEmits<{
     (e: 'update:modelValue', value: string | number): void

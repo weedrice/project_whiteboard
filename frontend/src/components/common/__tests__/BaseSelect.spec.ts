@@ -21,6 +21,21 @@ describe('BaseSelect', () => {
         expect(wrapper.get('#test-select-error').attributes('role')).toBe('alert')
     })
 
+    it('generates one stable id for label and error attributes when id is omitted', () => {
+        const wrapper = mount(BaseSelect, {
+            props: {
+                label: 'Category',
+                error: 'Required',
+            },
+        })
+
+        const selectId = wrapper.get('select').attributes('id')
+        expect(selectId).toBeTruthy()
+        expect(wrapper.get('label').attributes('for')).toBe(selectId)
+        expect(wrapper.get('[role="alert"]').attributes('id')).toBe(`${selectId}-error`)
+        expect(wrapper.get('select').attributes('aria-describedby')).toBe(`${selectId}-error`)
+    })
+
     it('normalizes primitive options and emits updated value', async () => {
         const wrapper = mount(BaseSelect, {
             props: {
