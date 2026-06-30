@@ -1,6 +1,7 @@
 <script setup lang="ts" generic="T extends object">
 import { computed } from 'vue'
 import BaseSpinner from './BaseSpinner.vue'
+import logger from '@/utils/logger'
 
 export interface TableColumn {
     key: string
@@ -122,7 +123,7 @@ const getRowKey = (item: T, index: number): string | number => {
     }
 
     if (import.meta.env.DEV) {
-        console.warn('[BaseTable] Falling back to index row key. Provide rowKey for stable list rendering.', item)
+        logger.warn('[BaseTable] Falling back to index row key. Provide rowKey for stable list rendering.', item)
     }
 
     return index

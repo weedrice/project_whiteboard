@@ -1,9 +1,21 @@
 import { defineComponent, h, ref } from 'vue'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import BaseTable from '../ui/BaseTable.vue'
 
+const loggerMock = vi.hoisted(() => ({
+    warn: vi.fn(),
+}))
+
+vi.mock('@/utils/logger', () => ({
+    default: loggerMock,
+}))
+
 describe('BaseTable', () => {
+    beforeEach(() => {
+        loggerMock.warn.mockClear()
+    })
+
     it('renders sortable header indicator before the label', () => {
         const wrapper = mount(BaseTable, {
             props: {
@@ -240,5 +252,21 @@ describe('BaseTable', () => {
             'User:User',
             'Site name:Site name',
         ])
+    })
+
+    it('logs a development warning before falling back to index row keys', () => {
+        const row = { title: 'Missing stable key' }
+
+        mount(BaseTable, {
+            props: {
+                columns: [{ key: 'title', label: 'Title' }],
+                items: [row],
+            },
+        })
+
+        expect(loggerMock.warn).toHaveBeenCalledWith(
+            '[BaseTable] Falling back to index row key. Provide rowKey for stable list rendering.',
+            row,
+        )
     })
 })
