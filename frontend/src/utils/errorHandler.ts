@@ -3,6 +3,26 @@ import type { ErrorResponse, ValidationErrors } from '@/types/common'
 import i18n from '@/i18n'
 
 const t = i18n.global.t
+export const DEFAULT_API_ERROR_MESSAGE_KEY = 'common.messages.serverError'
+
+export interface SuppressibleErrorLike {
+    suppressGlobalErrorToast?: boolean
+    isAuthRefreshFailure?: boolean
+    response?: { status?: number }
+    config?: { url?: string }
+}
+
+export function shouldSuppressGlobalErrorToast(error: unknown): boolean {
+    const suppressible = error as SuppressibleErrorLike
+
+    if (suppressible?.suppressGlobalErrorToast || suppressible?.isAuthRefreshFailure) {
+        return true
+    }
+
+    const status = suppressible?.response?.status
+    const url = suppressible?.config?.url
+    return status === 401 && typeof url === 'string' && url.includes('/auth/refresh')
+}
 
 /** Axios 기본 메시지(예: "Request failed with status code 500")면 공통 서버 에러 문구로 치환 */
 export function normalizeApiErrorMessage(message: string | undefined): string {
@@ -89,7 +109,7 @@ export function extractErrorMessage(error: unknown): string {
 
         const errorData = error.response.data as ApiErrorResponse | undefined
         const apiError = errorData?.error || errorData
-        const raw = apiError?.message || errorData?.message || error.message || 'An error occurred'
+        const raw = apiError?.message || errorData?.message || error.message || t(DEFAULT_API_ERROR_MESSAGE_KEY)
 
         return normalizeApiErrorMessage(raw)
     }

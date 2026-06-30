@@ -10,6 +10,7 @@ import {
     isRestrictedResourceError,
     isValidationErrors,
     normalizeApiErrorMessage,
+    shouldSuppressGlobalErrorToast,
 } from '@/utils/errorHandler'
 
 describe('errorHandler', () => {
@@ -122,7 +123,20 @@ describe('errorHandler', () => {
         } as AxiosError
 
         expect(extractErrorMessage(axiosErrorWithoutResponse)).toBe(i18n.global.t('common.messages.serverError'))
-        expect(extractErrorMessage(axiosErrorWithoutMessage)).toBe('An error occurred')
+        expect(extractErrorMessage(axiosErrorWithoutMessage)).toBe(i18n.global.t('common.messages.serverError'))
+    })
+
+    it('detects errors that should skip duplicate global error toasts', () => {
+        expect(shouldSuppressGlobalErrorToast({ suppressGlobalErrorToast: true })).toBe(true)
+        expect(shouldSuppressGlobalErrorToast({ isAuthRefreshFailure: true })).toBe(true)
+        expect(shouldSuppressGlobalErrorToast({
+            response: { status: 401 },
+            config: { url: '/auth/refresh' },
+        })).toBe(true)
+        expect(shouldSuppressGlobalErrorToast({
+            response: { status: 500 },
+            config: { url: '/posts' },
+        })).toBe(false)
     })
 
     it('returns null for incomplete error response and handles empty validation helpers', () => {

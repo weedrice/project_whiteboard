@@ -13,6 +13,7 @@ import AdminInlineForm from '@/components/admin/AdminInlineForm.vue'
 import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
 import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
 import { formatDate } from '@/utils/date'
+import type { SuperAdminInfo } from '@/types'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -27,21 +28,32 @@ const { data: superAdminsData, isLoading: isSuperAdminsLoading } = useSuperAdmin
 const { mutateAsync: updateSuperAdminStatus } = useUpdateSuperAdminStatus()
 
 interface SuperAdminRow {
+  userId: number
   superAdmin: boolean
   isActive: boolean
-  loginId?: string
-  displayName?: string
-  createdAt?: string
-  [key: string]: unknown
+  loginId: string
+  displayName: string
+  createdAt: string
+}
+
+type SuperAdminInfoWithLegacyFlag = SuperAdminInfo & {
+  superAdmin?: boolean
+}
+
+const toSuperAdminRow = (admin: SuperAdminInfoWithLegacyFlag): SuperAdminRow => {
+  const superAdmin = admin.superAdmin ?? admin.isSuperAdmin
+  return {
+    userId: admin.userId,
+    loginId: admin.loginId,
+    displayName: admin.displayName,
+    createdAt: admin.createdAt,
+    superAdmin,
+    isActive: superAdmin,
+  }
 }
 
 const superAdmins = computed<SuperAdminRow[]>(() => {
-  const list = (superAdminsData.value || []) as unknown[]
-  return list.map((admin) => {
-    const a = admin as Record<string, unknown>
-    const superAdmin = !!(a.superAdmin ?? a.isSuperAdmin)
-    return { ...a, superAdmin, isActive: superAdmin }
-  }) as SuperAdminRow[]
+  return (superAdminsData.value ?? []).map(toSuperAdminRow)
 })
 
 async function handleCreateSuperAdmin() {
@@ -132,16 +144,16 @@ const superAdminColumns: { key: string; label: string; width: string; align?: 'l
         </template>
 
         <template #cell-createdAt="{ item }">
-          {{ formatDate((item as SuperAdminRow).createdAt ?? '') }}
+          {{ formatDate(item.createdAt) }}
         </template>
 
         <template #cell-actions="{ item }">
           <AdminActionButton
-            :label="(item as SuperAdminRow).superAdmin ? t('common.deactivate') : t('common.activate')"
+            :label="item.superAdmin ? t('common.deactivate') : t('common.activate')"
             tone="accent"
-            @click="toggleSuperAdminStatus(item as SuperAdminRow)"
+            @click="toggleSuperAdminStatus(item)"
           >
-            {{ (item as SuperAdminRow).superAdmin ? t('common.deactivate') : t('common.activate') }}
+            {{ item.superAdmin ? t('common.deactivate') : t('common.activate') }}
           </AdminActionButton>
         </template>
       </AdminPaginatedTable>

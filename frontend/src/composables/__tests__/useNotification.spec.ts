@@ -116,6 +116,7 @@ vi.mock('@/utils/logger', () => ({
 }))
 
 vi.mock('@tanstack/vue-query', () => ({
+    keepPreviousData: (previousData: unknown) => previousData,
     useQuery: mocks.useQuery,
     useMutation: mocks.useMutation,
     useQueryClient: () => mocks.queryClient,

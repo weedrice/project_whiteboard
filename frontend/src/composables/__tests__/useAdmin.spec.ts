@@ -48,6 +48,7 @@ vi.mock('@/api/admin', () => ({
 const mockInvalidateQueries = vi.fn()
 const mockQueryOptions: Array<Record<string, unknown>> = []
 vi.mock('@tanstack/vue-query', () => ({
+    keepPreviousData: (previousData: unknown) => previousData,
     useQuery: vi.fn((options) => {
         mockQueryOptions.push(options)
         return {

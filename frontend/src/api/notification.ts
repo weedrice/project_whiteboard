@@ -47,9 +47,9 @@ interface NotificationPageRaw extends PageResponseRaw<NotificationRaw> {
     hasPrevious?: boolean;
 }
 
-const SYSTEM_ACTOR_DISPLAY_NAME = 'System'
-const UNKNOWN_ACTOR_DISPLAY_NAME = 'Unknown'
-const UNKNOWN_ACTOR_INITIAL = '?'
+export const NOTIFICATION_SYSTEM_ACTOR_DISPLAY_NAME = 'System'
+export const NOTIFICATION_UNKNOWN_ACTOR_DISPLAY_NAME = 'Unknown'
+export const NOTIFICATION_UNKNOWN_ACTOR_INITIAL = '?'
 
 function getActorDisplayName(raw: NotificationRaw): string {
     const actor = raw.actor
@@ -57,11 +57,13 @@ function getActorDisplayName(raw: NotificationRaw): string {
     if (displayName) return displayName
     const authorType = actor?.authorType || actor?.author_type
     const sourceType = raw.sourceType || raw.source_type
-    return authorType === 'SYSTEM' || sourceType === 'SYSTEM' ? SYSTEM_ACTOR_DISPLAY_NAME : UNKNOWN_ACTOR_DISPLAY_NAME
+    return authorType === 'SYSTEM' || sourceType === 'SYSTEM'
+        ? NOTIFICATION_SYSTEM_ACTOR_DISPLAY_NAME
+        : NOTIFICATION_UNKNOWN_ACTOR_DISPLAY_NAME
 }
 
 function getActorInitial(displayName: string): string {
-    return Array.from(displayName.trim())[0]?.toUpperCase() || UNKNOWN_ACTOR_INITIAL
+    return Array.from(displayName.trim())[0]?.toUpperCase() || NOTIFICATION_UNKNOWN_ACTOR_INITIAL
 }
 
 export function normalizeNotification(raw: NotificationRaw): Notification {

@@ -1,18 +1,14 @@
 import api from './index'
-import type { AxiosRequestConfig } from 'axios'
+import type { AxiosRequestConfig, AxiosResponse } from 'axios'
 import { unwrapApiData } from '@/api/response'
 import type { EmoticonMaster, EmoticonCreateRequest, EmoticonUpdateRequest, EmoticonSearchParams, EmoticonPurchaseStatus } from '@/types/emoticon'
 import type { ApiResponse } from '@/types'
 import type { PageResponse } from '@/types/common'
 
-type EmoticonEnvelopeResponse<T> = {
-    data: {
-        data: T
-    }
-}
+type EmoticonResponse<T> = AxiosResponse<ApiResponse<T>>
 
-export function unwrapEmoticonResponse<T>(response: EmoticonEnvelopeResponse<T>): T {
-    return unwrapApiData(response.data as ApiResponse<T>)
+export function unwrapEmoticonResponse<T>(response: EmoticonResponse<T>): T {
+    return unwrapApiData(response.data)
 }
 
 export const emoticonApi = {
@@ -20,7 +16,7 @@ export const emoticonApi = {
      * 이모티콘 목록 조회
      */
     getEmoticons(params?: EmoticonSearchParams) {
-        return api.get<{ data: PageResponse<EmoticonMaster> }>('/emoticons', { params })
+        return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons', { params })
     },
     async getEmoticonsData(params?: EmoticonSearchParams) {
         return unwrapEmoticonResponse(await this.getEmoticons(params))
@@ -30,7 +26,7 @@ export const emoticonApi = {
      * 인기 이모티콘 조회 (일간/주간/월간)
      */
     getPopularEmoticons(period: 'daily' | 'weekly' | 'monthly' = 'daily') {
-        return api.get<{ data: EmoticonMaster[] }>('/emoticons/popular', { params: { period } })
+        return api.get<ApiResponse<EmoticonMaster[]>>('/emoticons/popular', { params: { period } })
     },
     async getPopularEmoticonsData(period: 'daily' | 'weekly' | 'monthly' = 'daily') {
         return unwrapEmoticonResponse(await this.getPopularEmoticons(period))
@@ -40,7 +36,7 @@ export const emoticonApi = {
      * 통합 검색 (태그, 등록자명, 이모티콘 이름)
      */
     searchAll(params?: EmoticonSearchParams) {
-        return api.get<{ data: PageResponse<EmoticonMaster> }>('/emoticons/search/all', { params })
+        return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons/search/all', { params })
     },
     async searchAllData(params?: EmoticonSearchParams) {
         return unwrapEmoticonResponse(await this.searchAll(params))
@@ -50,7 +46,7 @@ export const emoticonApi = {
      * 태그로 이모티콘 검색
      */
     searchByTag(tag: string, params?: { page?: number; size?: number }) {
-        return api.get<{ data: PageResponse<EmoticonMaster> }>('/emoticons/search/tag', {
+        return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons/search/tag', {
             params: { tag, ...params }
         })
     },
@@ -62,7 +58,7 @@ export const emoticonApi = {
      * 키워드로 이모티콘 검색
      */
     searchByKeyword(keyword: string, params?: { page?: number; size?: number }) {
-        return api.get<{ data: PageResponse<EmoticonMaster> }>('/emoticons/search', {
+        return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons/search', {
             params: { keyword, ...params }
         })
     },
@@ -74,7 +70,7 @@ export const emoticonApi = {
      * 내 이모티콘 목록
      */
     getMyEmoticons(params?: { page?: number; size?: number }) {
-        return api.get<{ data: PageResponse<EmoticonMaster> }>('/emoticons/my', { params })
+        return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons/my', { params })
     },
     async getMyEmoticonsData(params?: { page?: number; size?: number }) {
         return unwrapEmoticonResponse(await this.getMyEmoticons(params))
@@ -85,9 +81,9 @@ export const emoticonApi = {
      */
     getEmoticon(emoticonId: number, config?: AxiosRequestConfig) {
         if (config) {
-            return api.get<{ data: EmoticonMaster }>(`/emoticons/${emoticonId}`, config)
+            return api.get<ApiResponse<EmoticonMaster>>(`/emoticons/${emoticonId}`, config)
         }
-        return api.get<{ data: EmoticonMaster }>(`/emoticons/${emoticonId}`)
+        return api.get<ApiResponse<EmoticonMaster>>(`/emoticons/${emoticonId}`)
     },
     async getEmoticonData(emoticonId: number, config?: AxiosRequestConfig) {
         return unwrapEmoticonResponse(await this.getEmoticon(emoticonId, config))
@@ -98,9 +94,9 @@ export const emoticonApi = {
      */
     createEmoticon(data: EmoticonCreateRequest, config?: AxiosRequestConfig) {
         if (config) {
-            return api.post<{ data: EmoticonMaster }>('/emoticons', data, config)
+            return api.post<ApiResponse<EmoticonMaster>>('/emoticons', data, config)
         }
-        return api.post<{ data: EmoticonMaster }>('/emoticons', data)
+        return api.post<ApiResponse<EmoticonMaster>>('/emoticons', data)
     },
     async createEmoticonData(data: EmoticonCreateRequest, config?: AxiosRequestConfig) {
         return unwrapEmoticonResponse(await this.createEmoticon(data, config))
@@ -111,9 +107,9 @@ export const emoticonApi = {
      */
     updateEmoticon(emoticonId: number, data: EmoticonUpdateRequest, config?: AxiosRequestConfig) {
         if (config) {
-            return api.put<{ data: EmoticonMaster }>(`/emoticons/${emoticonId}`, data, config)
+            return api.put<ApiResponse<EmoticonMaster>>(`/emoticons/${emoticonId}`, data, config)
         }
-        return api.put<{ data: EmoticonMaster }>(`/emoticons/${emoticonId}`, data)
+        return api.put<ApiResponse<EmoticonMaster>>(`/emoticons/${emoticonId}`, data)
     },
     async updateEmoticonData(emoticonId: number, data: EmoticonUpdateRequest, config?: AxiosRequestConfig) {
         return unwrapEmoticonResponse(await this.updateEmoticon(emoticonId, data, config))
@@ -123,7 +119,7 @@ export const emoticonApi = {
      * 노비콘 숨김/표시 전환 (판매 중단 시 사용)
      */
     toggleVisibility(emoticonId: number) {
-        return api.patch<{ data: EmoticonMaster }>(`/emoticons/${emoticonId}/visibility`)
+        return api.patch<ApiResponse<EmoticonMaster>>(`/emoticons/${emoticonId}/visibility`)
     },
     async toggleVisibilityData(emoticonId: number) {
         return unwrapEmoticonResponse(await this.toggleVisibility(emoticonId))
@@ -141,9 +137,9 @@ export const emoticonApi = {
      */
     addImage(emoticonId: number, fileId: number, config?: AxiosRequestConfig) {
         if (config) {
-            return api.post<{ data: EmoticonMaster }>(`/emoticons/${emoticonId}/images`, { fileId }, config)
+            return api.post<ApiResponse<EmoticonMaster>>(`/emoticons/${emoticonId}/images`, { fileId }, config)
         }
-        return api.post<{ data: EmoticonMaster }>(`/emoticons/${emoticonId}/images`, { fileId })
+        return api.post<ApiResponse<EmoticonMaster>>(`/emoticons/${emoticonId}/images`, { fileId })
     },
     async addImageData(emoticonId: number, fileId: number, config?: AxiosRequestConfig) {
         return unwrapEmoticonResponse(await this.addImage(emoticonId, fileId, config))
@@ -163,7 +159,7 @@ export const emoticonApi = {
      * 이모티콘 구매
      */
     purchaseEmoticon(emoticonId: number) {
-        return api.post<{ data: EmoticonMaster }>(`/emoticons/${emoticonId}/purchase`)
+        return api.post<ApiResponse<EmoticonMaster>>(`/emoticons/${emoticonId}/purchase`)
     },
     async purchaseEmoticonData(emoticonId: number) {
         return unwrapEmoticonResponse(await this.purchaseEmoticon(emoticonId))
@@ -173,7 +169,7 @@ export const emoticonApi = {
      * 구매한 이모티콘 목록
      */
     getPurchasedEmoticons(params?: { page?: number; size?: number }) {
-        return api.get<{ data: PageResponse<EmoticonMaster> }>('/emoticons/purchased', { params })
+        return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons/purchased', { params })
     },
     async getPurchasedEmoticonsData(params?: { page?: number; size?: number }) {
         return unwrapEmoticonResponse(await this.getPurchasedEmoticons(params))

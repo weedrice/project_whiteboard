@@ -2,6 +2,7 @@ import { QueryCache, QueryClient, MutationCache } from '@tanstack/vue-query'
 import type { AxiosError } from 'axios'
 import logger from '@/utils/logger'
 import { QUERY_STALE_TIME } from '@/utils/constants'
+import { extractErrorMessage, shouldSuppressGlobalErrorToast } from '@/utils/errorHandler'
 
 interface ToastStoreLike {
     addToast: (message: string, type: 'error') => void
@@ -19,26 +20,7 @@ function addErrorToast(error: Error) {
     const toastStore = resolveToastStore?.()
     if (!toastStore) return
 
-    const axiosError = error as Error & { response?: { data?: { message?: string } } }
-    const message = axiosError.response?.data?.message || error.message || 'An error occurred'
-    toastStore.addToast(message, 'error')
-}
-
-function shouldSuppressGlobalErrorToast(error: unknown): boolean {
-    const suppressible = error as {
-        suppressGlobalErrorToast?: boolean
-        isAuthRefreshFailure?: boolean
-        response?: { status?: number }
-        config?: { url?: string }
-    }
-
-    if (suppressible?.suppressGlobalErrorToast || suppressible?.isAuthRefreshFailure) {
-        return true
-    }
-
-    const status = suppressible?.response?.status
-    const url = suppressible?.config?.url
-    return status === 401 && typeof url === 'string' && url.includes('/auth/refresh')
+    toastStore.addToast(extractErrorMessage(error), 'error')
 }
 
 export const queryClient = new QueryClient({

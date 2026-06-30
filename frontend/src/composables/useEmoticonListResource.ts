@@ -1,11 +1,9 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import type { AxiosResponse } from 'axios'
 import { emoticonApi } from '@/api/emoticon'
 import { popularEmoticonsQueryKey, searchableEmoticonsQueryKey } from '@/composables/useEmoticonEditResource'
 import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
 import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
-import type { ApiResponse, PageResponse } from '@/types'
 import type { EmoticonMaster, EmoticonSearchParams } from '@/types/emoticon'
 
 export function useEmoticonListResource() {
@@ -26,9 +24,7 @@ export function useEmoticonListResource() {
 
   const { data: popularEmoticons, isLoading: popularLoading } = useApiQuery({
     queryKey: computed(() => popularEmoticonsQueryKey(popularPeriod.value)),
-    request: () => (
-      emoticonApi.getPopularEmoticons(popularPeriod.value) as Promise<AxiosResponse<ApiResponse<EmoticonMaster[]>>>
-    ),
+    request: () => emoticonApi.getPopularEmoticons(popularPeriod.value),
   })
 
   const { data: emoticonsPage, isLoading: emoticonsLoading } = useApiPageQuery<EmoticonMaster>({
@@ -48,7 +44,7 @@ export function useEmoticonListResource() {
         params.keyword = searchKeyword.value
         params.searchType = searchType.value
       }
-      return emoticonApi.searchAll(params) as Promise<AxiosResponse<ApiResponse<PageResponse<EmoticonMaster>>>>
+      return emoticonApi.searchAll(params)
     },
   })
 
