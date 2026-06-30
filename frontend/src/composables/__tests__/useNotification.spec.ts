@@ -442,7 +442,10 @@ describe('useNotification', () => {
         await Promise.resolve()
         closeSse()
 
-        expect(mocks.authApi.refreshToken).toHaveBeenCalledWith()
+        expect(mocks.authApi.refreshToken).toHaveBeenCalledWith({
+            skipAuthRefresh: true,
+            skipGlobalErrorHandler: true,
+        })
         expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 1000)
         expect(clearTimeoutSpy).toHaveBeenCalled()
     })
@@ -467,7 +470,10 @@ describe('useNotification', () => {
         await Promise.resolve()
         await Promise.resolve()
 
-        expect(mocks.authApi.refreshToken).toHaveBeenCalledWith()
+        expect(mocks.authApi.refreshToken).toHaveBeenCalledWith({
+            skipAuthRefresh: true,
+            skipGlobalErrorHandler: true,
+        })
         expect(setTimeoutSpy.mock.calls.some((call) => call[1] === 5000)).toBe(true)
         closeSse()
     })
@@ -921,5 +927,65 @@ describe('useNotification', () => {
 
         expect(unreadCount).toBe(202)
         expect((firstPage.content as Array<{ notificationId: number }>)[0].notificationId).toBe(1)
+    })
+
+    it('waits for browser online event before reconnecting while offline', async () => {
+        vi.useFakeTimers()
+        Object.defineProperty(navigator, 'onLine', {
+            configurable: true,
+            value: false,
+        })
+        const fetchMock = vi.fn().mockResolvedValueOnce({ ok: false, status: 503, body: null })
+        vi.stubGlobal('fetch', fetchMock)
+
+        try {
+            const { connectToSse } = useNotification()
+            connectToSse()
+            await flushAsync()
+
+            vi.advanceTimersByTime(60000)
+            await flushAsync()
+
+            expect(fetchMock).toHaveBeenCalledTimes(1)
+
+            Object.defineProperty(navigator, 'onLine', {
+                configurable: true,
+                value: true,
+            })
+            window.dispatchEvent(new Event('online'))
+            vi.advanceTimersByTime(0)
+            await flushAsync()
+
+            expect(fetchMock).toHaveBeenCalledTimes(2)
+        } finally {
+            Object.defineProperty(navigator, 'onLine', {
+                configurable: true,
+                value: true,
+            })
+            vi.useRealTimers()
+        }
+    })
+
+    it('stops reconnect loop when refresh fails with an auth status', async () => {
+        vi.useFakeTimers()
+        mocks.authApi.refreshToken.mockRejectedValueOnce({
+            response: { status: 401 },
+        })
+        const fetchMock = vi.fn().mockResolvedValueOnce({ ok: false, status: 401, body: null })
+        vi.stubGlobal('fetch', fetchMock)
+
+        try {
+            const { connectToSse } = useNotification()
+            connectToSse()
+            await flushAsync()
+
+            vi.advanceTimersByTime(60000)
+            await flushAsync()
+
+            expect(mocks.authApi.refreshToken).toHaveBeenCalledTimes(1)
+            expect(fetchMock).toHaveBeenCalledTimes(1)
+        } finally {
+            vi.useRealTimers()
+        }
     })
 })

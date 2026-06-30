@@ -35,7 +35,9 @@ export const authApi = {
         { skipAuthRefresh: true, skipGlobalErrorHandler: true },
     ),
 
-    refreshToken: () => api.post<ApiResponse<{ accessToken: string, expiresIn: number }>>('/auth/refresh'),
+    refreshToken: (config?: AxiosRequestConfig) => config
+        ? api.post<ApiResponse<{ accessToken: string, expiresIn: number }>>('/auth/refresh', undefined, config)
+        : api.post<ApiResponse<{ accessToken: string, expiresIn: number }>>('/auth/refresh'),
 
     getMe: (config?: AxiosRequestConfig) => api.get<ApiResponse<User>>('/users/me', config),
 

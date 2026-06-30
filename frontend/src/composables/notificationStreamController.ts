@@ -36,12 +36,30 @@ function getNotificationPageNumber(data: unknown): number {
 }
 
 const RECENT_NOTIFICATION_ID_LIMIT = 200
+const RECONNECT_AFTER_REFRESH_DELAY_MS = 1000
+const RECONNECT_AFTER_FAILURE_DELAY_MS = 5000
+const MAX_RECONNECT_DELAY_MS = 60000
+
+let reconnectCallback: (() => void) | null = null
+
+function isBrowserOnline(): boolean {
+    return typeof navigator === 'undefined' ? true : navigator.onLine
+}
+
+function getErrorStatus(error: unknown): number | null {
+    if (!error || typeof error !== 'object') return null
+    const response = (error as { response?: { status?: unknown } }).response
+    return typeof response?.status === 'number' ? response.status : null
+}
 
 const notificationStreamState = {
     streamAbortController: null as AbortController | null,
     reconnectTimer: null as ReturnType<typeof setTimeout> | null,
     isConnecting: false,
     closedManually: false,
+    reconnectAttempt: 0,
+    reconnectWhenOnline: false,
+    onlineListenerAttached: false,
     recentNotificationIds: new Set<number>(),
 }
 
@@ -59,7 +77,60 @@ export function resetNotificationStreamStateForTest() {
     }
 
     notificationStreamState.isConnecting = false
+    notificationStreamState.reconnectAttempt = 0
+    notificationStreamState.reconnectWhenOnline = false
+    if (typeof window !== 'undefined' && notificationStreamState.onlineListenerAttached) {
+        window.removeEventListener('online', handleBrowserOnline)
+    }
+    notificationStreamState.onlineListenerAttached = false
+    reconnectCallback = null
     notificationStreamState.recentNotificationIds.clear()
+}
+
+function handleBrowserOnline() {
+    if (notificationStreamState.closedManually || !notificationStreamState.reconnectWhenOnline) return
+    notificationStreamState.reconnectWhenOnline = false
+    scheduleReconnect(0)
+}
+
+function attachOnlineReconnectListener() {
+    if (typeof window === 'undefined' || notificationStreamState.onlineListenerAttached) return
+    window.addEventListener('online', handleBrowserOnline)
+    notificationStreamState.onlineListenerAttached = true
+}
+
+function detachOnlineReconnectListener() {
+    if (typeof window === 'undefined' || !notificationStreamState.onlineListenerAttached) return
+    window.removeEventListener('online', handleBrowserOnline)
+    notificationStreamState.onlineListenerAttached = false
+}
+
+function getBackoffDelay(baseDelayMs: number) {
+    const multiplier = 2 ** notificationStreamState.reconnectAttempt
+    return Math.min(baseDelayMs * multiplier, MAX_RECONNECT_DELAY_MS)
+}
+
+function scheduleReconnect(delayMs: number) {
+    if (notificationStreamState.closedManually) return
+
+    if (!isBrowserOnline()) {
+        notificationStreamState.reconnectWhenOnline = true
+        attachOnlineReconnectListener()
+        return
+    }
+
+    detachOnlineReconnectListener()
+
+    if (notificationStreamState.reconnectTimer) {
+        clearTimeout(notificationStreamState.reconnectTimer)
+    }
+
+    const backoffDelayMs = getBackoffDelay(delayMs)
+    notificationStreamState.reconnectAttempt += 1
+    notificationStreamState.reconnectTimer = setTimeout(() => {
+        notificationStreamState.reconnectTimer = null
+        reconnectCallback?.()
+    }, backoffDelayMs)
 }
 
 export function createNotificationStreamController(queryClient: QueryClient) {
@@ -190,29 +261,31 @@ export function createNotificationStreamController(queryClient: QueryClient) {
         }
     }
 
-    const scheduleReconnect = (delayMs: number) => {
-        if (notificationStreamState.closedManually) return
-        if (notificationStreamState.reconnectTimer) {
-            clearTimeout(notificationStreamState.reconnectTimer)
-        }
-        notificationStreamState.reconnectTimer = setTimeout(() => {
-            notificationStreamState.reconnectTimer = null
-            connectToSse()
-        }, delayMs)
-    }
-
     const reconnectWithRefresh = async () => {
+        if (!isBrowserOnline()) {
+            scheduleReconnect(RECONNECT_AFTER_FAILURE_DELAY_MS)
+            return
+        }
+
         try {
-            const authTokens = unwrapAxiosApiData(await authApi.refreshToken())
+            const authTokens = unwrapAxiosApiData(await authApi.refreshToken({
+                skipAuthRefresh: true,
+                skipGlobalErrorHandler: true,
+            }))
             const authStore = useAuthStore()
             authStore.setTokens(authTokens.accessToken)
-            scheduleReconnect(1000)
+            scheduleReconnect(RECONNECT_AFTER_REFRESH_DELAY_MS)
             return
         } catch (error: unknown) {
             logger.warn('SSE reconnect: refresh failed', error)
+            const status = getErrorStatus(error)
+            if (status === 401 || status === 403) {
+                notificationStreamState.closedManually = true
+                return
+            }
         }
 
-        scheduleReconnect(5000)
+        scheduleReconnect(RECONNECT_AFTER_FAILURE_DELAY_MS)
     }
 
     const startStream = async (token: string, controller: AbortController) => {
@@ -227,6 +300,7 @@ export function createNotificationStreamController(queryClient: QueryClient) {
             }
 
             notificationStreamState.isConnecting = false
+            notificationStreamState.reconnectAttempt = 0
             await consumeSseStream(response.body, controller.signal)
 
             if (!controller.signal.aborted && !notificationStreamState.closedManually) {
@@ -254,6 +328,8 @@ export function createNotificationStreamController(queryClient: QueryClient) {
             clearTimeout(notificationStreamState.reconnectTimer)
             notificationStreamState.reconnectTimer = null
         }
+        detachOnlineReconnectListener()
+        notificationStreamState.reconnectWhenOnline = false
 
         const authStore = useAuthStore()
         const token = authStore.accessToken
@@ -267,6 +343,8 @@ export function createNotificationStreamController(queryClient: QueryClient) {
 
         void startStream(token, controller)
     }
+
+    reconnectCallback = connectToSse
 
     const closeSse = () => {
         notificationStreamState.closedManually = true
@@ -282,6 +360,9 @@ export function createNotificationStreamController(queryClient: QueryClient) {
         }
 
         notificationStreamState.isConnecting = false
+        notificationStreamState.reconnectAttempt = 0
+        notificationStreamState.reconnectWhenOnline = false
+        detachOnlineReconnectListener()
     }
 
     return {
