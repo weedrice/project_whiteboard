@@ -4,6 +4,7 @@ import type { MyCommentListItem } from '@/composables/useMyPageDashboardResource
 import { formatDate } from '@/utils/date'
 import { renderCommentContentHtml } from '@/utils/commentContent'
 import { applyImageFallback } from '@/utils/imageFallback'
+import type { SanitizedHtml } from '@/utils/sanitize'
 
 defineProps<{
   comments: MyCommentListItem[]
@@ -11,7 +12,7 @@ defineProps<{
 
 const { t } = useI18n()
 
-function renderCommentContent(content: string | null | undefined): string {
+function renderCommentContent(content: string | null | undefined): SanitizedHtml {
   return renderCommentContentHtml(content, 'comment-emoticon comment-emoticon-list')
 }
 </script>
