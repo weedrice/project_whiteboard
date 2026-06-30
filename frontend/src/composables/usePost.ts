@@ -48,8 +48,8 @@ export function usePost() {
             mutationFn: async ({ boardUrl, data }: { boardUrl: string, data: PostCreateData }) => {
                 return await postApi.createPost(boardUrl, data)
             },
-            onSuccess: (_, { boardUrl }) => {
-                queryClient.invalidateQueries({ queryKey: postQueryKeys.boardPosts(boardUrl) })
+            onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: postQueryKeys.boardPostsRoot })
                 queryClient.invalidateQueries({ queryKey: homeQueryKeys.landingRoot })
             },
         })

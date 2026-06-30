@@ -172,6 +172,16 @@ const failingRoute = (path: string, name: string, message: string): RouteRecordR
     component: () => Promise.reject(new Error(message)),
 })
 
+const axiosStatusError = (status: number) => ({
+    name: 'AxiosError',
+    message: `Request failed with status code ${status}`,
+    isAxiosError: true,
+    response: {
+        status,
+    },
+    toJSON: () => ({}),
+})
+
 type MockAuthUser = {
     userId?: number
     role?: 'USER' | 'ADMIN' | 'SUPER_ADMIN' | 'BOARD_ADMIN' | 'MODERATOR'
@@ -326,6 +336,19 @@ describe('Router Navigation Guards', () => {
         loggerSpy.mockRestore()
     })
 
+    it.each([403, 404, 500])('redirects to error status %s when board permission fetch fails with Axios status', async (status) => {
+        const loggerSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+        mockAuthStore.isAuthenticated = true
+        mockAuthStore.user = { role: 'USER' }
+        vi.mocked(boardApi.getBoard).mockRejectedValueOnce(axiosStatusError(status))
+
+        await router.push(`/board/status-${status}/write`)
+
+        expect(router.currentRoute.value.name).toBe('error')
+        expect(router.currentRoute.value.query.status).toBe(String(status))
+        loggerSpy.mockRestore()
+    })
+
     it('checks post author permission before entering post edit route', async () => {
         mockAuthStore.isAuthenticated = true
         mockAuthStore.user = { userId: 1, role: 'USER' }
@@ -363,6 +386,20 @@ describe('Router Navigation Guards', () => {
 
         expect(router.currentRoute.value.name).toBe('error')
         expect(router.currentRoute.value.query.status).toBe('500')
+        loggerSpy.mockRestore()
+    })
+
+    it.each([403, 404, 500])('redirects to error status %s when post author fetch fails with Axios status', async (status) => {
+        const loggerSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+        mockAuthStore.isAuthenticated = true
+        mockAuthStore.user = { userId: 1, role: 'USER' }
+        vi.mocked(postApi.getPost).mockRejectedValueOnce(axiosStatusError(status))
+        await router.push('/')
+
+        await router.push(`/board/open/post/${status}/edit`)
+
+        expect(router.currentRoute.value.name).toBe('error')
+        expect(router.currentRoute.value.query.status).toBe(String(status))
         loggerSpy.mockRestore()
     })
 

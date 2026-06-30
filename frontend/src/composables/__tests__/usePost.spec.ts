@@ -225,7 +225,7 @@ describe('usePost', () => {
         expect((query.enabled as ReturnType<typeof computed>).value).toBe(false)
     })
 
-    it('invalidates board post list after create', async () => {
+    it('invalidates all board post list queries after create', async () => {
         vi.mocked(postApi.createPost).mockResolvedValueOnce(
             apiDataResponse<typeof postApi.createPost>({ postId: 2 })
         )
@@ -235,7 +235,7 @@ describe('usePost', () => {
         await mutation.mutate({ boardUrl: 'free', data: { title: 'new', contents: 'body' } })
 
         expect(postApi.createPost).toHaveBeenCalledWith('free', { title: 'new', contents: 'body' })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'posts', 'free'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'posts'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['home', 'landing'] })
     })
 

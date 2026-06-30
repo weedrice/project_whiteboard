@@ -1,4 +1,5 @@
 import type { NavigationGuardNext, RouteLocationNormalized } from 'vue-router'
+import axios from 'axios'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { emoticonApi } from '@/api/emoticon'
@@ -33,6 +34,17 @@ declare module 'vue-router' {
 }
 
 const getStringRouteParam = (param: unknown) => typeof param === 'string' ? param : ''
+
+const ROUTE_FETCH_ERROR_STATUSES = new Set([403, 404, 500])
+
+function getRouteFetchErrorStatus(error: unknown) {
+    if (!axios.isAxiosError(error)) {
+        return '500'
+    }
+
+    const status = error.response?.status
+    return status && ROUTE_FETCH_ERROR_STATUSES.has(status) ? String(status) : '500'
+}
 
 async function fetchPostForAuthorGuard(postId: string): Promise<Post> {
     return queryClient.fetchQuery({
@@ -103,7 +115,7 @@ async function guardEmoticonOwner(to: RouteLocationNormalized, next: NavigationG
         }
     } catch (error) {
         logger.error('Failed to verify emoticon edit access:', error)
-        next({ name: 'error', query: { status: '500' } })
+        next({ name: 'error', query: { status: getRouteFetchErrorStatus(error) } })
         return false
     }
 
@@ -136,7 +148,7 @@ async function guardBoardAccess(to: RouteLocationNormalized, next: NavigationGua
         }
     } catch (error) {
         logger.error('Failed to verify board access:', error)
-        next({ name: 'error', query: { status: '500' } })
+        next({ name: 'error', query: { status: getRouteFetchErrorStatus(error) } })
         return false
     }
 
@@ -170,7 +182,7 @@ async function guardPostAuthor(to: RouteLocationNormalized, next: NavigationGuar
         }
     } catch (error) {
         logger.error('Failed to verify post author:', error)
-        next({ name: 'error', query: { status: '500' } })
+        next({ name: 'error', query: { status: getRouteFetchErrorStatus(error) } })
         return false
     }
 
