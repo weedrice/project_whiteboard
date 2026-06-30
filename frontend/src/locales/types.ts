@@ -723,6 +723,7 @@ export interface CommentMessages {
   hideReplies: string
   loadRepliesFailed: string
   loadFailed: string
+  loadMore: string
   empty: string
   loginRequired: string
   deleteFailed: string

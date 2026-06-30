@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useConfirm } from '@/composables/useConfirm'
 import logger from '@/utils/logger'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
 import CommentForm from './CommentForm.vue'
 import CommentItem from './CommentItem.vue'
 
@@ -21,11 +22,17 @@ const { t } = useI18n()
 const authStore = useAuthStore()
 const { useComments, useDeleteComment } = useComment()
 
-const params = ref({ page: 0, size: 50 })
+const COMMENT_PAGE_INCREMENT = 50
+const params = ref({ page: 0, size: COMMENT_PAGE_INCREMENT })
 const postId = computed(() => props.postId)
 const { data: commentsData, isLoading, error: commentsError } = useComments(postId, params)
 const comments = computed<Comment[]>(() => commentsData.value?.content || [])
+const totalCommentCount = computed(() => commentsData.value?.totalElements ?? comments.value.length)
+const hasMoreComments = computed(() => comments.value.length < totalCommentCount.value)
 const commentLoadFailedMessage = computed(() => t('comment.loadFailed'))
+const loadMoreCommentsLabel = computed(() => t('comment.loadMore', {
+  remaining: Math.max(totalCommentCount.value - comments.value.length, 0)
+}))
 
 const { mutate: deleteComment } = useDeleteComment()
 
@@ -40,6 +47,13 @@ async function handleDelete(comment: Comment) {
       logger.error('Failed to delete comment:', err)
     },
   })
+}
+
+function loadMoreComments() {
+  params.value = {
+    ...params.value,
+    size: params.value.size + COMMENT_PAGE_INCREMENT,
+  }
 }
 </script>
 
@@ -101,6 +115,18 @@ async function handleDelete(comment: Comment) {
         class="py-3 text-center text-xs nv-text-subtle sm:py-4 sm:text-sm"
       >
         {{ $t('comment.empty') }}
+      </div>
+
+      <div v-else-if="hasMoreComments" class="flex justify-center pt-2">
+        <BaseButton
+          type="button"
+          variant="secondary"
+          size="sm"
+          :loading="isLoading"
+          @click="loadMoreComments"
+        >
+          {{ loadMoreCommentsLabel }}
+        </BaseButton>
       </div>
     </div>
   </div>

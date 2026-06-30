@@ -5,6 +5,7 @@ import CommentForm from '../CommentForm.vue'
 
 const createComment = vi.fn()
 const updateComment = vi.fn()
+const addToast = vi.fn()
 const isCreating = ref(false)
 const isUpdating = ref(false)
 
@@ -25,7 +26,7 @@ vi.mock('@/composables/useComment', () => ({
 }))
 
 vi.mock('@/stores/toast', () => ({
-  useToastStore: () => ({ addToast: vi.fn() }),
+  useToastStore: () => ({ addToast }),
 }))
 
 vi.mock('@/stores/auth', () => ({
@@ -191,5 +192,29 @@ describe('CommentForm', () => {
       },
       expect.any(Object),
     )
+  })
+
+  it('shows one local error toast when create fails before global error handling', async () => {
+    const wrapper = mountCommentForm()
+
+    await wrapper.get('textarea').setValue('comment body')
+    await wrapper.get('form').trigger('submit')
+
+    const options = createComment.mock.calls[0]?.[1]
+    options.onError(new Error('failed'))
+
+    expect(addToast).toHaveBeenCalledWith('comment.saveFailed', 'error')
+  })
+
+  it('skips local error toast when the global error handler already handled it', async () => {
+    const wrapper = mountCommentForm({ commentId: 30, initialContent: 'before' })
+
+    await wrapper.get('textarea').setValue('updated body')
+    await wrapper.get('form').trigger('submit')
+
+    const options = updateComment.mock.calls[0]?.[1]
+    options.onError({ suppressGlobalErrorToast: true })
+
+    expect(addToast).not.toHaveBeenCalled()
   })
 })

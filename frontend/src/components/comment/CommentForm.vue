@@ -56,6 +56,17 @@ const textareaId = computed(() => {
 })
 const emoticonButtonLabel = computed(() => t('board.writePost.toolbar.emoticon'))
 
+const shouldShowLocalErrorToast = (error: unknown) => {
+  return !(error && typeof error === 'object' && (error as { suppressGlobalErrorToast?: boolean }).suppressGlobalErrorToast)
+}
+
+const handleCommentSubmitError = (message: string, error: unknown) => {
+  logger.error(message, error)
+  if (shouldShowLocalErrorToast(error)) {
+    toastStore.addToast(t('comment.saveFailed'), 'error')
+  }
+}
+
 // 이모티콘 선택 시 바로 댓글 등록
 const handleEmoticonSelect = (image: EmoticonImage) => {
   showEmoticonPicker.value = false
@@ -75,8 +86,7 @@ const handleEmoticonSelect = (image: EmoticonImage) => {
       emit('success')
     },
     onError: (err) => {
-      logger.error('Failed to post emoticon comment:', err)
-      toastStore.addToast(t('comment.saveFailed'), 'error')
+      handleCommentSubmitError('Failed to post emoticon comment:', err)
     }
   })
 }
@@ -91,8 +101,7 @@ async function handleSubmit() {
         emit('success')
       },
       onError: (err) => {
-        logger.error('Failed to save comment:', err)
-        toastStore.addToast(t('comment.saveFailed'), 'error')
+        handleCommentSubmitError('Failed to save comment:', err)
       }
     })
   } else {
@@ -107,8 +116,7 @@ async function handleSubmit() {
         emit('success')
       },
       onError: (err) => {
-        logger.error('Failed to save comment:', err)
-        toastStore.addToast(t('comment.saveFailed'), 'error')
+        handleCommentSubmitError('Failed to save comment:', err)
       }
     })
   }
