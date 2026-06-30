@@ -35,7 +35,6 @@ export function usePostComposerEffects(options: UsePostComposerEffectsOptions) {
   const showVideoPopover = ref(false)
   const videoUrl = ref('')
   const videoPopoverStyle = ref<{ top: string; left: string }>({ top: '0', left: '0' })
-  const editorViewMode = ref<'visual' | 'html'>('visual')
   const isEditorFocusWithin = ref(false)
 
   usePopoverFocus(videoPopoverRef, showVideoPopover)
@@ -176,7 +175,6 @@ export function usePostComposerEffects(options: UsePostComposerEffectsOptions) {
     showVideoPopover,
     videoUrl,
     videoPopoverStyle,
-    editorViewMode,
     isEditorFocusWithin,
     openVideoPopover,
     closeVideoPopover,

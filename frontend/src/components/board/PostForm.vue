@@ -3,6 +3,7 @@ import { computed, ref, watch, watchEffect } from 'vue'
 import { usePostComposerDraft } from '@/composables/usePostComposerDraft'
 import { usePostComposerEffects } from '@/composables/usePostComposerEffects'
 import { usePostComposerSubmit, type PostFormSubmitResult } from '@/composables/usePostComposerSubmit'
+import { usePostEditorViewMode } from '@/composables/usePostEditorViewMode'
 import { usePostFormResource } from '@/composables/usePostFormResource'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
@@ -19,7 +20,6 @@ import PostPreviewModal from '@/components/board/PostPreviewModal.vue'
 import { sanitizeQuillHtml } from '@/utils/sanitize'
 import { canWriteCategory } from '@/utils/board'
 import { usePostComposerState } from '@/composables/usePostComposerState'
-import { normalizeEditorFileImagePreviewSources } from '@/utils/fileUrl'
 
 const props = defineProps<{
   mode: 'create' | 'edit'
@@ -273,16 +273,15 @@ function handleCancel() {
   emit('cancel')
 }
 
-function setEditorViewMode(mode: 'visual' | 'html') {
-  form.value.content = normalizeEditorFileImagePreviewSources(form.value.content)
-  editorViewMode.value = mode
-}
-
-function handleEditorViewModeChange(mode: string) {
-  if (mode === 'visual' || mode === 'html') {
-    setEditorViewMode(mode)
-  }
-}
+const {
+  editorViewMode,
+  handleEditorViewModeChange,
+} = usePostEditorViewMode(computed({
+  get: () => form.value.content,
+  set: (content) => {
+    form.value.content = content
+  },
+}))
 
 const {
   tiptapEditorRef,
@@ -294,7 +293,6 @@ const {
   showVideoPopover,
   videoUrl,
   videoPopoverStyle,
-  editorViewMode,
   openVideoPopover,
   closeVideoPopover,
   insertVideoFromPopover,

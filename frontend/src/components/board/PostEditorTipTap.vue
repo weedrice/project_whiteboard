@@ -18,6 +18,7 @@ import { useEditorImageUpload } from '@/composables/useEditorImageUpload'
 import { usePostEditorImageUploadState } from '@/composables/usePostEditorImageUploadState'
 import { usePostEditorPopovers } from '@/composables/usePostEditorPopovers'
 import { usePostEditorTextCommands } from '@/composables/usePostEditorTextCommands'
+import { usePostEditorUploadedImages, type UploadedEditorImage } from '@/composables/usePostEditorUploadedImages'
 import { useI18n } from 'vue-i18n'
 import { useThemeStore } from '@/stores/theme'
 import { useToastStore } from '@/stores/toast'
@@ -36,12 +37,9 @@ const emit = defineEmits<{
   (e: 'file-uploaded', fileId: number): void
 }>()
 
-type UploadedEditorImage = { url: string; fileId?: number }
-
 const { t } = useI18n()
 const toastStore = useToastStore()
 const themeStore = useThemeStore()
-const fileIds = ref<number[]>([])
 const linkUrl = ref('')
 const linkText = ref('')
 const imageAltText = ref('')
@@ -52,7 +50,6 @@ const savedListSelection = ref<{ from: number; to: number } | null>(null)
 const imageInput = ref<HTMLInputElement | null>(null)
 const isDraggingImage = ref(false)
 const slashActiveIndex = ref(0)
-const editorImagePreviewUrls = new Set<string>()
 
 const { isUploadingImage, validateImageFile, uploadImage, abortImageUpload, isAbortUploadError } = useEditorImageUpload()
 const {
@@ -155,6 +152,12 @@ const editor = useEditor({
     emit('update:modelValue', instance.getHTML())
   },
 })
+
+const {
+  fileIds,
+  insertUploadedImage,
+  disposeUploadedImagePreviews,
+} = usePostEditorUploadedImages(editor, (fileId) => emit('file-uploaded', fileId))
 
 watch(
   () => props.modelValue,
@@ -404,20 +407,6 @@ function reportImageValidationError(validationError: 'type' | 'size') {
   toastStore.addToast(t('common.messages.fileSizeExceeded'), 'warning')
 }
 
-function insertUploadedImage(uploaded: { url: string; fileId?: number }, file: File) {
-  if (typeof uploaded.fileId === 'number') {
-    fileIds.value.push(uploaded.fileId)
-    emit('file-uploaded', uploaded.fileId)
-  }
-  const previewUrl = URL.createObjectURL(file)
-  editorImagePreviewUrls.add(previewUrl)
-  const serverAttributes = [
-    typeof uploaded.fileId === 'number' ? `data-file-id="${uploaded.fileId}"` : '',
-    `data-server-src="${escapeHtmlAttr(uploaded.url)}"`,
-  ].filter(Boolean).join(' ')
-  editor.value?.chain().focus().insertContent(`<img src="${escapeHtmlAttr(previewUrl)}" ${serverAttributes}>`).run()
-}
-
 function queueImageFiles(files: File[]) {
   const candidateFiles = files.filter(isCandidateImageFile)
   if (candidateFiles.length === 0) return false
@@ -518,8 +507,7 @@ defineExpose({
 
 onBeforeUnmount(() => {
   imageUploadQueue.dispose()
-  editorImagePreviewUrls.forEach((url) => URL.revokeObjectURL(url))
-  editorImagePreviewUrls.clear()
+  disposeUploadedImagePreviews()
   editor.value?.destroy()
 })
 </script>
