@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useId } from 'vue'
 import { ChevronDown, ChevronUp, Megaphone } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { RouteLocationRaw } from 'vue-router'
@@ -19,7 +20,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const noticeListId = `board-notice-list-${Math.random().toString(36).slice(2, 9)}`
+const noticeListId = useId()
 </script>
 
 <template>
