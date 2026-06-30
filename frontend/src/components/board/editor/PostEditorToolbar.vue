@@ -15,7 +15,7 @@ import {
   Video as VideoIcon,
 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
-import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
+import PostEditorImageUploadStatus from '@/components/board/editor/PostEditorImageUploadStatus.vue'
 
 defineProps<{
   editor: Editor
@@ -149,38 +149,18 @@ const { t } = useI18n()
       </div>
     </div>
 
-    <div v-if="isUploadingImage || hasImageUploadError" class="image-upload-status" role="status">
-      <template v-if="isUploadingImage">
-        <BaseSpinner size="sm" />
-        <span>
-          {{ t('board.writePost.upload.uploading') }}
-          <span v-if="currentUploadingImageName" class="image-upload-status-name">{{ currentUploadingImageName }}</span>
-          <span v-if="imageUploadQueueCount > 0" class="image-upload-status-count">+{{ imageUploadQueueCount }}</span>
-        </span>
-        <button type="button" class="image-upload-status-btn" @click="emit('cancel-image-upload')">
-          {{ t('board.writePost.upload.cancel') }}
-        </button>
-      </template>
-      <template v-else>
-        <span>{{ t('common.messages.uploadFailed') }}<span v-if="failedImageCount > 1"> {{ failedImageCount }}</span></span>
-        <div class="image-upload-failed-list">
-          <div v-for="file in failedImageFiles" :key="`${file.name}-${file.size}-${file.lastModified}`" class="image-upload-failed-item">
-            <span class="image-upload-status-name">{{ file.name }}</span>
-            <button type="button" class="image-upload-status-btn" @click="emit('retry-failed-image-upload', file)">
-              {{ t('board.writePost.upload.retry') }}
-            </button>
-            <button type="button" class="image-upload-status-btn" :aria-label="t('board.writePost.upload.dismiss')" @click="emit('dismiss-failed-image-upload', file)">
-              x
-            </button>
-          </div>
-        </div>
-        <button v-if="failedImageCount > 1" type="button" class="image-upload-status-btn" @click="emit('retry-image-upload')">
-          {{ t('board.writePost.upload.retry') }}
-        </button>
-        <button type="button" class="image-upload-status-btn" :aria-label="t('board.writePost.upload.dismiss')" @click="emit('dismiss-image-upload-error')">
-          x
-        </button>
-      </template>
-    </div>
+    <PostEditorImageUploadStatus
+      :is-uploading-image="isUploadingImage"
+      :has-image-upload-error="hasImageUploadError"
+      :current-uploading-image-name="currentUploadingImageName"
+      :image-upload-queue-count="imageUploadQueueCount"
+      :failed-image-count="failedImageCount"
+      :failed-image-files="failedImageFiles"
+      @retry-image-upload="emit('retry-image-upload')"
+      @retry-failed-image-upload="(file) => emit('retry-failed-image-upload', file)"
+      @cancel-image-upload="emit('cancel-image-upload')"
+      @dismiss-image-upload-error="emit('dismiss-image-upload-error')"
+      @dismiss-failed-image-upload="(file) => emit('dismiss-failed-image-upload', file)"
+    />
   </div>
 </template>
