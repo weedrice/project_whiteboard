@@ -3,6 +3,7 @@ import { nextTick } from 'vue'
 import { flushPromises } from '@vue/test-utils'
 import {
     cleanupPostEditorTipTapTestState,
+    getEditorHandleClickOn,
     getPostEditorTipTapMocks,
     mountEditor,
     resetPostEditorTipTapTestState,
@@ -150,7 +151,7 @@ describe('PostEditorTipTap image workflows', () => {
 
     it('opens image alt editor from selected images and applies or clears alt text', async () => {
         const wrapper = mountEditor()
-        const handleClickOn = (mocks.editorOptions.value?.editorProps as any).handleClickOn
+        const handleClickOn = getEditorHandleClickOn()
         const image = document.createElement('img')
         image.src = 'https://cdn.test/image.png'
 

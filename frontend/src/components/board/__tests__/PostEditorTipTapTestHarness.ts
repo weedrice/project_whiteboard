@@ -83,6 +83,13 @@ const mocks = vi.hoisted(() => {
                 click?: (view: unknown, event: MouseEvent) => boolean
                 keydown?: (view: unknown, event: KeyboardEvent) => boolean
             }
+            handleClickOn?: (
+                view: unknown,
+                pos: number,
+                node: { type: { name: string }; attrs: Record<string, unknown> },
+                nodePos: number,
+                event: MouseEvent,
+            ) => boolean
         }
     }
     const editorOptions: { value: EditorOptions | null } = { value: null }
@@ -264,6 +271,14 @@ export const getEditorDomEventHandler = <TEvent extends MouseEvent | KeyboardEve
         throw new Error(`Editor DOM event handler was not registered: ${String(eventName)}`)
     }
     return handler as (view: unknown, event: TEvent) => boolean
+}
+
+export const getEditorHandleClickOn = () => {
+    const handler = mocks.editorOptions.value?.editorProps?.handleClickOn
+    if (!handler) {
+        throw new Error('Editor handleClickOn handler was not registered')
+    }
+    return handler
 }
 
 export const setEditorSelection = (selection: unknown) => {
