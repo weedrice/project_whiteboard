@@ -50,6 +50,27 @@ const isMobile = computed(() => props.layout === 'mobile')
 const categoryInputId = computed(() => isMobile.value ? 'category-mobile' : 'category')
 const tagsInputId = computed(() => isMobile.value ? 'post-tags-input-mobile' : 'post-tags-input-desktop')
 const checkboxSuffix = computed(() => isMobile.value ? '-m' : '')
+
+type BooleanUpdateEvent = 'update:isNotice' | 'update:isNsfw' | 'update:isSpoiler' | 'update:isSecret'
+
+const emitBooleanUpdate = (event: BooleanUpdateEvent, value: boolean | unknown[]) => {
+  const checked = Array.isArray(value) ? value.length > 0 : value
+
+  switch (event) {
+    case 'update:isNotice':
+      emit('update:isNotice', checked)
+      break
+    case 'update:isNsfw':
+      emit('update:isNsfw', checked)
+      break
+    case 'update:isSpoiler':
+      emit('update:isSpoiler', checked)
+      break
+    case 'update:isSecret':
+      emit('update:isSecret', checked)
+      break
+  }
+}
 </script>
 
 <template>
@@ -81,28 +102,28 @@ const checkboxSuffix = computed(() => isMobile.value ? '-m' : '')
         :id="`isNotice${checkboxSuffix}`"
         :model-value="isNotice"
         :label="t('common.notice')"
-        @update:model-value="emit('update:isNotice', $event)"
+        @update:model-value="emitBooleanUpdate('update:isNotice', $event)"
       />
       <BaseCheckbox
         v-if="canShowNsfw"
         :id="`nsfw${checkboxSuffix}`"
         :model-value="isNsfw"
         :label="t('board.writePost.nsfw')"
-        @update:model-value="emit('update:isNsfw', $event)"
+        @update:model-value="emitBooleanUpdate('update:isNsfw', $event)"
       />
       <BaseCheckbox
         v-if="!hideSpoiler"
         :id="`spoiler${checkboxSuffix}`"
         :model-value="isSpoiler"
         :label="t('board.writePost.spoiler')"
-        @update:model-value="emit('update:isSpoiler', $event)"
+        @update:model-value="emitBooleanUpdate('update:isSpoiler', $event)"
       />
       <BaseCheckbox
         v-if="!hideSecret"
         :id="`secret${checkboxSuffix}`"
         :model-value="isSecret"
         :label="t('board.writePost.secret')"
-        @update:model-value="emit('update:isSecret', $event)"
+        @update:model-value="emitBooleanUpdate('update:isSecret', $event)"
       />
     </div>
   </div>
@@ -145,7 +166,7 @@ const checkboxSuffix = computed(() => isMobile.value ? '-m' : '')
         :model-value="isNotice"
         :label="t('common.notice')"
         :description="t('board.writePost.noticeDesc')"
-        @update:model-value="emit('update:isNotice', $event)"
+        @update:model-value="emitBooleanUpdate('update:isNotice', $event)"
       />
       <BaseCheckbox
         v-if="canShowNsfw"
@@ -153,7 +174,7 @@ const checkboxSuffix = computed(() => isMobile.value ? '-m' : '')
         :model-value="isNsfw"
         :label="t('board.writePost.nsfw')"
         :description="t('board.writePost.nsfwDesc')"
-        @update:model-value="emit('update:isNsfw', $event)"
+        @update:model-value="emitBooleanUpdate('update:isNsfw', $event)"
       />
       <BaseCheckbox
         v-if="!hideSpoiler"
@@ -161,7 +182,7 @@ const checkboxSuffix = computed(() => isMobile.value ? '-m' : '')
         :model-value="isSpoiler"
         :label="t('board.writePost.spoiler')"
         :description="t('board.writePost.spoilerDesc')"
-        @update:model-value="emit('update:isSpoiler', $event)"
+        @update:model-value="emitBooleanUpdate('update:isSpoiler', $event)"
       />
       <BaseCheckbox
         v-if="!hideSecret"
@@ -169,7 +190,7 @@ const checkboxSuffix = computed(() => isMobile.value ? '-m' : '')
         :model-value="isSecret"
         :label="t('board.writePost.secret')"
         :description="t('board.writePost.secretDesc')"
-        @update:model-value="emit('update:isSecret', $event)"
+        @update:model-value="emitBooleanUpdate('update:isSecret', $event)"
       />
     </div>
   </template>

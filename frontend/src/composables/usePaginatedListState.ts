@@ -32,10 +32,9 @@ interface PaginatedListStateOptions {
 
 export function usePaginatedListState<
   T,
-  TParams extends PaginationParams = PaginationParams,
   TResult extends PaginatedQueryResult<T> = PaginatedQueryResult<T>,
 >(
-  usePaginatedQuery: (params: Ref<TParams>) => TResult,
+  usePaginatedQuery: (params: Ref<PaginationParams>) => TResult,
   options: PaginatedListStateOptions = {},
 ) {
   const pagination = usePaginatedQueryState({
