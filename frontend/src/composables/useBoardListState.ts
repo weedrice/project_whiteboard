@@ -1,5 +1,5 @@
 import { computed, ref, watch } from 'vue'
-import type { LocationQuery, LocationQueryRaw, Router, RouteLocationNormalizedLoaded } from 'vue-router'
+import type { LocationQuery, LocationQueryRaw } from 'vue-router'
 import {
   areQueriesEqual,
   parseCategoryIdFromQuery,
@@ -22,6 +22,15 @@ interface BoardListQueryParams {
   minLikes?: number
 }
 
+type BoardListRoute = {
+  path: string
+  query: LocationQuery
+}
+
+type BoardListRouter = {
+  replace: (to: { path: string; query: LocationQueryRaw }) => unknown
+}
+
 function getResolvedSearchState(isSearching: boolean, searchQuery: string, searchType: string): SearchState | null {
   const trimmedQuery = searchQuery.trim()
   if (!isSearching || !trimmedQuery) {
@@ -34,7 +43,7 @@ function getResolvedSearchState(isSearching: boolean, searchQuery: string, searc
   }
 }
 
-export function useBoardListState(route: RouteLocationNormalizedLoaded, router: Router) {
+export function useBoardListState(route: BoardListRoute, router: BoardListRouter) {
   const page = ref(0)
   const size = ref(20)
   const searchQuery = ref('')

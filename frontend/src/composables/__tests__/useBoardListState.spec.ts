@@ -1,11 +1,12 @@
 import { nextTick } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useBoardListState } from '../useBoardListState'
+import type { LocationQuery } from 'vue-router'
 
 describe('useBoardListState', () => {
   const route = {
     path: '/board/free',
-    query: {} as Record<string, string>
+    query: {} as LocationQuery
   }
 
   const router = {
@@ -17,6 +18,8 @@ describe('useBoardListState', () => {
     router.replace.mockReset()
   })
 
+  const mountListState = () => useBoardListState(route, router)
+
   it('hydrates page and search state from the route query', async () => {
     route.query = {
       page: '3',
@@ -24,7 +27,7 @@ describe('useBoardListState', () => {
       type: 'TITLE'
     }
 
-    const state = useBoardListState(route as never, router as never)
+    const state = mountListState()
     await nextTick()
 
     expect(state.page.value).toBe(2)
@@ -39,7 +42,7 @@ describe('useBoardListState', () => {
       concept: '1'
     }
 
-    const state = useBoardListState(route as never, router as never)
+    const state = mountListState()
     await nextTick()
 
     expect(state.conceptOnly.value).toBe(true)
@@ -54,7 +57,7 @@ describe('useBoardListState', () => {
   })
 
   it('syncs a search once and resets the page without duplicate route updates', async () => {
-    const state = useBoardListState(route as never, router as never)
+    const state = mountListState()
     state.page.value = 4
     await nextTick()
     router.replace.mockReset()
@@ -76,7 +79,7 @@ describe('useBoardListState', () => {
   })
 
   it('does not suppress the next page sync when a filtered action keeps the page at zero', async () => {
-    const state = useBoardListState(route as never, router as never)
+    const state = mountListState()
     await nextTick()
 
     state.searchQuery.value = 'keyword'
@@ -106,7 +109,7 @@ describe('useBoardListState', () => {
       type: 'TITLE_CONTENT'
     }
 
-    const state = useBoardListState(route as never, router as never)
+    const state = mountListState()
     await nextTick()
     router.replace.mockReset()
 
@@ -130,7 +133,7 @@ describe('useBoardListState', () => {
       concept: '1'
     }
 
-    const state = useBoardListState(route as never, router as never)
+    const state = mountListState()
     await nextTick()
     router.replace.mockReset()
 
@@ -157,7 +160,7 @@ describe('useBoardListState', () => {
       categoryId: '7'
     }
 
-    const state = useBoardListState(route as never, router as never)
+    const state = mountListState()
     await nextTick()
 
     expect(state.isSearching.value).toBe(true)
@@ -177,7 +180,7 @@ describe('useBoardListState', () => {
       type: 'TITLE'
     }
 
-    const state = useBoardListState(route as never, router as never)
+    const state = mountListState()
     await nextTick()
     router.replace.mockReset()
 
@@ -201,7 +204,7 @@ describe('useBoardListState', () => {
       categoryId: '3'
     }
 
-    const state = useBoardListState(route as never, router as never)
+    const state = mountListState()
     await nextTick()
     router.replace.mockReset()
 
@@ -216,7 +219,7 @@ describe('useBoardListState', () => {
   })
 
   it('switches to concept posts through the existing minLikes board filter', async () => {
-    const state = useBoardListState(route as never, router as never)
+    const state = mountListState()
     await nextTick()
     router.replace.mockReset()
 
@@ -239,7 +242,7 @@ describe('useBoardListState', () => {
       concept: '1'
     }
 
-    const state = useBoardListState(route as never, router as never)
+    const state = mountListState()
     await nextTick()
     router.replace.mockReset()
 
@@ -255,7 +258,7 @@ describe('useBoardListState', () => {
   })
 
   it('clamps page changes to the available pagination range', () => {
-    const state = useBoardListState(route as never, router as never)
+    const state = mountListState()
 
     state.handlePageChange(10, 4)
     expect(state.page.value).toBe(3)
@@ -265,7 +268,7 @@ describe('useBoardListState', () => {
   })
 
   it('resets sort state when the list state is cleared for another board', () => {
-    const state = useBoardListState(route as never, router as never)
+    const state = mountListState()
 
     state.toggleConceptPosts()
     state.handleSortChange('viewCount,desc')
