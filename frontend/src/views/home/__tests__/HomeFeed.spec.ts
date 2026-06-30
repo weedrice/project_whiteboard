@@ -1,6 +1,7 @@
 import { defineComponent, h } from 'vue'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { useHead } from '@unhead/vue'
 import type { HomeLandingPeriod } from '@/types'
 
 const state = vi.hoisted(() => ({
@@ -152,7 +153,7 @@ describe('HomeFeed', () => {
         document.title = ''
     })
 
-    it('restores the document title when returning home', () => {
+    it('registers the home title with useHead', () => {
         document.title = 'Post title - Board'
 
         mount(HomeFeed, {
@@ -171,7 +172,11 @@ describe('HomeFeed', () => {
             },
         })
 
-        expect(document.title).toBe('common.appName')
+        const headOptions = vi.mocked(useHead).mock.calls.at(-1)?.[0] as {
+            title: { value: string }
+        }
+
+        expect(headOptions.title.value).toBe('common.appName')
     })
 
     it('keeps the fallback hero post out of duplicate post cards and renders site stats', () => {

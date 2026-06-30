@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useHead } from '@unhead/vue'
 import { useI18n } from 'vue-i18n'
@@ -119,12 +119,6 @@ useHead({
   ]
 })
 
-watch([() => route.name, boardTitle], ([routeName, title]) => {
-  if (currentPostId.value || routeName !== 'board-detail' || typeof document === 'undefined') {
-    return
-  }
-  document.title = `${title} - ${t('common.appName')}`
-}, { immediate: true })
 </script>
 
 <template>

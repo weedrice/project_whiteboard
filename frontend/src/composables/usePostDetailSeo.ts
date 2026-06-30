@@ -1,4 +1,4 @@
-import { computed, watch, type ComputedRef, type Ref } from 'vue'
+import { computed, type ComputedRef, type Ref } from 'vue'
 import { useHead } from '@unhead/vue'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import type { Post } from '@/types'
@@ -79,13 +79,6 @@ export function usePostDetailSeo({
       }
     ]
   })
-
-  watch([() => route.name, postPageTitle], ([routeName, title]) => {
-    if (routeName !== 'post-detail' || typeof document === 'undefined') {
-      return
-    }
-    document.title = title
-  }, { immediate: true })
 
   return {
     postPageTitle,

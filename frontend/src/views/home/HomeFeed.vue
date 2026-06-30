@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { CircleDot, FileText, TrendingUp as TrendingUpIcon } from 'lucide-vue-next'
 import { useHead } from '@unhead/vue'
@@ -104,10 +104,6 @@ useHead({
   ],
 })
 
-watch(homeTitle, (title) => {
-  if (typeof document === 'undefined') return
-  document.title = title
-}, { immediate: true })
 </script>
 
 <template>
