@@ -99,6 +99,7 @@ describe('UserDropdown', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     authState.isAuthenticated = true
+    authState.user.role = 'USER'
     pointData.value = { currentPoint: 12345 }
   })
 
@@ -127,6 +128,9 @@ describe('UserDropdown', () => {
     expect(wrapper.text()).toContain('12,345 P')
     expect(useMyPoint).toHaveBeenCalled()
     expect(keyboardStore.setOpenDropdown).toHaveBeenCalledWith('user', expect.any(Array))
+    expect(keyboardStore.setOpenDropdown.mock.calls[0][1]).toHaveLength(9)
+    expect(wrapper.text()).toContain('layout.menu.createBoard')
+    expect(wrapper.text()).toContain('emoticon.title')
   })
 
   it('keeps point query disabled while closed', () => {
@@ -135,5 +139,14 @@ describe('UserDropdown', () => {
     const [enabled] = useMyPoint.mock.calls[0] as unknown as [{ value: boolean }]
     expect(enabled.value).toBe(false)
     expect(keyboardStore.setOpenDropdown).not.toHaveBeenCalled()
+  })
+
+  it('shows the admin menu without adding it to numbered shortcuts', () => {
+    authState.user.role = 'SUPER_ADMIN'
+
+    const wrapper = mountDropdown(true)
+
+    expect(wrapper.text()).toContain('layout.menu.admin')
+    expect(keyboardStore.setOpenDropdown.mock.calls[0][1]).toHaveLength(9)
   })
 })
