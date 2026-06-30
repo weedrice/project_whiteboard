@@ -3,7 +3,6 @@ import i18n from '@/i18n'
 import router from '@/router'
 import { Storage } from '@/utils/storage'
 import { API } from '@/utils/constants'
-import { isValidationErrors, normalizeApiErrorMessage } from '@/utils/errorHandler'
 import { unwrapApiData } from '@/api/response'
 import {
     applyRefreshedAccessToken,
@@ -17,6 +16,14 @@ import {
     type AuthStoreLike,
     type ToastStore,
 } from '@/api/authRefreshSession'
+import {
+    handleApiError,
+    isCanceledRequestError,
+    markGlobalErrorToastHandled,
+    shouldMarkGlobalErrorToastHandled,
+    type ApiErrorResponse,
+    type SuppressibleApiError,
+} from '@/api/errorHandling'
 
 const { t } = i18n.global
 
@@ -40,26 +47,10 @@ declare module 'axios' {
     }
 }
 
-import type { ApiResponse, ErrorResponse, ValidationErrors } from '@/types/common'
+import type { ApiResponse } from '@/types/common'
 
 type RefreshTokenResponse = {
     accessToken: string
-}
-
-interface ApiErrorResponse {
-    success?: boolean
-    error?: ErrorResponse
-    status?: number
-    code?: string
-    message?: string
-    data?: unknown
-    details?: ValidationErrors | Record<string, unknown>
-}
-
-interface SuppressibleApiError extends AxiosError {
-    suppressGlobalErrorToast?: boolean
-    isAuthRefreshFailure?: boolean
-    isUserHydrationFailure?: boolean
 }
 
 interface ApiStoreResolvers {
@@ -133,85 +124,6 @@ api.interceptors.request.use(
     }
 )
 
-const handleApiError = (error: AxiosError, toastStore: ToastStore) => {
-    if (error.response) {
-        const status = error.response.status
-        const errorData = error.response.data as ApiErrorResponse | undefined
-
-        // Handle ApiResponse-style error payloads.
-        const apiError = errorData?.error || errorData
-        const rawMessage = apiError?.message || errorData?.message || error.message
-        const message = normalizeApiErrorMessage(rawMessage)
-
-        switch (status) {
-            case 400:
-                // Validation errors may include field-level details. Show the first field error.
-                if (isValidationErrors(apiError?.details)) {
-                    const firstField = Object.keys(apiError.details)[0]
-                    const firstError = firstField ? apiError.details[firstField]?.[0] : null
-                    toastStore.addToast(
-                        firstError || message || t('common.messages.badRequest'),
-                        'error',
-                        3000,
-                        'top-center'
-                    )
-                } else {
-                    toastStore.addToast(message || t('common.messages.badRequest'), 'error', 3000, 'top-center')
-                }
-                break
-            case 403:
-                toastStore.addToast(message || t('common.messages.forbidden'), 'error', 3000, 'top-center')
-                break
-            case 404:
-                toastStore.addToast(message || t('common.messages.notFound'), 'error', 3000, 'top-center')
-                break
-            case 500:
-            case 502:
-            case 503:
-            case 504:
-                toastStore.addToast(t('common.messages.serverError'), 'error', 3000, 'top-center')
-                break
-            default:
-                if (status !== 401) {
-                    toastStore.addToast(message || t('common.messages.unknown'), 'error', 3000, 'top-center')
-                }
-        }
-    } else if (error.request) {
-        // Network error: distinguish retryable transport failures from generic request errors.
-        const isRetryable = !error.response && (
-            error.code === 'ECONNABORTED' || // Timeout
-            error.code === 'ERR_NETWORK' || // Network error
-            error.message?.includes('Network Error')
-        )
-
-        if (isRetryable) {
-            toastStore.addToast(
-                t('common.messages.networkRetry') || 'Network error. Please check your connection and try again.',
-                'error',
-                5000,
-                'top-center'
-            )
-        } else {
-            toastStore.addToast(normalizeApiErrorMessage(error.message) || t('common.messages.network'), 'error', 3000, 'top-center')
-        }
-    } else {
-        toastStore.addToast(normalizeApiErrorMessage(error.message) || t('common.messages.requestSetup'), 'error', 3000, 'top-center')
-    }
-}
-
-const markGlobalErrorToastHandled = (error: AxiosError) => {
-    const suppressibleError = error as SuppressibleApiError
-    suppressibleError.suppressGlobalErrorToast = true
-}
-
-const shouldMarkGlobalErrorToastHandled = (error: AxiosError, toastStore: ToastStore) => {
-    return error.response?.status !== 401 && toastStore !== noopToastStore
-}
-
-const isCanceledRequestError = (error: AxiosError) => {
-    return error.code === 'ERR_CANCELED' || error.name === 'CanceledError' || error.name === 'AbortError'
-}
-
 // Response Interceptor
 api.interceptors.response.use(
     (response: AxiosResponse) => {
@@ -226,8 +138,8 @@ api.interceptors.response.use(
         }
 
         if (!originalRequest) {
-            handleApiError(error, toastStore)
-            if (shouldMarkGlobalErrorToastHandled(error, toastStore)) {
+            handleApiError(error, toastStore, t)
+            if (shouldMarkGlobalErrorToastHandled(error, toastStore, noopToastStore)) {
                 markGlobalErrorToastHandled(error)
             }
             return Promise.reject(error)
@@ -340,8 +252,8 @@ api.interceptors.response.use(
         }
 
         // Handle other common errors
-        handleApiError(error, toastStore)
-        if (shouldMarkGlobalErrorToastHandled(error, toastStore)) {
+        handleApiError(error, toastStore, t)
+        if (shouldMarkGlobalErrorToastHandled(error, toastStore, noopToastStore)) {
             markGlobalErrorToastHandled(error)
         }
 
