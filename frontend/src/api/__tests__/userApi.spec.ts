@@ -12,6 +12,7 @@ vi.mock('@/api', () => ({
 }))
 
 import { toBlockedUserPage, toScrapPostSummaryPage, userApi } from '../user'
+import type { UserSettings } from '@/types'
 
 describe('userApi', () => {
     beforeEach(() => {
@@ -21,7 +22,7 @@ describe('userApi', () => {
     it('calls profile and settings endpoints', () => {
         const profileData = { displayName: 'tester', profileImageId: 10 }
         const passwordData = { currentPassword: 'old', newPassword: 'new' }
-        const settingsData = { language: 'ko' }
+        const settingsData: Partial<UserSettings> = { language: 'KO' }
         const notificationBulkData = {
             settings: [
                 { notificationType: 'LIKE' as const, isEnabled: true },
@@ -37,7 +38,7 @@ describe('userApi', () => {
         userApi.deleteAccount('secret')
         userApi.verifyEmail({ email: 'test@example.com', verificationTicket: 'ticket-1' })
         userApi.getUserSettings()
-        userApi.updateUserSettings(settingsData as never)
+        userApi.updateUserSettings(settingsData)
         userApi.getNotificationSettings()
         userApi.updateNotificationSettingsBulk(notificationBulkData)
         userApi.claimAgent('noviis_agt_xxx')

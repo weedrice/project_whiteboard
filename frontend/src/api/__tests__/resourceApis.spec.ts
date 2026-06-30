@@ -20,6 +20,8 @@ import { emoticonApi } from '../emoticon'
 import { adApi } from '../ad'
 import { notificationApi } from '../notification'
 import { reportApi } from '../report'
+import type { BoardCreateData, BoardUpdateData, SearchParams } from '@/types'
+import type { EmoticonCreateRequest, EmoticonUpdateRequest } from '@/types/emoticon'
 
 describe('boardApi', () => {
     beforeEach(() => {
@@ -27,18 +29,18 @@ describe('boardApi', () => {
     })
 
     it('calls board endpoints with correct path and payload', () => {
-        const boardData = { name: 'General', description: 'desc' }
-        const updateData = { displayName: 'General Board' }
+        const boardData: BoardCreateData = { boardName: 'General', boardUrl: 'general', description: 'desc' }
+        const updateData: BoardUpdateData = { boardName: 'General Board' }
         const categoryData = { name: 'Notice', sortOrder: 1 }
         const categoryUpdateData = { name: 'Updated', isActive: true }
         const params = { page: 0, size: 20, categoryId: 7, sort: 'latest' }
 
         boardApi.getBoards()
         boardApi.getBoard('general', { skipAuthRefresh: true })
-        boardApi.createBoard(boardData as never)
+        boardApi.createBoard(boardData)
         boardApi.getPosts('general', params)
         boardApi.getCategories('general')
-        boardApi.updateBoard('general', updateData as never)
+        boardApi.updateBoard('general', updateData)
         boardApi.updateBoardManager('general', { loginId: 'manager' })
         boardApi.getBoardManagerCandidates('general', { q: 'manager', page: 0, size: 10 })
         boardApi.deleteBoard('general')
@@ -243,7 +245,7 @@ describe('searchApi', () => {
     })
 
     it('calls search endpoints with params', async () => {
-        const params = { keyword: 'vue', page: 1, size: 20, type: 'post' }
+        const params: SearchParams = { keyword: 'vue', page: 1, size: 20, type: 'post' }
         apiMock.get.mockResolvedValue({
             data: {
                 success: true,
@@ -255,8 +257,8 @@ describe('searchApi', () => {
             },
         })
 
-        searchApi.search(params as never)
-        searchApi.searchPosts(params as never)
+        searchApi.search(params)
+        searchApi.searchPosts(params)
         const response = await searchApi.getPopularKeywords()
 
         expect(apiMock.get).toHaveBeenNthCalledWith(1, '/search', { params })
@@ -400,11 +402,11 @@ describe('emoticonApi', () => {
     })
 
     it('calls emoticon mutation endpoints with proper payload', () => {
-        const createData = { name: 'new-pack', description: 'desc' }
-        const updateData = { name: 'updated-pack' }
+        const createData: EmoticonCreateRequest = { name: 'new-pack', tags: ['cute'], imageFileIds: [77] }
+        const updateData: EmoticonUpdateRequest = { name: 'updated-pack', tags: ['cute'] }
 
-        emoticonApi.createEmoticon(createData as never)
-        emoticonApi.updateEmoticon(9, updateData as never)
+        emoticonApi.createEmoticon(createData)
+        emoticonApi.updateEmoticon(9, updateData)
         emoticonApi.toggleVisibility(9)
         emoticonApi.deleteEmoticon(9)
         emoticonApi.addImage(9, 77)

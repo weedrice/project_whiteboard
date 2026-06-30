@@ -13,6 +13,7 @@ vi.mock('../index', () => ({
 }))
 
 import { adminApi } from '../admin'
+import type { BoardCreateData, BoardUpdateData } from '@/types'
 
 describe('adminApi - Error Log Management', () => {
     beforeEach(() => {
@@ -160,14 +161,17 @@ describe('adminApi - Other Endpoints', () => {
     })
 
     it('calls board management endpoints correctly', () => {
+        const createData: BoardCreateData = { boardName: 'New', boardUrl: 'new' }
+        const updateData: BoardUpdateData = { boardName: 'Updated' }
+
         adminApi.getBoards()
-        adminApi.createBoard({ boardName: 'New', boardUrl: 'new' } as any)
-        adminApi.updateBoard('test', { boardName: 'Updated' } as any)
+        adminApi.createBoard(createData)
+        adminApi.updateBoard('test', updateData)
         adminApi.deleteBoard('test')
 
         expect(apiMock.get).toHaveBeenNthCalledWith(1, '/boards/all')
-        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/boards', { boardName: 'New', boardUrl: 'new' })
-        expect(apiMock.put).toHaveBeenNthCalledWith(1, '/boards/test', { boardName: 'Updated' })
+        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/boards', createData)
+        expect(apiMock.put).toHaveBeenNthCalledWith(1, '/boards/test', updateData)
         expect(apiMock.delete).toHaveBeenNthCalledWith(1, '/boards/test')
     })
 })
