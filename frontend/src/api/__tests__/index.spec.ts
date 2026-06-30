@@ -34,6 +34,13 @@ describe('API Interceptors', () => {
         expect(typeof module.configureApiStoreResolvers).toBe('function')
     })
 
+    it('detects login pathname through a testable helper', async () => {
+        const module = await import('../index')
+
+        expect(module.isLoginPathname('/login')).toBe(true)
+        expect(module.isLoginPathname('/board/free')).toBe(false)
+    })
+
     it('passes through successful response interceptor result', async () => {
         const { responseFulfilled } = await loadApiModule()
         const response = { data: { ok: true } } as any

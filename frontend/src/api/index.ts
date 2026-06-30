@@ -33,6 +33,15 @@ const API_PATHS = {
     LOGIN: '/login'
 }
 
+export const getCurrentPathname = (): string => {
+    if (typeof window === 'undefined') {
+        return ''
+    }
+    return window.location.pathname
+}
+
+export const isLoginPathname = (pathname = getCurrentPathname()): boolean => pathname === API_PATHS.LOGIN
+
 // Extend InternalAxiosRequestConfig to include _retry property
 declare module 'axios' {
     export interface AxiosRequestConfig {
@@ -215,7 +224,7 @@ api.interceptors.response.use(
                 const refreshStatus = axiosRefreshError.response?.status
 
                 // Check if we are already on the login page to avoid infinite redirect loop
-                const isLoginPage = window.location.pathname === API_PATHS.LOGIN
+                const isLoginPage = isLoginPathname()
 
                 if ((refreshStatus === 401 || refreshStatus === 403 || !axiosRefreshError.response) && !suppressibleRefreshError.isUserHydrationFailure) {
                     const authStore = await resolveAuthStore()
