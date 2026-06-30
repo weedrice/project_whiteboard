@@ -6,6 +6,7 @@ import {
 } from '../useNotificationNavigation'
 import { postApi } from '@/api/post'
 import { commentApi } from '@/api/comment'
+import { apiSuccessDataResponse } from '@/test/apiResponseFixtures'
 import type { Notification } from '@/types'
 
 const mocks = vi.hoisted(() => ({
@@ -81,16 +82,13 @@ describe('useNotificationNavigation', () => {
     })
 
     it('marks unread post notifications as read and navigates to the post route', async () => {
-        vi.mocked(postApi.getPost).mockResolvedValueOnce({
-            data: {
-                success: true,
-                data: {
-                    board: {
-                        boardUrl: 'free',
-                    },
+        vi.mocked(postApi.getPost).mockResolvedValueOnce(
+            apiSuccessDataResponse<typeof postApi.getPost>({
+                board: {
+                    boardUrl: 'free',
                 },
-            },
-        } as never)
+            })
+        )
 
         const { navigateFromNotification } = useNotificationNavigation()
         await navigateFromNotification(makeNotification({ sourceType: 'POST', sourceId: 99 }))
@@ -114,16 +112,13 @@ describe('useNotificationNavigation', () => {
     })
 
     it('ignores unsafe absolute targetUrl values and falls back to source lookup', async () => {
-        vi.mocked(postApi.getPost).mockResolvedValueOnce({
-            data: {
-                success: true,
-                data: {
-                    board: {
-                        boardUrl: 'free',
-                    },
+        vi.mocked(postApi.getPost).mockResolvedValueOnce(
+            apiSuccessDataResponse<typeof postApi.getPost>({
+                board: {
+                    boardUrl: 'free',
                 },
-            },
-        } as never)
+            })
+        )
 
         const { navigateFromNotification } = useNotificationNavigation()
         await navigateFromNotification(makeNotification({
@@ -137,18 +132,15 @@ describe('useNotificationNavigation', () => {
     })
 
     it('navigates comment notifications to the parent post comment anchor', async () => {
-        vi.mocked(commentApi.getComment).mockResolvedValueOnce({
-            data: {
-                success: true,
-                data: {
-                    commentId: 50,
-                    post: {
-                        postId: 77,
-                        boardUrl: 'notice',
-                    },
+        vi.mocked(commentApi.getComment).mockResolvedValueOnce(
+            apiSuccessDataResponse<typeof commentApi.getComment>({
+                commentId: 50,
+                post: {
+                    postId: 77,
+                    boardUrl: 'notice',
                 },
-            },
-        } as never)
+            })
+        )
 
         const { navigateFromNotification } = useNotificationNavigation()
         await navigateFromNotification(makeNotification({ sourceType: 'COMMENT', sourceId: 50, isRead: true }))
@@ -158,16 +150,13 @@ describe('useNotificationNavigation', () => {
     })
 
     it('supports flat comment navigation fields from the backend response', async () => {
-        vi.mocked(commentApi.getComment).mockResolvedValueOnce({
-            data: {
-                success: true,
-                data: {
-                    commentId: 52,
-                    boardUrl: 'free',
-                    postId: 78,
-                },
-            },
-        } as never)
+        vi.mocked(commentApi.getComment).mockResolvedValueOnce(
+            apiSuccessDataResponse<typeof commentApi.getComment>({
+                commentId: 52,
+                boardUrl: 'free',
+                postId: 78,
+            })
+        )
 
         const { navigateFromNotification } = useNotificationNavigation()
         await navigateFromNotification(makeNotification({ sourceType: 'COMMENT', sourceId: 52 }))

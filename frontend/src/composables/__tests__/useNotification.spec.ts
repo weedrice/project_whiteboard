@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ref } from 'vue'
+import { ref, type Ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 import { resetNotificationStreamStateForTest, useNotification } from '../useNotification'
 
@@ -169,8 +169,8 @@ describe('useNotification', () => {
         })
 
         const { useNotifications } = useNotification()
-        const params = ref({ page: 0, size: 20 })
-        useNotifications(params as never)
+        const params: Ref<{ page: number; size: number }> = ref({ page: 0, size: 20 })
+        useNotifications(params)
 
         const options = mocks.queryOptions[0]
         const result = await (options.queryFn as () => Promise<unknown>)()

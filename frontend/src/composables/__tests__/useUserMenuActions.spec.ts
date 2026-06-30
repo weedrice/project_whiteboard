@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 import { useUserMenuActions } from '../useUserMenuActions'
 import { userApi } from '@/api/user'
+import { apiSuccessResponse } from '@/test/apiResponseFixtures'
 
 const authState = vi.hoisted(() => ({
     user: { userId: 1 } as { userId: number } | null,
@@ -86,9 +87,7 @@ describe('useUserMenuActions', () => {
     })
 
     it('preserves block success side effects for comments and toast', async () => {
-        vi.mocked(userApi.blockUser).mockResolvedValueOnce({
-            data: { success: true },
-        } as never)
+        vi.mocked(userApi.blockUser).mockResolvedValueOnce(apiSuccessResponse<typeof userApi.blockUser>())
         const actions = useUserMenuActions({
             userId: ref(2),
             displayName: ref('Other'),
@@ -106,7 +105,7 @@ describe('useUserMenuActions', () => {
 
     it('logs and toasts block failures', async () => {
         const error = new Error('fail')
-        vi.mocked(userApi.blockUser).mockRejectedValueOnce(error as never)
+        vi.mocked(userApi.blockUser).mockRejectedValueOnce(error)
         const actions = useUserMenuActions({
             userId: ref(2),
             displayName: ref('Other'),

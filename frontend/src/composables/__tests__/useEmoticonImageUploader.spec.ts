@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useEmoticonImageUploader } from '../useEmoticonImageUploader'
 import { fileApi } from '@/api/file'
+import { apiDataResponse } from '@/test/apiResponseFixtures'
 import type { useEmoticonUploadSession } from '../useEmoticonUploadSession'
 
 const createUploadableEmoticonImageFile = vi.hoisted(() => vi.fn())
@@ -37,13 +38,11 @@ describe('useEmoticonImageUploader', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     createUploadableEmoticonImageFile.mockImplementation(async (preview) => preview.file)
-    vi.mocked(fileApi.uploadFile).mockResolvedValue({
-      data: {
-        data: {
-          fileId: 11
-        }
-      }
-    } as never)
+    vi.mocked(fileApi.uploadFile).mockResolvedValue(
+      apiDataResponse<typeof fileApi.uploadFile>({
+        fileId: 11
+      })
+    )
   })
 
   it('uploads converted previews with shared progress and abort controller handling', async () => {

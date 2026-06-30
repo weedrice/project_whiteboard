@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, ref } from 'vue'
 import { useReport } from '../useReport'
 import { reportApi } from '@/api/report'
+import { apiDataResponse } from '@/test/apiResponseFixtures'
 
 const mocks = vi.hoisted(() => ({
   queryOptions: [] as Array<Record<string, unknown>>,
@@ -32,9 +33,9 @@ describe('useReport', () => {
   })
 
   it('fetches my reports with paginated query state and abort signal', async () => {
-    vi.mocked(reportApi.getMyReports).mockResolvedValueOnce({
-      data: { data: { content: [{ reportId: 1 }], totalPages: 1 } },
-    } as never)
+    vi.mocked(reportApi.getMyReports).mockResolvedValueOnce(
+      apiDataResponse<typeof reportApi.getMyReports>({ content: [{ reportId: 1 }], totalPages: 1 })
+    )
 
     const params = ref({ page: 2, size: 15 })
     const { useMyReports } = useReport()

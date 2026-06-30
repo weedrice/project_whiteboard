@@ -4,6 +4,7 @@ import { useThemePreference } from '../useThemePreference'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { userApi } from '@/api/user'
+import { apiSuccessResponse } from '@/test/apiResponseFixtures'
 import logger from '@/utils/logger'
 
 vi.mock('@/api/user', () => ({
@@ -44,7 +45,7 @@ describe('useThemePreference', () => {
     it('toggles local theme and persists it for authenticated users', async () => {
         const authStore = useAuthStore()
         authStore.accessToken = 'token'
-        vi.mocked(userApi.updateUserSettings).mockResolvedValue({} as never)
+        vi.mocked(userApi.updateUserSettings).mockResolvedValue(apiSuccessResponse<typeof userApi.updateUserSettings>())
 
         const themeStore = useThemeStore()
         const { toggleTheme } = useThemePreference()

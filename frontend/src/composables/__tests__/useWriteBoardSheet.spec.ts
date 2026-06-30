@@ -4,6 +4,7 @@ import { setActivePinia, createPinia } from 'pinia'
 import { useWriteBoardSheet } from '../useWriteBoardSheet'
 import { boardApi } from '@/api/board'
 import { useToastStore } from '@/stores/toast'
+import { apiDataResponse } from '@/test/apiResponseFixtures'
 import i18n from '@/i18n'
 
 const routerPush = vi.fn()
@@ -74,14 +75,12 @@ describe('useWriteBoardSheet', () => {
     })
 
     it('blocks navigation when the user cannot write to any category', async () => {
-        vi.mocked(boardApi.getBoard).mockResolvedValue({
-            data: {
-                data: {
-                    isAdmin: false,
-                    categories: [{ categoryId: 1, name: 'Admin', minWriteRole: 'BOARD_ADMIN' }],
-                },
-            },
-        } as never)
+        vi.mocked(boardApi.getBoard).mockResolvedValue(
+            apiDataResponse<typeof boardApi.getBoard>({
+                isAdmin: false,
+                categories: [{ categoryId: 1, name: 'Admin', minWriteRole: 'BOARD_ADMIN' }],
+            })
+        )
 
         const sheet = useWriteBoardSheet()
         await sheet.goToBoardWrite('free')
@@ -92,14 +91,12 @@ describe('useWriteBoardSheet', () => {
     })
 
     it('navigates when at least one category is writable', async () => {
-        vi.mocked(boardApi.getBoard).mockResolvedValue({
-            data: {
-                data: {
-                    isAdmin: false,
-                    categories: [{ categoryId: 1, name: 'Open', minWriteRole: 'USER' }],
-                },
-            },
-        } as never)
+        vi.mocked(boardApi.getBoard).mockResolvedValue(
+            apiDataResponse<typeof boardApi.getBoard>({
+                isAdmin: false,
+                categories: [{ categoryId: 1, name: 'Open', minWriteRole: 'USER' }],
+            })
+        )
 
         const sheet = useWriteBoardSheet()
         await sheet.goToBoardWrite('free')

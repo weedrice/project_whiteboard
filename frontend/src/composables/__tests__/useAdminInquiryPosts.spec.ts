@@ -7,6 +7,7 @@ import {
   toAdminInquiryPage,
   useAdminInquiryPosts,
 } from '../useAdminInquiryPosts'
+import { apiSuccessDataResponse } from '@/test/apiResponseFixtures'
 import type { AdminInquirySummary, PageResponse, Post } from '@/types'
 
 const mocks = vi.hoisted(() => ({
@@ -122,18 +123,14 @@ describe('useAdminInquiryPosts', () => {
   })
 
   it('maps query results before exposing them to the view', async () => {
-    vi.mocked(adminApi.getInquiryPosts).mockResolvedValueOnce({
-      data: {
-        success: true,
-        data: pageResponse([inquirySummary({ author: { userId: 2, displayName: 'Inquiry Author' } })]),
-      },
-    } as never)
-    vi.mocked(adminApi.getInquiryPost).mockResolvedValueOnce({
-      data: {
-        success: true,
-        data: postDetail(),
-      },
-    } as never)
+    vi.mocked(adminApi.getInquiryPosts).mockResolvedValueOnce(
+      apiSuccessDataResponse<typeof adminApi.getInquiryPosts>(
+        pageResponse([inquirySummary({ author: { userId: 2, displayName: 'Inquiry Author' } })])
+      )
+    )
+    vi.mocked(adminApi.getInquiryPost).mockResolvedValueOnce(
+      apiSuccessDataResponse<typeof adminApi.getInquiryPost>(postDetail())
+    )
 
     const manager = useAdminInquiryPosts()
     const listQuery = mocks.queryOptions[0] as { queryFn: () => Promise<PageResponse<ReturnType<typeof toAdminInquiryListItem>>> }

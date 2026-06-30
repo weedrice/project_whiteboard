@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { usePasswordResetByVerificationFlow } from '../usePasswordResetByVerificationFlow'
 import { authApi } from '@/api/auth'
+import { apiSuccessResponse } from '@/test/apiResponseFixtures'
 
 const routerPush = vi.hoisted(() => vi.fn())
 const toastMock = vi.hoisted(() => ({
@@ -69,11 +70,7 @@ describe('usePasswordResetByVerificationFlow', () => {
     })
 
     it('resets password with the existing request payload and redirects to login', async () => {
-        vi.mocked(authApi.resetPassword).mockResolvedValue({
-            data: {
-                success: true
-            }
-        } as never)
+        vi.mocked(authApi.resetPassword).mockResolvedValue(apiSuccessResponse<typeof authApi.resetPassword>())
         const onLoadingChange = vi.fn()
         const { resetPassword } = usePasswordResetByVerificationFlow({
             getEmail: () => ' user@example.com ',

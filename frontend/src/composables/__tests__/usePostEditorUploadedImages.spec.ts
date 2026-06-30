@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
+import type { Editor } from '@tiptap/core'
 import { usePostEditorUploadedImages } from '../usePostEditorUploadedImages'
 
 const createEditorRef = () => {
@@ -18,7 +19,7 @@ const createEditorRef = () => {
 
     return {
         chain,
-        editorRef: ref(editor as any),
+        editorRef: ref(editor as unknown as Editor),
     }
 }
 

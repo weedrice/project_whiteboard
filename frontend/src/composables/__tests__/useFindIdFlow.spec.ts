@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { useFindIdFlow } from '../useFindIdFlow'
 import { authApi } from '@/api/auth'
+import { apiSuccessDataResponse } from '@/test/apiResponseFixtures'
 
 const routerPush = vi.hoisted(() => vi.fn())
 const toastMock = vi.hoisted(() => ({
@@ -39,14 +40,11 @@ describe('useFindIdFlow', () => {
     })
 
     it('finds login id with the existing email and verification ticket payload', async () => {
-        vi.mocked(authApi.findId).mockResolvedValue({
-            data: {
-                success: true,
-                data: {
-                    loginId: 'noviis-user'
-                }
-            }
-        } as never)
+        vi.mocked(authApi.findId).mockResolvedValue(
+            apiSuccessDataResponse<typeof authApi.findId>({
+                loginId: 'noviis-user'
+            })
+        )
         const onSuccess = vi.fn()
         const onLoadingChange = vi.fn()
         const { findId } = useFindIdFlow({

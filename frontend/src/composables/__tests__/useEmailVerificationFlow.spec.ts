@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { useEmailVerificationFlow } from '../useEmailVerificationFlow'
 import { authApi } from '@/api/auth'
 import { userApi } from '@/api/user'
+import { apiSuccessDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
 
 const toastMock = vi.hoisted(() => ({
   addToast: vi.fn()
@@ -48,9 +49,9 @@ describe('useEmailVerificationFlow', () => {
   })
 
   it('sends change-email verification code with the existing purpose', async () => {
-    vi.mocked(authApi.sendVerificationCode).mockResolvedValue({
-      data: { success: true }
-    } as never)
+    vi.mocked(authApi.sendVerificationCode).mockResolvedValue(
+      apiSuccessResponse<typeof authApi.sendVerificationCode>()
+    )
     const flow = useEmailVerificationFlow({
       getEmail: () => 'me@example.com',
       refreshProfile: vi.fn()
@@ -64,12 +65,10 @@ describe('useEmailVerificationFlow', () => {
   })
 
   it('verifies email then refreshes dashboard profile and global auth user', async () => {
-    vi.mocked(authApi.verifyCode).mockResolvedValue({
-      data: { success: true, data: { verificationTicket: 'ticket-1' } }
-    } as never)
-    vi.mocked(userApi.verifyEmail).mockResolvedValue({
-      data: { success: true }
-    } as never)
+    vi.mocked(authApi.verifyCode).mockResolvedValue(
+      apiSuccessDataResponse<typeof authApi.verifyCode>({ verificationTicket: 'ticket-1' })
+    )
+    vi.mocked(userApi.verifyEmail).mockResolvedValue(apiSuccessResponse<typeof userApi.verifyEmail>())
     authStoreMock.fetchUser.mockResolvedValue(true)
     const refreshProfile = vi.fn().mockResolvedValue(undefined)
     const flow = useEmailVerificationFlow({

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 import { commentApi } from '@/api/comment'
+import { apiDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
 import { useComment } from '../useComment'
 
 vi.mock('@/api/comment', () => ({
@@ -52,13 +53,11 @@ describe('useComment', () => {
     })
 
     it('fetches comments with enabled/placeholder query options', async () => {
-        vi.mocked(commentApi.getComments).mockResolvedValueOnce({
-            data: {
-                data: {
-                    content: [{ commentId: 1, content: 'hello' }],
-                },
-            },
-        } as never)
+        vi.mocked(commentApi.getComments).mockResolvedValueOnce(
+            apiDataResponse<typeof commentApi.getComments>({
+                content: [{ commentId: 1, content: 'hello' }],
+            })
+        )
 
         const { useComments } = useComment()
         const postId = ref(1)
@@ -85,14 +84,12 @@ describe('useComment', () => {
     })
 
     it('fetches replies with a dedicated query key', async () => {
-        vi.mocked(commentApi.getReplies).mockResolvedValueOnce({
-            data: {
-                data: {
-                    content: [{ commentId: 2, content: 'reply' }],
-                    totalElements: 1,
-                },
-            },
-        } as never)
+        vi.mocked(commentApi.getReplies).mockResolvedValueOnce(
+            apiDataResponse<typeof commentApi.getReplies>({
+                content: [{ commentId: 2, content: 'reply' }],
+                totalElements: 1,
+            })
+        )
 
         const { useReplies } = useComment()
         const parentId = ref(10)
@@ -125,7 +122,7 @@ describe('useComment', () => {
         const { useCreateComment } = useComment()
         const mutation = useCreateComment()
 
-        vi.mocked(commentApi.createComment).mockResolvedValue({ data: { success: true } } as never)
+        vi.mocked(commentApi.createComment).mockResolvedValue(apiSuccessResponse<typeof commentApi.createComment>())
 
         await mutation.mutateAsync({
             postId: 123,
@@ -141,7 +138,7 @@ describe('useComment', () => {
         const { useUpdateComment } = useComment()
         const mutation = useUpdateComment()
 
-        vi.mocked(commentApi.updateComment).mockResolvedValue({ data: { success: true } } as never)
+        vi.mocked(commentApi.updateComment).mockResolvedValue(apiSuccessResponse<typeof commentApi.updateComment>())
 
         await mutation.mutateAsync({
             commentId: 5,
@@ -156,7 +153,7 @@ describe('useComment', () => {
         const { useDeleteComment } = useComment()
         const mutation = useDeleteComment()
 
-        vi.mocked(commentApi.deleteComment).mockResolvedValue({ data: { success: true } } as never)
+        vi.mocked(commentApi.deleteComment).mockResolvedValue(apiSuccessResponse<typeof commentApi.deleteComment>())
 
         await mutation.mutateAsync(10)
 

@@ -58,7 +58,7 @@ describe('useToggleEmoticonVisibility', () => {
   })
 
   it('toggles visibility and invalidates detail, purchased status, and list queries when requested', async () => {
-    vi.mocked(emoticonApi.toggleVisibilityData).mockResolvedValueOnce({ isActive: false } as never)
+    vi.mocked(emoticonApi.toggleVisibilityData).mockResolvedValueOnce({ isActive: false })
     const emoticonId = computed(() => 7)
 
     useToggleEmoticonVisibility(emoticonId, { invalidatePurchaseStatus: true })

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useQuery } from '@tanstack/vue-query'
 import { useHomeLanding } from '../useHomeLanding'
 import { postApi } from '@/api/post'
+import { apiDataResponse } from '@/test/apiResponseFixtures'
 
 const queryData = vi.hoisted(() => ({
     current: null as unknown,
@@ -105,9 +106,9 @@ describe('useHomeLanding', () => {
             boards: [{ boardId: 1, boardUrl: 'free', boardName: 'Free', subscriberCount: 10, postCount: 24 }],
             stats: makeStats(),
         }
-        vi.mocked(postApi.getHomeLanding).mockResolvedValue({
-            data: { data: null },
-        } as never)
+        vi.mocked(postApi.getHomeLanding).mockResolvedValue(
+            apiDataResponse<typeof postApi.getHomeLanding>(null)
+        )
     })
 
     it('maps source home landing posts into feed-ready sections', () => {

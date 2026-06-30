@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { QueryClient } from '@tanstack/vue-query'
 import { useEmoticonEditSubmit } from '../useEmoticonEditSubmit'
 import type { EmoticonImagePreview } from '@/utils/emoticonImage'
 
@@ -107,7 +108,7 @@ describe('useEmoticonEditSubmit', () => {
       emoticonName: ref(' Updated '),
       tags: ref(['fun']),
       uploadSession,
-      queryClient: { invalidateQueries } as never,
+      queryClient: { invalidateQueries } as Partial<QueryClient> as QueryClient,
       fallbackErrorMessage: 'failed',
       onSuccess,
       onError,
@@ -153,7 +154,7 @@ describe('useEmoticonEditSubmit', () => {
       emoticonName: ref('Updated'),
       tags: ref(['fun']),
       uploadSession,
-      queryClient: { invalidateQueries: vi.fn() } as never,
+      queryClient: { invalidateQueries: vi.fn() } as Partial<QueryClient> as QueryClient,
       fallbackErrorMessage: 'failed',
       onSuccess,
       onError,

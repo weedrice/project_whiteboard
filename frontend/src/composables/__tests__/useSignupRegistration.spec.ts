@@ -1,7 +1,9 @@
 import { mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
 import { authApi } from '@/api/auth'
+import { apiSuccessDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
 import { useSignupRegistration } from '../useSignupRegistration'
 
 const mocks = vi.hoisted(() => {
@@ -82,8 +84,8 @@ function mountSignupRegistration(routeQuery: Record<string, unknown> = {}) {
   const wrapper = mount(defineComponent({
     setup() {
       composable = useSignupRegistration({
-        route: route as never,
-        router: mocks.router as never,
+        route: route as RouteLocationNormalizedLoaded,
+        router: mocks.router as Partial<Router> as Router,
         t: (key: string) => key
       })
       return () => null
@@ -115,31 +117,21 @@ describe('useSignupRegistration', () => {
       timeLeft: 0,
       resendCooldown: 0
     })
-    vi.mocked(authApi.checkEmailForReregister).mockResolvedValue({
-      data: {
-        success: true,
-        data: {
-          canReregister: false
-        }
-      }
-    } as never)
-    vi.mocked(authApi.signup).mockResolvedValue({
-      data: {
-        success: true
-      }
-    } as never)
+    vi.mocked(authApi.checkEmailForReregister).mockResolvedValue(
+      apiSuccessDataResponse<typeof authApi.checkEmailForReregister>({
+        canReregister: false
+      })
+    )
+    vi.mocked(authApi.signup).mockResolvedValue(apiSuccessResponse<typeof authApi.signup>())
   })
 
   it('hydrates query email/name and masked reregister login on mount', async () => {
-    vi.mocked(authApi.checkEmailForReregister).mockResolvedValueOnce({
-      data: {
-        success: true,
-        data: {
-          canReregister: true,
-          maskedLoginId: 'ma***ed'
-        }
-      }
-    } as never)
+    vi.mocked(authApi.checkEmailForReregister).mockResolvedValueOnce(
+      apiSuccessDataResponse<typeof authApi.checkEmailForReregister>({
+        canReregister: true,
+        maskedLoginId: 'ma***ed'
+      })
+    )
 
     const { composable, wrapper } = mountSignupRegistration({
       email: 'user@example.com',
@@ -155,15 +147,12 @@ describe('useSignupRegistration', () => {
   })
 
   it('runs reregister lookup before sending verification and replaces login id after verify', async () => {
-    vi.mocked(authApi.checkEmailForReregister).mockResolvedValueOnce({
-      data: {
-        success: true,
-        data: {
-          canReregister: true,
-          maskedLoginId: 'ma***ed'
-        }
-      }
-    } as never)
+    vi.mocked(authApi.checkEmailForReregister).mockResolvedValueOnce(
+      apiSuccessDataResponse<typeof authApi.checkEmailForReregister>({
+        canReregister: true,
+        maskedLoginId: 'ma***ed'
+      })
+    )
     const { composable, wrapper } = mountSignupRegistration()
 
     await composable.sendVerificationCode()

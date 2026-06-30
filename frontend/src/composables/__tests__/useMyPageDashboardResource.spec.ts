@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useMyPageDashboardResource } from '../useMyPageDashboardResource'
 import { userApi } from '@/api/user'
+import { apiEnvelopeResponse, apiSuccessDataResponse } from '@/test/apiResponseFixtures'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import logger from '@/utils/logger'
 
@@ -43,6 +44,8 @@ vi.mock('@/composables/useErrorHandler', () => ({
 const loadFailedMessage = 'common.messages.loadFailed'
 const signalConfig = expect.objectContaining({ signal: expect.any(AbortSignal) })
 const t = (key: string) => key
+type GetMyPostsResponse = Awaited<ReturnType<typeof userApi.getMyPosts>>
+type GetMyCommentsResponse = Awaited<ReturnType<typeof userApi.getMyComments>>
 
 const createDeferred = <T>() => {
   let resolve!: (value: T) => void
@@ -59,35 +62,38 @@ describe('useMyPageDashboardResource', () => {
     mocks.authStore.user = null
     mocks.getQueryData.mockReturnValue(undefined)
     mocks.fetchQuery.mockImplementation(async (options: { queryFn: () => Promise<unknown> }) => options.queryFn())
-    vi.mocked(userApi.getMyProfile).mockResolvedValue({
-      data: { success: true, data: { userId: 1, email: 'me@example.com' } },
-    } as never)
-    vi.mocked(userApi.getMyAgents).mockResolvedValue({
-      data: { success: true, data: { agents: [{ agentId: 1, name: 'Agent', status: 'ACTIVE' }] } },
-    } as never)
-    vi.mocked(userApi.getMyPosts).mockResolvedValue({
-      data: { success: true, data: { content: [{ postId: 7, title: 'Post' }], totalElements: 1, totalPages: 1 } },
-    } as never)
-    vi.mocked(userApi.getMyComments).mockResolvedValue({
-      data: {
-        success: true,
-        data: {
-          content: [{
-            commentId: 3,
-            content: 'Comment',
-            createdAt: '2026-05-20T10:00:00',
-            post: {
-              postId: 9,
-              boardUrl: 'notice',
-              boardName: 'Notice',
-              title: 'Post title',
-            },
-          }],
-          totalElements: 1,
-          totalPages: 1,
-        },
-      },
-    } as never)
+    vi.mocked(userApi.getMyProfile).mockResolvedValue(
+      apiSuccessDataResponse<typeof userApi.getMyProfile>({ userId: 1, email: 'me@example.com' })
+    )
+    vi.mocked(userApi.getMyAgents).mockResolvedValue(
+      apiSuccessDataResponse<typeof userApi.getMyAgents>({
+        agents: [{ agentId: 1, name: 'Agent', status: 'ACTIVE' }],
+      })
+    )
+    vi.mocked(userApi.getMyPosts).mockResolvedValue(
+      apiSuccessDataResponse<typeof userApi.getMyPosts>({
+        content: [{ postId: 7, title: 'Post' }],
+        totalElements: 1,
+        totalPages: 1,
+      })
+    )
+    vi.mocked(userApi.getMyComments).mockResolvedValue(
+      apiSuccessDataResponse<typeof userApi.getMyComments>({
+        content: [{
+          commentId: 3,
+          content: 'Comment',
+          createdAt: '2026-05-20T10:00:00',
+          post: {
+            postId: 9,
+            boardUrl: 'notice',
+            boardName: 'Notice',
+            title: 'Post title',
+          },
+        }],
+        totalElements: 1,
+        totalPages: 1,
+      })
+    )
   })
 
   it('loads dashboard resources with the existing pagination defaults', async () => {
@@ -253,9 +259,9 @@ describe('useMyPageDashboardResource', () => {
   })
 
   it('sets a section error when a dashboard resource returns an unsuccessful envelope', async () => {
-    vi.mocked(userApi.getMyComments).mockResolvedValueOnce({
-      data: { success: false },
-    } as never)
+    vi.mocked(userApi.getMyComments).mockResolvedValueOnce(
+      apiEnvelopeResponse<typeof userApi.getMyComments>(false, null)
+    )
     const resource = useMyPageDashboardResource(t)
 
     await resource.loadDashboard()
@@ -266,21 +272,11 @@ describe('useMyPageDashboardResource', () => {
   })
 
   it('ignores stale my posts responses from earlier requests', async () => {
-    const firstRequest = createDeferred<{
-      data: {
-        success: true
-        data: { content: Array<{ postId: number; title: string }>; totalElements: number; totalPages: number }
-      }
-    }>()
-    const secondRequest = createDeferred<{
-      data: {
-        success: true
-        data: { content: Array<{ postId: number; title: string }>; totalElements: number; totalPages: number }
-      }
-    }>()
+    const firstRequest = createDeferred<GetMyPostsResponse>()
+    const secondRequest = createDeferred<GetMyPostsResponse>()
     vi.mocked(userApi.getMyPosts)
-      .mockReturnValueOnce(firstRequest.promise as never)
-      .mockReturnValueOnce(secondRequest.promise as never)
+      .mockReturnValueOnce(firstRequest.promise)
+      .mockReturnValueOnce(secondRequest.promise)
     const resource = useMyPageDashboardResource(t)
 
     const firstFetch = resource.handleMyPostsPageChange(1)
@@ -289,10 +285,18 @@ describe('useMyPageDashboardResource', () => {
 
     expect(firstSignal?.aborted).toBe(true)
 
-    secondRequest.resolve({ data: { success: true, data: { content: [{ postId: 2, title: 'Second' }], totalElements: 1, totalPages: 1 } } })
+    secondRequest.resolve(apiSuccessDataResponse<typeof userApi.getMyPosts>({
+      content: [{ postId: 2, title: 'Second' }],
+      totalElements: 1,
+      totalPages: 1,
+    }))
     await secondFetch
 
-    firstRequest.resolve({ data: { success: true, data: { content: [{ postId: 1, title: 'First' }], totalElements: 1, totalPages: 1 } } })
+    firstRequest.resolve(apiSuccessDataResponse<typeof userApi.getMyPosts>({
+      content: [{ postId: 1, title: 'First' }],
+      totalElements: 1,
+      totalPages: 1,
+    }))
     await firstFetch
 
     expect(resource.myPosts.value).toEqual([{ postId: 2, title: 'Second' }])
@@ -300,21 +304,11 @@ describe('useMyPageDashboardResource', () => {
   })
 
   it('ignores stale my comments responses from earlier requests', async () => {
-    const firstRequest = createDeferred<{
-      data: {
-        success: true
-        data: { content: Array<{ commentId: number; content: string; createdAt: string }>; totalElements: number; totalPages: number }
-      }
-    }>()
-    const secondRequest = createDeferred<{
-      data: {
-        success: true
-        data: { content: Array<{ commentId: number; content: string; createdAt: string }>; totalElements: number; totalPages: number }
-      }
-    }>()
+    const firstRequest = createDeferred<GetMyCommentsResponse>()
+    const secondRequest = createDeferred<GetMyCommentsResponse>()
     vi.mocked(userApi.getMyComments)
-      .mockReturnValueOnce(firstRequest.promise as never)
-      .mockReturnValueOnce(secondRequest.promise as never)
+      .mockReturnValueOnce(firstRequest.promise)
+      .mockReturnValueOnce(secondRequest.promise)
     const resource = useMyPageDashboardResource(t)
 
     const firstFetch = resource.handleMyCommentsPageChange(1)
@@ -323,28 +317,18 @@ describe('useMyPageDashboardResource', () => {
 
     expect(firstSignal?.aborted).toBe(true)
 
-    secondRequest.resolve({
-      data: {
-        success: true,
-        data: {
-          content: [{ commentId: 2, content: 'Second', createdAt: '2026-05-20T10:00:00' }],
-          totalElements: 1,
-          totalPages: 1,
-        },
-      },
-    })
+    secondRequest.resolve(apiSuccessDataResponse<typeof userApi.getMyComments>({
+      content: [{ commentId: 2, content: 'Second', createdAt: '2026-05-20T10:00:00' }],
+      totalElements: 1,
+      totalPages: 1,
+    }))
     await secondFetch
 
-    firstRequest.resolve({
-      data: {
-        success: true,
-        data: {
-          content: [{ commentId: 1, content: 'First', createdAt: '2026-05-20T09:00:00' }],
-          totalElements: 1,
-          totalPages: 1,
-        },
-      },
-    })
+    firstRequest.resolve(apiSuccessDataResponse<typeof userApi.getMyComments>({
+      content: [{ commentId: 1, content: 'First', createdAt: '2026-05-20T09:00:00' }],
+      totalElements: 1,
+      totalPages: 1,
+    }))
     await firstFetch
 
     expect(resource.myComments.value).toEqual([{ commentId: 2, content: 'Second', createdAt: '2026-05-20T10:00:00' }])
