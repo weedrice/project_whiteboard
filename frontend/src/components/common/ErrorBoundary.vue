@@ -84,7 +84,7 @@ onErrorCaptured((err: Error, instance: ComponentPublicInstance | null, info: str
         message.value = t('common.error.networkErrorDescription')
     } else {
         title.value = t('common.error.unknown')
-        message.value = err.message || t('common.error.defaultMessage')
+        message.value = t('common.error.defaultMessage')
     }
 
     return false

@@ -162,4 +162,16 @@ describe('BaseModal', () => {
 
         expect(wrapper.emitted('close')).toBeUndefined()
     })
+
+    it('closes only the topmost modal when Escape is pressed', async () => {
+        const first = track(mountModal(true))
+        const second = track(mountModal(true))
+        await nextTick()
+        await nextTick()
+
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+
+        expect(first.emitted('close')).toBeUndefined()
+        expect(second.emitted('close')).toHaveLength(1)
+    })
 })

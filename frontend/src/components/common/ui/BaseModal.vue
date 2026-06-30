@@ -43,6 +43,7 @@
 <script lang="ts">
 let bodyScrollLockCount = 0
 let previousBodyOverflow: string | null = null
+const modalStack: symbol[] = []
 
 function lockBodyScroll() {
   if (bodyScrollLockCount === 0) {
@@ -59,6 +60,23 @@ function unlockBodyScroll() {
     document.body.style.overflow = previousBodyOverflow ?? ''
     previousBodyOverflow = null
   }
+}
+
+function registerOpenModal(modalId: symbol) {
+  if (!modalStack.includes(modalId)) {
+    modalStack.push(modalId)
+  }
+}
+
+function unregisterOpenModal(modalId: symbol) {
+  const index = modalStack.indexOf(modalId)
+  if (index !== -1) {
+    modalStack.splice(index, 1)
+  }
+}
+
+function isTopOpenModal(modalId: symbol) {
+  return modalStack[modalStack.length - 1] === modalId
 }
 </script>
 
@@ -126,6 +144,7 @@ const footerAlignClass = computed(() => {
 
 const modalRef = ref<HTMLElement | null>(null)
 const modalId = useId()
+const modalStackId = Symbol(`base-modal-${modalId}`)
 const titleId = `${modalId}-title`
 const descriptionId = `${modalId}-description`
 const { trapFocus, restoreFocus } = useFocusTrap(modalRef, () => props.isOpen)
@@ -155,7 +174,7 @@ function unlockModalBodyScroll() {
 }
 
 const handleKeyDown = (event: KeyboardEvent) => {
-  if (event.key === 'Escape' && props.isOpen && props.closeOnEscape) {
+  if (event.key === 'Escape' && props.isOpen && props.closeOnEscape && isTopOpenModal(modalStackId)) {
     close()
   }
 }
@@ -163,12 +182,14 @@ const handleKeyDown = (event: KeyboardEvent) => {
 // Focus management
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
+    registerOpenModal(modalStackId)
     nextTick(() => {
       if (!props.isOpen) return
       trapFocus()
       lockModalBodyScroll()
     })
   } else {
+    unregisterOpenModal(modalStackId)
     unlockModalBodyScroll()
     restoreFocus()
   }
@@ -178,6 +199,7 @@ useEventListener(() => document, 'keydown', handleKeyDown)
 
 onUnmounted(() => {
   // Ensure body scroll is restored
+  unregisterOpenModal(modalStackId)
   unlockModalBodyScroll()
   restoreFocus()
 })
