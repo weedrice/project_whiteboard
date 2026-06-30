@@ -1,6 +1,6 @@
 ﻿import { beforeEach, describe, expect, it } from 'vitest'
 
-import { getApiIndexMocks, loadApiModule, resetApiIndexTestState } from './apiIndexTestHarness'
+import { createApiError, getApiIndexMocks, loadApiModule, resetApiIndexTestState } from './apiIndexTestHarness'
 
 const mocks = getApiIndexMocks()
 
@@ -11,14 +11,14 @@ describe('API Interceptors', () => {
 
     it('falls back to noop toast store when resolver is not configured', async () => {
         const { responseRejected } = await loadApiModule(undefined, { configureResolvers: false })
-        const error = {
+        const error = createApiError({
             message: 'forbidden',
             config: { headers: {} },
             response: {
                 status: 403,
                 data: { message: 'forbidden' },
             },
-        } as any
+        })
 
         await expect(responseRejected(error)).rejects.toBe(error)
         expect(mocks.mockAddToast).not.toHaveBeenCalled()
@@ -31,14 +31,14 @@ describe('API Interceptors', () => {
                 throw new Error('toast resolver failure')
             },
         })
-        const error = {
+        const error = createApiError({
             message: 'not found',
             config: { headers: {} },
             response: {
                 status: 404,
                 data: { message: 'missing' },
             },
-        } as any
+        })
 
         await expect(responseRejected(error)).rejects.toBe(error)
         expect(mocks.mockAddToast).not.toHaveBeenCalled()
@@ -47,10 +47,10 @@ describe('API Interceptors', () => {
 
     it('handles response errors without config safely', async () => {
         const { responseRejected } = await loadApiModule()
-        const errorWithoutConfig = {
+        const errorWithoutConfig = createApiError({
             message: 'Network Error',
             request: {},
-        } as any
+        })
 
         await expect(responseRejected(errorWithoutConfig)).rejects.toBe(errorWithoutConfig)
         expect(errorWithoutConfig.suppressGlobalErrorToast).toBe(true)
@@ -64,14 +64,14 @@ describe('API Interceptors', () => {
 
     it('handles redirectOnError requests', async () => {
         const { responseRejected } = await loadApiModule()
-        const error = {
+        const error = createApiError({
             message: 'fallback message',
             config: { redirectOnError: true, headers: {} },
             response: {
                 status: 404,
                 data: { message: 'not found' },
             },
-        } as any
+        })
 
         await expect(responseRejected(error)).rejects.toBe(error)
         expect(mocks.mockRouterPush).toHaveBeenCalledWith({
@@ -82,10 +82,10 @@ describe('API Interceptors', () => {
 
     it('handles redirectOnError fallback when response payload is missing', async () => {
         const { responseRejected } = await loadApiModule()
-        const error = {
+        const error = createApiError({
             message: 'redirect fallback',
             config: { redirectOnError: true, headers: {} },
-        } as any
+        })
 
         await expect(responseRejected(error)).rejects.toBe(error)
         expect(mocks.mockRouterPush).toHaveBeenCalledWith({
@@ -96,14 +96,14 @@ describe('API Interceptors', () => {
 
     it('skips global error handling when configured', async () => {
         const { responseRejected } = await loadApiModule()
-        const error = {
+        const error = createApiError({
             message: 'bad request',
             config: { skipGlobalErrorHandler: true, headers: {} },
             response: {
                 status: 400,
                 data: { message: 'bad request' },
             },
-        } as any
+        })
 
         await expect(responseRejected(error)).rejects.toBe(error)
         expect(error.suppressGlobalErrorToast).toBeUndefined()
@@ -112,13 +112,13 @@ describe('API Interceptors', () => {
 
     it('ignores canceled requests before global handling and auth refresh', async () => {
         const { responseRejected } = await loadApiModule()
-        const canceledError = {
+        const canceledError = createApiError({
             name: 'CanceledError',
             code: 'ERR_CANCELED',
             message: 'canceled',
             config: { headers: {} },
             request: {},
-        } as any
+        })
 
         await expect(responseRejected(canceledError)).rejects.toBe(canceledError)
         expect(canceledError.suppressGlobalErrorToast).toBeUndefined()
@@ -129,7 +129,7 @@ describe('API Interceptors', () => {
 
     it('shows validation message for 400 errors with details', async () => {
         const { responseRejected } = await loadApiModule()
-        const error = {
+        const error = createApiError({
             message: 'validation failed',
             config: { headers: {} },
             response: {
@@ -143,7 +143,7 @@ describe('API Interceptors', () => {
                     },
                 },
             },
-        } as any
+        })
 
         await expect(responseRejected(error)).rejects.toBe(error)
         expect(error.suppressGlobalErrorToast).toBe(true)
@@ -163,14 +163,14 @@ describe('API Interceptors', () => {
         { status: 418, message: 'teapot', expected: 'teapot' },
     ])('handles status %s in global error handler', async ({ status, message, expected }) => {
         const { responseRejected } = await loadApiModule()
-        const error = {
+        const error = createApiError({
             message,
             config: { headers: {} },
             response: {
                 status,
                 data: { message },
             },
-        } as any
+        })
 
         await expect(responseRejected(error)).rejects.toBe(error)
         expect(mocks.mockAddToast).toHaveBeenCalledWith(expected, 'error', 3000, 'top-center')
@@ -180,7 +180,7 @@ describe('API Interceptors', () => {
         mocks.mockTranslate.mockImplementation(() => '')
         const { responseRejected } = await loadApiModule()
 
-        const validationError = {
+        const validationError = createApiError({
             config: { headers: {} },
             response: {
                 status: 400,
@@ -190,53 +190,53 @@ describe('API Interceptors', () => {
                     },
                 },
             },
-        } as any
+        })
         await expect(responseRejected(validationError)).rejects.toBe(validationError)
 
-        const forbiddenError = {
+        const forbiddenError = createApiError({
             config: { headers: {} },
             response: {
                 status: 403,
                 data: {},
             },
-        } as any
+        })
         await expect(responseRejected(forbiddenError)).rejects.toBe(forbiddenError)
 
-        const notFoundError = {
+        const notFoundError = createApiError({
             config: { headers: {} },
             response: {
                 status: 404,
                 data: {},
             },
-        } as any
+        })
         await expect(responseRejected(notFoundError)).rejects.toBe(notFoundError)
 
-        const unknownStatusError = {
+        const unknownStatusError = createApiError({
             config: { headers: {} },
             response: {
                 status: 418,
                 data: {},
             },
-        } as any
+        })
         await expect(responseRejected(unknownStatusError)).rejects.toBe(unknownStatusError)
 
-        const retryableNetworkError = {
+        const retryableNetworkError = createApiError({
             code: 'ERR_NETWORK',
             config: { headers: {} },
             request: {},
-        } as any
+        })
         await expect(responseRejected(retryableNetworkError)).rejects.toBe(retryableNetworkError)
 
-        const nonRetryableNetworkError = {
+        const nonRetryableNetworkError = createApiError({
             code: 'ERR_BAD_RESPONSE',
             config: { headers: {} },
             request: {},
-        } as any
+        })
         await expect(responseRejected(nonRetryableNetworkError)).rejects.toBe(nonRetryableNetworkError)
 
-        const setupError = {
+        const setupError = createApiError({
             config: { headers: {} },
-        } as any
+        })
         await expect(responseRejected(setupError)).rejects.toBe(setupError)
 
         expect(mocks.mockAddToast).toHaveBeenCalledWith(
@@ -251,13 +251,13 @@ describe('API Interceptors', () => {
         mocks.mockTranslate.mockImplementation((key: string) => (key === 'common.messages.serverError' ? '' : key))
         const { responseRejected } = await loadApiModule()
 
-        const error = {
+        const error = createApiError({
             config: { headers: {} },
             response: {
                 status: 400,
                 data: {},
             },
-        } as any
+        })
 
         await expect(responseRejected(error)).rejects.toBe(error)
         expect(mocks.mockAddToast).toHaveBeenCalledWith('common.messages.badRequest', 'error', 3000, 'top-center')
@@ -265,7 +265,7 @@ describe('API Interceptors', () => {
 
     it('falls back to top-level message when nested error message is missing', async () => {
         const { responseRejected } = await loadApiModule()
-        const error = {
+        const error = createApiError({
             message: 'request failed',
             config: { headers: {} },
             response: {
@@ -275,7 +275,7 @@ describe('API Interceptors', () => {
                     error: { code: 'AUTH' },
                 },
             },
-        } as any
+        })
 
         await expect(responseRejected(error)).rejects.toBe(error)
         expect(mocks.mockAddToast).toHaveBeenCalledWith('top-level-forbidden', 'error', 3000, 'top-center')
@@ -283,14 +283,14 @@ describe('API Interceptors', () => {
 
     it('falls back to axios error.message when response has no message fields', async () => {
         const { responseRejected } = await loadApiModule()
-        const error = {
+        const error = createApiError({
             message: 'from-axios-error',
             config: { headers: {} },
             response: {
                 status: 418,
                 data: {},
             },
-        } as any
+        })
 
         await expect(responseRejected(error)).rejects.toBe(error)
         expect(mocks.mockAddToast).toHaveBeenCalledWith('from-axios-error', 'error', 3000, 'top-center')
@@ -298,7 +298,7 @@ describe('API Interceptors', () => {
 
     it('handles 400 validation details object without field entries', async () => {
         const { responseRejected } = await loadApiModule()
-        const error = {
+        const error = createApiError({
             message: 'request failed',
             config: { headers: {} },
             response: {
@@ -310,7 +310,7 @@ describe('API Interceptors', () => {
                     },
                 },
             },
-        } as any
+        })
 
         await expect(responseRejected(error)).rejects.toBe(error)
         expect(mocks.mockAddToast).toHaveBeenCalledWith('validation-empty', 'error', 3000, 'top-center')
@@ -318,7 +318,7 @@ describe('API Interceptors', () => {
 
     it('falls back to the response message when 400 details are not validation arrays', async () => {
         const { responseRejected } = await loadApiModule()
-        const error = {
+        const error = createApiError({
             message: 'request failed',
             config: { headers: {} },
             response: {
@@ -332,7 +332,7 @@ describe('API Interceptors', () => {
                     },
                 },
             },
-        } as any
+        })
 
         await expect(responseRejected(error)).rejects.toBe(error)
         expect(mocks.mockAddToast).toHaveBeenCalledWith('validation-malformed', 'error', 3000, 'top-center')
@@ -340,12 +340,12 @@ describe('API Interceptors', () => {
 
     it('shows normalized network message when request error is not retryable', async () => {
         const { responseRejected } = await loadApiModule()
-        const error = {
+        const error = createApiError({
             message: 'socket closed',
             code: 'ERR_BAD_RESPONSE',
             config: { headers: {} },
             request: {},
-        } as any
+        })
 
         await expect(responseRejected(error)).rejects.toBe(error)
         expect(mocks.mockAddToast).toHaveBeenCalledWith('socket closed', 'error', 3000, 'top-center')
@@ -353,10 +353,10 @@ describe('API Interceptors', () => {
 
     it('shows request setup message for pre-request failures', async () => {
         const { responseRejected } = await loadApiModule()
-        const error = {
+        const error = createApiError({
             message: 'setup failed',
             config: { headers: {} },
-        } as any
+        })
 
         await expect(responseRejected(error)).rejects.toBe(error)
         expect(mocks.mockAddToast).toHaveBeenCalledWith('setup failed', 'error', 3000, 'top-center')

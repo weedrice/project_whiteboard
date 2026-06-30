@@ -1,6 +1,13 @@
 ﻿import { beforeEach, describe, expect, it } from 'vitest'
 
-import { getApiIndexMocks, loadApiModule, resetApiIndexTestState } from './apiIndexTestHarness'
+import {
+    createApiError,
+    createApiRequestConfig,
+    createApiRequestConfigWithoutHeaders,
+    getApiIndexMocks,
+    loadApiModule,
+    resetApiIndexTestState,
+} from './apiIndexTestHarness'
 
 const mocks = getApiIndexMocks()
 
@@ -11,14 +18,14 @@ describe('API Interceptors', () => {
 
     it('does not refresh token when skipAuthRefresh is enabled', async () => {
         const { responseRejected } = await loadApiModule()
-        const error = {
+        const error = createApiError({
             message: 'unauthorized',
             config: { skipAuthRefresh: true, headers: {} },
             response: {
                 status: 401,
                 data: { message: 'unauthorized' },
             },
-        } as any
+        })
 
         await expect(responseRejected(error)).rejects.toBe(error)
         expect(mocks.mockAxiosPost).not.toHaveBeenCalled()
@@ -28,14 +35,14 @@ describe('API Interceptors', () => {
 
     it('does not suppress global query toast for retried 401 failures without an axios toast', async () => {
         const { responseRejected } = await loadApiModule()
-        const error = {
+        const error = createApiError({
             message: 'unauthorized after retry',
             config: { _retry: true, headers: {} },
             response: {
                 status: 401,
                 data: { message: 'unauthorized after retry' },
             },
-        } as any
+        })
 
         await expect(responseRejected(error)).rejects.toBe(error)
         expect(mocks.mockAxiosPost).not.toHaveBeenCalled()
@@ -56,11 +63,8 @@ describe('API Interceptors', () => {
         })
         mocks.mockApiRequest.mockResolvedValue({ data: { ok: true } })
 
-        const originalRequest = { headers: {} } as any
-        const error = {
-            config: originalRequest,
-            response: { status: 401 },
-        } as any
+        const originalRequest = createApiRequestConfig()
+        const error = createApiError({ config: originalRequest, response: { status: 401 } })
 
         const result = await responseRejected(error)
 
@@ -86,11 +90,8 @@ describe('API Interceptors', () => {
             },
         })
 
-        const originalRequest = { headers: {} } as any
-        const error = {
-            config: originalRequest,
-            response: { status: 401 },
-        } as any
+        const originalRequest = createApiRequestConfig()
+        const error = createApiError({ config: originalRequest, response: { status: 401 } })
 
         await expect(responseRejected(error)).rejects.toMatchObject({
             suppressGlobalErrorToast: true,
@@ -114,11 +115,8 @@ describe('API Interceptors', () => {
         })
         mocks.mockApiRequest.mockResolvedValue({ data: { ok: true } })
 
-        const request = { headers: {} } as any
-        const error = {
-            config: request,
-            response: { status: 401 },
-        } as any
+        const request = createApiRequestConfig()
+        const error = createApiError({ config: request, response: { status: 401 } })
 
         const result = await responseRejected(error)
 
@@ -143,11 +141,8 @@ describe('API Interceptors', () => {
         })
         mocks.mockApiRequest.mockResolvedValue({ data: { ok: true } })
 
-        const request = { headers: {} } as any
-        const error = {
-            config: request,
-            response: { status: 401 },
-        } as any
+        const request = createApiRequestConfig()
+        const error = createApiError({ config: request, response: { status: 401 } })
 
         const result = await responseRejected(error)
 
@@ -166,10 +161,10 @@ describe('API Interceptors', () => {
         })
         mocks.mockAxiosPost.mockReturnValueOnce(refreshPromise)
 
-        const req1 = { headers: {} } as any
-        const req2 = { headers: {} } as any
-        const error1 = { config: req1, response: { status: 401 } } as any
-        const error2 = { config: req2, response: { status: 401 } } as any
+        const req1 = createApiRequestConfig()
+        const req2 = createApiRequestConfig()
+        const error1 = createApiError({ config: req1, response: { status: 401 } })
+        const error2 = createApiError({ config: req2, response: { status: 401 } })
 
         const p1 = responseRejected(error1)
         const p2 = responseRejected(error2)
@@ -202,10 +197,10 @@ describe('API Interceptors', () => {
         })
         mocks.mockAxiosPost.mockReturnValueOnce(refreshPromise)
 
-        const firstRequest = {} as any
-        const queuedRequest = { headers: {} } as any
-        const firstError = { config: firstRequest, response: { status: 401 } } as any
-        const queuedError = { config: queuedRequest, response: { status: 401 } } as any
+        const firstRequest = createApiRequestConfigWithoutHeaders()
+        const queuedRequest = createApiRequestConfig()
+        const firstError = createApiError({ config: firstRequest, response: { status: 401 } })
+        const queuedError = createApiError({ config: queuedRequest, response: { status: 401 } })
 
         const p1 = responseRejected(firstError)
         const p2 = responseRejected(queuedError)
@@ -234,10 +229,10 @@ describe('API Interceptors', () => {
         })
         mocks.mockAxiosPost.mockReturnValueOnce(refreshPromise)
 
-        const req1 = { headers: {} } as any
-        const req2 = { headers: {} } as any
-        const error1 = { config: req1, response: { status: 401 } } as any
-        const error2 = { config: req2, response: { status: 401 } } as any
+        const req1 = createApiRequestConfig()
+        const req2 = createApiRequestConfig()
+        const error1 = createApiError({ config: req1, response: { status: 401 } })
+        const error2 = createApiError({ config: req2, response: { status: 401 } })
         const refreshError = { response: { status: 401 } }
 
         const p1 = responseRejected(error1)
@@ -262,10 +257,10 @@ describe('API Interceptors', () => {
             response: { status: 401 },
         })
 
-        const error = {
+        const error = createApiError({
             config: { headers: {} },
             response: { status: 401 },
-        } as any
+        })
 
         await expect(responseRejected(error)).rejects.toBeDefined()
         expect(localStorage.getItem('accessToken')).toBeNull()
@@ -281,10 +276,10 @@ describe('API Interceptors', () => {
             },
         })
 
-        const error = {
+        const error = createApiError({
             config: { headers: {} },
             response: { status: 401 },
-        } as any
+        })
 
         await expect(responseRejected(error)).rejects.toBeInstanceOf(Error)
         expect(mocks.mockApiRequest).not.toHaveBeenCalled()
@@ -297,10 +292,10 @@ describe('API Interceptors', () => {
             response: { status: 500 },
         })
 
-        const error = {
+        const error = createApiError({
             config: { headers: {} },
             response: { status: 401 },
-        } as any
+        })
 
         await expect(responseRejected(error)).rejects.toBeDefined()
         expect(localStorage.getItem('accessToken')).toBe('keep-access')
@@ -315,10 +310,10 @@ describe('API Interceptors', () => {
             response: { status: 401 },
         })
 
-        const error = {
+        const error = createApiError({
             config: { headers: {} },
             response: { status: 401 },
-        } as any
+        })
 
         await expect(responseRejected(error)).rejects.toBeDefined()
         expect(mocks.mockRouterPush).not.toHaveBeenCalled()
@@ -333,10 +328,10 @@ describe('API Interceptors', () => {
             response: { status: 401 },
         })
 
-        const error = {
+        const error = createApiError({
             config: { headers: {} },
             response: { status: 401 },
-        } as any
+        })
 
         await expect(responseRejected(error)).rejects.toBeDefined()
         expect(mocks.mockAddToast).not.toHaveBeenCalled()
@@ -352,10 +347,10 @@ describe('API Interceptors', () => {
             response: { status: 401 },
         })
 
-        const error = {
+        const error = createApiError({
             config: { headers: {} },
             response: { status: 401 },
-        } as any
+        })
 
         await expect(responseRejected(error)).rejects.toBeDefined()
         expect(localStorage.getItem('accessToken')).toBeNull()
@@ -382,10 +377,10 @@ describe('API Interceptors', () => {
             },
         })
 
-        const error = {
+        const error = createApiError({
             config: { headers: {} },
             response: { status: 401 },
-        } as any
+        })
 
         const rejected = await responseRejected(error).catch((err: unknown) => err)
         expect(rejected).toBeDefined()

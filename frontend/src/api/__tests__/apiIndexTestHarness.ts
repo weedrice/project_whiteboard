@@ -1,4 +1,5 @@
 import { vi } from 'vitest'
+import type { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 
 const mocks = vi.hoisted(() => {
     const mockAddToast = vi.fn()
@@ -127,6 +128,79 @@ export const loadApiModule = async (
         responseRejected,
     }
 }
+
+type MutableHeaders = Record<string, string | undefined>
+
+export type TestApiRequestConfig = InternalAxiosRequestConfig & {
+    headers: MutableHeaders
+}
+
+export type TestApiError = AxiosError & {
+    suppressGlobalErrorToast?: boolean
+    isAuthRefreshFailure?: boolean
+    isUserHydrationFailure?: boolean
+}
+
+export const createApiRequestConfig = (
+    overrides: Partial<InternalAxiosRequestConfig> = {},
+): TestApiRequestConfig => {
+    const { headers, ...rest } = overrides
+
+    return {
+        ...rest,
+        headers: {
+            ...(headers as MutableHeaders | undefined),
+        },
+    } as TestApiRequestConfig
+}
+
+export const createApiRequestConfigWithoutHeaders = (): InternalAxiosRequestConfig => (
+    {} as InternalAxiosRequestConfig
+)
+
+export const createApiResponse = <T>(data: T): AxiosResponse<T> => ({
+    data,
+    status: 200,
+    statusText: 'OK',
+    headers: {},
+    config: createApiRequestConfig(),
+})
+
+export const createApiError = ({
+    message,
+    config,
+    response,
+    request,
+    code,
+    name,
+}: {
+    message?: string
+    config?: Partial<InternalAxiosRequestConfig>
+    response?: {
+        status?: number
+        data?: unknown
+    }
+    request?: unknown
+    code?: string
+    name?: string
+} = {}): TestApiError => ({
+    ...(message === undefined ? {} : { message }),
+    name: name ?? 'AxiosError',
+    code,
+    config: config as InternalAxiosRequestConfig | undefined,
+    request,
+    response: response
+        ? {
+            data: response.data,
+            status: response.status ?? 500,
+            statusText: '',
+            headers: {},
+            config: createApiRequestConfig(),
+        }
+        : undefined,
+    isAxiosError: true,
+    toJSON: () => ({}),
+} as TestApiError)
 
 export const resetApiIndexTestState = () => {
     vi.resetModules()

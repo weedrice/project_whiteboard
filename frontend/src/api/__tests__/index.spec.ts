@@ -1,6 +1,12 @@
 ﻿import { beforeEach, describe, expect, it } from 'vitest'
 
-import { getApiIndexMocks, loadApiModule, resetApiIndexTestState } from './apiIndexTestHarness'
+import {
+    createApiRequestConfig,
+    createApiResponse,
+    getApiIndexMocks,
+    loadApiModule,
+    resetApiIndexTestState,
+} from './apiIndexTestHarness'
 
 const mocks = getApiIndexMocks()
 
@@ -43,7 +49,7 @@ describe('API Interceptors', () => {
 
     it('passes through successful response interceptor result', async () => {
         const { responseFulfilled } = await loadApiModule()
-        const response = { data: { ok: true } } as any
+        const response = createApiResponse({ ok: true })
 
         expect(responseFulfilled(response)).toBe(response)
     })
@@ -51,7 +57,7 @@ describe('API Interceptors', () => {
     it('adds Authorization header in request interceptor for non-auth endpoint', async () => {
         const { requestFulfilled } = await loadApiModule()
         localStorage.setItem('accessToken', 'token-1')
-        const config = { url: '/posts', headers: {} } as any
+        const config = createApiRequestConfig({ url: '/posts' })
 
         const result = requestFulfilled(config)
 
@@ -62,8 +68,8 @@ describe('API Interceptors', () => {
         const { requestFulfilled } = await loadApiModule()
         localStorage.setItem('accessToken', 'token-2')
 
-        const authConfig = { url: '/auth/login', headers: {} } as any
-        const verifyConfig = { url: '/auth/email/verify', headers: {} } as any
+        const authConfig = createApiRequestConfig({ url: '/auth/login' })
+        const verifyConfig = createApiRequestConfig({ url: '/auth/email/verify' })
 
         requestFulfilled(authConfig)
         requestFulfilled(verifyConfig)
@@ -74,7 +80,7 @@ describe('API Interceptors', () => {
 
     it('propagates request interceptor rejection', async () => {
         const { requestRejected } = await loadApiModule()
-        const requestError = new Error('request failed') as any
+        const requestError = new Error('request failed')
 
         await expect(requestRejected(requestError)).rejects.toBe(requestError)
     })
