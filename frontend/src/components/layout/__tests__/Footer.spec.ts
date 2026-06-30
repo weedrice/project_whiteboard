@@ -43,8 +43,7 @@ describe('Footer', () => {
                 }
             }
         })
-        const currentYear = new Date().getFullYear()
-        expect(wrapper.text()).toContain(currentYear.toString())
+        expect(wrapper.text()).toContain('2026')
         expect(wrapper.text()).toContain('Test App')
         expect(wrapper.text()).toContain('All rights reserved.')
     })

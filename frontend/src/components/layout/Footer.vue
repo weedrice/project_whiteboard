@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { useThemeStore } from '@/stores/theme'
 import { useThemePreference } from '@/composables/useThemePreference'
 import { Sun, Moon } from 'lucide-vue-next'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 
-const currentYear = computed(() => new Date().getFullYear())
+const COPYRIGHT_YEAR = 2026
 const themeStore = useThemeStore()
 const { toggleTheme } = useThemePreference()
 const commitHash = __COMMIT_HASH__
@@ -16,7 +15,7 @@ const commitHash = __COMMIT_HASH__
     <div class="max-w-7xl mx-auto py-1.5 sm:py-2 px-4 sm:px-6 lg:px-8">
       <div class="flex flex-col md:flex-row justify-between items-center gap-0.5 md:gap-0">
         <p class="nv-footer-copy text-sm text-center md:text-left order-3 md:order-1 leading-tight">
-          &copy; {{ currentYear }} {{ $t('common.appName') }}. {{ $t('common.footer.rights') }}
+          &copy; {{ COPYRIGHT_YEAR }} {{ $t('common.appName') }}. {{ $t('common.footer.rights') }}
         </p>
 
         <div

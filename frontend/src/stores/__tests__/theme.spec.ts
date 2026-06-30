@@ -58,6 +58,25 @@ describe('Theme Store', () => {
             }).not.toThrow()
             expect(store.isDark).toBe(false)
         })
+
+        it('initializes safely when matchMedia is unavailable', () => {
+            const originalMatchMedia = window.matchMedia
+            Object.defineProperty(window, 'matchMedia', {
+                configurable: true,
+                value: undefined,
+            })
+            setActivePinia(createPinia())
+
+            expect(() => {
+                store = useThemeStore()
+            }).not.toThrow()
+            expect(store.isDark).toBe(false)
+
+            Object.defineProperty(window, 'matchMedia', {
+                configurable: true,
+                value: originalMatchMedia,
+            })
+        })
     })
 
     describe('setTheme', () => {

@@ -177,3 +177,31 @@ export class Storage {
         }
     }
 }
+
+export class SessionStorage {
+    static getString(key: string, defaultValue: string | null = null): string | null {
+        try {
+            const item = sessionStorage.getItem(key)
+            return item !== null ? item : defaultValue
+        } catch (error: unknown) {
+            logger.error(`Failed to get string from sessionStorage: ${key}`, error)
+            return defaultValue
+        }
+    }
+
+    static setString(key: string, value: string): void {
+        try {
+            sessionStorage.setItem(key, value)
+        } catch (error: unknown) {
+            logger.error(`Failed to set string to sessionStorage: ${key}`, error)
+        }
+    }
+
+    static remove(key: string): void {
+        try {
+            sessionStorage.removeItem(key)
+        } catch (error: unknown) {
+            logger.error(`Failed to remove item from sessionStorage: ${key}`, error)
+        }
+    }
+}

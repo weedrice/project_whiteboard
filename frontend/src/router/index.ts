@@ -2,6 +2,7 @@ import { createRouter, createWebHistory, type RouteLocationNormalized } from 'vu
 import { createAppNavigationGuard } from '@/router/guards'
 import logger from '@/utils/logger'
 import { reloadPage } from '@/utils/pageReload'
+import { SessionStorage } from '@/utils/storage'
 
 const CHUNK_RELOAD_KEY = 'chunk-reload-attempted'
 
@@ -293,20 +294,20 @@ const router = createRouter({
 router.beforeEach(createAppNavigationGuard())
 
 router.afterEach(() => {
-    if (sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
-        sessionStorage.removeItem(CHUNK_RELOAD_KEY)
+    if (SessionStorage.getString(CHUNK_RELOAD_KEY)) {
+        SessionStorage.remove(CHUNK_RELOAD_KEY)
     }
 })
 
 router.onError((error) => {
     if (error.message.includes('Failed to fetch dynamically imported module') || error.message.includes('Importing a module script failed')) {
-        const alreadyRetried = sessionStorage.getItem(CHUNK_RELOAD_KEY) === '1'
+        const alreadyRetried = SessionStorage.getString(CHUNK_RELOAD_KEY) === '1'
         if (!alreadyRetried) {
-            sessionStorage.setItem(CHUNK_RELOAD_KEY, '1')
+            SessionStorage.setString(CHUNK_RELOAD_KEY, '1')
             reloadPage()
             return
         }
-        sessionStorage.removeItem(CHUNK_RELOAD_KEY)
+        SessionStorage.remove(CHUNK_RELOAD_KEY)
         router.push({
             name: 'error',
             query: {

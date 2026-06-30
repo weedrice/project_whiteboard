@@ -1,3 +1,5 @@
+import { SessionStorage } from '@/utils/storage'
+
 export const LOGIN_REDIRECT_KEY = 'loginRedirect'
 export const DELETED_ACCOUNT_ERROR_CODE = 'A009'
 export const DELETED_ACCOUNT_MESSAGE_KEY = 'auth.userDeleted'
@@ -8,17 +10,17 @@ export function isSafeRedirect(path: unknown): path is string {
 
 export function saveLoginRedirect(path: unknown): void {
   if (isSafeRedirect(path)) {
-    sessionStorage.setItem(LOGIN_REDIRECT_KEY, path)
+    SessionStorage.setString(LOGIN_REDIRECT_KEY, path)
   }
 }
 
 export function getStoredLoginRedirect(): string | null {
-  const redirect = sessionStorage.getItem(LOGIN_REDIRECT_KEY)
+  const redirect = SessionStorage.getString(LOGIN_REDIRECT_KEY)
   return isSafeRedirect(redirect) ? redirect : null
 }
 
 export function clearLoginRedirect(): void {
-  sessionStorage.removeItem(LOGIN_REDIRECT_KEY)
+  SessionStorage.remove(LOGIN_REDIRECT_KEY)
 }
 
 export function resolveLoginRedirect(queryRedirect: unknown, fallback = '/'): string {

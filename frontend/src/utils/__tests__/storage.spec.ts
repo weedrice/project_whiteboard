@@ -10,12 +10,13 @@ vi.mock('@/utils/logger', () => ({
     },
 }))
 
-import { Storage as StorageUtil } from '@/utils/storage'
+import { SessionStorage, Storage as StorageUtil } from '@/utils/storage'
 import logger from '@/utils/logger'
 
 describe('Storage', () => {
     beforeEach(() => {
         localStorage.clear()
+        sessionStorage.clear()
         vi.restoreAllMocks()
     })
 
@@ -108,5 +109,35 @@ describe('Storage', () => {
         clearSpy.mockRestore()
         getSpy.mockRestore()
         objectKeysSpy.mockRestore()
+    })
+
+    it('supports session string lifecycle helpers', () => {
+        SessionStorage.setString('chunk-reload-attempted', '1')
+        expect(SessionStorage.getString('chunk-reload-attempted')).toBe('1')
+
+        SessionStorage.remove('chunk-reload-attempted')
+
+        expect(SessionStorage.getString('chunk-reload-attempted')).toBeNull()
+    })
+
+    it('fails safely when sessionStorage operations throw', () => {
+        const storageProto = Object.getPrototypeOf(window.sessionStorage) as globalThis.Storage
+        const getSpy = vi.spyOn(storageProto, 'getItem').mockImplementation(() => {
+            throw new Error('session read failed')
+        })
+        const setSpy = vi.spyOn(storageProto, 'setItem').mockImplementation(() => {
+            throw new Error('session write failed')
+        })
+        const removeSpy = vi.spyOn(storageProto, 'removeItem').mockImplementation(() => {
+            throw new Error('session remove failed')
+        })
+
+        expect(SessionStorage.getString('x', 'fallback')).toBe('fallback')
+        expect(() => SessionStorage.setString('x', '1')).not.toThrow()
+        expect(() => SessionStorage.remove('x')).not.toThrow()
+
+        getSpy.mockRestore()
+        setSpy.mockRestore()
+        removeSpy.mockRestore()
     })
 })
