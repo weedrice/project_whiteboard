@@ -18,38 +18,37 @@ const ALLOWED_IFRAME_HOSTS = new Set([
     'player.vimeo.com',
 ])
 
-/**
- * HTML 콘텐츠를 sanitize하여 XSS 공격을 방지합니다.
- * 
- * @param html 원본 HTML 문자열
- * @param options DOMPurify 옵션
- * @returns sanitize된 HTML 문자열
- * 
- * @example
- * ```typescript
- * const safeHtml = sanitizeHtml(userInput)
- * ```
- */
-export function sanitizeHtml(html: string, options?: Config): string {
-    const config = {
-        // 기본 옵션: 이미지, 링크, 기본 포맷팅 허용
-        ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'a', 'img'],
-        ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'loading'],
-        // 링크는 http/https만 허용
-        ALLOW_DATA_ATTR: false,
-        ...options
-    }
-    return DOMPurify.sanitize(html, config)
+export type SanitizedHtml = string & { readonly __sanitizedHtmlBrand: unique symbol }
+
+export function asSanitizedHtml(html: string): SanitizedHtml {
+    return html as SanitizedHtml
 }
 
 /**
- * 게시글 본문(에디터) HTML을 sanitize합니다.
- * Quill / TipTap 등 에디터에서 생성된 태그·속성을 허용합니다.
+ * Sanitizes generic HTML content to prevent XSS.
  *
- * @param html 에디터 HTML 문자열
- * @returns sanitize된 HTML 문자열
+ * @param html Source HTML string.
+ * @param options DOMPurify options merged into the default allowlist.
+ * @returns Sanitized HTML string branded for v-html rendering.
  */
-export function sanitizeQuillHtml(html: string): string {
+export function sanitizeHtml(html: string, options?: Config): SanitizedHtml {
+    const config = {
+        ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'a', 'img'],
+        ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'loading'],
+        ALLOW_DATA_ATTR: false,
+        ...options
+    }
+    return asSanitizedHtml(DOMPurify.sanitize(html, config))
+}
+
+/**
+ * Sanitizes post body HTML produced by the rich-text editor.
+ * Allows the editor tags and attributes needed for images, videos, tables, and inline formatting.
+ *
+ * @param html Editor HTML string.
+ * @returns Sanitized HTML string branded for v-html rendering.
+ */
+export function sanitizeQuillHtml(html: string): SanitizedHtml {
     const sanitized = DOMPurify.sanitize(html, {
         ALLOWED_TAGS: [
             'p', 'br', 'strong', 'em', 'u', 's', 'strike',
@@ -71,7 +70,7 @@ export function sanitizeQuillHtml(html: string): string {
         ADD_ATTR: ['loading']
     })
 
-    return tightenQuillHtml(sanitized)
+    return asSanitizedHtml(tightenQuillHtml(sanitized))
 }
 
 function tightenQuillHtml(html: string): string {

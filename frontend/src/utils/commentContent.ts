@@ -1,5 +1,6 @@
-import { sanitizeHtml } from '@/utils/sanitize'
+import { asSanitizedHtml, sanitizeHtml } from '@/utils/sanitize'
 import { normalizeFileUrl } from '@/utils/fileUrl'
+import type { SanitizedHtml } from '@/utils/sanitize'
 
 const EMOTICON_PATTERN = /!\[emoticon\]\(([^)]+)\)/g
 const EMOTICON_ONLY_PATTERN = /^!\[emoticon\]\([^)]+\)$/
@@ -20,8 +21,8 @@ function normalizeEmoticonUrl(rawUrl: string): string | null {
     return null
 }
 
-export function renderCommentContentHtml(content: string | null | undefined, className = 'comment-emoticon'): string {
-    if (!content) return ''
+export function renderCommentContentHtml(content: string | null | undefined, className = 'comment-emoticon'): SanitizedHtml {
+    if (!content) return asSanitizedHtml('')
 
     const replaced = content.replace(EMOTICON_PATTERN, (_match, rawUrl: string) => {
         const safeUrl = normalizeEmoticonUrl(rawUrl)

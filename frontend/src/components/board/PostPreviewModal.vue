@@ -2,13 +2,14 @@
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
+import type { SanitizedHtml } from '@/utils/sanitize'
 
 defineProps<{
   isOpen: boolean
   boardLabel?: string
   postTitle: string
   tags: string[]
-  html: string
+  html: SanitizedHtml
   hideBoardLabel?: boolean
   hideTags?: boolean
 }>()

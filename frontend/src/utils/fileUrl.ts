@@ -14,7 +14,10 @@ export function normalizeLegacyFileUrls(content: string): string {
         .replace(LEGACY_HTML_FILE_PATTERN, '$1/api/v1/files/$2$3$4')
 }
 
-export function normalizeEditorFileImageUrls(content: string): string {
+function normalizeEditorFileImages(
+    content: string,
+    options: { removeEditorAttributes: boolean }
+): string {
     if (!content || typeof DOMParser === 'undefined') {
         return content
     }
@@ -26,26 +29,19 @@ export function normalizeEditorFileImageUrls(content: string): string {
         if (!serverSrc) return
 
         image.setAttribute('src', normalizeFileUrl(serverSrc))
-        image.removeAttribute(EDITOR_IMAGE_URL_ATTRIBUTE)
-        image.removeAttribute(EDITOR_IMAGE_FILE_ID_ATTRIBUTE)
+        if (options.removeEditorAttributes) {
+            image.removeAttribute(EDITOR_IMAGE_URL_ATTRIBUTE)
+            image.removeAttribute(EDITOR_IMAGE_FILE_ID_ATTRIBUTE)
+        }
     })
 
     return doc.body.innerHTML
 }
 
+export function normalizeEditorFileImageUrls(content: string): string {
+    return normalizeEditorFileImages(content, { removeEditorAttributes: true })
+}
+
 export function normalizeEditorFileImagePreviewSources(content: string): string {
-    if (!content || typeof DOMParser === 'undefined') {
-        return content
-    }
-
-    const parser = new DOMParser()
-    const doc = parser.parseFromString(content, 'text/html')
-    doc.querySelectorAll<HTMLImageElement>(`img[${EDITOR_IMAGE_URL_ATTRIBUTE}]`).forEach((image) => {
-        const serverSrc = image.getAttribute(EDITOR_IMAGE_URL_ATTRIBUTE)
-        if (!serverSrc) return
-
-        image.setAttribute('src', normalizeFileUrl(serverSrc))
-    })
-
-    return doc.body.innerHTML
+    return normalizeEditorFileImages(content, { removeEditorAttributes: false })
 }

@@ -8,6 +8,7 @@ import { formatDateTimeOrDash } from '@/utils/date'
 import { renderPostContentHtml } from '@/utils/postContentHtml'
 import { stripHtmlToText, truncateWithEllipsis } from '@/utils/textExcerpt'
 import type { AdminInquirySummary, PageResponse, Post } from '@/types'
+import type { SanitizedHtml } from '@/utils/sanitize'
 
 type AdminInquiryStatusVariant = 'success' | 'warning'
 
@@ -26,7 +27,7 @@ export interface AdminInquiryDetail {
   title: string
   authorName: string
   createdAtText: string
-  contentsHtml: string
+  contentsHtml: SanitizedHtml
 }
 
 function getAuthorName(post: Pick<AdminInquirySummary, 'author'> | Pick<Post, 'author'>) {

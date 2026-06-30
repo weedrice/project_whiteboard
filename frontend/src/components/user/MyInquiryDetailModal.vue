@@ -6,6 +6,7 @@ import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import CommentList from '@/components/comment/CommentList.vue'
 import { formatDate } from '@/utils/date'
 import { applyImageFallback } from '@/utils/imageFallback'
+import type { SanitizedHtml } from '@/utils/sanitize'
 
 interface InquiryDetailPost {
   postId: number
@@ -20,7 +21,7 @@ defineProps<{
   isLoading: boolean
   error?: string | null
   isDeleting: boolean
-  contentsHtml: string
+  contentsHtml: SanitizedHtml
 }>()
 
 defineEmits<{

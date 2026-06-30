@@ -1,5 +1,5 @@
 import type { FeedPost } from '@/types'
-import { sanitizeQuillHtml } from '@/utils/sanitize'
+import { asSanitizedHtml, sanitizeQuillHtml, type SanitizedHtml } from '@/utils/sanitize'
 
 const HTML_TAG_PATTERN = /<[a-z][\s\S]*>/i
 
@@ -25,18 +25,18 @@ const normalizePlainTextExcerpt = (value: string) => {
     .join('')
 }
 
-export const getFeedBodyHtml = (post: Pick<FeedPost, 'contentsExcerpt' | 'summary'>) => {
+export const getFeedBodyHtml = (post: Pick<FeedPost, 'contentsExcerpt' | 'summary'>): SanitizedHtml | null => {
   const excerpt = post.contentsExcerpt || post.summary
   if (!excerpt) return null
 
-  let html = sanitizeQuillHtml(normalizePlainTextExcerpt(excerpt))
+  let html: string = sanitizeQuillHtml(normalizePlainTextExcerpt(excerpt))
   html = html.replace(/<img[^>]*>/gi, '')
   html = html.replace(/<iframe[^>]*>[\s\S]*?<\/iframe>/gi, '')
   html = html.replace(/<div[^>]*\bclass="[^"]*tiptap-video-wrapper[^"]*"[^>]*>[\s\S]*?<\/div>/gi, '')
 
   const textOnly = html.replace(/<[^>]+>/g, '').trim()
   if (!textOnly) return null
-  return html
+  return asSanitizedHtml(html)
 }
 
 export const getFeedMediaPreview = (post: Pick<FeedPost, 'firstMediaType' | 'firstMediaUrl' | 'thumbnailUrl'>) => {
