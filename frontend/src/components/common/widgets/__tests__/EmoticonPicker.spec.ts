@@ -287,9 +287,9 @@ describe('EmoticonPicker', () => {
             }))
 
         const wrapper = mountPicker(true)
-        const buttons = wrapper.findAll('.emoticon-btn')
-        await buttons[0].trigger('click')
-        await buttons[1].trigger('click')
+        await wrapper.findAll('.emoticon-btn')[0].trigger('click')
+        await wrapper.get('.back-btn').trigger('click')
+        await wrapper.findAll('.emoticon-btn')[1].trigger('click')
 
         resolveSecond(second)
         await flushPromises()

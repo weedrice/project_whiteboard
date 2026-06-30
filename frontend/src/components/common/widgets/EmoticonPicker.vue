@@ -5,12 +5,13 @@ import { emoticonApi } from '@/api/emoticon'
 import type { EmoticonMaster, EmoticonImage } from '@/types/emoticon'
 import { X, ArrowLeft, Search, Smile } from 'lucide-vue-next'
 import logger from '@/utils/logger'
-import { DEFAULT_EMOTICON_IMAGE_URL, applyImageFallback } from '@/utils/imageFallback'
 import { useLatestAsyncTask } from '@/composables/useLatestAsyncTask'
 import { useAccessibleEmoticonPicker } from '@/composables/useAccessibleEmoticonPicker'
 import { useEventListener } from '@/composables/useEventListener'
 import { useFocusTrap } from '@/composables/useFocusTrap'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
+import EmoticonPickerGrid from '@/components/common/widgets/EmoticonPickerGrid.vue'
+import EmoticonPickerImageGrid from '@/components/common/widgets/EmoticonPickerImageGrid.vue'
 
 const props = defineProps<{
   show: boolean
@@ -182,28 +183,12 @@ onUnmounted(() => {
           </div>
         </div>
         <!-- 이미지 그리드 -->
-        <div
+        <EmoticonPickerImageGrid
           v-else-if="selectedEmoticon && selectedImages.length > 0"
-          class="images-grid"
-          role="list"
-          :aria-label="`${selectedEmoticon.name} ${selectedImages.length}`"
-        >
-          <div
-            v-for="image in selectedImages"
-            :key="image.imageId"
-            class="emoticon-grid-item"
-            role="listitem"
-          >
-            <button
-              type="button"
-              :aria-label="t('emoticon.picker.imageSelectAria', { name: selectedEmoticon.name })"
-              @click="handleImageClick(image)"
-              class="image-btn"
-            >
-              <img :src="image.imageUrl || DEFAULT_EMOTICON_IMAGE_URL" :alt="selectedEmoticon.name" @error="applyImageFallback" />
-            </button>
-          </div>
-        </div>
+          :images="selectedImages"
+          :emoticon-name="selectedEmoticon.name"
+          @select="handleImageClick"
+        />
         <div v-else-if="selectedEmoticon" class="empty-state">
           <Smile class="w-8 h-8 nv-text-subtle mb-2" />
           <p>{{ t('emoticon.detail.imageEmpty') }}</p>
@@ -247,30 +232,11 @@ onUnmounted(() => {
         </div>
 
         <!-- 이모티콘 목록 -->
-        <div
+        <EmoticonPickerGrid
           v-else
-          class="emoticons-grid"
-          role="list"
-          :aria-label="`${t('emoticon.title')} ${filteredEmoticons.length}`"
-        >
-          <div
-            v-for="emoticon in filteredEmoticons"
-            :key="emoticon.emoticonId"
-            class="emoticon-grid-item"
-            role="listitem"
-          >
-            <button type="button"
-              :aria-label="t('emoticon.picker.imageSelectAria', { name: emoticon.name })"
-              @click="handleEmoticonClick(emoticon)" class="emoticon-btn">
-              <img
-                :src="emoticon.thumbnailUrl || emoticon.images?.[0]?.imageUrl || DEFAULT_EMOTICON_IMAGE_URL"
-                :alt="emoticon.name"
-                @error="applyImageFallback"
-              />
-              <span class="emoticon-name">{{ emoticon.name }}</span>
-            </button>
-          </div>
-        </div>
+          :emoticons="filteredEmoticons"
+          @select="handleEmoticonClick"
+        />
       </template>
     </div>
   </div>
@@ -456,112 +422,4 @@ onUnmounted(() => {
   color: var(--nv-text);
 }
 
-.emoticons-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-}
-
-.emoticon-grid-item {
-  min-width: 0;
-}
-
-@media (max-width: 639px) {
-  .emoticons-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 6px;
-  }
-}
-
-.emoticon-btn {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 8px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-@media (max-width: 639px) {
-  .emoticon-btn {
-    padding: 6px;
-    border-radius: 6px;
-  }
-}
-
-.emoticon-btn:hover {
-  background: var(--nv-surface-hover);
-}
-
-.emoticon-btn img {
-  width: 64px;
-  height: 64px;
-  object-fit: contain;
-  border-radius: 4px;
-}
-
-@media (max-width: 639px) {
-  .emoticon-btn img {
-    width: 48px;
-    height: 48px;
-  }
-}
-
-.emoticon-name {
-  margin-top: 4px;
-  font-size: 11px;
-  color: var(--nv-text-muted);
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
-}
-
-@media (max-width: 639px) {
-  .emoticon-name {
-    font-size: 10px;
-    margin-top: 2px;
-  }
-}
-
-.images-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-}
-
-@media (max-width: 639px) {
-  .images-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-  }
-}
-
-.image-btn {
-  width: 100%;
-  padding: 6px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.image-btn:hover {
-  background: var(--nv-surface-hover);
-}
-
-.image-btn img {
-  width: 100%;
-  aspect-ratio: 1;
-  object-fit: contain;
-}
-
-@media (max-width: 639px) {
-  .image-btn {
-    padding: 4px;
-    border-radius: 4px;
-  }
-}
 </style>
