@@ -2,19 +2,23 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseSpinner from './BaseSpinner.vue'
+import {
+    getBaseTableRowActionLabel,
+    getTableAlignButtonClass,
+    getTableAlignClass,
+    getTableAriaSort,
+    getTableCellValue,
+    getTableSortButtonLabel,
+    getTableSortIndicator,
+    resolveBaseTableRowKey,
+    type RowActionLabelResolver,
+    type RowActivationEvent,
+    type RowKeyResolver,
+    type TableColumn,
+} from './baseTableModel'
 import logger from '@/utils/logger'
 
-export interface TableColumn {
-    key: string
-    label: string
-    align?: 'left' | 'center' | 'right'
-    width?: string
-    sortable?: boolean
-}
-
-type RowKeyResolver<TItem> = Extract<keyof TItem, string> | ((item: TItem, index: number) => string | number)
-type RowActionLabelResolver<TItem> = string | ((item: TItem, index: number) => string)
-type RowActivationEvent = 'row-click' | 'row-dblclick'
+export type { TableColumn } from './baseTableModel'
 
 const props = withDefaults(defineProps<{
     columns: TableColumn[]
@@ -56,99 +60,33 @@ const { t } = useI18n()
 
 const effectiveEmptyText = computed(() => props.emptyText ?? t('common.noData'))
 
-const alignClass = (align?: string) => {
-    switch (align) {
-        case 'center': return 'text-center'
-        case 'right': return 'text-right'
-        default: return 'text-left'
-    }
-}
-
-const alignButtonClass = (align?: string) => {
-    switch (align) {
-        case 'center': return 'justify-center'
-        case 'right': return 'justify-end'
-        default: return 'justify-start'
-    }
-}
-
 const getAriaSort = (column: TableColumn): 'ascending' | 'descending' | 'none' | undefined => {
-    if (!column.sortable) {
-        return undefined
-    }
-
-    if (props.currentSortKey !== column.key) {
-        return 'none'
-    }
-
-    return props.currentSortDirection === 'asc' ? 'ascending' : 'descending'
+    return getTableAriaSort(column, props.currentSortKey, props.currentSortDirection)
 }
 
 const getSortIndicator = (column: TableColumn): string => {
-    if (props.currentSortKey !== column.key) {
-        return ''
-    }
-
-    return props.currentSortDirection === 'asc' ? '^' : 'v'
+    return getTableSortIndicator(column, props.currentSortKey, props.currentSortDirection)
 }
 
 const getSortButtonLabel = (column: TableColumn): string => {
-    if (props.currentSortKey !== column.key) {
-        return `${t('common.sortOrder')} ${column.label}`
-    }
-
-    const direction = getAriaSort(column)
-    return `${t('common.sortOrder')} ${column.label}: ${direction}`
+    return getTableSortButtonLabel(column, props.currentSortKey, props.currentSortDirection, t('common.sortOrder'))
 }
 
 const getRowKey = (item: T, index: number): string | number => {
-    if (typeof props.rowKey === 'function') {
-        return props.rowKey(item, index)
-    }
-
-    const record = item as Record<string, unknown>
-
-    if (typeof props.rowKey === 'string') {
-        const resolvedKey = record[props.rowKey]
-        if (typeof resolvedKey === 'string' || typeof resolvedKey === 'number') {
-            return resolvedKey
-        }
-    }
-
-    const defaultKey = record.id
-        ?? record.postId
-        ?? record.key
-        ?? record.userId
-        ?? record.reportId
-        ?? record.ipAddress
-        ?? record.adminId
-        ?? record.errorLogId
-    if (typeof defaultKey === 'string' || typeof defaultKey === 'number') {
-        return defaultKey
-    }
-
-    if (import.meta.env.DEV) {
-        logger.warn('[BaseTable] Falling back to index row key. Provide rowKey for stable list rendering.', item)
-    }
-
-    return index
-}
-
-const getCellValue = (item: T, key: string): unknown => {
-    const record = item as Record<string, unknown>
-    return record[key]
+    return resolveBaseTableRowKey({
+        item,
+        index,
+        rowKey: props.rowKey,
+        onIndexFallback: import.meta.env.DEV
+            ? (fallbackItem) => {
+                logger.warn('[BaseTable] Falling back to index row key. Provide rowKey for stable list rendering.', fallbackItem)
+            }
+            : undefined,
+    })
 }
 
 const getRowActionLabel = (item: T, index: number): string | undefined => {
-    if (!props.interactiveRows) {
-        return undefined
-    }
-
-    if (typeof props.rowActionLabel === 'function') {
-        return props.rowActionLabel(item, index)
-    }
-
-    return props.rowActionLabel
+    return getBaseTableRowActionLabel(item, index, props.interactiveRows, props.rowActionLabel)
 }
 
 const emitRowActivation = (item: T) => {
@@ -222,13 +160,13 @@ const bodyCellClasses = computed(() => [
                     <tr>
                         <th v-for="col in columns" :key="col.key" scope="col"
                             :aria-sort="getAriaSort(col)"
-                            :class="[headerCellClasses, alignClass(col.align)]"
+                            :class="[headerCellClasses, getTableAlignClass(col.align)]"
                             :style="{ width: col.width }">
                             <button
                                 v-if="col.sortable"
                                 type="button"
                                 class="nv-base-table-header-button inline-flex w-full items-center gap-2 focus:outline-none focus-visible:ring-2"
-                                :class="alignButtonClass(col.align)"
+                                :class="getTableAlignButtonClass(col.align)"
                                 :aria-label="getSortButtonLabel(col)"
                                 @click="emit('sort', col.key)">
                                 <span aria-hidden="true" class="text-[9px] sm:text-[10px]">
@@ -271,9 +209,9 @@ const bodyCellClasses = computed(() => [
                             @dblclick="handleRowDblclick(item)"
                             @keydown="handleRowKeydown($event, item)">
                             <td v-for="col in columns" :key="col.key"
-                                :class="[bodyCellClasses, alignClass(col.align)]">
-                                <slot :name="`cell-${col.key}`" :item="item" :value="getCellValue(item, col.key)">
-                                    {{ getCellValue(item, col.key) }}
+                                :class="[bodyCellClasses, getTableAlignClass(col.align)]">
+                                <slot :name="`cell-${col.key}`" :item="item" :value="getTableCellValue(item, col.key)">
+                                    {{ getTableCellValue(item, col.key) }}
                                 </slot>
                             </td>
                         </tr>
