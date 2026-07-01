@@ -1,18 +1,22 @@
 import { computed, onUnmounted, ref, type Ref } from 'vue'
 import { isAxiosError } from 'axios'
-import { postApi, type PostDraftData } from '@/api/post'
-import { userApi } from '@/api/user'
+import type { PostDraftData } from '@/api/post'
 import { unwrapAxiosApiData } from '@/api/response'
 import { usePost } from '@/composables/usePost'
-import type { DraftPost, DraftPostSummary } from '@/types'
+import type { DraftPost } from '@/types'
 import { Storage } from '@/utils/storage'
 import logger from '@/utils/logger'
+import {
+    findMatchingServerDraftId,
+    getDraftUpdatedAt,
+    isDraftOutdatedError,
+    isMatchingLoadedDraft,
+    loadDraftById,
+    pickNewestDraftSnapshot,
+    type DraftRecoverySnapshot,
+} from '@/composables/postDraftRecovery'
 
-export interface DraftRecoverySnapshot extends PostDraftData {
-    draftId?: number
-    categoryId?: number | null
-    modifiedAt?: string
-}
+export type { DraftRecoverySnapshot } from '@/composables/postDraftRecovery'
 
 interface UsePostDraftOptions {
     enabled: Ref<boolean>
@@ -22,92 +26,6 @@ interface UsePostDraftOptions {
 }
 
 const AUTOSAVE_DELAY_MS = 1500
-const DRAFT_OUTDATED_ERROR_CODE = 'P004'
-
-type ApiErrorPayload = {
-    code?: string
-    error?: {
-        code?: string
-    }
-}
-
-const toIsoTime = (value?: string | null): string | null => {
-    if (!value) return null
-    const parsed = new Date(value)
-    if (Number.isNaN(parsed.getTime())) return null
-    return parsed.toISOString()
-}
-
-const pickNewestSnapshot = (
-    localSnapshot: DraftRecoverySnapshot | null,
-    serverDraft: DraftPost | null,
-): DraftRecoverySnapshot | null => {
-    if (!localSnapshot && !serverDraft) return null
-    if (!localSnapshot) return serverDraft as DraftRecoverySnapshot
-    if (!serverDraft) return localSnapshot
-
-    const localUpdatedAt = toIsoTime(localSnapshot.updatedAt)
-    const serverUpdatedAt = toIsoTime(serverDraft.updatedAt ?? serverDraft.modifiedAt)
-    if (!localUpdatedAt) return serverDraft as DraftRecoverySnapshot
-    if (!serverUpdatedAt) return localSnapshot
-    return localUpdatedAt >= serverUpdatedAt ? localSnapshot : serverDraft as DraftRecoverySnapshot
-}
-
-const isMatchingDraft = (draft: DraftPostSummary, payload: PostDraftData) => {
-    if (draft.boardUrl !== payload.boardUrl) return false
-    const draftOriginalPostId = draft.originalPostId ?? null
-    const payloadOriginalPostId = payload.originalPostId ?? null
-    return draftOriginalPostId === payloadOriginalPostId
-}
-
-const isMatchingLoadedDraft = (draft: DraftPost, payload: PostDraftData) => {
-    if (draft.boardUrl !== payload.boardUrl) return false
-    const draftOriginalPostId = draft.originalPostId ?? null
-    const payloadOriginalPostId = payload.originalPostId ?? null
-    return draftOriginalPostId === payloadOriginalPostId
-}
-
-const getDraftUpdatedAt = (draft: Pick<DraftPost, 'updatedAt' | 'modifiedAt'>): string | null => (
-    draft.updatedAt ?? draft.modifiedAt ?? null
-)
-
-const isDraftOutdatedError = (error: unknown): boolean => {
-    if (!isAxiosError(error) || error.response?.status !== 409) {
-        return false
-    }
-    const data = error.response.data as ApiErrorPayload | undefined
-    return data?.error?.code === DRAFT_OUTDATED_ERROR_CODE || data?.code === DRAFT_OUTDATED_ERROR_CODE
-}
-
-const findMatchingServerDraftId = async (payload: PostDraftData): Promise<number | null> => {
-    let page = 0
-    let hasNext = true
-    const matchingCreateDraftIds: number[] = []
-    const payloadOriginalPostId = payload.originalPostId ?? null
-
-    while (hasNext) {
-        const response = unwrapAxiosApiData(await userApi.getMyDrafts({ page, size: 50 }))
-        const drafts = response.content ?? []
-
-        for (const draft of drafts) {
-            if (!isMatchingDraft(draft, payload)) {
-                continue
-            }
-
-            if (payloadOriginalPostId != null) {
-                return draft.draftId
-            }
-
-            if (draft.draftId != null) {
-                matchingCreateDraftIds.push(draft.draftId)
-            }
-        }
-        hasNext = response.hasNext ?? false
-        page += 1
-    }
-
-    return matchingCreateDraftIds.length === 1 ? matchingCreateDraftIds[0] : null
-}
 
 export function usePostDraft(options: UsePostDraftOptions) {
     const { useSaveDraft, useDeleteDraft } = usePost()
@@ -154,7 +72,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         if (currentDraftId == null) {
             return null
         }
-        const latestDraft = unwrapAxiosApiData(await postApi.getDraft(currentDraftId))
+        const latestDraft = await loadDraftById(currentDraftId)
         if (!isMatchingLoadedDraft(latestDraft, payload)) {
             return null
         }
@@ -273,9 +191,8 @@ export function usePostDraft(options: UsePostDraftOptions) {
 
         if (serverDraftId != null) {
             try {
-                const data = await postApi.getDraft(serverDraftId)
                 if (generation !== sessionGeneration) return
-                serverDraft = unwrapAxiosApiData(data)
+                serverDraft = await loadDraftById(serverDraftId)
             } catch (error: unknown) {
                 if (generation !== sessionGeneration) return
                 if (
@@ -295,7 +212,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
                     try {
                         const fallbackDraftId = await findMatchingServerDraftId(payload)
                         if (fallbackDraftId != null) {
-                            serverDraft = unwrapAxiosApiData(await postApi.getDraft(fallbackDraftId))
+                            serverDraft = await loadDraftById(fallbackDraftId)
                         }
                     } catch (resolveError: unknown) {
                         logger.error('Failed to restore replacement server draft:', resolveError)
@@ -305,7 +222,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
             }
         }
 
-        const chosen = pickNewestSnapshot(localSnapshot, serverDraft)
+        const chosen = pickNewestDraftSnapshot(localSnapshot, serverDraft)
         if (!chosen) return
         if (generation !== sessionGeneration) return
 
