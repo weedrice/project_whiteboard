@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import BoardNoticeList from '@/components/board/BoardNoticeList.vue'
+import BoardDetailHeader from '@/components/board/BoardDetailHeader.vue'
 import BoardPostFilters from '@/components/board/BoardPostFilters.vue'
 import BoardPostSearch from '@/components/board/BoardPostSearch.vue'
 import PostDetailHeader from '@/components/board/PostDetailHeader.vue'
 import PostFormMetadataPanel from '@/components/board/PostFormMetadataPanel.vue'
 import PostListMobileItem from '@/components/board/PostListMobileItem.vue'
-import type { Category, PostSummary } from '@/types/board'
+import type { BoardDetail, Category, PostSummary } from '@/types/board'
 import type { PostDetailViewModel } from '@/composables/usePostDetailViewModel'
 
 vi.mock('vue-i18n', () => ({
@@ -46,7 +47,70 @@ const category = (overrides: Partial<Category> = {}): Category => ({
   ...overrides,
 })
 
+const boardDetail = (overrides: Partial<BoardDetail> = {}): BoardDetail => ({
+  boardId: 1,
+  boardName: 'Free',
+  boardUrl: 'free',
+  description: 'Free board',
+  iconUrl: '',
+  sortOrder: 1,
+  isAdmin: false,
+  isSubscribed: false,
+  isActive: true,
+  isPublic: true,
+  subscriptionAccessible: true,
+  subscriberCount: 3,
+  postCount: 0,
+  allowNsfw: false,
+  categories: [],
+  latestPosts: [],
+  agentUseYn: false,
+  ...overrides,
+})
+
 describe('extracted board components', () => {
+  it('renders board detail header fallback icon, subscribe state and management links', async () => {
+    const wrapper = mount(BoardDetailHeader, {
+      props: {
+        board: boardDetail({
+          boardName: 'Free',
+          boardUrl: 'free',
+          iconUrl: '',
+          isAdmin: true,
+          isSubscribed: true,
+          adminUserId: 9,
+          adminDisplayName: 'Manager',
+        }),
+        canWrite: true,
+        isAuthenticated: true,
+        isSubscribePending: true,
+        buildBoardListRoute: () => '/board/free',
+      },
+      global: {
+        stubs: {
+          RouterLink: RouterLinkStub,
+          UserMenu: true,
+          ShieldCheck: true,
+          User: true,
+        },
+      },
+    })
+
+    const links = wrapper.findAllComponents(RouterLinkStub)
+    const subscribeButton = wrapper.find('button.nv-board-subscribe-btn')
+
+    expect(wrapper.find('.nv-board-icon-fallback').text()).toBe('F')
+    expect(subscribeButton.attributes('disabled')).toBeDefined()
+    expect(subscribeButton.attributes('aria-busy')).toBe('true')
+    expect(subscribeButton.text()).toBeTruthy()
+    expect(links.map((link) => link.props('to'))).toContain('/board/free/edit')
+    expect(links.map((link) => link.props('to'))).toContain('/board/free/write')
+
+    await subscribeButton.trigger('click')
+
+    expect(wrapper.emitted('subscribe')).toBeUndefined()
+  })
+
   it('connects board notice expand control with the notice list', async () => {
     const wrapper = mount(BoardNoticeList, {
       props: {
