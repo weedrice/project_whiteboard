@@ -1,0 +1,205 @@
+.link-popover-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(9, 12, 22, 0.28);
+}
+
+.link-popover {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 320px;
+  max-width: min(90vw, 460px);
+  padding: 1rem 1.1rem;
+  background: var(--nv-surface);
+  border: 1px solid var(--nv-line);
+  border-radius: 1.25rem;
+  box-shadow: var(--nv-shadow-soft);
+}
+
+.slash-popover {
+  width: min(90vw, 440px);
+}
+
+.slash-action-btn {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--nv-line);
+  border-radius: 1rem;
+  padding: 0.75rem 0.95rem;
+  font-size: 0.95rem;
+  color: var(--nv-ink);
+  background: var(--nv-elevated);
+}
+
+.slash-action-btn--active,
+.slash-action-btn:hover,
+.slash-action-btn:focus-visible {
+  border-color: color-mix(in srgb, var(--nv-accent) 35%, transparent);
+  background: color-mix(in srgb, var(--nv-accent) 12%, var(--nv-elevated));
+  color: var(--nv-accent);
+  outline: none;
+}
+
+.link-popover-row {
+  margin-bottom: 0.75rem;
+}
+
+.link-popover-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--nv-ink-soft);
+}
+
+.link-popover-input {
+  display: block;
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  font-size: 0.875rem;
+  border: 1px solid var(--nv-line);
+  border-radius: 0.9rem;
+  background: var(--nv-elevated);
+  color: var(--nv-ink);
+  box-sizing: border-box;
+}
+
+.link-popover-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--nv-line);
+}
+
+.link-popover-remove {
+  margin-right: auto;
+  font-size: 0.875rem;
+  color: var(--nv-danger);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.image-alt-popover {
+  width: min(90vw, 420px);
+}
+
+.image-alt-help {
+  color: var(--nv-muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  margin-top: 0.35rem;
+}
+
+.color-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 220px;
+  padding: 12px;
+  background: var(--nv-surface);
+  border: 1px solid var(--nv-line);
+  border-radius: 1rem;
+  box-shadow: var(--nv-shadow-soft);
+  z-index: 10000;
+}
+
+.color-panel-default {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  border-radius: 0.7rem;
+  border: 1px solid var(--nv-line);
+  background: transparent;
+  color: var(--nv-ink-soft);
+}
+
+.color-panel-default--active {
+  border-color: color-mix(in srgb, var(--nv-accent) 35%, transparent);
+  background: color-mix(in srgb, var(--nv-accent) 14%, var(--nv-surface));
+  color: var(--nv-accent);
+}
+
+.color-panel-default-swatch {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid var(--nv-line);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.color-panel-default-light,
+.color-panel-default-dark {
+  position: absolute;
+  inset: 0;
+}
+
+.color-panel-default-light {
+  background: #111827;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+.color-panel-default-dark {
+  background: #f3f4f6;
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+
+.color-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.color-panel-swatch {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 0.45rem;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+
+.color-panel-swatch--active {
+  border-color: var(--nv-accent);
+}
+
+.color-panel-custom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--nv-line);
+}
+
+.color-panel-custom-label {
+  font-size: 12px;
+  color: var(--nv-muted);
+  white-space: nowrap;
+}
+
+.color-panel-custom-input {
+  width: 28px;
+  height: 28px;
+  border-radius: 0.45rem;
+  border: 1px solid var(--nv-line);
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+

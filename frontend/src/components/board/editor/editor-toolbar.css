@@ -1,0 +1,127 @@
+.tiptap-btn {
+  width: 2.2rem;
+  height: 2.2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.85rem;
+  border: 1px solid transparent;
+  color: var(--nv-ink-soft);
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.tiptap-btn:hover {
+  background: var(--nv-elevated);
+  color: var(--nv-ink);
+}
+
+.tiptap-btn.active {
+  border-color: color-mix(in srgb, var(--nv-accent) 28%, transparent);
+  background: color-mix(in srgb, var(--nv-accent) 14%, var(--nv-surface));
+  color: var(--nv-accent);
+}
+
+.tiptap-btn-pill {
+  width: auto;
+  padding: 0 0.8rem;
+}
+
+.tiptap-toolbar-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.tiptap-toolbar-group {
+  align-items: center;
+  background: color-mix(in srgb, var(--nv-surface) 88%, transparent);
+  border: 1px solid var(--nv-line);
+  border-radius: 1rem;
+  display: inline-flex;
+  gap: 0.15rem;
+  padding: 0.2rem;
+}
+
+.tiptap-toolbar-group--format {
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.image-upload-status {
+  align-items: center;
+  background: color-mix(in srgb, var(--nv-surface) 92%, transparent);
+  border: 1px solid var(--nv-line);
+  border-radius: 999px;
+  color: var(--nv-ink-soft);
+  display: inline-flex;
+  font-size: 0.75rem;
+  gap: 0.4rem;
+  max-width: 100%;
+  min-height: 2rem;
+  padding: 0.25rem 0.65rem;
+}
+
+.image-upload-spinner {
+  animation: tiptap-spin 0.75s linear infinite;
+  border: 2px solid color-mix(in srgb, var(--nv-accent) 20%, transparent);
+  border-top-color: var(--nv-accent);
+  border-radius: 999px;
+  height: 0.9rem;
+  width: 0.9rem;
+}
+
+.image-upload-status-btn {
+  border: 0;
+  color: var(--nv-accent);
+  font-weight: 600;
+  background: transparent;
+}
+
+@keyframes tiptap-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.tiptap-select {
+  height: 2.25rem;
+  min-width: 7rem;
+  padding: 0 0.75rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--nv-line);
+  background: var(--nv-elevated);
+  color: var(--nv-ink);
+}
+
+.tiptap-color-input {
+  border-radius: 0.85rem;
+  border: 1px solid var(--nv-line);
+  background: transparent;
+  padding: 0.15rem;
+}
+
+.tiptap-color-trigger {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.tiptap-color-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  line-height: 1;
+}
+
+.tiptap-color-bar {
+  display: block;
+  width: 14px;
+  height: 3px;
+  border-radius: 999px;
+}
+

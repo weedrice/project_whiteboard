@@ -1,0 +1,23 @@
+.image-upload-status-name {
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-upload-status-count {
+  color: var(--nv-accent);
+  font-weight: 700;
+}
+
+.image-upload-failed-list {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.image-upload-failed-item {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.25rem;
+}
