@@ -17,6 +17,7 @@ import '@/components/board/editor/editor.css'
 import { useEditorImageUpload } from '@/composables/useEditorImageUpload'
 import { usePostEditorImageUploadState } from '@/composables/usePostEditorImageUploadState'
 import { usePostEditorPopovers } from '@/composables/usePostEditorPopovers'
+import { usePostEditorSlashMenu } from '@/composables/usePostEditorSlashMenu'
 import { usePostEditorTextCommands } from '@/composables/usePostEditorTextCommands'
 import { usePostEditorUploadedImages, type UploadedEditorImage } from '@/composables/usePostEditorUploadedImages'
 import { useI18n } from 'vue-i18n'
@@ -50,7 +51,6 @@ const tableHeaderRow = ref(true)
 const savedListSelection = ref<{ from: number; to: number } | null>(null)
 const imageInput = ref<HTMLInputElement | null>(null)
 const isDraggingImage = ref(false)
-const slashActiveIndex = ref(0)
 
 const { isUploadingImage, validateImageFile, uploadImage, abortImageUpload, isAbortUploadError } = useEditorImageUpload()
 const {
@@ -72,6 +72,17 @@ const {
   imageAltPosition,
   closeFloatingMenus,
 } = usePostEditorPopovers()
+const {
+  slashActiveIndex,
+  openSlashMenu,
+  toggleSlashMenu,
+  moveSlashSelection,
+  setSlashSelection,
+} = usePostEditorSlashMenu({
+  showSlashMenu,
+  slashPosition,
+  closeFloatingMenus,
+})
 const {
   imageUploadQueue,
   hasImageUploadError,
@@ -188,29 +199,6 @@ const colorPresetLabels = computed(() => Object.fromEntries(
     t(`board.writePost.colorLabels.${colorLabelKeys[index]}`),
   ]),
 ))
-
-function openSlashMenu(anchor?: HTMLElement) {
-  closeFloatingMenus()
-  slashPosition.setAnchor(anchor)
-  slashActiveIndex.value = 0
-  showSlashMenu.value = true
-}
-
-function toggleSlashMenu(anchor?: HTMLElement) {
-  if (showSlashMenu.value) {
-    showSlashMenu.value = false
-    return
-  }
-  openSlashMenu(anchor)
-}
-
-function moveSlashSelection(direction: 1 | -1) {
-  slashActiveIndex.value = (slashActiveIndex.value + direction + slashActions.length) % slashActions.length
-}
-
-function setSlashSelection(index: number) {
-  slashActiveIndex.value = Math.max(0, Math.min(slashActions.length - 1, index))
-}
 
 function setDefaultColor() {
   editor.value?.chain().focus().unsetColor().run()

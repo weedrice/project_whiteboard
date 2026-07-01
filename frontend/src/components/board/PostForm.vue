@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, ref, watch, watchEffect } from 'vue'
+import { computed, watch } from 'vue'
 import { usePostComposerDraft } from '@/composables/usePostComposerDraft'
 import { usePostComposerEffects } from '@/composables/usePostComposerEffects'
 import { usePostComposerSubmit, type PostFormSubmitResult } from '@/composables/usePostComposerSubmit'
 import { usePostEditorViewMode } from '@/composables/usePostEditorViewMode'
+import { usePostFormEditHydration } from '@/composables/usePostFormEditHydration'
 import { usePostFormResource } from '@/composables/usePostFormResource'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
@@ -77,8 +78,6 @@ const {
   skipBoardLookup: () => props.skipBoardLookup,
   hideNotice: () => props.hideNotice,
 })
-
-const hasHydratedEditPost = ref(false)
 
 const filteredCategories = computed<CategoryOption[]>(() => {
   const selectableCategories = categories.value.filter((cat) => canWriteCategory(
@@ -189,7 +188,7 @@ function onBeforeUnload(event: BeforeUnloadEvent) {
 }
 
 function resetFormIdentityState() {
-  hasHydratedEditPost.value = false
+  resetEditHydrationState()
   resetFormState()
 }
 
@@ -201,22 +200,12 @@ watch(
   },
 )
 
-watchEffect(() => {
-  if (props.mode !== 'edit' || !post.value || hasHydratedEditPost.value) return
-  if (String(post.value.postId) !== String(postId.value)) return
-  hasHydratedEditPost.value = true
-  applyDraftSnapshot({
-    title: post.value.title,
-    contents: post.value.contents,
-    categoryId: post.value.category?.categoryId,
-    tags: post.value.tags?.map((tag: { name?: string } | string) => typeof tag === 'string' ? tag : (tag.name ?? '')) ?? [],
-    isNsfw: post.value.isNsfw,
-    isSpoiler: post.value.isSpoiler,
-    isSecret: post.value.isSecret ?? false,
-    isNotice: false,
-    fileIds: [],
-  })
-  markCurrentSnapshotSaved()
+const { resetEditHydrationState } = usePostFormEditHydration({
+  mode: () => props.mode,
+  post,
+  postId,
+  applyDraftSnapshot,
+  markCurrentSnapshotSaved,
 })
 
 const firstCategoryId = computed(() => filteredCategories.value[0]?.categoryId)

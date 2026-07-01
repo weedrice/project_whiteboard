@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, type ComponentPublicInstance } from 'vue'
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Copy,
@@ -24,6 +24,7 @@ import { usePostDetailScrollEffects } from '@/composables/usePostDetailScrollEff
 import { usePostDetailSeo } from '@/composables/usePostDetailSeo'
 import { usePostDetailUiEffects } from '@/composables/usePostDetailUiEffects'
 import { usePostDetailViewModel } from '@/composables/usePostDetailViewModel'
+import { usePostContentViewRef } from '@/composables/usePostContentViewRef'
 import { useAuthStore } from '@/stores/auth'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
 
@@ -172,18 +173,7 @@ const {
   handleLike,
 })
 
-type PostContentViewExpose = ComponentPublicInstance & {
-  element?: HTMLElement | { value: HTMLElement | null } | null
-}
-
-const assignContentRef = (value: Element | ComponentPublicInstance | null) => {
-  const exposedElement = (value as PostContentViewExpose | null)?.element
-  if (exposedElement && typeof exposedElement === 'object' && 'value' in exposedElement) {
-    contentRef.value = exposedElement.value
-    return
-  }
-  contentRef.value = exposedElement instanceof HTMLElement ? exposedElement : null
-}
+const { assignContentRef } = usePostContentViewRef(contentRef)
 </script>
 
 <template>
