@@ -1,9 +1,10 @@
 import { nextTick, onMounted, onUnmounted, ref, watch, type ComputedRef, type Ref } from 'vue'
 import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
 import type { Post } from '@/types'
+import { usePostDetailKeyboardShortcuts } from '@/composables/usePostDetailKeyboardShortcuts'
 import type { PostDetailViewModel } from '@/composables/usePostDetailViewModel'
 import { useEventListener } from '@/composables/useEventListener'
-import { isInputFocused } from '@/utils/keyboard'
+import { findPostDetailElementByHash, getPostDetailScrollTop } from '@/utils/postDetailScrollTarget'
 
 interface UsePostDetailScrollEffectsOptions {
   route: RouteLocationNormalizedLoaded
@@ -65,19 +66,6 @@ export function usePostDetailScrollEffects({
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  function findElementByHash(hash: string): HTMLElement | null {
-    if (!hash.startsWith('#')) return null
-
-    const rawId = hash.slice(1)
-    if (!rawId) return null
-
-    try {
-      return document.getElementById(decodeURIComponent(rawId))
-    } catch {
-      return document.getElementById(rawId)
-    }
-  }
-
   function scrollToCommentComposer() {
     if (isPostDetailUiDisposed()) return
 
@@ -97,12 +85,8 @@ export function usePostDetailScrollEffects({
     const target = document.getElementById('comment-composer') || commentsRef.value
     if (!target) return
 
-    const headerOffset = 96
-    const elementPosition = target.getBoundingClientRect().top
-    const offsetPosition = elementPosition + window.scrollY - headerOffset
-
     window.scrollTo({
-      top: offsetPosition,
+      top: getPostDetailScrollTop(target),
       behavior: 'smooth'
     })
   }
@@ -154,60 +138,6 @@ export function usePostDetailScrollEffects({
     setupComposerObserver()
   }
 
-  const handleKeyDown = (event: KeyboardEvent) => {
-    const { key, shiftKey, ctrlKey, altKey, metaKey } = event
-
-    if (ctrlKey || altKey || metaKey) return
-    if (isInputFocused()) return
-    if (isReportModalOpen.value) return
-
-    if (shiftKey) {
-      if (key === 'S') {
-        if (authStore.isAuthenticated && postView.value) {
-          event.preventDefault()
-          handleBookmark()
-        }
-        return
-      }
-      if (key === 'Y') {
-        event.preventDefault()
-        handleShare()
-      }
-      return
-    }
-
-    switch (key) {
-      case 'c':
-        event.preventDefault()
-        scrollToComments()
-        break
-      case 'u':
-        event.preventDefault()
-        goToList()
-        break
-      case 'l':
-        if (authStore.isAuthenticated && postView.value) {
-          event.preventDefault()
-          handleLike()
-        }
-        break
-      case 'y':
-        event.preventDefault()
-        handleCopyUrl()
-        break
-      case 'e':
-        if (canEdit.value && postView.value) {
-          event.preventDefault()
-          router.push(buildEditRoute())
-        }
-        break
-      case 'Escape':
-        event.preventDefault()
-        goToList()
-        break
-    }
-  }
-
   watch(() => route.hash, (newHash) => {
     if (!newHash) return
 
@@ -217,7 +147,7 @@ export function usePostDetailScrollEffects({
         return
       }
 
-      const element = findElementByHash(newHash)
+      const element = findPostDetailElementByHash(newHash)
       if (element) {
         element.scrollIntoView({ behavior: 'smooth' })
       }
@@ -256,7 +186,7 @@ export function usePostDetailScrollEffects({
 
         window.scrollTo(0, 0)
         if (hash) {
-          const element = findElementByHash(hash)
+          const element = findPostDetailElementByHash(hash)
           if (element) {
             element.scrollIntoView({ behavior: 'smooth' })
           }
@@ -270,7 +200,20 @@ export function usePostDetailScrollEffects({
     nextTick(() => setupComposerObserver())
   })
 
-  useEventListener(() => document, 'keydown', handleKeyDown)
+  usePostDetailKeyboardShortcuts({
+    router,
+    authStore,
+    postView,
+    canEdit,
+    isReportModalOpen,
+    scrollToComments,
+    buildEditRoute,
+    goToList,
+    handleBookmark,
+    handleShare,
+    handleCopyUrl,
+    handleLike,
+  })
   useEventListener(() => window, 'resize', handleResize)
 
   onUnmounted(() => {
