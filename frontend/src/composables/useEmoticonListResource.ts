@@ -5,6 +5,7 @@ import { popularEmoticonsQueryKey, searchableEmoticonsQueryKey } from '@/composa
 import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
 import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import type { EmoticonMaster, EmoticonSearchParams } from '@/types/emoticon'
+import { optionalQuerySignal } from '@/utils/querySignal'
 
 export function useEmoticonListResource() {
   const router = useRouter()
@@ -24,7 +25,12 @@ export function useEmoticonListResource() {
 
   const { data: popularEmoticons, isLoading: popularLoading } = useApiQuery({
     queryKey: computed(() => popularEmoticonsQueryKey(popularPeriod.value)),
-    request: () => emoticonApi.getPopularEmoticons(popularPeriod.value),
+    request: (context) => {
+      const requestConfig = optionalQuerySignal(undefined, context)
+      return requestConfig
+        ? emoticonApi.getPopularEmoticons(popularPeriod.value, requestConfig)
+        : emoticonApi.getPopularEmoticons(popularPeriod.value)
+    },
   })
 
   const { data: emoticonsPage, isLoading: emoticonsLoading } = useApiPageQuery<EmoticonMaster>({
@@ -34,7 +40,7 @@ export function useEmoticonListResource() {
       searchKeyword.value,
       searchType.value
     )),
-    request: () => {
+    request: (context) => {
       const params: EmoticonSearchParams = {
         page: currentPage.value,
         size: size.value,
@@ -44,7 +50,10 @@ export function useEmoticonListResource() {
         params.keyword = searchKeyword.value
         params.searchType = searchType.value
       }
-      return emoticonApi.searchAll(params)
+      const requestConfig = optionalQuerySignal(undefined, context)
+      return requestConfig
+        ? emoticonApi.searchAll(params, requestConfig)
+        : emoticonApi.searchAll(params)
     },
   })
 

@@ -17,10 +17,15 @@ export function mergeUniqueEmoticons(...groups: EmoticonMaster[][]) {
 export function useAccessibleEmoticonPicker(isEnabled: () => boolean) {
   return useQuery({
     queryKey: accessibleEmoticonPickerQueryKey,
-    queryFn: async () => {
+    queryFn: async (context?: { signal?: AbortSignal }) => {
+      const requestConfig = context?.signal ? { signal: context.signal } : undefined
       const [purchasedPage, myPage] = await Promise.all([
-        emoticonApi.getPurchasedEmoticonsData({ size: 100 }),
-        emoticonApi.getMyEmoticonsData({ size: 100 }),
+        requestConfig
+          ? emoticonApi.getPurchasedEmoticonsData({ size: 100 }, requestConfig)
+          : emoticonApi.getPurchasedEmoticonsData({ size: 100 }),
+        requestConfig
+          ? emoticonApi.getMyEmoticonsData({ size: 100 }, requestConfig)
+          : emoticonApi.getMyEmoticonsData({ size: 100 }),
       ])
       return mergeUniqueEmoticons(purchasedPage.content, myPage.content)
     },

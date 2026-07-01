@@ -1,21 +1,11 @@
 import logger from '@/utils/logger'
 
 /**
- * 타입 안전한 localStorage 유틸리티
+ * Safe localStorage helpers.
  */
 export class Storage {
     /**
-     * localStorage에서 값을 가져옵니다.
-     * 
-     * @param key 저장소 키
-     * @param defaultValue 기본값 (키가 없거나 파싱 실패 시 반환)
-     * @returns 저장된 값 또는 기본값
-     * 
-     * @example
-     * ```typescript
-     * const theme = Storage.get('theme', 'light')
-     * const user = Storage.get<User>('user', null)
-     * ```
+     * Read and JSON-parse a localStorage value.
      */
     static get<T>(key: string, defaultValue: T | null = null): T | null {
         try {
@@ -31,23 +21,13 @@ export class Storage {
     }
 
     /**
-     * localStorage에 값을 저장합니다.
-     * 
-     * @param key 저장소 키
-     * @param value 저장할 값 (JSON 직렬화 가능한 값)
-     * 
-     * @example
-     * ```typescript
-     * Storage.set('theme', 'dark')
-     * Storage.set('user', { id: 1, name: 'John' })
-     * ```
+     * JSON-stringify and write a localStorage value.
      */
     static set<T>(key: string, value: T): void {
         try {
             localStorage.setItem(key, JSON.stringify(value))
         } catch (error: unknown) {
             logger.error(`Failed to set item to localStorage: ${key}`, error)
-            // QuotaExceededError 처리
             if (error instanceof DOMException && error.name === 'QuotaExceededError') {
                 logger.warn('localStorage quota exceeded. Consider clearing old data.')
             }
@@ -55,14 +35,7 @@ export class Storage {
     }
 
     /**
-     * localStorage에서 값을 제거합니다.
-     * 
-     * @param key 저장소 키
-     * 
-     * @example
-     * ```typescript
-     * Storage.remove('theme')
-     * ```
+     * Remove a localStorage value.
      */
     static remove(key: string): void {
         try {
@@ -73,12 +46,7 @@ export class Storage {
     }
 
     /**
-     * localStorage의 모든 항목을 제거합니다.
-     * 
-     * @example
-     * ```typescript
-     * Storage.clear()
-     * ```
+     * Clear all localStorage values for the current origin.
      */
     static clear(): void {
         try {
@@ -89,17 +57,7 @@ export class Storage {
     }
 
     /**
-     * localStorage에 키가 존재하는지 확인합니다.
-     * 
-     * @param key 저장소 키
-     * @returns 키 존재 여부
-     * 
-     * @example
-     * ```typescript
-     * if (Storage.has('theme')) {
-     *   const theme = Storage.get('theme')
-     * }
-     * ```
+     * Check whether a localStorage key exists.
      */
     static has(key: string): boolean {
         try {
@@ -111,15 +69,7 @@ export class Storage {
     }
 
     /**
-     * localStorage의 모든 키를 가져옵니다.
-     * 
-     * @returns 키 배열
-     * 
-     * @example
-     * ```typescript
-     * const keys = Storage.keys()
-     * // Process keys...
-     * ```
+     * Return all localStorage keys for the current origin.
      */
     static keys(): string[] {
         try {
@@ -131,17 +81,7 @@ export class Storage {
     }
 
     /**
-     * localStorage에서 문자열 값을 가져옵니다 (JSON 파싱 없이).
-     * 토큰 등 JSON이 아닌 문자열 값에 사용합니다.
-     * 
-     * @param key 저장소 키
-     * @param defaultValue 기본값 (키가 없을 경우 반환)
-     * @returns 저장된 문자열 값 또는 기본값
-     * 
-     * @example
-     * ```typescript
-     * const token = Storage.getString('accessToken', '')
-     * ```
+     * Read a raw string value from localStorage.
      */
     static getString(key: string, defaultValue: string | null = null): string | null {
         try {
@@ -154,23 +94,13 @@ export class Storage {
     }
 
     /**
-     * localStorage에 문자열 값을 저장합니다 (JSON.stringify 없이).
-     * 토큰 등 JSON이 아닌 문자열 값에 사용합니다.
-     * 
-     * @param key 저장소 키
-     * @param value 저장할 문자열 값
-     * 
-     * @example
-     * ```typescript
-     * Storage.setString('accessToken', token)
-     * ```
+     * Write a raw string value to localStorage.
      */
     static setString(key: string, value: string): void {
         try {
             localStorage.setItem(key, value)
         } catch (error: unknown) {
             logger.error(`Failed to set string to localStorage: ${key}`, error)
-            // QuotaExceededError 처리
             if (error instanceof DOMException && error.name === 'QuotaExceededError') {
                 logger.warn('localStorage quota exceeded. Consider clearing old data.')
             }
@@ -178,6 +108,9 @@ export class Storage {
     }
 }
 
+/**
+ * Safe sessionStorage helpers.
+ */
 export class SessionStorage {
     static getString(key: string, defaultValue: string | null = null): string | null {
         try {

@@ -1,84 +1,81 @@
 import api from './index'
 import type { AxiosRequestConfig, AxiosResponse } from 'axios'
 import { unwrapApiData } from '@/api/response'
-import type { EmoticonMaster, EmoticonCreateRequest, EmoticonUpdateRequest, EmoticonSearchParams, EmoticonPurchaseStatus } from '@/types/emoticon'
+import type {
+    EmoticonCreateRequest,
+    EmoticonMaster,
+    EmoticonPurchaseStatus,
+    EmoticonSearchParams,
+    EmoticonUpdateRequest,
+} from '@/types/emoticon'
 import type { ApiResponse } from '@/types'
 import type { PageResponse } from '@/types/common'
 
 type EmoticonResponse<T> = AxiosResponse<ApiResponse<T>>
+type EmoticonPeriod = 'daily' | 'weekly' | 'monthly'
+type EmoticonPageParams = { page?: number; size?: number }
 
 export function unwrapEmoticonResponse<T>(response: EmoticonResponse<T>): T {
     return unwrapApiData(response.data)
 }
 
 export const emoticonApi = {
-    /**
-     * 이모티콘 목록 조회
-     */
-    getEmoticons(params?: EmoticonSearchParams) {
-        return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons', { params })
+    // List emoticon packs.
+    getEmoticons(params?: EmoticonSearchParams, config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons', { ...config, params })
     },
-    async getEmoticonsData(params?: EmoticonSearchParams) {
-        return unwrapEmoticonResponse(await this.getEmoticons(params))
+    async getEmoticonsData(params?: EmoticonSearchParams, config?: AxiosRequestConfig) {
+        return unwrapEmoticonResponse(await this.getEmoticons(params, config))
     },
 
-    /**
-     * 인기 이모티콘 조회 (일간/주간/월간)
-     */
-    getPopularEmoticons(period: 'daily' | 'weekly' | 'monthly' = 'daily') {
-        return api.get<ApiResponse<EmoticonMaster[]>>('/emoticons/popular', { params: { period } })
-    },
-    async getPopularEmoticonsData(period: 'daily' | 'weekly' | 'monthly' = 'daily') {
-        return unwrapEmoticonResponse(await this.getPopularEmoticons(period))
-    },
-
-    /**
-     * 통합 검색 (태그, 등록자명, 이모티콘 이름)
-     */
-    searchAll(params?: EmoticonSearchParams) {
-        return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons/search/all', { params })
-    },
-    async searchAllData(params?: EmoticonSearchParams) {
-        return unwrapEmoticonResponse(await this.searchAll(params))
-    },
-
-    /**
-     * 태그로 이모티콘 검색
-     */
-    searchByTag(tag: string, params?: { page?: number; size?: number }) {
-        return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons/search/tag', {
-            params: { tag, ...params }
+    // List popular emoticon packs by period.
+    getPopularEmoticons(period: EmoticonPeriod = 'daily', config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<EmoticonMaster[]>>('/emoticons/popular', {
+            ...config,
+            params: { ...config?.params, period },
         })
     },
-    async searchByTagData(tag: string, params?: { page?: number; size?: number }) {
+    async getPopularEmoticonsData(period: EmoticonPeriod = 'daily', config?: AxiosRequestConfig) {
+        return unwrapEmoticonResponse(await this.getPopularEmoticons(period, config))
+    },
+
+    // Search by keyword, tag, creator, or pack name.
+    searchAll(params?: EmoticonSearchParams, config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons/search/all', { ...config, params })
+    },
+    async searchAllData(params?: EmoticonSearchParams, config?: AxiosRequestConfig) {
+        return unwrapEmoticonResponse(await this.searchAll(params, config))
+    },
+
+    // Search emoticon packs by tag.
+    searchByTag(tag: string, params?: EmoticonPageParams) {
+        return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons/search/tag', {
+            params: { tag, ...params },
+        })
+    },
+    async searchByTagData(tag: string, params?: EmoticonPageParams) {
         return unwrapEmoticonResponse(await this.searchByTag(tag, params))
     },
 
-    /**
-     * 키워드로 이모티콘 검색
-     */
-    searchByKeyword(keyword: string, params?: { page?: number; size?: number }) {
+    // Search emoticon packs by keyword.
+    searchByKeyword(keyword: string, params?: EmoticonPageParams) {
         return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons/search', {
-            params: { keyword, ...params }
+            params: { keyword, ...params },
         })
     },
-    async searchByKeywordData(keyword: string, params?: { page?: number; size?: number }) {
+    async searchByKeywordData(keyword: string, params?: EmoticonPageParams) {
         return unwrapEmoticonResponse(await this.searchByKeyword(keyword, params))
     },
 
-    /**
-     * 내 이모티콘 목록
-     */
-    getMyEmoticons(params?: { page?: number; size?: number }) {
-        return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons/my', { params })
+    // List emoticon packs owned by the current user.
+    getMyEmoticons(params?: EmoticonPageParams, config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons/my', { ...config, params })
     },
-    async getMyEmoticonsData(params?: { page?: number; size?: number }) {
-        return unwrapEmoticonResponse(await this.getMyEmoticons(params))
+    async getMyEmoticonsData(params?: EmoticonPageParams, config?: AxiosRequestConfig) {
+        return unwrapEmoticonResponse(await this.getMyEmoticons(params, config))
     },
 
-    /**
-     * 이모티콘 상세 조회
-     */
+    // Get emoticon pack detail.
     getEmoticon(emoticonId: number, config?: AxiosRequestConfig) {
         if (config) {
             return api.get<ApiResponse<EmoticonMaster>>(`/emoticons/${emoticonId}`, config)
@@ -89,9 +86,7 @@ export const emoticonApi = {
         return unwrapEmoticonResponse(await this.getEmoticon(emoticonId, config))
     },
 
-    /**
-     * 이모티콘 생성
-     */
+    // Create an emoticon pack.
     createEmoticon(data: EmoticonCreateRequest, config?: AxiosRequestConfig) {
         if (config) {
             return api.post<ApiResponse<EmoticonMaster>>('/emoticons', data, config)
@@ -102,9 +97,7 @@ export const emoticonApi = {
         return unwrapEmoticonResponse(await this.createEmoticon(data, config))
     },
 
-    /**
-     * 이모티콘 수정
-     */
+    // Update an emoticon pack.
     updateEmoticon(emoticonId: number, data: EmoticonUpdateRequest, config?: AxiosRequestConfig) {
         if (config) {
             return api.put<ApiResponse<EmoticonMaster>>(`/emoticons/${emoticonId}`, data, config)
@@ -115,9 +108,7 @@ export const emoticonApi = {
         return unwrapEmoticonResponse(await this.updateEmoticon(emoticonId, data, config))
     },
 
-    /**
-     * 노비콘 숨김/표시 전환 (판매 중단 시 사용)
-     */
+    // Toggle sale or visibility state.
     toggleVisibility(emoticonId: number) {
         return api.patch<ApiResponse<EmoticonMaster>>(`/emoticons/${emoticonId}/visibility`)
     },
@@ -125,16 +116,12 @@ export const emoticonApi = {
         return unwrapEmoticonResponse(await this.toggleVisibility(emoticonId))
     },
 
-    /**
-     * 이모티콘 삭제
-     */
+    // Delete an emoticon pack.
     deleteEmoticon(emoticonId: number) {
         return api.delete(`/emoticons/${emoticonId}`)
     },
 
-    /**
-     * 이미지 추가
-     */
+    // Add an image.
     addImage(emoticonId: number, fileId: number, config?: AxiosRequestConfig) {
         if (config) {
             return api.post<ApiResponse<EmoticonMaster>>(`/emoticons/${emoticonId}/images`, { fileId }, config)
@@ -145,9 +132,7 @@ export const emoticonApi = {
         return unwrapEmoticonResponse(await this.addImage(emoticonId, fileId, config))
     },
 
-    /**
-     * 이미지 삭제
-     */
+    // Delete an image.
     deleteImage(imageId: number, config?: AxiosRequestConfig) {
         if (config) {
             return api.delete(`/emoticons/images/${imageId}`, config)
@@ -155,9 +140,7 @@ export const emoticonApi = {
         return api.delete(`/emoticons/images/${imageId}`)
     },
 
-    /**
-     * 이모티콘 구매
-     */
+    // Purchase an emoticon pack.
     purchaseEmoticon(emoticonId: number) {
         return api.post<ApiResponse<EmoticonMaster>>(`/emoticons/${emoticonId}/purchase`)
     },
@@ -165,23 +148,19 @@ export const emoticonApi = {
         return unwrapEmoticonResponse(await this.purchaseEmoticon(emoticonId))
     },
 
-    /**
-     * 구매한 이모티콘 목록
-     */
-    getPurchasedEmoticons(params?: { page?: number; size?: number }) {
-        return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons/purchased', { params })
+    // List purchased emoticon packs.
+    getPurchasedEmoticons(params?: EmoticonPageParams, config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons/purchased', { ...config, params })
     },
-    async getPurchasedEmoticonsData(params?: { page?: number; size?: number }) {
-        return unwrapEmoticonResponse(await this.getPurchasedEmoticons(params))
+    async getPurchasedEmoticonsData(params?: EmoticonPageParams, config?: AxiosRequestConfig) {
+        return unwrapEmoticonResponse(await this.getPurchasedEmoticons(params, config))
     },
 
-    /**
-     * 이모티콘 구매 여부 확인
-     */
+    // Check purchase status.
     checkPurchaseStatus(emoticonId: number) {
         return api.get<ApiResponse<EmoticonPurchaseStatus>>(`/emoticons/${emoticonId}/purchased`)
     },
     async checkPurchaseStatusData(emoticonId: number) {
         return unwrapEmoticonResponse(await this.checkPurchaseStatus(emoticonId))
-    }
+    },
 }
