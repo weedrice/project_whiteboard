@@ -6,7 +6,7 @@ import {
     normalizeNotification,
     type NotificationRaw,
 } from '@/api/notification'
-import type { Notification, PageResponse } from '@/types'
+import type { Notification } from '@/types'
 import logger from '@/utils/logger'
 import { useAuthStore } from '@/stores/auth'
 import { isCancellationError } from '@/utils/cancellationError'
@@ -16,25 +16,18 @@ import {
 } from '@/composables/notificationQueryKeys'
 import { consumeSseStream } from '@/composables/notificationSseStream'
 import { createRecentNotificationIdCache } from '@/composables/recentNotificationIdCache'
+import {
+    getNotificationPageNumber,
+    getNotificationReconnectDelay,
+    isNotificationPage,
+    shouldStopNotificationReconnectAfterRefresh,
+} from '@/composables/notificationStreamStateModel'
 
 function isAbortError(error: unknown): boolean {
     return isCancellationError(error, {
         names: ['AbortError'],
         requireDomException: true,
     })
-}
-
-function isNotificationPage(data: unknown): data is PageResponse<Notification> {
-    if (!data || typeof data !== 'object') return false
-    const candidate = data as Partial<PageResponse<Notification>>
-    return Array.isArray(candidate.content)
-}
-
-function getNotificationPageNumber(data: unknown): number {
-    const candidate = data as { number?: unknown; page?: unknown }
-    if (typeof candidate.number === 'number') return candidate.number
-    if (typeof candidate.page === 'number') return candidate.page
-    return 0
 }
 
 const RECENT_NOTIFICATION_ID_LIMIT = 200
@@ -108,8 +101,11 @@ function detachOnlineReconnectListener() {
 }
 
 function getBackoffDelay(baseDelayMs: number) {
-    const multiplier = 2 ** notificationStreamState.reconnectAttempt
-    return Math.min(baseDelayMs * multiplier, MAX_RECONNECT_DELAY_MS)
+    return getNotificationReconnectDelay(
+        baseDelayMs,
+        notificationStreamState.reconnectAttempt,
+        MAX_RECONNECT_DELAY_MS,
+    )
 }
 
 function scheduleReconnect(delayMs: number) {
@@ -220,7 +216,7 @@ export function createNotificationStreamController(queryClient: QueryClient) {
         } catch (error: unknown) {
             logger.warn('SSE reconnect: refresh failed', error)
             const status = getErrorStatus(error)
-            if (status === 401 || status === 403) {
+            if (shouldStopNotificationReconnectAfterRefresh(status)) {
                 notificationStreamState.closedManually = true
                 return
             }
