@@ -6,13 +6,21 @@ import { useHead } from '@unhead/vue'
 import { useI18n } from 'vue-i18n'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
 import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
+import HomeBoardStrip from '@/components/home/HomeBoardStrip.vue'
 import HomeLandingSkeleton from '@/components/home/HomeLandingSkeleton.vue'
 import HomePostCard from '@/components/home/HomePostCard.vue'
 import HomeActivityList from '@/components/home/HomeActivityList.vue'
 import { useHomeLanding } from '@/composables/useHomeLanding'
 import type { HomeLandingPeriod } from '@/types'
+import {
+  createHomeStatsCards,
+  createHomeTrendingPeriods,
+  filterHomePostsExcludingHero,
+  getHomeBoardStrip,
+  getHomeRemainingBoardSlots,
+  selectHomeHeroPost,
+} from '@/views/home/homeFeedModel'
 
-const BOARD_STRIP_LIMIT = 7
 const { t, locale } = useI18n()
 const homeTitle = computed(() => t('common.appName'))
 
@@ -33,57 +41,32 @@ const {
   refetch,
 } = useHomeLanding()
 
-const heroPost = computed(() =>
-  featured.value
-  ?? editorPicks.value[0]
-  ?? trending.value[0]
-  ?? null,
-)
+const heroPost = computed(() => selectHomeHeroPost(featured.value, editorPicks.value, trending.value))
 const heroPostId = computed(() => heroPost.value?.postId ?? null)
-const visibleTrending = computed(() => trending.value.filter((post) => post.postId !== heroPostId.value))
-const visibleLiveActivity = computed(() => liveActivity.value.filter((post) => post.postId !== heroPostId.value))
-const boardStrip = computed(() => spotlightBoards.value.slice(0, BOARD_STRIP_LIMIT))
-const remainingBoardSlots = computed(() => Math.max(0, BOARD_STRIP_LIMIT - boardStrip.value.length))
+const visibleTrending = computed(() => filterHomePostsExcludingHero(trending.value, heroPostId.value))
+const visibleLiveActivity = computed(() => filterHomePostsExcludingHero(liveActivity.value, heroPostId.value))
+const boardStrip = computed(() => getHomeBoardStrip(spotlightBoards.value))
+const remainingBoardSlots = computed(() => getHomeRemainingBoardSlots(boardStrip.value.length))
 const numberFormatter = computed(() => new Intl.NumberFormat(locale.value === 'ko' ? 'ko-KR' : 'en-US'))
 const formatNumber = (value: number) => numberFormatter.value.format(value)
-const formatSignedNumber = (value: number) => (value > 0 ? `+${formatNumber(value)}` : formatNumber(value))
-const formatSignedPercent = (value: number) => (value > 0 ? `+${value}%` : `${value}%`)
-const formatPostsTodayDelta = (value: number | null) => {
-  if (value == null) {
-    return t('home.landing.statsCards.noComparisonData')
-  }
-  const percent = formatSignedPercent(value)
-  return t('home.landing.statsCards.postsTodayDeltaVsYesterday', { value: percent })
-}
 
-const siteStatsCards = computed(() => [
-  {
-    label: t('home.landing.statsCards.postsToday'),
-    value: formatNumber(stats.value.postsToday),
-    meta: formatPostsTodayDelta(stats.value.postsTodayDeltaPercent),
-  },
-  {
-    label: t('home.landing.statsCards.activeBoards'),
-    value: formatNumber(stats.value.activeBoardCount),
-    meta: t('home.landing.statsCards.activeBoardsMeta'),
-  },
-  {
-    label: t('home.landing.statsCards.newMembers'),
-    value: formatSignedNumber(stats.value.newMembersLast24Hours),
-    meta: t('home.landing.statsCards.newMembersMeta'),
-  },
-  {
-    label: t('home.landing.statsCards.comments'),
-    value: formatNumber(stats.value.commentsToday),
-    meta: t('home.landing.statsCards.commentsMeta'),
-  },
-])
+const siteStatsCards = computed(() => createHomeStatsCards(stats.value, {
+  postsToday: t('home.landing.statsCards.postsToday'),
+  postsTodayDeltaVsYesterday: t('home.landing.statsCards.postsTodayDeltaVsYesterday', { value: '{value}' }),
+  noComparisonData: t('home.landing.statsCards.noComparisonData'),
+  activeBoards: t('home.landing.statsCards.activeBoards'),
+  activeBoardsMeta: t('home.landing.statsCards.activeBoardsMeta'),
+  newMembers: t('home.landing.statsCards.newMembers'),
+  newMembersMeta: t('home.landing.statsCards.newMembersMeta'),
+  comments: t('home.landing.statsCards.comments'),
+  commentsMeta: t('home.landing.statsCards.commentsMeta'),
+}, formatNumber))
 
-const trendingPeriods = computed<{ value: HomeLandingPeriod; label: string }[]>(() => [
-  { value: '24h', label: t('home.landing.trendingPeriods.last24Hours') },
-  { value: '7d', label: t('home.landing.trendingPeriods.last7Days') },
-  { value: '30d', label: t('home.landing.trendingPeriods.last30Days') },
-])
+const trendingPeriods = computed<{ value: HomeLandingPeriod; label: string }[]>(() => createHomeTrendingPeriods({
+  last24Hours: t('home.landing.trendingPeriods.last24Hours'),
+  last7Days: t('home.landing.trendingPeriods.last7Days'),
+  last30Days: t('home.landing.trendingPeriods.last30Days'),
+}))
 
 useHead({
   titleTemplate: '%s',
@@ -190,69 +173,13 @@ useHead({
         </div>
       </section>
 
-      <section class="space-y-4" :aria-busy="isFetching ? 'true' : 'false'">
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <h2 class="text-xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)]">{{ $t('home.landing.topBoards') }}</h2>
-          </div>
-          <RouterLink to="/boards" class="text-sm font-medium text-[var(--nv-accent)] hover:underline">
-            {{ $t('common.viewAll') }}
-          </RouterLink>
-        </div>
-
-        <div v-if="isBoardsLoading" class="overflow-hidden rounded-[16px] border border-[var(--nv-line)] bg-[var(--nv-line)]">
-          <div class="grid grid-cols-2 gap-px xl:grid-cols-7">
-          <div
-            v-for="index in 7"
-            :key="index"
-            class="bg-[var(--nv-surface)] px-4 py-4 text-sm text-[var(--nv-muted)]"
-          >
-            {{ $t('home.landing.loadingBoards') }}
-          </div>
-          </div>
-        </div>
-        <div
-          v-else-if="boardStrip.length"
-          class="overflow-hidden rounded-[16px] border border-[var(--nv-line)] bg-[var(--nv-line)] shadow-[var(--nv-shadow-soft)]"
-        >
-          <div class="grid grid-cols-2 gap-px xl:grid-cols-7">
-          <RouterLink
-            v-for="board in boardStrip"
-            :key="board.boardId"
-            :to="`/board/${board.boardUrl}`"
-            class="group flex min-h-[68px] flex-col bg-[var(--nv-surface)] px-3.5 pt-3 pb-2 transition-all duration-150 hover:bg-[var(--nv-surface-2)]"
-          >
-            <div class="min-w-0">
-              <p class="line-clamp-2 text-[15px] font-semibold leading-5 text-[var(--nv-ink)] group-hover:text-[var(--nv-accent)]">
-                {{ board.boardName }}
-              </p>
-            </div>
-            <div class="mt-0.5 flex items-center gap-2 text-left">
-              <p class="text-[12px] font-medium tracking-[0.02em] text-[var(--nv-ink-soft)]">{{ formatNumber(board.postCount ?? 0) }}</p>
-            </div>
-          </RouterLink>
-          <RouterLink
-            v-if="remainingBoardSlots > 0"
-            to="/boards"
-            class="nv-home-board-view-all group flex min-h-[68px] flex-col justify-center bg-[var(--nv-bg)] px-3.5 pt-3 pb-2 transition-all duration-150 hover:bg-[var(--nv-surface-2)]"
-            :style="{ '--remaining-board-slots': remainingBoardSlots }"
-          >
-            <span class="text-[15px] font-semibold leading-5 text-[var(--nv-ink)] group-hover:text-[var(--nv-accent)]">
-              {{ $t('common.viewAll') }}
-            </span>
-            <span class="mt-0.5 text-[12px] font-medium tracking-[0.02em] text-[var(--nv-ink-soft)]">
-              {{ $t('home.landing.topBoards') }}
-            </span>
-          </RouterLink>
-          </div>
-        </div>
-        <div
-          v-else
-          class="rounded-[24px] border border-dashed border-[var(--nv-line)] px-5 py-6 text-sm text-[var(--nv-muted)]"
-        >
-          {{ isBoardsError ? $t('home.landing.boardsUnavailable') : $t('home.landing.emptyBoards') }}
-        </div>
-      </section>
+      <HomeBoardStrip
+        :boards="boardStrip"
+        :remaining-slots="remainingBoardSlots"
+        :is-loading="isBoardsLoading"
+        :is-error="isBoardsError"
+        :aria-busy="isFetching ? 'true' : 'false'"
+      />
 
       <section class="space-y-4">
         <div class="flex items-center justify-between gap-3">
@@ -303,10 +230,3 @@ useHead({
   </div>
 </template>
 
-<style scoped>
-@media (min-width: 1280px) {
-  .nv-home-board-view-all {
-    grid-column: span var(--remaining-board-slots, 1) / span var(--remaining-board-slots, 1);
-  }
-}
-</style>
