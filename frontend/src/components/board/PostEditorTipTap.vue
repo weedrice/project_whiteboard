@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, watch } from 'vue'
-import { useEditor } from '@tiptap/vue-3'
+import { computed, onBeforeUnmount, toRef } from 'vue'
 import PostEditorColorPopover from '@/components/board/editor/PostEditorColorPopover.vue'
 import PostEditorContentArea from '@/components/board/editor/PostEditorContentArea.vue'
 import PostEditorImageAltPopover from '@/components/board/editor/PostEditorImageAltPopover.vue'
@@ -9,10 +8,10 @@ import PostEditorPopoverMask from '@/components/board/editor/PostEditorPopoverMa
 import PostEditorSlashMenu from '@/components/board/editor/PostEditorSlashMenu.vue'
 import PostEditorTablePopover from '@/components/board/editor/PostEditorTablePopover.vue'
 import PostEditorToolbar from '@/components/board/editor/PostEditorToolbar.vue'
-import { createPostEditorExtensions } from '@/components/board/editor/postEditorExtensions'
 import { colorLabelKeys, colorPresets, fontSizes, lineHeights, slashActions } from '@/components/board/editor/postEditorOptions'
 import '@/components/board/editor/editor.css'
 import { useEditorImageUpload } from '@/composables/useEditorImageUpload'
+import { focusPostEditorAtPointer, usePostEditorInstance } from '@/composables/usePostEditorInstance'
 import { usePostEditorImageAltCommands } from '@/composables/usePostEditorImageAltCommands'
 import { usePostEditorImageFiles } from '@/composables/usePostEditorImageFiles'
 import { usePostEditorImageUploadState } from '@/composables/usePostEditorImageUploadState'
@@ -45,6 +44,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const toastStore = useToastStore()
 const themeStore = useThemeStore()
+const modelValue = toRef(props, 'modelValue')
 
 const { isUploadingImage, validateImageFile, uploadImage, abortImageUpload, isAbortUploadError } = useEditorImageUpload()
 const {
@@ -77,6 +77,13 @@ const {
   slashPosition,
   closeFloatingMenus,
 })
+let openImageAltPopoverFromEditor = (_target: HTMLImageElement, _alt: string, _nodePos: number) => {}
+const editor = usePostEditorInstance({
+  modelValue,
+  onUpdateHtml: (html) => emit('update:modelValue', html),
+  openSlashMenu,
+  openImageAltPopover: (target, alt, nodePos) => openImageAltPopoverFromEditor(target, alt, nodePos),
+})
 const {
   imageUploadQueue,
   hasImageUploadError,
@@ -106,75 +113,11 @@ const {
   abort: abortImageUpload,
 })
 
-const editor = useEditor({
-  content: props.modelValue || '',
-  editable: true,
-  editorProps: {
-    attributes: {
-      class: 'nv-rich-content prose prose-sm dark:prose-invert max-w-none min-h-[280px] px-4 py-4 focus:outline-none',
-    },
-    handleDOMEvents: {
-      click: (_view, event) => {
-        const link = (event.target as HTMLElement)?.closest?.('a[href]')
-        if (!link) return false
-        if (event.ctrlKey || event.metaKey) return false
-        event.preventDefault()
-        return true
-      },
-      keydown: (_view, event) => {
-        const instance = editor.value
-        if (!instance || event.key !== '/') {
-          return false
-        }
-        const selection = instance.state.selection
-        if (!selection?.$from) {
-          return false
-        }
-        const isCollapsedSelection = selection.from === selection.to
-        const parentText = selection.$from.parent?.textContent ?? ''
-        const textBeforeCursor = parentText.slice(0, selection.$from.parentOffset)
-        const shouldOpenSlashMenu = isCollapsedSelection
-          && parentText.trim().length === 0
-          && textBeforeCursor.trim().length === 0
-
-        if (shouldOpenSlashMenu) {
-          event.preventDefault()
-          openSlashMenu()
-          return true
-        }
-        return false
-      },
-    },
-    handleClickOn: (_view, _pos, node, nodePos, event) => {
-      if (node.type.name !== 'image') return false
-      const target = event.target instanceof HTMLElement ? event.target.closest('img') : null
-      if (!(target instanceof HTMLImageElement)) return false
-      openImageAltPopover(target, node.attrs.alt ?? '', nodePos)
-      return false
-    },
-  },
-  extensions: createPostEditorExtensions(),
-  onUpdate: ({ editor: instance }) => {
-    emit('update:modelValue', instance.getHTML())
-  },
-})
-
 const {
   fileIds,
   insertUploadedImage,
   disposeUploadedImagePreviews,
 } = usePostEditorUploadedImages(editor, (fileId) => emit('file-uploaded', fileId))
-
-watch(
-  () => props.modelValue,
-  (value) => {
-    if (!editor.value) return
-    const current = editor.value.getHTML()
-    if (value !== current) {
-      editor.value.commands.setContent(value || '', { emitUpdate: false })
-    }
-  },
-)
 
 const {
   currentTextColor,
@@ -222,6 +165,8 @@ const {
   imageAltPosition,
   closeFloatingMenus,
 })
+
+openImageAltPopoverFromEditor = openImageAltPopover
 
 const {
   tableRows,
@@ -298,25 +243,7 @@ function closeColorPanel(focusTarget = colorTriggerElement.value) {
 function onContentAreaClick(event: MouseEvent) {
   const instance = editor.value
   if (!instance) return
-  const currentTarget = event.currentTarget as HTMLElement
-  const target = event.target as Node
-  if (!currentTarget.contains(target)) return
-
-  const view = instance.view
-  const isClickOnEditorRoot = view.dom === target || view.dom.contains(target)
-  const position = view.posAtCoords({ left: event.clientX, top: event.clientY })
-  if (position != null) {
-    if (!isClickOnEditorRoot) event.preventDefault()
-    view.focus()
-    instance.commands.setTextSelection(position.pos)
-    return
-  }
-  const size = instance.state.doc.content.size
-  if (size > 0) {
-    event.preventDefault()
-    view.focus()
-    instance.commands.setTextSelection(Math.max(0, size - 1))
-  }
+  focusPostEditorAtPointer(instance, event)
 }
 
 function reportImageValidationError(validationError: 'type' | 'size') {
