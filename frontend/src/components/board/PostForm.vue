@@ -5,6 +5,8 @@ import { usePostComposerEffects } from '@/composables/usePostComposerEffects'
 import { usePostComposerSubmit, type PostFormSubmitResult } from '@/composables/usePostComposerSubmit'
 import { usePostEditorViewMode } from '@/composables/usePostEditorViewMode'
 import { usePostFormEditHydration } from '@/composables/usePostFormEditHydration'
+import { usePostFormCategoryOptions } from '@/composables/usePostFormCategoryOptions'
+import { usePostFormMetadataBindings } from '@/composables/usePostFormMetadataBindings'
 import { usePostFormResource } from '@/composables/usePostFormResource'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
@@ -19,7 +21,6 @@ import PostEditorTipTap from '@/components/board/PostEditorTipTap.vue'
 import PostFormHeader from '@/components/board/PostFormHeader.vue'
 import PostFormMetadataPanel from '@/components/board/PostFormMetadataPanel.vue'
 import PostPreviewModal from '@/components/board/PostPreviewModal.vue'
-import { canWriteCategory } from '@/utils/board'
 import { requiresSandboxedPostHtml } from '@/utils/postHtmlSandbox'
 import { usePostComposerState } from '@/composables/usePostComposerState'
 
@@ -46,13 +47,6 @@ const emit = defineEmits<{
   cancel: []
 }>()
 
-type CategoryOption = {
-  categoryId: number
-  name: string
-  minWriteRole?: string
-  disabled?: boolean
-}
-
 const { t } = useI18n()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
@@ -77,34 +71,6 @@ const {
   postId,
   skipBoardLookup: () => props.skipBoardLookup,
   hideNotice: () => props.hideNotice,
-})
-
-const filteredCategories = computed<CategoryOption[]>(() => {
-  const selectableCategories = categories.value.filter((cat) => canWriteCategory(
-    cat,
-    authStore.user?.role,
-    board.value?.isAdmin ?? false
-  ))
-  const selectedCategoryId = Number(form.value.categoryId)
-  const selectedCategory = categories.value.find((category) => category.categoryId === selectedCategoryId)
-    ?? (post.value?.category?.categoryId === selectedCategoryId
-      ? {
-          categoryId: post.value.category.categoryId,
-          name: post.value.category.name,
-          minWriteRole: post.value.category.minWriteRole,
-        }
-      : null)
-  if (!selectedCategory) return selectableCategories
-  if (selectableCategories.some((category) => category.categoryId === selectedCategory.categoryId)) {
-    return selectableCategories
-  }
-  return [
-    {
-      ...selectedCategory,
-      disabled: true,
-    },
-    ...selectableCategories,
-  ]
 })
 
 const pageTitle = computed(() =>
@@ -138,47 +104,39 @@ const {
   showNotice,
   canShowNsfw,
 })
+
+const {
+  filteredCategories,
+  firstCategoryId,
+} = usePostFormCategoryOptions({
+  categories,
+  board,
+  post,
+  selectedCategoryId: computed({
+    get: () => form.value.categoryId,
+    set: (categoryId) => {
+      form.value.categoryId = categoryId
+    },
+  }),
+  userRole: computed(() => authStore.user?.role),
+})
+
 const previewContent = computed(() => form.value.content || `<p>${t('board.writePost.preview.emptyContent')}</p>`)
 const leaveConfirmMessage = computed(() => t('board.writePost.leaveConfirm'))
 const editorViewOptions = computed<SegmentedControlOption[]>(() => [
   { value: 'visual', label: t('board.writePost.visualMode') },
   { value: 'html', label: t('board.writePost.viewHtmlSource') },
 ])
-const metadataPanelProps = computed(() => ({
-  categories: filteredCategories.value,
-  categoryId: form.value.categoryId,
-  tags: form.value.tags,
-  isNotice: form.value.isNotice,
-  isNsfw: form.value.isNsfw,
-  isSpoiler: form.value.isSpoiler,
-  isSecret: form.value.isSecret,
-  hideCategory: props.hideCategory,
-  hideTags: props.hideTags,
-  showNotice: showNotice.value,
-  canShowNsfw: canShowNsfw.value,
-  hideSpoiler: props.hideSpoiler,
-  hideSecret: props.hideSecret,
-}))
-const metadataPanelHandlers = {
-  'update:categoryId': (value: string | number) => {
-    form.value.categoryId = value
-  },
-  'update:tags': (value: string[]) => {
-    form.value.tags = value
-  },
-  'update:isNotice': (value: boolean) => {
-    form.value.isNotice = value
-  },
-  'update:isNsfw': (value: boolean) => {
-    form.value.isNsfw = value
-  },
-  'update:isSpoiler': (value: boolean) => {
-    form.value.isSpoiler = value
-  },
-  'update:isSecret': (value: boolean) => {
-    form.value.isSecret = value
-  },
-}
+const { metadataPanelProps, metadataPanelHandlers } = usePostFormMetadataBindings({
+  form,
+  categories: filteredCategories,
+  showNotice,
+  canShowNsfw,
+  hideCategory: () => props.hideCategory,
+  hideTags: () => props.hideTags,
+  hideSpoiler: () => props.hideSpoiler,
+  hideSecret: () => props.hideSecret,
+})
 
 function onBeforeUnload(event: BeforeUnloadEvent) {
   if (!isDirty.value) return
@@ -208,7 +166,6 @@ const { resetEditHydrationState } = usePostFormEditHydration({
   markCurrentSnapshotSaved,
 })
 
-const firstCategoryId = computed(() => filteredCategories.value[0]?.categoryId)
 const {
   draftEnabled,
   draftStatusLabel,
