@@ -15,6 +15,17 @@ interface UseAdminBoardEditorOptions {
   updateBoard: (payload: UpdateBoardPayload) => Promise<unknown>
 }
 
+export interface AdminBoardEditorForm {
+  boardName: string
+  boardUrl: string
+  description: string
+  iconUrl: string
+  sortOrder: string
+  isActive: boolean
+  agentUseYn: boolean
+  guidePrompt: string
+}
+
 export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEditorOptions) {
   const { t } = useI18n()
   const toastStore = useToastStore()
@@ -27,7 +38,7 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
   const isSubmitting = ref(false)
   const isSavingSortOrder = ref(false)
 
-  const form = reactive({
+  const form = reactive<AdminBoardEditorForm>({
     boardName: '',
     boardUrl: '',
     description: '',

@@ -10,166 +10,32 @@
 
     <div class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-12">
       <section class="xl:col-span-4">
-        <AdminPanel padding="sm">
-          <h2 class="text-sm font-semibold nv-title">{{ $t('common.board') }}</h2>
-
-          <div v-if="loading" class="py-8 flex justify-center">
-            <BaseSpinner />
-          </div>
-
-          <div v-else-if="boards.length === 0" class="py-8 text-sm nv-text-subtle text-center">
-            {{ $t('common.noData') }}
-          </div>
-
-          <draggable
-            v-else
-            v-model="boards"
-            item-key="boardId"
-            handle=".drag-handle"
-            class="mt-3 space-y-2 max-h-[70vh] overflow-y-auto pr-1"
-            @end="handleDragEnd"
-          >
-            <template #item="{ element: board }">
-              <button
-                type="button"
-                @click="selectBoard(board)"
-                class="w-full rounded-lg border px-3 py-3 text-left transition-colors"
-                :class="selectedBoardId === board.boardId
-                  ? 'board-row-selected'
-                  : 'nv-border nv-hover-surface'"
-              >
-                <div class="flex items-start justify-between gap-2">
-                  <p class="truncate text-sm font-semibold nv-title flex items-center gap-2">
-                    <GripVertical class="h-4 w-4 nv-text-subtle drag-handle cursor-move" />
-                    {{ board.boardName }}
-                  </p>
-                  <BooleanBadge
-                    :value="board.isActive"
-                    :true-label="$t('common.active')"
-                    :false-label="$t('common.inactive')"
-                    false-variant="danger"
-                  />
-                </div>
-                <div class="mt-2 text-xs nv-text-subtle">
-                  {{ $t('common.sortOrder') }}: {{ board.sortOrder }}
-                </div>
-              </button>
-            </template>
-          </draggable>
-        </AdminPanel>
+        <AdminBoardListPanel
+          :boards="boards"
+          :loading="loading"
+          :selected-board-id="selectedBoardId"
+          @update:boards="updateBoards"
+          @select="selectBoard"
+          @drag-end="handleDragEnd"
+        />
       </section>
 
       <section class="xl:col-span-8">
-        <AdminPanel max-width-class="w-full max-w-5xl">
-          <template v-if="selectedBoard">
-            <div class="space-y-7">
-              <div>
-                <h2 class="text-lg font-semibold nv-title">
-                  {{ selectedBoard.boardName }}
-                </h2>
-                <p class="mt-1 text-sm nv-text-subtle">
-                  {{ selectedBoard.boardUrl }}
-                </p>
-              </div>
-
-              <AdminBoardFormFields
-                v-model:board-name="form.boardName"
-                v-model:board-url="form.boardUrl"
-                v-model:description="form.description"
-                v-model:agent-use-yn="form.agentUseYn"
-                v-model:guide-prompt="form.guidePrompt"
-                layout="grid"
-                :agent-disabled="!selectedBoard?.isPublic"
-              >
-                <template #after-identity>
-                  <div class="md:col-span-2 max-w-24">
-                    <BaseInput
-                      v-model="form.sortOrder"
-                      :label="$t('common.sortOrder')"
-                      type="number"
-                    />
-                  </div>
-                  <div class="md:col-span-2 flex items-end justify-start md:justify-end">
-                    <button
-                      type="button"
-                      class="inline-flex items-center rounded-full px-3 py-1.5 text-sm font-semibold transition-colors"
-                      :class="form.isActive
-                        ? 'nv-status-success'
-                        : 'nv-status-danger'"
-                      @click="toggleBoardStatus"
-                    >
-                      {{ form.isActive ? $t('common.active') : $t('common.inactive') }}
-                    </button>
-                  </div>
-                </template>
-              </AdminBoardFormFields>
-
-              <div class="space-y-2">
-                <p class="text-xs sm:text-sm font-medium nv-text-muted">
-                  {{ $t('board.form.iconUrl') }}
-                </p>
-                <div class="flex items-start gap-4">
-                  <div
-                    class="h-20 w-20 flex-shrink-0 overflow-hidden rounded-full border nv-border nv-surface-muted flex items-center justify-center"
-                  >
-                    <img
-                      v-if="form.iconUrl"
-                      :src="form.iconUrl"
-                      alt="icon"
-                      class="h-full w-full object-contain"
-                    />
-                    <span v-else class="text-[11px] nv-text-subtle">{{ $t('admin.boards.iconEmpty') }}</span>
-                  </div>
-
-                  <div class="flex-1 min-w-0 space-y-2 pt-1">
-                    <p
-                      class="break-all text-sm leading-5"
-                      :class="form.iconUrl ? 'nv-text-muted' : 'nv-text-subtle'"
-                    >
-                      {{ form.iconUrl || $t('admin.boards.iconUrlEmpty') }}
-                    </p>
-
-                    <div class="flex items-center">
-                      <input
-                        type="file"
-                        :ref="setFileInputRef"
-                        @change="handleFileUpload"
-                        accept="image/*"
-                        class="hidden"
-                      />
-                      <BaseButton type="button" variant="secondary" size="sm" @click="chooseIconFile">{{ $t('admin.boards.chooseFile') }}</BaseButton>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="rounded-lg border nv-border p-4">
-                <h3 class="text-sm font-semibold nv-title">{{ $t('admin.boards.managerTitle') }}</h3>
-                <div v-if="isBoardManagerLoading" class="mt-3 flex justify-center">
-                  <BaseSpinner />
-                </div>
-                <div v-else class="mt-3 space-y-3">
-                  <p class="text-sm nv-text-muted">
-                    {{ currentManagerLabel }}
-                  </p>
-                  <BaseButton @click="openManagerModal('single')" :disabled="isAssigningManager">
-                    {{ isAssigningManager ? $t('common.messages.saving') : $t('admin.boards.chooseManager') }}
-                  </BaseButton>
-                </div>
-              </div>
-
-              <div class="flex justify-end">
-                <BaseButton @click="handleSaveChanges" :disabled="isSubmitting || !hasUnsavedChanges">
-                  {{ isSubmitting ? $t('common.messages.saving') : $t('common.saveChanges') }}
-                </BaseButton>
-              </div>
-            </div>
-          </template>
-
-          <div v-else class="py-12 text-center text-sm nv-text-subtle">
-            {{ $t('common.noData') }}
-          </div>
-        </AdminPanel>
+        <AdminBoardEditPanel
+          :selected-board="selectedBoard"
+          :form="form"
+          :has-unsaved-changes="hasUnsavedChanges"
+          :is-submitting="isSubmitting"
+          :is-board-manager-loading="isBoardManagerLoading"
+          :is-assigning-manager="isAssigningManager"
+          :current-manager-label="currentManagerLabel"
+          :set-file-input-ref="setFileInputRef"
+          @toggle-status="toggleBoardStatus"
+          @save="handleSaveChanges"
+          @icon-upload="handleFileUpload"
+          @choose-icon="chooseIconFile"
+          @open-manager="openManagerModal('single')"
+        />
       </section>
     </div>
 
@@ -204,22 +70,19 @@
 
 <script setup lang="ts">
 import { type ComponentPublicInstance } from 'vue'
-import draggable from 'vuedraggable'
-import { GripVertical } from 'lucide-vue-next'
 import { useAdmin } from '@/composables/useAdmin'
 import { useAdminBoardEditor } from '@/composables/useAdminBoardEditor'
 import { useAdminBoardCreateModal } from '@/composables/useAdminBoardCreateModal'
 import { useBoardIconUpload } from '@/composables/useBoardIconUpload'
 import { useBoardManagerAssignment } from '@/composables/useBoardManagerAssignment'
+import type { AdminBoard } from '@/types'
 import AdminDataPage from '@/components/admin/AdminDataPage.vue'
 import AdminModalActions from '@/components/admin/AdminModalActions.vue'
-import AdminPanel from '@/components/admin/AdminPanel.vue'
+import AdminBoardListPanel from '@/components/admin/AdminBoardListPanel.vue'
+import AdminBoardEditPanel from '@/components/admin/AdminBoardEditPanel.vue'
 import AdminBoardFormFields from '@/components/admin/AdminBoardFormFields.vue'
-import BooleanBadge from '@/components/admin/BooleanBadge.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
-import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import UserSelectModal from '@/components/common/widgets/UserSelectModal.vue'
 const {
   useAdminBoards,
@@ -269,6 +132,10 @@ const setFileInputRef = (element: Element | ComponentPublicInstance | null) => {
   fileInput.value = target
 }
 
+const updateBoards = (nextBoards: AdminBoard[]) => {
+  boards.value = nextBoards
+}
+
 const { data: boardManagerData, isLoading: isBoardManagerLoading } = useBoardManager(selectedBoardId)
 const { mutateAsync: updateBoardManager } = useUpdateBoardManager()
 const {
@@ -285,10 +152,3 @@ const {
   updateBoardManager
 })
 </script>
-
-<style scoped>
-.board-row-selected {
-  background: var(--nv-selection);
-  border-color: var(--nv-focus);
-}
-</style>
