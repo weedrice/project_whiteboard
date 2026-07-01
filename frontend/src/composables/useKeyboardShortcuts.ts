@@ -3,6 +3,7 @@ import { useKeyboardStore } from '@/stores/keyboard'
 import { useAuthStore } from '@/stores/auth'
 import { useEventListener } from '@/composables/useEventListener'
 import { useThemePreference } from '@/composables/useThemePreference'
+import { isNarrowViewport } from '@/utils/browserEnv'
 import { isInputFocused } from '@/utils/keyboard'
 
 export interface KeyboardShortcutHandlers {
@@ -69,7 +70,7 @@ export function useKeyboardShortcuts(handlers: KeyboardShortcutHandlers = {}) {
                 return
             }
 
-            if ((key === '/' || key === '?') && window.innerWidth >= 640) {
+            if ((key === '/' || key === '?') && !isNarrowViewport(640)) {
                 event.preventDefault()
                 keyboardStore.toggleShortcutsModal()
             }

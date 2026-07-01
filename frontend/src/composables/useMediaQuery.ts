@@ -1,5 +1,6 @@
 import { onMounted, ref } from 'vue'
 import { useEventListener } from '@/composables/useEventListener'
+import { getViewportWidth } from '@/utils/browserEnv'
 
 export const mobileViewportMediaQuery = '(max-width: 639px)'
 export const mobileViewportMaxWidth = 639
@@ -13,7 +14,7 @@ function createMediaQuery(query: string) {
 }
 
 export function isMobileViewportFallback() {
-  return typeof window !== 'undefined' && window.innerWidth <= mobileViewportMaxWidth
+  return getViewportWidth() <= mobileViewportMaxWidth
 }
 
 export function useMediaQuery(

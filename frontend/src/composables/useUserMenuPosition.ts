@@ -1,5 +1,6 @@
 import { nextTick, onUnmounted, ref, watch, type Ref, type CSSProperties } from 'vue'
 import { useViewportListeners } from '@/composables/useViewportListeners'
+import { getViewportSize, getWindowScroll } from '@/utils/browserEnv'
 
 export function useUserMenuPosition(
     buttonRef: Ref<HTMLElement | null>,
@@ -16,19 +17,21 @@ export function useUserMenuPosition(
         const verticalPadding = 8
         const dropdownWidth = dropdownRef.value?.offsetWidth ?? 224
         const dropdownHeight = dropdownRef.value?.offsetHeight ?? 0
-        const minLeft = window.scrollX + horizontalPadding
-        const maxLeft = Math.max(minLeft, window.scrollX + window.innerWidth - dropdownWidth - horizontalPadding)
-        const preferredTop = rect.bottom + window.scrollY + 5
-        const preferredLeft = rect.left + window.scrollX
+        const viewport = getViewportSize()
+        const scroll = getWindowScroll()
+        const minLeft = scroll.x + horizontalPadding
+        const maxLeft = Math.max(minLeft, scroll.x + viewport.width - dropdownWidth - horizontalPadding)
+        const preferredTop = rect.bottom + scroll.y + 5
+        const preferredLeft = rect.left + scroll.x
         let top = preferredTop
 
         if (dropdownHeight > 0) {
-            const maxTop = window.scrollY + window.innerHeight - dropdownHeight - verticalPadding
+            const maxTop = scroll.y + viewport.height - dropdownHeight - verticalPadding
             if (preferredTop > maxTop) {
-                const aboveTop = rect.top + window.scrollY - dropdownHeight - 5
-                top = aboveTop >= window.scrollY + verticalPadding
+                const aboveTop = rect.top + scroll.y - dropdownHeight - 5
+                top = aboveTop >= scroll.y + verticalPadding
                     ? aboveTop
-                    : Math.max(window.scrollY + verticalPadding, maxTop)
+                    : Math.max(scroll.y + verticalPadding, maxTop)
             }
         }
 

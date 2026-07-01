@@ -3,6 +3,7 @@ import { useHead } from '@unhead/vue'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import type { Post } from '@/types'
 import type { PostDetailViewModel } from '@/composables/usePostDetailViewModel'
+import { getWindowOrigin } from '@/utils/browserEnv'
 import { stripHtmlToText, truncateWithEllipsis } from '@/utils/textExcerpt'
 
 interface UsePostDetailSeoOptions {
@@ -35,9 +36,10 @@ export function usePostDetailSeo({
   })
 
   const canonicalUrl = computed(() => {
-    if (typeof window === 'undefined') return ''
+    const origin = getWindowOrigin('')
+    if (!origin) return ''
     const normalizedPath = route.path.endsWith('/') ? route.path : `${route.path}/`
-    return `${window.location.origin}${normalizedPath}`
+    return `${origin}${normalizedPath}`
   })
 
   const articleStructuredData = computed(() => {

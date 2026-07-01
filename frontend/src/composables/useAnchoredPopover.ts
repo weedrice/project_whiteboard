@@ -1,5 +1,6 @@
 import { nextTick, onBeforeUnmount, ref, watch, type Ref } from 'vue'
 import { useViewportListeners } from '@/composables/useViewportListeners'
+import { getViewportSize, matchesMediaQuery } from '@/utils/browserEnv'
 
 type PopoverStyle = {
     top: string
@@ -11,17 +12,15 @@ const VIEWPORT_MARGIN = 12
 const MOBILE_QUERY = '(max-width: 767px)'
 
 function isMobileViewport(): boolean {
-    return typeof window !== 'undefined' && window.matchMedia(MOBILE_QUERY).matches
+    return matchesMediaQuery(MOBILE_QUERY)
 }
 
 function getCenteredStyle(): PopoverStyle {
-    if (typeof window === 'undefined') {
-        return { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
-    }
+    const { width, height } = getViewportSize()
 
     return {
-        top: `${window.innerHeight / 2}px`,
-        left: `${window.innerWidth / 2}px`,
+        top: Number.isFinite(height) ? `${height / 2}px` : '50%',
+        left: Number.isFinite(width) ? `${width / 2}px` : '50%',
         transform: 'translate(-50%, -50%)',
     }
 }
@@ -44,21 +43,22 @@ export function useAnchoredPopover(popoverRef: Ref<HTMLElement | null>, isOpen: 
         await nextTick()
         const anchor = anchorElement.value
         const popover = popoverRef.value
-        if (typeof window === 'undefined' || !anchor || !popover || isMobileViewport()) {
+        if (!anchor || !popover || isMobileViewport()) {
             popoverStyle.value = getCenteredStyle()
             return
         }
 
+        const { width: viewportWidth, height: viewportHeight } = getViewportSize()
         const anchorRect = anchor.getBoundingClientRect()
         const popoverRect = popover.getBoundingClientRect()
         const width = popoverRect.width || 360
         const height = popoverRect.height || 240
         const anchorCenter = anchorRect.left + anchorRect.width / 2
         const preferredTop = anchorRect.bottom + 8
-        const shouldOpenAbove = preferredTop + height > window.innerHeight - VIEWPORT_MARGIN
+        const shouldOpenAbove = preferredTop + height > viewportHeight - VIEWPORT_MARGIN
         const rawTop = shouldOpenAbove ? anchorRect.top - height - 8 : preferredTop
         const minLeft = VIEWPORT_MARGIN + width / 2
-        const maxLeft = window.innerWidth - VIEWPORT_MARGIN - width / 2
+        const maxLeft = viewportWidth - VIEWPORT_MARGIN - width / 2
 
         popoverStyle.value = {
             top: `${Math.max(VIEWPORT_MARGIN, rawTop)}px`,

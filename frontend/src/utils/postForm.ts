@@ -1,4 +1,5 @@
 import { normalizeEditorFileImageUrls, normalizeLegacyFileUrls } from '@/utils/fileUrl'
+import { getWindowOrigin } from '@/utils/browserEnv'
 import { encodeSandboxedPostHtml, requiresSandboxedPostHtml } from '@/utils/postHtmlSandbox'
 
 export type PostFormFileIdScope = 'content' | 'draft'
@@ -206,5 +207,5 @@ export function toEmbedPostVideoUrl(url: string): string {
 }
 
 function getDefaultBaseOrigin(): string {
-    return typeof window !== 'undefined' ? window.location.origin : 'http://localhost'
+    return getWindowOrigin()
 }

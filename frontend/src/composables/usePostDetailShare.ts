@@ -2,6 +2,7 @@ import { computed, onUnmounted, ref, type Ref } from 'vue'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import { useToastStore } from '@/stores/toast'
 import type { Post } from '@/types'
+import { getWindowOrigin, isNarrowViewport } from '@/utils/browserEnv'
 import logger from '@/utils/logger'
 
 interface UsePostDetailShareOptions {
@@ -20,8 +21,8 @@ export function usePostDetailShare({
   let copyHintTimer: ReturnType<typeof setTimeout> | null = null
 
   const currentUrl = computed(() => {
-    if (typeof window === 'undefined') return ''
-    return `${window.location.origin}${route.fullPath}`
+    const origin = getWindowOrigin('')
+    return origin ? `${origin}${route.fullPath}` : ''
   })
 
   const compactUrl = computed(() => {
@@ -69,7 +70,7 @@ export function usePostDetailShare({
   }
 
   function onUrlBarClick() {
-    if (typeof window !== 'undefined' && window.innerWidth < 640) {
+    if (isNarrowViewport(640)) {
       handleCopyUrl(false)
       return
     }

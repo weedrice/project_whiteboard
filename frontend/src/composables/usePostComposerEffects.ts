@@ -1,6 +1,7 @@
 import { onUnmounted, ref } from 'vue'
 import { useEventListener } from '@/composables/useEventListener'
 import { usePopoverFocus } from '@/composables/usePopoverFocus'
+import { getViewportSize, matchesMediaQuery } from '@/utils/browserEnv'
 import { toEmbedPostVideoUrl } from '@/utils/postForm'
 import type { EmoticonImage } from '@/types/emoticon'
 
@@ -20,8 +21,7 @@ type UsePostComposerEffectsOptions = {
 }
 
 function isMobileView(): boolean {
-  if (typeof window === 'undefined') return false
-  return window.matchMedia('(max-width: 767px)').matches
+  return matchesMediaQuery('(max-width: 767px)')
 }
 
 export function usePostComposerEffects(options: UsePostComposerEffectsOptions) {
@@ -58,9 +58,10 @@ export function usePostComposerEffects(options: UsePostComposerEffectsOptions) {
         }
       }
     } else {
+      const { width, height } = getViewportSize()
       videoPopoverStyle.value = {
-        top: `${window.innerHeight / 2}px`,
-        left: `${window.innerWidth / 2}px`,
+        top: `${height / 2}px`,
+        left: `${width / 2}px`,
       }
     }
     videoUrl.value = ''

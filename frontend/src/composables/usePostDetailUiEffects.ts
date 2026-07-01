@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { isNarrowViewport } from '@/utils/browserEnv'
 
 export function usePostDetailUiEffects() {
   const isBlurred = ref(false)
@@ -116,7 +117,7 @@ export function usePostDetailUiEffects() {
       composerObserver = null
     }
 
-    if (typeof window === 'undefined' || window.innerWidth >= 640) {
+    if (!isNarrowViewport(640)) {
       showComposerCta.value = false
       return
     }
