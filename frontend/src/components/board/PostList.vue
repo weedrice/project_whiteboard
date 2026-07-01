@@ -6,23 +6,29 @@ import type { PostSummary } from '@/types'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import PostListDesktopTable from '@/components/board/PostListDesktopTable.vue'
 import PostListMobileItem from '@/components/board/PostListMobileItem.vue'
-import { formatUserDisplayName } from '@/utils/userDisplay'
-
-type ResolvePostRoute = (
-  post: PostSummary,
-  boardUrl: string,
-  linkQuery: LocationQueryRaw | undefined
-) => RouteLocationRaw | null | undefined
-
-type ResolveBoardRoute = (
-  post: PostSummary,
-  boardUrl: string
-) => RouteLocationRaw | null | undefined
-
-type PostPredicate = (
-  post: PostSummary,
-  boardUrl: string
-) => boolean
+import {
+  createPostListColumns,
+  getPostListActiveSortDirection,
+  getPostListActiveSortKey,
+  getPostListAuthorName,
+  getPostListInteractiveTag,
+  getPostListNextSort,
+  getPostListRowClass,
+  getPostListTitleProps,
+  getPostListTitleTag,
+  getPostListVisibleAuthorName,
+  hasPostListInteractiveAuthor,
+  isPostListAgentAuthor,
+  isPostListCurrentPost,
+  POST_LIST_MAX_AUTHOR_NAME_LENGTH,
+  resolvePostListBoardRoute,
+  resolvePostListPostRoute,
+  shouldInterceptPostListInquiry,
+  shouldShowPostListInquiryStatus,
+  type PostPredicate,
+  type ResolveBoardRoute,
+  type ResolvePostRoute,
+} from '@/components/board/postListModel'
 
 const props = withDefaults(defineProps<{
   posts: PostSummary[]
@@ -60,33 +66,17 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const MAX_AUTHOR_NAME_LENGTH = 10
-const SORT_FIELD_MAP: Record<string, string> = {
-  postId: 'createdAt',
-  likeCount: 'likeCount',
-  viewCount: 'viewCount'
-}
 
 const getRowClass = (item: PostSummary) => (
-  isCurrentPost(item) ? 'post-list-row post-list-row-current' : 'post-list-row'
+  getPostListRowClass(item, props.currentPostId)
 )
 
 function isCurrentPost(item: PostSummary): boolean {
-  return String(item.postId) === String(props.currentPostId ?? '')
-}
-
-function getResolvedBoardUrl(item: PostSummary): string {
-  const raw = String(props.boardUrl || item.boardUrl || '').trim().toLowerCase()
-  return raw.replace(/^\/+|\/+$/g, '')
+  return isPostListCurrentPost(item, props.currentPostId)
 }
 
 function getBoardLink(item: PostSummary): RouteLocationRaw | null {
-  const boardUrl = getResolvedBoardUrl(item)
-  if (!boardUrl) return null
-  if (props.resolveBoardRoute) {
-    return props.resolveBoardRoute(item, boardUrl) ?? null
-  }
-  return `/board/${boardUrl}`
+  return resolvePostListBoardRoute(item, props.boardUrl, props.resolveBoardRoute)
 }
 
 function hasBoardRouteTarget(item: PostSummary): boolean {
@@ -98,12 +88,7 @@ function getBoardLinkTarget(item: PostSummary): RouteLocationRaw {
 }
 
 function resolvePostRouteTarget(item: PostSummary): RouteLocationRaw | null {
-  const boardUrl = getResolvedBoardUrl(item)
-  if (!boardUrl) return null
-  if (props.resolvePostRoute) {
-    return props.resolvePostRoute(item, boardUrl, props.linkQuery) ?? null
-  }
-  return null
+  return resolvePostListPostRoute(item, props.boardUrl, props.linkQuery, props.resolvePostRoute)
 }
 
 const postRouteTargets = computed(() => {
@@ -125,57 +110,36 @@ function hasPostRouteTarget(item: PostSummary): boolean {
 }
 
 function shouldInterceptInquiry(item: PostSummary): boolean {
-  const boardUrl = getResolvedBoardUrl(item)
-  return props.interceptInquiry && !!props.shouldInterceptPost?.(item, boardUrl)
+  return shouldInterceptPostListInquiry(item, props.boardUrl, props.interceptInquiry, props.shouldInterceptPost)
 }
 
 function shouldShowInquiryStatus(item: PostSummary): boolean {
-  const boardUrl = getResolvedBoardUrl(item)
-  return !!props.showInquiryStatus?.(item, boardUrl)
+  return shouldShowPostListInquiryStatus(item, props.boardUrl, props.showInquiryStatus)
 }
 
 function isAgentAuthor(item: PostSummary): boolean {
-  return item.author?.authorType === 'AGENT'
+  return isPostListAgentAuthor(item)
 }
 
 function getAuthorName(item: PostSummary): string {
-  return formatUserDisplayName(item.author?.displayName, undefined, t('user.deletedUser'))
+  return getPostListAuthorName(item, t('user.deletedUser'))
 }
 
 function hasInteractiveAuthor(item: PostSummary): boolean {
-  return !!item.author?.displayName?.trim()
+  return hasPostListInteractiveAuthor(item)
 }
 
 function getVisibleAuthorName(item: PostSummary): string {
-  return formatUserDisplayName(item.author?.displayName, MAX_AUTHOR_NAME_LENGTH, t('user.deletedUser'))
+  return getPostListVisibleAuthorName(item, t('user.deletedUser'))
 }
 
 function handleSort(field: string) {
-  const normalizedField = SORT_FIELD_MAP[field] ?? field
-  const [currentField, currentDirection] = props.currentSort.split(',')
-  let nextDirection = 'desc'
-
-  if (normalizedField === currentField) {
-    nextDirection = currentDirection === 'desc' ? 'asc' : 'desc'
-  }
-
-  emit('update:sort', `${normalizedField},${nextDirection}`)
+  emit('update:sort', getPostListNextSort(props.currentSort, field))
 }
 
-const activeSortKey = computed(() => {
-  const [currentField] = props.currentSort.split(',')
-  const matchedEntry = Object.entries(SORT_FIELD_MAP).find(([, apiField]) => apiField === currentField)
-  return matchedEntry?.[0] ?? null
-})
+const activeSortKey = computed(() => getPostListActiveSortKey(props.currentSort))
 
-const activeSortDirection = computed<'asc' | 'desc' | null>(() => {
-  const [, currentDirection] = props.currentSort.split(',')
-  if (activeSortKey.value === null) {
-    return null
-  }
-
-  return currentDirection === 'asc' ? 'asc' : 'desc'
-})
+const activeSortDirection = computed<'asc' | 'desc' | null>(() => getPostListActiveSortDirection(props.currentSort))
 
 function onNavigationClick(event: Event, item: PostSummary) {
   if (shouldInterceptInquiry(item)) {
@@ -185,93 +149,29 @@ function onNavigationClick(event: Event, item: PostSummary) {
 }
 
 function getInteractiveTag(item: PostSummary): 'button' | 'router-link' | 'div' {
-  if (shouldInterceptInquiry(item)) return 'button'
-  if (hasPostRouteTarget(item)) return 'router-link'
-  return 'div'
+  return getPostListInteractiveTag(shouldInterceptInquiry(item), hasPostRouteTarget(item))
 }
 
 function getTitleTag(item: PostSummary): 'button' | 'router-link' | 'span' {
-  if (shouldInterceptInquiry(item)) return 'button'
-  if (hasPostRouteTarget(item)) return 'router-link'
-  return 'span'
+  return getPostListTitleTag(shouldInterceptInquiry(item), hasPostRouteTarget(item))
 }
 
 function getTitleProps(item: PostSummary) {
-  const tag = getTitleTag(item)
-
-  if (tag === 'button') {
-    return { type: 'button' }
-  }
-
-  if (tag === 'router-link') {
-    return { to: getPostLink(item) }
-  }
-
-  return { title: t('board.invalidUrl') }
+  return getPostListTitleProps(getTitleTag(item), getPostLink(item), t('board.invalidUrl'))
 }
 
-const columns = computed(() => {
-  const cols = []
-
-  if (!props.hideNoColumn) {
-    cols.push({
-      key: 'postId',
-      label: t('common.no'),
-      width: '10%',
-      align: 'center' as const,
-      sortable: true
-    })
-  }
-
-  if (props.showBoardName) {
-    cols.push({
-      key: 'boardName',
-      label: t('common.board'),
-      width: '14%',
-      align: 'left' as const
-    })
-  }
-
-  cols.push({
-    key: 'title',
-    label: t('common.title'),
-    width: props.showBoardName ? '34%' : '48%',
-    align: 'left' as const
-  })
-
-  cols.push({
-    key: 'author',
-    label: t('common.author'),
-    width: '13%',
-    align: 'left' as const
-  })
-
-  cols.push({
-    key: 'likeCount',
-    label: t('common.likes'),
-    width: '8%',
-    align: 'center' as const,
-    sortable: true
-  })
-
-  cols.push({
-    key: 'viewCount',
-    label: t('common.views'),
-    width: '8%',
-    align: 'right' as const,
-    sortable: true
-  })
-
-  cols.push({
-    key: 'createdAt',
-    label: t('common.date'),
-    width: '13%',
-    align: 'center' as const,
-    sortable: false
-  })
-
-  return cols
-})
+const columns = computed(() => createPostListColumns({
+  no: t('common.no'),
+  board: t('common.board'),
+  title: t('common.title'),
+  author: t('common.author'),
+  likes: t('common.likes'),
+  views: t('common.views'),
+  date: t('common.date'),
+}, {
+  showBoardName: props.showBoardName,
+  hideNoColumn: props.hideNoColumn,
+}))
 </script>
 
 <template>
@@ -321,7 +221,7 @@ const columns = computed(() => {
       :show-comment-count="props.showCommentCount"
       :show-preview-indicator="props.showPreviewIndicator"
       :show-secret-indicator="props.showSecretIndicator"
-      :max-author-name-length="MAX_AUTHOR_NAME_LENGTH"
+      :max-author-name-length="POST_LIST_MAX_AUTHOR_NAME_LENGTH"
       :get-row-class="getRowClass"
       :should-intercept-inquiry="shouldInterceptInquiry"
       :has-board-route-target="hasBoardRouteTarget"
