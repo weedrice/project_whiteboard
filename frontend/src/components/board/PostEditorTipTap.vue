@@ -10,14 +10,18 @@ import PostEditorSlashMenu from '@/components/board/editor/PostEditorSlashMenu.v
 import PostEditorTablePopover from '@/components/board/editor/PostEditorTablePopover.vue'
 import PostEditorToolbar from '@/components/board/editor/PostEditorToolbar.vue'
 import { createPostEditorExtensions } from '@/components/board/editor/postEditorExtensions'
-import { colorLabelKeys, colorPresets, fontSizes, lineHeights, slashActions, type SlashAction } from '@/components/board/editor/postEditorOptions'
-import { escapeHtmlAttr, escapeHtmlText } from '@/components/board/editor/postEditorHtml'
-import { hasCandidateImageFiles, isCandidateImageFile } from '@/components/board/editor/postEditorImageFiles'
+import { colorLabelKeys, colorPresets, fontSizes, lineHeights, slashActions } from '@/components/board/editor/postEditorOptions'
 import '@/components/board/editor/editor.css'
 import { useEditorImageUpload } from '@/composables/useEditorImageUpload'
+import { usePostEditorImageAltCommands } from '@/composables/usePostEditorImageAltCommands'
+import { usePostEditorImageFiles } from '@/composables/usePostEditorImageFiles'
 import { usePostEditorImageUploadState } from '@/composables/usePostEditorImageUploadState'
+import { usePostEditorLinkCommands } from '@/composables/usePostEditorLinkCommands'
+import { usePostEditorListCommands } from '@/composables/usePostEditorListCommands'
 import { usePostEditorPopovers } from '@/composables/usePostEditorPopovers'
 import { usePostEditorSlashMenu } from '@/composables/usePostEditorSlashMenu'
+import { usePostEditorSlashActions } from '@/composables/usePostEditorSlashActions'
+import { usePostEditorTableCommands } from '@/composables/usePostEditorTableCommands'
 import { usePostEditorTextCommands } from '@/composables/usePostEditorTextCommands'
 import { usePostEditorUploadedImages, type UploadedEditorImage } from '@/composables/usePostEditorUploadedImages'
 import { useI18n } from 'vue-i18n'
@@ -26,7 +30,6 @@ import { useToastStore } from '@/stores/toast'
 import type { EmoticonImage } from '@/types/emoticon'
 import { IMAGE_UPLOAD_ACCEPT } from '@/utils/imageUploadPolicy'
 import logger from '@/utils/logger'
-import { toSafePostLinkUrl } from '@/utils/postForm'
 
 const props = defineProps<{
   modelValue: string
@@ -42,15 +45,6 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const toastStore = useToastStore()
 const themeStore = useThemeStore()
-const linkUrl = ref('')
-const linkText = ref('')
-const imageAltText = ref('')
-const tableRows = ref(3)
-const tableCols = ref(3)
-const tableHeaderRow = ref(true)
-const savedListSelection = ref<{ from: number; to: number } | null>(null)
-const imageInput = ref<HTMLInputElement | null>(null)
-const isDraggingImage = ref(false)
 
 const { isUploadingImage, validateImageFile, uploadImage, abortImageUpload, isAbortUploadError } = useEditorImageUpload()
 const {
@@ -200,6 +194,76 @@ const colorPresetLabels = computed(() => Object.fromEntries(
   ]),
 ))
 
+const {
+  linkUrl,
+  linkText,
+  openLinkPopover,
+  closeLinkPopover,
+  applyLink,
+  removeLink,
+} = usePostEditorLinkCommands({
+  editor,
+  showLinkPopover,
+  linkPosition,
+  closeFloatingMenus,
+  t,
+  addToast: toastStore.addToast,
+})
+
+const {
+  imageAltText,
+  openImageAltPopover,
+  closeImageAltPopover,
+  applyImageAlt,
+  clearImageAlt,
+} = usePostEditorImageAltCommands({
+  editor,
+  showImageAltPopover,
+  imageAltPosition,
+  closeFloatingMenus,
+})
+
+const {
+  tableRows,
+  tableCols,
+  tableHeaderRow,
+  openTablePopover,
+  closeTablePopover,
+  applyTable,
+} = usePostEditorTableCommands({
+  editor,
+  showTablePopover,
+  tablePosition,
+  closeFloatingMenus,
+})
+
+const {
+  saveListSelection,
+  applyBulletList,
+  applyOrderedList,
+} = usePostEditorListCommands(editor)
+
+const {
+  applySlashAction,
+} = usePostEditorSlashActions({
+  editor,
+  showSlashMenu,
+  applyBulletList,
+  openLinkPopover,
+  openTablePopover,
+})
+
+const {
+  imageInput,
+  isDraggingImage,
+  triggerImageUpload,
+  onImageChange,
+  onEditorPaste,
+  onEditorDrop,
+  onEditorDragEnter,
+  onEditorDragLeave,
+} = usePostEditorImageFiles(imageUploadQueue)
+
 function setDefaultColor() {
   editor.value?.chain().focus().unsetColor().run()
   closeColorPanel()
@@ -231,135 +295,6 @@ function closeColorPanel(focusTarget = colorTriggerElement.value) {
   }
 }
 
-function openLinkPopover(anchor?: HTMLElement) {
-  closeFloatingMenus()
-  linkPosition.setAnchor(anchor)
-  const attrs = editor.value?.getAttributes('link')
-  linkUrl.value = attrs?.href ?? ''
-  const { from, to } = editor.value?.state.selection ?? {}
-  const selectedText = from !== undefined && to !== undefined && from < to
-    ? editor.value?.state.doc.textBetween(from, to, ' ') ?? ''
-    : ''
-  linkText.value = selectedText
-  showLinkPopover.value = true
-}
-
-function closeLinkPopover() {
-  showLinkPopover.value = false
-  linkPosition.clearAnchor()
-  linkUrl.value = ''
-  linkText.value = ''
-}
-
-function openImageAltPopover(anchor: HTMLElement, alt = '', nodePos?: number) {
-  closeFloatingMenus()
-  imageAltPosition.setAnchor(anchor)
-  imageAltText.value = alt
-  showImageAltPopover.value = true
-  if (typeof nodePos === 'number') {
-    editor.value?.commands.setTextSelection(nodePos)
-  }
-}
-
-function closeImageAltPopover() {
-  showImageAltPopover.value = false
-  imageAltPosition.clearAnchor()
-  imageAltText.value = ''
-}
-
-function applyImageAlt(value = imageAltText.value) {
-  editor.value?.chain().focus().updateAttributes('image', { alt: value.trim() }).run()
-  closeImageAltPopover()
-}
-
-function clearImageAlt() {
-  editor.value?.chain().focus().updateAttributes('image', { alt: null }).run()
-  closeImageAltPopover()
-}
-
-function applyLink(nextUrl = linkUrl.value, nextText = linkText.value) {
-  linkUrl.value = nextUrl
-  linkText.value = nextText
-  const url = nextUrl.trim()
-  const displayText = nextText.trim()
-  if (!url) {
-    toastStore.addToast(t('board.writePost.linkUrlPrompt'), 'error')
-    return
-  }
-  const safeUrl = toSafePostLinkUrl(url)
-  if (!safeUrl) {
-    toastStore.addToast(t('board.writePost.invalidLinkUrl'), 'error')
-    return
-  }
-  const text = displayText || url
-  const { from, to } = editor.value?.state.selection ?? {}
-  const hasSelection = from !== undefined && to !== undefined && from < to
-  if (hasSelection) {
-    editor.value?.chain().focus().setLink({ href: safeUrl }).run()
-  } else {
-    editor.value?.chain().focus().insertContent(`<a href="${escapeHtmlAttr(safeUrl)}" class="tiptap-link">${escapeHtmlText(text)}</a>`).run()
-  }
-  closeLinkPopover()
-}
-
-function removeLink() {
-  editor.value?.chain().focus().extendMarkRange('link').unsetLink().run()
-  closeLinkPopover()
-}
-
-function openTablePopover(anchor?: HTMLElement) {
-  closeFloatingMenus()
-  tablePosition.setAnchor(anchor)
-  tableRows.value = 3
-  tableCols.value = 3
-  tableHeaderRow.value = true
-  showTablePopover.value = true
-}
-
-function closeTablePopover() {
-  showTablePopover.value = false
-  tablePosition.clearAnchor()
-}
-
-function applyTable() {
-  const rows = Math.max(1, Math.min(20, Math.floor(Number(tableRows.value)) || 3))
-  const cols = Math.max(1, Math.min(10, Math.floor(Number(tableCols.value)) || 3))
-  editor.value?.chain().focus().insertTable({ rows, cols, withHeaderRow: tableHeaderRow.value }).run()
-  closeTablePopover()
-}
-
-function saveListSelection() {
-  const instance = editor.value
-  if (!instance) return
-  const { from, to } = instance.state.selection
-  savedListSelection.value = from !== to ? { from, to } : null
-}
-
-function applyListToggle(type: 'bullet' | 'ordered') {
-  const instance = editor.value
-  if (!instance) return
-  const chain = instance.chain().focus()
-  const saved = savedListSelection.value
-  if (saved) {
-    chain.setTextSelection({ from: saved.from, to: saved.to })
-    savedListSelection.value = null
-  }
-
-  if (type === 'bullet') {
-    chain.toggleBulletList().run()
-  } else {
-    chain.toggleOrderedList().run()
-  }
-}
-
-function applyBulletList() {
-  applyListToggle('bullet')
-}
-
-function applyOrderedList() {
-  applyListToggle('ordered')
-}
-
 function onContentAreaClick(event: MouseEvent) {
   const instance = editor.value
   if (!instance) return
@@ -384,68 +319,12 @@ function onContentAreaClick(event: MouseEvent) {
   }
 }
 
-function triggerImageUpload() {
-  imageInput.value?.click()
-}
-
 function reportImageValidationError(validationError: 'type' | 'size') {
   if (validationError === 'type') {
     toastStore.addToast(t('common.messages.badRequest'), 'warning')
     return
   }
   toastStore.addToast(t('common.messages.fileSizeExceeded'), 'warning')
-}
-
-function queueImageFiles(files: File[]) {
-  const candidateFiles = files.filter(isCandidateImageFile)
-  if (candidateFiles.length === 0) return false
-  imageUploadQueue.enqueueFiles(candidateFiles)
-  return true
-}
-
-async function onImageChange(event: Event) {
-  const input = event.target as HTMLInputElement
-  const files = Array.from(input.files ?? [])
-  if (files.length === 0) return
-
-  try {
-    queueImageFiles(files)
-  } finally {
-    input.value = ''
-  }
-}
-
-function onEditorPaste(event: ClipboardEvent) {
-  const files = Array.from(event.clipboardData?.files ?? [])
-  if (queueImageFiles(files)) {
-    event.preventDefault()
-  }
-}
-
-function onEditorDrop(event: DragEvent) {
-  const files = Array.from(event.dataTransfer?.files ?? [])
-  isDraggingImage.value = false
-  if (queueImageFiles(files)) {
-    event.preventDefault()
-  }
-}
-
-function onEditorDragEnter(event: DragEvent) {
-  const files = Array.from(event.dataTransfer?.items ?? [])
-    .filter((item) => item.kind === 'file')
-    .map((item) => item.getAsFile())
-    .filter((file): file is File => Boolean(file))
-  if (files.length > 0 && hasCandidateImageFiles(files)) {
-    isDraggingImage.value = true
-  }
-}
-
-function onEditorDragLeave(event: DragEvent) {
-  const currentTarget = event.currentTarget as HTMLElement
-  const relatedTarget = event.relatedTarget as Node | null
-  if (!relatedTarget || !currentTarget.contains(relatedTarget)) {
-    isDraggingImage.value = false
-  }
 }
 
 function setVideo(src: string) {
@@ -458,33 +337,6 @@ function setEmoticon(image: EmoticonImage) {
     alt: ':emoticon:',
     title: ':emoticon:',
   }).run()
-}
-
-function applySlashAction(action: SlashAction) {
-  switch (action) {
-    case 'heading':
-      editor.value?.chain().focus().toggleHeading({ level: 2 }).run()
-      break
-    case 'quote':
-      editor.value?.chain().focus().setBlockquote().run()
-      break
-    case 'list':
-      applyBulletList()
-      break
-    case 'link':
-      openLinkPopover()
-      break
-    case 'table':
-      openTablePopover()
-      break
-    case 'codeBlock':
-      editor.value?.chain().focus().toggleCodeBlock().run()
-      break
-    case 'divider':
-      editor.value?.chain().focus().setHorizontalRule().run()
-      break
-  }
-  showSlashMenu.value = false
 }
 
 defineExpose({
