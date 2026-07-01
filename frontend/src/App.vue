@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, watch, computed, defineAsyncComponent, onErrorCaptured } from 'vue'
+import { computed, defineAsyncComponent, onErrorCaptured, onMounted, onUnmounted } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import { useQueryClient } from '@tanstack/vue-query'
 import { registerAuthStorageSync, useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
-import { userApi } from '@/api/user'
-import { unwrapApiData } from '@/api/response'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
 import { useConfigStore } from '@/stores/config'
@@ -15,12 +13,9 @@ import GlobalPromptModal from '@/components/common/widgets/GlobalPromptModal.vue
 import ErrorBoundary from '@/components/common/ErrorBoundary.vue'
 import NetworkStatus from '@/components/common/NetworkStatus.vue'
 import logger from '@/utils/logger'
-import { Storage } from '@/utils/storage'
-import { useGlobalShortcuts } from '@/composables/useGlobalShortcuts'
-import { BOARD_DETAIL_SEARCH_INPUT_ID } from '@/composables/useBoardDetailNavigation'
-import { userSettingsQueryKey } from '@/composables/useUser'
-import { UserSettings } from '@/types/user'
-import { useHead } from '@unhead/vue'
+import { useAppSearchShortcut } from '@/composables/useAppSearchShortcut'
+import { useAppSeo } from '@/composables/useAppSeo'
+import { useAppUserSettingsSync } from '@/composables/useAppUserSettingsSync'
 
 // Import layouts
 import DefaultLayout from '@/components/layout/DefaultLayout.vue'
@@ -32,159 +27,24 @@ const authStore = useAuthStore()
 const { locale, t } = useI18n()
 const toastStore = useToastStore()
 const queryClient = useQueryClient()
-
-const noIndexRouteNames = new Set([
-    'login',
-    'signup',
-    'find-account',
-    'forgot-password',
-    'reset-password',
-    'oauth-callback',
-    'mypage',
-    'user-settings',
-    'point-history',
-    'MyScraps',
-    'MyMessages',
-    'MyNotifications',
-    'MyReports',
-    'BlockList',
-    'RecentViewed',
-    'SubscribedBoards',
-    'board-create',
-    'board-edit',
-    'post-write',
-    'post-edit',
-    'AdminDashboard',
-    'UserManagement',
-    'BoardManagement',
-    'AdminManagement',
-    'ReportManagement',
-    'SecuritySettings',
-    'GlobalSettings',
-    'ErrorLogManagement',
-    'error',
-])
-const boardSearchRouteNames = new Set(['board-detail', 'post-detail'])
-
-function getSearchInput(): HTMLInputElement | null {
-    if (route.name && boardSearchRouteNames.has(String(route.name))) {
-        const boardSearchInput = document.getElementById(BOARD_DETAIL_SEARCH_INPUT_ID) as HTMLInputElement | null
-        if (boardSearchInput) {
-            return boardSearchInput
-        }
-    }
-
-    const globalSearchInput = document.getElementById('global-search-input') as HTMLInputElement | null
-    if (globalSearchInput) {
-        return globalSearchInput
-    }
-
-    return null
-}
-
-const shouldNoIndex = computed(() => {
-    if (route.meta.requiresAuth || route.meta.guestOnly || route.meta.roles) {
-        return true
-    }
-
-    if (route.name && noIndexRouteNames.has(String(route.name))) {
-        return true
-    }
-
-    return false
-})
-
-// Global SEO Configuration
-useHead({
-    titleTemplate: computed(() => `%s - ${t('common.appName')}`),
-    title: computed(() => t('common.appName')),
-    meta: [
-        {
-            name: 'description',
-            content: computed(() => t('common.seo.description'))
-        },
-        { property: 'og:site_name', content: computed(() => t('common.appName')) },
-        { property: 'og:type', content: 'website' },
-        { name: 'robots', content: computed(() => (shouldNoIndex.value ? 'noindex, nofollow' : 'index, follow')) },
-        { name: 'googlebot', content: computed(() => (shouldNoIndex.value ? 'noindex, nofollow' : 'index, follow')) }
-    ]
-})
 const layout = computed(() => {
     return route.meta.layout === 'AdminLayout' ? AdminLayout : DefaultLayout
 })
 
 const themeStore = useThemeStore()
-
-const applySettings = (settings: Partial<UserSettings>) => {
-    if (settings.theme) {
-        themeStore.setTheme(settings.theme)
-    }
-    if (settings.language) {
-        locale.value = settings.language.toLowerCase()
-    }
-}
-
-const loadSettings = async () => {
-    // Critical check: Do not call API if not authenticated to avoid 401 redirects for guests
-    if (!authStore.isAuthenticated) return
-
-    try {
-        const settings = await queryClient.fetchQuery({
-            queryKey: userSettingsQueryKey,
-            queryFn: async () => {
-                const { data } = await userApi.getUserSettings()
-                return data.success ? unwrapApiData(data) : null
-            },
-        })
-        if (settings) {
-            applySettings(settings)
-        }
-    } catch (error) {
-        logger.warn('Failed to load user settings:', error)
-    }
-}
-
-watch(() => authStore.isAuthenticated, (newVal) => {
-    if (newVal) {
-        loadSettings()
-    } else {
-        queryClient.removeQueries({ queryKey: userSettingsQueryKey })
-        // On logout, restore theme from localStorage (theme store will read it on next access)
-        // Don't force LIGHT theme to preserve user's localStorage preference
-        const storedTheme = Storage.getString('theme')
-        if (storedTheme) {
-            themeStore.setTheme(storedTheme === 'dark' ? 'DARK' : 'LIGHT')
-        }
-    }
-})
-
-
 const configStore = useConfigStore()
-
-// Initialize global shortcuts
-const { registerShortcut } = useGlobalShortcuts()
 let stopAuthStorageSync: (() => void) | null = null
 
-// Register search-bar focus shortcut (/)
+useAppSeo(route, t)
+useAppSearchShortcut(route, t)
+const { loadSettings } = useAppUserSettingsSync(authStore, themeStore, queryClient, locale)
+
 onMounted(() => {
     stopAuthStorageSync = registerAuthStorageSync(authStore)
     configStore.fetchPublicConfigs()
     if (authStore.isAuthenticated) {
         loadSettings()
     }
-    
-    // Focus search bar with /
-    registerShortcut({
-        key: '/',
-        handler: () => {
-            const searchInput = getSearchInput()
-            if (searchInput) {
-                searchInput.focus()
-                searchInput.select()
-            }
-        },
-        description: t('layout.shortcuts.focusSearch')
-    })
 })
 
 onUnmounted(() => {
