@@ -32,6 +32,7 @@
           :set-file-input-ref="setFileInputRef"
           @toggle-status="toggleBoardStatus"
           @save="handleSaveChanges"
+          @update-form="updateBoardFormField"
           @icon-upload="handleFileUpload"
           @choose-icon="chooseIconFile"
           @open-manager="openManagerModal('single')"
@@ -71,7 +72,7 @@
 <script setup lang="ts">
 import { type ComponentPublicInstance } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
-import { useAdminBoardEditor } from '@/composables/useAdminBoardEditor'
+import { useAdminBoardEditor, type AdminBoardEditorForm } from '@/composables/useAdminBoardEditor'
 import { useAdminBoardCreateModal } from '@/composables/useAdminBoardCreateModal'
 import { useBoardIconUpload } from '@/composables/useBoardIconUpload'
 import { useBoardManagerAssignment } from '@/composables/useBoardManagerAssignment'
@@ -134,6 +135,13 @@ const setFileInputRef = (element: Element | ComponentPublicInstance | null) => {
 
 const updateBoards = (nextBoards: AdminBoard[]) => {
   boards.value = nextBoards
+}
+
+const updateBoardFormField = <K extends keyof AdminBoardEditorForm>(
+  field: K,
+  value: AdminBoardEditorForm[K],
+) => {
+  form[field] = value
 }
 
 const { data: boardManagerData, isLoading: isBoardManagerLoading } = useBoardManager(selectedBoardId)

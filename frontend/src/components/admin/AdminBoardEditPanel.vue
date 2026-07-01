@@ -12,18 +12,18 @@
         </div>
 
         <AdminBoardFormFields
-          v-model:board-name="form.boardName"
-          v-model:board-url="form.boardUrl"
-          v-model:description="form.description"
-          v-model:agent-use-yn="form.agentUseYn"
-          v-model:guide-prompt="form.guidePrompt"
+          v-model:board-name="boardNameModel"
+          v-model:board-url="boardUrlModel"
+          v-model:description="descriptionModel"
+          v-model:agent-use-yn="agentUseYnModel"
+          v-model:guide-prompt="guidePromptModel"
           layout="grid"
           :agent-disabled="!selectedBoard?.isPublic"
         >
           <template #after-identity>
             <div class="md:col-span-2 max-w-24">
               <BaseInput
-                v-model="form.sortOrder"
+                v-model="sortOrderModel"
                 :label="t('common.sortOrder')"
                 type="number"
               />
@@ -70,7 +70,7 @@
 </template>
 
 <script setup lang="ts">
-import type { ComponentPublicInstance } from 'vue'
+import { computed, type ComponentPublicInstance } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { AdminBoard } from '@/types'
 import type { AdminBoardEditorForm } from '@/composables/useAdminBoardEditor'
@@ -81,7 +81,7 @@ import AdminBoardManagerSection from '@/components/admin/AdminBoardManagerSectio
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 
-defineProps<{
+const props = defineProps<{
   selectedBoard: AdminBoard | null
   form: AdminBoardEditorForm
   hasUnsavedChanges: boolean
@@ -95,10 +95,41 @@ defineProps<{
 const emit = defineEmits<{
   (event: 'toggle-status'): void
   (event: 'save'): void
+  <K extends keyof AdminBoardEditorForm>(event: 'update-form', field: K, value: AdminBoardEditorForm[K]): void
   (event: 'icon-upload', uploadEvent: Event): void
   (event: 'choose-icon'): void
   (event: 'open-manager'): void
 }>()
 
 const { t } = useI18n()
+
+const boardNameModel = computed({
+  get: () => props.form.boardName,
+  set: (value: string) => emit('update-form', 'boardName', value),
+})
+
+const boardUrlModel = computed({
+  get: () => props.form.boardUrl,
+  set: (value: string) => emit('update-form', 'boardUrl', value),
+})
+
+const descriptionModel = computed({
+  get: () => props.form.description,
+  set: (value: string) => emit('update-form', 'description', value),
+})
+
+const agentUseYnModel = computed({
+  get: () => props.form.agentUseYn,
+  set: (value: boolean) => emit('update-form', 'agentUseYn', value),
+})
+
+const guidePromptModel = computed({
+  get: () => props.form.guidePrompt,
+  set: (value: string) => emit('update-form', 'guidePrompt', value),
+})
+
+const sortOrderModel = computed({
+  get: () => props.form.sortOrder,
+  set: (value: string) => emit('update-form', 'sortOrder', value),
+})
 </script>
