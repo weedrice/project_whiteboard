@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, defineAsyncComponent, watch } from 'vue'
 import { usePostComposerDraft } from '@/composables/usePostComposerDraft'
 import { usePostComposerEffects } from '@/composables/usePostComposerEffects'
 import { usePostComposerSubmit, type PostFormSubmitResult } from '@/composables/usePostComposerSubmit'
@@ -17,12 +17,13 @@ import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import PostTags from '@/components/tag/PostTags.vue'
 import { useToastStore } from '@/stores/toast'
 import EmoticonPicker from '@/components/common/widgets/EmoticonPicker.vue'
-import PostEditorTipTap from '@/components/board/PostEditorTipTap.vue'
 import PostFormHeader from '@/components/board/PostFormHeader.vue'
 import PostFormMetadataPanel from '@/components/board/PostFormMetadataPanel.vue'
 import PostPreviewModal from '@/components/board/PostPreviewModal.vue'
 import { requiresSandboxedPostHtml } from '@/utils/postHtmlSandbox'
 import { usePostComposerState } from '@/composables/usePostComposerState'
+
+const PostEditorTipTap = defineAsyncComponent(() => import('@/components/board/PostEditorTipTap.vue'))
 
 const props = defineProps<{
   mode: 'create' | 'edit'
