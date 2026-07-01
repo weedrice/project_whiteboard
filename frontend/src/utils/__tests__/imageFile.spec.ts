@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getFileExtension, validateImageFile } from '../imageFile'
+import { calculateBoundedImageSize, getFileExtension, validateImageFile } from '../imageFile'
 
 describe('imageFile', () => {
   const allowedMimeTypes = new Set(['image/png', 'image/webp'])
@@ -31,5 +31,20 @@ describe('imageFile', () => {
       new File([new ArrayBuffer(11)], 'icon.webp', { type: 'image/webp' }),
       { allowedMimeTypes, allowedExtensions, maxSizeBytes: 10 }
     )).toBe('size')
+  })
+
+  it('calculates integer bounded image sizes without upscaling', () => {
+    expect(calculateBoundedImageSize(2048, 1024, 160, 160)).toEqual({
+      width: 160,
+      height: 80,
+    })
+    expect(calculateBoundedImageSize(100, 80, 160, 160)).toEqual({
+      width: 100,
+      height: 80,
+    })
+    expect(calculateBoundedImageSize(900, 1600, 256, 128)).toEqual({
+      width: 72,
+      height: 128,
+    })
   })
 })

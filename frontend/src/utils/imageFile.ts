@@ -4,6 +4,10 @@ export interface ImageFileValidationOptions {
   maxSizeBytes?: number
 }
 
+export interface ImageResizeOptions {
+  quality?: number
+}
+
 export function getFileExtension(fileName: string): string {
   const lastDotIndex = fileName.lastIndexOf('.')
   return lastDotIndex >= 0 ? fileName.slice(lastDotIndex).toLowerCase() : ''
@@ -64,31 +68,25 @@ function loadImageFromObjectUrl(file: File): Promise<{ image: HTMLImageElement; 
   })
 }
 
-function calculateBoundedSize(width: number, height: number, maxWidth: number, maxHeight: number) {
-  let nextWidth = width
-  let nextHeight = height
-
-  if (nextWidth > nextHeight) {
-    if (nextWidth > maxWidth) {
-      nextHeight *= maxWidth / nextWidth
-      nextWidth = maxWidth
-    }
-  } else if (nextHeight > maxHeight) {
-    nextWidth *= maxHeight / nextHeight
-    nextHeight = maxHeight
-  }
+export function calculateBoundedImageSize(width: number, height: number, maxWidth: number, maxHeight: number) {
+  const scale = Math.min(1, maxWidth / width, maxHeight / height)
 
   return {
-    width: nextWidth,
-    height: nextHeight,
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
   }
 }
 
-export async function resizeImageToBoundsFile(file: File, maxWidth: number, maxHeight: number): Promise<File> {
+export async function resizeImageToBoundsFile(
+  file: File,
+  maxWidth: number,
+  maxHeight: number,
+  options: ImageResizeOptions = {},
+): Promise<File> {
   const { image, objectUrl } = await loadImageFromObjectUrl(file)
 
   try {
-    const { width, height } = calculateBoundedSize(image.width, image.height, maxWidth, maxHeight)
+    const { width, height } = calculateBoundedImageSize(image.width, image.height, maxWidth, maxHeight)
     const canvas = document.createElement('canvas')
     canvas.width = width
     canvas.height = height
@@ -107,14 +105,18 @@ export async function resizeImageToBoundsFile(file: File, maxWidth: number, maxH
           return
         }
         reject(new Error('Canvas to Blob failed'))
-      }, file.type)
+      }, file.type, options.quality)
     })
   } finally {
     revokeBlobUrlIfNeeded(objectUrl)
   }
 }
 
-export async function resizeImageToMaxDimensionBlob(file: File, maxSize: number): Promise<Blob> {
+export async function resizeImageToMaxDimensionBlob(
+  file: File,
+  maxSize: number,
+  options: ImageResizeOptions = {},
+): Promise<Blob> {
   const type = file.type || 'image/png'
 
   if (file.type === 'image/gif') {
@@ -124,19 +126,11 @@ export async function resizeImageToMaxDimensionBlob(file: File, maxSize: number)
   const { image, objectUrl } = await loadImageFromObjectUrl(file)
 
   try {
-    let { width, height } = image
-
-    if (width <= maxSize && height <= maxSize) {
+    if (image.width <= maxSize && image.height <= maxSize) {
       return cloneBlobWithType(file, type)
     }
 
-    if (width > height) {
-      height = Math.round((height * maxSize) / width)
-      width = maxSize
-    } else {
-      width = Math.round((width * maxSize) / height)
-      height = maxSize
-    }
+    const { width, height } = calculateBoundedImageSize(image.width, image.height, maxSize, maxSize)
 
     const canvas = document.createElement('canvas')
     canvas.width = width
@@ -159,7 +153,7 @@ export async function resizeImageToMaxDimensionBlob(file: File, maxSize: number)
           }
         },
         type,
-        0.9
+        options.quality ?? 0.9
       )
     })
   } finally {
