@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, watch } from 'vue'
+import { computed, watch, type ComponentPublicInstance } from 'vue'
 import { usePostComposerDraft } from '@/composables/usePostComposerDraft'
-import { usePostComposerEffects } from '@/composables/usePostComposerEffects'
+import { usePostComposerEffects, type ComposerEditor } from '@/composables/usePostComposerEffects'
 import { usePostComposerSubmit, type PostFormSubmitResult } from '@/composables/usePostComposerSubmit'
 import { usePostEditorViewMode } from '@/composables/usePostEditorViewMode'
 import { usePostFormEditHydration } from '@/composables/usePostFormEditHydration'
@@ -11,19 +11,17 @@ import { usePostFormResource } from '@/composables/usePostFormResource'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
-import BaseButton from '@/components/common/ui/BaseButton.vue'
-import BaseSegmentedControl, { type SegmentedControlOption } from '@/components/common/ui/BaseSegmentedControl.vue'
+import type { SegmentedControlOption } from '@/components/common/ui/BaseSegmentedControl.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import PostTags from '@/components/tag/PostTags.vue'
 import { useToastStore } from '@/stores/toast'
-import EmoticonPicker from '@/components/common/widgets/EmoticonPicker.vue'
 import PostFormHeader from '@/components/board/PostFormHeader.vue'
+import PostDraftStatusPanel from '@/components/board/PostDraftStatusPanel.vue'
+import PostFormEditorSection from '@/components/board/PostFormEditorSection.vue'
 import PostFormMetadataPanel from '@/components/board/PostFormMetadataPanel.vue'
 import PostPreviewModal from '@/components/board/PostPreviewModal.vue'
 import { requiresSandboxedPostHtml } from '@/utils/postHtmlSandbox'
 import { usePostComposerState } from '@/composables/usePostComposerState'
-
-const PostEditorTipTap = defineAsyncComponent(() => import('@/components/board/PostEditorTipTap.vue'))
 
 const props = defineProps<{
   mode: 'create' | 'edit'
@@ -267,6 +265,18 @@ const {
   onBeforeUnload,
 })
 
+function assignTiptapEditor(value: Element | ComponentPublicInstance | null) {
+  tiptapEditorRef.value = value as ComposerEditor | null
+}
+
+function assignEditorWrapper(value: Element | ComponentPublicInstance | null) {
+  editorWrapperRef.value = value instanceof HTMLElement ? value : null
+}
+
+function assignVideoPopover(value: Element | ComponentPublicInstance | null) {
+  videoPopoverRef.value = value instanceof HTMLElement ? value : null
+}
+
 defineExpose({
   hasUnsavedChanges: () => isFormDirty(),
   getLeaveConfirmMessage: () => leaveConfirmMessage.value,
@@ -325,80 +335,26 @@ defineExpose({
               inputClass="!rounded-xl !border-[var(--nv-line)] !bg-[var(--nv-elevated)] !px-4 !py-3 !text-sm sm:!text-base"
             />
 
-            <div class="mt-4">
-              <div class="flex items-center justify-between rounded-t-xl border border-[var(--nv-line)] border-b-0 bg-[var(--nv-elevated)] px-3 py-2">
-                <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
-                  <span>{{ $t('board.writePost.sections.editor') }}</span>
-                </div>
-                <BaseSegmentedControl
-                  :model-value="editorViewMode"
-                  :options="editorViewOptions"
-                  :label="$t('board.writePost.sections.editor')"
-                  variant="pill"
-                  @update:model-value="handleEditorViewModeChange"
-                />
-              </div>
-
-              <div class="editor-area-container rounded-b-xl border border-[var(--nv-line)]">
-                <div
-                  v-if="editorViewMode === 'visual'"
-                  ref="editorWrapperRef"
-                  class="tiptap-editor-wrapper"
-                >
-                  <PostEditorTipTap
-                    ref="tiptapEditorRef"
-                    v-model="form.content"
-                    @open-video="openVideoPopover"
-                    @open-emoticon="showEmoticonPicker = true"
-                    @file-uploaded="trackUploadedFile"
-                  />
-                  <Teleport to="body">
-                    <div v-if="showVideoPopover" class="video-url-popover-mask" @click.self="closeVideoPopover" @keydown.enter.stop @keydown.escape.stop.prevent="closeVideoPopover">
-                      <div
-                        ref="videoPopoverRef"
-                        class="video-url-popover"
-                        :style="{ top: videoPopoverStyle.top, left: videoPopoverStyle.left }"
-                        role="dialog"
-                        aria-modal="true"
-                        aria-labelledby="post-video-url-label"
-                      >
-                        <label id="post-video-url-label" for="post-video-url-input" class="video-url-popover-label">{{ $t('board.writePost.video.inputLabel') }}</label>
-                        <input
-                          id="post-video-url-input"
-                          v-model="videoUrl"
-                          type="url"
-                          class="video-url-popover-input"
-                          :placeholder="$t('board.writePost.video.placeholder')"
-                          aria-describedby="post-video-url-help"
-                          @keydown.enter.stop.prevent="insertVideoFromPopover"
-                          @keydown.escape.stop.prevent="closeVideoPopover"
-                        >
-                        <p id="post-video-url-help" class="video-url-popover-help">{{ $t('board.writePost.video.help') }}</p>
-                        <div class="video-url-popover-actions">
-                          <BaseButton type="button" variant="secondary" size="sm" @click="closeVideoPopover">
-                            {{ $t('common.cancel') }}
-                          </BaseButton>
-                          <BaseButton type="button" variant="primary" size="sm" @click="insertVideoFromPopover">
-                            {{ $t('common.confirm') }}
-                          </BaseButton>
-                        </div>
-                      </div>
-                    </div>
-                  </Teleport>
-                  <EmoticonPicker :show="showEmoticonPicker" @select="handleEmoticonSelect" @close="showEmoticonPicker = false" />
-                </div>
-
-                <div v-else class="html-source-editor-wrap">
-                  <textarea
-                    id="content"
-                    v-model="form.content"
-                    class="html-source-textarea"
-                    :placeholder="$t('board.writePost.htmlSourcePlaceholder')"
-                    spellcheck="false"
-                  />
-                </div>
-              </div>
-            </div>
+            <PostFormEditorSection
+              v-model="form.content"
+              :editor-view-mode="editorViewMode"
+              :editor-view-options="editorViewOptions"
+              :show-video-popover="showVideoPopover"
+              :show-emoticon-picker="showEmoticonPicker"
+              :video-url="videoUrl"
+              :video-popover-style="videoPopoverStyle"
+              :assign-tiptap-editor="assignTiptapEditor"
+              :assign-editor-wrapper="assignEditorWrapper"
+              :assign-video-popover="assignVideoPopover"
+              @update:editor-view-mode="handleEditorViewModeChange"
+              @update:show-emoticon-picker="showEmoticonPicker = $event"
+              @update:video-url="videoUrl = $event"
+              @open-video="openVideoPopover"
+              @close-video="closeVideoPopover"
+              @insert-video="insertVideoFromPopover"
+              @select-emoticon="handleEmoticonSelect"
+              @file-uploaded="trackUploadedFile"
+            />
 
             <div v-if="!props.hideTags" class="mt-5 lg:hidden">
               <label for="post-tags-input-mobile" class="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
@@ -423,12 +379,7 @@ defineExpose({
             />
           </section>
 
-          <section class="nv-compose-side-card rounded-2xl border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)]">
-            <div class="mb-3">
-              <p class="nv-compose-kicker">{{ $t('board.writePost.sections.draftState') }}</p>
-            </div>
-            <p class="text-sm text-[var(--nv-ink-soft)]">{{ draftStatusLabel }}</p>
-          </section>
+          <PostDraftStatusPanel :label="draftStatusLabel" />
         </aside>
       </form>
     </div>
@@ -470,19 +421,6 @@ defineExpose({
   position: relative;
 }
 
-.editor-area-container {
-  background: var(--nv-surface);
-  overflow: hidden;
-}
-
-.tiptap-editor-wrapper {
-  display: flex;
-  height: 26rem;
-  min-height: 26rem;
-  flex-direction: column;
-  overflow: hidden;
-}
-
 .nv-compose-side-card {
   background: color-mix(in srgb, var(--nv-surface) 94%, transparent);
 }
@@ -499,84 +437,6 @@ defineExpose({
 .nv-compose-page .text-xs.text-\[var\(--nv-muted\)\] > span.mx-2::before {
   content: '/';
   font-size: 0.75rem;
-}
-</style>
-
-<style>
-.video-url-popover-mask {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  background: transparent;
-}
-
-.video-url-popover {
-  position: fixed;
-  transform: translateX(-50%);
-  min-width: 320px;
-  max-width: 90vw;
-  padding: 12px 14px;
-  background: var(--nv-surface);
-  border: 1px solid var(--nv-line);
-  border-radius: 10px;
-  box-shadow: var(--nv-shadow-soft);
-  z-index: 10000;
-}
-
-.video-url-popover-label {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--nv-ink-soft);
-}
-
-.video-url-popover-input {
-  display: block;
-  width: 100%;
-  margin-bottom: 6px;
-  padding: 10px 12px;
-  border: 1px solid var(--nv-line);
-  border-radius: 8px;
-  background: var(--nv-elevated);
-  color: var(--nv-ink);
-  box-sizing: border-box;
-}
-
-.video-url-popover-help {
-  margin: 0 0 10px;
-  color: var(--nv-muted);
-  font-size: 12px;
-}
-
-.video-url-popover-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.html-source-editor-wrap {
-  height: 26rem;
-  overflow: hidden;
-}
-
-.html-source-textarea {
-  display: block;
-  width: 100%;
-  height: 100%;
-  padding: 16px;
-  font-size: 13px;
-  line-height: 1.6;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  color: var(--nv-ink);
-  background: transparent;
-  border: none;
-  outline: none;
-  resize: none;
-  overflow-y: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-  box-sizing: border-box;
 }
 </style>
 

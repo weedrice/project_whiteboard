@@ -6,7 +6,7 @@ import { toEmbedPostVideoUrl } from '@/utils/postForm'
 import type { EmoticonImage } from '@/types/emoticon'
 
 type ComposerToastType = 'info' | 'success' | 'warning' | 'error'
-type ComposerEditor = {
+export type ComposerEditor = {
   setVideo: (url: string) => void
   setEmoticon: (image: EmoticonImage) => void
 }
