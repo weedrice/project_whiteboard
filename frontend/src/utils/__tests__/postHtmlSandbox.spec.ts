@@ -37,4 +37,13 @@ describe('postHtmlSandbox', () => {
         expect(source).toContain("connect-src 'none'")
         expect(source).toContain("form-action 'none'")
     })
+
+    it('cleans up sandbox height polling when the frame unloads', () => {
+        const source = buildSandboxedPostHtmlSource('<div>height</div>', 'frame-1')
+
+        expect(source).toContain('window.setInterval(postHeight, 500)')
+        expect(source).toContain('window.clearInterval(intervalId)')
+        expect(source).toContain("window.addEventListener('pagehide', cleanup, { once: true })")
+        expect(source).toContain('resizeObserver.disconnect()')
+    })
 })

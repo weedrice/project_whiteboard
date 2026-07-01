@@ -162,10 +162,24 @@ function getHeightBridgeScript(frameId: string): string {
   }
   window.addEventListener('load', postHeight);
   window.addEventListener('resize', postHeight);
+  var resizeObserver = null;
   if (typeof ResizeObserver === 'function') {
-    new ResizeObserver(postHeight).observe(document.body);
+    resizeObserver = new ResizeObserver(postHeight);
+    resizeObserver.observe(document.body);
   }
-  setInterval(postHeight, 500);
+  var intervalId = window.setInterval(postHeight, 500);
+  function cleanup() {
+    if (intervalId !== null) {
+      window.clearInterval(intervalId);
+      intervalId = null;
+    }
+    if (resizeObserver) {
+      resizeObserver.disconnect();
+      resizeObserver = null;
+    }
+  }
+  window.addEventListener('pagehide', cleanup, { once: true });
+  window.addEventListener('beforeunload', cleanup, { once: true });
   postHeight();
 }());
 </script>`
