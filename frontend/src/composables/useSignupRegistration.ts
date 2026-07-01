@@ -5,29 +5,26 @@ import { authApi } from '@/api/auth'
 import { unwrapApiData, unwrapAxiosApiData } from '@/api/response'
 import { useAuthPasswordValidation } from '@/composables/useAuthPasswordValidation'
 import { useEmailVerificationFlow } from '@/composables/useEmailVerificationFlow'
+import {
+  buildSignupPayload,
+  createSignupFieldState,
+  createSignupForm,
+  createSignupTouchedState,
+  hasSignupFieldErrors,
+  hydrateSignupFormFromQuery,
+  isMaskedReregisterLoginBlocked,
+  markAllSignupFieldsTouched,
+  resolveReregisterLoginState,
+  type SignupForm,
+} from '@/composables/signupRegistrationModel'
 import { useToastStore } from '@/stores/toast'
 import { extractErrorMessage } from '@/utils/errorHandler'
-import { getSingleQueryValue } from '@/utils/routeQueryValue'
 import { isEmpty, isValidDisplayName, isValidEmail, isValidLoginId } from '@/utils/validation'
 
 interface SignupRegistrationOptions {
   route: RouteLocationNormalizedLoaded
   router: Router
   t: ComposerTranslation
-}
-
-type SignupForm = {
-  loginId: string
-  password: string
-  passwordConfirm: string
-  email: string
-  displayName: string
-}
-
-type SignupPayload = Omit<SignupForm, 'passwordConfirm'> & {
-  verificationTicket: string
-  provider: string | null
-  providerId: string | null
 }
 
 export function useSignupRegistration({ route, router, t }: SignupRegistrationOptions) {
@@ -38,29 +35,11 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
     validatePasswordPair
   } = useAuthPasswordValidation()
 
-  const form = ref<SignupForm>({
-    loginId: '',
-    password: '',
-    passwordConfirm: '',
-    email: '',
-    displayName: ''
-  })
+  const form = ref<SignupForm>(createSignupForm())
 
-  const fieldErrors = reactive({
-    loginId: '',
-    password: '',
-    passwordConfirm: '',
-    email: '',
-    displayName: ''
-  })
+  const fieldErrors = reactive(createSignupFieldState())
 
-  const touched = reactive({
-    loginId: false,
-    password: false,
-    passwordConfirm: false,
-    email: false,
-    displayName: false
-  })
+  const touched = reactive(createSignupTouchedState())
 
   const error = ref('')
   const isLoading = ref(false)
@@ -69,14 +48,9 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
   async function checkEmailForReregister(email: string) {
     const checkRes = await authApi.checkEmailForReregister(email)
     const reregister = unwrapAxiosApiData(checkRes)
-    if (checkRes.data.success && reregister?.canReregister && reregister?.maskedLoginId) {
-      isReregister.value = true
-      form.value.loginId = reregister.maskedLoginId
-      return
-    }
-
-    isReregister.value = false
-    form.value.loginId = ''
+    const loginState = resolveReregisterLoginState(checkRes.data.success ? reregister : null)
+    isReregister.value = loginState.isReregister
+    form.value.loginId = loginState.loginId
   }
 
   const {
@@ -161,11 +135,7 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
   }
 
   function touchAllFields() {
-    touched.loginId = true
-    touched.password = true
-    touched.passwordConfirm = true
-    touched.email = true
-    touched.displayName = true
+    markAllSignupFieldsTouched(touched)
   }
 
   function validateAllFields() {
@@ -177,26 +147,7 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
   }
 
   function hasFieldErrors() {
-    return Boolean(
-      fieldErrors.loginId ||
-      fieldErrors.password ||
-      fieldErrors.passwordConfirm ||
-      fieldErrors.email ||
-      fieldErrors.displayName
-    )
-  }
-
-  function buildSignupPayload(): SignupPayload {
-    const { passwordConfirm, ...formData } = form.value
-    void passwordConfirm
-
-    return {
-      ...formData,
-      email: form.value.email.trim(),
-      verificationTicket: verification.verificationTicket,
-      provider: getSingleQueryValue(route.query.provider),
-      providerId: getSingleQueryValue(route.query.providerId)
-    }
+    return hasSignupFieldErrors(fieldErrors)
   }
 
   async function handleSignup() {
@@ -244,7 +195,7 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
       return
     }
 
-    if (isReregister.value && form.value.loginId.includes('*')) {
+    if (isMaskedReregisterLoginBlocked(isReregister.value, form.value.loginId)) {
       toastStore.addToast(t('auth.verificationRequired'), 'error')
       return
     }
@@ -252,7 +203,11 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
     isLoading.value = true
 
     try {
-      const { data } = await authApi.signup(buildSignupPayload())
+      const { data } = await authApi.signup(buildSignupPayload(
+        form.value,
+        verification.verificationTicket,
+        route.query,
+      ))
       if (data.success) {
         toastStore.addToast(t('auth.signupSuccess'), 'success')
         router.push('/login')
@@ -266,23 +221,14 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
   }
 
   async function initializeFromRouteQuery() {
-    const email = getSingleQueryValue(route.query.email)
-    const name = getSingleQueryValue(route.query.name)
-
-    if (email) {
-      form.value.email = email
-    }
-    if (name) {
-      form.value.displayName = name
-    }
+    const { email } = hydrateSignupFormFromQuery(form.value, route.query)
     if (email) {
       try {
         const { data } = await authApi.checkEmailForReregister(email)
         const reregister = unwrapApiData(data)
-        if (data.success && reregister?.canReregister && reregister?.maskedLoginId) {
-          isReregister.value = true
-          form.value.loginId = reregister.maskedLoginId
-        }
+        const loginState = resolveReregisterLoginState(data.success ? reregister : null)
+        isReregister.value = loginState.isReregister
+        form.value.loginId = loginState.loginId
       } catch {
         // Continue as a normal signup when reregister lookup fails.
       }
