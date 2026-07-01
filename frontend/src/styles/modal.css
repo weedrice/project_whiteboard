@@ -1,0 +1,70 @@
+@reference "../style.css";
+
+@layer components {
+  /* Modal Component */
+  .modal-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overflow-x-hidden bg-black/50 p-4 md:inset-0 h-full;
+  }
+
+  .modal-container {
+    @apply relative w-full max-w-md h-full md:h-auto;
+  }
+
+  @media (max-width: 639px) {
+    .modal-container-mobile-full {
+      @apply max-w-none w-full h-full max-h-full rounded-none;
+    }
+
+    .modal-container-mobile-full:not(.modal-container-mobile-fit) .modal-content {
+      @apply min-h-full rounded-none flex flex-col;
+    }
+
+    .modal-container-mobile-full:not(.modal-container-mobile-fit) .modal-body {
+      @apply flex-1 overflow-y-auto overflow-x-hidden;
+    }
+
+    /* 紐⑤컮?쇱뿉??肄섑뀗痢좎뿉 留욎텣 ?믪씠 (?꾨줈???섏젙 ?? */
+    .modal-container-mobile-fit {
+      @apply max-w-none w-full max-h-[90vh] h-auto rounded-none my-auto;
+    }
+
+    .modal-container-mobile-fit .modal-content {
+      @apply rounded-none flex flex-col max-h-[90vh];
+    }
+
+    .modal-container-mobile-fit .modal-body {
+      @apply overflow-y-auto overflow-x-hidden flex-shrink-0;
+    }
+  }
+
+  @media (min-width: 640px) {
+
+    .modal-container-mobile-full,
+    .modal-container-mobile-fit {
+      @apply max-w-md h-auto;
+    }
+  }
+
+  .modal-content {
+    @apply relative rounded-lg shadow border;
+    background: var(--nv-surface);
+    border-color: var(--nv-border);
+    color: var(--nv-text);
+  }
+
+  .modal-header {
+    @apply flex items-center justify-between p-5 border-b rounded-t;
+    border-color: var(--nv-border);
+  }
+
+  .modal-body {
+    @apply p-4 sm:p-6 space-y-4 sm:space-y-6;
+    color: var(--nv-text-muted);
+  }
+
+  .modal-footer {
+    @apply flex items-center justify-end w-full p-6 space-x-2 border-t rounded-b;
+    border-color: var(--nv-border);
+  }
+
+}

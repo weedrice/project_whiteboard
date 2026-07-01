@@ -1,0 +1,284 @@
+@reference "../style.css";
+
+@layer components {
+  /* Card Component */
+  .card {
+    @apply shadow rounded-lg overflow-hidden border;
+    background: var(--nv-surface);
+    border-color: transparent;
+    color: var(--nv-text);
+  }
+
+  .card-header {
+    @apply px-4 py-5 sm:px-6 border-b;
+    border-color: var(--nv-border);
+  }
+
+  .card-body {
+    @apply px-4 py-5 sm:p-6;
+  }
+
+  /* Table Component */
+  .table-container {
+    @apply overflow-x-auto;
+  }
+
+  .table-base {
+    @apply min-w-full divide-y;
+    border-color: var(--nv-border);
+  }
+
+  .table-head {
+    background: var(--nv-surface-muted);
+  }
+
+  .table-th {
+    @apply px-6 py-3 text-xs font-medium uppercase tracking-wider text-left;
+    color: var(--nv-text-subtle);
+  }
+
+  .table-body {
+    @apply divide-y;
+    background: var(--nv-surface);
+    border-color: var(--nv-border);
+  }
+
+  .table-row {
+    @apply transition-colors duration-150;
+  }
+
+  .table-row:hover {
+    background: var(--nv-surface-hover);
+  }
+
+  .table-td {
+    @apply px-6 py-4 whitespace-nowrap text-sm;
+    color: var(--nv-text-muted);
+  }
+
+  /* Badge Component */
+  .badge {
+    @apply inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium mr-2 h-5;
+  }
+
+  .badge-gray {
+    background: var(--nv-surface-muted);
+    color: var(--nv-text-muted);
+  }
+
+  .badge-red {
+    background: var(--nv-danger-bg);
+    color: var(--nv-danger-text);
+  }
+
+  /* Input & Select (紐⑤컮?? 湲?㉱톚laceholder ?묎쾶) */
+  .input-base {
+    @apply block w-full rounded-md shadow-sm text-xs sm:text-sm px-3 py-2;
+    background: var(--nv-surface);
+    border-color: var(--nv-border-strong);
+    color: var(--nv-text);
+  }
+
+  .input-base::placeholder {
+    color: var(--nv-text-subtle);
+  }
+
+  .input-base:focus {
+    border-color: var(--nv-focus);
+    box-shadow: 0 0 0 1px var(--nv-focus);
+  }
+
+  .input-base.is-invalid {
+    border-color: var(--nv-danger);
+  }
+
+  .input-base.is-invalid:focus {
+    border-color: var(--nv-danger);
+    box-shadow: 0 0 0 1px var(--nv-danger);
+  }
+
+  .input-base:disabled {
+    background: var(--nv-surface-muted);
+    color: var(--nv-text-subtle);
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center px-4 py-2 border text-sm font-medium rounded-full shadow-sm text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed;
+    background: var(--nv-accent);
+    border-color: var(--nv-accent);
+  }
+
+  .btn-secondary {
+    @apply py-2 px-4 border rounded-full shadow-sm text-sm font-medium focus:outline-none;
+    background: var(--nv-surface);
+    color: var(--nv-ink);
+    border-color: var(--nv-line);
+  }
+
+  .btn-danger {
+    @apply text-white inline-flex items-center px-4 py-2 border text-sm font-medium rounded-full shadow-sm focus:outline-none;
+    background: var(--nv-danger);
+    border-color: var(--nv-danger);
+  }
+
+  .btn-ghost {
+    @apply bg-transparent inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full focus:outline-none;
+    color: var(--nv-ink-soft);
+  }
+
+  .btn-primary:hover {
+    background: color-mix(in srgb, var(--nv-accent) 88%, black 12%);
+    border-color: color-mix(in srgb, var(--nv-accent) 88%, black 12%);
+  }
+
+  .btn-secondary:hover,
+  .btn-ghost:hover {
+    background: var(--nv-surface-hover);
+    color: var(--nv-text);
+  }
+
+  .btn-danger:hover {
+    background: color-mix(in srgb, var(--nv-danger) 88%, black 12%);
+    border-color: color-mix(in srgb, var(--nv-danger) 88%, black 12%);
+  }
+
+  .btn-primary:focus-visible,
+  .btn-secondary:focus-visible,
+  .btn-danger:focus-visible,
+  .btn-ghost:focus-visible {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--nv-focus) 44%, transparent);
+  }
+
+  .btn-sm {
+    @apply px-3 py-2 text-sm leading-4;
+  }
+
+  /* Mobile button size normalization */
+  @media (max-width: 639px) {
+    .btn-sm {
+      padding-left: 0.5rem !important;
+      padding-right: 0.5rem !important;
+      padding-top: 0.375rem !important;
+      padding-bottom: 0.375rem !important;
+      font-size: 0.75rem !important;
+      line-height: 1rem !important;
+    }
+  }
+
+  /* List Group */
+  .list-group {
+    @apply divide-y rounded-md;
+    border: 1px solid var(--nv-border);
+  }
+
+  .list-group > :not([hidden]) ~ :not([hidden]) {
+    border-color: var(--nv-border);
+  }
+
+  .list-group-item {
+    @apply px-4 py-3 flex items-center justify-between;
+    background: var(--nv-surface);
+  }
+
+  /* Shared list search bar */
+  .list-search-row {
+    @apply flex max-w-md w-full flex-1 min-w-0;
+  }
+
+  .list-search-group {
+    @apply flex flex-1 min-w-0 items-stretch rounded-md overflow-hidden border;
+    background: var(--nv-surface);
+    border-color: var(--nv-border-strong);
+  }
+
+  .list-search-group:focus-within {
+    border-color: var(--nv-focus);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--nv-focus) 32%, transparent);
+  }
+
+  .list-search-select-inline {
+    @apply h-10 min-h-10 pl-3 pr-8 text-sm bg-transparent rounded-none rounded-l-md cursor-pointer focus:ring-0 focus:ring-offset-0 focus:outline-none shrink-0 border-r;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    border-color: var(--nv-border);
+    color: var(--nv-text);
+  }
+
+  .dark .list-search-select-inline {
+    color-scheme: dark;
+  }
+
+  .list-search-select-inline option {
+    background: var(--nv-surface);
+    color: var(--nv-text);
+  }
+
+  .list-search-input-inner {
+    @apply relative flex-1 min-w-0 flex min-h-0;
+  }
+
+  .list-search-input-inner>* {
+    flex: 1 1 0%;
+    min-width: 0;
+  }
+
+  .list-search-input {
+    @apply rounded-none bg-transparent h-10 min-h-10 py-2 box-border focus:ring-0 focus:ring-offset-0;
+    border: none !important;
+    box-shadow: none !important;
+    color: var(--nv-text);
+    outline: none;
+  }
+
+  .list-search-input::placeholder {
+    color: var(--nv-text-subtle);
+  }
+
+  .list-search-input:focus {
+    outline: none;
+    box-shadow: none;
+  }
+
+  .list-search-btn {
+    @apply rounded-none h-10 min-h-10 py-0 px-4 bg-transparent font-medium shrink-0 transition-colors border-l;
+    border-top: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+    border-color: var(--nv-border);
+    box-shadow: none !important;
+    color: var(--nv-text-muted);
+  }
+
+  .list-search-btn:hover {
+    background: var(--nv-surface-hover);
+  }
+
+  /* Compact list search controls on mobile */
+  @media (max-width: 639px) {
+    .list-search-mobile .list-search-select-inline {
+      height: 2rem;
+      min-height: 2rem;
+      padding-left: 0.5rem;
+      padding-right: 1.5rem;
+      font-size: 0.75rem;
+    }
+
+    .list-search-mobile .list-search-input {
+      height: 2rem;
+      min-height: 2rem;
+      padding: 0.25rem 0.5rem;
+      font-size: 0.75rem;
+    }
+
+    .list-search-mobile .list-search-btn {
+      height: 2rem;
+      min-height: 2rem;
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
+      font-size: 0.75rem;
+    }
+  }
+
+}
