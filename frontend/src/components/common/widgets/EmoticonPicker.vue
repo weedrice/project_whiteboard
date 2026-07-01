@@ -1,12 +1,12 @@
 ﻿<script setup lang="ts">
-import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { EmoticonImage } from '@/types/emoticon'
 import { X, ArrowLeft, Search, Smile } from 'lucide-vue-next'
 import { useAccessibleEmoticonPicker } from '@/composables/useAccessibleEmoticonPicker'
+import { useEmoticonPickerDialogLifecycle } from '@/composables/useEmoticonPickerDialogLifecycle'
 import { useEmoticonPickerDetail } from '@/composables/useEmoticonPickerDetail'
-import { useEventListener } from '@/composables/useEventListener'
-import { useFocusTrap } from '@/composables/useFocusTrap'
+import { useEmoticonPickerSearch } from '@/composables/useEmoticonPickerSearch'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import EmoticonPickerGrid from '@/components/common/widgets/EmoticonPickerGrid.vue'
 import EmoticonPickerImageGrid from '@/components/common/widgets/EmoticonPickerImageGrid.vue'
@@ -22,7 +22,6 @@ const emit = defineEmits<{
 const { t } = useI18n()
 
 const pickerRef = ref<HTMLElement | null>(null)
-const searchKeyword = ref('')
 const {
   selectedEmoticon,
   selectedEmoticonId,
@@ -41,23 +40,12 @@ const {
   refetch: refetchAccessibleEmoticons
 } = useAccessibleEmoticonPicker(() => props.show)
 const listErrorMessage = computed(() => t('emoticon.picker.listLoadFailed'))
-const { trapFocus, restoreFocus } = useFocusTrap(pickerRef, () => props.show)
-
-const filteredEmoticons = computed(() => {
-  if (!accessibleEmoticons.value) return []
-  if (!searchKeyword.value.trim()) return accessibleEmoticons.value
-
-  const keyword = searchKeyword.value.toLowerCase()
-  return accessibleEmoticons.value.filter(emoticon =>
-    emoticon.name.toLowerCase().includes(keyword) ||
-    emoticon.tags?.some(tag => tag.toLowerCase().includes(keyword))
-  )
-})
+const { searchKeyword, filteredEmoticons, clearSearch } = useEmoticonPickerSearch(accessibleEmoticons)
 
 const resetPickerState = (options: { clearSearch?: boolean } = {}) => {
   resetDetailState()
   if (options.clearSearch) {
-    searchKeyword.value = ''
+    clearSearch()
   }
 }
 
@@ -78,42 +66,11 @@ const close = () => {
   emit('close')
 }
 
-const handleDocumentKeydown = (event: KeyboardEvent) => {
-  if (!props.show || event.key !== 'Escape') return
-
-  event.preventDefault()
-  close()
-}
-
-watch(() => props.show, (newVal) => {
-  if (!newVal) {
-    resetPickerState({ clearSearch: true })
-    restoreFocus()
-    return
-  }
-
-  nextTick(() => {
-    if (props.show) {
-      trapFocus()
-    }
-  })
-})
-
-useEventListener(() => document, 'keydown', handleDocumentKeydown)
-
-onMounted(() => {
-  if (!props.show) return
-
-  nextTick(() => {
-    if (props.show) {
-      trapFocus()
-    }
-  })
-})
-
-onUnmounted(() => {
-  resetPickerState({ clearSearch: true })
-  restoreFocus()
+useEmoticonPickerDialogLifecycle({
+  isOpen: () => props.show,
+  dialogRef: pickerRef,
+  close,
+  reset: () => resetPickerState({ clearSearch: true }),
 })
 </script>
 
