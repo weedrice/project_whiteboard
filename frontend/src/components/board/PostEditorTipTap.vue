@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, watch } from 'vue'
 import { useEditor } from '@tiptap/vue-3'
 import PostEditorColorPopover from '@/components/board/editor/PostEditorColorPopover.vue'
 import PostEditorContentArea from '@/components/board/editor/PostEditorContentArea.vue'
