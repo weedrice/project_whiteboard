@@ -14,6 +14,8 @@ import {
     notificationsQueryKey,
     notificationUnreadCountQueryKey,
 } from '@/composables/notificationQueryKeys'
+import { consumeSseStream } from '@/composables/notificationSseStream'
+import { createRecentNotificationIdCache } from '@/composables/recentNotificationIdCache'
 
 function isAbortError(error: unknown): boolean {
     return isCancellationError(error, {
@@ -60,7 +62,7 @@ const notificationStreamState = {
     reconnectAttempt: 0,
     reconnectWhenOnline: false,
     onlineListenerAttached: false,
-    recentNotificationIds: new Set<number>(),
+    recentNotificationIds: createRecentNotificationIdCache(RECENT_NOTIFICATION_ID_LIMIT),
 }
 
 export function resetNotificationStreamStateForTest() {
@@ -135,13 +137,7 @@ function scheduleReconnect(delayMs: number) {
 
 export function createNotificationStreamController(queryClient: QueryClient) {
     const rememberNotificationId = (notificationId: number) => {
-        notificationStreamState.recentNotificationIds.add(notificationId)
-        if (notificationStreamState.recentNotificationIds.size > RECENT_NOTIFICATION_ID_LIMIT) {
-            const oldestId = notificationStreamState.recentNotificationIds.values().next().value
-            if (typeof oldestId === 'number') {
-                notificationStreamState.recentNotificationIds.delete(oldestId)
-            }
-        }
+        notificationStreamState.recentNotificationIds.remember(notificationId)
     }
 
     const applyIncomingNotification = (incoming: Notification) => {
@@ -206,61 +202,6 @@ export function createNotificationStreamController(queryClient: QueryClient) {
         }
     }
 
-    const consumeSseStream = async (stream: ReadableStream<Uint8Array>, signal: AbortSignal) => {
-        const reader = stream.getReader()
-        const decoder = new TextDecoder()
-
-        let buffer = ''
-        let currentEvent = 'message'
-        let dataLines: string[] = []
-
-        const flushEvent = () => {
-            const payload = dataLines.join('\n').trim()
-            if (payload) {
-                handleSseEvent(currentEvent, payload)
-            }
-            currentEvent = 'message'
-            dataLines = []
-        }
-
-        try {
-            while (!signal.aborted) {
-                const { done, value } = await reader.read()
-                if (done) break
-
-                buffer += decoder.decode(value, { stream: true })
-
-                let newlineIndex = buffer.indexOf('\n')
-                while (newlineIndex !== -1) {
-                    const rawLine = buffer.slice(0, newlineIndex)
-                    buffer = buffer.slice(newlineIndex + 1)
-                    const line = rawLine.replace(/\r$/, '')
-
-                    if (line === '') {
-                        flushEvent()
-                    } else if (line.startsWith(':')) {
-                        // Keep-alive comment; ignore.
-                    } else if (line.startsWith('event:')) {
-                        currentEvent = line.slice(6).trim() || 'message'
-                    } else if (line.startsWith('data:')) {
-                        dataLines.push(line.slice(5).trimStart())
-                    }
-
-                    newlineIndex = buffer.indexOf('\n')
-                }
-            }
-
-            if (buffer.trim() || dataLines.length > 0) {
-                if (buffer.startsWith('data:')) {
-                    dataLines.push(buffer.slice(5).trimStart())
-                }
-                flushEvent()
-            }
-        } finally {
-            await reader.cancel().catch(() => undefined)
-        }
-    }
-
     const reconnectWithRefresh = async () => {
         if (!isBrowserOnline()) {
             scheduleReconnect(RECONNECT_AFTER_FAILURE_DELAY_MS)
@@ -301,7 +242,7 @@ export function createNotificationStreamController(queryClient: QueryClient) {
 
             notificationStreamState.isConnecting = false
             notificationStreamState.reconnectAttempt = 0
-            await consumeSseStream(response.body, controller.signal)
+            await consumeSseStream(response.body, controller.signal, handleSseEvent)
 
             if (!controller.signal.aborted && !notificationStreamState.closedManually) {
                 throw new Error('SSE stream closed unexpectedly')
