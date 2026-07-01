@@ -2,6 +2,7 @@ import { createI18n } from 'vue-i18n'
 import type { LocaleMessage } from '@intlify/core-base'
 import type { VueMessageType } from 'vue-i18n'
 import messages from './locales'
+import type { SupportedLocale } from './locales/types'
 
 type I18nMessages = Record<keyof typeof messages, LocaleMessage<VueMessageType>>
 
@@ -17,7 +18,7 @@ const rawI18n = createI18n({
 type AppI18n = Omit<typeof rawI18n, 'global'> & {
     global: typeof rawI18n.global & {
         t: (key: string, ...args: unknown[]) => string
-        locale: { value: 'ko' | 'en' }
+        locale: { value: SupportedLocale }
     }
 }
 

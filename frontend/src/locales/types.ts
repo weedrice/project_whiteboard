@@ -1444,7 +1444,6 @@ export interface Messages {
 }
 
 // 언어별 메시지 타입
-export interface LocaleMessages {
-  ko: Messages
-  en?: Messages
-}
+export type SupportedLocale = 'ko' | 'en'
+
+export type LocaleMessages = Record<SupportedLocale, Messages>
