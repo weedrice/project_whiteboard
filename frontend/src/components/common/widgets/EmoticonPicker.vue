@@ -2,14 +2,14 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { EmoticonImage } from '@/types/emoticon'
-import { X, ArrowLeft, Search, Smile } from 'lucide-vue-next'
+import { X, ArrowLeft, Search } from 'lucide-vue-next'
 import { useAccessibleEmoticonPicker } from '@/composables/useAccessibleEmoticonPicker'
 import { useEmoticonPickerDialogLifecycle } from '@/composables/useEmoticonPickerDialogLifecycle'
 import { useEmoticonPickerDetail } from '@/composables/useEmoticonPickerDetail'
 import { useEmoticonPickerSearch } from '@/composables/useEmoticonPickerSearch'
-import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import EmoticonPickerGrid from '@/components/common/widgets/EmoticonPickerGrid.vue'
 import EmoticonPickerImageGrid from '@/components/common/widgets/EmoticonPickerImageGrid.vue'
+import EmoticonPickerStatePanel from '@/components/common/widgets/EmoticonPickerStatePanel.vue'
 
 const props = defineProps<{
   show: boolean
@@ -99,28 +99,27 @@ useEmoticonPickerDialogLifecycle({
 
     <div class="picker-content">
       <template v-if="selectedEmoticonId">
-        <div v-if="isLoadingDetail" class="loading-state">
-          <div class="h-6 w-6 flex items-center justify-center">
-            <BaseSpinner size="sm" class="scale-150" />
-          </div>
-        </div>
+        <EmoticonPickerStatePanel v-if="isLoadingDetail" state="loading" />
         <EmoticonPickerImageGrid
           v-else-if="selectedEmoticon && selectedImages.length > 0"
           :images="selectedImages"
           :emoticon-name="selectedEmoticon.name"
           @select="handleImageClick"
         />
-        <div v-else-if="selectedEmoticon" class="empty-state">
-          <Smile class="w-8 h-8 nv-text-subtle mb-2" />
-          <p>{{ t('emoticon.detail.imageEmpty') }}</p>
-        </div>
-        <div v-else-if="detailError" class="error-state">
-          <p>{{ detailError }}</p>
-          <div class="error-actions">
-            <button type="button" class="retry-btn" @click="retryDetailLoad">{{ t('common.error.retry') }}</button>
-            <button type="button" class="retry-btn secondary" @click="goBack">{{ t('emoticon.detail.backToList') }}</button>
-          </div>
-        </div>
+        <EmoticonPickerStatePanel
+          v-else-if="selectedEmoticon"
+          state="empty"
+          :message="t('emoticon.detail.imageEmpty')"
+        />
+        <EmoticonPickerStatePanel
+          v-else-if="detailError"
+          state="error"
+          :message="detailError"
+          :retry-label="t('common.error.retry')"
+          :back-label="t('emoticon.detail.backToList')"
+          @retry="retryDetailLoad"
+          @back="goBack"
+        />
       </template>
 
       <template v-else-if="!selectedEmoticonId">
@@ -131,22 +130,21 @@ useEmoticonPickerDialogLifecycle({
           </div>
         </div>
 
-        <div v-if="isLoading" class="loading-state">
-          <div class="h-6 w-6 flex items-center justify-center">
-            <BaseSpinner size="sm" class="scale-150" />
-          </div>
-        </div>
+        <EmoticonPickerStatePanel v-if="isLoading" state="loading" />
 
-        <div v-else-if="isListError" class="error-state">
-          <p>{{ listErrorMessage }}</p>
-          <button type="button" class="retry-btn" @click="retryListLoad">{{ t('common.error.retry') }}</button>
-        </div>
+        <EmoticonPickerStatePanel
+          v-else-if="isListError"
+          state="error"
+          :message="listErrorMessage"
+          :retry-label="t('common.error.retry')"
+          @retry="retryListLoad"
+        />
 
-        <div v-else-if="!filteredEmoticons?.length" class="empty-state">
-          <Smile class="w-8 h-8 nv-text-subtle mb-2" />
-          <p v-if="accessibleEmoticons?.length === 0">{{ t('emoticon.picker.availableEmpty') }}</p>
-          <p v-else>{{ t('common.messages.noResults') }}</p>
-        </div>
+        <EmoticonPickerStatePanel
+          v-else-if="!filteredEmoticons?.length"
+          state="empty"
+          :message="accessibleEmoticons?.length === 0 ? t('emoticon.picker.availableEmpty') : t('common.messages.noResults')"
+        />
 
         <EmoticonPickerGrid
           v-else
@@ -278,63 +276,6 @@ useEmoticonPickerDialogLifecycle({
 .search-input:focus {
   border-color: var(--nv-focus);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--nv-focus) 28%, transparent);
-}
-
-.loading-state {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 40px 0;
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 0;
-  color: var(--nv-text-subtle);
-  font-size: 13px;
-}
-
-.error-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 40px 0;
-  color: var(--nv-danger-text);
-  font-size: 13px;
-  text-align: center;
-}
-
-.error-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.retry-btn {
-  border-radius: 6px;
-  background: var(--nv-accent);
-  color: white;
-  padding: 6px 10px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.retry-btn.secondary {
-  background: var(--nv-surface-muted);
-  color: var(--nv-text-muted);
-}
-
-.retry-btn:hover {
-  background: color-mix(in srgb, var(--nv-accent) 88%, black 12%);
-}
-
-.retry-btn.secondary:hover {
-  background: var(--nv-surface-hover);
-  color: var(--nv-text);
 }
 
 </style>
