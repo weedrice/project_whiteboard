@@ -103,6 +103,7 @@ export function invalidatePostCaches(queryClient: QueryClient, postId: PostId) {
   queryClient.invalidateQueries({ queryKey: postQueryKeys.detailPrefix(postId) })
   queryClient.invalidateQueries({ queryKey: postQueryKeys.lists })
   queryClient.invalidateQueries({ queryKey: homeQueryKeys.landingRoot })
+  queryClient.invalidateQueries({ queryKey: postQueryKeys.boardPostsRoot })
   queryClient.invalidateQueries({
     predicate: (query) => {
       const key = query.queryKey

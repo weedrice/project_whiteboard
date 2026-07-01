@@ -13,6 +13,7 @@ import {
 import { homeQueryKeys } from '@/composables/homeQueryKeys'
 import { postDetailQueryKey, postQueryKeys } from '@/composables/postQueryKeys'
 import { normalizePostReactionFlags, type PostReactionAlias } from '@/utils/postViewModel'
+import { withQuerySignal } from '@/utils/querySignal'
 
 export { postDetailQueryKey, postQueryKeys } from '@/composables/postQueryKeys'
 
@@ -28,9 +29,9 @@ export function usePost() {
 
         return useQuery({
             queryKey: postDetailQueryKey(postId, incrementView),
-            queryFn: async () => {
+            queryFn: async (context?: { signal?: AbortSignal }) => {
                 const post = unwrapAxiosApiData(await postApi.getPost(postId.value, {
-                    ...requestConfig,
+                    ...withQuerySignal(requestConfig, context),
                     params: {
                         incrementView: true,
                         ...(requestConfig?.params || {}),
@@ -71,9 +72,8 @@ export function usePost() {
             mutationFn: async (postId: string | number) => {
                 return await postApi.deletePost(postId)
             },
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: postQueryKeys.boardPostsRoot })
-                queryClient.invalidateQueries({ queryKey: homeQueryKeys.landingRoot })
+            onSuccess: (_, postId) => {
+                invalidatePostCaches(queryClient, postId)
             },
         })
     }

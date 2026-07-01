@@ -7,6 +7,7 @@ import { QUERY_STALE_TIME } from '@/utils/constants'
 import { toFeedPost, toFeedPosts } from '@/utils/postViewModel'
 import type { HomeLandingPeriod } from '@/types'
 import { homeQueryKeys } from '@/composables/homeQueryKeys'
+import { optionalQuerySignal } from '@/utils/querySignal'
 
 export function useHomeLanding() {
     const authStore = useAuthStore()
@@ -17,9 +18,13 @@ export function useHomeLanding() {
     const landingQuery = useQuery({
         queryKey: computed(() => homeQueryKeys.landing(selectedPeriod.value, authCacheKey.value)),
         enabled: isReadyToFetch,
-        queryFn: async ({ queryKey }) => {
+        queryFn: async ({ queryKey, signal }) => {
             const [, , period] = queryKey as ReturnType<typeof homeQueryKeys.landing>
-            return unwrapAxiosApiData(await postApi.getHomeLanding(period))
+            const requestConfig = optionalQuerySignal(undefined, { signal })
+            const response = requestConfig
+                ? await postApi.getHomeLanding(period, requestConfig)
+                : await postApi.getHomeLanding(period)
+            return unwrapAxiosApiData(response)
         },
         placeholderData: previousData => previousData,
         staleTime: QUERY_STALE_TIME.SHORT,

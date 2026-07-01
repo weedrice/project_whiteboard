@@ -11,6 +11,7 @@ import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
 import type { BoardDetail, BoardListItem, BoardManagerCandidate, PostSummary, SubscriptionBoardListItem } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import type { AxiosRequestConfig } from 'axios'
+import { optionalQuerySignal } from '@/utils/querySignal'
 
 interface BoardPostParams {
     page?: number
@@ -61,7 +62,10 @@ export async function fetchBoardPosts(
 
 export const createBoardDetailQueryOptions = (boardUrl: string | Ref<string>, requestConfig?: AxiosRequestConfig) => ({
     queryKey: boardDetailQueryKey(boardUrl),
-    queryFn: () => fetchBoardDetail(typeof boardUrl === 'string' ? boardUrl : boardUrl.value, requestConfig),
+    queryFn: (context?: { signal?: AbortSignal }) => fetchBoardDetail(
+        typeof boardUrl === 'string' ? boardUrl : boardUrl.value,
+        optionalQuerySignal(requestConfig, context),
+    ),
     staleTime: QUERY_STALE_TIME.SHORT,
 })
 
@@ -70,6 +74,12 @@ const isVisibleSubscriptionBoard = (
 ): board is SubscriptionBoardListItem & BoardListItem =>
     board.accessState === 'ACCESSIBLE'
 
+const callWithOptionalConfig = <T>(
+    config: AxiosRequestConfig | undefined,
+    requestWithConfig: (config: AxiosRequestConfig) => T,
+    requestWithoutConfig: () => T,
+) => (config ? requestWithConfig(config) : requestWithoutConfig())
+
 export function useBoard() {
     const queryClient = useQueryClient()
 
@@ -77,7 +87,11 @@ export function useBoard() {
     const useBoards = () => {
         return useApiQuery<BoardListItem[]>({
             queryKey: boardQueryKeys.all,
-            request: () => boardApi.getBoards(),
+            request: (context) => callWithOptionalConfig(
+                optionalQuerySignal(undefined, context),
+                (config) => boardApi.getBoards(config),
+                () => boardApi.getBoards(),
+            ),
             staleTime: QUERY_STALE_TIME.MEDIUM, // 5 minutes
         })
     }
@@ -89,7 +103,11 @@ export function useBoard() {
             : computed(() => false)
         return useApiPageQuery<SubscriptionBoardListItem, BoardListItem[]>({
             queryKey: boardQueryKeys.subscriptionsBySize(size),
-            request: () => userApi.getMySubscriptions({ size }),
+            request: (context) => callWithOptionalConfig(
+                optionalQuerySignal(undefined, context),
+                (config) => userApi.getMySubscriptions({ size }, config),
+                () => userApi.getMySubscriptions({ size }),
+            ),
             selectData: (page) => page.content.filter(isVisibleSubscriptionBoard),
             staleTime: QUERY_STALE_TIME.MEDIUM, // 5 minutes
             enabled: enabledValue,
@@ -118,7 +136,12 @@ export function useBoard() {
         const { requestConfig, ...queryOptions } = options
         return useQuery({
             queryKey: boardQueryKeys.posts(boardUrl, params, isSearching),
-            queryFn: () => fetchBoardPosts(boardUrl.value, params.value, Boolean(isSearching?.value), requestConfig),
+            queryFn: (context?: { signal?: AbortSignal }) => fetchBoardPosts(
+                boardUrl.value,
+                params.value,
+                Boolean(isSearching?.value),
+                optionalQuerySignal(requestConfig, context),
+            ),
             enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
             placeholderData: (previousData) => previousData,
             ...queryOptions
@@ -133,7 +156,11 @@ export function useBoard() {
         const { requestConfig, ...queryOptions } = options
         return useApiQuery<PostSummary[]>({
             queryKey: boardQueryKeys.notices(boardUrl),
-            request: () => boardApi.getNotices(boardUrl.value, requestConfig),
+            request: (context) => callWithOptionalConfig(
+                optionalQuerySignal(requestConfig, context),
+                (config) => boardApi.getNotices(boardUrl.value, config),
+                () => boardApi.getNotices(boardUrl.value),
+            ),
             enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
             staleTime: QUERY_STALE_TIME.SHORT,
             ...queryOptions
@@ -172,7 +199,11 @@ export function useBoard() {
     const useBoardCategories = (boardUrl: Ref<string>, options = {}) => {
         return useApiQuery({
             queryKey: boardQueryKeys.categories(boardUrl),
-            request: () => boardApi.getCategories(boardUrl.value),
+            request: (context) => callWithOptionalConfig(
+                optionalQuerySignal(undefined, context),
+                (config) => boardApi.getCategories(boardUrl.value, config),
+                () => boardApi.getCategories(boardUrl.value),
+            ),
             enabled: computed(() => !!boardUrl.value),
             ...options
         })
@@ -228,7 +259,11 @@ export function useBoard() {
     ) => {
         return useApiPageQuery<BoardManagerCandidate>({
             queryKey: boardQueryKeys.managerCandidates(boardUrl, params),
-            request: () => boardApi.getBoardManagerCandidates(boardUrl.value, params.value),
+            request: (context) => callWithOptionalConfig(
+                optionalQuerySignal(undefined, context),
+                (config) => boardApi.getBoardManagerCandidates(boardUrl.value, params.value, config),
+                () => boardApi.getBoardManagerCandidates(boardUrl.value, params.value),
+            ),
             enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
         })
     }

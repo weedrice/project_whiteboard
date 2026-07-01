@@ -47,7 +47,10 @@ interface BoardManagerCandidateParams {
 
 export const boardApi = {
     // Get all boards
-    getBoards: () => api.get<ApiResponse<BoardListItem[]>>('/boards'),
+    getBoards: (config?: AxiosRequestConfig) =>
+        config
+            ? api.get<ApiResponse<BoardListItem[]>>('/boards', config)
+            : api.get<ApiResponse<BoardListItem[]>>('/boards'),
 
     // Get board details
     getBoard: (boardUrl: string, config?: AxiosRequestConfig) => api.get<ApiResponse<BoardDetail>>(`/boards/${boardUrl}`, config),
@@ -70,7 +73,10 @@ export const boardApi = {
         api.get<ApiResponse<PageResponse<PostSummary>>>(`/boards/${boardUrl}/posts`, { ...config, params }),
 
     // Get board categories
-    getCategories: (boardUrl: string) => api.get<ApiResponse<Category[]>>(`/boards/${boardUrl}/categories`),
+    getCategories: (boardUrl: string, config?: AxiosRequestConfig) =>
+        config
+            ? api.get<ApiResponse<Category[]>>(`/boards/${boardUrl}/categories`, config)
+            : api.get<ApiResponse<Category[]>>(`/boards/${boardUrl}/categories`),
 
     // Update board
     updateBoard: (boardUrl: string, data: BoardUpdateData) => api.put<ApiResponse<BoardDetail>>(`/boards/${boardUrl}`, data),
@@ -80,8 +86,8 @@ export const boardApi = {
         api.put<ApiResponse<BoardDetail>>(`/boards/${boardUrl}/manager`, data),
 
     // Get board manager candidates
-    getBoardManagerCandidates: (boardUrl: string, params: BoardManagerCandidateParams) =>
-        api.get<ApiResponse<PageResponse<BoardManagerCandidate>>>(`/boards/${boardUrl}/manager-candidates`, { params }),
+    getBoardManagerCandidates: (boardUrl: string, params: BoardManagerCandidateParams, config?: AxiosRequestConfig) =>
+        api.get<ApiResponse<PageResponse<BoardManagerCandidate>>>(`/boards/${boardUrl}/manager-candidates`, { ...config, params }),
 
     // Delete board
     deleteBoard: (boardUrl: string) => api.delete<ApiResponse<void>>(`/boards/${boardUrl}`),

@@ -135,8 +135,9 @@ export const postApi = {
     getTrendingPosts: (page: number = 0, size: number = 10, period: HomeLandingPeriod = '24h') => api.get<ApiResponse<BackendPageResponse<PostSummary>>>('/posts/trending', { params: { page, size, period } }),
 
     // Get home landing data
-    getHomeLanding: (period: HomeLandingPeriod = '24h') => api.get<ApiResponse<HomeLandingResponse>>('/home/landing', {
-        params: { period }
+    getHomeLanding: (period: HomeLandingPeriod = '24h', config?: AxiosRequestConfig) => api.get<ApiResponse<HomeLandingResponse>>('/home/landing', {
+        ...config,
+        params: { ...config?.params, period }
     }).then(mapHomeLandingResponse),
 
     // Draft APIs

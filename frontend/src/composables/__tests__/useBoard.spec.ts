@@ -161,7 +161,7 @@ describe('useBoard', () => {
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
         const result = await (options.queryFn as () => Promise<unknown>)()
         expect(result).toEqual([{ postId: 11, title: 'Notice' }])
-        expect(boardApi.getNotices).toHaveBeenCalledWith('free', undefined)
+        expect(boardApi.getNotices).toHaveBeenCalledWith('free')
     })
 
     it('fetches board posts through boardApi when not searching', async () => {

@@ -209,8 +209,8 @@ export const userApi = {
     getRecentlyViewedPosts(params: PaginationParams) {
         return api.get<ApiResponse<PageResponse<PostSummary>>>('/users/me/history/views', { params })
     },
-    getMySubscriptions(params: SubscriptionParams) {
-        return api.get<ApiResponse<PageResponse<SubscriptionBoardListItem>>>('/users/me/subscriptions', { params })
+    getMySubscriptions(params: SubscriptionParams, config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<PageResponse<SubscriptionBoardListItem>>>('/users/me/subscriptions', { ...config, params })
     },
     getMyPoint() {
         return api.get<ApiResponse<UserPoint>>('/points/me')
