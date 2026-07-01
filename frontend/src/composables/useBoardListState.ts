@@ -2,25 +2,18 @@ import { computed, ref, watch } from 'vue'
 import type { LocationQuery, LocationQueryRaw } from 'vue-router'
 import {
   areQueriesEqual,
-  parseCategoryIdFromQuery,
-  parseConceptFromQuery,
   parsePageFromQuery
 } from '@/utils/routeQueryValue'
-
-interface SearchState {
-  q: string
-  searchType: string
-}
-
-interface BoardListQueryParams {
-  page: number
-  size: number
-  sort: string
-  q?: string
-  searchType?: string
-  categoryId?: number
-  minLikes?: number
-}
+import {
+  buildBoardListQueryFromSource,
+  clampBoardListPage,
+  createBoardListQueryParams,
+  getResolvedBoardListSearchState,
+  resolveBoardListRouteState,
+  type BoardListFilterState,
+  type BoardListQueryParams,
+  type BoardListSearchState,
+} from '@/composables/boardListStateModel'
 
 type BoardListRoute = {
   path: string
@@ -29,18 +22,6 @@ type BoardListRoute = {
 
 type BoardListRouter = {
   replace: (to: { path: string; query: LocationQueryRaw }) => unknown
-}
-
-function getResolvedSearchState(isSearching: boolean, searchQuery: string, searchType: string): SearchState | null {
-  const trimmedQuery = searchQuery.trim()
-  if (!isSearching || !trimmedQuery) {
-    return null
-  }
-
-  return {
-    q: trimmedQuery,
-    searchType
-  }
 }
 
 export function useBoardListState(route: BoardListRoute, router: BoardListRouter) {
@@ -53,6 +34,14 @@ export function useBoardListState(route: BoardListRoute, router: BoardListRouter
   const selectedCategoryId = ref<number | null>(null)
   const sort = ref('createdAt,desc')
   let skipNextPageSync = false
+
+  const getFilterState = (): BoardListFilterState => ({
+    isSearching: isSearching.value,
+    searchQuery: searchQuery.value,
+    searchType: searchType.value,
+    selectedCategoryId: selectedCategoryId.value,
+    conceptOnly: conceptOnly.value,
+  })
 
   const setPage = (nextPage: number, options?: { skipRouteSync?: boolean }) => {
     if (options?.skipRouteSync && page.value !== nextPage) {
@@ -67,55 +56,21 @@ export function useBoardListState(route: BoardListRoute, router: BoardListRouter
   const buildListQueryFromSource = (
     sourceQuery: LocationQuery | LocationQueryRaw,
     targetPage: number,
-    nextSearchState?: SearchState | null,
+    nextSearchState?: BoardListSearchState | null,
     nextCategoryId?: number | null,
     nextConceptOnly?: boolean
-  ): LocationQueryRaw => {
-    const query: LocationQueryRaw = { ...sourceQuery }
-
-    if (targetPage <= 0) {
-      delete query.page
-    } else {
-      query.page = String(targetPage + 1)
-    }
-
-    const resolvedSearchState = nextSearchState === undefined
-      ? getResolvedSearchState(isSearching.value, searchQuery.value, searchType.value)
-      : nextSearchState
-
-    if (resolvedSearchState?.q) {
-      query.q = resolvedSearchState.q
-      query.type = resolvedSearchState.searchType
-    } else {
-      delete query.q
-      delete query.type
-    }
-
-    const resolvedCategoryId = nextCategoryId === undefined ? selectedCategoryId.value : nextCategoryId
-    const resolvedConceptOnly = nextConceptOnly === undefined ? conceptOnly.value : nextConceptOnly
-
-    if (resolvedSearchState?.q) {
-      delete query.categoryId
-      delete query.concept
-    } else if (resolvedConceptOnly) {
-      query.concept = '1'
-      delete query.categoryId
-    } else {
-      delete query.concept
-
-      if (resolvedCategoryId !== null) {
-        query.categoryId = String(resolvedCategoryId)
-      } else {
-        delete query.categoryId
-      }
-    }
-
-    return query
-  }
+  ): LocationQueryRaw => buildBoardListQueryFromSource({
+    sourceQuery,
+    targetPage,
+    filterState: getFilterState(),
+    nextSearchState,
+    nextCategoryId,
+    nextConceptOnly,
+  })
 
   const buildListQuery = (
     targetPage: number,
-    nextSearchState?: SearchState | null,
+    nextSearchState?: BoardListSearchState | null,
     nextCategoryId?: number | null,
     nextConceptOnly?: boolean
   ) => (
@@ -124,7 +79,7 @@ export function useBoardListState(route: BoardListRoute, router: BoardListRouter
 
   const syncListQuery = (
     targetPage: number,
-    nextSearchState?: SearchState | null,
+    nextSearchState?: BoardListSearchState | null,
     nextCategoryId?: number | null,
     nextConceptOnly?: boolean
   ) => {
@@ -139,24 +94,12 @@ export function useBoardListState(route: BoardListRoute, router: BoardListRouter
     query: buildListQuery(targetPage)
   })
 
-  const queryParams = computed<BoardListQueryParams>(() => {
-    const params: BoardListQueryParams = {
-      page: page.value,
-      size: size.value,
-      sort: sort.value
-    }
-
-    if (isSearching.value && searchQuery.value.trim()) {
-      params.q = searchQuery.value.trim()
-      params.searchType = searchType.value
-    } else if (conceptOnly.value) {
-      params.minLikes = 5
-    } else if (selectedCategoryId.value !== null) {
-      params.categoryId = selectedCategoryId.value
-    }
-
-    return params
-  })
+  const queryParams = computed<BoardListQueryParams>(() => createBoardListQueryParams({
+    ...getFilterState(),
+    page: page.value,
+    size: size.value,
+    sort: sort.value,
+  }))
 
   const resetToDefaultList = () => {
     searchQuery.value = ''
@@ -189,7 +132,7 @@ export function useBoardListState(route: BoardListRoute, router: BoardListRouter
   }
 
   function activateAllPostsFilter() {
-    const nextSearchState = getResolvedSearchState(isSearching.value, searchQuery.value, searchType.value)
+    const nextSearchState = getResolvedBoardListSearchState(isSearching.value, searchQuery.value, searchType.value)
 
     conceptOnly.value = false
     selectedCategoryId.value = null
@@ -227,8 +170,7 @@ export function useBoardListState(route: BoardListRoute, router: BoardListRouter
   }
 
   function handlePageChange(newPage: number, totalPages: number) {
-    const maxPage = Math.max(totalPages - 1, 0)
-    setPage(Math.min(Math.max(newPage, 0), maxPage))
+    setPage(clampBoardListPage(newPage, totalPages))
   }
 
   function resetListState() {
@@ -241,26 +183,17 @@ export function useBoardListState(route: BoardListRoute, router: BoardListRouter
   }
 
   watch(() => route.query, (newQuery) => {
-    const nextPage = parsePageFromQuery(newQuery.page)
-    if (page.value !== nextPage) {
-      page.value = nextPage
+    const routeState = resolveBoardListRouteState(newQuery)
+    if (page.value !== routeState.page) {
+      page.value = routeState.page
     }
 
-    const routeQuery = typeof newQuery.q === 'string' ? newQuery.q.trim() : ''
-    const routeSearchType = typeof newQuery.type === 'string' ? newQuery.type : 'TITLE_CONTENT'
-    const routeCategoryId = parseCategoryIdFromQuery(newQuery.categoryId)
-    const shouldSearch = routeQuery.length > 0
-    const nextSearchState = shouldSearch
-      ? { q: routeQuery, searchType: routeSearchType }
-      : null
-    const nextSelectedCategoryId = shouldSearch ? null : routeCategoryId
-    const nextConceptOnly = !shouldSearch && routeCategoryId === null && parseConceptFromQuery(newQuery.concept)
     const normalizedQuery = buildListQueryFromSource(
       newQuery,
-      nextPage,
-      nextSearchState,
-      nextSelectedCategoryId,
-      nextConceptOnly
+      routeState.page,
+      routeState.searchState,
+      routeState.selectedCategoryId,
+      routeState.conceptOnly
     )
 
     if (!areQueriesEqual(newQuery, normalizedQuery)) {
@@ -270,20 +203,20 @@ export function useBoardListState(route: BoardListRoute, router: BoardListRouter
       })
     }
 
-    if (searchQuery.value !== routeQuery) {
-      searchQuery.value = routeQuery
+    if (searchQuery.value !== routeState.routeQuery) {
+      searchQuery.value = routeState.routeQuery
     }
-    if (searchType.value !== routeSearchType) {
-      searchType.value = routeSearchType
+    if (searchType.value !== routeState.routeSearchType) {
+      searchType.value = routeState.routeSearchType
     }
-    if (isSearching.value !== shouldSearch) {
-      isSearching.value = shouldSearch
+    if (isSearching.value !== routeState.shouldSearch) {
+      isSearching.value = routeState.shouldSearch
     }
-    if (selectedCategoryId.value !== nextSelectedCategoryId) {
-      selectedCategoryId.value = nextSelectedCategoryId
+    if (selectedCategoryId.value !== routeState.selectedCategoryId) {
+      selectedCategoryId.value = routeState.selectedCategoryId
     }
-    if (conceptOnly.value !== nextConceptOnly) {
-      conceptOnly.value = nextConceptOnly
+    if (conceptOnly.value !== routeState.conceptOnly) {
+      conceptOnly.value = routeState.conceptOnly
     }
   }, { immediate: true })
 
