@@ -3,7 +3,7 @@ import { authApi } from '@/api/auth'
 import { unwrapAxiosApiData } from '@/api/response'
 import {
     notificationApi,
-    normalizeNotification,
+    normalizeNotification as normalizeNotificationResponse,
     type NotificationRaw,
 } from '@/api/notification'
 import type { Notification } from '@/types'
@@ -36,9 +36,18 @@ const RECONNECT_AFTER_FAILURE_DELAY_MS = 5000
 const MAX_RECONNECT_DELAY_MS = 60000
 
 let reconnectCallback: (() => void) | null = null
+let isBrowserOnlineProvider = defaultIsBrowserOnline
 
-function isBrowserOnline(): boolean {
+function defaultIsBrowserOnline(): boolean {
     return typeof navigator === 'undefined' ? true : navigator.onLine
+}
+
+export interface NotificationStreamControllerDependencies {
+    openStream?: typeof notificationApi.openStream
+    refreshToken?: typeof authApi.refreshToken
+    normalizeNotification?: typeof normalizeNotificationResponse
+    resolveAuthStore?: typeof useAuthStore
+    isBrowserOnline?: () => boolean
 }
 
 function getErrorStatus(error: unknown): number | null {
@@ -80,6 +89,7 @@ export function resetNotificationStreamStateForTest() {
     notificationStreamState.onlineListenerAttached = false
     reconnectCallback = null
     notificationStreamState.recentNotificationIds.clear()
+    isBrowserOnlineProvider = defaultIsBrowserOnline
 }
 
 function handleBrowserOnline() {
@@ -111,7 +121,7 @@ function getBackoffDelay(baseDelayMs: number) {
 function scheduleReconnect(delayMs: number) {
     if (notificationStreamState.closedManually) return
 
-    if (!isBrowserOnline()) {
+    if (!isBrowserOnlineProvider()) {
         notificationStreamState.reconnectWhenOnline = true
         attachOnlineReconnectListener()
         return
@@ -131,7 +141,16 @@ function scheduleReconnect(delayMs: number) {
     }, backoffDelayMs)
 }
 
-export function createNotificationStreamController(queryClient: QueryClient) {
+export function createNotificationStreamController(
+    queryClient: QueryClient,
+    dependencies: NotificationStreamControllerDependencies = {},
+) {
+    const openStream = dependencies.openStream ?? notificationApi.openStream
+    const refreshToken = dependencies.refreshToken ?? authApi.refreshToken
+    const normalizeIncomingNotification = dependencies.normalizeNotification ?? normalizeNotificationResponse
+    const resolveAuthStore = dependencies.resolveAuthStore ?? useAuthStore
+    isBrowserOnlineProvider = dependencies.isBrowserOnline ?? defaultIsBrowserOnline
+
     const rememberNotificationId = (notificationId: number) => {
         notificationStreamState.recentNotificationIds.remember(notificationId)
     }
@@ -191,7 +210,7 @@ export function createNotificationStreamController(queryClient: QueryClient) {
             const rawNotification = JSON.parse(payload) as NotificationRaw
             const rawNotificationId = rawNotification.notificationId ?? rawNotification.notification_id
             if (typeof rawNotificationId !== 'number' || !Number.isFinite(rawNotificationId)) return
-            const notification = normalizeNotification(rawNotification)
+            const notification = normalizeIncomingNotification(rawNotification)
             applyIncomingNotification(notification)
         } catch (error: unknown) {
             logger.error('Failed to parse SSE notification:', error)
@@ -199,17 +218,17 @@ export function createNotificationStreamController(queryClient: QueryClient) {
     }
 
     const reconnectWithRefresh = async () => {
-        if (!isBrowserOnline()) {
+        if (!isBrowserOnlineProvider()) {
             scheduleReconnect(RECONNECT_AFTER_FAILURE_DELAY_MS)
             return
         }
 
         try {
-            const authTokens = unwrapAxiosApiData(await authApi.refreshToken({
+            const authTokens = unwrapAxiosApiData(await refreshToken({
                 skipAuthRefresh: true,
                 skipGlobalErrorHandler: true,
             }))
-            const authStore = useAuthStore()
+            const authStore = resolveAuthStore()
             authStore.setTokens(authTokens.accessToken)
             scheduleReconnect(RECONNECT_AFTER_REFRESH_DELAY_MS)
             return
@@ -227,7 +246,7 @@ export function createNotificationStreamController(queryClient: QueryClient) {
 
     const startStream = async (token: string, controller: AbortController) => {
         try {
-            const response = await notificationApi.openStream(token, controller.signal)
+            const response = await openStream(token, controller.signal)
 
             if (!response.ok) {
                 throw new Error(`SSE stream request failed: ${response.status}`)
@@ -268,7 +287,7 @@ export function createNotificationStreamController(queryClient: QueryClient) {
         detachOnlineReconnectListener()
         notificationStreamState.reconnectWhenOnline = false
 
-        const authStore = useAuthStore()
+        const authStore = resolveAuthStore()
         const token = authStore.accessToken
         if (!token) return
 
