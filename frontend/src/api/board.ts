@@ -11,6 +11,7 @@ import type {
     Category,
     PostSummary
 } from '@/types'
+import { encodePathSegment } from '@/utils/urlPath'
 
 interface PostsParams {
     page?: number
@@ -53,7 +54,7 @@ export const boardApi = {
             : api.get<ApiResponse<BoardListItem[]>>('/boards'),
 
     // Get board details
-    getBoard: (boardUrl: string, config?: AxiosRequestConfig) => api.get<ApiResponse<BoardDetail>>(`/boards/${boardUrl}`, config),
+    getBoard: (boardUrl: string, config?: AxiosRequestConfig) => api.get<ApiResponse<BoardDetail>>(`/boards/${encodePathSegment(boardUrl)}`, config),
 
     // Create a new board
     createBoard: (data: BoardCreateData) => api.post<ApiResponse<BoardDetail>>('/boards', data),
@@ -70,54 +71,54 @@ export const boardApi = {
 
     // Get posts in a board
     getPosts: (boardUrl: string, params: PostsParams, config?: AxiosRequestConfig) =>
-        api.get<ApiResponse<PageResponse<PostSummary>>>(`/boards/${boardUrl}/posts`, { ...config, params }),
+        api.get<ApiResponse<PageResponse<PostSummary>>>(`/boards/${encodePathSegment(boardUrl)}/posts`, { ...config, params }),
 
     // Get board categories
     getCategories: (boardUrl: string, config?: AxiosRequestConfig) =>
         config
-            ? api.get<ApiResponse<Category[]>>(`/boards/${boardUrl}/categories`, config)
-            : api.get<ApiResponse<Category[]>>(`/boards/${boardUrl}/categories`),
+            ? api.get<ApiResponse<Category[]>>(`/boards/${encodePathSegment(boardUrl)}/categories`, config)
+            : api.get<ApiResponse<Category[]>>(`/boards/${encodePathSegment(boardUrl)}/categories`),
 
     // Update board
-    updateBoard: (boardUrl: string, data: BoardUpdateData) => api.put<ApiResponse<BoardDetail>>(`/boards/${boardUrl}`, data),
+    updateBoard: (boardUrl: string, data: BoardUpdateData) => api.put<ApiResponse<BoardDetail>>(`/boards/${encodePathSegment(boardUrl)}`, data),
 
     // Transfer board manager
     updateBoardManager: (boardUrl: string, data: BoardManagerTransferData) =>
-        api.put<ApiResponse<BoardDetail>>(`/boards/${boardUrl}/manager`, data),
+        api.put<ApiResponse<BoardDetail>>(`/boards/${encodePathSegment(boardUrl)}/manager`, data),
 
     // Get board manager candidates
     getBoardManagerCandidates: (boardUrl: string, params: BoardManagerCandidateParams, config?: AxiosRequestConfig) =>
-        api.get<ApiResponse<PageResponse<BoardManagerCandidate>>>(`/boards/${boardUrl}/manager-candidates`, { ...config, params }),
+        api.get<ApiResponse<PageResponse<BoardManagerCandidate>>>(`/boards/${encodePathSegment(boardUrl)}/manager-candidates`, { ...config, params }),
 
     // Delete board
-    deleteBoard: (boardUrl: string) => api.delete<ApiResponse<void>>(`/boards/${boardUrl}`),
+    deleteBoard: (boardUrl: string) => api.delete<ApiResponse<void>>(`/boards/${encodePathSegment(boardUrl)}`),
 
     // Create category
-    createCategory: (boardUrl: string, data: CategoryCreateData) => api.post<ApiResponse<Category>>(`/boards/${boardUrl}/categories`, data),
+    createCategory: (boardUrl: string, data: CategoryCreateData) => api.post<ApiResponse<Category>>(`/boards/${encodePathSegment(boardUrl)}/categories`, data),
 
     // Update category
-    updateCategory: (_boardUrl: string, categoryId: string | number, data: CategoryUpdateData) => api.put<ApiResponse<Category>>(`/boards/categories/${categoryId}`, data),
+    updateCategory: (_boardUrl: string, categoryId: string | number, data: CategoryUpdateData) => api.put<ApiResponse<Category>>(`/boards/categories/${encodePathSegment(categoryId)}`, data),
 
     // Delete category
-    deleteCategory: (_boardUrl: string, categoryId: string | number) => api.delete<ApiResponse<void>>(`/boards/categories/${categoryId}`),
+    deleteCategory: (_boardUrl: string, categoryId: string | number) => api.delete<ApiResponse<void>>(`/boards/categories/${encodePathSegment(categoryId)}`),
 
     // Get board notices
     getNotices: (boardUrl: string, config?: AxiosRequestConfig) =>
         config
-            ? api.get<ApiResponse<PostSummary[]>>(`/boards/${boardUrl}/notices`, config)
-            : api.get<ApiResponse<PostSummary[]>>(`/boards/${boardUrl}/notices`),
+            ? api.get<ApiResponse<PostSummary[]>>(`/boards/${encodePathSegment(boardUrl)}/notices`, config)
+            : api.get<ApiResponse<PostSummary[]>>(`/boards/${encodePathSegment(boardUrl)}/notices`),
 
     // Subscribe to board
     subscribeBoard: (boardUrl: string, config?: AxiosRequestConfig) =>
         config
-            ? api.post<ApiResponse<void>>(`/boards/${boardUrl}/subscribe`, undefined, config)
-            : api.post<ApiResponse<void>>(`/boards/${boardUrl}/subscribe`),
+            ? api.post<ApiResponse<void>>(`/boards/${encodePathSegment(boardUrl)}/subscribe`, undefined, config)
+            : api.post<ApiResponse<void>>(`/boards/${encodePathSegment(boardUrl)}/subscribe`),
 
     // Unsubscribe from board
     unsubscribeBoard: (boardUrl: string, config?: AxiosRequestConfig) =>
         config
-            ? api.delete<ApiResponse<void>>(`/boards/${boardUrl}/subscribe`, config)
-            : api.delete<ApiResponse<void>>(`/boards/${boardUrl}/subscribe`),
+            ? api.delete<ApiResponse<void>>(`/boards/${encodePathSegment(boardUrl)}/subscribe`, config)
+            : api.delete<ApiResponse<void>>(`/boards/${encodePathSegment(boardUrl)}/subscribe`),
 
     // Update subscription order
     updateSubscriptionOrder: (boardUrls: string[]) => api.put<ApiResponse<void>>('/boards/subscriptions/order', { boardUrls }),

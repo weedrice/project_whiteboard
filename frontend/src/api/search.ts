@@ -15,15 +15,18 @@ const toPopularKeywords = (response: PopularKeywordResponse): PopularKeyword[] =
 
 export const searchApi = {
     // General search
-    search: (params: SearchParams) => api.get<ApiResponse<IntegratedSearchResponse>>('/search', { params }),
+    search: (params: SearchParams, config?: AxiosRequestConfig) =>
+        api.get<ApiResponse<IntegratedSearchResponse>>('/search', { ...config, params }),
 
     // Search posts
     searchPosts: (params: SearchParams, config?: AxiosRequestConfig) =>
         api.get<ApiResponse<PageResponse<PostSummary>>>('/search/posts', { ...config, params }),
 
     // Get popular keywords
-    async getPopularKeywords() {
-        const response = await api.get<ApiResponse<PopularKeywordResponse>>('/search/popular')
+    async getPopularKeywords(config?: AxiosRequestConfig) {
+        const response = config
+            ? await api.get<ApiResponse<PopularKeywordResponse>>('/search/popular', config)
+            : await api.get<ApiResponse<PopularKeywordResponse>>('/search/popular')
         return mapApiDataResponse(response, toPopularKeywords)
     }
 }

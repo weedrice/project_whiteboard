@@ -5,7 +5,7 @@ import { computed, type Ref } from 'vue'
 import type { UserSettings } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import type { AxiosRequestConfig } from 'axios'
-import { withQuerySignal } from '@/utils/querySignal'
+import { callWithOptionalQuerySignal, withQuerySignal } from '@/utils/querySignal'
 import { useApiQuery } from '@/composables/useApiQuery'
 import { userQueryKeys, type UserQueryPaginationParams } from '@/composables/userQueryKeys'
 
@@ -53,7 +53,11 @@ export function useUser() {
     const useUserProfile = (userId: Ref<string | number>) => {
         return useApiQuery({
             queryKey: userQueryKeys.profile(userId),
-            request: () => userApi.getUserProfile(userId.value),
+            request: (context) => callWithOptionalQuerySignal(
+                context,
+                () => userApi.getUserProfile(userId.value),
+                (config) => userApi.getUserProfile(userId.value, config),
+            ),
             enabled: computed(() => !!userId.value),
         })
     }
@@ -61,7 +65,11 @@ export function useUser() {
     const useUserSettings = () => {
         return useApiQuery({
             queryKey: userSettingsQueryKey,
-            request: () => userApi.getUserSettings(),
+            request: (context) => callWithOptionalQuerySignal(
+                context,
+                userApi.getUserSettings,
+                userApi.getUserSettings,
+            ),
             staleTime: QUERY_STALE_TIME.SHORT,
         })
     }
@@ -69,14 +77,22 @@ export function useUser() {
     const useBlockList = (params?: Ref<PaginationParams>) => {
         return useApiQuery({
             queryKey: userQueryKeys.blocks(params),
-            request: () => userApi.getBlockList(params?.value),
+            request: (context) => callWithOptionalQuerySignal(
+                context,
+                () => userApi.getBlockList(params?.value),
+                (config) => userApi.getBlockList(params?.value, config),
+            ),
         })
     }
 
     const useNotificationSettings = () => {
         return useApiQuery({
             queryKey: userQueryKeys.notificationSettings,
-            request: () => userApi.getNotificationSettings(),
+            request: (context) => callWithOptionalQuerySignal(
+                context,
+                userApi.getNotificationSettings,
+                userApi.getNotificationSettings,
+            ),
         })
     }
 
@@ -231,7 +247,11 @@ export function useUser() {
     const useRecentlyViewedPosts = (params?: Ref<PaginationParams>) => {
         return useApiQuery({
             queryKey: userQueryKeys.recentlyViewedPosts(params),
-            request: () => userApi.getRecentlyViewedPosts(params?.value || {}),
+            request: (context) => callWithOptionalQuerySignal(
+                context,
+                () => userApi.getRecentlyViewedPosts(params?.value || {}),
+                (config) => userApi.getRecentlyViewedPosts(params?.value || {}, config),
+            ),
         })
     }
 

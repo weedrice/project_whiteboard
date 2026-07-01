@@ -11,6 +11,7 @@ import type {
     Post,
     PostSummary
 } from '@/types'
+import { encodePathSegment } from '@/utils/urlPath'
 
 export interface PostCreateData {
     title: string
@@ -105,31 +106,31 @@ function mapHomeLandingResponse(
 
 export const postApi = {
     // Create a new post
-    createPost: (boardUrl: string, data: PostCreateData) => api.post<ApiResponse<number>>(`/boards/${boardUrl}/posts`, data),
+    createPost: (boardUrl: string, data: PostCreateData) => api.post<ApiResponse<number>>(`/boards/${encodePathSegment(boardUrl)}/posts`, data),
 
     // Get post details
-    getPost: (postId: string | number, config?: AxiosRequestConfig) => api.get<ApiResponse<Post>>(`/posts/${postId}`, config),
+    getPost: (postId: string | number, config?: AxiosRequestConfig) => api.get<ApiResponse<Post>>(`/posts/${encodePathSegment(postId)}`, config),
 
     // Update post
-    updatePost: (postId: string | number, data: PostUpdateData) => api.put<ApiResponse<number>>(`/posts/${postId}`, data),
+    updatePost: (postId: string | number, data: PostUpdateData) => api.put<ApiResponse<number>>(`/posts/${encodePathSegment(postId)}`, data),
 
     // Delete post
-    deletePost: (postId: string | number) => api.delete<ApiResponse<void>>(`/posts/${postId}`),
+    deletePost: (postId: string | number) => api.delete<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}`),
 
     // Increment post view count
-    incrementView: (postId: string | number) => api.post<ApiResponse<void>>(`/posts/${postId}/view`),
+    incrementView: (postId: string | number) => api.post<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/view`),
 
     // Like post
-    likePost: (postId: string | number) => api.post<ApiResponse<void>>(`/posts/${postId}/like`),
+    likePost: (postId: string | number) => api.post<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/like`),
 
     // Unlike post
-    unlikePost: (postId: string | number) => api.delete<ApiResponse<void>>(`/posts/${postId}/like`),
+    unlikePost: (postId: string | number) => api.delete<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/like`),
 
     // Scrap post
-    scrapPost: (postId: string | number) => api.post<ApiResponse<void>>(`/posts/${postId}/scrap`),
+    scrapPost: (postId: string | number) => api.post<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/scrap`),
 
     // Unscrap post
-    unscrapPost: (postId: string | number) => api.delete<ApiResponse<void>>(`/posts/${postId}/scrap`),
+    unscrapPost: (postId: string | number) => api.delete<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/scrap`),
 
     // Get trending posts
     getTrendingPosts: (page: number = 0, size: number = 10, period: HomeLandingPeriod = '24h') => api.get<ApiResponse<BackendPageResponse<PostSummary>>>('/posts/trending', { params: { page, size, period } }),
@@ -141,9 +142,9 @@ export const postApi = {
     }).then(mapHomeLandingResponse),
 
     // Draft APIs
-    getDraft: (draftId: string | number) => api.get<ApiResponse<DraftPost>>(`/drafts/${draftId}`),
+    getDraft: (draftId: string | number) => api.get<ApiResponse<DraftPost>>(`/drafts/${encodePathSegment(draftId)}`),
     saveDraft: (data: PostDraftData) => api.post<ApiResponse<DraftPost>>('/drafts', data),
-    deleteDraft: (draftId: string | number) => api.delete<ApiResponse<void>>(`/drafts/${draftId}`),
+    deleteDraft: (draftId: string | number) => api.delete<ApiResponse<void>>(`/drafts/${encodePathSegment(draftId)}`),
 
     // Report post
     reportPost: (data: ReportData) => api.post<ApiResponse<number>>('/reports/posts', data),

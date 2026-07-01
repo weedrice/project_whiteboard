@@ -22,3 +22,12 @@ export function optionalQuerySignal(
   const nextConfig = withQuerySignal(config, queryContext)
   return Object.keys(nextConfig).length > 0 ? nextConfig : undefined
 }
+
+export function callWithOptionalQuerySignal<T>(
+  queryContext: { signal?: AbortSignal } | undefined,
+  request: () => T,
+  requestWithConfig: (config: AxiosRequestConfig) => T,
+): T {
+  const config = optionalQuerySignal(undefined, queryContext)
+  return config ? requestWithConfig(config) : request()
+}

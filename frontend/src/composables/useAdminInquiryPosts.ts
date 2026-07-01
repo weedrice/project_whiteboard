@@ -2,7 +2,7 @@ import { computed, ref, watch } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
 import { adminApi } from '@/api/admin'
 import { adminInquiryQueryKeys } from '@/composables/adminQueryKeys'
-import { useApiPageQuery, useNullableApiQuery } from '@/composables/useApiQuery'
+import { useAdminNullableDataQuery, useAdminPageQuery } from '@/composables/adminApiQuery'
 import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import { formatDateTimeOrDash } from '@/utils/date'
 import { stripHtmlToText, truncateWithEllipsis } from '@/utils/textExcerpt'
@@ -96,30 +96,34 @@ export function useAdminInquiryPosts() {
     isLoading,
     isFetching,
     error,
-  } = useApiPageQuery<AdminInquirySummary, PageResponse<AdminInquiryListItem>>({
-    queryKey: adminInquiryQueryKeys.listPage(page, size, sort),
-    request: () => adminApi.getInquiryPosts({
+  } = useAdminPageQuery<AdminInquirySummary, PageResponse<AdminInquiryListItem>>(
+    adminInquiryQueryKeys.listPage(page, size, sort),
+    (config) => {
+      const params = {
         page: page.value,
         size: size.value,
         sort: sort.value
-    }),
-    selectData: toAdminInquiryPage,
-  })
+      }
+      return config ? adminApi.getInquiryPosts(params, config) : adminApi.getInquiryPosts(params)
+    },
+    { selectData: toAdminInquiryPage },
+  )
 
   const {
     data: selectedInquiry,
     isLoading: isDetailLoading,
     isFetching: isDetailFetching,
     error: detailError,
-  } = useNullableApiQuery<Post, AdminInquiryDetail>({
-    queryKey: adminInquiryQueryKeys.detail(selectedPostId),
-    request: () => {
+  } = useAdminNullableDataQuery<Post, AdminInquiryDetail>(
+    adminInquiryQueryKeys.detail(selectedPostId),
+    (config) => {
       const postId = selectedPostId.value
-      return postId ? adminApi.getInquiryPost(postId) : null
+      if (!postId) return null
+      return config ? adminApi.getInquiryPost(postId, config) : adminApi.getInquiryPost(postId)
     },
-    selectData: toAdminInquiryDetail,
-    enabled: computed(() => selectedPostId.value !== null)
-  })
+    computed(() => selectedPostId.value !== null),
+    { selectData: toAdminInquiryDetail },
+  )
 
   const {
     items: posts,

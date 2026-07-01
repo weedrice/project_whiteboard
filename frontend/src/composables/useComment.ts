@@ -4,6 +4,7 @@ import { commentApi, type CommentParams, type CommentPayload } from '@/api/comme
 import { commentQueryKeys } from '@/composables/commentQueryKeys'
 import { postQueryKeys } from '@/composables/postQueryKeys'
 import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
+import { callWithOptionalQuerySignal } from '@/utils/querySignal'
 import type { Comment, CommentListResponse } from '@/types'
 
 export function useComment() {
@@ -12,7 +13,11 @@ export function useComment() {
     const useComments = (postId: Ref<string | number>, params: Ref<CommentParams>) => {
         return useApiPageQuery<Comment>({
             queryKey: commentQueryKeys.list(postId, params),
-            request: () => commentApi.getComments(postId.value, params.value),
+            request: (context) => callWithOptionalQuerySignal(
+                context,
+                () => commentApi.getComments(postId.value, params.value),
+                (config) => commentApi.getComments(postId.value, params.value, config),
+            ),
             enabled: computed(() => !!postId.value),
         })
     }
@@ -24,7 +29,11 @@ export function useComment() {
     ) => {
         return useApiQuery<CommentListResponse>({
             queryKey: commentQueryKeys.replies(parentId, params),
-            request: () => commentApi.getReplies(parentId.value, params.value),
+            request: (context) => callWithOptionalQuerySignal(
+                context,
+                () => commentApi.getReplies(parentId.value, params.value),
+                (config) => commentApi.getReplies(parentId.value, params.value, config),
+            ),
             enabled: computed(() => Boolean(parentId.value) && (enabled ? enabled.value : true)),
             keepPreviousData: true,
         })

@@ -16,6 +16,7 @@ import {
     createNotificationStreamController,
     resetNotificationStreamStateForTest,
 } from '@/composables/notificationStreamController'
+import { callWithOptionalQuerySignal } from '@/utils/querySignal'
 
 export { resetNotificationStreamStateForTest }
 
@@ -26,7 +27,11 @@ export function useNotification() {
     const useNotifications = (params: Ref<NotificationParams>) => {
         return useApiPageQuery<Notification>({
             queryKey: notificationListQueryKey(params),
-            request: () => notificationApi.getNotifications(params.value),
+            request: (context) => callWithOptionalQuerySignal(
+                context,
+                () => notificationApi.getNotifications(params.value),
+                (config) => notificationApi.getNotifications(params.value, config),
+            ),
         })
     }
 
@@ -34,7 +39,11 @@ export function useNotification() {
         const authStore = useAuthStore()
         return useApiQuery<number>({
             queryKey: notificationUnreadCountQueryKey,
-            request: () => notificationApi.getUnreadCount(),
+            request: (context) => callWithOptionalQuerySignal(
+                context,
+                notificationApi.getUnreadCount,
+                notificationApi.getUnreadCount,
+            ),
             refetchInterval: 60000,
             enabled: computed(() => authStore.isAuthenticated),
         })

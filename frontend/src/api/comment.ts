@@ -1,5 +1,7 @@
 import api from './index'
 import type { ApiResponse, PageResponse, Comment, CommentListResponse, CommentPayload } from '@/types'
+import type { AxiosRequestConfig } from 'axios'
+import { encodePathSegment } from '@/utils/urlPath'
 export type { Comment, CommentPayload }
 export type CommentWithNavigation = Comment & {
     boardUrl?: string
@@ -14,18 +16,22 @@ export interface CommentParams {
 
 export const commentApi = {
     // Get comments for a post
-    getComments: (postId: string | number, params: CommentParams) => api.get<ApiResponse<PageResponse<Comment>>>(`/posts/${postId}/comments`, { params }),
+    getComments: (postId: string | number, params: CommentParams, config?: AxiosRequestConfig) =>
+        api.get<ApiResponse<PageResponse<Comment>>>(`/posts/${encodePathSegment(postId)}/comments`, { ...config, params }),
 
-    getReplies: (commentId: string | number, params: CommentParams) => api.get<ApiResponse<CommentListResponse>>(`/comments/${commentId}/replies`, { params }),
+    getReplies: (commentId: string | number, params: CommentParams, config?: AxiosRequestConfig) =>
+        api.get<ApiResponse<CommentListResponse>>(`/comments/${encodePathSegment(commentId)}/replies`, { ...config, params }),
 
     // Create a new comment
-    createComment: (postId: string | number, data: CommentPayload) => api.post<ApiResponse<number>>(`/posts/${postId}/comments`, data),
+    createComment: (postId: string | number, data: CommentPayload) => api.post<ApiResponse<number>>(`/posts/${encodePathSegment(postId)}/comments`, data),
 
     // Delete a comment
-    deleteComment: (commentId: string | number) => api.delete<ApiResponse<void>>(`/comments/${commentId}`),
+    deleteComment: (commentId: string | number) => api.delete<ApiResponse<void>>(`/comments/${encodePathSegment(commentId)}`),
 
     // Update a comment
-    updateComment: (commentId: string | number, data: CommentPayload) => api.put<ApiResponse<number>>(`/comments/${commentId}`, data),
+    updateComment: (commentId: string | number, data: CommentPayload) => api.put<ApiResponse<number>>(`/comments/${encodePathSegment(commentId)}`, data),
 
-    getComment: (commentId: string | number) => api.get<ApiResponse<CommentWithNavigation>>(`/comments/${commentId}`)
+    getComment: (commentId: string | number, config?: AxiosRequestConfig) => config
+        ? api.get<ApiResponse<CommentWithNavigation>>(`/comments/${encodePathSegment(commentId)}`, config)
+        : api.get<ApiResponse<CommentWithNavigation>>(`/comments/${encodePathSegment(commentId)}`)
 }

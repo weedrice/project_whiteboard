@@ -15,6 +15,7 @@ import {
 } from '@/composables/useEmoticonEditResource'
 import { userQueryKeys } from '@/composables/userQueryKeys'
 import { extractErrorMessage } from '@/utils/errorHandler'
+import { callWithOptionalQuerySignal } from '@/utils/querySignal'
 import type { ApiResponse } from '@/types'
 import type { EmoticonMaster, EmoticonPurchaseStatus } from '@/types/emoticon'
 
@@ -26,7 +27,11 @@ export function useEmoticonDetailResource(emoticonId: ComputedRef<number>) {
 
   const { data: emoticon, isLoading, error } = useApiQuery({
     queryKey: emoticonDetailQueryKey(emoticonId),
-    request: () => emoticonApi.getEmoticon(emoticonId.value) as Promise<AxiosResponse<ApiResponse<EmoticonMaster>>>,
+    request: (context) => callWithOptionalQuerySignal(
+      context,
+      () => emoticonApi.getEmoticon(emoticonId.value),
+      (config) => emoticonApi.getEmoticon(emoticonId.value, config),
+    ) as Promise<AxiosResponse<ApiResponse<EmoticonMaster>>>,
     enabled: computed(() => !!emoticonId.value),
   })
 
@@ -36,7 +41,11 @@ export function useEmoticonDetailResource(emoticonId: ComputedRef<number>) {
     isFetching: isPurchaseStatusFetching,
   } = useApiQuery({
     queryKey: emoticonPurchaseStatusQueryKey(emoticonId),
-    request: () => emoticonApi.checkPurchaseStatus(emoticonId.value) as Promise<AxiosResponse<ApiResponse<EmoticonPurchaseStatus>>>,
+    request: (context) => callWithOptionalQuerySignal(
+      context,
+      () => emoticonApi.checkPurchaseStatus(emoticonId.value),
+      (config) => emoticonApi.checkPurchaseStatus(emoticonId.value, config),
+    ) as Promise<AxiosResponse<ApiResponse<EmoticonPurchaseStatus>>>,
     enabled: computed(() => !!emoticonId.value && authStore.isAuthenticated),
   })
 

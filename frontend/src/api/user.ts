@@ -18,6 +18,7 @@ import type {
 import type { AxiosRequestConfig } from 'axios'
 import { mapApiPageResponse } from '@/api/response'
 import { normalizePageResponse, type PageResponseRaw } from '@/utils/pageResponse'
+import { encodePathSegment } from '@/utils/urlPath'
 
 export interface UserUpdatePayload {
     displayName?: string;
@@ -135,8 +136,10 @@ export const userApi = {
             ? api.get<ApiResponse<User>>('/users/me', config)
             : api.get<ApiResponse<User>>('/users/me')
     },
-    getUserProfile(userId: string | number) {
-        return api.get<ApiResponse<PublicUserProfile>>(`/users/${userId}`)
+    getUserProfile(userId: string | number, config?: AxiosRequestConfig) {
+        return config
+            ? api.get<ApiResponse<PublicUserProfile>>(`/users/${encodePathSegment(userId)}`, config)
+            : api.get<ApiResponse<PublicUserProfile>>(`/users/${encodePathSegment(userId)}`)
     },
     updateMyProfile(data: UserUpdatePayload) {
         return api.put<ApiResponse<User>>('/users/me', data)
@@ -150,14 +153,18 @@ export const userApi = {
     verifyEmail(payload: { email: string, verificationTicket: string }) {
         return api.post<ApiResponse<void>>('/users/me/email-verification', payload)
     },
-    getUserSettings() {
-        return api.get<ApiResponse<UserSettings>>('/users/me/settings')
+    getUserSettings(config?: AxiosRequestConfig) {
+        return config
+            ? api.get<ApiResponse<UserSettings>>('/users/me/settings', config)
+            : api.get<ApiResponse<UserSettings>>('/users/me/settings')
     },
     updateUserSettings(data: Partial<UserSettings>) {
         return api.put<ApiResponse<UserSettings>>('/users/me/settings', data)
     },
-    getNotificationSettings() {
-        return api.get<ApiResponse<NotificationSettingsPayload[]>>('/users/me/notification-settings')
+    getNotificationSettings(config?: AxiosRequestConfig) {
+        return config
+            ? api.get<ApiResponse<NotificationSettingsPayload[]>>('/users/me/notification-settings', config)
+            : api.get<ApiResponse<NotificationSettingsPayload[]>>('/users/me/notification-settings')
     },
     updateNotificationSettingsBulk(data: NotificationSettingsBulkPayload) {
         return api.put<ApiResponse<NotificationSettingsPayload[]>>('/users/me/notification-settings/bulk', data)
@@ -171,26 +178,28 @@ export const userApi = {
             : api.get<ApiResponse<UserAgentListResponse>>('/users/me/agents')
     },
     suspendMyAgent(agentId: string | number) {
-        return api.patch<ApiResponse<UserAgent>>(`/users/me/agents/${agentId}/suspend`)
+        return api.patch<ApiResponse<UserAgent>>(`/users/me/agents/${encodePathSegment(agentId)}/suspend`)
     },
     activateMyAgent(agentId: string | number) {
-        return api.patch<ApiResponse<UserAgent>>(`/users/me/agents/${agentId}/activate`)
+        return api.patch<ApiResponse<UserAgent>>(`/users/me/agents/${encodePathSegment(agentId)}/activate`)
     },
     deleteMyAgent(agentId: string | number) {
-        return api.delete<ApiResponse<void>>(`/users/me/agents/${agentId}`)
+        return api.delete<ApiResponse<void>>(`/users/me/agents/${encodePathSegment(agentId)}`)
     },
     blockUser(userId: string | number) {
-        return api.post<ApiResponse<void>>(`/users/${userId}/block`)
+        return api.post<ApiResponse<void>>(`/users/${encodePathSegment(userId)}/block`)
     },
     unblockUser(userId: string | number) {
-        return api.delete<ApiResponse<void>>(`/users/${userId}/block`)
+        return api.delete<ApiResponse<void>>(`/users/${encodePathSegment(userId)}/block`)
     },
-    getBlockList(params?: PaginationParams) {
+    getBlockList(params?: PaginationParams, config?: AxiosRequestConfig) {
         if (params) {
-            return api.get<ApiResponse<BlockListRawResponse>>('/users/me/blocks', { params })
+            return api.get<ApiResponse<BlockListRawResponse>>('/users/me/blocks', { ...config, params })
                 .then((response) => mapApiPageResponse(response, toBlockedUserPage))
         }
-        return api.get<ApiResponse<BlockListRawResponse>>('/users/me/blocks')
+        return (config
+            ? api.get<ApiResponse<BlockListRawResponse>>('/users/me/blocks', config)
+            : api.get<ApiResponse<BlockListRawResponse>>('/users/me/blocks'))
             .then((response) => mapApiPageResponse(response, toBlockedUserPage))
     },
     getMyPosts(params: PaginationParams, config?: AxiosRequestConfig) {
@@ -203,11 +212,11 @@ export const userApi = {
         return api.get<ApiResponse<ScrapListResponse>>('/users/me/scraps', { ...config, params })
             .then((response) => mapApiPageResponse(response, toScrapPostSummaryPage))
     },
-    getMyDrafts(params: PaginationParams) {
-        return api.get<ApiResponse<DraftPostListResponse>>('/users/me/drafts', { params })
+    getMyDrafts(params: PaginationParams, config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<DraftPostListResponse>>('/users/me/drafts', { ...config, params })
     },
-    getRecentlyViewedPosts(params: PaginationParams) {
-        return api.get<ApiResponse<PageResponse<PostSummary>>>('/users/me/history/views', { params })
+    getRecentlyViewedPosts(params: PaginationParams, config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<PageResponse<PostSummary>>>('/users/me/history/views', { ...config, params })
     },
     getMySubscriptions(params: SubscriptionParams, config?: AxiosRequestConfig) {
         return api.get<ApiResponse<PageResponse<SubscriptionBoardListItem>>>('/users/me/subscriptions', { ...config, params })

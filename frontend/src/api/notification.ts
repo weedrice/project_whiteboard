@@ -1,9 +1,10 @@
 import api from './index'
 import { mapApiPageResponse } from '@/api/response'
 import type { ApiResponse, Notification, PageResponse } from '@/types'
-import type { AxiosResponse } from 'axios'
+import type { AxiosRequestConfig, AxiosResponse } from 'axios'
 import { API } from '@/utils/constants'
 import { normalizePageResponse, type PageResponseRaw } from '@/utils/pageResponse'
+import { encodePathSegment } from '@/utils/urlPath'
 
 export interface NotificationParams {
     page?: number;
@@ -105,19 +106,24 @@ export function getNotificationStreamUrl(): string {
 
 export const notificationApi = {
     // Get notifications
-    getNotifications: async (params: NotificationParams): Promise<AxiosResponse<ApiResponse<PageResponse<Notification>>>> => {
-        const response = await api.get<ApiResponse<NotificationPageRaw>>('/notifications', { params })
+    getNotifications: async (
+        params: NotificationParams,
+        config?: AxiosRequestConfig
+    ): Promise<AxiosResponse<ApiResponse<PageResponse<Notification>>>> => {
+        const response = await api.get<ApiResponse<NotificationPageRaw>>('/notifications', { ...config, params })
         return mapApiPageResponse(response, (raw) => normalizeNotificationPage(raw || {}), { mapNullish: true })
     },
 
     // Mark as read
-    markAsRead: (notificationId: string | number) => api.put<ApiResponse<void>>(`/notifications/${notificationId}/read`),
+    markAsRead: (notificationId: string | number) => api.put<ApiResponse<void>>(`/notifications/${encodePathSegment(notificationId)}/read`),
 
     // Mark all as read
     markAllAsRead: () => api.put<ApiResponse<void>>('/notifications/read-all'),
 
     // Get unread count
-    getUnreadCount: () => api.get<ApiResponse<number>>('/notifications/unread-count'),
+    getUnreadCount: (config?: AxiosRequestConfig) => config
+        ? api.get<ApiResponse<number>>('/notifications/unread-count', config)
+        : api.get<ApiResponse<number>>('/notifications/unread-count'),
 
     // Use fetch for SSE because Axios does not expose a browser ReadableStream body.
     openStream: (token: string, signal: AbortSignal): Promise<Response> => {

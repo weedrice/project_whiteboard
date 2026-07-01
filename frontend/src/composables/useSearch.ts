@@ -4,6 +4,7 @@ import { computed, type Ref } from 'vue'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import { searchQueryKeys } from '@/composables/searchQueryKeys'
 import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
+import { callWithOptionalQuerySignal } from '@/utils/querySignal'
 
 const hasSearchText = (value?: string) => !!value?.trim()
 
@@ -42,7 +43,11 @@ export function useSearch() {
     const useSearchPosts = (params: Ref<SearchParams>) => {
         return useApiPageQuery<PostSummary>({
             queryKey: searchQueryKeys.posts(params),
-            request: () => searchApi.searchPosts(params.value),
+            request: (context) => callWithOptionalQuerySignal(
+                context,
+                () => searchApi.searchPosts(params.value),
+                (config) => searchApi.searchPosts(params.value, config),
+            ),
             enabled: computed(() => hasSearchText(params.value.q) || hasSearchText(params.value.keyword)),
         })
     }
@@ -50,7 +55,11 @@ export function useSearch() {
     const useIntegratedSearch = (params: Ref<SearchParams>) => {
         return useApiQuery<IntegratedSearchResponse, SearchPageViewModel>({
             queryKey: searchQueryKeys.integrated(params),
-            request: () => searchApi.search(params.value),
+            request: (context) => callWithOptionalQuerySignal(
+                context,
+                () => searchApi.search(params.value),
+                (config) => searchApi.search(params.value, config),
+            ),
             selectData: toSearchPageViewModel,
             enabled: computed(() => hasSearchText(params.value.q)),
             keepPreviousData: true,
@@ -60,7 +69,11 @@ export function useSearch() {
     const usePopularKeywords = () => {
         return useApiQuery({
             queryKey: searchQueryKeys.popular,
-            request: () => searchApi.getPopularKeywords(),
+            request: (context) => callWithOptionalQuerySignal(
+                context,
+                searchApi.getPopularKeywords,
+                searchApi.getPopularKeywords,
+            ),
             staleTime: QUERY_STALE_TIME.MEDIUM // 5 minutes
         })
     }

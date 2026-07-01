@@ -3,6 +3,7 @@ import type { AxiosResponse } from 'axios'
 import { emoticonApi } from '@/api/emoticon'
 import { useApiQuery } from '@/composables/useApiQuery'
 import { QUERY_STALE_TIME } from '@/utils/constants'
+import { callWithOptionalQuerySignal } from '@/utils/querySignal'
 import type { ApiResponse } from '@/types'
 import type { EmoticonImage, EmoticonMaster } from '@/types/emoticon'
 
@@ -47,7 +48,11 @@ export function useEmoticonEditResource({
 }: UseEmoticonEditResourceOptions) {
   const { data: emoticon, isLoading } = useApiQuery({
     queryKey: emoticonDetailQueryKey(emoticonId),
-    request: () => emoticonApi.getEmoticon(emoticonId.value) as Promise<AxiosResponse<ApiResponse<EmoticonMaster>>>,
+    request: (context) => callWithOptionalQuerySignal(
+      context,
+      () => emoticonApi.getEmoticon(emoticonId.value),
+      (config) => emoticonApi.getEmoticon(emoticonId.value, config),
+    ) as Promise<AxiosResponse<ApiResponse<EmoticonMaster>>>,
     enabled: computed(() => !!emoticonId.value),
     staleTime: QUERY_STALE_TIME.SHORT,
   })
