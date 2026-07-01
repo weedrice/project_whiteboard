@@ -4,6 +4,10 @@ import { Search, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
+import {
+  createBoardPostSearchTypeOptions,
+  shouldShowBoardPostSearchClear,
+} from '@/components/board/boardPostSearchModel'
 
 const props = defineProps<{
   searchQuery: string
@@ -23,6 +27,9 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+const searchTypeOptions = computed(() => createBoardPostSearchTypeOptions(t))
+const showClearButton = computed(() => shouldShowBoardPostSearchClear(props.isSearching, props.searchQuery))
 
 const searchQueryModel = computed({
   get: () => props.searchQuery,
@@ -46,10 +53,13 @@ const searchTypeModel = computed({
           class="nv-board-search-select"
           :aria-label="t('board.detail.searchScopeLabel')"
         >
-          <option value="TITLE_CONTENT">{{ t('board.detail.searchType.titleContent') }}</option>
-          <option value="TITLE">{{ t('board.detail.searchType.title') }}</option>
-          <option value="CONTENT">{{ t('board.detail.searchType.content') }}</option>
-          <option value="AUTHOR">{{ t('board.detail.searchType.author') }}</option>
+          <option
+            v-for="option in searchTypeOptions"
+            :key="option.value"
+            :value="option.value"
+          >
+            {{ option.label }}
+          </option>
         </select>
 
         <div class="nv-board-search-input-wrap">
@@ -70,7 +80,7 @@ const searchTypeModel = computed({
             </template>
             <template #suffix>
               <button
-                v-if="isSearching || searchQuery"
+                v-if="showClearButton"
                 type="button"
                 :aria-label="t('board.detail.clearSearch')"
                 class="flex cursor-pointer items-center text-[var(--nv-muted)] hover:text-[var(--nv-ink)]"
