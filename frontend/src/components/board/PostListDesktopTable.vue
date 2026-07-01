@@ -7,6 +7,11 @@ import PostListTitleContent from '@/components/board/PostListTitleContent.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import type { PostSummary } from '@/types'
 import { formatRelativeDate } from '@/utils/date'
+import {
+  getPostListBoardNameLabel,
+  getPostListCountLabel,
+  getPostListRowNumberLabel,
+} from '@/components/board/postListModel'
 
 type TitleTag = 'button' | 'router-link' | 'span'
 
@@ -56,9 +61,9 @@ const { t } = useI18n()
     >
       <template #cell-postId="{ item }">
         <span v-if="showNoticeBadge && item.isNotice" class="nv-post-table-emphasis">
-          {{ t('common.notice') }}
+          {{ getPostListRowNumberLabel(item, t('common.notice'), showNoticeBadge) }}
         </span>
-        <span v-else>{{ item.rowNum }}</span>
+        <span v-else>{{ getPostListRowNumberLabel(item, t('common.notice'), showNoticeBadge) }}</span>
       </template>
 
       <template #cell-boardName="{ item }">
@@ -68,7 +73,7 @@ const { t } = useI18n()
           class="nv-post-board-link"
           @click="onNavigationClick($event, item)"
         >
-          {{ item.boardName || '-' }}
+          {{ getPostListBoardNameLabel(item) }}
         </button>
         <router-link
           v-else-if="hasBoardRouteTarget(item)"
@@ -76,9 +81,9 @@ const { t } = useI18n()
           class="nv-post-board-link"
           @click="onNavigationClick($event, item)"
         >
-          {{ item.boardName || '-' }}
+          {{ getPostListBoardNameLabel(item) }}
         </router-link>
-        <span v-else class="truncate text-[var(--nv-muted)]">{{ item.boardName || '-' }}</span>
+        <span v-else class="truncate text-[var(--nv-muted)]">{{ getPostListBoardNameLabel(item) }}</span>
       </template>
 
       <template #cell-title="{ item }">
@@ -132,13 +137,13 @@ const { t } = useI18n()
       <template #cell-likeCount="{ item }">
         <span class="nv-post-count-cell justify-center">
           <ThumbsUp class="h-3.5 w-3.5 flex-shrink-0 text-[var(--nv-muted)]" />
-          <span>{{ item.likeCount }}</span>
+          <span>{{ getPostListCountLabel(item.likeCount) }}</span>
         </span>
       </template>
 
       <template #cell-viewCount="{ item }">
         <span class="nv-post-count-cell justify-end">
-          <span>{{ item.viewCount }}</span>
+          <span>{{ getPostListCountLabel(item.viewCount) }}</span>
         </span>
       </template>
 

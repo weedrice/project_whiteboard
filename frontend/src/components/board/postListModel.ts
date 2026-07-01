@@ -101,6 +101,22 @@ export function getPostListVisibleAuthorName(item: PostSummary, deletedUserLabel
   return formatUserDisplayName(item.author?.displayName, POST_LIST_MAX_AUTHOR_NAME_LENGTH, deletedUserLabel)
 }
 
+export function getPostListRowNumberLabel(
+  item: PostSummary,
+  noticeLabel: string,
+  showNoticeBadge: boolean,
+): string | number | undefined {
+  return showNoticeBadge && item.isNotice ? noticeLabel : item.rowNum
+}
+
+export function getPostListBoardNameLabel(item: PostSummary): string {
+  return item.boardName || '-'
+}
+
+export function getPostListCountLabel(value: number): string {
+  return String(value)
+}
+
 export function getPostListNextSort(currentSort: string, field: string): string {
   const normalizedField = SORT_FIELD_MAP[field] ?? field
   const [currentField, currentDirection] = currentSort.split(',')

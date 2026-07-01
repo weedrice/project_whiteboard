@@ -2,11 +2,14 @@ import { describe, expect, it } from 'vitest'
 import type { PostSummary } from '@/types'
 import {
   createPostListColumns,
+  getPostListBoardNameLabel,
+  getPostListCountLabel,
   getPostListActiveSortDirection,
   getPostListActiveSortKey,
   getPostListInteractiveTag,
   getPostListNextSort,
   getPostListResolvedBoardUrl,
+  getPostListRowNumberLabel,
   getPostListTitleProps,
   getPostListTitleTag,
   resolvePostListBoardRoute,
@@ -115,5 +118,13 @@ describe('postListModel', () => {
       (_post, boardUrl) => boardUrl === 'inquiry',
     )).toBe(true)
     expect(shouldInterceptPostListInquiry(post(), undefined, false, () => true)).toBe(false)
+  })
+
+  it('formats desktop table cell fallback labels', () => {
+    expect(getPostListRowNumberLabel(post({ rowNum: 7 }), 'Notice', true)).toBe(7)
+    expect(getPostListRowNumberLabel(post({ isNotice: true, rowNum: 7 }), 'Notice', true)).toBe('Notice')
+    expect(getPostListBoardNameLabel(post({ boardName: '' }))).toBe('-')
+    expect(getPostListBoardNameLabel(post({ boardName: 'Free board' }))).toBe('Free board')
+    expect(getPostListCountLabel(12)).toBe('12')
   })
 })
