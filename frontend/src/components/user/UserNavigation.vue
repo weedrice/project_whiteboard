@@ -29,6 +29,7 @@ import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useEventListener } from '@/composables/useEventListener'
 import { useThrottleFn } from '@/composables/useThrottle'
 import { DEBOUNCE_DELAY } from '@/utils/constants'
+import { isNarrowViewport } from '@/utils/browserEnv'
 import { isInputFocused } from '@/utils/keyboard'
 import type { UserNavigationTab } from '@/types/userNavigation'
 
@@ -131,7 +132,7 @@ const updateUnderline = () => {
             opacity: 1
         }
 
-        if (scrollContainer.value && window.innerWidth < 640) {
+        if (scrollContainer.value && isNarrowViewport(640)) {
             scrollTabToCenter(el)
         } else if (scrollContainer.value) {
             const container = scrollContainer.value

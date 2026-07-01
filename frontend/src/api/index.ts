@@ -24,6 +24,7 @@ import {
     type ApiErrorResponse,
     type SuppressibleApiError,
 } from '@/api/errorHandling'
+import { getCurrentPathname as readCurrentPathname } from '@/utils/browserEnv'
 
 const { t } = i18n.global
 
@@ -33,12 +34,7 @@ const API_PATHS = {
     LOGIN: '/login'
 }
 
-export const getCurrentPathname = (): string => {
-    if (typeof window === 'undefined') {
-        return ''
-    }
-    return window.location.pathname
-}
+export const getCurrentPathname = readCurrentPathname
 
 export const isLoginPathname = (pathname = getCurrentPathname()): boolean => pathname === API_PATHS.LOGIN
 
