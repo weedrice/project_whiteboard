@@ -2,6 +2,7 @@ import { mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 import AdminActionButton from '../AdminActionButton.vue'
+import AdminContentState from '../AdminContentState.vue'
 import AdminDataPage from '../AdminDataPage.vue'
 import AdminDetailModalShell from '../AdminDetailModalShell.vue'
 import AdminFilterActions from '../AdminFilterActions.vue'
@@ -235,6 +236,22 @@ describe('admin common components', () => {
     expect(wrapper.text()).toContain('Open')
     expect(wrapper.text()).toContain('12')
     expect(wrapper.classes()).toContain('admin-metric-card--warning')
+  })
+
+  it('renders panel content state before default content', () => {
+    expect(mount(AdminContentState, {
+      props: { loading: true, empty: true, loadingText: 'Loading panel' },
+      slots: { default: '<p>Loaded</p>' },
+    }).text()).toContain('Loading panel')
+
+    expect(mount(AdminContentState, {
+      props: { empty: true, emptyText: 'No rows' },
+      slots: { default: '<p>Loaded</p>' },
+    }).text()).toContain('No rows')
+
+    expect(mount(AdminContentState, {
+      slots: { default: '<p>Loaded</p>' },
+    }).text()).toContain('Loaded')
   })
 
   it('renders admin metric card icon and footer slots', () => {
