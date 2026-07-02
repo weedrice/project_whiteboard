@@ -42,7 +42,7 @@ describe('useAdminUserListState', () => {
   it('applies filters with boolean and optional field conversion', () => {
     const state = useAdminUserListState()
     Object.assign(state.filterForm, {
-      q: 'hong',
+      q: '  hong  ',
       status: 'ACTIVE',
       role: 'USER',
       emailVerified: 'true',
@@ -70,6 +70,15 @@ describe('useAdminUserListState', () => {
       lastLoginFrom: '2026-02-01',
       lastLoginTo: '2026-02-28',
     })
+  })
+
+  it('omits blank search keywords after trimming filters', () => {
+    const state = useAdminUserListState()
+    state.filterForm.q = '   '
+
+    state.applyFilters()
+
+    expect(state.params.value.q).toBeUndefined()
   })
 
   it('keeps applied filters stable until apply is called again', () => {

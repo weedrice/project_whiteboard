@@ -50,6 +50,13 @@ function toOptionalBoolean(value: string) {
   return value === '' ? undefined : value === 'true'
 }
 
+function normalizeFilters(filters: AdminUserFilterForm): AdminUserFilterForm {
+  return {
+    ...filters,
+    q: filters.q.trim(),
+  }
+}
+
 export function useAdminUserListState() {
   const page = ref(0)
   const size = ref(20)
@@ -84,7 +91,7 @@ export function useAdminUserListState() {
   }
 
   function applyFilters() {
-    appliedFilters.value = { ...filterForm }
+    appliedFilters.value = normalizeFilters(filterForm)
     page.value = 0
   }
 
