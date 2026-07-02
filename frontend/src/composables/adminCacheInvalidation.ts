@@ -15,3 +15,15 @@ export function invalidateAdminBoardCaches(queryClient: QueryClient) {
     adminQueryKeys.adminsRoot,
   ])
 }
+
+export function invalidateAdminReportCaches(queryClient: QueryClient) {
+  invalidateQueryKeys(queryClient, [
+    adminQueryKeys.reportsRoot,
+  ])
+}
+
+export function invalidateAdminIpBlockCaches(queryClient: QueryClient) {
+  invalidateQueryKeys(queryClient, [
+    adminQueryKeys.ipBlocksRoot,
+  ])
+}

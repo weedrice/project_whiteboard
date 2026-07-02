@@ -2,6 +2,10 @@ import { useMutation, type QueryClient } from '@tanstack/vue-query'
 import type { Ref } from 'vue'
 import { adminApi } from '@/api/admin'
 import { adminQueryKeys } from '@/composables/adminQueryKeys'
+import {
+    invalidateAdminIpBlockCaches,
+    invalidateAdminReportCaches,
+} from '@/composables/adminCacheInvalidation'
 import { callAdminApiWithOptionalConfig, useAdminPageQuery } from '@/composables/adminApiQuery'
 import type {
     IpBlockData,
@@ -25,7 +29,7 @@ export function useAdminModeration(queryClient: QueryClient) {
     const useResolveReport = () => {
         return useMutation({
             mutationFn: ({ reportId, data }: { reportId: string | number, data: ReportResolveData }) => adminApi.resolveReport(reportId, data),
-            onSettled: () => queryClient.invalidateQueries({ queryKey: adminQueryKeys.reportsRoot })
+            onSettled: () => invalidateAdminReportCaches(queryClient)
         })
     }
 
@@ -43,14 +47,14 @@ export function useAdminModeration(queryClient: QueryClient) {
     const useBlockIp = () => {
         return useMutation({
             mutationFn: (data: IpBlockData) => adminApi.blockIp(data),
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: adminQueryKeys.ipBlocksRoot })
+            onSuccess: () => invalidateAdminIpBlockCaches(queryClient)
         })
     }
 
     const useUnblockIp = () => {
         return useMutation({
             mutationFn: (ipAddress: string) => adminApi.unblockIp(ipAddress),
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: adminQueryKeys.ipBlocksRoot })
+            onSuccess: () => invalidateAdminIpBlockCaches(queryClient)
         })
     }
 
