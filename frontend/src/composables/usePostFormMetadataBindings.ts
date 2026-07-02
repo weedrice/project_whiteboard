@@ -21,6 +21,31 @@ type UsePostFormMetadataBindingsParams = {
   hideSecret: () => boolean | undefined
 }
 
+export type PostFormMetadataPanelProps = {
+  categories: PostFormCategoryOption[]
+  categoryId: string | number
+  tags: string[]
+  isNotice: boolean
+  isNsfw: boolean
+  isSpoiler: boolean
+  isSecret: boolean
+  hideCategory?: boolean
+  hideTags?: boolean
+  showNotice: boolean
+  canShowNsfw: boolean
+  hideSpoiler?: boolean
+  hideSecret?: boolean
+}
+
+export type PostFormMetadataPanelHandlers = {
+  'update:categoryId': (value: string | number) => void
+  'update:tags': (value: string[]) => void
+  'update:isNotice': (value: boolean) => void
+  'update:isNsfw': (value: boolean) => void
+  'update:isSpoiler': (value: boolean) => void
+  'update:isSecret': (value: boolean) => void
+}
+
 export function usePostFormMetadataBindings({
   form,
   categories,
@@ -31,7 +56,7 @@ export function usePostFormMetadataBindings({
   hideSpoiler,
   hideSecret,
 }: UsePostFormMetadataBindingsParams) {
-  const metadataPanelProps = computed(() => ({
+  const metadataPanelProps = computed<PostFormMetadataPanelProps>(() => ({
     categories: categories.value,
     categoryId: form.value.categoryId,
     tags: form.value.tags,
@@ -47,7 +72,7 @@ export function usePostFormMetadataBindings({
     hideSecret: hideSecret(),
   }))
 
-  const metadataPanelHandlers = {
+  const metadataPanelHandlers: PostFormMetadataPanelHandlers = {
     'update:categoryId': (value: string | number) => {
       form.value.categoryId = value
     },

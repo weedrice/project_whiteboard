@@ -10,15 +10,12 @@ import { usePostFormMetadataBindings } from '@/composables/usePostFormMetadataBi
 import { usePostFormResource } from '@/composables/usePostFormResource'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
-import BaseInput from '@/components/common/ui/BaseInput.vue'
 import type { SegmentedControlOption } from '@/components/common/ui/BaseSegmentedControl.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
-import PostTags from '@/components/tag/PostTags.vue'
 import { useToastStore } from '@/stores/toast'
 import PostFormHeader from '@/components/board/PostFormHeader.vue'
-import PostDraftStatusPanel from '@/components/board/PostDraftStatusPanel.vue'
-import PostFormEditorSection from '@/components/board/PostFormEditorSection.vue'
-import PostFormMetadataPanel from '@/components/board/PostFormMetadataPanel.vue'
+import PostFormMainSection from '@/components/board/PostFormMainSection.vue'
+import PostFormSidePanel from '@/components/board/PostFormSidePanel.vue'
 import PostPreviewModal from '@/components/board/PostPreviewModal.vue'
 import { requiresSandboxedPostHtml } from '@/utils/postHtmlSandbox'
 import { usePostComposerState } from '@/composables/usePostComposerState'
@@ -315,72 +312,40 @@ defineExpose({
         class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18.5rem]"
         @submit.prevent="handleSubmit"
       >
-        <section class="nv-compose-main">
-          <div class="nv-compose-main-card rounded-2xl border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)] sm:p-5">
-            <PostFormMetadataPanel
-              layout="mobile"
-              v-bind="metadataPanelProps"
-              v-on="metadataPanelHandlers"
-            />
+        <PostFormMainSection
+          :title="form.title"
+          :content="form.content"
+          :tags="form.tags"
+          :hide-tags="props.hideTags"
+          :metadata-panel-props="metadataPanelProps"
+          :metadata-panel-handlers="metadataPanelHandlers"
+          :editor-view-mode="editorViewMode"
+          :editor-view-options="editorViewOptions"
+          :show-video-popover="showVideoPopover"
+          :show-emoticon-picker="showEmoticonPicker"
+          :video-url="videoUrl"
+          :video-popover-style="videoPopoverStyle"
+          :assign-tiptap-editor="assignTiptapEditor"
+          :assign-editor-wrapper="assignEditorWrapper"
+          :assign-video-popover="assignVideoPopover"
+          @update:title="form.title = $event"
+          @update:content="form.content = $event"
+          @update:tags="form.tags = $event"
+          @update:editor-view-mode="handleEditorViewModeChange"
+          @update:show-emoticon-picker="showEmoticonPicker = $event"
+          @update:video-url="videoUrl = $event"
+          @open-video="openVideoPopover"
+          @close-video="closeVideoPopover"
+          @insert-video="insertVideoFromPopover"
+          @select-emoticon="handleEmoticonSelect"
+          @file-uploaded="trackUploadedFile"
+        />
 
-            <BaseInput
-              id="title"
-              v-model="form.title"
-              name="title"
-              type="text"
-              required
-              :placeholder="$t('board.writePost.placeholder.title')"
-              :label="$t('common.title')"
-              labelClass="!text-xs !font-medium !uppercase !tracking-[0.18em] !text-[var(--nv-muted)]"
-              inputClass="!rounded-xl !border-[var(--nv-line)] !bg-[var(--nv-elevated)] !px-4 !py-3 !text-sm sm:!text-base"
-            />
-
-            <PostFormEditorSection
-              v-model="form.content"
-              :editor-view-mode="editorViewMode"
-              :editor-view-options="editorViewOptions"
-              :show-video-popover="showVideoPopover"
-              :show-emoticon-picker="showEmoticonPicker"
-              :video-url="videoUrl"
-              :video-popover-style="videoPopoverStyle"
-              :assign-tiptap-editor="assignTiptapEditor"
-              :assign-editor-wrapper="assignEditorWrapper"
-              :assign-video-popover="assignVideoPopover"
-              @update:editor-view-mode="handleEditorViewModeChange"
-              @update:show-emoticon-picker="showEmoticonPicker = $event"
-              @update:video-url="videoUrl = $event"
-              @open-video="openVideoPopover"
-              @close-video="closeVideoPopover"
-              @insert-video="insertVideoFromPopover"
-              @select-emoticon="handleEmoticonSelect"
-              @file-uploaded="trackUploadedFile"
-            />
-
-            <div v-if="!props.hideTags" class="mt-5 lg:hidden">
-              <label for="post-tags-input-mobile" class="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
-                {{ $t('common.tags') }}
-              </label>
-              <PostTags v-model="form.tags" input-id="post-tags-input-mobile" />
-            </div>
-          </div>
-        </section>
-
-        <aside class="space-y-4 lg:sticky lg:top-24 lg:self-start">
-          <section class="nv-compose-side-card rounded-2xl border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)]">
-            <div class="mb-4">
-              <p class="nv-compose-kicker">{{ $t('board.writePost.sections.metadata') }}</p>
-              <h3 class="text-lg font-semibold text-[var(--nv-ink)]">{{ $t('board.writePost.sections.postSettings') }}</h3>
-            </div>
-
-            <PostFormMetadataPanel
-              layout="desktop"
-              v-bind="metadataPanelProps"
-              v-on="metadataPanelHandlers"
-            />
-          </section>
-
-          <PostDraftStatusPanel :label="draftStatusLabel" />
-        </aside>
+        <PostFormSidePanel
+          :metadata-panel-props="metadataPanelProps"
+          :metadata-panel-handlers="metadataPanelHandlers"
+          :draft-status-label="draftStatusLabel"
+        />
       </form>
     </div>
 
@@ -403,26 +368,6 @@ defineExpose({
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-}
-
-.nv-compose-kicker {
-  color: var(--nv-muted);
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-
-.nv-compose-main {
-  min-width: 0;
-}
-
-.nv-compose-main-card {
-  position: relative;
-}
-
-.nv-compose-side-card {
-  background: color-mix(in srgb, var(--nv-surface) 94%, transparent);
 }
 
 .nv-compose-side-section + .nv-compose-side-section {
