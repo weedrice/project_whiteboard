@@ -6,7 +6,7 @@ import PostContentView from '@/components/board/PostContentView.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import CommentList from '@/components/comment/CommentList.vue'
-import type { AdminInquiryDetail } from '@/composables/useAdminInquiryPosts'
+import type { AdminInquiryDetail } from '@/features/admin/inquiries/useAdminInquiryPosts'
 
 defineProps<{
   isOpen: boolean

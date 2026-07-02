@@ -8,7 +8,7 @@ import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
 import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
 import AdminInquiryDetailModal from '@/components/admin/AdminInquiryDetailModal.vue'
 import { useI18n } from 'vue-i18n'
-import { useAdminInquiryPosts, type AdminInquiryListItem } from '@/composables/useAdminInquiryPosts'
+import { useAdminInquiryPosts, type AdminInquiryListItem } from '@/features/admin/inquiries/useAdminInquiryPosts'
 
 const { t } = useI18n()
 const {

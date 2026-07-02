@@ -52,7 +52,7 @@ const { identityT, state } = vi.hoisted(() => {
   }
 })
 
-vi.mock('@/composables/useAdminInquiryPosts', () => ({
+vi.mock('@/features/admin/inquiries/useAdminInquiryPosts', () => ({
   useAdminInquiryPosts: () => state,
 }))
 

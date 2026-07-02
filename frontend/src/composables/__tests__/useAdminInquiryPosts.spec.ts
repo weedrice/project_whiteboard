@@ -6,7 +6,7 @@ import {
   toAdminInquiryListItem,
   toAdminInquiryPage,
   useAdminInquiryPosts,
-} from '../useAdminInquiryPosts'
+} from '@/features/admin/inquiries/useAdminInquiryPosts'
 import { apiSuccessDataResponse } from '@/test/apiResponseFixtures'
 import type { AdminInquirySummary, PageResponse, Post } from '@/types'
 
