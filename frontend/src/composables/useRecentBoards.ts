@@ -11,63 +11,101 @@ export interface RecentBoard {
     visitedAt: string
 }
 
-// 전역 상태 (composable 외부에 선언하여 싱글톤으로 관리)
 const recentBoards = ref<RecentBoard[]>([])
 
-function loadFromStorage() {
-    const stored = Storage.get<RecentBoard[]>(STORAGE_KEY, [])
-    recentBoards.value = stored || []
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null
+}
+
+function normalizeRecentBoard(value: unknown): RecentBoard | null {
+    if (!isRecord(value)) return null
+
+    const boardUrl = typeof value.boardUrl === 'string' ? value.boardUrl.trim() : ''
+    const boardName = typeof value.boardName === 'string' ? value.boardName.trim() : ''
+    const visitedAt = typeof value.visitedAt === 'string' ? value.visitedAt : ''
+
+    if (!boardUrl || !boardName || Number.isNaN(Date.parse(visitedAt))) {
+        return null
+    }
+
+    const iconUrl = typeof value.iconUrl === 'string' && value.iconUrl.trim()
+        ? value.iconUrl.trim()
+        : undefined
+
+    return {
+        boardUrl,
+        boardName,
+        ...(iconUrl ? { iconUrl } : {}),
+        visitedAt,
+    }
+}
+
+export function normalizeRecentBoards(value: unknown): RecentBoard[] {
+    if (!Array.isArray(value)) return []
+
+    const seen = new Set<string>()
+    const normalized: RecentBoard[] = []
+
+    for (const item of value) {
+        const board = normalizeRecentBoard(item)
+        if (!board || seen.has(board.boardUrl)) {
+            continue
+        }
+
+        seen.add(board.boardUrl)
+        normalized.push(board)
+
+        if (normalized.length >= MAX_RECENT_BOARDS) {
+            break
+        }
+    }
+
+    return normalized
 }
 
 function saveToStorage() {
     Storage.set(STORAGE_KEY, recentBoards.value)
 }
 
+function loadFromStorage() {
+    const stored = Storage.get<unknown>(STORAGE_KEY, [])
+    const normalized = normalizeRecentBoards(stored)
+    recentBoards.value = normalized
+
+    if (JSON.stringify(stored) !== JSON.stringify(normalized)) {
+        saveToStorage()
+    }
+}
+
 export function useRecentBoards() {
-    // 초기 로드
     if (recentBoards.value.length === 0) {
         loadFromStorage()
     }
 
-    /**
-     * 스페이스 방문 기록 추가/갱신
-     */
     function addRecentBoard(board: { boardUrl: string; boardName: string; iconUrl?: string }) {
-        // 기존 항목 제거 (중복 방지)
-        const filtered = recentBoards.value.filter(b => b.boardUrl !== board.boardUrl)
-
-        // 맨 앞에 추가
-        filtered.unshift({
-            boardUrl: board.boardUrl,
-            boardName: board.boardName,
-            iconUrl: board.iconUrl,
+        const normalizedBoard = normalizeRecentBoard({
+            ...board,
             visitedAt: new Date().toISOString(),
         })
+        if (!normalizedBoard) return
 
-        // 최대 개수 제한
-        recentBoards.value = filtered.slice(0, MAX_RECENT_BOARDS)
+        const filtered = recentBoards.value.filter(b => b.boardUrl !== normalizedBoard.boardUrl)
+        filtered.unshift(normalizedBoard)
+
+        recentBoards.value = normalizeRecentBoards(filtered)
         saveToStorage()
     }
 
-    /**
-     * 특정 스페이스 기록 제거
-     */
     function removeRecentBoard(boardUrl: string) {
         recentBoards.value = recentBoards.value.filter(b => b.boardUrl !== boardUrl)
         saveToStorage()
     }
 
-    /**
-     * 전체 기록 초기화
-     */
     function clearRecentBoards() {
         recentBoards.value = []
         Storage.remove(STORAGE_KEY)
     }
 
-    /**
-     * 스토리지에서 다시 로드 (다른 탭에서 변경된 경우 등)
-     */
     function refresh() {
         loadFromStorage()
     }
