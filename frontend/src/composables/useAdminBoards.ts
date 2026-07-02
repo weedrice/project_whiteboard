@@ -3,7 +3,11 @@ import { computed, type Ref } from 'vue'
 import { adminApi } from '@/api/admin'
 import { adminQueryKeys } from '@/features/admin/queries/adminQueryKeys'
 import { boardQueryKeys } from '@/composables/boardQueryKeys'
-import { invalidateAdminBoardCaches } from '@/features/admin/queries/adminCacheInvalidation'
+import {
+    invalidateAdminBoardCaches,
+    invalidateAdminBoardListCaches,
+    invalidateAdminBoardManagerCache,
+} from '@/features/admin/queries/adminCacheInvalidation'
 import { invalidateBoardListCaches } from '@/composables/boardCacheInvalidation'
 import {
     callAdminApiWithOptionalConfig,
@@ -30,7 +34,7 @@ export function useAdminBoardManagement(queryClient: QueryClient) {
         return useMutation({
             mutationFn: (data: BoardCreateData) => adminApi.createBoard(data),
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: adminQueryKeys.boards })
+                invalidateAdminBoardListCaches(queryClient)
                 invalidateBoardListCaches(queryClient)
             }
         })
@@ -40,7 +44,7 @@ export function useAdminBoardManagement(queryClient: QueryClient) {
         return useMutation({
             mutationFn: ({ boardUrl, data }: { boardUrl: string, data: BoardUpdateData }) => adminApi.updateBoard(boardUrl, data),
             onSuccess: (_, { boardUrl, data }) => {
-                queryClient.invalidateQueries({ queryKey: adminQueryKeys.boards })
+                invalidateAdminBoardListCaches(queryClient)
                 queryClient.invalidateQueries({ queryKey: boardQueryKeys.detail(boardUrl) })
                 if (data.boardUrl && data.boardUrl !== boardUrl) {
                     queryClient.invalidateQueries({ queryKey: boardQueryKeys.detail(data.boardUrl) })
@@ -54,7 +58,7 @@ export function useAdminBoardManagement(queryClient: QueryClient) {
         return useMutation({
             mutationFn: (boardUrl: string) => adminApi.deleteBoard(boardUrl),
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: adminQueryKeys.boards })
+                invalidateAdminBoardListCaches(queryClient)
                 invalidateBoardListCaches(queryClient)
             }
         })
@@ -82,7 +86,7 @@ export function useAdminBoardManagement(queryClient: QueryClient) {
             mutationFn: ({ boardId, data }: { boardId: number, data: BoardManagerUpdateData }) =>
                 adminApi.updateBoardManager(boardId, data),
             onSuccess: (_, { boardId }) => {
-                queryClient.invalidateQueries({ queryKey: adminQueryKeys.boardManagerById(boardId) })
+                invalidateAdminBoardManagerCache(queryClient, boardId)
                 invalidateAdminBoardCaches(queryClient)
                 queryClient.invalidateQueries({ queryKey: boardQueryKeys.all })
             }

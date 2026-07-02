@@ -2,7 +2,11 @@ import { useMutation, type QueryClient } from '@tanstack/vue-query'
 import { computed, type Ref } from 'vue'
 import { adminApi } from '@/api/admin'
 import { adminQueryKeys } from '@/features/admin/queries/adminQueryKeys'
-import { invalidateAdminUserCaches } from '@/features/admin/queries/adminCacheInvalidation'
+import {
+    invalidateAdminAccountCaches,
+    invalidateAdminSuperAdminCaches,
+    invalidateAdminUserCaches,
+} from '@/features/admin/queries/adminCacheInvalidation'
 import {
     callAdminApiWithOptionalConfig,
     useAdminDataQuery,
@@ -40,7 +44,7 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
     const useCreateAdmin = () => {
         return useMutation({
             mutationFn: (data: AdminCreateData) => adminApi.createAdmin(data),
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: adminQueryKeys.adminsRoot })
+            onSuccess: () => invalidateAdminAccountCaches(queryClient)
         })
     }
 
@@ -50,7 +54,7 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
                 if (action === 'activate') return adminApi.activateAdmin(adminId)
                 return adminApi.deactivateAdmin(adminId)
             },
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: adminQueryKeys.adminsRoot })
+            onSuccess: () => invalidateAdminAccountCaches(queryClient)
         })
     }
 
@@ -67,7 +71,7 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
                 if (action === 'activate') return adminApi.activeSuperAdmin({ loginId })
                 return adminApi.deactivateSuperAdmin({ loginId })
             },
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: adminQueryKeys.superAdmins })
+            onSuccess: () => invalidateAdminSuperAdminCaches(queryClient)
         })
     }
 

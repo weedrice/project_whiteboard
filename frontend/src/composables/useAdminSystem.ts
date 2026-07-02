@@ -4,6 +4,10 @@ import { adminApi } from '@/api/admin'
 import { unwrapAxiosApiData } from '@/api/response'
 import { adminQueryKeys } from '@/features/admin/queries/adminQueryKeys'
 import {
+    invalidateAdminConfigCaches,
+    invalidateAdminErrorLogCaches,
+} from '@/features/admin/queries/adminCacheInvalidation'
+import {
     callAdminApiWithOptionalConfig,
     useAdminDataQuery,
     useAdminNullableDataQuery,
@@ -28,21 +32,21 @@ export function useAdminSystem(queryClient: QueryClient) {
     const useUpdateConfig = () => {
         return useMutation({
             mutationFn: ({ key, value, description }: { key: string, value: string, description?: string }) => adminApi.updateConfig(key, value, description),
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: adminQueryKeys.configs })
+            onSuccess: () => invalidateAdminConfigCaches(queryClient)
         })
     }
 
     const useCreateConfig = () => {
         return useMutation({
             mutationFn: (data: ConfigCreateData) => adminApi.createConfig(data),
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: adminQueryKeys.configs })
+            onSuccess: () => invalidateAdminConfigCaches(queryClient)
         })
     }
 
     const useDeleteConfig = () => {
         return useMutation({
             mutationFn: (key: string) => adminApi.deleteConfig(key),
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: adminQueryKeys.configs })
+            onSuccess: () => invalidateAdminConfigCaches(queryClient)
         })
     }
 
@@ -104,9 +108,7 @@ export function useAdminSystem(queryClient: QueryClient) {
         return useMutation({
             mutationFn: ({ errorLogId, data }: { errorLogId: number, data?: { memo?: string } }) => adminApi.resolveErrorLog(errorLogId, data),
             onSuccess: (_data, variables) => {
-                queryClient.invalidateQueries({ queryKey: adminQueryKeys.errorLogsRoot })
-                queryClient.invalidateQueries({ queryKey: adminQueryKeys.errorLogStats })
-                queryClient.invalidateQueries({ queryKey: adminQueryKeys.errorLogDetailById(variables.errorLogId) })
+                invalidateAdminErrorLogCaches(queryClient, variables.errorLogId)
             }
         })
     }

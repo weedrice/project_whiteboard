@@ -9,10 +9,40 @@ export function invalidateAdminUserCaches(queryClient: QueryClient) {
   ])
 }
 
+export function invalidateAdminAccountCaches(queryClient: QueryClient) {
+  invalidateQueryKeys(queryClient, [
+    adminQueryKeys.adminsRoot,
+  ])
+}
+
+export function invalidateAdminSuperAdminCaches(queryClient: QueryClient) {
+  invalidateQueryKeys(queryClient, [
+    adminQueryKeys.superAdmins,
+  ])
+}
+
+export function invalidateAdminBoardListCaches(queryClient: QueryClient) {
+  invalidateQueryKeys(queryClient, [
+    adminQueryKeys.boards,
+  ])
+}
+
 export function invalidateAdminBoardCaches(queryClient: QueryClient) {
   invalidateQueryKeys(queryClient, [
     adminQueryKeys.boards,
     adminQueryKeys.adminsRoot,
+  ])
+}
+
+export function invalidateAdminBoardManagerCache(queryClient: QueryClient, boardId: number) {
+  invalidateQueryKeys(queryClient, [
+    adminQueryKeys.boardManagerById(boardId),
+  ])
+}
+
+export function invalidateAdminConfigCaches(queryClient: QueryClient) {
+  invalidateQueryKeys(queryClient, [
+    adminQueryKeys.configs,
   ])
 }
 
@@ -25,5 +55,13 @@ export function invalidateAdminReportCaches(queryClient: QueryClient) {
 export function invalidateAdminIpBlockCaches(queryClient: QueryClient) {
   invalidateQueryKeys(queryClient, [
     adminQueryKeys.ipBlocksRoot,
+  ])
+}
+
+export function invalidateAdminErrorLogCaches(queryClient: QueryClient, errorLogId?: number) {
+  invalidateQueryKeys(queryClient, [
+    adminQueryKeys.errorLogsRoot,
+    adminQueryKeys.errorLogStats,
+    ...(errorLogId === undefined ? [] : [adminQueryKeys.errorLogDetailById(errorLogId)]),
   ])
 }
