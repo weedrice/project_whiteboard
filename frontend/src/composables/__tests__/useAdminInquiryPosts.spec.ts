@@ -7,8 +7,8 @@ import {
   toAdminInquiryPage,
   useAdminInquiryPosts,
 } from '@/features/admin/inquiries/useAdminInquiryPosts'
-import { apiSuccessDataResponse } from '@/test/apiResponseFixtures'
-import type { AdminInquirySummary, PageResponse, Post } from '@/types'
+import { apiSuccessDataResponse, pageResponseFixture } from '@/test/apiResponseFixtures'
+import type { AdminInquirySummary, Post } from '@/types'
 
 const mocks = vi.hoisted(() => ({
   invalidateQueries: vi.fn(),
@@ -73,16 +73,8 @@ const postDetail = (overrides: Partial<Post> = {}): Post => ({
   ...overrides,
 })
 
-const pageResponse = (content: AdminInquirySummary[]): PageResponse<AdminInquirySummary> => ({
-  content,
-  totalElements: content.length,
-  totalPages: 1,
-  size: 20,
-  number: 0,
-  first: true,
-  last: true,
-  empty: content.length === 0,
-})
+const pageResponse = (content: AdminInquirySummary[]) =>
+  pageResponseFixture(content, { size: 20, totalPages: 1 })
 
 describe('useAdminInquiryPosts', () => {
   beforeEach(() => {

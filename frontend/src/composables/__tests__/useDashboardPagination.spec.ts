@@ -2,19 +2,11 @@ import { describe, expect, it, vi } from 'vitest'
 import { effectScope } from 'vue'
 import { useDashboardPagination, type DashboardPaginationParams } from '../useDashboardPagination'
 import { createDeferred } from '@/test/async'
+import { pageResponseFixture } from '@/test/apiResponseFixtures'
 import type { ApiResponse, PageResponse } from '@/types'
 
 function createPage<T>(content: T[], pageNumber = 0): PageResponse<T> {
-  return {
-    content,
-    number: pageNumber,
-    size: 20,
-    totalElements: content.length,
-    totalPages: content.length > 0 ? 1 : 0,
-    first: pageNumber === 0,
-    last: true,
-    empty: content.length === 0,
-  }
+  return pageResponseFixture(content, { number: pageNumber, size: 20 })
 }
 
 function successPage<T>(content: T[], page = 0): ApiResponse<PageResponse<T>> {

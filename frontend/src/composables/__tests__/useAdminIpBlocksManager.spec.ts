@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick, type Ref } from 'vue'
 import { useAdminIpBlocksManager } from '../useAdminIpBlocksManager'
-import { apiSuccessResponse } from '@/test/apiResponseFixtures'
+import { apiSuccessResponse, pageResponseFixture } from '@/test/apiResponseFixtures'
 import type { IpBlock, PageResponse } from '@/types'
 
 const mocks = vi.hoisted(() => ({
@@ -64,17 +64,7 @@ const ipBlock = (ipAddress = '192.168.0.1'): IpBlock => ({
 const pageResponse = (
   content: IpBlock[],
   overrides: Partial<PageResponse<IpBlock>> = {},
-): PageResponse<IpBlock> => ({
-  content,
-  totalElements: content.length,
-  totalPages: 1,
-  size: 20,
-  number: 0,
-  first: true,
-  last: true,
-  empty: content.length === 0,
-  ...overrides,
-})
+): PageResponse<IpBlock> => pageResponseFixture(content, { size: 20, totalPages: 1, ...overrides })
 
 describe('useAdminIpBlocksManager', () => {
   beforeEach(() => {

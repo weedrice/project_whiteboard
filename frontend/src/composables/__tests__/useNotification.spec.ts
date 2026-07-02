@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { ref, type Ref } from 'vue'
-import { apiSuccessResponse } from '@/test/apiResponseFixtures'
+import { apiSuccessResponse, pageResponseFixture } from '@/test/apiResponseFixtures'
 import { getNotificationMocks, setupNotificationTest } from './notificationTestHarness'
 import { useNotification } from '../useNotification'
 
@@ -12,7 +12,7 @@ describe('useNotification queries and mutations', () => {
   })
 
   it('fetches notification page via useNotifications queryFn', async () => {
-    const pageResponse = { content: [{ notificationId: 1 }], number: 0, size: 20, totalElements: 1, empty: false }
+    const pageResponse = pageResponseFixture([{ notificationId: 1 }], { size: 20 })
     mocks.notificationApi.getNotifications.mockResolvedValueOnce({
       data: { data: pageResponse },
     })
@@ -25,12 +25,7 @@ describe('useNotification queries and mutations', () => {
     const result = await (options.queryFn as () => Promise<unknown>)()
 
     expect(mocks.notificationApi.getNotifications).toHaveBeenCalledWith(params.value)
-    expect(result).toEqual({
-      ...pageResponse,
-      first: true,
-      last: true,
-      totalPages: 1,
-    })
+    expect(result).toEqual(pageResponse)
     expect((options.placeholderData as (prev: unknown) => unknown)('keep-me')).toBe('keep-me')
   })
 

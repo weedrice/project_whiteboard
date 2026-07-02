@@ -2,6 +2,7 @@ import { mount } from '@vue/test-utils'
 import { defineComponent, h, nextTick, ref, type Ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import MyNotifications from '../MyNotifications.vue'
+import { pageResponseFixture } from '@/test/apiResponseFixtures'
 import type { Notification, PageResponse } from '@/types'
 
 const notificationsData = ref<PageResponse<Notification> | null>(null)
@@ -90,16 +91,8 @@ const makeNotification = (isRead: boolean, sourceType: Notification['sourceType'
   actorInitial: 'T',
 })
 
-const makePage = (content: Notification[]): PageResponse<Notification> => ({
-  content,
-  totalElements: content.length,
-  totalPages: content.length ? 1 : 0,
-  size: 15,
-  number: 0,
-  first: true,
-  last: true,
-  empty: content.length === 0,
-})
+const makePage = (content: Notification[]): PageResponse<Notification> =>
+  pageResponseFixture(content, { size: 15 })
 
 const mountMyNotifications = () =>
   mount(MyNotifications, {
