@@ -1,0 +1,119 @@
+@reference "../style.css";
+
+@layer components {
+  .nv-shell {
+    background:
+      radial-gradient(circle at top left, rgba(46, 85, 255, 0.08), transparent 28%),
+      linear-gradient(180deg, color-mix(in srgb, var(--nv-bg) 96%, white) 0%, var(--nv-bg) 100%);
+  }
+
+  .nv-topnav {
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    border-bottom: 1px solid var(--nv-line);
+    background: color-mix(in srgb, var(--nv-surface) 88%, transparent);
+    backdrop-filter: blur(16px);
+  }
+
+  .nv-shell-tab {
+    @apply inline-flex items-center justify-center rounded-full px-3 py-2 text-xs font-medium transition-colors sm:text-sm;
+    color: var(--nv-ink-soft);
+    min-height: 2.5rem;
+  }
+
+  .nv-shell-tab:hover,
+  .nv-shell-tab.is-active {
+    background: var(--nv-accent-bg);
+    color: var(--nv-accent);
+  }
+
+  .nv-shell-tab-button {
+    border: 1px solid transparent;
+  }
+
+  .nv-shell-icon-button {
+    @apply relative inline-flex h-10 w-10 items-center justify-center rounded-full transition-colors;
+    color: var(--nv-ink-soft);
+    background: var(--nv-surface);
+    border: 1px solid var(--nv-line);
+  }
+
+  .nv-shell-icon-button:hover {
+    background: var(--nv-surface-2);
+    color: var(--nv-ink);
+  }
+
+  .nv-shell-dot,
+  .nv-mobile-nav-dot {
+    @apply absolute rounded-full bg-[var(--nv-danger)];
+    right: 0.65rem;
+    top: 0.65rem;
+    height: 0.5rem;
+    width: 0.5rem;
+    box-shadow: 0 0 0 2px var(--nv-surface);
+  }
+
+  .nv-login-link {
+    @apply inline-flex items-center rounded-full px-4 py-2 text-sm font-medium transition-colors;
+    background: var(--nv-surface);
+    border: 1px solid var(--nv-line);
+    color: var(--nv-ink);
+  }
+
+  .nv-login-link:hover {
+    background: var(--nv-surface-2);
+  }
+
+  .nv-mobile-nav {
+    @apply fixed inset-x-0 bottom-0 z-[70] mx-auto grid max-w-xl grid-cols-5 items-center gap-2 px-4 py-3 sm:hidden;
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--nv-surface) 92%, transparent);
+    border-top: 1px solid var(--nv-line);
+    backdrop-filter: blur(20px);
+  }
+
+  .nv-mobile-nav-item {
+    @apply relative inline-flex min-h-[44px] flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-[10px] font-semibold tracking-[0.08em] transition-colors;
+    color: var(--nv-muted);
+  }
+
+  .nv-mobile-nav-item.is-active {
+    color: var(--nv-accent);
+    background: var(--nv-accent-bg);
+  }
+
+  .nv-mobile-nav-fab {
+    @apply mx-auto inline-flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg transition-transform;
+    background: linear-gradient(135deg, var(--nv-accent), #5e7bff);
+    transform: translateY(-0.9rem);
+  }
+
+  .nv-mobile-nav-fab:hover {
+    transform: translateY(-1rem);
+  }
+
+  .nv-mobile-sheet {
+    @apply absolute bottom-0 left-0 right-0 rounded-t-[28px] px-5 pb-8 pt-5;
+    background: var(--nv-surface);
+    box-shadow: var(--nv-shadow-popup);
+    max-height: min(78vh, 40rem);
+    overflow-y: auto;
+  }
+
+  .nv-mobile-sheet-item {
+    @apply flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-sm transition-colors;
+    background: var(--nv-surface-2);
+    color: var(--nv-ink);
+  }
+
+  .nv-mobile-sheet-item:hover {
+    background: var(--nv-accent-bg);
+  }
+
+  @media (max-width: 639px) {
+    .nv-topnav {
+      backdrop-filter: blur(12px);
+    }
+  }
+}

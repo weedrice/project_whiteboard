@@ -1,0 +1,32 @@
+@reference "../style.css";
+
+@layer components {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .comment-emoticon {
+    @apply inline-block w-[100px] h-[100px] object-contain align-baseline;
+  }
+
+  .comment-emoticon-list {
+    @apply w-12 h-12 sm:w-16 sm:h-16;
+  }
+
+  .comment-content-list .comment-emoticon-list {
+    vertical-align: middle;
+  }
+
+  .ql-editor img.ql-emoticon,
+  img.ql-emoticon {
+    @apply inline-block object-contain align-baseline;
+    width: 100px !important;
+    height: 100px !important;
+    vertical-align: baseline !important;
+  }
+}
