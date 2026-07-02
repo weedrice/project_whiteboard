@@ -1,22 +1,27 @@
 <script setup lang="ts" generic="T extends object">
 import { computed, useSlots } from 'vue'
-import BaseTable, { type TableColumn } from '@/components/common/ui/BaseTable.vue'
+import BaseTable from '@/components/common/ui/BaseTable.vue'
 import AdminPaginationFooter from '@/components/admin/AdminPaginationFooter.vue'
-
-type AdminTableRowKeyResolver<TItem> = Extract<keyof TItem, string> | ((item: TItem, index: number) => string | number)
-type AdminTableRowActionLabelResolver<TItem> = string | ((item: TItem, index: number) => string)
-type AdminTableRowActivationEvent = 'row-click' | 'row-dblclick'
+import type {
+  RowActionLabelResolver,
+  RowActivationEvent,
+  RowKeyResolver,
+  SortDirection,
+  TableColumn,
+} from '@/components/common/ui/baseTableModel'
 
 withDefaults(defineProps<{
-  columns: TableColumn[]
+  columns: TableColumn<Extract<keyof T, string> | string>[]
   items: T[]
   loading?: boolean
   emptyText?: string
-  rowKey?: AdminTableRowKeyResolver<T>
+  rowKey?: RowKeyResolver<T>
   rowClass?: (item: T) => string
   interactiveRows?: boolean
-  rowActionLabel?: AdminTableRowActionLabelResolver<T>
-  rowActivationEvent?: AdminTableRowActivationEvent
+  rowActionLabel?: RowActionLabelResolver<T>
+  rowActivationEvent?: RowActivationEvent
+  currentSortKey?: string | null
+  currentSortDirection?: SortDirection
   page?: number
   totalPages?: number
   totalElements?: number
@@ -33,6 +38,8 @@ withDefaults(defineProps<{
   interactiveRows: false,
   rowActionLabel: undefined,
   rowActivationEvent: 'row-click',
+  currentSortKey: null,
+  currentSortDirection: null,
   page: 0,
   totalPages: 0,
   totalElements: undefined,
@@ -66,6 +73,8 @@ const tableSlotNames = computed(() => Object.keys(slots).filter((name) => !name.
     :interactive-rows="interactiveRows"
     :row-action-label="rowActionLabel"
     :row-activation-event="rowActivationEvent"
+    :current-sort-key="currentSortKey"
+    :current-sort-direction="currentSortDirection"
     @sort="emit('sort', $event)"
     @row-click="emit('rowClick', $event)"
     @row-dblclick="emit('rowDblclick', $event)"

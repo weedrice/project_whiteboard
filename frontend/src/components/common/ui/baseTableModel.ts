@@ -1,5 +1,5 @@
-export interface TableColumn {
-  key: string
+export interface TableColumn<TKey extends string = string> {
+  key: TKey
   label: string
   align?: 'left' | 'center' | 'right'
   width?: string

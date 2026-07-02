@@ -334,10 +334,12 @@ describe('admin common components', () => {
     })
     const table = mount(AdminPaginatedTable, {
       props: {
-        columns: [{ key: 'name', label: 'Name' }],
+        columns: [{ key: 'name', label: 'Name', sortable: true }],
         items: [{ id: 1, name: 'Ada' }],
         rowKey: (item: object) => (item as { id: number }).id,
         interactiveRows: true,
+        currentSortKey: 'name',
+        currentSortDirection: 'asc',
         page: 0,
         totalPages: 2,
         summary: 'Total 1',
@@ -362,9 +364,12 @@ describe('admin common components', () => {
     expect(table.text()).toContain('Total 1')
     expect(table.text()).toContain('Refreshing rows')
     expect(table.get('[data-test="description"]').text()).toBe('Rows can be opened.')
+    expect(table.get('th').attributes('aria-sort')).toBe('ascending')
 
+    await table.get('thead button').trigger('click')
     await table.get('tbody tr').trigger('click')
 
+    expect(table.emitted('sort')).toEqual([['name']])
     expect(table.emitted('rowClick')).toEqual([[{ id: 1, name: 'Ada' }]])
     expect(table.emitted('rowDblclick')).toBeUndefined()
   })
