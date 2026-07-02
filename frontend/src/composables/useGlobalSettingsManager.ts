@@ -61,7 +61,11 @@ export function useGlobalSettingsManager() {
     if (!payload?.key) return
 
     try {
-      await createConfig(payload)
+      await createConfig({
+        key: payload.key,
+        value: payload.value,
+        description: payload.description,
+      })
 
       toastStore.addToast(t('admin.settings.messages.saved'), 'success')
       closeCreateModal()
