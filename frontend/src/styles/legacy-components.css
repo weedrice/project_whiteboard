@@ -71,7 +71,7 @@
     color: var(--nv-danger-text);
   }
 
-  /* Input & Select (紐⑤컮?? 湲?㉱톚laceholder ?묎쾶) */
+  /* Input & Select shared form controls */
   .input-base {
     @apply block w-full rounded-md shadow-sm text-xs sm:text-sm px-3 py-2;
     background: var(--nv-surface);

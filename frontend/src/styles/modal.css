@@ -23,7 +23,7 @@
       @apply flex-1 overflow-y-auto overflow-x-hidden;
     }
 
-    /* 紐⑤컮?쇱뿉??肄섑뀗痢좎뿉 留욎텣 ?믪씠 (?꾨줈???섏젙 ?? */
+    /* Mobile modal variant that fits content height instead of filling the viewport. */
     .modal-container-mobile-fit {
       @apply max-w-none w-full max-h-[90vh] h-auto rounded-none my-auto;
     }
