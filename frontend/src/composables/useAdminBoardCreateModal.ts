@@ -55,6 +55,7 @@ export function useAdminBoardCreateModal(createBoard: CreateBoard) {
         ...createForm,
         boardName: createForm.boardName.trim(),
         description: (createForm.description ?? '').trim(),
+        iconUrl: (createForm.iconUrl ?? '').trim(),
         guidePrompt: (createForm.guidePrompt ?? '').trim(),
       })
       toastStore.addToast(t('admin.boards.messages.created'), 'success')
