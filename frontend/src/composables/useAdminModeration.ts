@@ -1,12 +1,12 @@
 import { useMutation, type QueryClient } from '@tanstack/vue-query'
 import type { Ref } from 'vue'
 import { adminApi } from '@/api/admin'
-import { adminQueryKeys } from '@/composables/adminQueryKeys'
+import { adminQueryKeys } from '@/features/admin/queries/adminQueryKeys'
 import {
     invalidateAdminIpBlockCaches,
     invalidateAdminReportCaches,
-} from '@/composables/adminCacheInvalidation'
-import { callAdminApiWithOptionalConfig, useAdminPageQuery } from '@/composables/adminApiQuery'
+} from '@/features/admin/queries/adminCacheInvalidation'
+import { callAdminApiWithOptionalConfig, useAdminPageQuery } from '@/features/admin/queries/adminApiQuery'
 import type {
     IpBlockData,
     ReportResolveData,

@@ -1,15 +1,15 @@
 import { useMutation, type QueryClient } from '@tanstack/vue-query'
 import { computed, type Ref } from 'vue'
 import { adminApi } from '@/api/admin'
-import { adminQueryKeys } from '@/composables/adminQueryKeys'
+import { adminQueryKeys } from '@/features/admin/queries/adminQueryKeys'
 import { boardQueryKeys } from '@/composables/boardQueryKeys'
-import { invalidateAdminBoardCaches } from '@/composables/adminCacheInvalidation'
+import { invalidateAdminBoardCaches } from '@/features/admin/queries/adminCacheInvalidation'
 import { invalidateBoardListCaches } from '@/composables/boardCacheInvalidation'
 import {
     callAdminApiWithOptionalConfig,
     useAdminDataQuery,
     useAdminNullableDataQuery,
-} from '@/composables/adminApiQuery'
+} from '@/features/admin/queries/adminApiQuery'
 import type { BoardManagerUpdateData } from '@/api/admin'
 import type {
     AdminBoard,

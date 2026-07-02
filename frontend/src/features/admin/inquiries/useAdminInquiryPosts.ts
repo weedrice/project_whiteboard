@@ -1,12 +1,12 @@
 import { computed, ref, watch } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
 import { adminApi } from '@/api/admin'
-import { adminInquiryQueryKeys } from '@/composables/adminQueryKeys'
+import { adminInquiryQueryKeys } from '@/features/admin/queries/adminQueryKeys'
 import {
   callAdminApiWithOptionalConfig,
   useAdminNullableDataQuery,
   useAdminPageQuery,
-} from '@/composables/adminApiQuery'
+} from '@/features/admin/queries/adminApiQuery'
 import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import { formatDateTimeOrDash } from '@/utils/date'
 import { stripHtmlToText, truncateWithEllipsis } from '@/utils/textExcerpt'
