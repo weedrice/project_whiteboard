@@ -6,7 +6,7 @@ import type { SupportedLocale } from './locales/types'
 
 type I18nMessages = Record<keyof typeof messages, LocaleMessage<VueMessageType>>
 
-const i18nMessages = messages as unknown as I18nMessages
+const i18nMessages = messages as I18nMessages
 
 const rawI18n = createI18n({
     legacy: false,

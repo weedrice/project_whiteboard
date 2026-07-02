@@ -12,7 +12,7 @@ import { report } from './report'
 import { emoticon } from './emoticon'
 import { admin } from './admin'
 
-export const messages: LocaleMessages = {
+export const messages = {
   ko: {
     common,
     search,
@@ -41,6 +41,8 @@ export const messages: LocaleMessages = {
     emoticon,
     admin,
   },
-}
+} satisfies LocaleMessages
+
+export type AppLocaleMessages = typeof messages
 
 export default messages
