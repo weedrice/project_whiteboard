@@ -424,4 +424,15 @@ describe('emoticonApi', () => {
         expect(apiMock.get).toHaveBeenNthCalledWith(3, '/emoticons/1/purchased')
         expect(apiMock.patch).toHaveBeenCalledWith('/emoticons/1/visibility')
     })
+
+    it('keeps emoticon data helpers callable after destructuring', async () => {
+        const detail = { emoticonId: 7, name: 'cat' }
+        const { getEmoticonData } = emoticonApi
+
+        apiMock.get.mockResolvedValueOnce(axiosApiSuccess(detail))
+
+        await expect(getEmoticonData(7)).resolves.toBe(detail)
+
+        expect(apiMock.get).toHaveBeenCalledWith('/emoticons/7')
+    })
 })

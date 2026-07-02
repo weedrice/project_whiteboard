@@ -26,7 +26,7 @@ export const emoticonApi = {
         return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons', { ...config, params })
     },
     async getEmoticonsData(params?: EmoticonSearchParams, config?: AxiosRequestConfig) {
-        return unwrapEmoticonResponse(await this.getEmoticons(params, config))
+        return unwrapEmoticonResponse(await emoticonApi.getEmoticons(params, config))
     },
 
     // List popular emoticon packs by period.
@@ -37,7 +37,7 @@ export const emoticonApi = {
         })
     },
     async getPopularEmoticonsData(period: EmoticonPeriod = 'daily', config?: AxiosRequestConfig) {
-        return unwrapEmoticonResponse(await this.getPopularEmoticons(period, config))
+        return unwrapEmoticonResponse(await emoticonApi.getPopularEmoticons(period, config))
     },
 
     // Search by keyword, tag, creator, or pack name.
@@ -45,7 +45,7 @@ export const emoticonApi = {
         return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons/search/all', { ...config, params })
     },
     async searchAllData(params?: EmoticonSearchParams, config?: AxiosRequestConfig) {
-        return unwrapEmoticonResponse(await this.searchAll(params, config))
+        return unwrapEmoticonResponse(await emoticonApi.searchAll(params, config))
     },
 
     // Search emoticon packs by tag.
@@ -55,7 +55,7 @@ export const emoticonApi = {
         })
     },
     async searchByTagData(tag: string, params?: EmoticonPageParams) {
-        return unwrapEmoticonResponse(await this.searchByTag(tag, params))
+        return unwrapEmoticonResponse(await emoticonApi.searchByTag(tag, params))
     },
 
     // Search emoticon packs by keyword.
@@ -65,7 +65,7 @@ export const emoticonApi = {
         })
     },
     async searchByKeywordData(keyword: string, params?: EmoticonPageParams) {
-        return unwrapEmoticonResponse(await this.searchByKeyword(keyword, params))
+        return unwrapEmoticonResponse(await emoticonApi.searchByKeyword(keyword, params))
     },
 
     // List emoticon packs owned by the current user.
@@ -73,7 +73,7 @@ export const emoticonApi = {
         return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons/my', { ...config, params })
     },
     async getMyEmoticonsData(params?: EmoticonPageParams, config?: AxiosRequestConfig) {
-        return unwrapEmoticonResponse(await this.getMyEmoticons(params, config))
+        return unwrapEmoticonResponse(await emoticonApi.getMyEmoticons(params, config))
     },
 
     // Get emoticon pack detail.
@@ -85,7 +85,7 @@ export const emoticonApi = {
         return api.get<ApiResponse<EmoticonMaster>>(`/emoticons/${encodedId}`)
     },
     async getEmoticonData(emoticonId: number, config?: AxiosRequestConfig) {
-        return unwrapEmoticonResponse(await this.getEmoticon(emoticonId, config))
+        return unwrapEmoticonResponse(await emoticonApi.getEmoticon(emoticonId, config))
     },
 
     // Create an emoticon pack.
@@ -96,7 +96,7 @@ export const emoticonApi = {
         return api.post<ApiResponse<EmoticonMaster>>('/emoticons', data)
     },
     async createEmoticonData(data: EmoticonCreateRequest, config?: AxiosRequestConfig) {
-        return unwrapEmoticonResponse(await this.createEmoticon(data, config))
+        return unwrapEmoticonResponse(await emoticonApi.createEmoticon(data, config))
     },
 
     // Update an emoticon pack.
@@ -108,7 +108,7 @@ export const emoticonApi = {
         return api.put<ApiResponse<EmoticonMaster>>(`/emoticons/${encodedId}`, data)
     },
     async updateEmoticonData(emoticonId: number, data: EmoticonUpdateRequest, config?: AxiosRequestConfig) {
-        return unwrapEmoticonResponse(await this.updateEmoticon(emoticonId, data, config))
+        return unwrapEmoticonResponse(await emoticonApi.updateEmoticon(emoticonId, data, config))
     },
 
     // Toggle sale or visibility state.
@@ -116,7 +116,7 @@ export const emoticonApi = {
         return api.patch<ApiResponse<EmoticonMaster>>(`/emoticons/${encodePathSegment(emoticonId)}/visibility`)
     },
     async toggleVisibilityData(emoticonId: number) {
-        return unwrapEmoticonResponse(await this.toggleVisibility(emoticonId))
+        return unwrapEmoticonResponse(await emoticonApi.toggleVisibility(emoticonId))
     },
 
     // Delete an emoticon pack.
@@ -133,7 +133,7 @@ export const emoticonApi = {
         return api.post<ApiResponse<EmoticonMaster>>(`/emoticons/${encodedId}/images`, { fileId })
     },
     async addImageData(emoticonId: number, fileId: number, config?: AxiosRequestConfig) {
-        return unwrapEmoticonResponse(await this.addImage(emoticonId, fileId, config))
+        return unwrapEmoticonResponse(await emoticonApi.addImage(emoticonId, fileId, config))
     },
 
     // Delete an image.
@@ -150,7 +150,7 @@ export const emoticonApi = {
         return api.post<ApiResponse<EmoticonMaster>>(`/emoticons/${encodePathSegment(emoticonId)}/purchase`)
     },
     async purchaseEmoticonData(emoticonId: number) {
-        return unwrapEmoticonResponse(await this.purchaseEmoticon(emoticonId))
+        return unwrapEmoticonResponse(await emoticonApi.purchaseEmoticon(emoticonId))
     },
 
     // List purchased emoticon packs.
@@ -158,7 +158,7 @@ export const emoticonApi = {
         return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons/purchased', { ...config, params })
     },
     async getPurchasedEmoticonsData(params?: EmoticonPageParams, config?: AxiosRequestConfig) {
-        return unwrapEmoticonResponse(await this.getPurchasedEmoticons(params, config))
+        return unwrapEmoticonResponse(await emoticonApi.getPurchasedEmoticons(params, config))
     },
 
     // Check purchase status.
@@ -168,6 +168,6 @@ export const emoticonApi = {
             : api.get<ApiResponse<EmoticonPurchaseStatus>>(`/emoticons/${encodePathSegment(emoticonId)}/purchased`)
     },
     async checkPurchaseStatusData(emoticonId: number, config?: AxiosRequestConfig) {
-        return unwrapEmoticonResponse(await this.checkPurchaseStatus(emoticonId, config))
+        return unwrapEmoticonResponse(await emoticonApi.checkPurchaseStatus(emoticonId, config))
     },
 }
