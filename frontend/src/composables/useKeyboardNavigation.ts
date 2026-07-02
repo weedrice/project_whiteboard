@@ -1,42 +1,30 @@
 import { ref, type Ref } from 'vue'
 
 /**
- * 리스트/드롭다운 키보드 네비게이션을 위한 composable
- * 
- * @param items 항목 배열
- * @param options 옵션 설정
- * @returns 네비게이션 상태 및 핸들러
- * 
- * @example
- * ```typescript
- * const { selectedIndex, handleKeyDown, setSelectedIndex } = useKeyboardNavigation(
- *   filteredBoards,
- *   {
- *     onSelect: (index) => selectBoard(filteredBoards.value[index].boardUrl),
- *     onEscape: () => closeDropdown()
- *   }
- * )
- * ```
+ * Keyboard navigation helper for list-like controls.
  */
 export function useKeyboardNavigation<T>(
   items: Ref<T[]>,
   options: {
     onSelect?: (index: number) => void
     onEscape?: () => void
-    loop?: boolean // true면 마지막에서 다음으로 첫 번째로 이동
+    loop?: boolean
     initialIndex?: number
-    enableNumberKeys?: boolean // true면 1-9, 0 키로 항목 선택 가능
+    enableNumberKeys?: boolean
   } = {}
 ) {
   const { onSelect, onEscape, loop = true, initialIndex = -1, enableNumberKeys = false } = options
 
   const selectedIndex = ref(initialIndex)
 
-  /**
-   * 키보드 이벤트 핸들러
-   */
   const handleKeyDown = (event: KeyboardEvent) => {
     const itemCount = items.value.length
+
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      onEscape?.()
+      return
+    }
 
     if (itemCount === 0) return
 
@@ -72,20 +60,12 @@ export function useKeyboardNavigation<T>(
       case 'Enter':
       case ' ':
         event.preventDefault()
-        if (selectedIndex.value >= 0 && selectedIndex.value < itemCount && onSelect) {
-          onSelect(selectedIndex.value)
-        }
-        break
-
-      case 'Escape':
-        event.preventDefault()
-        if (onEscape) {
-          onEscape()
+        if (selectedIndex.value >= 0 && selectedIndex.value < itemCount) {
+          onSelect?.(selectedIndex.value)
         }
         break
 
       default:
-        // 숫자키 처리 (1-9: 인덱스 0-8, 0: 인덱스 9)
         if (enableNumberKeys && event.key >= '0' && event.key <= '9') {
           let index = -1
           if (event.key >= '1' && event.key <= '9') {
@@ -94,27 +74,21 @@ export function useKeyboardNavigation<T>(
             index = 9
           }
 
-          if (index >= 0 && index < itemCount && onSelect) {
+          if (index >= 0 && index < itemCount) {
             event.preventDefault()
-            onSelect(index)
+            onSelect?.(index)
           }
         }
         break
     }
   }
 
-  /**
-   * 선택된 인덱스 설정
-   */
   const setSelectedIndex = (index: number) => {
     if (index >= 0 && index < items.value.length) {
       selectedIndex.value = index
     }
   }
 
-  /**
-   * 선택된 인덱스 리셋
-   */
   const reset = () => {
     selectedIndex.value = initialIndex
   }

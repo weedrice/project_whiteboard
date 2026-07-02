@@ -3,13 +3,14 @@
         <div class="flex items-center h-5">
             <input :id="checkboxId" type="checkbox" :checked="checked" @change="updateValue" :disabled="disabled"
                 class="nv-checkbox h-4 w-4 rounded cursor-pointer"
+                :aria-describedby="description ? descriptionId : undefined"
                 :class="inputClass" />
         </div>
         <div class="ml-3 text-sm">
             <label :for="checkboxId" class="font-medium nv-text-muted cursor-pointer" :class="labelClass">
                 {{ label }}
             </label>
-            <p v-if="description" class="nv-text-subtle">{{ description }}</p>
+            <p v-if="description" :id="descriptionId" class="nv-text-subtle">{{ description }}</p>
         </div>
     </div>
 </template>
@@ -44,6 +45,7 @@ const props = withDefaults(defineProps<{
 
 const generatedId = useId()
 const checkboxId = computed(() => props.id ?? generatedId)
+const descriptionId = computed(() => `${checkboxId.value}-description`)
 
 const emit = defineEmits<{
     (e: 'update:modelValue', value: boolean | unknown[]): void

@@ -16,6 +16,19 @@ describe('BaseCheckbox', () => {
         expect(wrapper.find('p').text()).toBe('You must agree')
     })
 
+    it('connects description text with aria-describedby', () => {
+        const wrapper = mount(BaseCheckbox, {
+            props: {
+                id: 'terms',
+                label: 'Accept terms',
+                description: 'You must agree',
+            },
+        })
+
+        expect(wrapper.get('input').attributes('aria-describedby')).toBe('terms-description')
+        expect(wrapper.get('#terms-description').text()).toBe('You must agree')
+    })
+
     it('generates one stable id for label linkage when id is omitted', () => {
         const wrapper = mount(BaseCheckbox, {
             props: {
