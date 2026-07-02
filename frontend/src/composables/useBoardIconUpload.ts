@@ -5,24 +5,19 @@ import { unwrapApiData } from '@/api/response'
 import { useToastStore } from '@/stores/toast'
 import logger from '@/utils/logger'
 import { validateImageFile as validateGenericImageFile } from '@/utils/imageFile'
-import {
-  ALLOWED_UPLOAD_IMAGE_EXTENSION_SET,
-  ALLOWED_UPLOAD_IMAGE_MIME_TYPE_SET,
-} from '@/utils/imageUploadPolicy'
+import { BOARD_ICON_UPLOAD_POLICY } from '@/utils/imageUploadPolicy'
 
 interface UseBoardIconUploadOptions {
   setIconUrl: (iconUrl: string) => void
 }
 
-const DEFAULT_MAX_BOARD_ICON_SIZE_BYTES = 2 * 1024 * 1024
-
 export function validateBoardIconFile(
   file: File,
-  maxSizeBytes = DEFAULT_MAX_BOARD_ICON_SIZE_BYTES
+  maxSizeBytes = BOARD_ICON_UPLOAD_POLICY.maxSizeBytes
 ): 'type' | 'size' | null {
   return validateGenericImageFile(file, {
-    allowedMimeTypes: ALLOWED_UPLOAD_IMAGE_MIME_TYPE_SET,
-    allowedExtensions: ALLOWED_UPLOAD_IMAGE_EXTENSION_SET,
+    allowedMimeTypes: BOARD_ICON_UPLOAD_POLICY.allowedMimeTypes,
+    allowedExtensions: BOARD_ICON_UPLOAD_POLICY.allowedExtensions,
     maxSizeBytes,
   })
 }

@@ -2,6 +2,7 @@ import { computed, ref, watch, type Ref } from 'vue'
 import { getOptimizedProfileImageUrl } from '@/utils/image'
 import { useObjectUrlPreview } from '@/composables/useObjectUrlPreview'
 import { resizeImageToBoundsFile } from '@/utils/imageFile'
+import { PROFILE_IMAGE_UPLOAD_POLICY } from '@/utils/imageUploadPolicy'
 import logger from '@/utils/logger'
 
 interface UseProfileImageEditorOptions {
@@ -9,10 +10,6 @@ interface UseProfileImageEditorOptions {
   onFileSizeExceeded: () => void
   onProcessFailed: () => void
 }
-
-const MAX_PROFILE_IMAGE_SIZE = 10 * 1024 * 1024
-const PROFILE_IMAGE_MAX_WIDTH = 100
-const PROFILE_IMAGE_MAX_HEIGHT = 100
 
 export function useProfileImageEditor(options: UseProfileImageEditorOptions): {
   fileInputRef: Ref<HTMLInputElement | null>
@@ -45,13 +42,17 @@ export function useProfileImageEditor(options: UseProfileImageEditorOptions): {
     if (!file) return
     target.value = ''
 
-    if (file.size > MAX_PROFILE_IMAGE_SIZE) {
+    if (file.size > PROFILE_IMAGE_UPLOAD_POLICY.maxSizeBytes) {
       options.onFileSizeExceeded()
       return
     }
 
     try {
-      const resizedImage = await resizeImageToBoundsFile(file, PROFILE_IMAGE_MAX_WIDTH, PROFILE_IMAGE_MAX_HEIGHT)
+      const resizedImage = await resizeImageToBoundsFile(
+        file,
+        PROFILE_IMAGE_UPLOAD_POLICY.maxWidth ?? 100,
+        PROFILE_IMAGE_UPLOAD_POLICY.maxHeight ?? 100,
+      )
       selectedFile.value = resizedImage
       setPreviewFile(resizedImage)
     } catch (error) {
