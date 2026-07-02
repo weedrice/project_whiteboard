@@ -41,7 +41,7 @@ export function useProfileUpdateSubmit(options: UseProfileUpdateSubmitOptions) {
       }
 
       await options.updateProfile({
-        displayName: options.getDisplayName(),
+        displayName: options.getDisplayName().trim(),
         profileImageId,
       })
       await options.refreshUser()

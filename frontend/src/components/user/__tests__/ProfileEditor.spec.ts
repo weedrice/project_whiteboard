@@ -328,6 +328,19 @@ describe('ProfileEditor', () => {
     expect(mocks.addToast).toHaveBeenCalledWith('common.messages.uploadFailed', 'error')
   })
 
+  it('trims display name before updating the profile', async () => {
+    const wrapper = mountProfileEditor()
+
+    await wrapper.find('input[placeholder="user.profile.displayNamePlaceholder"]').setValue('  Updated Name  ')
+    await findButtonByText(wrapper, 'common.save').trigger('click')
+    await flushPromises()
+
+    expect(mocks.updateProfile).toHaveBeenCalledWith({
+      displayName: 'Updated Name',
+      profileImageId: null,
+    })
+  })
+
   it('emits refreshed after a successful agent claim', async () => {
     const wrapper = mountProfileEditor()
     const input = wrapper.find('input[placeholder="user.profile.agentPlaceholder"]')

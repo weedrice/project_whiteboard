@@ -108,6 +108,7 @@ export function buildSignupPayload(
   return {
     ...formData,
     email: form.email.trim(),
+    displayName: form.displayName.trim(),
     verificationTicket,
     provider: getSingleQueryValue(query.provider),
     providerId: getSingleQueryValue(query.providerId)

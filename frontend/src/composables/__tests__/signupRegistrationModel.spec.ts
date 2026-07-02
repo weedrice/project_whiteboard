@@ -34,7 +34,7 @@ describe('signupRegistrationModel', () => {
       password: 'Password1!',
       passwordConfirm: 'Password1!',
       email: ' user@example.com ',
-      displayName: 'Display',
+      displayName: ' Display ',
     }
 
     expect(buildSignupPayload(form, 'ticket-1', {
