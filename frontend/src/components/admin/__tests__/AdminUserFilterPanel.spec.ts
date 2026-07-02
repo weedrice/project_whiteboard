@@ -38,8 +38,8 @@ describe('AdminUserFilterPanel', () => {
     ]
 
     for (const id of expectedControlIds) {
-      expect(wrapper.get(`label[for="${id}"]`).exists()).toBe(true)
-      expect(wrapper.get(`#${id}`).exists()).toBe(true)
+      expect(wrapper.find(`label[for="${id}"]`).exists()).toBe(true)
+      expect(wrapper.find(`#${id}`).exists()).toBe(true)
     }
   })
 })
