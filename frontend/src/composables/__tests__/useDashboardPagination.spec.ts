@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { effectScope } from 'vue'
 import { useDashboardPagination, type DashboardPaginationParams } from '../useDashboardPagination'
+import { createDeferred } from '@/test/async'
 import type { ApiResponse, PageResponse } from '@/types'
 
 function createPage<T>(content: T[], pageNumber = 0): PageResponse<T> {
@@ -28,17 +29,6 @@ function failedPage<T>(): ApiResponse<PageResponse<T>> {
     success: false,
     data: createPage<T>([]),
   }
-}
-
-function deferred<T>() {
-  let resolve!: (value: T | PromiseLike<T>) => void
-  let reject!: (reason?: unknown) => void
-  const promise = new Promise<T>((promiseResolve, promiseReject) => {
-    resolve = promiseResolve
-    reject = promiseReject
-  })
-
-  return { promise, resolve, reject }
 }
 
 describe('useDashboardPagination', () => {
@@ -87,8 +77,8 @@ describe('useDashboardPagination', () => {
 
   it('keeps only the latest request result', async () => {
     const scope = effectScope()
-    const first = deferred<ApiResponse<PageResponse<string>>>()
-    const second = deferred<ApiResponse<PageResponse<string>>>()
+    const first = createDeferred<ApiResponse<PageResponse<string>>>()
+    const second = createDeferred<ApiResponse<PageResponse<string>>>()
     const signals: AbortSignal[] = []
     const calls: DashboardPaginationParams[] = []
 

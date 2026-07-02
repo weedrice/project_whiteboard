@@ -2,6 +2,7 @@ import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { useEmoticonImageFormState } from '../useEmoticonImageFormState'
+import { createDeferred } from '@/test/async'
 import type { EmoticonImagePreview } from '@/utils/emoticonImage'
 
 const revokeEmoticonPreviewUrl = vi.hoisted(() => vi.fn())
@@ -9,17 +10,6 @@ const revokeEmoticonPreviewUrl = vi.hoisted(() => vi.fn())
 vi.mock('@/utils/emoticonImage', () => ({
   revokeEmoticonPreviewUrl,
 }))
-
-function createDeferred<T>() {
-  let resolve!: (value: T | PromiseLike<T>) => void
-  let reject!: (reason?: unknown) => void
-  const promise = new Promise<T>((promiseResolve, promiseReject) => {
-    resolve = promiseResolve
-    reject = promiseReject
-  })
-
-  return { promise, resolve, reject }
-}
 
 function createInputEvent(file: File) {
   const input = document.createElement('input')

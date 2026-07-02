@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import BoardManagement from '../BoardManagement.vue'
 import { BaseButtonStub, BaseModalStub, flushAll, getButtonByText, getExposedVm, identityT } from '@/test/vue-test-helpers'
+import { createDeferred } from '@/test/async'
 
 type BoardManagementExposed = {
   createForm: { boardName: string; boardUrl: string }
@@ -14,14 +15,6 @@ const mocks = vi.hoisted(() => ({
   updateBoardManager: vi.fn(),
   addToast: vi.fn(),
 }))
-
-const makeDeferred = <T>() => {
-  let resolve!: (value: T) => void
-  const promise = new Promise<T>((promiseResolve) => {
-    resolve = promiseResolve
-  })
-  return { promise, resolve }
-}
 
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
@@ -116,7 +109,7 @@ describe('BoardManagement', () => {
   })
 
   it('uses a create-only submitting state for the create modal', async () => {
-    const createBoardRequest = makeDeferred<unknown>()
+    const createBoardRequest = createDeferred<unknown>()
     mocks.createBoard.mockReturnValueOnce(createBoardRequest.promise)
     const wrapper = mount(BoardManagement, {
       global: {

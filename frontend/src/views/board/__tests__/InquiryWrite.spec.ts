@@ -5,6 +5,7 @@ import { defineComponent, h } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import InquiryWrite from '../InquiryWrite.vue'
 import { boardApi } from '@/api/board'
+import { createDeferred } from '@/test/async'
 import type { ApiResponse } from '@/types'
 
 vi.mock('@/api/board', () => ({
@@ -83,16 +84,6 @@ async function mountInquiryWrite() {
   )
   await flushPromises()
   return { wrapper, router }
-}
-
-function createDeferred<T>() {
-  let resolve: (value: T) => void = () => undefined
-  let reject: (reason?: unknown) => void = () => undefined
-  const promise = new Promise<T>((promiseResolve, promiseReject) => {
-    resolve = promiseResolve
-    reject = promiseReject
-  })
-  return { promise, resolve, reject }
 }
 
 describe('InquiryWrite', () => {

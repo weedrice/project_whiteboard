@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useBoardManagerAssignment } from '../useBoardManagerAssignment'
+import { createDeferred } from '@/test/async'
 import type { AdminBoard } from '@/types'
 
 const mocks = vi.hoisted(() => ({
@@ -34,17 +35,6 @@ function board(overrides: Partial<AdminBoard>): AdminBoard {
   }
 }
 
-function deferred<T>() {
-  let resolve!: (value: T | PromiseLike<T>) => void
-  let reject!: (reason?: unknown) => void
-  const promise = new Promise<T>((promiseResolve, promiseReject) => {
-    resolve = promiseResolve
-    reject = promiseReject
-  })
-
-  return { promise, reject, resolve }
-}
-
 describe('useBoardManagerAssignment', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -54,7 +44,7 @@ describe('useBoardManagerAssignment', () => {
     const boardA = board({ boardId: 1, boardName: 'A', adminDisplayName: 'Manager A' })
     const boardB = board({ boardId: 2, boardName: 'B', adminDisplayName: 'Manager B' })
     const selectedBoard = ref<AdminBoard | null>(boardA)
-    const updateResult = deferred<unknown>()
+    const updateResult = createDeferred<unknown>()
     const updateBoardManager = vi.fn(() => updateResult.promise)
     const assignment = useBoardManagerAssignment({
       selectedBoard: computed(() => selectedBoard.value),

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useBoardCategoriesManager } from '../useBoardCategoriesManager'
 import { boardApi } from '@/api/board'
 import { apiEmptySuccess, apiSuccess, axiosApiResponse } from '@/test/factories'
+import { createDeferred } from '@/test/async'
 import type { Category } from '@/types'
 
 const mocks = vi.hoisted(() => ({
@@ -64,16 +65,6 @@ function makeCategory(overrides: Partial<Category>): Category {
 
 function createManager() {
     return useBoardCategoriesManager(ref('free-board'))
-}
-
-function createDeferred<T>() {
-    let resolve: (value: T) => void = () => undefined
-    let reject: (reason?: unknown) => void = () => undefined
-    const promise = new Promise<T>((promiseResolve, promiseReject) => {
-        resolve = promiseResolve
-        reject = promiseReject
-    })
-    return { promise, reject, resolve }
 }
 
 describe('useBoardCategoriesManager', () => {

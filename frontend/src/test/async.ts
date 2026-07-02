@@ -4,7 +4,7 @@ export interface Deferred<T> {
   reject: (reason?: unknown) => void
 }
 
-export function createDeferred<T>(): Deferred<T> {
+export function createDeferred<T = void>(): Deferred<T> {
   let resolve!: Deferred<T>['resolve']
   let reject!: Deferred<T>['reject']
   const promise = new Promise<T>((promiseResolve, promiseReject) => {

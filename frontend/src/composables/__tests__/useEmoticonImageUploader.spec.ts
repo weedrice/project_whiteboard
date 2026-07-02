@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useEmoticonImageUploader } from '../useEmoticonImageUploader'
 import { fileApi } from '@/api/file'
 import { apiDataResponse } from '@/test/apiResponseFixtures'
+import { createDeferred } from '@/test/async'
 import type { useEmoticonUploadSession } from '../useEmoticonUploadSession'
 
 const createUploadableEmoticonImageFile = vi.hoisted(() => vi.fn())
@@ -15,17 +16,6 @@ vi.mock('@/api/file', () => ({
 vi.mock('@/utils/emoticonImage', () => ({
   createUploadableEmoticonImageFile
 }))
-
-function createDeferred<T>() {
-  let resolve!: (value: T) => void
-  let reject!: (error: unknown) => void
-  const promise = new Promise<T>((promiseResolve, promiseReject) => {
-    resolve = promiseResolve
-    reject = promiseReject
-  })
-
-  return { promise, resolve, reject }
-}
 
 async function flushPromises() {
   await Promise.resolve()

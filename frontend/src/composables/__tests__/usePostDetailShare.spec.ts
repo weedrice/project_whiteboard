@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import { usePostDetailShare } from '../usePostDetailShare'
+import { createDeferred } from '@/test/async'
 import type { Post } from '@/types'
 
 const mocks = vi.hoisted(() => ({
@@ -29,17 +30,6 @@ const route = {
 const post = {
   title: 'Post title',
 } as Post
-
-function createDeferred<T = void>() {
-  let resolve!: (value: T | PromiseLike<T>) => void
-  let reject!: (reason?: unknown) => void
-  const promise = new Promise<T>((promiseResolve, promiseReject) => {
-    resolve = promiseResolve
-    reject = promiseReject
-  })
-
-  return { promise, resolve, reject }
-}
 
 function mountShareComposable(overrides: { post?: Post | null } = {}) {
   let share!: ReturnType<typeof usePostDetailShare>

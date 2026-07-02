@@ -4,6 +4,7 @@ import MyMessages from '../MyMessages.vue'
 import { extractErrorResponse } from '@/utils/errorHandler'
 import { toMailboxMessageViewModel } from '@/utils/messageViewModel'
 import { getExposedVm } from '@/test/vue-test-helpers'
+import { createDeferred } from '@/test/async'
 
 type MyMessagesExposed = {
     startReply: (message: ReturnType<typeof toMailboxMessageViewModel>) => void
@@ -75,16 +76,6 @@ const errorStateStub = {
     props: ['message', 'showRetry'],
     emits: ['retry'],
     template: '<div data-testid="error-state">{{ message }}</div>',
-}
-
-function deferred<T>() {
-    let resolve!: (value: T) => void
-    let reject!: (reason?: unknown) => void
-    const promise = new Promise<T>((res, rej) => {
-        resolve = res
-        reject = rej
-    })
-    return { promise, resolve, reject }
 }
 
 const messageOpenButtons = (wrapper: ReturnType<typeof mount>) => wrapper.findAll('li > button')
@@ -246,10 +237,10 @@ describe('MyMessages', () => {
             isRead: true,
             createdAt: '2026-04-16T12:00:00',
         }
-        const firstDetail = deferred<{
+        const firstDetail = createDeferred<{
             data: { success: boolean; data: typeof firstMessage }
         }>()
-        const secondDetail = deferred<{
+        const secondDetail = createDeferred<{
             data: { success: boolean; data: typeof secondMessage }
         }>()
 

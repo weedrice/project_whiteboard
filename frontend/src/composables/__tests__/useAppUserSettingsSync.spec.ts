@@ -1,6 +1,7 @@
 import { reactive, ref } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 import { useAppUserSettingsSync } from '../useAppUserSettingsSync'
+import { createDeferred } from '@/test/async'
 import type { UserSettings } from '@/types/user'
 
 vi.mock('@/api/user', () => ({
@@ -21,23 +22,12 @@ vi.mock('@/utils/storage', () => ({
   },
 }))
 
-function deferred<T>() {
-  let resolve!: (value: T | PromiseLike<T>) => void
-  let reject!: (reason?: unknown) => void
-  const promise = new Promise<T>((promiseResolve, promiseReject) => {
-    resolve = promiseResolve
-    reject = promiseReject
-  })
-
-  return { promise, reject, resolve }
-}
-
 describe('useAppUserSettingsSync', () => {
   it('does not apply settings that resolve after logout', async () => {
     const authStore = reactive({ isAuthenticated: true })
     const setTheme = vi.fn()
     const locale = ref('ko')
-    const settingsResult = deferred<UserSettings | null>()
+    const settingsResult = createDeferred<UserSettings | null>()
     const queryClient = {
       fetchQuery: vi.fn(() => settingsResult.promise),
       removeQueries: vi.fn(),

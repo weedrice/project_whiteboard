@@ -3,6 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { BLOCKED_BY_USER_CODE, messageApi } from '@/api/message'
 import { apiSuccessDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
+import { createDeferred } from '@/test/async'
 import type { MailboxMessageViewModel, MessageSummaryDto } from '@/types'
 import { useMailboxResource } from '../useMailboxResource'
 
@@ -77,17 +78,6 @@ vi.mock('@/utils/logger', () => ({
         error: vi.fn(),
     },
 }))
-
-const createDeferred = <T>() => {
-    let resolve!: (value: T) => void
-    let reject!: (reason?: unknown) => void
-    const promise = new Promise<T>((promiseResolve, promiseReject) => {
-        resolve = promiseResolve
-        reject = promiseReject
-    })
-
-    return { promise, resolve, reject }
-}
 
 const message = (id: number, isUnread = true): MailboxMessageViewModel => ({
     id,

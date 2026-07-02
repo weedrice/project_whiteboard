@@ -3,6 +3,7 @@ import { effectScope } from 'vue'
 import { useInquiryDetailModal } from '../useInquiryDetailModal'
 import { postApi } from '@/api/post'
 import { apiSuccessDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
+import { createDeferred } from '@/test/async'
 import type { Post } from '@/types'
 
 const { toastMock, confirmMock } = vi.hoisted(() => ({
@@ -38,17 +39,6 @@ vi.mock('@/composables/useConfirm', () => ({
     confirm: confirmMock
   })
 }))
-
-const createDeferred = <T>() => {
-  let resolve!: (value: T) => void
-  let reject!: (reason?: unknown) => void
-  const promise = new Promise<T>((promiseResolve, promiseReject) => {
-    resolve = promiseResolve
-    reject = promiseReject
-  })
-
-  return { promise, resolve, reject }
-}
 
 const signalConfig = {
   params: { incrementView: false },

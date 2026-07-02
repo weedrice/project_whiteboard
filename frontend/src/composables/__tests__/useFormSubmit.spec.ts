@@ -1,16 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { useFormSubmit } from '../useFormSubmit'
-
-function deferred<T>() {
-  let resolve!: (value: T | PromiseLike<T>) => void
-  let reject!: (reason?: unknown) => void
-  const promise = new Promise<T>((promiseResolve, promiseReject) => {
-    resolve = promiseResolve
-    reject = promiseReject
-  })
-
-  return { promise, resolve, reject }
-}
+import { createDeferred } from '@/test/async'
 
 describe('useFormSubmit', () => {
   it('returns the submit function result and resets submitting state', async () => {
@@ -23,7 +13,7 @@ describe('useFormSubmit', () => {
 
   it('rejects duplicate submissions while the first submit is pending', async () => {
     const formSubmit = useFormSubmit()
-    const pending = deferred<string>()
+    const pending = createDeferred<string>()
     const submitFn = vi.fn(() => pending.promise)
 
     const firstSubmit = formSubmit.submit(submitFn)
@@ -47,7 +37,7 @@ describe('useFormSubmit', () => {
 
   it('allows manual reset of submitting state', async () => {
     const formSubmit = useFormSubmit()
-    const pending = deferred<string>()
+    const pending = createDeferred<string>()
 
     void formSubmit.submit(() => pending.promise)
     expect(formSubmit.isSubmitting.value).toBe(true)

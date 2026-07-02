@@ -5,18 +5,8 @@ import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { userApi } from '@/api/user'
 import { apiSuccessResponse } from '@/test/apiResponseFixtures'
+import { createDeferred } from '@/test/async'
 import logger from '@/utils/logger'
-
-function createDeferred<T = void>() {
-    let resolve!: (value: T | PromiseLike<T>) => void
-    let reject!: (reason?: unknown) => void
-    const promise = new Promise<T>((promiseResolve, promiseReject) => {
-        resolve = promiseResolve
-        reject = promiseReject
-    })
-
-    return { promise, resolve, reject }
-}
 
 vi.mock('@/api/user', () => ({
     userApi: {

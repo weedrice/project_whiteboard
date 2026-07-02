@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useMyPageDashboardResource } from '../useMyPageDashboardResource'
 import { userApi } from '@/api/user'
 import { apiEnvelopeResponse, apiSuccessDataResponse } from '@/test/apiResponseFixtures'
+import { createDeferred } from '@/test/async'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import logger from '@/utils/logger'
 
@@ -46,15 +47,6 @@ const signalConfig = expect.objectContaining({ signal: expect.any(AbortSignal) }
 const t = (key: string) => key
 type GetMyPostsResponse = Awaited<ReturnType<typeof userApi.getMyPosts>>
 type GetMyCommentsResponse = Awaited<ReturnType<typeof userApi.getMyComments>>
-
-const createDeferred = <T>() => {
-  let resolve!: (value: T) => void
-  const promise = new Promise<T>((promiseResolve) => {
-    resolve = promiseResolve
-  })
-
-  return { promise, resolve }
-}
 
 describe('useMyPageDashboardResource', () => {
   beforeEach(() => {

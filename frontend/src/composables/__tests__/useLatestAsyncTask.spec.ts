@@ -1,22 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 import { effectScope } from 'vue'
 import { useLatestAsyncTask } from '../useLatestAsyncTask'
-
-function deferred<T>() {
-    let resolve!: (value: T) => void
-    let reject!: (reason?: unknown) => void
-    const promise = new Promise<T>((res, rej) => {
-        resolve = res
-        reject = rej
-    })
-    return { promise, resolve, reject }
-}
+import { createDeferred } from '@/test/async'
 
 describe('useLatestAsyncTask', () => {
     it('keeps only the latest result and aborts previous work', async () => {
         const scope = effectScope()
-        const first = deferred<string>()
-        const second = deferred<string>()
+        const first = createDeferred<string>()
+        const second = createDeferred<string>()
         const signals: AbortSignal[] = []
 
         try {
