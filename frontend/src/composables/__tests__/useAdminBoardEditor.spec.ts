@@ -78,7 +78,7 @@ describe('useAdminBoardEditor', () => {
     const editor = useAdminBoardEditor({ boardsData, updateBoard })
     await nextTick()
 
-    editor.form.boardName = 'New'
+    editor.form.boardName = '  New  '
     editor.form.boardUrl = 'New-URL_한글'
     await nextTick()
     await editor.handleSaveChanges()

@@ -207,9 +207,13 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
     if (!selectedBoard.value) return
 
     const board = selectedBoard.value
+    const nextBoardName = form.boardName.trim()
+    const nextDescription = form.description.trim()
+    const nextIconUrl = form.iconUrl.trim()
+    const nextGuidePrompt = form.guidePrompt.trim()
 
-    if (board.boardName !== form.boardName) {
-      board.boardName = form.boardName
+    if (board.boardName !== nextBoardName) {
+      board.boardName = nextBoardName
       markBoardModified(board.boardId)
     }
 
@@ -218,13 +222,13 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
       markBoardModified(board.boardId)
     }
 
-    if ((board.description || '') !== form.description) {
-      board.description = form.description
+    if ((board.description || '') !== nextDescription) {
+      board.description = nextDescription
       markBoardModified(board.boardId)
     }
 
-    if ((board.iconUrl || '') !== form.iconUrl) {
-      board.iconUrl = form.iconUrl
+    if ((board.iconUrl || '') !== nextIconUrl) {
+      board.iconUrl = nextIconUrl
       markBoardModified(board.boardId)
     }
 
@@ -239,8 +243,8 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
       markBoardModified(board.boardId)
     }
 
-    if ((board.guidePrompt || '') !== form.guidePrompt) {
-      board.guidePrompt = form.guidePrompt
+    if ((board.guidePrompt || '') !== nextGuidePrompt) {
+      board.guidePrompt = nextGuidePrompt
       markBoardModified(board.boardId)
     }
 

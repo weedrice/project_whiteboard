@@ -138,7 +138,7 @@ describe('BoardManagement', () => {
     const vm = getExposedVm<BoardManagementExposed>(wrapper)
 
     await getButtonByText(wrapper, 'admin.boards.addTitle').trigger('click')
-    vm.createForm.boardName = 'New board'
+    vm.createForm.boardName = '  New board  '
     vm.createForm.boardUrl = 'new_board'
     await flushAll()
 

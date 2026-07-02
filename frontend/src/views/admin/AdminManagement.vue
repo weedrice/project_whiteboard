@@ -57,13 +57,14 @@ const superAdmins = computed<SuperAdminRow[]>(() => {
 })
 
 async function handleCreateSuperAdmin() {
-  if (!newSuperAdminLoginId.value) {
+  const loginId = newSuperAdminLoginId.value.trim()
+  if (!loginId) {
     toastStore.addToast(t('admin.admins.messages.inputLoginId'), 'warning')
     return
   }
 
   try {
-    await updateSuperAdminStatus({ loginId: newSuperAdminLoginId.value, action: 'activate' })
+    await updateSuperAdminStatus({ loginId, action: 'activate' })
     toastStore.addToast(t('admin.admins.messages.added'), 'success')
     newSuperAdminLoginId.value = ''
   } catch {

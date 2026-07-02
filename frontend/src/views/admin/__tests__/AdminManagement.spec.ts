@@ -146,6 +146,8 @@ describe('AdminManagement', () => {
     const wrapper = mountAdminManagement()
 
     await wrapper.get('form').trigger('submit')
+    await wrapper.get('#superAdminLoginId').setValue('   ')
+    await wrapper.get('form').trigger('submit')
 
     expect(updateSuperAdminStatus).not.toHaveBeenCalled()
     expect(addToast).toHaveBeenCalledWith('admin.admins.messages.inputLoginId', 'warning')
@@ -154,7 +156,7 @@ describe('AdminManagement', () => {
   it('creates a super admin through the activate action', async () => {
     const wrapper = mountAdminManagement()
 
-    await wrapper.get('#superAdminLoginId').setValue('new-admin')
+    await wrapper.get('#superAdminLoginId').setValue('  new-admin  ')
     await wrapper.get('form').trigger('submit')
 
     expect(updateSuperAdminStatus).toHaveBeenCalledWith({ loginId: 'new-admin', action: 'activate' })
