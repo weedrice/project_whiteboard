@@ -1,16 +1,7 @@
 import { flushPromises } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createDeferred } from '@/test/async'
 import { useEditorImageUploadQueue } from '../useEditorImageUploadQueue'
-
-const createDeferred = <T>() => {
-    let resolve!: (value: T) => void
-    let reject!: (reason?: unknown) => void
-    const promise = new Promise<T>((promiseResolve, promiseReject) => {
-        resolve = promiseResolve
-        reject = promiseReject
-    })
-    return { promise, resolve, reject }
-}
 
 const createFile = (name: string) => new File(['image'], name, { type: 'image/png' })
 

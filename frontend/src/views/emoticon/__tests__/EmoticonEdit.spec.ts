@@ -2,6 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { nextTick, ref } from 'vue'
 import { emoticonApiData, emoticonApiSuccess } from '@/test/emoticonApiFixtures'
+import { createDeferred } from '@/test/async'
 import { getExposedVm } from '@/test/vue-test-helpers'
 
 type ExistingEmoticonImageFixture = { imageId: number; emoticonId: number; imageUrl: string; sortOrder: number }
@@ -145,17 +146,6 @@ import EmoticonEdit from '../EmoticonEdit.vue'
 const baseButtonStub = {
   props: ['type', 'disabled'],
   template: '<button :type="type || \'button\'" :disabled="disabled"><slot /></button>',
-}
-
-function createDeferred<T>() {
-  let resolve!: (value: T) => void
-  let reject!: (error: unknown) => void
-  const promise = new Promise<T>((promiseResolve, promiseReject) => {
-    resolve = promiseResolve
-    reject = promiseReject
-  })
-
-  return { promise, resolve, reject }
 }
 
 describe('EmoticonEdit', () => {
