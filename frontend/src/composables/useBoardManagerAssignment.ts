@@ -50,17 +50,18 @@ export function useBoardManagerAssignment({
   }
 
   async function confirmManagerSelection(users: Array<{ loginId: string; displayName?: string }>) {
-    if (!selectedBoard.value || users.length === 0) return
+    const targetBoard = selectedBoard.value
+    if (!targetBoard || users.length === 0) return
 
     isAssigningManager.value = true
     try {
       const selectedUser = users[0]
       await updateBoardManager({
-        boardId: selectedBoard.value.boardId,
+        boardId: targetBoard.boardId,
         data: { loginId: selectedUser.loginId }
       })
 
-      selectedBoard.value.adminDisplayName = selectedUser.displayName
+      targetBoard.adminDisplayName = selectedUser.displayName
       closeManagerModal()
       toastStore.addToast(t('admin.admins.messages.added'), 'success')
     } catch {
