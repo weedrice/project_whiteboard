@@ -1,18 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
 import PostForm from '@/components/board/PostForm.vue'
-import { usePostFormLeaveGuard } from '@/composables/usePostFormLeaveGuard'
+import { usePostFormRouteShell } from '@/composables/usePostFormRouteShell'
 import { useI18n } from 'vue-i18n'
 
-const postFormRef = ref<InstanceType<typeof PostForm> | null>(null)
-const route = useRoute()
-const router = useRouter()
 const { t } = useI18n()
-const boardUrl = computed(() => String(route.params.boardUrl ?? ''))
 const leaveConfirmMessage = t('board.writePost.leaveConfirm')
-
-usePostFormLeaveGuard(postFormRef, leaveConfirmMessage)
+const { postFormRef, router, boardUrl, handleCancel } = usePostFormRouteShell(leaveConfirmMessage)
 
 function handleSubmitted(result: {
   boardUrl: string
@@ -31,9 +24,6 @@ function handleSubmitted(result: {
   })
 }
 
-function handleCancel() {
-  router.back()
-}
 </script>
 
 <template>

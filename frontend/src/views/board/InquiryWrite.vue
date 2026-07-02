@@ -1,19 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import PostForm from '@/components/board/PostForm.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import { boardApi } from '@/api/board'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import logger from '@/utils/logger'
 import { useI18n } from 'vue-i18n'
-import { usePostFormLeaveGuard } from '@/composables/usePostFormLeaveGuard'
+import { usePostFormRouteShell } from '@/composables/usePostFormRouteShell'
 import { useLatestAsyncTask } from '@/composables/useLatestAsyncTask'
 
-const postFormRef = ref<InstanceType<typeof PostForm> | null>(null)
 const { t } = useI18n()
-const router = useRouter()
 const leaveConfirmMessage = t('board.inquiryWrite.leaveConfirm')
+const { postFormRef, router } = usePostFormRouteShell(leaveConfirmMessage)
 const hasPreparedBoard = ref(false)
 
 const inquiryBoardUrl = computed(() => {
@@ -37,8 +35,6 @@ const ensureInquiryBoard = async () => {
     hasPreparedBoard.value = true
   }
 }
-
-usePostFormLeaveGuard(postFormRef, leaveConfirmMessage)
 
 function handleSubmitted() {
   if (typeof window !== 'undefined' && window.history.length > 1) {
