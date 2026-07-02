@@ -3,11 +3,11 @@ import { nextTick } from 'vue'
 import { flushPromises } from '@vue/test-utils'
 import {
   findButtonByText,
+  getLastCreatePostVariables,
+  getLastUpdatePostVariables,
   mockAddToast,
-  mockCreateMutate,
   mockPostFormAuthStore,
   mockSaveDraftMutateAsync,
-  mockUpdateMutate,
   mountPostForm,
   postRef,
   resetPostFormTestState,
@@ -56,7 +56,7 @@ describe('PostForm draft behavior', () => {
     await wrapper.get('form').trigger('submit')
     await flushPromises()
 
-    const [variables] = mockCreateMutate.mock.calls.at(-1) as [any]
+    const variables = getLastCreatePostVariables()
     expect(variables.data.draftId).toBe(91)
   })
 
@@ -82,7 +82,7 @@ describe('PostForm draft behavior', () => {
     await wrapper.get('form').trigger('submit')
     await flushPromises()
 
-    const [variables] = mockUpdateMutate.mock.calls.at(-1) as [any]
+    const variables = getLastUpdatePostVariables()
     expect(variables.data.draftId).toBe(91)
   })
 })

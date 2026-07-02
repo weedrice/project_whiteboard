@@ -6,6 +6,8 @@ import {
     editorSetVideo,
     findButtonByText,
     findEditorModeButtons,
+    getLastCreatePostVariables,
+    getLastUpdatePostVariables,
     isBoardLoadingRef,
     isCreatePendingRef,
     isUpdatePendingRef,
@@ -229,7 +231,7 @@ describe('PostForm', () => {
 
         await wrapper.get('form').trigger('submit')
 
-        const [variables] = mockCreateMutate.mock.calls.at(-1) as [any]
+        const variables = getLastCreatePostVariables()
         expect(variables.data.fileIds).toEqual([157])
         expect(variables.data.contents).toContain('src="/api/v1/files/157"')
         expect(variables.data.contents).not.toContain('blob:https://noviis.kr/local')
@@ -411,7 +413,7 @@ describe('PostForm', () => {
         await wrapper.get('#title').setValue('After title')
         await wrapper.get('form').trigger('submit')
 
-        const [variables] = mockUpdateMutate.mock.calls.at(-1) as [any]
+        const variables = getLastUpdatePostVariables()
         expect(variables.data.fileIds).toEqual([31, 32])
         expect(variables.data.contents).toContain('src="/api/v1/files/32?size=sm"')
     })
@@ -440,7 +442,7 @@ describe('PostForm', () => {
         await wrapper.get('#title').setValue('After title')
         await wrapper.get('form').trigger('submit')
 
-        const [variables] = mockUpdateMutate.mock.calls.at(-1) as [any]
+        const variables = getLastUpdatePostVariables()
         expect(variables.data.categoryId).toBe(9)
     })
 
@@ -712,7 +714,7 @@ describe('PostForm', () => {
         await wrapper.get('#title').setValue('No category')
         await wrapper.get('form').trigger('submit')
 
-        const [variables] = mockUpdateMutate.mock.calls.at(-1) as [any]
+        const variables = getLastUpdatePostVariables()
         expect(variables.data).not.toHaveProperty('categoryId')
     })
 
@@ -743,7 +745,7 @@ describe('PostForm', () => {
         await wrapper.get('[data-testid=\"editor-input\"]').setValue('Body')
         await wrapper.get('form').trigger('submit')
 
-        const [variables] = mockCreateMutate.mock.calls.at(-1) as [any]
+        const variables = getLastCreatePostVariables()
         expect(variables.data.fileIds).toEqual([])
     })
 })

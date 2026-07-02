@@ -3,7 +3,7 @@ import { defineComponent, h } from 'vue'
 import {
     boardRef,
     findEditorModeButtons,
-    mockCreateMutate,
+    getLastCreatePostVariables,
     mountPostForm,
     resetPostFormTestState,
     unmountPostFormWrappers,
@@ -116,7 +116,7 @@ describe('PostForm editor mode', () => {
 
         await wrapper.get('form').trigger('submit')
 
-        const [variables] = mockCreateMutate.mock.calls.at(-1) as [any]
+        const variables = getLastCreatePostVariables()
         expect(variables.data.fileIds).toEqual([42])
     })
 

@@ -275,6 +275,22 @@ const routeState = {
 type TestCategory = { categoryId: number; name: string; minWriteRole?: string }
 type TestBoard = { allowNsfw?: boolean; isAdmin?: boolean; categories?: TestCategory[] }
 type TestUserOverrides = Partial<User>
+type PostFormMutationData = {
+    draftId?: number
+    fileIds?: number[]
+    categoryId?: number
+    [key: string]: unknown
+}
+
+type CreatePostMutationVariables = {
+    boardUrl: string
+    data: PostFormMutationData
+}
+
+type UpdatePostMutationVariables = {
+    postId: string
+    data: PostFormMutationData
+}
 
 const boardRef = ref<TestBoard | null>({ allowNsfw: false, isAdmin: false, categories: [] })
 const postRef = ref<unknown>(null)
@@ -351,6 +367,22 @@ const mockPostFormAuthStore = (
     } as ReturnType<typeof useAuthStore>)
 }
 
+const getLastCreatePostVariables = (): CreatePostMutationVariables => {
+    const call = mockCreateMutate.mock.calls.at(-1)
+    if (!call) {
+        throw new Error('Expected create post mutation to be called')
+    }
+    return call[0] as CreatePostMutationVariables
+}
+
+const getLastUpdatePostVariables = (): UpdatePostMutationVariables => {
+    const call = mockUpdateMutate.mock.calls.at(-1)
+    if (!call) {
+        throw new Error('Expected update post mutation to be called')
+    }
+    return call[0] as UpdatePostMutationVariables
+}
+
 export const unmountPostFormWrappers = () => {
     while (mountedWrappers.length > 0) {
         mountedWrappers.pop()?.unmount()
@@ -424,6 +456,8 @@ export {
     editorSetVideo,
     findButtonByText,
     findEditorModeButtons,
+    getLastCreatePostVariables,
+    getLastUpdatePostVariables,
     isBoardLoadingRef,
     isCreatePendingRef,
     isUpdatePendingRef,
