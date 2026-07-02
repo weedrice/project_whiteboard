@@ -17,6 +17,7 @@ import { formatDateOnly } from '@/utils/date'
 import { useConfirm } from '@/composables/useConfirm'
 import { usePageResponseState } from '@/composables/usePaginatedQueryState'
 import { useAdminUserListState } from '@/composables/useAdminUserListState'
+import type { AdminUserFilterForm } from '@/composables/useAdminUserListState'
 import type { User } from '@/types'
 import {
   canChangeAdminUserStatus,
@@ -74,6 +75,10 @@ function getRoleLabel(role: string) {
   return getAdminUserRoleLabel(t, role)
 }
 
+function updateFilterForm(field: keyof AdminUserFilterForm, value: string) {
+  filterForm[field] = value
+}
+
 function getStatusActionLabel(status: AdminUserMutableStatus) {
   return getAdminUserStatusActionLabel(t, status)
 }
@@ -115,6 +120,7 @@ const columns = computed(() => [
         :get-role-label="getRoleLabel"
         @search="applyFilters"
         @reset="resetFilters"
+        @update-filter="updateFilterForm"
       />
     </template>
 
