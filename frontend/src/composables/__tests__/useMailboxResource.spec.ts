@@ -199,4 +199,15 @@ describe('useMailboxResource', () => {
         expect(resource.isReplyModalOpen.value).toBe(false)
         expect(mocks.toastAdd).toHaveBeenCalledWith('user.message.blockedByUser', 'error')
     })
+
+    it('waits for the message list refresh after deleting selected messages', async () => {
+        const { resource } = mountMailboxResource()
+
+        await resource.deleteSelectedMessages()
+
+        expect(mocks.confirm).toHaveBeenCalledWith('common.messages.confirmDelete')
+        expect(messageApi.deleteMessages).toHaveBeenCalledWith([1])
+        expect(mocks.toastAdd).toHaveBeenCalledWith('common.messages.deleteSuccess', 'success')
+        expect(mocks.fetchMessages).toHaveBeenCalledTimes(2)
+    })
 })

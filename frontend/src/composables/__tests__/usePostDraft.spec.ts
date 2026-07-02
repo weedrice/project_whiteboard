@@ -54,14 +54,14 @@ function mountComposable(payloadRef = ref({
     contents: 'Draft body',
     fileIds: [7],
     originalPostId: undefined as number | undefined,
-}), storageKeyRef = ref('noviis:test:draft')) {
+}), storageKeyRef = ref('noviis:test:draft'), enabledRef = ref(true)) {
     const appliedDrafts: DraftRecoverySnapshot[] = []
     let composable: ReturnType<typeof usePostDraft> | null = null
 
     const TestHarness = defineComponent({
         setup() {
             composable = usePostDraft({
-                enabled: ref(true),
+                enabled: enabledRef,
                 storageKey: storageKeyRef,
                 buildPayload: () => payloadRef.value,
                 applyDraft: (draft) => appliedDrafts.push(draft),
@@ -436,6 +436,18 @@ describe('usePostDraft', () => {
 
         expect(mocks.deleteDraftMutateAsync).toHaveBeenCalledWith(91)
         expect(Storage.get('noviis:test:draft')).toBeNull()
+    })
+
+    it('cancels a pending autosave when drafts are disabled', async () => {
+        const enabled = ref(true)
+        const { composable } = mountComposable(undefined, ref('noviis:test:draft'), enabled)
+
+        composable.scheduleAutosave()
+        enabled.value = false
+        await nextTick()
+        await vi.advanceTimersByTimeAsync(1500)
+
+        expect(mocks.saveDraftMutateAsync).not.toHaveBeenCalled()
     })
 
     it('preserves local recovery state when published draft cleanup fails', async () => {

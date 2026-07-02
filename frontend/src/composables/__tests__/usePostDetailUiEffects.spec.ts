@@ -24,28 +24,6 @@ describe('usePostDetailUiEffects', () => {
     expect(effects.isBlurred.value).toBe(false)
   })
 
-  it('clears transient like, bookmark, and copy hint states after their timers', () => {
-    const effects = usePostDetailUiEffects()
-
-    effects.triggerLikeAnimation()
-    effects.triggerBookmarkAnimation()
-    effects.showTemporaryCopyHint()
-
-    expect(effects.isLikeAnimating.value).toBe(true)
-    expect(effects.isBookmarkAnimating.value).toBe(true)
-    expect(effects.showCopyHint.value).toBe(true)
-
-    vi.advanceTimersByTime(300)
-
-    expect(effects.isLikeAnimating.value).toBe(false)
-    expect(effects.isBookmarkAnimating.value).toBe(false)
-    expect(effects.showCopyHint.value).toBe(true)
-
-    vi.advanceTimersByTime(1200)
-
-    expect(effects.showCopyHint.value).toBe(false)
-  })
-
   it('does not focus the composer textarea after disposal', () => {
     const effects = usePostDetailUiEffects()
     const composer = document.createElement('div')

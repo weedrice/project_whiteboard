@@ -1,4 +1,4 @@
-import { onMounted, onUnmounted, toValue, type MaybeRefOrGetter } from 'vue'
+import { onMounted, onUnmounted, toValue, watchEffect, type MaybeRefOrGetter, type WatchStopHandle } from 'vue'
 
 type EventListenerTarget = EventTarget | null | undefined
 type EventListenerLifecycleOptions = {
@@ -13,9 +13,10 @@ export function useEventListener<TEvent extends Event = Event>(
   lifecycleOptions: EventListenerLifecycleOptions = {},
 ) {
   let currentTarget: EventTarget | null = null
+  let stopWatchingTarget: WatchStopHandle | null = null
   const normalizedListener = listener as EventListenerOrEventListenerObject
 
-  const stop = () => {
+  const detach = () => {
     if (!currentTarget) {
       return
     }
@@ -28,19 +29,38 @@ export function useEventListener<TEvent extends Event = Event>(
     currentTarget = null
   }
 
-  const start = () => {
+  const bindCurrentTarget = () => {
     const nextTarget = toValue(target)
-    if (!nextTarget || currentTarget === nextTarget) {
+    if (!nextTarget) {
+      detach()
       return
     }
 
-    stop()
+    if (currentTarget === nextTarget) {
+      return
+    }
+
+    detach()
     if (options === undefined) {
       nextTarget.addEventListener(type, normalizedListener)
     } else {
       nextTarget.addEventListener(type, normalizedListener, options)
     }
     currentTarget = nextTarget
+  }
+
+  const start = () => {
+    if (stopWatchingTarget) {
+      return
+    }
+
+    stopWatchingTarget = watchEffect(bindCurrentTarget)
+  }
+
+  const stop = () => {
+    stopWatchingTarget?.()
+    stopWatchingTarget = null
+    detach()
   }
 
   if (lifecycleOptions.autoStart ?? true) {

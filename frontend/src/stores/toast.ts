@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { onScopeDispose, ref } from 'vue'
 import { normalizeApiErrorMessage } from '@/utils/errorHandler'
 
-/** 동일 메시지 디듀핑: 이 시간(ms) 내 동일 메시지는 한 번만 표시 */
+/** Same error messages are shown only once within this window. */
 const SAME_MESSAGE_DEBOUNCE_MS = 5000
 
 export interface Toast {
@@ -16,8 +16,17 @@ export interface Toast {
 export const useToastStore = defineStore('toast', () => {
     const toasts = ref<Toast[]>([])
     let nextId = 0
-    /** type=error일 때 동일 메시지 마지막 표시 시각 (message -> timestamp) */
+    const removalTimers = new Map<number, ReturnType<typeof setTimeout>>()
+    /** Last display timestamp for debouncing error toasts. */
     const lastErrorMessageShownAt = new Map<string, number>()
+
+    const clearRemovalTimer = (id: number) => {
+        const timer = removalTimers.get(id)
+        if (!timer) return
+
+        clearTimeout(timer)
+        removalTimers.delete(id)
+    }
 
     const addToast = (message: string, type: Toast['type'] = 'info', duration = 3000, position: Toast['position'] = 'top-center') => {
         const displayMessage = type === 'error' ? normalizeApiErrorMessage(message) : message
@@ -44,18 +53,27 @@ export const useToastStore = defineStore('toast', () => {
         toasts.value.push(toast)
 
         if (duration > 0) {
-            setTimeout(() => {
+            const timer = setTimeout(() => {
+                removalTimers.delete(id)
                 removeToast(id)
             }, duration)
+            removalTimers.set(id, timer)
         }
     }
 
     const removeToast = (id: number) => {
+        clearRemovalTimer(id)
         const index = toasts.value.findIndex(t => t.id === id)
         if (index !== -1) {
             toasts.value.splice(index, 1)
         }
     }
+
+    onScopeDispose(() => {
+        removalTimers.forEach((timer) => clearTimeout(timer))
+        removalTimers.clear()
+        lastErrorMessageShownAt.clear()
+    })
 
     return {
         toasts,

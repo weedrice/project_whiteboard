@@ -1,5 +1,5 @@
 import { mount, type VueWrapper } from '@vue/test-utils'
-import { defineComponent, h } from 'vue'
+import { defineComponent, h, nextTick, ref } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useEventListener } from '../useEventListener'
 
@@ -89,5 +89,28 @@ describe('useEventListener', () => {
     dispatchKey()
 
     expect(listener).not.toHaveBeenCalled()
+  })
+
+  it('rebinds the listener when a reactive target changes', async () => {
+    const listener = vi.fn()
+    const firstTarget = new EventTarget()
+    const secondTarget = new EventTarget()
+    const target = ref<EventTarget | null>(firstTarget)
+    const Harness = defineComponent({
+      setup() {
+        useEventListener(target, 'change', listener)
+        return () => h('div')
+      },
+    })
+
+    mountedWrappers.push(mount(Harness))
+    firstTarget.dispatchEvent(new Event('change'))
+
+    target.value = secondTarget
+    await nextTick()
+    firstTarget.dispatchEvent(new Event('change'))
+    secondTarget.dispatchEvent(new Event('change'))
+
+    expect(listener).toHaveBeenCalledTimes(2)
   })
 })

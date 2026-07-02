@@ -166,7 +166,7 @@ export function useMailboxResource() {
             const { data } = await messageApi.deleteMessages(selectedMessages.value)
             if (data.success) {
                 toastStore.addToast(t('common.messages.deleteSuccess'), 'success')
-                fetchMessages()
+                await fetchMessages()
             }
         } catch (error) {
             logger.error('Failed to delete messages:', error)

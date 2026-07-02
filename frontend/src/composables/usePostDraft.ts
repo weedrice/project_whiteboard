@@ -1,4 +1,4 @@
-import { computed, onUnmounted, ref, type Ref } from 'vue'
+import { computed, onUnmounted, ref, watch, type Ref } from 'vue'
 import { isAxiosError } from 'axios'
 import type { PostDraftData } from '@/api/post'
 import { unwrapAxiosApiData } from '@/api/response'
@@ -205,6 +205,12 @@ export function usePostDraft(options: UsePostDraftOptions) {
         restoreSource.value = 'idle'
         hasRestoredDraft.value = false
     }
+
+    watch(options.enabled, (enabled) => {
+        if (!enabled) {
+            clearAutosaveTimer()
+        }
+    })
 
     const cleanupDraft = async () => {
         clearAutosaveTimer()

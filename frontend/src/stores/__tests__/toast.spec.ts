@@ -59,10 +59,12 @@ describe('Toast Store', () => {
             store.addToast('Temporary', 'info', 2000)
 
             expect(store.toasts).toHaveLength(1)
+            expect(vi.getTimerCount()).toBe(1)
 
             vi.advanceTimersByTime(2000)
 
             expect(store.toasts).toHaveLength(0)
+            expect(vi.getTimerCount()).toBe(0)
         })
 
         it('does not auto-remove toast if duration is 0', () => {
@@ -103,6 +105,18 @@ describe('Toast Store', () => {
 
             expect(store.toasts).toHaveLength(2)
             expect(store.toasts.map(t => t.message)).toEqual(['First', 'Third'])
+            expect(vi.getTimerCount()).toBe(2)
+        })
+
+        it('clears pending removal timers when the store is disposed', () => {
+            store.addToast('First')
+            store.addToast('Second')
+
+            expect(vi.getTimerCount()).toBe(2)
+
+            store.$dispose()
+
+            expect(vi.getTimerCount()).toBe(0)
         })
 
         it('does nothing if toast ID not found', () => {
