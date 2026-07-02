@@ -45,7 +45,7 @@ const {
           ? 'nv-global-search-mobile fixed inset-x-0 top-0 z-[100] h-16 px-4 shadow-sm border-b'
           : 'relative w-full max-w-[5rem] sm:max-w-xs md:max-w-md'
     ">
-    <!-- 모바일: 접혀 있을 때 돋보기만 -->
+    <!-- Mobile collapsed search button -->
     <button
       v-if="isMobile && !isExpanded"
       type="button"
@@ -54,7 +54,7 @@ const {
       :aria-label="$t('search.placeholder')">
       <Search class="h-5 w-5" />
     </button>
-    <!-- 모바일 확장 시: 상단 전체 검색 바 | 데스크톱: 검색 바 -->
+    <!-- Expanded mobile search bar and desktop search input -->
     <div v-else class="relative flex items-center gap-2 w-full min-w-0 flex-1">
       <div class="relative flex-1 min-w-0">
         <BaseInput
@@ -77,7 +77,7 @@ const {
           </template>
         </BaseInput>
       </div>
-      <!-- 모바일 확장 시 접기 버튼 -->
+      <!-- Mobile collapse button -->
       <button
         v-if="isMobile && isExpanded"
         type="button"
@@ -88,7 +88,7 @@ const {
       </button>
     </div>
 
-    <!-- Autocomplete Dropdown: 모바일 확장 시에만 body에 고정 배치(검색 바 밀림 방지) -->
+    <!-- Mobile autocomplete dropdown is teleported to avoid clipping. -->
     <Teleport to="body">
       <div
         v-if="showDropdown && isMobile && isExpanded"
@@ -105,7 +105,7 @@ const {
       </div>
     </Teleport>
 
-    <!-- 데스크톱/접힌 모바일: 컨테이너 안에서 absolute -->
+    <!-- Desktop and collapsed mobile autocomplete dropdown -->
     <div
       v-if="showDropdown && (!isMobile || !isExpanded)"
       class="nv-global-search-dropdown absolute top-full left-0 right-0 z-50 mt-1 w-full min-w-0 sm:min-w-[16rem] rounded-md shadow-lg border max-h-96 overflow-y-auto">

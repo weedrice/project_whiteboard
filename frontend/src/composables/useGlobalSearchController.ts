@@ -83,7 +83,6 @@ export function useGlobalSearchController({
 
   const handleClickOutside = (event: Event) => {
     if (!searchContainer.value || searchContainer.value.contains(event.target as Node)) return
-    if (isMobile.value && isExpanded.value && document.activeElement && searchContainer.value.contains(document.activeElement)) return
     showDropdown.value = false
     resetSelection()
     if (isMobile.value && isExpanded.value) collapse()

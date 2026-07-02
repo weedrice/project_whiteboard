@@ -143,6 +143,28 @@ describe('GlobalSearchBar', () => {
         expect(document.body.querySelector('#global-search-board-results-vue')?.getAttribute('role')).toBe('option')
     })
 
+    it('collapses expanded mobile search on outside click while input remains focused', async () => {
+        mobileViewport.value = true
+        const wrapper = mountSearchBar()
+
+        await wrapper.get('button[aria-label="search.placeholder"]').trigger('click')
+        await nextTick()
+
+        const input = wrapper.get('input')
+        await input.setValue('Vue')
+        await input.trigger('focus')
+        ;(input.element as HTMLInputElement).focus()
+
+        expect(document.body.querySelector('.nv-global-search-dropdown')).not.toBeNull()
+
+        document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+        await nextTick()
+
+        expect(document.body.querySelector('.nv-global-search-dropdown')).toBeNull()
+        expect(wrapper.find('input').exists()).toBe(false)
+        expect(wrapper.find('button[aria-label="search.placeholder"]').exists()).toBe(true)
+    })
+
     it('submits search with Enter when no board option is selected', async () => {
         const wrapper = mountSearchBar()
         const input = wrapper.get('input')
