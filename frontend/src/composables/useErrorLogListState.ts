@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
+import { optionalTrimmedText } from '@/utils/inputNormalization'
 import type { ErrorLogSearchParams } from '@/types'
 
 function toDateString(date: Date): string {
@@ -19,11 +20,6 @@ function getDefaultDateRange() {
         defaultEndDate: toDateString(today),
         defaultStartDate: toDateString(twoWeeksAgo)
     }
-}
-
-function toOptionalTrimmed(value: string) {
-    const trimmed = value.trim()
-    return trimmed || undefined
 }
 
 export function useErrorLogListState() {
@@ -56,11 +52,11 @@ export function useErrorLogListState() {
 
     function handleSearch() {
         filterParams.value = {
-            errorType: toOptionalTrimmed(filterErrorType.value),
+            errorType: optionalTrimmedText(filterErrorType.value),
             httpStatus: filterHttpStatus.value || undefined,
             isResolved: filterIsResolved.value || undefined,
-            startDate: toOptionalTrimmed(filterStartDate.value),
-            endDate: toOptionalTrimmed(filterEndDate.value)
+            startDate: optionalTrimmedText(filterStartDate.value),
+            endDate: optionalTrimmedText(filterEndDate.value)
         }
         resetPage()
     }

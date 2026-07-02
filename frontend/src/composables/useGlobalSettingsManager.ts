@@ -4,6 +4,7 @@ import { useAdmin } from '@/composables/useAdmin'
 import { useConfigEditor } from '@/composables/useConfigEditor'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToastStore } from '@/stores/toast'
+import { trimText } from '@/utils/inputNormalization'
 
 function createEmptyConfigForm() {
   return {
@@ -44,9 +45,9 @@ export function useGlobalSettingsManager() {
     const config = getDraft(key)
     if (!config) return
 
-    const value = config.value.trim()
+    const value = trimText(config.value)
     const description = typeof config.description === 'string'
-      ? config.description.trim()
+      ? trimText(config.description)
       : config.description
     if (!value) return
 
@@ -59,9 +60,9 @@ export function useGlobalSettingsManager() {
   }
 
   async function handleCreateConfig() {
-    const key = newConfig.key.trim()
-    const value = newConfig.value.trim()
-    const description = newConfig.description.trim()
+    const key = trimText(newConfig.key)
+    const value = trimText(newConfig.value)
+    const description = trimText(newConfig.description)
     if (!key || !value) return
 
     try {

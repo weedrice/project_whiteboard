@@ -1,4 +1,5 @@
 import { computed, reactive, ref, watch } from 'vue'
+import { trimText } from '@/utils/inputNormalization'
 
 const DEFAULT_SORT = 'createdAt,desc'
 
@@ -53,7 +54,7 @@ function toOptionalBoolean(value: string) {
 function normalizeFilters(filters: AdminUserFilterForm): AdminUserFilterForm {
   return {
     ...filters,
-    q: filters.q.trim(),
+    q: trimText(filters.q),
   }
 }
 

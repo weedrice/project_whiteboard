@@ -5,6 +5,7 @@ import { useFormSubmit } from '@/composables/useFormSubmit'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { uploadBoardIconFile, validateBoardIconFile } from '@/composables/useBoardIconUpload'
 import { validateRequiredBoardFields } from '@/utils/board'
+import { trimText } from '@/utils/inputNormalization'
 import type { BoardFormData } from '@/composables/useBoardFormState'
 
 interface UseBoardFormSubmitOptions {
@@ -19,12 +20,12 @@ interface UseBoardFormSubmitOptions {
 function toBoardSubmitPayload(form: BoardFormData, iconUrl: string): BoardFormData {
   return {
     ...form,
-    boardName: form.boardName.trim(),
-    boardUrl: form.boardUrl.trim(),
-    description: form.description.trim(),
-    iconUrl: iconUrl.trim(),
+    boardName: trimText(form.boardName),
+    boardUrl: trimText(form.boardUrl),
+    description: trimText(form.description),
+    iconUrl: trimText(iconUrl),
     agentUseYn: form.isPublic ? form.agentUseYn : false,
-    guidePrompt: form.guidePrompt.trim(),
+    guidePrompt: trimText(form.guidePrompt),
   }
 }
 

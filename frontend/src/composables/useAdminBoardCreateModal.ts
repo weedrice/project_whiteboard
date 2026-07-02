@@ -2,6 +2,7 @@ import { reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
 import { normalizeBoardUrlInput, validateRequiredBoardFields } from '@/utils/board'
+import { trimText } from '@/utils/inputNormalization'
 import type { BoardCreateData } from '@/types'
 
 type CreateBoard = (data: BoardCreateData) => Promise<unknown>
@@ -53,10 +54,10 @@ export function useAdminBoardCreateModal(createBoard: CreateBoard) {
     try {
       await createBoard({
         ...createForm,
-        boardName: createForm.boardName.trim(),
-        description: (createForm.description ?? '').trim(),
-        iconUrl: (createForm.iconUrl ?? '').trim(),
-        guidePrompt: (createForm.guidePrompt ?? '').trim(),
+        boardName: trimText(createForm.boardName),
+        description: trimText(createForm.description),
+        iconUrl: trimText(createForm.iconUrl),
+        guidePrompt: trimText(createForm.guidePrompt),
       })
       toastStore.addToast(t('admin.boards.messages.created'), 'success')
       closeModal()
