@@ -70,7 +70,7 @@ export function normalizeConfigWritePayload(
   }
 
   if (Object.prototype.hasOwnProperty.call(input, 'description')) {
-    payload.description = trimText(input.description)
+    payload.description = input.description === undefined ? undefined : trimText(input.description)
   }
 
   return payload
