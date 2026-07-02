@@ -45,7 +45,9 @@ export function useGlobalSettingsManager() {
     if (!config) return
 
     const value = config.value.trim()
-    const description = config.description?.trim() ?? ''
+    const description = typeof config.description === 'string'
+      ? config.description.trim()
+      : config.description
     if (!value) return
 
     try {
