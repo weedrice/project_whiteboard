@@ -2,8 +2,8 @@ import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import type { AxiosRequestConfig } from 'axios'
 import { unwrapAxiosApiData } from '@/api/response'
 import { boardApi } from '@/api/board'
-import { boardQueryKeys } from '@/composables/boardQueryKeys'
-import { invalidateBoardListCaches } from '@/composables/boardCacheInvalidation'
+import { boardQueryKeys } from '@/features/board/queries/boardQueryKeys'
+import { invalidateBoardListCaches } from '@/features/board/queries/boardCacheInvalidation'
 import type { BoardCreateData, BoardUpdateData } from '@/types'
 
 export function useBoardMutations() {

@@ -1,13 +1,13 @@
 import { useBoardMutations } from '@/composables/useBoardMutations'
-import { useBoardQueries } from '@/composables/useBoardQueries'
+import { useBoardQueries } from '@/features/board/queries/useBoardQueries'
 
 export {
   boardDetailQueryKey,
   createBoardDetailQueryOptions,
   fetchBoardDetail,
   fetchBoardPosts,
-} from '@/composables/useBoardQueries'
-export type { BoardManagerCandidateParams, BoardPostParams } from '@/composables/useBoardQueries'
+} from '@/features/board/queries/useBoardQueries'
+export type { BoardManagerCandidateParams, BoardPostParams } from '@/features/board/queries/useBoardQueries'
 
 export function useBoard() {
   return {

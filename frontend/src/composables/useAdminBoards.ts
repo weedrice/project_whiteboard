@@ -2,13 +2,13 @@ import { useMutation, type QueryClient } from '@tanstack/vue-query'
 import { computed, type Ref } from 'vue'
 import { adminApi } from '@/api/admin'
 import { adminQueryKeys } from '@/features/admin/queries/adminQueryKeys'
-import { boardQueryKeys } from '@/composables/boardQueryKeys'
+import { boardQueryKeys } from '@/features/board/queries/boardQueryKeys'
 import {
     invalidateAdminBoardCaches,
     invalidateAdminBoardListCaches,
     invalidateAdminBoardManagerCache,
 } from '@/features/admin/queries/adminCacheInvalidation'
-import { invalidateBoardListCaches } from '@/composables/boardCacheInvalidation'
+import { invalidateBoardListCaches } from '@/features/board/queries/boardCacheInvalidation'
 import {
     callAdminApiWithOptionalConfig,
     useAdminDataQuery,

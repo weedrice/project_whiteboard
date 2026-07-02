@@ -1,0 +1,203 @@
+import { computed, type Ref } from 'vue'
+import { useQuery } from '@tanstack/vue-query'
+import type { AxiosRequestConfig } from 'axios'
+import { unwrapAxiosApiData } from '@/api/response'
+import { boardApi } from '@/api/board'
+import { userApi } from '@/api/user'
+import { searchApi } from '@/api/search'
+import { boardQueryKeys } from '@/features/board/queries/boardQueryKeys'
+import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
+import type { BoardDetail, BoardListItem, BoardManagerCandidate, PostSummary, SubscriptionBoardListItem } from '@/types'
+import { QUERY_STALE_TIME } from '@/utils/constants'
+import { optionalQuerySignal } from '@/utils/querySignal'
+
+export interface BoardPostParams {
+  page?: number
+  size?: number
+  categoryId?: number
+  minLikes?: number
+  sort?: string
+  q?: string
+  searchType?: string
+}
+
+export interface BoardManagerCandidateParams {
+  page?: number
+  size?: number
+  q?: string
+}
+
+export const boardDetailQueryKey = (boardUrl: string | Ref<string>) => boardQueryKeys.detail(boardUrl)
+
+export async function fetchBoardDetail(boardUrl: string, requestConfig?: AxiosRequestConfig) {
+  const response = requestConfig
+    ? await boardApi.getBoard(boardUrl, requestConfig)
+    : await boardApi.getBoard(boardUrl)
+  return unwrapAxiosApiData(response) as BoardDetail
+}
+
+export async function fetchBoardPosts(
+  boardUrl: string,
+  params: BoardPostParams,
+  isSearching = false,
+  requestConfig?: AxiosRequestConfig
+) {
+  if (isSearching) {
+    const { searchType, ...restParams } = params
+    const response = requestConfig
+      ? await searchApi.searchPosts({ ...restParams, searchType, boardUrl }, requestConfig)
+      : await searchApi.searchPosts({ ...restParams, searchType, boardUrl })
+
+    return unwrapAxiosApiData(response)
+  }
+
+  const response = requestConfig
+    ? await boardApi.getPosts(boardUrl, params, requestConfig)
+    : await boardApi.getPosts(boardUrl, params)
+
+  return unwrapAxiosApiData(response)
+}
+
+export const createBoardDetailQueryOptions = (boardUrl: string | Ref<string>, requestConfig?: AxiosRequestConfig) => ({
+  queryKey: boardDetailQueryKey(boardUrl),
+  queryFn: (context?: { signal?: AbortSignal }) => fetchBoardDetail(
+    typeof boardUrl === 'string' ? boardUrl : boardUrl.value,
+    optionalQuerySignal(requestConfig, context),
+  ),
+  staleTime: QUERY_STALE_TIME.SHORT,
+})
+
+const isVisibleSubscriptionBoard = (
+  board: SubscriptionBoardListItem
+): board is SubscriptionBoardListItem & BoardListItem =>
+  board.accessState === 'ACCESSIBLE'
+
+const callWithOptionalConfig = <T>(
+  config: AxiosRequestConfig | undefined,
+  requestWithConfig: (config: AxiosRequestConfig) => T,
+  requestWithoutConfig: () => T,
+) => (config ? requestWithConfig(config) : requestWithoutConfig())
+
+export function useBoardQueries() {
+  const useBoards = () => {
+    return useApiQuery<BoardListItem[]>({
+      queryKey: boardQueryKeys.all,
+      request: (context) => callWithOptionalConfig(
+        optionalQuerySignal(undefined, context),
+        (config) => boardApi.getBoards(config),
+        () => boardApi.getBoards(),
+      ),
+      staleTime: QUERY_STALE_TIME.MEDIUM,
+    })
+  }
+
+  const useSubscribedBoards = (size: number = 10, enabled?: Ref<boolean> | boolean) => {
+    const enabledValue = enabled !== undefined
+      ? (typeof enabled === 'boolean' ? computed(() => enabled) : enabled)
+      : computed(() => false)
+    return useApiPageQuery<SubscriptionBoardListItem, BoardListItem[]>({
+      queryKey: boardQueryKeys.subscriptionsBySize(size),
+      request: (context) => callWithOptionalConfig(
+        optionalQuerySignal(undefined, context),
+        (config) => userApi.getMySubscriptions({ size }, config),
+        () => userApi.getMySubscriptions({ size }),
+      ),
+      selectData: (page) => page.content.filter(isVisibleSubscriptionBoard),
+      staleTime: QUERY_STALE_TIME.MEDIUM,
+      enabled: enabledValue,
+      keepPreviousData: false,
+    })
+  }
+
+  const useBoardDetail = (
+    boardUrl: Ref<string>,
+    options: { requestConfig?: AxiosRequestConfig } & Record<string, unknown> = {}
+  ) => {
+    const { requestConfig, ...queryOptions } = options
+    return useQuery({
+      ...createBoardDetailQueryOptions(boardUrl, requestConfig),
+      enabled: computed(() => !!boardUrl.value),
+      ...queryOptions,
+    })
+  }
+
+  const useBoardPosts = (
+    boardUrl: Ref<string>,
+    params: Ref<BoardPostParams>,
+    isSearching?: Ref<boolean>,
+    enabled?: Ref<boolean>,
+    options: { requestConfig?: AxiosRequestConfig } & Record<string, unknown> = {}
+  ) => {
+    const { requestConfig, ...queryOptions } = options
+    return useQuery({
+      queryKey: boardQueryKeys.posts(boardUrl, params, isSearching),
+      queryFn: (context?: { signal?: AbortSignal }) => fetchBoardPosts(
+        boardUrl.value,
+        params.value,
+        Boolean(isSearching?.value),
+        optionalQuerySignal(requestConfig, context),
+      ),
+      enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
+      placeholderData: (previousData) => previousData,
+      ...queryOptions,
+    })
+  }
+
+  const useBoardNotices = (
+    boardUrl: Ref<string>,
+    enabled?: Ref<boolean>,
+    options: { requestConfig?: AxiosRequestConfig } & Record<string, unknown> = {}
+  ) => {
+    const { requestConfig, ...queryOptions } = options
+    return useApiQuery<PostSummary[]>({
+      queryKey: boardQueryKeys.notices(boardUrl),
+      request: (context) => callWithOptionalConfig(
+        optionalQuerySignal(requestConfig, context),
+        (config) => boardApi.getNotices(boardUrl.value, config),
+        () => boardApi.getNotices(boardUrl.value),
+      ),
+      enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
+      staleTime: QUERY_STALE_TIME.SHORT,
+      ...queryOptions,
+    })
+  }
+
+  const useBoardCategories = (boardUrl: Ref<string>, options = {}) => {
+    return useApiQuery({
+      queryKey: boardQueryKeys.categories(boardUrl),
+      request: (context) => callWithOptionalConfig(
+        optionalQuerySignal(undefined, context),
+        (config) => boardApi.getCategories(boardUrl.value, config),
+        () => boardApi.getCategories(boardUrl.value),
+      ),
+      enabled: computed(() => !!boardUrl.value),
+      ...options,
+    })
+  }
+
+  const useBoardManagerCandidates = (
+    boardUrl: Ref<string>,
+    params: Ref<BoardManagerCandidateParams>,
+    enabled?: Ref<boolean>
+  ) => {
+    return useApiPageQuery<BoardManagerCandidate>({
+      queryKey: boardQueryKeys.managerCandidates(boardUrl, params),
+      request: (context) => callWithOptionalConfig(
+        optionalQuerySignal(undefined, context),
+        (config) => boardApi.getBoardManagerCandidates(boardUrl.value, params.value, config),
+        () => boardApi.getBoardManagerCandidates(boardUrl.value, params.value),
+      ),
+      enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
+    })
+  }
+
+  return {
+    useBoards,
+    useSubscribedBoards,
+    useBoardDetail,
+    useBoardPosts,
+    useBoardNotices,
+    useBoardCategories,
+    useBoardManagerCandidates,
+  }
+}
