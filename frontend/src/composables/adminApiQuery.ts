@@ -38,6 +38,12 @@ function toAdminApiRequestConfig(signal?: AbortSignal): AdminApiRequestConfig | 
 const toConfigFromQueryContext = (context: QueryFunctionContext) =>
   toAdminApiRequestConfig(context?.signal)
 
+export const callAdminApiWithOptionalConfig = <T>(
+  config: AdminApiRequestConfig | undefined,
+  requestWithConfig: (config: AdminApiRequestConfig) => T,
+  requestWithoutConfig: () => T,
+) => (config ? requestWithConfig(config) : requestWithoutConfig())
+
 export function useAdminPageQuery<T>(
   queryKey: AdminQueryKey,
   fetcher: AdminPageFetcher<T>,

@@ -4,7 +4,7 @@ import { adminApi } from '@/api/admin'
 import { adminQueryKeys } from '@/composables/adminQueryKeys'
 import { invalidateAdminUserCaches } from '@/composables/adminCacheInvalidation'
 import {
-    type AdminApiRequestConfig,
+    callAdminApiWithOptionalConfig,
     useAdminDataQuery,
     useAdminNullableDataQuery,
     useAdminNullablePageQuery,
@@ -25,17 +25,11 @@ import type {
     User,
 } from '@/types'
 
-const withConfig = <T>(
-    config: AdminApiRequestConfig | undefined,
-    requestWithConfig: (config: AdminApiRequestConfig) => T,
-    requestWithoutConfig: () => T,
-) => (config ? requestWithConfig(config) : requestWithoutConfig())
-
 export function useAdminAccountManagement(queryClient: QueryClient) {
     const useAdmins = (params: Ref<{ page?: number, size?: number }>) => {
         return useAdminPageQuery<BoardAdminInfo>(
             adminQueryKeys.admins(params),
-            (config) => withConfig(
+            (config) => callAdminApiWithOptionalConfig(
                 config,
                 (requestConfig) => adminApi.getAdmins(params.value, requestConfig),
                 () => adminApi.getAdmins(params.value),
@@ -63,7 +57,7 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
     const useSuperAdmins = () => {
         return useAdminDataQuery<SuperAdminInfo[]>(
             adminQueryKeys.superAdmins,
-            (config) => withConfig(config, adminApi.getSuperAdmin, () => adminApi.getSuperAdmin()),
+            (config) => callAdminApiWithOptionalConfig(config, adminApi.getSuperAdmin, () => adminApi.getSuperAdmin()),
         )
     }
 
@@ -80,7 +74,7 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
     const useUsers = (params: Ref<UserSearchParams>, enabled?: Ref<boolean>) => {
         return useAdminPageQuery<User>(
             adminQueryKeys.users(params),
-            (config) => withConfig(
+            (config) => callAdminApiWithOptionalConfig(
                 config,
                 (requestConfig) => adminApi.getUsers(params.value, requestConfig),
                 () => adminApi.getUsers(params.value),
@@ -106,7 +100,7 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
             adminQueryKeys.userDetail(userId),
             (config) => userId.value == null
                 ? null
-                : withConfig(
+                : callAdminApiWithOptionalConfig(
                     config,
                     (requestConfig) => adminApi.getUserDetail(userId.value as number, requestConfig),
                     () => adminApi.getUserDetail(userId.value as number),
@@ -122,7 +116,7 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
             adminQueryKeys.userPosts(userId, params),
             (config) => userId.value == null
                 ? null
-                : withConfig(
+                : callAdminApiWithOptionalConfig(
                     config,
                     (requestConfig) => adminApi.getUserPosts(userId.value as number, params.value, requestConfig),
                     () => adminApi.getUserPosts(userId.value as number, params.value),
@@ -138,7 +132,7 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
             adminQueryKeys.userComments(userId, params),
             (config) => userId.value == null
                 ? null
-                : withConfig(
+                : callAdminApiWithOptionalConfig(
                     config,
                     (requestConfig) => adminApi.getUserComments(userId.value as number, params.value, requestConfig),
                     () => adminApi.getUserComments(userId.value as number, params.value),
@@ -154,7 +148,7 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
             adminQueryKeys.userSubscriptions(userId, params),
             (config) => userId.value == null
                 ? null
-                : withConfig(
+                : callAdminApiWithOptionalConfig(
                     config,
                     (requestConfig) => adminApi.getUserSubscriptions(userId.value as number, params.value, requestConfig),
                     () => adminApi.getUserSubscriptions(userId.value as number, params.value),

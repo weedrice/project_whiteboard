@@ -2,7 +2,7 @@ import { useMutation, type QueryClient } from '@tanstack/vue-query'
 import type { Ref } from 'vue'
 import { adminApi } from '@/api/admin'
 import { adminQueryKeys } from '@/composables/adminQueryKeys'
-import { type AdminApiRequestConfig, useAdminPageQuery } from '@/composables/adminApiQuery'
+import { callAdminApiWithOptionalConfig, useAdminPageQuery } from '@/composables/adminApiQuery'
 import type {
     IpBlockData,
     ReportResolveData,
@@ -10,17 +10,11 @@ import type {
 } from '@/composables/adminComposableTypes'
 import type { IpBlock, Report } from '@/types'
 
-const withConfig = <T>(
-    config: AdminApiRequestConfig | undefined,
-    requestWithConfig: (config: AdminApiRequestConfig) => T,
-    requestWithoutConfig: () => T,
-) => (config ? requestWithConfig(config) : requestWithoutConfig())
-
 export function useAdminModeration(queryClient: QueryClient) {
     const useReports = (params: Ref<ReportSearchParams>) => {
         return useAdminPageQuery<Report>(
             adminQueryKeys.reports(params),
-            (config) => withConfig(
+            (config) => callAdminApiWithOptionalConfig(
                 config,
                 (requestConfig) => adminApi.getReports(params.value, requestConfig),
                 () => adminApi.getReports(params.value),
@@ -38,7 +32,7 @@ export function useAdminModeration(queryClient: QueryClient) {
     const useIpBlocks = (params: Ref<{ page?: number, size?: number }>) => {
         return useAdminPageQuery<IpBlock>(
             adminQueryKeys.ipBlocks(params),
-            (config) => withConfig(
+            (config) => callAdminApiWithOptionalConfig(
                 config,
                 (requestConfig) => adminApi.getIpBlocks(params.value, requestConfig),
                 () => adminApi.getIpBlocks(params.value),

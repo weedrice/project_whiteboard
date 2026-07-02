@@ -4,7 +4,7 @@ import { adminApi } from '@/api/admin'
 import { unwrapAxiosApiData } from '@/api/response'
 import { adminQueryKeys } from '@/composables/adminQueryKeys'
 import {
-    type AdminApiRequestConfig,
+    callAdminApiWithOptionalConfig,
     useAdminDataQuery,
     useAdminNullableDataQuery,
     useAdminPageQuery,
@@ -17,17 +17,11 @@ import type {
     ErrorLogStats,
 } from '@/types'
 
-const withConfig = <T>(
-    config: AdminApiRequestConfig | undefined,
-    requestWithConfig: (config: AdminApiRequestConfig) => T,
-    requestWithoutConfig: () => T,
-) => (config ? requestWithConfig(config) : requestWithoutConfig())
-
 export function useAdminSystem(queryClient: QueryClient) {
     const useConfigs = () => {
         return useAdminDataQuery(
             adminQueryKeys.configs,
-            (config) => withConfig(config, adminApi.getConfigs, () => adminApi.getConfigs()),
+            (config) => callAdminApiWithOptionalConfig(config, adminApi.getConfigs, () => adminApi.getConfigs()),
         )
     }
 
@@ -55,14 +49,14 @@ export function useAdminSystem(queryClient: QueryClient) {
     const useDashboardStats = () => {
         return useAdminDataQuery(
             adminQueryKeys.stats,
-            (config) => withConfig(config, adminApi.getDashboardStats, () => adminApi.getDashboardStats()),
+            (config) => callAdminApiWithOptionalConfig(config, adminApi.getDashboardStats, () => adminApi.getDashboardStats()),
         )
     }
 
     const useErrorLogs = (params: Ref<ErrorLogSearchParams>) => {
         return useAdminPageQuery<ErrorLogListItem>(
             adminQueryKeys.errorLogs(params),
-            (config) => withConfig(
+            (config) => callAdminApiWithOptionalConfig(
                 config,
                 (requestConfig) => adminApi.getErrorLogs(params.value, requestConfig),
                 () => adminApi.getErrorLogs(params.value),
@@ -81,7 +75,7 @@ export function useAdminSystem(queryClient: QueryClient) {
                         return null
                     }
 
-                    return withConfig(
+                    return callAdminApiWithOptionalConfig(
                         config,
                         (requestConfig) => adminApi.getErrorLog(errorLogId.value as number, requestConfig),
                         () => adminApi.getErrorLog(errorLogId.value as number),
@@ -95,7 +89,7 @@ export function useAdminSystem(queryClient: QueryClient) {
             mutateAsync: (selectedErrorLogId: number) => queryClient.fetchQuery({
                 queryKey: adminQueryKeys.errorLogDetailById(selectedErrorLogId),
                 queryFn: async ({ signal }) => {
-                    const response = withConfig(
+                    const response = callAdminApiWithOptionalConfig(
                         signal ? { signal } : undefined,
                         (requestConfig) => adminApi.getErrorLog(selectedErrorLogId, requestConfig),
                         () => adminApi.getErrorLog(selectedErrorLogId),
@@ -120,7 +114,7 @@ export function useAdminSystem(queryClient: QueryClient) {
     const useErrorLogStats = () => {
         return useAdminDataQuery<ErrorLogStats>(
             adminQueryKeys.errorLogStats,
-            (config) => withConfig(config, adminApi.getErrorLogStats, () => adminApi.getErrorLogStats())
+            (config) => callAdminApiWithOptionalConfig(config, adminApi.getErrorLogStats, () => adminApi.getErrorLogStats())
         )
     }
 

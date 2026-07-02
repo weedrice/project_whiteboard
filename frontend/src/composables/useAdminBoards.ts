@@ -6,7 +6,7 @@ import { boardQueryKeys } from '@/composables/boardQueryKeys'
 import { invalidateAdminBoardCaches } from '@/composables/adminCacheInvalidation'
 import { invalidateBoardListCaches } from '@/composables/boardCacheInvalidation'
 import {
-    type AdminApiRequestConfig,
+    callAdminApiWithOptionalConfig,
     useAdminDataQuery,
     useAdminNullableDataQuery,
 } from '@/composables/adminApiQuery'
@@ -20,17 +20,11 @@ import type {
     BoardAdminInfo,
 } from '@/types'
 
-const withConfig = <T>(
-    config: AdminApiRequestConfig | undefined,
-    requestWithConfig: (config: AdminApiRequestConfig) => T,
-    requestWithoutConfig: () => T,
-) => (config ? requestWithConfig(config) : requestWithoutConfig())
-
 export function useAdminBoardManagement(queryClient: QueryClient) {
     const useAdminBoards = () => {
         return useAdminDataQuery<AdminBoard[]>(
             adminQueryKeys.boards,
-            (config) => withConfig(config, adminApi.getBoards, () => adminApi.getBoards()),
+            (config) => callAdminApiWithOptionalConfig(config, adminApi.getBoards, () => adminApi.getBoards()),
         )
     }
 
@@ -76,7 +70,7 @@ export function useAdminBoardManagement(queryClient: QueryClient) {
             boardManagerQueryKey,
             (config) => !boardId.value
                 ? null
-                : withConfig(
+                : callAdminApiWithOptionalConfig(
                     config,
                     (requestConfig) => adminApi.getBoardManager(boardId.value as number, requestConfig),
                     () => adminApi.getBoardManager(boardId.value as number),
