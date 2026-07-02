@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { FileText, MessageSquare } from 'lucide-vue-next'
 import PostList from '@/components/board/PostList.vue'
@@ -20,21 +20,18 @@ const { t } = useI18n()
 
 const isEditModalOpen = ref(false)
 
-
-
-
 const {
   profile,
   myAgents,
   myPosts,
   myPostsTotalCount,
+  myPostsTotalPages,
   myPostsCurrentPage,
   myPostsSize,
   myPostsSort,
   myCommentItems,
-  myCommentsTotalCount,
+  myCommentsTotalPages,
   myCommentsCurrentPage,
-  myCommentsSize,
   isLoading,
   error,
   myPostsError,
@@ -60,10 +57,6 @@ const {
   closeInquiryModal,
   deleteInquiryPost
 } = useInquiryDetailModal(fetchMyPosts)
-
-const myPostsTotalPages = computed(() => Math.ceil(myPostsTotalCount.value / myPostsSize.value))
-const myCommentsTotalPages = computed(() => Math.ceil(myCommentsTotalCount.value / myCommentsSize.value))
-
 
 const {
   isVerifyModalOpen,

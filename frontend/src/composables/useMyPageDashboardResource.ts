@@ -1,15 +1,15 @@
 import { useQueryClient } from '@tanstack/vue-query'
-import { computed, ref, type Ref } from 'vue'
+import { computed, ref } from 'vue'
 import { userApi, type UserAgent } from '@/api/user'
+import { useDashboardPagination } from '@/composables/useDashboardPagination'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { useLatestAsyncTask } from '@/composables/useLatestAsyncTask'
 import { createMyAgentsQueryOptions, createMyProfileQueryOptions } from '@/composables/useUser'
 import { userQueryKeys } from '@/composables/userQueryKeys'
 import { useAuthStore } from '@/stores/auth'
-import type { ApiResponse, MyComment, PageResponse, PostSummary, User } from '@/types'
+import type { MyComment, PostSummary, User } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import { getListLoadErrorMessage } from '@/utils/listLoadError'
-import logger from '@/utils/logger'
 
 type Translate = (key: string) => string
 
@@ -20,80 +20,6 @@ export interface MyCommentListItem {
   postLink: string | null
   postTitle: string
   boardLabel: string
-}
-
-interface DashboardPaginationParams {
-  page?: number
-  size?: number
-  sort?: string
-  [key: string]: unknown
-}
-
-interface DashboardPaginationFetchContext {
-  signal: AbortSignal
-}
-
-function useDashboardPagination<T>(
-  fetchFn: (
-    params: DashboardPaginationParams,
-    context: DashboardPaginationFetchContext,
-  ) => Promise<ApiResponse<PageResponse<T>>>,
-  initialParams: DashboardPaginationParams,
-  t: Translate,
-) {
-  const page = ref(initialParams.page ?? 0)
-  const size = ref(initialParams.size ?? 20)
-  const sort = ref<string | undefined>(initialParams.sort)
-  const items = ref<T[]>([]) as Ref<T[]>
-  const totalCount = ref(0)
-  const totalPages = ref(0)
-  const failedMessage = getListLoadErrorMessage(t)
-  const fetchTask = useLatestAsyncTask<string>({
-    getErrorValue: () => failedMessage,
-    onError: (err) => logger.error('Failed to fetch paginated data:', err),
-  })
-  const { loading, error } = fetchTask
-
-  const fetch = async (additionalParams: Record<string, unknown> = {}) => {
-    const result = await fetchTask.run(({ signal }) => {
-      const params: DashboardPaginationParams = {
-        page: page.value,
-        size: size.value,
-        ...(sort.value && { sort: sort.value }),
-        ...additionalParams,
-      }
-
-      return fetchFn(params, { signal })
-    })
-
-    if (!result) return
-
-    if (result.success) {
-      items.value = result.data.content
-      totalCount.value = result.data.totalElements
-      totalPages.value = result.data.totalPages
-    } else {
-      error.value = failedMessage
-    }
-  }
-
-  const handlePageChange = (newPage: number) => {
-    page.value = newPage
-    return fetch()
-  }
-
-  return {
-    page,
-    size,
-    sort,
-    items,
-    totalCount,
-    totalPages,
-    loading,
-    error,
-    fetch,
-    handlePageChange,
-  }
 }
 
 export function useMyPageDashboardResource(t: Translate) {
@@ -131,12 +57,14 @@ export function useMyPageDashboardResource(t: Translate) {
 
   const myPosts = myPostsPagination.items
   const myPostsTotalCount = myPostsPagination.totalCount
+  const myPostsTotalPages = myPostsPagination.totalPages
   const myPostsCurrentPage = myPostsPagination.page
   const myPostsSize = myPostsPagination.size
   const myPostsSort = myPostsPagination.sort
 
   const myComments = myCommentsPagination.items
   const myCommentsTotalCount = myCommentsPagination.totalCount
+  const myCommentsTotalPages = myCommentsPagination.totalPages
   const myCommentsCurrentPage = myCommentsPagination.page
   const myCommentsSize = myCommentsPagination.size
   const myCommentItems = computed<MyCommentListItem[]>(() => myComments.value.map((comment) => ({
@@ -256,12 +184,14 @@ export function useMyPageDashboardResource(t: Translate) {
     myAgents,
     myPosts,
     myPostsTotalCount,
+    myPostsTotalPages,
     myPostsCurrentPage,
     myPostsSize,
     myPostsSort,
     myComments,
     myCommentItems,
     myCommentsTotalCount,
+    myCommentsTotalPages,
     myCommentsCurrentPage,
     myCommentsSize,
     isLoading,

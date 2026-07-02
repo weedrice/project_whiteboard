@@ -133,7 +133,9 @@ describe('useMyPageDashboardResource', () => {
     expect(resource.profile.value?.email).toBe('me@example.com')
     expect(resource.myAgents.value).toHaveLength(1)
     expect(resource.myPostsTotalCount.value).toBe(1)
+    expect(resource.myPostsTotalPages.value).toBe(1)
     expect(resource.myCommentsTotalCount.value).toBe(1)
+    expect(resource.myCommentsTotalPages.value).toBe(1)
     expect(resource.myCommentItems.value).toEqual([{
       commentId: 3,
       content: 'Comment',
