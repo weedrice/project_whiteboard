@@ -53,7 +53,7 @@ export const useConfigStore = defineStore('config', {
 
     actions: {
         async fetchConfig(key: string) {
-            if (this.configs[key]) return this.configs[key]
+            if (Object.prototype.hasOwnProperty.call(this.configs, key)) return this.configs[key]
 
             return withConfigLoading(this, `Failed to fetch config ${key}:`, async () => {
                 const { data } = await configApi.getConfig(key)

@@ -38,6 +38,16 @@ describe('Config Store', () => {
         expect(store.configs['site.name']).toBe('Noviis')
     })
 
+    it('uses cached config values even when the value is an empty string', async () => {
+        const store = useConfigStore()
+        store.configs['site.tagline'] = ''
+
+        const value = await store.fetchConfig('site.tagline')
+
+        expect(value).toBe('')
+        expect(configApi.getConfig).not.toHaveBeenCalled()
+    })
+
     it('merges public config DTO list into keyed store state', async () => {
         vi.mocked(configApi.getPublicConfigs).mockResolvedValue(apiSuccessDataResponse<typeof configApi.getPublicConfigs>([
             { key: 'site.name', value: 'Noviis' },

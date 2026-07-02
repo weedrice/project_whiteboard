@@ -24,4 +24,10 @@ describe('configApi', () => {
         expect(apiMock.get).toHaveBeenNthCalledWith(2, '/admin/configs')
         expect(apiMock.get).toHaveBeenNthCalledWith(3, '/configs/public')
     })
+
+    it('encodes config keys before appending them to the path', () => {
+        configApi.getConfig('site/name value')
+
+        expect(apiMock.get).toHaveBeenCalledWith('/configs/site%2Fname%20value')
+    })
 })
