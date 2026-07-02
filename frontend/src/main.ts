@@ -17,6 +17,7 @@ import { useThemeStore } from '@/stores/theme'
 import { useToastStore } from '@/stores/toast'
 import logger from '@/utils/logger'
 import { validateEnv } from '@/utils/env'
+import { createVueErrorLogPayload } from '@/utils/vueErrorLog'
 
 validateEnv()
 
@@ -52,9 +53,7 @@ app.use(router)
 app.use(i18n)
 
 app.config.errorHandler = (err, instance, info) => {
-    logger.error('Global Error Handler:', err)
-    logger.error('Vue Instance:', instance)
-    logger.error('Error Info:', info)
+    logger.error('Global Error Handler:', createVueErrorLogPayload(err, instance, info))
 }
 
 app.mount('#app')

@@ -10,6 +10,15 @@ interface Metric {
 
 type ReportHandler = (metric: Metric) => void
 
+export function serializeMetric(metric: Metric) {
+    return {
+        name: metric.name,
+        value: metric.value,
+        delta: metric.delta,
+        id: metric.id,
+    }
+}
+
 export function reportWebVitals(onPerfEntry?: ReportHandler) {
     if (onPerfEntry && onPerfEntry instanceof Function) {
         import('web-vitals').then(({ onCLS, onFCP, onLCP, onTTFB, onINP }) => {
@@ -25,9 +34,15 @@ export function reportWebVitals(onPerfEntry?: ReportHandler) {
 }
 
 export function logMetric(metric: Metric) {
-    logger.info(`[Web Vitals] ${metric.name}:`, {
-        value: metric.value,
-        delta: metric.delta,
-        id: metric.id
-    })
+    const endpoint = import.meta.env.VITE_WEB_VITALS_ENDPOINT?.trim()
+    const payload = serializeMetric(metric)
+
+    if (endpoint && typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+        navigator.sendBeacon(endpoint, new Blob([JSON.stringify(payload)], { type: 'application/json' }))
+        return
+    }
+
+    if (import.meta.env.DEV) {
+        logger.info(`[Web Vitals] ${metric.name}:`, payload)
+    }
 }
