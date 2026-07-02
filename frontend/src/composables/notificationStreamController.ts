@@ -6,22 +6,18 @@ import {
     normalizeNotification as normalizeNotificationResponse,
     type NotificationRaw,
 } from '@/api/notification'
-import type { Notification } from '@/types'
 import logger from '@/utils/logger'
 import { useAuthStore } from '@/stores/auth'
 import { isCancellationError } from '@/utils/cancellationError'
-import {
-    notificationsQueryKey,
-    notificationUnreadCountQueryKey,
-} from '@/composables/notificationQueryKeys'
 import { consumeSseStream } from '@/composables/notificationSseStream'
-import { createRecentNotificationIdCache } from '@/composables/recentNotificationIdCache'
 import {
-    getNotificationPageNumber,
-    getNotificationReconnectDelay,
-    isNotificationPage,
     shouldStopNotificationReconnectAfterRefresh,
 } from '@/composables/notificationStreamStateModel'
+import {
+    applyIncomingNotificationToCache,
+    getRawNotificationId,
+} from '@/composables/notificationCacheUpdater'
+import { NotificationStreamRuntime } from '@/composables/notificationReconnectRuntime'
 
 function isAbortError(error: unknown): boolean {
     return isCancellationError(error, {
@@ -30,14 +26,8 @@ function isAbortError(error: unknown): boolean {
     })
 }
 
-const RECENT_NOTIFICATION_ID_LIMIT = 200
 const RECONNECT_AFTER_REFRESH_DELAY_MS = 1000
 const RECONNECT_AFTER_FAILURE_DELAY_MS = 5000
-const MAX_RECONNECT_DELAY_MS = 60000
-
-function defaultIsBrowserOnline(): boolean {
-    return typeof navigator === 'undefined' ? true : navigator.onLine
-}
 
 export interface NotificationStreamControllerDependencies {
     openStream?: typeof notificationApi.openStream
@@ -53,119 +43,14 @@ function getErrorStatus(error: unknown): number | null {
     return typeof response?.status === 'number' ? response.status : null
 }
 
-class NotificationStreamRuntime {
-    readonly state = {
-        streamAbortController: null as AbortController | null,
-        reconnectTimer: null as ReturnType<typeof setTimeout> | null,
-        isConnecting: false,
-        closedManually: false,
-        reconnectAttempt: 0,
-        reconnectWhenOnline: false,
-        onlineListenerAttached: false,
-        recentNotificationIds: createRecentNotificationIdCache(RECENT_NOTIFICATION_ID_LIMIT),
-    }
-
-    private reconnectCallback: (() => void) | null = null
-    private isBrowserOnlineProvider = defaultIsBrowserOnline
-
-    reset() {
-        this.state.closedManually = true
-
-        if (this.state.reconnectTimer) {
-            clearTimeout(this.state.reconnectTimer)
-            this.state.reconnectTimer = null
-        }
-
-        if (this.state.streamAbortController) {
-            this.state.streamAbortController.abort()
-            this.state.streamAbortController = null
-        }
-
-        this.state.isConnecting = false
-        this.state.reconnectAttempt = 0
-        this.state.reconnectWhenOnline = false
-        if (typeof window !== 'undefined' && this.state.onlineListenerAttached) {
-            window.removeEventListener('online', this.handleBrowserOnline)
-        }
-        this.state.onlineListenerAttached = false
-        this.reconnectCallback = null
-        this.state.recentNotificationIds.clear()
-        this.isBrowserOnlineProvider = defaultIsBrowserOnline
-    }
-
-    setOnlineProvider(provider?: () => boolean) {
-        this.isBrowserOnlineProvider = provider ?? defaultIsBrowserOnline
-    }
-
-    isBrowserOnline() {
-        return this.isBrowserOnlineProvider()
-    }
-
-    setReconnectCallback(callback: () => void) {
-        this.reconnectCallback = callback
-    }
-
-    reconnect() {
-        this.reconnectCallback?.()
-    }
-
-    handleBrowserOnline = () => {
-        if (this.state.closedManually || !this.state.reconnectWhenOnline) return
-        this.state.reconnectWhenOnline = false
-        scheduleReconnect(0)
-    }
-}
-
 const notificationStreamRuntime = new NotificationStreamRuntime()
 
 export function resetNotificationStreamStateForTest() {
     notificationStreamRuntime.reset()
 }
 
-function attachOnlineReconnectListener() {
-    const { state } = notificationStreamRuntime
-    if (typeof window === 'undefined' || state.onlineListenerAttached) return
-    window.addEventListener('online', notificationStreamRuntime.handleBrowserOnline)
-    state.onlineListenerAttached = true
-}
-
-function detachOnlineReconnectListener() {
-    const { state } = notificationStreamRuntime
-    if (typeof window === 'undefined' || !state.onlineListenerAttached) return
-    window.removeEventListener('online', notificationStreamRuntime.handleBrowserOnline)
-    state.onlineListenerAttached = false
-}
-
-function getBackoffDelay(baseDelayMs: number) {
-    return getNotificationReconnectDelay(
-        baseDelayMs,
-        notificationStreamRuntime.state.reconnectAttempt,
-        MAX_RECONNECT_DELAY_MS,
-    )
-}
-
 function scheduleReconnect(delayMs: number) {
-    const { state } = notificationStreamRuntime
-    if (state.closedManually) return
-
-    if (!notificationStreamRuntime.isBrowserOnline()) {
-        state.reconnectWhenOnline = true
-        attachOnlineReconnectListener()
-        return
-    }
-
-    detachOnlineReconnectListener()
-
-    if (state.reconnectTimer) {
-        clearTimeout(state.reconnectTimer)
-    }
-
-    const backoffDelayMs = getBackoffDelay(delayMs)
-    state.reconnectAttempt += 1
-    state.reconnectTimer = setTimeout(() => {
-        state.reconnectTimer = null
-        notificationStreamRuntime.reconnect()
-    }, backoffDelayMs)
+    notificationStreamRuntime.scheduleReconnect(delayMs)
 }
 
 export function createNotificationStreamController(
@@ -178,67 +63,19 @@ export function createNotificationStreamController(
     const resolveAuthStore = dependencies.resolveAuthStore ?? useAuthStore
     notificationStreamRuntime.setOnlineProvider(dependencies.isBrowserOnline)
 
-    const rememberNotificationId = (notificationId: number) => {
-        notificationStreamRuntime.state.recentNotificationIds.remember(notificationId)
-    }
-
-    const applyIncomingNotification = (incoming: Notification) => {
-        const normalized: Notification = {
-            ...incoming,
-            isRead: false,
-        }
-        const notificationId = normalized.notificationId
-        if (typeof notificationId === 'number' && notificationStreamRuntime.state.recentNotificationIds.has(notificationId)) {
-            return
-        }
-
-        let alreadyExistsInFirstPage = false
-
-        queryClient.setQueriesData({ queryKey: notificationsQueryKey }, (oldData: unknown) => {
-            if (!isNotificationPage(oldData)) return oldData
-            if (getNotificationPageNumber(oldData) !== 0) return oldData
-
-            const alreadyExists = oldData.content.some((item) => item.notificationId === normalized.notificationId)
-            if (alreadyExists) {
-                alreadyExistsInFirstPage = true
-                return oldData
-            }
-
-            const nextContent = [normalized, ...oldData.content]
-            const sizeLimit = oldData.size > 0 ? oldData.size : nextContent.length
-
-            return {
-                ...oldData,
-                content: nextContent.slice(0, sizeLimit),
-                totalElements: oldData.totalElements + 1,
-                empty: false,
-            }
-        })
-
-        if (alreadyExistsInFirstPage) {
-            if (typeof notificationId === 'number') {
-                rememberNotificationId(notificationId)
-            }
-            return
-        }
-
-        if (typeof notificationId === 'number') {
-            rememberNotificationId(notificationId)
-        }
-
-        queryClient.setQueryData(notificationUnreadCountQueryKey, (old: number | undefined) => (old || 0) + 1)
-    }
-
     const handleSseEvent = (eventType: string, payload: string) => {
         if (!payload) return
         if (eventType !== 'notification' && eventType !== 'message') return
 
         try {
             const rawNotification = JSON.parse(payload) as NotificationRaw
-            const rawNotificationId = rawNotification.notificationId ?? rawNotification.notification_id
-            if (typeof rawNotificationId !== 'number' || !Number.isFinite(rawNotificationId)) return
+            if (getRawNotificationId(rawNotification) == null) return
             const notification = normalizeIncomingNotification(rawNotification)
-            applyIncomingNotification(notification)
+            applyIncomingNotificationToCache(
+                queryClient,
+                notification,
+                notificationStreamRuntime.state.recentNotificationIds,
+            )
         } catch (error: unknown) {
             logger.error('Failed to parse SSE notification:', error)
         }
@@ -309,10 +146,9 @@ export function createNotificationStreamController(
         if (state.streamAbortController || state.isConnecting) return
 
         if (state.reconnectTimer) {
-            clearTimeout(state.reconnectTimer)
-            state.reconnectTimer = null
+            notificationStreamRuntime.clearReconnectTimer()
         }
-        detachOnlineReconnectListener()
+        notificationStreamRuntime.detachOnlineReconnectListener()
         state.reconnectWhenOnline = false
 
         const authStore = resolveAuthStore()
@@ -334,20 +170,13 @@ export function createNotificationStreamController(
         const { state } = notificationStreamRuntime
         state.closedManually = true
 
-        if (state.reconnectTimer) {
-            clearTimeout(state.reconnectTimer)
-            state.reconnectTimer = null
-        }
-
-        if (state.streamAbortController) {
-            state.streamAbortController.abort()
-            state.streamAbortController = null
-        }
+        notificationStreamRuntime.clearReconnectTimer()
+        notificationStreamRuntime.abortStream()
 
         state.isConnecting = false
         state.reconnectAttempt = 0
         state.reconnectWhenOnline = false
-        detachOnlineReconnectListener()
+        notificationStreamRuntime.detachOnlineReconnectListener()
     }
 
     return {
