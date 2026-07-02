@@ -27,8 +27,10 @@ export function useEmoticonImageFormState({
   const thumbnailInput = ref<HTMLInputElement | null>(null)
   const emoticonInput = ref<HTMLInputElement | null>(null)
   let isDisposed = false
+  let thumbnailSelectionVersion = 0
 
   const setThumbnailPreviewFromRemote = (preview: string | null | undefined) => {
+    thumbnailSelectionVersion++
     revokeEmoticonPreviewUrl(thumbnailPreview.value)
     thumbnailFile.value = null
     thumbnailPreview.value = preview || null
@@ -38,11 +40,12 @@ export function useEmoticonImageFormState({
     const input = event.target as HTMLInputElement
     const file = input.files?.[0]
     if (!file) return
+    const selectionVersion = ++thumbnailSelectionVersion
 
     try {
       const selectedThumbnail = await selectThumbnailImage(file)
       if (!selectedThumbnail) return
-      if (isDisposed) {
+      if (isDisposed || selectionVersion !== thumbnailSelectionVersion) {
         revokeEmoticonPreviewUrl(selectedThumbnail.preview)
         return
       }
@@ -56,6 +59,7 @@ export function useEmoticonImageFormState({
   }
 
   const removeThumbnail = () => {
+    thumbnailSelectionVersion++
     revokeEmoticonPreviewUrl(thumbnailPreview.value)
     thumbnailFile.value = null
     thumbnailPreview.value = null

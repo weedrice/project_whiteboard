@@ -25,6 +25,7 @@ export function useProfileImageEditor(options: UseProfileImageEditorOptions): {
     setPreviewFile,
   } = useObjectUrlPreview()
   const profileImageError = ref(false)
+  let fileSelectionVersion = 0
 
   const profileImageDisplayUrl = computed(() => {
     if (previewImage.value) return previewImage.value
@@ -40,6 +41,7 @@ export function useProfileImageEditor(options: UseProfileImageEditorOptions): {
     const target = event.target as HTMLInputElement
     const file = target.files?.[0]
     if (!file) return
+    const selectionVersion = ++fileSelectionVersion
     target.value = ''
 
     if (file.size > PROFILE_IMAGE_UPLOAD_POLICY.maxSizeBytes) {
@@ -53,6 +55,9 @@ export function useProfileImageEditor(options: UseProfileImageEditorOptions): {
         PROFILE_IMAGE_UPLOAD_POLICY.maxWidth ?? 100,
         PROFILE_IMAGE_UPLOAD_POLICY.maxHeight ?? 100,
       )
+      if (selectionVersion !== fileSelectionVersion) {
+        return
+      }
       selectedFile.value = resizedImage
       setPreviewFile(resizedImage)
     } catch (error) {

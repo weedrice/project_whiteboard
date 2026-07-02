@@ -5,6 +5,17 @@ import { useProfileImageEditor } from '../useProfileImageEditor'
 
 const resizeImageToBoundsFileMock = vi.hoisted(() => vi.fn())
 
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve
+    reject = promiseReject
+  })
+
+  return { promise, resolve, reject }
+}
+
 vi.mock('@/utils/imageFile', () => ({
   resizeImageToBoundsFile: resizeImageToBoundsFileMock,
 }))
@@ -98,5 +109,32 @@ describe('useProfileImageEditor', () => {
     expect(input.value).toBe('')
     expect(onFileSizeExceeded).toHaveBeenCalledTimes(1)
     expect(resizeImageToBoundsFileMock).not.toHaveBeenCalled()
+  })
+
+  it('keeps the latest selected image when resize calls resolve out of order', async () => {
+    const { composable } = createHarness()
+    const firstFile = new File(['first'], 'first.png', { type: 'image/png' })
+    const secondFile = new File(['second'], 'second.png', { type: 'image/png' })
+    const firstResized = new File(['first-resized'], 'first-resized.png', { type: 'image/png' })
+    const secondResized = new File(['second-resized'], 'second-resized.png', { type: 'image/png' })
+    const firstResize = createDeferred<File>()
+    const secondResize = createDeferred<File>()
+    resizeImageToBoundsFileMock
+      .mockReturnValueOnce(firstResize.promise)
+      .mockReturnValueOnce(secondResize.promise)
+
+    const firstSelection = composable.handleFileChange(createInputEvent(firstFile).event)
+    const secondSelection = composable.handleFileChange(createInputEvent(secondFile).event)
+
+    secondResize.resolve(secondResized)
+    await secondSelection
+    expect(composable.selectedFile.value).toBe(secondResized)
+    expect(composable.profileImageDisplayUrl.value).toBe('blob:second-resized.png')
+
+    firstResize.resolve(firstResized)
+    await firstSelection
+
+    expect(composable.selectedFile.value).toBe(secondResized)
+    expect(composable.profileImageDisplayUrl.value).toBe('blob:second-resized.png')
   })
 })
