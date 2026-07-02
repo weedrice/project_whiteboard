@@ -84,10 +84,11 @@ async function submitSanction() {
 
   try {
     const userId = props.user.userId ?? props.user.id ?? 0
+    const description = form.description.trim()
     await sanctionUser({
       targetUserId: userId,
       type: 'BAN',
-      remark: form.description || form.reason,
+      remark: description || form.reason,
       endDate: resolveEndDate(),
       contentId: props.user.sanctionContentId,
       contentType: props.user.sanctionContentType
