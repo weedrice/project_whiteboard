@@ -42,6 +42,7 @@ describe('postHtmlSandbox', () => {
         const source = buildSandboxedPostHtmlSource('<div>height</div>', 'frame-1')
 
         expect(source).toContain('window.setInterval(postHeight, 500)')
+        expect(source).toContain("channel: 'noviis-post-html-sandbox'")
         expect(source).toContain('window.clearInterval(intervalId)')
         expect(source).toContain("window.addEventListener('pagehide', cleanup, { once: true })")
         expect(source).toContain('resizeObserver.disconnect()')

@@ -158,7 +158,7 @@ function getHeightBridgeScript(frameId: string): string {
     var height = measure();
     if (Math.abs(height - lastHeight) < 2) return;
     lastHeight = height;
-    parent.postMessage({ type: 'noviis-post-html-height', id: frameId, height: height }, '*');
+    parent.postMessage({ type: 'noviis-post-html-height', channel: 'noviis-post-html-sandbox', id: frameId, height: height }, '*');
   }
   window.addEventListener('load', postHeight);
   window.addEventListener('resize', postHeight);

@@ -6,6 +6,9 @@ const sourceRoot = join(process.cwd(), 'src')
 const allowedRawHtmlRenderers = new Set([
   'components/common/SanitizedHtmlView.vue',
 ])
+const allowedSrcdocRenderers = new Set([
+  'components/common/SandboxedHtmlFrame.vue',
+])
 
 function toSourcePath(filePath: string) {
   return relative(sourceRoot, filePath).split(sep).join('/')
@@ -29,6 +32,17 @@ describe('SanitizedHtmlView usage guard', () => {
       .filter((filePath) => rawHtmlRendererPattern.test(readFileSync(filePath, 'utf8')))
       .map(toSourcePath)
       .filter((sourcePath) => !allowedRawHtmlRenderers.has(sourcePath))
+
+    expect(violations).toEqual([])
+  })
+
+  it('keeps iframe srcdoc rendering behind the shared sandboxed renderer', () => {
+    const srcdocRendererPattern = /\bsrcdoc\s*=|:srcdoc\s*=|\bv-bind:srcdoc\s*=/
+    const violations = collectVueFiles(sourceRoot)
+      .filter((filePath) => !toSourcePath(filePath).includes('/__tests__/'))
+      .filter((filePath) => srcdocRendererPattern.test(readFileSync(filePath, 'utf8')))
+      .map(toSourcePath)
+      .filter((sourcePath) => !allowedSrcdocRenderers.has(sourcePath))
 
     expect(violations).toEqual([])
   })

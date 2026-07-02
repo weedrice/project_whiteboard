@@ -20,7 +20,12 @@ function onMessage(event: MessageEvent) {
   if (event.source !== frame.value?.contentWindow) return
 
   const data = event.data
-  if (!data || data.type !== 'noviis-post-html-height' || data.id !== frameId) return
+  if (
+    !data
+    || data.type !== 'noviis-post-html-height'
+    || data.channel !== 'noviis-post-html-sandbox'
+    || data.id !== frameId
+  ) return
 
   const nextHeight = Math.ceil(Number(data.height))
   if (!Number.isFinite(nextHeight)) return
