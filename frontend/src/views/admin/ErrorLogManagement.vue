@@ -106,21 +106,21 @@ function resolveFromDetail(log: ErrorLogDetail) {
           <AdminFilterField
             :label="t('admin.errorLogs.filter.startDate')"
             for-id="error-log-start-date"
-            width-class="w-40"
+            width="date"
           >
             <input id="error-log-start-date" v-model="filterStartDate" type="date" class="filter-input" />
           </AdminFilterField>
           <AdminFilterField
             :label="t('admin.errorLogs.filter.endDate')"
             for-id="error-log-end-date"
-            width-class="w-40"
+            width="date"
           >
             <input id="error-log-end-date" v-model="filterEndDate" type="date" class="filter-input" />
           </AdminFilterField>
           <AdminFilterField
             :label="t('admin.errorLogs.filter.httpStatus')"
             for-id="error-log-http-status"
-            width-class="w-36"
+            width="compact"
           >
             <select id="error-log-http-status" v-model="filterHttpStatus" class="filter-input">
               <option :value="undefined">{{ t('admin.errorLogs.filter.all') }}</option>
@@ -134,7 +134,7 @@ function resolveFromDetail(log: ErrorLogDetail) {
           <AdminFilterField
             :label="t('admin.errorLogs.filter.isResolved')"
             for-id="error-log-is-resolved"
-            width-class="w-36"
+            width="compact"
           >
             <select id="error-log-is-resolved" v-model="filterIsResolved" class="filter-input">
               <option value="">{{ t('admin.errorLogs.filter.all') }}</option>
@@ -145,7 +145,7 @@ function resolveFromDetail(log: ErrorLogDetail) {
           <AdminFilterField
             :label="t('admin.errorLogs.filter.errorType')"
             for-id="error-log-error-type"
-            width-class="w-52"
+            width="search"
           >
             <input
               id="error-log-error-type"

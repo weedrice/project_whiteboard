@@ -153,12 +153,12 @@ describe('admin common components', () => {
     }).text()).toContain('No detail')
   })
 
-  it('connects AdminFilterField label and sizing class', () => {
+  it('connects AdminFilterField label and semantic sizing class', () => {
     const wrapper = mount(AdminFilterField, {
       props: {
         label: 'Status',
         forId: 'status',
-        widthClass: 'w-40',
+        width: 'date',
       },
       slots: {
         default: '<select id="status" />',
@@ -166,9 +166,22 @@ describe('admin common components', () => {
     })
 
     expect(wrapper.classes()).toContain('filter-item')
-    expect(wrapper.classes()).toContain('w-40')
+    expect(wrapper.classes()).toContain('w-44')
     expect(wrapper.get('label').attributes('for')).toBe('status')
     expect(wrapper.get('label').text()).toBe('Status')
+  })
+
+  it('allows AdminFilterField widthClass overrides', () => {
+    const wrapper = mount(AdminFilterField, {
+      props: {
+        label: 'Keyword',
+        width: 'search',
+        widthClass: 'w-80',
+      },
+    })
+
+    expect(wrapper.classes()).toContain('w-80')
+    expect(wrapper.classes()).not.toContain('w-52')
   })
 
   it('renders shared admin filter action buttons and emits commands', async () => {

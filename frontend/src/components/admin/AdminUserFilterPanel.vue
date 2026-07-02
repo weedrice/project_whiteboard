@@ -107,16 +107,16 @@ function handleSearchKeyup(event: KeyboardEvent) {
       </div>
 
       <div class="flex flex-wrap items-end gap-3">
-        <AdminFilterField :label="t('admin.users.filters.createdFrom')" :for-id="filterControlIds.createdFrom" width-class="w-44">
+        <AdminFilterField :label="t('admin.users.filters.createdFrom')" :for-id="filterControlIds.createdFrom" width="date">
           <input :id="filterControlIds.createdFrom" v-model="filterModels.createdFrom.value" type="date" class="input-base" />
         </AdminFilterField>
-        <AdminFilterField :label="t('admin.users.filters.createdTo')" :for-id="filterControlIds.createdTo" width-class="w-44">
+        <AdminFilterField :label="t('admin.users.filters.createdTo')" :for-id="filterControlIds.createdTo" width="date">
           <input :id="filterControlIds.createdTo" v-model="filterModels.createdTo.value" type="date" class="input-base" />
         </AdminFilterField>
-        <AdminFilterField :label="t('admin.users.filters.lastLoginFrom')" :for-id="filterControlIds.lastLoginFrom" width-class="w-44">
+        <AdminFilterField :label="t('admin.users.filters.lastLoginFrom')" :for-id="filterControlIds.lastLoginFrom" width="date">
           <input :id="filterControlIds.lastLoginFrom" v-model="filterModels.lastLoginFrom.value" type="date" class="input-base" />
         </AdminFilterField>
-        <AdminFilterField :label="t('admin.users.filters.lastLoginTo')" :for-id="filterControlIds.lastLoginTo" width-class="w-44">
+        <AdminFilterField :label="t('admin.users.filters.lastLoginTo')" :for-id="filterControlIds.lastLoginTo" width="date">
           <input :id="filterControlIds.lastLoginTo" v-model="filterModels.lastLoginTo.value" type="date" class="input-base" />
         </AdminFilterField>
       </div>

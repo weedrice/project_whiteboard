@@ -52,7 +52,7 @@ function handleRowClick(post: AdminInquiryListItem) {
     <template #filters>
       <AdminFilterPanel class-name="mt-4">
         <div class="flex flex-wrap items-end gap-3">
-          <AdminFilterField :label="t('admin.inquiries.sort.label')" for-id="inquiry-sort" width-class="w-44">
+          <AdminFilterField :label="t('admin.inquiries.sort.label')" for-id="inquiry-sort" width="select">
           <select
             id="inquiry-sort"
             v-model="sort"

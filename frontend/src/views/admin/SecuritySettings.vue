@@ -33,11 +33,11 @@ const {
         <template #filters>
         <AdminFormPanel :title="t('admin.security.addTitle')">
             <AdminInlineForm gap-class="gap-4" @submit.prevent="handleBlockIp">
-                <AdminFilterField :label="t('admin.security.ipAddress')" width-class="w-full sm:max-w-xs">
+                <AdminFilterField :label="t('admin.security.ipAddress')" width="fluid">
                     <BaseInput id="ipAddress" v-model="newIp" name="ipAddress" type="text"
                         :label="t('admin.security.ipAddress')" :placeholder="t('admin.security.ipPlaceholder')" hideLabel />
                 </AdminFilterField>
-                <AdminFilterField :label="t('admin.security.reason')" width-class="w-full sm:max-w-md">
+                <AdminFilterField :label="t('admin.security.reason')" width="wide">
                     <BaseInput id="reason" v-model="blockReason" name="reason" type="text"
                         :label="t('admin.security.reason')" :placeholder="t('admin.security.reasonPlaceholder')"
                         maxlength="255" hideLabel />
