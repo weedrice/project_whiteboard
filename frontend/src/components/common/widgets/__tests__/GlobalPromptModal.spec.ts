@@ -1,6 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import GlobalPromptModal from '../GlobalPromptModal.vue'
 import { usePromptStore } from '@/stores/prompt'
 
@@ -47,5 +47,22 @@ describe('GlobalPromptModal', () => {
         const wrapper = mountPromptModal(pinia)
 
         expect(wrapper.get('label').text()).toBe('값 입력')
+    })
+
+    it('ignores composing enter before confirming prompt input', async () => {
+        const pinia = createPinia()
+        setActivePinia(pinia)
+        const promptStore = usePromptStore()
+        promptStore.open('message', 'title')
+        const confirmSpy = vi.spyOn(promptStore, 'confirm')
+
+        const wrapper = mountPromptModal(pinia)
+        const input = wrapper.get('input')
+
+        await input.trigger('keyup.enter', { isComposing: true })
+        expect(confirmSpy).not.toHaveBeenCalled()
+
+        await input.trigger('keyup.enter')
+        expect(confirmSpy).toHaveBeenCalledTimes(1)
     })
 })

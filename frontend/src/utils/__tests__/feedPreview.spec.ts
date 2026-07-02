@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildPostDetailPath, getFeedBodyHtml, getFeedMediaPreview, isFeedSpoiler } from '../feedPreview'
+import { buildPostDetailPath, getFeedBodyHtml, getFeedMediaPreview, isFeedSpoiler, toEmbeddableVideoUrl } from '../feedPreview'
 
 describe('feedPreview', () => {
     it('sanitizes excerpt html and strips media tags', () => {
@@ -34,10 +34,11 @@ describe('feedPreview', () => {
     it('returns media preview metadata for image and video posts', () => {
         expect(getFeedMediaPreview({
             firstMediaType: 'video',
-            firstMediaUrl: 'https://video',
+            firstMediaUrl: 'https://www.youtube.com/watch?v=abc123',
             thumbnailUrl: 'thumb',
         })).toEqual({
             showFirstVideo: true,
+            videoUrl: 'https://www.youtube-nocookie.com/embed/abc123',
             imageUrl: 'thumb',
         })
 
@@ -47,8 +48,17 @@ describe('feedPreview', () => {
             thumbnailUrl: 'thumb',
         })).toEqual({
             showFirstVideo: false,
+            videoUrl: null,
             imageUrl: 'https://image',
         })
+    })
+
+    it('normalizes only embeddable video URLs', () => {
+        expect(toEmbeddableVideoUrl('https://www.youtube.com/watch?v=abc123')).toBe('https://www.youtube-nocookie.com/embed/abc123')
+        expect(toEmbeddableVideoUrl('https://youtu.be/abc123')).toBe('https://www.youtube-nocookie.com/embed/abc123')
+        expect(toEmbeddableVideoUrl('https://vimeo.com/123456')).toBe('https://player.vimeo.com/video/123456')
+        expect(toEmbeddableVideoUrl('javascript:alert(1)')).toBeNull()
+        expect(toEmbeddableVideoUrl('https://example.com/video')).toBeNull()
     })
 
     it('derives spoiler state and post detail path', () => {

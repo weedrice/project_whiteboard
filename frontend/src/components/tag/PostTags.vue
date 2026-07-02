@@ -3,7 +3,7 @@
     <div v-if="!readOnly" class="flex flex-wrap gap-2 items-center">
       <div class="relative flex-1 min-w-0 flex items-center gap-2">
         <label :for="inputId" class="sr-only">{{ $t('board.tags.placeholder') }}</label>
-        <input :id="inputId" v-model="newTag" name="postTag" autocomplete="off" @keydown.enter.prevent="addTag" type="text"
+        <input :id="inputId" v-model="newTag" name="postTag" autocomplete="off" @keydown.enter="handleTagKeydown" type="text"
           :placeholder="$t('board.tags.placeholder')"
           class="flex-1 min-w-0 input-base rounded-full py-1 text-sm" />
         <button type="button" @click="addTag"
@@ -48,6 +48,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { isComposingKeyboardEvent } from '@/utils/keyboard'
 
 const props = withDefaults(defineProps<{
   modelValue: string[]
@@ -90,6 +91,12 @@ const addTag = () => {
     emit('update:modelValue', [...props.modelValue, tag])
   }
   newTag.value = ''
+}
+
+const handleTagKeydown = (event: KeyboardEvent) => {
+  if (isComposingKeyboardEvent(event)) return
+  event.preventDefault()
+  addTag()
 }
 
 const removeTag = (index: number) => {

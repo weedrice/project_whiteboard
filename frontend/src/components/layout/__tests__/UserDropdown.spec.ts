@@ -26,8 +26,8 @@ vi.mock('vue-router', () => ({
   useRouter: () => ({ push: routerPush }),
   RouterLink: defineComponent({
     props: { to: { type: [String, Object], required: false } },
-    setup(_props, { slots }) {
-      return () => h('a', slots.default?.())
+    setup(_props, { slots, attrs }) {
+      return () => h('a', attrs, slots.default?.())
     },
   }),
 }))
@@ -66,16 +66,16 @@ vi.mock('@/composables/useUser', () => ({
 
 vi.mock('@/components/common/ui/BaseButton.vue', () => ({
   default: defineComponent({
-    setup(_props, { slots }) {
-      return () => h('button', slots.default?.())
+    setup(_props, { slots, attrs }) {
+      return () => h('button', attrs, slots.default?.())
     },
   }),
 }))
 
 const RouterLinkStub = defineComponent({
   props: { to: { type: [String, Object], required: false } },
-  setup(_props, { slots }) {
-    return () => h('a', slots.default?.())
+  setup(_props, { slots, attrs }) {
+    return () => h('a', attrs, slots.default?.())
   },
 })
 
@@ -120,6 +120,7 @@ describe('UserDropdown', () => {
     expect(openButton.attributes('aria-expanded')).toBe('true')
     expect(openButton.attributes('aria-controls')).toBe('user-dropdown-menu')
     expect(openWrapper.get('#user-dropdown-menu').attributes('role')).toBe('menu')
+    expect(openWrapper.findAll('[role="menuitem"]').length).toBeGreaterThan(0)
   })
 
   it('uses cached user point query when dropdown is open', () => {

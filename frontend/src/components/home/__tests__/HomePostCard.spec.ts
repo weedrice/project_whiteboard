@@ -145,7 +145,7 @@ describe('HomePostCard', () => {
       props: {
         post: makePost({
           firstMediaType: 'video',
-          firstMediaUrl: 'https://www.youtube.com/embed/video-id',
+          firstMediaUrl: 'https://www.youtube.com/watch?v=video-id',
         }),
       },
     })
@@ -155,7 +155,28 @@ describe('HomePostCard', () => {
     await wrapper.get('button[aria-label="home.card.videoPreview"]').trigger('click')
 
     const iframe = wrapper.get('iframe')
-    expect(iframe.attributes('src')).toBe('https://www.youtube.com/embed/video-id')
+    expect(iframe.attributes('src')).toBe('https://www.youtube-nocookie.com/embed/video-id')
+    expect(iframe.attributes('sandbox')).toContain('allow-scripts')
+    expect(iframe.attributes('referrerpolicy')).toBe('strict-origin-when-cross-origin')
     expect(push).not.toHaveBeenCalled()
+  })
+
+  it('uses a real title link and keeps the article out of link semantics', async () => {
+    const wrapper = mount(HomePostCard, {
+      props: {
+        post: makePost(),
+      },
+    })
+
+    const article = wrapper.get('article')
+    const titleLink = wrapper.get('.nv-home-card-title-link')
+
+    expect(article.attributes('role')).toBeUndefined()
+    expect(article.attributes('tabindex')).toBeUndefined()
+    expect(titleLink.attributes('href')).toBe('/board/free/post/101')
+
+    await titleLink.trigger('click')
+
+    expect(push).toHaveBeenCalledWith('/board/free/post/101')
   })
 })

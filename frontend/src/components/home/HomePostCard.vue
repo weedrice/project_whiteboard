@@ -24,6 +24,7 @@ const bodyHtml = computed(() => getFeedBodyHtml(props.post))
 const mediaPreview = computed(() => getFeedMediaPreview(props.post))
 const isVideoPreviewLoaded = ref(false)
 const showFirstVideo = computed(() => mediaPreview.value.showFirstVideo)
+const firstVideoUrl = computed(() => mediaPreview.value.videoUrl)
 const showFirstImageUrl = computed(() => mediaPreview.value.imageUrl)
 const isSpoiler = computed(() => isFeedSpoiler(props.post))
 const categoryName = computed(() => props.post.category?.name?.trim() || '')
@@ -52,20 +53,14 @@ const cardClass = computed(() => {
   if (props.variant === 'compact') return 'nv-home-card nv-home-card-compact'
   return 'nv-home-card nv-home-card-grid'
 })
+const postDetailPath = computed(() => buildPostDetailPath(props.post.boardUrl, props.post.postId))
 
 const navigateToPost = () => {
-  router.push(buildPostDetailPath(props.post.boardUrl, props.post.postId))
+  router.push(postDetailPath.value)
 }
 
 const loadVideoPreview = () => {
   isVideoPreviewLoaded.value = true
-}
-
-const handleKeydown = (event: KeyboardEvent) => {
-  if (event.key === 'Enter' || event.key === ' ') {
-    event.preventDefault()
-    navigateToPost()
-  }
 }
 
 watch(() => props.post.postId, () => {
@@ -76,11 +71,8 @@ watch(() => props.post.postId, () => {
 <template>
   <article
     :class="cardClass"
-    role="link"
-    tabindex="0"
     :aria-label="t('home.card.ariaLabel', { boardName: post.boardName, title: post.title })"
     @click="navigateToPost"
-    @keydown="handleKeydown"
   >
     <div class="nv-home-card-top">
       <div class="flex min-w-0 items-center gap-3">
@@ -134,11 +126,13 @@ watch(() => props.post.postId, () => {
         </div>
         <iframe
           v-if="isVideoPreviewLoaded"
-          :src="post.firstMediaUrl"
+          :src="firstVideoUrl || undefined"
           :title="t('home.card.videoPreview')"
           frameborder="0"
           allowfullscreen
           loading="lazy"
+          sandbox="allow-scripts allow-same-origin allow-presentation"
+          referrerpolicy="strict-origin-when-cross-origin"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           class="aspect-video rounded-[inherit]"
           :class="isFeatured ? 'max-w-[38rem] w-full' : 'w-full'"
@@ -169,7 +163,15 @@ watch(() => props.post.postId, () => {
     </div>
 
     <div class="space-y-3">
-      <h2 class="nv-home-card-title">{{ post.title }}</h2>
+      <h2 class="nv-home-card-title">
+        <a
+          :href="postDetailPath"
+          class="nv-home-card-title-link"
+          @click.prevent.stop="navigateToPost"
+        >
+          {{ post.title }}
+        </a>
+      </h2>
       <div
         v-if="bodyHtml"
         :class="bodyClass"

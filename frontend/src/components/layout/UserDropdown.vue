@@ -156,6 +156,7 @@ watch(() => props.isOpen, (isOpen) => {
           {{ authStore.user?.email }}
         </p>
         <router-link to="/mypage/points"
+          role="menuitem"
           class="flex items-center min-h-[40px] sm:min-h-0 py-1 text-xs sm:text-sm nv-accent-text font-medium nv-press-surface rounded touch-manipulation -mx-2 px-2"
           @click="emit('toggle')">
           <CreditCard class="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
@@ -172,6 +173,7 @@ watch(() => props.isOpen, (isOpen) => {
           v-for="item in section.items"
           :key="item.route"
           :to="item.route"
+          role="menuitem"
           class="group flex items-center justify-between px-3 py-2.5 sm:py-2 min-h-[40px] sm:min-h-0 text-xs sm:text-sm nv-text-muted nv-hover-surface touch-manipulation"
           @click="emit('toggle')"
         >
@@ -194,6 +196,7 @@ watch(() => props.isOpen, (isOpen) => {
       <!-- Logout -->
       <div class="py-1">
         <BaseButton @click="handleLogout" variant="ghost" full-width
+          role="menuitem"
           class="w-full text-left group flex items-center px-3 py-2.5 sm:py-2 min-h-[40px] sm:min-h-0 text-xs sm:text-sm text-[var(--nv-danger-text)] hover:bg-[var(--nv-danger-bg)] active:bg-[var(--nv-danger-bg)] justify-start touch-manipulation">
           <LogOut
             class="mr-2.5 sm:mr-3 h-3 w-3 sm:h-4 sm:w-4 text-[var(--nv-danger-text)] flex-shrink-0" />

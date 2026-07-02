@@ -4,6 +4,7 @@ import { Search, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
+import { isComposingKeyboardEvent } from '@/utils/keyboard'
 import {
   createBoardPostSearchTypeOptions,
   shouldShowBoardPostSearchClear,
@@ -40,6 +41,11 @@ const searchTypeModel = computed({
   get: () => props.searchType,
   set: (value: string) => emit('update:searchType', value)
 })
+
+const handleSearchKeyup = (event: KeyboardEvent) => {
+  if (isComposingKeyboardEvent(event)) return
+  emit('search')
+}
 </script>
 
 <template>
@@ -73,7 +79,7 @@ const searchTypeModel = computed({
             :placeholder="t('board.detail.searchPlaceholder')"
             inputClass="nv-board-search-input"
             hideLabel
-            @keyup.enter="emit('search')"
+            @keyup.enter="handleSearchKeyup"
           >
             <template #prefix>
               <Search class="h-4 w-4 text-[var(--nv-muted)]" />

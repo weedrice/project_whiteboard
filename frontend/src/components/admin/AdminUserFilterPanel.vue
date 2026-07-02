@@ -6,6 +6,7 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import AdminFilterActions from '@/components/admin/AdminFilterActions.vue'
 import AdminFilterField from '@/components/admin/AdminFilterField.vue'
 import AdminFilterPanel from '@/components/admin/AdminFilterPanel.vue'
+import { isComposingKeyboardEvent } from '@/utils/keyboard'
 import type { AdminUserFilterForm } from '@/composables/useAdminUserListState'
 
 const props = defineProps<{
@@ -54,6 +55,11 @@ const filterControlIds = {
   lastLoginFrom: 'admin-user-filter-last-login-from',
   lastLoginTo: 'admin-user-filter-last-login-to',
 } as const
+
+function handleSearchKeyup(event: KeyboardEvent) {
+  if (isComposingKeyboardEvent(event)) return
+  emit('search')
+}
 </script>
 
 <template>
@@ -122,7 +128,7 @@ const filterControlIds = {
             v-model="filterModels.q.value"
             :label="t('admin.users.filters.userSearch')"
             :placeholder="t('admin.users.searchPlaceholder')"
-            @keyup.enter="emit('search')"
+            @keyup.enter="handleSearchKeyup"
           >
             <template #prefix>
               <Search class="h-5 w-5 nv-text-subtle" aria-hidden="true" />

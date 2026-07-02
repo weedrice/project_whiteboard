@@ -78,11 +78,16 @@ const BaseInputStub = defineComponent({
     hideLabel: Boolean,
     placeholder: String,
   },
-  setup(props, { slots }) {
-    return () => h('label', { class: props.hideLabel ? 'sr-only' : '' }, [
+  emits: ['update:modelValue'],
+  setup(props, { emit, slots, attrs }) {
+    return () => h('label', { ...attrs, class: props.hideLabel ? 'sr-only' : '' }, [
       props.label,
       slots.prefix?.(),
-      h('input', { value: props.modelValue, placeholder: props.placeholder }),
+      h('input', {
+        value: props.modelValue,
+        placeholder: props.placeholder,
+        onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLInputElement).value),
+      }),
       slots.suffix?.(),
     ])
   },
@@ -207,5 +212,20 @@ describe('EmoticonList', () => {
     expect(wrapper.text()).toContain('...')
     expect(buttons).not.toContain('6')
     expect(buttons).not.toContain('11')
+  })
+
+  it('ignores composing enter before running keyword search', async () => {
+    const wrapper = mountList()
+    const listQuery = getListQuery()
+    const input = wrapper.get('input')
+
+    await input.setValue('wave')
+    await input.trigger('keyup.enter', { isComposing: true })
+    await listQuery.queryFn()
+    expect(mocks.searchAll.mock.calls.at(-1)?.[0]).not.toHaveProperty('keyword')
+
+    await input.trigger('keyup.enter')
+    await listQuery.queryFn()
+    expect(mocks.searchAll).toHaveBeenLastCalledWith(expect.objectContaining({ keyword: 'wave' }))
   })
 })

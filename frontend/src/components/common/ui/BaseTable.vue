@@ -202,7 +202,6 @@ const bodyCellClasses = computed(() => [
                         <tr v-for="(item, index) in items" :key="getRowKey(item, index)"
                             class="nv-base-table-row transition-colors duration-150"
                             :class="rowClass?.(item) || ''"
-                            :role="interactiveRows ? 'button' : undefined"
                             :tabindex="interactiveRows ? 0 : undefined"
                             :aria-label="getRowActionLabel(item, index)"
                             @click="handleRowClick(item)"

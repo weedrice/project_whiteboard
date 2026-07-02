@@ -60,4 +60,15 @@ describe('BoardPostSearch', () => {
     expect(wrapper.emitted('search')).toHaveLength(1)
     expect(wrapper.emitted('clear')).toHaveLength(1)
   })
+
+  it('does not emit search while IME composition is active', async () => {
+    const wrapper = mountSearch()
+    const input = wrapper.get('input')
+
+    await input.trigger('keyup.enter', { isComposing: true })
+    expect(wrapper.emitted('search')).toBeUndefined()
+
+    await input.trigger('keyup.enter')
+    expect(wrapper.emitted('search')).toHaveLength(1)
+  })
 })

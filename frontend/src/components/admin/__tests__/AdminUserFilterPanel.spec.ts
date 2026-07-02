@@ -10,19 +10,21 @@ vi.mock('vue-i18n', () => ({
 }))
 
 describe('AdminUserFilterPanel', () => {
+  const mountPanel = () => mount(AdminUserFilterPanel, {
+    props: {
+      filterForm: createInitialAdminUserFilters(),
+      getStatusLabel: (status: string) => status,
+      getRoleLabel: (role: string) => role,
+    },
+    global: {
+      stubs: {
+        Search: true,
+      },
+    },
+  })
+
   it('connects every filter label to its form control', () => {
-    const wrapper = mount(AdminUserFilterPanel, {
-      props: {
-        filterForm: createInitialAdminUserFilters(),
-        getStatusLabel: (status: string) => status,
-        getRoleLabel: (role: string) => role,
-      },
-      global: {
-        stubs: {
-          Search: true,
-        },
-      },
-    })
+    const wrapper = mountPanel()
 
     const expectedControlIds = [
       'admin-user-filter-status',
@@ -41,5 +43,16 @@ describe('AdminUserFilterPanel', () => {
       expect(wrapper.find(`label[for="${id}"]`).exists()).toBe(true)
       expect(wrapper.find(`#${id}`).exists()).toBe(true)
     }
+  })
+
+  it('ignores composing enter before emitting search', async () => {
+    const wrapper = mountPanel()
+    const input = wrapper.get('#admin-user-filter-q')
+
+    await input.trigger('keyup.enter', { isComposing: true })
+    expect(wrapper.emitted('search')).toBeUndefined()
+
+    await input.trigger('keyup.enter')
+    expect(wrapper.emitted('search')).toHaveLength(1)
   })
 })

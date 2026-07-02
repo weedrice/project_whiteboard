@@ -39,9 +39,76 @@ export const getFeedBodyHtml = (post: Pick<FeedPost, 'contentsExcerpt' | 'summar
   return asSanitizedHtml(html)
 }
 
+const getYouTubeVideoId = (url: URL): string | null => {
+  if (url.hostname === 'youtu.be') {
+    return url.pathname.split('/').filter(Boolean)[0] ?? null
+  }
+
+  if (!url.hostname.endsWith('youtube.com') && !url.hostname.endsWith('youtube-nocookie.com')) {
+    return null
+  }
+
+  if (url.pathname.startsWith('/embed/')) {
+    return url.pathname.split('/').filter(Boolean)[1] ?? null
+  }
+
+  if (url.pathname.startsWith('/shorts/')) {
+    return url.pathname.split('/').filter(Boolean)[1] ?? null
+  }
+
+  return url.searchParams.get('v')
+}
+
+const getVimeoVideoId = (url: URL): string | null => {
+  if (!url.hostname.endsWith('vimeo.com')) {
+    return null
+  }
+
+  const parts = url.pathname.split('/').filter(Boolean)
+  if (parts[0] === 'video' && parts[1]) {
+    return parts[1]
+  }
+
+  return parts.find((part) => /^\d+$/.test(part)) ?? null
+}
+
+export const toEmbeddableVideoUrl = (source?: string | null): string | null => {
+  if (!source) return null
+
+  try {
+    const url = new URL(source)
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+      return null
+    }
+
+    const youtubeId = getYouTubeVideoId(url)
+    if (youtubeId) {
+      return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(youtubeId)}`
+    }
+
+    const vimeoId = getVimeoVideoId(url)
+    if (vimeoId) {
+      return `https://player.vimeo.com/video/${encodeURIComponent(vimeoId)}`
+    }
+
+    if (url.pathname.includes('/embed/')) {
+      return url.toString()
+    }
+  } catch {
+    return null
+  }
+
+  return null
+}
+
 export const getFeedMediaPreview = (post: Pick<FeedPost, 'firstMediaType' | 'firstMediaUrl' | 'thumbnailUrl'>) => {
+  const videoUrl = post.firstMediaType === 'video'
+    ? toEmbeddableVideoUrl(post.firstMediaUrl)
+    : null
+
   return {
-    showFirstVideo: post.firstMediaType === 'video' && !!post.firstMediaUrl,
+    showFirstVideo: !!videoUrl,
+    videoUrl,
     imageUrl: post.firstMediaType === 'image' && post.firstMediaUrl ? post.firstMediaUrl : post.thumbnailUrl,
   }
 }

@@ -11,6 +11,7 @@ import Pagination from '@/components/common/ui/Pagination.vue'
 import EmoticonGridSkeleton from '@/components/emoticon/EmoticonGridSkeleton.vue'
 import EmoticonListCard from '@/components/emoticon/EmoticonListCard.vue'
 import { formatInteger } from '@/utils/numberFormat'
+import { isComposingKeyboardEvent } from '@/utils/keyboard'
 import { useEmoticonListResource } from '@/composables/useEmoticonListResource'
 import type { EmoticonSearchParams } from '@/types/emoticon'
 
@@ -64,6 +65,11 @@ function changePopularPeriod(period: string) {
 
 function selectSortBy(value: string) {
   changeSortBy(value as SortOption)
+}
+
+function handleSearchKeyup(event: KeyboardEvent) {
+  if (isComposingKeyboardEvent(event)) return
+  handleSearch()
 }
 </script>
 
@@ -155,7 +161,7 @@ function selectSortBy(value: string) {
                   :placeholder="t('search.query')"
                   inputClass="list-search-input"
                   hideLabel
-                  @keyup.enter="handleSearch"
+                  @keyup.enter="handleSearchKeyup"
                 >
                   <template #prefix>
                     <Search class="h-5 w-5 nv-text-subtle" />

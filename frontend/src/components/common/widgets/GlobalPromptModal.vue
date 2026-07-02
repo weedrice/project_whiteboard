@@ -3,8 +3,14 @@ import { usePromptStore } from '@/stores/prompt'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
+import { isComposingKeyboardEvent } from '@/utils/keyboard'
 
 const promptStore = usePromptStore()
+
+const handleConfirmKeyup = (event: KeyboardEvent) => {
+    if (isComposingKeyboardEvent(event)) return
+    promptStore.confirm()
+}
 </script>
 
 <template>
@@ -14,7 +20,7 @@ const promptStore = usePromptStore()
                 {{ promptStore.message }}
             </p>
             <BaseInput v-model="promptStore.inputValue" :label="promptStore.placeholder || promptStore.title" :placeholder="promptStore.placeholder" hideLabel
-                @keyup.enter="promptStore.confirm" />
+                @keyup.enter="handleConfirmKeyup" />
         </div>
         <template #footer>
             <div class="flex justify-end space-x-3">

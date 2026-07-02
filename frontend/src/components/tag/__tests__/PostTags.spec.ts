@@ -52,6 +52,17 @@ describe('PostTags', () => {
         expect(wrapper.emitted('update:modelValue')).toBeUndefined()
     })
 
+    it('does not add or clear a tag while IME composition is active', async () => {
+        const wrapper = mountPostTags()
+        const input = wrapper.find('input')
+
+        await input.setValue('한글')
+        await input.trigger('keydown.enter', { isComposing: true })
+
+        expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+        expect((input.element as HTMLInputElement).value).toBe('한글')
+    })
+
     it('removes tag by index when remove button is clicked', async () => {
         const wrapper = mountPostTags({ modelValue: ['alpha', 'beta'] })
         const removeButtons = wrapper.findAll('button').filter((button) => button.find('.sr-only').exists())

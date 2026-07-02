@@ -139,7 +139,7 @@ describe('BaseTable', () => {
 
         const row = wrapper.get('tbody tr')
 
-        expect(row.attributes('role')).toBe('button')
+        expect(row.attributes('role')).toBeUndefined()
         expect(row.attributes('tabindex')).toBe('0')
         expect(row.attributes('aria-label')).toBe('Accessible row open')
 
