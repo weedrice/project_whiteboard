@@ -1,108 +1,21 @@
-import { flushPromises, mount } from '@vue/test-utils'
+import { flushPromises } from '@vue/test-utils'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import MyMessages from '../MyMessages.vue'
-import { extractErrorResponse } from '@/utils/errorHandler'
 import { toMailboxMessageViewModel } from '@/utils/messageViewModel'
 import { getExposedVm } from '@/test/vue-test-helpers'
 import { createDeferred } from '@/test/async'
-
-type MyMessagesExposed = {
-    startReply: (message: ReturnType<typeof toMailboxMessageViewModel>) => void
-    replyContent: string
-    sendReply: () => Promise<void>
-}
-
-const messageApi = vi.hoisted(() => ({
-    getReceivedMessages: vi.fn(),
-    getSentMessages: vi.fn(),
-    getMessage: vi.fn(),
-    markAsRead: vi.fn(),
-    deleteMessages: vi.fn(),
-    sendMessage: vi.fn(),
-}))
-
-const addToast = vi.hoisted(() => vi.fn())
-
-vi.mock('@/api/message', () => ({
+import {
+    addToast,
+    baseModalStub,
+    extractErrorResponseMock,
     messageApi,
-    BLOCKED_BY_USER_CODE: 'U009',
-}))
-
-vi.mock('@/stores/toast', () => ({
-    useToastStore: () => ({
-        addToast,
-    }),
-}))
-
-vi.mock('@/composables/useConfirm', () => ({
-    useConfirm: () => ({
-        confirm: vi.fn().mockResolvedValue(true),
-    }),
-}))
-
-vi.mock('@/utils/errorHandler', () => ({
-    extractErrorResponse: vi.fn(),
-}))
-
-vi.mock('@/utils/logger', () => ({
-    default: {
-        error: vi.fn(),
-    },
-}))
-
-vi.mock('@/utils/date', () => ({
-    formatDate: (value: string) => value,
-}))
-
-vi.mock('vue-i18n', () => ({
-    useI18n: () => ({
-        t: (key: string) => key,
-    }),
-}))
-
-const baseModalStub = {
-    props: ['isOpen', 'title'],
-    template: '<div v-if="isOpen"><slot /></div>',
-}
-
-const baseCheckboxStub = {
-    props: ['id', 'value', 'modelValue', 'label', 'labelClass'],
-    emits: ['update:modelValue'],
-    template: '<label :class="labelClass"><input :id="id" type="checkbox" />{{ label }}</label>',
-}
-
-const errorStateStub = {
-    name: 'ErrorState',
-    props: ['message', 'showRetry'],
-    emits: ['retry'],
-    template: '<div data-testid="error-state">{{ message }}</div>',
-}
-
-const messageOpenButtons = (wrapper: ReturnType<typeof mount>) => wrapper.findAll('li > button')
+    messageOpenButtons,
+    mountMyMessages,
+    type MyMessagesExposed,
+} from './MyMessages.test-harness'
 
 describe('MyMessages', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-    })
-
-    const mountMyMessages = () => mount(MyMessages, {
-        global: {
-            mocks: {
-                $t: (key: string) => key,
-            },
-            stubs: {
-                BaseModal: baseModalStub,
-                BaseButton: true,
-                BaseCheckbox: baseCheckboxStub,
-                BaseTextarea: true,
-                BaseSkeleton: true,
-                EmptyState: true,
-                ErrorState: errorStateStub,
-                Pagination: true,
-                PageSizeSelector: true,
-                Mail: true,
-            }
-        }
     })
 
     it('loads message detail and then calls read endpoint for unread received messages', async () => {
@@ -257,25 +170,7 @@ describe('MyMessages', () => {
             return messageId === 1 ? firstDetail.promise : secondDetail.promise
         })
 
-        const wrapper = mount(MyMessages, {
-            global: {
-                mocks: {
-                    $t: (key: string) => key,
-                },
-                stubs: {
-                    BaseModal: baseModalStub,
-                    BaseButton: true,
-                    BaseCheckbox: baseCheckboxStub,
-                    BaseTextarea: true,
-                    BaseSkeleton: true,
-                    EmptyState: true,
-                    ErrorState: errorStateStub,
-                    Pagination: true,
-                    PageSizeSelector: true,
-                    Mail: true,
-                }
-            }
-        })
+        const wrapper = mountMyMessages()
 
         await flushPromises()
 
@@ -332,7 +227,7 @@ describe('MyMessages', () => {
                 }
             })
         messageApi.getMessage.mockRejectedValue(new Error('not found'))
-        vi.mocked(extractErrorResponse).mockReturnValue({
+        extractErrorResponseMock.mockReturnValue({
             code: 'C006',
             message: 'not found',
         })
@@ -384,7 +279,7 @@ describe('MyMessages', () => {
             }
         })
         messageApi.markAsRead.mockRejectedValue(new Error('not found'))
-        vi.mocked(extractErrorResponse).mockReturnValue({
+        extractErrorResponseMock.mockReturnValue({
             code: 'C006',
             message: 'not found',
         })
