@@ -40,7 +40,7 @@ export function useUserSelectSource({
   const params = computed(() => ({
     page: 0,
     size: 10,
-    q: searchQuery.value
+    q: searchQuery.value.trim()
   }))
   const isBoardCandidateSource = computed(() => source.value === 'board-manager-candidates')
   const isUsersQueryEnabled = computed(() => isOpen.value && source.value === 'admin')
