@@ -19,6 +19,13 @@ export function usePostDetailShare({
   const toastStore = useToastStore()
   const showCopyHint = ref(false)
   let copyHintTimer: ReturnType<typeof setTimeout> | null = null
+  let isDisposed = false
+
+  function isAbortError(error: unknown) {
+    return error instanceof DOMException
+      ? error.name === 'AbortError'
+      : !!error && typeof error === 'object' && 'name' in error && error.name === 'AbortError'
+  }
 
   const currentUrl = computed(() => {
     const origin = getWindowOrigin('')
@@ -51,6 +58,8 @@ export function usePostDetailShare({
     }
 
     navigator.clipboard.writeText(currentUrl.value).then(() => {
+      if (isDisposed) return
+
       if (showToast) {
         toastStore.addToast(t('common.messages.urlCopied'), 'success')
         return
@@ -64,6 +73,8 @@ export function usePostDetailShare({
       }, 1500)
       ;(document.activeElement as HTMLElement | null)?.blur()
     }).catch((err) => {
+      if (isDisposed) return
+
       logger.error('Failed to copy URL:', err)
       toastStore.addToast(t('common.messages.processFailed'), 'error')
     })
@@ -84,10 +95,12 @@ export function usePostDetailShare({
         title: post.value.title,
         url: currentUrl.value
       }).catch((err) => {
-        if (err.name !== 'AbortError') {
-          logger.error('Share failed:', err)
-          toastStore.addToast(t('common.messages.processFailed'), 'error')
+        if (isDisposed || isAbortError(err)) {
+          return
         }
+
+        logger.error('Share failed:', err)
+        toastStore.addToast(t('common.messages.processFailed'), 'error')
       })
       return
     }
@@ -95,7 +108,10 @@ export function usePostDetailShare({
     handleCopyUrl()
   }
 
-  onUnmounted(clearCopyHintTimer)
+  onUnmounted(() => {
+    isDisposed = true
+    clearCopyHintTimer()
+  })
 
   return {
     currentUrl,

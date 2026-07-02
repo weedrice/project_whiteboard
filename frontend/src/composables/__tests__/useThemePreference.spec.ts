@@ -7,6 +7,17 @@ import { userApi } from '@/api/user'
 import { apiSuccessResponse } from '@/test/apiResponseFixtures'
 import logger from '@/utils/logger'
 
+function createDeferred<T = void>() {
+    let resolve!: (value: T | PromiseLike<T>) => void
+    let reject!: (reason?: unknown) => void
+    const promise = new Promise<T>((promiseResolve, promiseReject) => {
+        resolve = promiseResolve
+        reject = promiseReject
+    })
+
+    return { promise, resolve, reject }
+}
+
 vi.mock('@/api/user', () => ({
     userApi: {
         updateUserSettings: vi.fn()
@@ -78,5 +89,35 @@ describe('useThemePreference', () => {
 
         expect(themeStore.isDark).toBe(true)
         expect(logger.error).toHaveBeenCalledWith('Failed to save theme setting:', expect.any(Error))
+    })
+
+    it('serializes rapid authenticated theme persistence in toggle order', async () => {
+        const authStore = useAuthStore()
+        authStore.accessToken = 'token'
+        type ThemePersistResponse = Awaited<ReturnType<typeof userApi.updateUserSettings>>
+        const firstPersist = createDeferred<ThemePersistResponse>()
+        const secondPersist = createDeferred<ThemePersistResponse>()
+        vi.mocked(userApi.updateUserSettings)
+            .mockReturnValueOnce(firstPersist.promise)
+            .mockReturnValueOnce(secondPersist.promise)
+
+        const { toggleTheme } = useThemePreference()
+
+        const firstToggle = toggleTheme()
+        const secondToggle = toggleTheme()
+
+        await vi.waitFor(() => {
+            expect(userApi.updateUserSettings).toHaveBeenCalledTimes(1)
+        })
+        expect(userApi.updateUserSettings).toHaveBeenNthCalledWith(1, { theme: 'DARK' })
+
+        firstPersist.resolve(apiSuccessResponse<typeof userApi.updateUserSettings>())
+        await vi.waitFor(() => {
+            expect(userApi.updateUserSettings).toHaveBeenCalledTimes(2)
+        })
+        expect(userApi.updateUserSettings).toHaveBeenNthCalledWith(2, { theme: 'LIGHT' })
+
+        secondPersist.resolve(apiSuccessResponse<typeof userApi.updateUserSettings>())
+        await expect(Promise.all([firstToggle, secondToggle])).resolves.toEqual([undefined, undefined])
     })
 })

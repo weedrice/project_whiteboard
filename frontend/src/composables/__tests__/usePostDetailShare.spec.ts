@@ -30,6 +30,17 @@ const post = {
   title: 'Post title',
 } as Post
 
+function createDeferred<T = void>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve
+    reject = promiseReject
+  })
+
+  return { promise, resolve, reject }
+}
+
 function mountShareComposable(overrides: { post?: Post | null } = {}) {
   let share!: ReturnType<typeof usePostDetailShare>
 
@@ -117,5 +128,39 @@ describe('usePostDetailShare', () => {
       expect(shareApi).toHaveBeenCalled()
     })
     expect(mocks.addToast).not.toHaveBeenCalledWith('common.messages.processFailed', 'error')
+  })
+
+  it('handles non-error native share rejections without throwing', async () => {
+    const shareApi = vi.fn().mockRejectedValue('share failed')
+    vi.stubGlobal('navigator', {
+      share: shareApi,
+      clipboard: { writeText: vi.fn() },
+    })
+    const { share } = mountShareComposable()
+
+    share.handleShare()
+
+    await vi.waitFor(() => {
+      expect(mocks.loggerError).toHaveBeenCalledWith('Share failed:', 'share failed')
+    })
+    expect(mocks.addToast).toHaveBeenCalledWith('common.messages.processFailed', 'error')
+  })
+
+  it('ignores clipboard success after the owner component is unmounted', async () => {
+    const copyResult = createDeferred()
+    const writeText = vi.fn().mockReturnValue(copyResult.promise)
+    vi.stubGlobal('navigator', {
+      clipboard: { writeText },
+    })
+    const { share, wrapper } = mountShareComposable()
+
+    share.handleCopyUrl(false)
+    wrapper.unmount()
+    copyResult.resolve()
+    await copyResult.promise
+    await Promise.resolve()
+
+    expect(share.showCopyHint.value).toBe(false)
+    expect(mocks.addToast).not.toHaveBeenCalled()
   })
 })
