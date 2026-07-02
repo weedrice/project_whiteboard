@@ -3,6 +3,7 @@ import { useI18n } from 'vue-i18n'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToastStore } from '@/stores/toast'
 import { hasRequiredBoardFields, normalizeBoardUrlInput } from '@/utils/board'
+import { normalizeBoardWritePayload } from '@/utils/inputNormalization'
 import type { AdminBoard, BoardUpdateData } from '@/types'
 
 type UpdateBoardPayload = {
@@ -147,7 +148,7 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
 
       return updateBoard({
         boardUrl: requestBoardUrl,
-        data: {
+        data: normalizeBoardWritePayload({
           boardName: board.boardName,
           boardUrl: board.boardUrl,
           description: board.description || '',
@@ -157,7 +158,7 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
           isActive: board.isActive,
           agentUseYn: board.agentUseYn ?? false,
           guidePrompt: board.guidePrompt || ''
-        }
+        }, { isPublic: board.isPublic })
       }).then(() => {
         originalBoardUrls.value[board.boardId] = board.boardUrl
       })
@@ -207,13 +208,16 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
     if (!selectedBoard.value) return
 
     const board = selectedBoard.value
-    const nextBoardName = form.boardName.trim()
-    const nextDescription = form.description.trim()
-    const nextIconUrl = form.iconUrl.trim()
-    const nextGuidePrompt = form.guidePrompt.trim()
+    const normalizedForm = normalizeBoardWritePayload({
+      boardName: form.boardName,
+      description: form.description,
+      iconUrl: form.iconUrl,
+      agentUseYn: form.agentUseYn,
+      guidePrompt: form.guidePrompt,
+    }, { isPublic: board.isPublic })
 
-    if (board.boardName !== nextBoardName) {
-      board.boardName = nextBoardName
+    if (board.boardName !== normalizedForm.boardName) {
+      board.boardName = normalizedForm.boardName
       markBoardModified(board.boardId)
     }
 
@@ -222,13 +226,13 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
       markBoardModified(board.boardId)
     }
 
-    if ((board.description || '') !== nextDescription) {
-      board.description = nextDescription
+    if ((board.description || '') !== normalizedForm.description) {
+      board.description = normalizedForm.description
       markBoardModified(board.boardId)
     }
 
-    if ((board.iconUrl || '') !== nextIconUrl) {
-      board.iconUrl = nextIconUrl
+    if ((board.iconUrl || '') !== normalizedForm.iconUrl) {
+      board.iconUrl = normalizedForm.iconUrl
       markBoardModified(board.boardId)
     }
 
@@ -237,14 +241,14 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
       markBoardModified(board.boardId)
     }
 
-    const nextAgentUseYn = board.isPublic ? form.agentUseYn : false
+    const nextAgentUseYn = normalizedForm.agentUseYn ?? false
     if ((board.agentUseYn ?? false) !== nextAgentUseYn) {
       board.agentUseYn = nextAgentUseYn
       markBoardModified(board.boardId)
     }
 
-    if ((board.guidePrompt || '') !== nextGuidePrompt) {
-      board.guidePrompt = nextGuidePrompt
+    if ((board.guidePrompt || '') !== normalizedForm.guidePrompt) {
+      board.guidePrompt = normalizedForm.guidePrompt
       markBoardModified(board.boardId)
     }
 

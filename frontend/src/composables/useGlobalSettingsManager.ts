@@ -4,7 +4,7 @@ import { useAdmin } from '@/composables/useAdmin'
 import { useConfigEditor } from '@/composables/useConfigEditor'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToastStore } from '@/stores/toast'
-import { trimText } from '@/utils/inputNormalization'
+import { normalizeConfigWritePayload } from '@/utils/inputNormalization'
 
 function createEmptyConfigForm() {
   return {
@@ -45,14 +45,11 @@ export function useGlobalSettingsManager() {
     const config = getDraft(key)
     if (!config) return
 
-    const value = trimText(config.value)
-    const description = typeof config.description === 'string'
-      ? trimText(config.description)
-      : config.description
-    if (!value) return
+    const payload = normalizeConfigWritePayload(config)
+    if (!payload) return
 
     try {
-      await updateConfig({ key: config.key, value, description })
+      await updateConfig({ key: config.key, value: payload.value, description: payload.description })
       toastStore.addToast(t('admin.settings.messages.saved'), 'success')
     } catch {
       // Error handled globally
@@ -60,17 +57,11 @@ export function useGlobalSettingsManager() {
   }
 
   async function handleCreateConfig() {
-    const key = trimText(newConfig.key)
-    const value = trimText(newConfig.value)
-    const description = trimText(newConfig.description)
-    if (!key || !value) return
+    const payload = normalizeConfigWritePayload(newConfig, { requireKey: true })
+    if (!payload?.key) return
 
     try {
-      await createConfig({
-        key,
-        value,
-        description,
-      })
+      await createConfig(payload)
 
       toastStore.addToast(t('admin.settings.messages.saved'), 'success')
       closeCreateModal()
