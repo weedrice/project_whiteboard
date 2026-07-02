@@ -35,9 +35,10 @@ export function useMessageSubmit({
         onSubmit: async (messageContent) => {
             const receiverId = getReceiverId()
             if (receiverId == null) return false
+            const trimmedContent = messageContent.trim()
 
             try {
-                const { data } = await messageApi.sendMessage(receiverId, messageContent, { skipGlobalErrorHandler: true })
+                const { data } = await messageApi.sendMessage(receiverId, trimmedContent, { skipGlobalErrorHandler: true })
                 if (!data.success) return false
 
                 toastStore.addToast(t('user.message.sendSuccess'), 'success')

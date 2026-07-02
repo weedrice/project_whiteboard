@@ -53,13 +53,16 @@ export function useGlobalSettingsManager() {
   }
 
   async function handleCreateConfig() {
-    if (!newConfig.key || !newConfig.value) return
+    const key = newConfig.key.trim()
+    const value = newConfig.value.trim()
+    const description = newConfig.description.trim()
+    if (!key || !value) return
 
     try {
       await createConfig({
-        key: newConfig.key,
-        value: newConfig.value,
-        description: newConfig.description,
+        key,
+        value,
+        description,
       })
 
       toastStore.addToast(t('admin.settings.messages.saved'), 'success')

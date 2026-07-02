@@ -100,9 +100,9 @@ describe('useGlobalSettingsManager', () => {
     const manager = useGlobalSettingsManager()
     manager.openCreateModal()
     Object.assign(manager.newConfig, {
-      key: 'site.description',
-      value: 'Community',
-      description: 'Description',
+      key: '  site.description  ',
+      value: '  Community  ',
+      description: '  Description  ',
     })
 
     await manager.handleCreateConfig()
@@ -126,6 +126,14 @@ describe('useGlobalSettingsManager', () => {
 
     manager.newConfig.key = 'site.description'
     manager.newConfig.value = ''
+    await manager.handleCreateConfig()
+
+    manager.newConfig.key = '   '
+    manager.newConfig.value = 'value'
+    await manager.handleCreateConfig()
+
+    manager.newConfig.key = 'site.description'
+    manager.newConfig.value = '   '
     await manager.handleCreateConfig()
 
     expect(mocks.createConfig).not.toHaveBeenCalled()
