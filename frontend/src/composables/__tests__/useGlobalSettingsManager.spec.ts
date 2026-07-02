@@ -76,7 +76,7 @@ describe('useGlobalSettingsManager', () => {
   it('saves the current draft and shows a success toast', async () => {
     const manager = useGlobalSettingsManager()
 
-    manager.updateDraft('site.name', { value: 'Updated', description: 'Updated description' })
+    manager.updateDraft('site.name', { value: '  Updated  ', description: '  Updated description  ' })
     await manager.handleSave('site.name')
 
     expect(mocks.updateConfig).toHaveBeenCalledWith({
@@ -85,6 +85,16 @@ describe('useGlobalSettingsManager', () => {
       description: 'Updated description',
     })
     expect(mocks.addToast).toHaveBeenCalledWith('admin.settings.messages.saved', 'success')
+  })
+
+  it('skips saving when the draft value is blank after trimming', async () => {
+    const manager = useGlobalSettingsManager()
+
+    manager.updateDraft('site.name', { value: '   ', description: 'Updated description' })
+    await manager.handleSave('site.name')
+
+    expect(mocks.updateConfig).not.toHaveBeenCalled()
+    expect(mocks.addToast).not.toHaveBeenCalled()
   })
 
   it('skips saving when no draft exists for the key', async () => {

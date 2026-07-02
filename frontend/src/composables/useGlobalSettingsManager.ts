@@ -44,8 +44,12 @@ export function useGlobalSettingsManager() {
     const config = getDraft(key)
     if (!config) return
 
+    const value = config.value.trim()
+    const description = config.description?.trim() ?? ''
+    if (!value) return
+
     try {
-      await updateConfig({ key: config.key, value: config.value, description: config.description })
+      await updateConfig({ key: config.key, value, description })
       toastStore.addToast(t('admin.settings.messages.saved'), 'success')
     } catch {
       // Error handled globally
