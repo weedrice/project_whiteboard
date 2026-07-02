@@ -8,6 +8,8 @@ import '@/components/board/editor/editor.css'
 import { useEditorImageUpload } from '@/composables/useEditorImageUpload'
 import { focusPostEditorAtPointer, usePostEditorInstance } from '@/composables/usePostEditorInstance'
 import { usePostEditorImageAltCommands } from '@/composables/usePostEditorImageAltCommands'
+import { usePostEditorColorPanel } from '@/composables/usePostEditorColorPanel'
+import { usePostEditorFloatingPanelRefs } from '@/composables/usePostEditorFloatingPanelRefs'
 import { usePostEditorImageFiles } from '@/composables/usePostEditorImageFiles'
 import { usePostEditorImageUploadState } from '@/composables/usePostEditorImageUploadState'
 import { usePostEditorLinkCommands } from '@/composables/usePostEditorLinkCommands'
@@ -194,6 +196,34 @@ const {
 })
 
 const {
+  closeColorPanel,
+  setDefaultColor,
+  setPresetColor,
+  toggleColorPanel,
+} = usePostEditorColorPanel({
+  editor,
+  showColorPanel,
+  showSlashMenu,
+  slashPosition,
+  colorPosition,
+  colorTriggerElement,
+})
+
+const {
+  assignSlashPopover,
+  assignColorPanel,
+  assignLinkPopover,
+  assignImageAltPopover,
+  assignTablePopover,
+} = usePostEditorFloatingPanelRefs({
+  slashPopoverRef,
+  colorPanelRef,
+  linkPopoverRef,
+  imageAltPopoverRef,
+  tablePopoverRef,
+})
+
+const {
   imageInput,
   isDraggingImage,
   triggerImageUpload,
@@ -203,57 +233,6 @@ const {
   onEditorDragEnter,
   onEditorDragLeave,
 } = usePostEditorImageFiles(imageUploadQueue)
-
-function setDefaultColor() {
-  editor.value?.chain().focus().unsetColor().run()
-  closeColorPanel()
-}
-
-function setPresetColor(color: string) {
-  editor.value?.chain().focus().setColor(color).run()
-  closeColorPanel()
-}
-
-function toggleColorPanel(anchor?: HTMLElement) {
-  if (showColorPanel.value) {
-    closeColorPanel(anchor)
-    return
-  }
-  showSlashMenu.value = false
-  slashPosition.clearAnchor()
-  colorTriggerElement.value = anchor ?? null
-  colorPosition.setAnchor(anchor)
-  showColorPanel.value = true
-}
-
-function closeColorPanel(focusTarget = colorTriggerElement.value) {
-  showColorPanel.value = false
-  colorPosition.clearAnchor()
-  colorTriggerElement.value = null
-  if (focusTarget instanceof HTMLElement) {
-    focusTarget.focus()
-  }
-}
-
-function assignSlashPopover(value: HTMLElement | null) {
-  slashPopoverRef.value = value
-}
-
-function assignColorPanel(value: HTMLElement | null) {
-  colorPanelRef.value = value
-}
-
-function assignLinkPopover(value: HTMLElement | null) {
-  linkPopoverRef.value = value
-}
-
-function assignImageAltPopover(value: HTMLElement | null) {
-  imageAltPopoverRef.value = value
-}
-
-function assignTablePopover(value: HTMLElement | null) {
-  tablePopoverRef.value = value
-}
 
 function onContentAreaClick(event: MouseEvent) {
   const instance = editor.value
