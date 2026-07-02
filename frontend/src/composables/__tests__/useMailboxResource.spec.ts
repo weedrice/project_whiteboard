@@ -47,7 +47,7 @@ vi.mock('@/composables/useConfirm', () => ({
     }),
 }))
 
-vi.mock('@/composables/useMailboxListState', () => ({
+vi.mock('@/features/user/messages/useMailboxListState', () => ({
     useMailboxListState: () => ({
         ...mocks.listState,
         fetchMessages: mocks.fetchMessages,
@@ -58,7 +58,7 @@ vi.mock('@/composables/useMailboxListState', () => ({
     }),
 }))
 
-vi.mock('@/composables/useMessageSubmit', () => ({
+vi.mock('@/features/user/messages/useMessageSubmit', () => ({
     useMessageSubmit: () => ({
         content: { value: '' },
         isSending: { value: false },

@@ -96,7 +96,7 @@ import { Menu, Users } from 'lucide-vue-next'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
-import { useSubscribedBoardsManager } from '@/composables/useSubscribedBoardsManager'
+import { useSubscribedBoardsManager } from '@/features/user/subscriptions/useSubscribedBoardsManager'
 
 const {
     accessibleBoards,

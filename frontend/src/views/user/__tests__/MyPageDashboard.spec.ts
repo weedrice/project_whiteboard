@@ -40,7 +40,7 @@ vi.mock('vue-i18n', () => ({
   }),
 }))
 
-vi.mock('@/composables/useMyPageDashboardResource', () => ({
+vi.mock('@/features/user/dashboard/useMyPageDashboardResource', () => ({
   useMyPageDashboardResource: () => ({
     profile: mocks.profile,
     myAgents: ref([]),

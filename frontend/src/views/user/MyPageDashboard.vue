@@ -11,7 +11,7 @@ import EmailVerificationModal from '@/components/user/EmailVerificationModal.vue
 import MyInquiryDetailModal from '@/components/user/MyInquiryDetailModal.vue'
 import MyPageCommentList from '@/components/user/MyPageCommentList.vue'
 import MyPageProfileCard from '@/components/user/MyPageProfileCard.vue'
-import { useMyPageDashboardResource } from '@/composables/useMyPageDashboardResource'
+import { useMyPageDashboardResource } from '@/features/user/dashboard/useMyPageDashboardResource'
 import { useInquiryDetailModal } from '@/composables/useInquiryDetailModal'
 import { useEmailVerificationFlow } from '@/composables/useEmailVerificationFlow'
 import { resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigation'

@@ -19,7 +19,7 @@ import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
-import { useMessageSubmit } from '@/composables/useMessageSubmit'
+import { useMessageSubmit } from '@/features/user/messages/useMessageSubmit'
 
 const props = defineProps<{
     isOpen: boolean
