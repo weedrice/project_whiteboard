@@ -259,6 +259,34 @@ describe('UserSelectModal', () => {
     ]])
   })
 
+  it('resets selection and search when source options change while open', async () => {
+    vi.useFakeTimers()
+    const wrapper = mountModal({ isOpen: true })
+    const saveButton = getActionButton(wrapper, 'common.save')
+
+    await wrapper.findAll('tbody tr')[0].trigger('click')
+    await wrapper.get('#user-select-search').setValue('admin')
+    vi.advanceTimersByTime(300)
+    await flushPromises()
+    expect(saveButton.attributes('disabled')).toBeUndefined()
+    expect(mocks.adminCalls.at(-1)?.params.value.q).toBe('admin')
+
+    await wrapper.setProps({
+      source: 'board-manager-candidates',
+      boardUrl: 'free',
+      excludeUserIds: [2],
+    })
+    await flushPromises()
+    vi.advanceTimersByTime(300)
+    await flushPromises()
+
+    expect((wrapper.get('#user-select-search').element as HTMLInputElement).value).toBe('')
+    expect(saveButton.attributes('disabled')).toBeDefined()
+    expect(mocks.boardCalls.at(-1)?.enabled.value).toBe(true)
+    expect(mocks.boardCalls.at(-1)?.boardUrl.value).toBe('free')
+    expect(wrapper.text()).not.toContain('board-user')
+  })
+
   it('renders loading and empty states', () => {
     mocks.adminLoading = true
     const loadingWrapper = mountModal({ isOpen: true })

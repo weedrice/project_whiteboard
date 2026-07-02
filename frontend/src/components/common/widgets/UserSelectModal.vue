@@ -209,7 +209,14 @@ function applyInitialSelection(users: SelectableUser[]) {
   selectedMap.value = next
 }
 
-watch([() => props.isOpen, () => props.selectionMode, () => props.initialSelectedIds], ([isOpen]) => {
+watch([
+  () => props.isOpen,
+  () => props.selectionMode,
+  () => props.initialSelectedIds,
+  () => props.source,
+  () => props.boardUrl,
+  () => props.excludeUserIds,
+], ([isOpen]) => {
   if (!isOpen) return
 
   searchQuery.value = ''
