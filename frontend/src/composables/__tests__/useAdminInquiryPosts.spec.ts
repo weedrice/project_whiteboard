@@ -8,7 +8,7 @@ import {
   useAdminInquiryPosts,
 } from '@/features/admin/inquiries/useAdminInquiryPosts'
 import { apiSuccessDataResponse, pageResponseFixture } from '@/test/apiResponseFixtures'
-import type { AdminInquirySummary, Post } from '@/types'
+import type { AdminInquirySummary, PageResponse, Post } from '@/types'
 
 const mocks = vi.hoisted(() => ({
   invalidateQueries: vi.fn(),
