@@ -13,7 +13,7 @@ import {
 import type {
     AdminCreateData,
     UserSearchParams,
-} from '@/composables/adminComposableTypes'
+} from '@/api/admin'
 import type {
     AdminUserCommentItem,
     AdminUserDetail,

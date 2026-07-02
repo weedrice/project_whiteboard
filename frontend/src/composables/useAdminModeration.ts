@@ -7,7 +7,7 @@ import type {
     IpBlockData,
     ReportResolveData,
     ReportSearchParams,
-} from '@/composables/adminComposableTypes'
+} from '@/api/admin'
 import type { IpBlock, Report } from '@/types'
 
 export function useAdminModeration(queryClient: QueryClient) {

@@ -9,7 +9,7 @@ import {
     useAdminNullableDataQuery,
     useAdminPageQuery,
 } from '@/composables/adminApiQuery'
-import type { ConfigCreateData } from '@/composables/adminComposableTypes'
+import type { ConfigCreateData } from '@/api/admin'
 import type {
     ErrorLogDetail,
     ErrorLogListItem,

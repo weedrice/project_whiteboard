@@ -6,15 +6,18 @@ import { useAdminSystem } from '@/composables/useAdminSystem'
 
 export type {
     AdminCreateData,
-    BoardCreateData,
-    BoardManagerData,
-    BoardUpdateData,
+    BoardManagerUpdateData as BoardManagerData,
     ConfigCreateData,
     IpBlockData,
     ReportResolveData,
     ReportSearchParams,
     UserSearchParams,
-} from '@/composables/adminComposableTypes'
+} from '@/api/admin'
+
+export type {
+    BoardCreateData,
+    BoardUpdateData,
+} from '@/types'
 
 export function useAdmin() {
     const queryClient = useQueryClient()

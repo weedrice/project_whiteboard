@@ -13,6 +13,7 @@ export {
     type IpBlockData,
     type PaginationParams,
     type ReportResolveData,
+    type ReportSearchParams,
     type SuperAdminData,
     type UserSearchParams,
 } from '@/api/adminTypes'

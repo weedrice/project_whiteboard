@@ -41,6 +41,11 @@ export interface ReportResolveData {
     status: 'RESOLVED' | 'REJECTED'
 }
 
+export interface ReportSearchParams {
+    page?: number
+    size?: number
+}
+
 export interface ConfigCreateData {
     key: string
     value: string

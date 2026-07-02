@@ -10,14 +10,12 @@ import {
     useAdminDataQuery,
     useAdminNullableDataQuery,
 } from '@/composables/adminApiQuery'
-import type {
-    BoardCreateData,
-    BoardManagerData,
-    BoardUpdateData,
-} from '@/composables/adminComposableTypes'
+import type { BoardManagerUpdateData } from '@/api/admin'
 import type {
     AdminBoard,
     BoardAdminInfo,
+    BoardCreateData,
+    BoardUpdateData,
 } from '@/types'
 
 export function useAdminBoardManagement(queryClient: QueryClient) {
@@ -81,7 +79,7 @@ export function useAdminBoardManagement(queryClient: QueryClient) {
 
     const useUpdateBoardManager = () => {
         return useMutation({
-            mutationFn: ({ boardId, data }: { boardId: number, data: BoardManagerData }) =>
+            mutationFn: ({ boardId, data }: { boardId: number, data: BoardManagerUpdateData }) =>
                 adminApi.updateBoardManager(boardId, data),
             onSuccess: (_, { boardId }) => {
                 queryClient.invalidateQueries({ queryKey: adminQueryKeys.boardManagerById(boardId) })
