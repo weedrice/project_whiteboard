@@ -27,6 +27,7 @@ vi.mock('vue-i18n', () => ({
         t: (key: string, params?: Record<string, string>) => ({
             'admin.users.title': '사용자 관리',
             'admin.users.description': '사용자를 관리합니다.',
+            'admin.users.filters.userSearch': '사용자 검색',
             'admin.users.searchPlaceholder': '사용자 검색',
             'admin.users.table.status': '상태',
             'admin.users.table.joinedAt': '가입일',
@@ -78,6 +79,7 @@ const iconStub = defineComponent({
 
 const BaseInputStub = defineComponent({
     props: {
+        id: String,
         modelValue: String,
         label: String,
         placeholder: String,
@@ -86,8 +88,9 @@ const BaseInputStub = defineComponent({
     emits: ['update:modelValue'],
     setup(props, { emit }) {
         return () => h('div', [
-            props.label ? h('label', { class: props.hideLabel ? 'sr-only' : '' }, props.label) : null,
+            props.label ? h('label', { for: props.id, class: props.hideLabel ? 'sr-only' : '' }, props.placeholder || props.label) : null,
             h('input', {
+                id: props.id,
                 value: props.modelValue,
                 placeholder: props.placeholder,
                 onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLInputElement).value),
@@ -133,7 +136,7 @@ describe('UserManagement', () => {
         expect(mocks.updateUserStatus).not.toHaveBeenCalled()
     })
 
-    it('keeps a hidden label on the user search field', () => {
+    it('connects a visible label to the user search field', () => {
         const wrapper = mount(UserManagement, {
             global: {
                 stubs: {
@@ -146,7 +149,7 @@ describe('UserManagement', () => {
             },
         })
 
-        const label = wrapper.get('label.sr-only')
+        const label = wrapper.get('label[for="admin-user-filter-q"]')
 
         expect(label.text()).toBe('사용자 검색')
         expect(wrapper.get('input[placeholder="사용자 검색"]').attributes('placeholder')).toBe('사용자 검색')
