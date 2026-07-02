@@ -38,10 +38,12 @@ export function useAdminIpBlocksManager() {
   }
 
   async function handleBlockIp() {
-    if (!newIp.value || !blockReason.value) return
+    const ipAddress = newIp.value.trim()
+    const reason = blockReason.value.trim()
+    if (!ipAddress || !reason) return
 
     try {
-      await blockIp({ ipAddress: newIp.value, reason: blockReason.value })
+      await blockIp({ ipAddress, reason })
       page.value = 0
       toastStore.addToast(t('admin.security.messages.blocked'), 'success')
       newIp.value = ''

@@ -106,7 +106,7 @@ describe('useBoardCategoriesManager', () => {
         manager.categories.value = [
             makeCategory({ categoryId: 1, isDefault: true, sortOrder: 1 }),
         ]
-        manager.newCategoryName.value = 'Notice'
+        manager.newCategoryName.value = '  Notice  '
         manager.newCategoryRole.value = 'BOARD_ADMIN'
 
         vi.mocked(boardApi.createCategory).mockResolvedValueOnce(
@@ -169,7 +169,7 @@ describe('useBoardCategoriesManager', () => {
         const category = makeCategory({ categoryId: 2, name: 'Old', sortOrder: 2 })
         manager.categories.value = [category]
         manager.startEdit(category)
-        manager.editingName.value = 'New'
+        manager.editingName.value = '  New  '
         manager.editingRole.value = 'BOARD_ADMIN'
 
         vi.mocked(boardApi.updateCategory).mockResolvedValueOnce(
@@ -197,6 +197,21 @@ describe('useBoardCategoriesManager', () => {
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({
             queryKey: ['board', 'categories', expect.any(Object)],
         })
+    })
+
+    it('does not create or update categories with blank names', async () => {
+        const manager = createManager()
+        const category = makeCategory({ categoryId: 2, name: 'Old', sortOrder: 2 })
+
+        manager.newCategoryName.value = '   '
+        await manager.handleAdd()
+
+        manager.startEdit(category)
+        manager.editingName.value = '   '
+        await manager.saveEdit(category)
+
+        expect(boardApi.createCategory).not.toHaveBeenCalled()
+        expect(boardApi.updateCategory).not.toHaveBeenCalled()
     })
 
     it('reorders draggable categories after the default category', async () => {

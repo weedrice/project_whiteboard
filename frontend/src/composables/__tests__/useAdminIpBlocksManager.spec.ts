@@ -99,8 +99,8 @@ describe('useAdminIpBlocksManager', () => {
   it('blocks an IP and resets the form after success', async () => {
     const manager = useAdminIpBlocksManager()
     manager.page.value = 3
-    manager.newIp.value = '10.0.0.1'
-    manager.blockReason.value = 'Abuse'
+    manager.newIp.value = '  10.0.0.1  '
+    manager.blockReason.value = '  Abuse  '
 
     await manager.handleBlockIp()
 
@@ -111,7 +111,7 @@ describe('useAdminIpBlocksManager', () => {
     expect(mocks.addToast).toHaveBeenCalledWith('admin.security.messages.blocked', 'success')
   })
 
-  it('does not block when the IP or reason field is empty', async () => {
+  it('does not block when the IP or reason field is empty after trimming', async () => {
     const manager = useAdminIpBlocksManager()
 
     manager.newIp.value = ''
@@ -120,6 +120,14 @@ describe('useAdminIpBlocksManager', () => {
 
     manager.newIp.value = '10.0.0.1'
     manager.blockReason.value = ''
+    await manager.handleBlockIp()
+
+    manager.newIp.value = '   '
+    manager.blockReason.value = 'Abuse'
+    await manager.handleBlockIp()
+
+    manager.newIp.value = '10.0.0.1'
+    manager.blockReason.value = '   '
     await manager.handleBlockIp()
 
     expect(mocks.blockIp).not.toHaveBeenCalled()

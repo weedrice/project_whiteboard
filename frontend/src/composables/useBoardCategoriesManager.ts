@@ -51,11 +51,12 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
     }
 
     async function handleAdd() {
-        if (!newCategoryName.value.trim()) return
+        const name = newCategoryName.value.trim()
+        if (!name) return
 
         try {
             const { data } = await boardApi.createCategory(boardUrl.value, {
-                name: newCategoryName.value,
+                name,
                 minWriteRole: newCategoryRole.value,
                 sortOrder: categories.value.length + 1,
             })
@@ -100,11 +101,12 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
     }
 
     async function saveEdit(category: Category) {
-        if (!editingName.value.trim()) return
+        const name = editingName.value.trim()
+        if (!name) return
 
         try {
             const { data } = await boardApi.updateCategory(boardUrl.value, category.categoryId, {
-                name: editingName.value,
+                name,
                 sortOrder: category.sortOrder,
                 minWriteRole: editingRole.value,
                 isDefault: category.isDefault,
