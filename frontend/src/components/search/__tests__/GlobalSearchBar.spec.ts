@@ -1,6 +1,6 @@
-import { mount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
-import { ref } from 'vue'
+import { enableAutoUnmount, mount } from '@vue/test-utils'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { nextTick, ref } from 'vue'
 import GlobalSearchBar from '../GlobalSearchBar.vue'
 import type { BoardListItem } from '@/types'
 
@@ -22,6 +22,7 @@ const boards: BoardListItem[] = [
 
 const routerPush = vi.fn()
 const invalidateQueries = vi.fn()
+const mobileViewport = ref(false)
 
 vi.mock('vue-router', () => ({
     useRoute: () => ({
@@ -59,6 +60,10 @@ vi.mock('@/composables/useDebounce', () => ({
     useDebounce: <T>(value: T) => value,
 }))
 
+vi.mock('@/composables/useMediaQuery', () => ({
+    useMobileViewport: () => mobileViewport,
+}))
+
 const mountSearchBar = () => mount(GlobalSearchBar, {
     global: {
         mocks: {
@@ -74,6 +79,18 @@ const mountSearchBar = () => mount(GlobalSearchBar, {
 })
 
 describe('GlobalSearchBar', () => {
+    enableAutoUnmount(afterEach)
+
+    beforeEach(() => {
+        routerPush.mockClear()
+        invalidateQueries.mockClear()
+        mobileViewport.value = false
+    })
+
+    afterEach(() => {
+        document.body.innerHTML = ''
+    })
+
     it('connects search input combobox attributes to board results', async () => {
         const wrapper = mountSearchBar()
         const input = wrapper.get('input')
@@ -104,5 +121,39 @@ describe('GlobalSearchBar', () => {
 
         expect(wrapper.get('input').attributes('aria-activedescendant')).toBe('global-search-board-results-vue')
         expect(wrapper.get('#global-search-board-results-vue').attributes('aria-selected')).toBe('true')
+    })
+
+    it('renders mobile results through teleport after expanding search', async () => {
+        mobileViewport.value = true
+        const wrapper = mountSearchBar()
+
+        await wrapper.get('button[aria-label="search.placeholder"]').trigger('click')
+        await nextTick()
+
+        const input = wrapper.get('input')
+        await input.setValue('Vue')
+        await input.trigger('focus')
+
+        const dropdown = document.body.querySelector('.nv-global-search-dropdown')
+        const listbox = document.body.querySelector('#global-search-board-results')
+
+        expect(dropdown).not.toBeNull()
+        expect(dropdown?.classList.contains('fixed')).toBe(true)
+        expect(listbox?.getAttribute('role')).toBe('listbox')
+        expect(document.body.querySelector('#global-search-board-results-vue')?.getAttribute('role')).toBe('option')
+    })
+
+    it('submits search with Enter when no board option is selected', async () => {
+        const wrapper = mountSearchBar()
+        const input = wrapper.get('input')
+
+        await input.setValue('Vue')
+        await input.trigger('focus')
+        await input.trigger('keydown', { key: 'Enter' })
+
+        expect(routerPush).toHaveBeenCalledWith({
+            name: 'search',
+            query: { q: 'Vue' },
+        })
     })
 })
