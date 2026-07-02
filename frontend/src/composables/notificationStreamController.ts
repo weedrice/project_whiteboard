@@ -35,9 +35,6 @@ const RECONNECT_AFTER_REFRESH_DELAY_MS = 1000
 const RECONNECT_AFTER_FAILURE_DELAY_MS = 5000
 const MAX_RECONNECT_DELAY_MS = 60000
 
-let reconnectCallback: (() => void) | null = null
-let isBrowserOnlineProvider = defaultIsBrowserOnline
-
 function defaultIsBrowserOnline(): boolean {
     return typeof navigator === 'undefined' ? true : navigator.onLine
 }
@@ -56,88 +53,118 @@ function getErrorStatus(error: unknown): number | null {
     return typeof response?.status === 'number' ? response.status : null
 }
 
-const notificationStreamState = {
-    streamAbortController: null as AbortController | null,
-    reconnectTimer: null as ReturnType<typeof setTimeout> | null,
-    isConnecting: false,
-    closedManually: false,
-    reconnectAttempt: 0,
-    reconnectWhenOnline: false,
-    onlineListenerAttached: false,
-    recentNotificationIds: createRecentNotificationIdCache(RECENT_NOTIFICATION_ID_LIMIT),
+class NotificationStreamRuntime {
+    readonly state = {
+        streamAbortController: null as AbortController | null,
+        reconnectTimer: null as ReturnType<typeof setTimeout> | null,
+        isConnecting: false,
+        closedManually: false,
+        reconnectAttempt: 0,
+        reconnectWhenOnline: false,
+        onlineListenerAttached: false,
+        recentNotificationIds: createRecentNotificationIdCache(RECENT_NOTIFICATION_ID_LIMIT),
+    }
+
+    private reconnectCallback: (() => void) | null = null
+    private isBrowserOnlineProvider = defaultIsBrowserOnline
+
+    reset() {
+        this.state.closedManually = true
+
+        if (this.state.reconnectTimer) {
+            clearTimeout(this.state.reconnectTimer)
+            this.state.reconnectTimer = null
+        }
+
+        if (this.state.streamAbortController) {
+            this.state.streamAbortController.abort()
+            this.state.streamAbortController = null
+        }
+
+        this.state.isConnecting = false
+        this.state.reconnectAttempt = 0
+        this.state.reconnectWhenOnline = false
+        if (typeof window !== 'undefined' && this.state.onlineListenerAttached) {
+            window.removeEventListener('online', this.handleBrowserOnline)
+        }
+        this.state.onlineListenerAttached = false
+        this.reconnectCallback = null
+        this.state.recentNotificationIds.clear()
+        this.isBrowserOnlineProvider = defaultIsBrowserOnline
+    }
+
+    setOnlineProvider(provider?: () => boolean) {
+        this.isBrowserOnlineProvider = provider ?? defaultIsBrowserOnline
+    }
+
+    isBrowserOnline() {
+        return this.isBrowserOnlineProvider()
+    }
+
+    setReconnectCallback(callback: () => void) {
+        this.reconnectCallback = callback
+    }
+
+    reconnect() {
+        this.reconnectCallback?.()
+    }
+
+    handleBrowserOnline = () => {
+        if (this.state.closedManually || !this.state.reconnectWhenOnline) return
+        this.state.reconnectWhenOnline = false
+        scheduleReconnect(0)
+    }
 }
+
+const notificationStreamRuntime = new NotificationStreamRuntime()
 
 export function resetNotificationStreamStateForTest() {
-    notificationStreamState.closedManually = true
-
-    if (notificationStreamState.reconnectTimer) {
-        clearTimeout(notificationStreamState.reconnectTimer)
-        notificationStreamState.reconnectTimer = null
-    }
-
-    if (notificationStreamState.streamAbortController) {
-        notificationStreamState.streamAbortController.abort()
-        notificationStreamState.streamAbortController = null
-    }
-
-    notificationStreamState.isConnecting = false
-    notificationStreamState.reconnectAttempt = 0
-    notificationStreamState.reconnectWhenOnline = false
-    if (typeof window !== 'undefined' && notificationStreamState.onlineListenerAttached) {
-        window.removeEventListener('online', handleBrowserOnline)
-    }
-    notificationStreamState.onlineListenerAttached = false
-    reconnectCallback = null
-    notificationStreamState.recentNotificationIds.clear()
-    isBrowserOnlineProvider = defaultIsBrowserOnline
-}
-
-function handleBrowserOnline() {
-    if (notificationStreamState.closedManually || !notificationStreamState.reconnectWhenOnline) return
-    notificationStreamState.reconnectWhenOnline = false
-    scheduleReconnect(0)
+    notificationStreamRuntime.reset()
 }
 
 function attachOnlineReconnectListener() {
-    if (typeof window === 'undefined' || notificationStreamState.onlineListenerAttached) return
-    window.addEventListener('online', handleBrowserOnline)
-    notificationStreamState.onlineListenerAttached = true
+    const { state } = notificationStreamRuntime
+    if (typeof window === 'undefined' || state.onlineListenerAttached) return
+    window.addEventListener('online', notificationStreamRuntime.handleBrowserOnline)
+    state.onlineListenerAttached = true
 }
 
 function detachOnlineReconnectListener() {
-    if (typeof window === 'undefined' || !notificationStreamState.onlineListenerAttached) return
-    window.removeEventListener('online', handleBrowserOnline)
-    notificationStreamState.onlineListenerAttached = false
+    const { state } = notificationStreamRuntime
+    if (typeof window === 'undefined' || !state.onlineListenerAttached) return
+    window.removeEventListener('online', notificationStreamRuntime.handleBrowserOnline)
+    state.onlineListenerAttached = false
 }
 
 function getBackoffDelay(baseDelayMs: number) {
     return getNotificationReconnectDelay(
         baseDelayMs,
-        notificationStreamState.reconnectAttempt,
+        notificationStreamRuntime.state.reconnectAttempt,
         MAX_RECONNECT_DELAY_MS,
     )
 }
 
 function scheduleReconnect(delayMs: number) {
-    if (notificationStreamState.closedManually) return
+    const { state } = notificationStreamRuntime
+    if (state.closedManually) return
 
-    if (!isBrowserOnlineProvider()) {
-        notificationStreamState.reconnectWhenOnline = true
+    if (!notificationStreamRuntime.isBrowserOnline()) {
+        state.reconnectWhenOnline = true
         attachOnlineReconnectListener()
         return
     }
 
     detachOnlineReconnectListener()
 
-    if (notificationStreamState.reconnectTimer) {
-        clearTimeout(notificationStreamState.reconnectTimer)
+    if (state.reconnectTimer) {
+        clearTimeout(state.reconnectTimer)
     }
 
     const backoffDelayMs = getBackoffDelay(delayMs)
-    notificationStreamState.reconnectAttempt += 1
-    notificationStreamState.reconnectTimer = setTimeout(() => {
-        notificationStreamState.reconnectTimer = null
-        reconnectCallback?.()
+    state.reconnectAttempt += 1
+    state.reconnectTimer = setTimeout(() => {
+        state.reconnectTimer = null
+        notificationStreamRuntime.reconnect()
     }, backoffDelayMs)
 }
 
@@ -149,10 +176,10 @@ export function createNotificationStreamController(
     const refreshToken = dependencies.refreshToken ?? authApi.refreshToken
     const normalizeIncomingNotification = dependencies.normalizeNotification ?? normalizeNotificationResponse
     const resolveAuthStore = dependencies.resolveAuthStore ?? useAuthStore
-    isBrowserOnlineProvider = dependencies.isBrowserOnline ?? defaultIsBrowserOnline
+    notificationStreamRuntime.setOnlineProvider(dependencies.isBrowserOnline)
 
     const rememberNotificationId = (notificationId: number) => {
-        notificationStreamState.recentNotificationIds.remember(notificationId)
+        notificationStreamRuntime.state.recentNotificationIds.remember(notificationId)
     }
 
     const applyIncomingNotification = (incoming: Notification) => {
@@ -161,7 +188,7 @@ export function createNotificationStreamController(
             isRead: false,
         }
         const notificationId = normalized.notificationId
-        if (typeof notificationId === 'number' && notificationStreamState.recentNotificationIds.has(notificationId)) {
+        if (typeof notificationId === 'number' && notificationStreamRuntime.state.recentNotificationIds.has(notificationId)) {
             return
         }
 
@@ -218,7 +245,7 @@ export function createNotificationStreamController(
     }
 
     const reconnectWithRefresh = async () => {
-        if (!isBrowserOnlineProvider()) {
+        if (!notificationStreamRuntime.isBrowserOnline()) {
             scheduleReconnect(RECONNECT_AFTER_FAILURE_DELAY_MS)
             return
         }
@@ -236,7 +263,7 @@ export function createNotificationStreamController(
             logger.warn('SSE reconnect: refresh failed', error)
             const status = getErrorStatus(error)
             if (shouldStopNotificationReconnectAfterRefresh(status)) {
-                notificationStreamState.closedManually = true
+                notificationStreamRuntime.state.closedManually = true
                 return
             }
         }
@@ -255,69 +282,71 @@ export function createNotificationStreamController(
                 throw new Error('SSE stream response is empty')
             }
 
-            notificationStreamState.isConnecting = false
-            notificationStreamState.reconnectAttempt = 0
+            notificationStreamRuntime.state.isConnecting = false
+            notificationStreamRuntime.state.reconnectAttempt = 0
             await consumeSseStream(response.body, controller.signal, handleSseEvent)
 
-            if (!controller.signal.aborted && !notificationStreamState.closedManually) {
+            if (!controller.signal.aborted && !notificationStreamRuntime.state.closedManually) {
                 throw new Error('SSE stream closed unexpectedly')
             }
         } catch (error: unknown) {
-            if (notificationStreamState.closedManually || controller.signal.aborted || isAbortError(error)) {
+            if (notificationStreamRuntime.state.closedManually || controller.signal.aborted || isAbortError(error)) {
                 return
             }
 
             logger.warn('SSE connection dropped:', error)
             await reconnectWithRefresh()
         } finally {
-            if (notificationStreamState.streamAbortController === controller) {
-                notificationStreamState.streamAbortController = null
+            if (notificationStreamRuntime.state.streamAbortController === controller) {
+                notificationStreamRuntime.state.streamAbortController = null
             }
-            notificationStreamState.isConnecting = false
+            notificationStreamRuntime.state.isConnecting = false
         }
     }
 
     const connectToSse = () => {
-        if (notificationStreamState.streamAbortController || notificationStreamState.isConnecting) return
+        const { state } = notificationStreamRuntime
+        if (state.streamAbortController || state.isConnecting) return
 
-        if (notificationStreamState.reconnectTimer) {
-            clearTimeout(notificationStreamState.reconnectTimer)
-            notificationStreamState.reconnectTimer = null
+        if (state.reconnectTimer) {
+            clearTimeout(state.reconnectTimer)
+            state.reconnectTimer = null
         }
         detachOnlineReconnectListener()
-        notificationStreamState.reconnectWhenOnline = false
+        state.reconnectWhenOnline = false
 
         const authStore = resolveAuthStore()
         const token = authStore.accessToken
         if (!token) return
 
-        notificationStreamState.closedManually = false
-        notificationStreamState.isConnecting = true
+        state.closedManually = false
+        state.isConnecting = true
 
         const controller = new AbortController()
-        notificationStreamState.streamAbortController = controller
+        state.streamAbortController = controller
 
         void startStream(token, controller)
     }
 
-    reconnectCallback = connectToSse
+    notificationStreamRuntime.setReconnectCallback(connectToSse)
 
     const closeSse = () => {
-        notificationStreamState.closedManually = true
+        const { state } = notificationStreamRuntime
+        state.closedManually = true
 
-        if (notificationStreamState.reconnectTimer) {
-            clearTimeout(notificationStreamState.reconnectTimer)
-            notificationStreamState.reconnectTimer = null
+        if (state.reconnectTimer) {
+            clearTimeout(state.reconnectTimer)
+            state.reconnectTimer = null
         }
 
-        if (notificationStreamState.streamAbortController) {
-            notificationStreamState.streamAbortController.abort()
-            notificationStreamState.streamAbortController = null
+        if (state.streamAbortController) {
+            state.streamAbortController.abort()
+            state.streamAbortController = null
         }
 
-        notificationStreamState.isConnecting = false
-        notificationStreamState.reconnectAttempt = 0
-        notificationStreamState.reconnectWhenOnline = false
+        state.isConnecting = false
+        state.reconnectAttempt = 0
+        state.reconnectWhenOnline = false
         detachOnlineReconnectListener()
     }
 
