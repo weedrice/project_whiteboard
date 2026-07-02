@@ -13,14 +13,24 @@ function applyThemeClass(isDark: boolean) {
     document.documentElement.classList.toggle('dark', isDark)
 }
 
+function isStoredTheme(value: string | null): value is 'dark' | 'light' {
+    return value === 'dark' || value === 'light'
+}
+
 export const useThemeStore = defineStore('theme', () => {
     // Initialize theme: localStorage -> System Preference -> Light
     const storedTheme = Storage.getString('theme')
+    const hasStoredTheme = isStoredTheme(storedTheme)
     const systemDark = getSystemDarkPreference()
-    const isDark = ref(storedTheme === 'dark' || (!storedTheme && systemDark))
+    const isDark = ref(hasStoredTheme ? storedTheme === 'dark' : systemDark)
+
+    function persistTheme() {
+        Storage.setString('theme', isDark.value ? 'dark' : 'light')
+    }
 
     async function toggleTheme() {
         isDark.value = !isDark.value
+        persistTheme()
     }
 
     function setTheme(theme: 'DARK' | 'LIGHT') {
@@ -29,12 +39,12 @@ export const useThemeStore = defineStore('theme', () => {
         } else {
             isDark.value = false
         }
+        persistTheme()
     }
 
     watch(isDark, (val) => {
         applyThemeClass(val)
-        Storage.setString('theme', val ? 'dark' : 'light')
-    }, { immediate: true })
+    }, { immediate: true, flush: 'sync' })
 
     return {
         isDark,

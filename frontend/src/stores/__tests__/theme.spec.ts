@@ -16,6 +16,7 @@ describe('Theme Store', () => {
     beforeEach(() => {
         // Reset localStorage
         localStorage.clear()
+        document.documentElement.classList.remove('dark')
         vi.clearAllMocks()
 
         setActivePinia(createPinia())
@@ -37,6 +38,7 @@ describe('Theme Store', () => {
             store = useThemeStore()
 
             expect(store.isDark).toBe(true)
+            expect(document.documentElement.classList.contains('dark')).toBe(true)
         })
 
         it('initializes with light theme if localStorage has light', () => {
@@ -57,6 +59,27 @@ describe('Theme Store', () => {
                 store = useThemeStore()
             }).not.toThrow()
             expect(store.isDark).toBe(false)
+            expect(document.documentElement.classList.contains('dark')).toBe(false)
+        })
+
+        it('applies system dark preference without persisting an explicit theme', () => {
+            const originalMatchMedia = window.matchMedia
+            Object.defineProperty(window, 'matchMedia', {
+                configurable: true,
+                value: vi.fn().mockReturnValue({ matches: true }),
+            })
+            setActivePinia(createPinia())
+
+            store = useThemeStore()
+
+            expect(store.isDark).toBe(true)
+            expect(document.documentElement.classList.contains('dark')).toBe(true)
+            expect(localStorage.getItem('theme')).toBeNull()
+
+            Object.defineProperty(window, 'matchMedia', {
+                configurable: true,
+                value: originalMatchMedia,
+            })
         })
 
         it('initializes safely when matchMedia is unavailable', () => {
@@ -83,12 +106,14 @@ describe('Theme Store', () => {
         it('sets theme to dark when passed DARK', () => {
             store.setTheme('DARK')
             expect(store.isDark).toBe(true)
+            expect(document.documentElement.classList.contains('dark')).toBe(true)
         })
 
         it('sets theme to light when passed LIGHT', () => {
             store.isDark = true
             store.setTheme('LIGHT')
             expect(store.isDark).toBe(false)
+            expect(document.documentElement.classList.contains('dark')).toBe(false)
         })
     })
 

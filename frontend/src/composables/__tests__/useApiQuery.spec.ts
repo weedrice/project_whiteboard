@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { useQuery, type QueryFunctionContext } from '@tanstack/vue-query'
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import type { ApiResponse } from '@/types'
@@ -96,6 +96,23 @@ describe('useApiQuery', () => {
     }))
     expect(typeof options.placeholderData).toBe('function')
     expect((options.placeholderData as (previousData: unknown) => unknown)('previous')).toBe('previous')
+  })
+
+  it('preserves selected and unselected query return types', () => {
+    const plainQuery = useApiQuery({
+      queryKey: ['typed-item'],
+      request: async () => axiosApiResponse({ id: 1, name: 'first' }),
+    })
+    const selectedQuery = useApiQuery({
+      queryKey: ['typed-name'],
+      request: async () => axiosApiResponse({ id: 1, name: 'first' }),
+      selectData: data => data.name,
+    })
+
+    expectTypeOf(plainQuery).toEqualTypeOf<ReturnType<typeof useQuery<{ id: number; name: string }, Error, { id: number; name: string }>>>()
+    expectTypeOf(selectedQuery).toEqualTypeOf<ReturnType<typeof useQuery<string, Error, string>>>()
+    expect(plainQuery).toBeDefined()
+    expect(selectedQuery).toBeDefined()
   })
 
   it('returns null from nullable queries without running selectData', async () => {

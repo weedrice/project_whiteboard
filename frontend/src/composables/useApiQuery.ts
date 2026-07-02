@@ -71,6 +71,13 @@ function previousDataPlaceholder<TData>(enabled?: boolean) {
   return enabled ? ((previousData: TData | undefined) => previousData) : undefined
 }
 
+function resolveSelectedData<TResponse, TData>(
+  data: TResponse,
+  selectData?: (data: TResponse) => TData,
+): TResponse | TData {
+  return selectData ? selectData(data) : data
+}
+
 export function useApiQuery<TResponse>(
   options: ApiQueryOptions<TResponse> & { selectData?: undefined }
 ): ReturnType<typeof useQuery<TResponse, Error, TResponse>>
@@ -87,12 +94,12 @@ export function useApiQuery<TResponse, TData = TResponse>({
   keepPreviousData = false,
   ...queryOptions
 }: ApiQueryOptions<TResponse, TData>) {
-  return useQuery<TData, Error, TData>({
-    ...(queryOptions as object),
+  return useQuery<TResponse | TData, Error, TResponse | TData>({
+    ...queryOptions,
     queryKey,
     queryFn: async (context) => {
       const data = unwrapAxiosApiData(await request(context))
-      return selectData ? selectData(data) : (data as unknown as TData)
+      return resolveSelectedData(data, selectData)
     },
     enabled,
     staleTime,
@@ -116,8 +123,8 @@ export function useNullableApiQuery<TResponse, TData = TResponse>({
   refetchInterval,
   ...queryOptions
 }: ApiNullableQueryOptions<TResponse, TData>) {
-  return useQuery<TData | null, Error, TData | null>({
-    ...(queryOptions as object),
+  return useQuery<TResponse | TData | null, Error, TResponse | TData | null>({
+    ...queryOptions,
     queryKey,
     queryFn: async (context) => {
       const response = await request(context)
@@ -126,7 +133,7 @@ export function useNullableApiQuery<TResponse, TData = TResponse>({
       }
 
       const data = unwrapAxiosApiData(response)
-      return selectData ? selectData(data) : (data as unknown as TData)
+      return resolveSelectedData(data, selectData)
     },
     enabled,
     staleTime,
@@ -149,12 +156,12 @@ export function useApiPageQuery<TItem, TData = PageResponse<TItem>>({
   keepPreviousData = true,
   ...queryOptions
 }: ApiPageQueryOptions<TItem, TData>) {
-  return useQuery<TData, Error, TData>({
-    ...(queryOptions as object),
+  return useQuery<PageResponse<TItem> | TData, Error, PageResponse<TItem> | TData>({
+    ...queryOptions,
     queryKey,
     queryFn: async (context) => {
       const page = unwrapAxiosApiPageData(await request(context))
-      return selectData ? selectData(page) : (page as unknown as TData)
+      return resolveSelectedData(page, selectData)
     },
     enabled,
     staleTime,
@@ -177,8 +184,8 @@ export function useNullableApiPageQuery<TItem, TData = PageResponse<TItem>>({
   keepPreviousData = true,
   ...queryOptions
 }: ApiNullablePageQueryOptions<TItem, TData>) {
-  return useQuery<TData | null, Error, TData | null>({
-    ...(queryOptions as object),
+  return useQuery<PageResponse<TItem> | TData | null, Error, PageResponse<TItem> | TData | null>({
+    ...queryOptions,
     queryKey,
     queryFn: async (context) => {
       const response = await request(context)
@@ -187,7 +194,7 @@ export function useNullableApiPageQuery<TItem, TData = PageResponse<TItem>>({
       }
 
       const page = unwrapAxiosApiPageData(response)
-      return selectData ? selectData(page) : (page as unknown as TData)
+      return resolveSelectedData(page, selectData)
     },
     enabled,
     staleTime,
