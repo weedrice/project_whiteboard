@@ -43,7 +43,7 @@ const { t } = useI18n()
               :disabled="verification.isCodeSent"
               inputClass="h-11 min-h-[44px]"
               hideLabel
-              :error="verification.email.trim() && !isValidEmail(verification.email) ? t('auth.validation.emailFormat') : ''"
+              :error="verification.email.trim() && !isValidEmail(verification.email.trim()) ? t('auth.validation.emailFormat') : ''"
               hideErrorText
               @update:model-value="$emit('update:email', String($event))"
             />
@@ -63,7 +63,7 @@ const { t } = useI18n()
           </BaseButton>
         </div>
         <p
-          v-if="verification.email.trim() && !isValidEmail(verification.email)"
+          v-if="verification.email.trim() && !isValidEmail(verification.email.trim())"
           class="text-xs sm:text-sm nv-form-error mt-1"
           role="alert"
         >
