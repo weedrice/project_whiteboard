@@ -11,8 +11,8 @@ export function useBoardAutocomplete(searchQuery: Ref<string>) {
 
   const boards = computed(() => boardsData.value || [])
   const filteredBoards = computed(() => {
-    if (!debouncedSearchQuery.value.trim()) return []
-    const query = debouncedSearchQuery.value.toLowerCase()
+    const query = debouncedSearchQuery.value.trim().toLowerCase()
+    if (!query) return []
     return boards.value.filter((board: BoardListItem) =>
       board.boardName.toLowerCase().includes(query)
     )
