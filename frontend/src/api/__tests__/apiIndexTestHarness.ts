@@ -1,5 +1,6 @@
 import { vi } from 'vitest'
 import type { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
+import type { AuthStoreLike, ToastStore } from '../authRefreshSession'
 
 const mocks = vi.hoisted(() => {
     const mockAddToast = vi.fn()
@@ -47,7 +48,7 @@ vi.mock('axios', async (importOriginal) => {
     return {
         ...actual,
         default: {
-            ...(actual as unknown as { default?: Record<string, unknown> }).default,
+            ...actual.default,
             create: mocks.mockAxiosCreate,
             post: mocks.mockAxiosPost,
         },
@@ -73,8 +74,16 @@ vi.mock('@/router', () => ({
 
 type ApiResolverOptions = {
     configureResolvers?: boolean
-    resolveToastStore?: () => { addToast: typeof mocks.mockAddToast } | Promise<{ addToast: typeof mocks.mockAddToast }>
-    resolveAuthStore?: () => any
+    resolveToastStore?: () => ToastStore | Promise<ToastStore>
+    resolveAuthStore?: () => AuthStoreLike | null | Promise<AuthStoreLike | null>
+}
+
+type TestAuthStore = AuthStoreLike & {
+    user: unknown
+    accessToken: string | null
+    fetchUser: typeof mocks.mockFetchUser
+    setTokens: ReturnType<typeof vi.fn>
+    clearSessionState: ReturnType<typeof vi.fn>
 }
 
 export const loadApiModule = async (
@@ -82,13 +91,7 @@ export const loadApiModule = async (
     resolverOptions: ApiResolverOptions = {},
 ) => {
     const module = await import('../index')
-    const authStore: {
-        user: unknown
-        accessToken: string | null
-        fetchUser: typeof mocks.mockFetchUser
-        setTokens: ReturnType<typeof vi.fn>
-        clearSessionState: ReturnType<typeof vi.fn>
-    } = {
+    const authStore: TestAuthStore = {
         user: authStoreOverrides?.user ?? { id: 1 },
         accessToken: authStoreOverrides?.accessToken ?? '',
         fetchUser: mocks.mockFetchUser,
