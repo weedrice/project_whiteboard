@@ -16,6 +16,18 @@ interface UseBoardFormSubmitOptions {
   emitSubmit: (data: BoardFormData) => void
 }
 
+function toBoardSubmitPayload(form: BoardFormData, iconUrl: string): BoardFormData {
+  return {
+    ...form,
+    boardName: form.boardName.trim(),
+    boardUrl: form.boardUrl.trim(),
+    description: form.description.trim(),
+    iconUrl: iconUrl.trim(),
+    agentUseYn: form.isPublic ? form.agentUseYn : false,
+    guidePrompt: form.guidePrompt.trim(),
+  }
+}
+
 export function useBoardFormSubmit(options: UseBoardFormSubmitOptions) {
   const { t } = useI18n()
   const toastStore = useToastStore()
@@ -52,11 +64,7 @@ export function useBoardFormSubmit(options: UseBoardFormSubmitOptions) {
           iconUrl = await uploadBoardIconFile(options.selectedFile.value) ?? iconUrl
         }
 
-        options.emitSubmit({
-          ...options.form.value,
-          iconUrl,
-          agentUseYn: options.form.value.isPublic ? options.form.value.agentUseYn : false,
-        })
+        options.emitSubmit(toBoardSubmitPayload(options.form.value, iconUrl))
       } catch (err) {
         handleError(err, t('board.form.uploadFailed'))
         throw err
