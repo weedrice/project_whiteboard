@@ -2,13 +2,14 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminDetailModalShell from '@/components/admin/AdminDetailModalShell.vue'
-import AdminInlinePager from '@/components/admin/AdminInlinePager.vue'
 import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
 import BooleanBadge from '@/components/admin/BooleanBadge.vue'
-import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
 import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
 import UserAvatar from '@/components/common/ui/UserAvatar.vue'
 import DescriptionItem from '@/components/admin/detail/DescriptionItem.vue'
+import AdminUserCommentsTab from '@/components/admin/user-detail/AdminUserCommentsTab.vue'
+import AdminUserPostsTab from '@/components/admin/user-detail/AdminUserPostsTab.vue'
+import AdminUserSubscriptionsTab from '@/components/admin/user-detail/AdminUserSubscriptionsTab.vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { useAdminUserDetailTabs } from '@/composables/useAdminUserDetailTabs'
 import { formatDate } from '@/utils/date'
@@ -179,95 +180,34 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
           />
         </div>
 
-        <div v-if="activeTab === 'posts'" class="space-y-2">
-          <div v-if="isPostsLoading" class="py-6 text-center text-sm nv-text-subtle">{{ t('common.loading') }}</div>
-          <div v-else-if="!postItems.length" class="py-6 text-center text-sm nv-text-subtle">{{ t('admin.users.detail.postsEmpty') }}</div>
-          <div v-else class="max-h-72 space-y-2 overflow-y-auto pr-1">
-            <div v-for="post in postItems" :key="post.postId" class="rounded-lg border nv-border p-3">
-              <div class="truncate text-sm font-medium nv-title">{{ post.title }}</div>
-              <div class="mt-2 flex flex-wrap gap-1">
-                <AdminStatusBadge v-for="badge in post.badges" :key="badge.label" :label="badge.label" :variant="badge.variant" />
-              </div>
-              <div class="mt-2 text-xs nv-text-subtle">
-                {{ post.metaText }}
-              </div>
-              <div v-if="post.categoryText" class="mt-1 text-xs nv-text-subtle">
-                {{ post.categoryText }}
-              </div>
-              <div class="mt-1 text-xs nv-text-subtle">
-                {{ post.statsText }}
-              </div>
-            </div>
-          </div>
-          <AdminInlinePager
-            v-if="userPosts"
-            :page="userPosts.number"
-            :total-pages="userPosts.totalPages"
-            @previous="prevPostsPage"
-            @next="nextPostsPage"
-          />
-        </div>
+        <AdminUserPostsTab
+          v-if="activeTab === 'posts'"
+          :items="postItems"
+          :loading="isPostsLoading"
+          :page-data="userPosts"
+          @previous="prevPostsPage"
+          @next="nextPostsPage"
+        />
 
-        <div v-else-if="activeTab === 'comments'" class="space-y-2">
-          <div v-if="isCommentsLoading" class="py-6 text-center text-sm nv-text-subtle">{{ t('common.loading') }}</div>
-          <div v-else-if="!commentItems.length" class="py-6 text-center text-sm nv-text-subtle">{{ t('admin.users.detail.commentsEmpty') }}</div>
-          <div v-else class="max-h-72 space-y-2 overflow-y-auto pr-1">
-            <div v-for="comment in commentItems" :key="comment.commentId" class="rounded-lg border nv-border p-3">
-              <div class="mb-2 flex flex-wrap gap-1">
-                <AdminStatusBadge v-for="badge in comment.badges" :key="badge.label" :label="badge.label" :variant="badge.variant" />
-              </div>
-              <div class="comment-content-list">
-                <SanitizedHtmlView
-                  v-if="isCommentEmoticonOnly(comment.content)"
-                  tag="p"
-                  :html="renderCommentContent(comment.content)"
-                  class="text-sm"
-                />
-                <SanitizedHtmlView
-                  v-else
-                  tag="p"
-                  :html="renderCommentContent(comment.content)"
-                  class="line-clamp-2 break-words text-sm nv-text"
-                />
-              </div>
-              <div class="mt-1 text-xs nv-text-subtle">
-                {{ comment.metaText }}
-              </div>
-              <div class="mt-1 text-xs nv-text-subtle">
-                {{ comment.statsText }}
-              </div>
-            </div>
-          </div>
-          <AdminInlinePager
-            v-if="userComments"
-            :page="userComments.number"
-            :total-pages="userComments.totalPages"
-            @previous="prevCommentsPage"
-            @next="nextCommentsPage"
-          />
-        </div>
+        <AdminUserCommentsTab
+          v-else-if="activeTab === 'comments'"
+          :items="commentItems"
+          :loading="isCommentsLoading"
+          :page-data="userComments"
+          :render-comment-content="renderCommentContent"
+          :is-comment-emoticon-only="isCommentEmoticonOnly"
+          @previous="prevCommentsPage"
+          @next="nextCommentsPage"
+        />
 
-        <div v-else class="space-y-2">
-          <div v-if="isSubscriptionsLoading" class="py-6 text-center text-sm nv-text-subtle">{{ t('common.loading') }}</div>
-          <div v-else-if="!subscriptionItems.length" class="py-6 text-center text-sm nv-text-subtle">{{ t('admin.users.detail.subscriptionsEmpty') }}</div>
-            <div v-else class="max-h-72 space-y-2 overflow-y-auto pr-1">
-              <div v-for="board in subscriptionItems" :key="board.boardId" class="rounded-lg border nv-border p-3">
-                <div class="truncate text-sm font-medium nv-title">{{ board.boardName }}</div>
-                <div class="mt-2 flex flex-wrap gap-1">
-                  <AdminStatusBadge v-for="badge in board.badges" :key="badge.label" :label="badge.label" :variant="badge.variant" />
-                </div>
-                <div class="mt-1 text-xs nv-text-subtle">{{ board.boardPath }}</div>
-                <div class="mt-1 text-xs nv-text-subtle">{{ board.sortOrderText }}</div>
-              </div>
-          </div>
-          <AdminInlinePager
-            v-if="userSubscriptions"
-            :page="userSubscriptions.number"
-            :total-pages="userSubscriptions.totalPages"
-            @previous="prevSubscriptionsPage"
-            @next="nextSubscriptionsPage"
-          />
-        </div>
+        <AdminUserSubscriptionsTab
+          v-else
+          :items="subscriptionItems"
+          :loading="isSubscriptionsLoading"
+          :page-data="userSubscriptions"
+          @previous="prevSubscriptionsPage"
+          @next="nextSubscriptionsPage"
+        />
       </div>
     </div>
   </AdminDetailModalShell>
