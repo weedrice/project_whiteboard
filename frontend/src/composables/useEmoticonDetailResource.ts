@@ -10,7 +10,9 @@ import { useToggleEmoticonVisibility } from '@/composables/useToggleEmoticonVisi
 import { useEmoticonPermissions } from '@/composables/useEmoticonPermissions'
 import { useEmoticonDetailViewModel } from '@/composables/useEmoticonDetailViewModel'
 import {
+  accessibleEmoticonPickerQueryKey,
   emoticonDetailQueryKey,
+  emoticonListQueryKey,
   emoticonPurchaseStatusQueryKey,
 } from '@/composables/useEmoticonEditResource'
 import { userQueryKeys } from '@/composables/userQueryKeys'
@@ -57,6 +59,8 @@ export function useEmoticonDetailResource(emoticonId: ComputedRef<number>) {
       toastStore.addToast(t('emoticon.purchase.success'), 'success')
       queryClient.invalidateQueries({ queryKey: emoticonDetailQueryKey(emoticonId) })
       queryClient.invalidateQueries({ queryKey: emoticonPurchaseStatusQueryKey(emoticonId) })
+      queryClient.invalidateQueries({ queryKey: accessibleEmoticonPickerQueryKey })
+      queryClient.invalidateQueries({ queryKey: emoticonListQueryKey })
       queryClient.invalidateQueries({ queryKey: userQueryKeys.pointsRoot })
     },
     onError: (error: unknown) => {

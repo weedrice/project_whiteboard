@@ -196,16 +196,20 @@ describe('useUser', () => {
         useRecentlyViewedPosts()
         let options = mocks.queryOptions.at(-1)!
         expect(options.queryKey).toEqual(['user', 'history', 'views', undefined])
-        let result = await (options.queryFn as () => Promise<unknown>)()
-        expect(userApi.getRecentlyViewedPosts).toHaveBeenNthCalledWith(1, {})
+        let result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)({
+            signal: new AbortController().signal,
+        })
+        expect(userApi.getRecentlyViewedPosts).toHaveBeenNthCalledWith(1, {}, expect.objectContaining({ signal: expect.any(AbortSignal) }))
         expect(result).toEqual({ content: [{ postId: 1 }] })
 
         const params = ref({ page: 1, size: 20 })
         useRecentlyViewedPosts(params)
         options = mocks.queryOptions.at(-1)!
         expect(options.queryKey).toEqual(['user', 'history', 'views', params])
-        result = await (options.queryFn as () => Promise<unknown>)()
-        expect(userApi.getRecentlyViewedPosts).toHaveBeenNthCalledWith(2, { page: 1, size: 20 })
+        result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)({
+            signal: new AbortController().signal,
+        })
+        expect(userApi.getRecentlyViewedPosts).toHaveBeenNthCalledWith(2, { page: 1, size: 20 }, expect.objectContaining({ signal: expect.any(AbortSignal) }))
         expect(result).toEqual({ content: [{ postId: 2 }] })
     })
 

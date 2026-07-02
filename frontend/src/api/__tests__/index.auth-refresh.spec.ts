@@ -187,7 +187,7 @@ describe('API Interceptors', () => {
         expect(mocks.mockApiRequest).toHaveBeenCalledTimes(2)
     })
 
-    it('handles queued request retries when refreshed access token is null', async () => {
+    it('rejects queued requests when refreshed access token is null', async () => {
         const { responseRejected } = await loadApiModule()
         mocks.mockApiRequest.mockResolvedValue({ data: { ok: true } })
 
@@ -214,10 +214,18 @@ describe('API Interceptors', () => {
             },
         })
 
-        await Promise.all([p1, p2])
+        await expect(p1).rejects.toMatchObject({
+            suppressGlobalErrorToast: true,
+            isAuthRefreshFailure: true,
+        })
+        await expect(p2).rejects.toMatchObject({
+            suppressGlobalErrorToast: true,
+            isAuthRefreshFailure: true,
+        })
 
         expect(firstRequest.headers).toBeUndefined()
         expect(queuedRequest.headers.Authorization).toBeUndefined()
+        expect(mocks.mockApiRequest).not.toHaveBeenCalled()
     })
 
     it('rejects queued requests when refresh fails', async () => {

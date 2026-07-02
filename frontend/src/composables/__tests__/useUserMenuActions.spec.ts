@@ -101,6 +101,8 @@ describe('useUserMenuActions', () => {
         expect(userApi.blockUser).toHaveBeenCalledWith(2)
         expect(addToast).toHaveBeenCalledWith('user.block.success:Other', 'success')
         expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments'] })
+        expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['user', 'blocks'] })
+        expect(invalidateQueries).toHaveBeenCalledTimes(2)
     })
 
     it('logs and toasts block failures', async () => {

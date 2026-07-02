@@ -8,6 +8,7 @@ import type { Category } from '@/types'
 const mocks = vi.hoisted(() => ({
     addToast: vi.fn(),
     confirm: vi.fn(),
+    invalidateQueries: vi.fn(),
     loggerError: vi.fn(),
 }))
 
@@ -24,6 +25,12 @@ vi.mock('@/api/board', () => ({
         updateCategory: vi.fn(),
         deleteCategory: vi.fn(),
     },
+}))
+
+vi.mock('@tanstack/vue-query', () => ({
+    useQueryClient: () => ({
+        invalidateQueries: mocks.invalidateQueries,
+    }),
 }))
 
 vi.mock('@/stores/toast', () => ({
@@ -123,6 +130,9 @@ describe('useBoardCategoriesManager', () => {
         expect(manager.categories.value).toHaveLength(2)
         expect(manager.newCategoryName.value).toBe('')
         expect(manager.newCategoryRole.value).toBe('USER')
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+            queryKey: ['board', 'categories', expect.any(Object)],
+        })
     })
 
     it('does not delete when confirmation is cancelled', async () => {
@@ -132,6 +142,7 @@ describe('useBoardCategoriesManager', () => {
         await manager.handleDelete(2)
 
         expect(boardApi.deleteCategory).not.toHaveBeenCalled()
+        expect(mocks.invalidateQueries).not.toHaveBeenCalled()
     })
 
     it('deletes the category after confirmation', async () => {
@@ -148,6 +159,9 @@ describe('useBoardCategoriesManager', () => {
 
         expect(boardApi.deleteCategory).toHaveBeenCalledWith('free-board', 2)
         expect(manager.categories.value.map(category => category.categoryId)).toEqual([1])
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+            queryKey: ['board', 'categories', expect.any(Object)],
+        })
     })
 
     it('updates the editing category and clears edit state', async () => {
@@ -180,6 +194,9 @@ describe('useBoardCategoriesManager', () => {
         })
         expect(manager.categories.value[0].name).toBe('New')
         expect(manager.editingId.value).toBeNull()
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+            queryKey: ['board', 'categories', expect.any(Object)],
+        })
     })
 
     it('reorders draggable categories after the default category', async () => {
@@ -211,6 +228,9 @@ describe('useBoardCategoriesManager', () => {
             isDefault: undefined,
             isActive: true,
         })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+            queryKey: ['board', 'categories', expect.any(Object)],
+        })
     })
 
     it('reloads categories when reorder update fails', async () => {
@@ -238,6 +258,7 @@ describe('useBoardCategoriesManager', () => {
         expect(boardApi.getCategories).toHaveBeenCalledWith('free-board')
         expect(manager.categories.value.map(category => category.categoryId)).toEqual([1, 2, 3])
         expect(manager.isReordering.value).toBe(false)
+        expect(mocks.invalidateQueries).not.toHaveBeenCalled()
     })
 
     it('keeps the rollback snapshot when reorder reload also fails', async () => {

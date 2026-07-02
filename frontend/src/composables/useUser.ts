@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient, type QueryFunctionContext } from
 import { userApi, type UserUpdatePayload, type NotificationSettingsBulkPayload } from '@/api/user'
 import { unwrapAxiosApiData } from '@/api/response'
 import { computed, type Ref } from 'vue'
-import type { UserSettings } from '@/types'
+import type { UserPoint, UserSettings } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import type { AxiosRequestConfig } from 'axios'
 import { callWithOptionalQuerySignal, withQuerySignal } from '@/utils/querySignal'
@@ -101,7 +101,7 @@ export function useUser() {
     }
 
     const useMyPoint = (enabled?: Ref<boolean>, userIdentity?: Ref<string | number | null | undefined>) => {
-        return useApiQuery({
+        return useApiQuery<UserPoint>({
             queryKey: userQueryKeys.myPoints(userIdentity),
             request: () => userApi.getMyPoint(),
             enabled: computed(() => enabled?.value ?? true),

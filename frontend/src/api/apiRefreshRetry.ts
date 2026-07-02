@@ -62,6 +62,9 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
 
     const authStore = await resolveAuthStore()
     const newAccessToken = applyRefreshedAccessToken(authStore, refreshedAccessToken)
+    if (!newAccessToken) {
+      throw new Error('Refresh returned an invalid access token')
+    }
 
     if (authStore) {
       const didFetchUser = await authStore.fetchUser({ skipAuthRefresh: true })

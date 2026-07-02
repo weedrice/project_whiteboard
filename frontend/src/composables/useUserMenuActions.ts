@@ -4,6 +4,7 @@ import { userApi } from '@/api/user'
 import { useAuthStore } from '@/stores/auth'
 import { commentQueryKeys } from '@/composables/commentQueryKeys'
 import { useUserBlockAction } from '@/composables/useUserBlockAction'
+import { userQueryKeys } from '@/composables/userQueryKeys'
 
 interface UseUserMenuActionsOptions {
     userId: Ref<number>
@@ -59,6 +60,7 @@ export function useUserMenuActions({
             isSuccess: ({ data }) => data.success,
             onSuccess: () => {
                 queryClient.invalidateQueries({ queryKey: commentQueryKeys.all })
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.blocksRoot })
             },
         })
     }

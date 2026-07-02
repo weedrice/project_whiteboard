@@ -1,7 +1,9 @@
 import { computed, ref, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useQueryClient } from '@tanstack/vue-query'
 import { boardApi } from '@/api/board'
 import { unwrapApiData } from '@/api/response'
+import { boardQueryKeys } from '@/composables/boardQueryKeys'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToastStore } from '@/stores/toast'
 import logger from '@/utils/logger'
@@ -12,6 +14,7 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
     const { t } = useI18n()
     const toastStore = useToastStore()
     const { confirm } = useConfirm()
+    const queryClient = useQueryClient()
 
     const categories = ref<Category[]>([])
     const isLoading = ref(true)
@@ -28,6 +31,9 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
     const draggableCategories = computed(() =>
         categories.value.filter(category => category.categoryId !== defaultCategory.value?.categoryId)
     )
+    const invalidateCategories = () => {
+        queryClient.invalidateQueries({ queryKey: boardQueryKeys.categories(boardUrl) })
+    }
 
     async function fetchCategories() {
         isLoading.value = true
@@ -57,6 +63,7 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
                 categories.value.push(unwrapApiData(data))
                 newCategoryName.value = ''
                 newCategoryRole.value = 'USER'
+                invalidateCategories()
             }
         } catch (err: unknown) {
             logger.error('Failed to create category:', err)
@@ -72,6 +79,7 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
             const { data } = await boardApi.deleteCategory(boardUrl.value, categoryId)
             if (data.success) {
                 categories.value = categories.value.filter(category => category.categoryId !== categoryId)
+                invalidateCategories()
             }
         } catch (err: unknown) {
             logger.error('Failed to delete category:', err)
@@ -108,6 +116,7 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
                     categories.value[index] = unwrapApiData(data)
                 }
                 cancelEdit()
+                invalidateCategories()
             }
         } catch (err: unknown) {
             logger.error('Failed to update category:', err)
@@ -172,6 +181,7 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
                 })
             })
             await Promise.all(updatePromises)
+            invalidateCategories()
         } catch (err: unknown) {
             logger.error('Failed to reorder categories:', err)
             toastStore.addToast(t('board.category.orderFailed'), 'error')

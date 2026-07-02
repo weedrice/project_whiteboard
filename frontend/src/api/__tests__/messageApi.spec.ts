@@ -37,15 +37,23 @@ describe('messageApi', () => {
         expect(apiMock.get).toHaveBeenNthCalledWith(2, '/messages/sent', { ...config, params })
     })
 
-    it('calls message detail and read endpoints separately', () => {
+    it('calls unread count and bulk delete endpoints', () => {
+        messageApi.getUnreadCount()
+        messageApi.deleteMessages([1, 2])
+
+        expect(apiMock.get).toHaveBeenCalledWith('/messages/unread-count')
+        expect(apiMock.delete).toHaveBeenCalledWith('/messages', { data: [1, 2] })
+    })
+
+    it('encodes message id path segments for detail and mutation endpoints', () => {
         const config: AxiosRequestConfig = { skipGlobalErrorHandler: true }
 
-        messageApi.getMessage(9, config)
-        messageApi.markAsRead(9, config)
-        messageApi.deleteMessage(9)
+        messageApi.getMessage('box/9', config)
+        messageApi.markAsRead('box/9', config)
+        messageApi.deleteMessage('box/9')
 
-        expect(apiMock.get).toHaveBeenNthCalledWith(1, '/messages/9', config)
-        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/messages/9/read', null, config)
-        expect(apiMock.delete).toHaveBeenNthCalledWith(1, '/messages/9')
+        expect(apiMock.get).toHaveBeenNthCalledWith(1, '/messages/box%2F9', config)
+        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/messages/box%2F9/read', null, config)
+        expect(apiMock.delete).toHaveBeenNthCalledWith(1, '/messages/box%2F9')
     })
 })
