@@ -109,7 +109,7 @@ export function buildPostFormPayload({
         : parsedCategoryId
 
     return {
-        title: form.title,
+        title: form.title.trim(),
         ...(categoryId !== undefined && { categoryId }),
         tags: hideTags ? [] : form.tags,
         contents,

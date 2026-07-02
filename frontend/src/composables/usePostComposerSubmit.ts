@@ -76,7 +76,7 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
   }
 
   async function handleSubmit() {
-    if (!options.form.value.title) {
+    if (!options.form.value.title.trim()) {
       options.addToast(options.t('board.writePost.validation'), 'error')
       return
     }

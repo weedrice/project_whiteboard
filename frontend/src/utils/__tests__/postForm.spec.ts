@@ -44,7 +44,10 @@ describe('postForm', () => {
 
     it('builds the same post payload shape used by create and update flows', () => {
         expect(buildPostFormPayload({
-            form: baseForm,
+            form: {
+                ...baseForm,
+                title: '  Title  ',
+            },
             mode: 'create',
             showNotice: true,
             canShowNsfw: false,

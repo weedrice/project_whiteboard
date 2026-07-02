@@ -169,6 +169,11 @@ describe('PostForm', () => {
         expect(mockAddToast).toHaveBeenCalledWith('board.writePost.validation', 'error')
         expect(mockCreateMutate).not.toHaveBeenCalled()
 
+        await wrapper.get('#title').setValue('   ')
+        await wrapper.get('form').trigger('submit')
+        expect(mockAddToast).toHaveBeenCalledWith('board.writePost.validation', 'error')
+        expect(mockCreateMutate).not.toHaveBeenCalled()
+
         setBoardCategories([])
         const wrapperNoCategory = mountPostForm('create')
         await wrapperNoCategory.get('#title').setValue('Title only')

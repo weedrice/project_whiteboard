@@ -41,6 +41,22 @@ describe('PostForm draft behavior', () => {
     expect(mockAddToast).toHaveBeenCalledWith('board.writePost.draftStatus.saved', 'success')
   })
 
+  it('shows an error toast when manual draft save fails', async () => {
+    mockPostFormAuthStore({
+      isAuthenticated: true,
+      user: { userId: 1, role: 'USER' },
+    })
+    mockSaveDraftMutateAsync.mockRejectedValueOnce(new Error('save failed'))
+    const wrapper = mountPostForm('create')
+
+    await wrapper.get('#title').setValue('Draft title')
+    await wrapper.get('[data-testid="editor-input"]').setValue('Draft body')
+    await findButtonByText(wrapper, 'board.writePost.actions.saveDraft').trigger('click')
+    await flushPromises()
+
+    expect(mockAddToast).toHaveBeenCalledWith('common.messages.saveFailed', 'error')
+  })
+
   it('saves the draft before create submit and includes draft id', async () => {
     mockPostFormAuthStore({
       isAuthenticated: true,

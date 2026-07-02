@@ -124,6 +124,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
       }
     } catch (error) {
       logger.error('Failed to save draft:', error)
+      options.addToast(options.t('common.messages.saveFailed'), 'error')
     }
   }
 
