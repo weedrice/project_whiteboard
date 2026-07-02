@@ -1,0 +1,60 @@
+import { mount } from '@vue/test-utils'
+import { defineComponent, ref } from 'vue'
+import { describe, expect, it } from 'vitest'
+import BaseSegmentedControl from '../ui/BaseSegmentedControl.vue'
+
+const options = [
+  { value: 'id', label: 'Find ID' },
+  { value: 'password', label: 'Reset password' },
+  { value: 'email', label: 'Verify email' },
+]
+
+function mountTabControl() {
+  return mount(defineComponent({
+    components: { BaseSegmentedControl },
+    setup() {
+      const model = ref('id')
+      return { model, options }
+    },
+    template: `
+      <BaseSegmentedControl
+        v-model="model"
+        :options="options"
+        label="Account help"
+        selection-mode="tab"
+      />
+    `,
+  }), {
+    attachTo: document.body,
+  })
+}
+
+describe('BaseSegmentedControl', () => {
+  it('uses roving tabindex for tab selection mode', () => {
+    const wrapper = mountTabControl()
+    const tabs = wrapper.findAll('[role="tab"]')
+
+    expect(wrapper.get('[role="tablist"]').attributes('aria-label')).toBe('Account help')
+    expect(tabs.map((tab) => tab.attributes('tabindex'))).toEqual(['0', '-1', '-1'])
+    expect(tabs.map((tab) => tab.attributes('aria-selected'))).toEqual(['true', 'false', 'false'])
+  })
+
+  it('moves tab selection and focus with arrow, Home, and End keys', async () => {
+    const wrapper = mountTabControl()
+
+    await wrapper.findAll('[role="tab"]')[0].trigger('keydown', { key: 'ArrowRight' })
+    let tabs = wrapper.findAll('[role="tab"]')
+    expect(tabs.map((tab) => tab.attributes('aria-selected'))).toEqual(['false', 'true', 'false'])
+    expect(document.activeElement).toBe(tabs[1].element)
+
+    await tabs[1].trigger('keydown', { key: 'End' })
+    tabs = wrapper.findAll('[role="tab"]')
+    expect(tabs.map((tab) => tab.attributes('aria-selected'))).toEqual(['false', 'false', 'true'])
+    expect(document.activeElement).toBe(tabs[2].element)
+
+    await tabs[2].trigger('keydown', { key: 'Home' })
+    tabs = wrapper.findAll('[role="tab"]')
+    expect(tabs.map((tab) => tab.attributes('aria-selected'))).toEqual(['true', 'false', 'false'])
+    expect(document.activeElement).toBe(tabs[0].element)
+  })
+})

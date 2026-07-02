@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Component } from 'vue'
+import { nextTick, ref, type Component, type ComponentPublicInstance } from 'vue'
 
 export interface SegmentedControlOption {
   value: string
@@ -7,7 +7,7 @@ export interface SegmentedControlOption {
   icon?: Component
 }
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   modelValue: string
   options: SegmentedControlOption[]
   label: string
@@ -26,8 +26,64 @@ const emit = defineEmits<{
 }>()
 
 function select(value: string) {
+  if (props.disabled) return
   emit('update:modelValue', value)
   emit('change', value)
+}
+
+const optionButtons = ref<HTMLButtonElement[]>([])
+
+function setOptionButton(element: Element | ComponentPublicInstance | null, index: number) {
+  if (element instanceof HTMLButtonElement) {
+    optionButtons.value[index] = element
+    return
+  }
+
+  optionButtons.value.splice(index, 1)
+}
+
+function findSelectedIndex() {
+  const selectedIndex = props.options.findIndex((option) => option.value === props.modelValue)
+  return selectedIndex >= 0 ? selectedIndex : 0
+}
+
+async function selectAndFocus(index: number) {
+  const option = props.options[index]
+  if (!option) return
+
+  select(option.value)
+  await nextTick()
+  optionButtons.value[index]?.focus()
+}
+
+function handleTabKeydown(event: KeyboardEvent) {
+  if (props.selectionMode !== 'tab' || props.disabled || props.options.length === 0) return
+
+  const currentIndex = findSelectedIndex()
+  const lastIndex = props.options.length - 1
+  let nextIndex: number | null = null
+
+  switch (event.key) {
+    case 'ArrowLeft':
+    case 'ArrowUp':
+      nextIndex = currentIndex <= 0 ? lastIndex : currentIndex - 1
+      break
+    case 'ArrowRight':
+    case 'ArrowDown':
+      nextIndex = currentIndex >= lastIndex ? 0 : currentIndex + 1
+      break
+    case 'Home':
+      nextIndex = 0
+      break
+    case 'End':
+      nextIndex = lastIndex
+      break
+    default:
+      return
+  }
+
+  event.preventDefault()
+  void selectAndFocus(nextIndex)
 }
 </script>
 
@@ -44,10 +100,12 @@ function select(value: string) {
     <button
       v-for="(option, index) in options"
       :key="option.value"
+      :ref="(element) => setOptionButton(element, index)"
       type="button"
       :role="selectionMode === 'tab' ? 'tab' : undefined"
       :aria-selected="selectionMode === 'tab' ? modelValue === option.value : undefined"
       :aria-pressed="selectionMode === 'pressed' ? modelValue === option.value : undefined"
+      :tabindex="selectionMode === 'tab' ? (modelValue === option.value ? 0 : -1) : undefined"
       :disabled="disabled"
       :class="[
         variant === 'joined' && [
@@ -73,6 +131,7 @@ function select(value: string) {
         ],
       ]"
       @click="select(option.value)"
+      @keydown="handleTabKeydown"
     >
       <component v-if="option.icon" :is="option.icon" class="mr-2 h-4 w-4" />
       {{ option.label }}
