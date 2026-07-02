@@ -50,6 +50,89 @@ export const BaseButtonStub = defineComponent({
   },
 })
 
+export const PassThroughStub = defineComponent({
+  name: 'PassThroughStub',
+  setup(_, { slots }) {
+    return () => h('div', slots.default?.())
+  },
+})
+
+export const BaseInputStub = defineComponent({
+  name: 'BaseInputStub',
+  props: {
+    id: String,
+    modelValue: [String, Number],
+    label: String,
+    type: String,
+    min: String,
+    placeholder: String,
+    disabled: Boolean,
+  },
+  emits: ['update:modelValue'],
+  setup(props, { emit }) {
+    return () => h('label', [
+      props.label,
+      h('input', {
+        id: props.id,
+        type: props.type,
+        min: props.min,
+        value: props.modelValue,
+        placeholder: props.placeholder,
+        disabled: props.disabled,
+        onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLInputElement).value),
+      }),
+    ])
+  },
+})
+
+export const BaseSelectStub = defineComponent({
+  name: 'BaseSelectStub',
+  props: {
+    id: String,
+    modelValue: [String, Number],
+    label: String,
+    disabled: Boolean,
+  },
+  emits: ['update:modelValue'],
+  setup(props, { emit, slots }) {
+    return () => h('label', [
+      props.label,
+      h('select', {
+        id: props.id,
+        value: props.modelValue,
+        disabled: props.disabled,
+        onChange: (event: Event) => emit('update:modelValue', (event.target as HTMLSelectElement).value),
+      }, slots.default?.()),
+    ])
+  },
+})
+
+export const BaseTextareaStub = defineComponent({
+  name: 'BaseTextareaStub',
+  props: {
+    id: String,
+    modelValue: String,
+    label: String,
+    rows: [String, Number],
+    placeholder: String,
+    disabled: Boolean,
+  },
+  emits: ['update:modelValue'],
+  setup(props, { emit }) {
+    return () => h('label', [
+      props.label,
+      h('textarea', {
+        id: props.id,
+        value: props.modelValue,
+        rows: props.rows,
+        placeholder: props.placeholder,
+        disabled: props.disabled,
+        onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLTextAreaElement).value),
+      }),
+    ])
+  },
+})
+
 export function createPaginationStub(nextPage = 2) {
   return defineComponent({
     name: 'PaginationStub',

@@ -1,6 +1,14 @@
 import { mount } from '@vue/test-utils'
-import { defineComponent, h, ref } from 'vue'
+import { ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+    BaseButtonStub,
+    BaseInputStub,
+    BaseModalStub,
+    BaseSelectStub,
+    BaseTextareaStub,
+    PassThroughStub,
+} from '@/test/vue-test-helpers'
 import SanctionModal from '../SanctionModal.vue'
 
 const mocks = vi.hoisted(() => ({
@@ -28,105 +36,6 @@ vi.mock('@/stores/toast', () => ({
         addToast: mocks.addToast
     })
 }))
-
-const BaseModalStub = defineComponent({
-    props: {
-        isOpen: Boolean,
-        title: String
-    },
-    setup(props, { slots }) {
-        return () => props.isOpen ? h('div', { 'data-test': 'modal' }, [
-            h('h1', props.title),
-            slots.default?.()
-        ]) : null
-    }
-})
-
-const PassThroughStub = defineComponent({
-    setup(_, { slots }) {
-        return () => h('div', slots.default?.())
-    }
-})
-
-const BaseButtonStub = defineComponent({
-    props: {
-        type: { type: String, default: 'button' },
-        disabled: Boolean,
-    },
-    emits: ['click'],
-    setup(props, { emit, slots }) {
-        return () => h('button', {
-            type: props.type,
-            disabled: props.disabled,
-            onClick: () => emit('click'),
-        }, slots.default?.())
-    },
-})
-
-const BaseSelectStub = defineComponent({
-    props: {
-        id: String,
-        modelValue: String,
-        label: String,
-    },
-    emits: ['update:modelValue'],
-    setup(props, { emit, slots }) {
-        return () => h('label', [
-            props.label,
-            h('select', {
-                id: props.id,
-                value: props.modelValue,
-                onChange: (event: Event) => emit('update:modelValue', (event.target as HTMLSelectElement).value),
-            }, slots.default?.()),
-        ])
-    },
-})
-
-const BaseTextareaStub = defineComponent({
-    props: {
-        id: String,
-        modelValue: String,
-        label: String,
-        rows: String,
-        placeholder: String,
-    },
-    emits: ['update:modelValue'],
-    setup(props, { emit }) {
-        return () => h('label', [
-            props.label,
-            h('textarea', {
-                id: props.id,
-                value: props.modelValue,
-                rows: props.rows,
-                placeholder: props.placeholder,
-                onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLTextAreaElement).value),
-            }),
-        ])
-    },
-})
-
-const BaseInputStub = defineComponent({
-    props: {
-        id: String,
-        modelValue: [String, Number],
-        label: String,
-        type: String,
-        min: String,
-    },
-    emits: ['update:modelValue'],
-    setup(props, { emit }) {
-        return () => h('label', [
-            props.label,
-            h('input', {
-                id: props.id,
-                type: props.type,
-                min: props.min,
-                value: props.modelValue,
-                onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLInputElement).value),
-            }),
-        ])
-    },
-})
 
 function mountModal(user: { id: number; name?: string; displayName?: string; nickname?: string; email?: string }) {
     return mount(SanctionModal, {
