@@ -7,7 +7,6 @@ import type { DraftPost } from '@/types'
 import { Storage } from '@/utils/storage'
 import logger from '@/utils/logger'
 import {
-    findMatchingServerDraftId,
     getDraftUpdatedAt,
     isDraftOutdatedError,
     isMatchingLoadedDraft,
@@ -15,6 +14,12 @@ import {
     pickNewestDraftSnapshot,
     type DraftRecoverySnapshot,
 } from '@/composables/postDraftRecovery'
+import {
+    createDraftRecoverySnapshot,
+    createStoredSavedDraftSnapshot,
+    hasMeaningfulDraftContent,
+} from '@/composables/postDraftSnapshot'
+import { resolveServerDraftForRecovery } from '@/composables/postDraftRestore'
 
 export type { DraftRecoverySnapshot } from '@/composables/postDraftRecovery'
 
@@ -59,11 +64,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
 
     const writeLocalSnapshot = () => {
         if (!options.enabled.value) return
-        const snapshot: DraftRecoverySnapshot = {
-            ...options.buildPayload(),
-            draftId: draftId.value ?? undefined,
-            updatedAt: updatedAt.value ?? undefined,
-        }
+        const snapshot = createDraftRecoverySnapshot(options.buildPayload(), draftId.value, updatedAt.value)
         Storage.set(options.storageKey.value, snapshot)
     }
 
@@ -115,13 +116,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         const generation = sessionGeneration
         clearAutosaveTimer()
         const payload = options.buildPayload()
-        const hasMeaningfulContent = Boolean(
-            payload.title?.trim()
-            || payload.contents?.trim()
-            || payload.tags?.length
-            || payload.fileIds?.length,
-        )
-        if (!hasMeaningfulContent) {
+        if (!hasMeaningfulDraftContent(payload)) {
             const existingDraftId = draftId.value
             if (existingDraftId != null) {
                 try {
@@ -143,11 +138,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         draftId.value = savedDraft.draftId
         updatedAt.value = getDraftUpdatedAt(savedDraft) ?? new Date().toISOString()
         lastSavedAt.value = updatedAt.value
-        Storage.set(options.storageKey.value, {
-            ...payload,
-            draftId: draftId.value,
-            updatedAt: updatedAt.value ?? undefined,
-        })
+        Storage.set(options.storageKey.value, createStoredSavedDraftSnapshot(payload, savedDraft))
         return savedDraft
     }
 
@@ -176,53 +167,19 @@ export function usePostDraft(options: UsePostDraftOptions) {
         const generation = sessionGeneration
         hasRestoredDraft.value = true
 
-        let localSnapshot = Storage.get<DraftRecoverySnapshot>(options.storageKey.value, null)
-        let serverDraft: DraftPost | null = null
-        let serverDraftId = localSnapshot?.draftId ?? null
+        const localSnapshot = Storage.get<DraftRecoverySnapshot>(options.storageKey.value, null)
         const payload = options.buildPayload()
+        const resolved = await resolveServerDraftForRecovery({
+            payload,
+            localSnapshot,
+            generationIsCurrent: () => generation === sessionGeneration,
+            onStaleLocalSnapshot: (snapshot) => {
+                resetDraftTracking()
+                Storage.set(options.storageKey.value, snapshot)
+            },
+        })
 
-        if (serverDraftId == null) {
-            try {
-                serverDraftId = await findMatchingServerDraftId(payload)
-            } catch (error: unknown) {
-                logger.error('Failed to resolve server draft id:', error)
-            }
-        }
-
-        if (serverDraftId != null) {
-            try {
-                if (generation !== sessionGeneration) return
-                serverDraft = await loadDraftById(serverDraftId)
-            } catch (error: unknown) {
-                if (generation !== sessionGeneration) return
-                if (
-                    localSnapshot?.draftId === serverDraftId
-                    && isAxiosError(error)
-                    && error.response?.status === 404
-                ) {
-                    localSnapshot = {
-                        ...localSnapshot,
-                        draftId: undefined,
-                        updatedAt: undefined,
-                        modifiedAt: undefined,
-                    }
-                    resetDraftTracking()
-                    Storage.set(options.storageKey.value, localSnapshot)
-                    serverDraftId = null
-                    try {
-                        const fallbackDraftId = await findMatchingServerDraftId(payload)
-                        if (fallbackDraftId != null) {
-                            serverDraft = await loadDraftById(fallbackDraftId)
-                        }
-                    } catch (resolveError: unknown) {
-                        logger.error('Failed to restore replacement server draft:', resolveError)
-                    }
-                }
-                logger.error('Failed to restore server draft:', error)
-            }
-        }
-
-        const chosen = pickNewestDraftSnapshot(localSnapshot, serverDraft)
+        const chosen = pickNewestDraftSnapshot(resolved.localSnapshot, resolved.serverDraft)
         if (!chosen) return
         if (generation !== sessionGeneration) return
 
