@@ -6,7 +6,7 @@ import ReportList from '@/components/admin/ReportList.vue'
 import ReportDetailModal from '@/components/admin/ReportDetailModal.vue'
 import SanctionModal from '@/components/admin/SanctionModal.vue'
 import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
-import { useReportModerationPage } from '@/composables/useReportModerationPage'
+import { useReportModerationPage } from '@/features/admin/reports/useReportModerationPage'
 import { formatAdminPaginationSummary } from '@/utils/adminPaginationSummary'
 
 const { t } = useI18n()

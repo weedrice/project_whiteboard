@@ -11,7 +11,7 @@ import AdminUserCommentsTab from '@/components/admin/user-detail/AdminUserCommen
 import AdminUserPostsTab from '@/components/admin/user-detail/AdminUserPostsTab.vue'
 import AdminUserSubscriptionsTab from '@/components/admin/user-detail/AdminUserSubscriptionsTab.vue'
 import { useAdmin } from '@/composables/useAdmin'
-import { useAdminUserDetailTabs } from '@/composables/useAdminUserDetailTabs'
+import { useAdminUserDetailTabs } from '@/features/admin/users/useAdminUserDetailTabs'
 import { formatDate } from '@/utils/date'
 import { formatInteger } from '@/utils/numberFormat'
 import { isEmoticonOnlyContent, renderCommentContentHtml } from '@/utils/commentContent'

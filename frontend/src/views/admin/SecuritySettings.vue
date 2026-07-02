@@ -10,7 +10,7 @@ import IpBlockList from '@/components/admin/IpBlockList.vue'
 import IpBlockDetailModal from '@/components/admin/IpBlockDetailModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import { useAdminIpBlocksManager } from '@/composables/useAdminIpBlocksManager'
+import { useAdminIpBlocksManager } from '@/features/admin/security/useAdminIpBlocksManager'
 
 const { t } = useI18n()
 const {

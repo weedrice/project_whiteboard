@@ -7,7 +7,7 @@ import AdminFilterActions from '@/components/admin/AdminFilterActions.vue'
 import AdminFilterField from '@/components/admin/AdminFilterField.vue'
 import AdminFilterPanel from '@/components/admin/AdminFilterPanel.vue'
 import { isComposingKeyboardEvent } from '@/utils/keyboard'
-import type { AdminUserFilterForm } from '@/composables/useAdminUserListState'
+import type { AdminUserFilterForm } from '@/features/admin/users/useAdminUserListState'
 
 const props = defineProps<{
   filterForm: AdminUserFilterForm

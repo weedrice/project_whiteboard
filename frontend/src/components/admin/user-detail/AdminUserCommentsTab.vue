@@ -3,7 +3,7 @@ import { useI18n } from 'vue-i18n'
 import AdminInlinePager from '@/components/admin/AdminInlinePager.vue'
 import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
 import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
-import type { AdminUserCommentViewItem } from '@/composables/useAdminUserDetailTabs'
+import type { AdminUserCommentViewItem } from '@/features/admin/users/useAdminUserDetailTabs'
 import type { SanitizedHtml } from '@/utils/sanitize'
 
 interface PageNavigationState {

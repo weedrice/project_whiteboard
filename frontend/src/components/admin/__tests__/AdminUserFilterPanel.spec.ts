@@ -1,7 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import AdminUserFilterPanel from '../AdminUserFilterPanel.vue'
-import { createInitialAdminUserFilters } from '@/composables/useAdminUserListState'
+import { createInitialAdminUserFilters } from '@/features/admin/users/useAdminUserListState'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({

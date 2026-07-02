@@ -2,7 +2,7 @@
 import { useI18n } from 'vue-i18n'
 import AdminInlinePager from '@/components/admin/AdminInlinePager.vue'
 import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
-import type { AdminUserPostViewItem } from '@/composables/useAdminUserDetailTabs'
+import type { AdminUserPostViewItem } from '@/features/admin/users/useAdminUserDetailTabs'
 
 interface PageNavigationState {
   number: number

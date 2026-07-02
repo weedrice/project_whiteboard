@@ -9,7 +9,7 @@ import AdminDataPage from '@/components/admin/AdminDataPage.vue'
 import AdminModalActions from '@/components/admin/AdminModalActions.vue'
 import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
 import AdminTableActions from '@/components/admin/AdminTableActions.vue'
-import { useGlobalSettingsManager } from '@/composables/useGlobalSettingsManager'
+import { useGlobalSettingsManager } from '@/features/admin/settings/useGlobalSettingsManager'
 
 
 const { t } = useI18n()

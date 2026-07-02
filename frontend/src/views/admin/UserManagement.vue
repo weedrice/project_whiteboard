@@ -16,8 +16,10 @@ import { formatAdminPaginationSummary } from '@/utils/adminPaginationSummary'
 import { formatDateOnly } from '@/utils/date'
 import { useConfirm } from '@/composables/useConfirm'
 import { usePageResponseState } from '@/composables/usePaginatedQueryState'
-import { useAdminUserListState } from '@/composables/useAdminUserListState'
-import type { AdminUserFilterForm } from '@/composables/useAdminUserListState'
+import {
+  useAdminUserListState,
+  type AdminUserFilterForm,
+} from '@/features/admin/users/useAdminUserListState'
 import type { User } from '@/types'
 import {
   canChangeAdminUserStatus,
