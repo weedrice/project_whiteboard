@@ -41,7 +41,7 @@ export function useAppUserSettingsSync(
                     return data.success ? unwrapApiData(data) : null
                 },
             })
-            if (settings) {
+            if (authStore.isAuthenticated && settings) {
                 applySettings(settings)
             }
         } catch (error) {
