@@ -1,12 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, toRef } from 'vue'
-import PostEditorColorPopover from '@/components/board/editor/PostEditorColorPopover.vue'
 import PostEditorContentArea from '@/components/board/editor/PostEditorContentArea.vue'
-import PostEditorImageAltPopover from '@/components/board/editor/PostEditorImageAltPopover.vue'
-import PostEditorLinkPopover from '@/components/board/editor/PostEditorLinkPopover.vue'
-import PostEditorPopoverMask from '@/components/board/editor/PostEditorPopoverMask.vue'
-import PostEditorSlashMenu from '@/components/board/editor/PostEditorSlashMenu.vue'
-import PostEditorTablePopover from '@/components/board/editor/PostEditorTablePopover.vue'
+import PostEditorFloatingPanels from '@/components/board/editor/PostEditorFloatingPanels.vue'
 import PostEditorToolbar from '@/components/board/editor/PostEditorToolbar.vue'
 import { colorLabelKeys, colorPresets, fontSizes, lineHeights, slashActions } from '@/components/board/editor/postEditorOptions'
 import '@/components/board/editor/editor.css'
@@ -240,6 +235,26 @@ function closeColorPanel(focusTarget = colorTriggerElement.value) {
   }
 }
 
+function assignSlashPopover(value: HTMLElement | null) {
+  slashPopoverRef.value = value
+}
+
+function assignColorPanel(value: HTMLElement | null) {
+  colorPanelRef.value = value
+}
+
+function assignLinkPopover(value: HTMLElement | null) {
+  linkPopoverRef.value = value
+}
+
+function assignImageAltPopover(value: HTMLElement | null) {
+  imageAltPopoverRef.value = value
+}
+
+function assignTablePopover(value: HTMLElement | null) {
+  tablePopoverRef.value = value
+}
+
 function onContentAreaClick(event: MouseEvent) {
   const instance = editor.value
   if (!instance) return
@@ -330,79 +345,54 @@ onBeforeUnmount(() => {
       @dismiss-failed-image-upload="dismissFailedImageUpload"
     />
 
-    <PostEditorPopoverMask :open="showSlashMenu" @close="showSlashMenu = false">
-      <div id="editor-slash-dialog" ref="slashPopoverRef" class="link-popover slash-popover" :style="slashPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-slash-dialog-title">
-        <div class="mb-3">
-          <p class="text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">{{ t('board.writePost.toolbar.slashMenu') }}</p>
-          <h3 id="editor-slash-dialog-title" class="text-base font-semibold text-[var(--nv-ink)]">{{ t('board.writePost.toolbar.insertBlock') }}</h3>
-        </div>
-        <PostEditorSlashMenu
-          :actions="slashActions"
-          :active-index="slashActiveIndex"
-          @select="applySlashAction"
-          @move="moveSlashSelection"
-          @set-active="setSlashSelection"
-          @close="showSlashMenu = false"
-        />
-      </div>
-    </PostEditorPopoverMask>
-
-    <Teleport to="body">
-      <div v-if="showColorPanel" id="editor-color-dialog" ref="colorPanelRef" class="color-panel" :style="colorPosition.popoverStyle.value" role="dialog" aria-labelledby="editor-color-dialog-title" @keydown.enter.stop @keydown.escape.stop.prevent="closeColorPanel()">
-        <p id="editor-color-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.textColor') }}</p>
-        <PostEditorColorPopover
-          :colors="colorPresets"
-          :labels="colorPresetLabels"
-          :current-text-color="currentTextColor"
-          :is-default-color="isDefaultColor"
-          @default-color="setDefaultColor"
-          @preset-color="setPresetColor"
-          @custom-color="setPresetColor"
-        />
-      </div>
-    </Teleport>
-
-    <PostEditorPopoverMask :open="showLinkPopover" @close="closeLinkPopover">
-      <div ref="linkPopoverRef" class="link-popover" :style="linkPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-link-dialog-title">
-        <h3 id="editor-link-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.linkDialog') }}</h3>
-        <PostEditorLinkPopover
-          :url="linkUrl"
-          :text="linkText"
-          :can-remove="editor?.isActive('link') ?? false"
-          @apply="applyLink"
-          @close="closeLinkPopover"
-          @remove="removeLink"
-        />
-      </div>
-    </PostEditorPopoverMask>
-
-    <PostEditorPopoverMask :open="showImageAltPopover" @close="closeImageAltPopover">
-      <div ref="imageAltPopoverRef" class="link-popover image-alt-popover" :style="imageAltPosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-image-alt-dialog-title">
-        <h3 id="editor-image-alt-dialog-title" class="sr-only">{{ t('board.writePost.imageAlt.title') }}</h3>
-        <PostEditorImageAltPopover
-          :alt="imageAltText"
-          @apply="applyImageAlt"
-          @clear="clearImageAlt"
-          @close="closeImageAltPopover"
-        />
-      </div>
-    </PostEditorPopoverMask>
-
-    <PostEditorPopoverMask :open="showTablePopover" @close="closeTablePopover">
-      <div ref="tablePopoverRef" class="link-popover table-popover" :style="tablePosition.popoverStyle.value" role="dialog" aria-modal="true" aria-labelledby="editor-table-dialog-title">
-        <h3 id="editor-table-dialog-title" class="sr-only">{{ t('board.writePost.toolbar.tableDialog') }}</h3>
-        <PostEditorTablePopover
-          :rows="tableRows"
-          :cols="tableCols"
-          :header-row="tableHeaderRow"
-          @update:rows="tableRows = $event"
-          @update:cols="tableCols = $event"
-          @update:header-row="tableHeaderRow = $event"
-          @apply="applyTable"
-          @close="closeTablePopover"
-        />
-      </div>
-    </PostEditorPopoverMask>
+    <PostEditorFloatingPanels
+      :show-slash-menu="showSlashMenu"
+      :show-color-panel="showColorPanel"
+      :show-link-popover="showLinkPopover"
+      :show-image-alt-popover="showImageAltPopover"
+      :show-table-popover="showTablePopover"
+      :assign-slash-popover="assignSlashPopover"
+      :assign-color-panel="assignColorPanel"
+      :assign-link-popover="assignLinkPopover"
+      :assign-image-alt-popover="assignImageAltPopover"
+      :assign-table-popover="assignTablePopover"
+      :slash-position="slashPosition"
+      :color-position="colorPosition"
+      :link-position="linkPosition"
+      :image-alt-position="imageAltPosition"
+      :table-position="tablePosition"
+      :slash-actions="slashActions"
+      :slash-active-index="slashActiveIndex"
+      :color-presets="colorPresets"
+      :color-preset-labels="colorPresetLabels"
+      :current-text-color="currentTextColor"
+      :is-default-color="isDefaultColor"
+      :link-url="linkUrl"
+      :link-text="linkText"
+      :can-remove-link="editor?.isActive('link') ?? false"
+      :image-alt-text="imageAltText"
+      :table-rows="tableRows"
+      :table-cols="tableCols"
+      :table-header-row="tableHeaderRow"
+      @close-slash-menu="showSlashMenu = false"
+      @select-slash-action="applySlashAction"
+      @move-slash-selection="moveSlashSelection"
+      @set-slash-selection="setSlashSelection"
+      @set-default-color="setDefaultColor"
+      @set-preset-color="setPresetColor"
+      @close-color-panel="closeColorPanel()"
+      @apply-link="applyLink"
+      @remove-link="removeLink"
+      @close-link-popover="closeLinkPopover"
+      @apply-image-alt="applyImageAlt"
+      @clear-image-alt="clearImageAlt"
+      @close-image-alt-popover="closeImageAltPopover"
+      @update:table-rows="tableRows = $event"
+      @update:table-cols="tableCols = $event"
+      @update:table-header-row="tableHeaderRow = $event"
+      @apply-table="applyTable"
+      @close-table-popover="closeTablePopover"
+    />
 
     <PostEditorContentArea
       :editor="editor"
