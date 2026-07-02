@@ -151,8 +151,8 @@ const columns = computed(() => [
           <p class="mt-1 text-xs nv-text-subtle">{{ t('admin.common.footerDoubleClickHint') }}</p>
         </template>
         <template #footer-actions>
-          <label class="text-xs nv-text-subtle">{{ t('admin.common.pageSize') }}</label>
-          <select v-model.number="size" class="input-base px-2 py-1 text-xs">
+          <label for="admin-user-page-size" class="text-xs nv-text-subtle">{{ t('admin.common.pageSize') }}</label>
+          <select id="admin-user-page-size" v-model.number="size" class="input-base px-2 py-1 text-xs">
             <option :value="10">10</option>
             <option :value="20">20</option>
             <option :value="50">50</option>

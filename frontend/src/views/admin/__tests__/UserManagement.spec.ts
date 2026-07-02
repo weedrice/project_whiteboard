@@ -154,4 +154,21 @@ describe('UserManagement', () => {
         expect(label.text()).toBe('사용자 검색')
         expect(wrapper.get('input[placeholder="사용자 검색"]').attributes('placeholder')).toBe('사용자 검색')
     })
+
+    it('connects the page-size label to its select control', () => {
+        const wrapper = mount(UserManagement, {
+            global: {
+                stubs: {
+                    Search: iconStub,
+                    BaseInput: BaseInputStub,
+                    BaseBadge: BaseBadgeStub,
+                    UserDetailModal: UserDetailModalStub,
+                    Pagination: true,
+                },
+            },
+        })
+
+        expect(wrapper.find('label[for="admin-user-page-size"]').exists()).toBe(true)
+        expect(wrapper.find('select#admin-user-page-size').exists()).toBe(true)
+    })
 })
