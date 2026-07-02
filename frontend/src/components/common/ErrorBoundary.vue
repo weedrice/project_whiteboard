@@ -26,6 +26,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import logger from '@/utils/logger'
+import { createVueErrorLogPayload } from '@/utils/vueErrorLog'
 
 interface Props {
     fallback?: (error: Error, instance: ComponentPublicInstance | null, info: string) => void
@@ -68,7 +69,7 @@ onErrorCaptured((err: Error, instance: ComponentPublicInstance | null, info: str
     errorInfo.value = info
     errorStack.value = err.stack || err.toString()
 
-    logger.error('ErrorBoundary caught error:', err, info)
+    logger.error('ErrorBoundary caught error:', createVueErrorLogPayload(err, instance, info))
 
     if (props.fallback) {
         props.fallback(err, instance, info)

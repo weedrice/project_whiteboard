@@ -3,6 +3,7 @@ import type { AxiosError } from 'axios'
 import logger from '@/utils/logger'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import { extractErrorMessage, shouldSuppressGlobalErrorToast } from '@/utils/errorHandler'
+import { createErrorLogPayload } from '@/utils/vueErrorLog'
 
 interface ToastStoreLike {
     addToast: (message: string, type: 'error') => void
@@ -30,7 +31,7 @@ export const queryClient = new QueryClient({
             if (shouldSuppressGlobalErrorToast(error)) return
 
             addErrorToast(error)
-            logger.error('Query Error:', error)
+            logger.error('Query Error:', createErrorLogPayload(error))
         }
     }),
     mutationCache: new MutationCache({
@@ -39,7 +40,7 @@ export const queryClient = new QueryClient({
             if (shouldSuppressGlobalErrorToast(error)) return
 
             addErrorToast(error)
-            logger.error('Mutation Error:', error)
+            logger.error('Mutation Error:', createErrorLogPayload(error))
         }
     }),
     defaultOptions: {

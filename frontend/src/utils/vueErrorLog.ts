@@ -1,6 +1,6 @@
 import type { ComponentPublicInstance } from 'vue'
 
-function serializeError(error: unknown) {
+export function serializeErrorForLog(error: unknown) {
     if (error instanceof Error) {
         return {
             name: error.name,
@@ -10,6 +10,12 @@ function serializeError(error: unknown) {
     }
 
     return error
+}
+
+export function createErrorLogPayload(error: unknown) {
+    return {
+        error: serializeErrorForLog(error),
+    }
 }
 
 function resolveComponentName(instance: ComponentPublicInstance | null) {
@@ -25,7 +31,7 @@ export function createVueErrorLogPayload(
     info: string,
 ) {
     return {
-        error: serializeError(error),
+        error: serializeErrorForLog(error),
         info,
         component: resolveComponentName(instance),
     }

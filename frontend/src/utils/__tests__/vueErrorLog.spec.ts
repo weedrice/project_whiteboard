@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ComponentPublicInstance } from 'vue'
-import { createVueErrorLogPayload } from '../vueErrorLog'
+import { createErrorLogPayload, createVueErrorLogPayload } from '../vueErrorLog'
 
 describe('createVueErrorLogPayload', () => {
     it('serializes errors without exposing the full component instance', () => {
@@ -22,6 +22,18 @@ describe('createVueErrorLogPayload', () => {
             },
             info: 'render function',
             component: 'ProfileEditor',
+        })
+    })
+
+    it('serializes generic errors for non-Vue logging paths', () => {
+        const error = new TypeError('bad query')
+
+        expect(createErrorLogPayload(error)).toEqual({
+            error: {
+                name: 'TypeError',
+                message: 'bad query',
+                stack: error.stack,
+            },
         })
     })
 })

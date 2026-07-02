@@ -13,6 +13,7 @@ import GlobalPromptModal from '@/components/common/widgets/GlobalPromptModal.vue
 import ErrorBoundary from '@/components/common/ErrorBoundary.vue'
 import NetworkStatus from '@/components/common/NetworkStatus.vue'
 import logger from '@/utils/logger'
+import { createVueErrorLogPayload } from '@/utils/vueErrorLog'
 import { useAppSearchShortcut } from '@/composables/useAppSearchShortcut'
 import { useAppSeo } from '@/composables/useAppSeo'
 import { useAppUserSettingsSync } from '@/composables/useAppUserSettingsSync'
@@ -52,8 +53,8 @@ onUnmounted(() => {
     stopAuthStorageSync = null
 })
 
-onErrorCaptured((err, _instance, info) => {
-    logger.error('Global Error Captured:', err, info)
+onErrorCaptured((err, instance, info) => {
+    logger.error('Global Error Captured:', createVueErrorLogPayload(err, instance, info))
     toastStore.addToast(t('common.error.unknown'), 'error')
     return false // Prevent error from propagating further
 })

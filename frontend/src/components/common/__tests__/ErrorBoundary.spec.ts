@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import ErrorBoundary from '../ErrorBoundary.vue'
+import logger from '@/utils/logger'
 
 vi.mock('vue-router', () => ({
     useRouter: () => ({
@@ -40,6 +41,10 @@ const ThrowingChild = defineComponent({
 })
 
 describe('ErrorBoundary', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
     it('does not expose raw internal error messages in the visible fallback copy', async () => {
         const wrapper = mount(ErrorBoundary, {
             slots: {
@@ -61,6 +66,16 @@ describe('ErrorBoundary', () => {
         expect(wrapper.text()).toContain('Something went wrong')
         expect(wrapper.text()).toContain('Please try again later.')
         expect(wrapper.text()).not.toContain('internal database token leaked')
+        expect(logger.error).toHaveBeenCalledWith(
+            'ErrorBoundary caught error:',
+            expect.objectContaining({
+                error: expect.objectContaining({
+                    name: 'Error',
+                    message: 'internal database token leaked',
+                }),
+                info: expect.any(String),
+            }),
+        )
     })
 
     it('keeps raw details behind the explicit details option', async () => {
