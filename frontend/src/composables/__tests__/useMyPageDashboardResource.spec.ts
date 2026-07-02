@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useMyPageDashboardResource } from '../useMyPageDashboardResource'
 import { userApi } from '@/api/user'
-import { apiEnvelopeResponse, apiSuccessDataResponse } from '@/test/apiResponseFixtures'
+import { apiEnvelopeResponse, apiPageSuccessDataResponse, apiSuccessDataResponse } from '@/test/apiResponseFixtures'
 import { createDeferred } from '@/test/async'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import logger from '@/utils/logger'
@@ -63,15 +63,10 @@ describe('useMyPageDashboardResource', () => {
       })
     )
     vi.mocked(userApi.getMyPosts).mockResolvedValue(
-      apiSuccessDataResponse<typeof userApi.getMyPosts>({
-        content: [{ postId: 7, title: 'Post' }],
-        totalElements: 1,
-        totalPages: 1,
-      })
+      apiPageSuccessDataResponse<typeof userApi.getMyPosts>([{ postId: 7, title: 'Post' }])
     )
     vi.mocked(userApi.getMyComments).mockResolvedValue(
-      apiSuccessDataResponse<typeof userApi.getMyComments>({
-        content: [{
+      apiPageSuccessDataResponse<typeof userApi.getMyComments>([{
           commentId: 3,
           content: 'Comment',
           createdAt: '2026-05-20T10:00:00',
@@ -81,10 +76,7 @@ describe('useMyPageDashboardResource', () => {
             boardName: 'Notice',
             title: 'Post title',
           },
-        }],
-        totalElements: 1,
-        totalPages: 1,
-      })
+      }])
     )
   })
 

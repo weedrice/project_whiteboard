@@ -2,7 +2,8 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
 import { useSubscribedBoardsManager } from '../useSubscribedBoardsManager'
-import { apiEmptySuccess, axiosApiResponse, axiosApiSuccess, pageResponse as createPageResponse } from '@/test/factories'
+import { axiosApiPageSuccess } from '@/test/apiResponseFixtures'
+import { apiEmptySuccess, axiosApiResponse } from '@/test/factories'
 import type { SubscriptionBoardListItem } from '@/types'
 
 const mocks = vi.hoisted(() => ({
@@ -55,7 +56,7 @@ vi.mock('vue-i18n', () => ({
 }))
 
 const pageResponse = (page: number, totalPages: number, content: SubscriptionBoardListItem[]) =>
-  axiosApiSuccess(createPageResponse(content, {
+  axiosApiPageSuccess(content, {
     number: page,
     size: 100,
     totalElements: content.length,
@@ -63,7 +64,7 @@ const pageResponse = (page: number, totalPages: number, content: SubscriptionBoa
     first: page === 0,
     last: page === totalPages - 1,
     empty: content.length === 0,
-  }))
+  })
 
 const subscription = (overrides: Partial<SubscriptionBoardListItem> = {}): SubscriptionBoardListItem => ({
   boardId: 1,

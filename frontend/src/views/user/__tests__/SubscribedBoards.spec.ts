@@ -2,6 +2,8 @@ import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import SubscribedBoards from '../SubscribedBoards.vue'
+import { axiosApiPageSuccess } from '@/test/apiResponseFixtures'
+import type { SubscriptionBoardListItem } from '@/types'
 
 const mocks = vi.hoisted(() => ({
   getMySubscriptions: vi.fn(),
@@ -59,30 +61,32 @@ vi.mock('vuedraggable', () => ({
   },
 }))
 
-const pageResponse = (page: number, totalPages: number, content: unknown[]) => ({
-  data: {
-    success: true,
-    data: {
-      content,
-      number: page,
-      size: 100,
-      totalElements: content.length,
-      totalPages,
-      first: page === 0,
-      last: page === totalPages - 1,
-      empty: content.length === 0,
-    },
-  },
-})
+const pageResponse = (page: number, totalPages: number, content: SubscriptionBoardListItem[]) =>
+  axiosApiPageSuccess(content, {
+    number: page,
+    size: 100,
+    totalElements: content.length,
+    totalPages,
+    first: page === 0,
+    last: page === totalPages - 1,
+    empty: content.length === 0,
+  })
 
-const subscription = {
+const subscription: SubscriptionBoardListItem = {
   boardId: 1,
   boardName: 'Free',
   boardUrl: 'free',
   description: 'Free board',
   sortOrder: 1,
+  subscriberCount: 3,
+  postCount: 10,
+  adminDisplayName: null,
+  isSubscribed: true,
   isActive: true,
+  isPublic: true,
+  subscriptionAccessible: true,
   accessState: 'ACCESSIBLE',
+  inaccessibleReason: null,
 }
 
 const mountView = () => mount(SubscribedBoards, {
@@ -116,13 +120,22 @@ describe('SubscribedBoards', () => {
   it('loads the first subscription page before fetching remaining pages in parallel order', async () => {
     mocks.getMySubscriptions
       .mockResolvedValueOnce(pageResponse(0, 3, [
-        { boardId: 1, boardUrl: 'general', boardName: 'General', accessState: 'ACCESSIBLE', isActive: true },
+        { ...subscription, boardId: 1, boardUrl: 'general', boardName: 'General' },
       ]))
       .mockResolvedValueOnce(pageResponse(1, 3, [
-        { boardId: 2, boardUrl: 'news', boardName: 'News', accessState: 'ACCESSIBLE', isActive: true },
+        { ...subscription, boardId: 2, boardUrl: 'news', boardName: 'News' },
       ]))
       .mockResolvedValueOnce(pageResponse(2, 3, [
-        { boardId: 3, boardUrl: 'hidden', boardName: 'Hidden', accessState: 'DELETED', isActive: false },
+        {
+          ...subscription,
+          boardId: 3,
+          boardUrl: 'hidden',
+          boardName: 'Hidden',
+          accessState: 'INACCESSIBLE',
+          inaccessibleReason: 'INACTIVE',
+          isActive: false,
+          subscriptionAccessible: false,
+        },
       ]))
 
     const wrapper = mountView()
