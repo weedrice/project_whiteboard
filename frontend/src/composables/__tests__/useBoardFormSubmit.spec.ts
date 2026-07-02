@@ -28,7 +28,7 @@ vi.mock('@/composables/useErrorHandler', () => ({
   }),
 }))
 
-vi.mock('@/composables/useBoardIconUpload', () => ({
+vi.mock('@/features/board/icons/useBoardIconUpload', () => ({
   uploadBoardIconFile: mocks.uploadBoardIconFile,
   validateBoardIconFile: mocks.validateBoardIconFile,
 }))

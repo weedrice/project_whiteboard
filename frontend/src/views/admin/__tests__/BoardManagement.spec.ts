@@ -60,7 +60,7 @@ vi.mock('@/composables/useAdmin', () => ({
   }),
 }))
 
-vi.mock('@/composables/useBoardIconUpload', () => ({
+vi.mock('@/features/board/icons/useBoardIconUpload', () => ({
   useBoardIconUpload: () => ({
     fileInput: ref(null),
     handleFileUpload: vi.fn(),

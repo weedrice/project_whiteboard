@@ -73,7 +73,7 @@
 import { computed, type ComponentPublicInstance } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { AdminBoard } from '@/types'
-import type { AdminBoardEditorForm } from '@/composables/useAdminBoardEditor'
+import type { AdminBoardEditorForm } from '@/features/admin/boards/useAdminBoardEditor'
 import AdminPanel from '@/components/admin/AdminPanel.vue'
 import AdminBoardFormFields from '@/components/admin/AdminBoardFormFields.vue'
 import AdminBoardIconSection from '@/components/admin/AdminBoardIconSection.vue'
