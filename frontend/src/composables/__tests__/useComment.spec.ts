@@ -67,7 +67,7 @@ describe('useComment', () => {
         const options = mockQueryOptions[0]
         const result = await (options.queryFn as () => Promise<unknown>)()
 
-        expect(options.queryKey).toEqual(['comments', postId, params])
+        expect(options.queryKey).toEqual(['comments', 'post', postId, params])
         expect((options.enabled as { value: boolean }).value).toBe(true)
         expect((options.placeholderData as (prev: unknown) => unknown)('keep')).toBe('keep')
         expect(commentApi.getComments).toHaveBeenCalledWith(1, { page: 0, size: 10 })
@@ -130,8 +130,10 @@ describe('useComment', () => {
         })
 
         expect(commentApi.createComment).toHaveBeenCalledWith(123, { content: 'New comment' })
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments'] })
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['post'] })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments', 'post', 123] })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['post', 123] })
+        expect(mockInvalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['comments'] })
+        expect(mockInvalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['post'] })
     })
 
     it('calls commentApi.updateComment and invalidates comments queries', async () => {
@@ -142,11 +144,13 @@ describe('useComment', () => {
 
         await mutation.mutateAsync({
             commentId: 5,
+            postId: 123,
             data: { content: 'Updated' },
         })
 
         expect(commentApi.updateComment).toHaveBeenCalledWith(5, { content: 'Updated' })
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments'] })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments', 'post', 123] })
+        expect(mockInvalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['comments'] })
     })
 
     it('calls commentApi.deleteComment and invalidates related queries', async () => {
@@ -155,10 +159,12 @@ describe('useComment', () => {
 
         vi.mocked(commentApi.deleteComment).mockResolvedValue(apiSuccessResponse<typeof commentApi.deleteComment>())
 
-        await mutation.mutateAsync(10)
+        await mutation.mutateAsync({ commentId: 10, postId: 123 })
 
         expect(commentApi.deleteComment).toHaveBeenCalledWith(10)
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments'] })
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['post'] })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments', 'post', 123] })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['post', 123] })
+        expect(mockInvalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['comments'] })
+        expect(mockInvalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['post'] })
     })
 })

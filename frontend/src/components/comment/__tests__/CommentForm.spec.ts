@@ -186,6 +186,7 @@ describe('CommentForm', () => {
     expect(updateComment).toHaveBeenCalledWith(
       {
         commentId: 30,
+        postId: 10,
         data: {
           content: 'updated body',
         },

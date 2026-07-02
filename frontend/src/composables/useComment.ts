@@ -7,8 +7,45 @@ import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
 import { callWithOptionalQuerySignal } from '@/utils/querySignal'
 import type { Comment, CommentListResponse } from '@/types'
 
+type CommentMutationWithPostId<TVariables extends object = object> = TVariables & {
+    postId: string | number
+}
+
+type UpdateCommentVariables = CommentMutationWithPostId<{
+    commentId: string | number
+    data: CommentPayload
+}>
+
+type DeleteCommentVariables = string | number | {
+    commentId: string | number
+    postId?: string | number
+}
+
 export function useComment() {
     const queryClient = useQueryClient()
+
+    const invalidatePostCommentQueries = (postId: string | number) => {
+        queryClient.invalidateQueries({ queryKey: commentQueryKeys.postRoot(postId) })
+    }
+
+    const invalidatePostDetailQueries = (postId: string | number) => {
+        queryClient.invalidateQueries({ queryKey: postQueryKeys.detailPrefix(postId) })
+    }
+
+    const invalidateCommentMutationTargets = (postId?: string | number, includePostDetail = false) => {
+        if (postId !== undefined) {
+            invalidatePostCommentQueries(postId)
+            if (includePostDetail) {
+                invalidatePostDetailQueries(postId)
+            }
+            return
+        }
+
+        queryClient.invalidateQueries({ queryKey: commentQueryKeys.all })
+        if (includePostDetail) {
+            queryClient.invalidateQueries({ queryKey: postQueryKeys.detailsRoot })
+        }
+    }
 
     const useComments = (postId: Ref<string | number>, params: Ref<CommentParams>) => {
         return useApiPageQuery<Comment>({
@@ -44,32 +81,32 @@ export function useComment() {
             mutationFn: async ({ postId, data }: { postId: string | number, data: CommentPayload }) => {
                 return await commentApi.createComment(postId, data)
             },
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: commentQueryKeys.all })
-                queryClient.invalidateQueries({ queryKey: postQueryKeys.detailsRoot })
+            onSuccess: (_result, variables) => {
+                invalidateCommentMutationTargets(variables.postId, true)
             },
         })
     }
 
     const useUpdateComment = () => {
         return useMutation({
-            mutationFn: async ({ commentId, data }: { commentId: string | number, data: CommentPayload }) => {
+            mutationFn: async ({ commentId, data }: UpdateCommentVariables) => {
                 return await commentApi.updateComment(commentId, data)
             },
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: commentQueryKeys.all })
+            onSuccess: (_result, variables) => {
+                invalidateCommentMutationTargets(variables.postId)
             },
         })
     }
 
     const useDeleteComment = () => {
         return useMutation({
-            mutationFn: async (commentId: string | number) => {
+            mutationFn: async (variables: DeleteCommentVariables) => {
+                const commentId = typeof variables === 'object' ? variables.commentId : variables
                 return await commentApi.deleteComment(commentId)
             },
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: commentQueryKeys.all })
-                queryClient.invalidateQueries({ queryKey: postQueryKeys.detailsRoot })
+            onSuccess: (_result, variables) => {
+                const postId = typeof variables === 'object' ? variables.postId : undefined
+                invalidateCommentMutationTargets(postId, true)
             },
         })
     }

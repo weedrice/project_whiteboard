@@ -83,8 +83,9 @@ const mountCommentList = () => mount(CommentList, {
         template: '<div data-testid="comment-form">form</div>',
       },
       CommentItem: {
+        emits: ['delete'],
         props: ['comment'],
-        template: '<div data-testid="comment-item">{{ comment.content }}</div>',
+        template: '<div data-testid="comment-item"><span>{{ comment.content }}</span><button type="button" data-testid="delete-comment" @click="$emit(\'delete\', comment)">delete</button></div>',
       },
       BaseSkeleton: true,
       BaseButton: {
@@ -147,5 +148,17 @@ describe('CommentList', () => {
     await wrapper.findAll('button').at(-1)?.trigger('click')
 
     expect(capturedCommentParams?.value).toEqual({ page: 0, size: 100 })
+  })
+
+  it('deletes comments with the current post id for scoped cache invalidation', async () => {
+    const wrapper = mountCommentList()
+
+    await wrapper.get('[data-testid="delete-comment"]').trigger('click')
+    await Promise.resolve()
+
+    expect(deleteComment).toHaveBeenCalledWith(
+      { commentId: 1, postId: 1 },
+      expect.any(Object),
+    )
   })
 })

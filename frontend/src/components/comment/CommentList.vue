@@ -42,7 +42,7 @@ async function handleDelete(comment: Comment) {
     return
   }
 
-  deleteComment(comment.commentId, {
+  deleteComment({ commentId: comment.commentId, postId: props.postId }, {
     onError: (err) => {
       logger.error('Failed to delete comment:', err)
     },

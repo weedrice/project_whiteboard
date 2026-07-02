@@ -96,7 +96,7 @@ async function handleSubmit() {
 
   if (props.commentId) {
     // Update existing comment
-    updateComment({ commentId: props.commentId, data: { content: trimmedContent.value } }, {
+    updateComment({ commentId: props.commentId, postId: props.postId, data: { content: trimmedContent.value } }, {
       onSuccess: () => {
         emit('success')
       },
