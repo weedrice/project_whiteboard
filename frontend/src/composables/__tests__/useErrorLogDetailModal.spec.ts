@@ -74,4 +74,40 @@ describe('useErrorLogDetailModal', () => {
 
         expect(mocks.addToast).toHaveBeenCalledWith('admin.errorLogs.messages.stackTraceCopyFailed', 'error')
     })
+
+    it('resolves a log with trimmed memo', async () => {
+        const modal = mountErrorLogDetailModal()
+        modal.openResolveModal({ errorLogId: 7 } as ErrorLogDetail)
+        modal.resolveMemo.value = '  checked and fixed  '
+
+        await modal.handleResolve()
+
+        expect(mocks.resolveErrorLog).toHaveBeenCalledWith({
+            errorLogId: 7,
+            data: { memo: 'checked and fixed' },
+        })
+        expect(mocks.addToast).toHaveBeenCalledWith('admin.errorLogs.messages.resolved', 'success')
+        expect(modal.isResolveModalOpen.value).toBe(false)
+    })
+
+    it('omits blank resolve memo after trimming', async () => {
+        const modal = mountErrorLogDetailModal()
+        modal.openResolveModal({ errorLogId: 7 } as ErrorLogDetail)
+        modal.resolveMemo.value = '   '
+
+        await modal.handleResolve()
+
+        expect(mocks.resolveErrorLog).toHaveBeenCalledWith({
+            errorLogId: 7,
+            data: undefined,
+        })
+    })
+
+    it('skips resolve when there is no target log', async () => {
+        const modal = mountErrorLogDetailModal()
+
+        await modal.handleResolve()
+
+        expect(mocks.resolveErrorLog).not.toHaveBeenCalled()
+    })
 })

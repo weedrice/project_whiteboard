@@ -21,6 +21,11 @@ function getDefaultDateRange() {
     }
 }
 
+function toOptionalTrimmed(value: string) {
+    const trimmed = value.trim()
+    return trimmed || undefined
+}
+
 export function useErrorLogListState() {
     const { useErrorLogs, useErrorLogStats } = useAdmin()
     const { defaultStartDate, defaultEndDate } = getDefaultDateRange()
@@ -51,11 +56,11 @@ export function useErrorLogListState() {
 
     function handleSearch() {
         filterParams.value = {
-            errorType: filterErrorType.value || undefined,
+            errorType: toOptionalTrimmed(filterErrorType.value),
             httpStatus: filterHttpStatus.value || undefined,
             isResolved: filterIsResolved.value || undefined,
-            startDate: filterStartDate.value || undefined,
-            endDate: filterEndDate.value || undefined
+            startDate: toOptionalTrimmed(filterStartDate.value),
+            endDate: toOptionalTrimmed(filterEndDate.value)
         }
         resetPage()
     }

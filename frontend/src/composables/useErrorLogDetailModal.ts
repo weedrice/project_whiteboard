@@ -46,10 +46,12 @@ export function useErrorLogDetailModal() {
     async function handleResolve() {
         if (!resolveTargetLog.value) return
 
+        const memo = resolveMemo.value.trim()
+
         try {
             await resolveErrorLog({
                 errorLogId: resolveTargetLog.value.errorLogId,
-                data: resolveMemo.value ? { memo: resolveMemo.value } : undefined
+                data: memo ? { memo } : undefined
             })
             toastStore.addToast(t('admin.errorLogs.messages.resolved'), 'success')
             closeResolveModal()

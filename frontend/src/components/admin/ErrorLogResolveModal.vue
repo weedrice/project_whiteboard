@@ -33,8 +33,9 @@ const emit = defineEmits<{
         <p><strong>{{ $t('admin.errorLogs.table.message') }}:</strong> {{ log.message }}</p>
       </div>
       <div>
-        <label class="filter-label">{{ $t('admin.errorLogs.memoPlaceholder') }}</label>
+        <label for="error-log-resolve-memo" class="filter-label">{{ $t('admin.errorLogs.memoPlaceholder') }}</label>
         <textarea
+          id="error-log-resolve-memo"
           :value="memo"
           rows="3"
           class="filter-input w-full"

@@ -103,14 +103,26 @@ function resolveFromDetail(log: ErrorLogDetail) {
 
       <AdminFilterPanel>
         <div class="flex flex-wrap items-end gap-3">
-          <AdminFilterField :label="t('admin.errorLogs.filter.startDate')" width-class="w-40">
-            <input v-model="filterStartDate" type="date" class="filter-input" />
+          <AdminFilterField
+            :label="t('admin.errorLogs.filter.startDate')"
+            for-id="error-log-start-date"
+            width-class="w-40"
+          >
+            <input id="error-log-start-date" v-model="filterStartDate" type="date" class="filter-input" />
           </AdminFilterField>
-          <AdminFilterField :label="t('admin.errorLogs.filter.endDate')" width-class="w-40">
-            <input v-model="filterEndDate" type="date" class="filter-input" />
+          <AdminFilterField
+            :label="t('admin.errorLogs.filter.endDate')"
+            for-id="error-log-end-date"
+            width-class="w-40"
+          >
+            <input id="error-log-end-date" v-model="filterEndDate" type="date" class="filter-input" />
           </AdminFilterField>
-          <AdminFilterField :label="t('admin.errorLogs.filter.httpStatus')" width-class="w-36">
-            <select v-model="filterHttpStatus" class="filter-input">
+          <AdminFilterField
+            :label="t('admin.errorLogs.filter.httpStatus')"
+            for-id="error-log-http-status"
+            width-class="w-36"
+          >
+            <select id="error-log-http-status" v-model="filterHttpStatus" class="filter-input">
               <option :value="undefined">{{ t('admin.errorLogs.filter.all') }}</option>
               <option :value="400">400</option>
               <option :value="401">401</option>
@@ -119,15 +131,24 @@ function resolveFromDetail(log: ErrorLogDetail) {
               <option :value="500">500</option>
             </select>
           </AdminFilterField>
-          <AdminFilterField :label="t('admin.errorLogs.filter.isResolved')" width-class="w-36">
-            <select v-model="filterIsResolved" class="filter-input">
+          <AdminFilterField
+            :label="t('admin.errorLogs.filter.isResolved')"
+            for-id="error-log-is-resolved"
+            width-class="w-36"
+          >
+            <select id="error-log-is-resolved" v-model="filterIsResolved" class="filter-input">
               <option value="">{{ t('admin.errorLogs.filter.all') }}</option>
               <option value="N">{{ t('admin.errorLogs.status.unresolved') }}</option>
               <option value="Y">{{ t('admin.errorLogs.status.resolved') }}</option>
             </select>
           </AdminFilterField>
-          <AdminFilterField :label="t('admin.errorLogs.filter.errorType')" width-class="w-52">
+          <AdminFilterField
+            :label="t('admin.errorLogs.filter.errorType')"
+            for-id="error-log-error-type"
+            width-class="w-52"
+          >
             <input
+              id="error-log-error-type"
               v-model="filterErrorType"
               type="text"
               class="filter-input"

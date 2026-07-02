@@ -259,6 +259,21 @@ describe('ErrorLogManagement', () => {
             expect(resolvedIdx).toBeLessThan(typeIdx)
         })
 
+        it('connects filter labels to their controls', () => {
+            const expectedIds = [
+                'error-log-start-date',
+                'error-log-end-date',
+                'error-log-http-status',
+                'error-log-is-resolved',
+                'error-log-error-type',
+            ]
+
+            for (const id of expectedIds) {
+                expect(wrapper.find(`label[for="${id}"]`).exists()).toBe(true)
+                expect(wrapper.find(`#${id}`).exists()).toBe(true)
+            }
+        })
+
         it('HTTP 상태 셀렉트에 올바른 옵션들이 있다', () => {
             const selects = wrapper.findAll('select')
             const httpSelect = selects[0]
@@ -431,6 +446,16 @@ describe('ErrorLogManagement', () => {
             const endValue = (dateInputs[1].element as HTMLInputElement).value
             expect(startValue).toMatch(/^\d{4}-\d{2}-\d{2}$/)
             expect(endValue).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+        })
+    })
+
+    describe('accessibility contracts', () => {
+        it('connects the resolve memo label to the textarea', async () => {
+            await wrapper.get('.btn-icon--resolve').trigger('click')
+            await nextTick()
+
+            expect(wrapper.find('label[for="error-log-resolve-memo"]').exists()).toBe(true)
+            expect(wrapper.find('textarea#error-log-resolve-memo').exists()).toBe(true)
         })
     })
 })
