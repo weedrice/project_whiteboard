@@ -18,8 +18,11 @@ This is not a static frontend. It is tightly coupled to backend response envelop
 frontend/
 |-- src/
 |   |-- api/          Axios clients and request/response handling
+|   |-- assets/       CSS and static frontend assets
 |   |-- components/   Reusable UI components
-|   |-- composables/  Vue Query and Composition API logic
+|   |-- composables/  Shared composables and compatibility re-export shims
+|   |-- extensions/   TipTap and editor extensions
+|   |-- features/     Domain feature logic, feature-local composables, and query helpers
 |   |-- locales/      Translation resources
 |   |-- router/       Route definitions and route guards
 |   |-- stores/       Pinia stores
@@ -37,7 +40,8 @@ frontend/
 ### Where AI agents usually work
 
 - `src/api`: endpoint definitions, token refresh handling, request/response typing
-- `src/composables`: query and mutation orchestration
+- `src/features`: domain feature orchestration, feature-local composables, query keys, cache invalidation helpers
+- `src/composables`: shared cross-feature composables and compatibility shims for older import paths
 - `src/views`: route-level feature work
 - `src/components`: reusable UI work
 - `src/router`: route metadata, auth guards, navigation rules
@@ -94,21 +98,31 @@ Important behavior:
 - Use Vue 3 Composition API with `<script setup lang="ts">`
 - Put route pages in `views` and reusable UI in `components`
 - Reuse existing base components under `components/common/ui` and widgets under `components/common/widgets`
-- Keep route-level orchestration in views and extract reusable logic into composables when it crosses pages
+- Keep route-level orchestration in views and extract domain-specific logic into `src/features/{domain}` when it belongs to a feature slice
+- Use `src/composables` for shared cross-feature helpers, low-level reusable behavior, or compatibility re-export shims
 
 ### Data fetching and mutations
 
-- Server state belongs in Vue Query composables
+- Server state belongs in Vue Query composables, usually under the closest `src/features/{domain}` package for domain-specific flows
 - Shared app state belongs in Pinia stores
 - Do not create ad hoc `fetch` or isolated Axios clients in feature code; use the shared API layer in `src/api`
 - Preserve existing cache invalidation behavior after mutations
 - Query errors and mutation errors are globally surfaced through the configured `QueryClient`; do not duplicate the same toast behavior everywhere
 
+### Feature boundary rules
+
+- Keep feature-specific query keys, cache invalidation helpers, form state, page resources, and mutation orchestration in `src/features/{domain}`.
+- Current feature slices include `admin`, `board`, `board/posts`, `emoticon`, and `user`.
+- `board/posts` owns post detail, draft, editor, form, and post query helpers.
+- `emoticon` owns detail, form, list, and picker helpers.
+- Keep old `src/composables/useX` paths as thin re-export shims when existing tests or consumers still rely on them; do not add new domain implementation logic to those shim files.
+- Prefer importing moved domain logic from `src/features/...` in new code.
+
 ### API contract rules
 
 - Backend responses commonly arrive as `ApiResponse`, so frontend code usually reads `response.data.data`
 - Keep `src/types` aligned with backend DTOs
-- If an endpoint shape changes, update `src/api`, `src/types`, relevant composables, and UI consumers together
+- If an endpoint shape changes, update `src/api`, `src/types`, relevant feature composables, and UI consumers together
 
 ### Routing and auth rules
 
@@ -154,7 +168,7 @@ Test notes:
 - Tests use Vitest with `jsdom` and `@vue/test-utils`
 - Shared test setup lives in `src/test/setup.ts`
 - Coverage output is written to `coverage/`
-- For component, API, and composable changes, add or update tests close to the affected module in `__tests__`
+- For component, API, feature, and composable changes, add or update tests close to the affected module in `__tests__`
 - When backend API behavior, DTO fields, validation, or error responses change with frontend impact, run `npm run type-check` and the narrowest related Vitest target before broader checks
 - If a frontend change is made only to mirror backend normalization, add or update a component/composable test that proves the UI state follows the server rule
 
@@ -190,8 +204,8 @@ Type: short summary
 
 Examples for this module:
 
-- `Feat: 마이페이지 에이전트 관리 섹션 추가`
-- `Fix: 게시글 수정 후 게시판 캐시 갱신`
+- `Feat: 마이페이지 포인트 관리 섹션 추가`
+- `Fix: 게시글 수정 후 게시글 캐시 갱신`
 - `Refactor: 인증 에러 정규화 로직 공통화`
 
 ## Security Notes
@@ -235,3 +249,7 @@ Before creating a new input, button, modal, table, or spinner, check whether a c
 ### 8. Storing sensitive data in browser-visible places
 
 Do not expose secrets through `VITE_*`, component constants, test fixtures, or debug logging.
+
+### 9. Rebuilding domain logic in root composables
+
+Do not put new domain implementation logic in `src/composables` when an existing feature slice owns the behavior. Add it under `src/features/{domain}` and expose a compatibility shim only when older imports need it.
