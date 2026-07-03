@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
-import { usePostFormLeaveGuard } from '@/composables/usePostFormLeaveGuard'
+import { usePostFormLeaveGuard } from '@/features/board/posts/form/usePostFormLeaveGuard'
 
 const routeGuard = vi.hoisted(() => ({
     callback: undefined as undefined | ((to: unknown, from: unknown, next: (value?: boolean) => void) => void | Promise<void>),

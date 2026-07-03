@@ -9,13 +9,13 @@ import {
     restorePostCacheSnapshots,
     savePostCacheSnapshots,
     updatePostInAllCaches,
-} from '@/composables/postCacheUpdates'
+} from '@/features/board/posts/queries/postCacheUpdates'
 import { homeQueryKeys } from '@/composables/homeQueryKeys'
-import { postDetailQueryKey, postQueryKeys } from '@/composables/postQueryKeys'
+import { postDetailQueryKey, postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
 import { normalizePostReactionFlags, type PostReactionAlias } from '@/utils/postViewModel'
 import { withQuerySignal } from '@/utils/querySignal'
 
-export { postDetailQueryKey, postQueryKeys } from '@/composables/postQueryKeys'
+export { postDetailQueryKey, postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
 
 export function usePost() {
     const queryClient = useQueryClient()

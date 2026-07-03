@@ -8,7 +8,7 @@ import type { SegmentedControlOption } from '@/components/common/ui/BaseSegmente
 import type {
   PostFormMetadataPanelHandlers,
   PostFormMetadataPanelProps,
-} from '@/composables/usePostFormMetadataBindings'
+} from '@/features/board/posts/form/usePostFormMetadataBindings'
 import type { EmoticonImage } from '@/types/emoticon'
 
 defineProps<{

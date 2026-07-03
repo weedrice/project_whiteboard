@@ -31,7 +31,7 @@ vi.mock('@/composables/useConfirm', () => ({
   }),
 }))
 
-vi.mock('@/composables/usePost', () => ({
+vi.mock('@/features/board/posts/queries/usePost', () => ({
   usePost: () => ({
     useDeletePost: () => ({ mutate: mocks.deleteMutate }),
     useLikePost: () => ({ mutate: mocks.likeMutate }),

@@ -4,7 +4,7 @@ import PostFormMetadataPanel from '@/components/board/PostFormMetadataPanel.vue'
 import type {
   PostFormMetadataPanelHandlers,
   PostFormMetadataPanelProps,
-} from '@/composables/usePostFormMetadataBindings'
+} from '@/features/board/posts/form/usePostFormMetadataBindings'
 
 defineProps<{
   metadataPanelProps: PostFormMetadataPanelProps

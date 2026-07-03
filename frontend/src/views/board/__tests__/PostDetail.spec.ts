@@ -112,7 +112,7 @@ vi.mock('@/composables/useConfirm', () => ({
   })
 }))
 
-vi.mock('@/composables/usePost', () => ({
+vi.mock('@/features/board/posts/queries/usePost', () => ({
   usePost: () => ({
     usePostDetail: () => ({
       data: ref(postValue),

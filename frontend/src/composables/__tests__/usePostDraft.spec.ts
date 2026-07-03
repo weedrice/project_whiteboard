@@ -19,7 +19,7 @@ const mocks = vi.hoisted(() => {
     }
 })
 
-vi.mock('@/composables/usePost', () => ({
+vi.mock('@/features/board/posts/queries/usePost', () => ({
     usePost: () => ({
         useSaveDraft: () => ({
             isPending: ref(false),

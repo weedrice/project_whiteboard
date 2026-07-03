@@ -1,6 +1,6 @@
 import type { ComputedRef, Ref } from 'vue'
 import type { Router } from 'vue-router'
-import type { PostDetailViewModel } from '@/composables/usePostDetailViewModel'
+import type { PostDetailViewModel } from '@/features/board/posts/detail/usePostDetailViewModel'
 import { useEventListener } from '@/composables/useEventListener'
 import { isInputFocused } from '@/utils/keyboard'
 

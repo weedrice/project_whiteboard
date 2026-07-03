@@ -1,6 +1,6 @@
 import type { PostDraftData } from '@/api/post'
 import type { DraftPost } from '@/types'
-import { getDraftUpdatedAt, type DraftRecoverySnapshot } from '@/composables/postDraftRecovery'
+import { getDraftUpdatedAt, type DraftRecoverySnapshot } from '@/features/board/posts/draft/postDraftRecovery'
 
 export function createDraftRecoverySnapshot(
   payload: PostDraftData,

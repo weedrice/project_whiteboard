@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import PostForm from '@/components/board/PostForm.vue'
-import { usePostFormRouteShell } from '@/composables/usePostFormRouteShell'
+import { usePostFormRouteShell } from '@/features/board/posts/form/usePostFormRouteShell'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()

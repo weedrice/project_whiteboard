@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import type { RouteLocationRaw } from 'vue-router'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
-import type { PostDetailViewModel } from '@/composables/usePostDetailViewModel'
+import type { PostDetailViewModel } from '@/features/board/posts/detail/usePostDetailViewModel'
 import { formatDate } from '@/utils/date'
 
 defineProps<{

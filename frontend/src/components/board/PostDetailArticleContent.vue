@@ -5,7 +5,7 @@ import PostDetailReactionBar from '@/components/board/PostDetailReactionBar.vue'
 import PostDetailSpoilerOverlay from '@/components/board/PostDetailSpoilerOverlay.vue'
 import PostDetailTagSection from '@/components/board/PostDetailTagSection.vue'
 import PostDetailUrlChip from '@/components/board/PostDetailUrlChip.vue'
-import type { PostDetailViewModel } from '@/composables/usePostDetailViewModel'
+import type { PostDetailViewModel } from '@/features/board/posts/detail/usePostDetailViewModel'
 
 defineProps<{
   postView: PostDetailViewModel

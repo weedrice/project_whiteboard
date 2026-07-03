@@ -33,7 +33,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
   }
 })
 
-vi.mock('@/composables/usePostFormLeaveGuard', () => ({
+vi.mock('@/features/board/posts/form/usePostFormLeaveGuard', () => ({
   usePostFormLeaveGuard: vi.fn(),
 }))
 

@@ -6,7 +6,7 @@ import { boardApi } from '@/api/board'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import logger from '@/utils/logger'
 import { useI18n } from 'vue-i18n'
-import { usePostFormRouteShell } from '@/composables/usePostFormRouteShell'
+import { usePostFormRouteShell } from '@/features/board/posts/form/usePostFormRouteShell'
 import { useLatestAsyncTask } from '@/composables/useLatestAsyncTask'
 
 const { t } = useI18n()

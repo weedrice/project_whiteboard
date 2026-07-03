@@ -1,6 +1,6 @@
 import { ref, watchEffect, type Ref } from 'vue'
 import type { Post } from '@/types'
-import type { PostComposerMode, PostComposerSnapshot } from '@/composables/usePostComposerState'
+import type { PostComposerMode, PostComposerSnapshot } from '@/features/board/posts/form/usePostComposerState'
 
 interface UsePostFormEditHydrationOptions {
   mode: () => PostComposerMode

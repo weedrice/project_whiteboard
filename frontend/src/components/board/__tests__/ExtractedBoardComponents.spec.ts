@@ -8,7 +8,7 @@ import PostDetailHeader from '@/components/board/PostDetailHeader.vue'
 import PostFormMetadataPanel from '@/components/board/PostFormMetadataPanel.vue'
 import PostListMobileItem from '@/components/board/PostListMobileItem.vue'
 import type { BoardDetail, Category, PostSummary } from '@/types/board'
-import type { PostDetailViewModel } from '@/composables/usePostDetailViewModel'
+import type { PostDetailViewModel } from '@/features/board/posts/detail/usePostDetailViewModel'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({

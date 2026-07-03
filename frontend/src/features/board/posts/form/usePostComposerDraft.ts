@@ -1,6 +1,6 @@
 import { computed, ref, watch, type ComputedRef, type Ref } from 'vue'
-import { usePostDraft } from '@/composables/usePostDraft'
-import type { PostComposerSnapshot } from '@/composables/usePostComposerState'
+import { usePostDraft } from '@/features/board/posts/draft/usePostDraft'
+import type { PostComposerSnapshot } from '@/features/board/posts/form/usePostComposerState'
 import type { PostFormFileIdScope } from '@/utils/postForm'
 import logger from '@/utils/logger'
 

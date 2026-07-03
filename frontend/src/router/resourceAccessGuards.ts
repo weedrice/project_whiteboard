@@ -11,7 +11,7 @@ import {
     fetchBoardForWriteAccess,
 } from '@/composables/useBoardWriteAccess'
 import { emoticonDetailQueryKey } from '@/composables/useEmoticonEditResource'
-import { postDetailQueryKey } from '@/composables/postQueryKeys'
+import { postDetailQueryKey } from '@/features/board/posts/queries/postQueryKeys'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import logger from '@/utils/logger'
 import i18n from '@/i18n'

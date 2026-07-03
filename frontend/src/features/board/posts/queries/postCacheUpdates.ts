@@ -1,7 +1,7 @@
 import type { QueryClient } from '@tanstack/vue-query'
 import type { Post } from '@/types'
 import { homeQueryKeys } from '@/composables/homeQueryKeys'
-import { postQueryKeys } from '@/composables/postQueryKeys'
+import { postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
 
 type PostId = string | number
 

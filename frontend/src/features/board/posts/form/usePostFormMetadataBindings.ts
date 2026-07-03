@@ -1,5 +1,5 @@
 import { computed, type Ref } from 'vue'
-import type { PostFormCategoryOption } from '@/composables/usePostFormCategoryOptions'
+import type { PostFormCategoryOption } from '@/features/board/posts/form/usePostFormCategoryOptions'
 
 type PostComposerForm = {
   categoryId: string | number

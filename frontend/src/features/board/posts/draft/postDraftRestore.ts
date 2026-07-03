@@ -6,8 +6,8 @@ import {
   findMatchingServerDraftId,
   loadDraftById,
   type DraftRecoverySnapshot,
-} from '@/composables/postDraftRecovery'
-import { stripDraftServerIdentity } from '@/composables/postDraftSnapshot'
+} from '@/features/board/posts/draft/postDraftRecovery'
+import { stripDraftServerIdentity } from '@/features/board/posts/draft/postDraftSnapshot'
 
 interface ResolveServerDraftOptions {
   payload: PostDraftData

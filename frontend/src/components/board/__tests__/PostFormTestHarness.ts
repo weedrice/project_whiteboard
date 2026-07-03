@@ -4,7 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import type { EmoticonImage } from '@/types/emoticon'
 import PostForm from '../PostForm.vue'
 import { useBoard } from '@/composables/useBoard'
-import { usePost } from '@/composables/usePost'
+import { usePost } from '@/features/board/posts/queries/usePost'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import type { User } from '@/types'
@@ -18,7 +18,7 @@ vi.mock('@/composables/useBoard', () => ({
     useBoard: vi.fn(),
 }))
 
-vi.mock('@/composables/usePost', () => ({
+vi.mock('@/features/board/posts/queries/usePost', () => ({
     usePost: vi.fn(),
 }))
 

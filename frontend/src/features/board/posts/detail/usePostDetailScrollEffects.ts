@@ -1,8 +1,8 @@
 import { nextTick, onMounted, onUnmounted, ref, watch, type ComputedRef, type Ref } from 'vue'
 import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
 import type { Post } from '@/types'
-import { usePostDetailKeyboardShortcuts } from '@/composables/usePostDetailKeyboardShortcuts'
-import type { PostDetailViewModel } from '@/composables/usePostDetailViewModel'
+import { usePostDetailKeyboardShortcuts } from '@/features/board/posts/detail/usePostDetailKeyboardShortcuts'
+import type { PostDetailViewModel } from '@/features/board/posts/detail/usePostDetailViewModel'
 import { useEventListener } from '@/composables/useEventListener'
 import { findPostDetailElementByHash, getPostDetailScrollTop } from '@/utils/postDetailScrollTarget'
 

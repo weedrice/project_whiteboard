@@ -2,7 +2,7 @@ import { computed, type ComputedRef, type Ref } from 'vue'
 import { useHead } from '@unhead/vue'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import type { Post } from '@/types'
-import type { PostDetailViewModel } from '@/composables/usePostDetailViewModel'
+import type { PostDetailViewModel } from '@/features/board/posts/detail/usePostDetailViewModel'
 import { getWindowOrigin } from '@/utils/browserEnv'
 import { stripHtmlToText, truncateWithEllipsis } from '@/utils/textExcerpt'
 

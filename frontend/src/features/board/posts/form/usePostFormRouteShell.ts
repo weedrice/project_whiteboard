@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PostForm from '@/components/board/PostForm.vue'
-import { usePostFormLeaveGuard } from '@/composables/usePostFormLeaveGuard'
+import { usePostFormLeaveGuard } from '@/features/board/posts/form/usePostFormLeaveGuard'
 
 export function usePostFormRouteShell(leaveConfirmMessage: string) {
   const postFormRef = ref<InstanceType<typeof PostForm> | null>(null)

@@ -1,7 +1,7 @@
 import { onUnmounted, ref, type ComputedRef, type Ref } from 'vue'
 import type { RouteLocationNormalizedLoaded, Router, RouteLocationRaw } from 'vue-router'
 import { useConfirm } from '@/composables/useConfirm'
-import { usePost } from '@/composables/usePost'
+import { usePost } from '@/features/board/posts/queries/usePost'
 import { useToastStore } from '@/stores/toast'
 import type { Post } from '@/types'
 import logger from '@/utils/logger'

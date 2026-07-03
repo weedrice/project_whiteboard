@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, defineComponent, nextTick, reactive, ref, type Ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
-import { usePostDetailScrollEffects } from '@/composables/usePostDetailScrollEffects'
-import { toPostDetailViewModel } from '@/composables/usePostDetailViewModel'
-import { usePostDetailKeyboardShortcuts } from '@/composables/usePostDetailKeyboardShortcuts'
+import { usePostDetailScrollEffects } from '@/features/board/posts/detail/usePostDetailScrollEffects'
+import { toPostDetailViewModel } from '@/features/board/posts/detail/usePostDetailViewModel'
+import { usePostDetailKeyboardShortcuts } from '@/features/board/posts/detail/usePostDetailKeyboardShortcuts'
 import type { Post } from '@/types'
 
-vi.mock('@/composables/usePostDetailKeyboardShortcuts', () => ({
+vi.mock('@/features/board/posts/detail/usePostDetailKeyboardShortcuts', () => ({
   usePostDetailKeyboardShortcuts: vi.fn(),
 }))
 

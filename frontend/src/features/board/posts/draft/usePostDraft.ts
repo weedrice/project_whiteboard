@@ -2,7 +2,7 @@ import { computed, onUnmounted, ref, watch, type Ref } from 'vue'
 import { isAxiosError } from 'axios'
 import type { PostDraftData } from '@/api/post'
 import { unwrapAxiosApiData } from '@/api/response'
-import { usePost } from '@/composables/usePost'
+import { usePost } from '@/features/board/posts/queries/usePost'
 import type { DraftPost } from '@/types'
 import { Storage } from '@/utils/storage'
 import logger from '@/utils/logger'
@@ -13,15 +13,15 @@ import {
     loadDraftById,
     pickNewestDraftSnapshot,
     type DraftRecoverySnapshot,
-} from '@/composables/postDraftRecovery'
+} from '@/features/board/posts/draft/postDraftRecovery'
 import {
     createDraftRecoverySnapshot,
     createStoredSavedDraftSnapshot,
     hasMeaningfulDraftContent,
-} from '@/composables/postDraftSnapshot'
-import { resolveServerDraftForRecovery } from '@/composables/postDraftRestore'
+} from '@/features/board/posts/draft/postDraftSnapshot'
+import { resolveServerDraftForRecovery } from '@/features/board/posts/draft/postDraftRestore'
 
-export type { DraftRecoverySnapshot } from '@/composables/postDraftRecovery'
+export type { DraftRecoverySnapshot } from '@/features/board/posts/draft/postDraftRecovery'
 
 interface UsePostDraftOptions {
     enabled: Ref<boolean>

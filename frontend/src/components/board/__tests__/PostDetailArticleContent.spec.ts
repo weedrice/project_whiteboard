@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import PostDetailArticleContent from '@/components/board/PostDetailArticleContent.vue'
-import type { PostDetailViewModel } from '@/composables/usePostDetailViewModel'
+import type { PostDetailViewModel } from '@/features/board/posts/detail/usePostDetailViewModel'
 
 const postView = (overrides: Partial<PostDetailViewModel> = {}): PostDetailViewModel => ({
   postId: 1,
