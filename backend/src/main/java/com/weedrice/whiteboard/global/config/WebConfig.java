@@ -4,10 +4,9 @@ import com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor;
 import com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor;
 import com.weedrice.whiteboard.global.ratelimit.RateLimitProperties;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
-import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
@@ -16,11 +15,9 @@ public class WebConfig implements WebMvcConfigurer {
 
     private final IpBlockInterceptor ipBlockInterceptor;
     private final com.weedrice.whiteboard.global.security.RefererCheckInterceptor refererCheckInterceptor;
+    private final ObjectProvider<com.weedrice.whiteboard.global.security.AuthCookieOriginInterceptor> authCookieOriginInterceptorProvider;
     private final RateLimitInterceptor rateLimitInterceptor;
     private final RateLimitProperties rateLimitProperties;
-
-    @Value("${file.upload-dir:uploads}")
-    private String uploadDir;
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
@@ -33,6 +30,14 @@ public class WebConfig implements WebMvcConfigurer {
             registry.addInterceptor(rateLimitInterceptor)
                     .addPathPatterns("/api/**", "/files/**")
                     .order(1);
+        }
+
+        com.weedrice.whiteboard.global.security.AuthCookieOriginInterceptor authCookieOriginInterceptor =
+                authCookieOriginInterceptorProvider.getIfAvailable();
+        if (authCookieOriginInterceptor != null) {
+            registry.addInterceptor(authCookieOriginInterceptor)
+                    .addPathPatterns("/api/v1/auth/refresh", "/api/v1/auth/logout")
+                    .order(2);
         }
 
         // Referer 체크 인터셉터
@@ -54,9 +59,4 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/v1/configs/public");
     }
 
-    @Override
-    public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:" + uploadDir + "/");
-    }
 }

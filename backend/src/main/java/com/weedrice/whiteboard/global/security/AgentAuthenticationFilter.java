@@ -13,7 +13,6 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Set;
 
 @RequiredArgsConstructor
 public class AgentAuthenticationFilter extends OncePerRequestFilter {
@@ -24,8 +23,6 @@ public class AgentAuthenticationFilter extends OncePerRequestFilter {
     private static final String INTERNAL_SECRET_HEADER = "X-NoviIs-Internal-Secret";
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
-    private static final Set<String> LOOPBACK_ADDRESSES = Set.of("127.0.0.1", "0:0:0:0:0:0:0:1", "::1");
-
     private final AgentAuthService agentAuthService;
     private final String internalSecret;
 
@@ -72,7 +69,6 @@ public class AgentAuthenticationFilter extends OncePerRequestFilter {
         if (StringUtils.hasText(internalSecret)) {
             return internalSecret.equals(request.getHeader(INTERNAL_SECRET_HEADER));
         }
-        String remoteAddr = request.getRemoteAddr();
-        return LOOPBACK_ADDRESSES.contains(remoteAddr);
+        return false;
     }
 }

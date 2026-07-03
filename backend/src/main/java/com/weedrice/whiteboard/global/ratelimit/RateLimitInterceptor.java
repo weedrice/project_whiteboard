@@ -73,9 +73,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
     }
 
     private Bucket resolveBucket(String path, String clientIp) {
-        if (path.startsWith("/api/v1/auth/")
-                && !"/api/v1/auth/refresh".equals(path)
-                && !"/api/v1/auth/logout".equals(path)) {
+        if (path.startsWith("/api/v1/auth/")) {
             String authIpKey = "auth:" + clientIp;
             return ipBucketCache.asMap().computeIfAbsent(authIpKey, k -> rateLimitConfig.createAuthBucket());
         }
@@ -93,8 +91,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
     private boolean shouldSkipRateLimit(String path) {
         return path.startsWith("/actuator/")
                 || path.startsWith("/swagger-ui")
-                || path.startsWith("/api-docs")
-                || path.startsWith("/uploads/");
+                || path.startsWith("/api-docs");
     }
 
     private void sendRateLimitError(HttpServletRequest request, HttpServletResponse response) throws IOException {

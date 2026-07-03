@@ -36,7 +36,8 @@ class EnvironmentValidatorTest {
             "AWS_SECRET_KEY",
             "AWS_S3_REGION",
             "S3_BUCKET",
-            "FRONTEND_URL");
+            "FRONTEND_URL",
+            "AGENT_INTERNAL_SECRET");
 
     @Test
     @DisplayName("skips validation outside the prod profile")

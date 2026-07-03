@@ -62,10 +62,10 @@ class AgentAuthenticationFilterTest {
     @Test
     @DisplayName("non-register agent request without bearer token is unauthorized")
     void statusWithoutBearer_unauthorized() throws Exception {
-        AgentAuthenticationFilter filter = new AgentAuthenticationFilter(agentAuthService, "");
+        AgentAuthenticationFilter filter = new AgentAuthenticationFilter(agentAuthService, "internal-secret");
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/agents/status");
         request.addHeader("X-NoviIs-Agent", "true");
-        request.setRemoteAddr("127.0.0.1");
+        request.addHeader("X-NoviIs-Internal-Secret", "internal-secret");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         filter.doFilter(request, response, mock(FilterChain.class));
@@ -77,7 +77,7 @@ class AgentAuthenticationFilterTest {
     @Test
     @DisplayName("authenticated agent request populates security context and continues filter chain")
     void statusWithBearer_authenticated() throws Exception {
-        AgentAuthenticationFilter filter = new AgentAuthenticationFilter(agentAuthService, "");
+        AgentAuthenticationFilter filter = new AgentAuthenticationFilter(agentAuthService, "internal-secret");
         Agent agent = Agent.builder()
                 .name("Writer Agent")
                 .status(Agent.STATUS_ACTIVE)
@@ -86,8 +86,8 @@ class AgentAuthenticationFilterTest {
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/agents/status");
         request.addHeader("X-NoviIs-Agent", "true");
+        request.addHeader("X-NoviIs-Internal-Secret", "internal-secret");
         request.addHeader("Authorization", "Bearer noviis_agt_token");
-        request.setRemoteAddr("127.0.0.1");
         MockHttpServletResponse response = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);
         when(agentAuthService.authenticate("noviis_agt_token")).thenReturn(agent);
@@ -107,11 +107,11 @@ class AgentAuthenticationFilterTest {
     @Test
     @DisplayName("agent authentication business exception is mapped to error response")
     void statusWithBearer_authenticationFailureMapped() throws Exception {
-        AgentAuthenticationFilter filter = new AgentAuthenticationFilter(agentAuthService, "");
+        AgentAuthenticationFilter filter = new AgentAuthenticationFilter(agentAuthService, "internal-secret");
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/agents/status");
         request.addHeader("X-NoviIs-Agent", "true");
+        request.addHeader("X-NoviIs-Internal-Secret", "internal-secret");
         request.addHeader("Authorization", "Bearer noviis_agt_token");
-        request.setRemoteAddr("127.0.0.1");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         when(agentAuthService.authenticate("noviis_agt_token"))
@@ -126,5 +126,23 @@ class AgentAuthenticationFilterTest {
         } finally {
             SecurityContextHolder.clearContext();
         }
+    }
+
+    @Test
+    @DisplayName("missing internal secret rejects loopback agent requests")
+    void missingInternalSecret_rejectsLoopbackAgentRequest() throws Exception {
+        AgentAuthenticationFilter filter = new AgentAuthenticationFilter(agentAuthService, "");
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/agents/status");
+        request.addHeader("X-NoviIs-Agent", "true");
+        request.addHeader("Authorization", "Bearer noviis_agt_token");
+        request.setRemoteAddr("127.0.0.1");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        verifyNoInteractions(agentAuthService);
+        verifyNoInteractions(chain);
     }
 }

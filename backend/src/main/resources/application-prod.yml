@@ -1,5 +1,10 @@
 app:
   frontend-url: ${FRONTEND_URL:https://noviis.kr}
+  agent:
+    internal-secret: ${AGENT_INTERNAL_SECRET}
+
+server:
+  forward-headers-strategy: framework
 
 spring:
   config:
@@ -15,14 +20,14 @@ spring:
             scope:
               - user:email
               - read:user
-            redirect-uri: "${FRONTEND_URL}/login/oauth2/code/github"
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
           google:
             client-id: ${GOOGLE_CLIENT_ID}
             client-secret: ${GOOGLE_CLIENT_SECRET}
             scope:
               - email
               - profile
-            redirect-uri: "${FRONTEND_URL}/login/oauth2/code/google"
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
           discord:
             client-id: ${DISCORD_CLIENT_ID}
             client-secret: ${DISCORD_CLIENT_SECRET}
@@ -31,7 +36,7 @@ spring:
               - email
             client-name: Discord
             authorization-grant-type: authorization_code
-            redirect-uri: "${FRONTEND_URL}/login/oauth2/code/discord"
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
 
         provider:
           discord:
@@ -99,7 +104,7 @@ springdoc:
   swagger-ui:
     enabled: false  # Swagger UI 비활성화
   api-docs:
-    enabled: true   # OpenAPI JSON은 활성화 (필요시 비활성화 가능)
+    enabled: false  # OpenAPI JSON 비활성화
 
 jwt:
   secret: ${JWT_SECRET}

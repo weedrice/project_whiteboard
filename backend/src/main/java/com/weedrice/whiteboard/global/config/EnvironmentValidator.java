@@ -49,7 +49,10 @@ public class EnvironmentValidator implements ApplicationListener<ApplicationRead
             "S3_BUCKET",
 
             // Frontend
-            "FRONTEND_URL");
+            "FRONTEND_URL",
+
+            // Internal agent calls
+            "AGENT_INTERNAL_SECRET");
 
     private final Environment environment;
 
