@@ -27,7 +27,25 @@ type RefreshTokenResponse = {
   accessToken: string
 }
 
+const REFRESH_FAILURE_COOLDOWN_MS = 10_000
+let lastRefreshFailureAt = 0
+
+function isRefreshInCooldown(): boolean {
+  return lastRefreshFailureAt > 0 && Date.now() - lastRefreshFailureAt < REFRESH_FAILURE_COOLDOWN_MS
+}
+
+function markRefreshFailure() {
+  lastRefreshFailureAt = Date.now()
+}
+
 export async function retryAfterRefresh(api: AxiosInstance, originalRequest: InternalAxiosRequestConfig) {
+  if (isRefreshInCooldown()) {
+    const cooldownError = new Error('Refresh temporarily unavailable') as SuppressibleApiError
+    cooldownError.suppressGlobalErrorToast = true
+    cooldownError.isAuthRefreshFailure = true
+    return Promise.reject(cooldownError)
+  }
+
   if (isRefreshInProgress()) {
     return new Promise<string | null>((resolve, reject) => {
       enqueueFailedRequest({ resolve, reject })
@@ -58,6 +76,7 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
     }
 
     const refreshedAccessToken = unwrapApiData(data).accessToken
+    lastRefreshFailureAt = 0
     resetSessionExpiredToastDebounce()
 
     const authStore = await resolveAuthStore()
@@ -82,6 +101,7 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
     }
     return api(originalRequest)
   } catch (refreshError) {
+    markRefreshFailure()
     const suppressibleRefreshError = refreshError as SuppressibleApiError
     suppressibleRefreshError.suppressGlobalErrorToast = true
     suppressibleRefreshError.isAuthRefreshFailure = true

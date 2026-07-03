@@ -1,5 +1,5 @@
 import type { AxiosRequestConfig } from 'axios'
-import { Storage } from '@/utils/storage'
+import { clearStoredAuthTokens, persistAccessToken } from '@/utils/authTokenStorage'
 
 export const SESSION_EXPIRED_TOAST_DEBOUNCE_MS = 5000
 
@@ -65,8 +65,7 @@ export const applyRefreshedAccessToken = (authStore: AuthStoreLike | null, token
   if (authStore) {
     authStore.setTokens(token)
   } else {
-    Storage.setString('accessToken', token)
-    Storage.remove('refreshToken')
+    persistAccessToken(token)
   }
 
   return token
@@ -78,6 +77,5 @@ export const clearExpiredAuthSession = (authStore: AuthStoreLike | null) => {
     return
   }
 
-  Storage.remove('accessToken')
-  Storage.remove('refreshToken')
+  clearStoredAuthTokens()
 }

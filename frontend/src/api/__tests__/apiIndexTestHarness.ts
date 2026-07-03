@@ -91,20 +91,19 @@ export const loadApiModule = async (
     resolverOptions: ApiResolverOptions = {},
 ) => {
     const module = await import('../index')
+    const { clearStoredAuthTokens, persistAccessToken } = await import('@/utils/authTokenStorage')
     const authStore: TestAuthStore = {
         user: authStoreOverrides?.user ?? { id: 1 },
         accessToken: authStoreOverrides?.accessToken ?? '',
         fetchUser: mocks.mockFetchUser,
         setTokens: vi.fn((token: string) => {
             authStore.accessToken = token
-            localStorage.setItem('accessToken', token)
-            localStorage.removeItem('refreshToken')
+            persistAccessToken(token)
         }),
         clearSessionState: vi.fn(() => {
             authStore.user = null
             authStore.accessToken = null
-            localStorage.removeItem('accessToken')
-            localStorage.removeItem('refreshToken')
+            clearStoredAuthTokens()
         }),
     }
 

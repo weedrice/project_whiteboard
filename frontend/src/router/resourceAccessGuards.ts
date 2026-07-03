@@ -36,7 +36,16 @@ async function fetchPostForAuthorGuard(postId: string): Promise<Post> {
 
 export async function ensureHydratedAuth(to: RouteLocationNormalized, next: NavigationGuardNext) {
     const authStore = useAuthStore()
-    if (authStore.user || !authStore.accessToken) {
+    if (authStore.user) {
+        return true
+    }
+
+    if (!authStore.accessToken) {
+        const didBootstrap = await authStore.bootstrapSession()
+        if (!didBootstrap && to.meta.requiresAuth) {
+            next({ name: 'login', query: { redirect: to.fullPath } })
+            return false
+        }
         return true
     }
 

@@ -4,6 +4,7 @@ import { authApi } from '@/api/auth'
 import { unwrapApiData } from '@/api/response'
 import logger from '@/utils/logger'
 import {
+    AUTH_SESSION_EVENT_KEY,
     ACCESS_TOKEN_KEY,
     clearStoredAuthTokens,
     getStoredAccessToken,
@@ -33,7 +34,7 @@ export function configureAuthSessionEffects(effects: Partial<AuthSessionEffects>
 
 export const useAuthStore = defineStore('auth', () => {
     const user = ref<User | null>(null)
-    const accessToken = ref<string | null>(getStoredAccessToken())
+    const accessToken = ref<string | null>(null)
     const isAuthenticated = computed(() => !!accessToken.value)
 
     function syncThemeFromUser(userData: User | null) {
@@ -86,7 +87,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     async function fetchUser(config?: AxiosRequestConfig): Promise<boolean> {
-        const token = getStoredAccessToken()
+        const token = accessToken.value ?? getStoredAccessToken()
         if (!token) {
             clearSessionState()
             return false
@@ -130,6 +131,30 @@ export const useAuthStore = defineStore('auth', () => {
         return fetchUser({ skipAuthRefresh: true })
     }
 
+    async function bootstrapSession(): Promise<boolean> {
+        if (accessToken.value && user.value) {
+            return true
+        }
+
+        try {
+            const { data } = await authApi.refreshToken({
+                skipAuthRefresh: true,
+                skipGlobalErrorHandler: true,
+            })
+            if (!data.success) {
+                clearSessionState()
+                return false
+            }
+            const { accessToken: token } = unwrapApiData(data)
+            setTokens(token)
+            return fetchUser({ skipAuthRefresh: true })
+        } catch (error: unknown) {
+            logger.error('Bootstrap session failed:', error)
+            clearSessionState()
+            return false
+        }
+    }
+
     function setTokens(token: string) {
         accessToken.value = token
         persistAccessToken(token)
@@ -144,6 +169,7 @@ export const useAuthStore = defineStore('auth', () => {
         logout,
         handleSanctionedSession,
         fetchUser,
+        bootstrapSession,
         syncFromStoredAccessToken,
         setTokens,
         clearSessionState
@@ -156,11 +182,11 @@ export function registerAuthStorageSync(authStore = useAuthStore()) {
     }
 
     const handleStorage = (event: StorageEvent) => {
-        if (event.key !== ACCESS_TOKEN_KEY && event.key !== null) {
+        if (event.key !== AUTH_SESSION_EVENT_KEY && event.key !== ACCESS_TOKEN_KEY && event.key !== null) {
             return
         }
 
-        void authStore.syncFromStoredAccessToken(event.key === null ? null : event.newValue)
+        void authStore.syncFromStoredAccessToken(null)
     }
 
     window.addEventListener('storage', handleStorage)

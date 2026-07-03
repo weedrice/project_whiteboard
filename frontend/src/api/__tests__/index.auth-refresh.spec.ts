@@ -11,6 +11,16 @@ import {
 
 const mocks = getApiIndexMocks()
 
+async function setAccessToken(token: string) {
+    const { persistAccessToken } = await import('@/utils/authTokenStorage')
+    persistAccessToken(token)
+}
+
+async function getAccessToken() {
+    const { getStoredAccessToken } = await import('@/utils/authTokenStorage')
+    return getStoredAccessToken()
+}
+
 describe('API Interceptors', () => {
     beforeEach(() => {
         resetApiIndexTestState()
@@ -69,7 +79,7 @@ describe('API Interceptors', () => {
         const result = await responseRejected(error)
 
         expect(mocks.mockAxiosPost).toHaveBeenCalledWith('/api/v1/auth/refresh', undefined, { withCredentials: true })
-        expect(localStorage.getItem('accessToken')).toBe('new-access')
+        expect(await getAccessToken()).toBe('new-access')
         expect(localStorage.getItem('refreshToken')).toBeNull()
         expect(authStore.setTokens).toHaveBeenCalledWith('new-access')
         expect(mocks.mockFetchUser).toHaveBeenCalledWith({ skipAuthRefresh: true })
@@ -99,7 +109,7 @@ describe('API Interceptors', () => {
             isUserHydrationFailure: true,
         })
         expect(mocks.mockFetchUser).toHaveBeenCalledWith({ skipAuthRefresh: true })
-        expect(localStorage.getItem('accessToken')).toBe('new-access')
+        expect(await getAccessToken()).toBe('new-access')
         expect(mocks.mockApiRequest).not.toHaveBeenCalledWith(originalRequest)
     })
 
@@ -120,7 +130,7 @@ describe('API Interceptors', () => {
 
         const result = await responseRejected(error)
 
-        expect(localStorage.getItem('accessToken')).toBe('new-access-without-auth-resolver')
+        expect(await getAccessToken()).toBe('new-access-without-auth-resolver')
         expect(request.headers.Authorization).toBe('Bearer new-access-without-auth-resolver')
         expect(result).toEqual({ data: { ok: true } })
     })
@@ -146,7 +156,7 @@ describe('API Interceptors', () => {
 
         const result = await responseRejected(error)
 
-        expect(localStorage.getItem('accessToken')).toBe('new-access-auth-throws')
+        expect(await getAccessToken()).toBe('new-access-auth-throws')
         expect(request.headers.Authorization).toBe('Bearer new-access-auth-throws')
         expect(result).toEqual({ data: { ok: true } })
     })
@@ -260,7 +270,7 @@ describe('API Interceptors', () => {
 
     it('attempts refresh without local refresh token state', async () => {
         const { responseRejected } = await loadApiModule()
-        localStorage.setItem('accessToken', 'stale-access')
+        await setAccessToken('stale-access')
         mocks.mockAxiosPost.mockRejectedValueOnce({
             response: { status: 401 },
         })
@@ -271,7 +281,7 @@ describe('API Interceptors', () => {
         })
 
         await expect(responseRejected(error)).rejects.toBeDefined()
-        expect(localStorage.getItem('accessToken')).toBeNull()
+        expect(await getAccessToken()).toBeNull()
         expect(mocks.mockAxiosPost).toHaveBeenCalledWith('/api/v1/auth/refresh', undefined, { withCredentials: true })
     })
 
@@ -295,7 +305,7 @@ describe('API Interceptors', () => {
 
     it('does not clear tokens for refresh failures with non-auth server errors', async () => {
         const { responseRejected } = await loadApiModule()
-        localStorage.setItem('accessToken', 'keep-access')
+        await setAccessToken('keep-access')
         mocks.mockAxiosPost.mockRejectedValueOnce({
             response: { status: 500 },
         })
@@ -306,13 +316,13 @@ describe('API Interceptors', () => {
         })
 
         await expect(responseRejected(error)).rejects.toBeDefined()
-        expect(localStorage.getItem('accessToken')).toBe('keep-access')
+        expect(await getAccessToken()).toBe('keep-access')
         expect(localStorage.getItem('refreshToken')).toBeNull()
     })
 
     it('skips redirect when refresh failure happens on login page', async () => {
         const { responseRejected } = await loadApiModule()
-        localStorage.setItem('accessToken', 'stale-access')
+        await setAccessToken('stale-access')
         history.pushState({}, '', '/login')
         mocks.mockAxiosPost.mockRejectedValueOnce({
             response: { status: 401 },
@@ -330,7 +340,7 @@ describe('API Interceptors', () => {
     it('does not redirect when current route does not require auth', async () => {
         const { responseRejected } = await loadApiModule()
         mocks.mockCurrentRoute.value.meta.requiresAuth = false
-        localStorage.setItem('accessToken', 'stale-access')
+        await setAccessToken('stale-access')
         history.pushState({}, '', '/public')
         mocks.mockAxiosPost.mockRejectedValueOnce({
             response: { status: 401 },
@@ -350,7 +360,7 @@ describe('API Interceptors', () => {
         const { responseRejected } = await loadApiModule(undefined, {
             resolveAuthStore: () => null,
         })
-        localStorage.setItem('accessToken', 'stale-access')
+        await setAccessToken('stale-access')
         mocks.mockAxiosPost.mockRejectedValueOnce({
             response: { status: 401 },
         })
@@ -361,7 +371,7 @@ describe('API Interceptors', () => {
         })
 
         await expect(responseRejected(error)).rejects.toBeDefined()
-        expect(localStorage.getItem('accessToken')).toBeNull()
+        expect(await getAccessToken()).toBeNull()
         expect(localStorage.getItem('refreshToken')).toBeNull()
     })
 
@@ -370,7 +380,7 @@ describe('API Interceptors', () => {
             user: { id: 9 },
             accessToken: 'stale-access',
         })
-        localStorage.setItem('accessToken', 'stale-access')
+        await setAccessToken('stale-access')
         history.pushState({}, '', '/boards')
         mocks.mockCurrentRoute.value.fullPath = '/boards'
         mocks.mockAxiosPost.mockRejectedValueOnce({
@@ -395,7 +405,7 @@ describe('API Interceptors', () => {
         expect(rejected.suppressGlobalErrorToast).toBe(true)
         expect(rejected.isAuthRefreshFailure).toBe(true)
 
-        expect(localStorage.getItem('accessToken')).toBeNull()
+        expect(await getAccessToken()).toBeNull()
         expect(localStorage.getItem('refreshToken')).toBeNull()
         expect(authStore.clearSessionState).toHaveBeenCalledTimes(1)
         expect(authStore.user).toBeNull()

@@ -192,6 +192,7 @@ type MockAuthStore = {
     user: MockAuthUser | null
     accessToken: string | null
     isAuthenticated: boolean
+    bootstrapSession: ReturnType<typeof vi.fn<() => Promise<boolean>>>
     fetchUser: ReturnType<typeof vi.fn<() => Promise<boolean | void>>>
     logout: ReturnType<typeof vi.fn<() => void>>
     handleSanctionedSession: ReturnType<typeof vi.fn<() => void>>
@@ -210,6 +211,7 @@ describe('Router Navigation Guards', () => {
             user: null,
             accessToken: null,
             isAuthenticated: false,
+            bootstrapSession: vi.fn().mockResolvedValue(false),
             fetchUser: vi.fn(),
             logout: vi.fn().mockImplementation(() => {
                 mockAuthStore.user = null

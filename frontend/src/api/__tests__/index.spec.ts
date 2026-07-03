@@ -56,7 +56,8 @@ describe('API Interceptors', () => {
 
     it('adds Authorization header in request interceptor for non-auth endpoint', async () => {
         const { requestFulfilled } = await loadApiModule()
-        localStorage.setItem('accessToken', 'token-1')
+        const { persistAccessToken } = await import('@/utils/authTokenStorage')
+        persistAccessToken('token-1')
         const config = createApiRequestConfig({ url: '/posts' })
 
         const result = requestFulfilled(config)
@@ -66,7 +67,8 @@ describe('API Interceptors', () => {
 
     it('does not attach token on auth endpoint except email verification', async () => {
         const { requestFulfilled } = await loadApiModule()
-        localStorage.setItem('accessToken', 'token-2')
+        const { persistAccessToken } = await import('@/utils/authTokenStorage')
+        persistAccessToken('token-2')
 
         const authConfig = createApiRequestConfig({ url: '/auth/login' })
         const verifyConfig = createApiRequestConfig({ url: '/auth/email/verify' })

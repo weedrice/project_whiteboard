@@ -3,7 +3,7 @@ import { setActivePinia, createPinia } from 'pinia'
 import { configureAuthSessionEffects, registerAuthStorageSync, useAuthStore } from '../auth'
 import { authApi } from '@/api/auth'
 import logger from '@/utils/logger'
-import { ACCESS_TOKEN_KEY } from '@/utils/authTokenStorage'
+import { AUTH_SESSION_EVENT_KEY, clearStoredAuthTokens, getStoredAccessToken, persistAccessToken } from '@/utils/authTokenStorage'
 import {
     authLoginFailureResponse,
     authLoginResponse,
@@ -45,6 +45,7 @@ describe('Auth Store', () => {
     beforeEach(() => {
         setActivePinia(createPinia())
         localStorage.clear()
+        clearStoredAuthTokens()
         vi.clearAllMocks()
         configureAuthSessionEffects({
             syncThemeFromUser: mockSyncThemeFromUser,
@@ -58,13 +59,13 @@ describe('Auth Store', () => {
         expect(store.isAuthenticated).toBe(false)
     })
 
-    it('initializes with token from local storage', () => {
+    it('does not initialize access token from legacy localStorage', () => {
         // Reset Pinia to ensure fresh store initialization
         setActivePinia(createPinia())
         localStorage.setItem('accessToken', 'test-token')
         store = useAuthStore()
-        expect(store.accessToken).toBe('test-token')
-        expect(store.isAuthenticated).toBe(true)
+        expect(store.accessToken).toBeNull()
+        expect(store.isAuthenticated).toBe(false)
     })
 
     describe('login', () => {
@@ -77,7 +78,7 @@ describe('Auth Store', () => {
             expect(result).toBe(true)
             expect(store.accessToken).toBe('new-token')
             expect(store.user).toEqual(user)
-            expect(localStorage.getItem('accessToken')).toBe('new-token')
+            expect(getStoredAccessToken()).toBe('new-token')
             expect(localStorage.getItem('refreshToken')).toBeNull()
 
             expect(mockSyncThemeFromUser).toHaveBeenCalledWith(user)
@@ -100,7 +101,7 @@ describe('Auth Store', () => {
             expect(result).toBe(false)
             expect(store.accessToken).toBeNull()
             expect(store.user).toBeNull()
-            expect(localStorage.getItem('accessToken')).toBeNull()
+            expect(getStoredAccessToken()).toBeNull()
         })
     })
 
@@ -108,7 +109,7 @@ describe('Auth Store', () => {
         beforeEach(() => {
             store.accessToken = 'token'
             store.user = authUser()
-            localStorage.setItem('accessToken', 'token')
+            persistAccessToken('token')
         })
 
         it('handles successful logout', async () => {
@@ -119,7 +120,7 @@ describe('Auth Store', () => {
             expect(authApi.logout).toHaveBeenCalled()
             expect(store.accessToken).toBeNull()
             expect(store.user).toBeNull()
-            expect(localStorage.getItem('accessToken')).toBeNull()
+            expect(getStoredAccessToken()).toBeNull()
             expect(localStorage.getItem('refreshToken')).toBeNull()
         })
 
@@ -137,7 +138,7 @@ describe('Auth Store', () => {
         it('shows sanction toast and clears auth state', async () => {
             store.accessToken = 'token'
             store.user = authUser({ status: 'SANCTIONED' })
-            localStorage.setItem('accessToken', 'token')
+            persistAccessToken('token')
             vi.mocked(authApi.logout).mockResolvedValue(authLogoutResponse())
 
             await store.handleSanctionedSession()
@@ -159,7 +160,7 @@ describe('Auth Store', () => {
         })
 
         it('fetches user successfully', async () => {
-            localStorage.setItem('accessToken', 'token')
+            persistAccessToken('token')
             store.accessToken = 'token'
             const mockUser = authUser()
             vi.mocked(authApi.getMe).mockResolvedValue(authUserResponse(mockUser))
@@ -171,7 +172,7 @@ describe('Auth Store', () => {
         })
 
         it('hydrates access token from storage and syncs theme', async () => {
-            localStorage.setItem('accessToken', 'stored-token')
+            persistAccessToken('stored-token')
             store.accessToken = null
             const mockUser = authUser({ theme: 'DARK' })
             vi.mocked(authApi.getMe).mockResolvedValue(authUserResponse(mockUser))
@@ -186,7 +187,7 @@ describe('Auth Store', () => {
         })
 
         it('returns false when getMe response is unsuccessful', async () => {
-            localStorage.setItem('accessToken', 'token')
+            persistAccessToken('token')
             store.accessToken = 'token'
             vi.mocked(authApi.getMe).mockResolvedValue(authUserFailureResponse())
 
@@ -197,7 +198,7 @@ describe('Auth Store', () => {
         })
 
         it('handles sanctioned user', async () => {
-            localStorage.setItem('accessToken', 'token')
+            persistAccessToken('token')
             store.accessToken = 'token'
             const mockUser = authUser({ status: 'SANCTIONED' })
             vi.mocked(authApi.getMe).mockResolvedValue(authUserResponse(mockUser))
@@ -210,7 +211,7 @@ describe('Auth Store', () => {
         })
 
         it('does not logout on fetch error (handled by interceptor)', async () => {
-            localStorage.setItem('accessToken', 'token')
+            persistAccessToken('token')
             store.accessToken = 'token'
             vi.mocked(authApi.getMe).mockRejectedValue(new Error('Invalid token'))
 
@@ -230,14 +231,14 @@ describe('Auth Store', () => {
             store.setTokens('new-access')
 
             expect(store.accessToken).toBe('new-access')
-            expect(localStorage.getItem('accessToken')).toBe('new-access')
+            expect(getStoredAccessToken()).toBe('new-access')
             expect(localStorage.getItem('refreshToken')).toBeNull()
         })
     })
 
     describe('storage synchronization', () => {
         it('hydrates state from a token changed in another tab', async () => {
-            localStorage.setItem(ACCESS_TOKEN_KEY, 'external-token')
+            persistAccessToken('external-token')
             const mockUser = authUser({ userId: 2, loginId: 'synced', displayName: 'Synced User', theme: 'DARK' })
             vi.mocked(authApi.getMe).mockResolvedValue(authUserResponse(mockUser))
 
@@ -268,7 +269,7 @@ describe('Auth Store', () => {
             const stop = registerAuthStorageSync(store)
 
             window.dispatchEvent(new StorageEvent('storage', {
-                key: ACCESS_TOKEN_KEY,
+                key: AUTH_SESSION_EVENT_KEY,
                 newValue: null,
                 storageArea: localStorage,
             }))
@@ -284,14 +285,14 @@ describe('Auth Store', () => {
         it('clears reactive auth state and stored tokens without calling logout api', () => {
             store.accessToken = 'token'
             store.user = authUser()
-            localStorage.setItem('accessToken', 'token')
+            persistAccessToken('token')
             localStorage.setItem('refreshToken', 'stale-refresh')
 
             store.clearSessionState()
 
             expect(store.accessToken).toBeNull()
             expect(store.user).toBeNull()
-            expect(localStorage.getItem('accessToken')).toBeNull()
+            expect(getStoredAccessToken()).toBeNull()
             expect(localStorage.getItem('refreshToken')).toBeNull()
             expect(authApi.logout).not.toHaveBeenCalled()
         })
