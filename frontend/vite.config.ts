@@ -49,7 +49,7 @@ export default defineConfig(({ mode }) => {
             __COMMIT_HASH__: JSON.stringify(getCommitHash()),
         },
         build: {
-            target: 'esnext',
+            target: 'baseline-widely-available',
             minify: 'esbuild',
             cssMinify: true,
             sourcemap: !isProduction,

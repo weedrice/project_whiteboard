@@ -4,7 +4,7 @@ const SANDBOX_MARKER_SELECTOR = `.${SANDBOX_MARKER_CLASS}[data-value]`
 const SANDBOX_CSP = [
     "default-src 'none'",
     "style-src 'unsafe-inline'",
-    "script-src 'unsafe-inline'",
+    "script-src 'nonce-noviis-height-bridge'",
     'img-src data: blob: https: http:',
     'font-src data: https:',
     'media-src data: blob: https: http:',
@@ -140,7 +140,7 @@ button, input, textarea, select { font: inherit; }
 }
 
 function getHeightBridgeScript(frameId: string): string {
-    return `<script>
+    return `<script nonce="noviis-height-bridge">
 (function () {
   var frameId = ${JSON.stringify(frameId)};
   var lastHeight = 0;

@@ -34,6 +34,8 @@ describe('postHtmlSandbox', () => {
 
         expect(source).toContain('Content-Security-Policy')
         expect(source).toContain("default-src 'none'")
+        expect(source).toContain("script-src 'nonce-noviis-height-bridge'")
+        expect(source).not.toContain("script-src 'unsafe-inline'")
         expect(source).toContain("connect-src 'none'")
         expect(source).toContain("form-action 'none'")
     })
@@ -42,6 +44,7 @@ describe('postHtmlSandbox', () => {
         const source = buildSandboxedPostHtmlSource('<div>height</div>', 'frame-1')
 
         expect(source).toContain('window.setInterval(postHeight, 500)')
+        expect(source).toContain('<script nonce="noviis-height-bridge">')
         expect(source).toContain("channel: 'noviis-post-html-sandbox'")
         expect(source).toContain('window.clearInterval(intervalId)')
         expect(source).toContain("window.addEventListener('pagehide', cleanup, { once: true })")
