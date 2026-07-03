@@ -10,7 +10,7 @@ import {
     canUserWriteBoardPost,
     fetchBoardForWriteAccess,
 } from '@/composables/useBoardWriteAccess'
-import { emoticonDetailQueryKey } from '@/composables/useEmoticonEditResource'
+import { emoticonDetailQueryKey } from '@/features/emoticon/form/useEmoticonEditResource'
 import { postDetailQueryKey } from '@/features/board/posts/queries/postQueryKeys'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import logger from '@/utils/logger'

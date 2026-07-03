@@ -1,12 +1,12 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { EmoticonImage } from '@/types/emoticon'
 import { X, ArrowLeft, Search } from 'lucide-vue-next'
 import { useAccessibleEmoticonPicker } from '@/composables/useAccessibleEmoticonPicker'
-import { useEmoticonPickerDialogLifecycle } from '@/composables/useEmoticonPickerDialogLifecycle'
-import { useEmoticonPickerDetail } from '@/composables/useEmoticonPickerDetail'
-import { useEmoticonPickerSearch } from '@/composables/useEmoticonPickerSearch'
+import { useEmoticonPickerDialogLifecycle } from '@/features/emoticon/picker/useEmoticonPickerDialogLifecycle'
+import { useEmoticonPickerDetail } from '@/features/emoticon/picker/useEmoticonPickerDetail'
+import { useEmoticonPickerSearch } from '@/features/emoticon/picker/useEmoticonPickerSearch'
 import EmoticonPickerGrid from '@/components/common/widgets/EmoticonPickerGrid.vue'
 import EmoticonPickerImageGrid from '@/components/common/widgets/EmoticonPickerImageGrid.vue'
 import EmoticonPickerStatePanel from '@/components/common/widgets/EmoticonPickerStatePanel.vue'

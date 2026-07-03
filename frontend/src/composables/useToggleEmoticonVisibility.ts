@@ -8,7 +8,7 @@ import {
   emoticonDetailQueryKey,
   emoticonListQueryKey,
   emoticonPurchaseStatusQueryKey,
-} from '@/composables/useEmoticonEditResource'
+} from '@/features/emoticon/form/useEmoticonEditResource'
 
 interface UseToggleEmoticonVisibilityOptions {
   invalidatePurchaseStatus?: boolean

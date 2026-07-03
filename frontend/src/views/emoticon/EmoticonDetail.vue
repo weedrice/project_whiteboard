@@ -8,8 +8,8 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { applyImageFallback } from '@/utils/imageFallback'
 import { formatDateOnlyLongOrDash } from '@/utils/date'
-import { useEmoticonDetailResource } from '@/composables/useEmoticonDetailResource'
-import { useEmoticonDetailActions } from '@/composables/useEmoticonDetailActions'
+import { useEmoticonDetailResource } from '@/features/emoticon/detail/useEmoticonDetailResource'
+import { useEmoticonDetailActions } from '@/features/emoticon/detail/useEmoticonDetailActions'
 
 const { t } = useI18n()
 const route = useRoute()

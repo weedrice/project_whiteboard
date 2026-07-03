@@ -100,7 +100,7 @@ vi.mock('@/stores/toast', () => ({
   }),
 }))
 
-vi.mock('@/composables/useEmoticonImageSelection', () => ({
+vi.mock('@/features/emoticon/form/useEmoticonImageSelection', () => ({
   useEmoticonImageSelection: () => ({
     selectThumbnailImage: vi.fn(),
     selectEmoticonImages: mocks.selectEmoticonImages,

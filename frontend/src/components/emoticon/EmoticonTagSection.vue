@@ -2,7 +2,7 @@
 import { X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import type { EmoticonTagItem } from '@/composables/useEmoticonTagItems'
+import type { EmoticonTagItem } from '@/features/emoticon/form/useEmoticonTagItems'
 
 defineProps<{
   inputId: string

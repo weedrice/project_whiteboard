@@ -12,7 +12,7 @@ import EmoticonGridSkeleton from '@/components/emoticon/EmoticonGridSkeleton.vue
 import EmoticonListCard from '@/components/emoticon/EmoticonListCard.vue'
 import { formatInteger } from '@/utils/numberFormat'
 import { isComposingKeyboardEvent } from '@/utils/keyboard'
-import { useEmoticonListResource } from '@/composables/useEmoticonListResource'
+import { useEmoticonListResource } from '@/features/emoticon/list/useEmoticonListResource'
 import type { EmoticonSearchParams } from '@/types/emoticon'
 
 const authStore = useAuthStore()

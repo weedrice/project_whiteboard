@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/vue-query'
 import { emoticonApi } from '@/api/emoticon'
-import { accessibleEmoticonPickerQueryKey } from '@/composables/useEmoticonEditResource'
+import { accessibleEmoticonPickerQueryKey } from '@/features/emoticon/form/useEmoticonEditResource'
 import type { EmoticonMaster } from '@/types/emoticon'
 
 export function mergeUniqueEmoticons(...groups: EmoticonMaster[][]) {

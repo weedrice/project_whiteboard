@@ -12,10 +12,10 @@ import EmoticonImageGridUploader from '@/components/emoticon/EmoticonImageGridUp
 import EmoticonTagSection from '@/components/emoticon/EmoticonTagSection.vue'
 import EmoticonThumbnailField from '@/components/emoticon/EmoticonThumbnailField.vue'
 import { useConfirm } from '@/composables/useConfirm'
-import { useEmoticonEditForm } from '@/composables/useEmoticonEditForm'
-import { useEmoticonEditResource } from '@/composables/useEmoticonEditResource'
-import { useEmoticonEditSubmit } from '@/composables/useEmoticonEditSubmit'
-import { useEmoticonImageSelection } from '@/composables/useEmoticonImageSelection'
+import { useEmoticonEditForm } from '@/features/emoticon/form/useEmoticonEditForm'
+import { useEmoticonEditResource } from '@/features/emoticon/form/useEmoticonEditResource'
+import { useEmoticonEditSubmit } from '@/features/emoticon/form/useEmoticonEditSubmit'
+import { useEmoticonImageSelection } from '@/features/emoticon/form/useEmoticonImageSelection'
 import { SUPPORTED_EMOTICON_IMAGE_ACCEPT } from '@/utils/emoticonImage'
 
 const { t } = useI18n()
