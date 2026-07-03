@@ -291,6 +291,15 @@ type UpdatePostMutationVariables = {
     postId: string
     data: PostFormMutationData
 }
+type MountedPostForm = ReturnType<typeof mount>
+type FillPostFormOptions = {
+    title?: string
+    categoryId?: string
+    contents?: string
+    setTags?: boolean
+    nsfw?: boolean
+    spoiler?: boolean
+}
 
 const boardRef = ref<TestBoard | null>({ allowNsfw: false, isAdmin: false, categories: [] })
 const postRef = ref<unknown>(null)
@@ -383,6 +392,90 @@ const getLastUpdatePostVariables = (): UpdatePostMutationVariables => {
     return call[0] as UpdatePostMutationVariables
 }
 
+const fillPostForm = async (
+    wrapper: MountedPostForm,
+    {
+        title = 'Created title',
+        categoryId = '1',
+        contents = 'Created body',
+        setTags = false,
+        nsfw = false,
+        spoiler = false,
+    }: FillPostFormOptions = {},
+) => {
+    await wrapper.get('#title').setValue(title)
+    if (categoryId) {
+        await wrapper.get('#category').setValue(categoryId)
+    }
+    await wrapper.get('[data-testid="editor-input"]').setValue(contents)
+    if (setTags) {
+        await wrapper.get('[data-testid="set-tags"]').trigger('click')
+    }
+    if (nsfw) {
+        await wrapper.get('#nsfw').setValue(true)
+    }
+    if (spoiler) {
+        await wrapper.get('#spoiler').setValue(true)
+    }
+}
+
+const submitPostForm = async (wrapper: MountedPostForm) => {
+    await wrapper.get('form').trigger('submit')
+}
+
+const createNoToolbarEditorStub = () => defineComponent({
+    name: 'PostEditorTipTap',
+    props: {
+        modelValue: { type: String, default: '' },
+    },
+    emits: ['update:modelValue', 'open-video'],
+    setup(props, { emit, expose }) {
+        expose({
+            setVideo: (url: string) => editorSetVideo(url),
+            setEmoticon: vi.fn(),
+            fileIds: { value: [] },
+        })
+
+        return () =>
+            h('div', [
+                h('textarea', {
+                    'data-testid': 'editor-input',
+                    value: props.modelValue,
+                    onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLTextAreaElement).value),
+                }),
+                h(
+                    'button',
+                    {
+                        type: 'button',
+                        'data-testid': 'open-video',
+                        onClick: () => emit('open-video'),
+                    },
+                    'open-video',
+                ),
+            ])
+    },
+})
+
+const createMinimalEditorStub = () => defineComponent({
+    name: 'PostEditorTipTap',
+    props: {
+        modelValue: { type: String, default: '' },
+    },
+    emits: ['update:modelValue'],
+    setup(props, { emit, expose }) {
+        expose({
+            setVideo: vi.fn(),
+            setEmoticon: vi.fn(),
+        })
+
+        return () => h('textarea', {
+            'data-testid': 'editor-input',
+            value: props.modelValue,
+            onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLTextAreaElement).value),
+        })
+    },
+})
+
 export const unmountPostFormWrappers = () => {
     while (mountedWrappers.length > 0) {
         mountedWrappers.pop()?.unmount()
@@ -454,8 +547,11 @@ export {
     boardRef,
     editorSetEmoticon,
     editorSetVideo,
+    fillPostForm,
     findButtonByText,
     findEditorModeButtons,
+    createMinimalEditorStub,
+    createNoToolbarEditorStub,
     getLastCreatePostVariables,
     getLastUpdatePostVariables,
     isBoardLoadingRef,
@@ -471,4 +567,5 @@ export {
     postRef,
     routeState,
     setBoardCategories,
+    submitPostForm,
 }

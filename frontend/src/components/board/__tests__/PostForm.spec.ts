@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h, nextTick } from 'vue'
+import { nextTick } from 'vue'
 import {
     boardRef,
+    createMinimalEditorStub,
+    createNoToolbarEditorStub,
     editorSetEmoticon,
     editorSetVideo,
+    fillPostForm,
     findButtonByText,
     findEditorModeButtons,
     getLastCreatePostVariables,
@@ -20,6 +23,7 @@ import {
     resetPostFormTestState,
     routeState,
     setBoardCategories,
+    submitPostForm,
     unmountPostFormWrappers,
 } from './PostFormTestHarness'
 
@@ -191,16 +195,14 @@ describe('PostForm', () => {
         }
         const wrapper = mountPostForm('create')
 
-        await wrapper.get('#title').setValue('Created title')
-        await wrapper.get('#category').setValue('12')
-        await wrapper.get('[data-testid=\"editor-input\"]').setValue(
-            'Created body <img src="/api/v1/files/7"><img src="/files/8?download=true">',
-        )
-        await wrapper.get('[data-testid=\"set-tags\"]').trigger('click')
-        await wrapper.get('#nsfw').setValue(true)
-        await wrapper.get('#spoiler').setValue(true)
-
-        await wrapper.get('form').trigger('submit')
+        await fillPostForm(wrapper, {
+            categoryId: '12',
+            contents: 'Created body <img src="/api/v1/files/7"><img src="/files/8?download=true">',
+            setTags: true,
+            nsfw: true,
+            spoiler: true,
+        })
+        await submitPostForm(wrapper)
 
         expect(mockCreateMutate).toHaveBeenCalledTimes(1)
         const [variables, options] = mockCreateMutate.mock.calls[0]
@@ -228,13 +230,11 @@ describe('PostForm', () => {
         setBoardCategories([{ categoryId: 12, name: 'General', minWriteRole: 'USER' }])
         const wrapper = mountPostForm('create')
 
-        await wrapper.get('#title').setValue('Created title')
-        await wrapper.get('#category').setValue('12')
-        await wrapper.get('[data-testid=\"editor-input\"]').setValue(
-            '<p><img src="blob:https://noviis.kr/local" data-file-id="157" data-server-src="/api/v1/files/157"></p>',
-        )
-
-        await wrapper.get('form').trigger('submit')
+        await fillPostForm(wrapper, {
+            categoryId: '12',
+            contents: '<p><img src="blob:https://noviis.kr/local" data-file-id="157" data-server-src="/api/v1/files/157"></p>',
+        })
+        await submitPostForm(wrapper)
 
         const variables = getLastCreatePostVariables()
         expect(variables.data.fileIds).toEqual([157])
@@ -247,10 +247,8 @@ describe('PostForm', () => {
         setBoardCategories([{ categoryId: 1, name: 'General', minWriteRole: 'USER' }])
         const wrapper = mountPostForm('create', {}, {}, { redirectOnCreate: '/inquiry' })
 
-        await wrapper.get('#title').setValue('Created title')
-        await wrapper.get('#category').setValue('1')
-        await wrapper.get('[data-testid=\"editor-input\"]').setValue('Created body')
-        await wrapper.get('form').trigger('submit')
+        await fillPostForm(wrapper)
+        await submitPostForm(wrapper)
 
         const [, options] = mockCreateMutate.mock.calls[0]
         options.onSuccess({ data: { data: 101 } })
@@ -266,10 +264,8 @@ describe('PostForm', () => {
         }
         const wrapper = mountPostForm('create', {}, {}, { onSubmitted })
 
-        await wrapper.get('#title').setValue('Created title')
-        await wrapper.get('#category').setValue('1')
-        await wrapper.get('[data-testid=\"editor-input\"]').setValue('Created body')
-        await wrapper.get('form').trigger('submit')
+        await fillPostForm(wrapper)
+        await submitPostForm(wrapper)
 
         const [, options] = mockCreateMutate.mock.calls[0]
         options.onSuccess({ data: { data: 103 } })
@@ -291,10 +287,8 @@ describe('PostForm', () => {
             redirectOnCreate: '/fallback',
         })
 
-        await wrapper.get('#title').setValue('Created title')
-        await wrapper.get('#category').setValue('1')
-        await wrapper.get('[data-testid=\"editor-input\"]').setValue('Created body')
-        await wrapper.get('form').trigger('submit')
+        await fillPostForm(wrapper)
+        await submitPostForm(wrapper)
 
         const [, options] = mockCreateMutate.mock.calls[0]
         options.onSuccess({ data: { data: 102 } })
@@ -304,9 +298,8 @@ describe('PostForm', () => {
 
     it('logs errors when create or update fails', async () => {
         const wrapperCreate = mountPostForm('create')
-        await wrapperCreate.get('#title').setValue('Create error case')
-        await wrapperCreate.get('#category').setValue('1')
-        await wrapperCreate.get('form').trigger('submit')
+        await fillPostForm(wrapperCreate, { title: 'Create error case' })
+        await submitPostForm(wrapperCreate)
 
         const [, createOptions] = mockCreateMutate.mock.calls[0]
         createOptions.onError(new Error('create failed'))
@@ -324,7 +317,7 @@ describe('PostForm', () => {
         const wrapperEdit = mountPostForm('edit')
         await nextTick()
         await wrapperEdit.get('#title').setValue('Edited title')
-        await wrapperEdit.get('form').trigger('submit')
+        await submitPostForm(wrapperEdit)
 
         const [, updateOptions] = mockUpdateMutate.mock.calls[0]
         updateOptions.onError(new Error('update failed'))
@@ -347,7 +340,7 @@ describe('PostForm', () => {
 
         await wrapper.get('#title').setValue('After title')
         await wrapper.get('[data-testid=\"editor-input\"]').setValue('After body')
-        await wrapper.get('form').trigger('submit')
+        await submitPostForm(wrapper)
 
         expect(mockUpdateMutate).toHaveBeenCalledTimes(1)
         const [variables, options] = mockUpdateMutate.mock.calls[0]
@@ -387,7 +380,7 @@ describe('PostForm', () => {
 
         await wrapper.get('#title').setValue('After title')
         await wrapper.get('[data-testid=\"editor-input\"]').setValue('After body')
-        await wrapper.get('form').trigger('submit')
+        await submitPostForm(wrapper)
 
         const [, options] = mockUpdateMutate.mock.calls[0]
         options.onSuccess()
@@ -416,7 +409,7 @@ describe('PostForm', () => {
         await nextTick()
 
         await wrapper.get('#title').setValue('After title')
-        await wrapper.get('form').trigger('submit')
+        await submitPostForm(wrapper)
 
         const variables = getLastUpdatePostVariables()
         expect(variables.data.fileIds).toEqual([31, 32])
@@ -445,7 +438,7 @@ describe('PostForm', () => {
         expect((wrapper.get('#category').element as HTMLSelectElement).value).toBe('9')
 
         await wrapper.get('#title').setValue('After title')
-        await wrapper.get('form').trigger('submit')
+        await submitPostForm(wrapper)
 
         const variables = getLastUpdatePostVariables()
         expect(variables.data.categoryId).toBe(9)
@@ -633,40 +626,7 @@ describe('PostForm', () => {
             dispatchEvent: vi.fn(),
         }) as unknown as MediaQueryList)
 
-        const NoToolbarEditorStub = defineComponent({
-            name: 'PostEditorTipTap',
-            props: {
-                modelValue: { type: String, default: '' },
-            },
-            emits: ['update:modelValue', 'open-video'],
-            setup(props, { emit, expose }) {
-                expose({
-                    setVideo: (url: string) => editorSetVideo(url),
-                    setEmoticon: vi.fn(),
-                    fileIds: { value: [] },
-                })
-
-                return () =>
-                    h('div', [
-                        h('textarea', {
-                            'data-testid': 'editor-input',
-                            value: props.modelValue,
-                            onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLTextAreaElement).value),
-                        }),
-                        h(
-                            'button',
-                            {
-                                type: 'button',
-                                'data-testid': 'open-video',
-                                onClick: () => emit('open-video'),
-                            },
-                            'open-video',
-                        ),
-                    ])
-            },
-        })
-
-        const wrapper = mountPostForm('create', { PostEditorTipTap: NoToolbarEditorStub })
+        const wrapper = mountPostForm('create', { PostEditorTipTap: createNoToolbarEditorStub() })
         await wrapper.get('[data-testid=\"open-video\"]').trigger('click')
 
         const popover = wrapper.get('.video-url-popover')
@@ -717,38 +677,16 @@ describe('PostForm', () => {
         const wrapper = mountPostForm('edit')
         await nextTick()
         await wrapper.get('#title').setValue('No category')
-        await wrapper.get('form').trigger('submit')
+        await submitPostForm(wrapper)
 
         const variables = getLastUpdatePostVariables()
         expect(variables.data).not.toHaveProperty('categoryId')
     })
 
     it('submits with empty fileIds when editor does not expose fileIds ref', async () => {
-        const MinimalEditorStub = defineComponent({
-            name: 'PostEditorTipTap',
-            props: {
-                modelValue: { type: String, default: '' },
-            },
-            emits: ['update:modelValue'],
-            setup(props, { emit, expose }) {
-                expose({
-                    setVideo: vi.fn(),
-                    setEmoticon: vi.fn(),
-                })
-
-                return () => h('textarea', {
-                    'data-testid': 'editor-input',
-                    value: props.modelValue,
-                    onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLTextAreaElement).value),
-                })
-            },
-        })
-
-        const wrapper = mountPostForm('create', { PostEditorTipTap: MinimalEditorStub })
-        await wrapper.get('#title').setValue('No files')
-        await wrapper.get('#category').setValue('1')
-        await wrapper.get('[data-testid=\"editor-input\"]').setValue('Body')
-        await wrapper.get('form').trigger('submit')
+        const wrapper = mountPostForm('create', { PostEditorTipTap: createMinimalEditorStub() })
+        await fillPostForm(wrapper, { title: 'No files', contents: 'Body' })
+        await submitPostForm(wrapper)
 
         const variables = getLastCreatePostVariables()
         expect(variables.data.fileIds).toEqual([])
