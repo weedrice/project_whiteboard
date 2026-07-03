@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.global.log.dto.ErrorLogSearchRequest;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogResponse;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogStatsResponse;
 import com.weedrice.whiteboard.global.log.entity.ErrorLog;
+import com.weedrice.whiteboard.global.log.filter.SensitiveDataMaskingFilter;
 import com.weedrice.whiteboard.global.log.repository.ErrorLogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -68,14 +69,18 @@ public class ErrorLogService {
                 .errorCode(errorCode)
                 .errorType(errorType)
                 .httpStatus(httpStatus)
-                .message(truncate(message, MAX_TEXT_LENGTH))
-                .requestUri(truncate(requestUri, MAX_TEXT_LENGTH))
+                .message(truncate(mask(message), MAX_TEXT_LENGTH))
+                .requestUri(truncate(mask(requestUri), MAX_TEXT_LENGTH))
                 .requestMethod(requestMethod)
                 .userId(userId)
                 .ipAddress(ClientMetadataNormalizer.normalizeIpAddress(ipAddress))
-                .userAgent(truncate(userAgent, MAX_TEXT_LENGTH))
-                .stackTrace(stackTrace)
+                .userAgent(truncate(mask(userAgent), MAX_TEXT_LENGTH))
+                .stackTrace(mask(stackTrace))
                 .build();
+    }
+
+    private String mask(String value) {
+        return SensitiveDataMaskingFilter.maskSensitiveData(value);
     }
 
     /**

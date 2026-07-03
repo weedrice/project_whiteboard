@@ -70,7 +70,7 @@ class ClientIpResolverTest {
     @Test
     @DisplayName("신뢰 프록시에서 온 X-Forwarded-For의 첫 유효 IP를 사용한다")
     void resolve_usesFirstForwardedIpFromTrustedProxy() {
-        ClientIpProperties properties = trustedProxyProperties("10.0.0.10");
+        ClientIpProperties properties = trustedProxyProperties("10.0.0.10", "10.0.0.0/8");
         ClientIpResolver resolver = new ClientIpResolver(properties);
         MockHttpServletRequest request = request("10.0.0.10");
         request.addHeader("X-Forwarded-For", " unknown, not-an-ip, 203.0.113.10, 10.0.0.1 ");
@@ -132,7 +132,20 @@ class ClientIpResolverTest {
         assertThat(clientIp).isEqualTo("10.0.0.10");
     }
 
-    private ClientIpProperties trustedProxyProperties(String trustedProxy) {
+    @Test
+    @DisplayName("trusted proxy CIDR 안의 remoteAddr이면 forwarded header를 신뢰한다")
+    void resolve_trustsRemoteAddrMatchedByCidr() {
+        ClientIpProperties properties = trustedProxyProperties("10.0.0.0/8");
+        ClientIpResolver resolver = new ClientIpResolver(properties);
+        MockHttpServletRequest request = request("10.12.0.10");
+        request.addHeader("X-Forwarded-For", "203.0.113.10, 10.12.0.9");
+
+        String clientIp = resolver.resolve(request);
+
+        assertThat(clientIp).isEqualTo("203.0.113.10");
+    }
+
+    private ClientIpProperties trustedProxyProperties(String... trustedProxy) {
         ClientIpProperties properties = new ClientIpProperties();
         properties.setTrustProxyHeaders(true);
         properties.setTrustedProxies(Set.of(trustedProxy));

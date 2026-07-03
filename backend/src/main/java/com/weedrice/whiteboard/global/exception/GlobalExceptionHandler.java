@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
 import com.weedrice.whiteboard.global.common.util.ClientUtils;
 import com.weedrice.whiteboard.global.log.service.ErrorLogService;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import jakarta.validation.ConstraintViolationException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +17,7 @@ import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
@@ -27,6 +29,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
@@ -188,6 +192,57 @@ public class GlobalExceptionHandler {
                 e.getParameterType());
 
         return validationErrorResponse("MissingServletRequestParameterException", request);
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleConstraintViolationException(
+            ConstraintViolationException e,
+            HttpServletRequest request) {
+        log.warn("[{}] Constraint violation: {}", request.getRequestURI(), e.getMessage());
+
+        return validationErrorResponse("ConstraintViolationException", request);
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMethodNotSupportedException(
+            HttpRequestMethodNotSupportedException e,
+            HttpServletRequest request) {
+        String message = messageSource.getMessage(ErrorCode.METHOD_NOT_ALLOWED.getMessage(), null,
+                LocaleContextHolder.getLocale());
+        log.warn("[{}] Method not allowed: {}", request.getRequestURI(), e.getMethod());
+        saveErrorLog(ErrorCode.METHOD_NOT_ALLOWED.getCode(), "HttpRequestMethodNotSupportedException",
+                HttpStatus.METHOD_NOT_ALLOWED.value(), message, request, null);
+        return ResponseEntity
+                .status(HttpStatus.METHOD_NOT_ALLOWED)
+                .body(ApiResponse.error(ErrorCode.METHOD_NOT_ALLOWED.getCode(), message));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolationException(
+            DataIntegrityViolationException e,
+            HttpServletRequest request) {
+        String message = messageSource.getMessage(ErrorCode.DUPLICATE_RESOURCE.getMessage(), null,
+                LocaleContextHolder.getLocale());
+        log.warn("[{}] Data integrity violation: {}", request.getRequestURI(), e.getClass().getSimpleName());
+        saveErrorLog(ErrorCode.DUPLICATE_RESOURCE.getCode(), "DataIntegrityViolationException",
+                HttpStatus.CONFLICT.value(), message, request, null);
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(ErrorCode.DUPLICATE_RESOURCE.getCode(), message));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceededException(
+            MaxUploadSizeExceededException e,
+            HttpServletRequest request) {
+        String message = messageSource.getMessage(ErrorCode.FILE_TOO_LARGE.getMessage(), null,
+                LocaleContextHolder.getLocale());
+        log.warn("[{}] Upload size exceeded", request.getRequestURI());
+        saveErrorLog(ErrorCode.FILE_TOO_LARGE.getCode(), "MaxUploadSizeExceededException",
+                HttpStatus.BAD_REQUEST.value(), message, request, null);
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ErrorCode.FILE_TOO_LARGE.getCode(), message));
     }
 
     private ResponseEntity<ApiResponse<Void>> validationErrorResponse(String errorType, HttpServletRequest request) {

@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.agent.exception.AgentWriteException;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
 import com.weedrice.whiteboard.global.log.service.ErrorLogService;
+import jakarta.validation.ConstraintViolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -373,6 +374,33 @@ class GlobalExceptionHandlerTest {
         verify(errorLogService).saveErrorLog(
                 eq(ErrorCode.VALIDATION_ERROR.getCode()),
                 eq("MissingServletRequestParameterException"),
+                eq(HttpStatus.BAD_REQUEST.value()),
+                eq("Validation failed."),
+                anyString(),
+                anyString(),
+                isNull(),
+                anyString(),
+                isNull(),
+                isNull());
+    }
+
+    @Test
+    void handleConstraintViolationException() {
+        ConstraintViolationException ex = new ConstraintViolationException("invalid parameter", Collections.emptySet());
+        when(messageSource.getMessage(eq("error.common.validationFailedSummary"), isNull(), any(Locale.class)))
+                .thenReturn("Validation failed.");
+
+        ResponseEntity<ApiResponse<Void>> response =
+                globalExceptionHandler.handleConstraintViolationException(ex, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().isSuccess()).isFalse();
+        assertThat(response.getBody().getError().getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR.getCode());
+        assertThat(response.getBody().getError().getMessage()).isEqualTo("Validation failed.");
+        verify(errorLogService).saveErrorLog(
+                eq(ErrorCode.VALIDATION_ERROR.getCode()),
+                eq("ConstraintViolationException"),
                 eq(HttpStatus.BAD_REQUEST.value()),
                 eq("Validation failed."),
                 anyString(),

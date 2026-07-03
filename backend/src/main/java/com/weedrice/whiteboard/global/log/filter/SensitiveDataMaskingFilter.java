@@ -35,6 +35,10 @@ public class SensitiveDataMaskingFilter extends Filter<ILoggingEvent> {
         Pattern.compile("(?i)([\"']?accessKey[\"']?\\s*[:=]\\s*[\"']?)([^\"'\\s,}]+)", Pattern.CASE_INSENSITIVE),
         Pattern.compile("(?i)([\"']?secretKey[\"']?\\s*[:=]\\s*[\"']?)([^\"'\\s,}]+)", Pattern.CASE_INSENSITIVE),
         Pattern.compile("(?i)([\"']?secret[\"']?\\s*[:=]\\s*[\"']?)([^\"'\\s,}]+)", Pattern.CASE_INSENSITIVE),
+        Pattern.compile("(?i)(Cookie\\s*[:=]\\s*)([^\\r\\n]+)", Pattern.CASE_INSENSITIVE),
+        Pattern.compile("(?i)(Authorization\\s*[:=]\\s*(?:[A-Za-z]+\\s+)?)([^\\r\\n]+)", Pattern.CASE_INSENSITIVE),
+        Pattern.compile("(?i)(jdbc:[^\\s]+://[^\\s:/]+:)([^@\\s]+)(@)", Pattern.CASE_INSENSITIVE),
+        Pattern.compile("(?i)([A-Z0-9._%+-]{2})[A-Z0-9._%+-]*(@[A-Z0-9.-]+\\.[A-Z]{2,})", Pattern.CASE_INSENSITIVE),
     };
 
     private static final String MASKED_VALUE = "***MASKED***";
