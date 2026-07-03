@@ -55,6 +55,7 @@ class SignupServiceTest {
     @Mock private UserPrivilegeCleanupService userPrivilegeCleanupService;
     @Mock private PasswordHistoryPolicy passwordHistoryPolicy;
     @Mock private AuthAccountEligibilityPolicy authAccountEligibilityPolicy;
+    @Mock private OAuthSignupTicketService oAuthSignupTicketService;
 
     @InjectMocks
     private SignupService signupService;
@@ -260,6 +261,30 @@ class SignupServiceTest {
                 VerificationPurpose.SIGNUP,
                 request.getVerificationTicket());
         inOrder.verify(socialAccountLinkService).linkSocialAccount(eq(savedUser), eq("google"), eq("google-user-1"));
+    }
+
+    @Test
+    @DisplayName("OAuth registration ticket이 있으면 서버 저장 provider 정보로 소셜 계정을 링크한다")
+    void signup_linksSocialAccountFromOAuthRegistrationTicket() {
+        SignupRequest request = SignupRequest.builder()
+                .loginId("testuser")
+                .password("password123")
+                .email("test@example.com")
+                .displayName("Test User")
+                .verificationTicket("ticket-1")
+                .oauthRegistrationTicket("oauth-ticket-1")
+                .build();
+        when(oAuthSignupTicketService.consume("oauth-ticket-1"))
+                .thenReturn(new OAuthSignupTicketService.OAuthSignupTicket(
+                        "test@example.com",
+                        "OAuth User",
+                        "google",
+                        "google-user-1"));
+        User savedUser = stubSuccessfulSignup(request);
+
+        signupService.signup(request);
+
+        verify(socialAccountLinkService).linkSocialAccount(eq(savedUser), eq("google"), eq("google-user-1"));
     }
 
     @Test

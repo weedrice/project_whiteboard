@@ -132,7 +132,8 @@ class AuthServiceTest {
                 userRepository, pointService, userSettingsRepository,
                 socialAccountLinkService, verificationCodeService, globalConfigService,
                 entityManager, refreshTokenLifecycleService, userPrivilegeCleanupService, passwordHistoryPolicy,
-                authAccountEligibilityPolicy, new AccountUniquenessPolicy(userRepository));
+                authAccountEligibilityPolicy, new AccountUniquenessPolicy(userRepository),
+                new OAuthSignupTicketService());
         authService = new AuthService(
                 signupService,
                 sessionTokenService,

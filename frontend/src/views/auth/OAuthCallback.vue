@@ -1,49 +1,48 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { useI18n } from 'vue-i18n'
+import { authApi } from '@/api/auth'
+import { unwrapApiData } from '@/api/response'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import logger from '@/utils/logger'
 import { clearLoginRedirect, getStoredLoginRedirect } from '@/utils/authRedirect'
-import { clearSensitiveTokensFromUrl, getHashToken } from '@/utils/oauthCallbackTokens'
-import { getSingleQueryValue } from '@/utils/routeQueryValue'
+import { clearSensitiveTokensFromUrl } from '@/utils/oauthCallbackTokens'
 
 const router = useRouter()
-const route = useRoute()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
 const { t } = useI18n()
 
 onMounted(async () => {
-  const accessToken = getSingleQueryValue(route.query.accessToken) ?? getHashToken('accessToken')
-
-  // Remove sensitive values from address bar immediately.
   clearSensitiveTokensFromUrl()
 
-  if (accessToken) {
-    try {
-      // Store tokens
-      authStore.setTokens(accessToken)
-      
-      // Fetch user info
-      const didFetchUser = await authStore.fetchUser()
-      if (!didFetchUser) {
-        throw new Error('OAuth user hydration failed')
-      }
-      
-      toastStore.addToast(t('auth.loginSuccess'), 'success')
-      const redirect = getStoredLoginRedirect()
-      clearLoginRedirect()
-      router.push(redirect ?? '/')
-    } catch (error) {
-      logger.error('OAuth login failed:', error)
-      await authStore.logout()
-      toastStore.addToast(t('auth.loginFailed'), 'error')
-      router.push('/login')
+  try {
+    const { data } = await authApi.refreshToken({
+      skipAuthRefresh: true,
+      skipGlobalErrorHandler: true,
+    })
+    const { accessToken } = unwrapApiData(data)
+    if (!accessToken) {
+      throw new Error('OAuth refresh returned an invalid access token')
     }
-  } else {
+
+    authStore.setTokens(accessToken)
+
+    const didFetchUser = await authStore.fetchUser({ skipAuthRefresh: true })
+    if (!didFetchUser) {
+      throw new Error('OAuth user hydration failed')
+    }
+
+    toastStore.addToast(t('auth.loginSuccess'), 'success')
+    const redirect = getStoredLoginRedirect()
+    clearLoginRedirect()
+    router.push(redirect ?? '/')
+  } catch (error) {
+    logger.error('OAuth login failed:', error)
+    await authStore.logout()
     toastStore.addToast(t('auth.loginFailed'), 'error')
     router.push('/login')
   }

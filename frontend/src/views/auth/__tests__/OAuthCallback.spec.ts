@@ -20,6 +20,9 @@ const mocks = vi.hoisted(() => {
     const logger = {
         error: vi.fn(),
     }
+    const authApi = {
+        refreshToken: vi.fn(),
+    }
 
     return {
         router,
@@ -27,6 +30,7 @@ const mocks = vi.hoisted(() => {
         authStore,
         toastStore,
         logger,
+        authApi,
     }
 })
 
@@ -53,6 +57,10 @@ vi.mock('@/utils/logger', () => ({
     default: mocks.logger,
 }))
 
+vi.mock('@/api/auth', () => ({
+    authApi: mocks.authApi,
+}))
+
 const flushMountedWork = async () => {
     await Promise.resolve()
     await Promise.resolve()
@@ -64,17 +72,22 @@ describe('OAuthCallback', () => {
         vi.clearAllMocks()
         sessionStorage.clear()
         mocks.route.query = {}
+        mocks.authApi.refreshToken.mockResolvedValue({
+            data: {
+                success: true,
+                data: {
+                    accessToken: 'refreshed-access',
+                },
+            },
+        })
         mocks.authStore.fetchUser.mockResolvedValue(true)
         mocks.authStore.logout.mockResolvedValue(undefined)
         window.history.replaceState({}, '', '/auth/oauth/callback')
     })
 
-    it('stores tokens, fetches user and redirects to safe saved path', async () => {
+    it('exchanges the refresh cookie, stores token, fetches user and redirects to safe saved path', async () => {
         const replaceStateSpy = vi.spyOn(window.history, 'replaceState')
         sessionStorage.setItem('loginRedirect', '/boards')
-        mocks.route.query = {
-            accessToken: 'query-access',
-        }
         window.history.replaceState(
             {},
             '',
@@ -84,8 +97,12 @@ describe('OAuthCallback', () => {
         mount(OAuthCallback)
         await flushMountedWork()
 
-        expect(mocks.authStore.setTokens).toHaveBeenCalledWith('query-access')
-        expect(mocks.authStore.fetchUser).toHaveBeenCalled()
+        expect(mocks.authApi.refreshToken).toHaveBeenCalledWith({
+            skipAuthRefresh: true,
+            skipGlobalErrorHandler: true,
+        })
+        expect(mocks.authStore.setTokens).toHaveBeenCalledWith('refreshed-access')
+        expect(mocks.authStore.fetchUser).toHaveBeenCalledWith({ skipAuthRefresh: true })
         expect(mocks.toastStore.addToast).toHaveBeenCalledWith('auth.loginSuccess', 'success')
         expect(mocks.router.push).toHaveBeenCalledWith('/boards')
         expect(sessionStorage.getItem('loginRedirect')).toBeNull()
@@ -95,9 +112,6 @@ describe('OAuthCallback', () => {
 
     it('falls back to home for unsafe redirect path', async () => {
         sessionStorage.setItem('loginRedirect', '//evil.example')
-        mocks.route.query = {
-            accessToken: 'safe-access',
-        }
 
         mount(OAuthCallback)
         await flushMountedWork()
@@ -105,7 +119,7 @@ describe('OAuthCallback', () => {
         expect(mocks.router.push).toHaveBeenCalledWith('/')
     })
 
-    it('supports hash tokens and cleans sensitive hash params from URL', async () => {
+    it('cleans sensitive hash params from URL without using them as tokens', async () => {
         const replaceStateSpy = vi.spyOn(window.history, 'replaceState')
         window.history.replaceState(
             {},
@@ -117,12 +131,12 @@ describe('OAuthCallback', () => {
         mount(OAuthCallback)
         await flushMountedWork()
 
-        expect(mocks.authStore.setTokens).toHaveBeenCalledWith('hash-access')
+        expect(mocks.authStore.setTokens).toHaveBeenCalledWith('refreshed-access')
         expect(window.location.hash).toBe('#state=abc')
         expect(replaceStateSpy).toHaveBeenCalled()
     })
 
-    it('accepts array query values and uses first token value', async () => {
+    it('ignores query token values and uses the refresh result', async () => {
         mocks.route.query = {
             accessToken: ['array-access'],
         }
@@ -130,14 +144,11 @@ describe('OAuthCallback', () => {
         mount(OAuthCallback)
         await flushMountedWork()
 
-        expect(mocks.authStore.setTokens).toHaveBeenCalledWith('array-access')
+        expect(mocks.authStore.setTokens).toHaveBeenCalledWith('refreshed-access')
     })
 
-    it('redirects to login when token processing fails', async () => {
-        mocks.route.query = {
-            accessToken: 'bad-access',
-        }
-        mocks.authStore.fetchUser.mockRejectedValueOnce(new Error('failed'))
+    it('redirects to login when refresh cookie exchange fails', async () => {
+        mocks.authApi.refreshToken.mockRejectedValueOnce(new Error('failed'))
 
         mount(OAuthCallback)
         await flushMountedWork()
@@ -149,23 +160,27 @@ describe('OAuthCallback', () => {
     })
 
     it('redirects to login when user hydration returns false', async () => {
-        mocks.route.query = {
-            accessToken: 'bad-access',
-        }
         mocks.authStore.fetchUser.mockResolvedValueOnce(false)
 
         mount(OAuthCallback)
         await flushMountedWork()
 
-        expect(mocks.authStore.setTokens).toHaveBeenCalledWith('bad-access')
+        expect(mocks.authStore.setTokens).toHaveBeenCalledWith('refreshed-access')
         expect(mocks.authStore.logout).toHaveBeenCalled()
         expect(mocks.toastStore.addToast).toHaveBeenCalledWith('auth.loginFailed', 'error')
         expect(mocks.router.push).toHaveBeenCalledWith('/login')
     })
 
-    it('redirects to login when tokens are missing', async () => {
+    it('redirects to login when refresh returns an invalid access token', async () => {
         const replaceStateSpy = vi.spyOn(window.history, 'replaceState')
-        mocks.route.query = {}
+        mocks.authApi.refreshToken.mockResolvedValueOnce({
+            data: {
+                success: true,
+                data: {
+                    accessToken: '',
+                },
+            },
+        })
         window.history.replaceState({}, '', '/auth/oauth/callback')
         const replaceStateCallCountBeforeMount = replaceStateSpy.mock.calls.length
 

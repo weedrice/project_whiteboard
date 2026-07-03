@@ -28,7 +28,7 @@ describe('signupRegistrationModel', () => {
     expect(form.displayName).toBe('Display')
   })
 
-  it('builds a signup payload without passwordConfirm and with OAuth query metadata', () => {
+  it('builds a signup payload without passwordConfirm and with OAuth registration ticket', () => {
     const form = {
       loginId: 'login_1',
       password: 'Password1!',
@@ -38,16 +38,14 @@ describe('signupRegistrationModel', () => {
     }
 
     expect(buildSignupPayload(form, 'ticket-1', {
-      provider: ['google', 'github'],
-      providerId: ['oauth-1', 'oauth-2'],
+      oauthRegistrationTicket: ['oauth-ticket-1', 'oauth-ticket-2'],
     })).toEqual({
       loginId: 'login_1',
       password: 'Password1!',
       email: 'user@example.com',
       displayName: 'Display',
       verificationTicket: 'ticket-1',
-      provider: 'google',
-      providerId: 'oauth-1',
+      oauthRegistrationTicket: 'oauth-ticket-1',
     })
   })
 

@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.auth.dto.TokenResponse;
 import com.weedrice.whiteboard.domain.auth.service.LoginAccountEligibilityService;
 import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadata;
 import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadataResolver;
+import com.weedrice.whiteboard.domain.auth.service.OAuthSignupTicketService;
 import com.weedrice.whiteboard.domain.auth.service.SessionTokenService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionPolicyService;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -42,6 +43,8 @@ class OAuth2SuccessHandlerTest {
     private UserRepository userRepository;
     @Mock
     private SanctionPolicyService sanctionPolicyService;
+    @Mock
+    private OAuthSignupTicketService oAuthSignupTicketService;
 
     private OAuth2SuccessHandler handler;
     private User user;
@@ -53,7 +56,8 @@ class OAuth2SuccessHandlerTest {
                 userRepository,
                 new LoginAccountEligibilityService(sanctionPolicyService),
                 new RefreshTokenCookieWriter(1209600000L),
-                new LoginClientMetadataResolver());
+                new LoginClientMetadataResolver(),
+                oAuthSignupTicketService);
         ReflectionTestUtils.setField(handler, "frontendUrl", "http://localhost:5173");
 
         user = User.builder()
@@ -63,6 +67,39 @@ class OAuth2SuccessHandlerTest {
                 .displayName("OAuth User")
                 .build();
         ReflectionTestUtils.setField(user, "userId", 1L);
+    }
+
+    @Test
+    @DisplayName("unregistered oauth user is redirected with opaque signup ticket only")
+    void onAuthenticationSuccess_unregisteredUser_redirectsWithSignupTicket() throws Exception {
+        UnregisteredOAuth2User principal = new UnregisteredOAuth2User(
+                Map.of("id", "provider-user-id"),
+                "id",
+                "google",
+                "provider-user-id",
+                "oauth@example.com",
+                "OAuth User",
+                null);
+        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                principal,
+                null,
+                principal.getAuthorities());
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        when(oAuthSignupTicketService.issue(
+                "oauth@example.com",
+                "OAuth User",
+                "google",
+                "provider-user-id"))
+                .thenReturn("ticket-1");
+
+        handler.onAuthenticationSuccess(request, response, authentication);
+
+        assertThat(response.getRedirectedUrl())
+                .isEqualTo("http://localhost:5173/signup?oauthRegistrationTicket=ticket-1");
+        assertThat(response.getRedirectedUrl()).doesNotContain("oauth@example.com", "providerId");
+        verify(sessionTokenService, never()).issueTokens(any(), any(), any());
     }
 
     @Test
@@ -145,7 +182,7 @@ class OAuth2SuccessHandlerTest {
         handler.onAuthenticationSuccess(request, response, authentication);
 
         assertThat(response.getRedirectedUrl())
-                .isEqualTo("http://localhost:5173/auth/oauth/callback#accessToken=issued-access");
+                .isEqualTo("http://localhost:5173/auth/oauth/callback");
         assertThat(response.getHeaders("Set-Cookie"))
                 .anyMatch(header -> header.contains("refreshToken=issued-refresh")
                         && header.contains("Path=/api/v1/auth")

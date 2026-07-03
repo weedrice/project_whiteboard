@@ -44,4 +44,8 @@ public class UnregisteredOAuth2User implements OAuth2User {
     public String getName() {
         return String.valueOf(attributes.get(nameAttributeKey));
     }
+
+    public String getDisplayName() {
+        return name;
+    }
 }

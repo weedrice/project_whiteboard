@@ -48,6 +48,7 @@ vi.mock('@/stores/toast', () => ({
 vi.mock('@/api/auth', () => ({
   authApi: {
     checkEmailForReregister: vi.fn(),
+    getOAuthSignupTicket: vi.fn(),
     signup: vi.fn()
   }
 }))
@@ -101,6 +102,8 @@ function mountSignupRegistration(routeQuery: Record<string, unknown> = {}) {
 async function flushMountedAsync() {
   await Promise.resolve()
   await Promise.resolve()
+  await Promise.resolve()
+  await Promise.resolve()
 }
 
 describe('useSignupRegistration', () => {
@@ -120,6 +123,13 @@ describe('useSignupRegistration', () => {
     vi.mocked(authApi.checkEmailForReregister).mockResolvedValue(
       apiSuccessDataResponse<typeof authApi.checkEmailForReregister>({
         canReregister: false
+      })
+    )
+    vi.mocked(authApi.getOAuthSignupTicket).mockResolvedValue(
+      apiSuccessDataResponse<typeof authApi.getOAuthSignupTicket>({
+        email: 'oauth@example.com',
+        name: 'OAuth User',
+        provider: 'google',
       })
     )
     vi.mocked(authApi.signup).mockResolvedValue(apiSuccessResponse<typeof authApi.signup>())
@@ -163,17 +173,17 @@ describe('useSignupRegistration', () => {
     wrapper.unmount()
   })
 
-  it('submits the signup payload without passwordConfirm and preserves provider query values', async () => {
+  it('submits the signup payload without passwordConfirm and preserves OAuth registration ticket', async () => {
     const { composable, wrapper } = mountSignupRegistration({
-      provider: 'google',
-      providerId: 'oauth-1'
+      oauthRegistrationTicket: 'oauth-ticket-1'
     })
+    await flushMountedAsync()
     Object.assign(composable.form.value, {
       loginId: 'login_1',
       password: 'Password1!',
       passwordConfirm: 'Password1!',
-      email: 'user@example.com',
-      displayName: 'Display'
+      email: composable.form.value.email,
+      displayName: composable.form.value.displayName
     })
     composable.verification.isVerified = true
     composable.verification.verificationTicket = 'ticket-1'
@@ -183,11 +193,10 @@ describe('useSignupRegistration', () => {
     expect(authApi.signup).toHaveBeenCalledWith({
       loginId: 'login_1',
       password: 'Password1!',
-      email: 'user@example.com',
-      displayName: 'Display',
+      email: 'oauth@example.com',
+      displayName: 'OAuth User',
       verificationTicket: 'ticket-1',
-      provider: 'google',
-      providerId: 'oauth-1'
+      oauthRegistrationTicket: 'oauth-ticket-1'
     })
     expect(mocks.toastStore.addToast).toHaveBeenCalledWith('auth.signupSuccess', 'success')
     expect(mocks.router.push).toHaveBeenCalledWith('/login')
@@ -196,8 +205,6 @@ describe('useSignupRegistration', () => {
 
   it('uses the first route query value when signup query params are arrays', async () => {
     const { composable, wrapper } = mountSignupRegistration({
-      provider: ['google', 'github'],
-      providerId: ['oauth-1', 'oauth-2'],
       email: ['user@example.com', 'other@example.com'],
       name: ['Display', 'Other']
     })
@@ -219,8 +226,7 @@ describe('useSignupRegistration', () => {
     expect(composable.form.value.displayName).toBe('Display')
     expect(authApi.checkEmailForReregister).toHaveBeenCalledWith('user@example.com')
     expect(authApi.signup).toHaveBeenCalledWith(expect.objectContaining({
-      provider: 'google',
-      providerId: 'oauth-1'
+      oauthRegistrationTicket: null
     }))
     wrapper.unmount()
   })

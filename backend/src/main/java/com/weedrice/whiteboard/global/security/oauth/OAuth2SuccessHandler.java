@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.auth.dto.TokenResponse;
 import com.weedrice.whiteboard.domain.auth.service.LoginAccountEligibilityService;
 import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadata;
 import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadataResolver;
+import com.weedrice.whiteboard.domain.auth.service.OAuthSignupTicketService;
 import com.weedrice.whiteboard.domain.auth.service.SessionTokenService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -19,10 +20,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
-import org.springframework.web.util.UriUtils;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 
 @Slf4j
 @Component
@@ -34,6 +33,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     private final LoginAccountEligibilityService loginAccountEligibilityService;
     private final RefreshTokenCookieWriter refreshTokenCookieWriter;
     private final LoginClientMetadataResolver loginClientMetadataResolver;
+    private final OAuthSignupTicketService oAuthSignupTicketService;
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
@@ -44,12 +44,14 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
         if (authentication.getPrincipal() instanceof UnregisteredOAuth2User) {
             UnregisteredOAuth2User unregisteredUser = (UnregisteredOAuth2User) authentication.getPrincipal();
+            String ticket = oAuthSignupTicketService.issue(
+                    unregisteredUser.getEmail(),
+                    unregisteredUser.getDisplayName(),
+                    unregisteredUser.getProvider(),
+                    unregisteredUser.getProviderId());
 
             String targetUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/signup")
-                    .queryParam("email", unregisteredUser.getEmail())
-                    .queryParam("name", unregisteredUser.getName())
-                    .queryParam("provider", unregisteredUser.getProvider())
-                    .queryParam("providerId", unregisteredUser.getProviderId())
+                    .queryParam("oauthRegistrationTicket", ticket)
                     .build().toUriString();
 
             getRedirectStrategy().sendRedirect(request, response, targetUrl);
@@ -71,14 +73,10 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
                 authenticatedUser,
                 metadata);
 
-        // Keep refresh token in HttpOnly cookie; only pass short-lived access token to frontend.
+        // Keep tokens out of URLs; the frontend exchanges the refresh cookie for an access token.
         refreshTokenCookieWriter.writeRefreshTokenCookie(response, issuedTokens.getRefreshToken(), request);
 
-        String fragment = "accessToken=" + UriUtils.encodeQueryParam(
-                issuedTokens.getAccessToken(),
-                StandardCharsets.UTF_8);
         String targetUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/auth/oauth/callback")
-                .fragment(fragment)
                 .build(true)
                 .toUriString();
 

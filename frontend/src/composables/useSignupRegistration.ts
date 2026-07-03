@@ -11,6 +11,7 @@ import {
   createSignupForm,
   createSignupTouchedState,
   hasSignupFieldErrors,
+  hydrateSignupFormFromOAuthTicket,
   hydrateSignupFormFromQuery,
   isMaskedReregisterLoginBlocked,
   markAllSignupFieldsTouched,
@@ -221,10 +222,27 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
   }
 
   async function initializeFromRouteQuery() {
-    const { email } = hydrateSignupFormFromQuery(form.value, route.query)
-    if (email) {
+    const oauthRegistrationTicket = Array.isArray(route.query.oauthRegistrationTicket)
+      ? route.query.oauthRegistrationTicket[0]
+      : route.query.oauthRegistrationTicket
+    let emailForReregisterCheck: string | null = null
+
+    if (oauthRegistrationTicket) {
       try {
-        const { data } = await authApi.checkEmailForReregister(email)
+        const { data } = await authApi.getOAuthSignupTicket(oauthRegistrationTicket)
+        hydrateSignupFormFromOAuthTicket(form.value, unwrapApiData(data))
+        emailForReregisterCheck = form.value.email
+      } catch {
+        toastStore.addToast(t('auth.signupFailed'), 'error')
+      }
+    } else {
+      const { email } = hydrateSignupFormFromQuery(form.value, route.query)
+      emailForReregisterCheck = email
+    }
+
+    if (emailForReregisterCheck) {
+      try {
+        const { data } = await authApi.checkEmailForReregister(emailForReregisterCheck)
         const reregister = unwrapApiData(data)
         const loginState = resolveReregisterLoginState(data.success ? reregister : null)
         isReregister.value = loginState.isReregister

@@ -1,6 +1,6 @@
 import api from './index'
 import type { AxiosRequestConfig } from 'axios'
-import type { LoginCredentials, SignupData, ApiResponse, LoginResponse, User } from '@/types'
+import type { LoginCredentials, SignupData, ApiResponse, LoginResponse, OAuthSignupTicket, User } from '@/types'
 
 export type VerificationPurpose = 'SIGNUP' | 'FIND_ID' | 'PASSWORD_RESET' | 'CHANGE_EMAIL'
 
@@ -62,6 +62,13 @@ export const authApi = {
         api.get<ApiResponse<ReregisterCheckResponse>>('/auth/reregister/check-email', {
             params: { email },
             skipAuthRefresh: true,
+        } as AxiosRequestConfig),
+
+    getOAuthSignupTicket: (ticket: string) =>
+        api.get<ApiResponse<OAuthSignupTicket>>('/auth/oauth/signup-ticket', {
+            params: { ticket },
+            skipAuthRefresh: true,
+            skipGlobalErrorHandler: true,
         } as AxiosRequestConfig),
 
     findId: (email: string, verificationTicket: string) =>

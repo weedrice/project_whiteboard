@@ -102,6 +102,19 @@ describe('authApi', () => {
         )
     })
 
+    it('calls OAuth signup ticket endpoint with skip flags', () => {
+        authApi.getOAuthSignupTicket('oauth-ticket-1')
+
+        expect(apiMock.get).toHaveBeenCalledWith(
+            '/auth/oauth/signup-ticket',
+            {
+                params: { ticket: 'oauth-ticket-1' },
+                skipAuthRefresh: true,
+                skipGlobalErrorHandler: true,
+            },
+        )
+    })
+
     it('calls findId with verification ticket and skip flags', () => {
         authApi.findId('test@example.com', 'ticket-1')
 

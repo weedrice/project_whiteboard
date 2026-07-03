@@ -15,8 +15,7 @@ export type SignupTouchedState = Record<keyof SignupForm, boolean>
 
 export type SignupPayload = Omit<SignupForm, 'passwordConfirm'> & {
   verificationTicket: string
-  provider: string | null
-  providerId: string | null
+  oauthRegistrationTicket: string | null
 }
 
 export type ReregisterLoginState = {
@@ -97,6 +96,18 @@ export function hydrateSignupFormFromQuery(form: SignupForm, query: LocationQuer
   }
 }
 
+export function hydrateSignupFormFromOAuthTicket(
+  form: SignupForm,
+  ticket: { email?: string | null; name?: string | null },
+) {
+  if (ticket.email) {
+    form.email = ticket.email
+  }
+  if (ticket.name) {
+    form.displayName = ticket.name
+  }
+}
+
 export function buildSignupPayload(
   form: SignupForm,
   verificationTicket: string,
@@ -110,8 +121,7 @@ export function buildSignupPayload(
     email: form.email.trim(),
     displayName: form.displayName.trim(),
     verificationTicket,
-    provider: getSingleQueryValue(query.provider),
-    providerId: getSingleQueryValue(query.providerId)
+    oauthRegistrationTicket: getSingleQueryValue(query.oauthRegistrationTicket)
   }
 }
 

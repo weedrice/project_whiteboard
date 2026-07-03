@@ -19,4 +19,11 @@ export interface SignupData {
     email: string
     verificationTicket: string
     displayName: string
+    oauthRegistrationTicket?: string | null
+}
+
+export interface OAuthSignupTicket {
+    email: string
+    name: string
+    provider: string
 }

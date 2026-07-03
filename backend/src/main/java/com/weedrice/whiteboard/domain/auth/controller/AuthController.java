@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.auth.dto.LoginResponse;
 import com.weedrice.whiteboard.domain.auth.dto.PasswordResetByCodeRequest;
 import com.weedrice.whiteboard.domain.auth.dto.PasswordResetConfirmRequest;
 import com.weedrice.whiteboard.domain.auth.dto.PasswordResetRequest;
+import com.weedrice.whiteboard.domain.auth.dto.OAuthSignupTicketResponse;
 import com.weedrice.whiteboard.domain.auth.dto.ReregisterCheckResponse;
 import com.weedrice.whiteboard.domain.auth.dto.RefreshResponse;
 import com.weedrice.whiteboard.domain.auth.dto.SignupRequest;
@@ -19,6 +20,7 @@ import com.weedrice.whiteboard.domain.auth.dto.VerifyCodeResponse;
 import com.weedrice.whiteboard.domain.auth.service.AuthService;
 import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadata;
 import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadataResolver;
+import com.weedrice.whiteboard.domain.auth.service.OAuthSignupTicketService;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.ApiResponses;
@@ -53,6 +55,7 @@ public class AuthController {
     private final VerificationCodeService verificationCodeService; // Inject VerificationCodeService
     private final RefreshTokenCookieWriter refreshTokenCookieWriter;
     private final LoginClientMetadataResolver loginClientMetadataResolver;
+    private final OAuthSignupTicketService oAuthSignupTicketService;
 
     @Operation(
             summary = "회원가입",
@@ -84,6 +87,12 @@ public class AuthController {
     public ResponseEntity<ApiResponse<SignupResponse>> signup(@Valid @RequestBody SignupRequest request) {
         SignupResponse response = authService.signup(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
+    }
+
+    @GetMapping("/oauth/signup-ticket")
+    public ResponseEntity<ApiResponse<OAuthSignupTicketResponse>> getOAuthSignupTicket(
+            @RequestParam String ticket) {
+        return ResponseEntity.ok(ApiResponse.success(oAuthSignupTicketService.getResponse(ticket)));
     }
 
     @Operation(

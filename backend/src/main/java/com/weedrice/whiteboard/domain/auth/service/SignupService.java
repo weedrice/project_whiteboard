@@ -21,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.Objects;
 
@@ -45,10 +46,13 @@ public class SignupService {
     private final PasswordHistoryPolicy passwordHistoryPolicy;
     private final AuthAccountEligibilityPolicy authAccountEligibilityPolicy;
     private final AccountUniquenessPolicy accountUniquenessPolicy;
+    private final OAuthSignupTicketService oAuthSignupTicketService;
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
+        OAuthSignupTicketService.OAuthSignupTicket oauthTicket = resolveOAuthTicket(request);
         String normalizedEmail = AuthEmailNormalizer.normalize(request.getEmail());
+        validateOAuthTicketEmail(oauthTicket, normalizedEmail);
 
         var reregisterableUser = accountUniquenessPolicy.findReregisterableSignupUser(normalizedEmail);
         if (reregisterableUser.isPresent()) {
@@ -92,7 +96,7 @@ public class SignupService {
                     "USER");
         }
 
-        saveSocialAccountIfPresent(savedUser, request);
+        saveSocialAccountIfPresent(savedUser, request, oauthTicket);
 
         return SignupResponse.builder()
                 .userId(savedUser.getUserId())
@@ -109,6 +113,9 @@ public class SignupService {
     }
 
     private SignupResponse reregister(User existingUser, SignupRequest request, String normalizedEmail) {
+        OAuthSignupTicketService.OAuthSignupTicket oauthTicket = resolveOAuthTicket(request);
+        validateOAuthTicketEmail(oauthTicket, normalizedEmail);
+
         if (!Objects.equals(existingUser.getLoginId(), request.getLoginId())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
@@ -130,7 +137,7 @@ public class SignupService {
         userRepository.save(existingUser);
         passwordHistoryPolicy.record(existingUser, passwordHash);
 
-        saveSocialAccountIfPresent(existingUser, request);
+        saveSocialAccountIfPresent(existingUser, request, oauthTicket);
 
         return SignupResponse.builder()
                 .userId(existingUser.getUserId())
@@ -183,12 +190,32 @@ public class SignupService {
         return accountUniquenessPolicy.resolveSignupConflict(normalizedEmail, request.getLoginId(), ex);
     }
 
-    private void saveSocialAccountIfPresent(User user, SignupRequest request) {
-        if (request.getProvider() == null && request.getProviderId() == null) {
+    private OAuthSignupTicketService.OAuthSignupTicket resolveOAuthTicket(SignupRequest request) {
+        if (!StringUtils.hasText(request.getOauthRegistrationTicket())) {
+            return null;
+        }
+        return oAuthSignupTicketService.consume(request.getOauthRegistrationTicket());
+    }
+
+    private void validateOAuthTicketEmail(OAuthSignupTicketService.OAuthSignupTicket ticket, String normalizedEmail) {
+        if (ticket == null) {
+            return;
+        }
+        String ticketEmail = AuthEmailNormalizer.normalize(ticket.email());
+        if (!Objects.equals(ticketEmail, normalizedEmail)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+    }
+
+    private void saveSocialAccountIfPresent(User user, SignupRequest request,
+            OAuthSignupTicketService.OAuthSignupTicket oauthTicket) {
+        String provider = oauthTicket != null ? oauthTicket.provider() : request.getProvider();
+        String providerId = oauthTicket != null ? oauthTicket.providerId() : request.getProviderId();
+        if (!StringUtils.hasText(provider) && !StringUtils.hasText(providerId)) {
             return;
         }
 
-        socialAccountLinkService.linkSocialAccount(user, request.getProvider(), request.getProviderId());
+        socialAccountLinkService.linkSocialAccount(user, provider, providerId);
     }
 
     private String maskLoginId(String loginId) {

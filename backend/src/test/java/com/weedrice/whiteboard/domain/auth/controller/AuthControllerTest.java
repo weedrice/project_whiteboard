@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.auth.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.auth.dto.LoginRequest;
 import com.weedrice.whiteboard.domain.auth.dto.LoginResult;
+import com.weedrice.whiteboard.domain.auth.dto.OAuthSignupTicketResponse;
 import com.weedrice.whiteboard.domain.auth.dto.SignupRequest;
 import com.weedrice.whiteboard.domain.auth.dto.SignupResponse;
 import com.weedrice.whiteboard.domain.auth.dto.TokenResponse;
@@ -10,6 +11,7 @@ import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
 import com.weedrice.whiteboard.domain.auth.service.AuthService;
 import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadata;
 import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadataResolver;
+import com.weedrice.whiteboard.domain.auth.service.OAuthSignupTicketService;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
 import com.weedrice.whiteboard.global.config.CurrentUserIdWebMvcConfig;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -48,6 +50,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.same;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -84,6 +87,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private LoginClientMetadataResolver loginClientMetadataResolver;
+
+    @MockitoBean
+    private OAuthSignupTicketService oAuthSignupTicketService;
 
     @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -143,6 +149,24 @@ class AuthControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.userId").value(1L));
+    }
+
+    @Test
+    void getOAuthSignupTicket_returnsTicketData() throws Exception {
+        when(oAuthSignupTicketService.getResponse("ticket-1"))
+                .thenReturn(OAuthSignupTicketResponse.builder()
+                        .email("test@example.com")
+                        .name("Test User")
+                        .provider("google")
+                        .build());
+
+        mockMvc.perform(get("/api/v1/auth/oauth/signup-ticket")
+                        .param("ticket", "ticket-1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.email").value("test@example.com"))
+                .andExpect(jsonPath("$.data.name").value("Test User"))
+                .andExpect(jsonPath("$.data.provider").value("google"));
     }
 
     @Test
