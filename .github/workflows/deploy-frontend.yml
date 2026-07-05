@@ -59,7 +59,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             set -e
-            RELEASE_DIR="/var/www/releases/frontend/${{ github.sha }}"
+            RELEASE_DIR="/var/www/releases/frontend/${{ github.sha }}-${{ github.run_id }}"
             sudo install -d -o ubuntu -g ubuntu -m 755 /var/www/releases/frontend
             rm -rf "$RELEASE_DIR"
             install -d -m 755 "$RELEASE_DIR"
@@ -71,7 +71,7 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "frontend/dist/*"
-          target: "/var/www/releases/frontend/${{ github.sha }}"
+          target: "/var/www/releases/frontend/${{ github.sha }}-${{ github.run_id }}"
           strip_components: 2
 
       - name: Activate frontend release
@@ -82,8 +82,10 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             set -e
-            RELEASE_DIR="/var/www/releases/frontend/${{ github.sha }}"
+            RELEASE_DIR="/var/www/releases/frontend/${{ github.sha }}-${{ github.run_id }}"
             test -f "$RELEASE_DIR/index.html"
+            test -f "$RELEASE_DIR/robots.txt"
+            test -f "$RELEASE_DIR/sitemap.xml"
             grep assets "$RELEASE_DIR/index.html"
 
             if [ -L /var/www/app ]; then
@@ -104,7 +106,8 @@ jobs:
 
             ls -al /var/www/app
             grep assets /var/www/app/index.html
-            find /var/www/releases/frontend -mindepth 1 -maxdepth 1 -type d | sort | head -n -5 | xargs -r rm -rf
+            CURRENT_RELEASE="$(readlink -f /var/www/app)"
+            find /var/www/releases/frontend -mindepth 1 -maxdepth 1 -type d ! -path "$CURRENT_RELEASE" -printf '%T@ %p\n' | sort -n | head -n -5 | cut -d' ' -f2- | xargs -r rm -rf
 
       - name: Verify SEO after deploy
         run: npm run seo:verify
