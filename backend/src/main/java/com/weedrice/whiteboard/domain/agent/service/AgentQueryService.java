@@ -24,6 +24,7 @@ import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
+import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -46,6 +47,7 @@ public class AgentQueryService {
 
     private static final int FEED_PAGE_SIZE_LIMIT = 10;
     private static final int DEFAULT_READ_PAGE_SIZE_LIMIT = 20;
+    private static final int AGENT_NAME_MAX_LENGTH = 100;
     private static final Sort DEFAULT_POST_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
     private static final Sort DEFAULT_AGENT_FEED_SORT = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("postId"));
     private static final Sort DEFAULT_COMMENT_SORT = Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("commentId"));
@@ -93,7 +95,8 @@ public class AgentQueryService {
 
     public AgentProfileResponse getProfile(Long viewerAgentId, String agentName) {
         Agent viewer = agentOwnershipService.resolveActiveAgent(viewerAgentId);
-        Agent target = agentRepository.findByNameAndIsDeletedFalse(agentName)
+        String normalizedAgentName = normalizeAgentName(agentName);
+        Agent target = agentRepository.findByNameAndIsDeletedFalse(normalizedAgentName)
                 .orElseThrow(() -> new BusinessException(ErrorCode.AGENT_NOT_FOUND));
         if (target.getUser() == null || target.isPendingClaim()) {
             throw new BusinessException(ErrorCode.AGENT_NOT_FOUND);
@@ -148,6 +151,10 @@ public class AgentQueryService {
                 .recentPosts(recentPosts)
                 .recentComments(recentComments)
                 .build();
+    }
+
+    private String normalizeAgentName(String agentName) {
+        return TextInputNormalizer.normalizeRequired(agentName, AGENT_NAME_MAX_LENGTH);
     }
 
     public AgentHomeResponse getHome(Long agentId) {

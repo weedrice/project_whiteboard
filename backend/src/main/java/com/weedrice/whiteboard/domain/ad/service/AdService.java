@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.ad.repository.AdRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.ClientMetadataNormalizer;
+import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -17,12 +18,17 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AdService {
+
+    private static final int PLACEMENT_MAX_LENGTH = 100;
+    private static final Set<String> ALLOWED_PLACEMENTS = Set.of("HEADER", "SIDEBAR", "CONTENT");
 
     private final AdRepository adRepository;
     private final AdClickLogRepository adClickLogRepository;
@@ -38,21 +44,22 @@ public class AdService {
     }
 
     public Ad getAd(String placement) {
+        String normalizedPlacement = normalizePlacement(placement);
         LocalDateTime now = LocalDateTime.now(clock);
-        long activeAdCount = adRepository.countActiveByPlacement(placement, now);
+        long activeAdCount = adRepository.countActiveByPlacement(normalizedPlacement, now);
         if (activeAdCount == 0) {
             return null;
         }
-        Ad ad = findRandomActiveAd(placement, now, activeAdCount);
+        Ad ad = findRandomActiveAd(normalizedPlacement, now, activeAdCount);
         if (ad != null) {
             return ad;
         }
 
-        long refreshedActiveAdCount = adRepository.countActiveByPlacement(placement, now);
+        long refreshedActiveAdCount = adRepository.countActiveByPlacement(normalizedPlacement, now);
         if (refreshedActiveAdCount == 0) {
             return null;
         }
-        return findRandomActiveAd(placement, now, refreshedActiveAdCount);
+        return findRandomActiveAd(normalizedPlacement, now, refreshedActiveAdCount);
     }
 
     public String getActiveAdTargetUrl(Long adId) {
@@ -68,6 +75,15 @@ public class AdService {
                 .stream()
                 .findFirst()
                 .orElse(null);
+    }
+
+    private String normalizePlacement(String placement) {
+        String normalizedPlacement = TextInputNormalizer.normalizeRequired(placement, PLACEMENT_MAX_LENGTH)
+                .toUpperCase(Locale.ROOT);
+        if (!ALLOWED_PLACEMENTS.contains(normalizedPlacement)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return normalizedPlacement;
     }
 
     @Transactional

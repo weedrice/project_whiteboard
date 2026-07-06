@@ -383,6 +383,33 @@ class AgentServiceTest {
     }
 
     @Test
+    void getProfile_trimsAgentNameBeforeRepositoryLookup() {
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(agentRepository.findByNameAndIsDeletedFalse("agent")).thenReturn(Optional.of(agent));
+        when(postRepository.findPublicProfilePostsByAgentId(eq(7L), any()))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 5), 0));
+        when(commentRepository.findPublicProfileCommentsByAgentId(eq(7L), any()))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 5), 0));
+        when(postRepository.findPrimaryBoardsByAgentPosts(eq(7L), any())).thenReturn(List.of());
+
+        var response = agentQueryService.getProfile(7L, " agent ");
+
+        assertThat(response.getAgent().getName()).isEqualTo("agent");
+        verify(agentRepository).findByNameAndIsDeletedFalse("agent");
+    }
+
+    @Test
+    void getProfile_rejectsTooLongAgentNameBeforeTargetLookup() {
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+
+        assertThatThrownBy(() -> agentQueryService.getProfile(7L, "a".repeat(101)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(agentRepository, never()).findByNameAndIsDeletedFalse(anyString());
+    }
+
+    @Test
     void getFeed_excludesReadableOnlyBoardWhenBoardListUsesWritablePolicy() {
         Board readableOnlyBoard = readableOnlyAgentEnabledBoard(30L);
 

@@ -73,6 +73,42 @@ class AdServiceTest {
 
     @Test
     @DisplayName("오픈엔드 광고도 활성 광고 조회에 포함한다")
+    void getAd_normalizesPlacementBeforeRepositorySearch() {
+        String placement = "HEADER";
+        Ad ad = buildActiveAd(placement, FIXED_NOW.plusDays(1));
+        when(adRepository.countActiveByPlacement(placement, FIXED_NOW)).thenReturn(1L);
+        when(adRepository.findActiveByPlacement(eq(placement), eq(FIXED_NOW), any(Pageable.class)))
+                .thenReturn(List.of(ad));
+
+        Ad result = adService.getAd(" header ");
+
+        assertThat(result).isSameAs(ad);
+        verify(adRepository).countActiveByPlacement(placement, FIXED_NOW);
+        verify(adRepository).findActiveByPlacement(eq(placement), eq(FIXED_NOW), any(Pageable.class));
+    }
+
+    @Test
+    void getAd_rejectsUnsupportedPlacementBeforeRepositorySearch() {
+        assertThatThrownBy(() -> adService.getAd("FOOTER"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(adRepository, never()).countActiveByPlacement(any(), any());
+        verify(adRepository, never()).findActiveByPlacement(any(), any(), any());
+    }
+
+    @Test
+    void getAd_rejectsTooLongPlacementBeforeRepositorySearch() {
+        assertThatThrownBy(() -> adService.getAd("a".repeat(101)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(adRepository, never()).countActiveByPlacement(any(), any());
+        verify(adRepository, never()).findActiveByPlacement(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("?ㅽ뵂?붾뱶 愿묎퀬???쒖꽦 愿묎퀬 議고쉶???ы븿?쒕떎")
     void getAd_includesOpenEndedAd() {
         String placement = "HEADER";
         Ad ad = buildActiveAd(placement, null);

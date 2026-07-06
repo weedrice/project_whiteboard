@@ -3,16 +3,18 @@ package com.weedrice.whiteboard.domain.auth.service;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.weedrice.whiteboard.domain.auth.dto.OAuthSignupTicketResponse;
+import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
 import java.time.Duration;
 import java.util.UUID;
 
 @Service
 public class OAuthSignupTicketService {
+
+    private static final int TICKET_LENGTH = 36;
 
     private final Cache<String, OAuthSignupTicket> tickets = Caffeine.newBuilder()
             .expireAfterWrite(Duration.ofMinutes(10))
@@ -41,14 +43,22 @@ public class OAuthSignupTicketService {
     }
 
     private OAuthSignupTicket get(String ticket) {
-        if (!StringUtils.hasText(ticket)) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
-        OAuthSignupTicket payload = tickets.getIfPresent(ticket);
+        String normalizedTicket = normalizeTicket(ticket);
+        OAuthSignupTicket payload = tickets.getIfPresent(normalizedTicket);
         if (payload == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         return payload;
+    }
+
+    private String normalizeTicket(String ticket) {
+        String normalizedTicket = TextInputNormalizer.normalizeRequired(ticket, TICKET_LENGTH);
+        try {
+            UUID.fromString(normalizedTicket);
+        } catch (IllegalArgumentException ex) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return normalizedTicket;
     }
 
     public record OAuthSignupTicket(String email, String name, String provider, String providerId) {
