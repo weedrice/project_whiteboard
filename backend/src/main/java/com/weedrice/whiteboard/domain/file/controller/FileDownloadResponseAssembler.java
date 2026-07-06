@@ -5,6 +5,7 @@ import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.InvalidMediaTypeException;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
@@ -19,25 +20,34 @@ final class FileDownloadResponseAssembler {
     }
 
     static ResponseEntity<Resource> toResponse(FileDownloadResponse download) {
-        String contentTypeValue = download.mimeType();
-        if (contentTypeValue == null) {
-            contentTypeValue = DEFAULT_CONTENT_TYPE;
-        }
+        MediaType contentType = resolveContentType(download.mimeType());
 
-        ContentDisposition contentDisposition = ContentDisposition.builder(resolveDisposition(contentTypeValue))
+        ContentDisposition contentDisposition = ContentDisposition.builder(resolveDisposition(contentType))
                 .filename(sanitizeFileName(download.originalName()), StandardCharsets.UTF_8)
                 .build();
 
         return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(contentTypeValue))
+                .contentType(contentType)
                 .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
                 .header("X-Content-Type-Options", "nosniff")
                 .body(new InputStreamResource(download.inputStream()));
     }
 
-    private static String resolveDisposition(String contentType) {
-        if (contentType.startsWith("image/")
-                && !SVG_CONTENT_TYPE.equalsIgnoreCase(contentType)) {
+    private static MediaType resolveContentType(String contentType) {
+        if (contentType == null || contentType.isBlank()) {
+            return MediaType.parseMediaType(DEFAULT_CONTENT_TYPE);
+        }
+
+        try {
+            return MediaType.parseMediaType(contentType);
+        } catch (InvalidMediaTypeException ex) {
+            return MediaType.parseMediaType(DEFAULT_CONTENT_TYPE);
+        }
+    }
+
+    private static String resolveDisposition(MediaType contentType) {
+        if ("image".equalsIgnoreCase(contentType.getType())
+                && !SVG_CONTENT_TYPE.equalsIgnoreCase(contentType.toString())) {
             return "inline";
         }
         return "attachment";

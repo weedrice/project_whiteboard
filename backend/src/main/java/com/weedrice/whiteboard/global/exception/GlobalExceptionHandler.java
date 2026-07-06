@@ -158,9 +158,6 @@ public class GlobalExceptionHandler {
 
         log.warn("[{}] Validation exception: {} - {}", request.getRequestURI(), summaryMessage, errors);
 
-        saveErrorLog(ErrorCode.VALIDATION_ERROR.getCode(), "MethodArgumentNotValidException",
-                HttpStatus.BAD_REQUEST.value(), summaryMessage, request, null);
-
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(ErrorCode.VALIDATION_ERROR.getCode(), summaryMessage, errors));
@@ -248,9 +245,6 @@ public class GlobalExceptionHandler {
     private ResponseEntity<ApiResponse<Void>> validationErrorResponse(String errorType, HttpServletRequest request) {
         String message = messageSource.getMessage("error.common.validationFailedSummary", null,
                 LocaleContextHolder.getLocale());
-
-        saveErrorLog(ErrorCode.VALIDATION_ERROR.getCode(), errorType,
-                HttpStatus.BAD_REQUEST.value(), message, request, null);
 
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)

@@ -24,6 +24,14 @@ class FileDownloadResponseAssemblerTest {
     }
 
     @Test
+    void toResponse_fallsBackToOctetStreamForInvalidMimeType() {
+        ResponseEntity<Resource> response = FileDownloadResponseAssembler.toResponse(download("document", "bad mime"));
+
+        assertThat(response.getHeaders().getContentType().toString()).isEqualTo("application/octet-stream");
+        assertThat(response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION)).contains("attachment");
+    }
+
+    @Test
     @DisplayName("이미지 파일은 SVG가 아니면 inline으로 응답한다")
     void toResponse_servesImageInline() {
         ResponseEntity<Resource> response = FileDownloadResponseAssembler.toResponse(download("image.png", "image/png"));

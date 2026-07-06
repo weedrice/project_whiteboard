@@ -319,6 +319,8 @@ class GlobalExceptionHandlerTest {
         Map<String, List<String>> details = (Map<String, List<String>>) response.getBody().getError().getDetails();
         assertThat(details.keySet()).containsExactly("title", "content");
         assertThat(details.get("title")).containsExactly("must not be null", "size must be valid");
+        verify(errorLogService, never()).saveErrorLog(anyString(), anyString(), anyInt(), anyString(),
+                anyString(), anyString(), any(), anyString(), anyString(), any());
     }
 
     @Test
@@ -336,6 +338,8 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().isSuccess()).isFalse();
         assertThat(response.getBody().getError().getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR.getCode());
         assertThat(response.getBody().getError().getMessage()).isEqualTo("Validation failed.");
+        verify(errorLogService, never()).saveErrorLog(anyString(), anyString(), anyInt(), anyString(),
+                anyString(), anyString(), any(), anyString(), anyString(), any());
     }
 
     @Test
@@ -353,6 +357,8 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().isSuccess()).isFalse();
         assertThat(response.getBody().getError().getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR.getCode());
+        verify(errorLogService, never()).saveErrorLog(anyString(), anyString(), anyInt(), anyString(),
+                anyString(), anyString(), any(), anyString(), anyString(), any());
     }
 
     @Test
@@ -371,17 +377,8 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().isSuccess()).isFalse();
         assertThat(response.getBody().getError().getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR.getCode());
         assertThat(response.getBody().getError().getMessage()).isEqualTo("Validation failed.");
-        verify(errorLogService).saveErrorLog(
-                eq(ErrorCode.VALIDATION_ERROR.getCode()),
-                eq("MissingServletRequestParameterException"),
-                eq(HttpStatus.BAD_REQUEST.value()),
-                eq("Validation failed."),
-                anyString(),
-                anyString(),
-                isNull(),
-                anyString(),
-                isNull(),
-                isNull());
+        verify(errorLogService, never()).saveErrorLog(anyString(), anyString(), anyInt(), anyString(),
+                anyString(), anyString(), any(), anyString(), anyString(), any());
     }
 
     @Test
@@ -398,17 +395,8 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().isSuccess()).isFalse();
         assertThat(response.getBody().getError().getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR.getCode());
         assertThat(response.getBody().getError().getMessage()).isEqualTo("Validation failed.");
-        verify(errorLogService).saveErrorLog(
-                eq(ErrorCode.VALIDATION_ERROR.getCode()),
-                eq("ConstraintViolationException"),
-                eq(HttpStatus.BAD_REQUEST.value()),
-                eq("Validation failed."),
-                anyString(),
-                anyString(),
-                isNull(),
-                anyString(),
-                isNull(),
-                isNull());
+        verify(errorLogService, never()).saveErrorLog(anyString(), anyString(), anyInt(), anyString(),
+                anyString(), anyString(), any(), anyString(), anyString(), any());
     }
 
     @Test
