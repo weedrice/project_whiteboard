@@ -38,6 +38,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.IntStream;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -371,6 +372,47 @@ class BoardControllerTest {
                         .with(user(customUserDetails))
                         .with(csrf()))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateSubscriptionOrder_rejectsInvalidBoardUrlPattern() throws Exception {
+        mockMvc.perform(put("/api/v1/boards/subscriptions/order")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"boardUrls\":[\"Free Board\"]}")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest());
+
+        verify(boardService, never()).updateSubscriptionOrder(any(), any());
+    }
+
+    @Test
+    void updateSubscriptionOrder_rejectsTooLongBoardUrl() throws Exception {
+        mockMvc.perform(put("/api/v1/boards/subscriptions/order")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"boardUrls\":[\"" + "a".repeat(101) + "\"]}")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest());
+
+        verify(boardService, never()).updateSubscriptionOrder(any(), any());
+    }
+
+    @Test
+    void updateSubscriptionOrder_rejectsTooManyBoardUrls() throws Exception {
+        String boardUrls = IntStream.range(0, 501)
+                .mapToObj(index -> "\"board_" + index + "\"")
+                .reduce((left, right) -> left + "," + right)
+                .orElseThrow();
+
+        mockMvc.perform(put("/api/v1/boards/subscriptions/order")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"boardUrls\":[" + boardUrls + "]}")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest());
+
+        verify(boardService, never()).updateSubscriptionOrder(any(), any());
     }
 
     @Test

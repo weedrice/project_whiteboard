@@ -129,6 +129,29 @@ class UserAdminQueryServiceTest {
     }
 
     @Test
+    void searchUsersForAdmin_trimsKeywordBeforeRepositorySearch() {
+        when(userRepository.searchUsersForAdmin(eq("query"), any(), any()))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+        userAdminQueryService.searchUsersForAdmin(
+                " query ", null, null, null, null, null,
+                null, null, null, null, null, PageRequest.of(0, 20));
+
+        verify(userRepository).searchUsersForAdmin(eq("query"), any(), any());
+    }
+
+    @Test
+    void searchUsersForAdmin_rejectsTooLongKeyword() {
+        assertThatThrownBy(() -> userAdminQueryService.searchUsersForAdmin(
+                "a".repeat(101), null, null, null, null, null,
+                null, null, null, null, null, PageRequest.of(0, 20)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(userRepository, never()).searchUsersForAdmin(any(), any(), any());
+    }
+
+    @Test
     @DisplayName("searchUsersForAdmin caps page size and drops unsupported sort")
     void searchUsersForAdmin_normalizesPageSizeAndSort() {
         when(userRepository.searchUsersForAdmin(isNull(), any(), any()))

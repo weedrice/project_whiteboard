@@ -19,6 +19,7 @@ import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
+import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -57,6 +58,7 @@ public class UserAdminQueryService {
             User.STATUS_DELETED);
     private static final int DEFAULT_ADMIN_USER_PAGE_SIZE = 20;
     private static final int DEFAULT_ADMIN_USER_DETAIL_PAGE_SIZE = 20;
+    private static final int ADMIN_USER_SEARCH_KEYWORD_MAX_LENGTH = 100;
     private static final Sort DEFAULT_ADMIN_USER_SORT = Sort.by(Sort.Order.desc("userId"));
     private static final Set<String> ALLOWED_ADMIN_USER_SORTS = Set.of(
             "userId",
@@ -94,6 +96,7 @@ public class UserAdminQueryService {
             LocalDate lastLoginToDate,
             Long minActivityCount,
             Pageable pageable) {
+        String normalizedKeyword = normalizeKeyword(keyword);
         UserAdminSearchCondition condition = UserAdminSearchCondition.builder()
                 .status(normalizeStatus(status))
                 .role(normalizeRole(roleFilter))
@@ -112,7 +115,7 @@ public class UserAdminQueryService {
                 DEFAULT_ADMIN_USER_PAGE_SIZE,
                 DEFAULT_ADMIN_USER_SORT,
                 ALLOWED_ADMIN_USER_SORTS);
-        Page<User> users = userRepository.searchUsersForAdmin(keyword, condition, safePageable);
+        Page<User> users = userRepository.searchUsersForAdmin(normalizedKeyword, condition, safePageable);
         Map<Long, String> rolesByUserId = resolveRolesForAdmin(users.getContent());
         List<UserAdminResponse> list = users.getContent().stream()
                 .map(user -> UserAdminResponse.from(
@@ -130,6 +133,17 @@ public class UserAdminQueryService {
 
     private String normalizeRole(String role) {
         return normalizeAllowedFilter(role, ALLOWED_ROLES);
+    }
+
+    private String normalizeKeyword(String keyword) {
+        String normalizedKeyword = TextInputNormalizer.normalizeNullable(keyword);
+        if (normalizedKeyword == null || normalizedKeyword.isBlank()) {
+            return null;
+        }
+        if (normalizedKeyword.length() > ADMIN_USER_SEARCH_KEYWORD_MAX_LENGTH) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return normalizedKeyword;
     }
 
     private String normalizeAllowedFilter(String value, Set<String> allowedValues) {
