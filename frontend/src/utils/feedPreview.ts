@@ -2,6 +2,9 @@ import type { FeedPost } from '@/types'
 import { asSanitizedHtml, sanitizeQuillHtml, type SanitizedHtml } from '@/utils/sanitize'
 
 const HTML_TAG_PATTERN = /<[a-z][\s\S]*>/i
+const YOUTUBE_HOSTS = new Set(['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtube-nocookie.com', 'www.youtube-nocookie.com'])
+const VIMEO_HOSTS = new Set(['vimeo.com', 'www.vimeo.com', 'player.vimeo.com'])
+const VIMEO_VIDEO_ID_PATTERN = /^\d+$/
 
 const escapeHtml = (value: string) =>
   value
@@ -41,35 +44,40 @@ export const getFeedBodyHtml = (post: Pick<FeedPost, 'contentsExcerpt' | 'summar
 
 const getYouTubeVideoId = (url: URL): string | null => {
   if (url.hostname === 'youtu.be') {
-    return url.pathname.split('/').filter(Boolean)[0] ?? null
+    return normalizeVideoId(url.pathname.split('/').filter(Boolean)[0])
   }
 
-  if (!url.hostname.endsWith('youtube.com') && !url.hostname.endsWith('youtube-nocookie.com')) {
+  if (!YOUTUBE_HOSTS.has(url.hostname)) {
     return null
   }
 
   if (url.pathname.startsWith('/embed/')) {
-    return url.pathname.split('/').filter(Boolean)[1] ?? null
+    return normalizeVideoId(url.pathname.split('/').filter(Boolean)[1])
   }
 
   if (url.pathname.startsWith('/shorts/')) {
-    return url.pathname.split('/').filter(Boolean)[1] ?? null
+    return normalizeVideoId(url.pathname.split('/').filter(Boolean)[1])
   }
 
-  return url.searchParams.get('v')
+  return normalizeVideoId(url.searchParams.get('v'))
 }
 
 const getVimeoVideoId = (url: URL): string | null => {
-  if (!url.hostname.endsWith('vimeo.com')) {
+  if (!VIMEO_HOSTS.has(url.hostname)) {
     return null
   }
 
   const parts = url.pathname.split('/').filter(Boolean)
-  if (parts[0] === 'video' && parts[1]) {
+  if (parts[0] === 'video' && VIMEO_VIDEO_ID_PATTERN.test(parts[1] ?? '')) {
     return parts[1]
   }
 
-  return parts.find((part) => /^\d+$/.test(part)) ?? null
+  return parts.find((part) => VIMEO_VIDEO_ID_PATTERN.test(part)) ?? null
+}
+
+const normalizeVideoId = (value: string | null | undefined): string | null => {
+  const trimmed = value?.trim()
+  return trimmed ? trimmed : null
 }
 
 export const toEmbeddableVideoUrl = (source?: string | null): string | null => {
@@ -91,9 +99,6 @@ export const toEmbeddableVideoUrl = (source?: string | null): string | null => {
       return `https://player.vimeo.com/video/${encodeURIComponent(vimeoId)}`
     }
 
-    if (url.pathname.includes('/embed/')) {
-      return url.toString()
-    }
   } catch {
     return null
   }

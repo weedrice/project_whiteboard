@@ -42,7 +42,8 @@ public class InputSanitizer {
             .addAttributes("a", "href", "target", "rel")
             .addAttributes("img", "src", "alt", "loading", "width", "height")
             .addAttributes("video", "src", "controls", "width", "height")
-            .addAttributes("iframe", "src", "width", "height", "frameborder", "allowfullscreen", "allow")
+            .addAttributes("iframe", "src", "width", "height", "frameborder", "allowfullscreen", "allow",
+                    "loading", "referrerpolicy", "sandbox")
             .addAttributes("table", "width")
             .addAttributes("th", "colspan", "rowspan")
             .addAttributes("td", "colspan", "rowspan")
@@ -50,7 +51,7 @@ public class InputSanitizer {
             .addProtocols("a", "href", "http", "https", "mailto")
             .addProtocols("img", "src", "http", "https")
             .addProtocols("video", "src", "http", "https")
-            .addProtocols("iframe", "src", "http", "https")
+            .addProtocols("iframe", "src", "https")
             .addEnforcedAttribute("a", "rel", "nofollow noopener noreferrer")
             .preserveRelativeLinks(true);
 
@@ -171,7 +172,14 @@ public class InputSanitizer {
         for (Element iframe : document.select("iframe")) {
             if (!isAllowedVideoEmbedUrl(iframe.attr("src"))) {
                 iframe.remove();
+                continue;
             }
+            iframe.attr("frameborder", "0");
+            iframe.attr("allowfullscreen", "true");
+            iframe.attr("loading", "lazy");
+            iframe.attr("referrerpolicy", "strict-origin-when-cross-origin");
+            iframe.attr("sandbox", "allow-scripts allow-same-origin allow-presentation");
+            iframe.attr("allow", "encrypted-media; picture-in-picture");
         }
     }
 
@@ -183,7 +191,7 @@ public class InputSanitizer {
             URI uri = URI.create(src);
             String host = uri.getHost();
             String path = uri.getPath();
-            if (host == null || path == null) {
+            if (!"https".equalsIgnoreCase(uri.getScheme()) || host == null || path == null) {
                 return false;
             }
             String normalizedHost = host.toLowerCase(Locale.ROOT);

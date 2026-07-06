@@ -1,17 +1,6 @@
 const SANDBOX_TRIGGER_PATTERN = /<(?:!doctype|html|head|body|style|script)\b|<\w+[^>]*\son[a-z]+\s*=/i
 const SANDBOX_MARKER_CLASS = 'noviis-sandboxed-post-html'
 const SANDBOX_MARKER_SELECTOR = `.${SANDBOX_MARKER_CLASS}[data-value]`
-const SANDBOX_CSP = [
-    "default-src 'none'",
-    "style-src 'unsafe-inline'",
-    "script-src 'nonce-noviis-height-bridge'",
-    'img-src data: blob: https: http:',
-    'font-src data: https:',
-    'media-src data: blob: https: http:',
-    "connect-src 'none'",
-    "form-action 'none'",
-    "base-uri 'none'",
-].join('; ')
 
 export function requiresSandboxedPostHtml(content: string | null | undefined): boolean {
     return SANDBOX_TRIGGER_PATTERN.test(content ?? '')
@@ -40,14 +29,14 @@ export function decodeSandboxedPostHtml(content: string | null | undefined): str
     return decodeUtf8Base64(marker?.getAttribute('data-value') ?? '')
 }
 
-export function buildSandboxedPostHtmlSource(content: string, frameId: string): string {
+export function buildSandboxedPostHtmlSource(content: string, frameId: string, nonce = createSandboxNonce()): string {
     return [
         '<!doctype html>',
         '<html>',
         '<head>',
         '<meta charset="utf-8">',
         '<meta name="viewport" content="width=device-width, initial-scale=1">',
-        `<meta http-equiv="Content-Security-Policy" content="${SANDBOX_CSP}">`,
+        `<meta http-equiv="Content-Security-Policy" content="${buildSandboxCsp(nonce)}">`,
         '<base target="_blank">',
         '<style>',
         getSandboxBaseCss(),
@@ -55,10 +44,39 @@ export function buildSandboxedPostHtmlSource(content: string, frameId: string): 
         '</head>',
         '<body>',
         content,
-        getHeightBridgeScript(frameId),
+        getHeightBridgeScript(frameId, nonce),
         '</body>',
         '</html>',
     ].join('')
+}
+
+function createSandboxNonce(): string {
+    const bytes = new Uint8Array(16)
+    if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+        crypto.getRandomValues(bytes)
+    } else {
+        for (let i = 0; i < bytes.length; i += 1) {
+            bytes[i] = Math.floor(Math.random() * 256)
+        }
+    }
+    return btoa(String.fromCharCode(...bytes))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/g, '')
+}
+
+function buildSandboxCsp(nonce: string): string {
+    return [
+        "default-src 'none'",
+        "style-src 'unsafe-inline'",
+        `script-src 'nonce-${nonce}'`,
+        'img-src data: blob: https: http:',
+        'font-src data: https:',
+        'media-src data: blob: https: http:',
+        "connect-src 'none'",
+        "form-action 'none'",
+        "base-uri 'none'",
+    ].join('; ')
 }
 
 function decodeSandboxedPostHtmlWithPattern(content: string): string | null {
@@ -139,8 +157,8 @@ button, input, textarea, select { font: inherit; }
 `
 }
 
-function getHeightBridgeScript(frameId: string): string {
-    return `<script nonce="noviis-height-bridge">
+function getHeightBridgeScript(frameId: string, nonce: string): string {
+    return `<script nonce="${nonce}">
 (function () {
   var frameId = ${JSON.stringify(frameId)};
   var lastHeight = 0;

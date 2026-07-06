@@ -59,6 +59,11 @@ describe('feedPreview', () => {
         expect(toEmbeddableVideoUrl('https://vimeo.com/123456')).toBe('https://player.vimeo.com/video/123456')
         expect(toEmbeddableVideoUrl('javascript:alert(1)')).toBeNull()
         expect(toEmbeddableVideoUrl('https://example.com/video')).toBeNull()
+        expect(toEmbeddableVideoUrl('https://attacker.example/embed/abc123')).toBeNull()
+        expect(toEmbeddableVideoUrl('https://evil-youtube.com/watch?v=abc123')).toBeNull()
+        expect(toEmbeddableVideoUrl('https://youtube.com.evil.example/watch?v=abc123')).toBeNull()
+        expect(toEmbeddableVideoUrl('https://www.youtube.com/watch?v=')).toBeNull()
+        expect(toEmbeddableVideoUrl('https://player.vimeo.com/video/not-a-number')).toBeNull()
     })
 
     it('derives spoiler state and post detail path', () => {

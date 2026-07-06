@@ -93,13 +93,25 @@ class InputSanitizerTest {
     @DisplayName("게시글 본문 sanitizer는 허용된 영상 iframe만 유지한다")
     void sanitizePostHtml_keepsOnlyAllowedVideoIframes() {
         String input = """
-                <iframe src="https://www.youtube.com/embed/abc123"></iframe>
+                <iframe src="https://www.youtube.com/embed/abc123" allow="autoplay; clipboard-write" sandbox="allow-scripts allow-popups" referrerpolicy="unsafe-url"></iframe>
                 <iframe src="https://evil.example/embed/abc123"></iframe>
+                <iframe src="http://www.youtube.com/embed/insecure"></iframe>
+                <iframe src="https://youtube.com.evil.example/embed/abc123"></iframe>
                 """;
 
         String sanitized = InputSanitizer.sanitizePostHtml(input);
 
         assertThat(sanitized).contains("https://www.youtube.com/embed/abc123");
+        assertThat(sanitized).contains("frameborder=\"0\"");
+        assertThat(sanitized).contains("allowfullscreen=\"true\"");
+        assertThat(sanitized).contains("loading=\"lazy\"");
+        assertThat(sanitized).contains("referrerpolicy=\"strict-origin-when-cross-origin\"");
+        assertThat(sanitized).contains("sandbox=\"allow-scripts allow-same-origin allow-presentation\"");
+        assertThat(sanitized).contains("allow=\"encrypted-media; picture-in-picture\"");
+        assertThat(sanitized).doesNotContain("clipboard-write");
+        assertThat(sanitized).doesNotContain("allow-popups");
+        assertThat(sanitized).doesNotContain("unsafe-url");
         assertThat(sanitized).doesNotContain("evil.example");
+        assertThat(sanitized).doesNotContain("insecure");
     }
 }

@@ -133,7 +133,7 @@ watch(() => props.post.postId, () => {
           loading="lazy"
           sandbox="allow-scripts allow-same-origin allow-presentation"
           referrerpolicy="strict-origin-when-cross-origin"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allow="encrypted-media; picture-in-picture"
           class="aspect-video rounded-[inherit]"
           :class="isFeatured ? 'max-w-[38rem] w-full' : 'w-full'"
           @click.stop

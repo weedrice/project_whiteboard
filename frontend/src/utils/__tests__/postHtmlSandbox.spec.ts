@@ -30,24 +30,52 @@ describe('postHtmlSandbox', () => {
     })
 
     it('adds a restrictive CSP to sandboxed documents', () => {
-        const source = buildSandboxedPostHtmlSource('<button onclick="run()">Run</button>', 'frame-1')
+        const source = buildSandboxedPostHtmlSource('<button onclick="run()">Run</button>', 'frame-1', 'test-nonce')
 
         expect(source).toContain('Content-Security-Policy')
         expect(source).toContain("default-src 'none'")
-        expect(source).toContain("script-src 'nonce-noviis-height-bridge'")
+        expect(source).toContain("script-src 'nonce-test-nonce'")
         expect(source).not.toContain("script-src 'unsafe-inline'")
         expect(source).toContain("connect-src 'none'")
         expect(source).toContain("form-action 'none'")
     })
 
     it('cleans up sandbox height polling when the frame unloads', () => {
-        const source = buildSandboxedPostHtmlSource('<div>height</div>', 'frame-1')
+        const source = buildSandboxedPostHtmlSource('<div>height</div>', 'frame-1', 'height-nonce')
 
         expect(source).toContain('window.setInterval(postHeight, 500)')
-        expect(source).toContain('<script nonce="noviis-height-bridge">')
+        expect(source).toContain('<script nonce="height-nonce">')
         expect(source).toContain("channel: 'noviis-post-html-sandbox'")
         expect(source).toContain('window.clearInterval(intervalId)')
         expect(source).toContain("window.addEventListener('pagehide', cleanup, { once: true })")
         expect(source).toContain('resizeObserver.disconnect()')
+    })
+
+    it('does not authorize user html that guesses the old static nonce', () => {
+        const source = buildSandboxedPostHtmlSource(
+            '<script nonce="noviis-height-bridge">window.evil = true</script>',
+            'frame-1',
+            'fresh-nonce',
+        )
+
+        expect(source).toContain('<script nonce="noviis-height-bridge">window.evil = true</script>')
+        expect(source).toContain("script-src 'nonce-fresh-nonce'")
+        expect(source).toContain('<script nonce="fresh-nonce">')
+        expect(source).not.toContain("script-src 'nonce-noviis-height-bridge'")
+    })
+
+    it('generates a fresh nonce for each sandbox document by default', () => {
+        const first = buildSandboxedPostHtmlSource('<div>first</div>', 'frame-1')
+        const second = buildSandboxedPostHtmlSource('<div>second</div>', 'frame-2')
+        const noncePattern = /script-src 'nonce-([^']+)'/
+
+        const firstNonce = first.match(noncePattern)?.[1]
+        const secondNonce = second.match(noncePattern)?.[1]
+
+        expect(firstNonce).toBeTruthy()
+        expect(secondNonce).toBeTruthy()
+        expect(firstNonce).not.toBe(secondNonce)
+        expect(first).toContain(`<script nonce="${firstNonce}">`)
+        expect(second).toContain(`<script nonce="${secondNonce}">`)
     })
 })

@@ -156,8 +156,12 @@ describe('HomePostCard', () => {
 
     const iframe = wrapper.get('iframe')
     expect(iframe.attributes('src')).toBe('https://www.youtube-nocookie.com/embed/video-id')
-    expect(iframe.attributes('sandbox')).toContain('allow-scripts')
+    expect(iframe.attributes('sandbox')).toBe('allow-scripts allow-same-origin allow-presentation')
+    expect(iframe.attributes('allow')).toBe('encrypted-media; picture-in-picture')
+    expect(iframe.attributes('loading')).toBe('lazy')
     expect(iframe.attributes('referrerpolicy')).toBe('strict-origin-when-cross-origin')
+    expect(iframe.attributes('allow')).not.toContain('clipboard-write')
+    expect(iframe.attributes('allow')).not.toContain('autoplay')
     expect(push).not.toHaveBeenCalled()
   })
 
