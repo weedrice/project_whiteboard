@@ -444,4 +444,25 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().isSuccess()).isFalse();
         assertThat(response.getBody().getError().getCode()).isEqualTo(ErrorCode.INTERNAL_SERVER_ERROR.getCode());
     }
+
+    @Test
+    void handleAllUncaughtException_usesFallbackMessageWhenExceptionMessageIsNull() {
+        Exception ex = new NullPointerException();
+        when(messageSource.getMessage(eq(ErrorCode.INTERNAL_SERVER_ERROR.getMessage()), isNull(), any(Locale.class)))
+                .thenReturn(ErrorCode.INTERNAL_SERVER_ERROR.getMessage());
+
+        globalExceptionHandler.handleAllUncaughtException(ex, request);
+
+        verify(errorLogService).saveErrorLog(
+                eq(ErrorCode.INTERNAL_SERVER_ERROR.getCode()),
+                eq("NullPointerException"),
+                eq(HttpStatus.INTERNAL_SERVER_ERROR.value()),
+                eq(NullPointerException.class.getName()),
+                anyString(),
+                anyString(),
+                isNull(),
+                anyString(),
+                isNull(),
+                contains("NullPointerException"));
+    }
 }

@@ -122,6 +122,8 @@ public class SecurityConfig {
                                                                 "/api/v1/posts/*/view" // 게시글 조회수 증가 허용
                                                 )
                                                 .permitAll()
+                                                .requestMatchers(HttpMethod.POST, "/api/v1/security/csp-report")
+                                                .permitAll()
                                                 .anyRequest().authenticated())
                                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

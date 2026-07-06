@@ -302,23 +302,31 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleAllUncaughtException(Exception e, HttpServletRequest request) {
+        String exceptionMessage = resolveExceptionMessage(e);
         MDC.put("errorType", e.getClass().getSimpleName());
-        MDC.put("errorMessage", e.getMessage());
+        MDC.put("errorMessage", exceptionMessage);
         log.error("[{}] Unexpected exception occurred: {} - {}",
-                request.getRequestURI(), e.getClass().getSimpleName(), e.getMessage(), e);
+                request.getRequestURI(), e.getClass().getSimpleName(), exceptionMessage, e);
         MDC.remove("errorType");
         MDC.remove("errorMessage");
 
         // 5xx 에러는 스택 트레이스도 저장
         String stackTrace = getStackTrace(e);
         saveErrorLog(ErrorCode.INTERNAL_SERVER_ERROR.getCode(), e.getClass().getSimpleName(),
-                HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage(), request, stackTrace);
+                HttpStatus.INTERNAL_SERVER_ERROR.value(), exceptionMessage, request, stackTrace);
 
         String message = messageSource.getMessage(ErrorCode.INTERNAL_SERVER_ERROR.getMessage(), null,
                 LocaleContextHolder.getLocale());
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error(ErrorCode.INTERNAL_SERVER_ERROR.getCode(), message));
+    }
+
+    private String resolveExceptionMessage(Exception e) {
+        if (e.getMessage() != null && !e.getMessage().isBlank()) {
+            return e.getMessage();
+        }
+        return e.getClass().getName();
     }
 
     /**
