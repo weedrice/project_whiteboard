@@ -153,6 +153,23 @@ class ErrorLogServiceTest {
     }
 
     @Test
+    @DisplayName("error log stackTrace is masked and truncated")
+    void saveErrorLog_truncatesLongStackTraceAfterMasking() {
+        String longStackTrace = "password=secret-token\n" + "a".repeat(5000);
+        when(errorLogRepository.save(any(ErrorLog.class))).thenAnswer(i -> i.getArgument(0));
+
+        errorLogService.saveErrorLog(
+                "ERROR", "Exception", 500,
+                "msg", "/api/test", "GET",
+                null, "127.0.0.1", null, longStackTrace);
+
+        ArgumentCaptor<ErrorLog> captor = ArgumentCaptor.forClass(ErrorLog.class);
+        verify(errorLogRepository).save(captor.capture());
+        assertThat(captor.getValue().getStackTrace()).hasSize(4000);
+        assertThat(captor.getValue().getStackTrace()).doesNotContain("secret-token");
+    }
+
+    @Test
     @DisplayName("에러 로그 저장 - IP 주소 정규화")
     void saveErrorLog_normalizesIpAddress() {
         // given

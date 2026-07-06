@@ -13,6 +13,7 @@ import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.security.CurrentUserId;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -92,7 +93,7 @@ public class AdminUserController {
     @PutMapping("/{userId}/status")
     public ApiResponse<Void> updateUserStatus(
             @PathVariable Long userId,
-            @RequestBody UserStatusUpdateRequest request,
+            @Valid @RequestBody UserStatusUpdateRequest request,
             @CurrentUserId Long adminUserId) {
         userAdminCommandService.updateUserStatus(adminUserId, userId, request.getStatus());
         return ApiResponses.ok();

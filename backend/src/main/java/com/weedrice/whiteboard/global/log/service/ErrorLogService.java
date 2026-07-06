@@ -25,6 +25,7 @@ import static org.springframework.transaction.annotation.Propagation.REQUIRES_NE
 @RequiredArgsConstructor
 public class ErrorLogService {
     private static final int MAX_TEXT_LENGTH = 500;
+    private static final int MAX_STACK_TRACE_LENGTH = 4000;
     private static final int MAX_RESOLVED_MEMO_LENGTH = 500;
 
     private final ErrorLogRepository errorLogRepository;
@@ -75,7 +76,7 @@ public class ErrorLogService {
                 .userId(userId)
                 .ipAddress(ClientMetadataNormalizer.normalizeIpAddress(ipAddress))
                 .userAgent(truncate(mask(userAgent), MAX_TEXT_LENGTH))
-                .stackTrace(mask(stackTrace))
+                .stackTrace(truncate(mask(stackTrace), MAX_STACK_TRACE_LENGTH))
                 .build();
     }
 
