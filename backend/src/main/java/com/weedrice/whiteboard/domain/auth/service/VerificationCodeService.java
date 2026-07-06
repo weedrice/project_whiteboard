@@ -22,7 +22,9 @@ public class VerificationCodeService {
     public void sendVerificationCode(String email, VerificationPurpose purpose, Long currentUserId) {
         String normalizedEmail = AuthEmailNormalizer.normalize(email);
         requirePurpose(purpose);
-        validateEmailForPurpose(normalizedEmail, purpose, currentUserId);
+        if (!canSendVerificationCode(normalizedEmail, purpose, currentUserId)) {
+            return;
+        }
         verificationCodeDeliveryService.sendVerificationCode(normalizedEmail, purpose);
     }
 
@@ -60,12 +62,18 @@ public class VerificationCodeService {
         }
     }
 
-    private void validateEmailForPurpose(String email, VerificationPurpose purpose, Long currentUserId) {
-        switch (purpose) {
-            case SIGNUP -> emailEligibilityService.validateSignupEmail(email);
-            case FIND_ID -> emailEligibilityService.validateFindIdEmail(email);
-            case PASSWORD_RESET -> emailEligibilityService.validatePasswordResetEmail(email);
-            case CHANGE_EMAIL -> emailEligibilityService.validateChangeEmail(email, currentUserId);
-        }
+    private boolean canSendVerificationCode(String email, VerificationPurpose purpose, Long currentUserId) {
+        return switch (purpose) {
+            case SIGNUP -> {
+                emailEligibilityService.validateSignupEmail(email);
+                yield true;
+            }
+            case FIND_ID -> emailEligibilityService.canSendFindIdVerification(email);
+            case PASSWORD_RESET -> emailEligibilityService.canSendPasswordResetVerification(email);
+            case CHANGE_EMAIL -> {
+                emailEligibilityService.validateChangeEmail(email, currentUserId);
+                yield true;
+            }
+        };
     }
 }

@@ -363,110 +363,92 @@ class VerificationCodeServiceTest {
     }
 
     @Test
-    @DisplayName("FIND_ID verification rejects missing email before sending")
-    void sendVerificationCode_rejectsMissingFindIdEmailBeforeSending() {
+    @DisplayName("FIND_ID verification suppresses missing email before sending")
+    void sendVerificationCode_suppressesMissingFindIdEmailBeforeSending() {
         when(userRepository.findByEmail("missing@example.com")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> verificationCodeService.sendVerificationCode(
+        verificationCodeService.sendVerificationCode(
                 "missing@example.com",
                 VerificationPurpose.FIND_ID,
-                null))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+                null);
 
         assertThat(verificationCodes).isEmpty();
         verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
     }
 
     @Test
-    @DisplayName("FIND_ID verification rejects inactive account before sending")
-    void sendVerificationCode_rejectsInactiveFindIdEmailBeforeSending() {
+    @DisplayName("FIND_ID verification suppresses inactive account before sending")
+    void sendVerificationCode_suppressesInactiveFindIdEmailBeforeSending() {
         User user = User.builder().email("suspended@example.com").build();
         ReflectionTestUtils.setField(user, "status", User.STATUS_SUSPENDED);
         when(userRepository.findByEmail("suspended@example.com")).thenReturn(Optional.of(user));
 
-        assertThatThrownBy(() -> verificationCodeService.sendVerificationCode(
+        verificationCodeService.sendVerificationCode(
                 "suspended@example.com",
                 VerificationPurpose.FIND_ID,
-                null))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+                null);
 
         assertThat(verificationCodes).isEmpty();
         verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
     }
 
     @Test
-    @DisplayName("PASSWORD_RESET verification rejects deleted account before sending")
-    void sendVerificationCode_rejectsDeletedPasswordResetEmailBeforeSending() {
+    @DisplayName("PASSWORD_RESET verification suppresses deleted account before sending")
+    void sendVerificationCode_suppressesDeletedPasswordResetEmailBeforeSending() {
         User user = User.builder().email("deleted@example.com").build();
         ReflectionTestUtils.setField(user, "status", User.STATUS_DELETED);
         when(userRepository.findByEmail("deleted@example.com")).thenReturn(Optional.of(user));
 
-        assertThatThrownBy(() -> verificationCodeService.sendVerificationCode(
+        verificationCodeService.sendVerificationCode(
                 "deleted@example.com",
                 VerificationPurpose.PASSWORD_RESET,
-                null))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.USER_DELETED);
+                null);
 
         assertThat(verificationCodes).isEmpty();
         verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
     }
 
     @Test
-    @DisplayName("PASSWORD_RESET verification rejects account with deletedAt before sending")
-    void sendVerificationCode_rejectsDeletedAtPasswordResetEmailBeforeSending() {
+    @DisplayName("PASSWORD_RESET verification suppresses account with deletedAt before sending")
+    void sendVerificationCode_suppressesDeletedAtPasswordResetEmailBeforeSending() {
         User user = User.builder().email("deleted-at@example.com").build();
         ReflectionTestUtils.setField(user, "deletedAt", LocalDateTime.now());
         when(userRepository.findByEmail("deleted-at@example.com")).thenReturn(Optional.of(user));
 
-        assertThatThrownBy(() -> verificationCodeService.sendVerificationCode(
+        verificationCodeService.sendVerificationCode(
                 "deleted-at@example.com",
                 VerificationPurpose.PASSWORD_RESET,
-                null))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.USER_DELETED);
+                null);
 
         assertThat(verificationCodes).isEmpty();
         verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
     }
 
     @Test
-    @DisplayName("PASSWORD_RESET verification rejects inactive account before sending")
-    void sendVerificationCode_rejectsInactivePasswordResetEmailBeforeSending() {
+    @DisplayName("PASSWORD_RESET verification suppresses inactive account before sending")
+    void sendVerificationCode_suppressesInactivePasswordResetEmailBeforeSending() {
         User user = User.builder().email("suspended@example.com").build();
         ReflectionTestUtils.setField(user, "status", User.STATUS_SUSPENDED);
         when(userRepository.findByEmail("suspended@example.com")).thenReturn(Optional.of(user));
 
-        assertThatThrownBy(() -> verificationCodeService.sendVerificationCode(
+        verificationCodeService.sendVerificationCode(
                 "suspended@example.com",
                 VerificationPurpose.PASSWORD_RESET,
-                null))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+                null);
 
         assertThat(verificationCodes).isEmpty();
         verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
     }
 
     @Test
-    @DisplayName("PASSWORD_RESET verification rejects missing email with password reset error code")
-    void sendVerificationCode_rejectsMissingPasswordResetEmailBeforeSending() {
+    @DisplayName("PASSWORD_RESET verification suppresses missing email before sending")
+    void sendVerificationCode_suppressesMissingPasswordResetEmailBeforeSending() {
         when(userRepository.findByEmail("missing@example.com")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> verificationCodeService.sendVerificationCode(
+        verificationCodeService.sendVerificationCode(
                 "missing@example.com",
                 VerificationPurpose.PASSWORD_RESET,
-                null))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.USER_NOT_FOUND_BY_EMAIL);
+                null);
 
         assertThat(verificationCodes).isEmpty();
         verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());

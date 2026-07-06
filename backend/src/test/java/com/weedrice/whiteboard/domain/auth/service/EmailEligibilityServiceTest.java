@@ -13,6 +13,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -108,6 +109,13 @@ class EmailEligibilityServiceTest {
     }
 
     @Test
+    void canSendFindIdVerification_suppressesMissingEmail() {
+        when(userRepository.findByEmail("missing@example.com")).thenReturn(Optional.empty());
+
+        assertThat(emailEligibilityService.canSendFindIdVerification(" missing@example.com ")).isFalse();
+    }
+
+    @Test
     void validatePasswordResetEmail_usesPasswordResetNotFoundCode() {
         when(userRepository.findByEmail("missing@example.com")).thenReturn(Optional.empty());
 
@@ -115,6 +123,14 @@ class EmailEligibilityServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND_BY_EMAIL);
+    }
+
+    @Test
+    void canSendPasswordResetVerification_suppressesInactiveAccount() {
+        User user = user("suspended@example.com", 1L, User.STATUS_SUSPENDED);
+        when(userRepository.findByEmail("suspended@example.com")).thenReturn(Optional.of(user));
+
+        assertThat(emailEligibilityService.canSendPasswordResetVerification("suspended@example.com")).isFalse();
     }
 
     private User user(String email, Long userId, String status) {

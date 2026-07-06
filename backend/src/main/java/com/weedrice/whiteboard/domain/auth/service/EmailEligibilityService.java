@@ -1,6 +1,8 @@
 package com.weedrice.whiteboard.domain.auth.service;
 
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,9 +33,35 @@ public class EmailEligibilityService {
         authAccountEligibilityPolicy.validateUsableAccount(user);
     }
 
+    public boolean canSendFindIdVerification(String email) {
+        return canSendAccountLookupVerification(() -> validateFindIdEmail(email));
+    }
+
     public void validatePasswordResetEmail(String email) {
         User user = authEmailLookupPolicy.resolvePasswordResetEmail(email);
         authAccountEligibilityPolicy.validateUsableAccount(user);
     }
 
+    public boolean canSendPasswordResetVerification(String email) {
+        return canSendAccountLookupVerification(() -> validatePasswordResetEmail(email));
+    }
+
+    private boolean canSendAccountLookupVerification(Runnable validator) {
+        try {
+            validator.run();
+            return true;
+        } catch (BusinessException ex) {
+            if (isAccountLookupSuppressed(ex.getErrorCode())) {
+                return false;
+            }
+            throw ex;
+        }
+    }
+
+    private boolean isAccountLookupSuppressed(ErrorCode errorCode) {
+        return errorCode == ErrorCode.USER_NOT_FOUND
+                || errorCode == ErrorCode.USER_NOT_FOUND_BY_EMAIL
+                || errorCode == ErrorCode.USER_DELETED
+                || errorCode == ErrorCode.USER_NOT_ACTIVE;
+    }
 }
