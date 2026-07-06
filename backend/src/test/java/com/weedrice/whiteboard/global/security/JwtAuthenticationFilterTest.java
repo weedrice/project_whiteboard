@@ -85,6 +85,19 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    @DisplayName("stream query token is ignored")
+    void doFilterInternal_streamQueryTokenIgnored() throws ServletException, IOException {
+        when(request.getHeader(JwtAuthenticationFilter.AUTHORIZATION_HEADER)).thenReturn(null);
+
+        jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        verify(request, never()).getParameter("token");
+        verify(jwtTokenProvider, never()).validateToken(anyString());
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
     @DisplayName("유효하지 않은 토큰이면 인증 객체 설정하지 않음")
     void doFilterInternal_invalidToken() throws ServletException, IOException {
         // given
