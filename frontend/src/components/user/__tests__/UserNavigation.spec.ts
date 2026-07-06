@@ -36,6 +36,8 @@ describe('UserNavigation', () => {
         const wrapper = mountNavigation('/mypage')
 
         expect(wrapper.findAll('a')[0].attributes('aria-current')).toBe('page')
+        expect(wrapper.get('nav').attributes('role')).toBeUndefined()
+        expect(wrapper.findAll('a')[1].attributes('tabindex')).toBeUndefined()
 
         await wrapper.setProps({ activePath: '/mypage/settings' })
 

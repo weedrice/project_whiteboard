@@ -2,7 +2,7 @@
     <div class="relative mb-6">
         <div ref="scrollContainer" class="overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth">
             <nav class="flex space-x-4 sm:space-x-6 md:space-x-8 border-b nv-border min-w-max relative"
-                aria-label="Tabs" role="tablist">
+                aria-label="User navigation">
                 <a v-for="(tab, index) in tabs" :key="tab.nameKey" :href="tab.href"
                     :ref="el => { if (el) tabRefs[index] = el as HTMLElement }"
                     @click="(e) => handleTabClick(e, tab.href)"
@@ -12,8 +12,7 @@
                         isActive(tab.href)
                             ? 'text-[var(--nv-accent)] font-bold'
                             : 'nv-text-subtle user-nav-link font-medium'
-                    ]" :aria-current="isActive(tab.href) ? 'page' : undefined" role="tab"
-                    :tabindex="isActive(tab.href) ? 0 : -1">
+                    ]" :aria-current="isActive(tab.href) ? 'page' : undefined">
                     {{ $t(tab.nameKey) }}
                 </a>
 
