@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.auth.service.SessionTokenService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionPolicyService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
 import com.weedrice.whiteboard.global.security.RefreshTokenCookieWriter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -45,6 +46,8 @@ class OAuth2SuccessHandlerTest {
     private SanctionPolicyService sanctionPolicyService;
     @Mock
     private OAuthSignupTicketService oAuthSignupTicketService;
+    @Mock
+    private ClientIpResolver clientIpResolver;
 
     private OAuth2SuccessHandler handler;
     private User user;
@@ -56,7 +59,7 @@ class OAuth2SuccessHandlerTest {
                 userRepository,
                 new LoginAccountEligibilityService(sanctionPolicyService),
                 new RefreshTokenCookieWriter(1209600000L),
-                new LoginClientMetadataResolver(),
+                new LoginClientMetadataResolver(clientIpResolver),
                 oAuthSignupTicketService);
         ReflectionTestUtils.setField(handler, "frontendUrl", "http://localhost:5173");
 
@@ -169,6 +172,7 @@ class OAuth2SuccessHandlerTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(sanctionPolicyService.isUserBanned(user)).thenReturn(false);
+        when(clientIpResolver.resolve(request)).thenReturn("203.0.113.7");
         when(sessionTokenService.issueTokens(
                 eq(authentication),
                 eq(user),

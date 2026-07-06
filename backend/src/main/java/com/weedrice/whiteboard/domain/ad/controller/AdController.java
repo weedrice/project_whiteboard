@@ -4,7 +4,7 @@ import com.weedrice.whiteboard.domain.ad.dto.AdResponse;
 import com.weedrice.whiteboard.domain.ad.service.AdService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.ApiResponses;
-import com.weedrice.whiteboard.global.common.util.ClientUtils;
+import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
 import com.weedrice.whiteboard.global.security.CurrentUserId;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 public class AdController {
 
     private final AdService adService;
+    private final ClientIpResolver clientIpResolver;
 
     @GetMapping
     public ApiResponse<AdResponse> getAd(@RequestParam String placement) {
@@ -37,7 +38,7 @@ public class AdController {
         String targetUrl = adService.recordAdClick(
                 adId,
                 userId,
-                ClientUtils.getIp(request));
+                clientIpResolver.resolve(request));
         return ApiResponse.success(targetUrl);
     }
 }

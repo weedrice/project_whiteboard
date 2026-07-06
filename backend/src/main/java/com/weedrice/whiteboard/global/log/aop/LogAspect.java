@@ -2,7 +2,6 @@ package com.weedrice.whiteboard.global.log.aop;
 
 import com.weedrice.whiteboard.global.log.service.LogService;
 import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
-import com.weedrice.whiteboard.global.common.util.ClientUtils;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -11,7 +10,6 @@ import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
 import org.aspectj.lang.reflect.MethodSignature;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -27,9 +25,7 @@ import java.lang.reflect.Method;
 public class LogAspect {
 
     private final LogService logService;
-
-    @Autowired(required = false)
-    private ClientIpResolver clientIpResolver;
+    private final ClientIpResolver clientIpResolver;
 
     @Before("execution(* com.weedrice.whiteboard.domain..*Controller.*(..))")
     public void logBefore(JoinPoint joinPoint) {
@@ -61,9 +57,6 @@ public class LogAspect {
     }
 
     private String resolveClientIp(HttpServletRequest request) {
-        if (clientIpResolver != null) {
-            return clientIpResolver.resolve(request);
-        }
-        return ClientUtils.getIp(request);
+        return clientIpResolver.resolve(request);
     }
 }

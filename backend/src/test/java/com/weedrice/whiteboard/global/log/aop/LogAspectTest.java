@@ -39,6 +39,9 @@ class LogAspectTest {
     private LogService logService;
 
     @Mock
+    private ClientIpResolver clientIpResolver;
+
+    @Mock
     private JoinPoint joinPoint;
 
     @Mock
@@ -54,6 +57,7 @@ class LogAspectTest {
         request = new MockHttpServletRequest();
         ServletRequestAttributes attributes = new ServletRequestAttributes(request);
         RequestContextHolder.setRequestAttributes(attributes);
+        lenient().when(clientIpResolver.resolve(request)).thenReturn("127.0.0.1");
     }
 
     @AfterEach
@@ -115,15 +119,13 @@ class LogAspectTest {
     }
 
     @Test
-    void logBefore_usesClientIpResolverWhenAvailable() {
+    void logBefore_usesClientIpResolver() {
         Method mockMethod = mock(Method.class);
         when(mockMethod.getName()).thenReturn("testControllerMethod");
         when(joinPoint.getSignature()).thenReturn(methodSignature);
         when(methodSignature.getMethod()).thenReturn(mockMethod);
 
-        ClientIpResolver clientIpResolver = mock(ClientIpResolver.class);
         when(clientIpResolver.resolve(request)).thenReturn("203.0.113.10");
-        ReflectionTestUtils.setField(logAspect, "clientIpResolver", clientIpResolver);
 
         logAspect.logBefore(joinPoint);
 

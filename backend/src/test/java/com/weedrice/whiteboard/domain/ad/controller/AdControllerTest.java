@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.config.CurrentUserIdWebMvcConfig;
 import com.weedrice.whiteboard.global.config.SecurityConfig;
 import com.weedrice.whiteboard.global.config.WebConfig;
+import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
 import com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.CurrentUserIdArgumentResolver;
@@ -91,6 +92,9 @@ class AdControllerTest {
     @MockitoBean
     private RateLimitInterceptor rateLimitInterceptor;
 
+    @MockitoBean
+    private ClientIpResolver clientIpResolver;
+
     private CustomUserDetails customUserDetails;
 
     @AfterEach
@@ -106,6 +110,7 @@ class AdControllerTest {
         when(ipBlockInterceptor.preHandle(any(), any(), any())).thenReturn(true);
         when(refererCheckInterceptor.preHandle(any(), any(), any())).thenReturn(true);
         when(rateLimitInterceptor.preHandle(any(), any(), any())).thenReturn(true);
+        when(clientIpResolver.resolve(any())).thenReturn("203.0.113.10");
 
         doAnswer(invocation -> {
             HttpServletRequest request = invocation.getArgument(0);
