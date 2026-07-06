@@ -193,13 +193,13 @@ export function toEmbedPostVideoUrl(url: string): string {
 
     if (host === 'vimeo.com') {
         const id = path.split('/').filter(Boolean)[0] ?? ''
-        return vimeoIdPattern.test(id) ? `https://player.vimeo.com/video/${id}/` : ''
+        return vimeoIdPattern.test(id) ? `https://player.vimeo.com/video/${id}` : ''
     }
 
     if (host === 'player.vimeo.com') {
         const pathParts = path.split('/').filter(Boolean)
         if (pathParts[0] === 'video' && vimeoIdPattern.test(pathParts[1] ?? '')) {
-            return `https://player.vimeo.com/video/${pathParts[1]}/`
+            return `https://player.vimeo.com/video/${pathParts[1]}`
         }
     }
 

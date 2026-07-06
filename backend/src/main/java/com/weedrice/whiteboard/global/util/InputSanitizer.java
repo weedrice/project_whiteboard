@@ -199,8 +199,8 @@ public class InputSanitizer {
                     || "youtube.com".equals(normalizedHost)
                     || "www.youtube-nocookie.com".equals(normalizedHost)
                     || "youtube-nocookie.com".equals(normalizedHost))
-                    && path.startsWith("/embed/"))
-                    || "player.vimeo.com".equals(normalizedHost) && path.startsWith("/video/");
+                    && path.matches("^/embed/[^/]+$"))
+                    || "player.vimeo.com".equals(normalizedHost) && path.matches("^/video/\\d+/?$");
         } catch (IllegalArgumentException ex) {
             return false;
         }

@@ -43,7 +43,6 @@ describe('sanitize', () => {
             '<video src="/a.mp4"></video>',
             '<iframe src="javascript:alert(1)"></iframe>',
             '<iframe src="https://evil.example/embed/abc"></iframe>',
-            '<iframe src="https://player.vimeo.com/video/123/"></iframe>',
             '<iframe src="http://www.youtube.com/embed/abc"></iframe>',
             '<iframe src="https://www.youtube.com/embed/abc/extra"></iframe>',
             '<iframe src="https://player.vimeo.com/video/not-a-number"></iframe>',
@@ -62,11 +61,13 @@ describe('sanitize', () => {
         const html = [
             '<iframe src="https://www.youtube.com/embed/abc"></iframe>',
             '<iframe src="https://player.vimeo.com/video/123"></iframe>',
+            '<iframe src="https://player.vimeo.com/video/456/"></iframe>',
         ].join('')
         const clean = sanitizeQuillHtml(html)
 
         expect(clean).toContain('https://www.youtube.com/embed/abc')
         expect(clean).toContain('https://player.vimeo.com/video/123')
+        expect(clean).toContain('https://player.vimeo.com/video/456/')
     })
 
     it('sanitizeQuillHtml keeps only safe editor inline styles', () => {

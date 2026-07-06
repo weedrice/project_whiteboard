@@ -496,7 +496,7 @@ describe('PostForm', () => {
 
         await wrapper.get('.video-url-popover-input').setValue('vimeo.com/12345')
         await wrapper.get('.video-url-popover-actions button:last-child').trigger('click')
-        expect(editorSetVideo).toHaveBeenCalledWith('https://player.vimeo.com/video/12345/')
+        expect(editorSetVideo).toHaveBeenCalledWith('https://player.vimeo.com/video/12345')
     })
 
     it('supports keyboard shortcuts and dirty-state helpers', async () => {

@@ -23,7 +23,7 @@
           <input
             type="file"
             :ref="setFileInputRef"
-            accept="image/*"
+            :accept="BOARD_ICON_UPLOAD_POLICY.accept"
             class="hidden"
             @change="emit('upload', $event)"
           />
@@ -40,6 +40,7 @@
 import type { ComponentPublicInstance } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import { BOARD_ICON_UPLOAD_POLICY } from '@/utils/imageUploadPolicy'
 
 defineProps<{
   iconUrl: string

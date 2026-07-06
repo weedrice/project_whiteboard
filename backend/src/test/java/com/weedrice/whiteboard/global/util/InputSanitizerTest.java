@@ -94,14 +94,18 @@ class InputSanitizerTest {
     void sanitizePostHtml_keepsOnlyAllowedVideoIframes() {
         String input = """
                 <iframe src="https://www.youtube.com/embed/abc123" allow="autoplay; clipboard-write" sandbox="allow-scripts allow-popups" referrerpolicy="unsafe-url"></iframe>
+                <iframe src="https://player.vimeo.com/video/456/"></iframe>
                 <iframe src="https://evil.example/embed/abc123"></iframe>
                 <iframe src="http://www.youtube.com/embed/insecure"></iframe>
                 <iframe src="https://youtube.com.evil.example/embed/abc123"></iframe>
+                <iframe src="https://www.youtube.com/embed/abc123/extra"></iframe>
+                <iframe src="https://player.vimeo.com/video/not-a-number"></iframe>
                 """;
 
         String sanitized = InputSanitizer.sanitizePostHtml(input);
 
         assertThat(sanitized).contains("https://www.youtube.com/embed/abc123");
+        assertThat(sanitized).contains("https://player.vimeo.com/video/456/");
         assertThat(sanitized).contains("frameborder=\"0\"");
         assertThat(sanitized).contains("allowfullscreen=\"true\"");
         assertThat(sanitized).contains("loading=\"lazy\"");
@@ -113,5 +117,7 @@ class InputSanitizerTest {
         assertThat(sanitized).doesNotContain("unsafe-url");
         assertThat(sanitized).doesNotContain("evil.example");
         assertThat(sanitized).doesNotContain("insecure");
+        assertThat(sanitized).doesNotContain("abc123/extra");
+        assertThat(sanitized).doesNotContain("not-a-number");
     }
 }

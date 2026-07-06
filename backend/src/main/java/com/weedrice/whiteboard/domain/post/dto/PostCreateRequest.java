@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.post.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.weedrice.whiteboard.domain.file.support.FileAssociationConstraints;
 import com.weedrice.whiteboard.domain.tag.constant.TagConstraints;
 import com.weedrice.whiteboard.global.validation.NoHtml;
 import jakarta.validation.constraints.NotBlank;
@@ -43,6 +44,7 @@ public class PostCreateRequest {
 
     private Long draftId;
 
+    @Size(max = FileAssociationConstraints.MAX_POST_FILE_COUNT, message = "첨부 파일 개수 제한을 초과했습니다")
     private List<Long> fileIds;
 
     public PostCreateRequest(Long categoryId, String title, String contents, List<String> tags,

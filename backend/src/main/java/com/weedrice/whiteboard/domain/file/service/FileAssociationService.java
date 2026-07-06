@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository;
+import com.weedrice.whiteboard.domain.file.support.FileAssociationConstraints;
 import com.weedrice.whiteboard.domain.file.support.FileUrlResolver;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -175,6 +176,9 @@ class FileAssociationService {
     private Set<Long> normalizeFileIds(List<Long> fileIds) {
         if (fileIds == null || fileIds.isEmpty()) {
             return Set.of();
+        }
+        if (fileIds.size() > FileAssociationConstraints.MAX_POST_FILE_COUNT) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         if (fileIds.stream().anyMatch(Objects::isNull)) {
             throw new BusinessException(ErrorCode.NOT_FOUND);

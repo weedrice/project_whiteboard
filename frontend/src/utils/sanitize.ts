@@ -120,7 +120,7 @@ function isAllowedIframeSrc(src: string | null): boolean {
         }
 
         if (host === 'player.vimeo.com') {
-            return /^\/video\/\d+$/.test(url.pathname)
+            return /^\/video\/\d+\/?$/.test(url.pathname)
         }
 
         return false

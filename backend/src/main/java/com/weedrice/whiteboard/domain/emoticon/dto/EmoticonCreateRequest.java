@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.emoticon.dto;
 
+import com.weedrice.whiteboard.domain.file.support.FileAssociationConstraints;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -24,5 +25,6 @@ public class EmoticonCreateRequest {
     @Size(max = 10, message = "태그는 최대 10개까지 입력할 수 있습니다.")
     private List<String> tags;
 
+    @Size(max = FileAssociationConstraints.MAX_EMOTICON_IMAGE_COUNT, message = "이모티콘 이미지는 최대 20개까지 등록할 수 있습니다.")
     private List<Long> imageFileIds;
 }
