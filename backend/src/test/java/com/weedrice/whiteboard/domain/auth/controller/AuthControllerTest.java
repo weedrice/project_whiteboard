@@ -193,6 +193,45 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("login rejects oversized loginId before authentication")
+    void login_rejectsOversizedLoginId() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new LoginRequest("a".repeat(31), "password123"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+
+        verify(authService, never()).login(any(), any());
+    }
+
+    @Test
+    @DisplayName("login rejects malformed loginId before authentication")
+    void login_rejectsMalformedLoginId() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new LoginRequest("bad/id", "password123"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+
+        verify(authService, never()).login(any(), any());
+    }
+
+    @Test
+    @DisplayName("login rejects oversized password before authentication")
+    void login_rejectsOversizedPassword() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new LoginRequest("testuser", "p".repeat(21)))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+
+        verify(authService, never()).login(any(), any());
+    }
+
+    @Test
     @DisplayName("토큰 갱신 성공")
     void refresh_returnsSuccess() throws Exception {
         TokenResponse response = TokenResponse.builder()

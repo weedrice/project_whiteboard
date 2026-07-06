@@ -288,6 +288,28 @@ class EmoticonServiceTest {
         }
 
         @Test
+        @DisplayName("search keyword is trimmed and length-limited")
+        void searchByKeyword_trimsAndLimitsKeyword() {
+            String longKeyword = " " + "a".repeat(120) + " ";
+            Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
+            when(emoticonMasterRepository.findByKeyword(anyString(), any(Pageable.class))).thenReturn(page);
+
+            emoticonService.searchByKeyword(longKeyword, PageRequest.of(0, 20));
+
+            verify(emoticonMasterRepository).findByKeyword(
+                    eq("a".repeat(EmoticonRequestNormalizer.MAX_SEARCH_KEYWORD_LENGTH)),
+                    any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("blank keyword search is rejected")
+        void searchByKeyword_blankKeywordRejected() {
+            assertThatThrownBy(() -> emoticonService.searchByKeyword("  ", PageRequest.of(0, 20)))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        @Test
         @DisplayName("내 이모티콘 목록 조회")
         void getMyEmoticons_success() {
             Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
@@ -329,6 +351,24 @@ class EmoticonServiceTest {
             assertThat(result.getContent()).hasSize(1);
             verify(emoticonMasterRepository).searchActive(
                     eq(new EmoticonSearchCondition("테스트", SearchType.NAME, SortType.LATEST)),
+                    any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("searchAll trims and length-limits keyword")
+        void searchAll_trimsAndLimitsKeyword() {
+            String longKeyword = " " + "b".repeat(120) + " ";
+            Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
+            when(emoticonMasterRepository.searchActive(any(EmoticonSearchCondition.class), any(Pageable.class)))
+                    .thenReturn(page);
+
+            emoticonService.searchAll(longKeyword, "NAME", PageRequest.of(0, 20), "latest");
+
+            verify(emoticonMasterRepository).searchActive(
+                    eq(new EmoticonSearchCondition(
+                            "b".repeat(EmoticonRequestNormalizer.MAX_SEARCH_KEYWORD_LENGTH),
+                            SearchType.NAME,
+                            SortType.LATEST)),
                     any(Pageable.class));
         }
 

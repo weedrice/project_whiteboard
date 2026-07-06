@@ -52,11 +52,15 @@ class EmoticonCatalogService {
     }
 
     Page<EmoticonMasterDto> searchByTag(String tag, Pageable pageable) {
-        return toSummaryPage(emoticonMasterRepository.findByTag(tag, pageable));
+        return toSummaryPage(emoticonMasterRepository.findByTag(
+                EmoticonRequestNormalizer.normalizeRequiredTag(tag),
+                pageable));
     }
 
     Page<EmoticonMasterDto> searchByKeyword(String keyword, Pageable pageable) {
-        return toSummaryPage(emoticonMasterRepository.findByKeyword(keyword, pageable));
+        return toSummaryPage(emoticonMasterRepository.findByKeyword(
+                EmoticonRequestNormalizer.normalizeRequiredKeyword(keyword),
+                pageable));
     }
 
     Page<EmoticonMasterDto> getMyEmoticons(Long userId, Pageable pageable) {
@@ -80,9 +84,10 @@ class EmoticonCatalogService {
 
     Page<EmoticonMasterDto> getActiveEmoticons(Pageable pageable, String sortBy) {
         Page<EmoticonMaster> result;
-        if (isPopularSort(sortBy)) {
+        String normalizedSortBy = EmoticonRequestNormalizer.normalizeOption(sortBy);
+        if (isPopularSort(normalizedSortBy)) {
             result = emoticonMasterRepository.findAllActiveOrderByPurchaseCount(pageable);
-        } else if (isOldestSort(sortBy)) {
+        } else if (isOldestSort(normalizedSortBy)) {
             result = emoticonMasterRepository.findAllActiveOrderByCreatedAtAsc(pageable);
         } else {
             result = emoticonMasterRepository.findAllActive(pageable);
@@ -112,22 +117,23 @@ class EmoticonCatalogService {
 
     Page<EmoticonMasterDto> searchAll(String keyword, String searchType, Pageable pageable, String sortBy) {
         String normalizedSearchType = normalizeSearchType(searchType);
-        if (keyword == null || keyword.trim().isEmpty()) {
+        String normalizedKeyword = EmoticonRequestNormalizer.normalizeOptionalKeyword(keyword);
+        if (normalizedKeyword == null) {
             return getActiveEmoticons(pageable, sortBy);
         }
 
-        String trimmedKeyword = keyword.trim();
         Page<EmoticonMaster> result = emoticonMasterRepository.searchActive(
-                new EmoticonSearchCondition(trimmedKeyword, toSearchType(normalizedSearchType), normalizeSortType(sortBy)),
+                new EmoticonSearchCondition(normalizedKeyword, toSearchType(normalizedSearchType), normalizeSortType(sortBy)),
                 pageable);
         return toSummaryPage(result);
     }
 
     private SortType normalizeSortType(String sortBy) {
-        if (isPopularSort(sortBy)) {
+        String normalizedSortBy = EmoticonRequestNormalizer.normalizeOption(sortBy);
+        if (isPopularSort(normalizedSortBy)) {
             return SortType.POPULAR;
         }
-        if (isOldestSort(sortBy)) {
+        if (isOldestSort(normalizedSortBy)) {
             return SortType.OLDEST;
         }
         return SortType.LATEST;
@@ -142,17 +148,19 @@ class EmoticonCatalogService {
     }
 
     private String normalizePeriod(String period) {
-        if (period == null || period.isBlank()) {
+        String normalizedPeriod = EmoticonRequestNormalizer.normalizeOption(period);
+        if (normalizedPeriod == null) {
             return "daily";
         }
-        return period.trim().toLowerCase(Locale.ROOT);
+        return normalizedPeriod.toLowerCase(Locale.ROOT);
     }
 
     private String normalizeSearchType(String searchType) {
-        if (searchType == null || searchType.isBlank()) {
+        String normalizedOption = EmoticonRequestNormalizer.normalizeOption(searchType);
+        if (normalizedOption == null) {
             return SEARCH_TYPE_ALL;
         }
-        String normalizedSearchType = searchType.trim().toUpperCase(Locale.ROOT);
+        String normalizedSearchType = normalizedOption.toUpperCase(Locale.ROOT);
         if (!SEARCH_TYPES.contains(normalizedSearchType)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
