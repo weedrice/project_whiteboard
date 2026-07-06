@@ -46,4 +46,24 @@ describe('fileUrl', () => {
         expect(normalized).toContain('data-server-src="/files/157"')
         expect(normalized).not.toContain('blob:https://noviis.kr/local')
     })
+
+    it('does not trust non-local editor server image URLs', () => {
+        const content = '<p><img src="blob:https://noviis.kr/local" data-file-id="157" data-server-src="https://evil.example/files/157"></p>'
+
+        const normalized = normalizeEditorFileImageUrls(content)
+
+        expect(normalized).toContain('src="blob:https://noviis.kr/local"')
+        expect(normalized).not.toContain('data-file-id')
+        expect(normalized).not.toContain('data-server-src')
+        expect(normalized).not.toContain('evil.example')
+    })
+
+    it('does not replace editor image URLs when the tracked file id mismatches', () => {
+        const content = '<p><img src="blob:https://noviis.kr/local" data-file-id="158" data-server-src="/api/v1/files/157"></p>'
+
+        const normalized = normalizeEditorFileImageUrls(content)
+
+        expect(normalized).toContain('src="blob:https://noviis.kr/local"')
+        expect(normalized).not.toContain('src="/api/v1/files/157"')
+    })
 })

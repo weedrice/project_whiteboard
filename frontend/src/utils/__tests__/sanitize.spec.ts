@@ -44,13 +44,29 @@ describe('sanitize', () => {
             '<iframe src="javascript:alert(1)"></iframe>',
             '<iframe src="https://evil.example/embed/abc"></iframe>',
             '<iframe src="https://player.vimeo.com/video/123/"></iframe>',
+            '<iframe src="http://www.youtube.com/embed/abc"></iframe>',
+            '<iframe src="https://www.youtube.com/embed/abc/extra"></iframe>',
+            '<iframe src="https://player.vimeo.com/video/not-a-number"></iframe>',
         ].join('')
         const clean = sanitizeQuillHtml(html)
 
         expect(clean).not.toContain('<video')
         expect(clean).not.toContain('javascript:')
         expect(clean).not.toContain('evil.example')
-        expect(clean).toContain('https://player.vimeo.com/video/123/')
+        expect(clean).not.toContain('http://www.youtube.com')
+        expect(clean).not.toContain('abc/extra')
+        expect(clean).not.toContain('not-a-number')
+    })
+
+    it('sanitizeQuillHtml keeps exact https video embed paths', () => {
+        const html = [
+            '<iframe src="https://www.youtube.com/embed/abc"></iframe>',
+            '<iframe src="https://player.vimeo.com/video/123"></iframe>',
+        ].join('')
+        const clean = sanitizeQuillHtml(html)
+
+        expect(clean).toContain('https://www.youtube.com/embed/abc')
+        expect(clean).toContain('https://player.vimeo.com/video/123')
     })
 
     it('sanitizeQuillHtml keeps only safe editor inline styles', () => {

@@ -5,9 +5,11 @@ import { useProfileImageEditor } from '../useProfileImageEditor'
 import { createDeferred } from '@/test/async'
 
 const resizeImageToBoundsFileMock = vi.hoisted(() => vi.fn())
+const validateImageFileMock = vi.hoisted(() => vi.fn<() => 'type' | 'size' | null>(() => null))
 
 vi.mock('@/utils/imageFile', () => ({
   resizeImageToBoundsFile: resizeImageToBoundsFileMock,
+  validateImageFile: validateImageFileMock,
 }))
 
 vi.mock('@/utils/image', () => ({
@@ -67,6 +69,7 @@ function createInputEvent(file: File) {
 describe('useProfileImageEditor', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    validateImageFileMock.mockReturnValue(null)
     vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => `blob:${(blob as File).name || 'preview'}`)
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
   })
@@ -82,6 +85,7 @@ describe('useProfileImageEditor', () => {
     await composable.handleFileChange(event)
 
     expect(input.value).toBe('')
+    expect(validateImageFileMock).toHaveBeenCalled()
     expect(resizeImageToBoundsFileMock).toHaveBeenCalledWith(file, 100, 100)
     expect(composable.selectedFile.value).toBe(resizedFile)
     expect(composable.profileImageDisplayUrl.value).toBe('blob:avatar-resized.png')
@@ -93,11 +97,27 @@ describe('useProfileImageEditor', () => {
       type: 'image/png',
     })
     const { event, input } = createInputEvent(tooLargeFile)
+    validateImageFileMock.mockReturnValueOnce('size')
 
     await composable.handleFileChange(event)
 
     expect(input.value).toBe('')
     expect(onFileSizeExceeded).toHaveBeenCalledTimes(1)
+    expect(resizeImageToBoundsFileMock).not.toHaveBeenCalled()
+  })
+
+  it('blocks unsupported profile image types before resizing', async () => {
+    const { composable, onProcessFailed } = createHarness()
+    const svgFile = new File(['<svg></svg>'], 'avatar.svg', {
+      type: 'image/svg+xml',
+    })
+    const { event, input } = createInputEvent(svgFile)
+    validateImageFileMock.mockReturnValueOnce('type')
+
+    await composable.handleFileChange(event)
+
+    expect(input.value).toBe('')
+    expect(onProcessFailed).toHaveBeenCalledTimes(1)
     expect(resizeImageToBoundsFileMock).not.toHaveBeenCalled()
   })
 

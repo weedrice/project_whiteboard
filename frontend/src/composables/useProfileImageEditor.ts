@@ -1,7 +1,7 @@
 import { computed, ref, watch, type Ref } from 'vue'
 import { getOptimizedProfileImageUrl } from '@/utils/image'
 import { useObjectUrlPreview } from '@/composables/useObjectUrlPreview'
-import { resizeImageToBoundsFile } from '@/utils/imageFile'
+import { resizeImageToBoundsFile, validateImageFile } from '@/utils/imageFile'
 import { PROFILE_IMAGE_UPLOAD_POLICY } from '@/utils/imageUploadPolicy'
 import logger from '@/utils/logger'
 
@@ -44,8 +44,13 @@ export function useProfileImageEditor(options: UseProfileImageEditorOptions): {
     const selectionVersion = ++fileSelectionVersion
     target.value = ''
 
-    if (file.size > PROFILE_IMAGE_UPLOAD_POLICY.maxSizeBytes) {
+    const validationError = validateImageFile(file, PROFILE_IMAGE_UPLOAD_POLICY)
+    if (validationError === 'size') {
       options.onFileSizeExceeded()
+      return
+    }
+    if (validationError === 'type') {
+      options.onProcessFailed()
       return
     }
 

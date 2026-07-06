@@ -3,6 +3,7 @@ const LEGACY_MARKDOWN_FILE_PATTERN = /!\[emoticon\]\(\/files\/(\d+)([?#][^)]*)?\
 const LEGACY_HTML_FILE_PATTERN = /(\s(?:src|href)=["'])\/files\/(\d+)([?#][^"']*)?(["'])/gi
 const EDITOR_IMAGE_URL_ATTRIBUTE = 'data-server-src'
 const EDITOR_IMAGE_FILE_ID_ATTRIBUTE = 'data-file-id'
+const LOCAL_FILE_URL_PATTERN = /^\/(?:api\/v1\/)?files\/(\d+)([?#].*)?$/
 
 export function normalizeFileUrl(url: string): string {
     return url.replace(LEGACY_FILE_URL_PATTERN, '/api/v1/files/$1$2')
@@ -28,7 +29,10 @@ function normalizeEditorFileImages(
         const serverSrc = image.getAttribute(EDITOR_IMAGE_URL_ATTRIBUTE)
         if (!serverSrc) return
 
-        image.setAttribute('src', normalizeFileUrl(serverSrc))
+        const normalizedServerSrc = normalizeLocalEditorFileUrl(serverSrc, image.getAttribute(EDITOR_IMAGE_FILE_ID_ATTRIBUTE))
+        if (normalizedServerSrc) {
+            image.setAttribute('src', normalizedServerSrc)
+        }
         if (options.removeEditorAttributes) {
             image.removeAttribute(EDITOR_IMAGE_URL_ATTRIBUTE)
             image.removeAttribute(EDITOR_IMAGE_FILE_ID_ATTRIBUTE)
@@ -36,6 +40,20 @@ function normalizeEditorFileImages(
     })
 
     return doc.body.innerHTML
+}
+
+function normalizeLocalEditorFileUrl(url: string, fileId: string | null): string | null {
+    const match = url.match(LOCAL_FILE_URL_PATTERN)
+    if (!match) {
+        return null
+    }
+
+    const normalizedFileId = fileId?.trim()
+    if (normalizedFileId && normalizedFileId !== match[1]) {
+        return null
+    }
+
+    return `/api/v1/files/${match[1]}${match[2] ?? ''}`
 }
 
 export function normalizeEditorFileImageUrls(content: string): string {

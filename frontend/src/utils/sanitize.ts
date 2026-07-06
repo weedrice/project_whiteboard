@@ -110,15 +110,17 @@ function isAllowedIframeSrc(src: string | null): boolean {
 
     try {
         const url = new URL(src)
+        if (url.protocol !== 'https:') return false
+
         const host = url.hostname.toLowerCase()
         if (!ALLOWED_IFRAME_HOSTS.has(host)) return false
 
         if (host.includes('youtube')) {
-            return url.pathname.startsWith('/embed/')
+            return /^\/embed\/[^/]+$/.test(url.pathname)
         }
 
         if (host === 'player.vimeo.com') {
-            return url.pathname.startsWith('/video/')
+            return /^\/video\/\d+$/.test(url.pathname)
         }
 
         return false
