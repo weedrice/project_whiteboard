@@ -1,6 +1,7 @@
 import type { LocationQueryRaw, RouteLocationRaw } from 'vue-router'
 import type { TableColumn } from '@/components/common/ui/BaseTable.vue'
 import type { PostSummary } from '@/types'
+import { encodePathSegment } from '@/utils/urlPath'
 import { formatUserDisplayName } from '@/utils/userDisplay'
 
 export type ResolvePostRoute = (
@@ -52,7 +53,7 @@ export function resolvePostListBoardRoute(
 ): RouteLocationRaw | null {
   const resolvedBoardUrl = getPostListResolvedBoardUrl(item, boardUrl)
   if (!resolvedBoardUrl) return null
-  return resolveBoardRoute?.(item, resolvedBoardUrl) ?? `/board/${resolvedBoardUrl}`
+  return resolveBoardRoute?.(item, resolvedBoardUrl) ?? `/board/${encodePathSegment(resolvedBoardUrl)}`
 }
 
 export function resolvePostListPostRoute(

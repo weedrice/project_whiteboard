@@ -6,6 +6,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import type { BoardDetail } from '@/types/board'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
+import { encodePathSegment } from '@/utils/urlPath'
 
 defineProps<{
   board: BoardDetail
@@ -87,7 +88,7 @@ const { t } = useI18n()
         <div class="flex gap-2 lg:justify-end">
           <router-link
             v-if="board.isAdmin"
-            :to="`/board/${board.boardUrl}/edit`"
+            :to="`/board/${encodePathSegment(board.boardUrl)}/edit`"
             class="nv-board-manage-btn"
           >
             <ShieldCheck class="h-4 w-4" />
@@ -97,7 +98,7 @@ const { t } = useI18n()
 
         <router-link
           v-if="canWrite"
-          :to="`/board/${board.boardUrl}/write`"
+          :to="`/board/${encodePathSegment(board.boardUrl)}/write`"
           class="nv-board-write-btn lg:mt-auto"
         >
           {{ $t('common.write') }}

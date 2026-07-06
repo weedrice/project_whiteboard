@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useRecentBoards } from '@/composables/useRecentBoards'
 import { X } from 'lucide-vue-next'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
+import { encodePathSegment } from '@/utils/urlPath'
 
 const { recentBoards, removeRecentBoard, clearRecentBoards } = useRecentBoards()
 
@@ -16,7 +17,7 @@ const hasBoards = computed(() => recentBoards.value.length > 0)
                 <span class="recent-boards-label">{{ $t('layout.recentBoards.title') }}</span>
                 <div class="recent-boards-list">
                     <div v-for="board in recentBoards" :key="board.boardUrl" class="recent-board-chip">
-                        <router-link :to="`/board/${board.boardUrl}`" class="recent-board-link">
+                        <router-link :to="`/board/${encodePathSegment(board.boardUrl)}`" class="recent-board-link">
                         <img v-if="board.iconUrl" :src="getOptimizedBoardIconUrl(board.iconUrl, 24)"
                             class="recent-board-icon" alt="" @error="handleImageError($event)" />
                         <span v-else class="recent-board-icon-fallback">{{ board.boardName[0] }}</span>

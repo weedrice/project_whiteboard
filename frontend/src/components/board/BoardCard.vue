@@ -2,6 +2,7 @@
 import { Users, User } from 'lucide-vue-next'
 import type { BoardListItem, BoardSearchItem } from '@/types'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
+import { encodePathSegment } from '@/utils/urlPath'
 
 withDefaults(defineProps<{
   board: BoardListItem | BoardSearchItem
@@ -13,7 +14,7 @@ withDefaults(defineProps<{
 
 <template>
   <router-link
-    :to="`/board/${board.boardUrl}`"
+    :to="`/board/${encodePathSegment(board.boardUrl)}`"
     class="nv-surface overflow-hidden shadow rounded-lg hover:shadow-md transition-all duration-200 border nv-border block"
     :class="variant === 'compact' ? 'p-4 flex items-center gap-3' : ''"
   >

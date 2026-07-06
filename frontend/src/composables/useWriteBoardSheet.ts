@@ -12,6 +12,7 @@ import {
   fetchBoardForWriteAccess,
 } from '@/composables/useBoardWriteAccess'
 import i18n from '@/i18n'
+import { encodePathSegment } from '@/utils/urlPath'
 
 export function useWriteBoardSheet() {
   const route = useRoute()
@@ -71,7 +72,7 @@ export function useWriteBoardSheet() {
       }
 
       showWriteSheet.value = false
-      await router.push(`/board/${boardUrl}/write`)
+      await router.push(`/board/${encodePathSegment(boardUrl)}/write`)
     } catch {
       toastStore.addToast(i18n.global.t(BOARD_WRITE_VERIFY_FAILED_MESSAGE_KEY), 'error')
     }

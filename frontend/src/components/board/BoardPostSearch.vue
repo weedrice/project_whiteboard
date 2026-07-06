@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import { isComposingKeyboardEvent } from '@/utils/keyboard'
+import { encodePathSegment } from '@/utils/urlPath'
 import {
   createBoardPostSearchTypeOptions,
   shouldShowBoardPostSearchClear,
@@ -105,7 +106,7 @@ const handleSearchKeyup = (event: KeyboardEvent) => {
 
       <router-link
         v-if="canWrite"
-        :to="`/board/${boardUrl}/write`"
+        :to="`/board/${encodePathSegment(boardUrl)}/write`"
         class="nv-board-write-btn nv-board-search-write-btn"
       >
         {{ t('common.write') }}

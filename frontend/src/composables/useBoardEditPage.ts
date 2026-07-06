@@ -15,6 +15,7 @@ import {
 } from '@/composables/useBoardEditResource'
 import { useBoardEditManagerAssignment } from '@/composables/useBoardEditManagerAssignment'
 import type { BoardUpdateData } from '@/types'
+import { encodePathSegment } from '@/utils/urlPath'
 
 export function useBoardEditPage() {
   const { t } = useI18n()
@@ -63,7 +64,7 @@ export function useBoardEditPage() {
       try {
         const board = await updateBoard({ boardUrl: boardUrl.value, data: formData as BoardUpdateData })
         toastStore.addToast(t('board.form.successUpdate'), 'success')
-        router.push(`/board/${board.boardUrl}`)
+        router.push(`/board/${encodePathSegment(board.boardUrl)}`)
       } catch (err: unknown) {
         error.value = t('board.form.updateFailed')
         handleError(err, t('board.form.updateFailed'))
@@ -96,7 +97,7 @@ export function useBoardEditPage() {
     if (!assertBoardManageable(board)) {
       canManageBoard.value = false
       toastStore.addToast(t('common.messages.forbidden'), 'error')
-      router.push(`/board/${currentBoardUrl}`)
+      router.push(`/board/${encodePathSegment(currentBoardUrl)}`)
       return
     }
 
@@ -109,7 +110,7 @@ export function useBoardEditPage() {
     if (!err || !currentBoardUrl) return
 
     handleError(err, t('board.loadFailed'))
-    router.push(`/board/${currentBoardUrl}`)
+    router.push(`/board/${encodePathSegment(currentBoardUrl)}`)
   })
 
   return {

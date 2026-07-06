@@ -2,6 +2,7 @@ import type { ComputedRef, Ref } from 'vue'
 import type { RouteLocationNormalizedLoaded, RouteLocationRaw, Router } from 'vue-router'
 import type { Post } from '@/types'
 import type { PostDetailViewModel } from '@/features/board/posts/detail/usePostDetailViewModel'
+import { encodePathSegment } from '@/utils/urlPath'
 
 interface UsePostDetailNavigationOptions {
   route: RouteLocationNormalizedLoaded
@@ -19,7 +20,7 @@ export function usePostDetailNavigation({
   function buildBoardListRoute(boardUrl: string): RouteLocationRaw {
     const { fromCreate: _fromCreate, ...query } = route.query
     return {
-      path: `/board/${boardUrl}`,
+      path: `/board/${encodePathSegment(boardUrl)}`,
       query
     }
   }
@@ -29,7 +30,7 @@ export function usePostDetailNavigation({
     if (!boardUrl) return
 
     router.push({
-      path: `/board/${boardUrl}`,
+      path: `/board/${encodePathSegment(boardUrl)}`,
       query: {
         q: tag,
         type: 'TAG'
@@ -65,7 +66,7 @@ export function usePostDetailNavigation({
   function buildEditRoute() {
     const viewModel = postView.value
     if (!viewModel) return '/'
-    return `/board/${viewModel.boardUrl}/post/${viewModel.postId}/edit`
+    return `/board/${encodePathSegment(viewModel.boardUrl)}/post/${encodePathSegment(viewModel.postId)}/edit`
   }
 
   function goToList() {

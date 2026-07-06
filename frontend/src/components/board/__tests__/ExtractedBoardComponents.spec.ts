@@ -74,7 +74,7 @@ describe('extracted board components', () => {
       props: {
         board: boardDetail({
           boardName: 'Free',
-          boardUrl: 'free',
+          boardUrl: 'free board',
           iconUrl: '',
           isAdmin: true,
           isSubscribed: true,
@@ -103,8 +103,8 @@ describe('extracted board components', () => {
     expect(subscribeButton.attributes('disabled')).toBeDefined()
     expect(subscribeButton.attributes('aria-busy')).toBe('true')
     expect(subscribeButton.text()).toBeTruthy()
-    expect(links.map((link) => link.props('to'))).toContain('/board/free/edit')
-    expect(links.map((link) => link.props('to'))).toContain('/board/free/write')
+    expect(links.map((link) => link.props('to'))).toContain('/board/free%20board/edit')
+    expect(links.map((link) => link.props('to'))).toContain('/board/free%20board/write')
 
     await subscribeButton.trigger('click')
 

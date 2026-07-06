@@ -2,6 +2,7 @@ import { computed, ref, watch, type ComputedRef, type Ref } from 'vue'
 import type { LocationQuery, RouteLocationNormalizedLoaded, Router } from 'vue-router'
 import { useBoardDetailShortcuts } from '@/composables/useKeyboardShortcuts'
 import type { BoardDetail, PostSummary } from '@/types'
+import { encodePathSegment } from '@/utils/urlPath'
 
 export const BOARD_DETAIL_SEARCH_INPUT_ID = 'board-search-input'
 
@@ -66,7 +67,7 @@ export function useBoardDetailNavigation({
   ))
 
   const buildBoardListRoute = () => ({
-    path: `/board/${boardUrl.value}`,
+    path: `/board/${encodePathSegment(boardUrl.value)}`,
     query: listQuery.value
   })
 
@@ -76,7 +77,7 @@ export function useBoardDetailNavigation({
 
   function getNoticeRoute(notice: PostSummary) {
     return {
-      path: `/board/${boardUrl.value}/post/${notice.postId}`,
+      path: `/board/${encodePathSegment(boardUrl.value)}/post/${encodePathSegment(notice.postId)}`,
       query: listQuery.value
     }
   }
@@ -123,7 +124,7 @@ export function useBoardDetailNavigation({
     },
     goToWrite: () => {
       if (board.value) {
-        router.push(`/board/${board.value.boardUrl}/write`)
+        router.push(`/board/${encodePathSegment(board.value.boardUrl)}/write`)
       }
     },
     toggleSubscribe: handleSubscribe,
