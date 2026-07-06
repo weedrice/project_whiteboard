@@ -35,6 +35,7 @@ public class AuthService {
     private final LoginAuthenticator loginAuthenticator;
     private final LoginAuditRecorder loginAuditRecorder;
     private final LoginUserInfoAssembler loginUserInfoAssembler;
+    private final LoginAccountRateLimiter loginAccountRateLimiter;
 
     public SignupResponse signup(SignupRequest request) {
         return signupService.signup(request);
@@ -43,11 +44,13 @@ public class AuthService {
     @Transactional
     public LoginResult login(LoginRequest request, LoginClientMetadata metadata) {
         LoginClientMetadata resolvedMetadata = metadata != null ? metadata : LoginClientMetadata.empty();
+        loginAccountRateLimiter.assertAllowed(request.getLoginId());
         Authentication authentication;
         try {
             authentication = loginAuthenticator.authenticate(request);
         } catch (AuthenticationException exception) {
             loginAuditRecorder.recordFailure(request, resolvedMetadata, resolveAuthenticationFailureReason(exception));
+            loginAccountRateLimiter.recordFailure(request.getLoginId());
             throw exception;
         }
 
@@ -55,6 +58,7 @@ public class AuthService {
         LoginAccountEligibility eligibility = loginAccountEligibilityService.evaluate(user);
         if (!eligibility.isLoginAllowed()) {
             loginAuditRecorder.recordFailure(request, resolvedMetadata, eligibility.failureReason());
+            loginAccountRateLimiter.recordFailure(request.getLoginId());
             throw new BusinessException(ErrorCode.LOGIN_FAILED);
         }
 
@@ -64,6 +68,7 @@ public class AuthService {
                 resolvedMetadata);
 
         loginAuditRecorder.recordSuccess(request, user, resolvedMetadata);
+        loginAccountRateLimiter.reset(request.getLoginId());
         user.updateLastLogin();
 
         return LoginResult.builder()
@@ -115,6 +120,7 @@ public class AuthService {
         if (userId == null) {
             loginAuditRecorder.recordFailure(request, metadata,
                     LoginAccountEligibilityService.FAILURE_REASON_USER_NOT_FOUND);
+            loginAccountRateLimiter.recordFailure(request.getLoginId());
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
 
@@ -122,6 +128,7 @@ public class AuthService {
         if (user == null) {
             loginAuditRecorder.recordFailure(request, metadata,
                     LoginAccountEligibilityService.FAILURE_REASON_USER_NOT_FOUND);
+            loginAccountRateLimiter.recordFailure(request.getLoginId());
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
         return user;

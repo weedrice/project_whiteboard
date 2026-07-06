@@ -128,6 +128,7 @@ cloud:
       frontend-url: https://noviis.kr/reset-password?token=
 
 rate-limit:
+  auth-account-limit: ${RATE_LIMIT_AUTH_ACCOUNT_LIMIT:5}
   bucket-cache-max-size: ${RATE_LIMIT_BUCKET_CACHE_MAX_SIZE:20000}
   bucket-cache-ttl-minutes: ${RATE_LIMIT_BUCKET_CACHE_TTL_MINUTES:120}
 

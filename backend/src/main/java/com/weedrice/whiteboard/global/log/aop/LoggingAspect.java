@@ -56,14 +56,14 @@ public class LoggingAspect {
             // 파라미터 마스킹 처리
             String params = maskSensitiveParams(joinPoint.getArgs());
 
-            log.info("[REQ] -> {} {} | Controller: {}.{}() | Params: {}", 
+            log.debug("[REQ] -> {} {} | Controller: {}.{}() | Params: {}",
                     method, fullUri, controllerName, methodName, params);
 
             Object result = joinPoint.proceed(); // 실제 메서드 실행
 
             long executionTime = System.currentTimeMillis() - startTime;
             MDC.put("executionTime", String.valueOf(executionTime));
-            log.info("[RES] <- {} {} | Time: {}ms", method, uri, executionTime);
+            log.debug("[RES] <- {} {} | Time: {}ms", method, uri, executionTime);
             
             return result;
 
@@ -76,7 +76,7 @@ public class LoggingAspect {
             String errorUri = (request != null) ? request.getRequestURI() : uri;
             String errorMethod = (request != null) ? request.getMethod() : method;
             
-            log.error("[ERR] <- {} {} | Controller: {}.{}() | Time: {}ms | Exception: {} | Message: {}", 
+            log.debug("[ERR] <- {} {} | Controller: {}.{}() | Time: {}ms | Exception: {} | Message: {}",
                     errorMethod, errorUri, controllerName, methodName, 
                     executionTime, e.getClass().getSimpleName(), e.getMessage(), e);
             

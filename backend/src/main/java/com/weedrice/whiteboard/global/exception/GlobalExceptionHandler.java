@@ -6,6 +6,8 @@ import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
 import com.weedrice.whiteboard.global.common.util.ClientUtils;
 import com.weedrice.whiteboard.global.log.service.ErrorLogService;
+import com.weedrice.whiteboard.global.ratelimit.RateLimitExceededException;
+import com.weedrice.whiteboard.global.ratelimit.RateLimitHeaderWriter;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -110,9 +112,12 @@ public class GlobalExceptionHandler {
                     e.getErrorCode().getStatus().value(), message, request, null);
         }
 
-        return ResponseEntity
-                .status(e.getErrorCode().getStatus())
-                .body(ApiResponse.error(e.getErrorCode().getCode(), responseMessage));
+        ResponseEntity.BodyBuilder responseBuilder = ResponseEntity.status(e.getErrorCode().getStatus());
+        if (e instanceof RateLimitExceededException rateLimitExceededException) {
+            RateLimitHeaderWriter.apply(responseBuilder, rateLimitExceededException.getSnapshot());
+        }
+
+        return responseBuilder.body(ApiResponse.error(e.getErrorCode().getCode(), responseMessage));
     }
 
     private String resolveBusinessExceptionMessage(BusinessException e) {

@@ -66,6 +66,8 @@ rate-limit:
   default-limit: 100
   # 인증 엔드포인트 제한 (무차별 대입 공격 방지)
   auth-limit: 5
+  # 계정별 로그인 실패 제한
+  auth-account-limit: 5
   # 일반 API 엔드포인트 제한
   api-limit: 200
   # 인증된 사용자 제한

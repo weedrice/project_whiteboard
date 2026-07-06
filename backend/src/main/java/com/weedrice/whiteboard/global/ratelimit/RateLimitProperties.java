@@ -12,6 +12,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *   enabled: true
  *   default-limit: 100
  *   auth-limit: 5
+ *   auth-account-limit: 5
  *   api-limit: 200
  *   user-limit: 500
  *   bucket-cache-max-size: 20000
@@ -26,6 +27,7 @@ public class RateLimitProperties {
     private boolean enabled = true;
     private int defaultLimit = 100;
     private int authLimit = 5;
+    private int authAccountLimit = 5;
     private int apiLimit = 200;
     private int userLimit = 500;
     private long bucketCacheMaxSize = 20_000;

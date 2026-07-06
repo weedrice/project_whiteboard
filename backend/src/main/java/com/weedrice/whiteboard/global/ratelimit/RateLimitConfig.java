@@ -84,6 +84,22 @@ public class RateLimitConfig {
         return createBucket(properties.getAuthLimit());
     }
 
+    public Bucket createAuthAccountBucket() {
+        return createBucket(properties.getAuthAccountLimit());
+    }
+
+    public int getAuthLimit() {
+        return properties.getAuthLimit();
+    }
+
+    public int getApiLimit() {
+        return properties.getApiLimit();
+    }
+
+    public int getUserLimit() {
+        return properties.getUserLimit();
+    }
+
     private Bucket createBucket(int limit) {
         return Bucket.builder()
                 .addLimit(Bandwidth.classic(limit, Refill.intervally(limit, Duration.ofMinutes(1))))

@@ -26,6 +26,8 @@ import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.email.EmailService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.ratelimit.RateLimitConfig;
+import com.weedrice.whiteboard.global.ratelimit.RateLimitProperties;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.JwtTokenProvider;
 import jakarta.persistence.EntityManager;
@@ -134,6 +136,11 @@ class AuthServiceTest {
                 entityManager, refreshTokenLifecycleService, userPrivilegeCleanupService, passwordHistoryPolicy,
                 authAccountEligibilityPolicy, new AccountUniquenessPolicy(userRepository),
                 new OAuthSignupTicketService());
+        RateLimitProperties rateLimitProperties = new RateLimitProperties();
+        rateLimitProperties.setAuthAccountLimit(1_000);
+        LoginAccountRateLimiter loginAccountRateLimiter = new LoginAccountRateLimiter(
+                new RateLimitConfig(rateLimitProperties),
+                rateLimitProperties);
         authService = new AuthService(
                 signupService,
                 sessionTokenService,
@@ -142,7 +149,8 @@ class AuthServiceTest {
                 loginAccountEligibilityService,
                 new LoginAuthenticator(authenticationManagerBuilder),
                 new LoginAuditRecorder(loginHistoryAuditService),
-                new LoginUserInfoAssembler(currentUserSummaryAssembler));
+                new LoginUserInfoAssembler(currentUserSummaryAssembler),
+                loginAccountRateLimiter);
 
         user = User.builder()
                 .loginId("testuser")

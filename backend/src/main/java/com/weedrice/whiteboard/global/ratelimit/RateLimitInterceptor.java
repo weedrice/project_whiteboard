@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import io.github.bucket4j.Bucket;
+import io.github.bucket4j.ConsumptionProbe;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -63,29 +64,45 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         }
 
         String clientIp = clientIpResolver.resolve(request);
-        Bucket bucket = resolveBucket(path, clientIp);
-        if (!bucket.tryConsume(1)) {
-            log.warn("Rate limit exceeded for path: {}, IP: {}", path, clientIp);
+        BucketResolution resolution = resolveBucket(path, clientIp);
+        ConsumptionProbe probe = resolution.bucket().tryConsumeAndReturnRemaining(1);
+        if (!probe.isConsumed()) {
+            long retryAfterSeconds = RateLimitHeaderWriter.secondsUntilRefill(probe.getNanosToWaitForRefill());
+            RateLimitHeaderWriter.write(response, RateLimitSnapshot.rejected(
+                    resolution.limit(),
+                    Math.max(0, probe.getRemainingTokens()),
+                    retryAfterSeconds));
+            log.debug("Rate limit exceeded for path: {}, IP: {}", path, clientIp);
             sendRateLimitError(request, response);
             return false;
         }
+        RateLimitHeaderWriter.write(response, RateLimitSnapshot.allowed(
+                resolution.limit(),
+                Math.max(0, probe.getRemainingTokens()),
+                RateLimitHeaderWriter.secondsUntilRefill(probe.getNanosToWaitForReset())));
         return true;
     }
 
-    private Bucket resolveBucket(String path, String clientIp) {
+    private BucketResolution resolveBucket(String path, String clientIp) {
         if (path.startsWith("/api/v1/auth/")) {
             String authIpKey = "auth:" + clientIp;
-            return ipBucketCache.asMap().computeIfAbsent(authIpKey, k -> rateLimitConfig.createAuthBucket());
+            return new BucketResolution(
+                    ipBucketCache.asMap().computeIfAbsent(authIpKey, k -> rateLimitConfig.createAuthBucket()),
+                    rateLimitConfig.getAuthLimit());
         }
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof CustomUserDetails) {
             CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
             Long userId = userDetails.getUserId();
-            return userBuckets.computeIfAbsent("user:" + userId, k -> rateLimitConfig.createUserBucket());
+            return new BucketResolution(
+                    userBuckets.computeIfAbsent("user:" + userId, k -> rateLimitConfig.createUserBucket()),
+                    rateLimitConfig.getUserLimit());
         }
 
-        return ipBucketCache.asMap().computeIfAbsent("api:" + clientIp, k -> rateLimitConfig.createApiBucket());
+        return new BucketResolution(
+                ipBucketCache.asMap().computeIfAbsent("api:" + clientIp, k -> rateLimitConfig.createApiBucket()),
+                rateLimitConfig.getApiLimit());
     }
 
     private boolean shouldSkipRateLimit(String path) {
@@ -106,5 +123,8 @@ public class RateLimitInterceptor implements HandlerInterceptor {
                 message);
 
         objectMapper.writeValue(response.getWriter(), errorResponse);
+    }
+
+    private record BucketResolution(Bucket bucket, long limit) {
     }
 }

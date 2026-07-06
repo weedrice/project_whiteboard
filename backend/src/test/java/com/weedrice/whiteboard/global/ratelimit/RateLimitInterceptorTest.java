@@ -64,6 +64,7 @@ class RateLimitInterceptorTest {
 
         when(clientIpResolver.resolve(request)).thenReturn("203.0.113.10");
         when(rateLimitConfig.createAuthBucket()).thenReturn(oneRequestBucket());
+        when(rateLimitConfig.getAuthLimit()).thenReturn(1);
         when(messageSource.getMessage(eq("error.common.rateLimitExceeded"), isNull(), any(Locale.class)))
                 .thenReturn("Too many requests");
 
@@ -73,6 +74,11 @@ class RateLimitInterceptorTest {
         assertThat(firstResult).isTrue();
         assertThat(secondResult).isFalse();
         assertThat(secondResponse.getStatus()).isEqualTo(429);
+        assertThat(firstResponse.getHeader(RateLimitHeaderWriter.HEADER_LIMIT)).isEqualTo("1");
+        assertThat(firstResponse.getHeader(RateLimitHeaderWriter.HEADER_REMAINING)).isEqualTo("0");
+        assertThat(secondResponse.getHeader(RateLimitHeaderWriter.HEADER_LIMIT)).isEqualTo("1");
+        assertThat(secondResponse.getHeader(RateLimitHeaderWriter.HEADER_REMAINING)).isEqualTo("0");
+        assertThat(secondResponse.getHeader(RateLimitHeaderWriter.HEADER_RETRY_AFTER)).isNotBlank();
         verify(clientIpResolver, times(2)).resolve(request);
         verify(rateLimitConfig).createAuthBucket();
     }
