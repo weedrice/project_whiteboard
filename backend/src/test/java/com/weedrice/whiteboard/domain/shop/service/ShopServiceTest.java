@@ -215,6 +215,19 @@ class ShopServiceTest {
 
             verify(shopItemRepository, never()).findByIsActiveAndItemType(any(), anyString(), any());
         }
+
+        @Test
+        void getShopItems_rejectsTooLongTypeBeforeRegistryLookup() {
+            Pageable pageable = PageRequest.of(0, 20);
+
+            assertThatThrownBy(() -> shopService.getShopItems("a".repeat(51), pageable))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+            verifyNoInteractions(shopEntitlementCapabilityRegistry);
+            verifyNoInteractions(shopItemRepository);
+        }
     }
 
     @Nested

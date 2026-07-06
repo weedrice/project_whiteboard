@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
+import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class ShopService {
 
+    private static final int ITEM_TYPE_MAX_LENGTH = 50;
     private static final int DEFAULT_SHOP_ITEM_PAGE_SIZE = 20;
     private static final Sort DEFAULT_SHOP_ITEM_SORT = Sort.by(Sort.Order.asc("itemId"));
     private static final Set<String> ALLOWED_SHOP_ITEM_SORT_PROPERTIES = Set.of("itemId");
@@ -178,9 +180,13 @@ public class ShopService {
     }
 
     private String normalizeItemType(String itemType) {
-        if (itemType == null || itemType.isBlank()) {
+        String normalizedItemType = TextInputNormalizer.normalizeNullable(itemType);
+        if (normalizedItemType == null || normalizedItemType.isBlank()) {
             return null;
         }
-        return itemType.trim().toUpperCase(Locale.ROOT);
+        if (normalizedItemType.length() > ITEM_TYPE_MAX_LENGTH) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return normalizedItemType.toUpperCase(Locale.ROOT);
     }
 }

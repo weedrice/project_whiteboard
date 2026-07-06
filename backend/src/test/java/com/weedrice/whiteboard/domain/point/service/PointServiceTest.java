@@ -576,6 +576,21 @@ class PointServiceTest {
     }
 
     @Test
+    void getPointHistories_rejectsTooLongTypeBeforeRepositorySearch() {
+        Long userId = 1L;
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+
+        assertThatThrownBy(() -> pointService.getPointHistories(userId, "a".repeat(51), pageable))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(pointHistoryRepository, never())
+                .findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc(any(), any(), any());
+        verify(pointHistoryRepository, never()).findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(any(), any());
+    }
+
+    @Test
     @DisplayName("사전 검증된 사용자 포인트 차감은 0 이하 금액을 저장소 접근 전에 거절한다")
     void spendPointForPrevalidatedUser_rejectsNonPositiveAmount() {
         for (int amount : invalidAmounts()) {

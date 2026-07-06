@@ -11,6 +11,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
+import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,7 @@ public class PointService {
     private static final String HISTORY_TYPE_PENALTY = "PENALTY";
     private static final String HISTORY_TYPE_REWARD_REVERSAL = "REWARD_REVERSAL";
     private static final String HISTORY_TYPE_SPEND = "SPEND";
+    private static final int HISTORY_TYPE_MAX_LENGTH = 50;
     private static final int DEFAULT_HISTORY_PAGE_SIZE = 20;
     private static final Set<String> HISTORY_TYPES = Set.of(
             HISTORY_TYPE_EARN,
@@ -210,11 +212,15 @@ public class PointService {
     }
 
     private String normalizeHistoryType(String type) {
-        if (type == null || type.isBlank()) {
+        String normalizedType = TextInputNormalizer.normalizeNullable(type);
+        if (normalizedType == null || normalizedType.isBlank()) {
             return null;
         }
+        if (normalizedType.length() > HISTORY_TYPE_MAX_LENGTH) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
 
-        String normalizedType = type.trim().toUpperCase(Locale.ROOT);
+        normalizedType = normalizedType.toUpperCase(Locale.ROOT);
         if (!HISTORY_TYPES.contains(normalizedType)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
