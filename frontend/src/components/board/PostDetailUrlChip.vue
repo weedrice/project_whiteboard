@@ -67,7 +67,7 @@ const emit = defineEmits<{
   cursor: pointer;
   color: var(--nv-muted);
   display: inline-flex;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.68rem;
   gap: 0.35rem;
   letter-spacing: -0.02em;

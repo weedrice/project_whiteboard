@@ -114,7 +114,7 @@ const { t } = useI18n()
   display: inline-flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;

@@ -238,7 +238,7 @@ useHead({
 
 .nv-board-state-kicker {
   color: var(--nv-muted);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.68rem;
   font-weight: 500;
   letter-spacing: 0.18em;

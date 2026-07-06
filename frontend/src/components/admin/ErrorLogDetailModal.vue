@@ -142,7 +142,7 @@ const emit = defineEmits<{
   border-radius: 6px;
   background: #111827;
   color: #e5e7eb;
-  font-family: 'Fira Code', 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.6875rem;
   line-height: 1.5;
   white-space: pre-wrap;

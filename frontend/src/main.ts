@@ -1,6 +1,6 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import { createUnhead, headSymbol } from '@unhead/vue'
+import { createHead } from '@unhead/vue/client'
 import { VueQueryPlugin } from '@tanstack/vue-query'
 
 import App from './App.vue'
@@ -22,11 +22,11 @@ import { createVueErrorLogPayload } from '@/utils/vueErrorLog'
 validateEnv()
 
 const app = createApp(App)
-const head = createUnhead()
+const head = createHead()
 const pinia = createPinia()
 
 app.use(pinia)
-app.provide(headSymbol, head)
+app.use(head)
 
 configureApiStoreResolvers({
     resolveToastStore: () => useToastStore(pinia),

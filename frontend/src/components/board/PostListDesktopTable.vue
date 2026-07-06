@@ -244,7 +244,7 @@ const { t } = useI18n()
 
 :deep(th) {
   color: var(--nv-muted);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.14em;
