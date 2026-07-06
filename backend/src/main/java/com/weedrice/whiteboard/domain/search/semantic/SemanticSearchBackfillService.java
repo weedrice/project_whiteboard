@@ -36,10 +36,17 @@ public class SemanticSearchBackfillService {
         List<Long> postIds = jdbcTemplate.queryForList("""
                 SELECT p.post_id
                 FROM posts p
+                JOIN boards b ON b.board_id = p.board_id
+                JOIN users u ON u.user_id = p.user_id
                 LEFT JOIN semantic_search_embeddings e
                        ON e.content_type = 'POST'
                       AND e.content_id = p.post_id
                 WHERE p.is_deleted = 'N'
+                  AND p.is_secret = 'N'
+                  AND b.is_active = 'Y'
+                  AND b.is_public = 'Y'
+                  AND u.status = 'ACTIVE'
+                  AND u.deleted_at IS NULL
                   AND (e.embedding_id IS NULL OR e.deleted_at IS NOT NULL)
                   AND NOT EXISTS (
                         SELECT 1
@@ -60,11 +67,21 @@ public class SemanticSearchBackfillService {
                 SELECT c.comment_id
                 FROM comments c
                 JOIN posts p ON p.post_id = c.post_id
+                JOIN boards b ON b.board_id = p.board_id
+                JOIN users cu ON cu.user_id = c.user_id
+                JOIN users pu ON pu.user_id = p.user_id
                 LEFT JOIN semantic_search_embeddings e
                        ON e.content_type = 'COMMENT'
                       AND e.content_id = c.comment_id
                 WHERE c.is_deleted = 'N'
                   AND p.is_deleted = 'N'
+                  AND p.is_secret = 'N'
+                  AND b.is_active = 'Y'
+                  AND b.is_public = 'Y'
+                  AND cu.status = 'ACTIVE'
+                  AND cu.deleted_at IS NULL
+                  AND pu.status = 'ACTIVE'
+                  AND pu.deleted_at IS NULL
                   AND (e.embedding_id IS NULL OR e.deleted_at IS NOT NULL)
                   AND NOT EXISTS (
                         SELECT 1

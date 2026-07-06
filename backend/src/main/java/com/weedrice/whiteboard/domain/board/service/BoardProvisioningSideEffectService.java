@@ -36,8 +36,14 @@ class BoardProvisioningSideEffectService {
         boardIconAttachmentService.syncBoardIcon(result.currentUser().getUserId(), result.board(),
                 result.previousIconUrl());
         boardAiInfoService.upsertBoardAiInfoIfEnabled(result.board(), result.guidePrompt(), false);
-        if (!Objects.equals(result.previousBoardName(), result.board().getBoardName())) {
+        if (requiresSemanticReindex(result)) {
             semanticSearchEventPublisher.publishBoardContentReindex(result.board().getBoardId());
         }
+    }
+
+    private boolean requiresSemanticReindex(BoardUpdateCommandResult result) {
+        return !Objects.equals(result.previousBoardName(), result.board().getBoardName())
+                || !Objects.equals(result.previousIsActive(), result.board().getIsActive())
+                || !Objects.equals(result.previousIsPublic(), result.board().getIsPublic());
     }
 }

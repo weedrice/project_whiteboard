@@ -69,6 +69,8 @@ class BoardCommandService {
         User currentUser = getCurrentUser(userId);
         String previousIconUrl = board.getIconUrl();
         String previousBoardName = board.getBoardName();
+        Boolean previousIsActive = board.getIsActive();
+        Boolean previousIsPublic = board.getIsPublic();
         String iconUrl = normalizeIconUrl(request.getIconUrl());
 
         boardAccessPolicy.validateBoardAdmin(board, currentUser);
@@ -93,6 +95,7 @@ class BoardCommandService {
             throw resolveBoardConflict(ex);
         }
         return new BoardUpdateCommandResult(board, currentUser, previousIconUrl, previousBoardName,
+                previousIsActive, previousIsPublic,
                 request.getGuidePrompt());
     }
 

@@ -24,7 +24,7 @@ class SemanticSearchIndexTransactionService {
     @Transactional(readOnly = true)
     public SemanticSearchPostIndexPayload loadPostIndexPayload(Long postId) {
         Post post = postRepository.findByIdWithRelations(postId).orElse(null);
-        if (post == null || Boolean.TRUE.equals(post.getIsDeleted())) {
+        if (!isIndexablePost(post)) {
             return null;
         }
         String embeddingText = textBuilder.buildPostText(post);
@@ -40,7 +40,7 @@ class SemanticSearchIndexTransactionService {
     @Transactional(readOnly = true)
     public SemanticSearchCommentIndexPayload loadCommentIndexPayload(Long commentId) {
         Comment comment = commentRepository.findByIdWithRelations(commentId).orElse(null);
-        if (isInactiveComment(comment)) {
+        if (!isIndexableComment(comment)) {
             return null;
         }
         String embeddingText = textBuilder.buildCommentText(comment);
@@ -57,7 +57,7 @@ class SemanticSearchIndexTransactionService {
     @Transactional
     public void upsertPost(SemanticSearchPostIndexPayload payload, String embeddingModel, float[] embedding) {
         Post post = postRepository.findByIdWithRelationsForUpdate(payload.postId()).orElse(null);
-        if (post == null || Boolean.TRUE.equals(post.getIsDeleted())) {
+        if (!isIndexablePost(post)) {
             tombstonePost(payload.postId());
             return;
         }
@@ -77,12 +77,12 @@ class SemanticSearchIndexTransactionService {
     @Transactional
     public void upsertComment(SemanticSearchCommentIndexPayload payload, String embeddingModel, float[] embedding) {
         Comment comment = commentRepository.findByIdWithRelationsForUpdate(payload.commentId()).orElse(null);
-        if (isInactiveComment(comment)) {
+        if (!isIndexableComment(comment)) {
             tombstoneComment(payload.commentId());
             return;
         }
         Post post = postRepository.findByIdWithRelationsForUpdate(comment.getPost().getPostId()).orElse(null);
-        if (post == null || Boolean.TRUE.equals(post.getIsDeleted())) {
+        if (!isIndexablePost(post)) {
             tombstoneComment(payload.commentId());
             return;
         }
@@ -119,11 +119,29 @@ class SemanticSearchIndexTransactionService {
         }
     }
 
-    private boolean isInactiveComment(Comment comment) {
-        return comment == null
-                || Boolean.TRUE.equals(comment.getIsDeleted())
-                || comment.getPost() == null
-                || Boolean.TRUE.equals(comment.getPost().getIsDeleted());
+    private boolean isIndexableComment(Comment comment) {
+        return comment != null
+                && !Boolean.TRUE.equals(comment.getIsDeleted())
+                && isIndexableUser(comment.getUser())
+                && isIndexablePost(comment.getPost());
+    }
+
+    private boolean isIndexablePost(Post post) {
+        return post != null
+                && !Boolean.TRUE.equals(post.getIsDeleted())
+                && !Boolean.TRUE.equals(post.getIsSecret())
+                && isIndexableBoard(post.getBoard())
+                && isIndexableUser(post.getUser());
+    }
+
+    private boolean isIndexableBoard(com.weedrice.whiteboard.domain.board.entity.Board board) {
+        return board != null
+                && Boolean.TRUE.equals(board.getIsActive())
+                && Boolean.TRUE.equals(board.getIsPublic());
+    }
+
+    private boolean isIndexableUser(com.weedrice.whiteboard.domain.user.entity.User user) {
+        return user != null && user.isActiveAccount();
     }
 
     private void validateCurrentPostPayload(SemanticSearchPostIndexPayload payload, Post post) {

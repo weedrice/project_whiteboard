@@ -135,6 +135,105 @@ class SemanticSearchIndexTransactionServiceTest {
                 2L, 1L, 10L, 100L, null, embeddingText, textBuilder.hash(embeddingText), "model", embedding);
     }
 
+    @Test
+    void loadPostIndexPayloadSkipsSecretPostBeforeEmbedding() {
+        Post post = post("title", "secret body");
+        ReflectionTestUtils.setField(post, "isSecret", true);
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+
+        assertThat(transactionService.loadPostIndexPayload(1L)).isNull();
+    }
+
+    @Test
+    void loadPostIndexPayloadSkipsPrivateBoardBeforeEmbedding() {
+        Post post = post("title", "private board body");
+        ReflectionTestUtils.setField(post.getBoard(), "isPublic", false);
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+
+        assertThat(transactionService.loadPostIndexPayload(1L)).isNull();
+    }
+
+    @Test
+    void loadPostIndexPayloadSkipsInactiveBoardBeforeEmbedding() {
+        Post post = post("title", "inactive board body");
+        ReflectionTestUtils.setField(post.getBoard(), "isActive", false);
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+
+        assertThat(transactionService.loadPostIndexPayload(1L)).isNull();
+    }
+
+    @Test
+    void loadPostIndexPayloadSkipsInactiveAuthorBeforeEmbedding() {
+        Post post = post("title", "inactive author body");
+        ReflectionTestUtils.setField(post.getUser(), "status", User.STATUS_SUSPENDED);
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+
+        assertThat(transactionService.loadPostIndexPayload(1L)).isNull();
+    }
+
+    @Test
+    void upsertPostTombstonesWhenPostBecameUnindexableAfterEmbedding() {
+        Post post = post("title", "body");
+        String embeddingText = textBuilder.buildPostText(post);
+        SemanticSearchPostIndexPayload payload =
+                new SemanticSearchPostIndexPayload(1L, 10L, 100L, null, embeddingText, textBuilder.hash(embeddingText));
+        ReflectionTestUtils.setField(post, "isSecret", true);
+        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
+
+        transactionService.upsertPost(payload, "model", new float[] { 0.1F });
+
+        verify(embeddingRepository).tombstone("POST", 1L);
+        verify(embeddingRepository).tombstoneCommentsByPostId(1L);
+        verify(embeddingRepository, never()).upsertPost(any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void loadCommentIndexPayloadSkipsCommentOnSecretPostBeforeEmbedding() {
+        Post post = post("title", "body");
+        ReflectionTestUtils.setField(post, "isSecret", true);
+        Comment comment = comment(post, "hidden comment");
+        when(commentRepository.findByIdWithRelations(2L)).thenReturn(Optional.of(comment));
+
+        assertThat(transactionService.loadCommentIndexPayload(2L)).isNull();
+    }
+
+    @Test
+    void loadCommentIndexPayloadSkipsCommentOnPrivateBoardBeforeEmbedding() {
+        Post post = post("title", "body");
+        ReflectionTestUtils.setField(post.getBoard(), "isPublic", false);
+        Comment comment = comment(post, "hidden comment");
+        when(commentRepository.findByIdWithRelations(2L)).thenReturn(Optional.of(comment));
+
+        assertThat(transactionService.loadCommentIndexPayload(2L)).isNull();
+    }
+
+    @Test
+    void loadCommentIndexPayloadSkipsInactiveCommentAuthorBeforeEmbedding() {
+        Post post = post("title", "body");
+        Comment comment = comment(post, "hidden comment");
+        ReflectionTestUtils.setField(comment.getUser(), "status", User.STATUS_SUSPENDED);
+        when(commentRepository.findByIdWithRelations(2L)).thenReturn(Optional.of(comment));
+
+        assertThat(transactionService.loadCommentIndexPayload(2L)).isNull();
+    }
+
+    @Test
+    void upsertCommentTombstonesWhenParentPostBecameUnindexableAfterEmbedding() {
+        Post post = post("title", "body");
+        Comment comment = comment(post, "comment");
+        String embeddingText = textBuilder.buildCommentText(comment);
+        SemanticSearchCommentIndexPayload payload =
+                new SemanticSearchCommentIndexPayload(
+                        2L, 1L, 10L, 100L, null, embeddingText, textBuilder.hash(embeddingText));
+        ReflectionTestUtils.setField(post.getBoard(), "isActive", false);
+        when(commentRepository.findByIdWithRelationsForUpdate(2L)).thenReturn(Optional.of(comment));
+
+        transactionService.upsertComment(payload, "model", new float[] { 0.1F });
+
+        verify(embeddingRepository).tombstone("COMMENT", 2L);
+        verify(embeddingRepository, never()).upsertComment(any(), any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
     private Transactional transactionalAnnotation(String methodName, Class<?>... parameterTypes)
             throws NoSuchMethodException {
         Method method = SemanticSearchIndexTransactionService.class.getMethod(methodName, parameterTypes);
@@ -154,5 +253,15 @@ class SemanticSearchIndexTransactionServiceTest {
                 .build();
         ReflectionTestUtils.setField(post, "postId", 1L);
         return post;
+    }
+
+    private Comment comment(Post post, String content) {
+        Comment comment = Comment.builder()
+                .post(post)
+                .user(post.getUser())
+                .content(content)
+                .build();
+        ReflectionTestUtils.setField(comment, "commentId", 2L);
+        return comment;
     }
 }

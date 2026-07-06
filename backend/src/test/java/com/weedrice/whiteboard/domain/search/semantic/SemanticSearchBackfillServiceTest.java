@@ -47,7 +47,13 @@ class SemanticSearchBackfillServiceTest {
                         .contains("LEFT JOIN semantic_search_embeddings")
                         .contains("e.embedding_id IS NULL OR e.deleted_at IS NOT NULL")
                         .contains("semantic_search_jobs j")
-                        .contains("j.status IN ('PENDING', 'PROCESSING')"));
+                        .contains("j.status IN ('PENDING', 'PROCESSING')")
+                        .contains("b.is_active = 'Y'")
+                        .contains("b.is_public = 'Y'")
+                        .contains("status = 'ACTIVE'")
+                        .contains("deleted_at IS NULL"));
+        assertThat(sqlCaptor.getAllValues().get(0)).contains("p.is_secret = 'N'");
+        assertThat(sqlCaptor.getAllValues().get(1)).contains("p.is_secret = 'N'");
     }
 
     @Test

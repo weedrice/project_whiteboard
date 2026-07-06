@@ -872,6 +872,26 @@ class BoardServiceTest {
         verify(boardRepository).findByBoardUrlForUpdate("test-board");
         verify(boardRepository, never()).findByBoardUrl("test-board");
         verify(boardAiInfoRepository, never()).save(any(BoardAiInfo.class));
+        verify(semanticSearchEventPublisher).publishBoardContentReindex(1L);
+    }
+
+    @Test
+    void updateBoard_inactiveBoardPublishesSemanticReindex() {
+        BoardUpdateRequest request = new BoardUpdateRequest();
+        ReflectionTestUtils.setField(request, "boardName", "Inactive Board");
+        ReflectionTestUtils.setField(request, "description", "Updated Description");
+        ReflectionTestUtils.setField(request, "boardUrl", "test-board");
+        ReflectionTestUtils.setField(request, "iconUrl", null);
+        ReflectionTestUtils.setField(request, "sortOrder", 1);
+        ReflectionTestUtils.setField(request, "isActive", false);
+        ReflectionTestUtils.setField(request, "isPublic", true);
+
+        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
+
+        boardService.updateBoard("test-board", request, 1L);
+
+        assertThat(board.getIsActive()).isFalse();
+        verify(semanticSearchEventPublisher).publishBoardContentReindex(1L);
     }
 
     @Test
