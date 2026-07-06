@@ -18,6 +18,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -29,6 +30,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -85,6 +87,17 @@ class WebConfigInterceptorTest {
     }
 
     @Test
+    @DisplayName("CSP report API is excluded from referer check")
+    void cspReportApi_excludedFromRefererCheck() throws Exception {
+        mockMvc.perform(post("/api/v1/security/csp-report"))
+                .andExpect(status().isOk())
+                .andExpect(content().string("reported"));
+
+        verify(ipBlockInterceptor).preHandle(any(), any(), any());
+        verifyNoInteractions(refererCheckInterceptor);
+    }
+
+    @Test
     @DisplayName("uploads path is not exposed as a static resource")
     void uploadsPath_notExposedAsStaticResource() throws Exception {
         assertThat(Arrays.stream(WebConfig.class.getDeclaredMethods())
@@ -99,6 +112,11 @@ class WebConfigInterceptorTest {
         @GetMapping("/emoticons/purchased")
         String purchasedEmoticons() {
             return "purchased";
+        }
+
+        @PostMapping("/security/csp-report")
+        String reportCsp() {
+            return "reported";
         }
     }
 }

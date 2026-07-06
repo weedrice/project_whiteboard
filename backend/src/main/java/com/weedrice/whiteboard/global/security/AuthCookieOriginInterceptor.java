@@ -21,14 +21,14 @@ public class AuthCookieOriginInterceptor implements HandlerInterceptor {
             @NonNull Object handler) {
         String origin = request.getHeader("Origin");
         if (StringUtils.hasText(origin)) {
-            if (frontendUrl.equals(origin)) {
+            if (FrontendOriginMatcher.isAllowedOriginHeader(frontendUrl, origin)) {
                 return true;
             }
             throw new BusinessException(ErrorCode.FORBIDDEN, "Invalid Origin");
         }
 
         String referer = request.getHeader("Referer");
-        if (StringUtils.hasText(referer) && referer.startsWith(frontendUrl)) {
+        if (StringUtils.hasText(referer) && FrontendOriginMatcher.isAllowedReferer(frontendUrl, referer)) {
             return true;
         }
 
