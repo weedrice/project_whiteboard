@@ -8,6 +8,7 @@ import { useNumberedDropdownKeyboard } from '@/composables/useNumberedDropdownKe
 import { useKeyboardStore, type DropdownItem } from '@/stores/keyboard'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
+import { encodePathSegment } from '@/utils/urlPath'
 
 const props = defineProps<{
   type: 'subscription' | 'all'
@@ -78,7 +79,7 @@ const handleMoreClick = () => {
 
 const navigateToBoard = (boardUrl: string) => {
   emit('toggle')
-  router.push(`/board/${boardUrl}`)
+  router.push(`/board/${encodePathSegment(boardUrl)}`)
 }
 
 useNumberedDropdownKeyboard({

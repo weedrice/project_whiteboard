@@ -32,7 +32,7 @@
                         class="px-3 py-3 sm:px-6 sm:py-4 nv-hover-surface flex flex-row items-center justify-between gap-2 sm:gap-3 transition-colors duration-200">
                         <router-link
                             v-if="isAccessibleSubscription(board)"
-                            :to="`/board/${board.boardUrl}`"
+                            :to="`/board/${encodePathSegment(board.boardUrl)}`"
                             class="flex items-center flex-1 min-w-0"
                             :aria-label="board.boardName || $t('user.subscriptions.unavailableBoard')">
                             <div
@@ -97,6 +97,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import { useSubscribedBoardsManager } from '@/features/user/subscriptions/useSubscribedBoardsManager'
+import { encodePathSegment } from '@/utils/urlPath'
 
 const {
     accessibleBoards,

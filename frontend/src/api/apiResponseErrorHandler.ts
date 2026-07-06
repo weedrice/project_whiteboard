@@ -7,7 +7,6 @@ import {
   isCanceledRequestError,
   markGlobalErrorToastHandled,
   shouldMarkGlobalErrorToastHandled,
-  type ApiErrorResponse,
 } from '@/api/errorHandling'
 import {
   noopToastStore,
@@ -42,9 +41,7 @@ export async function handleResponseError(api: AxiosInstance, error: AxiosError)
 
   if (originalRequest.redirectOnError) {
     const status = error.response?.status || 500
-    const errorData = error.response?.data as ApiErrorResponse | undefined
-    const message = errorData?.message || error.message
-    router.push({ name: 'error', query: { status: status.toString(), message } })
+    router.push({ name: 'error', query: { status: status.toString() } })
     return Promise.reject(error)
   }
 

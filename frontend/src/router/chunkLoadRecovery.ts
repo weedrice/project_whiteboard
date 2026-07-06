@@ -30,7 +30,6 @@ export const installChunkLoadRecovery = (router: Router) => {
                 name: 'error',
                 query: {
                     status: '500',
-                    message: 'Chunk load failed after retry',
                 },
             })
             return
@@ -41,7 +40,6 @@ export const installChunkLoadRecovery = (router: Router) => {
             name: 'error',
             query: {
                 status: '500',
-                message: error.message || 'Navigation Error',
             },
         })
     })

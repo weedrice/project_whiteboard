@@ -6,6 +6,7 @@ import { unwrapApiData } from '@/api/response'
 import { useNotification } from '@/composables/useNotification'
 import { useToastStore } from '@/stores/toast'
 import logger from '@/utils/logger'
+import { encodePathSegment } from '@/utils/urlPath'
 import type { Notification } from '@/types'
 
 interface NotificationNavigationOptions {
@@ -34,7 +35,7 @@ export function mapPostNotificationRoute(
     const boardUrl = post.board?.boardUrl
     if (!boardUrl) return null
 
-    return `/board/${boardUrl}/post/${postId}`
+    return `/board/${encodePathSegment(boardUrl)}/post/${encodePathSegment(postId)}`
 }
 
 export function mapCommentNotificationRoute(
@@ -45,7 +46,7 @@ export function mapCommentNotificationRoute(
     const postId = comment.post?.postId ?? comment.postId
     if (!boardUrl || !postId) return null
 
-    return `/board/${boardUrl}/post/${postId}#comment-${commentId}`
+    return `/board/${encodePathSegment(boardUrl)}/post/${encodePathSegment(postId)}#comment-${encodePathSegment(commentId)}`
 }
 
 function isInternalTargetUrl(targetUrl: string | undefined): targetUrl is string {

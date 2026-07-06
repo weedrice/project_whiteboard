@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type { BoardListItem } from '@/types'
+import { encodePathSegment } from '@/utils/urlPath'
 
 defineProps<{
   boards: BoardListItem[]
@@ -46,7 +47,7 @@ const formatNumber = (value: number) => numberFormatter.value.format(value)
         <RouterLink
           v-for="board in boards"
           :key="board.boardId"
-          :to="`/board/${board.boardUrl}`"
+          :to="`/board/${encodePathSegment(board.boardUrl)}`"
           class="group flex min-h-[68px] flex-col bg-[var(--nv-surface)] px-3.5 pt-3 pb-2 transition-all duration-150 hover:bg-[var(--nv-surface-2)]"
         >
           <div class="min-w-0">

@@ -1,5 +1,6 @@
 import type { FeedPost } from '@/types'
 import { asSanitizedHtml, sanitizeQuillHtml, type SanitizedHtml } from '@/utils/sanitize'
+import { encodePathSegment } from '@/utils/urlPath'
 
 const HTML_TAG_PATTERN = /<[a-z][\s\S]*>/i
 const YOUTUBE_HOSTS = new Set(['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtube-nocookie.com', 'www.youtube-nocookie.com'])
@@ -123,5 +124,5 @@ export const isFeedSpoiler = (post: Pick<FeedPost, 'isSpoiler'> & { spoiler?: bo
 }
 
 export const buildPostDetailPath = (boardUrl: string | number, postId: string | number, hash = '') => {
-  return `/board/${boardUrl}/post/${postId}${hash}`
+  return `/board/${encodePathSegment(boardUrl)}/post/${encodePathSegment(postId)}${hash}`
 }

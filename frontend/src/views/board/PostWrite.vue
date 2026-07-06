@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import PostForm from '@/components/board/PostForm.vue'
 import { usePostFormRouteShell } from '@/features/board/posts/form/usePostFormRouteShell'
+import { encodePathSegment } from '@/utils/urlPath'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -15,11 +16,11 @@ function handleSubmitted(result: {
 }) {
   if (!result.newPostId) return
   if (result.isSecret && !result.isBoardAdmin) {
-    router.push(`/board/${result.boardUrl}`)
+    router.push(`/board/${encodePathSegment(result.boardUrl)}`)
     return
   }
   router.push({
-    path: `/board/${result.boardUrl}/post/${result.newPostId}`,
+    path: `/board/${encodePathSegment(result.boardUrl)}/post/${encodePathSegment(result.newPostId)}`,
     query: { fromCreate: '1' }
   })
 }

@@ -32,7 +32,7 @@ const { t } = useI18n()
 
 const homeHref = computed(() => import.meta.env.BASE_URL || '/')
 const status = computed(() => getSingleQueryValue(route.query.status) || 'Error')
-const message = computed(() => getSingleQueryValue(route.query.message) || t('common.error.defaultMessage'))
+const message = computed(() => t('common.error.defaultMessage'))
 
 const title = computed(() => {
     switch (Number(status.value)) {

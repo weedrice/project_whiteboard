@@ -3,6 +3,7 @@ import { useRouter } from 'vue-router'
 import { useKeyboardNavigation } from '@/composables/useKeyboardNavigation'
 import { useSearchSubmitNavigation } from '@/composables/useSearchSubmitNavigation'
 import type { BoardListItem } from '@/types'
+import { encodePathSegment } from '@/utils/urlPath'
 
 interface UseSearchNavigationOptions {
   filteredBoards: Ref<BoardListItem[]>
@@ -40,7 +41,7 @@ export function useSearchNavigation({
     showDropdown.value = false
     searchQuery.value = ''
     if (isMobile.value) collapse()
-    router.push(`/board/${boardUrl}`)
+    router.push(`/board/${encodePathSegment(boardUrl)}`)
   }
 
   const {

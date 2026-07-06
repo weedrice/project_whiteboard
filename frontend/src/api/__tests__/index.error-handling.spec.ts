@@ -76,7 +76,7 @@ describe('API Interceptors', () => {
         await expect(responseRejected(error)).rejects.toBe(error)
         expect(mocks.mockRouterPush).toHaveBeenCalledWith({
             name: 'error',
-            query: { status: '404', message: 'not found' },
+            query: { status: '404' },
         })
     })
 
@@ -90,7 +90,7 @@ describe('API Interceptors', () => {
         await expect(responseRejected(error)).rejects.toBe(error)
         expect(mocks.mockRouterPush).toHaveBeenCalledWith({
             name: 'error',
-            query: { status: '500', message: 'redirect fallback' },
+            query: { status: '500' },
         })
     })
 

@@ -7,6 +7,7 @@ import { useFormSubmit } from '@/composables/useFormSubmit'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { useBoard } from '@/composables/useBoard'
 import { extractErrorMessage } from '@/utils/errorHandler'
+import { encodePathSegment } from '@/utils/urlPath'
 import type { BoardCreateData } from '@/types'
 
 interface BoardData {
@@ -36,7 +37,7 @@ async function handleCreate(formData: BoardData) {
   await submit(async () => {
     try {
       const board = await createBoard(formData as BoardCreateData)
-      router.push(`/board/${board.boardUrl}`)
+      router.push(`/board/${encodePathSegment(board.boardUrl)}`)
     } catch (err: unknown) {
       error.value = extractErrorMessage(err) || t('board.form.createFailed')
       handleError(err, t('board.form.createFailed'))

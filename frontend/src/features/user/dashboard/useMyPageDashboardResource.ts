@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/auth'
 import type { MyComment, PostSummary, User } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import { getListLoadErrorMessage } from '@/utils/listLoadError'
+import { encodePathSegment } from '@/utils/urlPath'
 
 type Translate = (key: string) => string
 
@@ -71,7 +72,9 @@ export function useMyPageDashboardResource(t: Translate) {
     commentId: comment.commentId,
     content: comment.content,
     createdAt: comment.createdAt,
-    postLink: comment.post ? `/board/${comment.post.boardUrl}/post/${comment.post.postId}` : null,
+    postLink: comment.post
+      ? `/board/${encodePathSegment(comment.post.boardUrl)}/post/${encodePathSegment(comment.post.postId)}`
+      : null,
     postTitle: comment.post?.title ?? '',
     boardLabel: comment.post?.boardName ?? ''
   })))
