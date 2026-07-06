@@ -6,8 +6,11 @@ import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
+import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
+import com.weedrice.whiteboard.global.ratelimit.CounterEventGuard;
 import com.weedrice.whiteboard.global.security.CurrentUserId;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -24,6 +27,8 @@ import java.util.List;
 public class PostController {
 
     private final PostService postService;
+    private final ClientIpResolver clientIpResolver;
+    private final CounterEventGuard counterEventGuard;
 
     @GetMapping("/boards/{boardUrl}/posts")
     public ApiResponse<PageResponse<PostSummary>> getPosts(
@@ -53,17 +58,32 @@ public class PostController {
             @PathVariable Long postId,
             @RequestParam(defaultValue = "false") boolean incrementView,
             @RequestParam(defaultValue = "20") int boardListPageSize,
-            @CurrentUserId(required = false) Long userId) {
+            @CurrentUserId(required = false) Long userId,
+            HttpServletRequest request) {
         int normalizedBoardListPageSize = PageRequestUtils.of(0, boardListPageSize).getPageSize();
+        String ipAddress = clientIpResolver.resolve(request);
+        boolean shouldIncrementView = incrementView
+                && !counterEventGuard.isRecentlyRecorded("post-view", postId, userId, ipAddress);
+        PostResponse response = postService.getPostResponse(postId, userId, shouldIncrementView,
+                normalizedBoardListPageSize);
+        if (shouldIncrementView) {
+            counterEventGuard.markRecorded("post-view", postId, userId, ipAddress);
+        }
         return ApiResponse.success(
-                postService.getPostResponse(postId, userId, incrementView, normalizedBoardListPageSize));
+                response);
     }
 
     @PostMapping("/posts/{postId}/view")
     public ApiResponse<Void> incrementPostView(
             @PathVariable Long postId,
-            @CurrentUserId(required = false) Long userId) {
+            @CurrentUserId(required = false) Long userId,
+            HttpServletRequest request) {
+        String ipAddress = clientIpResolver.resolve(request);
+        if (counterEventGuard.isRecentlyRecorded("post-view", postId, userId, ipAddress)) {
+            return ApiResponses.ok();
+        }
         postService.incrementViewCount(postId, userId);
+        counterEventGuard.markRecorded("post-view", postId, userId, ipAddress);
         return ApiResponses.ok();
     }
 

@@ -10,6 +10,8 @@ import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.tag.constant.TagConstraints;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.config.CurrentUserIdWebMvcConfig;
+import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
+import com.weedrice.whiteboard.global.ratelimit.CounterEventGuard;
 import com.weedrice.whiteboard.global.security.CurrentUserIdArgumentResolver;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
@@ -96,6 +98,12 @@ class PostControllerTest {
     @MockitoBean
     private com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor rateLimitInterceptor;
 
+    @MockitoBean
+    private ClientIpResolver clientIpResolver;
+
+    @MockitoBean
+    private CounterEventGuard counterEventGuard;
+
     private CustomUserDetails customUserDetails;
     private User user;
     private Board board;
@@ -127,6 +135,8 @@ class PostControllerTest {
         when(ipBlockInterceptor.preHandle(any(), any(), any())).thenReturn(true);
         when(refererCheckInterceptor.preHandle(any(), any(), any())).thenReturn(true);
         when(rateLimitInterceptor.preHandle(any(), any(), any())).thenReturn(true);
+        when(clientIpResolver.resolve(any())).thenReturn("203.0.113.10");
+        when(counterEventGuard.isRecentlyRecorded(any(), any(), any(), any())).thenReturn(false);
 
         doAnswer(invocation -> {
             HttpServletRequest request = invocation.getArgument(0);
@@ -135,6 +145,8 @@ class PostControllerTest {
             chain.doFilter(request, response);
             return null;
         }).when(jwtAuthenticationFilter).doFilter(any(), any(), any());
+
+        clearInvocations(postService, counterEventGuard);
     }
 
     @Nested
@@ -295,6 +307,24 @@ class PostControllerTest {
                     .andExpect(status().isOk());
 
             verify(postService).getPostResponse(postId, 1L, true, 20);
+            verify(counterEventGuard).markRecorded(eq("post-view"), eq(postId), eq(1L), eq("203.0.113.10"));
+        }
+
+        @Test
+        void getPost_incrementViewTrue_skipsIncrementWhenRecentlyRecorded() throws Exception {
+            Long postId = 1L;
+            PostResponse postResponse = PostResponse.builder().postId(postId).title("Title").build();
+            when(counterEventGuard.isRecentlyRecorded(eq("post-view"), eq(postId), eq(1L), eq("203.0.113.10")))
+                    .thenReturn(true);
+            when(postService.getPostResponse(eq(postId), eq(1L), eq(false), eq(20))).thenReturn(postResponse);
+
+            mockMvc.perform(get("/api/v1/posts/{postId}", postId)
+                    .param("incrementView", "true")
+                    .with(user(customUserDetails)))
+                    .andExpect(status().isOk());
+
+            verify(postService).getPostResponse(postId, 1L, false, 20);
+            verify(counterEventGuard, never()).markRecorded(any(), any(), any(), any());
         }
 
         @Test
@@ -363,6 +393,19 @@ class PostControllerTest {
                     .andExpect(status().isOk());
 
             verify(postService).incrementViewCount(postId, null);
+            verify(counterEventGuard).markRecorded(eq("post-view"), eq(postId), isNull(), eq("203.0.113.10"));
+        }
+
+        @Test
+        void incrementPostView_skipsServiceWhenRecentlyRecorded() throws Exception {
+            Long postId = 1L;
+            when(counterEventGuard.isRecentlyRecorded(eq("post-view"), eq(postId), isNull(), eq("203.0.113.10")))
+                    .thenReturn(true);
+
+            mockMvc.perform(post("/api/v1/posts/{postId}/view", postId))
+                    .andExpect(status().isOk());
+
+            verify(postService, never()).incrementViewCount(anyLong(), any());
         }
 
         @Test

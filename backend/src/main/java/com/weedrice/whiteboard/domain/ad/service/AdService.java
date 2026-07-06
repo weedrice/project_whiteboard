@@ -55,6 +55,12 @@ public class AdService {
         return findRandomActiveAd(placement, now, refreshedActiveAdCount);
     }
 
+    public String getActiveAdTargetUrl(Long adId) {
+        return adRepository.findActiveById(adId, LocalDateTime.now(clock))
+                .map(Ad::getTargetUrl)
+                .orElseThrow(() -> new BusinessException(ErrorCode.AD_NOT_FOUND));
+    }
+
     private Ad findRandomActiveAd(String placement, LocalDateTime now, long activeAdCount) {
         int candidateCount = activeAdCount > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) activeAdCount;
         int offset = ThreadLocalRandom.current().nextInt(candidateCount);

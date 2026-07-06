@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.global.config.SecurityConfig;
 import com.weedrice.whiteboard.global.config.WebConfig;
 import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
 import com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor;
+import com.weedrice.whiteboard.global.ratelimit.CounterEventGuard;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.CurrentUserIdArgumentResolver;
 import com.weedrice.whiteboard.global.security.JwtAuthenticationEntryPoint;
@@ -45,6 +46,8 @@ import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -95,6 +98,9 @@ class AdControllerTest {
     @MockitoBean
     private ClientIpResolver clientIpResolver;
 
+    @MockitoBean
+    private CounterEventGuard counterEventGuard;
+
     private CustomUserDetails customUserDetails;
 
     @AfterEach
@@ -111,6 +117,7 @@ class AdControllerTest {
         when(refererCheckInterceptor.preHandle(any(), any(), any())).thenReturn(true);
         when(rateLimitInterceptor.preHandle(any(), any(), any())).thenReturn(true);
         when(clientIpResolver.resolve(any())).thenReturn("203.0.113.10");
+        when(counterEventGuard.isRecentlyRecorded(any(), any(), any(), any())).thenReturn(false);
 
         doAnswer(invocation -> {
             HttpServletRequest request = invocation.getArgument(0);
@@ -119,6 +126,8 @@ class AdControllerTest {
             chain.doFilter(request, response);
             return null;
         }).when(jwtAuthenticationFilter).doFilter(any(), any(), any());
+
+        clearInvocations(adService, counterEventGuard);
     }
 
     @Test
@@ -141,6 +150,20 @@ class AdControllerTest {
         mockMvc.perform(post("/api/v1/ads/{adId}/impression", 1L))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
+
+        verify(counterEventGuard).markRecorded(eq("ad-impression"), eq(1L), isNull(), eq("203.0.113.10"));
+    }
+
+    @Test
+    void recordAdImpression_skipsServiceWhenRecentlyRecorded() throws Exception {
+        when(counterEventGuard.isRecentlyRecorded(eq("ad-impression"), eq(1L), isNull(), eq("203.0.113.10")))
+                .thenReturn(true);
+
+        mockMvc.perform(post("/api/v1/ads/{adId}/impression", 1L))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(adService, never()).recordAdImpression(any());
     }
 
     @Test
@@ -169,6 +192,21 @@ class AdControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data").exists());
+
+        verify(counterEventGuard).markRecorded(eq("ad-click"), eq(1L), eq(1L), eq("203.0.113.10"));
+    }
+
+    @Test
+    void recordAdClick_returnsTargetUrlWithoutIncrementWhenRecentlyRecorded() throws Exception {
+        when(counterEventGuard.isRecentlyRecorded(eq("ad-click"), eq(1L), isNull(), eq("203.0.113.10")))
+                .thenReturn(true);
+        when(adService.getActiveAdTargetUrl(eq(1L))).thenReturn("http://example.com");
+
+        mockMvc.perform(post("/api/v1/ads/{adId}/click", 1L))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").value("http://example.com"));
+
+        verify(adService, never()).recordAdClick(any(), any(), any());
     }
 
     @Test

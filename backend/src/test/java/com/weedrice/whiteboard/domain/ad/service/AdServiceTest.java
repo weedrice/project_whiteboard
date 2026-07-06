@@ -157,6 +157,23 @@ class AdServiceTest {
     }
 
     @Test
+    void getActiveAdTargetUrl_returnsActiveAdTargetUrl() {
+        Ad ad = buildActiveAd("HEADER", FIXED_NOW.plusDays(1));
+        when(adRepository.findActiveById(1L, FIXED_NOW)).thenReturn(Optional.of(ad));
+
+        assertThat(adService.getActiveAdTargetUrl(1L)).isEqualTo("https://example.com");
+    }
+
+    @Test
+    void getActiveAdTargetUrl_inactiveAd_throwsAdNotFound() {
+        when(adRepository.findActiveById(1L, FIXED_NOW)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> adService.getActiveAdTargetUrl(1L))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.AD_NOT_FOUND));
+    }
+
+    @Test
     @DisplayName("click 기록은 활성 광고에 대해서만 저장하고 targetUrl을 반환한다")
     void recordAdClick_success() {
         Ad ad = buildActiveAd("HEADER", FIXED_NOW.plusDays(1));
