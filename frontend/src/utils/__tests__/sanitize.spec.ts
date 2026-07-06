@@ -28,6 +28,10 @@ describe('sanitize', () => {
 
         expect(clean).toContain('<iframe')
         expect(clean).toContain('src="https://www.youtube.com/embed/abc"')
+        expect(clean).toContain('loading="lazy"')
+        expect(clean).toContain('referrerpolicy="strict-origin-when-cross-origin"')
+        expect(clean).toContain('sandbox="allow-scripts allow-same-origin allow-presentation"')
+        expect(clean).toContain('allow="encrypted-media; picture-in-picture"')
         expect(clean).toContain('<mark>m</mark>')
         expect(clean).toContain('<hr>')
         expect(clean).not.toContain('onerror=')

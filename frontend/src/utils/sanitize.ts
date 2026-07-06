@@ -65,6 +65,7 @@ export function sanitizeQuillHtml(html: string): SanitizedHtml {
             'loading', 'width', 'height', 'style',
             'data-file-id', 'data-server-src', 'data-video-embed',
             'frameborder', 'allowfullscreen', 'allow',
+            'referrerpolicy', 'sandbox',
         ],
         ALLOW_DATA_ATTR: false,
         ADD_ATTR: ['loading']
@@ -84,7 +85,12 @@ function tightenQuillHtml(html: string): string {
     doc.querySelectorAll<HTMLIFrameElement>('iframe').forEach((iframe) => {
         if (!isAllowedIframeSrc(iframe.getAttribute('src'))) {
             iframe.remove()
+            return
         }
+        iframe.setAttribute('loading', 'lazy')
+        iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin')
+        iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation')
+        iframe.setAttribute('allow', 'encrypted-media; picture-in-picture')
     })
 
     doc.querySelectorAll<HTMLElement>('[style]').forEach((element) => {

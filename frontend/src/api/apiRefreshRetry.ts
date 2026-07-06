@@ -19,6 +19,7 @@ import {
 } from '@/api/apiStoreResolvers'
 import { API_PATHS } from '@/api/apiPaths'
 import { isLoginPathname } from '@/api/apiAuthHeader'
+import { API } from '@/utils/constants'
 import type { ApiResponse } from '@/types/common'
 
 const { t } = i18n.global
@@ -68,6 +69,7 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
       undefined,
       {
         withCredentials: true,
+        timeout: api.defaults.timeout ?? API.TIMEOUT,
       },
     )
 

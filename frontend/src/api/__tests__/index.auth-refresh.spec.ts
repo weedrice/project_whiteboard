@@ -78,7 +78,10 @@ describe('API Interceptors', () => {
 
         const result = await responseRejected(error)
 
-        expect(mocks.mockAxiosPost).toHaveBeenCalledWith('/api/v1/auth/refresh', undefined, { withCredentials: true })
+        expect(mocks.mockAxiosPost).toHaveBeenCalledWith('/api/v1/auth/refresh', undefined, {
+            withCredentials: true,
+            timeout: 10000,
+        })
         expect(await getAccessToken()).toBe('new-access')
         expect(localStorage.getItem('refreshToken')).toBeNull()
         expect(authStore.setTokens).toHaveBeenCalledWith('new-access')
@@ -282,7 +285,10 @@ describe('API Interceptors', () => {
 
         await expect(responseRejected(error)).rejects.toBeDefined()
         expect(await getAccessToken()).toBeNull()
-        expect(mocks.mockAxiosPost).toHaveBeenCalledWith('/api/v1/auth/refresh', undefined, { withCredentials: true })
+        expect(mocks.mockAxiosPost).toHaveBeenCalledWith('/api/v1/auth/refresh', undefined, {
+            withCredentials: true,
+            timeout: 10000,
+        })
     })
 
     it('rejects refresh when refresh endpoint reports failure', async () => {

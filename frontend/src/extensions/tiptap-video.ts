@@ -64,7 +64,10 @@ export const Video = Node.create<VideoOptions>({
           {
             frameborder: '0',
             allowfullscreen: 'true',
-            allow: 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture',
+            loading: 'lazy',
+            referrerpolicy: 'strict-origin-when-cross-origin',
+            sandbox: 'allow-scripts allow-same-origin allow-presentation',
+            allow: 'encrypted-media; picture-in-picture',
           },
           this.options.HTMLAttributes,
           HTMLAttributes

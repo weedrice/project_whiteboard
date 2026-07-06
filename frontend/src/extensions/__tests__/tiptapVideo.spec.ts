@@ -95,7 +95,11 @@ describe('Video extension', () => {
         src: 'https://www.youtube.com/embed/xyz',
         title: 'Embedded Video',
         frameborder: '0',
-        allowfullscreen: 'true'
+        allowfullscreen: 'true',
+        loading: 'lazy',
+        referrerpolicy: 'strict-origin-when-cross-origin',
+        sandbox: 'allow-scripts allow-same-origin allow-presentation',
+        allow: 'encrypted-media; picture-in-picture'
       })
     ])
   })
