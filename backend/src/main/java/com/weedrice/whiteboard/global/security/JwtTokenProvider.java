@@ -93,7 +93,7 @@ public class JwtTokenProvider {
 
     public boolean validateToken(String token) {
         try {
-            Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
+            createParser().parseClaimsJws(token);
             return true;
         } catch (io.jsonwebtoken.security.SecurityException | MalformedJwtException e) {
             log.debug("Invalid JWT signature");
@@ -109,10 +109,17 @@ public class JwtTokenProvider {
 
     private Claims parseClaims(String accessToken) {
         try {
-            return Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(accessToken).getBody();
+            return createParser().parseClaimsJws(accessToken).getBody();
         } catch (ExpiredJwtException e) {
             return e.getClaims();
         }
+    }
+
+    private JwtParser createParser() {
+        return Jwts.parserBuilder()
+                .setSigningKey(key)
+                .setClock(() -> Date.from(clock.instant()))
+                .build();
     }
 
     public long getAccessTokenValidityInMilliseconds() {
