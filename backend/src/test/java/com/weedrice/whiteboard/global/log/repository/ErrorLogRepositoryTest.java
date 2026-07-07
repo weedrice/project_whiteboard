@@ -76,7 +76,7 @@ class ErrorLogRepositoryTest {
     void aggregateStats_returnsCounts() {
         persistErrorLog("ERROR1");
         ErrorLog resolved = persistErrorLog("ERROR2");
-        resolved.resolve(1L, "done");
+        resolved.resolve(1L, "done", LocalDateTime.of(2026, 5, 13, 12, 5));
         entityManager.flush();
         entityManager.clear();
 

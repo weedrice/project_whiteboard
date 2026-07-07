@@ -7,11 +7,11 @@ import com.weedrice.whiteboard.global.log.dto.ErrorLogResponse;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogStatsResponse;
 import com.weedrice.whiteboard.global.log.entity.ErrorLog;
 import com.weedrice.whiteboard.global.log.repository.ErrorLogRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -20,6 +20,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -37,11 +41,19 @@ class ErrorLogServiceTest {
     @Mock
     private ErrorLogRepository errorLogRepository;
 
-    @InjectMocks
     private ErrorLogService errorLogService;
+    private static final Clock FIXED_CLOCK = Clock.fixed(
+            Instant.parse("2026-07-07T03:00:00Z"),
+            ZoneId.of("Asia/Seoul"));
+    private static final LocalDateTime FIXED_NOW = LocalDateTime.now(FIXED_CLOCK);
     private static final Sort ERROR_LOG_LIST_SORT = Sort.by(
             Sort.Order.desc("createdAt"),
             Sort.Order.desc("errorLogId"));
+
+    @BeforeEach
+    void setUp() {
+        errorLogService = new ErrorLogService(errorLogRepository, FIXED_CLOCK);
+    }
 
     // ===== saveErrorLog 테스트 =====
 
@@ -361,7 +373,7 @@ class ErrorLogServiceTest {
         // then
         assertThat(errorLog.getIsResolved()).isEqualTo("Y");
         assertThat(errorLog.getResolvedBy()).isEqualTo(adminUserId);
-        assertThat(errorLog.getResolvedAt()).isNotNull();
+        assertThat(errorLog.getResolvedAt()).isEqualTo(FIXED_NOW);
         assertThat(errorLog.getResolvedMemo()).isEqualTo(memo);
     }
 
@@ -432,6 +444,7 @@ class ErrorLogServiceTest {
         // then
         assertThat(errorLog.getIsResolved()).isEqualTo("Y");
         assertThat(errorLog.getResolvedBy()).isEqualTo(adminUserId);
+        assertThat(errorLog.getResolvedAt()).isEqualTo(FIXED_NOW);
         assertThat(errorLog.getResolvedMemo()).isNull();
     }
 

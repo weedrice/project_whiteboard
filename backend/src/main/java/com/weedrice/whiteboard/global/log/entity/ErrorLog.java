@@ -85,10 +85,10 @@ public class ErrorLog extends BaseTimeEntity {
         this.isResolved = "N";
     }
 
-    public void resolve(Long adminUserId, String memo) {
+    public void resolve(Long adminUserId, String memo, LocalDateTime resolvedAt) {
         this.isResolved = "Y";
         this.resolvedBy = adminUserId;
-        this.resolvedAt = LocalDateTime.now();
+        this.resolvedAt = resolvedAt;
         this.resolvedMemo = memo;
     }
 }

@@ -3,6 +3,8 @@ package com.weedrice.whiteboard.global.log.entity;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ErrorLogTest {
@@ -75,16 +77,17 @@ class ErrorLogTest {
                 .requestMethod("GET")
                 .ipAddress("127.0.0.1")
                 .build();
+        LocalDateTime resolvedAt = LocalDateTime.of(2026, 7, 7, 12, 0);
 
         assertThat(errorLog.getIsResolved()).isEqualTo("N");
 
         // when
-        errorLog.resolve(1L, "확인 완료");
+        errorLog.resolve(1L, "확인 완료", resolvedAt);
 
         // then
         assertThat(errorLog.getIsResolved()).isEqualTo("Y");
         assertThat(errorLog.getResolvedBy()).isEqualTo(1L);
-        assertThat(errorLog.getResolvedAt()).isNotNull();
+        assertThat(errorLog.getResolvedAt()).isEqualTo(resolvedAt);
         assertThat(errorLog.getResolvedMemo()).isEqualTo("확인 완료");
     }
 
@@ -101,14 +104,15 @@ class ErrorLogTest {
                 .requestMethod("GET")
                 .ipAddress("127.0.0.1")
                 .build();
+        LocalDateTime resolvedAt = LocalDateTime.of(2026, 7, 7, 12, 5);
 
         // when
-        errorLog.resolve(2L, null);
+        errorLog.resolve(2L, null, resolvedAt);
 
         // then
         assertThat(errorLog.getIsResolved()).isEqualTo("Y");
         assertThat(errorLog.getResolvedBy()).isEqualTo(2L);
-        assertThat(errorLog.getResolvedAt()).isNotNull();
+        assertThat(errorLog.getResolvedAt()).isEqualTo(resolvedAt);
         assertThat(errorLog.getResolvedMemo()).isNull();
     }
 

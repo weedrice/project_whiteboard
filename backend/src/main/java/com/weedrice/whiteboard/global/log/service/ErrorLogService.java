@@ -21,6 +21,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
+
 import static org.springframework.transaction.annotation.Propagation.REQUIRES_NEW;
 
 @Service
@@ -35,6 +38,7 @@ public class ErrorLogService {
             Sort.Order.desc("errorLogId"));
 
     private final ErrorLogRepository errorLogRepository;
+    private final Clock clock;
 
     /**
      * 에러 로그 비동기 저장
@@ -124,7 +128,7 @@ public class ErrorLogService {
         String normalizedMemo = normalizeResolvedMemo(memo);
         ErrorLog errorLog = errorLogRepository.findById(errorLogId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-        errorLog.resolve(adminUserId, normalizedMemo);
+        errorLog.resolve(adminUserId, normalizedMemo, LocalDateTime.now(clock));
     }
 
     /**
