@@ -6,6 +6,7 @@ import { FileText, MessageSquare, User } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useUser } from '@/composables/useUser'
 import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
+import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import UserAvatar from '@/components/common/ui/UserAvatar.vue'
@@ -68,7 +69,7 @@ watch(userId, () => {
 
     <div v-else-if="profile" class="space-y-6">
       <header class="rounded-md border border-[var(--nv-line)] bg-[var(--nv-surface)] p-5">
-        <div class="flex items-center gap-4">
+        <div class="flex flex-wrap items-center gap-4">
           <UserAvatar
             :image-url="profile.profileImageUrl"
             :name="profile.displayName"
@@ -79,6 +80,13 @@ watch(userId, () => {
             <p class="mt-1 text-sm nv-text-subtle">
               {{ t('user.profile.joined') }}: {{ profile.createdAt ? formatDate(profile.createdAt) : '-' }}
             </p>
+          </div>
+          <div class="ml-auto flex-shrink-0">
+            <UserMenu
+              :user-id="profile.userId"
+              :display-name="profile.displayName"
+              :button-label="t('user.menu.actions')"
+            />
           </div>
         </div>
         <div class="mt-5 grid grid-cols-2 gap-3 sm:max-w-sm">

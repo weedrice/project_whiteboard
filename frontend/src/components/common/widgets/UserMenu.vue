@@ -90,9 +90,11 @@ const router = useRouter()
 const props = withDefaults(defineProps<{
   userId: number
   displayName: string
+  buttonLabel?: string
   maxLabelLength?: number
   size?: 'default' | 'xs' | 'inherit'
 }>(), {
+  buttonLabel: undefined,
   maxLabelLength: undefined,
   size: 'default'
 })
@@ -102,7 +104,11 @@ const menuInstanceId = `user-menu-${getCurrentInstance()?.uid ?? props.userId}`
 const menuButtonId = `${menuInstanceId}-button`
 const menuDropdownId = `${menuInstanceId}-dropdown`
 
-const buttonLabel = computed(() => formatUserDisplayName(props.displayName, props.maxLabelLength, t('user.deletedUser')))
+const buttonLabel = computed(() => (
+  props.buttonLabel
+    ? props.buttonLabel
+    : formatUserDisplayName(props.displayName, props.maxLabelLength, t('user.deletedUser'))
+))
 
 const buttonRef = ref<HTMLButtonElement | null>(null)
 const dropdownRef = ref<HTMLElement | null>(null)

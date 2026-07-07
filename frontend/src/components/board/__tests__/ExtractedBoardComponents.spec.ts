@@ -307,6 +307,7 @@ describe('extracted board components', () => {
           MessageSquare: true,
           ThumbsUp: true,
           User: true,
+          UserMenu: true,
         },
       },
     })

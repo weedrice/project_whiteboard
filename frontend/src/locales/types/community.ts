@@ -585,6 +585,7 @@ export interface UserMessages {
     deleteAccountWarning: string
   }
   menu: {
+    actions: string
     viewProfile: string
     sendMessage: string
     report: string

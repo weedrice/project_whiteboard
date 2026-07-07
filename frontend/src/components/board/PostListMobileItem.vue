@@ -4,6 +4,7 @@ import { Eye, MessageSquare, ThumbsUp, User } from 'lucide-vue-next'
 import type { RouteLocationRaw } from 'vue-router'
 import type { PostSummary } from '@/types'
 import PostListTitleContent from '@/components/board/PostListTitleContent.vue'
+import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import { formatRelativeDate } from '@/utils/date'
 import { formatUserDisplayName } from '@/utils/userDisplay'
 
@@ -31,8 +32,15 @@ const authorName = computed(() => formatUserDisplayName(props.post.author?.displ
 const visibleAuthorName = computed(() => (
   formatUserDisplayName(props.post.author?.displayName, MAX_AUTHOR_NAME_LENGTH, props.deletedUserLabel)
 ))
+const authorUserId = computed(() => props.post.author?.userId ?? 0)
+const authorDisplayName = computed(() => props.post.author?.displayName ?? '')
+const hasInteractiveAuthor = computed(() => (
+  authorUserId.value > 0
+  && !!authorDisplayName.value.trim()
+  && props.post.author?.authorType !== 'AGENT'
+))
 
-const rootProps = computed(() => {
+const titleActionProps = computed(() => {
   if (props.interactiveTag === 'button') {
     return { type: 'button' }
   }
@@ -53,17 +61,19 @@ const rootClasses = computed(() => [
 </script>
 
 <template>
-  <component
-    :is="interactiveTag"
-    v-bind="rootProps"
-    :aria-current="isCurrent ? 'page' : undefined"
-    :aria-disabled="interactiveTag === 'div' ? 'true' : undefined"
+  <article
     :class="rootClasses"
-    @click="emit('navigate', $event, post)"
   >
     <div class="flex items-start justify-between gap-3">
       <div class="min-w-0 flex-1">
-        <div class="mt-2 flex items-center gap-2 text-sm font-medium text-[var(--nv-ink)]">
+        <component
+          :is="interactiveTag"
+          v-bind="titleActionProps"
+          :aria-current="isCurrent ? 'page' : undefined"
+          :aria-disabled="interactiveTag === 'div' ? 'true' : undefined"
+          class="mt-2 flex w-full items-center gap-2 text-left text-sm font-medium text-[var(--nv-ink)]"
+          @click="emit('navigate', $event, post)"
+        >
           <PostListTitleContent
             :post="post"
             :show-inquiry-status="showInquiryStatus"
@@ -72,7 +82,7 @@ const rootClasses = computed(() => [
             :show-preview-indicator="showPreviewIndicator"
             :show-secret-indicator="showSecretIndicator"
           />
-        </div>
+        </component>
       </div>
 
       <span class="mt-0.5 flex-shrink-0 text-[11px] text-[var(--nv-muted)]">
@@ -83,7 +93,15 @@ const rootClasses = computed(() => [
     <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] text-[var(--nv-ink-soft)]">
       <span class="inline-flex min-w-0 max-w-full items-center gap-1 overflow-hidden">
         <User class="h-3.5 w-3.5" />
-        <span class="block max-w-[10ch] truncate" :title="authorName">{{ visibleAuthorName }}</span>
+        <UserMenu
+          v-if="hasInteractiveAuthor"
+          class="max-w-[10ch]"
+          :user-id="authorUserId"
+          :display-name="authorDisplayName"
+          :max-label-length="MAX_AUTHOR_NAME_LENGTH"
+          size="xs"
+        />
+        <span v-else class="block max-w-[10ch] truncate" :title="authorName">{{ visibleAuthorName }}</span>
         <span
           v-if="isAgentAuthor"
           class="nv-post-badge nv-post-badge-agent"
@@ -104,7 +122,7 @@ const rootClasses = computed(() => [
         {{ post.commentCount }}
       </span>
     </div>
-  </component>
+  </article>
 </template>
 
 <style scoped>

@@ -164,6 +164,7 @@ export const user: UserMessages = {
     deleteAccountWarning: '계정 삭제 시 작성한 게시글, 댓글 등 모든 활동 내역이 삭제됩니다.',
   },
   menu: {
+    actions: '작업',
     viewProfile: '프로필 보기',
     sendMessage: '쪽지 보내기',
     report: '신고하기',
