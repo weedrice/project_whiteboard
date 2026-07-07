@@ -34,7 +34,7 @@ export function asSanitizedHtml(html: string): SanitizedHtml {
 export function sanitizeHtml(html: string, options?: Config): SanitizedHtml {
     const config = {
         ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'a', 'img'],
-        ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'loading'],
+        ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'loading', 'data-type', 'data-mention-user-id'],
         ALLOW_DATA_ATTR: false,
         ...options
     }
@@ -63,7 +63,7 @@ export function sanitizeQuillHtml(html: string): SanitizedHtml {
         ALLOWED_ATTR: [
             'href', 'src', 'alt', 'title', 'class',
             'loading', 'width', 'height', 'style',
-            'data-file-id', 'data-server-src', 'data-video-embed',
+            'data-file-id', 'data-server-src', 'data-video-embed', 'data-type', 'data-mention-user-id',
             'frameborder', 'allowfullscreen', 'allow',
             'referrerpolicy', 'sandbox',
         ],

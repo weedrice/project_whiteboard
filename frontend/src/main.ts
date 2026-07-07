@@ -18,6 +18,7 @@ import { useToastStore } from '@/stores/toast'
 import logger from '@/utils/logger'
 import { validateEnv } from '@/utils/env'
 import { createVueErrorLogPayload } from '@/utils/vueErrorLog'
+import { registerPwaUpdatePrompt } from '@/pwa'
 
 validateEnv()
 
@@ -57,6 +58,7 @@ app.config.errorHandler = (err, instance, info) => {
 }
 
 app.mount('#app')
+registerPwaUpdatePrompt(pinia)
 
 if (import.meta.env.PROD) {
     import('@/utils/performance').then(({ reportWebVitals, logMetric }) => {

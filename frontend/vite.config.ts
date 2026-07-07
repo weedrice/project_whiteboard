@@ -4,6 +4,7 @@ import { execSync } from 'child_process'
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
+import { VitePWA } from 'vite-plugin-pwa'
 import { visualizer } from 'rollup-plugin-visualizer'
 
 function getCommitHash(): string {
@@ -27,6 +28,40 @@ export default defineConfig(({ mode }) => {
     return {
         plugins: [
             vue(),
+            VitePWA({
+                registerType: 'prompt',
+                includeAssets: ['favicon.ico', 'favicon_dark.ico', 'offline.html'],
+                manifest: {
+                    name: 'NoviIs',
+                    short_name: 'NoviIs',
+                    description: 'NoviIs community platform',
+                    theme_color: '#ffffff',
+                    background_color: '#ffffff',
+                    display: 'standalone',
+                    start_url: '/',
+                    scope: '/',
+                    icons: [
+                        {
+                            src: '/favicon.ico',
+                            sizes: '48x48',
+                            type: 'image/x-icon',
+                        },
+                    ],
+                },
+                workbox: {
+                    navigateFallback: '/offline.html',
+                    navigateFallbackDenylist: [/^\/api\//, /^\/oauth2\//],
+                    runtimeCaching: [
+                        {
+                            urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
+                            handler: 'NetworkOnly',
+                            options: {
+                                cacheName: 'noviis-api-network-only',
+                            },
+                        },
+                    ],
+                },
+            }),
             ...(!isProduction ? [vueDevTools()] : []),
             ...(shouldAnalyzeBundle
                 ? [

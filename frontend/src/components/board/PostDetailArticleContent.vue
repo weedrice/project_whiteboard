@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { computed, ref } from 'vue'
 import type { VNodeRef } from 'vue'
+import ImageLightbox from '@/components/common/ui/ImageLightbox.vue'
 import PostContentView from '@/components/board/PostContentView.vue'
 import PostDetailReactionBar from '@/components/board/PostDetailReactionBar.vue'
 import PostDetailSpoilerOverlay from '@/components/board/PostDetailSpoilerOverlay.vue'
@@ -7,7 +9,7 @@ import PostDetailTagSection from '@/components/board/PostDetailTagSection.vue'
 import PostDetailUrlChip from '@/components/board/PostDetailUrlChip.vue'
 import type { PostDetailViewModel } from '@/features/board/posts/detail/usePostDetailViewModel'
 
-defineProps<{
+const props = defineProps<{
   postView: PostDetailViewModel
   postContents: string
   assignContentRef: VNodeRef
@@ -31,6 +33,29 @@ const emit = defineEmits<{
   (e: 'share'): void
   (e: 'report'): void
 }>()
+
+const articleRef = ref<HTMLElement | null>(null)
+const lightboxOpen = ref(false)
+const lightboxIndex = ref(0)
+const lightboxImages = computed(() => {
+  if (!articleRef.value || props.isBlurred) return []
+  return Array.from(articleRef.value.querySelectorAll<HTMLImageElement>('.nv-rich-content img'))
+    .map((image) => image.currentSrc || image.src)
+    .filter(Boolean)
+})
+
+function openLightbox(event: MouseEvent) {
+  if (props.isBlurred) return
+  const image = (event.target as HTMLElement | null)?.closest?.('img')
+  if (!(image instanceof HTMLImageElement)) return
+
+  const source = image.currentSrc || image.src
+  const index = lightboxImages.value.indexOf(source)
+  if (index < 0) return
+
+  lightboxIndex.value = index
+  lightboxOpen.value = true
+}
 </script>
 
 <template>
@@ -42,7 +67,11 @@ const emit = defineEmits<{
       @copy-url="emit('copy-url')"
     />
 
-    <div class="nv-post-article relative overflow-hidden">
+    <div
+      ref="articleRef"
+      class="nv-post-article relative overflow-hidden"
+      @click="openLightbox"
+    >
       <PostContentView
         :ref="assignContentRef"
         class="ql-editor nv-rich-content prose prose-sm max-w-none sm:prose-base dark:prose-invert"
@@ -57,6 +86,15 @@ const emit = defineEmits<{
         @reveal-spoiler="emit('reveal-spoiler')"
       />
     </div>
+
+    <ImageLightbox
+      :is-open="lightboxOpen"
+      :images="lightboxImages"
+      :initial-index="lightboxIndex"
+      :title="postView.title"
+      @close="lightboxOpen = false"
+      @update:index="lightboxIndex = $event"
+    />
 
     <PostDetailTagSection
       :tags="postView.tags"
