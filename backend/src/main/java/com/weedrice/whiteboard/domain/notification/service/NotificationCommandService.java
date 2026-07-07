@@ -3,29 +3,47 @@ package com.weedrice.whiteboard.domain.notification.service;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.notification.repository.NotificationRepository;
+import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.springframework.stereotype.Service;
 
+import java.util.Locale;
+import java.util.Set;
+
 @Service
 class NotificationCommandService {
     private static final int MAX_CONTENT_LENGTH = 255;
+    private static final int MAX_SOURCE_TYPE_LENGTH = 50;
+    private static final Set<String> ALLOWED_SOURCE_TYPES = Set.of("POST", "COMMENT");
 
     private final NotificationRepository notificationRepository;
     private final NotificationPreferenceService preferenceService;
+    private final UserRepository userRepository;
 
     NotificationCommandService(NotificationRepository notificationRepository,
-                               NotificationPreferenceService preferenceService) {
+                               NotificationPreferenceService preferenceService,
+                               UserRepository userRepository) {
         this.notificationRepository = notificationRepository;
         this.preferenceService = preferenceService;
+        this.userRepository = userRepository;
     }
 
     Notification handleNotificationEvent(NotificationEvent event) {
         if (!hasRequiredPayload(event)) {
             return null;
         }
+        String sourceType = normalizeSourceType(event.getSourceType());
+        if (sourceType == null) {
+            return null;
+        }
         String content = normalizeContent(event.getContent());
         if (content == null) {
+            return null;
+        }
+        User receiver = resolveActiveReceiver(event);
+        if (receiver == null) {
             return null;
         }
         if (preferenceService.isSelfNotification(event) || !preferenceService.isNotificationEnabled(event)) {
@@ -33,11 +51,11 @@ class NotificationCommandService {
         }
 
         return notificationRepository.save(Notification.builder()
-                .user(event.getUserToNotify())
+                .user(receiver)
                 .actor(event.getActor())
                 .actorAgent(event.getActorAgent())
                 .notificationType(event.getNotificationType())
-                .sourceType(event.getSourceType())
+                .sourceType(sourceType)
                 .sourceId(event.getSourceId())
                 .content(content)
                 .build());
@@ -48,12 +66,27 @@ class NotificationCommandService {
                 && event.getUserToNotify() != null
                 && event.getUserToNotify().getUserId() != null
                 && event.getNotificationType() != null
-                && hasText(event.getSourceType())
                 && event.getSourceId() != null;
     }
 
-    private boolean hasText(String value) {
-        return value != null && !value.isBlank();
+    private String normalizeSourceType(String sourceType) {
+        if (sourceType == null) {
+            return null;
+        }
+        String normalizedSourceType = sourceType.strip();
+        if (normalizedSourceType.isBlank()
+                || normalizedSourceType.length() > MAX_SOURCE_TYPE_LENGTH) {
+            return null;
+        }
+        normalizedSourceType = normalizedSourceType.toUpperCase(Locale.ROOT);
+        return ALLOWED_SOURCE_TYPES.contains(normalizedSourceType) ? normalizedSourceType : null;
+    }
+
+    private User resolveActiveReceiver(NotificationEvent event) {
+        return userRepository.findByUserIdAndStatusAndDeletedAtIsNull(
+                        event.getUserToNotify().getUserId(),
+                        User.STATUS_ACTIVE)
+                .orElse(null);
     }
 
     private String normalizeContent(String content) {

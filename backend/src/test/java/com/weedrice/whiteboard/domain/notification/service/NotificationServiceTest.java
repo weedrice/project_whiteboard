@@ -80,6 +80,8 @@ class NotificationServiceTest {
 
         lenient().when(userNotificationSettingsRepository.findByUserIdAndNotificationType(anyLong(), any(NotificationType.class)))
                 .thenReturn(Optional.empty());
+        lenient().when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(1L, User.STATUS_ACTIVE))
+                .thenReturn(Optional.of(user));
 
         NotificationPreferenceService preferenceService = new NotificationPreferenceService(userNotificationSettingsRepository);
         NotificationStreamPublisher streamPublisher = (userId, summary) -> {
@@ -109,6 +111,41 @@ class NotificationServiceTest {
         ArgumentCaptor<Notification> notificationCaptor = ArgumentCaptor.forClass(Notification.class);
         verify(notificationRepository).save(notificationCaptor.capture());
         assertThat(notificationCaptor.getValue().getContent()).isEqualTo("Test Notification");
+    }
+
+    @Test
+    @DisplayName("Notification sourceType is normalized before save")
+    void handleNotificationEvent_normalizesSourceTypeBeforeSave() {
+        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, " post ", 1L, "Test Notification");
+        when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        notificationService.handleNotificationEvent(event);
+
+        ArgumentCaptor<Notification> notificationCaptor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository).save(notificationCaptor.capture());
+        assertThat(notificationCaptor.getValue().getSourceType()).isEqualTo("POST");
+    }
+
+    @Test
+    @DisplayName("Notification is skipped for unsupported sourceType")
+    void handleNotificationEvent_unsupportedSourceType_skipsSave() {
+        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, "UNKNOWN", 1L, "Test Notification");
+
+        notificationService.handleNotificationEvent(event);
+
+        verify(notificationRepository, never()).save(any(Notification.class));
+        verifyNoInteractions(userNotificationSettingsRepository);
+    }
+
+    @Test
+    @DisplayName("Notification is skipped for overlong sourceType")
+    void handleNotificationEvent_overlongSourceType_skipsSave() {
+        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, "P".repeat(51), 1L, "Test Notification");
+
+        notificationService.handleNotificationEvent(event);
+
+        verify(notificationRepository, never()).save(any(Notification.class));
+        verifyNoInteractions(userNotificationSettingsRepository);
     }
 
     @Test
@@ -157,6 +194,19 @@ class NotificationServiceTest {
         notificationService.handleNotificationEvent(event);
 
         verify(notificationRepository, never()).save(any(Notification.class));
+    }
+
+    @Test
+    @DisplayName("Notification is skipped when receiver is inactive or deleted")
+    void handleNotificationEvent_inactiveReceiver_skipsSave() {
+        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, "POST", 1L, "Test Notification");
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(1L, User.STATUS_ACTIVE))
+                .thenReturn(Optional.empty());
+
+        notificationService.handleNotificationEvent(event);
+
+        verify(notificationRepository, never()).save(any(Notification.class));
+        verifyNoInteractions(userNotificationSettingsRepository);
     }
 
     @Test
@@ -458,7 +508,8 @@ class NotificationServiceTest {
                                                           NotificationStreamPublisher streamPublisher) {
         NotificationCommandService commandService = new NotificationCommandService(
                 notificationRepository,
-                preferenceService);
+                preferenceService,
+                userRepository);
         NotificationEventHandler eventHandler = new NotificationEventHandler(commandService, streamPublisher);
         NotificationQueryService queryService = new NotificationQueryService(notificationRepository);
         NotificationReadCommandService readCommandService =

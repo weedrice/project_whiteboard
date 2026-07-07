@@ -81,7 +81,8 @@ class NotificationSettingsFlowTest {
         };
         NotificationCommandService commandService = new NotificationCommandService(
                 notificationRepository,
-                preferenceService);
+                preferenceService,
+                userRepository);
         NotificationEventHandler eventHandler = new NotificationEventHandler(commandService, streamPublisher);
         NotificationQueryService queryService = new NotificationQueryService(notificationRepository);
         NotificationReadCommandService readCommandService =
@@ -96,6 +97,8 @@ class NotificationSettingsFlowTest {
         ReflectionTestUtils.setField(actor, "displayName", "writer");
 
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(receiver));
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(1L, User.STATUS_ACTIVE))
+                .thenReturn(Optional.of(receiver));
         when(userNotificationSettingsRepository.findByUserIdOrderByModifiedAtDescCreatedAtDesc(1L))
                 .thenAnswer(invocation -> new ArrayList<>(storedSettings.values()));
         when(userNotificationSettingsRepository.findByUserIdAndNotificationType(anyLong(), any(NotificationType.class)))
