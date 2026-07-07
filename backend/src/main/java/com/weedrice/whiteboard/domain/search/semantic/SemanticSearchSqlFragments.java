@@ -25,39 +25,21 @@ final class SemanticSearchSqlFragments {
 
     static String boardPredicate(SemanticSearchSqlCriteria query) {
         String blockedPost = query.hasBlockedUserIds() ? " AND p.user_id NOT IN (:blockedUserIds)" : "";
-        if (!query.hasBoardUrl()) {
-            return "b.is_active = 'Y' AND b.is_public = 'Y'" + blockedPost;
-        }
-        return """
-                b.board_url = :boardUrl
-                AND (
-                    (b.is_active = 'Y' AND b.is_public = 'Y')
-                    OR (:viewerUserId IS NOT NULL AND :viewerSuperAdmin = TRUE)
-                    OR (:viewerUserId IS NOT NULL AND EXISTS (
-                        SELECT 1 FROM admins adm
-                        WHERE adm.user_id = :viewerUserId
-                          AND adm.board_id = b.board_id
-                          AND adm.is_active = 'Y'
-                    ))
-                )
-                """ + blockedPost;
+        String boardUrlPredicate = query.hasBoardUrl() ? " AND b.board_url = :boardUrl" : "";
+        return indexedBoardPredicate() + boardUrlPredicate + blockedPost;
     }
 
     static String postPrivacyPredicate(SemanticSearchSqlCriteria query) {
         String blockedComment = query.hasBlockedUserIds() ? " AND u.user_id NOT IN (:blockedUserIds)" : "";
-        return """
-                (
-                    p.is_secret = 'N'
-                    OR (:viewerUserId IS NOT NULL AND p.user_id = :viewerUserId)
-                    OR (:viewerUserId IS NOT NULL AND :viewerSuperAdmin = TRUE)
-                    OR (:viewerUserId IS NOT NULL AND EXISTS (
-                        SELECT 1 FROM admins adm
-                        WHERE adm.user_id = :viewerUserId
-                          AND adm.board_id = b.board_id
-                          AND adm.is_active = 'Y'
-                    ))
-                )
-                """ + blockedComment;
+        return indexedPostPrivacyPredicate() + blockedComment;
+    }
+
+    static String indexedBoardPredicate() {
+        return "b.is_active = 'Y' AND b.is_public = 'Y'";
+    }
+
+    static String indexedPostPrivacyPredicate() {
+        return "p.is_secret = 'N'";
     }
 
     static MapSqlParameterSource commonParams(SemanticSearchSqlCriteria query) {
