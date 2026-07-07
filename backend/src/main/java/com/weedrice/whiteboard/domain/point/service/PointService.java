@@ -35,6 +35,8 @@ public class PointService {
     private static final String HISTORY_TYPE_REWARD_REVERSAL = "REWARD_REVERSAL";
     private static final String HISTORY_TYPE_SPEND = "SPEND";
     private static final int HISTORY_TYPE_MAX_LENGTH = 50;
+    private static final int HISTORY_DESCRIPTION_MAX_LENGTH = 255;
+    private static final int HISTORY_RELATED_TYPE_MAX_LENGTH = 50;
     private static final int DEFAULT_HISTORY_PAGE_SIZE = 20;
     private static final Set<String> HISTORY_TYPES = Set.of(
             HISTORY_TYPE_EARN,
@@ -49,17 +51,16 @@ public class PointService {
     private final UserReadableResolver userReadableResolver;
 
     public UserPointResponse getUserPoint(@NonNull Long userId) {
+        userReadableResolver.resolveActive(userId);
         return userPointRepository.findByUserId(userId)
                 .map(UserPointResponse::from)
-                .orElseGet(() -> {
-                    userReadableResolver.ensureExists(userId);
-                    return UserPointResponse.builder()
-                            .currentPoint(0)
-                            .build();
-                });
+                .orElseGet(() -> UserPointResponse.builder()
+                        .currentPoint(0)
+                        .build());
     }
 
     public PointHistoryResponse getPointHistories(@NonNull Long userId, String type, Pageable pageable) {
+        userReadableResolver.resolveActive(userId);
         String normalizedType = normalizeHistoryType(type);
         Pageable safePageable = PageRequestUtils.of(pageable, DEFAULT_HISTORY_PAGE_SIZE);
         Page<PointHistory> historyPage;
@@ -71,9 +72,6 @@ public class PointService {
         } else {
             historyPage = pointHistoryRepository.findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(userId,
                     safePageable);
-        }
-        if (historyPage.isEmpty()) {
-            userReadableResolver.ensureExists(userId);
         }
         return PointHistoryResponse.from(historyPage);
     }
@@ -122,7 +120,7 @@ public class PointService {
     }
 
     public int getCurrentBalance(@NonNull Long userId) {
-        userReadableResolver.ensureExists(userId);
+        userReadableResolver.resolveActive(userId);
         return userPointRepository.findByUserId(userId)
                 .map(UserPoint::getCurrentPoint)
                 .orElse(0);
@@ -153,10 +151,12 @@ public class PointService {
         if (validateSpendSanction && HISTORY_TYPE_SPEND.equals(historyType)) {
             sanctionService.validateNotBanned(user);
         }
+        String normalizedDescription = normalizeHistoryDescription(description);
+        String normalizedRelatedType = normalizeRelatedType(relatedType);
         if (skipExistingHistory && pointHistoryRepository.existsByUser_UserIdAndTypeAndRelatedTypeAndRelatedId(
                 userId,
                 historyType,
-                relatedType,
+                normalizedRelatedType,
                 relatedId)) {
             return;
         }
@@ -180,9 +180,9 @@ public class PointService {
                 .type(historyType)
                 .amount(delta)
                 .balanceAfter(userPoint.getCurrentPoint())
-                .description(description)
+                .description(normalizedDescription)
                 .relatedId(relatedId)
-                .relatedType(relatedType)
+                .relatedType(normalizedRelatedType)
                 .build());
     }
 
@@ -225,5 +225,24 @@ public class PointService {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         return normalizedType;
+    }
+
+    private String normalizeHistoryDescription(String description) {
+        String normalizedDescription = TextInputNormalizer.normalizeNullable(description);
+        if (normalizedDescription != null && normalizedDescription.length() > HISTORY_DESCRIPTION_MAX_LENGTH) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return normalizedDescription;
+    }
+
+    private String normalizeRelatedType(String relatedType) {
+        String normalizedRelatedType = TextInputNormalizer.normalizeNullable(relatedType);
+        if (normalizedRelatedType == null) {
+            return null;
+        }
+        if (normalizedRelatedType.length() > HISTORY_RELATED_TYPE_MAX_LENGTH) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return normalizedRelatedType.toUpperCase(Locale.ROOT);
     }
 }

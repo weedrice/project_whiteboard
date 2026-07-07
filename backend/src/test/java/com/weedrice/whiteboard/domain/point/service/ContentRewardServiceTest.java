@@ -78,12 +78,12 @@ class ContentRewardServiceTest {
     }
 
     @Test
-    @DisplayName("rollbackCreateReward subtracts summed positive earn histories")
-    void rollbackCreateReward_positiveEarnHistories_subtractsSummedAmount() {
+    @DisplayName("rollbackCreateReward subtracts remaining net reward amount")
+    void rollbackCreateReward_positiveNetReward_subtractsRemainingAmount() {
         User user = User.builder().build();
-        when(pointHistoryRepository.sumPositiveAmountByUserAndTypeAndRelatedTypeAndRelatedId(
+        when(pointHistoryRepository.sumAmountByUserAndTypesAndRelatedTypeAndRelatedId(
                 user,
-                "EARN",
+                java.util.List.of("EARN", "REWARD_REVERSAL"),
                 "COMMENT",
                 10L))
                 .thenReturn(25L);
@@ -96,12 +96,12 @@ class ContentRewardServiceTest {
     }
 
     @Test
-    @DisplayName("rollbackCreateReward skips subtract when no positive earn histories")
-    void rollbackCreateReward_noPositiveEarnHistories_skipsSubtract() {
+    @DisplayName("rollbackCreateReward skips subtract when reward was already fully reversed")
+    void rollbackCreateReward_noRemainingReward_skipsSubtract() {
         User user = User.builder().build();
-        when(pointHistoryRepository.sumPositiveAmountByUserAndTypeAndRelatedTypeAndRelatedId(
+        when(pointHistoryRepository.sumAmountByUserAndTypesAndRelatedTypeAndRelatedId(
                 user,
-                "EARN",
+                java.util.List.of("EARN", "REWARD_REVERSAL"),
                 "POST",
                 100L))
                 .thenReturn(0L);
@@ -109,6 +109,24 @@ class ContentRewardServiceTest {
         org.springframework.test.util.ReflectionTestUtils.setField(user, "userId", 1L);
 
         contentRewardService.rollbackCreateReward(user, 100L, ContentRewardPolicy.POST);
+
+        verify(pointService, never()).reverseRewardPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+    }
+
+    @Test
+    @DisplayName("rollbackCreateReward skips subtract when reversal history exceeds earn history")
+    void rollbackCreateReward_negativeNetReward_skipsSubtract() {
+        User user = User.builder().build();
+        when(pointHistoryRepository.sumAmountByUserAndTypesAndRelatedTypeAndRelatedId(
+                user,
+                java.util.List.of("EARN", "REWARD_REVERSAL"),
+                "COMMENT",
+                10L))
+                .thenReturn(-10L);
+
+        org.springframework.test.util.ReflectionTestUtils.setField(user, "userId", 1L);
+
+        contentRewardService.rollbackCreateReward(user, 10L, ContentRewardPolicy.COMMENT);
 
         verify(pointService, never()).reverseRewardPoint(anyLong(), anyInt(), anyString(), anyLong(), anyString());
     }

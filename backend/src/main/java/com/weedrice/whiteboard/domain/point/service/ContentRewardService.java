@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ContentRewardService {
 
     private static final String EARN_TYPE = "EARN";
+    private static final String REWARD_REVERSAL_TYPE = "REWARD_REVERSAL";
 
     private final PointService pointService;
     private final PointHistoryRepository pointHistoryRepository;
@@ -53,9 +54,9 @@ public class ContentRewardService {
     }
 
     private int getCreateRewardAmount(User user, Long relatedId, ContentRewardPolicy policy) {
-        long rewardedAmount = pointHistoryRepository.sumPositiveAmountByUserAndTypeAndRelatedTypeAndRelatedId(
+        long rewardedAmount = pointHistoryRepository.sumAmountByUserAndTypesAndRelatedTypeAndRelatedId(
                 user,
-                EARN_TYPE,
+                java.util.List.of(EARN_TYPE, REWARD_REVERSAL_TYPE),
                 policy.getRelatedType(),
                 relatedId);
         return Math.toIntExact(rewardedAmount);

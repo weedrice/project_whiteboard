@@ -266,6 +266,36 @@ class PointServiceTest {
     }
 
     @Test
+    @DisplayName("포인트 이력 설명과 관련 타입을 정규화한다")
+    void addPoint_normalizesHistoryDescriptionAndRelatedType() {
+        Long userId = 1L;
+        when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
+        when(userPointRepository.findByUserId(userId)).thenReturn(Optional.of(userPoint));
+
+        pointService.addPoint(userId, 100, "  Reward  ", 10L, " post ");
+
+        ArgumentCaptor<PointHistory> historyCaptor = ArgumentCaptor.forClass(PointHistory.class);
+        verify(pointHistoryRepository).save(historyCaptor.capture());
+        assertThat(historyCaptor.getValue().getDescription()).isEqualTo("Reward");
+        assertThat(historyCaptor.getValue().getRelatedType()).isEqualTo("POST");
+    }
+
+    @Test
+    @DisplayName("포인트 이력 설명 길이 초과를 거절한다")
+    void addPoint_rejectsTooLongHistoryDescription() {
+        Long userId = 1L;
+        when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> pointService.addPoint(userId, 100, "a".repeat(256), 10L, "POST"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(userPointRepository, never()).save(any());
+        verify(pointHistoryRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("사전 검증된 사용자 포인트 차감은 중복 잠금과 제재 검증을 건너뛴다")
     void spendPointForPrevalidatedUser_success_skipsDuplicateValidation() {
         userPoint.addPoint(300);
@@ -343,8 +373,8 @@ class PointServiceTest {
         // then
         assertThat(response).isNotNull();
         assertThat(response.getCurrentPoint()).isEqualTo(500);
+        verify(userReadableResolver).resolveActive(userId);
         verify(userPointRepository).findByUserId(userId);
-        verify(userReadableResolver, never()).ensureExists(userId);
     }
 
     @Test
@@ -356,21 +386,21 @@ class PointServiceTest {
         com.weedrice.whiteboard.domain.point.dto.UserPointResponse response = pointService.getUserPoint(userId);
 
         assertThat(response.getCurrentPoint()).isZero();
-        verify(userReadableResolver).ensureExists(userId);
+        verify(userReadableResolver).resolveActive(userId);
     }
 
     @Test
-    @DisplayName("포인트 지갑이 없고 사용자도 없으면 사용자 없음으로 거절한다")
-    void getUserPoint_missingUser_throwsUserNotFound() {
+    @DisplayName("포인트 지갑이 있어도 활성 사용자가 아니면 사용자 없음으로 거절한다")
+    void getUserPoint_inactiveUser_throwsUserNotFoundBeforeWalletLookup() {
         Long userId = 1L;
-        when(userPointRepository.findByUserId(userId)).thenReturn(Optional.empty());
         doThrow(new BusinessException(ErrorCode.USER_NOT_FOUND))
-                .when(userReadableResolver).ensureExists(userId);
+                .when(userReadableResolver).resolveActive(userId);
 
         assertThatThrownBy(() -> pointService.getUserPoint(userId))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
+        verify(userPointRepository, never()).findByUserId(userId);
     }
 
     @Test
@@ -382,7 +412,7 @@ class PointServiceTest {
         int balance = pointService.getCurrentBalance(userId);
 
         assertThat(balance).isZero();
-        verify(userReadableResolver).ensureExists(userId);
+        verify(userReadableResolver).resolveActive(userId);
     }
 
     @Test
@@ -409,25 +439,23 @@ class PointServiceTest {
 
         // then
         assertThat(response).isNotNull();
-        verify(userReadableResolver, never()).ensureExists(userId);
+        verify(userReadableResolver).resolveActive(userId);
     }
 
     @Test
-    @DisplayName("포인트 내역 조회는 존재하지 않는 사용자를 거절한다")
-    void getPointHistories_rejectsMissingUser() {
+    @DisplayName("포인트 내역 조회는 활성 사용자가 아니면 조회 전에 거절한다")
+    void getPointHistories_rejectsInactiveUserBeforeHistoryLookup() {
         Long userId = 1L;
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
-        when(pointHistoryRepository.findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(userId, pageable))
-                .thenReturn(org.springframework.data.domain.Page.empty(pageable));
         doThrow(new BusinessException(ErrorCode.USER_NOT_FOUND))
-                .when(userReadableResolver).ensureExists(userId);
+                .when(userReadableResolver).resolveActive(userId);
 
         assertThatThrownBy(() -> pointService.getPointHistories(userId, null, pageable))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
 
-        verify(pointHistoryRepository).findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(userId, pageable);
+        verify(pointHistoryRepository, never()).findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(any(), any());
         verify(pointHistoryRepository, never())
                 .findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc(any(), any(), any());
     }
@@ -460,7 +488,7 @@ class PointServiceTest {
         assertThat(safePageable.getPageNumber()).isEqualTo(2);
         assertThat(safePageable.getPageSize()).isEqualTo(100);
         assertThat(safePageable.getSort().isUnsorted()).isTrue();
-        verify(userReadableResolver).ensureExists(userId);
+        verify(userReadableResolver).resolveActive(userId);
     }
 
     @Test
@@ -488,6 +516,7 @@ class PointServiceTest {
 
         // then
         assertThat(response).isNotNull();
+        verify(userReadableResolver).resolveActive(userId);
         verify(pointHistoryRepository).findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc(userId, type, pageable);
     }
 
@@ -510,7 +539,7 @@ class PointServiceTest {
                 userId,
                 "SPEND",
                 pageable);
-        verify(userReadableResolver).ensureExists(userId);
+        verify(userReadableResolver).resolveActive(userId);
     }
 
     @Test
@@ -535,7 +564,7 @@ class PointServiceTest {
                 userId,
                 "REWARD_REVERSAL",
                 pageable);
-        verify(userReadableResolver).ensureExists(userId);
+        verify(userReadableResolver).resolveActive(userId);
     }
 
     @Test
@@ -554,7 +583,7 @@ class PointServiceTest {
 
         assertThat(response).isNotNull();
         verify(pointHistoryRepository).findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(userId, pageable);
-        verify(userReadableResolver).ensureExists(userId);
+        verify(userReadableResolver).resolveActive(userId);
         verify(pointHistoryRepository, never())
                 .findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc(any(), any(), any());
     }
