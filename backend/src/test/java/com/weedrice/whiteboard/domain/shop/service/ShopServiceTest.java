@@ -618,18 +618,21 @@ class ShopServiceTest {
         @Test
         @DisplayName("Fails for a missing item")
         void purchaseItem_notFound() {
-            when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
             when(shopItemRepository.findById(999L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> shopService.purchaseItem(1L, 999L))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE);
+
+            verify(userRepository, never()).findByIdForUpdate(anyLong());
+            verifyNoInteractions(sanctionService);
         }
 
         @Test
         @DisplayName("Fails for a missing user")
         void purchaseItem_userNotFound() {
+            when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
             when(userRepository.findByIdForUpdate(999L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> shopService.purchaseItem(999L, 2L))
@@ -641,6 +644,7 @@ class ShopServiceTest {
         @Test
         @DisplayName("Blocks banned users")
         void purchaseItem_bannedUser() {
+            when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
             when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
             doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
                     .when(sanctionService)
@@ -651,7 +655,7 @@ class ShopServiceTest {
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
 
-            verify(shopItemRepository, never()).findById(anyLong());
+            verify(shopItemRepository).findById(2L);
             verifyNoInteractions(pointService);
         }
     }

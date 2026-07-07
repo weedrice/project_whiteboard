@@ -81,9 +81,9 @@ public class ShopService {
 
     @Transactional
     public Long purchaseItem(Long userId, Long itemId) {
-        User user = resolvePurchasingUser(userId);
         ShopItem item = shopItemRepository.findById(itemId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE));
+        User user = resolvePurchasingUser(userId);
         return purchaseItem(user, item);
     }
 
