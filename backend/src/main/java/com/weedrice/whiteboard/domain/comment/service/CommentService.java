@@ -9,6 +9,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.Collection;
 import java.util.List;
 
 @Service
@@ -46,6 +47,11 @@ public class CommentService {
 
     public Long createComment(Long userId, Long postId, Long parentId, String content) {
         return commentCommandService.createComment(userId, postId, parentId, content);
+    }
+
+    public Long createComment(Long userId, Long postId, Long parentId, String content,
+            Collection<Long> mentionedUserIds) {
+        return commentCommandService.createComment(userId, postId, parentId, content, mentionedUserIds);
     }
 
     public Long createCommentAsAgent(Long userId, Long agentId, Long postId, Long parentId, String content) {

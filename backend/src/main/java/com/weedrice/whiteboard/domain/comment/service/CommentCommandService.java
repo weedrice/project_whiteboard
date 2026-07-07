@@ -27,6 +27,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.Objects;
 
 @Service
@@ -57,23 +58,29 @@ public class CommentCommandService {
     }
 
     @Transactional
+    public Long createComment(Long userId, Long postId, Long parentId, String content,
+            Collection<Long> mentionedUserIds) {
+        return createComment(userId, null, postId, parentId, content, null, mentionedUserIds);
+    }
+
+    @Transactional
     public Long createCommentAsAgent(Long userId, Long agentId, Long postId, Long parentId, String content) {
-        return createComment(userId, agentId, postId, parentId, content, null);
+        return createComment(userId, agentId, postId, parentId, content, null, null);
     }
 
     @Transactional
     public Long createCommentAsAgent(Long userId, Long agentId, Long postId, Long parentId, String content,
             CommentCreateContext context) {
-        return createComment(userId, agentId, postId, parentId, content, context);
+        return createComment(userId, agentId, postId, parentId, content, context, null);
     }
 
     @Transactional
     public Long createComment(Long userId, Long agentId, Long postId, Long parentId, String content) {
-        return createComment(userId, agentId, postId, parentId, content, null);
+        return createComment(userId, agentId, postId, parentId, content, null, null);
     }
 
     private Long createComment(Long userId, Long agentId, Long postId, Long parentId, String content,
-            CommentCreateContext context) {
+            CommentCreateContext context, Collection<Long> mentionedUserIds) {
         User user = userWritableResolver.resolve(userId);
         sanctionService.validateNotMuted(user);
         Agent agent = resolveAgent(userId, agentId, context);
@@ -117,10 +124,19 @@ public class CommentCommandService {
         } else {
             commentNotificationService.publishCreateNotification(user, agent, post, postId);
         }
-        mentionService.publishMentions(user, agent, "COMMENT", savedComment.getCommentId(), content);
+        publishMentionNotifications(user, agent, savedComment.getCommentId(), content, mentionedUserIds);
         semanticSearchEventPublisher.publish("COMMENT", savedComment.getCommentId(), SemanticSearchIndexAction.UPSERT);
 
         return savedComment.getCommentId();
+    }
+
+    private void publishMentionNotifications(User user, Agent agent, Long commentId, String content,
+            Collection<Long> mentionedUserIds) {
+        if (mentionedUserIds != null && !mentionedUserIds.isEmpty()) {
+            mentionService.publishMentions(user, agent, "COMMENT", commentId, mentionedUserIds);
+            return;
+        }
+        mentionService.publishMentions(user, agent, "COMMENT", commentId, content);
     }
 
     private Agent resolveAgent(Long userId, Long agentId, CommentCreateContext context) {

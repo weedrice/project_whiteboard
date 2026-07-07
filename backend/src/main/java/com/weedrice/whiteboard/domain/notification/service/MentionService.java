@@ -15,6 +15,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -60,8 +61,25 @@ public class MentionService {
             return;
         }
 
+        publishMentions(actor, actorAgent, sourceType, sourceId, mentionedUserIds);
+    }
+
+    public void publishMentions(User actor, Agent actorAgent, String sourceType, Long sourceId,
+            Collection<Long> mentionedUserIds) {
+        if (actor == null || actor.getUserId() == null || sourceType == null || sourceId == null
+                || mentionedUserIds == null || mentionedUserIds.isEmpty()) {
+            return;
+        }
+
+        Set<Long> uniqueMentionedUserIds = mentionedUserIds.stream()
+                .filter(id -> id != null && id > 0)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        if (uniqueMentionedUserIds.isEmpty()) {
+            return;
+        }
+
         String actorName = resolveActorName(actor, actorAgent);
-        userRepository.findAllById(mentionedUserIds).stream()
+        userRepository.findAllById(uniqueMentionedUserIds).stream()
                 .filter(user -> User.STATUS_ACTIVE.equals(user.getStatus()))
                 .filter(user -> user.getDeletedAt() == null)
                 .filter(user -> !user.getUserId().equals(actor.getUserId()))

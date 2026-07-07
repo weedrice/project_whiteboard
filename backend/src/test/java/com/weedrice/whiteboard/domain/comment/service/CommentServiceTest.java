@@ -195,6 +195,32 @@ class CommentServiceTest {
     }
 
     @Test
+    @DisplayName("comment mention ids publish mention notifications")
+    void createComment_withMentionedUserIds_publishesMentions() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().user(user).board(board).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(postRepository.incrementCommentCount(1L)).thenReturn(1);
+        when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> {
+            Comment saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "commentId", 10L);
+            return saved;
+        });
+        when(globalConfigService.getConfig(anyString())).thenReturn("10");
+
+        Long result = commentService.createComment(1L, 1L, null, "hello @user", List.of(2L, 3L));
+
+        assertThat(result).isEqualTo(10L);
+        verify(mentionService).publishMentions(user, null, "COMMENT", 10L, List.of(2L, 3L));
+    }
+
+    @Test
     @DisplayName("comment on agent-authored post notifies agent owner")
     void createComment_agentPost_notifiesAgentOwner() {
         User actor = User.builder().displayName("Actor").build();

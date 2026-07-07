@@ -78,7 +78,8 @@ public class CommentController {
                 userId,
                 postId,
                 request.getParentId(),
-                request.getContent());
+                request.getContent(),
+                request.getMentionedUserIds());
         return ApiResponse.success(commentId);
     }
 

@@ -243,9 +243,27 @@ class CommentControllerTest {
         Long postId = 1L;
         CommentCreateRequest request = new CommentCreateRequest();
         org.springframework.test.util.ReflectionTestUtils.setField(request, "content", "Test comment");
-        when(commentService.createComment(eq(1L), eq(postId), isNull(), eq("Test comment"))).thenReturn(1L);
+        when(commentService.createComment(eq(1L), eq(postId), isNull(), eq("Test comment"), eq(List.of()))).thenReturn(1L);
 
         // when & then
+        mockMvc.perform(post("/api/v1/posts/{postId}/comments", postId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+                        .with(user(customUserDetails)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    @DisplayName("댓글 생성 시 멘션 사용자 ID를 전달한다")
+    void createComment_withMentionedUserIds_passesMentionIds() throws Exception {
+        Long postId = 1L;
+        CommentCreateRequest request = new CommentCreateRequest();
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "content", "Test comment");
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "mentionedUserIds", List.of(2L, 3L));
+        when(commentService.createComment(eq(1L), eq(postId), isNull(), eq("Test comment"), eq(List.of(2L, 3L))))
+                .thenReturn(1L);
+
         mockMvc.perform(post("/api/v1/posts/{postId}/comments", postId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))

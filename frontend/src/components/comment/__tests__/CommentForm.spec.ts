@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, h, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import CommentForm from '../CommentForm.vue'
@@ -6,6 +6,9 @@ import CommentForm from '../CommentForm.vue'
 const createComment = vi.fn()
 const updateComment = vi.fn()
 const addToast = vi.fn()
+const apiMocks = vi.hoisted(() => ({
+  getMentionCandidates: vi.fn(),
+}))
 const isCreating = ref(false)
 const isUpdating = ref(false)
 
@@ -33,12 +36,19 @@ vi.mock('@/stores/auth', () => ({
   useAuthStore: () => ({ isAuthenticated: true }),
 }))
 
+vi.mock('@/api/userAccountApi', () => ({
+  userAccountApi: {
+    getMentionCandidates: apiMocks.getMentionCandidates,
+  },
+}))
+
 vi.mock('@/utils/logger', () => ({
   default: { error: vi.fn() },
 }))
 
 const BaseTextareaStub = defineComponent({
   name: 'BaseTextarea',
+  inheritAttrs: false,
   props: {
     modelValue: { type: String, default: '' },
     id: { type: String, default: '' },
@@ -47,11 +57,12 @@ const BaseTextareaStub = defineComponent({
     hideLabel: { type: Boolean, default: false },
   },
   emits: ['update:modelValue'],
-  setup(props, { emit }) {
+  setup(props, { attrs, emit }) {
     return () =>
       h('div', [
         props.label ? h('label', { for: props.id, class: props.hideLabel ? 'sr-only' : '' }, props.label) : null,
         h('textarea', {
+          ...attrs,
           id: props.id,
           name: props.name,
           value: props.modelValue,
@@ -106,6 +117,12 @@ describe('CommentForm', () => {
     vi.clearAllMocks()
     isCreating.value = false
     isUpdating.value = false
+    apiMocks.getMentionCandidates.mockResolvedValue({
+      data: {
+        success: true,
+        data: [],
+      },
+    })
   })
 
   it('keeps a hidden textarea label for new comments and replies', () => {
@@ -168,6 +185,44 @@ describe('CommentForm', () => {
         data: {
           content: 'reply body',
           parentId: 20,
+        },
+      },
+      expect.any(Object),
+    )
+  })
+
+  it('adds mentioned user ids when a mention candidate is selected', async () => {
+    apiMocks.getMentionCandidates.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: [
+          { userId: 7, displayName: 'Alice', profileImageUrl: null },
+        ],
+      },
+    })
+    const wrapper = mountCommentForm()
+    const textarea = wrapper.get('textarea')
+
+    await textarea.setValue('hello @al')
+    const textareaElement = textarea.element as HTMLTextAreaElement
+    textareaElement.setSelectionRange(textareaElement.value.length, textareaElement.value.length)
+    await textarea.trigger('keyup')
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    expect(apiMocks.getMentionCandidates).toHaveBeenCalledWith('al')
+
+    await wrapper.get('.mention-suggestion-item').trigger('mousedown')
+    await flushPromises()
+    await wrapper.get('form').trigger('submit')
+
+    expect(createComment).toHaveBeenCalledWith(
+      {
+        postId: 10,
+        data: {
+          content: 'hello @Alice',
+          parentId: null,
+          mentionedUserIds: [7],
         },
       },
       expect.any(Object),

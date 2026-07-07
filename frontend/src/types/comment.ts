@@ -40,6 +40,7 @@ export interface CommentListResponse {
 export interface CommentPayload {
     content: string
     parentId?: number | null
+    mentionedUserIds?: number[]
 }
 
 export interface MyComment {
