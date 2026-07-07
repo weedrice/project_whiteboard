@@ -72,7 +72,7 @@ class AdServiceTest {
     }
 
     @Test
-    @DisplayName("오픈엔드 광고도 활성 광고 조회에 포함한다")
+    @DisplayName("광고 조회는 placement를 정규화한 뒤 활성 광고를 조회한다")
     void getAd_normalizesPlacementBeforeRepositorySearch() {
         String placement = "HEADER";
         Ad ad = buildActiveAd(placement, FIXED_NOW.plusDays(1));
@@ -126,7 +126,7 @@ class AdServiceTest {
     }
 
     @Test
-    @DisplayName("?ㅽ뵂?붾뱶 愿묎퀬???쒖꽦 愿묎퀬 議고쉶???ы븿?쒕떎")
+    @DisplayName("종료일이 없는 광고도 활성 광고 조회에 포함한다")
     void getAd_includesOpenEndedAd() {
         String placement = "HEADER";
         Ad ad = buildActiveAd(placement, null);
