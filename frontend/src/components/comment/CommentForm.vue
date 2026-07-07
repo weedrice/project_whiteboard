@@ -4,10 +4,10 @@ import { useComment } from '@/composables/useComment'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 import type { CommentPayload } from '@/api/comment'
-import { userAccountApi } from '@/api/userAccountApi'
-import { unwrapAxiosApiData } from '@/api/response'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
+import MentionSuggestionList from '@/features/mentions/MentionSuggestionList.vue'
+import { useMentionAutocomplete } from '@/features/mentions/useMentionAutocomplete'
 import { useToastStore } from '@/stores/toast'
 import { useAuthStore } from '@/stores/auth'
 import EmoticonPicker from '@/components/common/widgets/EmoticonPicker.vue'
@@ -47,9 +47,6 @@ const isSubmitting = computed(() => isCreating.value || isUpdating.value)
 const trimmedContent = computed(() => content.value.trim())
 const canSubmit = computed(() => !!trimmedContent.value && !isSubmitting.value)
 const showEmoticonPicker = ref(false)
-const mentionCandidates = ref<MentionCandidate[]>([])
-const mentionMenuOpen = ref(false)
-const selectedMentionIndex = ref(0)
 const selectedMentionUsers = ref<MentionCandidate[]>(
   props.initialMentions.map((mention) => ({
     userId: mention.userId,
@@ -58,7 +55,6 @@ const selectedMentionUsers = ref<MentionCandidate[]>(
   })),
 )
 const textareaRoot = ref<InstanceType<typeof BaseTextarea> | null>(null)
-let mentionLookupSeq = 0
 const idSegment = (value: number | string) => String(value).replace(/[^a-zA-Z0-9_-]/g, '-')
 const textareaId = computed(() => {
   if (props.commentId) {
@@ -100,42 +96,8 @@ const findActiveMention = (textarea: HTMLTextAreaElement | null) => {
   }
 }
 
-const closeMentionMenu = () => {
-  mentionMenuOpen.value = false
-  mentionCandidates.value = []
-  selectedMentionIndex.value = 0
-}
-
-const updateMentionCandidates = async () => {
-  const activeMention = findActiveMention(getTextarea())
-  if (!activeMention) {
-    closeMentionMenu()
-    return
-  }
-
-  const seq = ++mentionLookupSeq
-  try {
-    const response = await userAccountApi.getMentionCandidates(activeMention.query)
-    if (seq !== mentionLookupSeq) return
-
-    mentionCandidates.value = unwrapAxiosApiData(response)
-    mentionMenuOpen.value = mentionCandidates.value.length > 0
-    selectedMentionIndex.value = 0
-  } catch (error) {
-    logger.error('Failed to load mention candidates:', error)
-    if (seq === mentionLookupSeq) {
-      closeMentionMenu()
-    }
-  }
-}
-
-const selectMention = async (candidate: MentionCandidate) => {
+const insertMention = async (candidate: MentionCandidate, activeMention: { start: number; end: number }) => {
   const textarea = getTextarea()
-  const activeMention = findActiveMention(textarea)
-  if (!activeMention) {
-    closeMentionMenu()
-    return
-  }
 
   const before = content.value.slice(0, activeMention.start)
   const after = content.value.slice(activeMention.end)
@@ -147,43 +109,24 @@ const selectMention = async (candidate: MentionCandidate) => {
     selectedMentionUsers.value = [...selectedMentionUsers.value, candidate]
   }
 
-  closeMentionMenu()
   await nextTick()
   textarea?.focus()
   const nextCaret = before.length + insertedText.length
   textarea?.setSelectionRange(nextCaret, nextCaret)
 }
 
-const handleMentionKeydown = (event: KeyboardEvent) => {
-  if (!mentionMenuOpen.value || mentionCandidates.value.length === 0) return
+const mentionAutocomplete = useMentionAutocomplete({
+  resolveRange: () => findActiveMention(getTextarea()),
+  onSelect: insertMention,
+})
 
-  if (event.key === 'ArrowDown') {
-    event.preventDefault()
-    selectedMentionIndex.value = (selectedMentionIndex.value + 1) % mentionCandidates.value.length
-    return
-  }
-
-  if (event.key === 'ArrowUp') {
-    event.preventDefault()
-    selectedMentionIndex.value = (selectedMentionIndex.value - 1 + mentionCandidates.value.length)
-      % mentionCandidates.value.length
-    return
-  }
-
-  if (event.key === 'Enter' || event.key === 'Tab') {
-    event.preventDefault()
-    const candidate = mentionCandidates.value[selectedMentionIndex.value]
-    if (candidate) {
-      void selectMention(candidate)
-    }
-    return
-  }
-
-  if (event.key === 'Escape') {
-    event.preventDefault()
-    closeMentionMenu()
-  }
-}
+const mentionCandidates = mentionAutocomplete.items
+const mentionMenuOpen = mentionAutocomplete.isOpen
+const selectedMentionIndex = mentionAutocomplete.selectedIndex
+const updateMentionCandidates = mentionAutocomplete.refresh
+const closeMentionMenu = mentionAutocomplete.close
+const selectMention = mentionAutocomplete.select
+const handleMentionKeydown = mentionAutocomplete.handleKeydown
 
 const shouldShowLocalErrorToast = (error: unknown) => {
   return !(error && typeof error === 'object' && (error as { suppressGlobalErrorToast?: boolean }).suppressGlobalErrorToast)
@@ -273,30 +216,13 @@ async function handleSubmit() {
 
       <div
         v-if="mentionMenuOpen"
-        class="mention-suggestion-menu"
-        role="listbox"
+        class="comment-mention-suggestion-popover"
       >
-        <button
-          v-for="(candidate, index) in mentionCandidates"
-          :key="candidate.userId"
-          type="button"
-          class="mention-suggestion-item"
-          :data-active="index === selectedMentionIndex"
-          role="option"
-          :aria-selected="index === selectedMentionIndex"
-          @mousedown.prevent="selectMention(candidate)"
-        >
-          <img
-            v-if="candidate.profileImageUrl"
-            :src="candidate.profileImageUrl"
-            alt=""
-            class="mention-suggestion-avatar"
-          />
-          <span v-else class="mention-suggestion-avatar mention-suggestion-avatar--empty">
-            {{ candidate.displayName.slice(0, 1) }}
-          </span>
-          <span>{{ candidate.displayName }}</span>
-        </button>
+        <MentionSuggestionList
+          :items="mentionCandidates"
+          :selected-index="selectedMentionIndex"
+          @select="selectMention"
+        />
       </div>
       
       <!-- 이모티콘 피커 -->
@@ -336,56 +262,12 @@ async function handleSubmit() {
 </template>
 
 <style scoped>
-.mention-suggestion-menu {
+.comment-mention-suggestion-popover {
   position: absolute;
   left: 0.5rem;
   right: 0.5rem;
   bottom: calc(100% + 0.25rem);
   z-index: 20;
-  max-height: 14rem;
-  overflow-y: auto;
-  border: 1px solid var(--nv-border);
-  border-radius: 0.5rem;
-  background: var(--nv-surface);
-  box-shadow: var(--nv-shadow-lg);
-  padding: 0.25rem;
-}
-
-.mention-suggestion-item {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  gap: 0.5rem;
-  border-radius: 0.375rem;
-  padding: 0.45rem 0.5rem;
-  color: var(--nv-text);
-  text-align: left;
-  font-size: 0.875rem;
-  transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-.mention-suggestion-item:hover,
-.mention-suggestion-item[data-active="true"] {
-  background: var(--nv-surface-hover);
-  color: var(--nv-accent);
-}
-
-.mention-suggestion-avatar {
-  width: 1.5rem;
-  height: 1.5rem;
-  flex: 0 0 auto;
-  border-radius: 9999px;
-  object-fit: cover;
-}
-
-.mention-suggestion-avatar--empty {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--nv-surface-hover);
-  color: var(--nv-text-muted);
-  font-size: 0.75rem;
-  font-weight: 700;
 }
 
 /* 이모티콘 피커 위치 조정 (데스크톱만: 댓글 입력창 위쪽) / 모바일은 피커 내부 fixed 중앙 유지 */

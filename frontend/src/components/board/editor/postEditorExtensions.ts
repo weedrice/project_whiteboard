@@ -1,4 +1,5 @@
 import { mergeAttributes } from '@tiptap/core'
+import { VueRenderer } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import Mention from '@tiptap/extension-mention'
@@ -15,6 +16,7 @@ import { FontSize, LineHeight } from '@tiptap/extension-text-style'
 import { Video } from '@/extensions/tiptap-video'
 import { userAccountApi } from '@/api/userAccountApi'
 import { unwrapAxiosApiData } from '@/api/response'
+import MentionSuggestionList from '@/features/mentions/MentionSuggestionList.vue'
 import { lowlight } from '@/utils/codeHighlighting'
 import type { MentionCandidate } from '@/types'
 
@@ -41,33 +43,19 @@ const EditorImage = Image.extend({
 })
 
 function createMentionListRenderer() {
-  let element: HTMLDivElement | null = null
+  let renderer: VueRenderer | null = null
+  let element: HTMLElement | null = null
   let selectedIndex = 0
   let items: MentionCandidate[] = []
   let command: ((item: MentionCandidate) => void) | null = null
 
-  function updateSelection() {
-    element?.querySelectorAll<HTMLButtonElement>('button').forEach((button, index) => {
-      button.dataset.active = index === selectedIndex ? 'true' : 'false'
-    })
-  }
-
-  function render() {
-    if (!element) return
-    element.innerHTML = ''
-    items.forEach((item, index) => {
-      const button = document.createElement('button')
-      button.type = 'button'
-      button.className = 'mention-suggestion-item'
-      button.textContent = item.displayName
-      button.addEventListener('mousedown', (event) => {
-        event.preventDefault()
+  function updateRenderer() {
+    renderer?.updateProps({
+      items,
+      selectedIndex,
+      onSelect: (item: MentionCandidate) => {
         command?.(item)
-      })
-      element?.appendChild(button)
-      if (index === selectedIndex) {
-        button.dataset.active = 'true'
-      }
+      },
     })
   }
 
@@ -84,29 +72,41 @@ function createMentionListRenderer() {
       selectedIndex = 0
       items = props.items
       command = props.command
-      element = document.createElement('div')
-      element.className = 'mention-suggestion-menu'
+      renderer = new VueRenderer(MentionSuggestionList, {
+        editor: props.editor,
+        props: {
+          items,
+          selectedIndex,
+          onSelect: (item: MentionCandidate) => {
+            command?.(item)
+          },
+        },
+      })
+      element = renderer.element as HTMLElement
+      element.style.position = 'absolute'
+      element.style.zIndex = '90'
+      element.style.right = 'auto'
+      element.style.bottom = 'auto'
       document.body.appendChild(element)
-      render()
       position(props.clientRect)
     },
     onUpdate: (props: any) => {
       selectedIndex = 0
       items = props.items
       command = props.command
-      render()
+      updateRenderer()
       position(props.clientRect)
     },
     onKeyDown: ({ event }: { event: KeyboardEvent }) => {
       if (!items.length) return false
       if (event.key === 'ArrowDown') {
         selectedIndex = (selectedIndex + 1) % items.length
-        updateSelection()
+        updateRenderer()
         return true
       }
       if (event.key === 'ArrowUp') {
         selectedIndex = (selectedIndex - 1 + items.length) % items.length
-        updateSelection()
+        updateRenderer()
         return true
       }
       if (event.key === 'Enter') {
@@ -116,8 +116,9 @@ function createMentionListRenderer() {
       return false
     },
     onExit: () => {
-      element?.remove()
+      renderer?.destroy()
       element = null
+      renderer = null
       command = null
       items = []
     },
