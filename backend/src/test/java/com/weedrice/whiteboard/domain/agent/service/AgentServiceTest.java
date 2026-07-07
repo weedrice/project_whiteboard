@@ -537,7 +537,7 @@ class AgentServiceTest {
 
     @Test
     void getMyAgents_rejectsDeletedOwner() {
-        user.delete();
+        user.delete(java.time.LocalDateTime.of(2026, 7, 7, 12, 0));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> agentLifecycleService.getMyAgents(1L))
@@ -1201,7 +1201,7 @@ class AgentServiceTest {
 
     @Test
     void authenticate_rejectsDeletedOwnerBeforeMarkingLastUsed() {
-        user.delete();
+        user.delete(java.time.LocalDateTime.of(2026, 7, 7, 12, 0));
         when(agentRepository.findByAgentTokenHashAndIsDeletedFalseForAuthentication(any())).thenReturn(Optional.of(agent));
 
         assertThatThrownBy(() -> agentAuthService.authenticate("noviis_agt_token"))

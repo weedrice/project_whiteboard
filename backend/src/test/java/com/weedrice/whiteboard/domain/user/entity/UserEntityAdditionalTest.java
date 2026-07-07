@@ -4,9 +4,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class UserEntityAdditionalTest {
+
+    private static final LocalDateTime FIXED_NOW = LocalDateTime.of(2026, 7, 7, 12, 0);
 
     private User user;
 
@@ -33,10 +37,10 @@ class UserEntityAdditionalTest {
     @DisplayName("마지막 로그인 시간 업데이트")
     void updateLastLogin_success() {
         // when
-        user.updateLastLogin();
+        user.updateLastLogin(FIXED_NOW);
 
         // then
-        assertThat(user.getLastLoginAt()).isNotNull();
+        assertThat(user.getLastLoginAt()).isEqualTo(FIXED_NOW);
     }
 
     @Test
@@ -83,11 +87,11 @@ class UserEntityAdditionalTest {
     @DisplayName("사용자 삭제")
     void delete_success() {
         // when
-        user.delete();
+        user.delete(FIXED_NOW);
 
         // then
         assertThat(user.getStatus()).isEqualTo("DELETED");
-        assertThat(user.getDeletedAt()).isNotNull();
+        assertThat(user.getDeletedAt()).isEqualTo(FIXED_NOW);
     }
 
     @Test

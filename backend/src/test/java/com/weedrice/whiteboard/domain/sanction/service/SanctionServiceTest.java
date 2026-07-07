@@ -158,7 +158,7 @@ class SanctionServiceTest {
     @Test
     @DisplayName("permanent ban rejects deleted users")
     void createSanction_permanentBanRejectsDeletedUser() {
-        targetUser.delete();
+        targetUser.delete(java.time.LocalDateTime.of(2026, 7, 7, 12, 0));
         when(userRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(targetUser));
 
         assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "BAN", "Deleted user", null, null, null))

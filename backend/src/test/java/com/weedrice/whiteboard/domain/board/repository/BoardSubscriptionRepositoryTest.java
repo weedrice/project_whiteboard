@@ -134,7 +134,7 @@ class BoardSubscriptionRepositoryTest {
         persistUser("echo", "echo@test.com", "Echo");
 
         suspended.suspend();
-        deleted.delete();
+        deleted.delete(java.time.LocalDateTime.of(2026, 7, 7, 12, 0));
         persistSubscription(bravo, candidateBoard, 1);
         persistSubscription(alpha, candidateBoard, 1);
         persistSubscription(suspended, candidateBoard, 1);

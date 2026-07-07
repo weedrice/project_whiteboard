@@ -73,8 +73,8 @@ public class User extends BaseTimeEntity {
         this.isSuperAdmin = false;
     }
 
-    public void updateLastLogin() {
-        this.lastLoginAt = LocalDateTime.now();
+    public void updateLastLogin(LocalDateTime lastLoginAt) {
+        this.lastLoginAt = lastLoginAt;
     }
 
     public void verifyEmail() {
@@ -97,9 +97,9 @@ public class User extends BaseTimeEntity {
         this.password = newPassword;
     }
 
-    public void delete() {
+    public void delete(LocalDateTime deletedAt) {
         this.status = STATUS_DELETED;
-        this.deletedAt = LocalDateTime.now();
+        this.deletedAt = deletedAt;
     }
 
     public void suspend() {

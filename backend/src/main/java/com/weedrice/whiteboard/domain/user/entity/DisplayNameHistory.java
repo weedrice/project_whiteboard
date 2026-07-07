@@ -38,10 +38,10 @@ public class DisplayNameHistory extends BaseTimeEntity {
     private LocalDateTime changedAt;
 
     @Builder
-    public DisplayNameHistory(User user, String previousName, String newName) {
+    public DisplayNameHistory(User user, String previousName, String newName, LocalDateTime changedAt) {
         this.user = user;
         this.previousName = previousName;
         this.newName = newName;
-        this.changedAt = LocalDateTime.now();
+        this.changedAt = changedAt;
     }
 }

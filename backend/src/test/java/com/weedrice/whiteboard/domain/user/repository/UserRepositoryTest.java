@@ -137,7 +137,7 @@ class UserRepositoryTest {
                 .email("deleted@test.com")
                 .password("pass")
                 .build();
-        deletedUser.delete();
+        deletedUser.delete(java.time.LocalDateTime.of(2026, 7, 7, 12, 0));
 
         entityManager.persist(suspendedUser);
         entityManager.persist(deletedUser);
@@ -288,7 +288,7 @@ class UserRepositoryTest {
                 .password("pass")
                 .build();
         ReflectionTestUtils.setField(deleted, "lastLoginAt", base.plusHours(4));
-        deleted.delete();
+        deleted.delete(java.time.LocalDateTime.of(2026, 7, 7, 12, 0));
 
         entityManager.persist(suspended);
         entityManager.persist(deleted);
@@ -420,7 +420,7 @@ class UserRepositoryTest {
                 .password("pass")
                 .build();
         ReflectionTestUtils.setField(deletedRecent, "lastLoginAt", since.plusHours(3));
-        deletedRecent.delete();
+        deletedRecent.delete(java.time.LocalDateTime.of(2026, 7, 7, 12, 0));
 
         entityManager.persist(recentActive);
         entityManager.persist(oldActive);
@@ -482,7 +482,7 @@ class UserRepositoryTest {
                 .password("pass")
                 .build();
         ReflectionTestUtils.setField(deletedRecent, "lastLoginAt", since.plusMinutes(7));
-        deletedRecent.delete();
+        deletedRecent.delete(java.time.LocalDateTime.of(2026, 7, 7, 12, 0));
 
         entityManager.persist(boundaryActive);
         entityManager.persist(recentActive);
@@ -614,7 +614,7 @@ class UserRepositoryTest {
                 .password("pass")
                 .build();
         deleted.grantSuperAdminRole();
-        deleted.delete();
+        deleted.delete(java.time.LocalDateTime.of(2026, 7, 7, 12, 0));
 
         entityManager.persist(usable);
         entityManager.persist(suspended);

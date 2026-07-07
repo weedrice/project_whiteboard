@@ -7,6 +7,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class UserTest {
 
+    private static final java.time.LocalDateTime FIXED_NOW = java.time.LocalDateTime.of(2026, 7, 7, 12, 0);
+
     @Test
     @DisplayName("User 생성 빌더 테스트")
     void createUser() {
@@ -28,8 +30,8 @@ class UserTest {
     @DisplayName("마지막 로그인 시간 업데이트")
     void updateLastLogin() {
         User user = User.builder().build();
-        user.updateLastLogin();
-        assertThat(user.getLastLoginAt()).isNotNull();
+        user.updateLastLogin(FIXED_NOW);
+        assertThat(user.getLastLoginAt()).isEqualTo(FIXED_NOW);
     }
 
     @Test
@@ -66,8 +68,8 @@ class UserTest {
     @DisplayName("회원 탈퇴 처리")
     void deleteUser() {
         User user = User.builder().build();
-        user.delete();
-        assertThat(user.getDeletedAt()).isNotNull();
+        user.delete(FIXED_NOW);
+        assertThat(user.getDeletedAt()).isEqualTo(FIXED_NOW);
         assertThat(user.getStatus()).isEqualTo("DELETED");
     }
 

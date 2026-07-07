@@ -220,7 +220,7 @@ class UserFeedRepositoryTest {
         User suspendedSubscriber = persistUser("suspended-subscriber");
         User deletedSubscriber = persistUser("deleted-subscriber");
         suspendedSubscriber.suspend();
-        deletedSubscriber.delete();
+        deletedSubscriber.delete(java.time.LocalDateTime.of(2026, 7, 7, 12, 0));
         persistSubscription(activeSubscriber, publicBoard, "MEMBER");
         persistSubscription(moderatorSubscriber, publicBoard, "MODERATOR");
         persistSubscription(bannedSubscriber, publicBoard, "BANNED");

@@ -82,7 +82,7 @@ public class SessionTokenService {
             return RefreshTokenRefreshOutcome.failure(ErrorCode.USER_NOT_ACTIVE);
         }
 
-        user.updateLastLogin();
+        user.updateLastLogin(now());
 
         Authentication authentication = createRefreshAuthentication(user);
         return RefreshTokenRefreshOutcome.success(

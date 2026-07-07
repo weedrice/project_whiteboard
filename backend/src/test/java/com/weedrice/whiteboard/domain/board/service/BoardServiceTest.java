@@ -2264,7 +2264,7 @@ class BoardServiceTest {
                 .build();
         ReflectionTestUtils.setField(deletedSuperAdmin, "userId", 1L);
         deletedSuperAdmin.grantSuperAdminRole();
-        deletedSuperAdmin.delete();
+        deletedSuperAdmin.delete(java.time.LocalDateTime.of(2026, 7, 7, 12, 0));
         when(boardRepository.findByBoardUrlForUpdate("inquiry")).thenReturn(Optional.empty());
         when(userRepository.findUsableSuperAdmins()).thenReturn(List.of(activeSuperAdmin));
         when(boardRepository.findMaxSortOrder()).thenReturn(0);

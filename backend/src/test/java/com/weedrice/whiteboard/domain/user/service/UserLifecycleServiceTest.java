@@ -143,6 +143,7 @@ class UserLifecycleServiceTest {
         userLifecycleService.deleteAccount(1L);
 
         assertThat(user.getStatus()).isEqualTo("DELETED");
+        assertThat(user.getDeletedAt()).isEqualTo(FIXED_NOW);
         verify(userRepository).findByIdForUpdate(1L);
         var inOrder = inOrder(userPrivilegeCleanupService, refreshTokenLifecycleService, agentLifecycleService);
         inOrder.verify(userPrivilegeCleanupService).removeOperationalPrivileges(user);
@@ -206,7 +207,7 @@ class UserLifecycleServiceTest {
     @DisplayName("deleted users cannot be reactivated")
     void updateAdminManagedStatus_deletedUserCannotBeActivated() {
         User user = User.builder().build();
-        user.delete();
+        user.delete(FIXED_NOW);
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> userLifecycleService.updateAdminManagedStatus(1L, "ACTIVE"))
@@ -219,7 +220,7 @@ class UserLifecycleServiceTest {
     @DisplayName("deleted users cannot be suspended again")
     void updateAdminManagedStatus_deletedUserCannotBeSuspended() {
         User user = User.builder().build();
-        user.delete();
+        user.delete(FIXED_NOW);
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> userLifecycleService.updateAdminManagedStatus(1L, "SUSPENDED"))

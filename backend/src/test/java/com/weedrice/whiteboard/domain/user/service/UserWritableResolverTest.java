@@ -52,7 +52,7 @@ class UserWritableResolverTest {
                 .email("user@test.com")
                 .displayName("User")
                 .build();
-        user.delete();
+        user.delete(java.time.LocalDateTime.of(2026, 7, 7, 12, 0));
         UserWritableResolver resolver = new UserWritableResolver(userRepository, sanctionService);
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
 

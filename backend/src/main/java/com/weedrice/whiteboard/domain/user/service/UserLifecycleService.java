@@ -73,7 +73,7 @@ public class UserLifecycleService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         validateLifecycleMutationTarget(user);
         cleanupOperationalAccessForLockedUser(user, null);
-        user.delete();
+        user.delete(LocalDateTime.now(clock));
     }
 
     private void suspendUser(User user, Long actorUserId) {

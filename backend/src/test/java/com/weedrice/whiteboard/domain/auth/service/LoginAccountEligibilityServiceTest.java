@@ -42,7 +42,7 @@ class LoginAccountEligibilityServiceTest {
     @DisplayName("deleted account is disabled without locked status")
     void evaluate_deletedAccount_disabled() {
         User user = activeUser();
-        user.delete();
+        user.delete(java.time.LocalDateTime.of(2026, 7, 7, 12, 0));
 
         LoginAccountEligibilityService.LoginAccountEligibility result = service.evaluate(user);
 

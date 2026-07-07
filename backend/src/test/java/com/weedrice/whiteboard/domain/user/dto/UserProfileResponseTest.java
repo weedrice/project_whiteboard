@@ -23,7 +23,7 @@ class UserProfileResponseTest {
                 .build();
         ReflectionTestUtils.setField(user, "userId", 1L);
         ReflectionTestUtils.setField(user, "createdAt", LocalDateTime.now().minusDays(1));
-        user.updateLastLogin();
+        user.updateLastLogin(java.time.LocalDateTime.of(2026, 7, 7, 12, 0));
 
         long postCount = 15L;
         long commentCount = 30L;

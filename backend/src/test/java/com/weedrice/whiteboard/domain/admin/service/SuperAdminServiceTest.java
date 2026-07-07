@@ -76,7 +76,7 @@ class SuperAdminServiceTest {
     @DisplayName("createSuperAdmin rejects deleted user")
     void createSuperAdmin_rejectsDeletedUser() {
         User user = activeUser("target");
-        user.delete();
+        user.delete(java.time.LocalDateTime.of(2026, 7, 7, 12, 0));
         when(userRepository.findByLoginId("target")).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> superAdminService.createSuperAdmin("target"))

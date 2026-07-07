@@ -28,6 +28,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -41,6 +44,11 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class UserProfileServiceTest {
+
+    private static final LocalDateTime FIXED_NOW = LocalDateTime.of(2026, 7, 7, 12, 0);
+    private static final Clock FIXED_CLOCK = Clock.fixed(
+            FIXED_NOW.toInstant(ZoneOffset.UTC),
+            ZoneOffset.UTC);
 
     private UserProfileService userProfileService;
 
@@ -73,7 +81,8 @@ class UserProfileServiceTest {
                 passwordEncoder,
                 userReadableResolver,
                 userWritableResolver,
-                userLifecycleService);
+                userLifecycleService,
+                FIXED_CLOCK);
     }
 
     @Test
@@ -205,6 +214,7 @@ class UserProfileServiceTest {
         verify(displayNameHistoryRepository).save(historyCaptor.capture());
         assertThat(historyCaptor.getValue().getPreviousName()).isEqualTo("Old Name");
         assertThat(historyCaptor.getValue().getNewName()).isEqualTo("New Name");
+        assertThat(historyCaptor.getValue().getChangedAt()).isEqualTo(FIXED_NOW);
         verify(userRepository, never()).findByIdForUpdate(1L);
     }
 

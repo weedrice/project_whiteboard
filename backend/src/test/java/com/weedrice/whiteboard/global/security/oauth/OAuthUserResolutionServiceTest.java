@@ -266,7 +266,7 @@ class OAuthUserResolutionServiceTest {
     @Test
     @DisplayName("이메일로 매칭된 사용자가 비활성 상태면 소셜 계정을 연결하지 않는다")
     void resolveUser_emailMatchedDeletedUser_throwsUserNotActiveBeforeLinking() {
-        user.delete();
+        user.delete(java.time.LocalDateTime.of(2026, 7, 7, 12, 0));
         when(socialAccountRepository.findByProviderAndProviderId("google", "provider-user-id"))
                 .thenReturn(Optional.empty());
         when(userRepository.findByEmail("oauth@example.com")).thenReturn(Optional.of(user));

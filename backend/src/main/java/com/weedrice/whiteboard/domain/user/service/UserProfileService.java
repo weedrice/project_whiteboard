@@ -18,6 +18,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -38,6 +41,7 @@ public class UserProfileService {
     private final UserReadableResolver userReadableResolver;
     private final UserWritableResolver userWritableResolver;
     private final UserLifecycleService userLifecycleService;
+    private final Clock clock;
 
     public Long findUserIdByLoginId(String loginId) {
         User user = userRepository.findByLoginId(loginId)
@@ -119,6 +123,7 @@ public class UserProfileService {
                     .user(user)
                     .previousName(oldDisplayName)
                     .newName(normalizedDisplayName)
+                    .changedAt(LocalDateTime.now(clock))
                     .build());
             user.updateDisplayName(normalizedDisplayName);
         }

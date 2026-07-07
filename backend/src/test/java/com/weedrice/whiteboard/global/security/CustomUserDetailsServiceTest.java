@@ -107,7 +107,7 @@ class CustomUserDetailsServiceTest {
     @DisplayName("loadUserByUsername disables deleted user")
     void loadUserByUsername_deletedUserDisabled() {
         User user = activeUser("deleted");
-        user.delete();
+        user.delete(java.time.LocalDateTime.of(2026, 7, 7, 12, 0));
         ReflectionTestUtils.setField(user, "userId", 1L);
         when(userRepository.findByLoginId("deleted")).thenReturn(Optional.of(user));
 

@@ -159,7 +159,8 @@ class AuthServiceTest {
                 new LoginAuthenticator(authenticationManagerBuilder),
                 new LoginAuditRecorder(loginHistoryAuditService),
                 new LoginUserInfoAssembler(currentUserSummaryAssembler),
-                loginAccountRateLimiter);
+                loginAccountRateLimiter,
+                FIXED_CLOCK);
 
         user = User.builder()
                 .loginId("testuser")
@@ -474,6 +475,7 @@ class AuthServiceTest {
 
         LocalDateTime afterLogin = FIXED_NOW;
         assertThat(response.getUser().getTheme()).isEqualTo("LIGHT");
+        assertThat(user.getLastLoginAt()).isEqualTo(FIXED_NOW);
         verify(refreshTokenRepository).save(argThat(token ->
                 expectedRefreshTokenHash.equals(token.getTokenHash())
                         && !token.getExpiresAt().isBefore(beforeLogin.plusHours(2))
@@ -655,6 +657,7 @@ class AuthServiceTest {
         assertThat(response.getAccessToken()).isEqualTo("new-access-token");
         assertThat(response.getRefreshToken()).isEqualTo("new-refresh-token");
         assertThat(storedRefreshToken.getIsRevoked()).isTrue();
+        assertThat(user.getLastLoginAt()).isEqualTo(FIXED_NOW);
         var lockOrder = inOrder(refreshTokenRepository, userRepository);
         lockOrder.verify(refreshTokenRepository).findRenewalCandidateByTokenHash(oldRefreshTokenHash);
         lockOrder.verify(userRepository).findByIdForUpdate(1L);

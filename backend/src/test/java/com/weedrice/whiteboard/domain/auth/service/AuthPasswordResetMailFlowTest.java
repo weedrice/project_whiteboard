@@ -474,7 +474,7 @@ class AuthPasswordResetMailFlowTest {
     @Test
     @DisplayName("resetPasswordWithToken rejects deleted users before using token")
     void resetPasswordWithToken_deletedUser_rejectsBeforeUsingToken() {
-        user.delete();
+        user.delete(java.time.LocalDateTime.of(2026, 7, 7, 12, 0));
         PasswordResetToken latestSentToken = PasswordResetToken.builder()
                 .token("latest-hashed")
                 .user(user)

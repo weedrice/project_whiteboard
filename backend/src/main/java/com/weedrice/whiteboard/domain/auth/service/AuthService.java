@@ -21,6 +21,9 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -36,6 +39,7 @@ public class AuthService {
     private final LoginAuditRecorder loginAuditRecorder;
     private final LoginUserInfoAssembler loginUserInfoAssembler;
     private final LoginAccountRateLimiter loginAccountRateLimiter;
+    private final Clock clock;
 
     public SignupResponse signup(SignupRequest request) {
         return signupService.signup(request);
@@ -69,7 +73,7 @@ public class AuthService {
 
         loginAuditRecorder.recordSuccess(request, user, resolvedMetadata);
         loginAccountRateLimiter.reset(request.getLoginId());
-        user.updateLastLogin();
+        user.updateLastLogin(LocalDateTime.now(clock));
 
         return LoginResult.builder()
                 .accessToken(issuedTokens.getAccessToken())
