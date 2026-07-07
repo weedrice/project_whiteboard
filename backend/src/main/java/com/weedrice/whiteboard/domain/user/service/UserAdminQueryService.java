@@ -97,6 +97,8 @@ public class UserAdminQueryService {
             Long minActivityCount,
             Pageable pageable) {
         String normalizedKeyword = normalizeKeyword(keyword);
+        validateDateRange(createdFromDate, createdToDate);
+        validateDateRange(lastLoginFromDate, lastLoginToDate);
         UserAdminSearchCondition condition = UserAdminSearchCondition.builder()
                 .status(normalizeStatus(status))
                 .role(normalizeRole(roleFilter))
@@ -107,7 +109,7 @@ public class UserAdminQueryService {
                 .createdTo(toExclusiveEnd(createdToDate))
                 .lastLoginFrom(toStartOfDay(lastLoginFromDate))
                 .lastLoginTo(toExclusiveEnd(lastLoginToDate))
-                .minActivityCount(minActivityCount)
+                .minActivityCount(normalizeMinActivityCount(minActivityCount))
                 .build();
 
         Pageable safePageable = PageRequestUtils.of(
@@ -155,6 +157,19 @@ public class UserAdminQueryService {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         return normalizedValue;
+    }
+
+    private Long normalizeMinActivityCount(Long minActivityCount) {
+        if (minActivityCount != null && minActivityCount < 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return minActivityCount;
+    }
+
+    private void validateDateRange(LocalDate fromDate, LocalDate toDate) {
+        if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
     }
 
     public AdminUserDetailResponse getUserDetailForAdmin(Long userId) {

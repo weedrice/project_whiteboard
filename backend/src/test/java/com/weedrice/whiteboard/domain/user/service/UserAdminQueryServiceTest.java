@@ -34,6 +34,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -232,6 +233,45 @@ class UserAdminQueryServiceTest {
         assertThatThrownBy(() -> userAdminQueryService.searchUsersForAdmin(
                 null, "LOCKED", null, null, null, null,
                 null, null, null, null, null, PageRequest.of(0, 20)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(userRepository, never()).searchUsersForAdmin(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("searchUsersForAdmin rejects negative minimum activity count")
+    void searchUsersForAdmin_rejectsNegativeMinActivityCount() {
+        assertThatThrownBy(() -> userAdminQueryService.searchUsersForAdmin(
+                null, null, null, null, null, null,
+                null, null, null, null, -1L, PageRequest.of(0, 20)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(userRepository, never()).searchUsersForAdmin(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("searchUsersForAdmin rejects reversed created date range")
+    void searchUsersForAdmin_rejectsReversedCreatedDateRange() {
+        assertThatThrownBy(() -> userAdminQueryService.searchUsersForAdmin(
+                null, null, null, null, null, null,
+                LocalDate.of(2026, 7, 2), LocalDate.of(2026, 7, 1),
+                null, null, null, PageRequest.of(0, 20)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(userRepository, never()).searchUsersForAdmin(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("searchUsersForAdmin rejects reversed last login date range")
+    void searchUsersForAdmin_rejectsReversedLastLoginDateRange() {
+        assertThatThrownBy(() -> userAdminQueryService.searchUsersForAdmin(
+                null, null, null, null, null, null,
+                null, null,
+                LocalDate.of(2026, 7, 2), LocalDate.of(2026, 7, 1),
+                null, PageRequest.of(0, 20)))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
 
