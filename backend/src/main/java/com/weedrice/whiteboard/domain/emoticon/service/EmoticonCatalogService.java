@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonSearchConditio
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonSearchCondition.SortType;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.hibernate.proxy.HibernateProxy;
@@ -25,6 +26,7 @@ import java.util.stream.Collectors;
 
 class EmoticonCatalogService {
 
+    private static final int DEFAULT_EMOTICON_PAGE_SIZE = 20;
     private static final String SEARCH_TYPE_NAME = "NAME";
     private static final String SEARCH_TYPE_CREATOR = "CREATOR";
     private static final String SEARCH_TYPE_TAG = "TAG";
@@ -48,23 +50,23 @@ class EmoticonCatalogService {
     }
 
     Page<EmoticonMasterDto> getActiveEmoticons(Pageable pageable) {
-        return toSummaryPage(emoticonMasterRepository.findAllActive(pageable));
+        return toSummaryPage(emoticonMasterRepository.findAllActive(normalizePageable(pageable)));
     }
 
     Page<EmoticonMasterDto> searchByTag(String tag, Pageable pageable) {
         return toSummaryPage(emoticonMasterRepository.findByTag(
                 EmoticonRequestNormalizer.normalizeRequiredTag(tag),
-                pageable));
+                normalizePageable(pageable)));
     }
 
     Page<EmoticonMasterDto> searchByKeyword(String keyword, Pageable pageable) {
         return toSummaryPage(emoticonMasterRepository.findByKeyword(
                 EmoticonRequestNormalizer.normalizeRequiredKeyword(keyword),
-                pageable));
+                normalizePageable(pageable)));
     }
 
     Page<EmoticonMasterDto> getMyEmoticons(Long userId, Pageable pageable) {
-        return toSummaryPage(emoticonMasterRepository.findByCreatorId(userId, pageable));
+        return toSummaryPage(emoticonMasterRepository.findByCreatorId(userId, normalizePageable(pageable)));
     }
 
     EmoticonMasterDto getEmoticonDetail(Long emoticonId, Long userId) {
@@ -84,13 +86,14 @@ class EmoticonCatalogService {
 
     Page<EmoticonMasterDto> getActiveEmoticons(Pageable pageable, String sortBy) {
         Page<EmoticonMaster> result;
+        Pageable safePageable = normalizePageable(pageable);
         String normalizedSortBy = EmoticonRequestNormalizer.normalizeOption(sortBy);
         if (isPopularSort(normalizedSortBy)) {
-            result = emoticonMasterRepository.findAllActiveOrderByPurchaseCount(pageable);
+            result = emoticonMasterRepository.findAllActiveOrderByPurchaseCount(safePageable);
         } else if (isOldestSort(normalizedSortBy)) {
-            result = emoticonMasterRepository.findAllActiveOrderByCreatedAtAsc(pageable);
+            result = emoticonMasterRepository.findAllActiveOrderByCreatedAtAsc(safePageable);
         } else {
-            result = emoticonMasterRepository.findAllActive(pageable);
+            result = emoticonMasterRepository.findAllActive(safePageable);
         }
         return toSummaryPage(result);
     }
@@ -124,7 +127,7 @@ class EmoticonCatalogService {
 
         Page<EmoticonMaster> result = emoticonMasterRepository.searchActive(
                 new EmoticonSearchCondition(normalizedKeyword, toSearchType(normalizedSearchType), normalizeSortType(sortBy)),
-                pageable);
+                normalizePageable(pageable));
         return toSummaryPage(result);
     }
 
@@ -178,7 +181,7 @@ class EmoticonCatalogService {
     }
 
     Page<EmoticonMasterDto> getPurchasedEmoticons(Long userId, Pageable pageable) {
-        return toSummaryPage(emoticonMasterRepository.findPurchasedEmoticons(userId, pageable));
+        return toSummaryPage(emoticonMasterRepository.findPurchasedEmoticons(userId, normalizePageable(pageable)));
     }
 
     boolean hasPurchased(Long userId, Long emoticonId) {
@@ -188,6 +191,10 @@ class EmoticonCatalogService {
     private Page<EmoticonMasterDto> toSummaryPage(Page<EmoticonMaster> page) {
         Map<Long, String> creatorNamesById = loadCreatorNames(page.getContent());
         return page.map(master -> toSummaryDto(master, creatorNamesById));
+    }
+
+    private Pageable normalizePageable(Pageable pageable) {
+        return PageRequestUtils.of(pageable, DEFAULT_EMOTICON_PAGE_SIZE);
     }
 
     private List<EmoticonMasterDto> toSummaryList(List<EmoticonMaster> masters) {

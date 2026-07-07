@@ -11,10 +11,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
@@ -112,5 +115,35 @@ class EmoticonCatalogServiceTest {
         assertThat(result.getCreatorId()).isEqualTo(2L);
         assertThat(result.getCreatorName()).isEqualTo("작성자2");
         verify(userRepository).findAllById(any());
+    }
+
+    @Test
+    @DisplayName("활성 이모티콘 목록은 서비스 경계에서 pageable을 보정한다")
+    void getActiveEmoticons_boundsPageableAtServiceBoundary() {
+        when(emoticonMasterRepository.findAllActive(any(Pageable.class)))
+                .thenAnswer(invocation -> new PageImpl<>(List.of(), invocation.getArgument(0), 0));
+
+        catalogService.getActiveEmoticons(PageRequest.of(2, 500, Sort.by("name")));
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(emoticonMasterRepository).findAllActive(pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageNumber()).isEqualTo(2);
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(100);
+        assertThat(pageableCaptor.getValue().getSort().isUnsorted()).isTrue();
+    }
+
+    @Test
+    @DisplayName("활성 이모티콘 목록은 null pageable을 기본값으로 보정한다")
+    void getActiveEmoticons_normalizesNullPageable() {
+        when(emoticonMasterRepository.findAllActive(any(Pageable.class)))
+                .thenAnswer(invocation -> new PageImpl<>(List.of(), invocation.getArgument(0), 0));
+
+        catalogService.getActiveEmoticons(null);
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(emoticonMasterRepository).findAllActive(pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageNumber()).isZero();
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(20);
+        assertThat(pageableCaptor.getValue().getSort().isUnsorted()).isTrue();
     }
 }
