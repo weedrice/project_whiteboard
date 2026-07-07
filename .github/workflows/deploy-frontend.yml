@@ -88,6 +88,29 @@ jobs:
             test -f "$RELEASE_DIR/sitemap.xml"
             grep assets "$RELEASE_DIR/index.html"
 
+            if grep -Eq '<loc>[^<]+/board/[^<]+/post/[0-9]+/?</loc>' "$RELEASE_DIR/sitemap.xml"; then
+              POST_INDEX_LIST="$(mktemp)"
+              trap 'rm -f "$POST_INDEX_LIST"' EXIT
+              find "$RELEASE_DIR/board" -path '*/post/*/index.html' -type f > "$POST_INDEX_LIST" 2>/dev/null || true
+              if [ ! -s "$POST_INDEX_LIST" ]; then
+                echo "No pre-rendered post pages found in release directory"
+                exit 1
+              fi
+
+              while IFS= read -r POST_INDEX; do
+                if ! grep -qi 'rel="canonical"' "$POST_INDEX"; then
+                  echo "Missing canonical link in $POST_INDEX"
+                  exit 1
+                fi
+                if ! grep -qi 'application/ld+json' "$POST_INDEX"; then
+                  echo "Missing JSON-LD in $POST_INDEX"
+                  exit 1
+                fi
+              done < "$POST_INDEX_LIST"
+            else
+              echo "No post URLs found in sitemap; skipping pre-rendered post page checks"
+            fi
+
             if [ -L /var/www/app ]; then
               sudo ln -sfn "$RELEASE_DIR" /var/www/app.next
               sudo mv -Tf /var/www/app.next /var/www/app

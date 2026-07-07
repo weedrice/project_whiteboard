@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
@@ -206,6 +206,7 @@ async function main() {
     }
 
     let successCount = 0
+    const failedTargets = []
     for (const target of postPaths) {
         try {
             const post = await fetchJson(`/posts/${target.postId}?incrementView=false`)
@@ -218,6 +219,7 @@ async function main() {
             await writeFile(outputPath, html, 'utf8')
             successCount += 1
         } catch (error) {
+            failedTargets.push(target.path)
             console.warn(`[prerender] failed for ${target.path}: ${String(error)}`)
         }
     }
@@ -225,6 +227,17 @@ async function main() {
     const fallbackIndexCount = await ensureSpaFallbackIndexes(indexHtml, postPaths)
     console.log(`[prerender] wrote ${fallbackIndexCount} SPA fallback index files for parent directories`)
     console.log(`[prerender] wrote ${successCount}/${postPaths.length} pre-rendered post pages`)
+
+    if (failedTargets.length > 0) {
+        console.error(`[prerender] failed to render ${failedTargets.length}/${postPaths.length} post pages`)
+        for (const path of failedTargets.slice(0, 20)) {
+            console.error(`[prerender] missing pre-rendered page: ${path}`)
+        }
+        if (failedTargets.length > 20) {
+            console.error(`[prerender] ...and ${failedTargets.length - 20} more`)
+        }
+        process.exitCode = 1
+    }
 }
 
 main().catch((error) => {
