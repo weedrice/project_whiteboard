@@ -19,6 +19,7 @@ import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.springframework.data.domain.Page;
@@ -40,6 +41,8 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 class BoardQueryService {
     private static final int TOP_BOARD_LIMIT = 15;
+    private static final int MANAGER_CANDIDATE_KEYWORD_MAX_LENGTH = 100;
+    private static final char LIKE_ESCAPE = '!';
 
     private final BoardRepository boardRepository;
     private final BoardCategoryRepository boardCategoryRepository;
@@ -234,10 +237,25 @@ class BoardQueryService {
     }
 
     private String toKeywordPattern(String keyword) {
-        if (keyword == null || keyword.isBlank()) {
+        String normalizedKeyword = TextInputNormalizer.normalizeOptional(
+                keyword,
+                MANAGER_CANDIDATE_KEYWORD_MAX_LENGTH);
+        if (normalizedKeyword == null || normalizedKeyword.isBlank()) {
             return null;
         }
-        return "%" + keyword.trim().toLowerCase(Locale.ROOT) + "%";
+        return "%" + escapeLikePattern(normalizedKeyword.toLowerCase(Locale.ROOT)) + "%";
+    }
+
+    private String escapeLikePattern(String value) {
+        StringBuilder builder = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char ch = value.charAt(i);
+            if (ch == LIKE_ESCAPE || ch == '%' || ch == '_') {
+                builder.append(LIKE_ESCAPE);
+            }
+            builder.append(ch);
+        }
+        return builder.toString();
     }
 
     private Pageable fixedSubscriptionOrderPageable(Pageable pageable) {

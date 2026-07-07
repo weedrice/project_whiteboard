@@ -160,8 +160,8 @@ public interface BoardSubscriptionRepository extends JpaRepository<BoardSubscrip
               AND u.status = 'ACTIVE'
               AND u.deletedAt IS NULL
               AND (
-                    LOWER(u.loginId) LIKE :keywordPattern
-                    OR LOWER(u.displayName) LIKE :keywordPattern
+                    LOWER(u.loginId) LIKE :keywordPattern ESCAPE '!'
+                    OR LOWER(u.displayName) LIKE :keywordPattern ESCAPE '!'
                   )
             ORDER BY u.loginId ASC, u.userId ASC
             """,
@@ -173,8 +173,8 @@ public interface BoardSubscriptionRepository extends JpaRepository<BoardSubscrip
               AND u.status = 'ACTIVE'
               AND u.deletedAt IS NULL
               AND (
-                    LOWER(u.loginId) LIKE :keywordPattern
-                    OR LOWER(u.displayName) LIKE :keywordPattern
+                    LOWER(u.loginId) LIKE :keywordPattern ESCAPE '!'
+                    OR LOWER(u.displayName) LIKE :keywordPattern ESCAPE '!'
                   )
             """)
     Page<BoardSubscription> findManagerCandidatesByBoardAndKeyword(@Param("board") Board board,

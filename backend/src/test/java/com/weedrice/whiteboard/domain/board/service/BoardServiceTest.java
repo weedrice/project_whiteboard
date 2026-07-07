@@ -370,6 +370,45 @@ class BoardServiceTest {
     }
 
     @Test
+    @DisplayName("board manager candidate keyword escapes LIKE wildcards")
+    void getBoardManagerCandidates_escapesLikeWildcards() {
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(boardSubscriptionRepository.findManagerCandidatesByBoardAndKeyword(eq(board), eq("%c!%!_%"), any()))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
+        when(adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(board, Role.BOARD_ADMIN, true))
+                .thenReturn(Optional.empty());
+
+        Page<BoardManagerCandidateResponse> result = boardService.getBoardManagerCandidates(
+                "test-board",
+                1L,
+                " c%_ ",
+                PageRequest.of(0, 10));
+
+        assertThat(result.getTotalElements()).isZero();
+        verify(boardSubscriptionRepository).findManagerCandidatesByBoardAndKeyword(
+                eq(board),
+                eq("%c!%!_%"),
+                any());
+    }
+
+    @Test
+    @DisplayName("board manager candidate keyword rejects oversized input")
+    void getBoardManagerCandidates_rejectsOversizedKeyword() {
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.getBoardManagerCandidates(
+                        "test-board",
+                        1L,
+                        "a".repeat(101),
+                        PageRequest.of(0, 10)));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+        verify(boardSubscriptionRepository, never()).findManagerCandidatesByBoard(any(), any());
+        verify(boardSubscriptionRepository, never()).findManagerCandidatesByBoardAndKeyword(any(), any(), any());
+    }
+
+    @Test
     @DisplayName("슈퍼 관리자는 노드 관리자 후보를 조회할 수 있다")
     void getBoardManagerCandidates_superAdmin_success() {
         User superUser = User.builder()

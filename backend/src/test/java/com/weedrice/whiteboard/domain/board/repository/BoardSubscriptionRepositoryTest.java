@@ -196,6 +196,31 @@ class BoardSubscriptionRepositoryTest {
         assertThat(firstPage.hasNext()).isTrue();
     }
 
+    @Test
+    @DisplayName("manager candidate keyword treats escaped LIKE wildcard as literal")
+    void findManagerCandidatesByBoardAndKeyword_escapesLikeWildcard() {
+        Board candidateBoard = persistBoard("Wildcard Candidates", "wildcard-candidates", owner, true, true);
+        User literalMatch = persistUser("literal%match", "literal-percent@test.com", "Literal Percent");
+        User wildcardOnlyMatch = persistUser("literalXmatch", "literal-x@test.com", "Wildcard Only");
+
+        persistSubscription(literalMatch, candidateBoard, 1);
+        persistSubscription(wildcardOnlyMatch, candidateBoard, 1);
+        entityManager.flush();
+        entityManager.clear();
+
+        Board board = entityManager.find(Board.class, candidateBoard.getBoardId());
+
+        Page<BoardSubscription> result = boardSubscriptionRepository.findManagerCandidatesByBoardAndKeyword(
+                board,
+                "%literal!%match%",
+                PageRequest.of(0, 10));
+
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(result.getContent())
+                .extracting(subscription -> subscription.getUser().getLoginId())
+                .containsExactly("literal%match");
+    }
+
     private User persistUser(String loginId, String email, String displayName) {
         User user = User.builder()
                 .loginId(loginId)
