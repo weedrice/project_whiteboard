@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient, type QueryFunctionContext } from
 import { userApi, type UserUpdatePayload, type NotificationSettingsBulkPayload } from '@/api/user'
 import { unwrapAxiosApiData } from '@/api/response'
 import { computed, type Ref } from 'vue'
-import type { UserPoint, UserSettings } from '@/types'
+import type { DraftPostListResponse, DraftPostSummary, PageResponse, UserPoint, UserSettings } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import type { AxiosRequestConfig } from 'axios'
 import { callWithOptionalQuerySignal, withQuerySignal } from '@/utils/querySignal'
@@ -24,6 +24,17 @@ const resolveResponseData = async <T>(request: Promise<{ data: T }>): Promise<T>
     const { data } = await request
     return data
 }
+
+const toDraftPageResponse = (data: DraftPostListResponse): PageResponse<DraftPostSummary> => ({
+    content: data.content,
+    totalElements: data.totalElements,
+    totalPages: data.totalPages,
+    size: data.size,
+    number: data.page,
+    first: !data.hasPrevious,
+    last: !data.hasNext,
+    empty: data.content.length === 0,
+})
 
 export const createMyProfileQueryOptions = (config?: AxiosRequestConfig) => ({
     queryKey: userQueryKeys.me,
@@ -117,9 +128,10 @@ export function useUser() {
     }
 
     const useMyDrafts = (params?: Ref<PaginationParams>) => {
-        return useApiQuery({
+        return useApiQuery<DraftPostListResponse, PageResponse<DraftPostSummary>>({
             queryKey: userQueryKeys.drafts(params),
             request: (context) => userApi.getMyDrafts(params?.value ?? {}, withQuerySignal(undefined, context)),
+            selectData: toDraftPageResponse,
         })
     }
 
