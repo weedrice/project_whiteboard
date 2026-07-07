@@ -6,4 +6,4 @@ ALTER TABLE user_notification_settings
 
 ALTER TABLE user_notification_settings
     ADD CONSTRAINT ck_user_notification_settings_type
-        CHECK (notification_type IN ('LIKE', 'COMMENT', 'REPLY', 'MENTION', 'SYSTEM', 'SANCTION'));
+        CHECK (notification_type IN ('LIKE', 'COMMENT', 'REPLY', 'MENTION', 'MESSAGE', 'SYSTEM', 'SANCTION'));
