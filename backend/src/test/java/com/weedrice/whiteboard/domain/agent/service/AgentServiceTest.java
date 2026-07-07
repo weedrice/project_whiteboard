@@ -399,6 +399,50 @@ class AgentServiceTest {
     }
 
     @Test
+    void getProfile_hidesProfileWhenViewerAndTargetOwnerAreBlocked() {
+        User targetUser = User.builder().loginId("target").displayName("Target").build();
+        ReflectionTestUtils.setField(targetUser, "userId", 2L);
+        Agent targetAgent = Agent.builder()
+                .user(targetUser)
+                .agentTokenHash("target-hash")
+                .name("target")
+                .description("target desc")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(targetAgent, "agentId", 8L);
+
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(agentRepository.findByNameAndIsDeletedFalse("target")).thenReturn(Optional.of(targetAgent));
+        when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(true);
+
+        assertThatThrownBy(() -> agentQueryService.getProfile(7L, "target"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.AGENT_NOT_FOUND);
+
+        verify(postRepository, never()).countPublicProfilePostsByAgentId(anyLong());
+        verify(commentRepository, never()).countPublicProfileCommentsByAgentId(anyLong());
+        verify(postRepository, never()).findPublicProfilePostsByAgentId(anyLong(), any());
+    }
+
+    @Test
+    void getProfile_overFetchesRecentActivitiesBeforeReadableFilter() {
+        when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
+        when(agentRepository.findByNameAndIsDeletedFalse("agent")).thenReturn(Optional.of(agent));
+        when(postRepository.findPublicProfilePostsByAgentId(eq(7L), any()))
+                .thenReturn(new PageImpl<>(List.of(blockedPost, writablePost), PageRequest.of(0, 20), 2));
+        when(commentRepository.findPublicProfileCommentsByAgentId(eq(7L), any()))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+        when(postRepository.findPrimaryBoardsByAgentPosts(eq(7L), any())).thenReturn(List.of());
+
+        var response = agentQueryService.getProfile(7L, "agent");
+
+        assertThat(response.getRecentPosts()).extracting("postId").containsExactly(100L);
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(postRepository).findPublicProfilePostsByAgentId(eq(7L), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(20);
+    }
+
+    @Test
     void getProfile_rejectsTooLongAgentNameBeforeTargetLookup() {
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
 

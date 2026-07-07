@@ -47,6 +47,8 @@ public class AgentQueryService {
 
     private static final int FEED_PAGE_SIZE_LIMIT = 10;
     private static final int DEFAULT_READ_PAGE_SIZE_LIMIT = 20;
+    private static final int PROFILE_ACTIVITY_LIMIT = 5;
+    private static final int PROFILE_ACTIVITY_FETCH_SIZE = 20;
     private static final int AGENT_NAME_MAX_LENGTH = 100;
     private static final Sort DEFAULT_POST_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
     private static final Sort DEFAULT_AGENT_FEED_SORT = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("postId"));
@@ -101,6 +103,7 @@ public class AgentQueryService {
         if (target.getUser() == null || target.isPendingClaim()) {
             throw new BusinessException(ErrorCode.AGENT_NOT_FOUND);
         }
+        validateProfileVisible(viewer, target);
 
         Long targetAgentId = target.getAgentId();
         long postsCount = postRepository.countPublicProfilePostsByAgentId(targetAgentId);
@@ -108,22 +111,10 @@ public class AgentQueryService {
         long likesReceivedCount = postRepository.sumPublicProfilePostLikesByAgentId(targetAgentId)
                 + commentRepository.sumPublicProfileCommentLikesByAgentId(targetAgentId);
 
-        List<AgentProfileResponse.RecentPost> recentPosts = postRepository
-                .findPublicProfilePostsByAgentId(targetAgentId, PageRequest.of(0, 5))
-                .getContent()
-                .stream()
-                .filter(post -> isAgentReadableProfileActivity(viewer, post.getBoard()))
-                .map(this::toProfileRecentPost)
-                .toList();
-        List<AgentProfileResponse.RecentComment> recentComments = commentRepository
-                .findPublicProfileCommentsByAgentId(targetAgentId, PageRequest.of(0, 5))
-                .getContent()
-                .stream()
-                .filter(comment -> isAgentReadableProfileActivity(viewer, comment.getPost().getBoard()))
-                .map(this::toProfileRecentComment)
-                .toList();
+        List<AgentProfileResponse.RecentPost> recentPosts = getReadableRecentProfilePosts(viewer, targetAgentId);
+        List<AgentProfileResponse.RecentComment> recentComments = getReadableRecentProfileComments(viewer, targetAgentId);
         List<AgentProfileResponse.PrimaryBoard> primaryBoards = postRepository
-                .findPrimaryBoardsByAgentPosts(targetAgentId, PageRequest.of(0, 5))
+                .findPrimaryBoardsByAgentPosts(targetAgentId, PageRequest.of(0, PROFILE_ACTIVITY_LIMIT))
                 .stream()
                 .map(board -> AgentProfileResponse.PrimaryBoard.builder()
                         .boardId(board.getBoardId())
@@ -155,6 +146,39 @@ public class AgentQueryService {
 
     private String normalizeAgentName(String agentName) {
         return TextInputNormalizer.normalizeRequired(agentName, AGENT_NAME_MAX_LENGTH);
+    }
+
+    private void validateProfileVisible(Agent viewer, Agent target) {
+        Long viewerUserId = viewer.getUser() != null ? viewer.getUser().getUserId() : null;
+        Long targetUserId = target.getUser() != null ? target.getUser().getUserId() : null;
+        if (viewerUserId == null || targetUserId == null || viewerUserId.equals(targetUserId)) {
+            return;
+        }
+        if (userBlockService.isEitherDirectionBlocked(viewerUserId, targetUserId)) {
+            throw new BusinessException(ErrorCode.AGENT_NOT_FOUND);
+        }
+    }
+
+    private List<AgentProfileResponse.RecentPost> getReadableRecentProfilePosts(Agent viewer, Long targetAgentId) {
+        return postRepository
+                .findPublicProfilePostsByAgentId(targetAgentId, PageRequest.of(0, PROFILE_ACTIVITY_FETCH_SIZE))
+                .getContent()
+                .stream()
+                .filter(post -> isAgentReadableProfileActivity(viewer, post.getBoard()))
+                .limit(PROFILE_ACTIVITY_LIMIT)
+                .map(this::toProfileRecentPost)
+                .toList();
+    }
+
+    private List<AgentProfileResponse.RecentComment> getReadableRecentProfileComments(Agent viewer, Long targetAgentId) {
+        return commentRepository
+                .findPublicProfileCommentsByAgentId(targetAgentId, PageRequest.of(0, PROFILE_ACTIVITY_FETCH_SIZE))
+                .getContent()
+                .stream()
+                .filter(comment -> isAgentReadableProfileActivity(viewer, comment.getPost().getBoard()))
+                .limit(PROFILE_ACTIVITY_LIMIT)
+                .map(this::toProfileRecentComment)
+                .toList();
     }
 
     public AgentHomeResponse getHome(Long agentId) {
