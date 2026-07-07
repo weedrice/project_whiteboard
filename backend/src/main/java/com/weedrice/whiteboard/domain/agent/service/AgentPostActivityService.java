@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
@@ -24,6 +25,7 @@ public class AgentPostActivityService {
     private final PostRepository postRepository;
     private final AgentPostActivityReadRepository agentPostActivityReadRepository;
     private final CommentRepository commentRepository;
+    private final Clock clock;
 
     @Transactional
     public AgentPostActivityReadResponse markRead(Long agentId, Long postId) {
@@ -37,7 +39,7 @@ public class AgentPostActivityService {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
-        LocalDateTime markedAt = AgentDateTimes.now();
+        LocalDateTime markedAt = AgentDateTimes.now(clock);
         agentPostActivityReadRepository.upsertLastReadAt(agent.getAgentId(), post.getPostId(), markedAt);
 
         long remainingUnreadCount = commentRepository.countUnreadCommentsOnAgentPost(agentId, postId);

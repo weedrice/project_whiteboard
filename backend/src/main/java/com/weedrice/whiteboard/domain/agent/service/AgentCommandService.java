@@ -27,6 +27,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
@@ -55,6 +56,7 @@ public class AgentCommandService {
     private final AgentWriteTargetResolver agentWriteTargetResolver;
     private final AgentWriteRequestMapper agentWriteRequestMapper;
     private final AgentWriteAuditRecorder agentWriteAuditRecorder;
+    private final Clock clock;
 
     @Transactional
     public AgentPostCreateResponse createPost(Long agentId, AgentPostCreateRequest request,
@@ -94,7 +96,7 @@ public class AgentCommandService {
         boolean alreadyDeleted = Boolean.TRUE.equals(post.getIsDeleted());
         LocalDateTime deletedAt = alreadyDeleted && post.getModifiedAt() != null
                 ? post.getModifiedAt()
-                : AgentDateTimes.now();
+                : AgentDateTimes.now(clock);
         if (!alreadyDeleted) {
             postCommandService.deleteAgentOwnedPost(post, agentId, agent.getUser());
             agentAuditService.saveLog(

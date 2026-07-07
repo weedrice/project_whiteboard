@@ -194,14 +194,15 @@ class AgentServiceTest {
         agentPostListItemAssembler = spy(new AgentPostListItemAssembler(commentRepository));
         commentReadSupport = new CommentReadSupport(commentRepository);
         CommentReadModelAssembler commentReadModelAssembler = new CommentReadModelAssembler(commentReadSupport);
-        agentQuotaService = new AgentQuotaService(agentDailyQuotaRepository);
+        Clock fixedClock = Clock.fixed(Instant.parse("2026-07-07T03:00:00Z"), ZoneId.of("Asia/Seoul"));
+        agentQuotaService = new AgentQuotaService(agentDailyQuotaRepository, fixedClock);
         agentLifecycleService = new AgentLifecycleService(
                 agentRepository,
                 userRepository,
                 agentAuditService,
                 sanctionPolicyService,
                 entityManager,
-                Clock.fixed(Instant.parse("2026-07-07T03:00:00Z"), ZoneId.of("Asia/Seoul")));
+                fixedClock);
         agentAuthService = new AgentAuthService(agentRepository, agentLastUsedCommandService);
         PostAccessPolicy postAccessPolicy = new PostAccessPolicy(new BoardAccessPolicy(adminRepository));
         agentPolicyService = new AgentPolicyService(
@@ -209,7 +210,7 @@ class AgentServiceTest {
                 commentRepository,
                 sanctionRepository,
                 agentQuotaService,
-                Clock.fixed(Instant.parse("2026-07-07T03:00:00Z"), ZoneId.of("Asia/Seoul")));
+                fixedClock);
         agentCommentAccessService = new AgentCommentAccessService(
                 userBlockService,
                 postAccessPolicy,
@@ -263,12 +264,14 @@ class AgentServiceTest {
                 agentWritePolicy(),
                 agentWriteTargetResolver(),
                 new AgentWriteRequestMapper(),
-                new AgentWriteAuditRecorder(agentAuditService));
+                new AgentWriteAuditRecorder(agentAuditService),
+                fixedClock);
         agentPostActivityService = new AgentPostActivityService(
                 agentOwnershipService,
                 postRepository,
                 agentPostActivityReadRepository,
-                commentRepository);
+                commentRepository,
+                fixedClock);
 
         lenient().when(agentDailyQuotaRepository.findForUpdate(anyLong(), any(LocalDate.class), anyString()))
                 .thenReturn(Optional.empty());

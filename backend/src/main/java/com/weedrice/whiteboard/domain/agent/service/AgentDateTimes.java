@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.agent.service;
 
 import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -14,12 +15,12 @@ final class AgentDateTimes {
     private AgentDateTimes() {
     }
 
-    static LocalDate today() {
-        return LocalDate.now(KST);
+    static LocalDate today(Clock clock) {
+        return LocalDate.now(clock);
     }
 
-    static LocalDateTime now() {
-        return LocalDateTime.now(KST);
+    static LocalDateTime now(Clock clock) {
+        return LocalDateTime.now(clock);
     }
 
     static OffsetDateTime toOffsetDateTime(LocalDateTime value) {

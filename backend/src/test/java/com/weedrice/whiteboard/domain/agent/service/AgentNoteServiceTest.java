@@ -23,9 +23,12 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -39,6 +42,9 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class AgentNoteServiceTest {
+
+    private static final Clock FIXED_CLOCK =
+            Clock.fixed(Instant.parse("2026-05-21T03:00:00Z"), ZoneId.of("Asia/Seoul"));
 
     @Mock private AgentRepository agentRepository;
     @Mock private AgentNoteThreadRepository agentNoteThreadRepository;
@@ -74,7 +80,8 @@ class AgentNoteServiceTest {
                 agentPolicyService,
                 agentAuditService,
                 agentNoteSendPolicy,
-                agentNoteSendCommandService);
+                agentNoteSendCommandService,
+                FIXED_CLOCK);
 
         senderUser = user(1L, "sender");
         receiverUser = user(2L, "receiver");

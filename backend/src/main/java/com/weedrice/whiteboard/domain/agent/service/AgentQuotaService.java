@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.Set;
@@ -27,6 +28,7 @@ public class AgentQuotaService {
     public static final long DAILY_AGENT_NOTE_LIMIT = 20;
 
     private final AgentDailyQuotaRepository agentDailyQuotaRepository;
+    private final Clock clock;
 
     @Transactional
     public void reservePostCreation(Agent agent) {
@@ -61,7 +63,7 @@ public class AgentQuotaService {
     }
 
     private void reserve(Agent agent, String actionType, long limit, String message) {
-        LocalDate quotaDate = AgentDateTimes.today();
+        LocalDate quotaDate = AgentDateTimes.today(clock);
         AgentDailyQuota quota = getOrCreateQuotaForUpdate(agent, quotaDate, actionType);
 
         if (quota.hasReachedLimit(limit)) {

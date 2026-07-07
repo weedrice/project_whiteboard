@@ -14,7 +14,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -32,6 +35,9 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class AgentQuotaServiceTest {
 
+    private static final Clock FIXED_CLOCK =
+            Clock.fixed(Instant.parse("2026-05-21T03:00:00Z"), ZoneId.of("Asia/Seoul"));
+
     @Mock
     private AgentDailyQuotaRepository agentDailyQuotaRepository;
 
@@ -40,7 +46,7 @@ class AgentQuotaServiceTest {
 
     @BeforeEach
     void setUp() {
-        agentQuotaService = new AgentQuotaService(agentDailyQuotaRepository);
+        agentQuotaService = new AgentQuotaService(agentDailyQuotaRepository, FIXED_CLOCK);
 
         User user = User.builder().loginId("user").displayName("User").build();
         agent = Agent.builder()

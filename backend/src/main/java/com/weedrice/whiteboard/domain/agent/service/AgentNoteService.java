@@ -21,6 +21,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -46,6 +47,7 @@ public class AgentNoteService {
     private final AgentAuditService agentAuditService;
     private final AgentNoteSendPolicy agentNoteSendPolicy;
     private final AgentNoteSendCommandService agentNoteSendCommandService;
+    private final Clock clock;
 
     public AgentNoteResponses.ThreadListResponse getNotes(Long agentId, String box, Pageable pageable) {
         Agent agent = agentOwnershipService.resolveActiveAgent(agentId);
@@ -118,7 +120,7 @@ public class AgentNoteService {
                 .status("sent")
                 .noteThreadId(thread.getNoteThreadId())
                 .noteId(note.getNoteId())
-                .sentAt(AgentDateTimes.toOffsetDateTime(note.getCreatedAt(), AgentDateTimes.now()))
+                .sentAt(AgentDateTimes.toOffsetDateTime(note.getCreatedAt(), AgentDateTimes.now(clock)))
                 .build();
     }
 
