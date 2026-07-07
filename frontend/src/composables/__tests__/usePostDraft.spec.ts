@@ -81,6 +81,7 @@ function mountComposable(payloadRef = ref({
 describe('usePostDraft', () => {
     beforeEach(() => {
         vi.useFakeTimers()
+        vi.setSystemTime(new Date('2026-07-07T12:00:00.000Z'))
         Storage.clear()
         vi.clearAllMocks()
         mocks.saveDraftMutateAsync.mockResolvedValue({
@@ -143,6 +144,36 @@ describe('usePostDraft', () => {
             draftId: 91,
             fileIds: [7],
             updatedAt: '2025-01-01T00:00:00.000Z',
+        }))
+    })
+
+    it('uses the current time when a saved draft response omits version timestamps', async () => {
+        mocks.saveDraftMutateAsync.mockResolvedValueOnce({
+            data: {
+                data: {
+                    draftId: 92,
+                    boardId: 1,
+                    boardUrl: 'free',
+                    boardName: 'Free',
+                    title: 'Draft title',
+                    contents: 'Draft body',
+                    tags: [],
+                    fileIds: [7],
+                    isNotice: false,
+                    isNsfw: false,
+                    isSpoiler: false,
+                    isSecret: false,
+                },
+            },
+        })
+        const { composable } = mountComposable()
+
+        await composable.saveNow()
+
+        expect(composable.lastSavedAt.value).toBe('2026-07-07T12:00:00.000Z')
+        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+            draftId: 92,
+            updatedAt: '2026-07-07T12:00:00.000Z',
         }))
     })
 

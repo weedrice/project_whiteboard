@@ -69,9 +69,8 @@ export function formatDateOnlyLongOrDash(dateString: DateInput): string {
  * Otherwise, returns the date (e.g., "2023. 10. 27.").
  */
 export function formatRelativeDate(dateString: string): string {
-    if (!dateString) return ''
-
-    const date = new Date(dateString)
+    const date = toDate(dateString)
+    if (!date) return ''
     const today = new Date()
 
     const isToday = date.getDate() === today.getDate() &&
@@ -113,10 +112,8 @@ export function formatDateOnly(dateString: string | number[]): string {
 }
 
 export function formatTimeAgo(dateString: string | number[], t: (key: string, values?: Record<string, unknown>) => string): string {
-    if (!dateString) return ''
-    const date = Array.isArray(dateString)
-        ? new Date(Date.UTC(dateString[0], dateString[1] - 1, dateString[2], dateString[3], dateString[4], dateString[5] || 0))
-        : new Date(dateString)
+    const date = toDate(dateString)
+    if (!date) return ''
 
     const now = new Date()
     const seconds = Math.floor((now.getTime() - date.getTime()) / 1000)

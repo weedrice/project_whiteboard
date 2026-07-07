@@ -138,7 +138,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         draftId.value = savedDraft.draftId
         updatedAt.value = getDraftUpdatedAt(savedDraft) ?? new Date().toISOString()
         lastSavedAt.value = updatedAt.value
-        Storage.set(options.storageKey.value, createStoredSavedDraftSnapshot(payload, savedDraft))
+        Storage.set(options.storageKey.value, createStoredSavedDraftSnapshot(payload, savedDraft, updatedAt.value))
         return savedDraft
     }
 

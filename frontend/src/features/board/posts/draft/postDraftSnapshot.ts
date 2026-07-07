@@ -17,11 +17,12 @@ export function createDraftRecoverySnapshot(
 export function createStoredSavedDraftSnapshot(
   payload: PostDraftData,
   savedDraft: DraftPost,
+  fallbackUpdatedAt?: string,
 ): DraftRecoverySnapshot {
   return {
     ...payload,
     draftId: savedDraft.draftId,
-    updatedAt: getDraftUpdatedAt(savedDraft) ?? undefined,
+    updatedAt: getDraftUpdatedAt(savedDraft) ?? fallbackUpdatedAt,
   }
 }
 

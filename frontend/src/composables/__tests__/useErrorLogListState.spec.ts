@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Ref } from 'vue'
 import { useErrorLogListState } from '../useErrorLogListState'
 import type { ErrorLogListItem, ErrorLogSearchParams, PageResponse } from '@/types'
@@ -27,8 +27,36 @@ vi.mock('@/composables/useAdmin', async () => {
 
 describe('useErrorLogListState', () => {
   beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-07T12:00:00.000Z'))
     vi.clearAllMocks()
     mocks.useErrorLogsParams = undefined
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('initializes and resets to the last two weeks date range', () => {
+    const state = useErrorLogListState()
+
+    expect(state.filterStartDate.value).toBe('2026-06-23')
+    expect(state.filterEndDate.value).toBe('2026-07-07')
+    expect(mocks.useErrorLogsParams?.value).toEqual(expect.objectContaining({
+      startDate: '2026-06-23',
+      endDate: '2026-07-07',
+    }))
+
+    state.filterStartDate.value = '2026-01-01'
+    state.filterEndDate.value = '2026-01-31'
+    state.resetFilters()
+
+    expect(state.filterStartDate.value).toBe('2026-06-23')
+    expect(state.filterEndDate.value).toBe('2026-07-07')
+    expect(mocks.useErrorLogsParams?.value).toEqual(expect.objectContaining({
+      startDate: '2026-06-23',
+      endDate: '2026-07-07',
+    }))
   })
 
   it('normalizes padded filter strings before applying search params', () => {
