@@ -15,13 +15,17 @@ const markAllAsRead = vi.fn()
 const navigateFromNotification = vi.fn()
 let latestParams: Ref<{ page: number; size: number }> | undefined
 
+const testI18n = vi.hoisted(() => ({
+  translate: (key: string) => ({
+    'notification.types.like': '좋아요',
+    'notification.types.comment': '댓글',
+    'notification.types.mention': '멘션',
+    'notification.types.system': '시스템',
+  }[key] ?? key),
+}))
+
 vi.mock('vue-i18n', () => ({
-  useI18n: () => ({
-    t: (key: string) => ({
-      'notification.sourceTypes.post': '게시글',
-      'notification.sourceTypes.comment': '댓글',
-    }[key] ?? key),
-  }),
+  useI18n: () => ({ t: testI18n.translate }),
 }))
 
 vi.mock('@/composables/useNotification', () => ({
@@ -75,9 +79,13 @@ const ErrorStateStub = defineComponent({
   },
 })
 
-const makeNotification = (isRead: boolean, sourceType: Notification['sourceType'] = 'POST'): Notification => ({
+const makeNotification = (
+  isRead: boolean,
+  sourceType: Notification['sourceType'] = 'POST',
+  notificationType: Notification['notificationType'] = 'COMMENT',
+): Notification => ({
   notificationId: isRead ? 1 : 2,
-  notificationType: 'COMMENT',
+  notificationType,
   sourceType,
   sourceId: 10,
   message: isRead ? 'read notification' : 'unread notification',
@@ -99,10 +107,7 @@ const mountMyNotifications = () =>
   mount(MyNotifications, {
     global: {
       mocks: {
-        $t: (key: string) => ({
-          'notification.sourceTypes.post': '게시글',
-          'notification.sourceTypes.comment': '댓글',
-        }[key] ?? key),
+        $t: testI18n.translate,
       },
       stubs: {
         BaseButton: BaseButtonStub,
@@ -161,17 +166,17 @@ describe('MyNotifications', () => {
     expect(unreadRow.get('a').classes()).toContain('active:bg-[var(--nv-surface-active)]')
   })
 
-  it('renders source type labels with fallback text', () => {
+  it('renders notification type labels', () => {
     notificationsData.value = makePage([
-      makeNotification(true, 'POST'),
-      makeNotification(false, 'COMMENT'),
-      makeNotification(true, 'SYSTEM'),
+      makeNotification(true, 'POST', 'LIKE'),
+      makeNotification(false, 'COMMENT', 'MENTION'),
+      makeNotification(true, 'SYSTEM', 'SYSTEM'),
     ])
     const wrapper = mountMyNotifications()
 
-    expect(wrapper.text()).toContain('게시글')
-    expect(wrapper.text()).toContain('댓글')
-    expect(wrapper.text()).toContain('SYSTEM')
+    expect(wrapper.text()).toContain('좋아요')
+    expect(wrapper.text()).toContain('멘션')
+    expect(wrapper.text()).toContain('시스템')
   })
 
   it('shows error state and retries notification loading', async () => {

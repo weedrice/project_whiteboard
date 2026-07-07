@@ -10,6 +10,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import { useNotificationListState } from '@/composables/useNotificationListState'
 import { formatTimeAgo } from '@/utils/date'
+import { getNotificationPresentation } from '@/utils/notificationPresentation'
 
 const { t } = useI18n()
 const { useMarkAllAsRead } = useNotification()
@@ -79,10 +80,12 @@ function handleMarkAllAsRead() {
         :class="{ 'nv-unread-surface': !notification.isRead }">
         <div class="flex items-start">
           <div class="flex-shrink-0">
-            <!-- Icon based on type could go here -->
             <div
-              class="h-8 w-8 rounded-full nv-avatar-fallback flex items-center justify-center font-bold">
-              {{ notification.actorInitial }}
+              class="notification-icon h-8 w-8 rounded-full flex items-center justify-center"
+              :class="getNotificationPresentation(notification).iconClass"
+              aria-hidden="true"
+            >
+              <component :is="getNotificationPresentation(notification).icon" class="h-4 w-4" />
             </div>
           </div>
           <div class="ml-3 w-0 flex-1">
@@ -93,6 +96,12 @@ function handleMarkAllAsRead() {
               {{ notification.message }}
             </p>
             <p class="mt-1 text-xs nv-text-subtle">
+              <span
+                class="notification-type-label mr-1 rounded-full px-1.5 py-0.5 font-semibold"
+                :class="getNotificationPresentation(notification).badgeClass"
+              >
+                {{ t(getNotificationPresentation(notification).labelKey) }}
+              </span>
               {{ formatTimeAgo(notification.createdAt, t) }}
             </p>
           </div>
@@ -155,5 +164,43 @@ function handleMarkAllAsRead() {
 
 .notification-link:hover {
   color: color-mix(in srgb, var(--nv-accent) 82%, var(--nv-text) 18%);
+}
+
+.notification-icon-default,
+.notification-badge-default {
+  background: var(--nv-surface-muted);
+  color: var(--nv-text-subtle);
+}
+
+.notification-icon-like,
+.notification-badge-like {
+  background: var(--nv-danger-bg);
+  color: var(--nv-danger-text);
+}
+
+.notification-icon-comment,
+.notification-badge-comment,
+.notification-icon-reply,
+.notification-badge-reply {
+  background: var(--nv-info-bg);
+  color: var(--nv-info-text);
+}
+
+.notification-icon-mention,
+.notification-badge-mention {
+  background: color-mix(in srgb, var(--nv-accent) 14%, var(--nv-surface));
+  color: var(--nv-accent);
+}
+
+.notification-icon-system,
+.notification-badge-system {
+  background: var(--nv-success-bg);
+  color: var(--nv-success-text);
+}
+
+.notification-icon-sanction,
+.notification-badge-sanction {
+  background: var(--nv-warning-bg);
+  color: var(--nv-warning-text);
 }
 </style>

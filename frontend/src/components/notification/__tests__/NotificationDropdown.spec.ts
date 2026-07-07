@@ -47,9 +47,12 @@ const BaseButtonStub = defineComponent({
   },
 })
 
-const makeNotification = (isRead: boolean): Notification => ({
+const makeNotification = (
+  isRead: boolean,
+  notificationType: Notification['notificationType'] = 'COMMENT',
+): Notification => ({
   notificationId: isRead ? 1 : 2,
-  notificationType: 'COMMENT',
+  notificationType,
   sourceType: 'POST',
   sourceId: 10,
   message: isRead ? 'read notification' : 'unread notification',
@@ -158,7 +161,14 @@ describe('NotificationDropdown', () => {
     const wrapper = mountDropdown()
 
     expect(wrapper.text()).toContain('System')
-    expect(wrapper.text()).toContain('S')
+    expect(wrapper.text()).not.toContain('displayName')
+  })
+
+  it('renders notification type labels in item metadata', () => {
+    notificationsData.value = { content: [makeNotification(false, 'MENTION')] }
+    const wrapper = mountDropdown()
+
+    expect(wrapper.text()).toContain('notification.types.mention')
   })
 
   it('uses the shared notification load error message and retries', async () => {

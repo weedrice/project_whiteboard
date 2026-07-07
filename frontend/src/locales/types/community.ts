@@ -431,6 +431,15 @@ export interface NotificationMessages {
     post: string
     comment: string
   }
+  types: {
+    default: string
+    like: string
+    comment: string
+    reply: string
+    mention: string
+    system: string
+    sanction: string
+  }
 }
 
 // 사용자 메시지 타입

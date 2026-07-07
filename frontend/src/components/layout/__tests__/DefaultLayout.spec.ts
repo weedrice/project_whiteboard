@@ -51,7 +51,13 @@ vi.mock('vue-router', () => ({
 }))
 
 vi.mock('lucide-vue-next', () => ({
+    AtSign: defineComponent({ setup: () => () => h('i') }),
     Bell: defineComponent({ setup: () => () => h('i') }),
+    Heart: defineComponent({ setup: () => () => h('i') }),
+    Megaphone: defineComponent({ setup: () => () => h('i') }),
+    MessageCircle: defineComponent({ setup: () => () => h('i') }),
+    Reply: defineComponent({ setup: () => () => h('i') }),
+    ShieldAlert: defineComponent({ setup: () => () => h('i') }),
 }))
 
 vi.mock('@/stores/auth', () => ({

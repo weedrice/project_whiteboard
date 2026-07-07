@@ -9,6 +9,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useNotificationListState } from '@/composables/useNotificationListState'
 import { usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import { formatDate } from '@/utils/date'
+import { getNotificationPresentation } from '@/utils/notificationPresentation'
 import type { Notification } from '@/types'
 
 const { t } = useI18n()
@@ -34,11 +35,6 @@ function handleMarkAllAsRead() {
   markAllAsRead()
 }
 
-function getNotificationSourceTypeLabel(sourceType: string) {
-  if (sourceType === 'POST') return t('notification.sourceTypes.post')
-  if (sourceType === 'COMMENT') return t('notification.sourceTypes.comment')
-  return sourceType
-}
 </script>
 
 <template>
@@ -80,14 +76,23 @@ function getNotificationSourceTypeLabel(sourceType: string) {
         <a href="#" @click.prevent="handleNotificationClick(notification)"
           class="block px-3 py-3 sm:px-6 sm:py-4 min-h-[48px] active:bg-[var(--nv-surface-active)]">
           <div class="flex flex-row items-center justify-between gap-3">
+            <span
+              class="notification-icon flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full"
+              :class="getNotificationPresentation(notification).iconClass"
+              aria-hidden="true"
+            >
+              <component :is="getNotificationPresentation(notification).icon" class="h-4 w-4" />
+            </span>
             <div class="min-w-0 flex-1">
               <div class="flex items-center justify-between gap-2 mb-0.5">
                 <span class="text-[11px] nv-text-subtle flex-shrink-0">
                   {{ formatDate(notification.createdAt) }}
                 </span>
                 <span
-                  class="px-2 py-0.5 text-[11px] font-semibold rounded-full nv-status-success flex-shrink-0">
-                  {{ getNotificationSourceTypeLabel(notification.sourceType) }}
+                  class="px-2 py-0.5 text-[11px] font-semibold rounded-full flex-shrink-0"
+                  :class="getNotificationPresentation(notification).badgeClass"
+                >
+                  {{ t(getNotificationPresentation(notification).labelKey) }}
                 </span>
               </div>
               <div class="text-xs sm:text-sm nv-text-subtle line-clamp-2">
@@ -100,3 +105,43 @@ function getNotificationSourceTypeLabel(sourceType: string) {
     </ul>
   </PaginatedListCard>
 </template>
+
+<style scoped>
+.notification-icon-default,
+.notification-badge-default {
+  background: var(--nv-surface-muted);
+  color: var(--nv-text-subtle);
+}
+
+.notification-icon-like,
+.notification-badge-like {
+  background: var(--nv-danger-bg);
+  color: var(--nv-danger-text);
+}
+
+.notification-icon-comment,
+.notification-badge-comment,
+.notification-icon-reply,
+.notification-badge-reply {
+  background: var(--nv-info-bg);
+  color: var(--nv-info-text);
+}
+
+.notification-icon-mention,
+.notification-badge-mention {
+  background: color-mix(in srgb, var(--nv-accent) 14%, var(--nv-surface));
+  color: var(--nv-accent);
+}
+
+.notification-icon-system,
+.notification-badge-system {
+  background: var(--nv-success-bg);
+  color: var(--nv-success-text);
+}
+
+.notification-icon-sanction,
+.notification-badge-sanction {
+  background: var(--nv-warning-bg);
+  color: var(--nv-warning-text);
+}
+</style>

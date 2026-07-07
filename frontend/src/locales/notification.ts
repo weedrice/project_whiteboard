@@ -9,4 +9,13 @@ export const notification: NotificationMessages = {
     post: '게시글',
     comment: '댓글',
   },
+  types: {
+    default: '알림',
+    like: '좋아요',
+    comment: '댓글',
+    reply: '답글',
+    mention: '멘션',
+    system: '시스템',
+    sanction: '제재',
+  },
 }
