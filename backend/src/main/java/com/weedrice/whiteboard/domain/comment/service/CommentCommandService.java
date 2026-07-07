@@ -4,9 +4,11 @@ import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
 import com.weedrice.whiteboard.domain.comment.constant.CommentConstraints;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
+import com.weedrice.whiteboard.domain.comment.entity.CommentMention;
 import com.weedrice.whiteboard.domain.comment.entity.CommentVersion;
 import com.weedrice.whiteboard.domain.comment.repository.CommentClosureRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
+import com.weedrice.whiteboard.domain.comment.repository.CommentMentionRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentVersionRepository;
 import com.weedrice.whiteboard.domain.notification.service.MentionService;
@@ -19,6 +21,7 @@ import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchIndexAction;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -28,7 +31,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -41,6 +47,8 @@ public class CommentCommandService {
     private final CommentLikeRepository commentLikeRepository;
     private final CommentVersionRepository commentVersionRepository;
     private final CommentClosureRepository commentClosureRepository;
+    private final CommentMentionRepository commentMentionRepository;
+    private final UserRepository userRepository;
     private final AgentOwnershipService agentOwnershipService;
     private final UserWritableResolver userWritableResolver;
     private final SanctionService sanctionService;
@@ -111,6 +119,7 @@ public class CommentCommandService {
         Comment savedComment = commentRepository.save(comment);
         incrementPostCommentCount(post.getPostId());
         saveCommentVersion(savedComment, user, "CREATE", null);
+        replaceCommentMentions(savedComment, mentionedUserIds);
 
         if (parentId != null) {
             commentClosureRepository.createClosures(savedComment.getCommentId(), parentId);
@@ -190,6 +199,11 @@ public class CommentCommandService {
 
     @Transactional
     public Long updateComment(Long userId, Long commentId, String content) {
+        return updateComment(userId, commentId, content, null);
+    }
+
+    @Transactional
+    public Long updateComment(Long userId, Long commentId, String content, Collection<Long> mentionedUserIds) {
         Comment comment = loadCommentForUpdate(commentId);
         User user = userWritableResolver.resolve(userId);
         sanctionService.validateNotMuted(user);
@@ -201,6 +215,7 @@ public class CommentCommandService {
         comment.updateContent(sanitizedContent);
 
         saveCommentVersion(comment, user, "MODIFY", originalContent);
+        replaceCommentMentions(comment, mentionedUserIds);
         semanticSearchEventPublisher.publish("COMMENT", comment.getCommentId(), SemanticSearchIndexAction.UPSERT);
         return comment.getCommentId();
     }
@@ -305,6 +320,38 @@ public class CommentCommandService {
                 .originalContent(originalContent)
                 .build();
         commentVersionRepository.save(commentVersion);
+    }
+
+    private void replaceCommentMentions(Comment comment, Collection<Long> mentionedUserIds) {
+        commentMentionRepository.deleteByCommentCommentId(comment.getCommentId());
+        List<User> mentionedUsers = loadMentionedUsers(mentionedUserIds);
+        if (mentionedUsers.isEmpty()) {
+            return;
+        }
+        List<CommentMention> mentions = mentionedUsers.stream()
+                .map(user -> CommentMention.builder()
+                        .comment(comment)
+                        .user(user)
+                        .build())
+                .toList();
+        commentMentionRepository.saveAll(mentions);
+    }
+
+    private List<User> loadMentionedUsers(Collection<Long> mentionedUserIds) {
+        if (mentionedUserIds == null || mentionedUserIds.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> uniqueIds = mentionedUserIds.stream()
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        if (uniqueIds.isEmpty()) {
+            return List.of();
+        }
+        return userRepository.findAllById(uniqueIds).stream()
+                .filter(user -> User.STATUS_ACTIVE.equals(user.getStatus()))
+                .filter(user -> user.getDeletedAt() == null)
+                .limit(10)
+                .toList();
     }
 
     private void validatePostReadable(Post post, User viewer) {

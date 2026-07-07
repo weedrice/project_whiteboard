@@ -24,7 +24,7 @@ class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlRe
 
     private static final String SOURCE_TYPE_POST = "POST";
     private static final String SOURCE_TYPE_COMMENT = "COMMENT";
-    private static final String SOURCE_TYPE_SYSTEM = "SYSTEM";
+    private static final String SOURCE_TYPE_MESSAGE = "MESSAGE";
 
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
@@ -82,7 +82,7 @@ class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlRe
             return buildCommentTargetUrl(commentsById.get(notification.getSourceId()));
         }
 
-        if (isSourceType(notification, SOURCE_TYPE_SYSTEM)) {
+        if (isSourceType(notification, SOURCE_TYPE_MESSAGE)) {
             return "/mypage/messages";
         }
 

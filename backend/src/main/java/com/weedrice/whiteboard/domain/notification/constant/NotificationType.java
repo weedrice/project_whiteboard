@@ -10,6 +10,7 @@ public enum NotificationType {
     COMMENT,
     REPLY,
     MENTION,
+    MESSAGE,
     SYSTEM,
     SANCTION;
 

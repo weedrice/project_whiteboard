@@ -5,6 +5,8 @@ import com.weedrice.whiteboard.domain.comment.dto.CommentListResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
+import com.weedrice.whiteboard.domain.comment.entity.CommentMention;
+import com.weedrice.whiteboard.domain.comment.repository.CommentMentionRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
@@ -48,6 +50,7 @@ public class CommentQueryService {
     private final CommentPostAccessService commentPostAccessService;
     private final CommentReadSupport commentReadSupport;
     private final CommentReadModelAssembler commentReadModelAssembler;
+    private final CommentMentionRepository commentMentionRepository;
 
     // Contract: /posts/{postId}/comments pages only parent comments; replies are fetched lazily via /comments/{id}/replies.
     public Page<CommentResponse> getComments(Long postId, Long currentUserId, Pageable pageable) {
@@ -76,6 +79,7 @@ public class CommentQueryService {
                         context.blockedUserIds(),
                         replyCounts)))
                 .toList();
+        attachMentions(responseContent);
 
         return new PageImpl<>(responseContent, pageable, parentComments.getTotalElements());
     }
@@ -96,12 +100,14 @@ public class CommentQueryService {
         Map<Long, Long> replyCounts = commentReadSupport.loadVisibleReplyCounts(
                 comments,
                 context.blockedUserIds());
-        return comments.stream()
+        List<CommentResponse> responseContent = comments.stream()
                 .map(comment -> toCommentResponse(commentReadModelAssembler.from(
                         comment,
                         context.blockedUserIds(),
                         replyCounts)))
                 .toList();
+        attachMentions(responseContent);
+        return responseContent;
     }
 
     private Page<Comment> findParentComments(Long postId, boolean blockedUserIdsEmpty,
@@ -155,6 +161,7 @@ public class CommentQueryService {
                         context.blockedUserIds(),
                         replyCounts)))
                 .toList();
+        attachMentions(maskedReplies);
 
         return CommentListResponse.builder()
                 .content(maskedReplies)
@@ -171,7 +178,9 @@ public class CommentQueryService {
         Comment comment = commentReadSupport.getNonDeletedWithRelationsOrThrow(commentId);
         CommentReadContext context = resolveReadContext(currentUserId);
         commentPostAccessService.validateReadable(comment.getPost(), context);
-        return toCommentResponse(commentReadModelAssembler.from(comment, context.blockedUserIds()));
+        CommentResponse response = toCommentResponse(commentReadModelAssembler.from(comment, context.blockedUserIds()));
+        attachMentions(List.of(response));
+        return response;
     }
 
     public Page<MyCommentResponse> getMyComments(Long userId, Pageable pageable) {
@@ -268,6 +277,41 @@ public class CommentQueryService {
                 .authorType(author.authorType())
                 .displayName(author.displayName())
                 .profileImageUrl(author.profileImageUrl())
+                .build();
+    }
+
+    private void attachMentions(List<CommentResponse> responses) {
+        List<Long> commentIds = responses.stream()
+                .filter(response -> !response.isDeleted() && !response.isBlockedAuthor())
+                .map(CommentResponse::getCommentId)
+                .filter(Objects::nonNull)
+                .toList();
+        if (commentIds.isEmpty()) {
+            return;
+        }
+
+        List<CommentMention> mentionRows = commentMentionRepository.findByCommentCommentIdIn(commentIds);
+        if (mentionRows == null || mentionRows.isEmpty()) {
+            return;
+        }
+
+        Map<Long, List<CommentResponse.MentionInfo>> mentionsByCommentId = mentionRows.stream()
+                .filter(mention -> mention.getComment() != null && mention.getComment().getCommentId() != null)
+                .filter(mention -> mention.getUser() != null)
+                .collect(java.util.stream.Collectors.groupingBy(
+                        mention -> mention.getComment().getCommentId(),
+                        java.util.stream.Collectors.mapping(this::toMentionInfo, java.util.stream.Collectors.toList())));
+
+        responses.forEach(response -> response.setMentions(
+                mentionsByCommentId.getOrDefault(response.getCommentId(), List.of())));
+    }
+
+    private CommentResponse.MentionInfo toMentionInfo(CommentMention mention) {
+        User user = mention.getUser();
+        return CommentResponse.MentionInfo.builder()
+                .userId(user.getUserId())
+                .displayName(user.getDisplayName())
+                .profileImageUrl(user.getProfileImageUrl())
                 .build();
     }
 }

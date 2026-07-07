@@ -55,13 +55,13 @@ class RepositoryNotificationTargetUrlResolverTest {
     }
 
     @Test
-    @DisplayName("SYSTEM 알림은 쪽지함 경로로 연결한다")
-    void resolveAll_buildsSystemTargetUrl() {
+    @DisplayName("MESSAGE 알림은 쪽지함 경로로 연결한다")
+    void resolveAll_buildsMessageTargetUrl() {
         RepositoryNotificationTargetUrlResolver resolver =
                 new RepositoryNotificationTargetUrlResolver(postRepository, commentRepository);
-        Notification systemNotification = notification(3L, "SYSTEM", 30L);
+        Notification messageNotification = notification(3L, "MESSAGE", 30L);
 
-        Map<Long, String> targetUrls = resolver.resolveAll(List.of(systemNotification));
+        Map<Long, String> targetUrls = resolver.resolveAll(List.of(messageNotification));
 
         assertThat(targetUrls).containsEntry(3L, "/mypage/messages");
     }

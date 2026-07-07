@@ -79,8 +79,8 @@ public class MessageService {
         eventPublisher.publishEvent(new NotificationEvent(
                 receiver,
                 sender,
-                NotificationType.SYSTEM,
-                "SYSTEM",
+                NotificationType.MESSAGE,
+                "MESSAGE",
                 savedMessage.getMessageId(),
                 "새 메시지가 도착했습니다."));
         return savedMessage.getMessageId();

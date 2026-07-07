@@ -14,6 +14,7 @@ import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.entity.CommentLike;
 import com.weedrice.whiteboard.domain.comment.repository.CommentClosureRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
+import com.weedrice.whiteboard.domain.comment.repository.CommentMentionRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentVersionRepository;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
@@ -95,6 +96,8 @@ class CommentServiceTest {
     @Mock
     private CommentClosureRepository commentClosureRepository;
     @Mock
+    private CommentMentionRepository commentMentionRepository;
+    @Mock
     private ApplicationEventPublisher eventPublisher;
     @Mock
     private PointService pointService;
@@ -131,7 +134,8 @@ class CommentServiceTest {
                 new UserReadableResolver(userRepository),
                 commentPostAccessService,
                 commentReadSupport,
-                commentReadModelAssembler);
+                commentReadModelAssembler,
+                commentMentionRepository);
         ContentRewardService contentRewardService = new ContentRewardService(
                 pointService,
                 pointHistoryRepository,
@@ -150,6 +154,8 @@ class CommentServiceTest {
                 commentLikeRepository,
                 commentVersionRepository,
                 commentClosureRepository,
+                commentMentionRepository,
+                userRepository,
                 agentOwnershipService,
                 userWritableResolver,
                 sanctionService,

@@ -111,8 +111,8 @@ class MessageServiceTest {
         NotificationEvent event = eventCaptor.getValue();
         assertThat(event.getUserToNotify()).isSameAs(receiver);
         assertThat(event.getActor()).isSameAs(sender);
-        assertThat(event.getNotificationType()).isEqualTo(NotificationType.SYSTEM);
-        assertThat(event.getSourceType()).isEqualTo("SYSTEM");
+        assertThat(event.getNotificationType()).isEqualTo(NotificationType.MESSAGE);
+        assertThat(event.getSourceType()).isEqualTo("MESSAGE");
         assertThat(event.getSourceId()).isEqualTo(1L);
     }
 

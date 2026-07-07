@@ -91,7 +91,8 @@ public class CommentController {
         Long updatedCommentId = commentService.updateComment(
                 userId,
                 commentId,
-                request.getContent());
+                request.getContent(),
+                request.getMentionedUserIds());
         return ApiResponse.success(updatedCommentId);
     }
 

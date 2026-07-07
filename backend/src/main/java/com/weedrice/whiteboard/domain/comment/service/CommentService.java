@@ -71,6 +71,10 @@ public class CommentService {
         return commentCommandService.updateComment(userId, commentId, content);
     }
 
+    public Long updateComment(Long userId, Long commentId, String content, Collection<Long> mentionedUserIds) {
+        return commentCommandService.updateComment(userId, commentId, content, mentionedUserIds);
+    }
+
     public void deleteComment(Long userId, Long commentId) {
         commentCommandService.deleteComment(userId, commentId);
     }

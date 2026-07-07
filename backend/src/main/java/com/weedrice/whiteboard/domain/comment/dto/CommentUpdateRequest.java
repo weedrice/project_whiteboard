@@ -7,6 +7,8 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Getter
 @NoArgsConstructor
 public class CommentUpdateRequest {
@@ -14,4 +16,6 @@ public class CommentUpdateRequest {
     @Size(min = 1, max = CommentConstraints.MAX_CONTENT_LENGTH, message = "댓글은 1자 이상 1,000자 이하여야 합니다")
     @NoHtml
     private String content;
+    @Size(max = 10)
+    private List<Long> mentionedUserIds = List.of();
 }

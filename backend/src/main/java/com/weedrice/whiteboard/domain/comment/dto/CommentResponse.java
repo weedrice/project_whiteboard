@@ -37,6 +37,9 @@ public class CommentResponse {
     @Setter
     @Builder.Default
     private List<CommentResponse> children = new ArrayList<>();
+    @Setter
+    @Builder.Default
+    private List<MentionInfo> mentions = new ArrayList<>();
 
     @Getter
     @Builder
@@ -44,6 +47,14 @@ public class CommentResponse {
         private Long userId;
         private Long agentId;
         private String authorType;
+        private String displayName;
+        private String profileImageUrl;
+    }
+
+    @Getter
+    @Builder
+    public static class MentionInfo {
+        private Long userId;
         private String displayName;
         private String profileImageUrl;
     }
