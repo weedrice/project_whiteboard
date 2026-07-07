@@ -1,18 +1,11 @@
 import { asSanitizedHtml, sanitizeHtml } from '@/utils/sanitize'
 import { normalizeFileUrl } from '@/utils/fileUrl'
+import { escapeHtmlAttribute, escapeHtmlText } from '@/utils/htmlEscape'
 import type { SanitizedHtml } from '@/utils/sanitize'
 import type { CommentMention } from '@/types'
 
 const EMOTICON_PATTERN = /!\[emoticon\]\(([^)]+)\)/g
 const EMOTICON_ONLY_PATTERN = /^!\[emoticon\]\([^)]+\)$/
-
-function escapeHtmlAttribute(value: string): string {
-    return value
-        .replace(/&/g, '&amp;')
-        .replace(/"/g, '&quot;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-}
 
 function normalizeEmoticonUrl(rawUrl: string): string | null {
     const trimmed = rawUrl.trim()
@@ -20,13 +13,6 @@ function normalizeEmoticonUrl(rawUrl: string): string | null {
     if (trimmed.startsWith('/')) return normalizeFileUrl(trimmed)
     if (/^https?:\/\//i.test(trimmed)) return trimmed
     return null
-}
-
-function escapeHtmlText(value: string): string {
-    return value
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
 }
 
 function sanitizeCommentText(value: string): string {

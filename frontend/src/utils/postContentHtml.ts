@@ -1,5 +1,6 @@
 import { normalizeLegacyFileUrls } from '@/utils/fileUrl'
-import { highlightCodeBlocks, type CodeBlockHighlightLabels } from '@/utils/codeHighlighting'
+import { highlightCodeBlocksInDocument, type CodeBlockHighlightLabels } from '@/utils/codeHighlighting'
+import { transformHtmlDocument } from '@/utils/htmlTransformPipeline'
 import { asSanitizedHtml, sanitizeQuillHtml, type SanitizedHtml } from '@/utils/sanitize'
 
 export function renderPostContentHtml(
@@ -10,21 +11,27 @@ export function renderPostContentHtml(
 
     const normalizedContents = normalizeLegacyFileUrls(content)
         .replace(/<p>\s*<\/p>/gi, '<p><br></p>')
-    const sanitized = enhanceMentionLinks(highlightCodeBlocks(sanitizeQuillHtml(normalizedContents), codeBlockLabels))
+    const sanitized = sanitizeQuillHtml(normalizedContents)
+    const transformed = transformHtmlDocument(sanitized, [
+        (doc) => highlightCodeBlocksInDocument(doc, codeBlockLabels),
+        enhanceMentionLinksInDocument,
+        addLazyLoadingToImagesInDocument,
+    ])
 
-    return asSanitizedHtml(sanitized.replace(/<img(?![^>]*\bloading=)([^>]+)>/gi, '<img loading="lazy"$1>'))
+    return asSanitizedHtml(transformed)
 }
 
-function enhanceMentionLinks(html: string): string {
-    if (typeof DOMParser === 'undefined') {
-        return html
-    }
-
-    const parser = new DOMParser()
-    const doc = parser.parseFromString(html, 'text/html')
+function enhanceMentionLinksInDocument(doc: Document): void {
     doc.querySelectorAll<HTMLElement>('[data-mention-user-id]').forEach((mention) => {
         mention.setAttribute('role', 'link')
         mention.setAttribute('tabindex', '0')
     })
-    return doc.body.innerHTML
+}
+
+function addLazyLoadingToImagesInDocument(doc: Document): void {
+    doc.querySelectorAll<HTMLImageElement>('img').forEach((image) => {
+        if (!image.hasAttribute('loading')) {
+            image.setAttribute('loading', 'lazy')
+        }
+    })
 }

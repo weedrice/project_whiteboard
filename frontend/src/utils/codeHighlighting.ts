@@ -1,4 +1,6 @@
 import { createLowlight, common } from 'lowlight'
+import { escapeHtmlAttribute, escapeHtmlText } from '@/utils/htmlEscape'
+import { transformHtmlDocument } from '@/utils/htmlTransformPipeline'
 
 export const lowlight = createLowlight(common)
 
@@ -14,19 +16,10 @@ const DEFAULT_CODE_BLOCK_LABELS: CodeBlockHighlightLabels = {
   copyAriaLabel: 'Copy code',
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
-
 function renderHastNode(node: any): string {
   if (!node) return ''
   if (node.type === 'text') {
-    return escapeHtml(String(node.value ?? ''))
+    return escapeHtmlText(String(node.value ?? ''))
   }
   if (node.type !== 'element') {
     return Array.isArray(node.children) ? node.children.map(renderHastNode).join('') : ''
@@ -37,22 +30,15 @@ function renderHastNode(node: any): string {
   const className = Array.isArray(properties.className)
     ? properties.className.map(String).join(' ')
     : ''
-  const classAttribute = className ? ` class="${escapeHtml(className)}"` : ''
+  const classAttribute = className ? ` class="${escapeHtmlAttribute(className)}"` : ''
   const children = Array.isArray(node.children) ? node.children.map(renderHastNode).join('') : ''
   return `<${tagName}${classAttribute}>${children}</${tagName}>`
 }
 
-export function highlightCodeBlocks(
-  html: string,
+export function highlightCodeBlocksInDocument(
+  doc: Document,
   labels: CodeBlockHighlightLabels = DEFAULT_CODE_BLOCK_LABELS
-): string {
-  if (typeof DOMParser === 'undefined') {
-    return html
-  }
-
-  const parser = new DOMParser()
-  const doc = parser.parseFromString(html, 'text/html')
-
+): void {
   doc.querySelectorAll('pre code').forEach((code) => {
     const rawCode = code.textContent ?? ''
     const language = code.className.match(LANGUAGE_CLASS_PATTERN)?.[1]
@@ -61,7 +47,7 @@ export function highlightCodeBlocks(
       : lowlight.highlightAuto(rawCode)
     const resolvedLanguage = language ?? tree.data?.language
 
-    code.innerHTML = Array.isArray(tree.children) ? tree.children.map(renderHastNode).join('') : escapeHtml(rawCode)
+    code.innerHTML = Array.isArray(tree.children) ? tree.children.map(renderHastNode).join('') : escapeHtmlText(rawCode)
     code.classList.add('hljs')
     if (resolvedLanguage) {
       code.classList.add(`language-${resolvedLanguage}`)
@@ -91,6 +77,13 @@ export function highlightCodeBlocks(
     pre.parentNode?.insertBefore(wrapper, pre)
     wrapper.append(toolbar, pre)
   })
+}
 
-  return doc.body.innerHTML
+export function highlightCodeBlocks(
+  html: string,
+  labels: CodeBlockHighlightLabels = DEFAULT_CODE_BLOCK_LABELS
+): string {
+  return transformHtmlDocument(html, [
+    (doc) => highlightCodeBlocksInDocument(doc, labels),
+  ])
 }

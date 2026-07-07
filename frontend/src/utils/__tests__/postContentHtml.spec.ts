@@ -21,14 +21,27 @@ describe('renderPostContentHtml', () => {
 
     it('adds code block language labels and copy controls', () => {
         const result = renderPostContentHtml('<pre><code class="language-js">const value = 1</code></pre>', {
-            copy: '복사',
-            copyAriaLabel: '코드 복사',
+            copy: 'Copy',
+            copyAriaLabel: 'Copy code',
         })
 
         expect(result).toContain('class="nv-code-block"')
         expect(result).toContain('class="nv-code-block-language"')
         expect(result).toContain('js')
         expect(result).toContain('data-code-copy-button')
-        expect(result).toContain('복사')
+        expect(result).toContain('Copy')
+    })
+
+    it('applies rich content transformers after sanitizing', () => {
+        const result = renderPostContentHtml(
+            '<p><span data-mention-user-id="7">@Novi</span></p><pre><code>const value = 1</code></pre><img src="/files/22">'
+        )
+
+        expect(result).toContain('data-mention-user-id="7"')
+        expect(result).toContain('role="link"')
+        expect(result).toContain('tabindex="0"')
+        expect(result).toContain('class="nv-code-block"')
+        expect(result).toContain('loading="lazy"')
+        expect(result).toContain('src="/api/v1/files/22"')
     })
 })
