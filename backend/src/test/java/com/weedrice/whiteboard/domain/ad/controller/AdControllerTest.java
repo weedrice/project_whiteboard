@@ -117,7 +117,7 @@ class AdControllerTest {
         when(refererCheckInterceptor.preHandle(any(), any(), any())).thenReturn(true);
         when(rateLimitInterceptor.preHandle(any(), any(), any())).thenReturn(true);
         when(clientIpResolver.resolve(any())).thenReturn("203.0.113.10");
-        when(counterEventGuard.isRecentlyRecorded(any(), any(), any(), any())).thenReturn(false);
+        when(counterEventGuard.tryMarkRecorded(any(), any(), any(), any())).thenReturn(true);
 
         doAnswer(invocation -> {
             HttpServletRequest request = invocation.getArgument(0);
@@ -151,13 +151,13 @@ class AdControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
-        verify(counterEventGuard).markRecorded(eq("ad-impression"), eq(1L), isNull(), eq("203.0.113.10"));
+        verify(counterEventGuard).tryMarkRecorded(eq("ad-impression"), eq(1L), isNull(), eq("203.0.113.10"));
     }
 
     @Test
     void recordAdImpression_skipsServiceWhenRecentlyRecorded() throws Exception {
-        when(counterEventGuard.isRecentlyRecorded(eq("ad-impression"), eq(1L), isNull(), eq("203.0.113.10")))
-                .thenReturn(true);
+        when(counterEventGuard.tryMarkRecorded(eq("ad-impression"), eq(1L), isNull(), eq("203.0.113.10")))
+                .thenReturn(false);
 
         mockMvc.perform(post("/api/v1/ads/{adId}/impression", 1L))
                 .andExpect(status().isOk())
@@ -193,13 +193,13 @@ class AdControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data").exists());
 
-        verify(counterEventGuard).markRecorded(eq("ad-click"), eq(1L), eq(1L), eq("203.0.113.10"));
+        verify(counterEventGuard).tryMarkRecorded(eq("ad-click"), eq(1L), eq(1L), eq("203.0.113.10"));
     }
 
     @Test
     void recordAdClick_returnsTargetUrlWithoutIncrementWhenRecentlyRecorded() throws Exception {
-        when(counterEventGuard.isRecentlyRecorded(eq("ad-click"), eq(1L), isNull(), eq("203.0.113.10")))
-                .thenReturn(true);
+        when(counterEventGuard.tryMarkRecorded(eq("ad-click"), eq(1L), isNull(), eq("203.0.113.10")))
+                .thenReturn(false);
         when(adService.getActiveAdTargetUrl(eq(1L))).thenReturn("http://example.com");
 
         mockMvc.perform(post("/api/v1/ads/{adId}/click", 1L))

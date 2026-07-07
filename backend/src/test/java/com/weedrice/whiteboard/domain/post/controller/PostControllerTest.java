@@ -136,7 +136,7 @@ class PostControllerTest {
         when(refererCheckInterceptor.preHandle(any(), any(), any())).thenReturn(true);
         when(rateLimitInterceptor.preHandle(any(), any(), any())).thenReturn(true);
         when(clientIpResolver.resolve(any())).thenReturn("203.0.113.10");
-        when(counterEventGuard.isRecentlyRecorded(any(), any(), any(), any())).thenReturn(false);
+        when(counterEventGuard.tryMarkRecorded(any(), any(), any(), any())).thenReturn(true);
 
         doAnswer(invocation -> {
             HttpServletRequest request = invocation.getArgument(0);
@@ -307,15 +307,15 @@ class PostControllerTest {
                     .andExpect(status().isOk());
 
             verify(postService).getPostResponse(postId, 1L, true, 20);
-            verify(counterEventGuard).markRecorded(eq("post-view"), eq(postId), eq(1L), eq("203.0.113.10"));
+            verify(counterEventGuard).tryMarkRecorded(eq("post-view"), eq(postId), eq(1L), eq("203.0.113.10"));
         }
 
         @Test
         void getPost_incrementViewTrue_skipsIncrementWhenRecentlyRecorded() throws Exception {
             Long postId = 1L;
             PostResponse postResponse = PostResponse.builder().postId(postId).title("Title").build();
-            when(counterEventGuard.isRecentlyRecorded(eq("post-view"), eq(postId), eq(1L), eq("203.0.113.10")))
-                    .thenReturn(true);
+            when(counterEventGuard.tryMarkRecorded(eq("post-view"), eq(postId), eq(1L), eq("203.0.113.10")))
+                    .thenReturn(false);
             when(postService.getPostResponse(eq(postId), eq(1L), eq(false), eq(20))).thenReturn(postResponse);
 
             mockMvc.perform(get("/api/v1/posts/{postId}", postId)
@@ -324,7 +324,7 @@ class PostControllerTest {
                     .andExpect(status().isOk());
 
             verify(postService).getPostResponse(postId, 1L, false, 20);
-            verify(counterEventGuard, never()).markRecorded(any(), any(), any(), any());
+            verify(counterEventGuard).tryMarkRecorded(eq("post-view"), eq(postId), eq(1L), eq("203.0.113.10"));
         }
 
         @Test
@@ -393,14 +393,14 @@ class PostControllerTest {
                     .andExpect(status().isOk());
 
             verify(postService).incrementViewCount(postId, null);
-            verify(counterEventGuard).markRecorded(eq("post-view"), eq(postId), isNull(), eq("203.0.113.10"));
+            verify(counterEventGuard).tryMarkRecorded(eq("post-view"), eq(postId), isNull(), eq("203.0.113.10"));
         }
 
         @Test
         void incrementPostView_skipsServiceWhenRecentlyRecorded() throws Exception {
             Long postId = 1L;
-            when(counterEventGuard.isRecentlyRecorded(eq("post-view"), eq(postId), isNull(), eq("203.0.113.10")))
-                    .thenReturn(true);
+            when(counterEventGuard.tryMarkRecorded(eq("post-view"), eq(postId), isNull(), eq("203.0.113.10")))
+                    .thenReturn(false);
 
             mockMvc.perform(post("/api/v1/posts/{postId}/view", postId))
                     .andExpect(status().isOk());

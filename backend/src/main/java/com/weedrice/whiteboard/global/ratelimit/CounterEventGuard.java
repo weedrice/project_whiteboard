@@ -24,6 +24,10 @@ public class CounterEventGuard {
         return recentEvents.getIfPresent(buildKey(eventType, targetId, userId, ipAddress)) != null;
     }
 
+    public boolean tryMarkRecorded(@NonNull String eventType, @NonNull Long targetId, Long userId, String ipAddress) {
+        return recentEvents.asMap().putIfAbsent(buildKey(eventType, targetId, userId, ipAddress), true) == null;
+    }
+
     public void markRecorded(@NonNull String eventType, @NonNull Long targetId, Long userId, String ipAddress) {
         recentEvents.put(buildKey(eventType, targetId, userId, ipAddress), true);
     }

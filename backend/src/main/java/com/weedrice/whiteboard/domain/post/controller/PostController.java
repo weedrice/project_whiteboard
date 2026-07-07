@@ -63,12 +63,9 @@ public class PostController {
         int normalizedBoardListPageSize = PageRequestUtils.of(0, boardListPageSize).getPageSize();
         String ipAddress = clientIpResolver.resolve(request);
         boolean shouldIncrementView = incrementView
-                && !counterEventGuard.isRecentlyRecorded("post-view", postId, userId, ipAddress);
+                && counterEventGuard.tryMarkRecorded("post-view", postId, userId, ipAddress);
         PostResponse response = postService.getPostResponse(postId, userId, shouldIncrementView,
                 normalizedBoardListPageSize);
-        if (shouldIncrementView) {
-            counterEventGuard.markRecorded("post-view", postId, userId, ipAddress);
-        }
         return ApiResponse.success(
                 response);
     }
@@ -79,11 +76,10 @@ public class PostController {
             @CurrentUserId(required = false) Long userId,
             HttpServletRequest request) {
         String ipAddress = clientIpResolver.resolve(request);
-        if (counterEventGuard.isRecentlyRecorded("post-view", postId, userId, ipAddress)) {
+        if (!counterEventGuard.tryMarkRecorded("post-view", postId, userId, ipAddress)) {
             return ApiResponses.ok();
         }
         postService.incrementViewCount(postId, userId);
-        counterEventGuard.markRecorded("post-view", postId, userId, ipAddress);
         return ApiResponses.ok();
     }
 

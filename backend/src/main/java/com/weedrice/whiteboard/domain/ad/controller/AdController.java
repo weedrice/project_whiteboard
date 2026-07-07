@@ -31,11 +31,10 @@ public class AdController {
             @CurrentUserId(required = false) Long userId,
             HttpServletRequest request) {
         String ipAddress = clientIpResolver.resolve(request);
-        if (counterEventGuard.isRecentlyRecorded("ad-impression", adId, userId, ipAddress)) {
+        if (!counterEventGuard.tryMarkRecorded("ad-impression", adId, userId, ipAddress)) {
             return ApiResponses.ok();
         }
         adService.recordAdImpression(adId);
-        counterEventGuard.markRecorded("ad-impression", adId, userId, ipAddress);
         return ApiResponses.ok();
     }
 
@@ -45,12 +44,11 @@ public class AdController {
             @CurrentUserId(required = false) Long userId,
             HttpServletRequest request) {
         String ipAddress = clientIpResolver.resolve(request);
-        if (counterEventGuard.isRecentlyRecorded("ad-click", adId, userId, ipAddress)) {
+        if (!counterEventGuard.tryMarkRecorded("ad-click", adId, userId, ipAddress)) {
             return ApiResponse.success(adService.getActiveAdTargetUrl(adId));
         }
 
         String targetUrl = adService.recordAdClick(adId, userId, ipAddress);
-        counterEventGuard.markRecorded("ad-click", adId, userId, ipAddress);
         return ApiResponse.success(targetUrl);
     }
 }
