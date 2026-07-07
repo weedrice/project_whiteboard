@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository.FirstImageFileIdProjection;
+import com.weedrice.whiteboard.domain.file.support.FileAssociationConstraints;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
@@ -81,7 +82,8 @@ class FileServiceTest {
         clock = Clock.fixed(Instant.parse("2026-05-07T00:00:00Z"), ZoneOffset.UTC);
         FileUploadStateCommand fileUploadStateCommand = new FileUploadStateCommand(
                 fileRepository,
-                transactionTemplate);
+                transactionTemplate,
+                clock);
         FileUploadService fileUploadService = new FileUploadService(
                 userWritableResolver,
                 fileStorageService,
@@ -90,7 +92,8 @@ class FileServiceTest {
         FileAssociationService fileAssociationService = new FileAssociationService(
                 fileRepository,
                 userRepository,
-                boardRepository);
+                boardRepository,
+                clock);
         ReflectionTestUtils.setField(fileAssociationService, "entityManager", entityManager);
         fileService = new FileService(
                 fileUploadService,
@@ -318,7 +321,7 @@ class FileServiceTest {
         });
         when(fileRepository.findByIdForUpdate(10L)).thenAnswer(invocation -> Optional.of(savedFile[0]));
         doAnswer(invocation -> {
-            savedFile[0].markDeletionPending();
+            savedFile[0].markDeletionPending(LocalDateTime.of(2026, 5, 7, 0, 0));
             return null;
         }).when(fileStorageService).storeFileAs(multipartFile, "image/jpeg", "storedFileName.jpg");
 
@@ -790,6 +793,47 @@ class FileServiceTest {
     }
 
     @Test
+    @DisplayName("첨부 파일 개수 제한은 중복 제거 후 검사한다")
+    void attachFilesToPost_deduplicatesBeforeMaxCountCheck() {
+        User uploader = User.builder().build();
+        ReflectionTestUtils.setField(uploader, "userId", 1L);
+        File file = File.builder()
+                .filePath("image.jpg")
+                .originalName("image.jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .build();
+        ReflectionTestUtils.setField(file, "fileId", 10L);
+        List<Long> duplicatedFileIds = java.util.Collections.nCopies(
+                FileAssociationConstraints.MAX_POST_FILE_COUNT + 1,
+                10L);
+
+        when(fileRepository.findByFileIdInAndStorageStatus(List.of(10L), FileStorageStatus.ACTIVE))
+                .thenReturn(List.of(file));
+        when(fileRepository.associateIfUnassociatedOrSourceDraft(
+                eq(10L),
+                eq(1L),
+                eq(100L),
+                eq(FileService.RELATED_TYPE_POST_CONTENT),
+                eq(FileService.RELATED_TYPE_DRAFT_POST),
+                isNull(),
+                any(LocalDateTime.class))).thenReturn(1);
+
+        fileService.attachFilesToPost(duplicatedFileIds, 1L, 100L);
+
+        verify(fileRepository).findByFileIdInAndStorageStatus(List.of(10L), FileStorageStatus.ACTIVE);
+        verify(fileRepository).associateIfUnassociatedOrSourceDraft(
+                eq(10L),
+                eq(1L),
+                eq(100L),
+                eq(FileService.RELATED_TYPE_POST_CONTENT),
+                eq(FileService.RELATED_TYPE_DRAFT_POST),
+                isNull(),
+                any(LocalDateTime.class));
+    }
+
+    @Test
     @DisplayName("초안 파일 동기화는 다른 초안에 묶인 파일을 거부한다")
     void syncDraftFiles_rejectsOtherDraftFile() {
         User uploader = User.builder().build();
@@ -804,10 +848,9 @@ class FileServiceTest {
                 .relatedType(FileService.RELATED_TYPE_DRAFT_POST)
                 .build();
         ReflectionTestUtils.setField(otherDraftFile, "fileId", 11L);
-        when(fileRepository.findByRelatedIdAndRelatedTypeAndStorageStatus(
+        when(fileRepository.findActiveByRelatedIdAndRelatedTypeForUpdate(
                 77L,
-                FileService.RELATED_TYPE_DRAFT_POST,
-                FileStorageStatus.ACTIVE)).thenReturn(List.of());
+                FileService.RELATED_TYPE_DRAFT_POST)).thenReturn(List.of());
         when(fileRepository.findByFileIdInAndStorageStatus(List.of(11L), FileStorageStatus.ACTIVE))
                 .thenReturn(List.of(otherDraftFile));
 
@@ -826,7 +869,7 @@ class FileServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
 
-        verify(fileRepository, never()).findByRelatedIdAndRelatedTypeAndStorageStatus(any(), any(), any());
+        verify(fileRepository, never()).findActiveByRelatedIdAndRelatedTypeForUpdate(any(), any());
         verify(fileRepository, never()).findByFileIdInAndStorageStatus(any(), any());
         verify(fileRepository, never()).associateIfUnassociatedOrSourceDraft(
                 any(), any(), any(), any(), any(), any(), any());

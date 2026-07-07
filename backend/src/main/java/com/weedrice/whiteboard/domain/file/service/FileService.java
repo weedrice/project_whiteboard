@@ -195,9 +195,10 @@ public class FileService {
 
     @Transactional
     public boolean deleteFileWithStorage(Long fileId) {
+        LocalDateTime deleteRequestedAt = LocalDateTime.now(clock);
         return fileRepository.findByFileIdAndStorageStatus(fileId, FileStorageStatus.ACTIVE)
                 .map(file -> {
-                    file.markDeletionPending();
+                    file.markDeletionPending(deleteRequestedAt);
                     return true;
                 })
                 .orElse(false);
@@ -205,10 +206,11 @@ public class FileService {
 
     @Transactional
     public boolean deleteFileWithStorageIfAssociated(Long fileId, Long relatedId, String relatedType) {
+        LocalDateTime deleteRequestedAt = LocalDateTime.now(clock);
         return fileRepository.findByFileIdAndRelatedIdAndRelatedTypeAndStorageStatus(
                         fileId, relatedId, relatedType, FileStorageStatus.ACTIVE)
                 .map(file -> {
-                    file.markDeletionPending();
+                    file.markDeletionPending(deleteRequestedAt);
                     return true;
                 })
                 .orElse(false);

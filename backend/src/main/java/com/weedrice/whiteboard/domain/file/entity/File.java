@@ -116,9 +116,9 @@ public class File extends BaseTimeEntity {
         this.deleteRetryCount = 0;
     }
 
-    public void markDeletionPending() {
+    public void markDeletionPending(LocalDateTime deleteRequestedAt) {
         this.storageStatus = FileStorageStatus.PENDING_DELETE;
-        this.deleteRequestedAt = LocalDateTime.now();
+        this.deleteRequestedAt = deleteRequestedAt;
         this.deleteLastError = null;
     }
 
@@ -135,9 +135,9 @@ public class File extends BaseTimeEntity {
         this.deleteRetryCount = 0;
     }
 
-    public void markDeletionFailed(String deleteLastError) {
+    public void markDeletionFailed(String deleteLastError, LocalDateTime deleteRequestedAt) {
         this.storageStatus = FileStorageStatus.DELETE_FAILED;
-        this.deleteRequestedAt = LocalDateTime.now();
+        this.deleteRequestedAt = deleteRequestedAt;
         this.deleteRetryCount = this.deleteRetryCount == null ? 1 : this.deleteRetryCount + 1;
         this.deleteLastError = truncate(deleteLastError);
     }

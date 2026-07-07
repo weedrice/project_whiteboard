@@ -10,6 +10,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
@@ -28,6 +29,7 @@ public class FileDeletionWorker {
     private final FileStorageService fileStorageService;
     private final TransactionTemplate transactionTemplate;
     private final EmoticonFileReferenceService emoticonFileReferenceService;
+    private final Clock clock;
     private final Set<Long> processingFileIds = ConcurrentHashMap.newKeySet();
 
     public boolean tryClaim(Long fileId) {
@@ -62,7 +64,7 @@ public class FileDeletionWorker {
     }
 
     private FileDeletionSnapshot claimDeletion(Long fileId) {
-        LocalDateTime claimedAt = LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS);
+        LocalDateTime claimedAt = now();
         LocalDateTime staleBefore = claimedAt.minusMinutes(DELETE_CLAIM_STALE_MINUTES);
         return transactionTemplate.execute(status -> fileRepository
                 .findDeletionClaimCandidateForUpdate(fileId, MAX_DELETE_RETRY_COUNT, staleBefore)
@@ -102,12 +104,17 @@ public class FileDeletionWorker {
     }
 
     private void markDeletionFailed(FileDeletionSnapshot snapshot, RuntimeException cause) {
+        LocalDateTime deleteRequestedAt = now();
         transactionTemplate.executeWithoutResult(status -> fileRepository.findByIdForUpdate(snapshot.fileId())
                 .ifPresent(current -> {
                     if (snapshot.matches(current)) {
-                        current.markDeletionFailed(cause.getMessage());
+                        current.markDeletionFailed(cause.getMessage(), deleteRequestedAt);
                     }
                 }));
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(clock).truncatedTo(ChronoUnit.MILLIS);
     }
 
     private void finalizeDeletion(FileDeletionSnapshot snapshot) {

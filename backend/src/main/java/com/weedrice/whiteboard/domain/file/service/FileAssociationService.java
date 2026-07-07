@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -38,6 +39,7 @@ class FileAssociationService {
     private final FileRepository fileRepository;
     private final UserRepository userRepository;
     private final BoardRepository boardRepository;
+    private final Clock clock;
     @PersistenceContext
     private EntityManager entityManager;
 
@@ -73,14 +75,14 @@ class FileAssociationService {
     @Transactional
     public void syncDraftFiles(List<Long> fileIds, Long ownerUserId, Long draftId) {
         Set<Long> requestedFileIds = normalizeFileIds(fileIds);
-        List<File> existingDraftFiles = fileRepository.findByRelatedIdAndRelatedTypeAndStorageStatus(
+        LocalDateTime deleteRequestedAt = now();
+        List<File> existingDraftFiles = fileRepository.findActiveByRelatedIdAndRelatedTypeForUpdate(
                 draftId,
-                RELATED_TYPE_DRAFT_POST,
-                FileStorageStatus.ACTIVE);
+                RELATED_TYPE_DRAFT_POST);
 
         for (File existingDraftFile : existingDraftFiles) {
             if (!requestedFileIds.contains(existingDraftFile.getFileId())) {
-                existingDraftFile.markDeletionPending();
+                existingDraftFile.markDeletionPending(deleteRequestedAt);
             }
         }
 
@@ -110,13 +112,14 @@ class FileAssociationService {
     @Transactional
     public void syncPostFiles(List<Long> fileIds, Long ownerUserId, Long postId, Long sourceDraftId) {
         Set<Long> requestedFileIds = normalizeFileIds(fileIds);
+        LocalDateTime deleteRequestedAt = now();
         List<File> existingPostFiles = fileRepository.findActiveByRelatedIdAndRelatedTypeForUpdate(
                 postId,
                 RELATED_TYPE_POST_CONTENT);
 
         for (File existingPostFile : existingPostFiles) {
             if (!requestedFileIds.contains(existingPostFile.getFileId())) {
-                existingPostFile.markDeletionPending();
+                existingPostFile.markDeletionPending(deleteRequestedAt);
             }
         }
 
@@ -129,8 +132,9 @@ class FileAssociationService {
                 draftId,
                 RELATED_TYPE_DRAFT_POST,
                 FileStorageStatus.ACTIVE);
+        LocalDateTime deleteRequestedAt = now();
         for (File draftFile : draftFiles) {
-            draftFile.markDeletionPending();
+            draftFile.markDeletionPending(deleteRequestedAt);
         }
     }
 
@@ -139,8 +143,9 @@ class FileAssociationService {
         List<File> postFiles = fileRepository.findActiveByRelatedIdAndRelatedTypeForUpdate(
                 postId,
                 RELATED_TYPE_POST_CONTENT);
+        LocalDateTime deleteRequestedAt = now();
         for (File postFile : postFiles) {
-            postFile.markDeletionPending();
+            postFile.markDeletionPending(deleteRequestedAt);
         }
     }
 
@@ -177,14 +182,14 @@ class FileAssociationService {
         if (fileIds == null || fileIds.isEmpty()) {
             return Set.of();
         }
-        if (fileIds.size() > FileAssociationConstraints.MAX_POST_FILE_COUNT) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
         if (fileIds.stream().anyMatch(Objects::isNull)) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
-        return new LinkedHashSet<>(fileIds.stream()
-                .toList());
+        Set<Long> normalizedFileIds = new LinkedHashSet<>(fileIds);
+        if (normalizedFileIds.size() > FileAssociationConstraints.MAX_POST_FILE_COUNT) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return normalizedFileIds;
     }
 
     private void associateOrMoveOwnedFiles(Set<Long> fileIds, Long ownerUserId, Long relatedId, String relatedType,
@@ -217,7 +222,7 @@ class FileAssociationService {
                         relatedType,
                         RELATED_TYPE_DRAFT_POST,
                         sourceDraftId,
-                        LocalDateTime.now());
+                        now());
                 if (updated != 1) {
                     handleFailedBatchAssociation(file, ownerUserId, relatedId, relatedType);
                     continue;
@@ -315,10 +320,15 @@ class FileAssociationService {
 
     private void keepOnlySelectedActiveFile(Long selectedFileId, Long relatedId, String relatedType) {
         List<File> activeFiles = fileRepository.findActiveByRelatedIdAndRelatedTypeForUpdate(relatedId, relatedType);
+        LocalDateTime deleteRequestedAt = now();
         for (File activeFile : activeFiles) {
             if (!selectedFileId.equals(activeFile.getFileId())) {
-                activeFile.markDeletionPending();
+                activeFile.markDeletionPending(deleteRequestedAt);
             }
         }
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(clock);
     }
 }

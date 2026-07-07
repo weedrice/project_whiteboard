@@ -6,10 +6,10 @@ import com.weedrice.whiteboard.domain.file.repository.FileRepository;
 import com.weedrice.whiteboard.global.common.util.FileStorageService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -17,6 +17,10 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -42,8 +46,19 @@ class FileDeletionWorkerTest {
     @Mock
     private EmoticonFileReferenceService emoticonFileReferenceService;
 
-    @InjectMocks
     private FileDeletionWorker fileDeletionWorker;
+    private Clock clock;
+
+    @BeforeEach
+    void setUp() {
+        clock = Clock.fixed(Instant.parse("2026-05-07T00:00:00Z"), ZoneOffset.UTC);
+        fileDeletionWorker = new FileDeletionWorker(
+                fileRepository,
+                fileStorageService,
+                transactionTemplate,
+                emoticonFileReferenceService,
+                clock);
+    }
 
     @Test
     @DisplayName("스토리지 삭제 성공 시 파일 레코드를 최종 삭제한다")
@@ -182,7 +197,7 @@ class FileDeletionWorkerTest {
     void processDeletion_doesNotDeleteRowWhenDeletionSnapshotChanges() {
         File file = pendingFile();
         File changedFile = pendingFile();
-        changedFile.markDeleting(java.time.LocalDateTime.now());
+        changedFile.markDeleting(LocalDateTime.of(2026, 5, 7, 0, 0));
         changedFile.updateRelatedInfo(99L, "POST_CONTENT");
 
         when(fileRepository.findDeletionClaimCandidateForUpdate(eq(10L), eq(5), any()))
@@ -217,7 +232,7 @@ class FileDeletionWorkerTest {
                 .mimeType("image/jpeg")
                 .uploader(com.weedrice.whiteboard.domain.user.entity.User.builder().build())
                 .storageStatus(FileStorageStatus.DELETING)
-                .deleteRequestedAt(java.time.LocalDateTime.now().minusHours(1))
+                .deleteRequestedAt(LocalDateTime.of(2026, 5, 6, 23, 0))
                 .build();
         ReflectionTestUtils.setField(file, "fileId", 10L);
         return file;

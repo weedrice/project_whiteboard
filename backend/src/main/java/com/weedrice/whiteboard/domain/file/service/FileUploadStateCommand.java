@@ -10,12 +10,16 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
+
 @Component
 @RequiredArgsConstructor
 class FileUploadStateCommand {
 
     private final FileRepository fileRepository;
     private final TransactionTemplate transactionTemplate;
+    private final Clock clock;
 
     File createPendingUploadRecord(
             String storedFileName,
@@ -50,7 +54,8 @@ class FileUploadStateCommand {
     }
 
     void requestPendingUploadDeletion(Long fileId) {
+        LocalDateTime deleteRequestedAt = LocalDateTime.now(clock);
         transactionTemplate.executeWithoutResult(status -> fileRepository.findByIdForUpdate(fileId)
-                .ifPresent(File::markDeletionPending));
+                .ifPresent(file -> file.markDeletionPending(deleteRequestedAt)));
     }
 }

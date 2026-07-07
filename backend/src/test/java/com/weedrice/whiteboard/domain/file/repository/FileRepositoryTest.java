@@ -234,7 +234,7 @@ class FileRepositoryTest {
         File sameCreatedAtNext = persistTemporaryFile("cursor-second.jpg");
         File later = persistTemporaryFile("cursor-later.jpg");
         File pendingDelete = persistTemporaryFile("cursor-pending.jpg");
-        pendingDelete.markDeletionPending();
+        pendingDelete.markDeletionPending(LocalDateTime.of(2026, 5, 6, 10, 2));
         setCreatedAt(first, firstCreatedAt);
         setCreatedAt(sameCreatedAtNext, firstCreatedAt);
         setCreatedAt(later, nextCreatedAt);
