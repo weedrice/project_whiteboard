@@ -1,6 +1,14 @@
 import { searchApi } from '@/api/search'
-import type { BoardSearchItem, IntegratedSearchResponse, IntegratedSearchResultGroup, PostSummary, SearchParams } from '@/types'
-import { computed, type Ref } from 'vue'
+import type {
+    BoardSearchItem,
+    IntegratedSearchResponse,
+    IntegratedSearchResultGroup,
+    PostSummary,
+    RecentSearchResponse,
+    SearchParams,
+    SemanticSearchResult
+} from '@/types'
+import { computed, type ComputedRef, type Ref } from 'vue'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import { searchQueryKeys } from '@/composables/searchQueryKeys'
 import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
@@ -52,6 +60,18 @@ export function useSearch() {
         })
     }
 
+    const useSemanticSearch = (params: Ref<SearchParams>) => {
+        return useApiPageQuery<SemanticSearchResult>({
+            queryKey: searchQueryKeys.semantic(params),
+            request: (context) => callWithOptionalQuerySignal(
+                context,
+                () => searchApi.semanticSearch(params.value),
+                (config) => searchApi.semanticSearch(params.value, config),
+            ),
+            enabled: computed(() => hasSearchText(params.value.q)),
+        })
+    }
+
     const useIntegratedSearch = (params: Ref<SearchParams>) => {
         return useApiQuery<IntegratedSearchResponse, SearchPageViewModel>({
             queryKey: searchQueryKeys.integrated(params),
@@ -78,9 +98,24 @@ export function useSearch() {
         })
     }
 
+    const useRecentSearches = (enabled: Ref<boolean> | ComputedRef<boolean>) => {
+        return useApiQuery<RecentSearchResponse>({
+            queryKey: searchQueryKeys.recent,
+            request: (context) => callWithOptionalQuerySignal(
+                context,
+                () => searchApi.getRecentSearches({ page: 0, size: 8 }),
+                (config) => searchApi.getRecentSearches({ page: 0, size: 8 }, config),
+            ),
+            enabled,
+            staleTime: QUERY_STALE_TIME.SHORT,
+        })
+    }
+
     return {
         useSearchPosts,
         useIntegratedSearch,
-        usePopularKeywords
+        useSemanticSearch,
+        usePopularKeywords,
+        useRecentSearches,
     }
 }

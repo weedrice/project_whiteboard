@@ -5,5 +5,7 @@ export const searchQueryKeys = {
   posts: (params: Ref<SearchParams>) => ['search', 'posts', params] as const,
   integrated: (params: Ref<SearchParams>) => ['search', 'integrated', params] as const,
   integratedAll: ['search', 'integrated'] as const,
+  semantic: (params: Ref<SearchParams>) => ['search', 'semantic', params] as const,
   popular: ['search', 'popular'] as const,
+  recent: ['search', 'recent'] as const,
 }

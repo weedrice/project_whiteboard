@@ -29,6 +29,19 @@ vi.mock('@tanstack/vue-query', () => ({
   }),
 }))
 
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({
+    isAuthenticated: false,
+  }),
+}))
+
+vi.mock('@/api/search', () => ({
+  searchApi: {
+    deleteRecentSearch: vi.fn(),
+    deleteAllRecentSearches: vi.fn(),
+  },
+}))
+
 vi.mock('@/composables/useSearch', () => ({
   useSearch: () => ({
     useIntegratedSearch: (params: ReturnType<typeof computed<Record<string, unknown>>>) => {
@@ -38,6 +51,16 @@ vi.mock('@/composables/useSearch', () => ({
         isLoading: ref(searchState.isLoading),
       }
     },
+    useSemanticSearch: () => ({
+      data: ref({ content: [] }),
+      isLoading: ref(false),
+    }),
+    usePopularKeywords: () => ({
+      data: ref([]),
+    }),
+    useRecentSearches: () => ({
+      data: ref({ content: [] }),
+    }),
   }),
 }))
 

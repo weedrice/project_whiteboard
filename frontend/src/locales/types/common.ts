@@ -188,6 +188,14 @@ export interface SearchMessages {
   noResults: string
   noResultsFor: string
   placeholder: string
+  popularKeywords: string
+  recentKeywords: string
+  semanticResults: string
+  semanticEmpty: string
+  semanticSource: string
+  deleteRecent: string
+  clearRecent: string
+  searchByKeyword: string
 }
 
 export interface HomeMessages {

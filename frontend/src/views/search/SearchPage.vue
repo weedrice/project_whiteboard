@@ -77,13 +77,103 @@
           </div>
         </div>
       </div>
+      <aside class="w-full md:w-72 lg:w-80 space-y-4">
+        <section class="rounded-lg border nv-border nv-surface p-4">
+          <h2 class="text-sm font-semibold nv-title">{{ $t('search.popularKeywords') }}</h2>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button
+              v-for="keyword in popularKeywords"
+              :key="keyword.keyword"
+              type="button"
+              class="rounded-full border nv-border px-3 py-1.5 text-sm nv-text hover:nv-surface-hover"
+              :aria-label="$t('search.searchByKeyword', { keyword: keyword.keyword })"
+              @click="searchKeyword(keyword.keyword)"
+            >
+              {{ keyword.keyword }}
+            </button>
+            <p v-if="popularKeywords.length === 0" class="text-sm nv-text-subtle">
+              {{ $t('search.noResults') }}
+            </p>
+          </div>
+        </section>
+
+        <section class="rounded-lg border nv-border nv-surface p-4">
+          <div class="flex items-center justify-between gap-2">
+            <h2 class="text-sm font-semibold nv-title">{{ $t('search.recentKeywords') }}</h2>
+            <button
+              v-if="recentKeywords.length > 0"
+              type="button"
+              class="text-xs font-medium nv-accent-text hover:underline"
+              @click="clearRecentKeywords"
+            >
+              {{ $t('search.clearRecent') }}
+            </button>
+          </div>
+          <div class="mt-3 space-y-2">
+            <div
+              v-for="keyword in recentKeywords"
+              :key="keyword.logId"
+              class="flex items-center gap-2 rounded-md border nv-border px-3 py-2"
+            >
+              <button
+                type="button"
+                class="min-w-0 flex-1 truncate text-left text-sm nv-text hover:nv-accent-text"
+                :aria-label="$t('search.searchByKeyword', { keyword: keyword.keyword })"
+                @click="searchKeyword(keyword.keyword)"
+              >
+                {{ keyword.keyword }}
+              </button>
+              <button
+                type="button"
+                class="shrink-0 text-xs nv-text-subtle hover:nv-form-error"
+                :aria-label="$t('search.deleteRecent')"
+                @click="deleteRecentKeyword(keyword.logId)"
+              >
+                ×
+              </button>
+            </div>
+            <p v-if="recentKeywords.length === 0" class="text-sm nv-text-subtle">
+              {{ $t('search.noResults') }}
+            </p>
+          </div>
+        </section>
+
+        <section v-if="hasSearchQuery" class="rounded-lg border nv-border nv-surface p-4">
+          <h2 class="text-sm font-semibold nv-title">{{ $t('search.semanticResults') }}</h2>
+          <div class="mt-3 space-y-3">
+            <RouterLink
+              v-for="result in semanticResults"
+              :key="`${result.contentType}-${result.contentId}`"
+              :to="{ name: 'post-detail', params: { boardUrl: result.boardUrl, postId: result.postId } }"
+              class="block rounded-md border nv-border p-3 hover:nv-surface-hover"
+            >
+              <div class="flex items-center justify-between gap-2">
+                <span class="truncate text-sm font-medium nv-title">{{ result.title }}</span>
+                <span v-if="result.similarity != null" class="shrink-0 text-xs nv-text-subtle">
+                  {{ $t('search.semanticSource', { score: formatSimilarity(result.similarity) }) }}
+                </span>
+              </div>
+              <p class="mt-1 line-clamp-2 text-xs nv-text-subtle">{{ result.excerpt }}</p>
+              <p class="mt-2 text-xs nv-accent-text">{{ result.boardName }}</p>
+            </RouterLink>
+            <p v-if="!isSemanticLoading && semanticResults.length === 0" class="text-sm nv-text-subtle">
+              {{ $t('search.semanticEmpty') }}
+            </p>
+          </div>
+        </section>
+      </aside>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useQueryClient } from '@tanstack/vue-query'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { searchApi } from '@/api/search'
 import { useSearch } from '@/composables/useSearch'
+import { searchQueryKeys } from '@/composables/searchQueryKeys'
 import { useSearchRouteQuery } from '@/composables/useSearchRouteQuery'
 import BoardCard from '@/components/board/BoardCard.vue'
 import PostList from '@/components/board/PostList.vue'
@@ -94,7 +184,10 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import { Search, Layout } from 'lucide-vue-next'
 import { isInquiryPostItem, resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigation'
 
-const { useIntegratedSearch } = useSearch()
+const authStore = useAuthStore()
+const router = useRouter()
+const queryClient = useQueryClient()
+const { useIntegratedSearch, useSemanticSearch, usePopularKeywords, useRecentSearches } = useSearch()
 const {
   searchInput,
   searchQuery,
@@ -104,6 +197,37 @@ const {
 } = useSearchRouteQuery()
 
 const { data: searchData, isLoading } = useIntegratedSearch(params)
+const semanticParams = computed(() => ({ ...params.value, size: 5, contentType: 'ALL' }))
+const { data: semanticData, isLoading: isSemanticLoading } = useSemanticSearch(semanticParams)
+const { data: popularKeywordData } = usePopularKeywords()
+const { data: recentKeywordData } = useRecentSearches(computed(() => authStore.isAuthenticated))
 const posts = computed(() => searchData.value?.postResults || [])
 const boards = computed(() => searchData.value?.boardResults || [])
+const semanticResults = computed(() => semanticData.value?.content || [])
+const popularKeywords = computed(() => popularKeywordData.value || [])
+const recentKeywords = computed(() => recentKeywordData.value?.content || [])
+
+function searchKeyword(keyword: string) {
+  const normalizedKeyword = keyword.trim()
+  if (!normalizedKeyword) return
+
+  router.push({
+    name: 'search',
+    query: { q: normalizedKeyword },
+  })
+}
+
+async function deleteRecentKeyword(logId: number) {
+  await searchApi.deleteRecentSearch(logId)
+  await queryClient.invalidateQueries({ queryKey: searchQueryKeys.recent })
+}
+
+async function clearRecentKeywords() {
+  await searchApi.deleteAllRecentSearches()
+  await queryClient.invalidateQueries({ queryKey: searchQueryKeys.recent })
+}
+
+function formatSimilarity(value: number) {
+  return Math.round(value * 100)
+}
 </script>
