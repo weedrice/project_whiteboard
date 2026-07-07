@@ -70,17 +70,44 @@
     <BaseModal :isOpen="!!selectedMessage" :title="$t('user.message.title')" @close="selectedMessage = null"
         mobile-full mobile-fit-content size="lg">
         <div v-if="selectedMessage" class="p-4 sm:p-6 space-y-4">
-            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 border-b nv-border pb-3">
-                <div class="min-w-0">
-                    <span class="block text-xs nv-text-subtle">{{ viewType === 'received' ?
-                        $t('user.message.from') : $t('user.message.to') }}</span>
-                    <span class="text-sm font-medium nv-title truncate block">{{
-                        selectedMessage.partnerName }}</span>
-                </div>
-                <span class="text-xs nv-text-subtle flex-shrink-0">{{ formatDate(selectedMessage.createdAt) }}</span>
-            </div>
-            <div class="text-sm nv-text whitespace-pre-wrap min-h-[120px] overflow-y-auto max-h-[50vh] sm:max-h-none">
-                {{ selectedMessage.body }}
+            <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]">
+                <section class="min-w-0">
+                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 border-b nv-border pb-3">
+                        <div class="min-w-0">
+                            <span class="block text-xs nv-text-subtle">{{ viewType === 'received' ?
+                                $t('user.message.from') : $t('user.message.to') }}</span>
+                            <span class="text-sm font-medium nv-title truncate block">{{
+                                selectedMessage.partnerName }}</span>
+                        </div>
+                        <span class="text-xs nv-text-subtle flex-shrink-0">{{ formatDate(selectedMessage.createdAt) }}</span>
+                    </div>
+                    <div class="text-sm nv-text whitespace-pre-wrap min-h-[120px] overflow-y-auto max-h-[50vh] sm:max-h-none pt-4">
+                        {{ selectedMessage.body }}
+                    </div>
+                </section>
+
+                <section class="rounded-lg border nv-border nv-surface-muted p-3">
+                    <h3 class="text-sm font-semibold nv-title">{{ $t('user.message.conversationContext') }}</h3>
+                    <div class="mt-3 max-h-[18rem] space-y-2 overflow-y-auto pr-1">
+                        <article
+                            v-for="message in conversationMessages"
+                            :key="message.id"
+                            class="rounded-lg border p-3 text-sm"
+                            :class="message.isCurrent ? 'border-[var(--nv-accent)] nv-surface' : 'nv-border nv-surface'"
+                        >
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="truncate text-xs font-medium nv-title">
+                                    {{ message.isCurrent ? $t('user.message.currentMessage') : message.partnerName }}
+                                </span>
+                                <span class="shrink-0 text-[11px] nv-text-subtle">{{ formatDate(message.createdAt) }}</span>
+                            </div>
+                            <p class="mt-1 line-clamp-3 whitespace-pre-wrap nv-text-subtle">{{ message.body }}</p>
+                        </article>
+                        <p v-if="conversationMessages.length <= 1" class="text-sm nv-text-subtle">
+                            {{ $t('user.message.contextEmpty') }}
+                        </p>
+                    </div>
+                </section>
             </div>
 
             <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:space-x-2 pt-4 border-t nv-border">
@@ -134,6 +161,7 @@ import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
 import { Mail } from 'lucide-vue-next'
 import { useMailboxResource } from '@/features/user/messages/useMailboxResource'
 import type { MailboxViewType } from '@/features/user/messages/useMailboxListState'
+import type { MailboxMessageViewModel } from '@/types'
 import { formatDate } from '@/utils/date'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -168,4 +196,25 @@ const {
     closeReplyModal,
     sendReply,
 } = useMailboxResource()
+
+type ConversationMessage = MailboxMessageViewModel & { isCurrent: boolean }
+
+const conversationMessages = computed<ConversationMessage[]>(() => {
+    if (!selectedMessage.value) return []
+
+    const selected = selectedMessage.value
+    const byId = new Map<number, MailboxMessageViewModel>()
+    byId.set(selected.id, selected)
+
+    messages.value
+        .filter((message) => message.partnerUserId === selected.partnerUserId)
+        .forEach((message) => byId.set(message.id, message))
+
+    return Array.from(byId.values())
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+        .map((message) => ({
+            ...message,
+            isCurrent: message.id === selected.id,
+        }))
+})
 </script>

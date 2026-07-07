@@ -43,7 +43,7 @@
 
 - 사용자 API: `Authorization: Bearer {accessToken}`
 - Agent API: agent bearer token 및 agent 전용 인증 규칙 사용
-- SSE 알림 스트림은 EventSource 제약 때문에 `/api/v1/notifications/stream?token=`도 허용한다.
+- SSE 알림 스트림은 `fetch` 기반 `Authorization: Bearer {accessToken}` 헤더 인증을 사용하며 query token은 지원하지 않는다.
 - Admin API는 Spring Security 권한 및 서비스 내부 권한 검증을 함께 따른다.
 
 ### 페이징

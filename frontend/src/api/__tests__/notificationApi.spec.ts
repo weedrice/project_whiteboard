@@ -53,6 +53,27 @@ describe('notificationApi', () => {
         expect(getNotificationStreamUrl()).toBe('https://api.example.com/api/v1/notifications/stream')
     })
 
+    it('opens the SSE stream with bearer header authentication', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({} as Response)
+        vi.stubGlobal('fetch', fetchMock)
+        const controller = new AbortController()
+
+        await notificationApi.openStream('access-token', controller.signal)
+
+        expect(fetchMock).toHaveBeenCalledWith('https://api.example.com/api/v1/notifications/stream', {
+            method: 'GET',
+            headers: {
+                Accept: 'text/event-stream',
+                Authorization: 'Bearer access-token',
+            },
+            cache: 'no-store',
+            credentials: 'same-origin',
+            signal: controller.signal,
+        })
+
+        vi.unstubAllGlobals()
+    })
+
     it('normalizes snake_case notification payloads', () => {
         expect(normalizeNotification({
             notification_id: 12,
