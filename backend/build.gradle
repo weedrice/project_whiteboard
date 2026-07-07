@@ -77,6 +77,16 @@ tasks.named('test') {
 	finalizedBy tasks.named('jacocoTestReport')
 }
 
+tasks.register('postgresSmokeTest', Test) {
+	group = 'verification'
+	description = 'Runs the opt-in PostgreSQL/Flyway application context smoke test.'
+	useJUnitPlatform()
+	environment 'POSTGRES_SMOKE_TEST', 'true'
+	filter {
+		includeTestsMatching 'com.weedrice.whiteboard.PostgresApplicationContextSmokeTest'
+	}
+}
+
 tasks.named('jacocoTestReport') {
 	dependsOn tasks.named('test')
 	reports {

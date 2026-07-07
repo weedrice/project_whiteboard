@@ -1,6 +1,7 @@
 # Docker Compose Local Setup
 
-This compose file runs the local PostgreSQL database with pgvector, Spring Boot backend, and built Vue frontend.
+This compose file runs the Spring Boot backend and built Vue frontend. The backend connects to a PostgreSQL database
+outside the Compose stack, defaulting to `host.docker.internal:5432`.
 
 ## Required Secret
 
@@ -19,11 +20,12 @@ Default URLs:
 ```text
 Frontend: http://localhost:5173
 Backend:  http://localhost:8080
-Database: localhost:5432
+Database: host.docker.internal:5432
 ```
 
-The backend container connects to PostgreSQL through the Compose network at `postgres:5432`.
-The PostgreSQL service uses the pgvector image by default because the semantic search migration creates the `vector` extension.
+The PostgreSQL database must already exist and must provide the extensions required by migrations, including `pg_trgm`
+and `vector`. Override `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD` when
+your local database is not reachable through the defaults.
 
 ## Defaults And Overrides
 
@@ -31,7 +33,7 @@ Set shell variables or create an untracked `.env` file before running compose:
 
 ```text
 POSTGRES_DB=noviis
-POSTGRES_IMAGE=pgvector/pgvector:0.8.2-pg16-trixie
+POSTGRES_HOST=host.docker.internal
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=password
 POSTGRES_PORT=5432
@@ -52,9 +54,8 @@ For local development, AWS and mail-related variables default to local placehold
 docker compose ps
 docker compose logs -f backend
 docker compose logs -f frontend
-docker compose logs -f postgres
 docker compose down
-docker compose down -v
 ```
 
-Use `docker compose down -v` only when you intentionally want to delete the local database volume.
+`docker compose down -v` removes Compose-managed volumes only. It does not delete the external PostgreSQL database used
+by this stack.

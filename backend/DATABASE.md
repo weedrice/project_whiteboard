@@ -6,7 +6,7 @@
 | --- | --- |
 | 기준일 | 2026-05-29 |
 | 기준 소스 | `backend/src/main/resources/db/migration` |
-| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V24__agent_active_name_unique_index.sql` |
+| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V26__rename_node_common_code_labels_to_space.sql` |
 | 현재 테이블 수 | 62개 |
 | DB | PostgreSQL |
 
@@ -175,6 +175,8 @@
 | `V22` | agent notes |
 | `V23` | semantic search embeddings/jobs |
 | `V24` | active Agent name unique index |
+| `V25` | rename board common code labels to node |
+| `V26` | rename node common code labels to space |
 
 ## 운영 주의
 

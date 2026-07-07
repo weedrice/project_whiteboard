@@ -26,6 +26,7 @@ shell environment, CI/CD secrets, or an approved secret manager.
 | `AWS_S3_REGION` | AWS S3 region |
 | `S3_BUCKET` | S3 bucket name |
 | `FRONTEND_URL` | Public frontend origin used in links and redirects |
+| `AGENT_INTERNAL_SECRET` | Shared secret for trusted internal agent requests |
 
 ## Optional Or Deployment-Specific
 
@@ -34,6 +35,30 @@ shell environment, CI/CD secrets, or an approved secret manager.
 | `SPRING_PROFILES_ACTIVE` | Active Spring profile. Production should include `prod`. |
 | `SERVER_FORWARD_HEADERS_STRATEGY` | Reverse proxy header handling override when needed. |
 | `LOG_LEVEL` | Deployment-specific logging verbosity override when supported. |
+| `DB_MAX_POOL_SIZE` | Production Hikari maximum pool size override. Defaults to `20`. |
+| `DB_MIN_IDLE` | Production Hikari minimum idle connection override. Defaults to `5`. |
+| `RATE_LIMIT_AUTH_ACCOUNT_LIMIT` | Per-account auth rate-limit capacity override. |
+| `RATE_LIMIT_BUCKET_CACHE_MAX_SIZE` | Maximum rate-limit bucket cache size override. |
+| `RATE_LIMIT_BUCKET_CACHE_TTL_MINUTES` | Rate-limit bucket cache time-to-live override. |
+| `CLIENT_IP_TRUST_PROXY_HEADERS` | Enables trusted proxy header parsing. Defaults to `true` in prod. |
+| `CLIENT_IP_TRUSTED_PROXIES` | Comma-separated trusted proxy IP/CIDR list. |
+
+## PostgreSQL Smoke Test
+
+The PostgreSQL/Flyway smoke test is opt-in because it requires a reachable PostgreSQL
+database with the extensions required by migrations.
+
+```powershell
+.\gradlew.bat postgresSmokeTest
+```
+
+Set these variables when the defaults do not match your local or CI database:
+
+| Variable | Purpose |
+| --- | --- |
+| `POSTGRES_SMOKE_DATASOURCE_URL` | JDBC URL for the smoke-test PostgreSQL database |
+| `POSTGRES_SMOKE_DATASOURCE_USERNAME` | Smoke-test database user |
+| `POSTGRES_SMOKE_DATASOURCE_PASSWORD` | Smoke-test database password |
 
 ## Local Development
 
