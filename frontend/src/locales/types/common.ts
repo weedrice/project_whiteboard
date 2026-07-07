@@ -105,6 +105,10 @@ export interface CommonMessages {
     offline: string
     online: string
   }
+  pwa: {
+    updateReady: string
+    offlineReady: string
+  }
   title: string
   content: string
   write: string

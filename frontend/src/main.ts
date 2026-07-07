@@ -58,7 +58,7 @@ app.config.errorHandler = (err, instance, info) => {
 }
 
 app.mount('#app')
-registerPwaUpdatePrompt(pinia)
+registerPwaUpdatePrompt(pinia, i18n.global.t)
 
 if (import.meta.env.PROD) {
     import('@/utils/performance').then(({ reportWebVitals, logMetric }) => {

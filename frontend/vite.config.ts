@@ -30,7 +30,14 @@ export default defineConfig(({ mode }) => {
             vue(),
             VitePWA({
                 registerType: 'prompt',
-                includeAssets: ['favicon.ico', 'favicon_dark.ico', 'offline.html'],
+                includeAssets: [
+                    'favicon.ico',
+                    'favicon_dark.ico',
+                    'offline.html',
+                    'pwa-192x192.png',
+                    'pwa-512x512.png',
+                    'pwa-maskable-512x512.png',
+                ],
                 manifest: {
                     name: 'NoviIs',
                     short_name: 'NoviIs',
@@ -46,11 +53,32 @@ export default defineConfig(({ mode }) => {
                             sizes: '48x48',
                             type: 'image/x-icon',
                         },
+                        {
+                            src: '/pwa-192x192.png',
+                            sizes: '192x192',
+                            type: 'image/png',
+                        },
+                        {
+                            src: '/pwa-512x512.png',
+                            sizes: '512x512',
+                            type: 'image/png',
+                        },
+                        {
+                            src: '/pwa-maskable-512x512.png',
+                            sizes: '512x512',
+                            type: 'image/png',
+                            purpose: 'maskable',
+                        },
                     ],
                 },
                 workbox: {
-                    navigateFallback: '/offline.html',
-                    navigateFallbackDenylist: [/^\/api\//, /^\/oauth2\//],
+                    navigateFallback: '/index.html',
+                    navigateFallbackDenylist: [
+                        /^\/api\//,
+                        /^\/oauth2\//,
+                        /^\/robots\.txt$/,
+                        /^\/sitemap.*\.xml$/,
+                    ],
                     runtimeCaching: [
                         {
                             urlPattern: ({ url }) => url.pathname.startsWith('/api/'),

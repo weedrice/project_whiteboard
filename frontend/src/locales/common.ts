@@ -103,6 +103,10 @@ export const common: CommonMessages = {
     offline: '오프라인 상태입니다. 인터넷 연결을 확인해주세요.',
     online: '인터넷 연결이 복구되었습니다.',
   },
+  pwa: {
+    updateReady: '새 버전이 준비되었습니다. 새로고침하면 적용됩니다.',
+    offlineReady: '오프라인에서도 열 수 있는 기본 화면이 준비되었습니다.',
+  },
   title: '제목',
   content: '내용',
   write: '글쓰기',
@@ -199,6 +203,10 @@ export const commonEn: CommonMessages = {
   viewAll: 'View all',
   seo: {
     description: 'Noviis - Discover popular posts across spaces, join discussions, and subscribe to the spaces you care about.',
+  },
+  pwa: {
+    updateReady: 'A new version is ready. Refresh to apply it.',
+    offlineReady: 'Core pages are ready for offline use.',
   },
   paginationSummary: {
     total: 'Total {count}{unit}',
