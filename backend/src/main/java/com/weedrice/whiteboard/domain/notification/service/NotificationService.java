@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.notification.service;
 
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
+import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -50,13 +51,16 @@ public class NotificationService {
     }
 
     public long getUnreadNotificationCount(Long userId) {
-        validateUserExists(userId);
+        validateActiveUser(userId);
         return queryService.getUnreadNotificationCount(userId);
     }
 
     private void validateUserExists(Long userId) {
-        if (!userRepository.existsById(userId)) {
-            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
-        }
+        validateActiveUser(userId);
+    }
+
+    private void validateActiveUser(Long userId) {
+        userRepository.findByUserIdAndStatusAndDeletedAtIsNull(userId, User.STATUS_ACTIVE)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 }

@@ -262,12 +262,12 @@ class NotificationServiceTest {
     void readNotification_success() {
         Long userId = 1L;
         Long notificationId = 1L;
-        when(userRepository.existsById(userId)).thenReturn(true);
+        mockActiveUser(userId);
         when(notificationRepository.markReadByNotificationIdAndUserId(notificationId, userId)).thenReturn(1);
 
         notificationService.readNotification(userId, notificationId);
 
-        verify(userRepository).existsById(userId);
+        verifyActiveUserValidated(userId);
         verify(notificationRepository).markReadByNotificationIdAndUserId(notificationId, userId);
     }
 
@@ -276,7 +276,7 @@ class NotificationServiceTest {
     void readNotification_successWhenAlreadyReadByOwner() {
         Long userId = 1L;
         Long notificationId = 1L;
-        when(userRepository.existsById(userId)).thenReturn(true);
+        mockActiveUser(userId);
         when(notificationRepository.markReadByNotificationIdAndUserId(notificationId, userId)).thenReturn(1);
 
         assertThatCode(() -> notificationService.readNotification(userId, notificationId))
@@ -288,7 +288,7 @@ class NotificationServiceTest {
     void readNotification_notFoundForNonOwner() {
         Long userId = 1L;
         Long notificationId = 1L;
-        when(userRepository.existsById(userId)).thenReturn(true);
+        mockActiveUser(userId);
         when(notificationRepository.markReadByNotificationIdAndUserId(notificationId, userId)).thenReturn(0);
 
         assertThatThrownBy(() -> notificationService.readNotification(userId, notificationId))
@@ -301,7 +301,7 @@ class NotificationServiceTest {
     void readNotification_notFoundWhenMissing() {
         Long userId = 1L;
         Long notificationId = 999L;
-        when(userRepository.existsById(userId)).thenReturn(true);
+        mockActiveUser(userId);
         when(notificationRepository.markReadByNotificationIdAndUserId(notificationId, userId)).thenReturn(0);
 
         assertThatThrownBy(() -> notificationService.readNotification(userId, notificationId))
@@ -314,7 +314,7 @@ class NotificationServiceTest {
     void readNotification_missingUser_throwsUserNotFound() {
         Long userId = 999L;
         Long notificationId = 1L;
-        when(userRepository.existsById(userId)).thenReturn(false);
+        mockInactiveOrMissingUser(userId);
 
         assertThatThrownBy(() -> notificationService.readNotification(userId, notificationId))
                 .isInstanceOfSatisfying(BusinessException.class,
@@ -329,35 +329,49 @@ class NotificationServiceTest {
         Long userId = 1L;
         Pageable pageable = PageRequest.of(0, 10);
         Page<Notification> notificationPage = new PageImpl<>(Collections.singletonList(notification), pageable, 1);
-        when(userRepository.existsById(userId)).thenReturn(true);
+        mockActiveUser(userId);
         when(notificationRepository.findByUser_UserIdOrderByCreatedAtDesc(anyLong(), any(Pageable.class))).thenReturn(notificationPage);
 
         NotificationResponse response = notificationService.getNotifications(userId, pageable);
 
         assertThat(response).isNotNull();
-        verify(userRepository).existsById(userId);
+        verifyActiveUserValidated(userId);
     }
 
     @Test
     @DisplayName("SSE subscribe validates user existence")
     void validateStreamSubscription_validatesUserExists() {
         Long userId = 1L;
-        when(userRepository.existsById(userId)).thenReturn(true);
+        mockActiveUser(userId);
 
         notificationService.validateStreamSubscription(userId);
 
-        verify(userRepository).existsById(userId);
+        verifyActiveUserValidated(userId);
     }
 
     @Test
     @DisplayName("SSE subscribe rejects missing user")
     void validateStreamSubscription_missingUser_throwsUserNotFound() {
         Long userId = 999L;
-        when(userRepository.existsById(userId)).thenReturn(false);
+        mockInactiveOrMissingUser(userId);
 
         assertThatThrownBy(() -> notificationService.validateStreamSubscription(userId))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("Notification list lookup rejects inactive or deleted user")
+    void getNotifications_inactiveOrDeletedUser_throwsUserNotFound() {
+        Long userId = 1L;
+        mockInactiveOrMissingUser(userId);
+
+        assertThatThrownBy(() -> notificationService.getNotifications(userId, PageRequest.of(0, 10)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_FOUND);
+
+        verify(notificationRepository, never())
+                .findByUser_UserIdOrderByCreatedAtDesc(anyLong(), any(Pageable.class));
     }
 
     @Test
@@ -366,7 +380,7 @@ class NotificationServiceTest {
         Long userId = 1L;
         Pageable requestedPageable = PageRequest.of(0, 1000, Sort.by("unknown"));
         Page<Notification> notificationPage = new PageImpl<>(Collections.singletonList(notification), requestedPageable, 1);
-        when(userRepository.existsById(userId)).thenReturn(true);
+        mockActiveUser(userId);
         when(notificationRepository.findByUser_UserIdOrderByCreatedAtDesc(anyLong(), any(Pageable.class))).thenReturn(notificationPage);
 
         notificationService.getNotifications(userId, requestedPageable);
@@ -384,7 +398,7 @@ class NotificationServiceTest {
     @DisplayName("Unread notification count lookup succeeds")
     void getUnreadNotificationCount_success() {
         Long userId = 1L;
-        when(userRepository.existsById(userId)).thenReturn(true);
+        mockActiveUser(userId);
         when(notificationRepository.countByUser_UserIdAndIsRead(userId, false)).thenReturn(5L);
 
         long count = notificationService.getUnreadNotificationCount(userId);
@@ -396,7 +410,7 @@ class NotificationServiceTest {
     @DisplayName("Unread notification count rejects missing user")
     void getUnreadNotificationCount_missingUser_throwsUserNotFound() {
         Long userId = 999L;
-        when(userRepository.existsById(userId)).thenReturn(false);
+        mockInactiveOrMissingUser(userId);
 
         assertThatThrownBy(() -> notificationService.getUnreadNotificationCount(userId))
                 .isInstanceOf(BusinessException.class)
@@ -407,7 +421,7 @@ class NotificationServiceTest {
     @DisplayName("Read all validates user existence before bulk update")
     void readAllNotifications_validatesUserExists() {
         Long userId = 1L;
-        when(userRepository.existsById(userId)).thenReturn(true);
+        mockActiveUser(userId);
 
         notificationService.readAllNotifications(userId);
 
@@ -418,12 +432,26 @@ class NotificationServiceTest {
     @DisplayName("Read all rejects missing user before bulk update")
     void readAllNotifications_missingUser_throwsUserNotFound() {
         Long userId = 999L;
-        when(userRepository.existsById(userId)).thenReturn(false);
+        mockInactiveOrMissingUser(userId);
 
         assertThatThrownBy(() -> notificationService.readAllNotifications(userId))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_FOUND);
         verify(notificationRepository, never()).readAllByUserId(userId);
+    }
+
+    private void mockActiveUser(Long userId) {
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(userId, User.STATUS_ACTIVE))
+                .thenReturn(Optional.of(user));
+    }
+
+    private void mockInactiveOrMissingUser(Long userId) {
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(userId, User.STATUS_ACTIVE))
+                .thenReturn(Optional.empty());
+    }
+
+    private void verifyActiveUserValidated(Long userId) {
+        verify(userRepository).findByUserIdAndStatusAndDeletedAtIsNull(userId, User.STATUS_ACTIVE);
     }
 
     private NotificationService createNotificationService(NotificationPreferenceService preferenceService,
@@ -456,3 +484,4 @@ class NotificationServiceTest {
         }
     }
 }
+
