@@ -12,6 +12,15 @@ export const comment: CommentMessages = {
   loadRepliesFailed: '답글을 불러오지 못했습니다.',
   loadFailed: '댓글을 불러오지 못했습니다.',
   loadMore: '댓글 더 보기 ({remaining}개 남음)',
+  sort: {
+    label: '댓글 정렬',
+    oldest: '등록순',
+    newest: '최신순',
+    likes: '공감순',
+  },
+  best: {
+    title: '베스트 댓글',
+  },
   empty: '아직 댓글이 없습니다. 첫 번째 댓글을 남겨보세요!',
   loginRequired: '후 댓글을 작성할 수 있습니다.',
   deleteFailed: '댓글 삭제에 실패했습니다.',

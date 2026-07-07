@@ -70,6 +70,7 @@
 <script setup lang="ts">
 import { ref, computed, getCurrentInstance, nextTick, toRef } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import { useEventListener } from '@/composables/useEventListener'
 import { useKeyboardNavigation } from '@/composables/useKeyboardNavigation'
 import { useFocusTrap } from '@/composables/useFocusTrap'
@@ -84,6 +85,7 @@ import { formatUserDisplayName } from '@/utils/userDisplay'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
+const router = useRouter()
 
 const props = withDefaults(defineProps<{
   userId: number
@@ -117,6 +119,7 @@ const {
   userId: toRef(props, 'userId'),
   displayName: toRef(props, 'displayName'),
   closeDropdown,
+  openProfile: () => router.push(`/user/${props.userId}`),
   t
 })
 

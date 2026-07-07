@@ -274,6 +274,30 @@ export function useUser() {
         })
     }
 
+    const usePublicProfilePosts = (userId: Ref<string | number>, params: Ref<PaginationParams>) => {
+        return useApiQuery({
+            queryKey: userQueryKeys.publicPosts(userId, params),
+            request: (context) => callWithOptionalQuerySignal(
+                context,
+                () => userApi.getPublicUserPosts(userId.value, params.value),
+                (config) => userApi.getPublicUserPosts(userId.value, params.value, config),
+            ),
+            enabled: computed(() => !!userId.value),
+        })
+    }
+
+    const usePublicProfileComments = (userId: Ref<string | number>, params: Ref<PaginationParams>) => {
+        return useApiQuery({
+            queryKey: userQueryKeys.publicComments(userId, params),
+            request: (context) => callWithOptionalQuerySignal(
+                context,
+                () => userApi.getPublicUserComments(userId.value, params.value),
+                (config) => userApi.getPublicUserComments(userId.value, params.value, config),
+            ),
+            enabled: computed(() => !!userId.value),
+        })
+    }
+
     return {
         useMyProfile,
         useUserProfile,
@@ -286,6 +310,8 @@ export function useUser() {
         useMyDrafts,
         useMyPointHistories,
         useRecentlyViewedPosts,
+        usePublicProfilePosts,
+        usePublicProfileComments,
         useUpdateMyProfile,
         useUpdatePassword,
         useDeleteAccount,

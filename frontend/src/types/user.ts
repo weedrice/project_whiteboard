@@ -26,6 +26,12 @@ export interface PublicUserProfile {
     commentCount: number
 }
 
+export interface MentionCandidate {
+    userId: number
+    displayName: string
+    profileImageUrl?: string | null
+}
+
 export interface UserSummary {
     userId: number
     agentId?: number | null

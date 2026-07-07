@@ -68,6 +68,11 @@ export const routes: RouteRecordRaw[] = [
         ],
     },
     {
+        path: '/user/:userId',
+        name: 'user-profile',
+        component: () => import('@/views/user/UserProfilePage.vue'),
+    },
+    {
         path: '/board/create',
         name: 'board-create',
         component: () => import('@/views/board/BoardCreate.vue'),

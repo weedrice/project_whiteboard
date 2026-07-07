@@ -10,6 +10,7 @@ interface UseUserMenuActionsOptions {
     userId: Ref<number>
     displayName: Ref<string>
     closeDropdown: () => void
+    openProfile?: () => void
     t: (key: string, named?: Record<string, unknown>) => string
 }
 
@@ -17,6 +18,7 @@ export function useUserMenuActions({
     userId,
     displayName,
     closeDropdown,
+    openProfile,
     t,
 }: UseUserMenuActionsOptions) {
     const authStore = useAuthStore()
@@ -25,7 +27,12 @@ export function useUserMenuActions({
     const isMessageModalOpen = ref(false)
     const isReportModalOpen = ref(false)
     const isSelf = computed(() => !!(authStore.user && authStore.user.userId === userId.value))
-    const isMenuDisabled = computed(() => !authStore.user || isSelf.value)
+    const isMenuDisabled = computed(() => !userId.value)
+
+    const handleOpenProfile = () => {
+        closeDropdown()
+        openProfile?.()
+    }
 
     const openMessageModal = () => {
         closeDropdown()
@@ -66,12 +73,15 @@ export function useUserMenuActions({
     }
 
     const menuItems = computed(() => {
-        if (isSelf.value) return []
+        const profileItem = { action: handleOpenProfile, label: t('user.menu.viewProfile') }
+
+        if (!authStore.user || isSelf.value) return [profileItem]
 
         return [
             { action: openMessageModal, label: t('user.menu.sendMessage') },
             { action: openReportModal, label: t('user.menu.report') },
             { action: handleBlockUser, label: t('user.menu.block') },
+            profileItem,
         ]
     })
 

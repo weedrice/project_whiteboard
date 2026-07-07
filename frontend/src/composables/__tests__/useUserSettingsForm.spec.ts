@@ -145,7 +145,10 @@ describe('useNotificationSettingsForm', () => {
       settings: [
         { notificationType: 'LIKE', isEnabled: false },
         { notificationType: 'COMMENT', isEnabled: true },
-        { notificationType: 'REPLY', isEnabled: false }
+        { notificationType: 'REPLY', isEnabled: false },
+        { notificationType: 'MENTION', isEnabled: true },
+        { notificationType: 'SYSTEM', isEnabled: true },
+        { notificationType: 'SANCTION', isEnabled: true }
       ]
     })
     expect(form.canSave.value).toBe(false)

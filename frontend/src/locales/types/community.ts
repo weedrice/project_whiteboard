@@ -402,6 +402,15 @@ export interface CommentMessages {
   loadRepliesFailed: string
   loadFailed: string
   loadMore: string
+  sort: {
+    label: string
+    oldest: string
+    newest: string
+    likes: string
+  }
+  best: {
+    title: string
+  }
   empty: string
   loginRequired: string
   deleteFailed: string
@@ -469,6 +478,16 @@ export interface UserMessages {
     agentClaimSuccess: string
     agentClaimFailed: string
     agentEmailVerificationRequired: string
+  }
+  publicProfile: {
+    tabs: string
+    overview: string
+    posts: string
+    comments: string
+    postCount: string
+    commentCount: string
+    overviewDescription: string
+    emptyComments: string
   }
   pointsHistory: {
     description: string
@@ -538,6 +557,10 @@ export interface UserMessages {
     commentDesc: string
     reply: string
     replyDesc: string
+    notificationTypes: Record<string, {
+      label: string
+      description: string
+    }>
     email: string
     emailDesc: string
     push: string
@@ -553,6 +576,7 @@ export interface UserMessages {
     deleteAccountWarning: string
   }
   menu: {
+    viewProfile: string
     sendMessage: string
     report: string
     block: string

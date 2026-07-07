@@ -74,6 +74,7 @@ const makeNotification = (overrides: Partial<Notification>): Notification => ({
     actorDisplayName: 'User',
     actorInitial: 'U',
     ...overrides,
+    notificationType: overrides.notificationType ?? 'COMMENT',
 })
 
 describe('useNotificationNavigation', () => {

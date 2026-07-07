@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import CommentList from '../CommentList.vue'
 
-const { authState, commentsValue, commentsState, deleteComment } = vi.hoisted(() => ({
+const { authState, commentsValue, commentsState, deleteComment, fetchNextPage } = vi.hoisted(() => ({
   authState: {
     isAuthenticated: true,
   },
@@ -15,11 +15,13 @@ const { authState, commentsValue, commentsState, deleteComment } = vi.hoisted(()
   },
   commentsState: {
     error: null as Error | null,
+    hasNextPage: false,
   },
   deleteComment: vi.fn(),
+  fetchNextPage: vi.fn(),
 }))
 
-let capturedCommentParams: Ref<{ page: number; size: number }> | null = null
+let capturedCommentParams: Ref<{ page: number; size: number; sort: string }> | null = null
 
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
@@ -52,14 +54,20 @@ vi.mock('@/composables/useConfirm', () => ({
 
 vi.mock('@/composables/useComment', () => ({
   useComment: () => ({
-    useComments: (_postId: Ref<string | number>, params: Ref<{ page: number; size: number }>) => {
+    useInfiniteComments: (_postId: Ref<string | number>, params: Ref<{ page: number; size: number; sort: string }>) => {
       capturedCommentParams = params
       return {
-        data: ref(commentsValue),
+        data: ref({ pages: [commentsValue], pageParams: [0] }),
         isLoading: ref(false),
+        isFetchingNextPage: ref(false),
+        hasNextPage: ref(commentsState.hasNextPage),
+        fetchNextPage,
         error: ref(commentsState.error),
       }
     },
+    useBestComments: () => ({
+      data: ref([]),
+    }),
     useDeleteComment: () => ({
       mutate: deleteComment,
     }),
@@ -92,6 +100,11 @@ const mountCommentList = () => mount(CommentList, {
         emits: ['click'],
         template: '<button type="button" @click="$emit(\'click\')"><slot /></button>',
       },
+      BaseSegmentedControl: {
+        props: ['modelValue', 'options', 'label'],
+        emits: ['update:modelValue'],
+        template: '<div data-testid="sort-control"><button v-for="option in options" :key="option.value" type="button" @click="$emit(\'update:modelValue\', option.value)">{{ option.label }}</button></div>',
+      },
     },
   },
 })
@@ -100,6 +113,8 @@ describe('CommentList', () => {
   beforeEach(() => {
     authState.isAuthenticated = true
     commentsState.error = null
+    commentsState.hasNextPage = false
+    fetchNextPage.mockClear()
     commentsValue.content = [
       { commentId: 1, content: '첫 댓글' },
     ]
@@ -134,12 +149,13 @@ describe('CommentList', () => {
     expect(wrapper.text()).toContain('댓글을 불러오지 못했습니다.')
   })
 
-  it('shows a load-more action when more comments exist and increases page size', async () => {
+  it('shows a load-more action when more comments exist and fetches the next page', async () => {
     commentsValue.content = Array.from({ length: 50 }, (_, index) => ({
       commentId: index + 1,
       content: `comment ${index + 1}`,
     }))
     commentsValue.totalElements = 75
+    commentsState.hasNextPage = true
 
     const wrapper = mountCommentList()
 
@@ -147,7 +163,8 @@ describe('CommentList', () => {
 
     await wrapper.findAll('button').at(-1)?.trigger('click')
 
-    expect(capturedCommentParams?.value).toEqual({ page: 0, size: 100 })
+    expect(capturedCommentParams?.value).toEqual({ page: 0, size: 50, sort: 'createdAt,asc' })
+    expect(fetchNextPage).toHaveBeenCalledTimes(1)
   })
 
   it('deletes comments with the current post id for scoped cache invalidation', async () => {

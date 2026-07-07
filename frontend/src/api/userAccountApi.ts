@@ -1,6 +1,6 @@
 import api from '@/api'
 import type { AxiosRequestConfig } from 'axios'
-import type { ApiResponse, PublicUserProfile, User, UserSettings } from '@/types'
+import type { ApiResponse, MentionCandidate, PublicUserProfile, User, UserSettings } from '@/types'
 import { encodePathSegment } from '@/utils/urlPath'
 
 export interface UserUpdatePayload {
@@ -8,7 +8,7 @@ export interface UserUpdatePayload {
     profileImageId?: number | null
 }
 
-export type NotificationSettingType = 'LIKE' | 'COMMENT' | 'REPLY'
+export type NotificationSettingType = 'LIKE' | 'COMMENT' | 'REPLY' | 'MENTION' | 'SYSTEM' | 'SANCTION'
 
 export interface NotificationSettingsPayload {
     notificationType: NotificationSettingType
@@ -29,6 +29,12 @@ export const userAccountApi = {
         return config
             ? api.get<ApiResponse<PublicUserProfile>>(`/users/${encodePathSegment(userId)}`, config)
             : api.get<ApiResponse<PublicUserProfile>>(`/users/${encodePathSegment(userId)}`)
+    },
+    getMentionCandidates(keyword: string, config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<MentionCandidate[]>>('/users/mention-candidates', {
+            ...config,
+            params: { keyword },
+        })
     },
     updateMyProfile(data: UserUpdatePayload) {
         return api.put<ApiResponse<User>>('/users/me', data)

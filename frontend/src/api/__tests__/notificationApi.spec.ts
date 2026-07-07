@@ -77,6 +77,7 @@ describe('notificationApi', () => {
     it('normalizes snake_case notification payloads', () => {
         expect(normalizeNotification({
             notification_id: 12,
+            notification_type: 'MENTION',
             source_type: 'COMMENT',
             source_id: 34,
             is_read: 'Y',
@@ -91,6 +92,7 @@ describe('notificationApi', () => {
             target_url: '/board/free/post/34#comment-34',
         })).toEqual({
             notificationId: 12,
+            notificationType: 'MENTION',
             sourceType: 'COMMENT',
             sourceId: 34,
             isRead: true,

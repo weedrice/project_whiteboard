@@ -49,6 +49,7 @@ const BaseButtonStub = defineComponent({
 
 const makeNotification = (isRead: boolean): Notification => ({
   notificationId: isRead ? 1 : 2,
+  notificationType: 'COMMENT',
   sourceType: 'POST',
   sourceId: 10,
   message: isRead ? 'read notification' : 'unread notification',

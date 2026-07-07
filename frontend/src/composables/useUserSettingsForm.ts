@@ -3,7 +3,7 @@ import type { NotificationSettingType, NotificationSettingsBulkPayload, Notifica
 import logger from '@/utils/logger'
 import type { UserSettings } from '@/types'
 
-export const NOTIFICATION_TYPES: NotificationSettingType[] = ['LIKE', 'COMMENT', 'REPLY']
+export const NOTIFICATION_TYPES: NotificationSettingType[] = ['LIKE', 'COMMENT', 'REPLY', 'MENTION', 'SYSTEM', 'SANCTION']
 
 interface UserSettingsForm {
   theme: 'LIGHT' | 'DARK'
@@ -110,7 +110,10 @@ export function useNotificationSettingsForm(options: UseNotificationSettingsForm
   const settings = reactive<Record<NotificationSettingType, boolean>>({
     LIKE: true,
     COMMENT: true,
-    REPLY: true
+    REPLY: true,
+    MENTION: true,
+    SYSTEM: true,
+    SANCTION: true
   })
   const message = ref('')
   const isError = ref(false)

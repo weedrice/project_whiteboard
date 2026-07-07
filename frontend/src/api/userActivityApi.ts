@@ -54,6 +54,12 @@ export const userActivityApi = {
     getMyComments(params: PaginationParams, config?: AxiosRequestConfig) {
         return api.get<ApiResponse<PageResponse<MyComment>>>('/users/me/comments', { ...config, params })
     },
+    getPublicUserPosts(userId: string | number, params: PaginationParams, config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<PageResponse<PostSummary>>>(`/users/${encodePathSegment(userId)}/posts`, { ...config, params })
+    },
+    getPublicUserComments(userId: string | number, params: PaginationParams, config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<PageResponse<MyComment>>>(`/users/${encodePathSegment(userId)}/comments`, { ...config, params })
+    },
     getMyScraps(params: PaginationParams, config?: AxiosRequestConfig) {
         return api.get<ApiResponse<ScrapListResponse>>('/users/me/scraps', { ...config, params })
             .then((response) => mapApiPageResponse(response, toScrapPostSummaryPage))

@@ -210,9 +210,12 @@ describe('UserSettings', () => {
     await nextTick()
 
     expect(wrapper.text()).toContain('user.settings.notifications')
-    expect(wrapper.text()).toContain('user.settings.like')
-    expect(wrapper.text()).toContain('user.settings.comment')
-    expect(wrapper.text()).toContain('user.settings.reply')
+    expect(wrapper.text()).toContain('user.settings.notificationTypes.LIKE.label')
+    expect(wrapper.text()).toContain('user.settings.notificationTypes.COMMENT.label')
+    expect(wrapper.text()).toContain('user.settings.notificationTypes.REPLY.label')
+    expect(wrapper.text()).toContain('user.settings.notificationTypes.MENTION.label')
+    expect(wrapper.text()).toContain('user.settings.notificationTypes.SYSTEM.label')
+    expect(wrapper.text()).toContain('user.settings.notificationTypes.SANCTION.label')
 
     expect((wrapper.get('select').element as HTMLSelectElement).value).toBe('LIGHT')
     expect((wrapper.findAll('select')[1].element as HTMLSelectElement).value).toBe('ko')
@@ -294,6 +297,9 @@ describe('UserSettings', () => {
         { notificationType: 'LIKE', isEnabled: true },
         { notificationType: 'COMMENT', isEnabled: false },
         { notificationType: 'REPLY', isEnabled: false },
+        { notificationType: 'MENTION', isEnabled: true },
+        { notificationType: 'SYSTEM', isEnabled: true },
+        { notificationType: 'SANCTION', isEnabled: true },
       ],
     })
     expect(wrapper.text()).toContain('user.settings.saved')

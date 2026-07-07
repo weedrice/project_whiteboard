@@ -7,6 +7,7 @@ const authState = {
   user: { userId: 1 } as { userId: number } | null
 }
 const invalidateQueriesMock = vi.fn()
+const routerPushMock = vi.hoisted(() => vi.fn())
 
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
@@ -20,6 +21,13 @@ vi.mock('vue-i18n', async (importOriginal) => {
 
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => authState
+}))
+
+vi.mock('vue-router', async (importOriginal) => ({
+  ...await importOriginal<typeof import('vue-router')>(),
+  useRouter: () => ({
+    push: routerPushMock
+  })
 }))
 
 vi.mock('@tanstack/vue-query', async (importOriginal) => {
@@ -106,7 +114,7 @@ describe('UserMenu', () => {
     expect(button.attributes('disabled')).toBeUndefined()
   })
 
-  it('shows the deleted-user fallback label and disables the menu for guests', () => {
+  it('shows the deleted-user fallback label and keeps profile access for guests', () => {
     authState.user = null
 
     const wrapper = mount(UserMenu, {
@@ -127,10 +135,10 @@ describe('UserMenu', () => {
     const button = wrapper.get('button')
 
     expect(button.text()).toBe('탈퇴한 사용자')
-    expect(button.attributes('disabled')).toBeDefined()
+    expect(button.attributes('disabled')).toBeUndefined()
   })
 
-  it('disables the menu for the current user', () => {
+  it('keeps profile access for the current user', () => {
     authState.user = { userId: 7 }
 
     const wrapper = mount(UserMenu, {
@@ -147,6 +155,6 @@ describe('UserMenu', () => {
       }
     })
 
-    expect(wrapper.get('button').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('button').attributes('disabled')).toBeUndefined()
   })
 })

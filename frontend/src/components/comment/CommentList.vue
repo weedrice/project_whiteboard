@@ -8,6 +8,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import logger from '@/utils/logger'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
 import CommentForm from './CommentForm.vue'
 import CommentItem from './CommentItem.vue'
 
@@ -20,16 +21,31 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const authStore = useAuthStore()
-const { useComments, useDeleteComment } = useComment()
+const { useBestComments, useInfiniteComments, useDeleteComment } = useComment()
 
 const COMMENT_PAGE_INCREMENT = 50
-const params = ref({ page: 0, size: COMMENT_PAGE_INCREMENT })
+const sort = ref('createdAt,asc')
+const params = computed(() => ({ page: 0, size: COMMENT_PAGE_INCREMENT, sort: sort.value }))
 const postId = computed(() => props.postId)
-const { data: commentsData, isLoading, error: commentsError } = useComments(postId, params)
-const comments = computed<Comment[]>(() => commentsData.value?.content || [])
-const totalCommentCount = computed(() => commentsData.value?.totalElements ?? comments.value.length)
-const hasMoreComments = computed(() => comments.value.length < totalCommentCount.value)
+const {
+  data: commentsData,
+  isLoading,
+  isFetchingNextPage,
+  hasNextPage,
+  fetchNextPage,
+  error: commentsError,
+} = useInfiniteComments(postId, params)
+const { data: bestCommentsData } = useBestComments(postId)
+const comments = computed<Comment[]>(() => commentsData.value?.pages.flatMap((page) => page.content) || [])
+const bestComments = computed<Comment[]>(() => bestCommentsData.value || [])
+const totalCommentCount = computed(() => commentsData.value?.pages[0]?.totalElements ?? comments.value.length)
+const hasMoreComments = computed(() => Boolean(hasNextPage.value))
 const commentLoadFailedMessage = computed(() => t('comment.loadFailed'))
+const sortOptions = computed(() => [
+  { value: 'createdAt,asc', label: t('comment.sort.oldest') },
+  { value: 'createdAt,desc', label: t('comment.sort.newest') },
+  { value: 'likeCount,desc', label: t('comment.sort.likes') },
+])
 const loadMoreCommentsLabel = computed(() => t('comment.loadMore', {
   remaining: Math.max(totalCommentCount.value - comments.value.length, 0)
 }))
@@ -50,10 +66,7 @@ async function handleDelete(comment: Comment) {
 }
 
 function loadMoreComments() {
-  params.value = {
-    ...params.value,
-    size: params.value.size + COMMENT_PAGE_INCREMENT,
-  }
+  void fetchNextPage()
 }
 </script>
 
@@ -100,6 +113,27 @@ function loadMoreComments() {
     </div>
 
     <div v-else class="space-y-4 sm:space-y-6">
+      <div class="flex justify-end">
+        <BaseSegmentedControl
+          v-model="sort"
+          :options="sortOptions"
+          :label="$t('comment.sort.label')"
+          variant="joined"
+        />
+      </div>
+
+      <section v-if="bestComments.length > 0" class="space-y-3 rounded-md border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4">
+        <h4 class="text-sm font-semibold nv-title">{{ $t('comment.best.title') }}</h4>
+        <CommentItem
+          v-for="comment in bestComments"
+          :key="`best-${comment.commentId}`"
+          :comment="comment"
+          :postId="postId"
+          :boardUrl="boardUrl"
+          @delete="handleDelete"
+        />
+      </section>
+
       <CommentItem
         v-for="comment in comments"
         :key="comment.commentId"
@@ -122,7 +156,7 @@ function loadMoreComments() {
           type="button"
           variant="secondary"
           size="sm"
-          :loading="isLoading"
+          :loading="isFetchingNextPage"
           @click="loadMoreComments"
         >
           {{ loadMoreCommentsLabel }}

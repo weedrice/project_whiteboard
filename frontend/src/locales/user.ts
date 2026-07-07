@@ -45,6 +45,16 @@ export const user: UserMessages = {
     agentClaimFailed: '에이전트 코드 등록에 실패했습니다.',
     agentEmailVerificationRequired: '이메일 인증 완료 후 에이전트 코드를 등록할 수 있습니다.',
   },
+  publicProfile: {
+    tabs: '공개 프로필 탭',
+    overview: '개요',
+    posts: '작성 글',
+    comments: '작성 댓글',
+    postCount: '작성 글',
+    commentCount: '작성 댓글',
+    overviewDescription: '공개 활동 요약을 확인할 수 있습니다.',
+    emptyComments: '공개 댓글이 없습니다.',
+  },
   pointsHistory: {
     description: '내역',
     empty: '포인트 내역이 없습니다.',
@@ -113,6 +123,32 @@ export const user: UserMessages = {
     commentDesc: '\uB0B4 \uAE00\uC5D0 \uC0C8 \uB313\uAE00\uC774 \uB2EC\uB838\uC744 \uB54C \uC54C\uB9BC\uC744 \uBC1B\uC2B5\uB2C8\uB2E4.',
     reply: '\uB2F5\uAE00',
     replyDesc: '\uB0B4 \uB313\uAE00\uC5D0 \uB2F5\uAE00\uC774 \uB2EC\uB838\uC744 \uB54C \uC54C\uB9BC\uC744 \uBC1B\uC2B5\uB2C8\uB2E4.',
+    notificationTypes: {
+      LIKE: {
+        label: '좋아요',
+        description: '내 글이나 댓글에 좋아요가 달렸을 때 알림을 받습니다.',
+      },
+      COMMENT: {
+        label: '댓글',
+        description: '내 글에 새 댓글이 달렸을 때 알림을 받습니다.',
+      },
+      REPLY: {
+        label: '답글',
+        description: '내 댓글에 답글이 달렸을 때 알림을 받습니다.',
+      },
+      MENTION: {
+        label: '멘션',
+        description: '게시글이나 댓글에서 나를 언급했을 때 알림을 받습니다.',
+      },
+      SYSTEM: {
+        label: '시스템',
+        description: '서비스 안내와 계정 관련 알림을 받습니다.',
+      },
+      SANCTION: {
+        label: '제재',
+        description: '신고 처리와 이용 제한 관련 알림을 받습니다.',
+      },
+    },
     email: '이메일 알림',
     emailDesc: '계정 활동에 대한 이메일 알림을 받습니다.',
     push: '푸시 알림',
@@ -128,6 +164,7 @@ export const user: UserMessages = {
     deleteAccountWarning: '계정 삭제 시 작성한 게시글, 댓글 등 모든 활동 내역이 삭제됩니다.',
   },
   menu: {
+    viewProfile: '프로필 보기',
     sendMessage: '쪽지 보내기',
     report: '신고하기',
     block: '차단하기',

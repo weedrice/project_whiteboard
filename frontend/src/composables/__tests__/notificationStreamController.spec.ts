@@ -62,6 +62,7 @@ describe('notificationStreamController dependencies', () => {
         } as unknown as QueryClient
         const notification: Notification = {
             notificationId: 12,
+            notificationType: 'COMMENT',
             sourceType: 'POST',
             sourceId: 3,
             isRead: true,

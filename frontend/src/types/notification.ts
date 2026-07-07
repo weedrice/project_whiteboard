@@ -9,6 +9,7 @@ export interface NotificationActor {
 
 export interface Notification {
     notificationId: number;
+    notificationType: 'LIKE' | 'COMMENT' | 'REPLY' | 'MENTION' | 'SYSTEM' | 'SANCTION';
     message: string;
     sourceType: 'POST' | 'COMMENT' | 'SYSTEM';
     sourceId: number;

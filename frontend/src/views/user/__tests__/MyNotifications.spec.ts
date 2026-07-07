@@ -77,6 +77,7 @@ const ErrorStateStub = defineComponent({
 
 const makeNotification = (isRead: boolean, sourceType: Notification['sourceType'] = 'POST'): Notification => ({
   notificationId: isRead ? 1 : 2,
+  notificationType: 'COMMENT',
   sourceType,
   sourceId: 10,
   message: isRead ? 'read notification' : 'unread notification',

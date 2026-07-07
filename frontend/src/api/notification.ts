@@ -29,6 +29,8 @@ export interface NotificationRaw {
     notificationId?: number;
     notification_id?: number;
     message?: string;
+    notificationType?: Notification['notificationType'];
+    notification_type?: Notification['notificationType'];
     sourceType?: 'POST' | 'COMMENT' | 'SYSTEM';
     source_type?: 'POST' | 'COMMENT' | 'SYSTEM';
     sourceId?: number;
@@ -72,6 +74,7 @@ export function normalizeNotification(raw: NotificationRaw): Notification {
 
     return {
         notificationId: raw.notificationId || raw.notification_id || 0,
+        notificationType: raw.notificationType || raw.notification_type || 'SYSTEM',
         sourceType: raw.sourceType || raw.source_type || 'SYSTEM',
         sourceId: raw.sourceId || raw.source_id || 0,
         isRead: raw.isRead === true || raw.is_read === true || raw.is_read === 'Y',

@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useThemeStore } from '@/stores/theme'
 import { useUser } from '@/composables/useUser'
 import {
+  NOTIFICATION_TYPES,
   useNotificationSettingsForm,
   useUserSettingsForm
 } from '@/composables/useUserSettingsForm'
@@ -30,6 +31,11 @@ const { mutateAsync: updateNotificationSettings, isPending: isUpdatingNotificati
 const loading = computed(() => isSettingsLoading.value || isNotifLoading.value)
 const savingGeneral = computed(() => isUpdatingSettings.value)
 const savingNotifications = computed(() => isUpdatingNotifications.value)
+const notificationOptions = computed(() => NOTIFICATION_TYPES.map((type) => ({
+  type,
+  label: t(`user.settings.notificationTypes.${type}.label`),
+  description: t(`user.settings.notificationTypes.${type}.description`),
+})))
 
 const {
   canSave: canSaveGeneral,
@@ -119,22 +125,12 @@ const {
           </h3>
           <div class="mt-4 space-y-4">
             <BaseCheckbox
-              id="notification-like"
-              v-model="notificationSettings.LIKE"
-              :label="$t('user.settings.like')"
-              :description="$t('user.settings.likeDesc')"
-            />
-            <BaseCheckbox
-              id="notification-comment"
-              v-model="notificationSettings.COMMENT"
-              :label="$t('user.settings.comment')"
-              :description="$t('user.settings.commentDesc')"
-            />
-            <BaseCheckbox
-              id="notification-reply"
-              v-model="notificationSettings.REPLY"
-              :label="$t('user.settings.reply')"
-              :description="$t('user.settings.replyDesc')"
+              v-for="option in notificationOptions"
+              :id="`notification-${option.type.toLowerCase()}`"
+              :key="option.type"
+              v-model="notificationSettings[option.type]"
+              :label="option.label"
+              :description="option.description"
             />
           </div>
           <div class="mt-5 flex justify-end">

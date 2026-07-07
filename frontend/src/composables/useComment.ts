@@ -1,6 +1,7 @@
-import { useMutation, useQueryClient } from '@tanstack/vue-query'
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { computed, type Ref } from 'vue'
 import { commentApi, type CommentParams, type CommentPayload } from '@/api/comment'
+import { unwrapAxiosApiData } from '@/api/response'
 import { commentQueryKeys } from '@/composables/commentQueryKeys'
 import { postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
 import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
@@ -54,6 +55,36 @@ export function useComment() {
                 context,
                 () => commentApi.getComments(postId.value, params.value),
                 (config) => commentApi.getComments(postId.value, params.value, config),
+            ),
+            enabled: computed(() => !!postId.value),
+        })
+    }
+
+    const useInfiniteComments = (postId: Ref<string | number>, params: Ref<CommentParams>) => {
+        return useInfiniteQuery({
+            queryKey: computed(() => [
+                ...commentQueryKeys.postRoot(postId),
+                'infinite',
+                { size: params.value.size, sort: params.value.sort },
+            ] as const),
+            initialPageParam: 0,
+            queryFn: async ({ pageParam, signal }) => unwrapAxiosApiData(await commentApi.getComments(
+                postId.value,
+                { ...params.value, page: Number(pageParam) },
+                { signal },
+            )),
+            getNextPageParam: (lastPage) => lastPage.last ? undefined : lastPage.number + 1,
+            enabled: computed(() => !!postId.value),
+        })
+    }
+
+    const useBestComments = (postId: Ref<string | number>) => {
+        return useApiQuery<Comment[]>({
+            queryKey: computed(() => [...commentQueryKeys.postRoot(postId), 'best'] as const),
+            request: (context) => callWithOptionalQuerySignal(
+                context,
+                () => commentApi.getBestComments(postId.value),
+                (config) => commentApi.getBestComments(postId.value, config),
             ),
             enabled: computed(() => !!postId.value),
         })
@@ -113,6 +144,8 @@ export function useComment() {
 
     return {
         useComments,
+        useInfiniteComments,
+        useBestComments,
         useReplies,
         useCreateComment,
         useUpdateComment,

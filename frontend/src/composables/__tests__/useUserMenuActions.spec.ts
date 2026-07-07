@@ -51,18 +51,25 @@ describe('useUserMenuActions', () => {
         confirm.mockResolvedValue(true)
     })
 
-    it('disables menu actions for the current user', () => {
+    it('keeps profile access for the current user without private actions', () => {
         const closeDropdown = vi.fn()
+        const openProfile = vi.fn()
         const actions = useUserMenuActions({
             userId: ref(1),
             displayName: ref('Self'),
             closeDropdown,
+            openProfile,
             t,
         })
 
         expect(actions.isSelf.value).toBe(true)
-        expect(actions.isMenuDisabled.value).toBe(true)
-        expect(actions.menuItems.value).toEqual([])
+        expect(actions.isMenuDisabled.value).toBe(false)
+        expect(actions.menuItems.value).toHaveLength(1)
+        expect(actions.menuItems.value[0].label).toBe('user.menu.viewProfile')
+
+        actions.menuItems.value[0].action()
+        expect(closeDropdown).toHaveBeenCalledTimes(1)
+        expect(openProfile).toHaveBeenCalledTimes(1)
     })
 
     it('opens and closes message and report modals through menu actions', () => {
