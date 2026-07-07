@@ -19,6 +19,8 @@ public class SensitiveDataMaskingFilter extends Filter<ILoggingEvent> {
 
     // 민감 정보 패턴들
     private static final Pattern[] SENSITIVE_PATTERNS = {
+        Pattern.compile("(?i)([\"']?(?:password|pwd|passwd|token|secret|client[._-]?secret|access[._-]?(?:token|key)|refresh[._-]?token|api[._-]?key|secret[._-]?key)[\"']?\\s*[:=]\\s*[\"']?)([^\"'\\s,};&]+)", Pattern.CASE_INSENSITIVE),
+
         // 비밀번호 필드: "password": "value" 또는 password=value
         Pattern.compile("(?i)([\"']?password[\"']?\\s*[:=]\\s*[\"']?)([^\"'\\s,}]+)", Pattern.CASE_INSENSITIVE),
         Pattern.compile("(?i)([\"']?pwd[\"']?\\s*[:=]\\s*[\"']?)([^\"'\\s,}]+)", Pattern.CASE_INSENSITIVE),

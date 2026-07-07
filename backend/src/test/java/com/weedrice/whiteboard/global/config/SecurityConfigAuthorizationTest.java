@@ -27,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
@@ -35,7 +36,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = SecurityConfigAuthorizationTest.TestController.class,
+@WebMvcTest(controllers = {
+        SecurityConfigAuthorizationTest.TestController.class,
+        SecurityConfigAuthorizationTest.ActuatorTestController.class
+},
         excludeFilters = {
                 @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = WebConfig.class)
         })
@@ -174,6 +178,30 @@ class SecurityConfigAuthorizationTest {
     }
 
     @Test
+    @DisplayName("auth, code, health, and CSP report endpoints remain public")
+    void configuredPublicEndpoints_remainPublic() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/login"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/codes/email"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/actuator/health"))
+                .andExpect(result -> assertThat(result.getResponse().getStatus())
+                        .isNotIn(401, 403));
+
+        mockMvc.perform(post("/api/v1/security/csp-report"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("unmatched API endpoints require authentication")
+    void unmatchedApiEndpoint_requiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/private"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     @DisplayName("authenticated self and recent search requests can reach controllers")
     void protectedEndpoints_allowAuthenticatedUsers() throws Exception {
         mockMvc.perform(get("/api/v1/users/me").with(user(userDetails)))
@@ -276,6 +304,30 @@ class SecurityConfigAuthorizationTest {
         @PostMapping("/agents/register")
         String agentRegister() {
             return "agent-register";
+        }
+
+        @PostMapping("/auth/login")
+        String authLogin() {
+            return "auth-login";
+        }
+
+        @PostMapping("/codes/email")
+        String codeEmail() {
+            return "code-email";
+        }
+
+        @PostMapping("/security/csp-report")
+        String cspReport() {
+            return "csp-report";
+        }
+    }
+
+    @RestController
+    static class ActuatorTestController {
+
+        @GetMapping("/actuator/health")
+        String health() {
+            return "health";
         }
     }
 }
