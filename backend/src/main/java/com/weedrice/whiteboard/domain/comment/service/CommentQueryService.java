@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
 import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -16,12 +17,14 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -35,9 +38,12 @@ public class CommentQueryService {
     private static final Sort DEFAULT_MY_COMMENT_SORT = Sort.by(
             Sort.Order.desc("createdAt"),
             Sort.Order.desc("commentId"));
+    private static final int BEST_COMMENT_LIMIT = 3;
+    private static final int BEST_COMMENT_MIN_LIKES = 1;
 
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
+    private final UserBlockRepository userBlockRepository;
     private final UserReadableResolver userReadableResolver;
     private final CommentPostAccessService commentPostAccessService;
     private final CommentReadSupport commentReadSupport;
@@ -52,7 +58,7 @@ public class CommentQueryService {
         commentPostAccessService.validateReadable(post, context);
 
         BlockedUserIdsParameter blockedUserIdsParameter = BlockedUserIdsParameter.from(context.blockedUserIds());
-        Page<Comment> parentComments = commentRepository.findParentsWithChildrenOrNotDeleted(
+        Page<Comment> parentComments = findParentComments(
                 postId,
                 blockedUserIdsParameter.empty(),
                 blockedUserIdsParameter.ids(),
@@ -72,6 +78,54 @@ public class CommentQueryService {
                 .toList();
 
         return new PageImpl<>(responseContent, pageable, parentComments.getTotalElements());
+    }
+
+    public List<CommentResponse> getBestComments(Long postId, Long currentUserId) {
+        Post post = postRepository.findByIdWithRelations(postId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        CommentReadContext context = resolveReadContext(currentUserId);
+        commentPostAccessService.validateReadable(post, context);
+
+        BlockedUserIdsParameter blockedUserIdsParameter = BlockedUserIdsParameter.from(context.blockedUserIds());
+        List<Comment> comments = commentRepository.findBestRootComments(
+                postId,
+                BEST_COMMENT_MIN_LIKES,
+                blockedUserIdsParameter.empty(),
+                blockedUserIdsParameter.ids(),
+                PageRequest.of(0, BEST_COMMENT_LIMIT));
+        Map<Long, Long> replyCounts = commentReadSupport.loadVisibleReplyCounts(
+                comments,
+                context.blockedUserIds());
+        return comments.stream()
+                .map(comment -> toCommentResponse(commentReadModelAssembler.from(
+                        comment,
+                        context.blockedUserIds(),
+                        replyCounts)))
+                .toList();
+    }
+
+    private Page<Comment> findParentComments(Long postId, boolean blockedUserIdsEmpty,
+            Collection<Long> blockedUserIds, Pageable pageable) {
+        Sort rootSort = CommentReadSorts.normalizeRootSort(pageable.getSort());
+        if (CommentReadSorts.isLikeOrder(rootSort)) {
+            return commentRepository.findParentsWithChildrenOrNotDeletedOrderByLikeCount(
+                    postId,
+                    blockedUserIdsEmpty,
+                    blockedUserIds,
+                    pageable);
+        }
+        if (CommentReadSorts.isNewest(rootSort)) {
+            return commentRepository.findParentsWithChildrenOrNotDeletedOrderByCreatedAtDesc(
+                    postId,
+                    blockedUserIdsEmpty,
+                    blockedUserIds,
+                    pageable);
+        }
+        return commentRepository.findParentsWithChildrenOrNotDeleted(
+                postId,
+                blockedUserIdsEmpty,
+                blockedUserIds,
+                pageable);
     }
 
     public CommentListResponse getReplies(Long parentId, Long currentUserId, Pageable pageable) {
@@ -134,6 +188,22 @@ public class CommentQueryService {
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
                 safePageable)
                 .map(MyCommentResponse::from);
+    }
+
+    public Page<MyCommentResponse> getPublicProfileComments(Long targetUserId, Long viewerUserId, Pageable pageable) {
+        User user = userReadableResolver.resolveActive(targetUserId);
+        Pageable safePageable = PageRequestUtils.of(pageable, DEFAULT_MY_COMMENT_PAGE_SIZE, DEFAULT_MY_COMMENT_SORT);
+        if (isRestrictedByBlock(targetUserId, viewerUserId)) {
+            return Page.empty(safePageable);
+        }
+        return commentRepository.findPublicProfileCommentsByUser(user, safePageable)
+                .map(MyCommentResponse::from);
+    }
+
+    private boolean isRestrictedByBlock(Long targetUserId, Long viewerUserId) {
+        return viewerUserId != null
+                && !viewerUserId.equals(targetUserId)
+                && userBlockRepository.existsEitherDirection(viewerUserId, targetUserId);
     }
 
     private boolean hasVisibleReply(Comment parentComment, Set<Long> blockedUserIds) {

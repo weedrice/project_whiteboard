@@ -8,7 +8,10 @@ import java.util.Locale;
 public enum NotificationType {
     LIKE,
     COMMENT,
-    REPLY;
+    REPLY,
+    MENTION,
+    SYSTEM,
+    SANCTION;
 
     public static NotificationType normalize(String value) {
         if (value == null) {

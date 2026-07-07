@@ -73,6 +73,21 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
     Page<User> findByDisplayNameContainingIgnoreCaseAndStatus(String displayName, String status, Pageable pageable);
     Page<User> findByDisplayNameContainingIgnoreCase(String displayName, Pageable pageable);
 
+    @Query("""
+            SELECT u
+            FROM User u
+            WHERE u.status = 'ACTIVE'
+              AND u.deletedAt IS NULL
+              AND LOWER(u.displayName) LIKE LOWER(CONCAT(:keyword, '%'))
+              AND (:excludedUserIdsEmpty = true OR u.userId NOT IN :excludedUserIds)
+            ORDER BY u.displayName ASC, u.userId ASC
+            """)
+    List<User> findMentionCandidates(
+            @Param("keyword") String keyword,
+            @Param("excludedUserIdsEmpty") boolean excludedUserIdsEmpty,
+            @Param("excludedUserIds") List<Long> excludedUserIds,
+            Pageable pageable);
+
     List<User> findByIsSuperAdminTrue();
     List<User> findByIsSuperAdminTrueAndDeletedAtIsNull();
     List<User> findByIsSuperAdminTrueAndStatusAndDeletedAtIsNull(String status);

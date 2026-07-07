@@ -19,6 +19,7 @@ import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.feed.event.PostPublishedEvent;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
+import com.weedrice.whiteboard.domain.notification.service.MentionService;
 import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
 import com.weedrice.whiteboard.domain.point.service.PointService;
@@ -32,6 +33,7 @@ import com.weedrice.whiteboard.domain.search.service.SearchRecordEventPublisher;
 import com.weedrice.whiteboard.domain.tag.service.TagAssignmentService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
@@ -78,6 +80,8 @@ class PostServiceTest {
     @Mock
     private UserRepository userRepository;
     @Mock
+    private UserBlockRepository userBlockRepository;
+    @Mock
     private BoardRepository boardRepository;
     @Mock
     private PostLikeRepository postLikeRepository;
@@ -121,6 +125,8 @@ class PostServiceTest {
     private SearchRecordEventPublisher searchRecordEventPublisher;
     @Mock
     private SemanticSearchEventPublisher semanticSearchEventPublisher;
+    @Mock
+    private MentionService mentionService;
     private BoardAccessPolicy boardAccessPolicy;
     private PostAccessPolicy postAccessPolicy;
     private PostSummaryAssembler postSummaryAssembler;
@@ -226,6 +232,7 @@ class PostServiceTest {
                 postRepository,
                 boardRepository,
                 userRepository,
+                userBlockRepository,
                 postReadContextResolver,
                 postSummaryAssembler,
                 feedPostSummaryAssembler,
@@ -259,7 +266,8 @@ class PostServiceTest {
                 fileService,
                 semanticSearchEventPublisher,
                 postVersionRecorder,
-                postDraftPublicationService);
+                postDraftPublicationService,
+                mentionService);
         postCommandService = new PostCommandService(
                 postRepository,
                 boardRepository,

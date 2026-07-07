@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.agent.service.AgentRequestContext;
 import com.weedrice.whiteboard.domain.agent.web.AgentRequestContextResolver;
 import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
+import com.weedrice.whiteboard.domain.notification.service.MentionService;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.user.dto.NotificationSettingResponse;
 import com.weedrice.whiteboard.domain.user.dto.UpdateNotificationSettingItem;
@@ -89,6 +90,9 @@ class UserControllerWebMvcTest {
 
     @MockitoBean
     private BoardService boardService;
+
+    @MockitoBean
+    private MentionService mentionService;
 
     @MockitoBean
     private PostService postService;

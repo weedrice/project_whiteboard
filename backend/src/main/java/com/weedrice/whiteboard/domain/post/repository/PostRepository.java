@@ -201,6 +201,19 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 """)
         long countPublicProfilePostsByUser(@Param("user") User user);
 
+        @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
+        @Query("""
+                SELECT p
+                FROM Post p
+                JOIN p.board b
+                WHERE p.user = :user
+                  AND p.isDeleted = false
+                  AND p.isSecret = false
+                  AND b.isActive = true
+                  AND b.isPublic = true
+                """)
+        Page<Post> findPublicProfilePostsByUser(@Param("user") User user, Pageable pageable);
+
         long countByAgent_AgentIdAndCreatedAtBetweenAndIsDeletedFalse(
                 Long agentId,
                 LocalDateTime start,

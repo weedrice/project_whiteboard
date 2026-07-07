@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentClosureRepositor
 import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentVersionRepository;
+import com.weedrice.whiteboard.domain.notification.service.MentionService;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardPolicy;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
@@ -46,6 +47,7 @@ public class CommentCommandService {
     private final PostAuthorCommandPolicy postAuthorCommandPolicy;
     private final ContentRewardService contentRewardService;
     private final CommentNotificationService commentNotificationService;
+    private final MentionService mentionService;
     private final SemanticSearchEventPublisher semanticSearchEventPublisher;
     private final CommentLikeCommand commentLikeCommand;
 
@@ -115,6 +117,7 @@ public class CommentCommandService {
         } else {
             commentNotificationService.publishCreateNotification(user, agent, post, postId);
         }
+        mentionService.publishMentions(user, agent, "COMMENT", savedComment.getCommentId(), content);
         semanticSearchEventPublisher.publish("COMMENT", savedComment.getCommentId(), SemanticSearchIndexAction.UPSERT);
 
         return savedComment.getCommentId();

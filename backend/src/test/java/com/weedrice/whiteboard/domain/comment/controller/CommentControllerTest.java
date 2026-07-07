@@ -167,7 +167,10 @@ class CommentControllerTest {
         assertThat(pageable.getPageNumber()).isEqualTo(2);
         assertThat(pageable.getPageSize()).isEqualTo(100);
         assertThat(pageable.getSort())
-                .isEqualTo(Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("commentId")));
+                .isEqualTo(Sort.by(
+                        Sort.Order.desc("likeCount"),
+                        Sort.Order.asc("createdAt"),
+                        Sort.Order.asc("commentId")));
     }
 
     @Test

@@ -9,6 +9,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class CommentService {
@@ -26,12 +28,20 @@ public class CommentService {
         return commentQueryService.getReplies(parentId, currentUserId, normalizeReadPageable(pageable));
     }
 
+    public List<CommentResponse> getBestComments(Long postId, Long currentUserId) {
+        return commentQueryService.getBestComments(postId, currentUserId);
+    }
+
     public CommentResponse getComment(Long commentId, Long currentUserId) {
         return commentQueryService.getComment(commentId, currentUserId);
     }
 
     public Page<MyCommentResponse> getMyComments(Long userId, Pageable pageable) {
         return commentQueryService.getMyComments(userId, pageable);
+    }
+
+    public Page<MyCommentResponse> getPublicProfileComments(Long targetUserId, Long viewerUserId, Pageable pageable) {
+        return commentQueryService.getPublicProfileComments(targetUserId, viewerUserId, pageable);
     }
 
     public Long createComment(Long userId, Long postId, Long parentId, String content) {
@@ -68,6 +78,10 @@ public class CommentService {
     }
 
     private Pageable normalizeReadPageable(Pageable pageable) {
-        return PageRequestUtils.of(pageable, DEFAULT_COMMENT_PAGE_SIZE, CommentReadSorts.READ_ORDER);
+        return PageRequestUtils.of(
+                pageable,
+                DEFAULT_COMMENT_PAGE_SIZE,
+                CommentReadSorts.READ_ORDER,
+                CommentReadSorts.ALLOWED_ROOT_SORT_PROPERTIES);
     }
 }

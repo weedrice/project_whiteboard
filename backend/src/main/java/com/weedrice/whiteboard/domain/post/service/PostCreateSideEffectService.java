@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.feed.event.PostPublishedEvent;
 import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.notification.service.MentionService;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardPolicy;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
@@ -25,6 +26,7 @@ public class PostCreateSideEffectService {
     private final SemanticSearchEventPublisher semanticSearchEventPublisher;
     private final PostVersionRecorder postVersionRecorder;
     private final PostDraftPublicationService postDraftPublicationService;
+    private final MentionService mentionService;
 
     public void applyAfterCreate(Long userId, User user, Long boardId, Post savedPost, PostCreateRequest request) {
         tagAssignmentService.assignTags(savedPost, request.getTags());
@@ -36,6 +38,7 @@ public class PostCreateSideEffectService {
         postDraftPublicationService.deletePublishedDraftIfOwned(request.getDraftId(), user);
 
         contentRewardService.rewardCreate(userId, savedPost.getPostId(), ContentRewardPolicy.POST);
+        mentionService.publishMentions(user, savedPost.getAgent(), "POST", savedPost.getPostId(), savedPost.getContents());
         eventPublisher.publishEvent(new PostPublishedEvent(savedPost.getPostId(), boardId));
         semanticSearchEventPublisher.publish("POST", savedPost.getPostId(), SemanticSearchIndexAction.UPSERT);
     }

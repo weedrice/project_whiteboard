@@ -24,6 +24,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -219,7 +220,9 @@ class UserSettingsServiceTest {
         assertThat(responses).hasSize(NotificationType.values().length);
         assertThat(responses)
                 .extracting(NotificationSettingResponse::getNotificationType)
-                .containsExactly(NotificationType.LIKE.name(), NotificationType.COMMENT.name(), NotificationType.REPLY.name());
+                .containsExactly(Arrays.stream(NotificationType.values())
+                        .map(NotificationType::name)
+                        .toArray(String[]::new));
         assertThat(responses)
                 .filteredOn(response -> NotificationType.COMMENT.name().equals(response.getNotificationType()))
                 .singleElement()

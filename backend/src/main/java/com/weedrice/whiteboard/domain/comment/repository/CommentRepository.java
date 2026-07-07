@@ -102,6 +102,123 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                         @org.springframework.data.repository.query.Param("blockedUserIds") Collection<Long> blockedUserIds,
                         Pageable pageable);
 
+        @org.springframework.data.jpa.repository.Query(value = """
+                        SELECT DISTINCT c
+                        FROM Comment c
+                        JOIN FETCH c.user
+                        LEFT JOIN FETCH c.agent
+                        JOIN FETCH c.post p
+                        JOIN FETCH p.board
+                        WHERE c.post.postId = :postId
+                          AND c.parent IS NULL
+                          AND (
+                                c.isDeleted = false
+                                OR EXISTS (
+                                        SELECT 1
+                                        FROM CommentClosure cc
+                                        JOIN cc.descendant descendant
+                                        WHERE cc.ancestor = c
+                                          AND cc.depth > 0
+                                          AND descendant.isDeleted = false
+                                          AND (:blockedUserIdsEmpty = true
+                                               OR descendant.user.userId NOT IN (:blockedUserIds))
+                                )
+                          )
+                        ORDER BY c.createdAt DESC, c.commentId DESC
+                        """, countQuery = """
+                        SELECT COUNT(DISTINCT c)
+                        FROM Comment c
+                        WHERE c.post.postId = :postId
+                          AND c.parent IS NULL
+                          AND (
+                                c.isDeleted = false
+                                OR EXISTS (
+                                        SELECT 1
+                                        FROM CommentClosure cc
+                                        JOIN cc.descendant descendant
+                                        WHERE cc.ancestor = c
+                                          AND cc.depth > 0
+                                          AND descendant.isDeleted = false
+                                          AND (:blockedUserIdsEmpty = true
+                                               OR descendant.user.userId NOT IN (:blockedUserIds))
+                                )
+                          )
+                        """)
+        Page<Comment> findParentsWithChildrenOrNotDeletedOrderByCreatedAtDesc(
+                        @org.springframework.data.repository.query.Param("postId") Long postId,
+                        @org.springframework.data.repository.query.Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
+                        @org.springframework.data.repository.query.Param("blockedUserIds") Collection<Long> blockedUserIds,
+                        Pageable pageable);
+
+        @org.springframework.data.jpa.repository.Query(value = """
+                        SELECT DISTINCT c
+                        FROM Comment c
+                        JOIN FETCH c.user
+                        LEFT JOIN FETCH c.agent
+                        JOIN FETCH c.post p
+                        JOIN FETCH p.board
+                        WHERE c.post.postId = :postId
+                          AND c.parent IS NULL
+                          AND (
+                                c.isDeleted = false
+                                OR EXISTS (
+                                        SELECT 1
+                                        FROM CommentClosure cc
+                                        JOIN cc.descendant descendant
+                                        WHERE cc.ancestor = c
+                                          AND cc.depth > 0
+                                          AND descendant.isDeleted = false
+                                          AND (:blockedUserIdsEmpty = true
+                                               OR descendant.user.userId NOT IN (:blockedUserIds))
+                                )
+                          )
+                        ORDER BY c.likeCount DESC, c.createdAt ASC, c.commentId ASC
+                        """, countQuery = """
+                        SELECT COUNT(DISTINCT c)
+                        FROM Comment c
+                        WHERE c.post.postId = :postId
+                          AND c.parent IS NULL
+                          AND (
+                                c.isDeleted = false
+                                OR EXISTS (
+                                        SELECT 1
+                                        FROM CommentClosure cc
+                                        JOIN cc.descendant descendant
+                                        WHERE cc.ancestor = c
+                                          AND cc.depth > 0
+                                          AND descendant.isDeleted = false
+                                          AND (:blockedUserIdsEmpty = true
+                                               OR descendant.user.userId NOT IN (:blockedUserIds))
+                                )
+                          )
+                        """)
+        Page<Comment> findParentsWithChildrenOrNotDeletedOrderByLikeCount(
+                        @org.springframework.data.repository.query.Param("postId") Long postId,
+                        @org.springframework.data.repository.query.Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
+                        @org.springframework.data.repository.query.Param("blockedUserIds") Collection<Long> blockedUserIds,
+                        Pageable pageable);
+
+        @org.springframework.data.jpa.repository.Query("""
+                        SELECT c
+                        FROM Comment c
+                        JOIN FETCH c.user
+                        LEFT JOIN FETCH c.agent
+                        JOIN FETCH c.post p
+                        JOIN FETCH p.board
+                        WHERE c.post.postId = :postId
+                          AND c.parent IS NULL
+                          AND c.isDeleted = false
+                          AND c.likeCount >= :minLikes
+                          AND (:blockedUserIdsEmpty = true OR c.user.userId NOT IN (:blockedUserIds))
+                        ORDER BY c.likeCount DESC, c.createdAt ASC, c.commentId ASC
+                        """)
+        List<Comment> findBestRootComments(
+                        @org.springframework.data.repository.query.Param("postId") Long postId,
+                        @org.springframework.data.repository.query.Param("minLikes") int minLikes,
+                        @org.springframework.data.repository.query.Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
+                        @org.springframework.data.repository.query.Param("blockedUserIds") Collection<Long> blockedUserIds,
+                        Pageable pageable);
+
         Page<Comment> findByPost_PostIdAndParentIsNullAndIsDeletedOrderByCreatedAtAsc(Long postId, Boolean isDeleted,
                         Pageable pageable);
 
@@ -315,6 +432,23 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                           AND b.isPublic = true
                         """)
         long countPublicProfileCommentsByUser(@org.springframework.data.repository.query.Param("user") User user);
+
+        @EntityGraph(attributePaths = {"post", "post.board", "agent", "user"})
+        @Query("""
+                        SELECT c
+                        FROM Comment c
+                        JOIN c.post p
+                        JOIN p.board b
+                        WHERE c.user = :user
+                          AND c.isDeleted = false
+                          AND p.isDeleted = false
+                          AND p.isSecret = false
+                          AND b.isActive = true
+                          AND b.isPublic = true
+                        """)
+        Page<Comment> findPublicProfileCommentsByUser(
+                        @org.springframework.data.repository.query.Param("user") User user,
+                        Pageable pageable);
         boolean existsByPost_PostIdAndAgent_AgentIdAndIsDeletedFalse(Long postId, Long agentId);
         @Query("""
                         SELECT DISTINCT c.post.postId

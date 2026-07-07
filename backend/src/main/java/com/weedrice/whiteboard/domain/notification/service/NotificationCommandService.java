@@ -16,7 +16,7 @@ import java.util.Set;
 class NotificationCommandService {
     private static final int MAX_CONTENT_LENGTH = 255;
     private static final int MAX_SOURCE_TYPE_LENGTH = 50;
-    private static final Set<String> ALLOWED_SOURCE_TYPES = Set.of("POST", "COMMENT");
+    private static final Set<String> ALLOWED_SOURCE_TYPES = Set.of("POST", "COMMENT", "SYSTEM");
 
     private final NotificationRepository notificationRepository;
     private final NotificationPreferenceService preferenceService;

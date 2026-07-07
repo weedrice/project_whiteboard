@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.notification.service.MentionService;
 import com.weedrice.whiteboard.domain.user.dto.*;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.domain.user.service.UserProfileService;
@@ -42,6 +43,7 @@ public class UserController {
         private final UserSecurityService userSecurityService;
         private final UserSettingsService userSettingsService;
         private final UserBlockService userBlockService;
+        private final MentionService mentionService;
         private final BoardService boardService;
         private final PostService postService;
         private final CommentService commentService;
@@ -54,6 +56,13 @@ public class UserController {
                         @PathVariable Long userId,
                         @CurrentUserId(required = false) Long viewerUserId) {
                 return ResponseEntity.ok(ApiResponse.success(userProfileService.getUserProfile(userId, viewerUserId)));
+        }
+
+        @GetMapping("/mention-candidates")
+        public ApiResponse<List<MentionCandidateResponse>> getMentionCandidates(
+                        @RequestParam(defaultValue = "") String keyword,
+                        @CurrentUserId(required = false) Long viewerUserId) {
+                return ApiResponse.success(mentionService.findCandidates(viewerUserId, keyword));
         }
 
         @GetMapping("/me")
@@ -229,6 +238,18 @@ public class UserController {
                 return ApiResponses.page(response);
         }
 
+        @GetMapping("/{userId}/posts")
+        public ApiResponse<PageResponse<PostSummary>> getPublicProfilePosts(
+                        @PathVariable Long userId,
+                        @CurrentUserId(required = false) Long viewerUserId,
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "20") int size,
+                        Sort sort) {
+                Pageable pageable = pageable(page, size, sort);
+                Page<PostSummary> response = postService.getPublicProfilePosts(userId, viewerUserId, pageable);
+                return ApiResponses.page(response);
+        }
+
         @GetMapping("/me/comments")
         public ApiResponse<PageResponse<MyCommentResponse>> getMyComments(
                         @CurrentUserId Long userId,
@@ -237,6 +258,18 @@ public class UserController {
                 Sort sort) {
                 Pageable pageable = pageable(page, size, sort);
                 Page<MyCommentResponse> response = commentService.getMyComments(userId, pageable);
+                return ApiResponses.page(response);
+        }
+
+        @GetMapping("/{userId}/comments")
+        public ApiResponse<PageResponse<MyCommentResponse>> getPublicProfileComments(
+                        @PathVariable Long userId,
+                        @CurrentUserId(required = false) Long viewerUserId,
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "20") int size,
+                        Sort sort) {
+                Pageable pageable = pageable(page, size, sort);
+                Page<MyCommentResponse> response = commentService.getPublicProfileComments(userId, viewerUserId, pageable);
                 return ApiResponses.page(response);
         }
 
@@ -252,6 +285,6 @@ public class UserController {
         }
 
         private Pageable pageable(int page, int size, Sort sort) {
-                return PageRequestUtils.of(page, size);
+                return PageRequestUtils.of(page, size, sort);
         }
 }

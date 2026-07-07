@@ -305,7 +305,7 @@ class UserControllerTest {
 
                 @Test
                 @DisplayName("내 활동 목록은 요청 정렬을 서비스로 전달하지 않는다")
-                void getMyPosts_ignoresRequestedSort() {
+                void getMyPosts_passesRequestedSort() {
                         Page<PostSummary> postPage = new PageImpl<>(List.of(), pageable, 0);
                         given(postService.getMyPosts(eq(USER_ID), any(Pageable.class))).willReturn(postPage);
 
@@ -313,7 +313,7 @@ class UserControllerTest {
 
                         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
                         verify(postService).getMyPosts(eq(USER_ID), pageableCaptor.capture());
-                        assertThat(pageableCaptor.getValue().getSort().isUnsorted()).isTrue();
+                        assertThat(pageableCaptor.getValue().getSort()).isEqualTo(Sort.by("displayName"));
                 }
 
                 @Test

@@ -17,6 +17,7 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentVersionRepository;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
+import com.weedrice.whiteboard.domain.notification.service.MentionService;
 import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
 import com.weedrice.whiteboard.domain.point.service.PointService;
@@ -28,6 +29,7 @@ import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
@@ -85,6 +87,8 @@ class CommentServiceTest {
     @Mock
     private UserRepository userRepository;
     @Mock
+    private UserBlockRepository userBlockRepository;
+    @Mock
     private CommentLikeRepository commentLikeRepository;
     @Mock
     private CommentVersionRepository commentVersionRepository;
@@ -110,6 +114,8 @@ class CommentServiceTest {
     private SanctionService sanctionService;
     @Mock
     private SemanticSearchEventPublisher semanticSearchEventPublisher;
+    @Mock
+    private MentionService mentionService;
 
     @BeforeEach
     void setUp() {
@@ -121,6 +127,7 @@ class CommentServiceTest {
         CommentQueryService commentQueryService = new CommentQueryService(
                 commentRepository,
                 postRepository,
+                userBlockRepository,
                 new UserReadableResolver(userRepository),
                 commentPostAccessService,
                 commentReadSupport,
@@ -150,6 +157,7 @@ class CommentServiceTest {
                 postAuthorCommandPolicy,
                 contentRewardService,
                 commentNotificationService,
+                mentionService,
                 semanticSearchEventPublisher,
                 commentLikeCommand);
         commentService = new CommentService(commentQueryService, commentCommandService);
@@ -1010,17 +1018,17 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(post, "postId", 100L);
 
         Pageable requested = PageRequest.of(2, 1000, Sort.by(Sort.Order.desc("likeCount")));
-        Pageable normalized = commentReadPageable(2, 100);
+        Pageable normalized = commentLikePageable(2, 100);
 
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
-        when(commentRepository.findParentsWithChildrenOrNotDeleted(100L, true, NO_BLOCKED_USER_IDS, normalized))
+        when(commentRepository.findParentsWithChildrenOrNotDeletedOrderByLikeCount(100L, true, NO_BLOCKED_USER_IDS, normalized))
                 .thenReturn(Page.empty(normalized));
 
         commentService.getComments(100L, 1L, requested);
 
-        verify(commentRepository).findParentsWithChildrenOrNotDeleted(100L, true, NO_BLOCKED_USER_IDS, normalized);
+        verify(commentRepository).findParentsWithChildrenOrNotDeletedOrderByLikeCount(100L, true, NO_BLOCKED_USER_IDS, normalized);
     }
 
     @Test
@@ -1990,5 +1998,12 @@ class CommentServiceTest {
 
     private Pageable commentReadPageable(int page, int size) {
         return PageRequest.of(page, size, Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("commentId")));
+    }
+
+    private Pageable commentLikePageable(int page, int size) {
+        return PageRequest.of(page, size, Sort.by(
+                Sort.Order.desc("likeCount"),
+                Sort.Order.asc("createdAt"),
+                Sort.Order.asc("commentId")));
     }
 }

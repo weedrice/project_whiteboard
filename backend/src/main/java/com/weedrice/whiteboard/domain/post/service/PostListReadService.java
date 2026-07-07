@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.search.service.SearchRecordEventPublisher;
 import com.weedrice.whiteboard.domain.search.service.SearchRequestNormalizer;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -63,6 +64,7 @@ public class PostListReadService {
     private final PostRepository postRepository;
     private final BoardRepository boardRepository;
     private final UserRepository userRepository;
+    private final UserBlockRepository userBlockRepository;
     private final PostReadContextResolver postReadContextResolver;
     private final PostSummaryAssembler postSummaryAssembler;
     private final FeedPostSummaryAssembler feedPostSummaryAssembler;
@@ -188,6 +190,21 @@ public class PostListReadService {
         return postSummaryAssembler.assembleBoardPage(posts, safePageable, true, true);
     }
 
+    public Page<PostSummary> getPublicProfilePosts(Long targetUserId, Long viewerUserId, @NonNull Pageable pageable) {
+        User user = userRepository.findByUserIdAndStatusAndDeletedAtIsNull(targetUserId, User.STATUS_ACTIVE)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        Pageable safePageable = PageRequestUtils.of(
+                pageable,
+                DEFAULT_BOARD_POST_PAGE_SIZE,
+                DEFAULT_MY_POST_SORT,
+                MY_POST_SORT_PROPERTIES);
+        if (isRestrictedByBlock(targetUserId, viewerUserId)) {
+            return Page.empty(safePageable);
+        }
+        Page<Post> posts = postRepository.findPublicProfilePostsByUser(user, safePageable);
+        return postSummaryAssembler.assembleBoardPage(posts, safePageable, true, false);
+    }
+
     public Page<AdminInquirySummaryResponse> getInquiryPostsForAdmin(@NonNull Pageable pageable) {
         Pageable safePageable = PageRequestUtils.of(
                 pageable,
@@ -294,6 +311,12 @@ public class PostListReadService {
         }
         Sort stableSort = normalizedPageable.getSort().and(Sort.by(Sort.Order.desc("postId")));
         return PageRequestUtils.of(normalizedPageable.getPageNumber(), normalizedPageable.getPageSize(), stableSort);
+    }
+
+    private boolean isRestrictedByBlock(Long targetUserId, Long viewerUserId) {
+        return viewerUserId != null
+                && !viewerUserId.equals(targetUserId)
+                && userBlockRepository.existsEitherDirection(viewerUserId, targetUserId);
     }
 
     private void publishSearchRecord(Long currentUserId, String keyword) {

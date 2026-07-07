@@ -106,6 +106,10 @@ public class PostService {
         return postListReadService.getMyPosts(userId, pageable);
     }
 
+    public Page<PostSummary> getPublicProfilePosts(Long targetUserId, Long viewerUserId, @NonNull Pageable pageable) {
+        return postListReadService.getPublicProfilePosts(targetUserId, viewerUserId, pageable);
+    }
+
     public Page<AdminInquirySummaryResponse> getInquiryPostsForAdmin(@NonNull Pageable pageable) {
         return postListReadService.getInquiryPostsForAdmin(pageable);
     }

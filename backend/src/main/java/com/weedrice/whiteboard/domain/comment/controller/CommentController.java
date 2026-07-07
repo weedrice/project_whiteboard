@@ -14,8 +14,11 @@ import com.weedrice.whiteboard.global.security.CurrentUserId;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -29,9 +32,22 @@ public class CommentController {
             @PathVariable Long postId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
+            Sort sort,
             @CurrentUserId(required = false) Long userId) {
-        Pageable pageable = PageRequestUtils.of(page, size, CommentReadSorts.READ_ORDER);
+        Pageable pageable = PageRequestUtils.of(
+                page,
+                size,
+                sort,
+                CommentReadSorts.READ_ORDER,
+                CommentReadSorts.ALLOWED_ROOT_SORT_PROPERTIES);
         return ApiResponses.page(commentService.getComments(postId, userId, pageable));
+    }
+
+    @GetMapping("/posts/{postId}/comments/best")
+    public ApiResponse<List<CommentResponse>> getBestComments(
+            @PathVariable Long postId,
+            @CurrentUserId(required = false) Long userId) {
+        return ApiResponse.success(commentService.getBestComments(postId, userId));
     }
 
     @GetMapping("/comments/{commentId}/replies")
