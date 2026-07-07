@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
@@ -13,7 +14,7 @@ public class TokenHashService {
     public String hashSha256(String token) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] encodedHash = digest.digest(token.getBytes());
+            byte[] encodedHash = digest.digest(token.getBytes(StandardCharsets.UTF_8));
             StringBuilder hexString = new StringBuilder(2 * encodedHash.length);
             for (byte value : encodedHash) {
                 String hex = Integer.toHexString(0xff & value);
