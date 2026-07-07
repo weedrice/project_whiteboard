@@ -48,6 +48,7 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
   }
 
   if (isRefreshInProgress()) {
+    originalRequest._retry = true
     return new Promise<string | null>((resolve, reject) => {
       enqueueFailedRequest({ resolve, reject })
     })

@@ -80,6 +80,21 @@ describe('API Interceptors', () => {
         expect(verifyConfig.headers.Authorization).toBe('Bearer token-2')
     })
 
+    it('uses only the request pathname when detecting auth endpoints', async () => {
+        const { requestFulfilled } = await loadApiModule()
+        const { persistAccessToken } = await import('@/utils/authTokenStorage')
+        persistAccessToken('token-3')
+
+        const redirectedPostConfig = createApiRequestConfig({ url: '/posts?redirect=/auth/login' })
+        const absoluteAuthConfig = createApiRequestConfig({ url: 'https://api.noviis.kr/auth/login?next=/posts' })
+
+        requestFulfilled(redirectedPostConfig)
+        requestFulfilled(absoluteAuthConfig)
+
+        expect(redirectedPostConfig.headers.Authorization).toBe('Bearer token-3')
+        expect(absoluteAuthConfig.headers.Authorization).toBeUndefined()
+    })
+
     it('propagates request interceptor rejection', async () => {
         const { requestRejected } = await loadApiModule()
         const requestError = new Error('request failed')

@@ -1,4 +1,6 @@
 import axios, { type AxiosError } from 'axios'
+import { API_PATHS } from '@/api/apiPaths'
+import { getRequestPathname } from '@/api/apiUrl'
 import type { ErrorResponse, ValidationErrors } from '@/types/common'
 import i18n from '@/i18n'
 
@@ -21,7 +23,7 @@ export function shouldSuppressGlobalErrorToast(error: unknown): boolean {
 
     const status = suppressible?.response?.status
     const url = suppressible?.config?.url
-    return status === 401 && typeof url === 'string' && url.includes('/auth/refresh')
+    return status === 401 && getRequestPathname(url) === API_PATHS.REFRESH
 }
 
 /** Axios 기본 메시지(예: "Request failed with status code 500")면 공통 서버 에러 문구로 치환 */

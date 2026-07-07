@@ -197,6 +197,8 @@ describe('API Interceptors', () => {
         expect(r2).toEqual({ data: { ok: true } })
         expect(req1.headers.Authorization).toBe('Bearer queued-access')
         expect(req2.headers.Authorization).toBe('Bearer queued-access')
+        expect(req1._retry).toBe(true)
+        expect(req2._retry).toBe(true)
         expect(mocks.mockApiRequest).toHaveBeenCalledTimes(2)
     })
 

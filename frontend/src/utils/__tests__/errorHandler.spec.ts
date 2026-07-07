@@ -134,6 +134,14 @@ describe('errorHandler', () => {
             config: { url: '/auth/refresh' },
         })).toBe(true)
         expect(shouldSuppressGlobalErrorToast({
+            response: { status: 401 },
+            config: { url: '/posts?redirect=/auth/refresh' },
+        })).toBe(false)
+        expect(shouldSuppressGlobalErrorToast({
+            response: { status: 401 },
+            config: { url: 'https://api.noviis.kr/auth/refresh?redirect=/posts' },
+        })).toBe(true)
+        expect(shouldSuppressGlobalErrorToast({
             response: { status: 500 },
             config: { url: '/posts' },
         })).toBe(false)
