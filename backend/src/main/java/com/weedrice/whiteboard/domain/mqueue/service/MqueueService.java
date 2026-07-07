@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
@@ -28,6 +29,7 @@ public class MqueueService {
     private final MessageQueueRepository messageQueueRepository;
     private final EmailService emailService;
     private final TransactionTemplate transactionTemplate;
+    private final Clock clock;
 
     @Transactional
     public void queueEmail(User user, String content) {
@@ -35,6 +37,7 @@ public class MqueueService {
                 .targetUser(user)
                 .deliveryMethod(MessageQueue.DELIVERY_METHOD_EMAIL)
                 .content(content)
+                .requestedAt(now())
                 .build();
         messageQueueRepository.save(message);
     }
@@ -58,7 +61,7 @@ public class MqueueService {
 
     private void sendEmail(EmailDispatchCommand dispatch, LocalDateTime claimedAt) {
         Long queueId = dispatch.queueId();
-        LocalDateTime renewedAt = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
+        LocalDateTime renewedAt = now();
         int renewed = messageQueueRepository.renewProcessingLeaseIfCurrent(queueId, claimedAt, renewedAt);
         if (renewed != 1) {
             log.warn("Skipped email send because processing lease changed before SMTP call: queueId={}", queueId);
@@ -66,7 +69,7 @@ public class MqueueService {
         }
 
         String sendAttemptId = UUID.randomUUID().toString();
-        LocalDateTime sendAttemptStartedAt = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
+        LocalDateTime sendAttemptStartedAt = now();
         int recorded = messageQueueRepository.recordSendAttemptIfCurrent(
                 queueId,
                 renewedAt,
@@ -142,7 +145,7 @@ public class MqueueService {
         int updated = messageQueueRepository.markDeliveredUnconfirmedIfCurrent(
                 queueId,
                 leaseStartedAt,
-                LocalDateTime.now().truncatedTo(ChronoUnit.MICROS));
+                now());
         if (updated != 1) {
             throw new IllegalStateException("Failed to mark delivery unconfirmed for current lease");
         }
@@ -158,7 +161,7 @@ public class MqueueService {
 
         if (isCurrentLease(current, leaseStartedAt)) {
             if (sentSuccessfully) {
-                current.sent(LocalDateTime.now().truncatedTo(ChronoUnit.MICROS));
+                current.sent(now());
             } else {
                 current.failForRetry(MessageQueuePolicy.MAX_RETRY_COUNT);
             }
@@ -172,6 +175,10 @@ public class MqueueService {
     private boolean isCurrentLease(MessageQueue current, LocalDateTime leaseStartedAt) {
         return MessageQueue.STATUS_PROCESSING.equals(current.getStatus())
                 && Objects.equals(current.getProcessingStartedAt(), leaseStartedAt);
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
     }
 
     private record EmailDispatchCommand(Long queueId, String targetEmail, String content) {

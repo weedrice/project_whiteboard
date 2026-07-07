@@ -375,6 +375,7 @@ class MessageQueueRepositoryTest {
                 .targetUser(user)
                 .deliveryMethod("EMAIL")
                 .content("content")
+                .requestedAt(LocalDateTime.of(2026, 7, 7, 12, 0))
                 .build();
         entityManager.persistAndFlush(message);
         return message;
@@ -400,8 +401,8 @@ class MessageQueueRepositoryTest {
                 .targetUser(user)
                 .deliveryMethod(deliveryMethod)
                 .content(content)
+                .requestedAt(requestedAt)
                 .build();
-        ReflectionTestUtils.setField(message, "requestedAt", requestedAt);
         entityManager.persistAndFlush(message);
         return message;
     }

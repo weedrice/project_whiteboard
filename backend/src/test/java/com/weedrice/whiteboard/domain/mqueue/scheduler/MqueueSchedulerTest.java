@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.mqueue.MessageQueuePolicy;
 import com.weedrice.whiteboard.domain.mqueue.repository.MessageQueueRepository;
 import com.weedrice.whiteboard.domain.mqueue.repository.MessageQueueRepository.EmailDispatchProjection;
 import com.weedrice.whiteboard.domain.mqueue.service.MqueueService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,7 +14,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.data.domain.Pageable;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -23,6 +26,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -30,13 +34,23 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class MqueueSchedulerTest {
 
+    private static final LocalDateTime FIXED_NOW = LocalDateTime.of(2026, 7, 7, 12, 0);
+
     @Mock
     private MessageQueueRepository messageQueueRepository;
     @Mock
     private MqueueService mqueueService;
+    @Mock
+    private Clock clock;
 
     @InjectMocks
     private MqueueScheduler mqueueScheduler;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(clock.instant()).thenReturn(FIXED_NOW.toInstant(ZoneOffset.UTC));
+        lenient().when(clock.getZone()).thenReturn(ZoneOffset.UTC);
+    }
 
     @Test
     @DisplayName("scheduler recovers stale processing messages before claiming pending work")
@@ -126,6 +140,7 @@ class MqueueSchedulerTest {
         verify(messageQueueRepository).claimForProcessing(
                 eq(1L), eq(MessageQueuePolicy.MAX_RETRY_COUNT), claimedAtCaptor.capture());
         LocalDateTime claimedAt = claimedAtCaptor.getValue();
+        assertThat(claimedAt).isEqualTo(FIXED_NOW);
         verify(mqueueService).sendEmail(dispatch, claimedAt);
         verify(mqueueService).recoverRejectedDispatch(1L, claimedAt);
     }

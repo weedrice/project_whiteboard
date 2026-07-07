@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.email.EmailService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,7 +21,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -31,6 +34,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -39,15 +43,25 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class MqueueServiceTest {
 
+    private static final LocalDateTime FIXED_NOW = LocalDateTime.of(2026, 7, 7, 12, 0);
+
     @Mock
     private MessageQueueRepository messageQueueRepository;
     @Mock
     private EmailService emailService;
     @Mock
     private TransactionTemplate transactionTemplate;
+    @Mock
+    private Clock clock;
 
     @InjectMocks
     private MqueueService mqueueService;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(clock.instant()).thenReturn(FIXED_NOW.toInstant(ZoneOffset.UTC));
+        lenient().when(clock.getZone()).thenReturn(ZoneOffset.UTC);
+    }
 
     @Test
     @DisplayName("queueEmail saves message")
@@ -56,7 +70,9 @@ class MqueueServiceTest {
 
         mqueueService.queueEmail(user, "Test Email");
 
-        verify(messageQueueRepository).save(any(MessageQueue.class));
+        verify(messageQueueRepository).save(org.mockito.ArgumentMatchers.argThat(message ->
+                message.getRequestedAt().equals(FIXED_NOW)
+                        && MessageQueue.STATUS_PENDING.equals(message.getStatus())));
     }
 
     @Test
@@ -77,7 +93,7 @@ class MqueueServiceTest {
         verify(messageQueueRepository).save(message);
         assertThat(message.getStatus()).isEqualTo("SENT");
         assertThat(message.getProcessingStartedAt()).isNull();
-        assertThat(message.getSendAttemptConfirmedAt()).isNotNull();
+        assertThat(message.getSendAttemptConfirmedAt()).isEqualTo(FIXED_NOW);
     }
 
     @Test
@@ -340,6 +356,7 @@ class MqueueServiceTest {
                 .targetUser(user)
                 .deliveryMethod("EMAIL")
                 .content("<p>Hello</p>")
+                .requestedAt(FIXED_NOW)
                 .build();
         ReflectionTestUtils.setField(message, "status", "PROCESSING");
         ReflectionTestUtils.setField(message, "processingStartedAt", processingStartedAt);

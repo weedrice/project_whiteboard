@@ -13,6 +13,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
@@ -27,11 +28,12 @@ import java.util.stream.Collectors;
 public class MqueueScheduler {
     private final MessageQueueRepository messageQueueRepository;
     private final MqueueService mqueueService;
+    private final Clock clock;
 
     @Scheduled(cron = "0 * * * * ?")
     public void processMessageQueue() {
         log.info("Message queue scheduler started");
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = now();
         int recovered = messageQueueRepository.recoverStaleProcessingMessages(
                 now.minusMinutes(MessageQueuePolicy.PROCESSING_LEASE_MINUTES),
                 MessageQueuePolicy.MAX_RETRY_COUNT,
@@ -51,7 +53,7 @@ public class MqueueScheduler {
 
         Map<Long, LocalDateTime> claimedQueueIds = new LinkedHashMap<>();
         for (Long queueId : pendingQueueIds) {
-            LocalDateTime claimedAt = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
+            LocalDateTime claimedAt = now();
             int claimed = messageQueueRepository.claimForProcessing(
                     queueId,
                     MessageQueuePolicy.MAX_RETRY_COUNT,
@@ -89,5 +91,9 @@ public class MqueueScheduler {
             log.error("Email dispatch rejected: queueId={}", queueId, ex);
             mqueueService.recoverRejectedDispatch(queueId, claimedAt);
         }
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
     }
 }

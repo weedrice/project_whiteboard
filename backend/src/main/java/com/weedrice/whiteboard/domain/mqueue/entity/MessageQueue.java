@@ -67,11 +67,11 @@ public class MessageQueue extends BaseTimeEntity {
     private LocalDateTime deliveryUncertainAt;
 
     @Builder
-    public MessageQueue(User targetUser, String deliveryMethod, String content) {
+    public MessageQueue(User targetUser, String deliveryMethod, String content, LocalDateTime requestedAt) {
         this.targetUser = targetUser;
         this.deliveryMethod = deliveryMethod;
         this.content = content;
-        this.requestedAt = LocalDateTime.now();
+        this.requestedAt = requestedAt;
         this.status = STATUS_PENDING;
         this.retryCount = 0;
     }
