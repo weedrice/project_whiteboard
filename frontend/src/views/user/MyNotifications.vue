@@ -9,7 +9,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useNotificationListState } from '@/composables/useNotificationListState'
 import { usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import { formatDate } from '@/utils/date'
-import { getNotificationPresentation } from '@/utils/notificationPresentation'
+import { getNotificationPresentation } from '@/features/notifications/notificationPresentation'
 import type { Notification } from '@/types'
 
 const { t } = useI18n()

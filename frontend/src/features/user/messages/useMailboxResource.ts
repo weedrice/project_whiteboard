@@ -9,7 +9,7 @@ import { useMessageSubmit } from '@/features/user/messages/useMessageSubmit'
 import { useToastStore } from '@/stores/toast'
 import type { MailboxMessageViewModel } from '@/types'
 import { extractErrorResponse } from '@/utils/errorHandler'
-import { markMailboxMessageRead, toMailboxMessageViewModel } from '@/utils/messageViewModel'
+import { markMailboxMessageRead, toMailboxMessageViewModel } from '@/features/user/messages/messageViewModel'
 import logger from '@/utils/logger'
 
 const NOT_FOUND_CODE = 'C006'

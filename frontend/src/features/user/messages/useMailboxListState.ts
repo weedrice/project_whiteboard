@@ -5,7 +5,7 @@ import { unwrapApiData } from '@/api/response'
 import { useLatestAsyncTask } from '@/composables/useLatestAsyncTask'
 import { usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import type { MailboxMessageViewModel } from '@/types'
-import { markMailboxMessageRead, toMailboxMessageViewModel } from '@/utils/messageViewModel'
+import { markMailboxMessageRead, toMailboxMessageViewModel } from '@/features/user/messages/messageViewModel'
 import logger from '@/utils/logger'
 
 export type MailboxViewType = 'received' | 'sent'

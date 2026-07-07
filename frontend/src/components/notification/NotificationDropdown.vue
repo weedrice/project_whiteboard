@@ -10,7 +10,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import { useNotificationListState } from '@/composables/useNotificationListState'
 import { formatTimeAgo } from '@/utils/date'
-import { getNotificationPresentation } from '@/utils/notificationPresentation'
+import { getNotificationPresentation } from '@/features/notifications/notificationPresentation'
 
 const { t } = useI18n()
 const { useMarkAllAsRead } = useNotification()

@@ -3,7 +3,7 @@ import { useI18n } from 'vue-i18n'
 import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
 import type { MyCommentListItem } from '@/features/user/dashboard/useMyPageDashboardResource'
 import { formatDate } from '@/utils/date'
-import { renderCommentContentHtml } from '@/utils/commentContent'
+import { renderCommentContentHtml } from '@/features/comments/commentContent'
 import type { SanitizedHtml } from '@/utils/sanitize'
 
 defineProps<{
