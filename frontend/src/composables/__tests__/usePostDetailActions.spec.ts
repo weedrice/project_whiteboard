@@ -1,11 +1,9 @@
-import { enableAutoUnmount, mount } from '@vue/test-utils'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { mount } from '@vue/test-utils'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, defineComponent, h, ref } from 'vue'
 import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
 import { usePostDetailActions } from '../usePostDetailActions'
 import type { Post } from '@/types'
-
-enableAutoUnmount(afterEach)
 
 const mocks = vi.hoisted(() => ({
   addToast: vi.fn(),

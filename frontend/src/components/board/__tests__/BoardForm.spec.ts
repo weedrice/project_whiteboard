@@ -177,7 +177,7 @@ describe('BoardForm', () => {
     expect(submit.agentUseYn).toBe(false)
   })
 
-  it('keeps board URL input to lowercase letters and underscores on create', async () => {
+  it('keeps board URL input to lowercase letters, numbers, underscores, and hyphens on create', async () => {
     const wrapper = mount(BoardForm, {
       props: {
         initialData: {
@@ -211,7 +211,7 @@ describe('BoardForm', () => {
     await wrapper.find('form').trigger('submit.prevent')
 
     const submit = wrapper.emitted('submit')?.[0]?.[0] as { boardUrl: string }
-    expect(submit.boardUrl).toBe('free_board_')
+    expect(submit.boardUrl).toBe('free_board_123-')
   })
 
   it('clears selected icon file and preview when initial board data changes', async () => {

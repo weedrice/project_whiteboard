@@ -1,6 +1,6 @@
 import { defineComponent, h, nextTick, ref } from 'vue'
-import { enableAutoUnmount, mount, RouterLinkStub } from '@vue/test-utils'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { mount, RouterLinkStub } from '@vue/test-utils'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import BoardDetail from '../BoardDetail.vue'
 
 const {
@@ -149,8 +149,6 @@ vi.mock('@/utils/keyboard', () => ({
 vi.mock('@/utils/errorHandler', () => ({
   isRestrictedResourceError: () => false
 }))
-
-enableAutoUnmount(afterEach)
 
 describe('BoardDetail', () => {
   beforeEach(() => {

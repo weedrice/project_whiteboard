@@ -1,4 +1,4 @@
-import { enableAutoUnmount, mount } from '@vue/test-utils'
+import { mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick, ref } from 'vue'
 import GlobalSearchBar from '../GlobalSearchBar.vue'
@@ -79,8 +79,6 @@ const mountSearchBar = () => mount(GlobalSearchBar, {
 })
 
 describe('GlobalSearchBar', () => {
-    enableAutoUnmount(afterEach)
-
     beforeEach(() => {
         routerPush.mockClear()
         invalidateQueries.mockClear()

@@ -8,6 +8,7 @@ const resizeImageToBoundsFileMock = vi.hoisted(() => vi.fn())
 const validateImageFileMock = vi.hoisted(() => vi.fn<() => 'type' | 'size' | null>(() => null))
 
 vi.mock('@/utils/imageFile', () => ({
+  revokeBlobUrlIfNeeded: vi.fn(),
   resizeImageToBoundsFile: resizeImageToBoundsFileMock,
   validateImageFile: validateImageFileMock,
 }))
