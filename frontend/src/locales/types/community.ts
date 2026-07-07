@@ -82,6 +82,19 @@ export interface BoardMessages {
     noDesc: string
     subscribers: string
     empty: string
+    searchLabel: string
+    searchPlaceholder: string
+    statusFilter: string
+    sortLabel: string
+    filterAll: string
+    filterSubscribed: string
+    filterPublic: string
+    filterPrivate: string
+    sortDefault: string
+    sortName: string
+    sortPopular: string
+    sortPosts: string
+    resultCount: string
   }
   feed: {
     likes: string
@@ -422,6 +435,7 @@ export interface UserMessages {
     settings: string
     points: string
     scraps: string
+    drafts: string
     recent: string
     reports: string
     subscriptions: string
@@ -463,6 +477,15 @@ export interface UserMessages {
   }
   scrapList: {
     empty: string
+  }
+  draftList: {
+    empty: string
+    untitled: string
+    continue: string
+    editDraft: string
+    deleteConfirm: string
+    deleted: string
+    deleteFailed: string
   }
   reportList: {
     empty: string
@@ -552,6 +575,9 @@ export interface UserMessages {
     replyTitle: string
     selectMessage: string
     openMessage: string
+    conversationContext: string
+    currentMessage: string
+    contextEmpty: string
   }
   block: {
     confirm: string

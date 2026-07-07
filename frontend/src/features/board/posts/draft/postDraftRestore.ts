@@ -12,6 +12,7 @@ import { stripDraftServerIdentity } from '@/features/board/posts/draft/postDraft
 interface ResolveServerDraftOptions {
   payload: PostDraftData
   localSnapshot: DraftRecoverySnapshot | null
+  preferredDraftId?: number | null
   generationIsCurrent: () => boolean
   onStaleLocalSnapshot: (snapshot: DraftRecoverySnapshot) => void
 }
@@ -24,12 +25,13 @@ export interface ResolveServerDraftResult {
 export async function resolveServerDraftForRecovery({
   payload,
   localSnapshot,
+  preferredDraftId,
   generationIsCurrent,
   onStaleLocalSnapshot,
 }: ResolveServerDraftOptions): Promise<ResolveServerDraftResult> {
   let nextLocalSnapshot = localSnapshot
   let serverDraft: DraftPost | null = null
-  let serverDraftId = nextLocalSnapshot?.draftId ?? null
+  let serverDraftId = preferredDraftId ?? nextLocalSnapshot?.draftId ?? null
 
   if (serverDraftId == null) {
     try {

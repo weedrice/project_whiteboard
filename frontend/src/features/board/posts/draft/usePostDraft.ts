@@ -26,6 +26,7 @@ export type { DraftRecoverySnapshot } from '@/features/board/posts/draft/postDra
 interface UsePostDraftOptions {
     enabled: Ref<boolean>
     storageKey: Ref<string>
+    preferredDraftId?: Ref<number | null>
     buildPayload: () => PostDraftData
     applyDraft: (draft: DraftRecoverySnapshot) => void
 }
@@ -172,6 +173,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         const resolved = await resolveServerDraftForRecovery({
             payload,
             localSnapshot,
+            preferredDraftId: options.preferredDraftId?.value ?? null,
             generationIsCurrent: () => generation === sessionGeneration,
             onStaleLocalSnapshot: (snapshot) => {
                 resetDraftTracking()

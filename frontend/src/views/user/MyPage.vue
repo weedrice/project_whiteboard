@@ -13,6 +13,7 @@ const myPageTabs: UserNavigationTab[] = [
   { nameKey: 'common.mailbox', href: '/mypage/messages' },
   { nameKey: 'common.points', href: '/mypage/points' },
   { nameKey: 'user.scraps', href: '/mypage/scraps' },
+  { nameKey: 'user.tabs.drafts', href: '/mypage/drafts' },
   { nameKey: 'user.tabs.subscriptions', href: '/mypage/subscriptions' },
   { nameKey: 'user.tabs.recent', href: '/mypage/recent' },
   { nameKey: 'user.tabs.reports', href: '/mypage/reports' },

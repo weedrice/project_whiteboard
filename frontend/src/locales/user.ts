@@ -10,6 +10,7 @@ export const user: UserMessages = {
     settings: '표시 설정',
     points: '포인트 내역',
     scraps: '스크랩 목록',
+    drafts: '임시저장 글',
     recent: '최근 읽은 글',
     reports: '신고 목록',
     subscriptions: '구독한 스페이스',
@@ -51,6 +52,15 @@ export const user: UserMessages = {
   },
   scrapList: {
     empty: '스크랩한 게시글이 없습니다.',
+  },
+  draftList: {
+    empty: '임시저장 글이 없습니다.',
+    untitled: '제목 없는 임시저장 글',
+    continue: '이어쓰기',
+    editDraft: '수정 초안',
+    deleteConfirm: '이 임시저장 글을 삭제할까요?',
+    deleted: '임시저장 글을 삭제했습니다.',
+    deleteFailed: '임시저장 글 삭제에 실패했습니다.',
   },
   reportList: {
     empty: '신고 내역이 없습니다.',
@@ -140,6 +150,9 @@ export const user: UserMessages = {
     replyTitle: '답장 보내기',
     selectMessage: '{name} 쪽지 선택',
     openMessage: '{name} 쪽지 열기',
+    conversationContext: '최근 대화 맥락',
+    currentMessage: '현재 쪽지',
+    contextEmpty: '현재 페이지에 같은 상대의 다른 쪽지가 없습니다.',
   },
   block: {
     confirm: '{name}님을 차단하시겠습니까?',

@@ -13,6 +13,7 @@ type UsePostComposerDraftOptions = {
   mode: () => 'create' | 'edit'
   boardUrl: Ref<string>
   postId: Ref<string | number>
+  preferredDraftId?: Ref<number | null>
   isLoading: Ref<boolean>
   selectedCategoryId: Ref<string | number>
   firstCategoryId: ComputedRef<number | undefined>
@@ -44,6 +45,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
   } = usePostDraft({
     enabled: draftEnabled,
     storageKey: draftStorageKey,
+    preferredDraftId: options.preferredDraftId,
     buildPayload: () => ({
       ...options.buildPayload('draft'),
       boardUrl: options.boardUrl.value,

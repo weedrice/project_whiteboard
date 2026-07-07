@@ -16,10 +16,12 @@ export const userQueryKeys = {
     notificationSettings: ['user', 'notification-settings'] as const,
     agents: ['user', 'agents'] as const,
     pointsRoot: ['user', 'points'] as const,
+    draftsRoot: ['user', 'drafts'] as const,
     myPoints: (userIdentity?: Ref<string | number | null | undefined>) =>
         computed(() => ['user', 'points', 'me', userIdentity?.value ?? 'anonymous'] as const),
     myPosts: (params: UserQueryPaginationParams) => ['user', 'me', 'posts', params] as const,
     myComments: (params: UserQueryPaginationParams) => ['user', 'me', 'comments', params] as const,
+    drafts: (params?: Ref<UserQueryPaginationParams>) => computed(() => ['user', 'drafts', params?.value ?? {}] as const),
     scraps: (params?: Ref<UserQueryPaginationParams>) => computed(() => ['user', 'scraps', params?.value ?? {}] as const),
     pointHistories: (params?: Ref<UserQueryPaginationParams>) =>
         computed(() => ['user', 'points', 'history', params?.value ?? {}] as const),

@@ -11,6 +11,7 @@ import { usePostFormResource } from '@/features/board/posts/form/usePostFormReso
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import type { SegmentedControlOption } from '@/components/common/ui/BaseSegmentedControl.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import { useToastStore } from '@/stores/toast'
 import PostFormHeader from '@/components/board/PostFormHeader.vue'
@@ -24,6 +25,7 @@ const props = defineProps<{
   mode: 'create' | 'edit'
   boardUrl?: string
   postId?: string | number
+  initialDraftId?: string | number | null
   onSubmitted?: (result: PostFormSubmitResult) => void
   redirectOnCreate?: string
   goBackOnCreate?: boolean
@@ -49,6 +51,11 @@ const toastStore = useToastStore()
 
 const boardUrl = computed(() => props.boardUrl ?? '')
 const postId = computed(() => props.postId ?? '')
+const preferredDraftId = computed(() => {
+  if (props.initialDraftId == null || props.initialDraftId === '') return null
+  const numericDraftId = Number(props.initialDraftId)
+  return Number.isFinite(numericDraftId) && numericDraftId > 0 ? numericDraftId : null
+})
 const formIdentity = computed(() => `${props.mode}:${boardUrl.value || 'unknown'}:${postId.value || 'new'}`)
 
 const {
@@ -177,6 +184,7 @@ const {
   mode: () => props.mode,
   boardUrl,
   postId,
+  preferredDraftId,
   isLoading,
   selectedCategoryId: computed({
     get: () => form.value.categoryId,
@@ -281,7 +289,7 @@ defineExpose({
 </script>
 
 <template>
-  <div class="w-full max-w-full overflow-x-hidden">
+  <div class="w-full max-w-full overflow-x-hidden pb-24 sm:pb-0">
     <div
       ref="composePageRef"
       class="nv-compose-page"
@@ -349,6 +357,59 @@ defineExpose({
       </form>
     </div>
 
+    <div class="nv-compose-mobile-actions sm:hidden">
+      <div v-if="draftStatusLabel" class="truncate px-1 text-[11px] font-medium text-[var(--nv-muted)]">
+        {{ draftStatusLabel }}
+      </div>
+      <div class="flex items-center gap-2">
+        <BaseButton type="button" variant="secondary" size="sm" class="min-h-[40px]" @click="handleCancel">
+          {{ $t('common.cancel') }}
+        </BaseButton>
+        <BaseButton
+          v-if="!props.hidePreview"
+          type="button"
+          variant="secondary"
+          size="sm"
+          class="min-h-[40px] flex-1"
+          @click="showPreview = true"
+        >
+          {{ $t('board.writePost.actions.preview') }}
+        </BaseButton>
+        <BaseButton
+          v-else-if="draftEnabled"
+          type="button"
+          variant="secondary"
+          size="sm"
+          class="min-h-[40px] flex-1"
+          :disabled="isSavingDraft"
+          @click="handleSaveDraft"
+        >
+          {{ isSavingDraft ? $t('board.writePost.draftStatus.saving') : $t('board.writePost.actions.saveDraft') }}
+        </BaseButton>
+        <BaseButton
+          type="button"
+          variant="primary"
+          size="sm"
+          class="min-h-[40px] flex-1"
+          :loading="isSubmitting"
+          @click="handleSubmit"
+        >
+          {{ submitLabel }}
+        </BaseButton>
+      </div>
+      <BaseButton
+        v-if="!props.hidePreview && draftEnabled"
+        type="button"
+        variant="secondary"
+        size="sm"
+        class="mt-2 min-h-[36px] w-full"
+        :disabled="isSavingDraft"
+        @click="handleSaveDraft"
+      >
+        {{ isSavingDraft ? $t('board.writePost.draftStatus.saving') : $t('board.writePost.actions.saveDraft') }}
+      </BaseButton>
+    </div>
+
     <PostPreviewModal
       v-if="!props.hidePreview"
       :is-open="showPreview"
@@ -382,6 +443,19 @@ defineExpose({
 .nv-compose-page .text-xs.text-\[var\(--nv-muted\)\] > span.mx-2::before {
   content: '/';
   font-size: 0.75rem;
+}
+
+.nv-compose-mobile-actions {
+  background: color-mix(in srgb, var(--nv-surface) 96%, transparent);
+  border: 1px solid var(--nv-line);
+  border-radius: 1rem 1rem 0 0;
+  bottom: calc(4.75rem + env(safe-area-inset-bottom));
+  box-shadow: var(--nv-shadow-card);
+  left: 0.75rem;
+  padding: 0.65rem;
+  position: fixed;
+  right: 0.75rem;
+  z-index: 45;
 }
 </style>
 

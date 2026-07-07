@@ -116,6 +116,13 @@ export function useUser() {
         })
     }
 
+    const useMyDrafts = (params?: Ref<PaginationParams>) => {
+        return useApiQuery({
+            queryKey: userQueryKeys.drafts(params),
+            request: (context) => userApi.getMyDrafts(params?.value ?? {}, withQuerySignal(undefined, context)),
+        })
+    }
+
     const useMyPointHistories = (params?: Ref<PaginationParams>) => {
         return useApiQuery({
             queryKey: userQueryKeys.pointHistories(params),
@@ -264,6 +271,7 @@ export function useUser() {
         useMyAgents,
         useMyPoint,
         useMyScraps,
+        useMyDrafts,
         useMyPointHistories,
         useRecentlyViewedPosts,
         useUpdateMyProfile,
