@@ -18,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.util.Arrays;
 import java.util.List;
@@ -38,6 +39,9 @@ class ErrorLogServiceTest {
 
     @InjectMocks
     private ErrorLogService errorLogService;
+    private static final Sort ERROR_LOG_LIST_SORT = Sort.by(
+            Sort.Order.desc("createdAt"),
+            Sort.Order.desc("errorLogId"));
 
     // ===== saveErrorLog 테스트 =====
 
@@ -233,6 +237,7 @@ class ErrorLogServiceTest {
         // given
         ErrorLogSearchRequest condition = new ErrorLogSearchRequest();
         Pageable pageable = PageRequest.of(0, 20);
+        Pageable safePageable = PageRequest.of(0, 20, ERROR_LOG_LIST_SORT);
         ErrorLogResponse.ErrorLogSummary log1 = ErrorLogResponse.ErrorLogSummary.builder()
                 .errorCode("ERROR1").errorType("Type1").httpStatus(500)
                 .message("msg1").requestUri("/test1").requestMethod("GET")
@@ -242,7 +247,7 @@ class ErrorLogServiceTest {
                 .message("msg2").requestUri("/test2").requestMethod("POST")
                 .ipAddress("10.0.0.1").build();
         Page<ErrorLogResponse.ErrorLogSummary> page = new PageImpl<>(Arrays.asList(log1, log2));
-        when(errorLogRepository.searchErrorLogs(condition, pageable)).thenReturn(page);
+        when(errorLogRepository.searchErrorLogs(condition, safePageable)).thenReturn(page);
 
         // when
         Page<ErrorLogResponse.ErrorLogSummary> result = errorLogService.getErrorLogs(condition, pageable);
@@ -251,6 +256,37 @@ class ErrorLogServiceTest {
         assertThat(result.getContent()).hasSize(2);
         assertThat(result.getContent().get(0).getErrorCode()).isEqualTo("ERROR1");
         assertThat(result.getContent().get(1).getErrorCode()).isEqualTo("ERROR2");
+    }
+
+    @Test
+    @DisplayName("error log list normalizes null pageable with default sort")
+    void getErrorLogs_normalizesNullPageable() {
+        ErrorLogSearchRequest condition = new ErrorLogSearchRequest();
+        Pageable safePageable = PageRequest.of(0, 20, ERROR_LOG_LIST_SORT);
+        when(errorLogRepository.searchErrorLogs(condition, safePageable))
+                .thenReturn(new PageImpl<>(List.of(), safePageable, 0));
+
+        Page<ErrorLogResponse.ErrorLogSummary> result = errorLogService.getErrorLogs(condition, null);
+
+        assertThat(result.getPageable()).isEqualTo(safePageable);
+        verify(errorLogRepository).searchErrorLogs(condition, safePageable);
+    }
+
+    @Test
+    @DisplayName("error log list replaces caller sort and caps page size")
+    void getErrorLogs_replacesCallerSortAndCapsPageSize() {
+        ErrorLogSearchRequest condition = new ErrorLogSearchRequest();
+        Pageable requestedPageable = PageRequest.of(2, 200, Sort.by(Sort.Order.asc("message")));
+        Pageable safePageable = PageRequest.of(2, 100, ERROR_LOG_LIST_SORT);
+        when(errorLogRepository.searchErrorLogs(condition, safePageable))
+                .thenReturn(new PageImpl<>(List.of(), safePageable, 0));
+
+        Page<ErrorLogResponse.ErrorLogSummary> result =
+                errorLogService.getErrorLogs(condition, requestedPageable);
+
+        assertThat(result.getPageable()).isEqualTo(safePageable);
+        verify(errorLogRepository).searchErrorLogs(condition, safePageable);
+        verify(errorLogRepository, never()).searchErrorLogs(condition, requestedPageable);
     }
 
     // ===== getErrorLog 테스트 =====

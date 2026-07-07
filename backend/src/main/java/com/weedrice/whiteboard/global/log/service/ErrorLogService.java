@@ -11,9 +11,11 @@ import com.weedrice.whiteboard.global.log.dto.ErrorLogStatsResponse;
 import com.weedrice.whiteboard.global.log.entity.ErrorLog;
 import com.weedrice.whiteboard.global.log.filter.SensitiveDataMaskingFilter;
 import com.weedrice.whiteboard.global.log.repository.ErrorLogRepository;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -27,6 +29,10 @@ public class ErrorLogService {
     private static final int MAX_TEXT_LENGTH = 500;
     private static final int MAX_STACK_TRACE_LENGTH = 4000;
     private static final int MAX_RESOLVED_MEMO_LENGTH = 500;
+    private static final int DEFAULT_ERROR_LOG_PAGE_SIZE = 20;
+    private static final Sort ERROR_LOG_LIST_SORT = Sort.by(
+            Sort.Order.desc("createdAt"),
+            Sort.Order.desc("errorLogId"));
 
     private final ErrorLogRepository errorLogRepository;
 
@@ -90,7 +96,8 @@ public class ErrorLogService {
     @Transactional(readOnly = true)
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public Page<ErrorLogResponse.ErrorLogSummary> getErrorLogs(ErrorLogSearchRequest condition, Pageable pageable) {
-        return errorLogRepository.searchErrorLogs(condition, pageable);
+        Pageable safePageable = PageRequestUtils.of(pageable, DEFAULT_ERROR_LOG_PAGE_SIZE, ERROR_LOG_LIST_SORT);
+        return errorLogRepository.searchErrorLogs(condition, safePageable);
     }
 
     /**
