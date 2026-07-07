@@ -103,5 +103,20 @@ jobs:
               exit 1
             fi
 
+            for i in $(seq 1 30); do
+              if curl -fsS --max-time 3 http://127.0.0.1:8080/actuator/health >/dev/null; then
+                sudo systemctl status app --no-pager
+                find "$APP_DIR/releases" -mindepth 1 -maxdepth 1 -type d | sort | head -n -5 | xargs -r rm -rf
+                exit 0
+              fi
+              sleep 2
+            done
+
+            echo "Backend health check failed after deploy"
+            if [ -f "$APP_DIR/app.jar.rollback" ]; then
+              sudo cp "$APP_DIR/app.jar.rollback" "$APP_DIR/app.jar"
+              sudo systemctl restart app || true
+            fi
             sudo systemctl status app --no-pager
-            find "$APP_DIR/releases" -mindepth 1 -maxdepth 1 -type d | sort | head -n -5 | xargs -r rm -rf
+            sudo journalctl -u app -n 120 --no-pager || true
+            exit 1
