@@ -1,6 +1,7 @@
 import { nextTick, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAdminBoardEditor } from '../useAdminBoardEditor'
+import { createDeferred } from '@/test/async'
 import type { AdminBoard } from '@/types'
 
 const toastMock = vi.hoisted(() => ({
@@ -126,5 +127,71 @@ describe('useAdminBoardEditor', () => {
 
     expect(updateBoard).not.toHaveBeenCalled()
     expect(toastMock.addToast).toHaveBeenCalledWith('board.writePost.validation', 'warning')
+  })
+
+  it('rolls back local form edits when saving fails', async () => {
+    const boardsData = ref([
+      createBoard({ boardId: 10, boardName: 'Old', boardUrl: 'old-url', sortOrder: 1 })
+    ])
+    const updateBoard = vi.fn().mockRejectedValue(new Error('failed'))
+
+    const editor = useAdminBoardEditor({ boardsData, updateBoard })
+    await nextTick()
+
+    editor.form.boardName = 'New'
+    await editor.handleSaveChanges()
+
+    expect(updateBoard).toHaveBeenCalledWith(expect.objectContaining({
+      boardUrl: 'old-url'
+    }))
+    expect(editor.boards.value[0].boardName).toBe('Old')
+    expect(editor.form.boardName).toBe('Old')
+    expect(editor.hasUnsavedChanges.value).toBe(false)
+  })
+
+  it('rolls back dragged board order when sort saving fails', async () => {
+    const boardsData = ref([
+      createBoard({ boardId: 1, boardName: 'First', boardUrl: 'first', sortOrder: 1 }),
+      createBoard({ boardId: 2, boardName: 'Second', boardUrl: 'second', sortOrder: 2 })
+    ])
+    const updateBoard = vi.fn().mockRejectedValue(new Error('failed'))
+
+    const editor = useAdminBoardEditor({ boardsData, updateBoard })
+    await nextTick()
+
+    editor.boards.value = [editor.boards.value[1], editor.boards.value[0]]
+    await editor.handleDragEnd()
+
+    expect(updateBoard).toHaveBeenCalledTimes(2)
+    expect(editor.boards.value.map((board) => board.boardId)).toEqual([1, 2])
+    expect(editor.boards.value.map((board) => board.sortOrder)).toEqual([1, 2])
+    expect(editor.hasUnsavedChanges.value).toBe(false)
+  })
+
+  it('ignores additional drag saves while a sort save is pending', async () => {
+    const boardsData = ref([
+      createBoard({ boardId: 1, boardName: 'First', boardUrl: 'first', sortOrder: 1 }),
+      createBoard({ boardId: 2, boardName: 'Second', boardUrl: 'second', sortOrder: 2 })
+    ])
+    const saveResult = createDeferred()
+    const updateBoard = vi.fn().mockReturnValue(saveResult.promise)
+
+    const editor = useAdminBoardEditor({ boardsData, updateBoard })
+    await nextTick()
+
+    editor.boards.value = [editor.boards.value[1], editor.boards.value[0]]
+    const firstDragSave = editor.handleDragEnd()
+
+    expect(editor.isSavingSortOrder.value).toBe(true)
+    expect(updateBoard).toHaveBeenCalledTimes(2)
+
+    await editor.handleDragEnd()
+
+    expect(updateBoard).toHaveBeenCalledTimes(2)
+
+    saveResult.resolve()
+    await firstDragSave
+
+    expect(editor.isSavingSortOrder.value).toBe(false)
   })
 })

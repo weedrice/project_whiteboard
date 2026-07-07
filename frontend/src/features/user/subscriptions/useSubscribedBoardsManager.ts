@@ -31,6 +31,7 @@ export function useSubscribedBoardsManager() {
   const accessibleBoards = ref<SubscriptionBoardListItem[]>([])
   const unavailableBoards = ref<SubscriptionBoardListItem[]>([])
   const loading = ref(false)
+  const isReordering = ref(false)
   const isMobile = useMobileViewport()
   let subscriptionsRequestId = 0
 
@@ -40,6 +41,18 @@ export function useSubscribedBoardsManager() {
 
   function invalidateSubscriptionCaches() {
     invalidateBoardListCaches(queryClient)
+  }
+
+  function cloneBoards(boards: SubscriptionBoardListItem[]) {
+    return boards.map((board) => ({ ...board }))
+  }
+
+  function restoreSubscriptionSnapshot(
+    accessibleSnapshot: SubscriptionBoardListItem[],
+    unavailableSnapshot: SubscriptionBoardListItem[],
+  ) {
+    accessibleBoards.value = cloneBoards(accessibleSnapshot)
+    unavailableBoards.value = cloneBoards(unavailableSnapshot)
   }
 
   async function fetchAllSubscriptions() {
@@ -119,13 +132,22 @@ export function useSubscribedBoardsManager() {
   }
 
   async function handleDragEnd() {
+    if (isReordering.value) return
+
+    const accessibleSnapshot = cloneBoards(accessibleBoards.value)
+      .sort((left, right) => left.sortOrder - right.sortOrder)
+    const unavailableSnapshot = cloneBoards(unavailableBoards.value)
     const boardUrls = accessibleBoards.value.map(board => board.boardUrl)
+    isReordering.value = true
     try {
       await boardApi.updateSubscriptionOrder(boardUrls)
       invalidateSubscriptionCaches()
     } catch (error) {
       handleSilentError(error, 'Failed to update subscription order')
+      restoreSubscriptionSnapshot(accessibleSnapshot, unavailableSnapshot)
       await fetchSubscriptions()
+    } finally {
+      isReordering.value = false
     }
   }
 
@@ -141,6 +163,7 @@ export function useSubscribedBoardsManager() {
     accessibleBoards,
     unavailableBoards,
     loading,
+    isReordering,
     isMobile,
     hasSubscriptions,
     fetchSubscriptions,

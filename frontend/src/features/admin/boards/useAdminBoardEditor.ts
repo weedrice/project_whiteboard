@@ -11,6 +11,13 @@ type UpdateBoardPayload = {
   data: BoardUpdateData
 }
 
+interface BoardEditorSnapshot {
+  boards: AdminBoard[]
+  originalBoardUrls: Record<number, string>
+  modifiedBoardIds: number[]
+  selectedBoardId: number | null
+}
+
 interface UseAdminBoardEditorOptions {
   boardsData: Ref<AdminBoard[] | undefined>
   updateBoard: (payload: UpdateBoardPayload) => Promise<unknown>
@@ -74,10 +81,48 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
 
   const hasUnsavedChanges = computed(() => isSelectedFormDirty.value || modifiedBoardIds.value.length > 0)
 
+  function cloneBoards(list: AdminBoard[]) {
+    return list.map((board) => ({ ...board }))
+  }
+
+  function sortedBoardCopies(list: AdminBoard[]) {
+    return cloneBoards(list).sort((a, b) => a.sortOrder - b.sortOrder)
+  }
+
+  function syncFormFromBoard(board: AdminBoard) {
+    form.boardName = board.boardName
+    form.boardUrl = board.boardUrl
+    form.description = board.description || ''
+    form.iconUrl = board.iconUrl || ''
+    form.sortOrder = String(board.sortOrder)
+    form.isActive = board.isActive
+    form.agentUseYn = board.isPublic ? (board.agentUseYn ?? false) : false
+    form.guidePrompt = board.guidePrompt || ''
+  }
+
+  function createSnapshot(snapshotBoards = cloneBoards(boards.value)): BoardEditorSnapshot {
+    return {
+      boards: snapshotBoards,
+      originalBoardUrls: { ...originalBoardUrls.value },
+      modifiedBoardIds: [...modifiedBoardIds.value],
+      selectedBoardId: selectedBoardId.value,
+    }
+  }
+
+  function restoreSnapshot(snapshot: BoardEditorSnapshot) {
+    boards.value = cloneBoards(snapshot.boards)
+    originalBoardUrls.value = { ...snapshot.originalBoardUrls }
+    modifiedBoardIds.value = [...snapshot.modifiedBoardIds]
+    selectedBoardId.value = snapshot.selectedBoardId
+
+    if (selectedBoard.value) {
+      syncFormFromBoard(selectedBoard.value)
+    }
+  }
+
   watch(boardsData, (newData) => {
     const list = (newData || []) as AdminBoard[]
-    const copied = JSON.parse(JSON.stringify(list)) as AdminBoard[]
-    copied.sort((a, b) => a.sortOrder - b.sortOrder)
+    const copied = sortedBoardCopies(list)
 
     boards.value = copied
     originalBoardUrls.value = Object.fromEntries(copied.map((board) => [board.boardId, board.boardUrl]))
@@ -94,14 +139,7 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
 
   watch(selectedBoard, (board) => {
     if (!board) return
-    form.boardName = board.boardName
-    form.boardUrl = board.boardUrl
-    form.description = board.description || ''
-    form.iconUrl = board.iconUrl || ''
-    form.sortOrder = String(board.sortOrder)
-    form.isActive = board.isActive
-    form.agentUseYn = board.isPublic ? (board.agentUseYn ?? false) : false
-    form.guidePrompt = board.guidePrompt || ''
+    syncFormFromBoard(board)
   }, { immediate: true })
 
   watch(() => form.boardUrl, (boardUrl) => {
@@ -176,6 +214,7 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
   async function handleDragEnd() {
     if (isSavingSortOrder.value) return
 
+    const snapshot = createSnapshot(sortedBoardCopies(boards.value))
     const changedBoardIds = renumberSortOrder()
     if (changedBoardIds.length === 0) return
 
@@ -183,6 +222,7 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
     try {
       await saveBoardUpdates(changedBoardIds, false)
     } catch {
+      restoreSnapshot(snapshot)
       // Error handled globally
     } finally {
       isSavingSortOrder.value = false
@@ -271,6 +311,7 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
       return
     }
 
+    const snapshot = createSnapshot()
     applySelectedBoardForm()
 
     if (modifiedBoardIds.value.length === 0) {
@@ -281,6 +322,7 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
     try {
       await saveBoardUpdates(modifiedBoardIds.value, true)
     } catch {
+      restoreSnapshot(snapshot)
       // Error handled globally
     } finally {
       isSubmitting.value = false

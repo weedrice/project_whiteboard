@@ -4,6 +4,7 @@ import { defineComponent } from 'vue'
 import { useSubscribedBoardsManager } from '../useSubscribedBoardsManager'
 import { axiosApiPageSuccess } from '@/test/apiResponseFixtures'
 import { apiEmptySuccess, axiosApiResponse } from '@/test/factories'
+import { createDeferred } from '@/test/async'
 import type { SubscriptionBoardListItem } from '@/types'
 
 const mocks = vi.hoisted(() => ({
@@ -154,6 +155,65 @@ describe('useSubscribedBoardsManager', () => {
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards'] })
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards', 'subscriptions'] })
     expect(mocks.getMySubscriptions).toHaveBeenCalledTimes(2)
+  })
+
+  it('rolls back reordered subscriptions when order update and reload fail', async () => {
+    mocks.getMySubscriptions
+      .mockResolvedValueOnce(pageResponse(0, 1, [
+        subscription({ boardId: 1, boardUrl: 'free', sortOrder: 1 }),
+        subscription({ boardId: 2, boardUrl: 'tech', sortOrder: 2 }),
+      ]))
+      .mockRejectedValueOnce(new Error('reload failed'))
+    mocks.updateSubscriptionOrder.mockRejectedValueOnce(new Error('failed'))
+
+    const { manager } = mountManager()
+    await flushPromises()
+    await flushPromises()
+
+    manager.accessibleBoards.value = [
+      manager.accessibleBoards.value[1],
+      manager.accessibleBoards.value[0],
+    ]
+
+    await manager.handleDragEnd()
+
+    expect(mocks.updateSubscriptionOrder).toHaveBeenCalledWith(['tech', 'free'])
+    expect(mocks.handleSilentError).toHaveBeenCalledWith(expect.any(Error), 'Failed to update subscription order')
+    expect(mocks.getMySubscriptions).toHaveBeenCalledTimes(2)
+    expect(manager.accessibleBoards.value.map(board => board.boardUrl)).toEqual(['free', 'tech'])
+    expect(manager.isReordering.value).toBe(false)
+  })
+
+  it('ignores additional reorder saves while an order update is pending', async () => {
+    const reorderResult = createDeferred<unknown>()
+    mocks.getMySubscriptions.mockResolvedValueOnce(pageResponse(0, 1, [
+      subscription({ boardId: 1, boardUrl: 'free', sortOrder: 1 }),
+      subscription({ boardId: 2, boardUrl: 'tech', sortOrder: 2 }),
+    ]))
+    mocks.updateSubscriptionOrder.mockReturnValueOnce(reorderResult.promise)
+
+    const { manager } = mountManager()
+    await flushPromises()
+    await flushPromises()
+
+    manager.accessibleBoards.value = [
+      manager.accessibleBoards.value[1],
+      manager.accessibleBoards.value[0],
+    ]
+
+    const firstReorder = manager.handleDragEnd()
+
+    expect(manager.isReordering.value).toBe(true)
+    expect(mocks.updateSubscriptionOrder).toHaveBeenCalledTimes(1)
+
+    await manager.handleDragEnd()
+
+    expect(mocks.updateSubscriptionOrder).toHaveBeenCalledTimes(1)
+
+    reorderResult.resolve(axiosApiResponse(apiEmptySuccess()))
+    await firstReorder
+
+    expect(manager.isReordering.value).toBe(false)
   })
 
   it('removes mobile media query listener on unmount', () => {
