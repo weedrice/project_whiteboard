@@ -52,6 +52,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -435,6 +436,52 @@ class BoardServiceTest {
 
         assertThat(result.getTotalElements()).isZero();
         verify(boardSubscriptionRepository).findManagerCandidatesByBoard(eq(board), any());
+    }
+
+    @Test
+    @DisplayName("노드 관리자 후보 조회는 null 페이지 요청을 기본값으로 보정한다")
+    void getBoardManagerCandidates_normalizesNullPageable() {
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(boardSubscriptionRepository.findManagerCandidatesByBoard(eq(board), any()))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+        when(adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(board, Role.BOARD_ADMIN, true))
+                .thenReturn(Optional.empty());
+
+        Page<BoardManagerCandidateResponse> result = boardService.getBoardManagerCandidates(
+                "test-board",
+                1L,
+                null,
+                null);
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(boardSubscriptionRepository).findManagerCandidatesByBoard(eq(board), pageableCaptor.capture());
+        assertThat(result.getTotalElements()).isZero();
+        assertThat(pageableCaptor.getValue().getPageNumber()).isZero();
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(20);
+        assertThat(pageableCaptor.getValue().getSort().isUnsorted()).isTrue();
+    }
+
+    @Test
+    @DisplayName("노드 관리자 후보 조회는 과대한 페이지 크기와 임의 정렬을 보정한다")
+    void getBoardManagerCandidates_capsOversizedPageableAndIgnoresSort() {
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(boardSubscriptionRepository.findManagerCandidatesByBoard(eq(board), any()))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(2, 100), 0));
+        when(adminRepository.findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(board, Role.BOARD_ADMIN, true))
+                .thenReturn(Optional.empty());
+
+        Page<BoardManagerCandidateResponse> result = boardService.getBoardManagerCandidates(
+                "test-board",
+                1L,
+                null,
+                PageRequest.of(2, 500, Sort.by(Sort.Direction.DESC, "loginId")));
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(boardSubscriptionRepository).findManagerCandidatesByBoard(eq(board), pageableCaptor.capture());
+        assertThat(result.getTotalElements()).isZero();
+        assertThat(pageableCaptor.getValue().getPageNumber()).isEqualTo(2);
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(100);
+        assertThat(pageableCaptor.getValue().getSort().isUnsorted()).isTrue();
     }
 
     @Test

@@ -224,10 +224,14 @@ class BoardQueryService {
         User currentUser = getCurrentUserByIdOrNull(currentUserId);
         boardAccessPolicy.validateBoardAdmin(board, currentUser);
 
+        Pageable fixedOrderPageable = fixedSubscriptionOrderPageable(pageable);
         String keywordPattern = toKeywordPattern(keyword);
         Page<BoardSubscription> candidates = keywordPattern == null
-                ? boardSubscriptionRepository.findManagerCandidatesByBoard(board, pageable)
-                : boardSubscriptionRepository.findManagerCandidatesByBoardAndKeyword(board, keywordPattern, pageable);
+                ? boardSubscriptionRepository.findManagerCandidatesByBoard(board, fixedOrderPageable)
+                : boardSubscriptionRepository.findManagerCandidatesByBoardAndKeyword(
+                        board,
+                        keywordPattern,
+                        fixedOrderPageable);
         Long currentManagerUserId = adminRepository
                 .findFirstByBoardAndRoleAndIsActiveOrderByAdminIdDesc(board, Role.BOARD_ADMIN, true)
                 .map(Admin::getUser)
