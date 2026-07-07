@@ -35,9 +35,9 @@ class ReportCommandService {
         String normalizedRemark = ReportRemarkNormalizer.normalize(remark);
         String normalizedContents = normalizeContents(contents);
 
-        ReportDuplicatePolicy.validateNoPendingDuplicate(reportRepository, reporter, normalizedTargetType, targetId);
-
         reportTargetValidator.validate(normalizedTargetType, targetId, reporter);
+
+        ReportDuplicatePolicy.validateNoPendingDuplicate(reportRepository, reporter, normalizedTargetType, targetId);
 
         Report report = Report.builder()
                 .reporter(reporter)

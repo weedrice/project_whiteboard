@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -24,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -379,24 +381,8 @@ class ReportCommandServiceTest {
     }
 
     @Test
-    @DisplayName("createReport keeps duplicate precedence before USER target policy validation")
-    void createReport_duplicateUserSelfReport_throwsAlreadyReported() {
-        User reporter = User.builder().build();
-        ReflectionTestUtils.setField(reporter, "userId", 1L);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
-        when(reportRepository.existsByReporterAndTargetTypeAndTargetIdAndStatus(
-                reporter, "USER", 1L, Report.STATUS_PENDING)).thenReturn(true);
-
-        assertThatThrownBy(() -> reportCommandService.createReport(1L, "USER", 1L, "ETC", null, null))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ALREADY_REPORTED);
-
-        verify(reportTargetValidator, never()).validate("USER", 1L, reporter);
-    }
-
-    @Test
-    @DisplayName("createReport keeps duplicate precedence before POST target policy validation")
-    void createReport_duplicatePostReport_throwsAlreadyReported() {
+    @DisplayName("createReport checks duplicate after target validation")
+    void createReport_duplicatePostReport_validatesTargetBeforeAlreadyReported() {
         User reporter = User.builder().build();
         ReflectionTestUtils.setField(reporter, "userId", 1L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
@@ -407,23 +393,46 @@ class ReportCommandServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ALREADY_REPORTED);
 
-        verify(reportTargetValidator, never()).validate("POST", 10L, reporter);
+        InOrder inOrder = inOrder(reportTargetValidator, reportRepository);
+        inOrder.verify(reportTargetValidator).validate("POST", 10L, reporter);
+        inOrder.verify(reportRepository).existsByReporterAndTargetTypeAndTargetIdAndStatus(
+                reporter, "POST", 10L, Report.STATUS_PENDING);
     }
 
     @Test
-    @DisplayName("createReport keeps duplicate precedence before COMMENT target policy validation")
-    void createReport_duplicateCommentReport_throwsAlreadyReported() {
+    @DisplayName("createReport validates USER target before duplicate checks")
+    void createReport_invalidUserTarget_skipsDuplicateCheck() {
         User reporter = User.builder().build();
         ReflectionTestUtils.setField(reporter, "userId", 1L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
-        when(reportRepository.existsByReporterAndTargetTypeAndTargetIdAndStatus(
-                reporter, "COMMENT", 10L, Report.STATUS_PENDING)).thenReturn(true);
+        doThrow(new BusinessException(ErrorCode.INVALID_TARGET))
+                .when(reportTargetValidator).validate("USER", 1L, reporter);
+
+        assertThatThrownBy(() -> reportCommandService.createReport(1L, "USER", 1L, "ETC", null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_TARGET);
+
+        verify(reportRepository, never()).existsByReporterAndTargetTypeAndTargetIdAndStatus(
+                any(User.class), any(), any(), any());
+        verify(reportRepository, never()).saveAndFlush(any(Report.class));
+    }
+
+    @Test
+    @DisplayName("createReport validates COMMENT target before duplicate checks")
+    void createReport_invalidCommentTarget_skipsDuplicateCheck() {
+        User reporter = User.builder().build();
+        ReflectionTestUtils.setField(reporter, "userId", 1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(reporter));
+        doThrow(new BusinessException(ErrorCode.COMMENT_NOT_FOUND))
+                .when(reportTargetValidator).validate("COMMENT", 10L, reporter);
 
         assertThatThrownBy(() -> reportCommandService.createReport(1L, "COMMENT", 10L, "ETC", null, null))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ALREADY_REPORTED);
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
 
-        verify(reportTargetValidator, never()).validate("COMMENT", 10L, reporter);
+        verify(reportRepository, never()).existsByReporterAndTargetTypeAndTargetIdAndStatus(
+                any(User.class), any(), any(), any());
+        verify(reportRepository, never()).saveAndFlush(any(Report.class));
     }
 
     @Test
