@@ -15,5 +15,20 @@ export const colorLabelKeys = [
 ]
 
 export const slashActions: SlashAction[] = ['heading', 'quote', 'list', 'link', 'table', 'codeBlock', 'divider']
+
+export const codeBlockLanguages = [
+  '',
+  'text',
+  'javascript',
+  'typescript',
+  'java',
+  'kotlin',
+  'python',
+  'sql',
+  'json',
+  'html',
+  'css',
+  'bash',
+] as const
 export const fontSizes = ['12px', '14px', '16px', '18px', '24px']
 export const lineHeights = ['1', '1.25', '1.5', '1.75', '2']

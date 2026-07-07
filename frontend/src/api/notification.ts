@@ -31,8 +31,8 @@ export interface NotificationRaw {
     message?: string;
     notificationType?: Notification['notificationType'];
     notification_type?: Notification['notificationType'];
-    sourceType?: 'POST' | 'COMMENT' | 'SYSTEM';
-    source_type?: 'POST' | 'COMMENT' | 'SYSTEM';
+    sourceType?: Notification['sourceType'];
+    source_type?: Notification['sourceType'];
     sourceId?: number;
     source_id?: number;
     isRead?: boolean;

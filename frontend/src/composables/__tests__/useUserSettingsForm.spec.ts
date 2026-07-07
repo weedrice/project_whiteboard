@@ -147,6 +147,7 @@ describe('useNotificationSettingsForm', () => {
         { notificationType: 'COMMENT', isEnabled: true },
         { notificationType: 'REPLY', isEnabled: false },
         { notificationType: 'MENTION', isEnabled: true },
+        { notificationType: 'MESSAGE', isEnabled: true },
         { notificationType: 'SYSTEM', isEnabled: true },
         { notificationType: 'SANCTION', isEnabled: true }
       ]

@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import type { VNodeRef } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import ImageLightbox from '@/components/common/ui/ImageLightbox.vue'
 import PostContentView from '@/components/board/PostContentView.vue'
 import PostDetailReactionBar from '@/components/board/PostDetailReactionBar.vue'
@@ -36,6 +37,7 @@ const emit = defineEmits<{
 }>()
 
 const router = useRouter()
+const { t } = useI18n()
 const articleRef = ref<HTMLElement | null>(null)
 const lightboxOpen = ref(false)
 const lightboxIndex = ref(0)
@@ -66,20 +68,20 @@ function copyCodeBlock(target: EventTarget | null): boolean {
   if (!codeText) return true
 
   if (!navigator.clipboard?.writeText) {
-    button.textContent = '실패'
+    button.textContent = t('board.writePost.codeBlock.copyFailed')
     return true
   }
 
   navigator.clipboard.writeText(codeText)
     .then(() => {
-      const originalText = button.textContent || '복사'
-      button.textContent = '완료'
+      const originalText = button.textContent || t('board.writePost.codeBlock.copy')
+      button.textContent = t('board.writePost.codeBlock.copyDone')
       window.setTimeout(() => {
         button.textContent = originalText
       }, 1400)
     })
     .catch(() => {
-      button.textContent = '실패'
+      button.textContent = t('board.writePost.codeBlock.copyFailed')
     })
   return true
 }

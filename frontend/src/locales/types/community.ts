@@ -332,6 +332,14 @@ export interface BoardMessages {
       apply: string
       clear: string
     }
+    codeBlock: {
+      copy: string
+      copyAriaLabel: string
+      copyDone: string
+      copyFailed: string
+      language: string
+      auto: string
+    }
     colorLabels: {
       black: string
       gray: string
@@ -430,6 +438,7 @@ export interface NotificationMessages {
   sourceTypes: {
     post: string
     comment: string
+    message: string
   }
   types: {
     default: string
@@ -437,6 +446,7 @@ export interface NotificationMessages {
     comment: string
     reply: string
     mention: string
+    message: string
     system: string
     sanction: string
   }

@@ -20,7 +20,10 @@ describe('renderPostContentHtml', () => {
     })
 
     it('adds code block language labels and copy controls', () => {
-        const result = renderPostContentHtml('<pre><code class="language-js">const value = 1</code></pre>')
+        const result = renderPostContentHtml('<pre><code class="language-js">const value = 1</code></pre>', {
+            copy: '복사',
+            copyAriaLabel: '코드 복사',
+        })
 
         expect(result).toContain('class="nv-code-block"')
         expect(result).toContain('class="nv-code-block-language"')

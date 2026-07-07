@@ -1,13 +1,16 @@
 import { normalizeLegacyFileUrls } from '@/utils/fileUrl'
-import { highlightCodeBlocks } from '@/utils/codeHighlighting'
+import { highlightCodeBlocks, type CodeBlockHighlightLabels } from '@/utils/codeHighlighting'
 import { asSanitizedHtml, sanitizeQuillHtml, type SanitizedHtml } from '@/utils/sanitize'
 
-export function renderPostContentHtml(content: string | null | undefined): SanitizedHtml {
+export function renderPostContentHtml(
+    content: string | null | undefined,
+    codeBlockLabels?: CodeBlockHighlightLabels
+): SanitizedHtml {
     if (!content) return asSanitizedHtml('')
 
     const normalizedContents = normalizeLegacyFileUrls(content)
         .replace(/<p>\s*<\/p>/gi, '<p><br></p>')
-    const sanitized = enhanceMentionLinks(highlightCodeBlocks(sanitizeQuillHtml(normalizedContents)))
+    const sanitized = enhanceMentionLinks(highlightCodeBlocks(sanitizeQuillHtml(normalizedContents), codeBlockLabels))
 
     return asSanitizedHtml(sanitized.replace(/<img(?![^>]*\bloading=)([^>]+)>/gi, '<img loading="lazy"$1>'))
 }

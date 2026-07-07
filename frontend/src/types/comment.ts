@@ -1,5 +1,11 @@
 import type { UserSummary } from './user'
 
+export interface CommentMention {
+    userId: number
+    displayName: string
+    profileImageUrl?: string | null
+}
+
 // 댓글 관련 타입
 export interface Comment {
     commentId: number
@@ -12,6 +18,7 @@ export interface Comment {
     liked?: boolean
     isDeleted: boolean
     children: Comment[]
+    mentions?: CommentMention[]
     replyCount: number
     hasReplies: boolean
     createdAt: string

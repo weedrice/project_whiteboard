@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, toRef } from 'vue'
 import PostEditorContentArea from '@/components/board/editor/PostEditorContentArea.vue'
 import PostEditorFloatingPanels from '@/components/board/editor/PostEditorFloatingPanels.vue'
 import PostEditorToolbar from '@/components/board/editor/PostEditorToolbar.vue'
-import { colorLabelKeys, colorPresets, fontSizes, lineHeights, slashActions } from '@/components/board/editor/postEditorOptions'
+import { codeBlockLanguages, colorLabelKeys, colorPresets, fontSizes, lineHeights, slashActions } from '@/components/board/editor/postEditorOptions'
 import '@/components/board/editor/editor.css'
 import { useEditorImageUpload } from '@/composables/useEditorImageUpload'
 import { focusPostEditorAtPointer, usePostEditorInstance } from '@/features/board/posts/editor/usePostEditorInstance'
@@ -133,6 +133,10 @@ const colorPresetLabels = computed(() => Object.fromEntries(
     t(`board.writePost.colorLabels.${colorLabelKeys[index]}`),
   ]),
 ))
+const currentCodeBlockLanguage = computed(() => {
+  const language = editor.value?.getAttributes('codeBlock').language
+  return typeof language === 'string' ? language : ''
+})
 
 const {
   linkUrl,
@@ -260,6 +264,12 @@ function setEmoticon(image: EmoticonImage) {
   }).run()
 }
 
+function applyCodeBlockLanguage(language: string) {
+  editor.value?.chain().focus().updateAttributes('codeBlock', {
+    language: language || null,
+  }).run()
+}
+
 defineExpose({
   editor,
   setVideo,
@@ -289,8 +299,10 @@ onBeforeUnmount(() => {
       :failed-image-files="failedImageFiles"
       :font-sizes="fontSizes"
       :line-heights="lineHeights"
+      :code-block-languages="codeBlockLanguages"
       :current-font-size="currentFontSize"
       :current-line-height="currentLineHeight"
+      :current-code-block-language="currentCodeBlockLanguage"
       :current-text-color="currentTextColor"
       :is-default-color="isDefaultColor"
       :is-dark="themeStore.isDark"
@@ -311,6 +323,7 @@ onBeforeUnmount(() => {
       @ordered-list="applyOrderedList"
       @font-size="applyFontSize"
       @line-height="applyLineHeight"
+      @code-block-language="applyCodeBlockLanguage"
       @custom-text-color="setPresetColor"
       @toggle-color-panel="toggleColorPanel"
       @align="setTextAlign"

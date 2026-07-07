@@ -8,7 +8,7 @@ export interface UserUpdatePayload {
     profileImageId?: number | null
 }
 
-export type NotificationSettingType = 'LIKE' | 'COMMENT' | 'REPLY' | 'MENTION' | 'SYSTEM' | 'SANCTION'
+export type NotificationSettingType = 'LIKE' | 'COMMENT' | 'REPLY' | 'MENTION' | 'MESSAGE' | 'SYSTEM' | 'SANCTION'
 
 export interface NotificationSettingsPayload {
     notificationType: NotificationSettingType

@@ -4,6 +4,16 @@ export const lowlight = createLowlight(common)
 
 const LANGUAGE_CLASS_PATTERN = /\blanguage-([a-z0-9_+-]+)\b/i
 
+export interface CodeBlockHighlightLabels {
+  copy: string
+  copyAriaLabel: string
+}
+
+const DEFAULT_CODE_BLOCK_LABELS: CodeBlockHighlightLabels = {
+  copy: 'Copy',
+  copyAriaLabel: 'Copy code',
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -32,7 +42,10 @@ function renderHastNode(node: any): string {
   return `<${tagName}${classAttribute}>${children}</${tagName}>`
 }
 
-export function highlightCodeBlocks(html: string): string {
+export function highlightCodeBlocks(
+  html: string,
+  labels: CodeBlockHighlightLabels = DEFAULT_CODE_BLOCK_LABELS
+): string {
   if (typeof DOMParser === 'undefined') {
     return html
   }
@@ -71,8 +84,8 @@ export function highlightCodeBlocks(html: string): string {
     copyButton.type = 'button'
     copyButton.className = 'nv-code-block-copy'
     copyButton.setAttribute('data-code-copy-button', '')
-    copyButton.setAttribute('aria-label', '코드 복사')
-    copyButton.textContent = '복사'
+    copyButton.setAttribute('aria-label', labels.copyAriaLabel)
+    copyButton.textContent = labels.copy
 
     toolbar.append(label, copyButton)
     pre.parentNode?.insertBefore(wrapper, pre)

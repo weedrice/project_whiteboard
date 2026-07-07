@@ -187,6 +187,8 @@ export const commonEn: CommonMessages = {
   reset: 'Reset',
   cancel: 'Cancel',
   close: 'Close',
+  previous: 'Previous',
+  next: 'Next',
   pagination: 'Pagination',
   confirm: 'Confirm',
   boards: 'Spaces',

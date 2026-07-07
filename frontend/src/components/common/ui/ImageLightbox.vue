@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onUnmounted, reactive, ref, watch } from 'vue'
 import { ChevronLeft, ChevronRight, X } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 import { useEventListener } from '@/composables/useEventListener'
 import { useFocusTrap } from '@/composables/useFocusTrap'
 
@@ -20,6 +21,7 @@ const emit = defineEmits<{
 }>()
 
 const dialogRef = ref<HTMLElement | null>(null)
+const { t } = useI18n()
 const currentIndex = ref(0)
 const imageScale = ref(1)
 const imageOffset = reactive({ x: 0, y: 0 })
@@ -72,6 +74,25 @@ function clampScale(scale: number) {
   return Math.min(Math.max(scale, 1), 4)
 }
 
+function clampOffset(value: number, imageSize: number, viewportSize: number) {
+  const overflow = Math.max(0, (imageSize * imageScale.value - viewportSize) / 2)
+  const limit = overflow + 48
+  return Math.min(Math.max(value, -limit), limit)
+}
+
+function clampImageOffset(target: EventTarget | null) {
+  const image = target instanceof HTMLImageElement ? target : null
+  if (!image || imageScale.value <= 1) {
+    if (imageScale.value <= 1) {
+      imageOffset.x = 0
+      imageOffset.y = 0
+    }
+    return
+  }
+  imageOffset.x = clampOffset(imageOffset.x, image.clientWidth, window.innerWidth)
+  imageOffset.y = clampOffset(imageOffset.y, image.clientHeight, window.innerHeight)
+}
+
 function handleImagePointerDown(event: PointerEvent) {
   activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
   ;(event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId)
@@ -97,6 +118,8 @@ function handleImagePointerMove(event: PointerEvent) {
     if (imageScale.value === 1) {
       imageOffset.x = 0
       imageOffset.y = 0
+    } else {
+      clampImageOffset(event.currentTarget)
     }
     return
   }
@@ -108,6 +131,7 @@ function handleImagePointerMove(event: PointerEvent) {
     event.preventDefault()
     imageOffset.x = dragStart.offsetX + deltaX
     imageOffset.y = dragStart.offsetY + deltaY
+    clampImageOffset(event.currentTarget)
   }
 }
 
@@ -118,7 +142,9 @@ function handleImagePointerUp(event: PointerEvent) {
   if (dragStart && imageScale.value === 1) {
     const deltaX = event.clientX - dragStart.x
     const deltaY = event.clientY - dragStart.y
-    if (Math.abs(deltaX) > 64 && Math.abs(deltaY) < 60) {
+    if (deltaY > 80 && Math.abs(deltaY) > Math.abs(deltaX)) {
+      close()
+    } else if (Math.abs(deltaX) > 64 && Math.abs(deltaY) < 60) {
       go(deltaX < 0 ? 1 : -1)
     }
   }
@@ -219,7 +245,7 @@ onUnmounted(() => {
           v-if="hasMultipleImages"
           type="button"
           class="absolute left-0 z-10 rounded-full bg-white/12 p-2 text-white transition hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-          aria-label="Previous image"
+          :aria-label="t('common.previous')"
           @click="go(-1)"
         >
           <ChevronLeft class="h-6 w-6" aria-hidden="true" />
@@ -243,7 +269,7 @@ onUnmounted(() => {
           v-if="hasMultipleImages"
           type="button"
           class="absolute right-0 z-10 rounded-full bg-white/12 p-2 text-white transition hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-          aria-label="Next image"
+          :aria-label="t('common.next')"
           @click="go(1)"
         >
           <ChevronRight class="h-6 w-6" aria-hidden="true" />

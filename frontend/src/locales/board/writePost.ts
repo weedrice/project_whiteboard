@@ -100,6 +100,14 @@ export const boardWritePostMessages: BoardMessages['writePost'] = {
       apply: '적용',
       clear: '비우기',
     },
+    codeBlock: {
+      copy: '복사',
+      copyAriaLabel: '코드 복사',
+      copyDone: '완료',
+      copyFailed: '실패',
+      language: '코드 언어',
+      auto: '자동 감지',
+    },
     colorLabels: {
       black: '검정',
       gray: '진한 회색',
@@ -250,6 +258,14 @@ export const boardEnWritePostMessages: BoardMessages['writePost'] = {
       help: 'Used by screen readers and shown when the image cannot load.',
       apply: 'Apply',
       clear: 'Clear',
+    },
+    codeBlock: {
+      copy: 'Copy',
+      copyAriaLabel: 'Copy code',
+      copyDone: 'Copied',
+      copyFailed: 'Failed',
+      language: 'Code language',
+      auto: 'Auto detect',
     },
     colorLabels: {
       black: 'Black',

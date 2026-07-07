@@ -214,6 +214,7 @@ describe('UserSettings', () => {
     expect(wrapper.text()).toContain('user.settings.notificationTypes.COMMENT.label')
     expect(wrapper.text()).toContain('user.settings.notificationTypes.REPLY.label')
     expect(wrapper.text()).toContain('user.settings.notificationTypes.MENTION.label')
+    expect(wrapper.text()).toContain('user.settings.notificationTypes.MESSAGE.label')
     expect(wrapper.text()).toContain('user.settings.notificationTypes.SYSTEM.label')
     expect(wrapper.text()).toContain('user.settings.notificationTypes.SANCTION.label')
 
@@ -298,6 +299,7 @@ describe('UserSettings', () => {
         { notificationType: 'COMMENT', isEnabled: false },
         { notificationType: 'REPLY', isEnabled: false },
         { notificationType: 'MENTION', isEnabled: true },
+        { notificationType: 'MESSAGE', isEnabled: true },
         { notificationType: 'SYSTEM', isEnabled: true },
         { notificationType: 'SANCTION', isEnabled: true },
       ],

@@ -48,6 +48,8 @@ const seoDescription = computed(() => {
 useHead({
   title: seoTitle,
   meta: [
+    { name: 'robots', content: 'noindex, nofollow' },
+    { name: 'googlebot', content: 'noindex, nofollow' },
     { name: 'description', content: seoDescription },
     { property: 'og:title', content: seoTitle },
     { property: 'og:description', content: seoDescription },

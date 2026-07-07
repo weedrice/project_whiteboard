@@ -17,6 +17,17 @@ vi.mock('@/stores/auth', () => ({
     useAuthStore: () => useAuthStoreMock(),
 }))
 
+vi.mock('vue-router', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('vue-router')>()
+
+    return {
+        ...actual,
+        useRouter: () => ({
+            push: vi.fn(),
+        }),
+    }
+})
+
 vi.mock('vue-i18n', async (importOriginal) => {
     const actual = await importOriginal<typeof import('vue-i18n')>()
 

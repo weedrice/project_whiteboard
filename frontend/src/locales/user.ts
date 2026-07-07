@@ -140,6 +140,10 @@ export const user: UserMessages = {
         label: '멘션',
         description: '게시글이나 댓글에서 나를 언급했을 때 알림을 받습니다.',
       },
+      MESSAGE: {
+        label: '쪽지',
+        description: '새 쪽지가 도착했을 때 알림을 받습니다.',
+      },
       SYSTEM: {
         label: '시스템',
         description: '서비스 안내와 계정 관련 알림을 받습니다.',

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { User as UserIcon, CornerDownRight } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { Comment } from '@/api/comment'
@@ -33,6 +34,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const router = useRouter()
 const authStore = useAuthStore() as ReturnType<typeof useAuthStore> | undefined
 
 const isReplying = ref(false)
@@ -56,7 +58,11 @@ const {
   isAuthenticated,
   isCommentAuthor,
 } = useCommentAuthorState(commentRef, authStore)
-const renderedContent = computed<SanitizedHtml>(() => renderCommentContentHtml(props.comment.content ?? ''))
+const renderedContent = computed<SanitizedHtml>(() => renderCommentContentHtml(
+  props.comment.content ?? '',
+  'comment-emoticon',
+  props.comment.mentions ?? []
+))
 const isEmoticonOnly = computed(() => isEmoticonOnlyContent(props.comment.content ?? ''))
 const createdAtShort = computed(() => formatDateShort(props.comment.createdAt))
 const createdAtFull = computed(() => formatDate(props.comment.createdAt))
@@ -81,6 +87,28 @@ function handleEditSuccess() {
 
 function handleDelete() {
   emit('delete', props.comment)
+}
+
+function navigateToMention(target: EventTarget | null): boolean {
+  const mention = (target as HTMLElement | null)?.closest?.('[data-mention-user-id]')
+  if (!(mention instanceof HTMLElement)) return false
+
+  const userId = mention.dataset.mentionUserId
+  if (!userId) return false
+
+  void router.push(`/user/${encodeURIComponent(userId)}`)
+  return true
+}
+
+function handleContentClick(event: MouseEvent) {
+  navigateToMention(event.target)
+}
+
+function handleContentKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Enter') return
+  if (navigateToMention(event.target)) {
+    event.preventDefault()
+  }
 }
 
 watch(isBlockedAuthor, (blocked) => {
@@ -175,12 +203,16 @@ watch(isBlockedAuthor, (blocked) => {
           tag="p"
           class="text-xs sm:text-sm"
           :html="renderedContent"
+          @click="handleContentClick"
+          @keydown="handleContentKeydown"
         />
         <SanitizedHtmlView
           v-else
           tag="p"
           class="text-xs nv-text-muted sm:text-sm"
           :html="renderedContent"
+          @click="handleContentClick"
+          @keydown="handleContentKeydown"
         />
 
         <div class="mt-2 flex flex-wrap items-center gap-1 sm:gap-2">
@@ -272,3 +304,17 @@ watch(isBlockedAuthor, (blocked) => {
     </div>
   </div>
 </template>
+
+<style scoped>
+:deep(.comment-mention) {
+  color: var(--nv-accent);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+:deep(.comment-mention:focus-visible) {
+  border-radius: 4px;
+  outline: 2px solid var(--nv-accent);
+  outline-offset: 2px;
+}
+</style>

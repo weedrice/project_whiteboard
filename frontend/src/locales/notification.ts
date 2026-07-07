@@ -8,6 +8,7 @@ export const notification: NotificationMessages = {
   sourceTypes: {
     post: '게시글',
     comment: '댓글',
+    message: '쪽지',
   },
   types: {
     default: '알림',
@@ -15,6 +16,7 @@ export const notification: NotificationMessages = {
     comment: '댓글',
     reply: '답글',
     mention: '멘션',
+    message: '쪽지',
     system: '시스템',
     sanction: '제재',
   },

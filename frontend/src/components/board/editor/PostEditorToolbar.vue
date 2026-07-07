@@ -27,8 +27,10 @@ defineProps<{
   failedImageFiles: File[]
   fontSizes: string[]
   lineHeights: string[]
+  codeBlockLanguages: readonly string[]
   currentFontSize: string
   currentLineHeight: string
+  currentCodeBlockLanguage: string
   currentTextColor: string
   isDefaultColor: boolean
   isDark: boolean
@@ -52,6 +54,7 @@ const emit = defineEmits<{
   (e: 'ordered-list'): void
   (e: 'font-size', value: string): void
   (e: 'line-height', value: string): void
+  (e: 'code-block-language', value: string): void
   (e: 'custom-text-color', value: string): void
   (e: 'toggle-color-panel', trigger: HTMLElement): void
   (e: 'align', value: 'left' | 'center' | 'right' | 'justify'): void
@@ -137,6 +140,18 @@ const { t } = useI18n()
       </div>
 
       <div class="tiptap-toolbar-group">
+        <select
+          v-if="editor.isActive('codeBlock')"
+          class="tiptap-select text-xs"
+          :value="currentCodeBlockLanguage"
+          :aria-label="t('board.writePost.codeBlock.language')"
+          @change="emit('code-block-language', ($event.target as HTMLSelectElement).value)"
+        >
+          <option value="">{{ t('board.writePost.codeBlock.auto') }}</option>
+          <option v-for="language in codeBlockLanguages.filter(Boolean)" :key="language" :value="language">
+            {{ language }}
+          </option>
+        </select>
         <button type="button" class="tiptap-btn tiptap-btn-pill" :title="t('board.writePost.toolbar.slashMenu')" :aria-label="t('board.writePost.toolbar.slashMenu')" aria-haspopup="dialog" :aria-expanded="showSlashMenu" aria-controls="editor-slash-dialog" @mousedown.prevent @click="emit('toggle-slash-menu', $event.currentTarget as HTMLElement)">
           {{ t('board.writePost.toolbar.insertBlock') }}
         </button>

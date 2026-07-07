@@ -192,6 +192,12 @@ function handleMarkAllAsRead() {
   color: var(--nv-accent);
 }
 
+.notification-icon-message,
+.notification-badge-message {
+  background: var(--nv-success-bg);
+  color: var(--nv-success-text);
+}
+
 .notification-icon-system,
 .notification-badge-system {
   background: var(--nv-success-bg);

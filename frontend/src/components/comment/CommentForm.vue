@@ -214,7 +214,11 @@ async function handleSubmit() {
 
   if (props.commentId) {
     // Update existing comment
-    updateComment({ commentId: props.commentId, postId: props.postId, data: { content: trimmedContent.value } }, {
+    const payload: CommentPayload = { content: trimmedContent.value }
+    if (mentionedUserIds.value.length > 0) {
+      payload.mentionedUserIds = mentionedUserIds.value
+    }
+    updateComment({ commentId: props.commentId, postId: props.postId, data: payload }, {
       onSuccess: () => {
         emit('success')
       },
