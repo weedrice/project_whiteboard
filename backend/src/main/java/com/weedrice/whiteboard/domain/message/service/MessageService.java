@@ -4,6 +4,8 @@ import com.weedrice.whiteboard.domain.message.constant.MessageConstraints;
 import com.weedrice.whiteboard.domain.message.dto.MessageResponse;
 import com.weedrice.whiteboard.domain.message.entity.Message;
 import com.weedrice.whiteboard.domain.message.repository.MessageRepository;
+import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
+import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -13,6 +15,7 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -42,6 +45,7 @@ public class MessageService {
     private final UserRepository userRepository;
     private final UserBlockService userBlockService;
     private final SanctionService sanctionService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public Long sendMessage(Long senderId, Long receiverId, String content) {
@@ -71,7 +75,15 @@ public class MessageService {
                 .receiver(receiver)
                 .content(sanitizedContent)
                 .build();
-        return messageRepository.save(message).getMessageId();
+        Message savedMessage = messageRepository.save(message);
+        eventPublisher.publishEvent(new NotificationEvent(
+                receiver,
+                sender,
+                NotificationType.SYSTEM,
+                "SYSTEM",
+                savedMessage.getMessageId(),
+                "새 메시지가 도착했습니다."));
+        return savedMessage.getMessageId();
     }
 
     public MessageResponse getReceivedMessages(Long userId, Pageable pageable) {

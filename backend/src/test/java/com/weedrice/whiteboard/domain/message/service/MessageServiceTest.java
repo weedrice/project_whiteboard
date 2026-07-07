@@ -4,6 +4,8 @@ import com.weedrice.whiteboard.domain.message.constant.MessageConstraints;
 import com.weedrice.whiteboard.domain.message.dto.MessageResponse;
 import com.weedrice.whiteboard.domain.message.entity.Message;
 import com.weedrice.whiteboard.domain.message.repository.MessageRepository;
+import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
+import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -18,6 +20,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -54,6 +57,8 @@ class MessageServiceTest {
     private UserBlockService userBlockService;
     @Mock
     private SanctionService sanctionService;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private MessageService messageService;
@@ -100,6 +105,15 @@ class MessageServiceTest {
         verify(sanctionService).validateNotBanned(sender);
         verify(sanctionService).validateNotMuted(sender);
         verify(userBlockService).isEitherDirectionBlocked(1L, 2L);
+
+        ArgumentCaptor<NotificationEvent> eventCaptor = ArgumentCaptor.forClass(NotificationEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        NotificationEvent event = eventCaptor.getValue();
+        assertThat(event.getUserToNotify()).isSameAs(receiver);
+        assertThat(event.getActor()).isSameAs(sender);
+        assertThat(event.getNotificationType()).isEqualTo(NotificationType.SYSTEM);
+        assertThat(event.getSourceType()).isEqualTo("SYSTEM");
+        assertThat(event.getSourceId()).isEqualTo(1L);
     }
 
     @Test

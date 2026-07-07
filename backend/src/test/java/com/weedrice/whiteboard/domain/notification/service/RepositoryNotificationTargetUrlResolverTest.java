@@ -54,6 +54,18 @@ class RepositoryNotificationTargetUrlResolverTest {
         verify(commentRepository).findByCommentIdInAndIsDeletedFalse(any());
     }
 
+    @Test
+    @DisplayName("SYSTEM 알림은 쪽지함 경로로 연결한다")
+    void resolveAll_buildsSystemTargetUrl() {
+        RepositoryNotificationTargetUrlResolver resolver =
+                new RepositoryNotificationTargetUrlResolver(postRepository, commentRepository);
+        Notification systemNotification = notification(3L, "SYSTEM", 30L);
+
+        Map<Long, String> targetUrls = resolver.resolveAll(List.of(systemNotification));
+
+        assertThat(targetUrls).containsEntry(3L, "/mypage/messages");
+    }
+
     private Notification notification(Long notificationId, String sourceType, Long sourceId) {
         Notification notification = Notification.builder()
                 .user(User.builder().build())
