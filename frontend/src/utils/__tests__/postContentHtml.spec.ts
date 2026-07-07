@@ -18,4 +18,14 @@ describe('renderPostContentHtml', () => {
     it('keeps intentional empty paragraphs visible', () => {
         expect(renderPostContentHtml('<p> </p>')).toContain('<p><br></p>')
     })
+
+    it('adds code block language labels and copy controls', () => {
+        const result = renderPostContentHtml('<pre><code class="language-js">const value = 1</code></pre>')
+
+        expect(result).toContain('class="nv-code-block"')
+        expect(result).toContain('class="nv-code-block-language"')
+        expect(result).toContain('js')
+        expect(result).toContain('data-code-copy-button')
+        expect(result).toContain('복사')
+    })
 })

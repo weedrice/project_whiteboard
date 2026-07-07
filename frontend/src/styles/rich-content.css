@@ -60,6 +60,53 @@
     overflow-x: auto;
   }
 
+  .nv-rich-content :where(.nv-code-block) {
+    border: 1px solid var(--nv-line);
+    border-radius: 0.85rem;
+    margin: 1.25em 0;
+    overflow: hidden;
+    background: var(--nv-surface-2);
+  }
+
+  .nv-rich-content :where(.nv-code-block pre) {
+    border: 0;
+    border-radius: 0;
+    margin: 0;
+  }
+
+  .nv-rich-content :where(.nv-code-block-toolbar) {
+    align-items: center;
+    border-bottom: 1px solid var(--nv-line);
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.45rem 0.75rem;
+  }
+
+  .nv-rich-content :where(.nv-code-block-language) {
+    color: var(--nv-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .nv-rich-content :where(.nv-code-block-copy) {
+    border: 1px solid var(--nv-line);
+    border-radius: 0.4rem;
+    color: var(--nv-ink-soft);
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1;
+    padding: 0.35rem 0.55rem;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  .nv-rich-content :where(.nv-code-block-copy:hover, .nv-code-block-copy:focus-visible) {
+    background: var(--nv-surface-hover);
+    color: var(--nv-accent);
+    outline: 0;
+  }
+
   .nv-rich-content :where(pre code) {
     background: transparent;
     border: 0;
@@ -113,8 +160,16 @@
     background: color-mix(in srgb, var(--nv-accent) 10%, transparent);
     border-radius: 0.35rem;
     color: var(--nv-accent);
+    cursor: pointer;
     font-weight: 700;
     padding: 0.05rem 0.25rem;
+    transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .nv-rich-content :where(.mention-node:hover, .mention-node:focus-visible) {
+    background: color-mix(in srgb, var(--nv-accent) 18%, transparent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--nv-accent) 24%, transparent);
+    outline: 0;
   }
 
   .nv-rich-content :where(.tiptap-video-wrapper) {

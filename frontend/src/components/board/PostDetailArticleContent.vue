@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { VNodeRef } from 'vue'
+import { useRouter } from 'vue-router'
 import ImageLightbox from '@/components/common/ui/ImageLightbox.vue'
 import PostContentView from '@/components/board/PostContentView.vue'
 import PostDetailReactionBar from '@/components/board/PostDetailReactionBar.vue'
@@ -34,6 +35,7 @@ const emit = defineEmits<{
   (e: 'report'): void
 }>()
 
+const router = useRouter()
 const articleRef = ref<HTMLElement | null>(null)
 const lightboxOpen = ref(false)
 const lightboxIndex = ref(0)
@@ -44,8 +46,49 @@ const lightboxImages = computed(() => {
     .filter(Boolean)
 })
 
+function navigateToMention(target: EventTarget | null): boolean {
+  const mention = (target as HTMLElement | null)?.closest?.('[data-mention-user-id]')
+  if (!(mention instanceof HTMLElement)) return false
+
+  const userId = mention.dataset.mentionUserId
+  if (!userId) return false
+
+  void router.push(`/user/${encodeURIComponent(userId)}`)
+  return true
+}
+
+function copyCodeBlock(target: EventTarget | null): boolean {
+  const button = (target as HTMLElement | null)?.closest?.('[data-code-copy-button]')
+  if (!(button instanceof HTMLButtonElement)) return false
+
+  const code = button.closest('.nv-code-block')?.querySelector('pre code')
+  const codeText = code?.textContent ?? ''
+  if (!codeText) return true
+
+  if (!navigator.clipboard?.writeText) {
+    button.textContent = '실패'
+    return true
+  }
+
+  navigator.clipboard.writeText(codeText)
+    .then(() => {
+      const originalText = button.textContent || '복사'
+      button.textContent = '완료'
+      window.setTimeout(() => {
+        button.textContent = originalText
+      }, 1400)
+    })
+    .catch(() => {
+      button.textContent = '실패'
+    })
+  return true
+}
+
 function openLightbox(event: MouseEvent) {
   if (props.isBlurred) return
+  if (navigateToMention(event.target)) return
+  if (copyCodeBlock(event.target)) return
+
   const image = (event.target as HTMLElement | null)?.closest?.('img')
   if (!(image instanceof HTMLImageElement)) return
 
@@ -55,6 +98,13 @@ function openLightbox(event: MouseEvent) {
 
   lightboxIndex.value = index
   lightboxOpen.value = true
+}
+
+function handleContentKeydown(event: KeyboardEvent) {
+  if (props.isBlurred || event.key !== 'Enter') return
+  if (navigateToMention(event.target)) {
+    event.preventDefault()
+  }
 }
 </script>
 
@@ -71,6 +121,7 @@ function openLightbox(event: MouseEvent) {
       ref="articleRef"
       class="nv-post-article relative overflow-hidden"
       @click="openLightbox"
+      @keydown="handleContentKeydown"
     >
       <PostContentView
         :ref="assignContentRef"

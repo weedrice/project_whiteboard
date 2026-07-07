@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { useHead } from '@unhead/vue'
 import { FileText, MessageSquare, User } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useUser } from '@/composables/useUser'
@@ -34,6 +35,23 @@ const tabs = computed(() => [
 const { data: profile, isLoading: profileLoading } = useUserProfile(userId)
 const { data: postsData, isLoading: postsLoading } = usePublicProfilePosts(userId, postParams)
 const { data: commentsData, isLoading: commentsLoading } = usePublicProfileComments(userId, commentParams)
+
+const seoTitle = computed(() => profile.value?.displayName || t('user.publicProfile.overview'))
+const seoDescription = computed(() => {
+  if (!profile.value) {
+    return t('user.publicProfile.overviewDescription')
+  }
+  return `${profile.value.displayName} · ${t('user.publicProfile.postCount')} ${profile.value.postCount} · ${t('user.publicProfile.commentCount')} ${profile.value.commentCount}`
+})
+
+useHead({
+  title: seoTitle,
+  meta: [
+    { name: 'description', content: seoDescription },
+    { property: 'og:title', content: seoTitle },
+    { property: 'og:description', content: seoDescription },
+  ],
+})
 
 watch(userId, () => {
   activeTab.value = 'overview'

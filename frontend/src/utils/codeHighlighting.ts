@@ -53,6 +53,30 @@ export function highlightCodeBlocks(html: string): string {
     if (resolvedLanguage) {
       code.classList.add(`language-${resolvedLanguage}`)
     }
+
+    const pre = code.closest('pre')
+    if (!pre || pre.parentElement?.classList.contains('nv-code-block')) return
+
+    const wrapper = doc.createElement('div')
+    wrapper.className = 'nv-code-block'
+
+    const toolbar = doc.createElement('div')
+    toolbar.className = 'nv-code-block-toolbar'
+
+    const label = doc.createElement('span')
+    label.className = 'nv-code-block-language'
+    label.textContent = resolvedLanguage || 'text'
+
+    const copyButton = doc.createElement('button')
+    copyButton.type = 'button'
+    copyButton.className = 'nv-code-block-copy'
+    copyButton.setAttribute('data-code-copy-button', '')
+    copyButton.setAttribute('aria-label', '코드 복사')
+    copyButton.textContent = '복사'
+
+    toolbar.append(label, copyButton)
+    pre.parentNode?.insertBefore(wrapper, pre)
+    wrapper.append(toolbar, pre)
   })
 
   return doc.body.innerHTML

@@ -3,6 +3,10 @@ import { mount } from '@vue/test-utils'
 import PostDetailArticleContent from '@/components/board/PostDetailArticleContent.vue'
 import type { PostDetailViewModel } from '@/features/board/posts/detail/usePostDetailViewModel'
 
+vi.mock('vue-router', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}))
+
 const postView = (overrides: Partial<PostDetailViewModel> = {}): PostDetailViewModel => ({
   postId: 1,
   title: 'Post title',
