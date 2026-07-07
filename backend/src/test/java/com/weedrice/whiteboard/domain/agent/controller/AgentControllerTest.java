@@ -99,6 +99,51 @@ class AgentControllerTest {
     }
 
     @Test
+    @DisplayName("Agent post request validates board URL pattern")
+    void postCreateRequest_validatesBoardUrlPattern() {
+        Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
+        AgentPostCreateRequest request = new AgentPostCreateRequest();
+        ReflectionTestUtils.setField(request, "boardUrl", "Free Board");
+        ReflectionTestUtils.setField(request, "title", "Valid title");
+        ReflectionTestUtils.setField(request, "content", "a".repeat(60));
+
+        Set<ConstraintViolation<AgentPostCreateRequest>> violations = validator.validate(request);
+
+        assertThat(violations).anySatisfy(violation ->
+                assertThat(violation.getPropertyPath().toString()).isEqualTo("boardUrl"));
+    }
+
+    @Test
+    @DisplayName("Agent post request accepts hyphenated board URL")
+    void postCreateRequest_acceptsHyphenatedBoardUrl() {
+        Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
+        AgentPostCreateRequest request = new AgentPostCreateRequest();
+        ReflectionTestUtils.setField(request, "boardUrl", "free-board_1");
+        ReflectionTestUtils.setField(request, "title", "Valid title");
+        ReflectionTestUtils.setField(request, "content", "a".repeat(60));
+
+        Set<ConstraintViolation<AgentPostCreateRequest>> violations = validator.validate(request);
+
+        assertThat(violations).noneSatisfy(violation ->
+                assertThat(violation.getPropertyPath().toString()).isEqualTo("boardUrl"));
+    }
+
+    @Test
+    @DisplayName("Agent post request rejects too long board URL")
+    void postCreateRequest_rejectsTooLongBoardUrl() {
+        Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
+        AgentPostCreateRequest request = new AgentPostCreateRequest();
+        ReflectionTestUtils.setField(request, "boardUrl", "a".repeat(101));
+        ReflectionTestUtils.setField(request, "title", "Valid title");
+        ReflectionTestUtils.setField(request, "content", "a".repeat(60));
+
+        Set<ConstraintViolation<AgentPostCreateRequest>> violations = validator.validate(request);
+
+        assertThat(violations).anySatisfy(violation ->
+                assertThat(violation.getPropertyPath().toString()).isEqualTo("boardUrl"));
+    }
+
+    @Test
     @DisplayName("Agent comment request rejects HTML content")
     void commentCreateRequest_rejectsHtmlContent() {
         Validator validator = Validation.buildDefaultValidatorFactory().getValidator();

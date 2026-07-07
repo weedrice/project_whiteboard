@@ -44,11 +44,11 @@ describe('AdminBoardFormFields', () => {
   it('passes URL pattern and agent disabled state to controls', () => {
     const wrapper = mountFields({
       agentDisabled: true,
-      boardUrlPattern: '[a-z_]*',
+      boardUrlPattern: '[a-z0-9_-]*',
     })
     const inputs = wrapper.findAll('input')
 
-    expect(inputs[1].attributes('pattern')).toBe('[a-z_]*')
+    expect(inputs[1].attributes('pattern')).toBe('[a-z0-9_-]*')
     expect(inputs[2].attributes('disabled')).toBeDefined()
   })
 })

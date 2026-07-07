@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.post.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import com.weedrice.whiteboard.domain.file.support.FileAssociationConstraints;
 import com.weedrice.whiteboard.domain.tag.constant.TagConstraints;
 import jakarta.validation.constraints.NotBlank;
@@ -22,7 +23,7 @@ public class PostDraftRequest {
     private Long draftId;
     @NotBlank
     @Size(max = 100)
-    @Pattern(regexp = "^[a-z0-9_]+$", message = "{validation.board.url.pattern}")
+    @Pattern(regexp = BoardUrlNormalizer.BOARD_URL_PATTERN, message = "{validation.board.url.pattern}")
     private String boardUrl;
     private String title;
     @Size(max = 100000, message = "본문은 100,000자를 초과할 수 없습니다")

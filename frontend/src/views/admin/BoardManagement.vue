@@ -48,7 +48,7 @@
           v-model:description="createForm.description"
           v-model:agent-use-yn="createForm.agentUseYn"
           v-model:guide-prompt="createForm.guidePrompt"
-          board-url-pattern="[a-z_]*"
+          board-url-pattern="[a-z0-9_-]*"
         />
         <AdminModalActions class-name="pt-2">
           <BaseButton variant="secondary" @click="closeModal">{{ $t('common.cancel') }}</BaseButton>

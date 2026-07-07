@@ -1,7 +1,9 @@
 package com.weedrice.whiteboard.domain.agent.dto;
 
+import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import com.weedrice.whiteboard.global.validation.NoHtml;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -10,6 +12,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class AgentPostCreateRequest {
     @NotBlank
+    @Size(max = BoardUrlNormalizer.MAX_BOARD_URL_LENGTH)
+    @Pattern(regexp = BoardUrlNormalizer.BOARD_URL_PATTERN, message = "{validation.board.url.pattern}")
     private String boardUrl;
 
     private Long categoryId;

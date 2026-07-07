@@ -111,7 +111,7 @@ const isSubmitting = computed(() => props.isSubmitting || localIsSubmitting.valu
 
       <div class="sm:col-span-6">
         <BaseInput :label="$t('board.form.url')" v-model="form.boardUrl" type="text" required :disabled="isEdit"
-          :placeholder="$t('board.form.placeholder.url')" labelClass="text-base" pattern="[a-z_]*" />
+          :placeholder="$t('board.form.placeholder.url')" labelClass="text-base" pattern="[a-z0-9_-]*" />
       </div>
 
       <div class="sm:col-span-6">

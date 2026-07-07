@@ -17,8 +17,8 @@ describe('board utils', () => {
     expect(isGeneralCategoryName('qna')).toBe(false)
   })
 
-  it('normalizes board URL input to lowercase letters and underscores only', () => {
-    expect(normalizeBoardUrlInput('Free_BOARD_123-\uD55C\uAE00')).toBe('free_board_')
+  it('normalizes board URL input to lowercase letters, numbers, underscores, and hyphens', () => {
+    expect(normalizeBoardUrlInput('Free_BOARD_123-\uD55C\uAE00')).toBe('free_board_123-')
     expect(normalizeBoardUrlInput(null)).toBe('')
   })
 
