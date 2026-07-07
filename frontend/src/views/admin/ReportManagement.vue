@@ -27,7 +27,7 @@ const {
   closeDetailModal,
   openSanctionModal,
   closeSanctionModal,
-  refreshList,
+  handleSanctioned,
   handleResolve,
   handleReject,
 } = useReportModerationPage()
@@ -69,7 +69,7 @@ const {
       :isOpen="isModalOpen"
       :user="selectedUser"
       @close="closeSanctionModal"
-      @sanctioned="refreshList"
+      @sanctioned="handleSanctioned"
     />
   </AdminDataPage>
 </template>

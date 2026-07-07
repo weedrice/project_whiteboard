@@ -35,6 +35,7 @@ export function useReportModerationPage() {
 
   const isModalOpen = ref(false)
   const selectedUser = ref<SanctionTarget | null>(null)
+  const selectedSanctionReport = ref<Report | null>(null)
   const isDetailModalOpen = ref(false)
   const selectedReport = ref<Report | null>(null)
 
@@ -59,15 +60,34 @@ export function useReportModerationPage() {
       sanctionContentId: report.targetId,
       sanctionContentType: report.targetType
     }
+    selectedSanctionReport.value = report
     isModalOpen.value = true
   }
 
   function closeSanctionModal() {
     isModalOpen.value = false
+    selectedSanctionReport.value = null
   }
 
   function refreshList() {
     refetch()
+  }
+
+  async function handleSanctioned() {
+    const report = selectedSanctionReport.value
+    if (!report || report.status !== 'PENDING') {
+      refreshList()
+      return
+    }
+
+    try {
+      await resolveReport({ reportId: report.reportId, data: { status: 'RESOLVED' } })
+      toastStore.addToast(t('admin.reports.messages.sanctionResolved'), 'success')
+    } catch {
+      toastStore.addToast(t('admin.reports.messages.sanctionResolveFailed'), 'error')
+    } finally {
+      refreshList()
+    }
   }
 
   async function handleResolve(report: Report) {
@@ -111,6 +131,7 @@ export function useReportModerationPage() {
     openSanctionModal,
     closeSanctionModal,
     refreshList,
+    handleSanctioned,
     handleResolve,
     handleReject,
   }

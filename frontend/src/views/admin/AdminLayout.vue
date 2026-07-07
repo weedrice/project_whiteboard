@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
+  ChevronDown,
   LayoutDashboard,
   Users,
   ShieldAlert,
@@ -15,6 +16,7 @@ import { useI18n } from 'vue-i18n'
 
 const route = useRoute()
 const { t } = useI18n()
+const isMobileMenuOpen = ref(false)
 
 const navigation = computed(() => [
   { name: t('admin.menu.dashboard'), href: '/admin/dashboard', icon: LayoutDashboard },
@@ -27,6 +29,17 @@ const navigation = computed(() => [
   { name: t('admin.menu.security'), href: '/admin/security', icon: ShieldAlert },
   { name: t('admin.menu.settings'), href: '/admin/settings', icon: Settings },
 ])
+
+const activeNavigationItem = computed(() => (
+  navigation.value.find((item) => route.path.startsWith(item.href)) ?? navigation.value[0]
+))
+
+watch(
+  () => route.fullPath,
+  () => {
+    isMobileMenuOpen.value = false
+  },
+)
 
 </script>
 
@@ -56,6 +69,47 @@ const navigation = computed(() => [
 
     <!-- Main content -->
     <div class="md:pl-64 flex flex-col flex-1">
+      <header class="md:hidden sticky top-0 z-40 border-b border-[var(--nv-border)] bg-[var(--nv-surface)]/95 backdrop-blur">
+        <div class="flex h-14 items-center justify-between gap-3 px-4">
+          <router-link to="/" class="min-w-0 text-base font-semibold nv-title">
+            {{ t('admin.layout.title') }}
+          </router-link>
+          <button
+            type="button"
+            class="inline-flex min-w-0 items-center gap-2 rounded-md border border-[var(--nv-border)] px-3 py-2 text-sm font-medium nv-text"
+            :aria-expanded="isMobileMenuOpen"
+            aria-controls="admin-mobile-nav"
+            @click="isMobileMenuOpen = !isMobileMenuOpen"
+          >
+            <component :is="activeNavigationItem.icon" class="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+            <span class="truncate">{{ activeNavigationItem.name }}</span>
+            <ChevronDown
+              class="h-4 w-4 flex-shrink-0 transition-transform"
+              :class="{ 'rotate-180': isMobileMenuOpen }"
+              aria-hidden="true"
+            />
+          </button>
+        </div>
+
+        <nav
+          v-if="isMobileMenuOpen"
+          id="admin-mobile-nav"
+          class="border-t border-[var(--nv-border)] px-2 py-2"
+          :aria-label="t('admin.layout.title')"
+        >
+          <router-link
+            v-for="item in navigation"
+            :key="item.name"
+            :to="item.href"
+            class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium nv-text"
+            :class="{ 'nv-admin-sidebar-link-active': route.path.startsWith(item.href) }"
+          >
+            <component :is="item.icon" class="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+            {{ item.name }}
+          </router-link>
+        </nav>
+      </header>
+
       <main class="flex-1">
         <div class="py-6">
           <div class="px-4 sm:px-6 md:px-8">

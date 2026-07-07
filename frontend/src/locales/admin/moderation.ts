@@ -53,6 +53,8 @@ export const adminModerationMessages = {
       confirmResolve: '신고를 처리(승인)하시겠습니까?',
       resolved: '신고가 처리되었습니다.',
       resolveFailed: '처리 실패',
+      sanctionResolved: '제재 생성 후 신고가 처리되었습니다.',
+      sanctionResolveFailed: '제재는 생성되었지만 신고 처리 상태 갱신에 실패했습니다.',
       confirmReject: '신고를 반려하시겠습니까?',
       rejected: '신고가 반려되었습니다.',
       rejectFailed: '반려 실패',

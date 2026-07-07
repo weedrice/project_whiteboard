@@ -212,6 +212,8 @@ export interface AdminMessages {
       confirmResolve: string
       resolved: string
       resolveFailed: string
+      sanctionResolved: string
+      sanctionResolveFailed: string
       confirmReject: string
       rejected: string
       rejectFailed: string
