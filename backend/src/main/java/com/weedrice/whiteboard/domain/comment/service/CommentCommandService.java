@@ -217,6 +217,7 @@ public class CommentCommandService {
     @Transactional
     public void likeComment(Long userId, Long commentId) {
         User user = userWritableResolver.resolve(userId);
+        sanctionService.validateNotMuted(user);
         Comment comment = loadReadableActiveCommentForReaction(commentId, user);
 
         commentLikeCommand.like(user, comment, CommentLikeCommand.DuplicatePolicy.THROW_ALREADY_LIKED);
@@ -226,6 +227,7 @@ public class CommentCommandService {
     @Transactional
     public void unlikeComment(Long userId, Long commentId) {
         User user = userWritableResolver.resolve(userId);
+        sanctionService.validateNotMuted(user);
         loadReadableActiveCommentForReaction(commentId, user);
 
         int deletedCount = commentLikeRepository.deleteByUserIdAndCommentId(userId, commentId);

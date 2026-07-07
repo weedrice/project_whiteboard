@@ -1394,6 +1394,24 @@ class CommentServiceTest {
     }
 
     @Test
+    @DisplayName("활성 MUTE 사용자는 댓글 좋아요를 할 수 없다")
+    void likeComment_mutedUser_forbidden() {
+        User user = User.builder().displayName("User").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotMuted(user);
+
+        assertThatThrownBy(() -> commentService.likeComment(1L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(commentRepository, never()).findById(anyLong());
+        verify(commentLikeRepository, never()).saveAndFlush(any());
+        verify(commentRepository, never()).incrementLikeCount(anyLong());
+    }
+
+    @Test
     @DisplayName("duplicate comment like maps to already liked without counter or notification")
     void likeComment_duplicate_doesNotIncrementOrNotify() {
         User user = User.builder().displayName("User").build();
@@ -1936,6 +1954,23 @@ class CommentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
 
+        verify(commentLikeRepository, never()).deleteByUserIdAndCommentId(anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("활성 MUTE 사용자는 댓글 좋아요를 취소할 수 없다")
+    void unlikeComment_mutedUser_forbidden() {
+        User user = User.builder().displayName("User").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotMuted(user);
+
+        assertThatThrownBy(() -> commentService.unlikeComment(1L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(commentRepository, never()).findById(anyLong());
         verify(commentLikeRepository, never()).deleteByUserIdAndCommentId(anyLong(), anyLong());
     }
 
