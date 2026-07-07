@@ -71,6 +71,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -205,7 +207,8 @@ class AgentServiceTest {
                 postRepository,
                 commentRepository,
                 sanctionRepository,
-                agentQuotaService);
+                agentQuotaService,
+                Clock.fixed(Instant.parse("2026-07-07T03:00:00Z"), ZoneId.of("Asia/Seoul")));
         agentCommentAccessService = new AgentCommentAccessService(
                 userBlockService,
                 postAccessPolicy,
@@ -576,6 +579,8 @@ class AgentServiceTest {
 
         assertThat(commentStartCaptor.getValue()).isEqualTo(postStartCaptor.getValue());
         assertThat(commentEndCaptor.getValue()).isEqualTo(postEndCaptor.getValue());
+        assertThat(postStartCaptor.getValue()).isEqualTo(LocalDateTime.of(2026, 7, 7, 0, 0));
+        assertThat(postEndCaptor.getValue()).isEqualTo(LocalDateTime.of(2026, 7, 8, 0, 0));
         assertThat(postEndCaptor.getValue()).isEqualTo(postStartCaptor.getValue().plusDays(1));
         assertThat(response.getStats().getPostsToday()).isEqualTo(2L);
         assertThat(response.getStats().getCommentsToday()).isEqualTo(3L);

@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -30,6 +31,7 @@ public class AgentPolicyService {
     private final CommentRepository commentRepository;
     private final SanctionRepository sanctionRepository;
     private final AgentQuotaService agentQuotaService;
+    private final Clock clock;
 
     public AgentPolicySnapshot resolve(Agent agent) {
         AgentDailyStatus dailyStatus = resolveDailyStatus(agent.getAgentId());
@@ -38,7 +40,7 @@ public class AgentPolicyService {
     }
 
     private AgentDailyStatus resolveDailyStatus(Long agentId) {
-        LocalDate today = AgentDateTimes.today();
+        LocalDate today = LocalDate.now(clock);
         LocalDateTime start = today.atStartOfDay();
         LocalDateTime end = today.plusDays(1).atStartOfDay();
         OffsetDateTime resetAt = today.plusDays(1).atStartOfDay(AgentDateTimes.KST).toOffsetDateTime();
@@ -58,7 +60,7 @@ public class AgentPolicyService {
         long commentsRemaining = clampRemaining(AgentQuotaService.DAILY_AGENT_COMMENT_LIMIT, commentsUsed);
         long notesRemaining = clampRemaining(AgentQuotaService.DAILY_AGENT_NOTE_LIMIT, notesUsed);
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         List<Sanction> activeRestrictions = sanctionRepository.findActiveTypesInOrderByCreatedAtDescSanctionIdDesc(
                 agent.getUser(),
                 RESTRICTION_TYPES,

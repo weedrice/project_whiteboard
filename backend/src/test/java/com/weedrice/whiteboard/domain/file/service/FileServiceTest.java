@@ -29,7 +29,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -71,9 +74,11 @@ class FileServiceTest {
     private EntityManager entityManager;
 
     private FileService fileService;
+    private Clock clock;
 
     @BeforeEach
     void setUpFileService() {
+        clock = Clock.fixed(Instant.parse("2026-05-07T00:00:00Z"), ZoneOffset.UTC);
         FileUploadStateCommand fileUploadStateCommand = new FileUploadStateCommand(
                 fileRepository,
                 transactionTemplate);
@@ -91,7 +96,8 @@ class FileServiceTest {
                 fileUploadService,
                 fileAssociationService,
                 fileRepository,
-                fileTemporaryCleanupWorker);
+                fileTemporaryCleanupWorker,
+                clock);
     }
 
     @Test
@@ -955,14 +961,34 @@ class FileServiceTest {
 
         fileService.cleanUpTemporaryFiles();
 
+        ArgumentCaptor<LocalDateTime> cutoffCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        ArgumentCaptor<LocalDateTime> deleteRequestedAtCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(fileTemporaryCleanupWorker).requestPendingUploadDeletion(
+                cutoffCaptor.capture(),
+                deleteRequestedAtCaptor.capture());
+        assertThat(cutoffCaptor.getValue()).isEqualTo(LocalDateTime.of(2026, 5, 6, 0, 0));
+        assertThat(deleteRequestedAtCaptor.getValue()).isEqualTo(LocalDateTime.of(2026, 5, 7, 0, 0));
+
+        ArgumentCaptor<LocalDateTime> batchCutoffCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        ArgumentCaptor<LocalDateTime> batchDeleteRequestedAtCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
         ArgumentCaptor<LocalDateTime> cursorCreatedAtCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
         ArgumentCaptor<Long> cursorFileIdCaptor = ArgumentCaptor.forClass(Long.class);
         verify(fileTemporaryCleanupWorker, times(3)).requestDeletionBatch(
-                any(LocalDateTime.class),
+                batchCutoffCaptor.capture(),
                 cursorCreatedAtCaptor.capture(),
                 cursorFileIdCaptor.capture(),
                 eq(500),
-                any(LocalDateTime.class));
+                batchDeleteRequestedAtCaptor.capture());
+        assertThat(batchCutoffCaptor.getAllValues())
+                .containsExactly(
+                        LocalDateTime.of(2026, 5, 6, 0, 0),
+                        LocalDateTime.of(2026, 5, 6, 0, 0),
+                        LocalDateTime.of(2026, 5, 6, 0, 0));
+        assertThat(batchDeleteRequestedAtCaptor.getAllValues())
+                .containsExactly(
+                        LocalDateTime.of(2026, 5, 7, 0, 0),
+                        LocalDateTime.of(2026, 5, 7, 0, 0),
+                        LocalDateTime.of(2026, 5, 7, 0, 0));
         assertThat(cursorCreatedAtCaptor.getAllValues()).containsExactly(null, secondCreatedAt, thirdCreatedAt);
         assertThat(cursorFileIdCaptor.getAllValues()).containsExactly(null, 11L, 12L);
         verify(fileStorageService, never()).deleteFile(any());
@@ -978,6 +1004,9 @@ class FileServiceTest {
         List<Long> fileIds = fileService.getPendingDeletionFileIds(10);
 
         assertThat(fileIds).containsExactly(10L, 11L);
+        ArgumentCaptor<LocalDateTime> staleBeforeCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(fileRepository).findPendingDeletionFileIds(staleBeforeCaptor.capture(), eq(PageRequest.of(0, 10)));
+        assertThat(staleBeforeCaptor.getValue()).isEqualTo(LocalDateTime.of(2026, 5, 6, 23, 30));
     }
 
     @Test

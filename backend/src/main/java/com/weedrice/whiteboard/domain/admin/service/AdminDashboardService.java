@@ -10,6 +10,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 @Service
@@ -20,11 +21,12 @@ public class AdminDashboardService {
     private final PostRepository postRepository;
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
+    private final Clock clock;
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public DashboardStatsDto getDashboardStats() {
         UserRepository.AdminDashboardUserStatsProjection userStats =
-                userRepository.countAdminDashboardUserStats(LocalDateTime.now().minusDays(1));
+                userRepository.countAdminDashboardUserStats(LocalDateTime.now(clock).minusDays(1));
         long totalPosts = postRepository.countVisiblePostsForAdminDashboard();
         long pendingReports = reportRepository.countByStatus("PENDING");
 

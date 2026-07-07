@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -40,6 +41,7 @@ public class FileService {
     private final FileAssociationService fileAssociationService;
     private final FileRepository fileRepository;
     private final FileTemporaryCleanupWorker fileTemporaryCleanupWorker;
+    private final Clock clock;
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public FileUploadResponse uploadFile(Long uploaderId, MultipartFile multipartFile) {
@@ -114,8 +116,9 @@ public class FileService {
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void cleanUpTemporaryFiles() {
-        LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusHours(24);
-        LocalDateTime deleteRequestedAt = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
+        LocalDateTime twentyFourHoursAgo = now.minusHours(24);
+        LocalDateTime deleteRequestedAt = now;
         fileTemporaryCleanupWorker.requestPendingUploadDeletion(twentyFourHoursAgo, deleteRequestedAt);
         LocalDateTime lastCreatedAt = null;
         Long lastFileId = null;
@@ -212,7 +215,7 @@ public class FileService {
     }
 
     public List<Long> getPendingDeletionFileIds(int limit) {
-        LocalDateTime staleBefore = LocalDateTime.now().minusMinutes(DELETE_CLAIM_STALE_MINUTES);
+        LocalDateTime staleBefore = LocalDateTime.now(clock).minusMinutes(DELETE_CLAIM_STALE_MINUTES);
         return fileRepository.findPendingDeletionFileIds(staleBefore, PageRequest.of(0, limit));
     }
 

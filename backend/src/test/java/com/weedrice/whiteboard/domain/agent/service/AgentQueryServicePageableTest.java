@@ -31,6 +31,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
 
@@ -81,7 +82,8 @@ class AgentQueryServicePageableTest {
                 postRepository,
                 commentRepository,
                 sanctionRepository,
-                agentQuotaService);
+                agentQuotaService,
+                Clock.system(java.time.ZoneId.of("Asia/Seoul")));
         AgentBoardListReadService agentBoardListReadService = new AgentBoardListReadService(
                 boardRepository,
                 boardAiInfoRepository,
