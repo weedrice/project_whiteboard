@@ -1012,6 +1012,49 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("랜딩 최신글 조회는 unpaged 요청을 정규화한다")
+    void getPublicLandingLatestPosts_normalizesUnpagedRequest() {
+        when(postRepository.findPublicLandingLatestPosts(anyString(), isNull(), any(Pageable.class)))
+                .thenReturn(Collections.emptyList());
+
+        postService.getPublicLandingLatestPosts(Pageable.unpaged(), null);
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(postRepository).findPublicLandingLatestPosts(anyString(), isNull(), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().isPaged()).isTrue();
+        assertThat(pageableCaptor.getValue().getPageNumber()).isZero();
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(20);
+    }
+
+    @Test
+    @DisplayName("피드 인기글 조회는 과도한 page size를 제한한다")
+    void getTrendingFeedPosts_clampsOversizedPageSize() {
+        when(postRepository.findTrendingPosts(any(LocalDateTime.class), isNull(), any(Pageable.class)))
+                .thenReturn(Collections.emptyList());
+
+        postService.getTrendingFeedPosts(PageRequest.of(2, 1000), null, "24h");
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(postRepository).findTrendingPosts(any(LocalDateTime.class), isNull(), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageNumber()).isEqualTo(2);
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(100);
+    }
+
+    @Test
+    @DisplayName("피드 랜딩 최신글 조회는 과도한 page size를 제한한다")
+    void getPublicLandingLatestFeedPosts_clampsOversizedPageSize() {
+        when(postRepository.findPublicLandingLatestPosts(anyString(), isNull(), any(Pageable.class)))
+                .thenReturn(Collections.emptyList());
+
+        postService.getPublicLandingLatestFeedPosts(PageRequest.of(1, 1000), null);
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(postRepository).findPublicLandingLatestPosts(anyString(), isNull(), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageNumber()).isEqualTo(1);
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(100);
+    }
+
+    @Test
     @DisplayName("인기 게시글 페이지 조회는 repository count로 정확한 total을 반환한다")
     void getTrendingPostsPage_usesExactRepositoryTotal() {
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());

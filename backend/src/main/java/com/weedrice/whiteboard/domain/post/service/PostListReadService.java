@@ -233,27 +233,30 @@ public class PostListReadService {
     }
 
     public List<PostSummary> getPublicLandingLatestPosts(Pageable pageable, Long currentUserId) {
+        Pageable safePageable = normalizeLandingPageable(pageable);
         PostReadContext context = postReadContextResolver.resolve(currentUserId);
         List<Post> posts = postRepository.findPublicLandingLatestPosts(
                 boardAccessPolicy.getInquiryBoardUrl(),
                 context.blockedUserIds(),
-                pageable);
+                safePageable);
         return postSummaryAssembler.assembleLatestPosts(posts, currentUserId);
     }
 
     public List<FeedPostSummary> getTrendingFeedPosts(Pageable pageable, Long currentUserId, String period) {
+        Pageable safePageable = normalizeTrendingPageable(pageable);
         LocalDateTime since = resolveTrendingSince(period);
         PostReadContext context = postReadContextResolver.resolve(currentUserId);
-        List<Post> posts = postRepository.findTrendingPosts(since, context.blockedUserIds(), pageable);
+        List<Post> posts = postRepository.findTrendingPosts(since, context.blockedUserIds(), safePageable);
         return feedPostSummaryAssembler.assembleTrendingPosts(posts, currentUserId);
     }
 
     public List<FeedPostSummary> getPublicLandingLatestFeedPosts(Pageable pageable, Long currentUserId) {
+        Pageable safePageable = normalizeLandingPageable(pageable);
         PostReadContext context = postReadContextResolver.resolve(currentUserId);
         List<Post> posts = postRepository.findPublicLandingLatestPosts(
                 boardAccessPolicy.getInquiryBoardUrl(),
                 context.blockedUserIds(),
-                pageable);
+                safePageable);
         return feedPostSummaryAssembler.assembleLatestPosts(posts, currentUserId);
     }
 
@@ -318,6 +321,10 @@ public class PostListReadService {
     }
 
     private Pageable normalizeTrendingPageable(Pageable pageable) {
+        return PageRequestUtils.of(pageable, DEFAULT_BOARD_POST_PAGE_SIZE);
+    }
+
+    private Pageable normalizeLandingPageable(Pageable pageable) {
         return PageRequestUtils.of(pageable, DEFAULT_BOARD_POST_PAGE_SIZE);
     }
 
