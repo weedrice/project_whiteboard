@@ -2786,7 +2786,9 @@ class PostServiceTest {
     void getViewHistory_exists() {
         ViewHistory viewHistory = new ViewHistory(user, post);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
+                .thenReturn(Collections.emptyList());
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.of(viewHistory));
 
         ViewHistory result = postService.getViewHistory(1L, 1L);
@@ -2807,12 +2809,30 @@ class PostServiceTest {
     @DisplayName("조회 기록 조회 - 존재하지 않는 경우")
     void getViewHistory_notExists() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(postRepository.findById(1L)).thenReturn(Optional.of(post));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
+                .thenReturn(Collections.emptyList());
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(viewHistoryRepository.findByUserAndPost(user, post)).thenReturn(Optional.empty());
 
         ViewHistory result = postService.getViewHistory(1L, 1L);
 
         assertThat(result).isNull();
+    }
+
+    @Test
+    @DisplayName("View history lookup rejects unreadable posts")
+    void getViewHistory_unreadablePost_throwsPostNotFound() {
+        ReflectionTestUtils.setField(board, "isPublic", false);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
+                .thenReturn(Collections.emptyList());
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+
+        assertThatThrownBy(() -> postService.getViewHistory(1L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+
+        verify(viewHistoryRepository, never()).findByUserAndPost(any(), any());
     }
 
     @Test
@@ -3026,6 +3046,19 @@ class PostServiceTest {
         List<PostSummary> result = postService.getLatestPostsByBoard(1L, 5, null);
 
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Latest posts by board rejects unreadable board")
+    void getLatestPostsByBoard_unreadableBoard_throwsBoardNotFound() {
+        ReflectionTestUtils.setField(board, "isPublic", false);
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+
+        assertThatThrownBy(() -> postService.getLatestPostsByBoard(1L, 5, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
+
+        verify(postRepository, never()).findByBoardIdAndCategoryId(any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test

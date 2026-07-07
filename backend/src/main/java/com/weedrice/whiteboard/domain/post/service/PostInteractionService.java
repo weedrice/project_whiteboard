@@ -118,9 +118,9 @@ public class PostInteractionService {
         if (userId == null) {
             return null;
         }
-        User user = postReadContextResolver.resolveForExistingUser(userId).viewer();
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        PostReadContext context = postReadContextResolver.resolveForExistingUser(userId);
+        User user = context.viewer();
+        Post post = getReadablePost(postId, context);
         return viewHistoryRepository.findByUserAndPost(user, post).orElse(null);
     }
 

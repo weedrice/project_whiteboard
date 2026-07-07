@@ -258,6 +258,7 @@ public class PostListReadService {
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         PostReadContext context = postReadContextResolver.resolveForBoards(currentUserId, List.of(board));
+        validateBoardReadable(board, context);
         boolean includeSecret = context.canViewSecretPosts(board, boardAccessPolicy);
 
         Page<Post> postPage = postRepository.findByBoardIdAndCategoryId(boardId, null, null, null,
