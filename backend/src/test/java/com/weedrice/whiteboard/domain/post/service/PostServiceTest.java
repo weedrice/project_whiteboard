@@ -982,6 +982,21 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("Trending post list normalizes unpaged requests")
+    void getTrendingPosts_normalizesUnpagedRequest() {
+        when(postRepository.findTrendingPosts(any(LocalDateTime.class), isNull(), any(Pageable.class)))
+                .thenReturn(Collections.emptyList());
+
+        postService.getTrendingPosts(Pageable.unpaged(), null, "24h");
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(postRepository).findTrendingPosts(any(LocalDateTime.class), isNull(), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().isPaged()).isTrue();
+        assertThat(pageableCaptor.getValue().getPageNumber()).isZero();
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(20);
+    }
+
+    @Test
     @DisplayName("인기 게시글 페이지 조회는 repository count로 정확한 total을 반환한다")
     void getTrendingPostsPage_usesExactRepositoryTotal() {
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
@@ -1016,6 +1031,19 @@ class PostServiceTest {
 
         verify(postRepository).findTrendingPosts(any(LocalDateTime.class), isNull(), eq(10L), eq(10));
         verify(postRepository).countTrendingPosts(any(LocalDateTime.class), isNull());
+    }
+
+    @Test
+    @DisplayName("Trending post page clamps oversized page size")
+    void getTrendingPostsPage_clampsOversizedPageSize() {
+        when(postRepository.findTrendingPosts(any(LocalDateTime.class), isNull(), anyLong(), anyInt()))
+                .thenReturn(Collections.emptyList());
+        when(postRepository.countTrendingPosts(any(LocalDateTime.class), isNull())).thenReturn(0L);
+
+        Page<PostSummary> result = postService.getTrendingPostsPage(PageRequest.of(0, 1000), null, "24h");
+
+        verify(postRepository).findTrendingPosts(any(LocalDateTime.class), isNull(), eq(0L), eq(100));
+        assertThat(result.getPageable().getPageSize()).isEqualTo(100);
     }
 
     @Test

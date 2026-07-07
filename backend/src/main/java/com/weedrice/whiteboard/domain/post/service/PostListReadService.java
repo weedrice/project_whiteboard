@@ -205,15 +205,17 @@ public class PostListReadService {
     }
 
     public List<PostSummary> getTrendingPosts(Pageable pageable, Long currentUserId, String period) {
+        Pageable safePageable = normalizeTrendingPageable(pageable);
         LocalDateTime since = resolveTrendingSince(period);
 
         PostReadContext context = postReadContextResolver.resolve(currentUserId);
 
-        List<Post> posts = postRepository.findTrendingPosts(since, context.blockedUserIds(), pageable);
+        List<Post> posts = postRepository.findTrendingPosts(since, context.blockedUserIds(), safePageable);
         return postSummaryAssembler.assembleTrendingPosts(posts, currentUserId);
     }
 
     public Page<PostSummary> getTrendingPostsPage(Pageable pageable, Long currentUserId, String period) {
+        Pageable safePageable = normalizeTrendingPageable(pageable);
         LocalDateTime since = resolveTrendingSince(period);
 
         PostReadContext context = postReadContextResolver.resolve(currentUserId);
@@ -221,11 +223,11 @@ public class PostListReadService {
         List<Post> fetchedPosts = postRepository.findTrendingPosts(
                 since,
                 context.blockedUserIds(),
-                pageable.getOffset(),
-                pageable.getPageSize());
+                safePageable.getOffset(),
+                safePageable.getPageSize());
         List<PostSummary> summaries = postSummaryAssembler.assembleTrendingPosts(fetchedPosts, currentUserId);
         long total = postRepository.countTrendingPosts(since, context.blockedUserIds());
-        return new PageImpl<>(summaries, pageable, total);
+        return new PageImpl<>(summaries, safePageable, total);
     }
 
     public List<PostSummary> getPublicLandingLatestPosts(Pageable pageable, Long currentUserId) {
@@ -301,6 +303,10 @@ public class PostListReadService {
             return PageRequest.of(0, PageRequestUtils.DEFAULT_MAX_PAGE_SIZE, safeSort);
         }
         return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), safeSort);
+    }
+
+    private Pageable normalizeTrendingPageable(Pageable pageable) {
+        return PageRequestUtils.of(pageable, DEFAULT_BOARD_POST_PAGE_SIZE);
     }
 
     private Sort sanitizeTagPostSort(Sort sort) {
