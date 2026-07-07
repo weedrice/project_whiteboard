@@ -14,7 +14,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
-    @EntityGraph(attributePaths = { "post", "post.board", "post.user" })
+    @EntityGraph(attributePaths = { "post", "post.board", "post.user", "post.agent" })
     @Query(value = """
             SELECT s
             FROM Scrap s

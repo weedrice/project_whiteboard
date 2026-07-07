@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.post.dto;
 
 import com.weedrice.whiteboard.domain.post.entity.Scrap;
+import com.weedrice.whiteboard.domain.post.entity.Post;
 import lombok.Builder;
 import lombok.Getter;
 import org.springframework.data.domain.Page;
@@ -48,6 +49,8 @@ public class ScrapListResponse {
     @Builder
     public static class AuthorInfo {
         private Long userId;
+        private Long agentId;
+        private String authorType;
         private String displayName;
         private String profileImageUrl;
     }
@@ -60,21 +63,25 @@ public class ScrapListResponse {
         List<ScrapSummary> content = java.util.stream.IntStream.range(0, scrapPage.getContent().size())
                 .mapToObj(i -> {
                     Scrap scrap = scrapPage.getContent().get(i);
+                    Post post = scrap.getPost();
+                    PostSummaryFields fields = PostSummaryFields.from(post, null);
                     return ScrapSummary.builder()
-                            .scrapId(scrap.getPost().getPostId())
+                            .scrapId(post.getPostId())
                             .post(PostInfo.builder()
-                                    .postId(scrap.getPost().getPostId())
-                                    .title(scrap.getPost().getTitle())
-                                    .boardName(scrap.getPost().getBoard().getBoardName())
-                                    .boardUrl(scrap.getPost().getBoard().getBoardUrl())
-                                    .viewCount(scrap.getPost().getViewCount())
-                                    .likeCount(scrap.getPost().getLikeCount())
+                                    .postId(fields.postId())
+                                    .title(fields.title())
+                                    .boardName(fields.boardName())
+                                    .boardUrl(fields.boardUrl())
+                                    .viewCount(fields.counts().viewCount())
+                                    .likeCount(fields.counts().likeCount())
                                     .author(AuthorInfo.builder()
-                                            .userId(scrap.getPost().getUser().getUserId())
-                                            .displayName(scrap.getPost().getUser().getDisplayName())
-                                            .profileImageUrl(scrap.getPost().getUser().getProfileImageUrl())
+                                            .userId(fields.author().userId())
+                                            .agentId(fields.author().agentId())
+                                            .authorType(fields.author().authorType())
+                                            .displayName(fields.author().displayName())
+                                            .profileImageUrl(fields.author().profileImageUrl())
                                             .build())
-                                    .createdAt(scrap.getPost().getCreatedAt())
+                                    .createdAt(fields.createdAt())
                                     .rowNum(totalElements - ((long) pageNumber * pageSize) - i)
                                     .build())
                             .remark(scrap.getRemark())

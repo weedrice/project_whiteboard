@@ -850,6 +850,20 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("게시글 목록 조회는 음수 최소 좋아요 수를 거부한다")
+    void getPosts_rejectsNegativeMinLikes() {
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+
+        assertThatThrownBy(() -> postService.getPosts("free", null, null, -1, null, Pageable.unpaged()))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(postRepository, never()).findPostListSummariesByBoardIdAndCategoryId(
+                any(), any(), any(), any(), any(), any(), any(), any());
+        verify(searchRecordEventPublisher, never()).publish(any(), anyString());
+    }
+
+    @Test
     @DisplayName("board post search caps keyword before repository and record event")
     void getPosts_truncatesKeywordBeforeSearchAndRecord() {
         String rawKeyword = "A".repeat(MAX_KEYWORD_LENGTH + 10);
@@ -1674,6 +1688,8 @@ class PostServiceTest {
         assertThat(response.getContent().getFirst().getRemark()).isEqualTo("bookmark");
         assertThat(response.getContent().getFirst().getPost().getTitle()).isEqualTo("Test Post");
         assertThat(response.getContent().getFirst().getPost().getBoardName()).isEqualTo("Test Board");
+        assertThat(response.getContent().getFirst().getPost().getAuthor().getAuthorType()).isEqualTo("USER");
+        assertThat(response.getContent().getFirst().getPost().getAuthor().getAgentId()).isNull();
         verify(scrapRepository).findPageByUserWithPostDetails(
                 eq(user),
                 eq(false),
@@ -1682,6 +1698,52 @@ class PostServiceTest {
                 eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
                 any(Pageable.class));
         verify(userRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("내 스크랩 조회는 에이전트 작성자 정보를 반환한다")
+    void getMyScraps_agentAuthoredPost_returnsAgentAuthor() {
+        Agent agent = Agent.builder()
+                .user(user)
+                .agentTokenHash("agent-token")
+                .name("Helper Agent")
+                .description("description")
+                .status(Agent.STATUS_ACTIVE)
+                .build();
+        ReflectionTestUtils.setField(agent, "agentId", 7L);
+        Post agentPost = Post.builder()
+                .board(board)
+                .user(user)
+                .agent(agent)
+                .title("Agent Post")
+                .contents("contents")
+                .build();
+        ReflectionTestUtils.setField(agentPost, "postId", 77L);
+        Scrap scrap = Scrap.builder()
+                .user(user)
+                .post(agentPost)
+                .remark("agent bookmark")
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
+        when(scrapRepository.findPageByUserWithPostDetails(
+                eq(user),
+                eq(false),
+                eq(true),
+                eq(NO_BLOCKED_USER_IDS),
+                eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(scrap), PageRequest.of(0, 10), 1));
+
+        ScrapListResponse response = postService.getMyScraps(1L, PageRequest.of(0, 10));
+
+        ScrapListResponse.AuthorInfo author = response.getContent().getFirst().getPost().getAuthor();
+        assertThat(author.getUserId()).isEqualTo(1L);
+        assertThat(author.getAgentId()).isEqualTo(7L);
+        assertThat(author.getAuthorType()).isEqualTo("AGENT");
+        assertThat(author.getDisplayName()).isEqualTo("Helper Agent");
+        assertThat(author.getProfileImageUrl()).isNull();
     }
 
     @Test
@@ -2416,6 +2478,22 @@ class PostServiceTest {
         postService.getPostsByTag(1L, null, Pageable.unpaged());
 
         verify(postRepository).findByTagId(eq(1L), isNull(), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getSort()).isEqualTo(Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("postId")));
+    }
+
+    @Test
+    @DisplayName("태그별 게시글 조회는 null pageable을 기본값으로 보정한다")
+    void getPostsByTag_normalizesNullPageable() {
+        when(postRepository.findByTagId(eq(1L), isNull(), any(Pageable.class))).thenReturn(Page.empty());
+
+        postService.getPostsByTag(1L, null, null);
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(postRepository).findByTagId(eq(1L), isNull(), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageNumber()).isZero();
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(100);
         assertThat(pageableCaptor.getValue().getSort()).isEqualTo(Sort.by(
                 Sort.Order.desc("createdAt"),
                 Sort.Order.desc("postId")));

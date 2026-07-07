@@ -114,11 +114,12 @@ public class PostListReadService {
             PostReadContext context, Boolean includeSecret, @NonNull Pageable pageable) {
         Pageable safePageable = normalizeBoardPostPageable(pageable);
         String canonicalKeyword = SearchRequestNormalizer.canonicalizeOptionalKeyword(keyword);
+        Integer normalizedMinLikes = normalizeMinLikes(minLikes);
         return postRepository.findByBoardIdAndCategoryId(
                 boardId,
                 categoryId,
                 canonicalKeyword,
-                minLikes,
+                normalizedMinLikes,
                 context.blockedUserIds(),
                 includeSecret,
                 context.viewerUserId(),
@@ -129,11 +130,12 @@ public class PostListReadService {
             Integer minLikes, PostReadContext context, Boolean includeSecret, @NonNull Pageable pageable) {
         Pageable safePageable = normalizeBoardPostPageable(pageable);
         String canonicalKeyword = SearchRequestNormalizer.canonicalizeOptionalKeyword(keyword);
+        Integer normalizedMinLikes = normalizeMinLikes(minLikes);
         return postRepository.findPostListSummariesByBoardIdAndCategoryId(
                 boardId,
                 categoryId,
                 canonicalKeyword,
-                minLikes,
+                normalizedMinLikes,
                 context.blockedUserIds(),
                 includeSecret,
                 context.viewerUserId(),
@@ -298,11 +300,21 @@ public class PostListReadService {
     }
 
     private Pageable sanitizeTagPostPageable(Pageable pageable) {
-        Sort safeSort = sanitizeTagPostSort(pageable.getSort());
-        if (pageable.isUnpaged()) {
-            return PageRequest.of(0, PageRequestUtils.DEFAULT_MAX_PAGE_SIZE, safeSort);
+        if (pageable == null || pageable.isUnpaged()) {
+            return PageRequest.of(0, PageRequestUtils.DEFAULT_MAX_PAGE_SIZE, DEFAULT_TAG_POST_SORT);
         }
+        Sort safeSort = sanitizeTagPostSort(pageable.getSort());
         return PageRequestUtils.of(pageable.getPageNumber(), pageable.getPageSize(), safeSort);
+    }
+
+    private Integer normalizeMinLikes(Integer minLikes) {
+        if (minLikes == null) {
+            return null;
+        }
+        if (minLikes < 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return minLikes;
     }
 
     private Pageable normalizeTrendingPageable(Pageable pageable) {
