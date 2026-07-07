@@ -3,7 +3,14 @@ import { setActivePinia, createPinia } from 'pinia'
 import { configureAuthSessionEffects, registerAuthStorageSync, useAuthStore } from '../auth'
 import { authApi } from '@/api/auth'
 import logger from '@/utils/logger'
-import { AUTH_SESSION_EVENT_KEY, clearStoredAuthTokens, getStoredAccessToken, persistAccessToken } from '@/utils/authTokenStorage'
+import {
+    ACCESS_TOKEN_KEY,
+    AUTH_SESSION_CLEARED_EVENT_PREFIX,
+    AUTH_SESSION_EVENT_KEY,
+    clearStoredAuthTokens,
+    getStoredAccessToken,
+    persistAccessToken,
+} from '@/utils/authTokenStorage'
 import {
     authLoginFailureResponse,
     authLoginResponse,
@@ -232,6 +239,7 @@ describe('Auth Store', () => {
 
             expect(store.accessToken).toBe('new-access')
             expect(getStoredAccessToken()).toBe('new-access')
+            expect(localStorage.getItem(ACCESS_TOKEN_KEY)).toBeNull()
             expect(localStorage.getItem('refreshToken')).toBeNull()
         })
     })
@@ -270,7 +278,7 @@ describe('Auth Store', () => {
 
             window.dispatchEvent(new StorageEvent('storage', {
                 key: AUTH_SESSION_EVENT_KEY,
-                newValue: null,
+                newValue: `${AUTH_SESSION_CLEARED_EVENT_PREFIX}123`,
                 storageArea: localStorage,
             }))
 
@@ -278,6 +286,16 @@ describe('Auth Store', () => {
 
             expect(store.accessToken).toBeNull()
             expect(store.user).toBeNull()
+            expect(authApi.logout).not.toHaveBeenCalled()
+        })
+
+        it('broadcasts a typed clear event for cross-tab logout', () => {
+            localStorage.removeItem(AUTH_SESSION_EVENT_KEY)
+
+            clearStoredAuthTokens()
+
+            expect(localStorage.getItem(AUTH_SESSION_EVENT_KEY))
+                .toMatch(new RegExp(`^${AUTH_SESSION_CLEARED_EVENT_PREFIX}\\d+$`))
         })
     })
 

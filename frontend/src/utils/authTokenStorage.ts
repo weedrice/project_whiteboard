@@ -1,6 +1,7 @@
 export const ACCESS_TOKEN_KEY = 'accessToken'
 export const LEGACY_REFRESH_TOKEN_KEY = 'refreshToken'
 export const AUTH_SESSION_EVENT_KEY = 'authSessionEvent'
+export const AUTH_SESSION_CLEARED_EVENT_PREFIX = 'cleared:'
 
 let inMemoryAccessToken: string | null = null
 
@@ -30,7 +31,7 @@ function removeLegacyAuthTokens(): void {
 
 function broadcastAuthSessionCleared(): void {
     try {
-        localStorage.setItem(AUTH_SESSION_EVENT_KEY, String(Date.now()))
+        localStorage.setItem(AUTH_SESSION_EVENT_KEY, `${AUTH_SESSION_CLEARED_EVENT_PREFIX}${Date.now()}`)
     } catch {
         // Cross-tab logout sync is best-effort.
     }

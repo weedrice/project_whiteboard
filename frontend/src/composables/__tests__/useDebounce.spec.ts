@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { effectScope, ref } from 'vue'
+import { effectScope, nextTick, ref } from 'vue'
 import { useDebounce, useDebounceFn } from '../useDebounce'
 
 describe('useDebounce', () => {
@@ -22,6 +22,24 @@ describe('useDebounce', () => {
         vi.advanceTimersByTime(100)
 
         expect(debounced.value).toBe('initial')
+    })
+
+    it('applies only the latest value after the delay', async () => {
+        vi.useFakeTimers()
+        const source = ref('initial')
+        const debounced = useDebounce(source, 100)
+
+        source.value = 'first'
+        await nextTick()
+        vi.advanceTimersByTime(50)
+        source.value = 'second'
+        await nextTick()
+
+        vi.advanceTimersByTime(99)
+        expect(debounced.value).toBe('initial')
+
+        vi.advanceTimersByTime(1)
+        expect(debounced.value).toBe('second')
     })
 })
 

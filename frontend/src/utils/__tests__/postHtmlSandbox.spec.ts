@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
     buildSandboxedPostHtmlSource,
     decodeSandboxedPostHtml,
@@ -7,6 +7,11 @@ import {
 } from '../postHtmlSandbox'
 
 describe('postHtmlSandbox', () => {
+    afterEach(() => {
+        vi.unstubAllGlobals()
+        vi.restoreAllMocks()
+    })
+
     it('detects html that needs sandbox execution', () => {
         expect(requiresSandboxedPostHtml('<p>Hello</p>')).toBe(false)
         expect(requiresSandboxedPostHtml('<style>.x{display:grid}</style><div></div>')).toBe(true)
@@ -81,5 +86,29 @@ describe('postHtmlSandbox', () => {
         expect(firstNonce).not.toBe(secondNonce)
         expect(first).toContain(`<script nonce="${firstNonce}">`)
         expect(second).toContain(`<script nonce="${secondNonce}">`)
+    })
+
+    it('uses crypto random values for the default nonce when available', () => {
+        const getRandomValues = vi.fn((bytes: Uint8Array) => {
+            bytes.set(Array.from({ length: 16 }, (_, index) => index))
+            return bytes
+        })
+        vi.stubGlobal('crypto', { getRandomValues })
+
+        const source = buildSandboxedPostHtmlSource('<div>secure</div>', 'frame-1')
+
+        expect(getRandomValues).toHaveBeenCalledTimes(1)
+        expect(source).toContain("script-src 'nonce-AAECAwQFBgcICQoLDA0ODw'")
+        expect(source).toContain('<script nonce="AAECAwQFBgcICQoLDA0ODw">')
+    })
+
+    it('still generates a nonce when browser crypto is unavailable', () => {
+        vi.stubGlobal('crypto', undefined)
+        vi.spyOn(Math, 'random').mockReturnValue(0)
+
+        const source = buildSandboxedPostHtmlSource('<div>fallback</div>', 'frame-1')
+
+        expect(source).toContain("script-src 'nonce-AAAAAAAAAAAAAAAAAAAAAA'")
+        expect(source).toContain('<script nonce="AAAAAAAAAAAAAAAAAAAAAA">')
     })
 })

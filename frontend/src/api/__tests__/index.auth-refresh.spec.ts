@@ -291,6 +291,32 @@ describe('API Interceptors', () => {
         })
     })
 
+    it('short-circuits refresh attempts during the failure cooldown', async () => {
+        const { responseRejected } = await loadApiModule()
+        mocks.mockAxiosPost.mockRejectedValueOnce({
+            response: { status: 401 },
+        })
+
+        await expect(responseRejected(createApiError({
+            config: createApiRequestConfig(),
+            response: { status: 401 },
+        }))).rejects.toMatchObject({
+            suppressGlobalErrorToast: true,
+            isAuthRefreshFailure: true,
+        })
+
+        mocks.mockAxiosPost.mockClear()
+
+        await expect(responseRejected(createApiError({
+            config: createApiRequestConfig(),
+            response: { status: 401 },
+        }))).rejects.toMatchObject({
+            suppressGlobalErrorToast: true,
+            isAuthRefreshFailure: true,
+        })
+        expect(mocks.mockAxiosPost).not.toHaveBeenCalled()
+    })
+
     it('rejects refresh when refresh endpoint reports failure', async () => {
         const { responseRejected } = await loadApiModule()
         mocks.mockAxiosPost.mockResolvedValueOnce({
