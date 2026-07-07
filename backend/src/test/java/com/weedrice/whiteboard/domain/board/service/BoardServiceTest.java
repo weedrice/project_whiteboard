@@ -56,6 +56,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -81,6 +84,10 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class BoardServiceTest {
+
+    private static final Clock FIXED_CLOCK = Clock.fixed(
+            Instant.ofEpochMilli(1_770_000_000_000L),
+            ZoneOffset.UTC);
 
     @Mock
     private BoardRepository boardRepository;
@@ -162,7 +169,8 @@ class BoardServiceTest {
                 userRepository,
                 adminEligibleUserService,
                 boardManagerAssignmentService,
-                boardAccessPolicy);
+                boardAccessPolicy,
+                FIXED_CLOCK);
         BoardCommandService boardCommandService = new BoardCommandService(
                 boardRepository,
                 userRepository,
@@ -2331,6 +2339,39 @@ class BoardServiceTest {
         assertThat(candidatesCaptor.getValue())
                 .startsWith("문의", "문의-inquiry", "문의-inquiry-2");
         verify(boardRepository, never()).existsByBoardName(anyString());
+    }
+
+    @Test
+    @DisplayName("문의 노드 이름 후보가 모두 충돌하면 고정된 시간 suffix를 사용한다")
+    void ensureInquiryBoard_usesClockBasedFallbackNameWhenAllCandidatesExist() {
+        User superAdmin = User.builder()
+                .loginId("super-admin")
+                .password("password")
+                .email("super@test.com")
+                .displayName("Super Admin")
+                .build();
+        ReflectionTestUtils.setField(superAdmin, "userId", 2L);
+        superAdmin.grantSuperAdminRole();
+        when(boardRepository.findByBoardUrlForUpdate("inquiry")).thenReturn(Optional.empty());
+        when(userRepository.findUsableSuperAdmins()).thenReturn(List.of(superAdmin));
+        when(boardRepository.findMaxSortOrder()).thenReturn(0);
+        when(boardRepository.findExistingBoardNamesIn(any())).thenAnswer(invocation -> {
+            Collection<String> candidates = invocation.getArgument(0);
+            return new ArrayList<>(candidates);
+        });
+        when(boardRepository.saveAndFlush(any(Board.class))).thenAnswer(invocation -> {
+            Board savedBoard = invocation.getArgument(0);
+            ReflectionTestUtils.setField(savedBoard, "boardId", 3L);
+            return savedBoard;
+        });
+        when(boardCategoryRepository.saveAndFlush(any(BoardCategory.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        boardService.ensureInquiryBoard(1L, "custom-inquiry-url");
+
+        ArgumentCaptor<Board> boardCaptor = ArgumentCaptor.forClass(Board.class);
+        verify(boardRepository).saveAndFlush(boardCaptor.capture());
+        assertThat(boardCaptor.getValue().getBoardName()).isEqualTo("문의-1770000000000");
     }
 
     @Test

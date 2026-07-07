@@ -16,6 +16,7 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -35,6 +36,7 @@ class BoardProvisioningService {
     private final AdminEligibleUserService adminEligibleUserService;
     private final BoardManagerAssignmentService boardManagerAssignmentService;
     private final BoardAccessPolicy boardAccessPolicy;
+    private final Clock clock;
 
     BoardProvisioningService(BoardRepository boardRepository,
                              BoardCategoryRepository boardCategoryRepository,
@@ -42,7 +44,8 @@ class BoardProvisioningService {
                              UserRepository userRepository,
                              AdminEligibleUserService adminEligibleUserService,
                              BoardManagerAssignmentService boardManagerAssignmentService,
-                             BoardAccessPolicy boardAccessPolicy) {
+                             BoardAccessPolicy boardAccessPolicy,
+                             Clock clock) {
         this.boardRepository = boardRepository;
         this.boardCategoryRepository = boardCategoryRepository;
         this.boardSubscriptionRepository = boardSubscriptionRepository;
@@ -50,6 +53,7 @@ class BoardProvisioningService {
         this.adminEligibleUserService = adminEligibleUserService;
         this.boardManagerAssignmentService = boardManagerAssignmentService;
         this.boardAccessPolicy = boardAccessPolicy;
+        this.clock = clock;
     }
 
     void ensureInquiryBoard(Long userId, String requestedBoardUrl) {
@@ -232,7 +236,11 @@ class BoardProvisioningService {
         return candidates.stream()
                 .filter(candidate -> !existingBoardNames.contains(candidate))
                 .findFirst()
-                .orElseGet(() -> trimToMaxLength(DEFAULT_INQUIRY_BOARD_NAME + "-" + System.currentTimeMillis(), 100));
+                .orElseGet(this::fallbackInquiryBoardName);
+    }
+
+    private String fallbackInquiryBoardName() {
+        return trimToMaxLength(DEFAULT_INQUIRY_BOARD_NAME + "-" + clock.millis(), 100);
     }
 
     private LinkedHashSet<String> buildInquiryBoardNameCandidates(String inquiryBoardUrl) {
