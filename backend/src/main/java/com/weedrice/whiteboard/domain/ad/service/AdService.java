@@ -70,8 +70,9 @@ public class AdService {
 
     private Ad findRandomActiveAd(String placement, LocalDateTime now, long activeAdCount) {
         int candidateCount = activeAdCount > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) activeAdCount;
-        int offset = ThreadLocalRandom.current().nextInt(candidateCount);
-        return adRepository.findActiveByPlacement(placement, now, PageRequest.of(offset, 1))
+        int randomCandidatePage = ThreadLocalRandom.current().nextInt(candidateCount);
+        PageRequest randomCandidatePageRequest = PageRequest.of(randomCandidatePage, 1);
+        return adRepository.findActiveByPlacement(placement, now, randomCandidatePageRequest)
                 .stream()
                 .findFirst()
                 .orElse(null);

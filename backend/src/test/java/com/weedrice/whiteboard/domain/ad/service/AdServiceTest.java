@@ -88,6 +88,24 @@ class AdServiceTest {
     }
 
     @Test
+    @DisplayName("광고 조회는 활성 후보 수 범위 안의 단건 후보 페이지를 조회한다")
+    void getAd_usesSingleCandidatePageWithinActiveCount() {
+        String placement = "HEADER";
+        Ad ad = buildActiveAd(placement, FIXED_NOW.plusDays(1));
+        when(adRepository.countActiveByPlacement(placement, FIXED_NOW)).thenReturn(3L);
+        when(adRepository.findActiveByPlacement(eq(placement), eq(FIXED_NOW), any(Pageable.class)))
+                .thenReturn(List.of(ad));
+
+        Ad result = adService.getAd(placement);
+
+        assertThat(result).isSameAs(ad);
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(adRepository).findActiveByPlacement(eq(placement), eq(FIXED_NOW), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(1);
+        assertThat(pageableCaptor.getValue().getPageNumber()).isBetween(0, 2);
+    }
+
+    @Test
     void getAd_rejectsUnsupportedPlacementBeforeRepositorySearch() {
         assertThatThrownBy(() -> adService.getAd("FOOTER"))
                 .isInstanceOf(BusinessException.class)
