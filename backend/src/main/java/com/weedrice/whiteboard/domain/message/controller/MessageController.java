@@ -36,9 +36,9 @@ public class MessageController {
         public ApiResponse<MessageResponse> getReceivedMessages(
                         @RequestParam(defaultValue = "0") int page,
                         @RequestParam(defaultValue = "20") int size,
-                        Sort sort,
-                        @CurrentUserId Long userId) {
-                Pageable pageable = PageRequestUtils.of(page, size, sort);
+                Sort sort,
+                @CurrentUserId Long userId) {
+                Pageable pageable = PageRequestUtils.of(page, size);
                 return ApiResponse.success(messageService.getReceivedMessages(userId, pageable));
         }
 
@@ -46,9 +46,9 @@ public class MessageController {
         public ApiResponse<MessageResponse> getSentMessages(
                         @RequestParam(defaultValue = "0") int page,
                         @RequestParam(defaultValue = "20") int size,
-                        Sort sort,
-                        @CurrentUserId Long userId) {
-                Pageable pageable = PageRequestUtils.of(page, size, sort);
+                Sort sort,
+                @CurrentUserId Long userId) {
+                Pageable pageable = PageRequestUtils.of(page, size);
                 return ApiResponse.success(messageService.getSentMessages(userId, pageable));
         }
 

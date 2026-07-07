@@ -199,7 +199,7 @@ public class AdminController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             Sort sort) {
-        Pageable pageable = PageRequestUtils.of(page, size, sort);
+        Pageable pageable = PageRequestUtils.of(page, size);
         Page<AdminInquirySummaryResponse> inquiryPage = postService.getInquiryPostsForAdmin(pageable);
         return ApiResponses.page(inquiryPage);
     }

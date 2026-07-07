@@ -32,6 +32,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -300,6 +301,19 @@ class UserControllerTest {
                         assertThat(response.isSuccess()).isTrue();
                         assertThat(response.getData().getContent()).hasSize(1);
                         assertThat(response.getData().getContent().get(0).getTitle()).isEqualTo("Test Post");
+                }
+
+                @Test
+                @DisplayName("내 활동 목록은 요청 정렬을 서비스로 전달하지 않는다")
+                void getMyPosts_ignoresRequestedSort() {
+                        Page<PostSummary> postPage = new PageImpl<>(List.of(), pageable, 0);
+                        given(postService.getMyPosts(eq(USER_ID), any(Pageable.class))).willReturn(postPage);
+
+                        userController.getMyPosts(USER_ID, 0, 10, Sort.by("displayName"));
+
+                        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+                        verify(postService).getMyPosts(eq(USER_ID), pageableCaptor.capture());
+                        assertThat(pageableCaptor.getValue().getSort().isUnsorted()).isTrue();
                 }
 
                 @Test

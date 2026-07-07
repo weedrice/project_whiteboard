@@ -26,7 +26,7 @@ public class FeedController {
             @RequestParam(defaultValue = "20") int size,
             Sort sort,
             @CurrentUserId Long userId) {
-        Pageable pageable = PageRequestUtils.of(page, size, sort);
+        Pageable pageable = PageRequestUtils.of(page, size);
         return ApiResponse.success(feedService.getUserFeeds(userId, pageable));
     }
 }

@@ -252,6 +252,6 @@ public class UserController {
         }
 
         private Pageable pageable(int page, int size, Sort sort) {
-                return PageRequestUtils.of(page, size, sort);
+                return PageRequestUtils.of(page, size);
         }
 }

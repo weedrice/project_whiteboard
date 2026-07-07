@@ -392,7 +392,25 @@ class AdminControllerTest {
     }
 
     @Test
-    @DisplayName("문의글 목록 잘못된 size는 400을 반환한다")
+    @DisplayName("문의글 목록은 요청 정렬을 서비스로 전달하지 않는다")
+    void getInquiryPosts_ignoresRequestedSort() throws Exception {
+        when(postService.getInquiryPostsForAdmin(any()))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+        mockMvc.perform(get("/api/v1/admin/inquiries")
+                        .param("sort", "author.loginId,asc")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(postService).getInquiryPostsForAdmin(pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getSort().isUnsorted()).isTrue();
+    }
+
+    @Test
+    @DisplayName("문의글 목록 잘못된 size는 400으로 응답한다")
     void getInquiryPosts_rejectsInvalidPageSize() throws Exception {
         mockMvc.perform(get("/api/v1/admin/inquiries")
                         .param("size", "0")
