@@ -17,7 +17,7 @@ final class EmoticonRequestNormalizer {
             return null;
         }
         String trimmedKeyword = keyword.trim();
-        return trimmedKeyword.isEmpty() ? null : truncate(trimmedKeyword, MAX_SEARCH_KEYWORD_LENGTH);
+        return trimmedKeyword.isEmpty() ? null : requireMaxLength(trimmedKeyword, MAX_SEARCH_KEYWORD_LENGTH);
     }
 
     static String normalizeRequiredKeyword(String keyword) {
@@ -33,7 +33,7 @@ final class EmoticonRequestNormalizer {
         if (normalizedTag == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        return truncate(normalizedTag, MAX_TAG_LENGTH);
+        return requireMaxLength(normalizedTag, MAX_TAG_LENGTH);
     }
 
     static String normalizeOption(String option) {
@@ -41,17 +41,13 @@ final class EmoticonRequestNormalizer {
             return null;
         }
         String trimmedOption = option.trim();
-        return trimmedOption.isEmpty() ? null : truncate(trimmedOption, MAX_OPTION_LENGTH);
+        return trimmedOption.isEmpty() ? null : requireMaxLength(trimmedOption, MAX_OPTION_LENGTH);
     }
 
-    private static String truncate(String value, int maxLength) {
+    private static String requireMaxLength(String value, int maxLength) {
         if (value == null || value.length() <= maxLength) {
             return value;
         }
-        int endIndex = maxLength;
-        if (Character.isHighSurrogate(value.charAt(endIndex - 1))) {
-            endIndex--;
-        }
-        return value.substring(0, endIndex);
+        throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
     }
 }

@@ -190,6 +190,19 @@ class EmoticonServiceTest {
         }
 
         @Test
+        void getActiveEmoticons_rejectsTooLongSortBy() {
+            String longSortBy = "a".repeat(EmoticonRequestNormalizer.MAX_OPTION_LENGTH + 1);
+
+            assertThatThrownBy(() -> emoticonService.getActiveEmoticons(PageRequest.of(0, 20), longSortBy))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+            verify(emoticonMasterRepository, never()).findAllActive(any(Pageable.class));
+            verify(emoticonMasterRepository, never()).findAllActiveOrderByPurchaseCount(any(Pageable.class));
+            verify(emoticonMasterRepository, never()).findAllActiveOrderByCreatedAtAsc(any(Pageable.class));
+        }
+
+        @Test
         @DisplayName("인기 이모티콘 조회 - daily")
         void getPopularEmoticons_daily() {
             when(emoticonMasterRepository.findPopularEmoticons(any(), eq(5)))
@@ -235,6 +248,17 @@ class EmoticonServiceTest {
             emoticonService.getPopularEmoticons(" weekly ");
 
             verify(emoticonMasterRepository, times(2)).findPopularEmoticons(any(), eq(5));
+        }
+
+        @Test
+        void getPopularEmoticons_rejectsTooLongPeriod() {
+            String longPeriod = "a".repeat(EmoticonRequestNormalizer.MAX_OPTION_LENGTH + 1);
+
+            assertThatThrownBy(() -> emoticonService.getPopularEmoticons(longPeriod))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+            verify(emoticonMasterRepository, never()).findPopularEmoticons(any(), eq(5));
         }
 
         @Test
@@ -288,17 +312,27 @@ class EmoticonServiceTest {
         }
 
         @Test
-        @DisplayName("search keyword is trimmed and length-limited")
-        void searchByKeyword_trimsAndLimitsKeyword() {
+        @DisplayName("search keyword is trimmed and too long keyword is rejected")
+        void searchByKeyword_rejectsTooLongKeyword() {
             String longKeyword = " " + "a".repeat(120) + " ";
-            Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
-            when(emoticonMasterRepository.findByKeyword(anyString(), any(Pageable.class))).thenReturn(page);
 
-            emoticonService.searchByKeyword(longKeyword, PageRequest.of(0, 20));
+            assertThatThrownBy(() -> emoticonService.searchByKeyword(longKeyword, PageRequest.of(0, 20)))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
 
-            verify(emoticonMasterRepository).findByKeyword(
-                    eq("a".repeat(EmoticonRequestNormalizer.MAX_SEARCH_KEYWORD_LENGTH)),
-                    any(Pageable.class));
+            verify(emoticonMasterRepository, never()).findByKeyword(anyString(), any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("too long tag search is rejected")
+        void searchByTag_rejectsTooLongTag() {
+            String longTag = "가".repeat(EmoticonRequestNormalizer.MAX_TAG_LENGTH + 1);
+
+            assertThatThrownBy(() -> emoticonService.searchByTag(longTag, PageRequest.of(0, 20)))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+            verify(emoticonMasterRepository, never()).findByTag(anyString(), any(Pageable.class));
         }
 
         @Test
@@ -355,21 +389,33 @@ class EmoticonServiceTest {
         }
 
         @Test
-        @DisplayName("searchAll trims and length-limits keyword")
-        void searchAll_trimsAndLimitsKeyword() {
+        @DisplayName("searchAll rejects too long keyword")
+        void searchAll_rejectsTooLongKeyword() {
             String longKeyword = " " + "b".repeat(120) + " ";
-            Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
-            when(emoticonMasterRepository.searchActive(any(EmoticonSearchCondition.class), any(Pageable.class)))
-                    .thenReturn(page);
 
-            emoticonService.searchAll(longKeyword, "NAME", PageRequest.of(0, 20), "latest");
+            assertThatThrownBy(() -> emoticonService.searchAll(longKeyword, "NAME", PageRequest.of(0, 20), "latest"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
 
-            verify(emoticonMasterRepository).searchActive(
-                    eq(new EmoticonSearchCondition(
-                            "b".repeat(EmoticonRequestNormalizer.MAX_SEARCH_KEYWORD_LENGTH),
-                            SearchType.NAME,
-                            SortType.LATEST)),
-                    any(Pageable.class));
+            verify(emoticonMasterRepository, never())
+                    .searchActive(any(EmoticonSearchCondition.class), any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("searchAll rejects too long option")
+        void searchAll_rejectsTooLongOption() {
+            String longSearchType = "a".repeat(EmoticonRequestNormalizer.MAX_OPTION_LENGTH + 1);
+
+            assertThatThrownBy(() -> emoticonService.searchAll(
+                    "테스트",
+                    longSearchType,
+                    PageRequest.of(0, 20),
+                    "latest"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+            verify(emoticonMasterRepository, never())
+                    .searchActive(any(EmoticonSearchCondition.class), any(Pageable.class));
         }
 
         @Test
@@ -1059,6 +1105,21 @@ class EmoticonServiceTest {
         }
 
         @Test
+        @DisplayName("이미지 추가 - 최대 이미지 수를 초과할 수 없다")
+        void addImage_rejectsWhenImageCountLimitReached() {
+            ReflectionTestUtils.setField(emoticonMaster, "images", emoticonImages(20));
+            givenWritableUser();
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
+
+            assertThatThrownBy(() -> emoticonService.addImage(1L, 1L, 30L))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+            assertThat(emoticonMaster.getImages()).hasSize(20);
+            verify(fileService, never()).associateFileWithEntity(anyLong(), anyLong(), anyLong(), anyString());
+        }
+
+        @Test
         @DisplayName("이미지 추가 - 이모티콘 없으면 EMOTICON_NOT_FOUND")
         void addImage_emoticonNotFound() {
             when(emoticonMasterRepository.findByIdForUpdate(999L)).thenReturn(Optional.empty());
@@ -1318,5 +1379,19 @@ class EmoticonServiceTest {
         BusinessException businessException = (BusinessException) ex;
         assertThat(businessException.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN);
         assertThat(businessException.getMessage()).isEqualTo(ErrorCode.FORBIDDEN.getMessage());
+    }
+
+    private java.util.ArrayList<EmoticonImage> emoticonImages(int count) {
+        java.util.ArrayList<EmoticonImage> images = new java.util.ArrayList<>();
+        for (int index = 0; index < count; index++) {
+            EmoticonImage image = EmoticonImage.builder()
+                    .emoticonMaster(emoticonMaster)
+                    .imageUrl("/api/v1/files/" + (100 + index))
+                    .sortOrder(index)
+                    .build();
+            ReflectionTestUtils.setField(image, "imageId", (long) (100 + index));
+            images.add(image);
+        }
+        return images;
     }
 }

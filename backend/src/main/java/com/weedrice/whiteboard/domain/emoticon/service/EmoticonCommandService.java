@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonImage;
 import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonMaster;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepository;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
+import com.weedrice.whiteboard.domain.file.support.FileAssociationConstraints;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -188,6 +189,7 @@ class EmoticonCommandService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
 
         validateWritableOwner(master, userId);
+        validateImageLimit(master);
 
         int nextSortOrder = resolveNextSortOrder(master);
         EmoticonImage image = EmoticonImage.builder()
@@ -222,6 +224,13 @@ class EmoticonCommandService {
     private void validateWritableOwner(EmoticonMaster master, Long userId) {
         validateOwner(master, userId);
         userWritableResolver.resolve(userId);
+    }
+
+    private void validateImageLimit(EmoticonMaster master) {
+        int imageCount = master.getImages() == null ? 0 : master.getImages().size();
+        if (imageCount >= FileAssociationConstraints.MAX_EMOTICON_IMAGE_COUNT) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
     }
 
     private int resolveNextSortOrder(EmoticonMaster master) {
