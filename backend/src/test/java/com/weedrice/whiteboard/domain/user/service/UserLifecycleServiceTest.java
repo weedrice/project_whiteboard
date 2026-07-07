@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,13 +16,18 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -29,6 +35,8 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class UserLifecycleServiceTest {
+
+    private static final LocalDateTime FIXED_NOW = LocalDateTime.of(2026, 7, 7, 12, 0);
 
     @InjectMocks
     private UserLifecycleService userLifecycleService;
@@ -38,6 +46,13 @@ class UserLifecycleServiceTest {
     @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
     @Mock private AgentLifecycleService agentLifecycleService;
     @Mock private UserPrivilegeCleanupService userPrivilegeCleanupService;
+    @Mock private Clock clock;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(clock.instant()).thenReturn(FIXED_NOW.toInstant(ZoneOffset.UTC));
+        lenient().when(clock.getZone()).thenReturn(ZoneOffset.UTC);
+    }
 
     @Test
     @DisplayName("suspend revokes refresh tokens and suspends agents")
@@ -159,13 +174,14 @@ class UserLifecycleServiceTest {
         User user = User.builder().build();
         user.suspend();
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(sanctionRepository.existsActiveBan(org.mockito.ArgumentMatchers.eq(user), any(java.time.LocalDateTime.class)))
+        when(sanctionRepository.existsActiveBan(eq(user), any(LocalDateTime.class)))
                 .thenReturn(false);
 
         userLifecycleService.updateAdminManagedStatus(1L, "ACTIVE");
 
         assertThat(user.getStatus()).isEqualTo("ACTIVE");
         verify(userRepository).findByIdForUpdate(1L);
+        verify(sanctionRepository).existsActiveBan(user, FIXED_NOW);
         verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokensForLockedUser(user);
         verify(agentLifecycleService, never()).suspendAllForUser(user);
     }
@@ -176,13 +192,14 @@ class UserLifecycleServiceTest {
         User user = User.builder().build();
         user.suspend();
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(sanctionRepository.existsActiveBan(org.mockito.ArgumentMatchers.eq(user), any(java.time.LocalDateTime.class)))
+        when(sanctionRepository.existsActiveBan(eq(user), any(LocalDateTime.class)))
                 .thenReturn(true);
 
         assertThatThrownBy(() -> userLifecycleService.updateAdminManagedStatus(1L, "ACTIVE"))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
+        verify(sanctionRepository).existsActiveBan(user, FIXED_NOW);
     }
 
     @Test
@@ -222,6 +239,6 @@ class UserLifecycleServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
-        verify(sanctionRepository, never()).existsActiveBan(org.mockito.ArgumentMatchers.eq(user), any(java.time.LocalDateTime.class));
+        verify(sanctionRepository, never()).existsActiveBan(eq(user), any(LocalDateTime.class));
     }
 }

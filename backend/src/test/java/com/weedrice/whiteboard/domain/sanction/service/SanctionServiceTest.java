@@ -28,7 +28,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
@@ -44,6 +46,11 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class SanctionServiceTest {
+
+    private static final LocalDateTime FIXED_NOW = LocalDateTime.of(2026, 7, 7, 12, 0);
+    private static final Clock FIXED_CLOCK = Clock.fixed(
+            FIXED_NOW.toInstant(ZoneOffset.UTC),
+            ZoneOffset.UTC);
 
     @Mock private SanctionRepository sanctionRepository;
     @Mock private UserRepository userRepository;
@@ -76,10 +83,11 @@ class SanctionServiceTest {
                 sanctionRepository,
                 moderationActorResolver,
                 sanctionPolicyService,
-                new SanctionRequestValidator(),
+                new SanctionRequestValidator(FIXED_CLOCK),
                 new SanctionTargetResolver(userRepository, postRepository, new CommentReadSupport(commentRepository)),
                 new SanctionEffectApplier(userLifecycleService),
-                userReadableResolver);
+                userReadableResolver,
+                FIXED_CLOCK);
         lenient().when(moderationActorResolver.resolveModerationActor(1L))
                 .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, admin));
     }
@@ -106,7 +114,7 @@ class SanctionServiceTest {
                 .admin(admin)
                 .type("BAN")
                 .remark("Test")
-                .startDate(LocalDateTime.now())
+                .startDate(FIXED_NOW)
                 .build();
         ReflectionTestUtils.setField(savedSanction, "sanctionId", 1L);
         when(sanctionRepository.save(any(Sanction.class))).thenReturn(savedSanction);
@@ -119,7 +127,8 @@ class SanctionServiceTest {
         verify(userLifecycleService, never()).suspendUser(any(User.class));
         verify(sanctionRepository).save(argThat(sanction ->
                 Long.valueOf(100L).equals(sanction.getContentId())
-                        && "POST".equals(sanction.getContentType())));
+                        && "POST".equals(sanction.getContentType())
+                        && FIXED_NOW.equals(sanction.getStartDate())));
     }
 
     @Test
@@ -134,13 +143,13 @@ class SanctionServiceTest {
                 .admin(admin)
                 .type("BAN")
                 .remark("Temp ban")
-                .startDate(LocalDateTime.now())
-                .endDate(LocalDateTime.now().plusDays(1))
+                .startDate(FIXED_NOW)
+                .endDate(FIXED_NOW.plusDays(1))
                 .build();
         ReflectionTestUtils.setField(savedSanction, "sanctionId", 2L);
         when(sanctionRepository.save(any(Sanction.class))).thenReturn(savedSanction);
 
-        sanctionService.createSanction(1L, 2L, "BAN", "Temp ban", LocalDateTime.now().plusDays(1), null, null);
+        sanctionService.createSanction(1L, 2L, "BAN", "Temp ban", FIXED_NOW.plusDays(1), null, null);
 
         assertThat(targetUser.getStatus()).isEqualTo("ACTIVE");
         verify(userLifecycleService, never()).suspendPrelockedUser(any(User.class));
@@ -170,13 +179,13 @@ class SanctionServiceTest {
                 .admin(admin)
                 .type("BAN")
                 .remark("Temp ban")
-                .startDate(LocalDateTime.now())
-                .endDate(LocalDateTime.now().plusDays(1))
+                .startDate(FIXED_NOW)
+                .endDate(FIXED_NOW.plusDays(1))
                 .build();
         ReflectionTestUtils.setField(savedSanction, "sanctionId", 3L);
         when(sanctionRepository.save(any(Sanction.class))).thenReturn(savedSanction);
 
-        sanctionService.createSanction(1L, 2L, "ban", "Temp ban", LocalDateTime.now().plusDays(1), null, null);
+        sanctionService.createSanction(1L, 2L, "ban", "Temp ban", FIXED_NOW.plusDays(1), null, null);
 
         verify(sanctionRepository).save(argThat(sanction -> "BAN".equals(sanction.getType())));
     }
@@ -191,7 +200,7 @@ class SanctionServiceTest {
                 .admin(admin)
                 .type("WARNING")
                 .remark("Trimmed")
-                .startDate(LocalDateTime.now())
+                .startDate(FIXED_NOW)
                 .build();
         ReflectionTestUtils.setField(savedSanction, "sanctionId", 4L);
         when(sanctionRepository.save(any(Sanction.class))).thenReturn(savedSanction);
@@ -218,19 +227,19 @@ class SanctionServiceTest {
     @DisplayName("reject endDate when it is not in the future")
     void createSanction_rejectsPastOrImmediateEndDate() {
 
-        assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "BAN", "Expired", LocalDateTime.now(), null, null))
+        assertThatThrownBy(() -> sanctionService.createSanction(1L, 2L, "BAN", "Expired", FIXED_NOW, null, null))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
         assertThatThrownBy(() -> sanctionService.createSanction(
-                1L, 2L, "MUTE", "Expired", LocalDateTime.now().minusMinutes(1), null, null))
+                1L, 2L, "MUTE", "Expired", FIXED_NOW.minusMinutes(1), null, null))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
         assertThatThrownBy(() -> sanctionService.createSanction(
-                1L, 2L, "WARNING", "Expired", LocalDateTime.now().minusMinutes(1), null, null))
+                1L, 2L, "WARNING", "Expired", FIXED_NOW.minusMinutes(1), null, null))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);

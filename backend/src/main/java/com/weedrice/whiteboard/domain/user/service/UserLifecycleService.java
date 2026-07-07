@@ -12,6 +12,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -22,6 +25,7 @@ public class UserLifecycleService {
     private final RefreshTokenLifecycleService refreshTokenLifecycleService;
     private final AgentLifecycleService agentLifecycleService;
     private final UserPrivilegeCleanupService userPrivilegeCleanupService;
+    private final Clock clock;
 
     @Transactional
     public void updateAdminManagedStatus(Long userId, String status) {
@@ -41,7 +45,7 @@ public class UserLifecycleService {
             if ("DELETED".equals(user.getStatus())) {
                 throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
             }
-            if (sanctionRepository.existsActiveBan(user, java.time.LocalDateTime.now())) {
+            if (sanctionRepository.existsActiveBan(user, LocalDateTime.now(clock))) {
                 throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
             }
             user.activate();

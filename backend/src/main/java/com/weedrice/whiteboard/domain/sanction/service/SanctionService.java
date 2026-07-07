@@ -14,6 +14,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Set;
 
@@ -35,6 +36,7 @@ public class SanctionService {
     private final SanctionTargetResolver sanctionTargetResolver;
     private final SanctionEffectApplier sanctionEffectApplier;
     private final UserReadableResolver userReadableResolver;
+    private final Clock clock;
 
     @Transactional
     public Long createSanction(Long adminUserId, Long targetUserId, String type, String remark, LocalDateTime endDate,
@@ -55,7 +57,7 @@ public class SanctionService {
                 .processorUser(moderationActor.user())
                 .type(command.type())
                 .remark(command.remark())
-                .startDate(LocalDateTime.now())
+                .startDate(LocalDateTime.now(clock))
                 .endDate(command.endDate())
                 .contentId(command.contentId())
                 .contentType(command.contentType())

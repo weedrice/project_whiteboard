@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Set;
 
@@ -19,13 +20,14 @@ public class SanctionPolicyService {
     private static final String TYPE_MUTE = "MUTE";
 
     private final SanctionRepository sanctionRepository;
+    private final Clock clock;
 
     public boolean isUserBanned(User user) {
-        return user != null && sanctionRepository.existsActiveBan(user, LocalDateTime.now());
+        return user != null && sanctionRepository.existsActiveBan(user, LocalDateTime.now(clock));
     }
 
     public boolean isUserMuted(User user) {
-        return user != null && sanctionRepository.existsActiveTypeIn(user, Set.of(TYPE_MUTE), LocalDateTime.now());
+        return user != null && sanctionRepository.existsActiveTypeIn(user, Set.of(TYPE_MUTE), LocalDateTime.now(clock));
     }
 
     public void validateNotBanned(User user) {
