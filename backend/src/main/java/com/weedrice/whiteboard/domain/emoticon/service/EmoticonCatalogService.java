@@ -15,6 +15,7 @@ import org.hibernate.proxy.HibernateProxy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -42,11 +43,14 @@ class EmoticonCatalogService {
 
     private final EmoticonMasterRepository emoticonMasterRepository;
     private final UserRepository userRepository;
+    private final Clock clock;
 
     EmoticonCatalogService(EmoticonMasterRepository emoticonMasterRepository,
-                           UserRepository userRepository) {
+                           UserRepository userRepository,
+                           Clock clock) {
         this.emoticonMasterRepository = emoticonMasterRepository;
         this.userRepository = userRepository;
+        this.clock = clock;
     }
 
     Page<EmoticonMasterDto> getActiveEmoticons(Pageable pageable) {
@@ -100,7 +104,7 @@ class EmoticonCatalogService {
 
     List<EmoticonMasterDto> getPopularEmoticons(String period) {
         LocalDateTime startDate;
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
 
         switch (normalizePeriod(period)) {
             case "weekly":

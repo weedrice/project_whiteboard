@@ -26,6 +26,7 @@ import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
@@ -68,6 +69,7 @@ public class PostListReadService {
     private final BoardAccessPolicy boardAccessPolicy;
     private final PostLatestReadService postLatestReadService;
     private final SearchRecordEventPublisher searchRecordEventPublisher;
+    private final Clock clock;
 
     public Page<PostSummary> getPosts(String boardUrl, Long categoryId, String keyword, Integer minLikes,
             Long currentUserId, @NonNull Pageable pageable) {
@@ -343,11 +345,15 @@ public class PostListReadService {
 
     private LocalDateTime resolveTrendingSince(String period) {
         return switch ((period == null ? "" : period.trim().toLowerCase(Locale.ROOT))) {
-            case "7d" -> LocalDateTime.now().minusDays(7);
-            case "30d" -> LocalDateTime.now().minusDays(30);
-            case "24h", "" -> LocalDateTime.now().minusHours(24);
-            default -> LocalDateTime.now().minusHours(24);
+            case "7d" -> now().minusDays(7);
+            case "30d" -> now().minusDays(30);
+            case "24h", "" -> now().minusHours(24);
+            default -> now().minusHours(24);
         };
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(clock);
     }
 
     private BoardReadContext resolveReadableBoardContext(String boardUrl, Long currentUserId) {

@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
 import java.util.List;
@@ -70,6 +71,7 @@ public class AgentLifecycleService {
     private final AgentAuditService agentAuditService;
     private final SanctionPolicyService sanctionPolicyService;
     private final EntityManager entityManager;
+    private final Clock clock;
 
     @Value("${app.agent.pending-claim-ttl-hours:24}")
     private long pendingClaimTtlHours = 24L;
@@ -136,7 +138,7 @@ public class AgentLifecycleService {
 
         List<Agent> existingAgents = agentRepository.findByUserIdAndIsDeletedFalseForUpdateOrderByAgentIdAsc(userId);
         softDeleteOtherAgentsForUser(existingAgents, user, agent.getAgentId(), requestContext);
-        agent.claim(user);
+        agent.claim(user, now());
         agentAuditService.saveLog(
                 agent,
                 user,
@@ -276,7 +278,11 @@ public class AgentLifecycleService {
     }
 
     private LocalDateTime resolvePendingClaimExpiresBefore() {
-        return LocalDateTime.now().minusHours(Math.max(1L, pendingClaimTtlHours));
+        return now().minusHours(Math.max(1L, pendingClaimTtlHours));
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(clock);
     }
 
     private User resolveActiveOwnerForUpdate(Long userId) {

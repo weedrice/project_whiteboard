@@ -11,6 +11,8 @@ import jakarta.persistence.EntityManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.time.Clock;
+
 @Configuration
 class EmoticonServiceConfig {
 
@@ -24,8 +26,9 @@ class EmoticonServiceConfig {
 
     @Bean
     EmoticonCatalogService emoticonCatalogService(EmoticonMasterRepository emoticonMasterRepository,
-                                                  UserRepository userRepository) {
-        return new EmoticonCatalogService(emoticonMasterRepository, userRepository);
+                                                  UserRepository userRepository,
+                                                  Clock clock) {
+        return new EmoticonCatalogService(emoticonMasterRepository, userRepository, clock);
     }
 
     @Bean

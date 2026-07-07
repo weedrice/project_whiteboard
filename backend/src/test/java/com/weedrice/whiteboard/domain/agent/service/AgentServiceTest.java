@@ -200,7 +200,8 @@ class AgentServiceTest {
                 userRepository,
                 agentAuditService,
                 sanctionPolicyService,
-                entityManager);
+                entityManager,
+                Clock.fixed(Instant.parse("2026-07-07T03:00:00Z"), ZoneId.of("Asia/Seoul")));
         agentAuthService = new AgentAuthService(agentRepository, agentLastUsedCommandService);
         PostAccessPolicy postAccessPolicy = new PostAccessPolicy(new BoardAccessPolicy(adminRepository));
         agentPolicyService = new AgentPolicyService(
@@ -1272,7 +1273,7 @@ class AgentServiceTest {
                 .status(Agent.STATUS_PENDING_CLAIM)
                 .build();
         ReflectionTestUtils.setField(pendingAgent, "agentId", 9L);
-        ReflectionTestUtils.setField(pendingAgent, "createdAt", LocalDateTime.now().minusHours(25));
+        ReflectionTestUtils.setField(pendingAgent, "createdAt", LocalDateTime.of(2026, 7, 6, 10, 0));
 
         AgentClaimRequest request = new AgentClaimRequest();
         ReflectionTestUtils.setField(request, "agentToken", "noviis_agt_new");

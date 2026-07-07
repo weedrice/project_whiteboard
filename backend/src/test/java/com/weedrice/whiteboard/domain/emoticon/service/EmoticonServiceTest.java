@@ -95,7 +95,12 @@ class EmoticonServiceTest {
         lenient().when(userRepository.findAllById(any())).thenReturn(List.of(user));
 
         EmoticonAttachmentHelper attachmentHelper = new EmoticonAttachmentHelper(fileService);
-        EmoticonCatalogService catalogService = new EmoticonCatalogService(emoticonMasterRepository, userRepository);
+        EmoticonCatalogService catalogService = new EmoticonCatalogService(
+                emoticonMasterRepository,
+                userRepository,
+                java.time.Clock.fixed(
+                        java.time.Instant.parse("2026-07-07T00:00:00Z"),
+                        java.time.ZoneOffset.UTC));
         EmoticonDeletePolicy deletePolicy = new EmoticonDeletePolicy(emoticonPurchaseRepository);
         EmoticonCommandService commandService = new EmoticonCommandService(
                 emoticonMasterRepository,

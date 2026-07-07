@@ -76,10 +76,10 @@ public class Agent extends BaseTimeEntity {
         this.isDeleted = false;
     }
 
-    public void claim(User user) {
+    public void claim(User user, LocalDateTime claimedAt) {
         this.user = user;
         this.status = STATUS_ACTIVE;
-        this.claimedAt = LocalDateTime.now();
+        this.claimedAt = claimedAt;
     }
 
     public void suspend() {

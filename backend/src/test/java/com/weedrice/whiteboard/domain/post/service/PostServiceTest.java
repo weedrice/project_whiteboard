@@ -231,7 +231,10 @@ class PostServiceTest {
                 feedPostSummaryAssembler,
                 boardAccessPolicy,
                 postLatestReadService,
-                searchRecordEventPublisher);
+                searchRecordEventPublisher,
+                java.time.Clock.fixed(
+                        java.time.Instant.parse("2026-07-07T00:00:00Z"),
+                        java.time.ZoneOffset.UTC));
         ContentRewardService contentRewardService = new ContentRewardService(
                 pointService,
                 pointHistoryRepository,
@@ -985,15 +988,11 @@ class PostServiceTest {
         when(boardSubscriptionRepository.findBoardUrlsByUserIdAndBoardIdIn(eq(1L), anyCollection()))
                 .thenReturn(Collections.emptyList());
 
-        LocalDateTime before = LocalDateTime.now();
         postService.getTrendingPosts(PageRequest.of(0, 10), 1L, "7d");
-        LocalDateTime after = LocalDateTime.now();
 
         ArgumentCaptor<LocalDateTime> sinceCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
         verify(postRepository).findTrendingPosts(sinceCaptor.capture(), anyList(), any(Pageable.class));
-        assertThat(sinceCaptor.getValue())
-                .isAfterOrEqualTo(before.minusDays(7).minusSeconds(1))
-                .isBeforeOrEqualTo(after.minusDays(7).plusSeconds(1));
+        assertThat(sinceCaptor.getValue()).isEqualTo(LocalDateTime.of(2026, 6, 30, 0, 0));
     }
 
     @Test

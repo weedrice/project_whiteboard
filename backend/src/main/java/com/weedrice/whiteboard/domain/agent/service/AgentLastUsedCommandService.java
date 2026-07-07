@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 @Service
@@ -15,10 +16,11 @@ public class AgentLastUsedCommandService {
     private static final long LAST_USED_UPDATE_THROTTLE_MINUTES = 1L;
 
     private final AgentRepository agentRepository;
+    private final Clock clock;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markLastUsedIfStale(Long agentId) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         agentRepository.updateLastUsedAtIfStale(
                 agentId,
                 now,

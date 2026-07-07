@@ -20,6 +20,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,7 +48,20 @@ class EmoticonCatalogServiceTest {
 
     @BeforeEach
     void setUp() {
-        catalogService = new EmoticonCatalogService(emoticonMasterRepository, userRepository);
+        catalogService = new EmoticonCatalogService(
+                emoticonMasterRepository,
+                userRepository,
+                Clock.fixed(Instant.parse("2026-07-07T00:00:00Z"), ZoneOffset.UTC));
+    }
+
+    @Test
+    void getPopularEmoticons_usesInjectedClockForPeriod() {
+        when(emoticonMasterRepository.findPopularEmoticons(LocalDateTime.of(2026, 7, 6, 0, 0), 5))
+                .thenReturn(List.of());
+
+        catalogService.getPopularEmoticons("daily");
+
+        verify(emoticonMasterRepository).findPopularEmoticons(LocalDateTime.of(2026, 7, 6, 0, 0), 5);
     }
 
     @Test
