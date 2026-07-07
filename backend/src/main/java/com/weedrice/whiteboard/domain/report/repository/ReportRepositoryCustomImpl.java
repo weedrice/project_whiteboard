@@ -1,12 +1,16 @@
 package com.weedrice.whiteboard.domain.report.repository;
 
+import com.querydsl.core.types.Order;
+import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.core.types.dsl.ComparableExpressionBase;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.weedrice.whiteboard.domain.report.entity.Report;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
 
@@ -30,7 +34,7 @@ public class ReportRepositoryCustomImpl implements ReportRepositoryCustom {
                 .select(report.reportId)
                 .from(report)
                 .where(statusEq(status), targetTypeEq(targetType))
-                .orderBy(report.createdAt.desc(), report.reportId.desc())
+                .orderBy(toOrderSpecifiers(pageable.getSort()))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();
@@ -68,5 +72,27 @@ public class ReportRepositoryCustomImpl implements ReportRepositoryCustom {
 
     private BooleanExpression targetTypeEq(String targetType) {
         return StringUtils.hasText(targetType) ? report.targetType.eq(targetType.trim()) : null;
+    }
+
+    private OrderSpecifier<?>[] toOrderSpecifiers(Sort sort) {
+        if (sort == null || sort.isUnsorted()) {
+            return new OrderSpecifier<?>[] {report.createdAt.desc(), report.reportId.desc()};
+        }
+        return sort.stream()
+                .map(this::toOrderSpecifier)
+                .toArray(OrderSpecifier[]::new);
+    }
+
+    private OrderSpecifier<?> toOrderSpecifier(Sort.Order order) {
+        ComparableExpressionBase<?> path = switch (order.getProperty()) {
+            case "reportId" -> report.reportId;
+            case "status" -> report.status;
+            case "targetType" -> report.targetType;
+            case "targetId" -> report.targetId;
+            case "reasonType" -> report.reasonType;
+            case "createdAt" -> report.createdAt;
+            default -> report.createdAt;
+        };
+        return new OrderSpecifier<>(order.isAscending() ? Order.ASC : Order.DESC, path);
     }
 }

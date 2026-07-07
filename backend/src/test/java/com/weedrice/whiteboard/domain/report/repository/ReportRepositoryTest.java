@@ -12,6 +12,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -208,5 +209,33 @@ class ReportRepositoryTest {
         Page<Report> reports = reportRepository.findAdminReports(null, null, PageRequest.of(0, 10));
 
         assertThat(reports.getContent()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("관리자 신고 목록은 요청 정렬을 반영한다")
+    void findAdminReports_appliesRequestedSort() {
+        Report second = Report.builder()
+                .reporter(reporter)
+                .targetType("POST")
+                .targetId(2L)
+                .reasonType("SPAM")
+                .remark("Second report")
+                .build();
+        entityManager.persist(second);
+        entityManager.flush();
+        updateCreatedAt(report, LocalDateTime.of(2026, 5, 2, 10, 0));
+        updateCreatedAt(second, LocalDateTime.of(2026, 5, 1, 10, 0));
+        entityManager.clear();
+
+        Page<Report> reports = reportRepository.findAdminReports(
+                null,
+                null,
+                PageRequest.of(0, 10, Sort.by(
+                        Sort.Order.asc("createdAt"),
+                        Sort.Order.desc("reportId"))));
+
+        assertThat(reports.getContent())
+                .extracting(Report::getReportId)
+                .containsExactly(second.getReportId(), report.getReportId());
     }
 }

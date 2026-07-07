@@ -16,7 +16,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -26,7 +25,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
@@ -43,6 +45,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class IpBlockServiceTest {
 
+    private static final LocalDateTime NOW = LocalDateTime.of(2026, 7, 7, 3, 0);
+
     @Mock
     private IpBlockRepository ipBlockRepository;
     @Mock
@@ -52,7 +56,6 @@ class IpBlockServiceTest {
     @Mock
     private ModerationActorResolver moderationActorResolver;
 
-    @InjectMocks
     private IpBlockService ipBlockService;
 
     private User adminUser;
@@ -87,6 +90,8 @@ class IpBlockServiceTest {
                 .role(Role.BOARD_ADMIN)
                 .build();
         ReflectionTestUtils.setField(admin, "adminId", 11L);
+        Clock clock = Clock.fixed(Instant.parse("2026-07-07T03:00:00Z"), ZoneOffset.UTC);
+        ipBlockService = new IpBlockService(ipBlockRepository, moderationActorResolver, clock);
 
         lenient().when(moderationActorResolver.resolveModerationActor(1L))
                 .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, admin));
@@ -165,7 +170,7 @@ class IpBlockServiceTest {
         when(moderationActorResolver.resolveModerationActor(1L))
                 .thenThrow(new BusinessException(ErrorCode.FORBIDDEN));
 
-        assertThatThrownBy(() -> ipBlockService.blockIp(1L, ipAddress, "test", LocalDateTime.now().plusDays(1)))
+        assertThatThrownBy(() -> ipBlockService.blockIp(1L, ipAddress, "test", NOW.plusDays(1)))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
 
@@ -176,7 +181,7 @@ class IpBlockServiceTest {
     @DisplayName("과거 또는 현재 시각의 종료일은 허용하지 않는다")
     void blockIp_rejectsPastEndDate() {
         String ipAddress = "127.0.0.1";
-        LocalDateTime invalidEndDate = LocalDateTime.now().minusMinutes(1);
+        LocalDateTime invalidEndDate = NOW;
 
         assertThatThrownBy(() -> ipBlockService.blockIp(1L, ipAddress, "test", invalidEndDate))
                 .isInstanceOf(BusinessException.class)
@@ -239,7 +244,7 @@ class IpBlockServiceTest {
                 .ipAddress(ipAddress)
                 .admin(admin)
                 .reason("existing")
-                .startDate(LocalDateTime.now().minusHours(1))
+                .startDate(NOW.minusHours(1))
                 .endDate(null)
                 .build();
 
@@ -256,13 +261,13 @@ class IpBlockServiceTest {
     @DisplayName("만료된 차단 이력이 있으면 새 행 대신 재활성화한다")
     void blockIp_reusesExpiredBlock() {
         String ipAddress = "127.0.0.1";
-        LocalDateTime expiredAt = LocalDateTime.now().minusDays(1);
-        LocalDateTime newEndDate = LocalDateTime.now().plusDays(1);
+        LocalDateTime expiredAt = NOW.minusDays(1);
+        LocalDateTime newEndDate = NOW.plusDays(1);
         IpBlock expiredBlock = IpBlock.builder()
                 .ipAddress(ipAddress)
                 .admin(admin)
                 .reason("old")
-                .startDate(LocalDateTime.now().minusDays(2))
+                .startDate(NOW.minusDays(2))
                 .endDate(expiredAt)
                 .build();
 
@@ -274,7 +279,8 @@ class IpBlockServiceTest {
         assertThat(response.getIpAddress()).isEqualTo(ipAddress);
         assertThat(expiredBlock.getReason()).isEqualTo("renewed");
         assertThat(expiredBlock.getEndDate()).isEqualTo(newEndDate);
-        assertThat(expiredBlock.isActiveAt(LocalDateTime.now())).isTrue();
+        assertThat(expiredBlock.getStartDate()).isEqualTo(NOW);
+        assertThat(expiredBlock.isActiveAt(NOW)).isTrue();
         verify(ipBlockRepository).saveAndFlush(expiredBlock);
     }
 
@@ -300,7 +306,7 @@ class IpBlockServiceTest {
                 .ipAddress(ipAddress)
                 .admin(admin)
                 .reason("test")
-                .startDate(LocalDateTime.now().minusHours(1))
+                .startDate(NOW.minusHours(1))
                 .endDate(null)
                 .build();
 
@@ -309,7 +315,7 @@ class IpBlockServiceTest {
 
         ipBlockService.unblockIp(" 127.0.0.1 ");
 
-        assertThat(activeBlock.getEndDate()).isNotNull();
+        assertThat(activeBlock.getEndDate()).isEqualTo(NOW);
         verify(ipBlockRepository, never()).delete(any());
     }
 
@@ -320,7 +326,7 @@ class IpBlockServiceTest {
                 .ipAddress("127.0.0.1")
                 .admin(admin)
                 .reason("test")
-                .startDate(LocalDateTime.now())
+                .startDate(NOW)
                 .endDate(null)
                 .build();
         when(ipBlockRepository.findActiveBlocks(any(LocalDateTime.class), any()))
@@ -373,7 +379,7 @@ class IpBlockServiceTest {
                         .ipAddress("127.0.0.1")
                         .admin(admin)
                         .reason("test")
-                        .startDate(LocalDateTime.now())
+                        .startDate(NOW)
                         .endDate(null)
                         .build()));
 

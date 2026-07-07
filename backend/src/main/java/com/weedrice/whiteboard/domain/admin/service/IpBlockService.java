@@ -16,6 +16,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Set;
 
@@ -29,17 +30,20 @@ public class IpBlockService {
 
     private final IpBlockRepository ipBlockRepository;
     private final ModerationActorResolver moderationActorResolver;
+    private final Clock clock;
 
     public IpBlockService(IpBlockRepository ipBlockRepository,
-                          ModerationActorResolver moderationActorResolver) {
+                          ModerationActorResolver moderationActorResolver,
+                          Clock clock) {
         this.ipBlockRepository = ipBlockRepository;
         this.moderationActorResolver = moderationActorResolver;
+        this.clock = clock;
     }
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
     public IpBlockResponse blockIp(Long adminUserId, String ipAddress, String reason, LocalDateTime endDate) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = now();
         ModerationActorResolver.ModerationActor moderationActor =
                 moderationActorResolver.resolveModerationActor(adminUserId);
         String normalizedIpAddress = normalizeIpAddress(ipAddress);
@@ -78,7 +82,7 @@ public class IpBlockService {
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
     public void unblockIp(String ipAddress) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = now();
         String normalizedIpAddress = normalizeIpAddress(ipAddress);
         IpBlock ipBlock = ipBlockRepository.findActiveByIpAddress(normalizedIpAddress, now)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
@@ -92,13 +96,17 @@ public class IpBlockService {
                 DEFAULT_BLOCKED_IP_PAGE_SIZE,
                 DEFAULT_BLOCKED_IP_SORT,
                 ALLOWED_BLOCKED_IP_SORTS);
-        return ipBlockRepository.findActiveBlocks(LocalDateTime.now(), safePageable)
+        return ipBlockRepository.findActiveBlocks(now(), safePageable)
                 .map(IpBlockResponse::from);
     }
 
     public boolean isIpBlocked(String ipAddress) {
         String normalizedIpAddress = normalizeIpAddress(ipAddress);
-        return ipBlockRepository.findActiveByIpAddress(normalizedIpAddress, LocalDateTime.now()).isPresent();
+        return ipBlockRepository.findActiveByIpAddress(normalizedIpAddress, now()).isPresent();
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(clock);
     }
 
     private String normalizeIpAddress(String ipAddress) {

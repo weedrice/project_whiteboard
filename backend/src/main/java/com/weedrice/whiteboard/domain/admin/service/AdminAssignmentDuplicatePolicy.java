@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.admin.service;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -10,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
+import java.util.Objects;
 import java.util.Optional;
 
 @Component
@@ -32,10 +34,19 @@ class AdminAssignmentDuplicatePolicy {
     }
 
     void validateNoOtherActiveAdmin(Admin admin, Board board) {
-        if (adminRepository.countByBoardAndRoleAndIsActiveAndAdminIdNot(
-                board, admin.getRole(), true, admin.getAdminId()) > 0) {
-            throw duplicate();
+        if (Role.BOARD_ADMIN.equals(admin.getRole())) {
+            if (adminRepository.countByBoardAndRoleAndIsActiveAndAdminIdNot(
+                    board, admin.getRole(), true, admin.getAdminId()) > 0) {
+                throw duplicate();
+            }
+            return;
         }
+        adminRepository.findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(
+                        admin.getUser(), board, admin.getRole(), true)
+                .filter(activeAdmin -> !Objects.equals(activeAdmin.getAdminId(), admin.getAdminId()))
+                .ifPresent(activeAdmin -> {
+                    throw duplicate();
+                });
     }
 
     Admin saveAndMapDuplicate(Admin admin) {

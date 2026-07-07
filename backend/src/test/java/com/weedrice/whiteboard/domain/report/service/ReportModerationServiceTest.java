@@ -146,6 +146,25 @@ class ReportModerationServiceTest {
     }
 
     @Test
+    @DisplayName("getReports preserves allowed sort and appends stable tie breaker")
+    void getReports_preservesAllowedSort() {
+        PageRequest requested = PageRequest.of(1, 30, Sort.by(Sort.Order.asc("createdAt")));
+        PageRequest safePageable = PageRequest.of(1, 30, Sort.by(
+                Sort.Order.asc("createdAt"),
+                Sort.Order.desc("reportId")));
+        Page<Report> reportPage = Page.empty(safePageable);
+        Page<ReportResponse> responsePage = Page.empty(safePageable);
+
+        when(reportRepository.findAdminReports(null, null, safePageable)).thenReturn(reportPage);
+        when(reportReadAssembler.toAdminResponsePage(reportPage)).thenReturn(responsePage);
+
+        Page<ReportResponse> result = reportModerationService.getReports(null, null, requested);
+
+        assertThat(result).isSameAs(responsePage);
+        verify(reportRepository).findAdminReports(null, null, safePageable);
+    }
+
+    @Test
     @DisplayName("getMyReports loads reporter and assembles responses")
     void getMyReports_usesAssembler() {
         PageRequest pageable = PageRequest.of(0, 20);

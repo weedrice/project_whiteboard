@@ -58,7 +58,7 @@ class AdminReadServiceTest {
     void getAllAdmins_returnsPagedResponses() {
         PageRequest pageable = PageRequest.of(0, 20);
         PageRequest safePageable = PageRequest.of(0, 20, Sort.by(Sort.Order.desc("adminId")));
-        when(adminRepository.findAllByOrderByAdminIdDesc(safePageable))
+        when(adminRepository.findAll(safePageable))
                 .thenReturn(new PageImpl<>(List.of(admin), safePageable, 1));
 
         Page<com.weedrice.whiteboard.domain.admin.dto.AdminResponse> page = adminReadService.getAllAdmins(pageable);
@@ -66,14 +66,14 @@ class AdminReadServiceTest {
         assertThat(page.getContent()).hasSize(1);
         assertThat(page.getContent().get(0).getAdminId()).isEqualTo(100L);
         assertThat(page.getContent().get(0).getBoard().getBoardId()).isEqualTo(10L);
-        verify(adminRepository).findAllByOrderByAdminIdDesc(safePageable);
+        verify(adminRepository).findAll(safePageable);
     }
 
     @Test
     @DisplayName("관리자 목록 조회는 페이지 크기와 정렬 필드를 제한한다")
     void getAllAdmins_normalizesPageable() {
         PageRequest requested = PageRequest.of(2, 250, Sort.by(Sort.Order.asc("createdAt")));
-        when(adminRepository.findAllByOrderByAdminIdDesc(any(Pageable.class)))
+        when(adminRepository.findAll(any(Pageable.class)))
                 .thenAnswer(invocation -> Page.empty(invocation.getArgument(0)));
 
         Page<com.weedrice.whiteboard.domain.admin.dto.AdminResponse> page = adminReadService.getAllAdmins(requested);
@@ -81,7 +81,23 @@ class AdminReadServiceTest {
         Pageable safePageable = page.getPageable();
         assertThat(safePageable.getPageNumber()).isEqualTo(2);
         assertThat(safePageable.getPageSize()).isEqualTo(100);
+        assertThat(safePageable.getSort()).isEqualTo(Sort.by(
+                Sort.Order.asc("createdAt"),
+                Sort.Order.desc("adminId")));
+        verify(adminRepository).findAll(safePageable);
+    }
+
+    @Test
+    @DisplayName("관리자 목록 조회는 허용되지 않은 정렬 필드를 기본값으로 대체한다")
+    void getAllAdmins_usesDefaultSortWhenOnlyUnsupportedSortRequested() {
+        PageRequest requested = PageRequest.of(0, 20, Sort.by(Sort.Order.asc("user.loginId")));
+        when(adminRepository.findAll(any(Pageable.class)))
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(0)));
+
+        Page<com.weedrice.whiteboard.domain.admin.dto.AdminResponse> page = adminReadService.getAllAdmins(requested);
+
+        Pageable safePageable = page.getPageable();
         assertThat(safePageable.getSort()).isEqualTo(Sort.by(Sort.Order.desc("adminId")));
-        verify(adminRepository).findAllByOrderByAdminIdDesc(safePageable);
+        verify(adminRepository).findAll(safePageable);
     }
 }

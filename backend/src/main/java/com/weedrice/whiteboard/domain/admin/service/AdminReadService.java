@@ -13,19 +13,26 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Set;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AdminReadService {
     private static final int DEFAULT_ADMIN_PAGE_SIZE = 20;
     private static final Sort DEFAULT_ADMIN_SORT = Sort.by(Sort.Order.desc("adminId"));
+    private static final Set<String> ALLOWED_ADMIN_SORTS = Set.of("adminId", "createdAt", "role", "isActive");
 
     private final AdminRepository adminRepository;
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     public Page<AdminResponse> getAllAdmins(Pageable pageable) {
-        Pageable safePageable = PageRequestUtils.of(pageable, DEFAULT_ADMIN_PAGE_SIZE, DEFAULT_ADMIN_SORT);
-        Page<Admin> admins = adminRepository.findAllByOrderByAdminIdDesc(safePageable);
+        Pageable safePageable = PageRequestUtils.of(
+                pageable,
+                DEFAULT_ADMIN_PAGE_SIZE,
+                DEFAULT_ADMIN_SORT,
+                ALLOWED_ADMIN_SORTS);
+        Page<Admin> admins = adminRepository.findAll(safePageable);
         return admins.map(AdminResponse::from);
     }
 }

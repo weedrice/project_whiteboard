@@ -64,6 +64,9 @@ public interface AdminRepository extends JpaRepository<Admin, Long> {
             Collection<Long> boardIds, String role, Boolean isActive);
     @EntityGraph(attributePaths = {"user", "board"})
     Page<Admin> findAllByOrderByAdminIdDesc(Pageable pageable);
+    @Override
+    @EntityGraph(attributePaths = {"user", "board"})
+    Page<Admin> findAll(Pageable pageable);
     @EntityGraph(attributePaths = "board")
     List<Admin> findByUserAndBoard_BoardIdInAndIsActive(User user, Collection<Long> boardIds, Boolean isActive);
     Optional<Admin> findByUserAndIsActive(User user, Boolean isActive);

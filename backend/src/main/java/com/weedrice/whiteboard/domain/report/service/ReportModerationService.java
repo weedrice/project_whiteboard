@@ -15,6 +15,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Set;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -23,6 +25,13 @@ class ReportModerationService {
     private static final Sort DEFAULT_REPORT_SORT = Sort.by(
             Sort.Order.desc("createdAt"),
             Sort.Order.desc("reportId"));
+    private static final Set<String> ALLOWED_REPORT_SORTS = Set.of(
+            "createdAt",
+            "reportId",
+            "status",
+            "targetType",
+            "targetId",
+            "reasonType");
 
     private final ReportRepository reportRepository;
     private final UserReadableResolver userReadableResolver;
@@ -39,12 +48,16 @@ class ReportModerationService {
     }
 
     private Pageable normalizeReportPageable(Pageable pageable) {
+        return PageRequestUtils.of(pageable, DEFAULT_REPORT_PAGE_SIZE, DEFAULT_REPORT_SORT, ALLOWED_REPORT_SORTS);
+    }
+
+    private Pageable normalizeMyReportPageable(Pageable pageable) {
         return PageRequestUtils.of(pageable, DEFAULT_REPORT_PAGE_SIZE, DEFAULT_REPORT_SORT);
     }
 
     public Page<MyReportResponse> getMyReports(Long userId, Pageable pageable) {
         User reporter = userReadableResolver.resolve(userId);
-        Pageable safePageable = normalizeReportPageable(pageable);
+        Pageable safePageable = normalizeMyReportPageable(pageable);
         return reportReadAssembler.toMyReportResponsePage(
                 reportRepository.findByReporterOrderByCreatedAtDescReportIdDesc(reporter, safePageable));
     }

@@ -86,6 +86,34 @@ class AdminAssignmentDuplicatePolicyTest {
     }
 
     @Test
+    void validateNoOtherActiveAdmin_allowsModeratorWhenOnlyOtherUsersAreActive() {
+        String moderatorRole = "MODERATOR";
+        Admin moderator = Admin.builder().user(user).board(board).role(moderatorRole).build();
+        ReflectionTestUtils.setField(moderator, "adminId", 101L);
+        when(adminRepository.findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(
+                user, board, moderatorRole, true))
+                .thenReturn(Optional.empty());
+
+        duplicatePolicy.validateNoOtherActiveAdmin(moderator, board);
+    }
+
+    @Test
+    void validateNoOtherActiveAdmin_throwsDuplicateForSameUserModerator() {
+        String moderatorRole = "MODERATOR";
+        Admin moderator = Admin.builder().user(user).board(board).role(moderatorRole).build();
+        ReflectionTestUtils.setField(moderator, "adminId", 101L);
+        Admin activeModerator = Admin.builder().user(user).board(board).role(moderatorRole).build();
+        ReflectionTestUtils.setField(activeModerator, "adminId", 102L);
+        when(adminRepository.findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(
+                user, board, moderatorRole, true))
+                .thenReturn(Optional.of(activeModerator));
+
+        assertThatThrownBy(() -> duplicatePolicy.validateNoOtherActiveAdmin(moderator, board))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_RESOURCE);
+    }
+
+    @Test
     void findReusableAdmin_delegatesInactiveLookup() {
         admin.deactivate();
         when(adminRepository.findFirstByUserAndBoardAndRoleAndIsActiveOrderByAdminIdDesc(
